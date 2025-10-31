@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>彩票情报项目设置</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 24px; line-height: 1.6; }
+      h1, h2 { color: #1f2933; }
+      label { display: block; font-weight: 600; margin-top: 16px; }
+      input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #cbd5f5; border-radius: 6px; margin-top: 6px; font-family: inherit; }
+      button { padding: 10px 18px; border-radius: 6px; border: none; cursor: pointer; margin-top: 16px; }
+      button.primary { background:#2563eb; color:#fff; }
+      button.secondary { background:#e5e7eb; }
+      .note { border-left: 4px solid #0ea5e9; padding-left: 12px; background: #f0f9ff; margin: 12px 0; }
+      .warning { border-left: 4px solid #f97316; padding-left: 12px; background: #fff7ed; margin: 12px 0; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+      .card { border:1px solid #e2e8f0; border-radius: 8px; padding: 16px; background:#fff; }
+      pre { background:#f8fafc; padding:16px; border-radius:6px; overflow:auto; border:1px solid #e2e8f0; }
+      #status { margin-top: 16px; font-weight: 600; }
+      a { color:#2563eb; }
+    </style>
+  </head>
+  <body>
+    <h1>设置中心</h1>
+    <p>在这里直接修改连接信息与 LLM 配置，保存后系统会更新 <code>.env</code> 并重新加载配置。</p>
+
+    <div class="warning">
+      <p><strong>提示：</strong> 更新数据库/Elasticsearch/Redis 地址后，建议重启相关服务或容器；LLM 配置更新后新的请求会即时生效。</p>
+    </div>
+
+    <section class="card">
+      <h2>连接信息</h2>
+      <label>数据库连接串 <input id="DATABASE_URL" placeholder="postgresql+psycopg2://..." /></label>
+      <label>Elasticsearch 地址 <input id="ES_URL" placeholder="http://es:9200" /></label>
+      <label>Redis 地址 <input id="REDIS_URL" placeholder="redis://redis:6379/0" /></label>
+    </section>
+
+    <section class="card" style="margin-top:20px;">
+      <h2>LLM & 嵌入配置</h2>
+      <label>提供商
+        <select id="LLM_PROVIDER">
+          <option value="openai">OpenAI</option>
+          <option value="azure">Azure OpenAI</option>
+          <option value="ollama">Ollama</option>
+        </select>
+      </label>
+      <label>OpenAI API Key <input id="OPENAI_API_KEY" placeholder="sk-***" /></label>
+      <label>OpenAI Base URL <input id="OPENAI_API_BASE" placeholder="可选代理地址" /></label>
+      <label>Azure API Key <input id="AZURE_API_KEY" placeholder="Azure Key" /></label>
+      <label>Azure Endpoint <input id="AZURE_API_BASE" placeholder="https://xxx.openai.azure.com" /></label>
+      <label>Azure API Version <input id="AZURE_API_VERSION" placeholder="2024-06-01" /></label>
+      <label>Azure Chat Deployment <input id="AZURE_CHAT_DEPLOYMENT" placeholder="gpt-4o-mini" /></label>
+      <label>Azure Embedding Deployment <input id="AZURE_EMBEDDING_DEPLOYMENT" placeholder="text-embedding-3-large" /></label>
+      <label>Ollama Base URL <input id="OLLAMA_BASE_URL" placeholder="http://localhost:11434" /></label>
+      <label>LegiScan API Key <input id="LEGISCAN_API_KEY" placeholder="可选，填入后可调用 LegiScan" /></label>
+      <label>News API Key <input id="NEWS_API_KEY" placeholder="可选，用于新闻检索" /></label>
+    </section>
+
+    <div style="margin-top:20px;">
+      <button class="primary" onclick="saveSettings()">保存设置</button>
+      <button class="secondary" onclick="loadSettings()">重新加载</button>
+      <div id="status"></div>
+    </div>
+
+    <section style="margin-top:32px;">
+      <h2>常用命令参考</h2>
+      <pre><code>pip install -r projects/彩票情报(lottery-intel)/backend/requirements.txt
+
+# Docker 启动（可选）
+docker compose -f projects/彩票情报(lottery-intel)/ops/docker-compose.yml up -d --build
+
+# Celery Worker（需 Redis）
+cd projects/彩票情报(lottery-intel)/backend
+celery -A app.celery_app.celery_app worker -l info
+
+# 本地启动 FastAPI
+uvicorn app.main:app --reload --port 8000</code></pre>
+    </section>
+
+    <p><a href="index.html">返回仪表盘</a></p>
+
+    <script>
+      const FIELD_KEYS = [
+        'DATABASE_URL', 'ES_URL', 'REDIS_URL', 'LLM_PROVIDER', 'OPENAI_API_KEY', 'OPENAI_API_BASE',
+        'AZURE_API_KEY', 'AZURE_API_BASE', 'AZURE_API_VERSION',
+        'AZURE_CHAT_DEPLOYMENT', 'AZURE_EMBEDDING_DEPLOYMENT', 'OLLAMA_BASE_URL',
+        'LEGISCAN_API_KEY', 'NEWS_API_KEY'
+      ];
+
+      async function loadSettings() {
+        const status = document.getElementById('status');
+        status.textContent = '正在加载设置...';
+        try {
+          const res = await fetch('/api/v1/config/env');
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          FIELD_KEYS.forEach((key) => {
+            const el = document.getElementById(key);
+            if (!el) return;
+            if (el.tagName === 'SELECT') {
+              el.value = data[key] || el.options[0].value;
+            } else {
+              el.value = data[key] || '';
+            }
+          });
+          status.textContent = '设置已加载。';
+        } catch (err) {
+          status.textContent = '加载失败：' + err.message;
+        }
+      }
+
+      async function saveSettings() {
+        const status = document.getElementById('status');
+        status.textContent = '正在保存...';
+        const payload = {};
+        FIELD_KEYS.forEach((key) => {
+          const el = document.getElementById(key);
+          if (!el) return;
+          payload[key] = el.value.trim();
+        });
+
+        try {
+          const res = await fetch('/api/v1/config/env', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          await res.json();
+          status.textContent = '保存成功，部分改动可能需要重启服务后生效。';
+        } catch (err) {
+          status.textContent = '保存失败：' + err.message;
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+  </body>
+</html>

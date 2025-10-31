@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  db:
+    image: ankane/pgvector:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - bootstrap.memory_lock=true
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  redis:
+    image: redis:7.4
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ../
+      dockerfile: ./backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/postgres
+      ES_URL: http://es:9200
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - db
+      - es
+      - redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/app
+      - ../frontend:/app/frontend
+
+volumes:
+  db_data:
+  es_data:
+
+

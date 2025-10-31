@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>彩票情报仪表盘（MVP）</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; margin: 24px; }
+      .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+      input, select, button { padding: 8px 12px; }
+      section { margin-top: 24px; }
+      code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; }
+      table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+      th, td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; }
+      th { background: #f1f5f9; }
+      .card { border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-top: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>彩票情报仪表盘（MVP）</h1>
+    <p><a href="settings.html">设置指南</a></p>
+
+    <section>
+      <h2>政策搜索</h2>
+      <div class="row">
+        <label>州：</label>
+        <select id="search-state">
+          <option value="CA" selected>CA</option>
+        </select>
+        <label>关键词：</label>
+        <input id="search-query" placeholder="关键词或短语" />
+        <select id="search-mode">
+          <option value="hybrid">混合</option>
+          <option value="bm25">BM25</option>
+          <option value="vector">向量</option>
+        </select>
+        <button onclick="runSearch()">搜索</button>
+      </div>
+      <div id="search-output" class="card">点击“搜索”后展示 <code>/api/v1/search</code> 结果</div>
+    </section>
+
+    <section>
+      <h2>报告生成</h2>
+      <div class="row">
+        <label>州：</label>
+        <label><input type="checkbox" name="report-state" value="CA" checked /> CA</label>
+        <label><input type="checkbox" name="report-state" value="NY" /> NY</label>
+        <label><input type="checkbox" name="report-state" value="TX" /> TX</label>
+        <label>开始：</label>
+        <input id="report-start" type="date" />
+        <label>结束：</label>
+        <input id="report-end" type="date" />
+        <select id="report-format">
+          <option value="html" selected>HTML 预览</option>
+          <option value="csv">CSV 下载</option>
+        </select>
+        <button onclick="generateReport()">生成报告</button>
+      </div>
+      <div id="report-output" class="card">选择条件后点击“生成报告”。</div>
+    </section>
+
+    <section>
+      <h2>市场数据</h2>
+      <div class="row">
+        <label>州：</label>
+        <select id="market-state">
+          <option value="CA" selected>CA</option>
+          <option value="NY">NY</option>
+          <option value="TX">TX</option>
+        </select>
+        <label>周期：</label>
+        <select id="market-period">
+          <option value="daily">按日</option>
+          <option value="monthly">按月</option>
+        </select>
+        <button onclick="loadMarket()">拉取市场数据</button>
+      </div>
+      <div id="market-output" class="card">点击“拉取市场数据”后展示 <code>/api/v1/market</code> 结果</div>
+    </section>
+
+    <section>
+      <h2>数据采集流程</h2>
+      <div class="row">
+        <label>政策州：</label>
+        <select id="ingest-state">
+          <option value="CA" selected>CA</option>
+        </select>
+        <label><input type="checkbox" id="ingest-async" /> 异步（Celery）</label>
+        <button onclick="ingestPolicy()">执行政策抓取</button>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <label>市场州：</label>
+        <select id="ingest-market-state">
+          <option value="CA" selected>CA</option>
+          <option value="NY">NY</option>
+          <option value="TX">TX</option>
+        </select>
+        <label>玩法：</label>
+        <select id="ingest-market-game">
+          <option value="">全部</option>
+          <option value="SuperLotto Plus">SuperLotto Plus</option>
+          <option value="Powerball">Powerball</option>
+          <option value="Mega Millions">Mega Millions</option>
+          <option value="Powerball US">Powerball (US)</option>
+          <option value="NY Lottery Open Data">NY Lottery Open Data</option>
+          <option value="Texas Powerball">Texas Powerball</option>
+        </select>
+        <label>数量：</label>
+        <input id="ingest-market-limit" type="number" min="1" max="100" placeholder="默认" style="width:80px;" />
+        <label><input type="checkbox" id="ingest-market-async" /> 异步</label>
+        <button onclick="ingestMarket()">执行市场抓取</button>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <label>加州 PDF 报告：</label>
+        <input id="ingest-report-limit" type="number" min="1" max="20" value="3" style="width:80px;" />
+        <button onclick="ingestReports()">抓取销售报告</button>
+      </div>
+      <div id="ingest-output" class="card">执行抓取后将在此显示任务结果或任务编号。</div>
+
+      <div style="margin-top:20px;" class="row">
+        <button onclick="loadIngestHistory()">刷新历史</button>
+      </div>
+      <div id="history-output" class="card">显示最近的采集/索引任务历史。</div>
+      <div style="color:#6b7280; font-size:12px; margin-top:8px;">提交任务后会自动刷新，若状态为 running 表示任务执行中。</div>
+    </section>
+
+    <section>
+      <h2>外部资源发现</h2>
+      <div class="row">
+        <label>主题：</label>
+        <input id="discovery-topic" placeholder="例如：California lottery regulation" style="min-width:260px;" />
+        <select id="discovery-language">
+          <option value="en">英文关键词</option>
+          <option value="zh">中文关键词</option>
+        </select>
+        <button onclick="runDiscovery()">搜索资料</button>
+      </div>
+      <div id="discovery-output" class="card">输入主题后点击“搜索资料”即可调用外部搜索 API。</div>
+    </section>
+
+    <script>
+      async function runSearch() {
+        const state = document.getElementById('search-state').value;
+        const query = encodeURIComponent(document.getElementById('search-query').value || 'lottery');
+        const mode = document.getElementById('search-mode').value;
+        const res = await fetch(`/api/v1/search?q=${query}&state=${state}&rank=${mode}&top_k=10`);
+        const data = await res.json().catch(() => ({ error: '无法解析 JSON' }));
+        renderSearchResults(data);
+      }
+
+      async function loadMarket() {
+        const state = document.getElementById('market-state').value;
+        const period = document.getElementById('market-period').value;
+        const res = await fetch(`/api/v1/market?state=${state}&period=${period}`);
+        const data = await res.json().catch(() => ({ error: '无法解析 JSON' }));
+        renderMarketResults(data);
+      }
+
+      let historyTimer = null;
+
+      async function ingestPolicy() {
+        const state = document.getElementById('ingest-state').value;
+        const asyncMode = document.getElementById('ingest-async').checked;
+        const res = await fetch('/api/v1/ingest/policy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state, async_mode: asyncMode }),
+        });
+        const data = await res.json().catch(() => ({ error: '无法解析 JSON' }));
+        renderIngestResult(data, asyncMode ? 'policy_async' : 'policy');
+        triggerHistoryPolling(asyncMode);
+      }
+
+      async function ingestMarket() {
+        const state = document.getElementById('ingest-market-state').value;
+        const asyncMode = document.getElementById('ingest-market-async').checked;
+        const game = document.getElementById('ingest-market-game').value;
+        const limitRaw = document.getElementById('ingest-market-limit').value;
+        const limit = limitRaw ? Number(limitRaw) : null;
+        const res = await fetch('/api/v1/ingest/market', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            state,
+            async_mode: asyncMode,
+            game: game || null,
+            limit: Number.isFinite(limit) ? limit : null,
+          }),
+        });
+        const data = await res.json().catch(() => ({ error: '无法解析 JSON' }));
+        renderIngestResult(data, asyncMode ? 'market_async' : 'market');
+        triggerHistoryPolling(asyncMode);
+      }
+
+      async function ingestReports() {
+        const limitRaw = document.getElementById('ingest-report-limit').value;
+        const limit = limitRaw ? Number(limitRaw) : 3;
+        const container = document.getElementById('ingest-output');
+        container.textContent = '正在抓取报告...';
+        try {
+          const res = await fetch('/api/v1/ingest/reports/california', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ limit: Number.isFinite(limit) ? limit : 3 }),
+          });
+          const data = await res.json().catch(() => ({ error: '无法解析 JSON' }));
+          renderIngestResult(data, 'market_report');
+          triggerHistoryPolling(false);
+        } catch (err) {
+          container.textContent = 'market_report 调用失败：' + err.message;
+        }
+      }
+
+      async function loadIngestHistory() {
+        const container = document.getElementById('history-output');
+        container.textContent = '加载历史中...';
+        try {
+          const res = await fetch('/api/v1/ingest/history');
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          renderHistory(data);
+        } catch (err) {
+          container.textContent = '加载历史失败：' + err.message;
+        }
+      }
+
+      function triggerHistoryPolling(asyncMode) {
+        loadIngestHistory();
+        if (historyTimer) {
+          clearInterval(historyTimer);
+          historyTimer = null;
+        }
+        if (asyncMode) {
+          historyTimer = setInterval(loadIngestHistory, 3000);
+        }
+      }
+
+      function renderSearchResults(data) {
+        const container = document.getElementById('search-output');
+        if (!data || !Array.isArray(data.results) || !data.results.length) {
+          container.textContent = '暂无搜索结果，可尝试更换关键字或抓取数据。';
+          return;
+        }
+        const items = data.results.map((item, idx) => {
+          const highlight = item.highlight && item.highlight.length ? `<div><strong>高亮：</strong>${item.highlight.join('<br/>')}</div>` : '';
+          return `
+            <div style="border-bottom:1px solid #e5e7eb; padding:12px 0;">
+              <div style="font-weight:600;">${idx + 1}. ${item.title || '无标题'} (${item.state || ''})</div>
+              <div style="color:#6b7280;">${item.publish_date || '未知日期'} · 模式：${item.mode}</div>
+              <div style="margin-top:6px;">${item.summary || item.text?.slice(0, 180) || '暂无摘要'}</div>
+              ${highlight}
+            </div>
+          `;
+        }).join('');
+        container.innerHTML = `<div><strong>查询：</strong>${data.query} · <strong>模式：</strong>${data.rank} · <strong>返回：</strong>${data.results.length} 条</div>${items}`;
+      }
+
+      function renderMarketResults(data) {
+        const container = document.getElementById('market-output');
+        if (!data || !Array.isArray(data.series) || !data.series.length) {
+          container.textContent = '暂无市场数据，请先抓取或拓展数据源。';
+          return;
+        }
+        const rows = data.series.map((row) => {
+          const ticketPrice = row.ticket_price == null ? '-' : row.ticket_price;
+          const sourceLabel = row.source_name || (row.source_uri ? '来源' : '-');
+          const sourceCell = row.source_uri
+            ? `<a href="${row.source_uri}" target="_blank" rel="noopener">${sourceLabel}</a>`
+            : sourceLabel;
+          return `
+            <tr>
+              <td>${row.date || '-'}</td>
+              <td>${row.revenue ?? '-'}</td>
+              <td>${row.sales_volume ?? '-'}</td>
+              <td>${row.jackpot ?? '-'}</td>
+              <td>${ticketPrice}</td>
+              <td>${sourceCell}</td>
+            </tr>
+          `;
+        }).join('');
+        container.innerHTML = `
+          <div><strong>州：</strong>${data.state} · <strong>周期：</strong>${data.period}</div>
+          <table>
+            <thead><tr><th>日期</th><th>销售额</th><th>销量</th><th>奖池</th><th>票价</th><th>来源</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
+
+      function renderIngestResult(data, type) {
+        const container = document.getElementById('ingest-output');
+        if (data.error) {
+          container.textContent = type + ' 调用失败：' + data.error;
+          return;
+        }
+        if (data.detail) {
+          container.textContent = type + ' 调用失败：' + data.detail;
+          return;
+        }
+
+        if (data.async) {
+          container.textContent = `任务已提交（${type}），task_id=${data.task_id}`;
+        } else {
+          container.innerHTML = `
+            <div><strong>类型：</strong>${type}</div>
+            <div>新增：${data.inserted ?? 0}，更新：${data.updated ?? 0}，跳过：${data.skipped ?? 0}</div>
+            ${data.document_ids ? `<div>文档ID：${data.document_ids.join(', ')}</div>` : ''}
+            <div>州：${data.state || ''}</div>
+          `;
+        }
+      }
+
+      function renderHistory(data) {
+        const container = document.getElementById('history-output');
+        if (!Array.isArray(data) || !data.length) {
+          container.textContent = '暂无历史记录，可执行采集任务后查看。';
+          return;
+        }
+        const rows = data.map((job) => {
+          const statusStyle = job.status === 'completed' ? 'color:#16a34a;' : job.status === 'failed' ? 'color:#dc2626;' : 'color:#f59e0b;';
+          return `
+          <tr>
+            <td>${job.id}</td>
+            <td>${job.job_type}</td>
+            <td style="${statusStyle}">${job.status}</td>
+            <td>${job.started_at ? new Date(job.started_at).toLocaleString() : '-'}</td>
+            <td>${job.finished_at ? new Date(job.finished_at).toLocaleString() : '-'}</td>
+            <td>${job.params ? JSON.stringify(job.params) : '-'}</td>
+            <td>${job.error || ''}</td>
+          </tr>
+        `;}).join('');
+        container.innerHTML = `
+          <table>
+            <thead><tr><th>ID</th><th>类型</th><th>状态</th><th>开始</th><th>完成</th><th>参数/结果</th><th>错误</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+        if (historyTimer && !data.some(job => job.status === 'running')) {
+          clearInterval(historyTimer);
+          historyTimer = null;
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', loadIngestHistory);
+
+      async function runDiscovery() {
+        const topic = document.getElementById('discovery-topic').value.trim();
+        const lang = document.getElementById('discovery-language').value;
+        const container = document.getElementById('discovery-output');
+        if (!topic) {
+          container.textContent = '请输入主题。';
+          return;
+        }
+        container.textContent = '搜索中...';
+        try {
+          const res = await fetch('/api/v1/discovery/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic, language: lang, max_results: 12 }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          if (!Array.isArray(data.results) || !data.results.length) {
+            container.textContent = '未找到相关结果，可尝试更换主题。';
+            return;
+          }
+          const items = data.results.map((item) => `
+            <div style="border-bottom:1px solid #e5e7eb; padding:12px 0;">
+              <div style="font-weight:600;">${item.title || '无标题'}</div>
+              <div style="color:#6b7280;">关键词：${item.keyword} · 来源：${item.source || '-'} · <a href="${item.link}" target="_blank">访问</a></div>
+              <div style="margin-top:6px;">${item.snippet || ''}</div>
+            </div>
+          `).join('');
+          container.innerHTML = items;
+        } catch (err) {
+          container.textContent = '搜索失败：' + err.message;
+        }
+      }
+
+      async function generateReport() {
+        const states = Array.from(document.querySelectorAll('input[name="report-state"]:checked')).map(el => el.value);
+        if (!states.length) {
+          alert('请至少选择一个州');
+          return;
+        }
+        const start = document.getElementById('report-start').value || null;
+        const end = document.getElementById('report-end').value || null;
+        const fmt = document.getElementById('report-format').value;
+        const container = document.getElementById('report-output');
+        container.textContent = '生成中...';
+        try {
+          if (fmt === 'html') {
+            const res = await fetch('/api/v1/reports', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ states, start, end, format: 'html' }),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const data = await res.json();
+            container.innerHTML = data.data || '生成失败';
+          } else {
+            const res = await fetch('/api/v1/reports', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ states, start, end, format: 'csv' }),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'lottery_report.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            container.textContent = 'CSV 已下载。';
+          }
+        } catch (err) {
+          container.textContent = '生成失败：' + err.message;
+        }
+      }
+    </script>
+  </body>
+  </html>
+
+
