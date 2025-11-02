@@ -1,5 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import OperationalError, DatabaseError
+import logging
 
 from ..services.ingest.policy import ingest_policy_documents
 from ..services.ingest.market import ingest_market_data
@@ -23,6 +25,8 @@ from ..services.tasks import (
     task_collect_monthly_reports,
 )
 from ..services.job_logger import list_jobs
+
+logger = logging.getLogger(__name__)
 from fastapi.responses import JSONResponse
 
 
@@ -87,7 +91,23 @@ def ingest_market(payload: MarketIngestRequest):
 
 @router.get("/history")
 def ingest_history(limit: int = 20):
-    return list_jobs(limit=limit)
+    try:
+        return list_jobs(limit=limit)
+    except (OperationalError, DatabaseError) as e:
+        logger.exception("数据库连接失败")
+        raise HTTPException(
+            status_code=503,
+            detail="数据库服务不可用，请检查数据库服务是否已启动。"
+        )
+    except Exception as e:
+        logger.exception("获取历史记录失败")
+        error_msg = str(e)
+        if "Connection" in error_msg or "db" in error_msg.lower() or "database" in error_msg.lower() or "timeout" in error_msg.lower():
+            raise HTTPException(
+                status_code=503,
+                detail="数据库服务不可用，请检查数据库服务是否已启动。"
+            )
+        raise HTTPException(status_code=500, detail=f"获取历史记录失败: {error_msg}")
 
 
 @router.post("/reports/california")

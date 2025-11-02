@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 from typing import Iterable
 
-from ..job_logger import start_job, complete_job, fail_job
-from ...models.base import SessionLocal
-from ...models.entities import Document, Source
-from ..search.web import search_sources
+from ...job_logger import start_job, complete_job, fail_job
+from ....models.base import SessionLocal
+from ....models.entities import Document, Source
+from ...search.web import search_sources
 
 
 logger = logging.getLogger(__name__)

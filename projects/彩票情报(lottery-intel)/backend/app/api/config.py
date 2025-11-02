@@ -36,6 +36,11 @@ class EnvSettingsPayload(BaseModel):
     LEGISCAN_API_KEY: str | None = None
     NEWS_API_KEY: str | None = None
     SERPAPI_KEY: str | None = None
+    SERPSTACK_KEY: str | None = None
+    GOOGLE_SEARCH_API_KEY: str | None = None
+    GOOGLE_SEARCH_CSE_ID: str | None = None
+    AZURE_SEARCH_ENDPOINT: str | None = None
+    AZURE_SEARCH_KEY: str | None = None
 
 
 @router.get("/env")

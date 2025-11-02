@@ -11,6 +11,7 @@ class DiscoveryRequest(BaseModel):
     topic: str = Field(..., description="搜索主题或关键词")
     language: str = Field(default="en", description="关键词语言 zh/en")
     max_results: int = Field(default=10, le=50)
+    provider: str = Field(default="auto", description="搜索服务提供商: auto/ddg/google/serpstack/serpapi")
 
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
@@ -19,8 +20,13 @@ router = APIRouter(prefix="/discovery", tags=["discovery"])
 @router.post("/search")
 def discovery_search(payload: DiscoveryRequest, debug: bool = Query(False), persist: bool = Query(True)):
     try:
-        results = search_sources(payload.topic, payload.language, payload.max_results)
-        body = {"keywords": [r["keyword"] for r in results], "results": results}
+        results = search_sources(
+            payload.topic, 
+            payload.language, 
+            payload.max_results,
+            provider=payload.provider
+        )
+        body = {"keywords": [r["keyword"] for r in results], "results": results, "provider_used": results[0].get("source", "unknown") if results else "none"}
         if persist and results:
             stats = store_results(results)
             body["stored"] = stats
@@ -38,6 +44,8 @@ class DeepDiscoveryRequest(BaseModel):
     iterations: int = Field(default=2, ge=1, le=5)
     breadth: int = Field(default=2, ge=1, le=10)
     max_results: int = Field(default=20, le=100)
+
+
 
 
 @router.post("/deep")

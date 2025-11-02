@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List
+import logging
 
 import numpy as np
 from elasticsearch import Elasticsearch
@@ -12,6 +13,8 @@ from ...models.entities import Document, Embedding
 from ...settings.config import settings
 from ..llm.provider import get_embeddings
 from .es_client import get_es_client
+
+logger = logging.getLogger(__name__)
 
 
 _ES_INDEX = "policy_docs_es"
@@ -52,8 +55,14 @@ def bm25_search(es: Elasticsearch, query: str, state: str | None, top_k: int) ->
 
 
 def vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
-    with SessionLocal() as session:
+    try:
         embedding = get_embeddings().embed_query(query)
+    except Exception as e:
+        # 如果无法生成嵌入（API key无效等），返回空结果
+        logger.warning(f"无法生成向量嵌入，跳过向量搜索: {e}")
+        return []
+    
+    with SessionLocal() as session:
         vector = np.array(embedding)
 
         stmt = (
@@ -116,10 +125,24 @@ def hybrid_search(query: str, state: str | None, top_k: int, mode: str) -> List[
         return bm25_search(es, query, state, top_k)
 
     if mode == "vector":
-        return vector_search(query, state, top_k)
+        results = vector_search(query, state, top_k)
+        # 如果向量搜索失败（无API key等），返回空结果而不是报错
+        return results
 
+    # hybrid模式：尝试融合BM25和向量搜索
     bm25_hits = bm25_search(es, query, state, top_k)
-    vector_hits = vector_search(query, state, top_k)
-    return reciprocal_rank_fusion(bm25_hits, vector_hits)
+    try:
+        vector_hits = vector_search(query, state, top_k)
+        # 如果向量搜索有结果，进行融合
+        if vector_hits:
+            return reciprocal_rank_fusion(bm25_hits, vector_hits)
+        else:
+            # 向量搜索无结果（可能是API key问题），只返回BM25结果
+            logger.info("向量搜索无结果，仅返回BM25搜索结果")
+            return bm25_hits
+    except Exception as e:
+        # 向量搜索失败，只返回BM25结果
+        logger.warning(f"向量搜索失败，仅返回BM25搜索结果: {e}")
+        return bm25_hits
 
 

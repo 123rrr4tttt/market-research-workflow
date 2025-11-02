@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>数据库管理</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        margin: 0;
+        padding: 20px;
+        background: #f5f7fa;
+      }
+      .container { max-width: 1400px; margin: 0 auto; }
+      h1 { color: #1f2937; margin-bottom: 8px; }
+      .subtitle { color: #6b7280; margin-bottom: 24px; }
+      .nav { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+      .nav button {
+        padding: 8px 16px;
+        border: 1px solid #d1d5db;
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .nav button.active {
+        background: #2563eb;
+        color: white;
+        border-color: #2563eb;
+      }
+      .nav button:hover { background: #f3f4f6; }
+      .nav button.active:hover { background: #1d4ed8; }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .stat-card h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #6b7280;
+        font-weight: 500;
+      }
+      .stat-card .value {
+        font-size: 28px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+      .stat-card .sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+      .content-section {
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        padding: 20px;
+        margin-bottom: 24px;
+      }
+      .filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        align-items: center;
+      }
+      .filters input, .filters select {
+        padding: 8px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+      .filters input { min-width: 200px; }
+      .filters select { min-width: 120px; }
+      .filters button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .filters button:hover { background: #1d4ed8; }
+      .filters button.secondary {
+        background: #6b7280;
+      }
+      .filters button.secondary:hover { background: #4b5563; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      th {
+        background: #f9fafb;
+        font-weight: 600;
+        color: #374151;
+        position: sticky;
+        top: 0;
+      }
+      tr:hover { background: #f9fafb; }
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .badge.policy { background: #dbeafe; color: #1e40af; }
+      .badge.market { background: #dcfce7; color: #166534; }
+      .badge.news { background: #fef3c7; color: #92400e; }
+      .pagination {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 16px;
+        justify-content: center;
+      }
+      .pagination button {
+        padding: 6px 12px;
+        border: 1px solid #d1d5db;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .pagination button:hover { background: #f3f4f6; }
+      .pagination button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .pagination .page-info {
+        padding: 6px 12px;
+        color: #6b7280;
+        font-size: 14px;
+      }
+      .loading { text-align: center; padding: 40px; color: #6b7280; }
+      .error { background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 6px; margin-bottom: 16px; }
+      .link { color: #2563eb; text-decoration: none; }
+      .link:hover { text-decoration: underline; }
+      .actions { display: flex; gap: 8px; }
+      .actions button {
+        padding: 4px 8px;
+        font-size: 12px;
+        border: 1px solid #d1d5db;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .actions button:hover { background: #f3f4f6; }
+      .actions button.danger {
+        background: #fee2e2;
+        color: #991b1b;
+        border-color: #fecaca;
+      }
+      .actions button.danger:hover { background: #fecaca; }
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal.active { display: flex; }
+      .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+        width: 90%;
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .modal-header h2 { margin: 0; }
+      .close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #6b7280;
+      }
+      .close-btn:hover { color: #1f2937; }
+      .content-preview {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .json-view {
+        background: #f9fafb;
+        padding: 12px;
+        border-radius: 6px;
+        max-height: 300px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>数据库管理</h1>
+      <p class="subtitle">
+        查看和管理数据库中的文档、数据源、市场数据等 | 
+        <a href="/" style="color: #2563eb; text-decoration: none;">返回主页</a> | 
+        <a href="/settings.html" style="color: #2563eb; text-decoration: none;">设置</a>
+      </p>
+
+      <div class="nav">
+        <button class="active" onclick="showTab('documents')">文档管理</button>
+        <button onclick="showTab('sources')">数据源</button>
+        <button onclick="showTab('market')">市场数据</button>
+        <button onclick="showTab('history')">搜索历史</button>
+      </div>
+
+      <div id="stats-section" class="stats-grid"></div>
+
+      <div id="documents-section" class="content-section">
+        <h2>文档列表</h2>
+        <div class="filters">
+          <input type="text" id="doc-search" placeholder="搜索标题、摘要或URL..." />
+          <select id="doc-state">
+            <option value="">全部州</option>
+            <option value="CA">CA</option>
+            <option value="NY">NY</option>
+            <option value="TX">TX</option>
+          </select>
+          <select id="doc-type">
+            <option value="">全部类型</option>
+            <option value="policy">政策</option>
+            <option value="market">市场</option>
+            <option value="news">新闻</option>
+          </select>
+          <button onclick="loadDocuments()">搜索</button>
+          <button class="secondary" onclick="resetDocFilters()">重置</button>
+        </div>
+        <div id="documents-table"></div>
+        <div id="documents-pagination" class="pagination"></div>
+      </div>
+
+      <div id="sources-section" class="content-section" style="display:none;">
+        <h2>数据源列表</h2>
+        <div class="filters">
+          <select id="source-kind">
+            <option value="">全部类型</option>
+            <option value="web">Web</option>
+            <option value="api">API</option>
+          </select>
+          <select id="source-enabled">
+            <option value="">全部状态</option>
+            <option value="true">启用</option>
+            <option value="false">禁用</option>
+          </select>
+          <button onclick="loadSources()">查询</button>
+        </div>
+        <div id="sources-table"></div>
+        <div id="sources-pagination" class="pagination"></div>
+      </div>
+
+      <div id="market-section" class="content-section" style="display:none;">
+        <h2>市场数据</h2>
+        <div class="filters">
+          <select id="market-state">
+            <option value="">全部州</option>
+            <option value="CA">CA</option>
+            <option value="NY">NY</option>
+            <option value="TX">TX</option>
+          </select>
+          <input type="text" id="market-game" placeholder="玩法（可选）" />
+          <input type="date" id="market-start" placeholder="开始日期" />
+          <input type="date" id="market-end" placeholder="结束日期" />
+          <button onclick="loadMarketStats()">查询</button>
+        </div>
+        <div id="market-table"></div>
+        <div id="market-pagination" class="pagination"></div>
+      </div>
+
+      <div id="history-section" class="content-section" style="display:none;">
+        <h2>搜索历史</h2>
+        <div id="history-table"></div>
+      </div>
+    </div>
+
+    <div id="modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modal-title">详情</h2>
+          <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <script>
+      let currentTab = 'documents';
+      let currentPage = { documents: 1, sources: 1, market: 1 };
+      let pageSize = 20;
+
+      async function loadStats() {
+        try {
+          const res = await fetch('/api/v1/admin/stats');
+          const data = await res.json();
+          const statsHtml = `
+            <div class="stat-card">
+              <h3>文档总数</h3>
+              <div class="value">${data.documents.total}</div>
+              <div class="sub">今日更新: ${data.documents.recent_today}</div>
+            </div>
+            <div class="stat-card">
+              <h3>数据源</h3>
+              <div class="value">${data.sources.total}</div>
+            </div>
+            <div class="stat-card">
+              <h3>市场数据</h3>
+              <div class="value">${data.market_stats.total}</div>
+            </div>
+            <div class="stat-card">
+              <h3>搜索历史</h3>
+              <div class="value">${data.search_history.total}</div>
+            </div>
+          `;
+          document.getElementById('stats-section').innerHTML = statsHtml;
+        } catch (err) {
+          console.error('加载统计失败:', err);
+        }
+      }
+
+      async function loadDocuments(page = 1) {
+        currentPage.documents = page;
+        const section = document.getElementById('documents-section');
+        section.querySelector('#documents-table').innerHTML = '<div class="loading">加载中...</div>';
+        
+        const payload = {
+          page,
+          page_size: pageSize,
+          state: document.getElementById('doc-state').value || null,
+          doc_type: document.getElementById('doc-type').value || null,
+          search: document.getElementById('doc-search').value || null,
+        };
+
+        try {
+          const res = await fetch('/api/v1/admin/documents/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          
+          if (data.items.length === 0) {
+            section.querySelector('#documents-table').innerHTML = '<div class="loading">暂无数据</div>';
+            section.querySelector('#documents-pagination').innerHTML = '';
+            return;
+          }
+
+          const tableHtml = `
+            <table>
+              <thead>
+                <tr>
+                  <th><input type="checkbox" id="select-all" /></th>
+                  <th>ID</th>
+                  <th>标题</th>
+                  <th>类型</th>
+                  <th>州</th>
+                  <th>来源</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.items.map(item => `
+                  <tr>
+                    <td><input type="checkbox" class="doc-checkbox" value="${item.id}" /></td>
+                    <td>${item.id}</td>
+                    <td>
+                      <a href="#" onclick="showDocument(${item.id}); return false;" class="link">
+                        ${item.title || '(无标题)'}
+                      </a>
+                      ${item.has_extracted_data ? ' <span style="color:#10b981;">✓</span>' : ''}
+                    </td>
+                    <td><span class="badge ${item.doc_type}">${item.doc_type}</span></td>
+                    <td>${item.state || '-'}</td>
+                    <td>${item.source_id || '-'}</td>
+                    <td>${item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'}</td>
+                    <td class="actions">
+                      <button onclick="showDocument(${item.id})">查看</button>
+                      <button class="danger" onclick="deleteDocument(${item.id})">删除</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div style="margin-top: 12px;">
+              <button class="danger" onclick="deleteSelected()">批量删除选中</button>
+            </div>
+          `;
+          section.querySelector('#documents-table').innerHTML = tableHtml;
+          
+          // 分页
+          const totalPages = Math.ceil(data.total / pageSize);
+          const paginationHtml = `
+            <button onclick="loadDocuments(${Math.max(1, page - 1)})" ${page === 1 ? 'disabled' : ''}>上一页</button>
+            <span class="page-info">第 ${page} / ${totalPages} 页 (共 ${data.total} 条)</span>
+            <button onclick="loadDocuments(${Math.min(totalPages, page + 1)})" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
+          `;
+          section.querySelector('#documents-pagination').innerHTML = paginationHtml;
+        } catch (err) {
+          section.querySelector('#documents-table').innerHTML = `<div class="error">加载失败: ${err.message}</div>`;
+        }
+      }
+
+      async function showDocument(id) {
+        try {
+          const res = await fetch(`/api/v1/admin/documents/${id}`);
+          const doc = await res.json();
+          
+          const bodyHtml = `
+            <div><strong>标题:</strong> ${doc.title || '(无)'}</div>
+            <div style="margin-top: 12px;"><strong>类型:</strong> <span class="badge ${doc.doc_type}">${doc.doc_type}</span></div>
+            <div style="margin-top: 12px;"><strong>州:</strong> ${doc.state || '(无)'}</div>
+            <div style="margin-top: 12px;"><strong>URL:</strong> <a href="${doc.uri}" target="_blank" class="link">${doc.uri}</a></div>
+            <div style="margin-top: 12px;"><strong>摘要:</strong> ${doc.summary || '(无)'}</div>
+            ${doc.content ? `
+              <div style="margin-top: 12px;">
+                <strong>内容:</strong>
+                <div class="content-preview">${doc.content.substring(0, 5000)}${doc.content.length > 5000 ? '...' : ''}</div>
+              </div>
+            ` : ''}
+            ${doc.extracted_data ? `
+              <div style="margin-top: 12px;">
+                <strong>结构化数据:</strong>
+                <div class="json-view">${JSON.stringify(doc.extracted_data, null, 2)}</div>
+              </div>
+            ` : ''}
+            <div style="margin-top: 12px;"><strong>创建时间:</strong> ${doc.created_at ? new Date(doc.created_at).toLocaleString('zh-CN') : '-'}</div>
+            <div style="margin-top: 12px;"><strong>更新时间:</strong> ${doc.updated_at ? new Date(doc.updated_at).toLocaleString('zh-CN') : '-'}</div>
+          `;
+          
+          document.getElementById('modal-title').textContent = `文档详情 #${id}`;
+          document.getElementById('modal-body').innerHTML = bodyHtml;
+          document.getElementById('modal').classList.add('active');
+        } catch (err) {
+          alert('加载失败: ' + err.message);
+        }
+      }
+
+      async function deleteDocument(id) {
+        if (!confirm(`确定要删除文档 #${id} 吗？`)) return;
+        try {
+          const res = await fetch('/api/v1/admin/documents/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: [id] }),
+          });
+          const data = await res.json();
+          alert(`已删除 ${data.deleted} 个文档`);
+          loadDocuments(currentPage.documents);
+          loadStats();
+        } catch (err) {
+          alert('删除失败: ' + err.message);
+        }
+      }
+
+      async function deleteSelected() {
+        const checked = Array.from(document.querySelectorAll('.doc-checkbox:checked')).map(cb => parseInt(cb.value));
+        if (checked.length === 0) {
+          alert('请先选择要删除的文档');
+          return;
+        }
+        if (!confirm(`确定要删除 ${checked.length} 个文档吗？`)) return;
+        try {
+          const res = await fetch('/api/v1/admin/documents/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: checked }),
+          });
+          const data = await res.json();
+          alert(`已删除 ${data.deleted} 个文档`);
+          loadDocuments(currentPage.documents);
+          loadStats();
+        } catch (err) {
+          alert('删除失败: ' + err.message);
+        }
+      }
+
+      async function loadSources(page = 1) {
+        currentPage.sources = page;
+        const section = document.getElementById('sources-section');
+        section.querySelector('#sources-table').innerHTML = '<div class="loading">加载中...</div>';
+        
+        const payload = {
+          page,
+          page_size: pageSize,
+          kind: document.getElementById('source-kind').value || null,
+          enabled: document.getElementById('source-enabled').value === '' ? null : document.getElementById('source-enabled').value === 'true',
+        };
+
+        try {
+          const res = await fetch('/api/v1/admin/sources/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          
+          if (data.items.length === 0) {
+            section.querySelector('#sources-table').innerHTML = '<div class="loading">暂无数据</div>';
+            return;
+          }
+
+          const tableHtml = `
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>名称</th>
+                  <th>类型</th>
+                  <th>URL</th>
+                  <th>状态</th>
+                  <th>文档数</th>
+                  <th>创建时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.items.map(item => `
+                  <tr>
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td>${item.kind}</td>
+                    <td><a href="${item.base_url || '#'}" target="_blank" class="link">${item.base_url || '-'}</a></td>
+                    <td>${item.enabled ? '<span style="color:#10b981;">启用</span>' : '<span style="color:#ef4444;">禁用</span>'}</td>
+                    <td>${item.document_count}</td>
+                    <td>${item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          section.querySelector('#sources-table').innerHTML = tableHtml;
+          
+          const totalPages = Math.ceil(data.total / pageSize);
+          const paginationHtml = `
+            <button onclick="loadSources(${Math.max(1, page - 1)})" ${page === 1 ? 'disabled' : ''}>上一页</button>
+            <span class="page-info">第 ${page} / ${totalPages} 页 (共 ${data.total} 条)</span>
+            <button onclick="loadSources(${Math.min(totalPages, page + 1)})" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
+          `;
+          section.querySelector('#sources-pagination').innerHTML = paginationHtml;
+        } catch (err) {
+          section.querySelector('#sources-table').innerHTML = `<div class="error">加载失败: ${err.message}</div>`;
+        }
+      }
+
+      async function loadMarketStats(page = 1) {
+        currentPage.market = page;
+        const section = document.getElementById('market-section');
+        section.querySelector('#market-table').innerHTML = '<div class="loading">加载中...</div>';
+        
+        const payload = {
+          page,
+          page_size: pageSize,
+          state: document.getElementById('market-state').value || null,
+          game: document.getElementById('market-game').value || null,
+          start_date: document.getElementById('market-start').value || null,
+          end_date: document.getElementById('market-end').value || null,
+        };
+
+        try {
+          const res = await fetch('/api/v1/admin/market-stats/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          
+          if (data.items.length === 0) {
+            section.querySelector('#market-table').innerHTML = '<div class="loading">暂无数据</div>';
+            return;
+          }
+
+          const tableHtml = `
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>州</th>
+                  <th>玩法</th>
+                  <th>日期</th>
+                  <th>销售额</th>
+                  <th>收入</th>
+                  <th>奖池</th>
+                  <th>票价</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.items.map(item => `
+                  <tr>
+                    <td>${item.id}</td>
+                    <td>${item.state}</td>
+                    <td>${item.game || '-'}</td>
+                    <td>${item.date || '-'}</td>
+                    <td>${item.sales_volume ? '$' + item.sales_volume.toLocaleString() : '-'}</td>
+                    <td>${item.revenue ? '$' + item.revenue.toLocaleString() : '-'}</td>
+                    <td>${item.jackpot ? '$' + item.jackpot.toLocaleString() : '-'}</td>
+                    <td>${item.ticket_price ? '$' + item.ticket_price : '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          section.querySelector('#market-table').innerHTML = tableHtml;
+          
+          const totalPages = Math.ceil(data.total / pageSize);
+          const paginationHtml = `
+            <button onclick="loadMarketStats(${Math.max(1, page - 1)})" ${page === 1 ? 'disabled' : ''}>上一页</button>
+            <span class="page-info">第 ${page} / ${totalPages} 页 (共 ${data.total} 条)</span>
+            <button onclick="loadMarketStats(${Math.min(totalPages, page + 1)})" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
+          `;
+          section.querySelector('#market-pagination').innerHTML = paginationHtml;
+        } catch (err) {
+          section.querySelector('#market-table').innerHTML = `<div class="error">加载失败: ${err.message}</div>`;
+        }
+      }
+
+      async function loadHistory() {
+        const section = document.getElementById('history-section');
+        section.querySelector('#history-table').innerHTML = '<div class="loading">加载中...</div>';
+        
+        try {
+          const res = await fetch('/api/v1/admin/search-history?limit=100');
+          const data = await res.json();
+          
+          if (data.items.length === 0) {
+            section.querySelector('#history-table').innerHTML = '<div class="loading">暂无数据</div>';
+            return;
+          }
+
+          const tableHtml = `
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>主题</th>
+                  <th>最后搜索时间</th>
+                  <th>创建时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.items.map(item => `
+                  <tr>
+                    <td>${item.id}</td>
+                    <td>${item.topic}</td>
+                    <td>${item.last_search_time ? new Date(item.last_search_time).toLocaleString('zh-CN') : '-'}</td>
+                    <td>${item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          section.querySelector('#history-table').innerHTML = tableHtml;
+        } catch (err) {
+          section.querySelector('#history-table').innerHTML = `<div class="error">加载失败: ${err.message}</div>`;
+        }
+      }
+
+      function showTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.nav button').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        document.querySelectorAll('.content-section').forEach(section => {
+          section.style.display = 'none';
+        });
+        
+        document.getElementById(`${tab}-section`).style.display = 'block';
+        
+        if (tab === 'documents') loadDocuments();
+        else if (tab === 'sources') loadSources();
+        else if (tab === 'market') loadMarketStats();
+        else if (tab === 'history') loadHistory();
+      }
+
+      function resetDocFilters() {
+        document.getElementById('doc-search').value = '';
+        document.getElementById('doc-state').value = '';
+        document.getElementById('doc-type').value = '';
+        loadDocuments(1);
+      }
+
+      function closeModal() {
+        document.getElementById('modal').classList.remove('active');
+      }
+
+      // 初始化
+      window.addEventListener('DOMContentLoaded', () => {
+        loadStats();
+        loadDocuments();
+      });
+
+      // 点击模态框外部关闭
+      document.getElementById('modal').addEventListener('click', (e) => {
+        if (e.target.id === 'modal') closeModal();
+      });
+    </script>
+  </body>
+</html>
+

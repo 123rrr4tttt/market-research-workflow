@@ -1,10 +1,60 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+import os
 
 from ..settings.config import settings
 
 
-engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
+def _get_connect_args():
+    """根据数据库类型返回连接参数"""
+    if "postgresql" in settings.database_url:
+        # PostgreSQL连接参数
+        connect_args = {
+            "connect_timeout": 2,  # 连接超时2秒
+            "application_name": "lottery_intel",
+        }
+        # 如果是本地开发环境，可以添加更多优化参数
+        if "localhost" in settings.database_url or "127.0.0.1" in settings.database_url:
+            connect_args.update({
+                "connect_timeout": 2,
+                # 本地开发可以禁用SSL
+                "sslmode": "prefer",
+            })
+        return connect_args
+    return {}
+
+
+def _get_pool_config():
+    """根据环境返回连接池配置"""
+    # 本地开发环境：更小的连接池，更快的超时，避免卡住
+    if "localhost" in settings.database_url or "127.0.0.1" in settings.database_url:
+        return {
+            "pool_size": 2,  # 本地开发用小连接池
+            "max_overflow": 0,  # 不允许溢出，避免连接堆积
+            "pool_timeout": 1,  # 1秒快速超时，快速失败
+            "pool_pre_ping": True,  # 连接前ping检查，快速发现失效连接
+            "pool_recycle": 180,  # 3分钟回收连接，本地开发更频繁回收
+            "echo": False,  # 本地开发可以设为True查看SQL
+            "pool_reset_on_return": "commit",  # 返回连接池时重置状态
+        }
+    # Docker/生产环境：更大的连接池
+    return {
+        "pool_size": 10,
+        "max_overflow": 5,
+        "pool_timeout": 5,
+        "pool_pre_ping": True,
+        "pool_recycle": 3600,
+        "echo": False,
+    }
+
+
+pool_config = _get_pool_config()
+engine = create_engine(
+    settings.database_url,
+    future=True,
+    connect_args=_get_connect_args(),
+    **pool_config
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 
 Base = declarative_base()

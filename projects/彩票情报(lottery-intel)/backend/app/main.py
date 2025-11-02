@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from pathlib import Path
 
@@ -20,7 +21,23 @@ logging.basicConfig(
 
 app = FastAPI(title="Lottery Intel API", version="0.1.0")
 
-TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "frontend" / "templates"
+# 在 Docker 环境中，frontend 目录通过 volume 挂载到 /app/frontend
+# 优先使用挂载的本地 frontend 目录（对应 projects/彩票情报(lottery-intel)/frontend）
+# 如果不存在，则使用 backend/frontend 作为后备
+_LOCAL_FRONTEND = Path(__file__).resolve().parent.parent.parent / "frontend" / "templates"
+_BACKEND_FRONTEND = Path(__file__).resolve().parent.parent / "frontend" / "templates"
+
+# 在容器内，/app/frontend 对应本地的 frontend 目录
+if os.getenv("DOCKER_ENV") == "true":
+    # Docker 环境：使用挂载的本地目录
+    TEMPLATE_DIR = Path("/app/frontend/templates")
+else:
+    # 本地环境：优先使用项目根目录的 frontend
+    if _LOCAL_FRONTEND.exists():
+        TEMPLATE_DIR = _LOCAL_FRONTEND
+    else:
+        TEMPLATE_DIR = _BACKEND_FRONTEND
+
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
 REQUEST_COUNT = Counter(
@@ -93,6 +110,12 @@ def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+@app.get("/index.html", response_class=HTMLResponse)
+def index_html(request: Request):
+    """主页的 index.html 路由"""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
 @app.get("/settings.html", response_class=HTMLResponse)
 def settings_page(request: Request):
     return templates.TemplateResponse("settings.html", {"request": request})
@@ -106,5 +129,12 @@ try:
 except Exception:
     # Safe to skip during initial bootstrapping when modules are empty
     pass
+
+
+
+
+@app.get("/admin.html", response_class=HTMLResponse)
+def admin_page(request: Request):
+    return templates.TemplateResponse("admin.html", {"request": request})
 
 

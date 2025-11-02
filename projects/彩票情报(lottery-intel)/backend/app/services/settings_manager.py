@@ -25,6 +25,11 @@ ENV_KEY_MAPPING = {
     "AZURE_EMBEDDING_DEPLOYMENT": "azure_embedding_deployment",
     "OLLAMA_BASE_URL": "ollama_base_url",
     "SERPAPI_KEY": "serpapi_key",
+    "SERPSTACK_KEY": "serpstack_key",
+    "GOOGLE_SEARCH_API_KEY": "google_search_api_key",
+    "GOOGLE_SEARCH_CSE_ID": "google_search_cse_id",
+    "AZURE_SEARCH_ENDPOINT": "azure_search_endpoint",
+    "AZURE_SEARCH_KEY": "azure_search_key",
 }
 
 

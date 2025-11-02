@@ -3,91 +3,391 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>彩票情报项目设置</title>
+    <title>系统设置 - 彩票情报</title>
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 24px; line-height: 1.6; }
-      h1, h2 { color: #1f2933; }
-      label { display: block; font-weight: 600; margin-top: 16px; }
-      input, select { width: 100%; padding: 8px 10px; border: 1px solid #cbd5f5; border-radius: 6px; margin-top: 6px; font-family: inherit; }
-      button { padding: 10px 18px; border-radius: 6px; border: none; cursor: pointer; margin-top: 16px; }
-      button.primary { background:#2563eb; color:#fff; }
-      button.secondary { background:#e5e7eb; }
-      .warning { border-left: 4px solid #f97316; padding-left: 12px; background: #fff7ed; margin: 16px 0; }
-      .card { border:1px solid #e2e8f0; border-radius: 8px; padding: 16px; background:#fff; margin-top:20px; }
-      pre { background:#f8fafc; padding:16px; border-radius:6px; overflow:auto; border:1px solid #e2e8f0; }
-      #status { margin-top: 16px; font-weight: 600; }
-      a { color:#2563eb; }
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        color: #0f172a;
+      }
+      header p {
+        margin: 0;
+        color: #64748b;
+      }
+      header a {
+        color: #2563eb;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      header a:hover {
+        text-decoration: underline;
+      }
+      .warning {
+        border-left: 4px solid #f97316;
+        padding: 16px;
+        background: #fff7ed;
+        border-radius: 8px;
+        margin: 24px 0;
+      }
+      .warning strong {
+        color: #c2410c;
+      }
+      .card {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        background: white;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .card h2 {
+        margin: 0 0 20px 0;
+        font-size: 20px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 12px;
+      }
+      label {
+        display: block;
+        font-weight: 500;
+        margin-top: 16px;
+        color: #475569;
+      }
+      label:first-child {
+        margin-top: 0;
+      }
+      input, select {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        margin-top: 8px;
+        font-family: inherit;
+        font-size: 14px;
+        transition: all 0.2s;
+        background: white;
+      }
+      input:focus, select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      }
+      input[type="password"] {
+        font-family: monospace;
+      }
+      button {
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: none;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-right: 12px;
+        margin-top: 16px;
+      }
+      button.primary {
+        background: #2563eb;
+        color: white;
+      }
+      button.primary:hover:not(:disabled) {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      }
+      button.secondary {
+        background: #64748b;
+        color: white;
+      }
+      button.secondary:hover:not(:disabled) {
+        background: #475569;
+      }
+      button:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+        transform: none;
+      }
+      button:active:not(:disabled) {
+        transform: translateY(0);
+      }
+      code {
+        background: #f1f5f9;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #6366f1;
+        font-family: 'Monaco', 'Menlo', monospace;
+      }
+      pre {
+        background: #f8fafc;
+        padding: 16px;
+        border-radius: 8px;
+        overflow: auto;
+        border: 1px solid #e2e8f0;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+      }
+      #status {
+        margin-top: 16px;
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: 500;
+        display: inline-block;
+        min-width: 200px;
+      }
+      #status.success {
+        background: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+      }
+      #status.error {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+      }
+      #status.loading {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+      }
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #cbd5e1;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .field-group {
+        margin-bottom: 24px;
+      }
+      .field-group:last-child {
+        margin-bottom: 0;
+      }
+      .field-help {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 4px;
+        font-weight: normal;
+      }
+      @media (max-width: 768px) {
+        body {
+          padding: 12px;
+        }
+        .card {
+          padding: 16px;
+        }
+        button {
+          width: 100%;
+          margin-right: 0;
+          margin-bottom: 8px;
+        }
+      }
     </style>
   </head>
   <body>
-    <h1>设置中心</h1>
-    <p>此页面可直接修改数据库、检索服务与 LLM 配置，保存后系统会更新 <code>.env</code> 并重新加载。</p>
+    <div class="container">
+      <header>
+        <h1>⚙️ 系统设置</h1>
+        <p><a href="index.html">← 返回仪表盘</a> | 配置数据库、检索服务与 LLM 参数</p>
+      </header>
 
-    <div class="warning">
-      <p><strong>提示：</strong> 修改数据库/Elasticsearch/Redis 地址后，建议重启相关容器或服务；LLM 配置更新后新的请求会即时生效。</p>
-    </div>
+      <div class="warning">
+        <p><strong>⚠️ 重要提示：</strong> 修改数据库/Elasticsearch/Redis 地址后，建议重启相关容器或服务；LLM 配置更新后新的请求会即时生效。</p>
+      </div>
 
-    <section class="card">
-      <h2>连接信息</h2>
-      <label>数据库连接串 <input id="DATABASE_URL" placeholder="postgresql+psycopg2://postgres:postgres@db:5432/postgres" /></label>
-      <label>Elasticsearch 地址 <input id="ES_URL" placeholder="http://es:9200" /></label>
-      <label>Redis 地址 <input id="REDIS_URL" placeholder="redis://redis:6379/0" /></label>
-    </section>
+      <section class="card">
+        <h2>🔌 连接信息</h2>
+        <div class="field-group">
+          <label>数据库连接串</label>
+          <input id="DATABASE_URL" type="text" placeholder="postgresql+psycopg2://postgres:postgres@db:5432/postgres" />
+          <div class="field-help">PostgreSQL 数据库连接字符串</div>
+        </div>
+        <div class="field-group">
+          <label>Elasticsearch 地址</label>
+          <input id="ES_URL" type="text" placeholder="http://es:9200" />
+          <div class="field-help">Elasticsearch 服务的 HTTP 地址</div>
+        </div>
+        <div class="field-group">
+          <label>Redis 地址</label>
+          <input id="REDIS_URL" type="text" placeholder="redis://redis:6379/0" />
+          <div class="field-help">Redis 服务器地址，用于 Celery 任务队列</div>
+        </div>
+      </section>
 
-    <section class="card">
-      <h2>LLM 与嵌入配置</h2>
-      <label>提供商
-        <select id="LLM_PROVIDER">
-          <option value="openai">OpenAI</option>
-          <option value="azure">Azure OpenAI</option>
-          <option value="ollama">Ollama</option>
-        </select>
-      </label>
-      <label>OpenAI API Key <input id="OPENAI_API_KEY" placeholder="sk-***" /></label>
-      <label>OpenAI Base URL <input id="OPENAI_API_BASE" placeholder="可选代理地址" /></label>
-      <label>Azure API Key <input id="AZURE_API_KEY" placeholder="Azure Key" /></label>
-      <label>Azure Endpoint <input id="AZURE_API_BASE" placeholder="https://xxx.openai.azure.com" /></label>
-      <label>Azure API Version <input id="AZURE_API_VERSION" placeholder="2024-06-01" /></label>
-      <label>Azure Chat Deployment <input id="AZURE_CHAT_DEPLOYMENT" placeholder="gpt-4o-mini" /></label>
-      <label>Azure Embedding Deployment <input id="AZURE_EMBEDDING_DEPLOYMENT" placeholder="text-embedding-3-large" /></label>
-      <label>Ollama Base URL <input id="OLLAMA_BASE_URL" placeholder="http://localhost:11434" /></label>
-      <label>SerpAPI Key <input id="SERPAPI_KEY" placeholder="可选：作为 DDG 限流回退" /></label>
-    </section>
+      <section class="card">
+        <h2>🤖 LLM 与嵌入配置</h2>
+        <div class="field-group">
+          <label>提供商</label>
+          <select id="LLM_PROVIDER">
+            <option value="openai">OpenAI</option>
+            <option value="azure">Azure OpenAI</option>
+            <option value="ollama">Ollama</option>
+          </select>
+          <div class="field-help">选择 LLM 服务提供商</div>
+        </div>
+        <div class="field-group">
+          <label>OpenAI API Key</label>
+          <input id="OPENAI_API_KEY" type="password" placeholder="sk-***" />
+          <div class="field-help">OpenAI API 密钥（输入时会隐藏）</div>
+        </div>
+        <div class="field-group">
+          <label>OpenAI Base URL</label>
+          <input id="OPENAI_API_BASE" type="text" placeholder="可选代理地址" />
+          <div class="field-help">可选：用于代理或兼容 API 的地址</div>
+        </div>
+        <div class="field-group">
+          <label>Azure API Key</label>
+          <input id="AZURE_API_KEY" type="password" placeholder="Azure Key" />
+          <div class="field-help">Azure OpenAI 服务密钥</div>
+        </div>
+        <div class="field-group">
+          <label>Azure Endpoint</label>
+          <input id="AZURE_API_BASE" type="text" placeholder="https://xxx.openai.azure.com" />
+          <div class="field-help">Azure OpenAI 服务端点地址</div>
+        </div>
+        <div class="field-group">
+          <label>Azure API Version</label>
+          <input id="AZURE_API_VERSION" type="text" placeholder="2024-06-01" />
+          <div class="field-help">Azure API 版本号</div>
+        </div>
+        <div class="field-group">
+          <label>Azure Chat Deployment</label>
+          <input id="AZURE_CHAT_DEPLOYMENT" type="text" placeholder="gpt-4o-mini" />
+          <div class="field-help">Azure 聊天模型部署名称</div>
+        </div>
+        <div class="field-group">
+          <label>Azure Embedding Deployment</label>
+          <input id="AZURE_EMBEDDING_DEPLOYMENT" type="text" placeholder="text-embedding-3-large" />
+          <div class="field-help">Azure 嵌入模型部署名称</div>
+        </div>
+        <div class="field-group">
+          <label>Ollama Base URL</label>
+          <input id="OLLAMA_BASE_URL" type="text" placeholder="http://localhost:11434" />
+          <div class="field-help">Ollama 服务地址</div>
+        </div>
+        <div class="field-group">
+          <label>SerpAPI Key</label>
+          <input id="SERPAPI_KEY" type="password" placeholder="可选：作为 DDG 限流回退" />
+          <div class="field-help">可选：用于外部搜索的回退 API（付费服务）</div>
+        </div>
+      </section>
 
-    <div style="margin-top:20px;">
-      <button class="primary" onclick="saveSettings()">保存设置</button>
-      <button class="secondary" onclick="loadSettings()">重新加载</button>
-      <div id="status"></div>
-    </div>
+      <section class="card">
+        <h2>🔍 免费搜索 API 配置</h2>
+        <div class="field-group">
+          <label>Serpstack Key</label>
+          <input id="SERPSTACK_KEY" type="password" placeholder="可选：每月100次免费" />
+          <div class="field-help">
+            可选：<a href="https://serpstack.com/" target="_blank">Serpstack</a> API Key - 每月100次免费请求
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Azure AI Search Endpoint</label>
+          <input id="AZURE_SEARCH_ENDPOINT" type="text" placeholder="https://lotto.search.windows.net" />
+          <div class="field-help">
+            Azure AI Search 服务端点（例如：https://lotto.search.windows.net）
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Azure AI Search API Key</label>
+          <input id="AZURE_SEARCH_KEY" type="password" placeholder="Azure Search API 密钥" />
+          <div class="field-help">
+            Azure AI Search API 密钥，可在 Azure 门户中获取
+          </div>
+        </div>
+        <div style="padding: 12px; background: #f1f5f9; border-radius: 6px; margin-top: 16px;">
+          <strong>💡 提示：</strong>
+          <ul style="margin: 8px 0 0 20px; padding: 0;">
+            <li>搜索失败时会按优先级自动降级：DDG → Serpstack → Azure Search → SerpAPI</li>
+            <li>Azure AI Search 提供强大的全文搜索功能</li>
+            <li>详细配置说明请查看 <code>backend/SEARCH_API_SETUP.md</code></li>
+          </ul>
+        </div>
+      </section>
 
-    <section style="margin-top:32px;">
-      <h2>常用命令参考</h2>
-      <pre><code>pip install -r projects/彩票情报(lottery-intel)/backend/requirements.txt
+      <div class="card">
+        <button class="primary" onclick="saveSettings()" id="save-btn">💾 保存设置</button>
+        <button class="secondary" onclick="loadSettings()" id="load-btn">🔄 重新加载</button>
+        <div id="status"></div>
+      </div>
 
+      <section class="card">
+        <h2>📚 常用命令参考</h2>
+        <pre><code># 安装依赖
+pip install -r projects/彩票情报(lottery-intel)/backend/requirements.txt
+
+# 启动 Docker 服务
 docker compose -f projects/彩票情报(lottery-intel)/ops/docker-compose.yml up -d --build
 
+# 启动 Celery Worker
 cd projects/彩票情报(lottery-intel)/backend
 celery -A app.celery_app.celery_app worker -l info
 
+# 启动 FastAPI 服务
 uvicorn app.main:app --reload --port 8000</code></pre>
-    </section>
-
-    <p><a href="index.html">返回仪表盘</a></p>
+      </section>
+    </div>
 
     <script>
       const FIELD_KEYS = [
         'DATABASE_URL', 'ES_URL', 'REDIS_URL', 'LLM_PROVIDER',
         'OPENAI_API_KEY', 'OPENAI_API_BASE', 'AZURE_API_KEY', 'AZURE_API_BASE',
         'AZURE_API_VERSION', 'AZURE_CHAT_DEPLOYMENT', 'AZURE_EMBEDDING_DEPLOYMENT', 'OLLAMA_BASE_URL',
-        'SERPAPI_KEY'
+        'SERPAPI_KEY', 'SERPSTACK_KEY', 'AZURE_SEARCH_ENDPOINT', 'AZURE_SEARCH_KEY'
       ];
 
-      async function loadSettings() {
+      function updateStatus(message, type = 'loading') {
         const status = document.getElementById('status');
-        status.textContent = '正在加载...';
+        status.className = type;
+        if (type === 'loading') {
+          status.innerHTML = '<span class="spinner"></span>' + message;
+        } else {
+          status.textContent = message;
+        }
+      }
+
+      async function loadSettings() {
+        const loadBtn = document.getElementById('load-btn');
+        loadBtn.disabled = true;
+        updateStatus('正在加载配置...', 'loading');
         try {
           const res = await fetch('/api/v1/config/env');
-          if (!res.ok) throw new Error(await res.text());
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(errorText || `HTTP ${res.status}`);
+          }
           const data = await res.json();
           FIELD_KEYS.forEach((key) => {
             const el = document.getElementById(key);
@@ -97,17 +397,24 @@ uvicorn app.main:app --reload --port 8000</code></pre>
               el.value = value || el.options[0].value;
             } else {
               el.value = value;
+              // 如果是密码字段且有值，显示占位符提示
+              if (el.type === 'password' && value) {
+                el.placeholder = '已设置（输入新值以更新）';
+              }
             }
           });
-          status.textContent = '设置已加载。';
+          updateStatus('✅ 设置已成功加载', 'success');
         } catch (err) {
-          status.textContent = '加载失败：' + err.message;
+          updateStatus('❌ 加载失败：' + err.message, 'error');
+        } finally {
+          loadBtn.disabled = false;
         }
       }
 
       async function saveSettings() {
-        const status = document.getElementById('status');
-        status.textContent = '正在保存...';
+        const saveBtn = document.getElementById('save-btn');
+        saveBtn.disabled = true;
+        updateStatus('正在保存配置...', 'loading');
         const payload = {};
         FIELD_KEYS.forEach((key) => {
           const el = document.getElementById(key);
@@ -120,11 +427,16 @@ uvicorn app.main:app --reload --port 8000</code></pre>
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           });
-          if (!res.ok) throw new Error(await res.text());
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(errorText || `HTTP ${res.status}`);
+          }
           await res.json();
-          status.textContent = '保存成功，部分改动需要手动重启相关服务后生效。';
+          updateStatus('✅ 保存成功！部分改动需要手动重启相关服务后生效。', 'success');
         } catch (err) {
-          status.textContent = '保存失败：' + err.message;
+          updateStatus('❌ 保存失败：' + err.message, 'error');
+        } finally {
+          saveBtn.disabled = false;
         }
       }
 
