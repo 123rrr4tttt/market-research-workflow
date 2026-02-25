@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>政策数据图谱可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="/static/js/app-shell.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Sans SC", sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      body.in-iframe header {
+        margin-bottom: 0;
+        border-radius: 0;
+      }
+      .container {
+        max-width: 100%;
+        margin: 0 auto;
+        width: 100%;
+      }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        color: #0f172a;
+      }
+      header p {
+        margin: 0;
+        color: #64748b;
+      }
+      .nav-links {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      .nav-links a {
+        padding: 10px 20px;
+        background: #2563eb;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        display: inline-block;
+        transition: background 0.2s;
+      }
+      .nav-links a.secondary {
+        background: white;
+        border: 1px solid #cbd5e1;
+        color: #2563eb;
+      }
+      .nav-links a:hover { background: #1d4ed8; }
+      .nav-links a.secondary:hover { background: #f1f5f9; }
+      .controls {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      .controls-row {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .controls-row:last-child { margin-bottom: 0; }
+      .controls label {
+        font-weight: 500;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .controls input, .controls select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+      .controls input[type="date"] { min-width: 160px; }
+      .controls input[type="number"] {
+        width: 100px;
+      }
+      .controls button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .controls button:hover { background: #1d4ed8; }
+      .controls button.secondary {
+        background: #64748b;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 4px solid #2563eb;
+      }
+      .stat-card h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 500;
+      }
+      .stat-card .value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .graph-container {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+        position: relative;
+      }
+      .graph-container h2 {
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .graph-header-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .fullscreen-btn {
+        padding: 6px 12px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .fullscreen-btn:hover { background: #1d4ed8; }
+      .graph-control-panel {
+        position: absolute;
+        left: 16px;
+        bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 12px;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+        z-index: 20;
+        backdrop-filter: blur(4px);
+      }
+      .graph-control-panel label {
+        font-size: 12px;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .graph-control-panel input[type="range"] {
+        width: 160px;
+        accent-color: #2563eb;
+      }
+      .graph-control-panel span {
+        min-width: 36px;
+        text-align: right;
+        font-size: 13px;
+        font-weight: 600;
+        color: #2563eb;
+      }
+      .graph-control-panel .control-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .graph-control-panel .control-toggle input {
+        accent-color: #2563eb;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+        color: #475569;
+        font-size: 13px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #f1f5f9;
+        padding: 6px 10px;
+        border-radius: 8px;
+      }
+      .legend-symbol {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+      }
+      #graph-chart {
+        width: 100%;
+        height: 720px;
+        min-height: 500px;
+      }
+      #graph-fullscreen-view {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10000;
+        background: white;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      #graph-fullscreen-view.active { display: block; }
+      #graph-fullscreen-view .graph-container {
+        height: 100%;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      #fullscreen-graph-chart {
+        width: 100%;
+        height: calc(100vh - 90px);
+        min-height: 500px;
+      }
+      .info {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+      }
+      .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        padding: 40px 0;
+      }
+      .spinner {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 3px solid #cbd5e1;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .details-panel {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .details-panel h3 {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        color: #0f172a;
+      }
+      .details-panel pre {
+        background: #f8fafc;
+        padding: 12px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 12px;
+        max-height: 240px;
+      }
+      @media (max-width: 768px) {
+        body { padding: 16px; }
+        header { padding: 20px; }
+        .controls { padding: 16px; }
+        .graph-container { padding: 16px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>彩票政策图谱可视化</h1>
+        <p>展示政策文档之间的实体、关键要点与关联关系</p>
+        <p id="graph-doc-type-hint" class="info" style="margin-top: 12px;"></p>
+        <p id="graph-structure-hint" class="info" style="margin-top: 8px;"></p>
+        <div class="nav-links">
+          <a href="/policy-visualization.html">政策仪表盘</a>
+          <a href="/policy-tracking.html" class="secondary">政策追踪</a>
+        </div>
+      </header>
+
+      <div class="controls">
+        <div class="controls-row">
+          <label for="filter-state">州：</label>
+          <select id="filter-state">
+            <option value="">全部</option>
+            <option value="CA">California (CA)</option>
+            <option value="NY">New York (NY)</option>
+            <option value="TX">Texas (TX)</option>
+            <option value="FL">Florida (FL)</option>
+            <option value="IL">Illinois (IL)</option>
+            <option value="GA">Georgia (GA)</option>
+            <option value="PA">Pennsylvania (PA)</option>
+            <option value="OH">Ohio (OH)</option>
+            <option value="WA">Washington (WA)</option>
+            <option value="MA">Massachusetts (MA)</option>
+          </select>
+
+          <label for="filter-type">政策类型：</label>
+          <select id="filter-type">
+            <option value="">全部</option>
+            <option value="regulation">法规 regulation</option>
+            <option value="bill">法案 bill</option>
+            <option value="announcement">公告 announcement</option>
+            <option value="guidance">指导文件 guidance</option>
+            <option value="amendment">修正案 amendment</option>
+            <option value="executive_order">行政命令 executive_order</option>
+          </select>
+
+          <label for="filter-start">开始日期：</label>
+          <input type="date" id="filter-start" />
+
+          <label for="filter-end">结束日期：</label>
+          <input type="date" id="filter-end" />
+
+          <label for="filter-limit">数量限制：</label>
+          <input type="number" id="filter-limit" min="1" max="500" value="100" />
+        </div>
+        <div class="controls-row">
+          <button id="apply-btn">应用筛选</button>
+          <button id="reset-btn" class="secondary">重置</button>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat-card">
+          <h3>节点总数</h3>
+          <div class="value" id="stat-nodes">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>边总数</h3>
+          <div class="value" id="stat-edges">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>政策数量</h3>
+          <div class="value" id="stat-policies">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>实体数量</h3>
+          <div class="value" id="stat-entities">-</div>
+        </div>
+      </div>
+
+      <div id="message-area"></div>
+
+      <div class="graph-container" data-role="main">
+        <div class="graph-control-panel" id="graph-control-panel">
+          <label for="repulsion-slider">节点斥力</label>
+          <input type="range" id="repulsion-slider" min="60" max="360" step="10" value="180" />
+          <span id="repulsion-value">180</span>
+          <label class="control-toggle">
+            <input type="checkbox" id="label-toggle" checked />
+            显示标签
+          </label>
+        </div>
+        <h2>
+          政策知识图谱
+          <span class="graph-header-actions">
+            <button class="fullscreen-btn" id="fullscreen-btn">全屏查看</button>
+            <button class="fullscreen-btn secondary" id="refresh-btn">刷新</button>
+          </span>
+        </h2>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-symbol" style="background:#2563eb;"></span>Policy 政策</div>
+          <div class="legend-item"><span class="legend-symbol" style="background:#f59e0b;"></span>State 州</div>
+          <div class="legend-item"><span class="legend-symbol" style="background:#10b981;"></span>PolicyType 类型</div>
+          <div class="legend-item"><span class="legend-symbol" style="background:#ec4899;"></span>KeyPoint 要点</div>
+          <div class="legend-item"><span class="legend-symbol" style="background:#8b5cf6;"></span>Entity 实体</div>
+        </div>
+        <div id="graph-chart">
+          <div class="loading"><span class="spinner"></span>加载中...</div>
+        </div>
+      </div>
+
+      <div class="details-panel" id="details-panel" style="display:none;">
+        <h3 id="details-title">节点详情</h3>
+        <pre id="details-content"></pre>
+      </div>
+    </div>
+
+    <div id="graph-fullscreen-view">
+      <div class="graph-container" data-role="fullscreen">
+        <h2>
+          政策知识图谱（全屏）
+          <span class="graph-header-actions">
+            <button class="fullscreen-btn" id="exit-fullscreen-btn">退出全屏</button>
+          </span>
+        </h2>
+        <div id="fullscreen-graph-chart"></div>
+      </div>
+    </div>
+
+    <script>
+      const messageArea = document.getElementById('message-area');
+      const detailsPanel = document.getElementById('details-panel');
+      const detailsTitle = document.getElementById('details-title');
+      const detailsContent = document.getElementById('details-content');
+      const limitInput = document.getElementById('filter-limit');
+      const repulsionSlider = document.getElementById('repulsion-slider');
+      const repulsionValueEl = document.getElementById('repulsion-value');
+      const labelToggle = document.getElementById('label-toggle');
+      const graphControlPanel = document.getElementById('graph-control-panel');
+      const mainGraphContainer = document.querySelector('.graph-container[data-role="main"]');
+      const fullscreenGraphContainer = document.querySelector('#graph-fullscreen-view .graph-container[data-role="fullscreen"]');
+
+      let graphChart = null;
+      let fullscreenChart = null;
+      let isFullscreen = false;
+      let latestGraphData = null;
+      let currentRepulsion = Number(repulsionSlider?.value || 180);
+      let showLabels = labelToggle ? labelToggle.checked : true;
+
+      const NODE_COLORS = {
+        'Policy': '#2563eb',
+        'State': '#f59e0b',
+        'PolicyType': '#10b981',
+        'KeyPoint': '#ec4899',
+        'Entity': '#8b5cf6'
+      };
+
+      const NODE_SYMBOLS = {
+        'Policy': 'circle',
+        'State': 'rect',
+        'PolicyType': 'diamond',
+        'KeyPoint': 'roundRect',
+        'Entity': 'triangle'
+      };
+
+      const NODE_SIZE_RULES = {
+        'Policy': { base: 18, max: 52 },
+        'State': { base: 16, max: 48 },
+        'PolicyType': { base: 15, max: 42 },
+        'KeyPoint': { base: 12, max: 36 },
+        'Entity': { base: 14, max: 40 }
+      };
+
+      function attachControlPanel(container) {
+        if (!graphControlPanel || !container) return;
+        container.insertBefore(graphControlPanel, container.firstChild);
+      }
+
+      function init() {
+        if (window.self !== window.top) {
+          document.body.classList.add('in-iframe');
+        }
+        graphChart = echarts.init(document.getElementById('graph-chart'));
+
+        window.addEventListener('resize', () => {
+          graphChart && graphChart.resize();
+          if (fullscreenChart) {
+            fullscreenChart.resize();
+          }
+        });
+
+        document.getElementById('apply-btn').addEventListener('click', loadGraph);
+        document.getElementById('reset-btn').addEventListener('click', resetFilters);
+        document.getElementById('refresh-btn').addEventListener('click', loadGraph);
+        document.getElementById('fullscreen-btn').addEventListener('click', () => toggleFullscreen(true));
+        document.getElementById('exit-fullscreen-btn').addEventListener('click', () => toggleFullscreen(false));
+        if (repulsionSlider) {
+          repulsionSlider.addEventListener('input', (event) => {
+            currentRepulsion = Number(event.target.value);
+            if (repulsionValueEl) {
+              repulsionValueEl.textContent = String(currentRepulsion);
+            }
+            if (latestGraphData) {
+              renderGraph(latestGraphData);
+            }
+          });
+          if (repulsionValueEl) {
+            repulsionValueEl.textContent = String(currentRepulsion);
+          }
+        }
+        if (labelToggle) {
+          labelToggle.addEventListener('change', () => {
+            showLabels = labelToggle.checked;
+            if (latestGraphData) {
+              renderGraph(latestGraphData);
+            }
+          });
+        }
+
+        attachControlPanel(mainGraphContainer);
+        loadGraphDocTypeHint();
+        loadGraph();
+      }
+
+      function resetFilters() {
+        document.getElementById('filter-state').value = '';
+        document.getElementById('filter-type').value = '';
+        document.getElementById('filter-start').value = '';
+        document.getElementById('filter-end').value = '';
+        limitInput.value = 100;
+        if (repulsionSlider) {
+          repulsionSlider.value = '180';
+        }
+        currentRepulsion = Number(repulsionSlider?.value || 180);
+        if (repulsionValueEl) {
+          repulsionValueEl.textContent = String(currentRepulsion);
+        }
+        if (labelToggle) {
+          labelToggle.checked = true;
+        }
+        showLabels = labelToggle ? labelToggle.checked : true;
+        loadGraph();
+      }
+      function formatLabelText(node) {
+        const text =
+          node.title ||
+          node.name ||
+          node.text ||
+          node.canonical_name ||
+          `节点 ${node.id}`;
+        const maxLen = node.type === 'KeyPoint' ? 20 : 24;
+        return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
+      }
+
+
+      function showMessage(type, text) {
+        messageArea.innerHTML = '';
+        if (!text) return;
+        const div = document.createElement('div');
+        div.className = type === 'error' ? 'error' : 'info';
+        div.textContent = text;
+        messageArea.appendChild(div);
+      }
+
+      const POLICY_NODE_COLORS = { 'Policy': '#2563eb', 'State': '#f59e0b', 'PolicyType': '#10b981', 'KeyPoint': '#ec4899', 'Entity': '#8b5cf6' };
+      let policyGraphConfig = { nodeTypes: ['Policy', 'State', 'PolicyType', 'KeyPoint', 'Entity'], nodeLabels: {}, typeLabel: '政策图谱' };
+      async function loadGraphDocTypeHint() {
+        const hintEl = document.getElementById('graph-doc-type-hint');
+        const structureEl = document.getElementById('graph-structure-hint');
+        const statsEl = document.querySelector('.stats');
+        const legendEl = document.querySelector('.legend');
+        if (!hintEl || !structureEl) return;
+        try {
+          const projectKey = window.MarketApp?.getProjectKey?.() || '';
+          const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : '';
+          const response = await fetch(`/api/v1/project-customization/graph-config${query}`);
+          const data = response.ok ? (await response.json())?.data : null;
+          const graphDocTypes = data?.graph_doc_types || {};
+          const labels = data?.graph_type_labels || {};
+          const graphNodeTypes = data?.graph_node_types || {};
+          const graphNodeLabels = data?.graph_node_labels || {};
+          const graphEdgeTypes = data?.graph_edge_types || {};
+          const relationLabels = data?.graph_relation_labels || {};
+          const policyTypes = Array.isArray(graphDocTypes.policy) ? graphDocTypes.policy : ['policy', 'policy_regulation'];
+          const policyNodeTypes = Array.isArray(graphNodeTypes.policy) ? graphNodeTypes.policy : ['Policy', 'State', 'PolicyType', 'KeyPoint', 'Entity'];
+          const policyEdgeTypes = Array.isArray(graphEdgeTypes.policy) ? graphEdgeTypes.policy : ['APPLIES_TO_STATE', 'HAS_TYPE', 'HAS_KEYPOINT', 'MENTIONS_ENTITY', 'POLICY_RELATION'];
+          const policyLabel = labels.policy || '政策图谱';
+          policyGraphConfig = { nodeTypes: policyNodeTypes, nodeLabels: graphNodeLabels, typeLabel: policyLabel };
+          hintEl.textContent = `${policyLabel}数据类型: ${policyTypes.join(', ')}`;
+          const edgeLabels = policyEdgeTypes.map((e) => relationLabels[e] ? `${e}(${relationLabels[e]})` : e);
+          structureEl.textContent = `节点类型: ${policyNodeTypes.join(', ')}；关系类型: ${edgeLabels.join(', ')}`;
+          const lbl = (t) => graphNodeLabels[t] || t;
+          if (statsEl) {
+            statsEl.innerHTML = `<div class="stat-card"><h3>节点总数</h3><div class="value" id="stat-nodes">-</div></div><div class="stat-card"><h3>边总数</h3><div class="value" id="stat-edges">-</div></div>` +
+              policyNodeTypes.map((t) => `<div class="stat-card"><h3>${lbl(t)}数量</h3><div class="value" id="stat-${t}">-</div></div>`).join('');
+          }
+          if (legendEl) {
+            legendEl.innerHTML = policyNodeTypes.map((t) => {
+              const color = POLICY_NODE_COLORS[t] || '#94a3b8';
+              const label = graphNodeLabels[t] || t;
+              return `<div class="legend-item"><span class="legend-symbol" style="background:${color};"></span>${t} ${label}</div>`;
+            }).join('');
+          }
+        } catch (error) {
+          hintEl.textContent = '当前图谱类型: policy, policy_regulation';
+          structureEl.textContent = '节点类型: Policy, State, PolicyType, KeyPoint, Entity；关系类型: APPLIES_TO_STATE, HAS_TYPE, HAS_KEYPOINT, MENTIONS_ENTITY, POLICY_RELATION';
+        }
+      }
+
+      async function loadGraph() {
+        showMessage('info', '正在加载政策图谱...');
+        detailsPanel.style.display = 'none';
+        latestGraphData = null;
+
+        try {
+          const projectKey = window.MarketApp?.getProjectKey?.() || '';
+          const params = new URLSearchParams();
+          if (projectKey) params.append('project_key', projectKey);
+          const state = document.getElementById('filter-state').value;
+          const type = document.getElementById('filter-type').value;
+          const start = document.getElementById('filter-start').value;
+          const end = document.getElementById('filter-end').value;
+          const limit = limitInput.value ? parseInt(limitInput.value, 10) : 100;
+
+          if (state) params.append('state', state);
+          if (type) params.append('policy_type', type);
+          if (start) params.append('start_date', start);
+          if (end) params.append('end_date', end);
+          params.append('limit', Math.min(Math.max(limit || 100, 1), 500));
+
+          const response = await fetch(`/api/v1/admin/policy-graph?${params.toString()}`, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`获取失败: ${response.status}`);
+          }
+          const data = await response.json();
+          latestGraphData = data;
+          renderGraph(data);
+          updateStats(data);
+          if (!data.nodes || data.nodes.length === 0) {
+            showMessage('info', '未查询到符合条件的政策数据，已返回空图谱。');
+          } else {
+            showMessage('', '');
+          }
+        } catch (error) {
+          console.error('加载图谱失败', error);
+          showMessage('error', `加载图谱失败: ${error.message}`);
+          renderGraph({ nodes: [], edges: [] });
+          updateStats({ nodes: [], edges: [] });
+        }
+      }
+
+      function updateStats(data) {
+        const nodes = data.nodes || [];
+        const edges = data.edges || [];
+        const el = (id) => document.getElementById(id);
+        if (el('stat-nodes')) el('stat-nodes').textContent = nodes.length;
+        if (el('stat-edges')) el('stat-edges').textContent = edges.length;
+        (policyGraphConfig.nodeTypes || []).forEach((t) => {
+          const e = el('stat-' + t);
+          if (e) e.textContent = nodes.filter((n) => n.type === t).length || 0;
+        });
+      }
+
+      function computeNodeSizes(nodes, edges) {
+        const degreeMap = new Map();
+        edges.forEach(edge => {
+          const fromKey = `${edge.from.type}:${edge.from.id}`;
+          const toKey = `${edge.to.type}:${edge.to.id}`;
+          degreeMap.set(fromKey, (degreeMap.get(fromKey) || 0) + 1);
+          degreeMap.set(toKey, (degreeMap.get(toKey) || 0) + 1);
+        });
+
+        let minDegree = Infinity;
+        let maxDegree = 0;
+        nodes.forEach(node => {
+          const key = `${node.type}:${node.id}`;
+          const deg = degreeMap.get(key) || 0;
+          if (deg < minDegree) minDegree = deg;
+          if (deg > maxDegree) maxDegree = deg;
+        });
+        if (minDegree === Infinity) minDegree = 0;
+        const degreeRange = Math.max(maxDegree - minDegree, 1);
+
+        return { degreeMap, minDegree, maxDegree, degreeRange };
+      }
+
+      function getNodeSize(nodeType, degree, minDegree, degreeRange) {
+        const rules = NODE_SIZE_RULES[nodeType] || { base: 18, max: 38 };
+        const normalized = Math.pow(Math.max(degree - minDegree, 0) / degreeRange, 0.5);
+        let size = rules.base + (rules.max - rules.base) * normalized;
+        if (normalized > 0.7) {
+          size = Math.min(rules.max, size * (1 + (normalized - 0.7) * 0.4));
+        }
+        return Math.round(size);
+      }
+
+      function transformGraphData(data) {
+        const nodes = data.nodes || [];
+        const edges = data.edges || [];
+        const { degreeMap, minDegree, degreeRange } = computeNodeSizes(nodes, edges);
+
+        const echartsNodes = nodes.map(node => {
+          const key = `${node.type}:${node.id}`;
+          const degree = degreeMap.get(key) || 0;
+          const size = getNodeSize(node.type, degree, minDegree, degreeRange);
+          const shouldShowLabel = showLabels && size >= 22;
+          return {
+            id: key,
+            name: node.title || node.name || node.text || node.id,
+            value: node,
+            symbol: NODE_SYMBOLS[node.type] || 'circle',
+            symbolSize: size,
+            itemStyle: {
+              color: NODE_COLORS[node.type] || '#94a3b8'
+            },
+            label: {
+              show: shouldShowLabel,
+              position: 'right',
+              formatter: () => formatLabelText(node),
+              color: '#1e293b',
+              fontSize: 11,
+              backgroundColor: shouldShowLabel ? 'rgba(255,255,255,0.85)' : 'transparent',
+              padding: shouldShowLabel ? [2, 4] : 0,
+              borderRadius: 4
+            },
+            emphasis: {
+              label: {
+                show: true,
+                color: '#0f172a',
+                fontWeight: 600,
+                backgroundColor: 'rgba(255,255,255,0.92)',
+                padding: [2, 4],
+                borderRadius: 4,
+                formatter: () => formatLabelText(node)
+              }
+            }
+          };
+        });
+
+        const echartsEdges = edges.map(edge => ({
+          source: `${edge.from.type}:${edge.from.id}`,
+          target: `${edge.to.type}:${edge.to.id}`,
+          value: edge,
+          lineStyle: {
+            width: edge.predicate ? 1.5 : 1,
+            color: edge.type === 'POLICY_RELATION' ? '#f97316' : '#cbd5e1',
+            curveness: edge.type === 'POLICY_RELATION' ? 0.2 : 0
+          },
+          label: {
+            show: edge.type === 'POLICY_RELATION',
+            formatter: edge.predicate ? edge.predicate : ''
+          }
+        }));
+
+        return { nodes: echartsNodes, edges: echartsEdges };
+      }
+
+      function renderGraph(data) {
+        if (!graphChart) return;
+        const { nodes, edges } = transformGraphData(data);
+
+        const option = {
+          tooltip: {
+            formatter: params => {
+              if (params.dataType === 'node') {
+                const nodeData = params.data.value || {};
+                const lines = [`类型: ${nodeData.type}`];
+                if (nodeData.title) lines.push(`标题: ${nodeData.title}`);
+                if (nodeData.name) lines.push(`名称: ${nodeData.name}`);
+                if (nodeData.state) lines.push(`州: ${nodeData.state}`);
+                if (nodeData.policy_type) lines.push(`政策类型: ${nodeData.policy_type}`);
+                if (nodeData.status) lines.push(`状态: ${nodeData.status}`);
+                if (nodeData.effective_date) lines.push(`生效日期: ${nodeData.effective_date}`);
+                if (nodeData.text) lines.push(`内容: ${nodeData.text}`);
+                return lines.join('<br/>');
+              }
+              if (params.dataType === 'edge') {
+                const edgeData = params.data.value || {};
+                const lines = [`关系: ${edgeData.type}`];
+                if (edgeData.predicate) lines.push(`谓词: ${edgeData.predicate}`);
+                if (edgeData.confidence !== undefined) lines.push(`置信度: ${edgeData.confidence}`);
+                if (edgeData.date) lines.push(`日期: ${edgeData.date}`);
+                return lines.join('<br/>');
+              }
+              return '';
+            }
+          },
+          series: [{
+            type: 'graph',
+            layout: 'force',
+            roam: true,
+            data: nodes,
+            links: edges,
+            force: {
+              repulsion: currentRepulsion,
+              gravity: 0.08,
+              edgeLength: [80, 180],
+              friction: 0.2
+            },
+            lineStyle: {
+              opacity: 0.9,
+              width: 1,
+              color: '#cbd5e1'
+            },
+            emphasis: {
+              focus: 'adjacency',
+              lineStyle: {
+                width: 2
+              }
+            }
+          }]
+        };
+
+        graphChart.setOption(option, true);
+        graphChart.off('click');
+        graphChart.on('click', params => handleGraphClick(params));
+
+        if (isFullscreen && fullscreenChart && latestGraphData) {
+          renderFullscreenGraph();
+        }
+      }
+
+      function handleGraphClick(params) {
+        if (params.dataType === 'node') {
+          detailsPanel.style.display = 'block';
+          const value = params.data.value || {};
+          detailsTitle.textContent = `节点详情 - ${value.title || value.name || value.text || value.id}`;
+          detailsContent.textContent = JSON.stringify(value, null, 2);
+        } else if (params.dataType === 'edge') {
+          detailsPanel.style.display = 'block';
+          const value = params.data.value || {};
+          detailsTitle.textContent = `连接详情 - ${value.type || 'Edge'}`;
+          detailsContent.textContent = JSON.stringify(value, null, 2);
+        }
+      }
+
+      function toggleFullscreen(enable) {
+        const fullscreenView = document.getElementById('graph-fullscreen-view');
+        const originalChartEl = document.getElementById('graph-chart');
+        if (enable && !isFullscreen) {
+          attachControlPanel(fullscreenGraphContainer);
+          if (originalChartEl) {
+            originalChartEl.style.display = 'none';
+          }
+          fullscreenView.classList.add('active');
+          isFullscreen = true;
+          if (!fullscreenChart) {
+            fullscreenChart = echarts.init(document.getElementById('fullscreen-graph-chart'));
+          }
+          renderFullscreenGraph();
+          fullscreenChart.resize();
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'fullscreen', action: 'enter' }, '*');
+          }
+        } else if (!enable && isFullscreen) {
+          fullscreenView.classList.remove('active');
+          isFullscreen = false;
+          if (fullscreenChart) {
+            fullscreenChart.dispose();
+            fullscreenChart = null;
+          }
+          if (originalChartEl) {
+            originalChartEl.style.display = 'block';
+          }
+          attachControlPanel(mainGraphContainer);
+          graphChart && graphChart.resize();
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'fullscreen', action: 'exit' }, '*');
+          }
+        }
+      }
+
+      function renderFullscreenGraph() {
+        if (!fullscreenChart || !latestGraphData) return;
+        const option = graphChart.getOption();
+        fullscreenChart.setOption(option, true);
+        fullscreenChart.off('click');
+        fullscreenChart.on('click', handleGraphClick);
+      }
+
+      document.addEventListener('DOMContentLoaded', init);
+    </script>
+  </body>
+</html>
+

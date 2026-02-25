@@ -1,4 +1,11 @@
+# =============================================================================
+# GitHub-shareable .gitignore for Python + Docker project
+# Based on: github/gitignore Python.gitignore + project-specific patterns
+# =============================================================================
+
+# -----------------------------------------------------------------------------
 # Python
+# -----------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
@@ -28,59 +35,112 @@ ENV/
 .venv
 .venv*/
 
-# IDE
+# -----------------------------------------------------------------------------
+# Environment & Secrets (CRITICAL: never commit .env or credentials)
+# -----------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+.env.backup
+.env.development
+.env.production
+*.credentials.json
+*-credentials.json
+
+# -----------------------------------------------------------------------------
+# IDE & OS
+# -----------------------------------------------------------------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 .DS_Store
+.cursor/
 
-# Database
+# -----------------------------------------------------------------------------
+# Database & Data (local DB files, dumps, data dirs - never commit)
+# -----------------------------------------------------------------------------
 *.db
 *.sqlite
 *.sqlite3
+*.rdb
+*.aof
+*.dump
+*.sql.gz
+*.sql.backup
 
-# Logs
+# Local data directories
+main/backend/data/
+data/
+reference_pool/
+
+# Cloned repos / reference code (same content as reference_pool, do not re-add)
+main/github/
+
+# Agent / IDE planning artifacts
+plans/
+*.plan.md
+
+# Local symlink/copy targets (real 信息源库 is at project root)
+main/backend/信息源库/
+main/backend/frontend/
+
+# -----------------------------------------------------------------------------
+# Logs & Runtime
+# -----------------------------------------------------------------------------
 *.log
 logs/
+main/logs/
+*.pid
+celerybeat-schedule
+celerybeat.pid
 
-# Environment variables
-.env
-.env.local
-
-# Cache
+# -----------------------------------------------------------------------------
+# Cache & Temp
+# -----------------------------------------------------------------------------
 .cache/
 langchain-cache.db
-
-# Docker
-.dockerignore
-
-# Temporary files
 *.tmp
 *.bak
 *.backup
 
-# Node modules (if any frontend uses npm)
+# -----------------------------------------------------------------------------
+# Node (if frontend uses npm)
+# -----------------------------------------------------------------------------
 node_modules/
 
-# Build outputs
+# -----------------------------------------------------------------------------
+# Build & Coverage
+# -----------------------------------------------------------------------------
 *.pyc
 *.pyo
 *.pyd
-
-# Coverage reports
 htmlcov/
 .coverage
 .coverage.*
 coverage.xml
 *.cover
+.tox/
+.nox/
+.ruff_cache/
 
-# pytest
+# -----------------------------------------------------------------------------
+# Testing & Linting
+# -----------------------------------------------------------------------------
 .pytest_cache/
-
-# mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
+.hypothesis/
+
+# -----------------------------------------------------------------------------
+# Generated / Analysis outputs (scripts produce these)
+# -----------------------------------------------------------------------------
+main/backend/scripts/*_analysis.json
+main/backend/scripts/*_check.json
+main/backend/scripts/remaining_docs_deep_analysis.json
+main/backend/scripts/missing_dates_analysis.json
+main/backend/scripts/actual_dates_check.json
+main/backend/scripts/date_source_analysis.json
 

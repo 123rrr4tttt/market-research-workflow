@@ -1,16 +1,18 @@
 # 本地开发环境配置指南
 
+> 最后更新：2026-02 | 首次运行请复制 `.env.example` 为 `.env`
+
 ## 快速开始
 
 ### 1. 环境配置
 
-#### 方式一：使用 .env.local 文件（推荐）
+#### 方式一：使用 .env 文件（推荐）
 
 ```bash
 # 复制示例配置文件
-cp .env.local.example .env.local
+cp .env.example .env
 
-# 编辑配置文件，设置本地服务地址
+# 编辑 .env，设置本地服务地址（可选，有默认值）
 # DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/postgres
 # ES_URL=http://localhost:9200
 # REDIS_URL=redis://localhost:6379/0
@@ -35,8 +37,8 @@ export REDIS_URL="redis://localhost:6379/0"
 如果本地已安装PostgreSQL、Elasticsearch和Redis，可以跳过此步骤。
 
 ```bash
-# 从项目根目录运行
-cd ../../ops
+# 从 backend 目录运行（项目内独立入口）
+cd ../ops
 docker-compose up -d db es redis
 ```
 
@@ -53,6 +55,9 @@ docker-compose up -d db es redis
 # 一键启动（会自动检查并启动数据库服务）
 ./start-local.sh
 
+# 低内存模式启动（关闭自动重载）
+./start-local.sh --low-memory
+
 # 停止服务（包括数据库服务）
 ./stop-local.sh
 ```
@@ -62,6 +67,7 @@ docker-compose up -d db es redis
 - ✅ 等待服务就绪后再启动后端
 - ✅ 检查端口占用并提示处理
 - ✅ 如果Docker未运行，会跳过数据库服务启动并给出提示
+- ✅ 支持低内存模式（`--low-memory` 或 `DEV_RELOAD=0`）
 
 #### 方式二：手动启动
 
@@ -71,7 +77,20 @@ source .venv311/bin/activate
 
 # 启动服务（自动重载）
 uvicorn app.main:app --reload --port 8000
+
+# 低内存启动（不使用重载）
+uvicorn app.main:app --port 8000
 ```
+
+### 低内存参数（Docker Compose）
+
+`ops/docker-compose.yml` 支持以下环境变量（未设置时使用默认值）：
+
+- `ES_JAVA_OPTS`（默认 `-Xms512m -Xmx512m`）
+- `CELERY_CONCURRENCY`（默认 `1`）
+- `CELERY_PREFETCH_MULTIPLIER`（默认 `1`）
+- `CELERY_MAX_TASKS_PER_CHILD`（默认 `50`）
+- `CELERY_MAX_MEMORY_PER_CHILD`（默认 `300000`，单位 KiB）
 
 ### 4. 验证服务
 
@@ -126,7 +145,7 @@ uvicorn app.main:app --reload --port 8001
 如果要使用Docker完整部署（包括后端服务）：
 
 ```bash
-cd ../../ops
+cd ../ops
 docker-compose up -d
 ```
 

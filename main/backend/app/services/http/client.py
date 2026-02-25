@@ -63,6 +63,28 @@ class HttpClient:
                 time.sleep(min(2 ** attempt, 3))
         raise last_exc  # type: ignore[misc]
 
+    def post_json(
+        self,
+        url: str,
+        *,
+        json: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Any:
+        last_exc: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                resp = self._client.post(url, params=params, json=json, **kwargs)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                logger.warning(
+                    "http.post_json failed url=%s attempt=%d err=%s", url, attempt, exc
+                )
+                time.sleep(min(2 ** attempt, 3))
+        raise last_exc  # type: ignore[misc]
+
     def get_text(
         self,
         url: str,

@@ -26,10 +26,16 @@ ENV_KEY_MAPPING = {
     "OLLAMA_BASE_URL": "ollama_base_url",
     "SERPAPI_KEY": "serpapi_key",
     "SERPSTACK_KEY": "serpstack_key",
+    "SERPER_API_KEY": "serper_api_key",
     "GOOGLE_SEARCH_API_KEY": "google_search_api_key",
     "GOOGLE_SEARCH_CSE_ID": "google_search_cse_id",
     "AZURE_SEARCH_ENDPOINT": "azure_search_endpoint",
     "AZURE_SEARCH_KEY": "azure_search_key",
+    "TWITTER_API_KEY": "twitter_api_key",
+    "TWITTER_API_SECRET": "twitter_api_secret",
+    "TWITTER_BEARER_TOKEN": "twitter_bearer_token",
+    "TWITTER_ACCESS_TOKEN": "twitter_access_token",
+    "TWITTER_ACCESS_TOKEN_SECRET": "twitter_access_token_secret",
 }
 
 

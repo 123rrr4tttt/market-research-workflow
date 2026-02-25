@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>项目管理</title>
+    <link rel="stylesheet" href="/static/css/app-theme.css" />
+    <style>
+      body { padding: 0; }
+      .page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+      .muted { color: var(--text-muted); font-size: 13px; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .pill strong { color: var(--text); font-weight: 600; }
+      .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+      .row > * { min-width: 0; }
+      input { min-width: 240px; }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .editable-name {
+        cursor: text;
+        border-bottom: 1px dashed var(--border);
+        padding-bottom: 1px;
+      }
+      .inline-name-input {
+        min-width: 220px;
+        width: 100%;
+        max-width: 360px;
+        display: none;
+      }
+    </style>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/ui-core.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <h1><i data-lucide="folders" style="vertical-align: middle; margin-right: 8px;"></i>项目管理</h1>
+        <p>创建/切换项目（按 schema 隔离数据）。当前工作项目：<span class="pill"><strong id="currentProjectName">-</strong><span id="currentProjectKey">-</span></span></p>
+      </section>
+
+      <section class="card" style="margin-bottom: 12px;">
+        <h2 class="section-title">创建新项目</h2>
+        <div class="row">
+          <div>
+            <label for="newName">项目名称</label>
+            <input id="newName" placeholder="例如：线上彩票项目（北美）" />
+          </div>
+          <div>
+            <label for="newKey">项目 key（可选）</label>
+            <input id="newKey" placeholder="只允许 a-z / 0-9 / _，留空自动生成" />
+          </div>
+          <div class="actions" style="padding-top: 22px;">
+            <button id="btnCreate"><i data-lucide="plus"></i>创建并切换</button>
+            <button id="btnRefresh" class="secondary"><i data-lucide="refresh-cw"></i>刷新列表</button>
+          </div>
+        </div>
+        <div id="createStatus" class="status" style="margin-top: 12px;">等待操作</div>
+      </section>
+
+      <section class="card">
+        <div class="toolbar" style="margin-bottom: 8px;">
+          <span class="muted">提示：切换项目会更新本地浏览器的 project_key，并刷新工作台中的页面。</span>
+        </div>
+        <div id="projectsWrap" class="table-wrap"></div>
+      </section>
+    </div>
+
+    <script>
+      const { qs, setLoading, setError, setSuccess, setEmpty, escapeHtml } = window.UICore;
+      let PROJECTS_CACHE = [];
+
+      function normalizeProjectKey(raw) {
+        let key = String(raw || "").trim().toLowerCase();
+        key = key.replace(/[^a-z0-9_]+/g, "_");
+        key = key.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+        return key || "online_lottery";
+      }
+
+      function setCurrentProject(projectKey, projectName) {
+        qs("currentProjectKey").textContent = `(${projectKey})`;
+        qs("currentProjectName").textContent = projectName || projectKey;
+      }
+
+      async function fetchProjects() {
+        const res = await fetch("/api/v1/projects");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        return items;
+      }
+
+      async function renderProjects() {
+        setLoading("projectsWrap", "加载项目列表...");
+        try {
+          const items = await fetchProjects();
+          PROJECTS_CACHE = items;
+          if (!items.length) {
+            setEmpty("projectsWrap", "暂无项目");
+            return;
+          }
+          const currentKey = window.MarketApp.getProjectKey();
+          const current = items.find((x) => x.project_key === currentKey) || items.find((x) => x.is_active) || items[0];
+          if (current) setCurrentProject(currentKey, current.name);
+
+          const rows = items
+            .map((p) => {
+              const active = p.project_key === currentKey;
+              const enabledBadge = p.enabled ? '<span class="badge success">启用</span>' : '<span class="badge warning">停用</span>';
+              const activeBadge = active ? '<span class="badge info">当前</span>' : (p.is_active ? '<span class="badge info">已激活</span>' : '');
+              const archiveBtn = p.enabled
+                ? `<button class="secondary" data-action="archive" data-key="${escapeHtml(p.project_key)}"><i data-lucide="archive"></i>归档</button>`
+                : `<button class="secondary" data-action="restore" data-key="${escapeHtml(p.project_key)}"><i data-lucide="rotate-ccw"></i>恢复</button>`;
+              const saveNameBtn = `<button class="secondary" data-action="save-name" data-key="${escapeHtml(p.project_key)}"><i data-lucide="save"></i>保存名称</button>`;
+              const isReserved = p.project_key === "public";
+              const delSoftBtn = `<button class="danger" data-action="delete-soft" data-key="${escapeHtml(p.project_key)}" ${isReserved ? "disabled" : ""}><i data-lucide="trash-2"></i>删除</button>`;
+              const delHardBtn = `<button class="danger" data-action="delete-hard" data-key="${escapeHtml(p.project_key)}" ${isReserved ? "disabled" : ""}><i data-lucide="flame"></i>硬删</button>`;
+              return `
+                <tr>
+                  <td><code>${escapeHtml(p.project_key)}</code></td>
+                  <td>
+                    <span class="editable-name" data-action="edit-name" data-key="${escapeHtml(p.project_key)}" title="点击编辑">${escapeHtml(p.name || "-")}</span>
+                    <input
+                      class="inline-name-input"
+                      data-role="name-input"
+                      data-key="${escapeHtml(p.project_key)}"
+                      value="${escapeHtml(p.name || "")}"
+                    />
+                  </td>
+                  <td><code>${escapeHtml(p.schema_name || "-")}</code></td>
+                  <td>${enabledBadge} ${activeBadge}</td>
+                  <td>
+                    <button class="${active ? "secondary" : ""}" data-action="activate" data-key="${escapeHtml(p.project_key)}" ${active ? "disabled" : ""}>
+                      <i data-lucide="arrow-right-circle"></i>${active ? "已是当前" : "切换到此项目"}
+                    </button>
+                    ${saveNameBtn}
+                    ${archiveBtn}
+                    ${delSoftBtn}
+                    ${delHardBtn}
+                  </td>
+                </tr>
+              `;
+            })
+            .join("");
+          qs("projectsWrap").innerHTML = `
+            <table>
+              <thead><tr><th>project_key</th><th>名称</th><th>schema</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          `;
+          if (window.lucide) window.lucide.createIcons();
+        } catch (err) {
+          setError("projectsWrap", `加载失败: ${err.message || err}`);
+        }
+      }
+
+      async function renameProject(projectKey, nextName) {
+        const key = normalizeProjectKey(projectKey);
+        const current = PROJECTS_CACHE.find((x) => x.project_key === key);
+        const currentName = current?.name || "";
+        const next = String(nextName || currentName || "").trim();
+        if (!next) return;
+        setLoading("createStatus", "重命名中...");
+        try {
+          // Force control-plane route context to avoid tenant-project query contamination.
+          const res = await fetch(`/api/v1/projects/${encodeURIComponent(key)}?project_key=public`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: next }),
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `HTTP ${res.status}`);
+          }
+          setSuccess("createStatus", "重命名成功");
+          await renderProjects();
+        } catch (err) {
+          setError("createStatus", `重命名失败: ${err.message || err}`);
+        }
+      }
+
+      async function archiveProject(projectKey) {
+        const key = normalizeProjectKey(projectKey);
+        if (!confirm(`确认归档项目 ${key} ?（数据保留，仅从可用列表隐藏）`)) return;
+        setLoading("createStatus", "归档中...");
+        try {
+          const res = await fetch(`/api/v1/projects/${encodeURIComponent(key)}/archive`, { method: "POST" });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `HTTP ${res.status}`);
+          }
+          setSuccess("createStatus", "已归档");
+          await renderProjects();
+        } catch (err) {
+          setError("createStatus", `归档失败: ${err.message || err}`);
+        }
+      }
+
+      async function restoreProject(projectKey) {
+        const key = normalizeProjectKey(projectKey);
+        setLoading("createStatus", "恢复中...");
+        try {
+          const res = await fetch(`/api/v1/projects/${encodeURIComponent(key)}/restore`, { method: "POST" });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `HTTP ${res.status}`);
+          }
+          setSuccess("createStatus", "已恢复");
+          await renderProjects();
+        } catch (err) {
+          setError("createStatus", `恢复失败: ${err.message || err}`);
+        }
+      }
+
+      async function deleteProject(projectKey, hard) {
+        const key = normalizeProjectKey(projectKey);
+        if (key === "public") {
+          setError("createStatus", "public 是保留层，不允许删除");
+          return;
+        }
+        const msg = hard
+          ? `确认硬删除项目 ${key} ?（会删除 schema 内所有数据，无法恢复）`
+          : `确认删除项目 ${key} ?（默认归档保留数据，可恢复）`;
+        if (!confirm(msg)) return;
+
+        setLoading("createStatus", hard ? "硬删除中..." : "删除中...");
+        try {
+          const url = `/api/v1/projects/${encodeURIComponent(key)}${hard ? "?hard=true" : ""}`;
+          const res = await fetch(url, { method: "DELETE" });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `HTTP ${res.status}`);
+          }
+          setSuccess("createStatus", hard ? "已硬删除" : "已删除（归档）");
+
+          // If current project becomes unavailable, switch to active/enabled.
+          const items = await fetchProjects();
+          const currentKey = window.MarketApp.getProjectKey();
+          const current = items.find((x) => x.project_key === currentKey);
+          const fallback = items.find((x) => x.is_active && x.enabled) || items.find((x) => x.enabled) || items[0];
+          if (!current || !current.enabled) {
+            if (fallback) {
+              localStorage.setItem("market_project_key", fallback.project_key);
+            }
+            window.MarketApp.navigateInShell("project-management.html");
+            return;
+          }
+          await renderProjects();
+        } catch (err) {
+          setError("createStatus", `删除失败: ${err.message || err}`);
+        }
+      }
+
+      async function activateProject(projectKey) {
+        const key = normalizeProjectKey(projectKey);
+        setLoading("createStatus", "切换中...");
+        try {
+          const res = await fetch(`/api/v1/projects/${encodeURIComponent(key)}/activate`, { method: "POST" });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `HTTP ${res.status}`);
+          }
+          localStorage.setItem("market_project_key", key);
+          setSuccess("createStatus", "切换成功，正在刷新工作台...");
+          // Ask shell to reload current page
+          window.MarketApp.navigateInShell("project-management.html");
+        } catch (err) {
+          setError("createStatus", `切换失败: ${err.message || err}`);
+        }
+      }
+      qs("projectsWrap").addEventListener("click", async (event) => {
+        const editTarget = event.target.closest("[data-action='edit-name']");
+        if (editTarget) {
+          const key = editTarget.getAttribute("data-key");
+          if (key) {
+            const row = editTarget.closest("tr");
+            const input = row ? row.querySelector(`input[data-role='name-input'][data-key='${CSS.escape(key)}']`) : null;
+            if (input) {
+              editTarget.style.display = "none";
+              input.style.display = "inline-block";
+              input.focus();
+              input.select();
+            }
+          }
+          return;
+        }
+
+        const button = event.target.closest("button[data-action]");
+        if (!button || button.disabled) return;
+        const action = button.getAttribute("data-action");
+        const key = button.getAttribute("data-key") || "";
+        if (!action || !key) return;
+
+        if (action === "save-name") {
+          const row = button.closest("tr");
+          const input = row ? row.querySelector(`input[data-role='name-input'][data-key='${CSS.escape(key)}']`) : null;
+          const next = input ? String(input.value || "").trim() : "";
+          if (!next) {
+            setError("createStatus", "项目名称不能为空");
+            return;
+          }
+          return renameProject(key, next);
+        }
+        if (action === "archive") return archiveProject(key);
+        if (action === "restore") return restoreProject(key);
+        if (action === "delete-soft") return deleteProject(key, false);
+        if (action === "delete-hard") return deleteProject(key, true);
+        if (action === "activate") return activateProject(key);
+      });
+
+      qs("projectsWrap").addEventListener("keydown", async (event) => {
+        const input = event.target.closest("input[data-role='name-input']");
+        if (!input) return;
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const key = input.getAttribute("data-key") || "";
+          const next = String(input.value || "").trim();
+          if (!key || !next) return;
+          await renameProject(key, next);
+        }
+      });
+
+      async function createAndSwitch() {
+        const name = String(qs("newName").value || "").trim();
+        if (!name) {
+          setError("createStatus", "请先填写项目名称");
+          return;
+        }
+        const rawKey = String(qs("newKey").value || "").trim();
+        const project_key = rawKey ? normalizeProjectKey(rawKey) : normalizeProjectKey(`proj_${Date.now()}`);
+        if (rawKey && project_key === "default" && rawKey.toLowerCase().trim() !== "default") {
+          setError("createStatus", "项目 key 只能包含字母/数字/下划线，且至少包含一个字母或数字");
+          return;
+        }
+
+        setLoading("createStatus", "创建项目中...");
+        try {
+          const res = await fetch("/api/v1/projects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project_key, name, enabled: true }),
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `HTTP ${res.status}`);
+          }
+          await activateProject(project_key);
+        } catch (err) {
+          setError("createStatus", `创建失败: ${err.message || err}`);
+        }
+      }
+
+      qs("btnCreate").addEventListener("click", createAndSwitch);
+      qs("btnRefresh").addEventListener("click", renderProjects);
+
+      window.addEventListener("DOMContentLoaded", () => {
+        lucide.createIcons();
+        setCurrentProject(window.MarketApp.getProjectKey(), window.MarketApp.getProjectKey());
+        renderProjects();
+      });
+    </script>
+  </body>
+</html>
+

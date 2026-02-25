@@ -1,0 +1,49 @@
+[
+  {
+    "item_key": "reddit.lottery",
+    "name": "Reddit Lottery Baseline",
+    "channel_key": "social.reddit",
+    "description": "Default lottery subreddit for market sentiment.",
+    "params": {
+      "subreddit": "Lottery",
+      "limit": 20
+    },
+    "tags": ["social", "baseline", "lottery"],
+    "enabled": true
+  },
+  {
+    "item_key": "news.lottery.regulation",
+    "name": "Lottery Regulation News Baseline",
+    "channel_key": "news.google",
+    "description": "Lottery regulation news discovery baseline.",
+    "params": {
+      "keywords": ["lottery regulation", "lottery bill"],
+      "limit": 20
+    },
+    "tags": ["news", "policy", "lottery"],
+    "enabled": true
+  },
+  {
+    "item_key": "policy.ca.default",
+    "name": "California Lottery Policy Baseline",
+    "channel_key": "policy.default",
+    "description": "Lottery policy ingest baseline for California.",
+    "params": {
+      "state": "CA"
+    },
+    "tags": ["policy", "baseline", "lottery"],
+    "enabled": true
+  },
+  {
+    "item_key": "lottery.stats.ca",
+    "name": "California Lottery Stats",
+    "channel_key": "lottery.stats",
+    "description": "CA lottery draw and sales stats (fixed source).",
+    "params": {
+      "state": "CA",
+      "limit": 30
+    },
+    "tags": ["lottery", "stats", "fixed"],
+    "enabled": true
+  }
+]

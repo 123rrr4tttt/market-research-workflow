@@ -1,0 +1,1542 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>社交媒体平台图谱可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/doc-card.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      body.in-iframe header {
+        margin-bottom: 0;
+        border-radius: 0;
+      }
+      .container {
+        max-width: 100%;
+        margin: 0 auto;
+        width: 100%;
+      }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        color: #0f172a;
+      }
+      header p {
+        margin: 0;
+        color: #64748b;
+      }
+      .nav-links {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      .nav-links a {
+        padding: 10px 20px;
+        background: #2563eb;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        display: inline-block;
+        transition: background 0.2s;
+      }
+      .nav-links a:hover {
+        background: #1d4ed8;
+      }
+      .nav-links a.secondary {
+        background: white;
+        border: 1px solid #cbd5e1;
+        color: #2563eb;
+      }
+      .nav-links a.secondary:hover {
+        background: #f1f5f9;
+      }
+      .controls {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      .controls-row {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .controls-row:last-child {
+        margin-bottom: 0;
+      }
+      .controls label {
+        font-weight: 500;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .controls input, .controls select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      .controls input[type="date"] {
+        min-width: 160px;
+      }
+      .controls button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .controls button:hover {
+        background: #1d4ed8;
+      }
+      .controls button:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+      }
+      .graph-container {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      .graph-container h2 {
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .graph-header-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .fullscreen-btn {
+        padding: 6px 12px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .fullscreen-btn:hover {
+        background: #1d4ed8;
+      }
+      .fullscreen-btn:active {
+        transform: scale(0.95);
+      }
+      #graph-chart {
+        width: 100%;
+        height: 700px;
+        min-height: 500px;
+      }
+      /* 全屏视图容器 */
+      #graph-fullscreen-view {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10000;
+        background: white;
+        padding: 20px;
+        box-sizing: border-box;
+        overflow: auto;
+      }
+      #graph-fullscreen-view.active {
+        display: block;
+      }
+      #graph-fullscreen-view .graph-container {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      #graph-fullscreen-view #fullscreen-graph-chart {
+        width: 100%;
+        height: calc(100vh - 80px);
+        min-height: 500px;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 4px solid #2563eb;
+      }
+      .stat-card h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 500;
+      }
+      .stat-card .value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #64748b;
+      }
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #cbd5e1;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      .info {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        overflow: auto;
+      }
+      .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 24px;
+        border-radius: 12px;
+        max-width: 800px;
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #e2e8f0;
+      }
+      .modal-header h2 {
+        margin: 0;
+        font-size: 24px;
+        color: #0f172a;
+      }
+      .close {
+        color: #94a3b8;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .close:hover {
+        color: #0f172a;
+      }
+      .post-detail-section {
+        margin-bottom: 20px;
+      }
+      .post-detail-section h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .post-detail-section p {
+        margin: 0;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      .post-detail-section a {
+        color: #2563eb;
+        text-decoration: none;
+        word-break: break-all;
+      }
+      .post-detail-section a:hover {
+        text-decoration: underline;
+      }
+      .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .tag {
+        background: #f1f5f9;
+        color: #475569;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .tag.sentiment-positive {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .tag.sentiment-negative {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .tag.sentiment-neutral {
+        background: #f1f5f9;
+        color: #475569;
+      }
+      .content-preview {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .extracted-card {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 12px;
+      }
+      .extracted-section {
+        margin-bottom: 20px;
+      }
+      .extracted-section:last-child {
+        margin-bottom: 0;
+      }
+      .extracted-section h3 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        color: #1f2937;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 6px;
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .info-item {
+        background: white;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+      }
+      .info-item label {
+        display: block;
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+      .info-item .value {
+        font-size: 14px;
+        color: #1f2937;
+        font-weight: 500;
+      }
+      .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .tag-item {
+        background: white;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+        border: 1px solid #e5e7eb;
+      }
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .badge.positive {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .badge.negative {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .badge.neutral {
+        background: #f1f5f9;
+        color: #475569;
+      }
+      .link {
+        color: #2563eb;
+        text-decoration: none;
+        word-break: break-all;
+      }
+      .link:hover {
+        text-decoration: underline;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+        color: #475569;
+        font-size: 13px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #f1f5f9;
+        padding: 6px 10px;
+        border-radius: 8px;
+      }
+      .legend-symbol {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      if (window.self !== window.top) {
+        document.body.classList.add('in-iframe');
+      }
+    </script>
+    <div class="container">
+      <header>
+        <h1 id="graph-page-title">🕸️ 社媒图谱</h1>
+        <p>展示社交媒体内容的知识图谱，包括关键词、实体、主题和情感标签的关系网络</p>
+        <p id="graph-doc-type-hint" class="info" style="margin-top: 12px;"></p>
+        <p id="graph-structure-hint" class="info" style="margin-top: 8px;"></p>
+        <div class="nav-links">
+          <a href="social-media-visualization.html">← 返回社交媒体数据</a>
+        </div>
+      </header>
+
+      <div class="stats" id="stats">
+        <div class="stat-card">
+          <h3>节点总数</h3>
+          <div class="value" id="stat-nodes">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>边总数</h3>
+          <div class="value" id="stat-edges">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>帖子节点</h3>
+          <div class="value" id="stat-posts">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>关键词节点</h3>
+          <div class="value" id="stat-keywords">0</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="controls-row">
+          <label>开始日期：</label>
+          <input type="date" id="filter-start" />
+          <label>结束日期：</label>
+          <input type="date" id="filter-end" />
+          <label>平台：</label>
+          <select id="filter-platform">
+            <option value="">全部</option>
+            <option value="reddit">Reddit</option>
+            <option value="twitter">Twitter</option>
+            <option value="facebook">Facebook</option>
+          </select>
+          <label>主题：</label>
+          <input type="text" id="filter-topic" placeholder="可选，如：lottery strategy" />
+          <button onclick="loadGraph()">加载图谱</button>
+        </div>
+        <div class="controls-row">
+          <label>
+            <input type="checkbox" id="show-posts" checked /> 显示帖子节点
+          </label>
+          <label>
+            <input type="checkbox" id="show-keywords" checked /> 显示关键词节点
+          </label>
+          <label>
+            <input type="checkbox" id="show-entities" checked /> 显示实体节点
+          </label>
+          <label>
+            <input type="checkbox" id="show-topics" checked /> 显示主题节点
+          </label>
+          <label>
+            <input type="checkbox" id="show-sentiment" checked /> 显示情感标签
+          </label>
+        </div>
+      </div>
+
+      <div class="graph-container" id="social-graph-container">
+        <h2>
+          内容图谱
+          <div class="graph-header-actions">
+            <button class="fullscreen-btn" id="social-fullscreen-btn" onclick="toggleSocialFullscreen()">
+              <span id="social-fullscreen-icon">⛶</span>
+              <span id="social-fullscreen-text">全屏</span>
+            </button>
+          </div>
+        </h2>
+        <div class="legend" id="social-graph-legend"></div>
+        <div id="graph-chart"></div>
+      </div>
+    </div>
+
+    <!-- 全屏视图容器 -->
+    <div id="graph-fullscreen-view">
+      <div class="graph-container" id="fullscreen-graph-container">
+        <h2>
+          内容图谱
+          <div class="graph-header-actions">
+            <button class="fullscreen-btn" id="fullscreen-exit-btn" onclick="toggleSocialFullscreen()">
+              <span>⛶</span>
+              <span>退出全屏</span>
+            </button>
+          </div>
+        </h2>
+        <div class="legend" id="fullscreen-social-legend"></div>
+        <div id="fullscreen-graph-chart"></div>
+      </div>
+    </div>
+
+    <!-- Post详情模态框 -->
+    <div id="post-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>帖子详情</h2>
+          <span class="close" onclick="closePostModal()">&times;</span>
+        </div>
+        <div id="post-detail-content"></div>
+      </div>
+    </div>
+
+    <script>
+      let graphChart = null;
+      let currentGraphData = null;
+      let nodeDataMap = {}; // 存储节点原始数据，用于详情展示
+      let computedNodeColors = {}; // 基于情绪汇聚计算的节点颜色
+      let graphConfig = { nodeTypes: ['Post', 'Keyword', 'Entity', 'Topic', 'SentimentTag', 'User', 'Subreddit'], nodeLabels: {}, typeLabel: '社媒图谱' };
+
+      const SOCIAL_NODE_COLORS = { 'Post': '#2563eb', 'Keyword': '#10b981', 'Entity': '#f59e0b', 'Topic': '#8b5cf6', 'SentimentTag': '#ec4899', 'User': '#64748b', 'Subreddit': '#14b8a6' };
+      async function loadGraphDocTypeHint() {
+        const hintEl = document.getElementById('graph-doc-type-hint');
+        const structureEl = document.getElementById('graph-structure-hint');
+        const statsEl = document.getElementById('stats');
+        const legendEl = document.getElementById('social-graph-legend');
+        const controlsRow2 = document.querySelector('.controls-row:nth-child(2)');
+        if (!hintEl || !structureEl) return;
+        try {
+          const projectKey = window.MarketApp?.getProjectKey?.() || '';
+          const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : '';
+          const response = await fetch(`/api/v1/project-customization/graph-config${query}`);
+          const data = response.ok ? (await response.json())?.data : null;
+          const graphDocTypes = data?.graph_doc_types || {};
+          const labels = data?.graph_type_labels || {};
+          const graphNodeTypes = data?.graph_node_types || {};
+          const graphNodeLabels = data?.graph_node_labels || {};
+          const graphEdgeTypes = data?.graph_edge_types || {};
+          const relationLabels = data?.graph_relation_labels || {};
+          const socialTypes = Array.isArray(graphDocTypes.social) ? graphDocTypes.social : ['social_sentiment', 'social_feed'];
+          const socialNodeTypes = Array.isArray(graphNodeTypes.social) ? graphNodeTypes.social : ['Post', 'Keyword', 'Entity', 'Topic', 'SentimentTag', 'User', 'Subreddit'];
+          const socialEdgeTypes = Array.isArray(graphEdgeTypes.social) ? graphEdgeTypes.social : ['MENTIONS_KEYWORD', 'MENTIONS_ENTITY', 'HAS_TOPIC', 'HAS_SENTIMENT', 'AUTHORED_BY', 'IN_SUBREDDIT', 'CO_OCCURS'];
+          const socialLabel = labels.social || '社媒图谱';
+          graphConfig = { nodeTypes: socialNodeTypes, nodeLabels: graphNodeLabels, typeLabel: socialLabel };
+          const titleEl = document.getElementById('graph-page-title');
+          if (titleEl) titleEl.textContent = `🕸️ ${socialLabel}`;
+          hintEl.textContent = `${socialLabel}数据类型: ${socialTypes.join(', ')}`;
+          const edgeLabels = socialEdgeTypes.map((e) => relationLabels[e] ? `${e}(${relationLabels[e]})` : e);
+          structureEl.textContent = `节点类型: ${socialNodeTypes.join(', ')}；关系类型: ${edgeLabels.join(', ')}`;
+          const lbl = (t) => graphNodeLabels[t] || t;
+          if (statsEl) {
+            statsEl.innerHTML = `<div class="stat-card"><h3>节点总数</h3><div class="value" id="stat-nodes">0</div></div><div class="stat-card"><h3>边总数</h3><div class="value" id="stat-edges">0</div></div>` +
+              socialNodeTypes.map((t) => `<div class="stat-card"><h3>${lbl(t)}节点</h3><div class="value" id="stat-${t}">0</div></div>`).join('');
+          }
+          if (controlsRow2) {
+            const showMap = { Post: 'show-posts', Keyword: 'show-keywords', Entity: 'show-entities', Topic: 'show-topics', SentimentTag: 'show-sentiment' };
+            controlsRow2.innerHTML = socialNodeTypes.map((t) => {
+              const id = showMap[t] || ('show-' + t.toLowerCase());
+              return `<label><input type="checkbox" id="${id}" checked /> 显示${lbl(t)}节点</label>`;
+            }).join('');
+          }
+          const legendHtml = socialNodeTypes.map((t) => {
+            const color = SOCIAL_NODE_COLORS[t] || '#94a3b8';
+            const label = graphNodeLabels[t] || t;
+            return `<div class="legend-item"><span class="legend-symbol" style="background:${color};"></span>${t} ${label}</div>`;
+          }).join('');
+          if (legendEl) legendEl.innerHTML = legendHtml;
+          const fullscreenLegend = document.getElementById('fullscreen-social-legend');
+          if (fullscreenLegend) fullscreenLegend.innerHTML = legendHtml;
+        } catch (error) {
+          hintEl.textContent = '当前图谱类型: social_sentiment, social_feed';
+          structureEl.textContent = '节点类型: Post, Keyword, Entity, Topic, SentimentTag, User, Subreddit；关系类型: MENTIONS_KEYWORD, MENTIONS_ENTITY, HAS_TOPIC, HAS_SENTIMENT, AUTHORED_BY, IN_SUBREDDIT, CO_OCCURS';
+        }
+      }
+
+      // 初始化图表
+      function initChart() {
+        const chartEl = document.getElementById('graph-chart');
+        if (!chartEl) return;
+        
+        // 确保容器是div，而不是包含loading的div
+        if (chartEl.querySelector('.loading') || chartEl.querySelector('.error') || chartEl.querySelector('.info')) {
+          chartEl.innerHTML = '';
+        }
+        
+        graphChart = echarts.init(chartEl);
+        
+        // 设置初始空图表
+        graphChart.setOption({
+          title: {
+            text: '请选择筛选条件并点击"加载图谱"',
+            left: 'center',
+            top: 'middle',
+            textStyle: {
+              color: '#94a3b8',
+              fontSize: 16
+            }
+          }
+        });
+      }
+
+      // 加载图谱数据
+      async function loadGraph() {
+        const start = document.getElementById('filter-start').value;
+        const end = document.getElementById('filter-end').value;
+        const platform = document.getElementById('filter-platform').value;
+        const topic = document.getElementById('filter-topic').value.trim();
+        
+        const chartEl = document.getElementById('graph-chart');
+        
+        // 显示加载状态
+        if (graphChart) {
+          graphChart.dispose();
+          graphChart = null;
+        }
+        chartEl.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+        
+        try {
+          const projectKey = window.MarketApp?.getProjectKey?.() || '';
+          const params = new URLSearchParams();
+          if (projectKey) params.append('project_key', projectKey);
+          if (start) params.append('start_date', start);
+          if (end) params.append('end_date', end);
+          if (platform) params.append('platform', platform);
+          if (topic) params.append('topic', topic);
+          params.append('limit', '100');
+          const response = await fetch(`/api/v1/admin/content-graph?${params}`);
+          
+          let graphData;
+          if (!response.ok) {
+            // 尝试解析错误响应
+            try {
+              const errorData = await response.json();
+              // 如果错误响应中包含nodes和edges字段，仍然使用它
+              if (errorData.nodes !== undefined && errorData.edges !== undefined) {
+                graphData = { nodes: errorData.nodes || [], edges: errorData.edges || [] };
+              } else {
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+              }
+            } catch (e) {
+              // 如果无法解析，使用空数据
+              console.warn('API返回错误，使用空数据:', e);
+              graphData = { nodes: [], edges: [] };
+            }
+          } else {
+            graphData = await response.json();
+          }
+          
+          console.log('API返回的数据:', graphData);
+          
+          // 确保数据格式正确
+          if (!graphData.nodes) graphData.nodes = [];
+          if (!graphData.edges) graphData.edges = [];
+          
+          // 重新初始化图表容器
+          chartEl.innerHTML = '';
+          initChart();
+          
+          // 渲染图谱
+          renderGraph(graphData);
+          
+        } catch (err) {
+          console.error('加载图谱失败:', err);
+          // 显示错误信息，但也要初始化图表和统计信息
+          const chartEl = document.getElementById('graph-chart');
+          chartEl.innerHTML = '';
+          initChart();
+          
+          if (document.getElementById('stat-nodes')) document.getElementById('stat-nodes').textContent = '0';
+          if (document.getElementById('stat-edges')) document.getElementById('stat-edges').textContent = '0';
+          (graphConfig.nodeTypes || []).forEach((t) => {
+            const el = document.getElementById('stat-' + t);
+            if (el) el.textContent = '0';
+          });
+          
+          // 显示错误信息
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'error';
+          errorDiv.textContent = `加载失败: ${err.message}`;
+          chartEl.appendChild(errorDiv);
+        }
+      }
+
+      // 渲染图谱
+      function renderGraph(graphData) {
+        if (!graphChart) {
+          console.error('图表未初始化');
+          return;
+        }
+        
+        if (!graphData) {
+          console.error('图谱数据为空');
+          return;
+        }
+        
+        console.log('图谱数据:', graphData);
+        
+        const nodes = graphData.nodes || [];
+        const edges = graphData.edges || [];
+        
+        console.log(`节点数: ${nodes.length}, 边数: ${edges.length}`);
+        
+        // 更新统计信息（根据项目配置的节点类型）
+        const statNodes = document.getElementById('stat-nodes');
+        const statEdges = document.getElementById('stat-edges');
+        if (statNodes) statNodes.textContent = nodes.length || 0;
+        if (statEdges) statEdges.textContent = edges.length || 0;
+        (graphConfig.nodeTypes || []).forEach((t) => {
+          const el = document.getElementById('stat-' + t);
+          if (el) el.textContent = nodes.filter((n) => n.type === t).length || 0;
+        });
+        
+        if (nodes.length === 0) {
+          const chartEl = document.getElementById('graph-chart');
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'info';
+          infoDiv.innerHTML = '暂无图谱数据。请调整筛选条件或确保数据库中有社交媒体数据。';
+          chartEl.innerHTML = '';
+          chartEl.appendChild(infoDiv);
+          return;
+        }
+        
+        // 按节点类型分类（根据项目配置，并补充数据中实际存在的类型）
+        const configTypes = graphConfig.nodeTypes || ['Post', 'Keyword', 'Entity', 'Topic', 'SentimentTag', 'User', 'Subreddit'];
+        const actualTypes = [...new Set(nodes.map((n) => n.type))];
+        const allTypes = [...new Set([...configTypes, ...actualTypes])];
+        const categoryMap = {};
+        allTypes.forEach((t, i) => { categoryMap[t] = i; });
+        const categories = allTypes.map((name) => ({ name }));
+        lastCategories = categories;
+        
+        // 清空节点数据映射
+        nodeDataMap = {};
+        computedNodeColors = {};
+        
+        // 先计算每个节点的度数（连接的边数）
+        const nodeDegrees = {};
+        nodes.forEach(node => {
+          const nodeId = `${node.type}_${node.id}`;
+          nodeDegrees[nodeId] = 0;
+        });
+        
+        edges.forEach(edge => {
+          const fromId = `${edge.from.type}_${edge.from.id}`;
+          const toId = `${edge.to.type}_${edge.to.id}`;
+          if (nodeDegrees.hasOwnProperty(fromId)) {
+            nodeDegrees[fromId]++;
+          }
+          if (nodeDegrees.hasOwnProperty(toId)) {
+            nodeDegrees[toId]++;
+          }
+        });
+        
+        // 找到最小和最大度数，用于归一化
+        const degrees = Object.values(nodeDegrees);
+        const minDegree = Math.min(...degrees, 0);
+        const maxDegree = Math.max(...degrees, 1);
+        const degreeRange = maxDegree - minDegree || 1; // 避免除零
+        
+        console.log(`节点度数范围: ${minDegree} - ${maxDegree}`);
+
+        // 各类型的度数范围（避免被Post等高值淹没）
+        const degMinByType = {};
+        const degMaxByType = {};
+        nodes.forEach(n => {
+          const t = n.type;
+          const id = `${n.type}_${n.id}`;
+          const d = nodeDegrees[id] || 0;
+          if (!(t in degMinByType)) { degMinByType[t] = d; degMaxByType[t] = d; }
+          else {
+            if (d < degMinByType[t]) degMinByType[t] = d;
+            if (d > degMaxByType[t]) degMaxByType[t] = d;
+          }
+        });
+
+        // 规范化边权重（用于边长/粗细/传播）
+        const edgeRawWeights = edges.map(e => (e.properties && e.properties.weight) || 1);
+        const wMin = Math.min(...edgeRawWeights, 1);
+        const wMax = Math.max(...edgeRawWeights, 1);
+        const wRange = (wMax - wMin) || 1;
+
+        // 计算Post极性映射（-1/0/1），并为Post预设颜色
+        const postPolarityMap = {};
+        nodes.forEach(n => {
+          if (n.type === 'Post') {
+            const ori = (n.sentiment_orientation || n.properties?.sentiment_orientation || '').toLowerCase();
+            const pol = ori === 'positive' ? 1 : ori === 'negative' ? -1 : 0;
+            postPolarityMap[`${n.type}_${n.id}`] = pol;
+          }
+        });
+
+        // 计算Post内禀强度（基于内容丰富度/长度/标签等，归一化到[0,1]）
+        const postIntrinsicMap = {};
+        nodes.forEach(n => {
+          if (n.type !== 'Post') return;
+          const text = (n.text || '').trim();
+          const lenNorm = Math.min(1, text.length / 280);
+          const topicBoost = n.topic ? 1 : 0;
+          const keyPhrases = Array.isArray(n.key_phrases) ? n.key_phrases.length : 0;
+          const emotionWords = Array.isArray(n.emotion_words) ? n.emotion_words.length : 0;
+          const sentimentTags = Array.isArray(n.sentiment_tags) ? n.sentiment_tags.length : 0;
+          const kpNorm = Math.min(1, keyPhrases / 5);
+          const emoNorm = Math.min(1, emotionWords / 5);
+          const tagNorm = Math.min(1, sentimentTags / 3);
+          const raw = 0.4 * lenNorm + 0.2 * topicBoost + 0.2 * kpNorm + 0.1 * emoNorm + 0.1 * tagNorm;
+          postIntrinsicMap[`${n.type}_${n.id}`] = Math.max(0, Math.min(1, raw));
+        });
+
+        // 传播Post内禀强度到周边节点：按边权重加权平均（无权重的边按类型给默认传播权重）
+        const nodePropInfluence = {};
+        const nodePropWeight = {};
+        edges.forEach(e => {
+          const fromId = `${e.from.type}_${e.from.id}`;
+          const toId = `${e.to.type}_${e.to.id}`;
+          const rawW = (e.properties && e.properties.weight) ? e.properties.weight : null;
+          let propW;
+          if (typeof rawW === 'number') {
+            const norm = (wRange > 0) ? (rawW - wMin) / wRange : 1;
+            propW = Math.max(0.3, Math.min(1, norm)); // 给最小传播权重，避免为0
+          } else {
+            // 无权重：按边类型给默认传播权重
+            if (e.type === 'HAS_SENTIMENT') propW = 0.8;
+            else if (e.type === 'HAS_TOPIC') propW = 0.6;
+            else if (e.type === 'MENTIONS_ENTITY') propW = 0.5;
+            else if (e.type === 'AUTHORED_BY' || e.type === 'IN_SUBREDDIT') propW = 0.4;
+            else if (e.type === 'CO_OCCURS') propW = 0.5;
+            else propW = 0.5;
+          }
+          const fromPost = postIntrinsicMap[fromId];
+          const toPost = postIntrinsicMap[toId];
+          if (fromPost !== undefined) {
+            nodePropInfluence[toId] = (nodePropInfluence[toId] || 0) + propW * fromPost;
+            nodePropWeight[toId] = (nodePropWeight[toId] || 0) + propW;
+          }
+          if (toPost !== undefined) {
+            nodePropInfluence[fromId] = (nodePropInfluence[fromId] || 0) + propW * toPost;
+            nodePropWeight[fromId] = (nodePropWeight[fromId] || 0) + propW;
+          }
+        });
+        Object.keys(nodePropInfluence).forEach(id => {
+          const w = nodePropWeight[id] || 0;
+          nodePropInfluence[id] = w > 0 ? (nodePropInfluence[id] / w) : 0;
+        });
+
+        // 情绪单步加权汇聚：将Post情绪沿边汇聚到非Post节点
+        const aggSum = {}; // Σ(w·sent)
+        const aggW = {};   // Σ(w)
+        edges.forEach(e => {
+          const fromId = `${e.from.type}_${e.from.id}`;
+          const toId = `${e.to.type}_${e.to.id}`;
+          const w = (e.properties && e.properties.weight) ? e.properties.weight : 1;
+          const fromPol = postPolarityMap[fromId];
+          const toPol = postPolarityMap[toId];
+          if (fromPol !== undefined) {
+            // 汇聚到对端
+            aggSum[toId] = (aggSum[toId] || 0) + fromPol * w;
+            aggW[toId] = (aggW[toId] || 0) + w;
+          } else if (toPol !== undefined) {
+            // 汇聚到对端
+            aggSum[fromId] = (aggSum[fromId] || 0) + toPol * w;
+            aggW[fromId] = (aggW[fromId] || 0) + w;
+          }
+        });
+
+        // 计算节点颜色（Post 用自身极性，其他用汇聚结果）
+        nodes.forEach(n => {
+          const nodeId = `${n.type}_${n.id}`;
+          if (n.type === 'Post') {
+            const pol = postPolarityMap[nodeId] ?? 0;
+            computedNodeColors[nodeId] = sentimentColor(pol);
+          } else {
+            const sum = aggSum[nodeId] || 0;
+            const weight = aggW[nodeId] || 0;
+            const avg = weight > 0 ? (sum / weight) : 0; // [-1,1]
+            computedNodeColors[nodeId] = sentimentColor(avg);
+          }
+        });
+        
+        // 转换节点数据
+        const echartsNodes = nodes.map(node => {
+          const category = categoryMap[node.type] || 0;
+          // 节点名称：根据类型选择不同的属性
+          // 注意：后端exporter使用**node.properties展开，所以属性在顶层，不在properties中
+          let nodeName = node.id;
+          if (node.type === 'Post') {
+            // 优先显示text（标题），如果没有则显示ID，不显示URL
+            nodeName = node.text || `Post ${node.id}`;
+          } else if (node.type === 'Keyword') {
+            // 关键词统一小写显示，避免大小写造成的视觉错位
+            nodeName = (node.text || node.id).toLowerCase();
+          } else if (node.type === 'Entity') {
+            nodeName = (node.canonical_name || node.text || node.id).toLowerCase();
+          } else if (node.type === 'Topic' || node.type === 'SentimentTag') {
+            nodeName = (node.label || node.id).toLowerCase();
+          } else if (node.type === 'User') {
+            nodeName = (node.username || node.id).toLowerCase();
+          } else if (node.type === 'Subreddit') {
+            nodeName = 'r/' + (node.name || node.id).toLowerCase();
+          }
+          
+          const nodeId = `${node.type}_${node.id}`;
+          // 保存原始节点数据
+          nodeDataMap[nodeId] = node;
+          
+          // 获取节点的度数（类型范围归一化）
+          const degree = nodeDegrees[nodeId] || 0;
+          const tMin = (degMinByType[node.type] !== undefined) ? degMinByType[node.type] : minDegree;
+          const tMax = (degMaxByType[node.type] !== undefined) ? degMaxByType[node.type] : maxDegree;
+          const tRange = (tMax - tMin) || 1;
+          
+          const propInfluence = nodePropInfluence[nodeId] || 0;
+          return {
+            id: nodeId,
+            name: nodeName,
+            value: degree, // 使用度数作为value，用于tooltip显示
+            category: category,
+              symbol: getNodeSymbol(node.type),
+            symbolSize: getNodeSizeCombined(node.type, degree, tMin, tMax, tRange, propInfluence),
+            itemStyle: {
+              color: computedNodeColors[nodeId] || getNodeColor(node.type)
+            },
+            label: {
+              show: true,
+              formatter: (params) => {
+                const name = params.name || '';
+                return name.length > 20 ? name.substring(0, 20) + '...' : name;
+              }
+            }
+          };
+        });
+        
+        // 转换边数据
+        const echartsLinks = edges.map(edge => {
+          const fromId = `${edge.from.type}_${edge.from.id}`;
+          const toId = `${edge.to.type}_${edge.to.id}`;
+          const rawW = (edge.properties && edge.properties.weight) ? edge.properties.weight : 1;
+          const normW = (rawW - wMin) / wRange; // [0,1]
+          const edgeValue = 1 - normW; // 强→短
+          const width = 1 + 2 * normW; // 1–3
+          // 仅对情绪相关的边着色（Post→Topic / Post→SentimentTag）
+          let edgeColor = '#cbd5e1';
+          if (edge.type === 'HAS_TOPIC' || edge.type === 'HAS_SENTIMENT') {
+            const pol = (postPolarityMap[fromId] !== undefined) ? postPolarityMap[fromId]
+              : (postPolarityMap[toId] !== undefined ? postPolarityMap[toId] : 0);
+            edgeColor = sentimentColor(pol);
+          }
+          return {
+            source: fromId,
+            target: toId,
+            value: edgeValue,
+            lineStyle: {
+              width: Math.max(1, Math.min(3, width)),
+              curveness: 0,
+              color: edgeColor
+            }
+          };
+        }).filter(link => {
+          // 过滤掉源节点或目标节点不存在的边
+          const sourceExists = echartsNodes.some(n => n.id === link.source);
+          const targetExists = echartsNodes.some(n => n.id === link.target);
+          return sourceExists && targetExists;
+        });
+        
+        console.log(`转换后节点数: ${echartsNodes.length}, 边数: ${echartsLinks.length}`);
+        
+        // 清除容器中的所有提示文字
+        const chartEl = document.getElementById('graph-chart');
+        if (chartEl) {
+          // 移除所有提示元素
+          const loadingEl = chartEl.querySelector('.loading');
+          const errorEl = chartEl.querySelector('.error');
+          const infoEl = chartEl.querySelector('.info');
+          if (loadingEl) loadingEl.remove();
+          if (errorEl) errorEl.remove();
+          if (infoEl) infoEl.remove();
+        }
+        
+        // 统计信息已在前面更新，这里不需要重复更新
+        
+        const option = {
+          title: {
+            show: false  // 明确隐藏title，清除初始提示文字
+          },
+          tooltip: {
+            trigger: 'item',
+            formatter: (params) => {
+              if (params.dataType === 'node') {
+                const nodeData = nodeDataMap[params.data.id];
+                const degree = params.data.value || 0;
+                let tooltip = `${params.data.name}<br/>类型: ${getNodeTypeName(params.data.category)}<br/>连接数: ${degree}`;
+                if (nodeData && nodeData.type === 'Post') {
+                  // 属性在顶层（exporter展开后）
+                  if (nodeData.platform) tooltip += `<br/>平台: ${nodeData.platform}`;
+                  if (nodeData.publish_date) tooltip += `<br/>发布时间: ${nodeData.publish_date}`;
+                  if (nodeData.sentiment_orientation) {
+                    tooltip += `<br/>情感: ${nodeData.sentiment_orientation}`;
+                  }
+                  tooltip += '<br/><span style="color: #64748b; font-size: 12px;">点击查看详情</span>';
+                }
+                return tooltip;
+              } else {
+                return `${params.data.source} → ${params.data.target}`;
+              }
+            }
+          },
+          legend: { show: false },
+          series: [{
+            name: '内容图谱',
+            type: 'graph',
+            layout: 'force',
+            data: echartsNodes,
+            links: echartsLinks,
+            categories: categories,
+            roam: true,
+            label: {
+              show: true,
+              position: 'right',
+              formatter: '{b}'
+            },
+            labelLayout: {
+              hideOverlap: true
+            },
+            scaleLimit: {
+              min: 0.05,
+              max: 3
+            },
+            lineStyle: {
+              color: 'source',
+              curveness: 0  // 直线连接
+            },
+            emphasis: {
+              focus: 'adjacency',
+              lineStyle: {
+                width: 10
+              }
+            },
+            force: {
+              repulsion: 1500,  // 增加排斥力，让节点间距更大
+              gravity: 0.05,     // 减小重力，让节点分布更分散
+              edgeLength: [120, 300],   // 根据link.value映射（强→短）
+              layoutAnimation: true
+            }
+          }]
+        };
+        
+        graphChart.setOption(option);
+        currentGraphData = graphData;
+        
+        // 添加点击事件
+        graphChart.on('click', (params) => {
+          if (params.dataType === 'node') {
+            const nodeData = nodeDataMap[params.data.id];
+            if (nodeData && nodeData.type === 'Post') {
+              showPostDetail(nodeData);
+            }
+          }
+        });
+        
+        // 如果当前是全屏状态，更新全屏图表
+        if (isFullscreen && fullscreenChart) {
+          fullscreenChart.setOption(option);
+          setTimeout(() => {
+            fullscreenChart.resize();
+          }, 100);
+        }
+      }
+
+      // 根据度数与Post内禀传播联合计算节点大小
+      function getNodeSizeCombined(nodeType, degree, minDegree, maxDegree, degreeRange, propInfluence) {
+        // 基础大小（最小节点大小）- 减小了基础大小
+        const baseSize = {
+          'Post': 12,
+          'Keyword': 8,
+          'Entity': 12,
+          'Topic': 16,
+          'SentimentTag': 12,
+          'User': 12,
+          'Subreddit': 12
+        };
+        const minSize = baseSize[nodeType] || 8;
+        
+        // 最大大小（最大节点大小）- 减小了最大大小
+        const maxSize = {
+          'Post': 35,
+          'Keyword': 28,
+          'Entity': 38,
+          'Topic': 44,
+          'SentimentTag': 48,
+          'User': 36,
+          'Subreddit': 36
+        };
+        const maxNodeSize = maxSize[nodeType] || 30;
+        
+        // 如果度数为0，使用最小大小
+        if (degree === 0) {
+          // 对于非Post节点，仍然允许传播影响拉起一些可读性
+          if (nodeType !== 'Post') {
+            const pf = Math.max(0, Math.min(1, propInfluence || 0));
+            // 类型缩放，提升非Post/Keyword的观感
+            const typeScale = (nodeType === 'Topic' || nodeType === 'SentimentTag') ? 1.25
+              : (nodeType === 'Entity' || nodeType === 'User' || nodeType === 'Subreddit') ? 1.2 : 1.0;
+            let size0 = minSize + (maxNodeSize - minSize) * 0.5 * Math.min(1, pf * typeScale); // 最高拉起50%
+            // 类型底线
+            if (nodeType === 'Topic') size0 = Math.max(size0, 16);
+            if (nodeType === 'Entity' || nodeType === 'User' || nodeType === 'Subreddit') size0 = Math.max(size0, 14);
+            if (nodeType === 'SentimentTag') size0 = Math.max(size0, 16);
+            return Math.round(size0);
+          }
+          return minSize;
+        }
+        
+        // 归一化度数到0-1范围
+        const normalizedDegree = (degree - minDegree) / degreeRange;
+        // 按类型设置放大指数（越大越强调“连得多就更大”）
+        const expMap = {
+          'Post': 0.7,
+          'Keyword': 0.85,
+          'Entity': 0.85,
+          'Topic': 0.9,
+          'SentimentTag': 1.2,
+          'User': 0.85,
+          'Subreddit': 0.85
+        };
+        const exp = expMap[nodeType] || 0.85;
+        const degFactor = Math.pow(Math.max(0, Math.min(1, normalizedDegree)), exp);
+        const propFactor = Math.max(0, Math.min(1, propInfluence || 0));
+
+        // 类型权重：Tag/Topic更依赖传播，Keyword/Entity/User次之，Post主要看自身度数
+        const weightMap = {
+          'Post': { d: 0.9, p: 0.1 },
+          'Topic': { d: 0.35, p: 0.65 },
+          'SentimentTag': { d: 0.7, p: 0.3 },
+          'Keyword': { d: 0.6, p: 0.4 },
+          'Entity': { d: 0.55, p: 0.45 },
+          'User': { d: 0.55, p: 0.45 },
+          'Subreddit': { d: 0.55, p: 0.45 }
+        };
+        const wp = weightMap[nodeType] || { d: 0.6, p: 0.4 };
+        let combined = Math.max(0, Math.min(1, wp.d * degFactor + wp.p * propFactor));
+        // 类型缩放，提升非Post/Keyword的观感
+        const typeScale = (nodeType === 'Topic') ? 1.1
+          : (nodeType === 'Entity' || nodeType === 'User' || nodeType === 'Subreddit') ? 1.05 : 1.0;
+        const typeScale2 = (nodeType === 'Topic') ? 1.1
+          : (nodeType === 'Entity' || nodeType === 'User' || nodeType === 'Subreddit') ? 1.05 : 1.0;
+        combined = Math.min(1, combined * typeScale2);
+        
+        // 计算最终大小：最小大小 + (最大大小 - 最小大小) * 归一化因子
+        let size = minSize + (maxNodeSize - minSize) * combined;
+        
+        // 动态底线：随度数缓慢提升，避免信息量大的节点过小
+        let dynBump = 0.8 * Math.sqrt(Math.max(0, degree));
+        if (nodeType === 'SentimentTag') {
+          // 降低底线提升幅度，避免尺寸被底线抹平差异
+          const bump = Math.min(3, 0.6 * Math.sqrt(Math.max(0, degree)));
+          const floor = (degree > 0 ? 18 : 16) + bump;
+          if (size < floor) size = floor;
+        }
+        if (nodeType === 'Topic') {
+          const floor = (degree > 0 ? 20 : 16) + Math.min(6, dynBump);
+          if (size < floor) size = floor;
+        }
+        if (nodeType === 'Entity' || nodeType === 'User' || nodeType === 'Subreddit') {
+          const floor = (degree > 0 ? 16 : 14) + Math.min(4, dynBump);
+          if (size < floor) size = floor;
+        }
+        
+        return Math.round(size);
+      }
+
+      // 全屏功能 - 提取视图到全屏容器
+      let isFullscreen = false;
+      let fullscreenChart = null;
+      
+      window.toggleSocialFullscreen = function() {
+        const fullscreenView = document.getElementById('graph-fullscreen-view');
+        const originalContainer = document.getElementById('social-graph-container');
+        const originalChart = document.getElementById('graph-chart');
+        const fullscreenContainer = document.getElementById('fullscreen-graph-container');
+        const fullscreenChartEl = document.getElementById('fullscreen-graph-chart');
+        const icon = document.getElementById('social-fullscreen-icon');
+        const text = document.getElementById('social-fullscreen-text');
+        
+        if (isFullscreen) {
+          // 退出全屏
+          console.log('退出全屏');
+          isFullscreen = false;
+          fullscreenView.classList.remove('active');
+          
+          // 销毁全屏图表
+          if (fullscreenChart) {
+            fullscreenChart.dispose();
+            fullscreenChart = null;
+          }
+          
+          // 恢复原图表显示
+          if (originalChart) {
+            originalChart.style.display = 'block';
+          }
+          
+          // 通知父窗口显示侧边栏
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'fullscreen', action: 'exit' }, '*');
+              console.log('已通知父窗口显示侧边栏');
+            }
+          } catch (e) {
+            console.error('通知父窗口失败:', e);
+          }
+          
+          // 更新按钮状态
+          if (icon) icon.textContent = '⛶';
+          if (text) text.textContent = '全屏';
+          
+          // 重新调整原图表大小
+          if (graphChart) {
+            setTimeout(() => {
+              graphChart.resize();
+            }, 100);
+          }
+        } else {
+          // 进入全屏
+          console.log('进入全屏');
+          isFullscreen = true;
+          
+          // 隐藏原图表
+          if (originalChart) {
+            originalChart.style.display = 'none';
+          }
+          
+          // 显示全屏视图
+          fullscreenView.classList.add('active');
+          
+          // 通知父窗口隐藏侧边栏
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'fullscreen', action: 'enter' }, '*');
+              console.log('已通知父窗口隐藏侧边栏');
+            }
+          } catch (e) {
+            console.error('通知父窗口失败:', e);
+          }
+          
+          // 复制图表配置到全屏容器
+          if (graphChart && currentGraphData) {
+            // 获取当前图表配置
+            const option = graphChart.getOption();
+            
+            // 创建新的图表实例
+            fullscreenChart = echarts.init(fullscreenChartEl);
+            fullscreenChart.setOption(option);
+            
+            // 重新调整大小
+            setTimeout(() => {
+              fullscreenChart.resize();
+            }, 100);
+            
+            // 复制点击事件
+            fullscreenChart.on('click', (params) => {
+              if (params.dataType === 'node') {
+                const nodeData = nodeDataMap[params.data.id];
+                if (nodeData && nodeData.type === 'Post') {
+                  showPostDetail(nodeData);
+                }
+              }
+            });
+          }
+          
+          // 更新按钮状态
+          if (icon) icon.textContent = '⛶';
+          if (text) text.textContent = '退出全屏';
+        }
+      };
+
+      // 监听ESC键退出全屏
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isFullscreen) {
+          toggleSocialFullscreen();
+        }
+      });
+
+      // 监听父窗口的全屏状态变化
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'fullscreen-state') {
+          if (!e.data.isFullscreen && isFullscreen) {
+            // 父窗口退出全屏，同步状态
+            const container = document.getElementById('social-graph-container');
+            const icon = document.getElementById('social-fullscreen-icon');
+            const text = document.getElementById('social-fullscreen-text');
+            isFullscreen = false;
+            container.classList.remove('fullscreen');
+            icon.textContent = '⛶';
+            text.textContent = '全屏';
+            if (graphChart) {
+              setTimeout(() => {
+                graphChart.resize();
+              }, 100);
+            }
+          }
+        }
+      });
+
+      // 保留原函数以备后用（已废弃）
+      function getNodeSize(nodeType, properties) {
+        const baseSize = {
+          'Post': 30,
+          'Keyword': 20,
+          'Entity': 25,
+          'Topic': 35,
+          'SentimentTag': 15,
+          'User': 20,
+          'Subreddit': 25
+        };
+        const size = baseSize[nodeType] || 20;
+        const weight = properties?.weight || 1;
+        return Math.max(size * 0.5, Math.min(size * 2, size * Math.sqrt(weight)));
+      }
+
+      // 获取节点颜色
+      function getNodeColor(nodeType) {
+        const colors = {
+          'Post': '#2563eb',
+          'Keyword': '#10b981',
+          'Entity': '#f59e0b',
+          'Topic': '#8b5cf6',
+          'SentimentTag': '#ec4899',
+          'User': '#64748b',
+          'Subreddit': '#14b8a6'
+        };
+        return colors[nodeType] || '#94a3b8';
+      }
+
+      let lastCategories = [];
+      function getNodeTypeName(categoryIndex) {
+        return lastCategories[categoryIndex]?.name || 'Unknown';
+      }
+      
+      // 不同类型节点形状
+      function getNodeSymbol(nodeType) {
+        const map = {
+          'Post': 'circle',
+          'Keyword': 'diamond',
+          'Entity': 'rect',
+          'Topic': 'triangle',
+          'SentimentTag': 'pin',
+          'User': 'roundRect',
+          'Subreddit': 'arrow'
+        };
+        return map[nodeType] || 'circle';
+      }
+
+      // ===== 情绪颜色工具 =====
+      function hexToRgb(hex) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return m ? {
+          r: parseInt(m[1], 16),
+          g: parseInt(m[2], 16),
+          b: parseInt(m[3], 16)
+        } : { r: 148, g: 163, b: 184 };
+      }
+      function rgbToHex(r, g, b) {
+        const toHex = (v) => v.toString(16).padStart(2, '0');
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+      // value ∈ [-1,1]：-1 负（红），0 中性（灰），+1 正（绿）
+      function sentimentColor(value) {
+        const neg = hexToRgb('#ef4444');
+        const neu = hexToRgb('#94a3b8');
+        const pos = hexToRgb('#10b981');
+        if (value === 0) return '#94a3b8';
+        if (value > 0) {
+          const t = Math.min(1, Math.max(0, value));
+          const r = Math.round(neu.r + (pos.r - neu.r) * t);
+          const g = Math.round(neu.g + (pos.g - neu.g) * t);
+          const b = Math.round(neu.b + (pos.b - neu.b) * t);
+          return rgbToHex(r, g, b);
+        } else {
+          const t = Math.min(1, Math.max(0, -value));
+          const r = Math.round(neu.r + (neg.r - neu.r) * t);
+          const g = Math.round(neu.g + (neg.g - neu.g) * t);
+          const b = Math.round(neu.b + (neg.b - neu.b) * t);
+          return rgbToHex(r, g, b);
+        }
+      }
+
+      // 显示Post详情 - 直接调用数据库管理API
+      async function showPostDetail(nodeData) {
+        const modal = document.getElementById('post-modal');
+        const content = document.getElementById('post-detail-content');
+        const postId = nodeData.id;
+        
+        // 显示加载状态
+        content.innerHTML = '<div style="text-align: center; padding: 40px; color: #64748b;">加载中...</div>';
+        modal.style.display = 'block';
+        
+        try {
+          // 调用数据库管理API获取完整文档数据（MarketApp.fetchJSON 自动解析 envelope）
+          const doc = await window.MarketApp.fetchJSON(`/api/v1/admin/documents/${postId}`);
+          
+          // 处理 extracted_data：如果是字符串则解析为对象
+          let extractedData = doc.extracted_data;
+          if (typeof extractedData === 'string') {
+            try {
+              extractedData = JSON.parse(extractedData);
+            } catch (e) {
+              console.error('解析 extracted_data 失败:', e);
+              extractedData = {};
+            }
+          }
+          
+          const extracted = extractedData || {};
+          
+          // 使用与数据库管理页面相同的格式
+          const bodyHtml = `
+            <div><strong>标题:</strong> ${escapeHtml(doc.title || '(无)')}</div>
+            <div style="margin-top: 12px;"><strong>URL:</strong> <a href="${doc.uri}" target="_blank" class="link">${escapeHtml(doc.uri)}</a></div>
+            ${window.renderGraphExtractedCard ? window.renderGraphExtractedCard(extractedData || {}, escapeHtml) : ''}
+            ${extracted.text || doc.content ? `
+              <div style="margin-top: 16px;">
+                <strong>内容:</strong>
+                <div class="content-preview">${escapeHtml((extracted.text || doc.content || '').substring(0, 5000))}${(extracted.text || doc.content || '').length > 5000 ? '...' : ''}</div>
+              </div>
+            ` : ''}
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+              <div style="font-size: 12px; color: #6b7280;">
+                <div><strong>创建时间:</strong> ${doc.created_at ? new Date(doc.created_at).toLocaleString('zh-CN') : '-'}</div>
+                <div style="margin-top: 8px;"><strong>更新时间:</strong> ${doc.updated_at ? new Date(doc.updated_at).toLocaleString('zh-CN') : '-'}</div>
+              </div>
+            </div>
+          `;
+          
+          content.innerHTML = bodyHtml;
+        } catch (err) {
+          console.error('加载文档详情失败:', err);
+          content.innerHTML = `<div class="error">加载失败: ${escapeHtml(err.message)}</div>`;
+        }
+      }
+
+      // 关闭Post详情模态框
+      function closePostModal() {
+        const modal = document.getElementById('post-modal');
+        modal.style.display = 'none';
+      }
+
+      // HTML转义函数
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // 点击模态框外部关闭
+      window.onclick = function(event) {
+        const modal = document.getElementById('post-modal');
+        if (event.target === modal) {
+          closePostModal();
+        }
+      }
+
+      // 初始化
+      window.addEventListener('DOMContentLoaded', () => {
+        // 初始化图表
+        initChart();
+        loadGraphDocTypeHint();
+        // 默认加载全部数据，用户可再筛选
+        loadGraph();
+      });
+    </script>
+  </body>
+</html>
+

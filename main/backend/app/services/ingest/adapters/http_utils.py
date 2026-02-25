@@ -42,13 +42,24 @@ def fetch_html(
 
     session = _SESSION
     last_exc: Exception | None = None
+    
+    # 合并headers：用户提供的headers优先
+    request_headers = dict(DEFAULT_HEADERS)
+    if headers:
+        request_headers.update(headers)
+    
+    # 对于Reddit API，清除可能存在的cookies，避免被识别为机器人
+    # 创建临时session用于请求，避免污染全局session
+    temp_session = requests.Session()
+    temp_session.headers.update(request_headers)
+    if cookies:
+        temp_session.cookies.update(cookies)
+    
     for attempt in range(max(retries, 1)):
         try:
-            response = session.get(
+            response = temp_session.get(
                 url,
                 params=params,
-                headers=headers,
-                cookies=cookies,
                 timeout=timeout,
                 allow_redirects=True,
             )

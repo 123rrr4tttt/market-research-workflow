@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>州级政策详情</title>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Sans SC", sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        color: #0f172a;
+        font-weight: 700;
+      }
+      .breadcrumb {
+        margin: 0 0 16px 0;
+        color: #64748b;
+        font-size: 14px;
+      }
+      .breadcrumb a {
+        color: #2563eb;
+        text-decoration: none;
+      }
+      .breadcrumb a:hover {
+        text-decoration: underline;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 4px solid #2563eb;
+      }
+      .stat-card h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 500;
+      }
+      .stat-card .value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 4px;
+      }
+      .stat-card .sub {
+        font-size: 13px;
+        color: #94a3b8;
+      }
+      .stat-card.success { border-left-color: #10b981; }
+      .stat-card.warning { border-left-color: #f59e0b; }
+      .stat-card.info { border-left-color: #3b82f6; }
+      section {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      section h2 {
+        margin: 0 0 20px 0;
+        font-size: 20px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 12px;
+        font-weight: 600;
+      }
+      .chart-container {
+        position: relative;
+        height: 400px;
+        margin-bottom: 20px;
+      }
+      .chart-container.large {
+        height: 500px;
+      }
+      .chart-container.medium {
+        height: 350px;
+      }
+      .timeline {
+        position: relative;
+        padding-left: 40px;
+      }
+      .timeline-item {
+        position: relative;
+        padding-bottom: 30px;
+        padding-left: 20px;
+        border-left: 2px solid #e2e8f0;
+      }
+      .timeline-item:last-child {
+        border-left: none;
+      }
+      .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -7px;
+        top: 0;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #2563eb;
+        border: 2px solid white;
+        box-shadow: 0 0 0 2px #2563eb;
+      }
+      .timeline-item.regulation::before { background: #2563eb; box-shadow: 0 0 0 2px #2563eb; }
+      .timeline-item.bill::before { background: #10b981; box-shadow: 0 0 0 2px #10b981; }
+      .timeline-item.announcement::before { background: #f59e0b; box-shadow: 0 0 0 2px #f59e0b; }
+      .timeline-item.guidance::before { background: #8b5cf6; box-shadow: 0 0 0 2px #8b5cf6; }
+      .timeline-date {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 4px;
+      }
+      .timeline-title {
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 4px;
+        cursor: pointer;
+      }
+      .timeline-title:hover {
+        color: #2563eb;
+      }
+      .timeline-summary {
+        font-size: 14px;
+        color: #475569;
+        margin-top: 8px;
+      }
+      .policy-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      .policy-modal.active {
+        display: flex;
+      }
+      .policy-modal-content {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        margin: 20px;
+      }
+      .policy-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .policy-modal-header h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #0f172a;
+      }
+      .policy-modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #64748b;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .policy-modal-close:hover {
+        color: #0f172a;
+      }
+      .key-points-list {
+        list-style: none;
+        padding: 0;
+        margin: 16px 0;
+      }
+      .key-points-list li {
+        padding: 8px 0;
+        padding-left: 24px;
+        position: relative;
+      }
+      .key-points-list li::before {
+        content: '•';
+        position: absolute;
+        left: 0;
+        color: #2563eb;
+        font-weight: bold;
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #64748b;
+      }
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #cbd5e1;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      .wordcloud-container {
+        height: 400px;
+        width: 100%;
+      }
+      .network-container {
+        height: 500px;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="breadcrumb">
+          <a href="/policy-dashboard.html">Dashboard</a> → 
+          <span id="state-name">州详情</span>
+        </div>
+        <h1 id="page-title">州级政策详情</h1>
+      </header>
+
+      <div class="stats-grid">
+        <div class="stat-card info">
+          <h3>政策总数</h3>
+          <div class="value" id="stat-total">-</div>
+          <div class="sub">该州所有政策</div>
+        </div>
+        <div class="stat-card success">
+          <h3>活跃政策</h3>
+          <div class="value" id="stat-active">-</div>
+          <div class="sub">当前生效中</div>
+        </div>
+        <div class="stat-card warning">
+          <h3>主要类型</h3>
+          <div class="value" id="stat-type">-</div>
+          <div class="sub">最常见的政策类型</div>
+        </div>
+        <div class="stat-card">
+          <h3>关键要点</h3>
+          <div class="value" id="stat-keypoints">-</div>
+          <div class="sub">提取的关键要点总数</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+        <section>
+          <h2>政策时间轴</h2>
+          <div id="timeline-container" class="timeline">
+            <div class="loading">
+              <span class="spinner"></span>加载中...
+            </div>
+          </div>
+        </section>
+        <section>
+          <h2>政策类型分布</h2>
+          <div class="chart-container medium">
+            <canvas id="type-chart"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+        <section>
+          <h2>关键要点词云</h2>
+          <div id="wordcloud-chart" class="wordcloud-container"></div>
+        </section>
+        <section>
+          <h2>实体统计</h2>
+          <div class="chart-container">
+            <canvas id="entity-chart"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <section>
+        <h2>实体关系网络</h2>
+        <div id="network-chart" class="network-container"></div>
+      </section>
+    </div>
+
+    <!-- 政策详情弹窗 -->
+    <div id="policy-modal" class="policy-modal">
+      <div class="policy-modal-content">
+        <div class="policy-modal-header">
+          <h3 id="modal-title">政策详情</h3>
+          <button class="policy-modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div id="modal-content">
+          <p><strong>发布日期：</strong><span id="modal-publish-date"></span></p>
+          <p><strong>生效日期：</strong><span id="modal-effective-date"></span></p>
+          <p><strong>政策类型：</strong><span id="modal-type"></span></p>
+          <p><strong>状态：</strong><span id="modal-status"></span></p>
+          <div id="modal-summary"></div>
+          <div id="modal-key-points"></div>
+          <div style="margin-top: 16px;">
+            <a id="modal-uri" href="#" target="_blank" style="color: #2563eb;">查看原文 →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let typeChart, entityChart, wordcloudChart, networkChart;
+      let currentState = '';
+      let policiesData = [];
+
+      // 初始化
+      document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentState = urlParams.get('state') || 'CA';
+        loadStateData();
+        initCharts();
+      });
+
+      // 加载州数据
+      async function loadStateData() {
+        try {
+          const data = await window.MarketApp.api.get(`/api/v1/policies/state/${currentState}`);
+          policiesData = data.policies || [];
+          
+          // 更新页面标题
+          document.getElementById('state-name').textContent = currentState;
+          document.getElementById('page-title').textContent = `${currentState} 州政策详情`;
+          
+          // 更新统计卡片
+          const stats = data.statistics || {};
+          document.getElementById('stat-total').textContent = stats.total || 0;
+          document.getElementById('stat-active').textContent = stats.active_count || 0;
+          document.getElementById('stat-type').textContent = stats.most_common_type || '-';
+          document.getElementById('stat-keypoints').textContent = stats.key_points_count || 0;
+          
+          // 更新时间轴
+          updateTimeline(policiesData);
+          
+          // 更新图表
+          updateTypeChart(stats.type_distribution || []);
+          updateEntityChart(stats.entity_distribution || []);
+          updateWordcloud(policiesData);
+          updateNetwork(policiesData, stats.entity_distribution || [], stats.relation_distribution || []);
+        } catch (error) {
+          console.error('加载州数据失败:', error);
+          showError('加载数据失败: ' + error.message);
+        }
+      }
+
+      // 初始化图表
+      function initCharts() {
+        // 政策类型饼图
+        const typeCtx = document.getElementById('type-chart').getContext('2d');
+        typeChart = new Chart(typeCtx, {
+          type: 'doughnut',
+          data: {
+            labels: [],
+            datasets: [{
+              data: [],
+              backgroundColor: [
+                '#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'
+              ]
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom'
+              }
+            }
+          }
+        });
+
+        // 实体统计条形图
+        const entityCtx = document.getElementById('entity-chart').getContext('2d');
+        entityChart = new Chart(entityCtx, {
+          type: 'bar',
+          data: {
+            labels: [],
+            datasets: [{
+              label: '实体数量',
+              data: [],
+              backgroundColor: '#2563eb'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              }
+            }
+          }
+        });
+
+        // 词云图（使用ECharts）
+        wordcloudChart = echarts.init(document.getElementById('wordcloud-chart'));
+        
+        // 关系网络图（使用ECharts）
+        networkChart = echarts.init(document.getElementById('network-chart'));
+      }
+
+      // 更新时间轴
+      function updateTimeline(policies) {
+        const container = document.getElementById('timeline-container');
+        
+        if (policies.length === 0) {
+          container.innerHTML = '<div class="empty-state">暂无政策数据</div>';
+          return;
+        }
+        
+        // 按日期排序
+        const sorted = [...policies].sort((a, b) => {
+          const dateA = a.publish_date || a.effective_date || '';
+          const dateB = b.publish_date || b.effective_date || '';
+          return dateB.localeCompare(dateA);
+        });
+        
+        container.innerHTML = sorted.map(policy => {
+          const date = policy.publish_date || policy.effective_date || '未知日期';
+          const type = policy.policy_type || 'unknown';
+          const typeClass = type.toLowerCase().replace('_', '-');
+          
+          return `
+            <div class="timeline-item ${typeClass}" onclick="showPolicyDetail(${policy.id})">
+              <div class="timeline-date">${date}</div>
+              <div class="timeline-title">${policy.title || '无标题'}</div>
+              <div class="timeline-summary">${policy.summary || ''}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // 更新类型图表
+      function updateTypeChart(data) {
+        const labels = data.map(d => d.type || 'unknown');
+        const values = data.map(d => d.count);
+        
+        typeChart.data.labels = labels;
+        typeChart.data.datasets[0].data = values;
+        typeChart.update();
+      }
+
+      // 更新实体图表
+      function updateEntityChart(data) {
+        const labels = data.map(d => d.type || 'unknown');
+        const values = data.map(d => d.count);
+        
+        entityChart.data.labels = labels;
+        entityChart.data.datasets[0].data = values;
+        entityChart.update();
+      }
+
+      // 更新词云
+      function updateWordcloud(policies) {
+        // 收集所有关键要点
+        const words = {};
+        policies.forEach(policy => {
+          const keyPoints = policy.key_points || [];
+          keyPoints.forEach(point => {
+            // 简单分词（实际应使用更复杂的分词算法）
+            const tokens = point.split(/[\s,，。、]+/).filter(t => t.length > 1);
+            tokens.forEach(token => {
+              words[token] = (words[token] || 0) + 1;
+            });
+          });
+        });
+        
+        const wordData = Object.entries(words)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 50);
+        
+        const option = {
+          tooltip: {
+            trigger: 'item'
+          },
+          series: [{
+            type: 'wordCloud',
+            gridSize: 2,
+            sizeRange: [12, 50],
+            rotationRange: [-90, 90],
+            shape: 'pentagon',
+            width: '100%',
+            height: '100%',
+            drawOutOfBound: true,
+            textStyle: {
+              fontFamily: 'sans-serif',
+              fontWeight: 'bold',
+              color: function() {
+                return 'rgb(' + [
+                  Math.round(Math.random() * 160 + 50),
+                  Math.round(Math.random() * 160 + 50),
+                  Math.round(Math.random() * 160 + 50)
+                ].join(',') + ')';
+              }
+            },
+            emphasis: {
+              focus: 'self',
+              textStyle: {
+                shadowBlur: 10,
+                shadowColor: '#333'
+              }
+            },
+            data: wordData
+          }]
+        };
+        
+        wordcloudChart.setOption(option);
+      }
+
+      // 更新关系网络图
+      function updateNetwork(policies, entities, relations) {
+        // 收集所有实体和关系
+        const nodes = [];
+        const links = [];
+        const nodeMap = {};
+        
+        policies.forEach(policy => {
+          // 这里需要从extracted_data中获取实体和关系
+          // 简化处理，使用统计数据进行展示
+        });
+        
+        // 使用实体和关系统计数据构建网络
+        entities.forEach((entity, index) => {
+          const nodeId = `entity_${index}`;
+          nodeMap[entity.type] = nodeId;
+          nodes.push({
+            id: nodeId,
+            name: entity.type,
+            value: entity.count,
+            category: 0
+          });
+        });
+        
+        relations.forEach((relation, index) => {
+          links.push({
+            source: `entity_${index % entities.length}`,
+            target: `entity_${(index + 1) % entities.length}`,
+            value: relation.count
+          });
+        });
+        
+        const option = {
+          tooltip: {},
+          legend: {
+            data: ['实体']
+          },
+          series: [{
+            name: '实体关系',
+            type: 'graph',
+            layout: 'force',
+            data: nodes,
+            links: links,
+            categories: [{ name: '实体' }],
+            roam: true,
+            label: {
+              show: true,
+              position: 'right',
+              formatter: '{b}'
+            },
+            labelLayout: {
+              hideOverlap: true
+            },
+            scaleLimit: {
+              min: 0.4,
+              max: 2
+            },
+            lineStyle: {
+              color: 'source',
+              curveness: 0.3
+            },
+            emphasis: {
+              focus: 'adjacency',
+              lineStyle: {
+                width: 10
+              }
+            },
+            force: {
+              repulsion: 1000,
+              gravity: 0.1,
+              edgeLength: 200,
+              layoutAnimation: true
+            }
+          }]
+        };
+        
+        networkChart.setOption(option);
+      }
+
+      // 显示政策详情
+      async function showPolicyDetail(policyId) {
+        try {
+          const policy = await window.MarketApp.api.get(`/api/v1/policies/${policyId}`);
+          
+          document.getElementById('modal-title').textContent = policy.title || '无标题';
+          document.getElementById('modal-publish-date').textContent = policy.publish_date || '-';
+          document.getElementById('modal-effective-date').textContent = policy.effective_date || '-';
+          document.getElementById('modal-type').textContent = policy.policy_type || '-';
+          document.getElementById('modal-status').textContent = policy.status || '-';
+          document.getElementById('modal-summary').innerHTML = policy.summary ? `<p>${policy.summary}</p>` : '';
+          
+          const keyPointsHtml = policy.key_points && policy.key_points.length > 0
+            ? `<ul class="key-points-list">${policy.key_points.map(kp => `<li>${kp}</li>`).join('')}</ul>`
+            : '<p>无关键要点</p>';
+          document.getElementById('modal-key-points').innerHTML = keyPointsHtml;
+          
+          if (policy.uri) {
+            document.getElementById('modal-uri').href = policy.uri;
+            document.getElementById('modal-uri').style.display = 'inline';
+          } else {
+            document.getElementById('modal-uri').style.display = 'none';
+          }
+          
+          document.getElementById('policy-modal').classList.add('active');
+        } catch (error) {
+          console.error('获取政策详情失败:', error);
+          alert('获取政策详情失败: ' + error.message);
+        }
+      }
+
+      // 关闭弹窗
+      function closeModal() {
+        document.getElementById('policy-modal').classList.remove('active');
+      }
+
+      // 点击弹窗外部关闭
+      document.getElementById('policy-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+          closeModal();
+        }
+      });
+
+      // 显示错误
+      function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.textContent = message;
+        document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.stats-grid'));
+        setTimeout(() => errorDiv.remove(), 5000);
+      }
+    </script>
+  </body>
+</html>

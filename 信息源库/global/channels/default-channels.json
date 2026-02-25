@@ -1,0 +1,66 @@
+[
+  {
+    "channel_key": "social.reddit.general",
+    "name": "Reddit Discussion Channel (General)",
+    "kind": "social",
+    "provider": "reddit",
+    "description": "Collect discussions from a target subreddit for general projects.",
+    "credential_refs": ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"],
+    "default_params": {
+      "subreddit": "technology",
+      "limit": 20
+    },
+    "param_schema": {
+      "required": ["subreddit"]
+    },
+    "enabled": true
+  },
+  {
+    "channel_key": "news.google.general",
+    "name": "Google News Search Channel (General)",
+    "kind": "news",
+    "provider": "google_news",
+    "description": "Search news by keyword list.",
+    "credential_refs": [],
+    "default_params": {
+      "keywords": ["market regulation"],
+      "limit": 20
+    },
+    "param_schema": {
+      "required": ["keywords"]
+    },
+    "enabled": true
+  },
+  {
+    "channel_key": "policy.general",
+    "name": "Policy Ingest Channel (General)",
+    "kind": "policy",
+    "provider": "policy",
+    "description": "Ingest policy documents by state.",
+    "credential_refs": ["LEGISCAN_API_KEY"],
+    "default_params": {
+      "state": "NY"
+    },
+    "param_schema": {
+      "required": ["state"]
+    },
+    "enabled": true
+  },
+  {
+    "channel_key": "market.general",
+    "name": "Market Info Channel (General)",
+    "kind": "market",
+    "provider": "market",
+    "description": "Web search for market/industry news.",
+    "credential_refs": [],
+    "default_params": {
+      "keywords": ["market trend", "industry news"],
+      "limit": 20
+    },
+    "param_schema": {
+      "required": ["keywords"]
+    },
+    "enabled": true
+  }
+]
+

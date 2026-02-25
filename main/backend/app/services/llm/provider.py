@@ -1,79 +1,46 @@
-from typing import Optional
+from typing import Any, Optional
 
-from langchain_openai import (
-    ChatOpenAI,
-    OpenAIEmbeddings,
-    AzureChatOpenAI,
-    AzureOpenAIEmbeddings,
-)
-
-from ...settings.config import settings
 from . import cache  # noqa: F401  # ensure cache setup on import
+from .adapters import LangChainProviderAdapter
+from .ports import ChatModelOptions
 
 
-def _ensure(value: Optional[str], name: str) -> str:
-    if not value:
-        raise RuntimeError(f"缺少 {name} 配置")
-    return value
+_PROVIDER_ADAPTER = LangChainProviderAdapter()
 
 
-def get_chat_model(model: Optional[str] = None):
-    provider = settings.llm_provider.lower()
-
-    if provider == "openai":
-        return ChatOpenAI(
-            model=model or "gpt-4o-mini",
-            api_key=_ensure(settings.openai_api_key, "OPENAI_API_KEY"),
-            base_url=settings.openai_api_base or None,
-            temperature=0.2,
-        )
-
-    if provider == "azure":
-        return AzureChatOpenAI(
-            azure_endpoint=_ensure(settings.azure_api_base, "AZURE_API_BASE"),
-            api_key=_ensure(settings.azure_api_key, "AZURE_API_KEY"),
-            api_version=_ensure(settings.azure_api_version, "AZURE_API_VERSION"),
-            deployment_name=_ensure(settings.azure_chat_deployment, "AZURE_CHAT_DEPLOYMENT"),
-            temperature=0.2,
-        )
-
-    if provider == "ollama":
-        from langchain_community.chat_models import ChatOllama
-
-        return ChatOllama(
-            base_url=settings.ollama_base_url or "http://localhost:11434",
-            model=model or "llama3",
-        )
-
-    raise ValueError(f"未知的 llm_provider: {settings.llm_provider}")
+def get_chat_model(
+    model: Optional[str] = None,
+    temperature: Optional[float] = None,
+    max_tokens: Optional[int] = None,
+    top_p: Optional[float] = None,
+    presence_penalty: Optional[float] = None,
+    frequency_penalty: Optional[float] = None,
+    **kwargs
+):
+    """获取聊天模型，支持从配置读取参数
+    
+    Args:
+        model: 模型名称，如果为None则使用默认模型
+        temperature: 温度参数，如果为None则使用默认值0.2
+        max_tokens: 最大token数
+        top_p: top_p参数
+        presence_penalty: presence_penalty参数
+        frequency_penalty: frequency_penalty参数
+        **kwargs: 其他参数
+    """
+    options = ChatModelOptions(
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        top_p=top_p,
+        presence_penalty=presence_penalty,
+        frequency_penalty=frequency_penalty,
+        extra=kwargs or {},
+    )
+    return _PROVIDER_ADAPTER.get_chat_model(options)
 
 
 def get_embeddings(model: Optional[str] = None):
-    provider = settings.llm_provider.lower()
-
-    if provider == "openai":
-        return OpenAIEmbeddings(
-            model=model or settings.embedding_model,
-            api_key=_ensure(settings.openai_api_key, "OPENAI_API_KEY"),
-            base_url=settings.openai_api_base or None,
-        )
-
-    if provider == "azure":
-        return AzureOpenAIEmbeddings(
-            azure_endpoint=_ensure(settings.azure_api_base, "AZURE_API_BASE"),
-            api_key=_ensure(settings.azure_api_key, "AZURE_API_KEY"),
-            api_version=_ensure(settings.azure_api_version, "AZURE_API_VERSION"),
-            deployment=_ensure(settings.azure_embedding_deployment, "AZURE_EMBEDDING_DEPLOYMENT"),
-        )
-
-    if provider == "ollama":
-        from langchain_community.embeddings import OllamaEmbeddings
-
-        return OllamaEmbeddings(
-            base_url=settings.ollama_base_url or "http://localhost:11434",
-            model=model or "llama3",
-        )
-
-    raise ValueError(f"未知的 llm_provider: {settings.llm_provider}")
+    return _PROVIDER_ADAPTER.get_embeddings(model=model)
 
 

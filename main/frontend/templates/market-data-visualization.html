@@ -1,0 +1,1773 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>市场数据可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="/static/js/app-shell.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      body.in-iframe header {
+        margin-bottom: 0;
+        border-radius: 0;
+      }
+      .container {
+        max-width: 100%;
+        margin: 0 auto;
+        width: 100%;
+      }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        color: #0f172a;
+      }
+      header p {
+        margin: 0;
+        color: #64748b;
+      }
+      section {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      section h2 {
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 10px;
+      }
+      .chart-container {
+        position: relative;
+        height: 240px;
+        margin-bottom: 16px;
+      }
+      .chart-container.large {
+        height: 300px;
+      }
+      .filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        align-items: center;
+      }
+      .filters label {
+        font-weight: 500;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .filters input, .filters select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      .filters input[type="date"] {
+        min-width: 160px;
+      }
+      .filters button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .filters button:hover {
+        background: #1d4ed8;
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #64748b;
+      }
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #cbd5e1;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      .refresh-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .refresh-controls label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #64748b;
+      }
+      .refresh-controls input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+      }
+      .refresh-controls input[type="number"] {
+        width: 80px;
+        padding: 6px 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+      }
+      .chart-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .nav-links {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      .nav-links a {
+        padding: 10px 20px;
+        background: #2563eb;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        display: inline-block;
+        transition: background 0.2s;
+      }
+      .nav-links a:hover {
+        background: #1d4ed8;
+      }
+      .graph-container {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      .graph-container h2 {
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .graph-header-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .fullscreen-btn {
+        padding: 6px 12px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .fullscreen-btn:hover {
+        background: #1d4ed8;
+      }
+      .fullscreen-btn:active {
+        transform: scale(0.95);
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+        color: #475569;
+        font-size: 13px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #f1f5f9;
+        padding: 6px 10px;
+        border-radius: 8px;
+      }
+      .legend-symbol {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+      }
+      #graph-chart {
+        width: 100%;
+        height: 700px;
+        min-height: 500px;
+      }
+      /* 全屏视图容器 */
+      #graph-fullscreen-view {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10000;
+        background: white;
+        padding: 20px;
+        box-sizing: border-box;
+        overflow: auto;
+      }
+      #graph-fullscreen-view.active {
+        display: block;
+      }
+      #graph-fullscreen-view .graph-container {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      #graph-fullscreen-view #fullscreen-graph-chart {
+        width: 100%;
+        height: calc(100vh - 80px);
+        min-height: 500px;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 4px solid #2563eb;
+      }
+      .stat-card h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 500;
+      }
+      .stat-card .value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .controls {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      .controls-row {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .controls-row:last-child {
+        margin-bottom: 0;
+      }
+      .controls label {
+        font-weight: 500;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .controls input, .controls select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      .controls input[type="date"] {
+        min-width: 160px;
+      }
+      .controls button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .controls button:hover {
+        background: #1d4ed8;
+      }
+      .controls button:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+      }
+      .info {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        overflow: auto;
+      }
+      .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 24px;
+        border-radius: 12px;
+        max-width: 800px;
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #e2e8f0;
+      }
+      .modal-header h2 {
+        margin: 0;
+        font-size: 24px;
+        color: #0f172a;
+      }
+      .close {
+        color: #94a3b8;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .close:hover {
+        color: #0f172a;
+      }
+      .extracted-card {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 12px;
+      }
+      .extracted-section {
+        margin-bottom: 20px;
+      }
+      .extracted-section:last-child {
+        margin-bottom: 0;
+      }
+      .extracted-section h3 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        color: #1f2937;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 6px;
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .info-item {
+        background: white;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+      }
+      .info-item label {
+        display: block;
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+      .info-item .value {
+        font-size: 14px;
+        color: #1f2937;
+        font-weight: 500;
+      }
+      .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .tag-item {
+        background: white;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+        border: 1px solid #e5e7eb;
+      }
+      .content-preview {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .link {
+        color: #2563eb;
+        text-decoration: none;
+        word-break: break-all;
+      }
+      .link:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      if (window.self !== window.top) {
+        document.body.classList.add('in-iframe');
+      }
+    </script>
+    <div class="container">
+      <header>
+        <h1>📈 市场数据可视化</h1>
+        <p>彩票市场销售数据与趋势分析</p>
+        <p id="graph-doc-type-hint" class="info" style="margin-top: 12px;"></p>
+        <p id="graph-structure-hint" class="info" style="margin-top: 8px;"></p>
+        <div class="nav-links">
+          <a href="market-data-visualization.html#graph">本页图谱</a>
+          <a href="/graph.html?type=market" class="secondary">统一图谱（新页）</a>
+        </div>
+      </header>
+
+      <section>
+        <div class="refresh-controls">
+          <h2>市场趋势分析</h2>
+          <div>
+            <label>
+              <input type="checkbox" id="auto-refresh-market" /> 自动刷新
+              <input type="number" id="refresh-interval-market" value="30" min="10" max="300" style="margin-left: 8px;" /> 秒
+            </label>
+          </div>
+        </div>
+        <div class="filters">
+          <label>州：</label>
+          <select id="market-filter-state">
+            <option value="">全部</option>
+            <option value="CA">CA</option>
+            <option value="NY">NY</option>
+            <option value="TX">TX</option>
+          </select>
+          <label>游戏：</label>
+          <select id="market-filter-game">
+            <option value="">全部</option>
+          </select>
+          <label>开始日期：</label>
+          <input type="date" id="market-filter-start" />
+          <label>结束日期：</label>
+          <input type="date" id="market-filter-end" />
+          <label>周期：</label>
+          <select id="market-filter-period">
+            <option value="daily">按日</option>
+            <option value="monthly">按月</option>
+          </select>
+          <button onclick="loadMarketTrends()">更新</button>
+        </div>
+        <div class="chart-container large" id="market-trend-chart">
+          <div class="loading"><span class="spinner"></span>加载中...</div>
+        </div>
+        <div class="chart-grid">
+          <div class="chart-container" id="market-state-chart">
+            <div class="loading"><span class="spinner"></span>加载中...</div>
+          </div>
+          <div class="chart-container" id="market-game-chart">
+            <div class="loading"><span class="spinner"></span>加载中...</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="graph">
+        <div class="stats" id="graph-stats">
+          <div class="stat-card">
+            <h3>节点总数</h3>
+            <div class="value" id="stat-nodes">0</div>
+          </div>
+          <div class="stat-card">
+            <h3>边总数</h3>
+            <div class="value" id="stat-edges">0</div>
+          </div>
+          <div class="stat-card">
+            <h3>市场数据节点</h3>
+            <div class="value" id="stat-market-data">0</div>
+          </div>
+          <div class="stat-card">
+            <h3>州节点</h3>
+            <div class="value" id="stat-states">0</div>
+          </div>
+          <div class="stat-card">
+            <h3>游戏节点</h3>
+            <div class="value" id="stat-games">0</div>
+          </div>
+          <div class="stat-card">
+            <h3>实体节点</h3>
+            <div class="value" id="stat-entities">0</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="controls-row">
+            <label>开始日期：</label>
+            <input type="date" id="graph-filter-start" />
+            <label>结束日期：</label>
+            <input type="date" id="graph-filter-end" />
+            <label>州：</label>
+            <select id="graph-filter-state">
+              <option value="">全部</option>
+              <option value="CA">CA</option>
+              <option value="NY">NY</option>
+              <option value="TX">TX</option>
+            </select>
+            <label>游戏：</label>
+            <input type="text" id="graph-filter-game" placeholder="可选，如：Powerball" />
+            <button onclick="loadMarketGraph()">加载图谱</button>
+          </div>
+          <div class="controls-row">
+            <label>
+              <input type="checkbox" id="show-market-data" checked /> 显示市场数据节点
+            </label>
+            <label>
+              <input type="checkbox" id="show-states" checked /> 显示州节点
+            </label>
+            <label>
+              <input type="checkbox" id="show-games" checked /> 显示游戏节点
+            </label>
+            <label>
+              <input type="checkbox" id="show-entities" checked /> 显示实体节点
+            </label>
+          </div>
+        </div>
+
+        <div class="graph-container" id="market-graph-container">
+          <h2>
+            市场数据图谱
+            <div class="graph-header-actions">
+              <button class="fullscreen-btn" id="market-fullscreen-btn" onclick="toggleMarketFullscreen()">
+                <span id="market-fullscreen-icon">⛶</span>
+                <span id="market-fullscreen-text">全屏</span>
+              </button>
+            </div>
+          </h2>
+          <div class="legend" id="market-graph-legend"></div>
+          <div id="graph-chart"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 全屏视图容器 -->
+    <div id="graph-fullscreen-view">
+      <div class="graph-container" id="fullscreen-graph-container">
+        <h2>
+          市场数据图谱
+          <div class="graph-header-actions">
+            <button class="fullscreen-btn" id="fullscreen-exit-btn" onclick="toggleMarketFullscreen()">
+              <span>⛶</span>
+              <span>退出全屏</span>
+            </button>
+          </div>
+        </h2>
+        <div class="legend" id="fullscreen-market-legend"></div>
+        <div id="fullscreen-graph-chart"></div>
+      </div>
+    </div>
+
+    <!-- 市场数据详情模态框 -->
+    <div id="market-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>市场数据详情</h2>
+          <span class="close" onclick="closeMarketModal()">&times;</span>
+        </div>
+        <div id="market-detail-content"></div>
+      </div>
+    </div>
+
+    <script>
+      const charts = {};
+      let refreshTimers = {};
+
+      function formatCurrency(num) {
+        if (num == null || num === undefined) return '-';
+        if (typeof num !== 'number') num = parseFloat(num);
+        if (isNaN(num)) return '-';
+        
+        const absNum = Math.abs(num);
+        const sign = num < 0 ? '-' : '';
+        
+        if (absNum >= 1000000000) {
+          const value = (absNum / 1000000000).toFixed(2).replace(/\.?0+$/, '');
+          return sign + '$' + value + 'B';
+        } else if (absNum >= 1000000) {
+          const value = (absNum / 1000000).toFixed(2).replace(/\.?0+$/, '');
+          return sign + '$' + value + 'M';
+        } else if (absNum >= 1000) {
+          const value = (absNum / 1000).toFixed(2).replace(/\.?0+$/, '');
+          return sign + '$' + value + 'K';
+        } else {
+          return sign + '$' + absNum.toFixed(absNum % 1 === 0 ? 0 : 2).replace(/\.?0+$/, '');
+        }
+      }
+
+      async function fetchJSON(url) {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status}: ${text}`);
+        }
+        return res.json();
+      }
+
+      function showError(containerId, message) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = `<div class="error">❌ ${message}</div>`;
+      }
+
+      function destroyChart(chartId) {
+        if (charts[chartId]) {
+          charts[chartId].destroy();
+          delete charts[chartId];
+        }
+      }
+
+      async function loadMarketTrends() {
+        const state = document.getElementById('market-filter-state').value;
+        const game = document.getElementById('market-filter-game').value;
+        const start = document.getElementById('market-filter-start').value;
+        const end = document.getElementById('market-filter-end').value;
+        const period = document.getElementById('market-filter-period').value;
+        
+        let url = `/api/v1/dashboard/market-trends?period=${period}`;
+        if (state) url += `&state=${state}`;
+        if (game) url += `&game=${game}`;
+        if (start) url += `&start_date=${start}`;
+        if (end) url += `&end_date=${end}`;
+
+        try {
+          const data = await fetchJSON(url);
+          
+          const series = Array.isArray(data?.series) ? data.series : [];
+          const stateDistribution = Array.isArray(data?.state_distribution) ? data.state_distribution : [];
+          const gameDistribution = Array.isArray(data?.game_distribution) ? data.game_distribution : [];
+          
+          destroyChart('market-trend');
+          const trendCtx = document.getElementById('market-trend-chart');
+          trendCtx.innerHTML = '<canvas></canvas>';
+          charts['market-trend'] = new Chart(trendCtx.querySelector('canvas'), {
+            type: 'line',
+            data: {
+              labels: series.map(s => s.date || ''),
+              datasets: [
+                {
+                  label: '销售额',
+                  data: series.map(s => s.sales_volume || 0),
+                  borderColor: '#2563eb',
+                  backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                  tension: 0.4,
+                },
+                {
+                  label: '收入',
+                  data: series.map(s => s.revenue || 0),
+                  borderColor: '#10b981',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  tension: 0.4,
+                },
+                {
+                  label: '奖池',
+                  data: series.map(s => s.jackpot || 0),
+                  borderColor: '#f59e0b',
+                  backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                  tension: 0.4,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`,
+                  },
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    callback: (value) => formatCurrency(value),
+                  },
+                },
+              },
+            },
+          });
+
+          destroyChart('market-state');
+          const stateCtx = document.getElementById('market-state-chart');
+          stateCtx.innerHTML = '<canvas></canvas>';
+          charts['market-state'] = new Chart(stateCtx.querySelector('canvas'), {
+            type: 'bar',
+            data: {
+              labels: stateDistribution.map(s => s.state || ''),
+              datasets: [{
+                label: '总销售额',
+                data: stateDistribution.map(s => s.total_revenue || 0),
+                backgroundColor: '#2563eb',
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) => formatCurrency(ctx.parsed.y),
+                  },
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    callback: (value) => formatCurrency(value),
+                  },
+                },
+              },
+            },
+          });
+
+          destroyChart('market-game');
+          const gameCtx = document.getElementById('market-game-chart');
+          gameCtx.innerHTML = '<canvas></canvas>';
+          charts['market-game'] = new Chart(gameCtx.querySelector('canvas'), {
+            type: 'pie',
+            data: {
+              labels: gameDistribution.map(g => g.game || '未知'),
+              datasets: [{
+                data: gameDistribution.map(g => g.count || 0),
+                backgroundColor: [
+                  '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899',
+                ],
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'bottom' },
+              },
+            },
+          });
+        } catch (err) {
+          showError('market-trend-chart', err.message);
+        }
+      }
+
+      function setupAutoRefresh() {
+        const checkbox = document.getElementById('auto-refresh-market');
+        const intervalInput = document.getElementById('refresh-interval-market');
+        
+        checkbox.addEventListener('change', function() {
+          if (this.checked) {
+            const interval = parseInt(intervalInput.value) * 1000;
+            refreshTimers['market'] = setInterval(loadMarketTrends, interval);
+          } else {
+            if (refreshTimers['market']) {
+              clearInterval(refreshTimers['market']);
+              delete refreshTimers['market'];
+            }
+          }
+        });
+        
+        intervalInput.addEventListener('change', function() {
+          if (checkbox.checked) {
+            if (refreshTimers['market']) {
+              clearInterval(refreshTimers['market']);
+            }
+            const interval = parseInt(this.value) * 1000;
+            refreshTimers['market'] = setInterval(loadMarketTrends, interval);
+          }
+        });
+      }
+
+      const MARKET_NODE_COLORS = { 'MarketData': '#2563eb', 'State': '#f59e0b', 'Segment': '#10b981', 'Game': '#10b981', 'Entity': '#8b5cf6' };
+      let marketGraphConfig = { nodeTypes: ['MarketData', 'State', 'Segment', 'Entity'], nodeLabels: {}, typeLabel: '市场图谱' };
+      async function loadGraphDocTypeHint() {
+        const hintEl = document.getElementById('graph-doc-type-hint');
+        const structureEl = document.getElementById('graph-structure-hint');
+        const statsEl = document.getElementById('graph-stats');
+        const legendEl = document.getElementById('market-graph-legend');
+        if (!hintEl || !structureEl) return;
+        try {
+          const projectKey = window.MarketApp?.getProjectKey?.() || '';
+          const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : '';
+          const response = await fetch(`/api/v1/project-customization/graph-config${query}`);
+          const data = response.ok ? (await response.json())?.data : null;
+          const graphDocTypes = data?.graph_doc_types || {};
+          const labels = data?.graph_type_labels || {};
+          const graphNodeTypes = data?.graph_node_types || {};
+          const graphNodeLabels = data?.graph_node_labels || {};
+          const graphEdgeTypes = data?.graph_edge_types || {};
+          const relationLabels = data?.graph_relation_labels || {};
+          const marketTypes = Array.isArray(graphDocTypes.market) ? graphDocTypes.market : ['market'];
+          const marketNodeTypes = Array.isArray(graphNodeTypes.market) ? graphNodeTypes.market : ['MarketData', 'State', 'Segment', 'Entity'];
+          const marketEdgeTypes = Array.isArray(graphEdgeTypes.market) ? graphEdgeTypes.market : ['IN_STATE', 'HAS_SEGMENT', 'MENTIONS_ENTITY'];
+          const marketLabel = labels.market || '市场图谱';
+          marketGraphConfig = { nodeTypes: marketNodeTypes, nodeLabels: graphNodeLabels, typeLabel: marketLabel };
+          hintEl.textContent = `${marketLabel}数据类型: ${marketTypes.join(', ')}`;
+          const edgeLabels = marketEdgeTypes.map((e) => relationLabels[e] ? `${e}(${relationLabels[e]})` : e);
+          structureEl.textContent = `节点类型: ${marketNodeTypes.join(', ')}；关系类型: ${edgeLabels.join(', ')}`;
+          const lbl = (t) => graphNodeLabels[t] || t;
+          if (statsEl) {
+            statsEl.innerHTML = `<div class="stat-card"><h3>节点总数</h3><div class="value" id="stat-nodes">0</div></div><div class="stat-card"><h3>边总数</h3><div class="value" id="stat-edges">0</div></div>` +
+              marketNodeTypes.map((t) => `<div class="stat-card"><h3>${lbl(t)}节点</h3><div class="value" id="stat-${t}">0</div></div>`).join('');
+          }
+          const legendHtml = marketNodeTypes.map((t) => {
+            const color = MARKET_NODE_COLORS[t] || '#94a3b8';
+            const label = graphNodeLabels[t] || t;
+            return `<div class="legend-item"><span class="legend-symbol" style="background:${color};"></span>${t} ${label}</div>`;
+          }).join('');
+          if (legendEl) legendEl.innerHTML = legendHtml;
+          const fullscreenLegend = document.getElementById('fullscreen-market-legend');
+          if (fullscreenLegend) fullscreenLegend.innerHTML = legendHtml;
+        } catch (error) {
+          hintEl.textContent = '当前图谱类型: market';
+          structureEl.textContent = '节点类型: MarketData, State, Segment, Entity；关系类型: IN_STATE, HAS_SEGMENT, MENTIONS_ENTITY';
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        loadMarketTrends();
+        setupAutoRefresh();
+        loadGraphDocTypeHint();
+        // 初始化图谱
+        initMarketGraph();
+        // 默认加载全部数据，用户可再筛选
+        loadMarketGraph();
+      });
+
+      // ===== 图谱功能 =====
+      let marketGraphChart = null;
+      let currentGraphData = null;
+      let nodeDataMap = {};
+
+      function initMarketGraph() {
+        const chartEl = document.getElementById('graph-chart');
+        if (!chartEl) return;
+        
+        if (chartEl.querySelector('.loading') || chartEl.querySelector('.error') || chartEl.querySelector('.info')) {
+          chartEl.innerHTML = '';
+        }
+        
+        marketGraphChart = echarts.init(chartEl);
+        
+        marketGraphChart.setOption({
+          title: {
+            text: '请选择筛选条件并点击"加载图谱"',
+            left: 'center',
+            top: 'middle',
+            textStyle: {
+              color: '#94a3b8',
+              fontSize: 16
+            }
+          }
+        });
+      }
+
+      async function loadMarketGraph() {
+        const start = document.getElementById('graph-filter-start').value;
+        const end = document.getElementById('graph-filter-end').value;
+        const state = document.getElementById('graph-filter-state').value;
+        const game = document.getElementById('graph-filter-game').value.trim();
+        
+        const chartEl = document.getElementById('graph-chart');
+        
+        if (marketGraphChart) {
+          marketGraphChart.dispose();
+          marketGraphChart = null;
+        }
+        chartEl.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+        
+        try {
+          const projectKey = window.MarketApp?.getProjectKey?.() || '';
+          const params = new URLSearchParams();
+          if (projectKey) params.append('project_key', projectKey);
+          if (start) params.append('start_date', start);
+          if (end) params.append('end_date', end);
+          if (state) params.append('state', state);
+          if (game) params.append('game', game);
+          params.append('limit', '100');
+          const response = await fetch(`/api/v1/admin/market-graph?${params}`);
+          
+          let graphData;
+          if (!response.ok) {
+            try {
+              const errorData = await response.json();
+              if (errorData.nodes !== undefined && errorData.edges !== undefined) {
+                graphData = { nodes: errorData.nodes || [], edges: errorData.edges || [] };
+              } else {
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+              }
+            } catch (e) {
+              console.warn('API返回错误，使用空数据:', e);
+              graphData = { nodes: [], edges: [] };
+            }
+          } else {
+            graphData = await response.json();
+          }
+          
+          console.log('API返回的数据:', graphData);
+          
+          if (!graphData.nodes) graphData.nodes = [];
+          if (!graphData.edges) graphData.edges = [];
+          
+          chartEl.innerHTML = '';
+          initMarketGraph();
+          
+          renderMarketGraph(graphData);
+          
+        } catch (err) {
+          console.error('加载图谱失败:', err);
+          const chartEl = document.getElementById('graph-chart');
+          chartEl.innerHTML = '';
+          initMarketGraph();
+          
+          
+          if (document.getElementById('stat-nodes')) document.getElementById('stat-nodes').textContent = '0';
+          if (document.getElementById('stat-edges')) document.getElementById('stat-edges').textContent = '0';
+          (marketGraphConfig.nodeTypes || []).forEach((t) => {
+            const el = document.getElementById('stat-' + t);
+            if (el) el.textContent = '0';
+          });
+          
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'error';
+          errorDiv.textContent = `加载失败: ${err.message}`;
+          chartEl.appendChild(errorDiv);
+        }
+      }
+
+      function renderMarketGraph(graphData) {
+        if (!marketGraphChart) {
+          console.error('图表未初始化');
+          return;
+        }
+        
+        if (!graphData) {
+          console.error('图谱数据为空');
+          return;
+        }
+        
+        console.log('图谱数据:', graphData);
+        
+        const nodes = graphData.nodes || [];
+        const edges = graphData.edges || [];
+        
+        console.log(`节点数: ${nodes.length}, 边数: ${edges.length}`);
+        
+        if (document.getElementById('stat-nodes')) document.getElementById('stat-nodes').textContent = nodes.length || 0;
+        if (document.getElementById('stat-edges')) document.getElementById('stat-edges').textContent = edges.length || 0;
+        (marketGraphConfig.nodeTypes || []).forEach((t) => {
+          const el = document.getElementById('stat-' + t);
+          if (el) el.textContent = nodes.filter((n) => n.type === t).length || 0;
+        });
+        
+        if (nodes.length === 0) {
+          const chartEl = document.getElementById('graph-chart');
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'info';
+          infoDiv.innerHTML = '暂无图谱数据。请调整筛选条件或确保数据库中有市场数据。';
+          chartEl.innerHTML = '';
+          chartEl.appendChild(infoDiv);
+          return;
+        }
+        
+        const configTypes = marketGraphConfig.nodeTypes || ['MarketData', 'State', 'Segment', 'Entity'];
+        const actualTypes = [...new Set(nodes.map((n) => n.type))];
+        const allTypes = [...new Set([...configTypes, ...actualTypes])];
+        const categoryMap = {};
+        allTypes.forEach((t, i) => { categoryMap[t] = i; });
+        const categories = allTypes.map((name) => ({ name }));
+        
+        nodeDataMap = {};
+        
+        // 计算节点度数
+        const nodeDegrees = {};
+        nodes.forEach(node => {
+          const nodeId = `${node.type}_${node.id}`;
+          nodeDegrees[nodeId] = 0;
+        });
+        
+        edges.forEach(edge => {
+          const fromId = `${edge.from.type}_${edge.from.id}`;
+          const toId = `${edge.to.type}_${edge.to.id}`;
+          if (nodeDegrees.hasOwnProperty(fromId)) {
+            nodeDegrees[fromId]++;
+          }
+          if (nodeDegrees.hasOwnProperty(toId)) {
+            nodeDegrees[toId]++;
+          }
+        });
+        
+        const degrees = Object.values(nodeDegrees);
+        const minDegree = Math.min(...degrees, 0);
+        const maxDegree = Math.max(...degrees, 1);
+        const degreeRange = maxDegree - minDegree || 1;
+        
+        // 转换节点数据
+        const echartsNodes = nodes.map(node => {
+          const category = categoryMap[node.type] || 0;
+          let nodeName = node.id;
+          
+          if (node.type === 'MarketData') {
+            // 优先显示标题
+            if (node.title && node.title.trim()) {
+              nodeName = node.title.trim();
+            } else {
+              // 如果没有标题，使用state、game、date组合
+              const parts = [];
+              if (node.state && node.state.trim()) {
+                parts.push(node.state.trim());
+              }
+              if (node.game && node.game.trim()) {
+                parts.push(node.game.trim());
+              }
+              if (node.date) {
+                try {
+                  const dateStr = new Date(node.date).toLocaleDateString('zh-CN');
+                  if (dateStr && dateStr !== 'Invalid Date') {
+                    parts.push(dateStr);
+                  }
+                } catch (e) {
+                  // 日期解析失败，忽略
+                }
+              }
+              
+              // 如果有任何有意义的部分，组合它们；否则使用默认名称
+              if (parts.length > 0) {
+                nodeName = parts.join(' ');
+              } else {
+                // 尝试使用source_name作为后备
+                if (node.source_name) {
+                  nodeName = `${node.source_name} #${node.id}`;
+                } else {
+                  nodeName = `市场数据 #${node.id}`;
+                }
+              }
+            }
+          } else if (node.type === 'State') {
+            nodeName = node.name || node.id || '未知州';
+          } else if (node.type === 'Game') {
+            nodeName = node.name || node.id || '未知游戏';
+          } else if (node.type === 'Entity') {
+            nodeName = node.canonical_name || node.name || node.id || '未知实体';
+          }
+          
+          // 确保节点名称不为空
+          if (!nodeName || nodeName.trim() === '') {
+            nodeName = `${node.type} #${node.id}`;
+          }
+          
+          const nodeId = `${node.type}_${node.id}`;
+          nodeDataMap[nodeId] = node;
+          
+          const degree = nodeDegrees[nodeId] || 0;
+          const normalizedDegree = (degree - minDegree) / degreeRange;
+          
+          return {
+            id: nodeId,
+            name: nodeName,
+            value: degree,
+            category: category,
+            symbol: getMarketNodeSymbol(node.type),
+            symbolSize: getMarketNodeSize(node.type, normalizedDegree, degree, minDegree, maxDegree),
+            itemStyle: {
+              color: getMarketNodeColor(node.type)
+            },
+            label: {
+              show: true,
+              formatter: (params) => {
+                const name = params.name || '';
+                return name.length > 20 ? name.substring(0, 20) + '...' : name;
+              }
+            }
+          };
+        });
+        
+        // 转换边数据
+        const edgeRawWeights = edges.map(e => (e.properties && e.properties.weight) || 1);
+        const wMin = Math.min(...edgeRawWeights, 1);
+        const wMax = Math.max(...edgeRawWeights, 1);
+        const wRange = (wMax - wMin) || 1;
+        
+        const echartsLinks = edges.map(edge => {
+          const fromId = `${edge.from.type}_${edge.from.id}`;
+          const toId = `${edge.to.type}_${edge.to.id}`;
+          const rawW = (edge.properties && edge.properties.weight) ? edge.properties.weight : 1;
+          const normW = (rawW - wMin) / wRange;
+          const edgeValue = 1 - normW;
+          const width = 1 + 2 * normW;
+          
+          return {
+            source: fromId,
+            target: toId,
+            value: edgeValue,
+            lineStyle: {
+              width: Math.max(1, Math.min(3, width)),
+              curveness: 0,
+              color: '#cbd5e1'
+            }
+          };
+        }).filter(link => {
+          const sourceExists = echartsNodes.some(n => n.id === link.source);
+          const targetExists = echartsNodes.some(n => n.id === link.target);
+          return sourceExists && targetExists;
+        });
+        
+        console.log(`转换后节点数: ${echartsNodes.length}, 边数: ${echartsLinks.length}`);
+        
+        // 清除容器中的所有提示文字
+        const chartEl = document.getElementById('graph-chart');
+        if (chartEl) {
+          // 移除所有提示元素
+          const loadingEl = chartEl.querySelector('.loading');
+          const errorEl = chartEl.querySelector('.error');
+          const infoEl = chartEl.querySelector('.info');
+          if (loadingEl) loadingEl.remove();
+          if (errorEl) errorEl.remove();
+          if (infoEl) infoEl.remove();
+        }
+        
+        const option = {
+          title: {
+            show: false  // 明确隐藏title，清除初始提示文字
+          },
+          tooltip: {
+            trigger: 'item',
+            formatter: (params) => {
+              if (params.dataType === 'node') {
+                const nodeData = nodeDataMap[params.data.id];
+                const degree = params.data.value || 0;
+                let tooltip = `${params.data.name}<br/>类型: ${getMarketNodeTypeName(params.data.category)}<br/>连接数: ${degree}`;
+                if (nodeData && nodeData.type === 'MarketData') {
+                  if (nodeData.state) tooltip += `<br/>州: ${nodeData.state}`;
+                  if (nodeData.game) tooltip += `<br/>游戏: ${nodeData.game}`;
+                  if (nodeData.date) tooltip += `<br/>日期: ${new Date(nodeData.date).toLocaleDateString('zh-CN')}`;
+                  if (nodeData.revenue) tooltip += `<br/>收入: ${formatCurrency(nodeData.revenue)}`;
+                  tooltip += '<br/><span style="color: #64748b; font-size: 12px;">点击查看详情</span>';
+                } else if (nodeData && nodeData.type === 'Entity') {
+                  if (nodeData.entity_type) tooltip += `<br/>实体类型: ${nodeData.entity_type}`;
+                  if (nodeData.canonical_name) tooltip += `<br/>规范名称: ${nodeData.canonical_name}`;
+                }
+                return tooltip;
+              } else {
+                return `${params.data.source} → ${params.data.target}`;
+              }
+            }
+          },
+          legend: { show: false },
+          series: [{
+            name: '市场数据图谱',
+            type: 'graph',
+            layout: 'force',
+            data: echartsNodes,
+            links: echartsLinks,
+            categories: categories,
+            roam: true,
+            label: {
+              show: true,
+              position: 'right',
+              formatter: '{b}'
+            },
+            labelLayout: {
+              hideOverlap: true
+            },
+            scaleLimit: {
+              min: 0.05,
+              max: 3
+            },
+            lineStyle: {
+              color: 'source',
+              curveness: 0
+            },
+            emphasis: {
+              focus: 'adjacency',
+              lineStyle: {
+                width: 10
+              }
+            },
+            force: {
+              repulsion: 2000,  // 增加排斥力，让不同组的数据点分开
+              gravity: 0.1,     // 增加重力，让节点更集中
+              edgeLength: [80, 200],  // 缩短边的理想长度，让连接的节点更靠近
+              layoutAnimation: true,
+              // 让连接到相同State/Game的MarketData节点更靠近
+              friction: 0.6  // 增加摩擦力，让布局更稳定
+            }
+          }]
+        };
+        
+        marketGraphChart.setOption(option);
+        currentGraphData = graphData;
+        
+        // 添加点击事件
+        marketGraphChart.on('click', (params) => {
+          if (params.dataType === 'node') {
+            const nodeData = nodeDataMap[params.data.id];
+            if (nodeData && nodeData.type === 'MarketData') {
+              showMarketDetail(nodeData);
+            }
+          }
+        });
+        
+        // 如果当前是全屏状态，更新全屏图表
+        if (isFullscreen && fullscreenChart) {
+          fullscreenChart.setOption(option);
+          setTimeout(() => {
+            fullscreenChart.resize();
+          }, 100);
+        }
+      }
+
+      function getMarketNodeSymbol(nodeType) {
+        const map = {
+          'MarketData': 'circle',
+          'State': 'rect',
+          'Game': 'diamond',
+          'Entity': 'triangle'
+        };
+        return map[nodeType] || 'circle';
+      }
+
+      function getMarketNodeSize(nodeType, normalizedDegree, degree, minDegree, maxDegree) {
+        // 基础大小（最小节点大小）
+        const baseSize = {
+          'MarketData': 12,
+          'State': 30,
+          'Game': 18,
+          'Entity': 15
+        };
+        // 最大大小（最大节点大小）
+        const maxSize = {
+          'MarketData': 50,
+          'State': 60,
+          'Game': 45,
+          'Entity': 40
+        };
+        
+        const minSize = baseSize[nodeType] || 15;
+        const maxNodeSize = maxSize[nodeType] || 40;
+        
+        // 如果度数为0，直接返回最小大小
+        if (degree === 0) {
+          return minSize;
+        }
+        
+        // 按节点类型设置不同的指数，让度数差异更明显
+        // 指数越小，高链接数节点的差异越明显
+        const exponentMap = {
+          'MarketData': 0.6,  // MarketData节点使用较小的指数，让高链接数节点更突出
+          'State': 0.5,       // State节点保持原有指数
+          'Game': 0.65,       // Game节点使用中等指数
+          'Entity': 0.7       // Entity节点使用较大指数，差异更平滑
+        };
+        const exponent = exponentMap[nodeType] || 0.6;
+        
+        // 确保归一化度数在 [0, 1] 范围内
+        const clampedNormalizedDegree = Math.max(0, Math.min(1, normalizedDegree));
+        
+        // 应用指数函数：degreeFactor = normalizedDegree^exponent
+        // 当 exponent < 1 时，高链接数节点会被放大
+        const degreeFactor = Math.pow(clampedNormalizedDegree, exponent);
+        
+        // 计算基础大小：最小大小 + (最大大小 - 最小大小) * 非线性因子
+        let size = minSize + (maxNodeSize - minSize) * degreeFactor;
+        
+        // 对于高链接数节点，进一步放大差异
+        // 根据节点类型设置不同的放大阈值和强度
+        const boostThresholdMap = {
+          'MarketData': 0.6,  // MarketData节点在60%以上就开始放大
+          'State': 0.7,
+          'Game': 0.65,
+          'Entity': 0.7
+        };
+        const boostStrengthMap = {
+          'MarketData': 0.8,  // MarketData节点使用更强的放大效果
+          'State': 0.5,
+          'Game': 0.6,
+          'Entity': 0.5
+        };
+        
+        const boostThreshold = boostThresholdMap[nodeType] || 0.7;
+        const boostStrength = boostStrengthMap[nodeType] || 0.5;
+        
+        if (clampedNormalizedDegree > boostThreshold) {
+          // 对高链接数节点使用额外的放大系数
+          const highDegreeBoost = 1.0 + (clampedNormalizedDegree - boostThreshold) * boostStrength;
+          size = size * highDegreeBoost;
+          // 确保不超过最大大小
+          size = Math.min(size, maxNodeSize);
+        }
+        
+        // 对于有链接的节点，设置最小底线，确保可读性
+        // 根据节点类型设置不同的底线倍数
+        const floorMultiplierMap = {
+          'MarketData': 1.3,  // MarketData节点有链接时至少比最小大小大30%
+          'State': 1.2,
+          'Game': 1.25,
+          'Entity': 1.2
+        };
+        
+        if (degree > 0) {
+          const floorMultiplier = floorMultiplierMap[nodeType] || 1.2;
+          const minFloor = minSize * floorMultiplier;
+          size = Math.max(size, minFloor);
+        }
+        
+        // 动态底线：随度数缓慢提升，避免信息量大的节点过小
+        // 根据节点类型设置不同的动态提升强度
+        const dynamicBoostMap = {
+          'MarketData': 1.2,  // MarketData节点使用更强的动态提升
+          'State': 0.8,
+          'Game': 1.0,
+          'Entity': 0.9
+        };
+        
+        const dynamicBoost = dynamicBoostMap[nodeType] || 1.0;
+        const dynBump = dynamicBoost * Math.sqrt(Math.max(0, degree));
+        size = size + dynBump;
+        
+        // 确保最终大小在合理范围内
+        size = Math.max(minSize, Math.min(size, maxNodeSize));
+        
+        return Math.round(size);
+      }
+
+      // 全屏功能 - 提取视图到全屏容器
+      let isFullscreen = false;
+      let fullscreenChart = null;
+      
+      window.toggleMarketFullscreen = function() {
+        const fullscreenView = document.getElementById('graph-fullscreen-view');
+        const originalContainer = document.getElementById('market-graph-container');
+        const originalChart = document.getElementById('graph-chart');
+        const fullscreenContainer = document.getElementById('fullscreen-graph-container');
+        const fullscreenChartEl = document.getElementById('fullscreen-graph-chart');
+        const icon = document.getElementById('market-fullscreen-icon');
+        const text = document.getElementById('market-fullscreen-text');
+        
+        if (isFullscreen) {
+          // 退出全屏
+          console.log('退出全屏');
+          isFullscreen = false;
+          fullscreenView.classList.remove('active');
+          
+          // 销毁全屏图表
+          if (fullscreenChart) {
+            fullscreenChart.dispose();
+            fullscreenChart = null;
+          }
+          
+          // 恢复原图表显示
+          if (originalChart) {
+            originalChart.style.display = 'block';
+          }
+          
+          // 通知父窗口显示侧边栏
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'fullscreen', action: 'exit' }, '*');
+              console.log('已通知父窗口显示侧边栏');
+            }
+          } catch (e) {
+            console.error('通知父窗口失败:', e);
+          }
+          
+          // 更新按钮状态
+          if (icon) icon.textContent = '⛶';
+          if (text) text.textContent = '全屏';
+          
+          // 重新调整原图表大小
+          if (marketGraphChart) {
+            setTimeout(() => {
+              marketGraphChart.resize();
+            }, 100);
+          }
+        } else {
+          // 进入全屏
+          console.log('进入全屏');
+          isFullscreen = true;
+          
+          // 隐藏原图表
+          if (originalChart) {
+            originalChart.style.display = 'none';
+          }
+          
+          // 显示全屏视图
+          fullscreenView.classList.add('active');
+          
+          // 通知父窗口隐藏侧边栏
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'fullscreen', action: 'enter' }, '*');
+              console.log('已通知父窗口隐藏侧边栏');
+            }
+          } catch (e) {
+            console.error('通知父窗口失败:', e);
+          }
+          
+          // 复制图表配置到全屏容器
+          if (marketGraphChart && currentGraphData) {
+            // 获取当前图表配置
+            const option = marketGraphChart.getOption();
+            
+            // 创建新的图表实例
+            fullscreenChart = echarts.init(fullscreenChartEl);
+            fullscreenChart.setOption(option);
+            
+            // 重新调整大小
+            setTimeout(() => {
+              fullscreenChart.resize();
+            }, 100);
+            
+            // 复制点击事件
+            fullscreenChart.on('click', (params) => {
+              if (params.dataType === 'node') {
+                const nodeData = nodeDataMap[params.data.id];
+                if (nodeData && nodeData.type === 'MarketData') {
+                  showMarketDetail(nodeData);
+                }
+              }
+            });
+          }
+          
+          // 更新按钮状态
+          if (icon) icon.textContent = '⛶';
+          if (text) text.textContent = '退出全屏';
+        }
+      };
+
+      // 监听ESC键退出全屏
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isFullscreen) {
+          toggleMarketFullscreen();
+        }
+      });
+
+      // 监听父窗口的全屏状态变化
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'fullscreen-state') {
+          if (!e.data.isFullscreen && isFullscreen) {
+            // 父窗口退出全屏，同步状态
+            const container = document.getElementById('market-graph-container');
+            const icon = document.getElementById('market-fullscreen-icon');
+            const text = document.getElementById('market-fullscreen-text');
+            isFullscreen = false;
+            container.classList.remove('fullscreen');
+            icon.textContent = '⛶';
+            text.textContent = '全屏';
+            if (marketGraphChart) {
+              setTimeout(() => {
+                marketGraphChart.resize();
+              }, 100);
+            }
+          }
+        }
+      });
+
+      function getMarketNodeColor(nodeType) {
+        const colors = {
+          'MarketData': '#2563eb',
+          'State': '#10b981',
+          'Game': '#f59e0b',
+          'Entity': '#8b5cf6'
+        };
+        return colors[nodeType] || '#94a3b8';
+      }
+
+      function getMarketNodeTypeName(category) {
+        const names = ['MarketData', 'State', 'Game', 'Entity'];
+        return names[category] || 'Unknown';
+      }
+
+      // 显示市场数据详情 - 直接调用数据库管理API
+      async function showMarketDetail(nodeData) {
+        const modal = document.getElementById('market-modal');
+        const content = document.getElementById('market-detail-content');
+        const docId = nodeData.id;
+        
+        // 显示加载状态
+        content.innerHTML = '<div style="text-align: center; padding: 40px; color: #64748b;">加载中...</div>';
+        modal.style.display = 'block';
+        
+        try {
+          // 调用数据库管理API获取完整文档数据（MarketApp.fetchJSON 自动解析 envelope）
+          const doc = await window.MarketApp.fetchJSON(`/api/v1/admin/documents/${docId}`);
+          
+          // 处理 extracted_data：如果是字符串则解析为对象
+          let extractedData = doc.extracted_data;
+          if (typeof extractedData === 'string') {
+            try {
+              extractedData = JSON.parse(extractedData);
+            } catch (e) {
+              console.error('解析 extracted_data 失败:', e);
+              extractedData = {};
+            }
+          }
+          
+          const extracted = extractedData || {};
+          
+          // 使用与数据库管理页面相同的格式
+          const bodyHtml = `
+            <div><strong>标题:</strong> ${escapeHtml(doc.title || '(无)')}</div>
+            <div style="margin-top: 12px;"><strong>URL:</strong> <a href="${doc.uri}" target="_blank" class="link">${escapeHtml(doc.uri)}</a></div>
+            ${renderMarketExtractedData(extracted)}
+            ${doc.content ? `
+              <div style="margin-top: 16px;">
+                <strong>内容:</strong>
+                <div class="content-preview">${escapeHtml(doc.content.substring(0, 5000))}${doc.content.length > 5000 ? '...' : ''}</div>
+              </div>
+            ` : ''}
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+              <div style="font-size: 12px; color: #6b7280;">
+                <div><strong>创建时间:</strong> ${doc.created_at ? new Date(doc.created_at).toLocaleString('zh-CN') : '-'}</div>
+                <div style="margin-top: 8px;"><strong>更新时间:</strong> ${doc.updated_at ? new Date(doc.updated_at).toLocaleString('zh-CN') : '-'}</div>
+              </div>
+            </div>
+          `;
+          
+          content.innerHTML = bodyHtml;
+        } catch (err) {
+          console.error('加载文档详情失败:', err);
+          content.innerHTML = `<div class="error">加载失败: ${escapeHtml(err.message)}</div>`;
+        }
+      }
+
+      // 渲染市场数据结构化数据（与admin.html中的函数相同）
+      function renderMarketExtractedData(extractedData) {
+        if (!extractedData || Object.keys(extractedData).length === 0) return '';
+        
+        const extracted = extractedData || {};
+        const market = extracted.market || {};
+        const entitiesRelations = extracted.entities_relations || {};
+        
+        let html = '<div class="extracted-card">';
+        
+        // 市场信息
+        if (Object.keys(market).length > 0) {
+          html += '<div class="extracted-section">';
+          html += '<h3>📊 市场数据</h3>';
+          html += '<div class="info-grid">';
+          
+          if (market.state) {
+            html += `<div class="info-item">
+              <label>州</label>
+              <div class="value">${escapeHtml(market.state)}</div>
+            </div>`;
+          }
+          
+          if (market.game) {
+            html += `<div class="info-item">
+              <label>游戏</label>
+              <div class="value">${escapeHtml(market.game)}</div>
+            </div>`;
+          }
+          
+          if (market.report_date) {
+            html += `<div class="info-item">
+              <label>报告日期</label>
+              <div class="value">${escapeHtml(market.report_date)}</div>
+            </div>`;
+          }
+          
+          if (market.sales_volume !== undefined && market.sales_volume !== null) {
+            html += `<div class="info-item">
+              <label>销售额</label>
+              <div class="value">$${market.sales_volume.toLocaleString()}</div>
+            </div>`;
+          }
+          
+          if (market.revenue !== undefined && market.revenue !== null) {
+            html += `<div class="info-item">
+              <label>收入</label>
+              <div class="value">$${market.revenue.toLocaleString()}</div>
+            </div>`;
+          }
+          
+          if (market.jackpot !== undefined && market.jackpot !== null) {
+            html += `<div class="info-item">
+              <label>奖池</label>
+              <div class="value">$${market.jackpot.toLocaleString()}</div>
+            </div>`;
+          }
+          
+          if (market.ticket_price !== undefined && market.ticket_price !== null) {
+            html += `<div class="info-item">
+              <label>票价</label>
+              <div class="value">$${market.ticket_price}</div>
+            </div>`;
+          }
+          
+          if (market.draw_number) {
+            html += `<div class="info-item">
+              <label>开奖号码</label>
+              <div class="value">${escapeHtml(market.draw_number)}</div>
+            </div>`;
+          }
+          
+          if (market.yoy_change !== undefined && market.yoy_change !== null) {
+            const color = market.yoy_change >= 0 ? '#10b981' : '#ef4444';
+            html += `<div class="info-item">
+              <label>同比变化</label>
+              <div class="value" style="color: ${color}">${market.yoy_change >= 0 ? '+' : ''}${market.yoy_change.toFixed(1)}%</div>
+            </div>`;
+          }
+          
+          if (market.mom_change !== undefined && market.mom_change !== null) {
+            const color = market.mom_change >= 0 ? '#10b981' : '#ef4444';
+            html += `<div class="info-item">
+              <label>环比变化</label>
+              <div class="value" style="color: ${color}">${market.mom_change >= 0 ? '+' : ''}${market.mom_change.toFixed(1)}%</div>
+            </div>`;
+          }
+          
+          html += '</div>';
+          
+          if (market.key_findings && market.key_findings.length > 0) {
+            html += '<div style="margin-top: 12px;"><label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 6px; font-weight: 500;">关键发现</label>';
+            html += '<div class="tag-list">';
+            market.key_findings.forEach(finding => {
+              html += `<span class="tag-item" style="background: #fef3c7; color: #92400e; border-color: #fde68a;">${escapeHtml(finding)}</span>`;
+            });
+            html += '</div></div>';
+          }
+          
+          html += '</div>';
+        }
+        
+        // 实体和关系
+        if (entitiesRelations.entities && entitiesRelations.entities.length > 0) {
+          html += '<div class="extracted-section">';
+          html += '<h3>🏷️ 实体（图谱节点）</h3>';
+          html += '<div class="tag-list">';
+          entitiesRelations.entities.forEach(entity => {
+            const entityName = entity.canonical_name || entity.text || '';
+            const entityType = entity.type || 'UNKNOWN';
+            html += `<span class="tag-item" style="background: #dcfce7; color: #166534; border-color: #86efac;" title="类型: ${entityType}">${escapeHtml(entityName)}</span>`;
+          });
+          html += '</div></div>';
+        }
+        
+        if (entitiesRelations.relations && entitiesRelations.relations.length > 0) {
+          html += '<div class="extracted-section">';
+          html += '<h3>🔗 关系（图谱边）</h3>';
+          html += '<div style="display: flex; flex-direction: column; gap: 8px;">';
+          entitiesRelations.relations.forEach(relation => {
+            html += `<div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #e5e7eb;">
+              <div style="font-size: 13px; color: #1f2937;">
+                <strong>${escapeHtml(relation.subject || '')}</strong>
+                <span style="color: #6b7280; margin: 0 8px;">${escapeHtml(relation.predicate || '')}</span>
+                <strong>${escapeHtml(relation.object || '')}</strong>
+              </div>
+              ${relation.confidence !== undefined ? `<div style="font-size: 11px; color: #6b7280; margin-top: 4px;">置信度: ${(relation.confidence * 100).toFixed(1)}%</div>` : ''}
+              ${relation.evidence ? `<div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-style: italic;">证据: ${escapeHtml(relation.evidence)}</div>` : ''}
+            </div>`;
+          });
+          html += '</div></div>';
+        }
+        
+        html += '</div>';
+        return html;
+      }
+
+      // 关闭市场数据详情模态框
+      function closeMarketModal() {
+        const modal = document.getElementById('market-modal');
+        modal.style.display = 'none';
+      }
+
+      // HTML转义函数
+      function escapeHtml(text) {
+        if (text == null) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // 点击模态框外部关闭
+      window.onclick = function(event) {
+        const modal = document.getElementById('market-modal');
+        if (event.target === modal) {
+          closeMarketModal();
+        }
+      }
+    </script>
+  </body>
+</html>
+

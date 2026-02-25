@@ -1,8 +1,10 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import sessionmaker, declarative_base, declarative_mixin
+from sqlalchemy import BigInteger, Column
 import os
 
 from ..settings.config import settings
+from ..services.projects.context import current_project_schema, project_schema_name
 
 
 def _get_connect_args():
@@ -57,7 +59,28 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 
+# Ensure default project schema exists to avoid startup failures.
+with engine.begin() as _conn:
+    _conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{project_schema_name(settings.active_project_key)}"'))
+
+
+@event.listens_for(SessionLocal, "after_begin")
+def _set_project_schema(session, transaction, connection):  # noqa: ANN001
+    """Route all ORM operations to current project schema."""
+    schema = current_project_schema()
+    if not schema:
+        return
+    # Use schema-only search path to prevent accidental fallback to public tenant tables.
+    connection.execute(text(f'SET search_path TO "{schema}"'))
+
 Base = declarative_base()
+
+
+@declarative_mixin
+class BigIDMixin:
+    """统一的主键定义，使用BigInteger以提升容量，并保持自增语义。"""
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
 
 
 def get_db():

@@ -3,23 +3,28 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 from sqlalchemy.orm import Session
 
 from ..job_logger import start_job, complete_job, fail_job
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
+from .doc_type_mapper import normalize_doc_type
 from .adapters.http_utils import fetch_html, make_html_parser
+from .adapters.social_reddit import RedditAdapter, RedditPost
+from .adapters.news_google import GoogleNewsAdapter, GoogleNewsItem
 from ..http.client import default_http_client
 from ...settings.config import settings
+from ...subprojects.online_lottery.domain.news import (
+    CALOTTERY_NEWS_URL,
+    CALOTTERY_RETAILER_URL,
+    DEFAULT_REDDIT_SUBREDDIT,
+)
 
 
 logger = logging.getLogger(__name__)
-
-CALOTTERY_NEWS_URL = "https://www.calottery.com/news-releases"
-CALOTTERY_RETAILER_URL = "https://www.calottery.com/retailer/retailer-news"
-
+BATCH_COMMIT_SIZE = 100
 
 @dataclass(slots=True)
 class NewsItem:
@@ -69,20 +74,47 @@ def collect_calottery_retailer_updates(limit: int = 10) -> dict:
         raise
 
 
-def collect_reddit_discussions(subreddit: str = "Lottery", limit: int = 20) -> dict:
-    job_id = start_job("reddit_discussions", {"subreddit": subreddit, "limit": limit})
+def collect_reddit_discussions(
+    subreddit: str = DEFAULT_REDDIT_SUBREDDIT,
+    limit: int = 20,
+    keywords: Optional[List[str]] = None,
+    subreddits: Optional[List[str]] = None,
+) -> dict:
+    """
+    收集Reddit讨论帖
+    
+    Args:
+        subreddit: 单个子论坛名称（向后兼容）
+        limit: 每个子论坛的帖子数量限制
+        keywords: 可选的关键词列表，用于过滤帖子
+        subreddits: 可选的子论坛列表，如果提供则搜索多个子论坛
+    """
+    # 支持多子论坛或单个子论坛
+    subreddit_list = subreddits if subreddits else [subreddit]
+    job_id = start_job(
+        "reddit_discussions",
+        {"subreddits": subreddit_list, "limit": limit, "keywords": keywords},
+    )
+    
     try:
-        headers = {"User-Agent": settings.reddit_user_agent or "LotteryIntelBot/0.1"}
-        url = f"https://www.reddit.com/r/{subreddit}/new.json"
-        payload = default_http_client.get_json(url, params={"limit": str(limit)}, headers=headers)
-        items = _parse_reddit_payload(payload)
-        result = _persist_news_items(
-            items=items,
+        adapter = RedditAdapter()
+        
+        # 如果只有一个子论坛，使用原有逻辑保持兼容性
+        if len(subreddit_list) == 1:
+            posts = list(adapter.fetch_posts(subreddit_list[0], keywords, limit))
+            source_name = f"Reddit r/{subreddit_list[0]}"
+        else:
+            # 多个子论坛
+            posts = adapter.search_multiple_subreddits(subreddit_list, keywords, limit)
+            source_name = f"Reddit {len(subreddit_list)} subreddits"
+        
+        # 存储额外的Reddit数据到extracted_data
+        result = _persist_reddit_items(
+            posts=posts,
             doc_type="social_feed",
-            source_name=f"Reddit r/{subreddit}",
+            source_name=source_name,
             base_url="reddit.com",
             default_state="CA",
-            kind="social",
         )
         complete_job(job_id, result=result)
         return result
@@ -101,12 +133,15 @@ def _persist_news_items(
     default_state: str | None,
     kind: str = "news",
 ) -> dict:
+    normalized_doc_type = normalize_doc_type(doc_type)
     inserted = 0
     skipped = 0
     links: List[str] = []
+    pending_inserts = 0
 
     with SessionLocal() as session:
         source = _get_or_create_source(session, source_name, kind, base_url)
+        source_id = source.id
         for item in items:
             link = item.link.strip()
             if not link:
@@ -118,9 +153,9 @@ def _persist_news_items(
                 continue
 
             document = Document(
-                source_id=source.id,
+                source_id=source_id,
                 state=default_state,
-                doc_type=doc_type,
+                doc_type=normalized_doc_type,
                 title=item.title,
                 summary=item.summary,
                 publish_date=item.published_at.date() if item.published_at else None,
@@ -128,14 +163,20 @@ def _persist_news_items(
             )
             session.add(document)
             inserted += 1
+            pending_inserts += 1
+            if pending_inserts >= BATCH_COMMIT_SIZE:
+                session.commit()
+                session.expunge_all()
+                pending_inserts = 0
 
-        session.commit()
+        if pending_inserts > 0:
+            session.commit()
 
     return {
         "inserted": inserted,
         "skipped": skipped,
         "links": links,
-        "doc_type": doc_type,
+        "doc_type": normalized_doc_type,
     }
 
 
@@ -143,7 +184,7 @@ def _get_or_create_source(session: Session, name: str, kind: str, base_url: str)
     source = (
         session.query(Source)
         .filter(Source.name == name, Source.kind == kind)
-        .one_or_none()
+        .first()
     )
     if source:
         return source
@@ -210,7 +251,75 @@ def _normalize_url(href: str) -> str:
     return f"https://www.calottery.com{href}" if href.startswith("/") else f"https://www.calottery.com/{href}"
 
 
+def _persist_reddit_items(
+    *,
+    posts: Iterable[RedditPost],
+    doc_type: str,
+    source_name: str,
+    base_url: str,
+    default_state: str | None,
+) -> dict:
+    """存储Reddit帖子数据，包含完整的结构化信息"""
+    normalized_doc_type = normalize_doc_type(doc_type)
+    inserted = 0
+    skipped = 0
+    links: List[str] = []
+    pending_inserts = 0
+
+    with SessionLocal() as session:
+        source = _get_or_create_source(session, source_name, "social", base_url)
+        source_id = source.id
+        for post in posts:
+            link = post.link.strip()
+            if not link:
+                continue
+            links.append(link)
+            existed = session.query(Document).filter(Document.uri == link).one_or_none()
+            if existed:
+                skipped += 1
+                continue
+
+            # 构建extracted_data，包含Reddit的完整信息
+            extracted_data = {
+                "platform": "reddit",
+                "username": post.username,
+                "subreddit": post.subreddit,
+                "likes": post.likes,
+                "comments": post.comments,
+                "text": post.text,
+            }
+
+            document = Document(
+                source_id=source_id,
+                state=default_state,
+                doc_type=normalized_doc_type,
+                title=post.title,
+                summary=post.summary,
+                publish_date=post.timestamp.date() if post.timestamp else None,
+                uri=link,
+                extracted_data=extracted_data,
+            )
+            session.add(document)
+            inserted += 1
+            pending_inserts += 1
+            if pending_inserts >= BATCH_COMMIT_SIZE:
+                session.commit()
+                session.expunge_all()
+                pending_inserts = 0
+
+        if pending_inserts > 0:
+            session.commit()
+
+    return {
+        "inserted": inserted,
+        "skipped": skipped,
+        "links": links,
+        "doc_type": normalized_doc_type,
+    }
+
+
 def _parse_reddit_payload(payload: object) -> List[NewsItem]:
+    """旧版解析函数，保留用于向后兼容"""
     items: List[NewsItem] = []
     if not isinstance(payload, dict):
         return items
@@ -245,4 +354,95 @@ def _parse_reddit_payload(payload: object) -> List[NewsItem]:
         )
     return items
 
+
+def collect_google_news(keywords: List[str], limit: int = 20) -> dict:
+    """
+    收集Google News新闻
+    
+    Args:
+        keywords: 搜索关键词列表
+        limit: 每个关键词的结果数量限制
+    """
+    job_id = start_job("google_news", {"keywords": keywords, "limit": limit})
+    try:
+        adapter = GoogleNewsAdapter()
+        news_items = adapter.search_multiple_keywords(keywords, limit)
+        
+        result = _persist_google_news_items(
+            items=news_items,
+            doc_type="news",
+            source_name="Google News",
+            base_url="news.google.com",
+            default_state=None,  # Google News可能涉及多个州
+        )
+        complete_job(job_id, result=result)
+        return result
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("collect_google_news failed")
+        fail_job(job_id, str(exc))
+        raise
+
+
+def _persist_google_news_items(
+    *,
+    items: Iterable[GoogleNewsItem],
+    doc_type: str,
+    source_name: str,
+    base_url: str,
+    default_state: str | None,
+) -> dict:
+    """存储Google News数据"""
+    normalized_doc_type = normalize_doc_type(doc_type)
+    inserted = 0
+    skipped = 0
+    links: List[str] = []
+    pending_inserts = 0
+
+    with SessionLocal() as session:
+        source = _get_or_create_source(session, source_name, "news", base_url)
+        source_id = source.id
+        for item in items:
+            link = item.link.strip()
+            if not link:
+                continue
+            links.append(link)
+            existed = session.query(Document).filter(Document.uri == link).one_or_none()
+            if existed:
+                skipped += 1
+                continue
+
+            # 构建extracted_data
+            extracted_data = {
+                "platform": "google_news",
+                "source": item.source,
+                "keyword": item.keyword,
+            }
+
+            document = Document(
+                source_id=source_id,
+                state=default_state,
+                doc_type=normalized_doc_type,
+                title=item.title,
+                summary=item.summary,
+                publish_date=item.date.date() if item.date else None,
+                uri=link,
+                extracted_data=extracted_data,
+            )
+            session.add(document)
+            inserted += 1
+            pending_inserts += 1
+            if pending_inserts >= BATCH_COMMIT_SIZE:
+                session.commit()
+                session.expunge_all()
+                pending_inserts = 0
+
+        if pending_inserts > 0:
+            session.commit()
+
+    return {
+        "inserted": inserted,
+        "skipped": skipped,
+        "links": links,
+        "doc_type": normalized_doc_type,
+    }
 

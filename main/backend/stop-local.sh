@@ -19,7 +19,7 @@ else
 fi
 
 # 停止数据库服务（可选）
-OPS_DIR="$(cd "$SCRIPT_DIR/../../ops" && pwd)"
+OPS_DIR="$(cd "$SCRIPT_DIR/../ops" && pwd)"
 if [ -f "$OPS_DIR/docker-compose.yml" ]; then
     echo ""
     read -p "是否要停止数据库服务（db, es, redis）？(y/n) " -n 1 -r

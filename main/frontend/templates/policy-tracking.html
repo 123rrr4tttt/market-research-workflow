@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>政策追踪</title>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Sans SC", sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        color: #0f172a;
+        font-weight: 700;
+      }
+      .nav-links {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      .nav-links a {
+        padding: 10px 20px;
+        background: #2563eb;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        display: inline-block;
+        transition: background 0.2s;
+      }
+      .nav-links a.secondary {
+        background: white;
+        border: 1px solid #cbd5e1;
+        color: #2563eb;
+      }
+      .nav-links a:hover {
+        background: #1d4ed8;
+      }
+      .filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        align-items: center;
+        background: white;
+        padding: 16px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .filters label {
+        font-weight: 500;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .filters input, .filters select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+      .filters input[type="date"] {
+        min-width: 160px;
+      }
+      .filters button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .filters button:hover {
+        background: #1d4ed8;
+      }
+      .view-toggle {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        background: white;
+        padding: 8px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        width: fit-content;
+      }
+      .view-toggle button {
+        padding: 8px 16px;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #64748b;
+        transition: all 0.2s;
+      }
+      .view-toggle button.active {
+        background: #2563eb;
+        color: white;
+      }
+      .view-toggle button:hover:not(.active) {
+        background: #f1f5f9;
+      }
+      section {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      section h2 {
+        margin: 0 0 20px 0;
+        font-size: 20px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 12px;
+        font-weight: 600;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      th {
+        background: #f8fafc;
+        font-weight: 600;
+        color: #475569;
+        position: sticky;
+        top: 0;
+        cursor: pointer;
+        user-select: none;
+      }
+      th:hover {
+        background: #f1f5f9;
+      }
+      th.sort-asc::after {
+        content: ' ↑';
+        color: #2563eb;
+      }
+      th.sort-desc::after {
+        content: ' ↓';
+        color: #2563eb;
+      }
+      tbody tr {
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      tbody tr:hover {
+        background: #f8fafc;
+      }
+      .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .badge-success { background: #dcfce7; color: #166534; }
+      .badge-warning { background: #fef3c7; color: #92400e; }
+      .badge-error { background: #fee2e2; color: #991b1b; }
+      .badge-info { background: #dbeafe; color: #1e40af; }
+      .badge-default { background: #f1f5f9; color: #475569; }
+      .key-points-preview {
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #64748b;
+        font-size: 13px;
+      }
+      #table-view {
+        display: block;
+      }
+      .timeline-view {
+        display: none;
+      }
+      .timeline-view.active {
+        display: block;
+      }
+      .timeline-view .empty-state {
+        text-align: center;
+        padding: 32px 0;
+        color: #64748b;
+      }
+      .timeline-list {
+        position: relative;
+        padding: 8px 0 8px 36px;
+        border-left: 2px solid #e2e8f0;
+      }
+      .timeline-entry {
+        position: relative;
+        margin-bottom: 32px;
+        padding-left: 24px;
+        cursor: pointer;
+        outline: none;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+      }
+      .timeline-entry:last-child {
+        margin-bottom: 0;
+      }
+      .timeline-entry::before {
+        content: '';
+        position: absolute;
+        left: -43px;
+        top: 28px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #2563eb;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+      }
+      .timeline-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+      }
+      .timeline-entry:hover .timeline-card,
+      .timeline-entry:focus-visible .timeline-card {
+        transform: translateY(-4px);
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+      }
+      .timeline-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+      .timeline-date {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1d4ed8;
+      }
+      .timeline-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 8px;
+        color: #64748b;
+        font-size: 13px;
+      }
+      .timeline-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #0f172a;
+        margin: 0 0 12px 0;
+      }
+      .timeline-summary {
+        margin: 0 0 12px 0;
+        color: #475569;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .timeline-keypoints {
+        margin: 0;
+        padding: 12px 16px;
+        list-style: none;
+        background: #f8fafc;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        font-size: 14px;
+      }
+      .timeline-keypoints li {
+        position: relative;
+        padding-left: 18px;
+        margin-bottom: 8px;
+      }
+      .timeline-keypoints li:last-child {
+        margin-bottom: 0;
+      }
+      .timeline-keypoints li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 6px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #2563eb;
+      }
+      .timeline-footer {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin-top: 16px;
+      }
+      .timeline-link {
+        font-size: 13px;
+        font-weight: 500;
+        color: #2563eb;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .timeline-entry:hover .timeline-link,
+      .timeline-entry:focus-visible .timeline-link {
+        text-decoration: underline;
+      }
+      @media (max-width: 1024px) {
+        .timeline-list {
+          padding-left: 28px;
+        }
+        .timeline-entry {
+          padding-left: 16px;
+        }
+        .timeline-entry::before {
+          left: -36px;
+        }
+      }
+      @media (max-width: 640px) {
+        .timeline-list {
+          border-left: none;
+          padding-left: 0;
+        }
+        .timeline-entry {
+          padding-left: 0;
+        }
+        .timeline-entry::before {
+          left: 8px;
+        }
+        .timeline-card {
+          padding: 16px;
+        }
+        .timeline-card-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .timeline-footer {
+          justify-content: flex-start;
+          margin-top: 12px;
+        }
+      }
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        margin-top: 24px;
+      }
+      .pagination button {
+        padding: 8px 12px;
+        background: white;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .pagination button:hover:not(:disabled) {
+        background: #f1f5f9;
+        border-color: #2563eb;
+      }
+      .pagination button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .pagination button.active {
+        background: #2563eb;
+        color: white;
+        border-color: #2563eb;
+      }
+      .pagination span {
+        color: #64748b;
+        font-size: 14px;
+      }
+      .timeline-view {
+        display: none;
+      }
+      .timeline-view.active {
+        display: block;
+      }
+      .timeline-item {
+        position: relative;
+        padding: 16px;
+        margin-bottom: 16px;
+        border-left: 3px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 8px;
+        transition: all 0.2s;
+        cursor: pointer;
+      }
+      .timeline-item:hover {
+        border-left-color: #2563eb;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .timeline-item.regulation { border-left-color: #2563eb; }
+      .timeline-item.bill { border-left-color: #10b981; }
+      .timeline-item.announcement { border-left-color: #f59e0b; }
+      .timeline-item.guidance { border-left-color: #8b5cf6; }
+      .timeline-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 8px;
+      }
+      .timeline-title {
+        font-weight: 600;
+        color: #0f172a;
+        font-size: 16px;
+      }
+      .timeline-meta {
+        display: flex;
+        gap: 16px;
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 8px;
+      }
+      .timeline-keypoints {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #475569;
+      }
+      .policy-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      .policy-modal.active {
+        display: flex;
+      }
+      .policy-modal-content {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+        margin: 20px;
+        width: 90%;
+      }
+      .policy-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .policy-modal-header h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #0f172a;
+      }
+      .policy-modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #64748b;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .policy-modal-close:hover {
+        color: #0f172a;
+      }
+      .key-points-list {
+        list-style: none;
+        padding: 0;
+        margin: 16px 0;
+      }
+      .key-points-list li {
+        padding: 8px 0;
+        padding-left: 24px;
+        position: relative;
+      }
+      .key-points-list li::before {
+        content: '•';
+        position: absolute;
+        left: 0;
+        color: #2563eb;
+        font-weight: bold;
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #64748b;
+      }
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #cbd5e1;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      .export-btn {
+        margin-left: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>政策追踪</h1>
+        <p>查看和管理所有政策文档</p>
+        <div class="nav-links">
+          <a href="/policy-dashboard.html" class="secondary">Dashboard</a>
+          <a href="/policy-tracking.html">政策追踪</a>
+        </div>
+      </header>
+
+      <div class="filters">
+        <label>州：</label>
+        <select id="filter-state">
+          <option value="">全部</option>
+          <option value="CA">California (CA)</option>
+          <option value="NY">New York (NY)</option>
+          <option value="TX">Texas (TX)</option>
+          <option value="FL">Florida (FL)</option>
+          <option value="IL">Illinois (IL)</option>
+        </select>
+        <label>政策类型：</label>
+        <select id="filter-type">
+          <option value="">全部</option>
+          <option value="regulation">法规</option>
+          <option value="bill">法案</option>
+          <option value="announcement">公告</option>
+          <option value="guidance">指导文件</option>
+        </select>
+        <label>状态：</label>
+        <select id="filter-status">
+          <option value="">全部</option>
+          <option value="active">生效中</option>
+          <option value="pending">待生效</option>
+          <option value="expired">已过期</option>
+        </select>
+        <label>开始日期：</label>
+        <input type="date" id="filter-start" />
+        <label>结束日期：</label>
+        <input type="date" id="filter-end" />
+        <button onclick="applyFilters()">应用筛选</button>
+        <button onclick="resetFilters()" style="background: #64748b;">重置</button>
+        <button onclick="exportCSV()" class="export-btn" style="background: #10b981;">导出CSV</button>
+      </div>
+
+      <div class="view-toggle">
+        <button class="active" data-view="table" onclick="switchView('table', event)">表格视图</button>
+        <button data-view="timeline" onclick="switchView('timeline', event)">时间轴视图</button>
+      </div>
+
+      <section>
+        <h2>政策列表</h2>
+        <div id="table-view">
+          <table>
+            <thead>
+              <tr>
+                <th onclick="sortTable('title', event)" class="sortable">标题</th>
+                <th onclick="sortTable('state', event)" class="sortable">州</th>
+                <th onclick="sortTable('policy_type', event)" class="sortable">类型</th>
+                <th onclick="sortTable('publish_date', event)" class="sortable">发布日期</th>
+                <th onclick="sortTable('effective_date', event)" class="sortable">生效日期</th>
+                <th onclick="sortTable('status', event)" class="sortable">状态</th>
+                <th>关键要点</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <tr>
+                <td colspan="7" class="loading">
+                  <span class="spinner"></span>加载中...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="timeline-view" class="timeline-view">
+          <div id="timeline-container" class="loading">
+            <span class="spinner"></span>加载中...
+          </div>
+        </div>
+
+        <div class="pagination" id="pagination"></div>
+      </section>
+    </div>
+
+    <!-- 政策详情弹窗 -->
+    <div id="policy-modal" class="policy-modal">
+      <div class="policy-modal-content">
+        <div class="policy-modal-header">
+          <h3 id="modal-title">政策详情</h3>
+          <button class="policy-modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div id="modal-content">
+          <p><strong>州：</strong><span id="modal-state"></span></p>
+          <p><strong>发布日期：</strong><span id="modal-publish-date"></span></p>
+          <p><strong>生效日期：</strong><span id="modal-effective-date"></span></p>
+          <p><strong>政策类型：</strong><span id="modal-type"></span></p>
+          <p><strong>状态：</strong><span id="modal-status"></span></p>
+          <div id="modal-summary"></div>
+          <div id="modal-key-points"></div>
+          <div style="margin-top: 16px;">
+            <a id="modal-uri" href="#" target="_blank" style="color: #2563eb;">查看原文 →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let currentView = 'table';
+      let currentPage = 1;
+      let pageSize = 20;
+      let totalPages = 1;
+      let currentSort = { field: 'publish_date', order: 'desc' };
+      let currentFilters = {};
+      let policiesData = [];
+
+      // 初始化
+      document.addEventListener('DOMContentLoaded', function() {
+        loadPolicies();
+      });
+
+      // 加载政策列表
+      async function loadPolicies() {
+        try {
+          const params = new URLSearchParams({
+            page: String(currentPage),
+            page_size: String(pageSize),
+            sort_by: currentSort.field,
+            sort_order: currentSort.order
+          });
+          
+          if (currentFilters.state) params.append('state', currentFilters.state);
+          if (currentFilters.policy_type) params.append('policy_type', currentFilters.policy_type);
+          if (currentFilters.status) params.append('status', currentFilters.status);
+          if (currentFilters.start) params.append('start', currentFilters.start);
+          if (currentFilters.end) params.append('end', currentFilters.end);
+          
+          console.log('加载政策列表，排序:', currentSort.field, currentSort.order);
+          const envelope = await window.MarketApp.api.getFull(`/api/v1/policies?${params}`);
+          const data = envelope.data || {};
+          const pagination = envelope.meta && envelope.meta.pagination ? envelope.meta.pagination : {};
+          policiesData = data.items || [];
+          totalPages = pagination.total_pages || 1;
+          
+          console.log('收到数据:', policiesData.length, '条，排序字段:', currentSort.field);
+          
+          if (currentView === 'table') {
+            updateTableView();
+          } else {
+            updateTimelineView();
+          }
+          
+          updatePagination();
+        } catch (error) {
+          console.error('加载政策列表失败:', error);
+          showError('加载政策列表失败: ' + error.message);
+        }
+      }
+
+      // 更新表格视图
+      function updateTableView() {
+        const tbody = document.getElementById('table-body');
+        
+        if (policiesData.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无数据</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = policiesData.map(policy => {
+          const statusBadge = getStatusBadge(policy.status);
+          const typeBadge = getTypeBadge(policy.policy_type);
+          const keyPoints = (policy.key_points || []).slice(0, 2).join('; ') || '无';
+          
+          return `
+            <tr onclick="showPolicyDetail(${policy.id})">
+              <td>${policy.title || '无标题'}</td>
+              <td>${policy.state || '-'}</td>
+              <td>${typeBadge}</td>
+              <td>${policy.publish_date || '-'}</td>
+              <td>${policy.effective_date || '-'}</td>
+              <td>${statusBadge}</td>
+              <td><div class="key-points-preview" title="${keyPoints}">${keyPoints}</div></td>
+            </tr>
+          `;
+        }).join('');
+        
+        // 更新表头排序状态
+        updateTableHeaderSort();
+      }
+      
+      // 更新表头排序状态
+      function updateTableHeaderSort() {
+        document.querySelectorAll('th').forEach(th => {
+          th.classList.remove('sort-asc', 'sort-desc');
+          const onclick = th.getAttribute('onclick');
+          if (onclick) {
+            const match = onclick.match(/sortTable\('(\w+)'/);
+            if (match && match[1] === currentSort.field) {
+              th.classList.add(`sort-${currentSort.order}`);
+            }
+          }
+        });
+      }
+
+      // 更新时间轴视图
+      function updateTimelineView() {
+        const container = document.getElementById('timeline-container');
+        container.classList.remove('loading');
+        
+        if (policiesData.length === 0) {
+          container.innerHTML = '<div class="empty-state">暂无数据</div>';
+          return;
+        }
+        
+        const sorted = [...policiesData].sort((a, b) => {
+          const dateA = a.effective_date || a.publish_date || '';
+          const dateB = b.effective_date || b.publish_date || '';
+          return dateB.localeCompare(dateA);
+        });
+        
+        const timelineHtml = sorted.map(policy => {
+          const primaryDate = policy.effective_date || policy.publish_date || '日期待定';
+          const metaParts = [
+            policy.state ? `州：${policy.state}` : '',
+            policy.policy_type ? `类型：${getTypeText(policy.policy_type)}` : '',
+            policy.publish_date ? `发布：${policy.publish_date}` : '',
+            policy.effective_date ? `生效：${policy.effective_date}` : ''
+          ].filter(Boolean);
+          const summary = policy.summary ? policy.summary.replace(/\s+/g, ' ').trim() : '';
+          const summaryPreview = summary
+            ? (summary.length > 120 ? `${summary.slice(0, 120)}…` : summary)
+            : '';
+          const keyPoints = (policy.key_points || []).filter(Boolean).slice(0, 3);
+          
+          return `
+            <div class="timeline-entry" role="button" tabindex="0" onclick="showPolicyDetail(${policy.id})" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showPolicyDetail(${policy.id}); }">
+              <div class="timeline-card">
+                <div class="timeline-card-header">
+                  <div>
+                    <div class="timeline-date">${primaryDate}</div>
+                    ${metaParts.length ? `<div class="timeline-meta">${metaParts.map(item => `<span>${item}</span>`).join('')}</div>` : ''}
+                  </div>
+                  <span class="badge ${getStatusClass(policy.status)}">${getStatusText(policy.status)}</span>
+                </div>
+                <div class="timeline-title">${policy.title || '无标题'}</div>
+                ${summaryPreview ? `<p class="timeline-summary">${summaryPreview}</p>` : ''}
+                ${keyPoints.length ? `
+                  <ul class="timeline-keypoints">
+                    ${keyPoints.map(kp => `<li>${kp}</li>`).join('')}
+                  </ul>
+                ` : ''}
+                <div class="timeline-footer">
+                  <span class="timeline-link">查看详情 →</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+        container.innerHTML = `<div class="timeline-list">${timelineHtml}</div>`;
+      }
+
+      // 更新分页
+      function updatePagination() {
+        const pagination = document.getElementById('pagination');
+        
+        if (totalPages <= 1) {
+          pagination.innerHTML = '';
+          return;
+        }
+        
+        let html = '';
+        
+        // 上一页
+        html += `<button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+        
+        // 页码
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, currentPage + 2);
+        
+        if (startPage > 1) {
+          html += `<button onclick="goToPage(1)">1</button>`;
+          if (startPage > 2) html += `<span>...</span>`;
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+          html += `<button onclick="goToPage(${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+        }
+        
+        if (endPage < totalPages) {
+          if (endPage < totalPages - 1) html += `<span>...</span>`;
+          html += `<button onclick="goToPage(${totalPages})">${totalPages}</button>`;
+        }
+        
+        // 下一页
+        html += `<button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+        
+        html += `<span>共 ${totalPages} 页</span>`;
+        
+        pagination.innerHTML = html;
+      }
+
+      // 切换视图
+      function switchView(view, evt) {
+        currentView = view;
+        
+        document.querySelectorAll('.view-toggle button').forEach(btn => {
+          const isActive = evt
+            ? btn === (evt.currentTarget || evt.target)
+            : btn.dataset.view === view;
+          btn.classList.toggle('active', isActive);
+        });
+        
+        document.getElementById('table-view').style.display = view === 'table' ? 'block' : 'none';
+        document.getElementById('timeline-view').classList.toggle('active', view === 'timeline');
+        
+        if (view === 'table') {
+          updateTableView();
+        } else {
+          updateTimelineView();
+        }
+      }
+
+      // 排序表格
+      function sortTable(field, event) {
+        if (currentSort.field === field) {
+          currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
+        } else {
+          currentSort.field = field;
+          currentSort.order = 'desc';
+        }
+        
+        // 重置到第一页
+        currentPage = 1;
+        
+        // 加载数据（会自动更新表头状态）
+        loadPolicies();
+      }
+
+      // 跳转页面
+      function goToPage(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        loadPolicies();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      // 应用筛选
+      function applyFilters() {
+        currentFilters = {
+          state: document.getElementById('filter-state').value,
+          policy_type: document.getElementById('filter-type').value,
+          status: document.getElementById('filter-status').value,
+          start: document.getElementById('filter-start').value,
+          end: document.getElementById('filter-end').value
+        };
+        currentPage = 1;
+        loadPolicies();
+      }
+
+      // 重置筛选
+      function resetFilters() {
+        document.getElementById('filter-state').value = '';
+        document.getElementById('filter-type').value = '';
+        document.getElementById('filter-status').value = '';
+        document.getElementById('filter-start').value = '';
+        document.getElementById('filter-end').value = '';
+        currentFilters = {};
+        currentPage = 1;
+        loadPolicies();
+      }
+
+      // 显示政策详情
+      async function showPolicyDetail(policyId) {
+        try {
+          const policy = await window.MarketApp.api.get(`/api/v1/policies/${policyId}`);
+          
+          document.getElementById('modal-title').textContent = policy.title || '无标题';
+          document.getElementById('modal-state').textContent = policy.state || '-';
+          document.getElementById('modal-publish-date').textContent = policy.publish_date || '-';
+          document.getElementById('modal-effective-date').textContent = policy.effective_date || '-';
+          document.getElementById('modal-type').textContent = getTypeText(policy.policy_type) || '-';
+          document.getElementById('modal-status').textContent = getStatusText(policy.status) || '-';
+          document.getElementById('modal-summary').innerHTML = policy.summary ? `<p>${policy.summary}</p>` : '';
+          
+          const keyPointsHtml = policy.key_points && policy.key_points.length > 0
+            ? `<ul class="key-points-list">${policy.key_points.map(kp => `<li>${kp}</li>`).join('')}</ul>`
+            : '<p>无关键要点</p>';
+          document.getElementById('modal-key-points').innerHTML = keyPointsHtml;
+          
+          if (policy.uri) {
+            document.getElementById('modal-uri').href = policy.uri;
+            document.getElementById('modal-uri').style.display = 'inline';
+          } else {
+            document.getElementById('modal-uri').style.display = 'none';
+          }
+          
+          document.getElementById('policy-modal').classList.add('active');
+        } catch (error) {
+          console.error('获取政策详情失败:', error);
+          alert('获取政策详情失败: ' + error.message);
+        }
+      }
+
+      // 关闭弹窗
+      function closeModal() {
+        document.getElementById('policy-modal').classList.remove('active');
+      }
+
+      // 点击弹窗外部关闭
+      document.getElementById('policy-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+          closeModal();
+        }
+      });
+
+      // 导出CSV
+      function exportCSV() {
+        const headers = ['标题', '州', '类型', '发布日期', '生效日期', '状态', '关键要点'];
+        const rows = policiesData.map(policy => [
+          policy.title || '',
+          policy.state || '',
+          policy.policy_type || '',
+          policy.publish_date || '',
+          policy.effective_date || '',
+          policy.status || '',
+          (policy.key_points || []).join('; ')
+        ]);
+        
+        const csv = [
+          headers.join(','),
+          ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+        
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `policies_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+      }
+
+      // 工具函数
+      function getStatusBadge(status) {
+        const statusMap = {
+          'active': '<span class="badge badge-success">生效中</span>',
+          'pending': '<span class="badge badge-warning">待生效</span>',
+          'expired': '<span class="badge badge-error">已过期</span>',
+          'draft': '<span class="badge badge-info">草案</span>'
+        };
+        return statusMap[status] || '<span class="badge badge-default">未知</span>';
+      }
+
+      function getStatusText(status) {
+        const statusMap = {
+          'active': '生效中',
+          'pending': '待生效',
+          'expired': '已过期',
+          'draft': '草案'
+        };
+        return statusMap[status] || '未知';
+      }
+
+      function getStatusClass(status) {
+        const classMap = {
+          'active': 'badge-success',
+          'pending': 'badge-warning',
+          'expired': 'badge-error',
+          'draft': 'badge-info'
+        };
+        return classMap[status] || 'badge-default';
+      }
+
+      function getTypeBadge(type) {
+        const typeMap = {
+          'regulation': '<span class="badge badge-info">法规</span>',
+          'bill': '<span class="badge badge-success">法案</span>',
+          'announcement': '<span class="badge badge-warning">公告</span>',
+          'guidance': '<span class="badge badge-default">指导文件</span>'
+        };
+        return typeMap[type] || '<span class="badge badge-default">未知</span>';
+      }
+
+      function getTypeText(type) {
+        const typeMap = {
+          'regulation': '法规',
+          'bill': '法案',
+          'announcement': '公告',
+          'guidance': '指导文件'
+        };
+        return typeMap[type] || type || '未知';
+      }
+
+      // 显示错误
+      function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.textContent = message;
+        document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.filters'));
+        setTimeout(() => errorDiv.remove(), 5000);
+      }
+    </script>
+  </body>
+</html>

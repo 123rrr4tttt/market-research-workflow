@@ -21,6 +21,9 @@ celery==5.4.0
 redis==5.1.0
 prometheus-client==0.20.0
 duckduckgo-search==6.1.7
+google-auth>=2.0.0
 azure-search-documents==11.6.0b1
 azure-identity==1.19.0
+psutil==5.9.8
+tweepy>=4.16.0
 

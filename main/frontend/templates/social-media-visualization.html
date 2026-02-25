@@ -1,0 +1,1795 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>社交媒体数据可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/doc-card.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      /* 在iframe中隐藏导航栏（但保留导航链接） */
+      body.in-iframe header > div.nav-bar {
+        display: none !important;
+      }
+      body.in-iframe header {
+        margin-bottom: 0;
+        border-radius: 0;
+      }
+      /* 导航链接样式 */
+      .nav-links {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      .nav-links a {
+        padding: 10px 20px;
+        background: #2563eb;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        display: inline-block;
+        transition: background 0.2s;
+      }
+      .nav-links a:hover {
+        background: #1d4ed8;
+      }
+      .container {
+        max-width: 100%;
+        margin: 0 auto;
+        width: 100%;
+      }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        color: #0f172a;
+      }
+      header p {
+        margin: 0;
+        color: #64748b;
+      }
+      section {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      section .sentiment-layout {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        width: 100% !important;
+        gap: 10px !important;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      @media (max-width: 768px) {
+        body {
+          padding: 16px;
+        }
+        section {
+          padding: 16px;
+        }
+      }
+      section h2 {
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 10px;
+      }
+      .chart-container {
+        position: relative;
+        height: 240px;
+        margin-bottom: 16px;
+      }
+      .chart-container.large {
+        height: 300px;
+      }
+      .filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        align-items: center;
+      }
+      .filters label {
+        font-weight: 500;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .filters input, .filters select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      .filters input[type="date"] {
+        min-width: 160px;
+      }
+      .filters button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .filters button:hover {
+        background: #1d4ed8;
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #64748b;
+      }
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #cbd5e1;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      .refresh-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .refresh-controls label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #64748b;
+      }
+      .refresh-controls input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+      }
+      .refresh-controls input[type="number"] {
+        width: 80px;
+        padding: 6px 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+      }
+      .sentiment-layout {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-rows: auto !important;
+        gap: 10px !important;
+        min-height: 400px;
+        width: 100%;
+        align-items: start;
+        overflow: hidden;
+        min-width: 0;
+        position: relative;
+      }
+      .sentiment-left {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 24px;
+        width: 100%;
+        grid-column: 1;
+      }
+      .sentiment-left:not(.hidden) {
+        display: flex !important;
+      }
+      .platform-grid-container {
+        grid-column: 2;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .purchase-enthusiasm {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        flex: 0 0 auto;
+      }
+      .purchase-enthusiasm h3 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        font-weight: 500;
+        opacity: 0.9;
+      }
+      .purchase-enthusiasm .score {
+        font-size: 36px;
+        font-weight: 700;
+        margin: 6px 0;
+      }
+      .purchase-enthusiasm .label {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-top: 6px;
+      }
+      .sentiment-distribution {
+        background: white;
+        padding: 16px;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .sentiment-distribution h3 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        color: #0f172a;
+      }
+      .sentiment-distribution .chart-container {
+        flex: 1;
+        min-height: 180px;
+      }
+      .keyword-ranking {
+        background: white;
+        padding: 16px;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        flex: 0 0 auto;
+        height: 300px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .keyword-ranking h3 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        color: #0f172a;
+        flex-shrink: 0;
+      }
+      #keyword-ranking-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        flex: 1;
+        min-height: 0;
+        max-height: 100%;
+        padding-right: 8px;
+      }
+      .keyword-ranking-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+      }
+      #keyword-ranking-list::-webkit-scrollbar {
+        width: 8px;
+      }
+      #keyword-ranking-list::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+      #keyword-ranking-list::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      #keyword-ranking-list::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+      /* Firefox */
+      #keyword-ranking-list {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f1f5f9;
+      }
+      .keyword-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        transition: background 0.2s;
+      }
+      .keyword-item:hover {
+        background: #f1f5f9;
+      }
+      .keyword-item .rank {
+        font-weight: 600;
+        color: #64748b;
+        min-width: 24px;
+        font-size: 14px;
+      }
+      .keyword-item .rank.top-3 {
+        color: #2563eb;
+        font-size: 16px;
+      }
+      .keyword-item .keyword-text {
+        flex: 1;
+        margin-left: 12px;
+        font-size: 14px;
+        color: #0f172a;
+        font-weight: 500;
+      }
+      .keyword-item .keyword-count {
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 600;
+      }
+      .platform-grid-container {
+        display: flex !important;
+        flex-direction: column !important;
+        position: relative;
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        grid-column: 2 !important;
+        overflow: hidden;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+      .platform-grid-container:not(.hidden) {
+        display: flex !important;
+      }
+      .platform-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 16px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      .platform-grid.hidden {
+        display: none;
+      }
+      .sentiment-left.hidden {
+        display: none !important;
+      }
+      .platform-grid-container.hidden {
+        display: none !important;
+      }
+      .platform-icon-card {
+        aspect-ratio: 1;
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        position: relative;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      .platform-icon-card:hover {
+        border-color: #2563eb;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        transform: translateY(-2px);
+      }
+      .platform-icon-card.active {
+        border-color: #2563eb;
+        background: #eff6ff;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+      }
+      .platform-icon-square {
+        width: 100%;
+        max-width: 60px;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      .platform-icon-square img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 8px;
+      }
+      .platform-icon-card.active .platform-icon-square {
+        background: white;
+        border-color: #2563eb;
+      }
+      .platform-enthusiasm {
+        font-size: 14px;
+        font-weight: 600;
+        color: #0f172a;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
+      }
+      .platform-enthusiasm.positive {
+        color: #059669;
+      }
+      .platform-enthusiasm.negative {
+        color: #dc2626;
+      }
+      .platform-enthusiasm.neutral {
+        color: #6b7280;
+      }
+      .platform-detail-view {
+        display: none;
+        padding: 24px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        z-index: 100;
+        box-sizing: border-box;
+        grid-column: 1 / -1;
+        grid-row: 1 / -1;
+      }
+      .platform-detail-view.active {
+        display: block;
+      }
+      .platform-detail-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #e2e8f0;
+        min-width: 0;
+      }
+      .platform-detail-title {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+        flex: 1;
+      }
+      .platform-detail-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+      }
+      .platform-detail-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 6px;
+      }
+      .platform-detail-name {
+        font-size: 24px;
+        font-weight: 700;
+        color: #0f172a;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+        flex: 1;
+      }
+      .close-detail {
+        padding: 8px 16px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #64748b;
+        transition: all 0.2s;
+      }
+      .close-detail:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+      .platform-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 24px;
+        min-width: 0;
+      }
+      .stat-item {
+        text-align: center;
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 8px;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .stat-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 4px;
+      }
+      .stat-label {
+        font-size: 12px;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .platform-trend {
+        margin-top: 24px;
+        position: relative;
+        height: 300px;
+      }
+      @media (max-width: 1200px) {
+        section .sentiment-layout {
+          grid-template-columns: 1fr !important;
+        }
+      }
+      /* 数据源列表弹出框 */
+      .source-popup {
+        position: fixed;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 1000;
+        max-width: 900px;
+        max-height: 80vh;
+        width: 90%;
+        display: none;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+      }
+      .source-popup.active {
+        display: flex;
+        flex-direction: column;
+      }
+      .source-popup-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+      }
+      .source-popup-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #0f172a;
+      }
+      .source-popup-close {
+        background: none;
+        border: none;
+        font-size: 20px;
+        color: #64748b;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+      .source-popup-close:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+      .source-popup-body {
+        padding: 16px 20px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .source-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .source-item {
+        padding: 12px;
+        border-bottom: 1px solid #f1f5f9;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .source-item:hover {
+        background: #f8fafc;
+      }
+      .source-item:last-child {
+        border-bottom: none;
+      }
+      .source-item-title {
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 4px;
+        font-size: 14px;
+      }
+      .source-item-meta {
+        display: flex;
+        gap: 12px;
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 4px;
+      }
+      .source-item-platform {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .source-item-uri {
+        color: #2563eb;
+        text-decoration: none;
+        word-break: break-all;
+      }
+      .source-item-uri:hover {
+        text-decoration: underline;
+      }
+      .source-loading {
+        text-align: center;
+        padding: 40px;
+        color: #64748b;
+      }
+      /* 表格样式 */
+      .source-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      .source-table th, .source-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .source-table th {
+        background: #f9fafb;
+        font-weight: 600;
+        color: #374151;
+        position: sticky;
+        top: 0;
+      }
+      .source-table tr:hover {
+        background: #f9fafb;
+      }
+      .source-table .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .source-table .badge.positive { background: #dcfce7; color: #166534; }
+      .source-table .badge.negative { background: #fee2e2; color: #991b1b; }
+      .source-table .badge.neutral { background: #f3f4f6; color: #4b5563; }
+      .source-table .actions {
+        display: flex;
+        gap: 8px;
+      }
+      .source-table .actions button {
+        padding: 4px 8px;
+        font-size: 12px;
+        border: 1px solid #d1d5db;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .source-table .actions button:hover {
+        background: #f3f4f6;
+      }
+      .source-table .link {
+        color: #2563eb;
+        text-decoration: none;
+      }
+      .source-table .link:hover {
+        text-decoration: underline;
+      }
+      /* 模态框样式 */
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal.active {
+        display: flex;
+      }
+      .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+        width: 90%;
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .modal-header h2 {
+        margin: 0;
+      }
+      .close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #6b7280;
+      }
+      .close-btn:hover {
+        color: #1f2937;
+      }
+      .content-preview {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        font-size: 12px;
+      }
+      .extracted-card {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 12px;
+      }
+      .extracted-section {
+        margin-bottom: 20px;
+      }
+      .extracted-section:last-child {
+        margin-bottom: 0;
+      }
+      .extracted-section h3 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        color: #1f2937;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 6px;
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .info-item {
+        background: white;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+      }
+      .info-item label {
+        display: block;
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+      .info-item .value {
+        font-size: 14px;
+        color: #1f2937;
+        font-weight: 500;
+      }
+      .badge.positive { background: #dcfce7; color: #166534; }
+      .badge.negative { background: #fee2e2; color: #991b1b; }
+      .badge.neutral { background: #f1f5f9; color: #475569; }
+      .key-points {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .key-points li {
+        background: white;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        border-radius: 4px;
+        border-left: 3px solid #2563eb;
+        font-size: 13px;
+      }
+      .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .tag-item { padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 500; border: 1px solid #e5e7eb; }
+      .entity-tag em { margin-left: 4px; font-size: 10px; color: #6b7280; font-style: normal; }
+      .muted { font-size: 12px; color: #9ca3af; }
+      .entity-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .entity-tag {
+        background: #dbeafe;
+        color: #1e40af;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .entity-tag.org { background: #fef3c7; color: #92400e; }
+      .entity-tag.loc { background: #dcfce7; color: #166534; }
+      .entity-tag.person { background: #fce7f3; color: #9f1239; }
+      .relation-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 8px;
+      }
+      .relation-item {
+        background: white;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+      }
+      .relation-triple {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+      }
+      .relation-subject {
+        font-weight: 600;
+        color: #1e40af;
+      }
+      .relation-predicate {
+        color: #2563eb;
+        font-weight: 500;
+        padding: 2px 8px;
+        background: #eff6ff;
+        border-radius: 4px;
+      }
+      .relation-object {
+        font-weight: 600;
+        color: #059669;
+      }
+      .relation-meta {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #6b7280;
+        display: flex;
+        gap: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      // 检测是否在iframe中
+      if (window.self !== window.top) {
+        document.body.classList.add('in-iframe');
+      }
+    </script>
+    <div class="container">
+      <header>
+        <h1>💬 社交媒体数据可视化</h1>
+        <p>社交媒体情感分析与舆论数据</p>
+        <div class="nav-links">
+          <a href="social-media-graph.html">🕸️ 平台图谱可视化</a>
+        </div>
+      </header>
+
+      <!-- 社交媒体情感分析 -->
+      <section>
+        <div class="refresh-controls">
+          <h2>💬 社交媒体情感分析</h2>
+          <div>
+            <label>
+              <input type="checkbox" id="auto-refresh-sentiment" /> 自动刷新
+              <input type="number" id="refresh-interval-sentiment" value="60" min="10" max="300" style="margin-left: 8px;" /> 秒
+            </label>
+          </div>
+        </div>
+        <div class="filters">
+          <label>开始日期：</label>
+          <input type="date" id="sentiment-filter-start" />
+          <label>结束日期：</label>
+          <input type="date" id="sentiment-filter-end" />
+          <button onclick="loadSentimentAnalysis()">更新</button>
+        </div>
+        <div class="sentiment-layout" id="sentiment-layout">
+          <!-- 左侧：总体积极性和具体分布 -->
+          <div class="sentiment-left">
+            <!-- 总体购买积极性 -->
+            <div class="purchase-enthusiasm" id="purchase-enthusiasm">
+              <h3>总体购买积极性</h3>
+              <div class="score" id="enthusiasm-score">-</div>
+              <div class="label" id="enthusiasm-label">计算中...</div>
+            </div>
+            <!-- 具体分布 -->
+            <div class="sentiment-distribution">
+              <h3>情感分布</h3>
+              <div class="chart-container" id="sentiment-dist-chart">
+                <div class="loading"><span class="spinner"></span>加载中...</div>
+              </div>
+            </div>
+            <!-- 关键词排行 -->
+            <div class="keyword-ranking">
+              <h3>关键词排行</h3>
+              <div id="keyword-ranking-list">
+                <div class="loading"><span class="spinner"></span>加载中...</div>
+              </div>
+            </div>
+          </div>
+          <!-- 右侧：平台图标网格 -->
+          <div class="platform-grid-container">
+            <div class="platform-grid" id="platform-grid">
+              <div class="loading"><span class="spinner"></span>加载中...</div>
+            </div>
+          </div>
+          <!-- 平台详情视图 - 覆盖整个情感分析区域 -->
+          <div class="platform-detail-view" id="platform-detail-view">
+            <div class="platform-detail-header">
+              <div class="platform-detail-title">
+                <div class="platform-detail-icon" id="detail-icon">🌐</div>
+                <div class="platform-detail-name" id="detail-name">平台名称</div>
+              </div>
+              <button class="close-detail" onclick="closePlatformDetail()">关闭</button>
+            </div>
+            <div class="platform-stats" id="platform-stats">
+              <!-- 统计数据将在这里动态插入 -->
+            </div>
+            <div class="platform-trend">
+              <canvas id="platform-trend-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 数据源列表弹出框 -->
+    <div class="source-popup" id="source-popup">
+      <div class="source-popup-header">
+        <div class="source-popup-title" id="source-popup-title">数据源列表</div>
+        <button class="source-popup-close" onclick="closeSourcePopup()">×</button>
+      </div>
+      <div class="source-popup-body" id="source-popup-body">
+        <div class="source-loading"><span class="spinner"></span>加载中...</div>
+      </div>
+    </div>
+
+    <!-- 文档详情模态框 -->
+    <div id="modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modal-title">详情</h2>
+          <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <script>
+      // 全局变量存储图表实例
+      const charts = {};
+      let refreshTimers = {};
+
+      // 工具函数
+      // 格式化数字为数量级显示（K, M, B等）- v2
+      function formatNumber(num) {
+        if (num == null || num === undefined) return '-';
+        if (typeof num !== 'number') num = parseFloat(num);
+        if (isNaN(num)) return '-';
+        
+        const absNum = Math.abs(num);
+        const sign = num < 0 ? '-' : '';
+        
+        if (absNum >= 1000000000) {
+          // 十亿 (B)
+          const value = (absNum / 1000000000).toFixed(2).replace(/\.?0+$/, '');
+          return sign + value + 'B';
+        } else if (absNum >= 1000000) {
+          // 百万 (M)
+          const value = (absNum / 1000000).toFixed(2).replace(/\.?0+$/, '');
+          return sign + value + 'M';
+        } else if (absNum >= 1000) {
+          // 千 (K)
+          const value = (absNum / 1000).toFixed(2).replace(/\.?0+$/, '');
+          return sign + value + 'K';
+        } else {
+          // 小于1000，显示原数字（最多2位小数）
+          return sign + absNum.toFixed(absNum % 1 === 0 ? 0 : 2).replace(/\.?0+$/, '');
+        }
+      }
+
+      // 格式化货币为数量级显示（K$, M$, B$等）- v2
+      function formatCurrency(num) {
+        if (num == null || num === undefined) return '-';
+        if (typeof num !== 'number') num = parseFloat(num);
+        if (isNaN(num)) return '-';
+        
+        const absNum = Math.abs(num);
+        const sign = num < 0 ? '-' : '';
+        
+        if (absNum >= 1000000000) {
+          // 十亿 (B$)
+          const value = (absNum / 1000000000).toFixed(2).replace(/\.?0+$/, '');
+          return sign + '$' + value + 'B';
+        } else if (absNum >= 1000000) {
+          // 百万 (M$)
+          const value = (absNum / 1000000).toFixed(2).replace(/\.?0+$/, '');
+          return sign + '$' + value + 'M';
+        } else if (absNum >= 1000) {
+          // 千 (K$)
+          const value = (absNum / 1000).toFixed(2).replace(/\.?0+$/, '');
+          return sign + '$' + value + 'K';
+        } else {
+          // 小于1000，显示原数字（最多2位小数）
+          return sign + '$' + absNum.toFixed(absNum % 1 === 0 ? 0 : 2).replace(/\.?0+$/, '');
+        }
+      }
+      
+      // 确保函数在全局作用域可用
+      window.formatNumber = formatNumber;
+      window.formatCurrency = formatCurrency;
+
+      async function fetchJSON(url) {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status}: ${text}`);
+        }
+        return res.json();
+      }
+
+      // 辅助函数：安全地解析 JSON 响应
+      async function parseJsonResponse(res) {
+        if (!res.ok) {
+          const text = await res.text();
+          let errorMsg = `请求失败 (${res.status}): `;
+          try {
+            const json = JSON.parse(text);
+            errorMsg += json.detail || json.error || text;
+          } catch {
+            errorMsg += text.substring(0, 200);
+          }
+          throw new Error(errorMsg);
+        }
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await res.text();
+          throw new Error(`服务器返回了非 JSON 响应: ${text.substring(0, 200)}`);
+        }
+        return await res.json();
+      }
+
+      function showError(containerId, message) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = `<div class="error">❌ ${message}</div>`;
+      }
+
+      function showLoading(containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+      }
+
+      // 销毁图表
+      function destroyChart(chartId) {
+        if (charts[chartId]) {
+          charts[chartId].destroy();
+          delete charts[chartId];
+        }
+      }
+
+      // 获取平台图标
+      // 获取平台图标URL（使用Simple Icons CDN）
+      function getPlatformIcon(platform) {
+        const platformLower = (platform || '').toLowerCase();
+        const iconMap = {
+          'twitter': 'https://cdn.simpleicons.org/twitter/1DA1F2',
+          'facebook': 'https://cdn.simpleicons.org/facebook/1877F2',
+          'reddit': 'https://cdn.simpleicons.org/reddit/FF4500',
+          'instagram': 'https://cdn.simpleicons.org/instagram/E4405F',
+          'youtube': 'https://cdn.simpleicons.org/youtube/FF0000',
+          'tiktok': 'https://cdn.simpleicons.org/tiktok/000000',
+          'linkedin': 'https://cdn.simpleicons.org/linkedin/0A66C2',
+          'x': 'https://cdn.simpleicons.org/x/000000',
+          'telegram': 'https://cdn.simpleicons.org/telegram/26A5E4',
+          'discord': 'https://cdn.simpleicons.org/discord/5865F2',
+          'news': 'https://cdn.simpleicons.org/google/news/4285F4',
+          'google_news': 'https://cdn.simpleicons.org/google/news/4285F4',
+          'forum': 'https://cdn.simpleicons.org/discourse/000000',
+          'blog': 'https://cdn.simpleicons.org/blogger/FF5722',
+        };
+        return iconMap[platformLower] || null;
+      }
+      
+      // 渲染平台图标（返回HTML字符串）
+      function renderPlatformIcon(platform) {
+        const iconUrl = getPlatformIcon(platform);
+        if (iconUrl) {
+          return `<img src="${iconUrl}" alt="${platform}" onerror="this.style.display='none'; this.parentElement.innerHTML='🌐';" />`;
+        }
+        return '🌐'; // 默认emoji作为fallback
+      }
+
+      // 计算购买积极性
+      function calculatePurchaseEnthusiasm(sentimentDistribution) {
+        const positive = sentimentDistribution.positive || 0;
+        const negative = sentimentDistribution.negative || 0;
+        const neutral = sentimentDistribution.neutral || 0;
+        const total = positive + negative + neutral;
+        
+        if (total === 0) return { score: 0, label: '暂无数据' };
+        
+        // 购买积极性 = (积极 - 消极) / 总数 * 100，范围在 -100 到 100
+        const enthusiasm = ((positive - negative) / total) * 100;
+        const score = Math.round(enthusiasm);
+        
+        let label = '';
+        if (score >= 50) label = '非常积极';
+        else if (score >= 20) label = '较为积极';
+        else if (score >= -20) label = '中性';
+        else if (score >= -50) label = '较为消极';
+        else label = '非常消极';
+        
+        return { score, label };
+      }
+
+      // 存储平台数据
+      let platformDataMap = {};
+      let currentSentimentTrend = [];
+
+      // 渲染平台图标网格
+      function renderPlatformGrid(platformDistribution) {
+        const container = document.getElementById('platform-grid');
+        
+        if (!Array.isArray(platformDistribution) || platformDistribution.length === 0) {
+          container.innerHTML = '<div class="error">暂无平台数据</div>';
+          return;
+        }
+
+        // 存储平台数据
+        platformDataMap = {};
+        platformDistribution.forEach((platform, index) => {
+          platformDataMap[index] = platform;
+        });
+
+        let html = '';
+        platformDistribution.forEach((platform, index) => {
+          const platformName = platform.platform || '未知平台';
+          const iconHtml = renderPlatformIcon(platformName);
+          const platformId = `platform-${index}`;
+          
+          // 获取平台的情感分布数据
+          const positive = platform.positive || 0;
+          const negative = platform.negative || 0;
+          const neutral = platform.neutral || 0;
+          const total = platform.count || (positive + negative + neutral);
+          
+          // 计算购买积极性
+          const enthusiasm = total > 0 ? Math.round(((positive - negative) / total) * 100) : 0;
+          const enthusiasmText = enthusiasm > 0 ? `+${enthusiasm}` : enthusiasm.toString();
+          
+          // 确定积极性类别
+          let enthusiasmClass = 'neutral';
+          if (enthusiasm >= 20) enthusiasmClass = 'positive';
+          else if (enthusiasm <= -20) enthusiasmClass = 'negative';
+          
+          html += `
+            <div class="platform-icon-card" id="${platformId}" onclick="showPlatformDetail(${index})" oncontextmenu="event.preventDefault(); showSourceList(null, '${platformName}', event); return false;">
+              <div class="platform-icon-square">${iconHtml}</div>
+              <div class="platform-enthusiasm ${enthusiasmClass}">${enthusiasmText}</div>
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+      }
+
+      // 显示平台详情
+      function showPlatformDetail(index) {
+        const platform = platformDataMap[index];
+        if (!platform) return;
+
+        const platformName = platform.platform || '未知平台';
+        const iconHtml = renderPlatformIcon(platformName);
+        const positive = platform.positive || 0;
+        const negative = platform.negative || 0;
+        const neutral = platform.neutral || 0;
+        const unknown = platform.unknown || 0;
+        const total = platform.count || (positive + negative + neutral + unknown);
+
+        // 更新详情视图
+        const detailIconEl = document.getElementById('detail-icon');
+        detailIconEl.innerHTML = iconHtml;
+        document.getElementById('detail-name').textContent = platformName;
+
+        // 更新统计数据（添加点击事件）
+        const statsHtml = `
+          <div class="stat-item" onclick="showSourceList('positive', '${platformName}', event)" style="cursor: pointer;" title="点击查看数据源">
+            <div class="stat-value">${formatNumber(positive)}</div>
+            <div class="stat-label">积极</div>
+          </div>
+          <div class="stat-item" onclick="showSourceList('neutral', '${platformName}', event)" style="cursor: pointer;" title="点击查看数据源">
+            <div class="stat-value">${formatNumber(neutral)}</div>
+            <div class="stat-label">中性</div>
+          </div>
+          <div class="stat-item" onclick="showSourceList('negative', '${platformName}', event)" style="cursor: pointer;" title="点击查看数据源">
+            <div class="stat-value">${formatNumber(negative)}</div>
+            <div class="stat-label">消极</div>
+          </div>
+          <div class="stat-item" onclick="showSourceList(null, '${platformName}', event)" style="cursor: pointer;" title="点击查看数据源">
+            <div class="stat-value">${formatNumber(total)}</div>
+            <div class="stat-label">总计</div>
+          </div>
+        `;
+        document.getElementById('platform-stats').innerHTML = statsHtml;
+
+        // 渲染趋势图（添加点击事件）
+        const canvas = document.getElementById('platform-trend-chart');
+        if (canvas && currentSentimentTrend.length > 0) {
+          destroyChart('platform-detail-trend');
+          charts['platform-detail-trend'] = new Chart(canvas, {
+            type: 'line',
+            data: {
+              labels: currentSentimentTrend.map(t => t.date || ''),
+              datasets: [
+                {
+                  label: '积极',
+                  data: currentSentimentTrend.map(t => t.positive || 0),
+                  borderColor: '#10b981',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  tension: 0.4,
+                },
+                {
+                  label: '中性',
+                  data: currentSentimentTrend.map(t => t.neutral || 0),
+                  borderColor: '#6b7280',
+                  backgroundColor: 'rgba(107, 114, 128, 0.1)',
+                  tension: 0.4,
+                },
+                {
+                  label: '消极',
+                  data: currentSentimentTrend.map(t => t.negative || 0),
+                  borderColor: '#ef4444',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  tension: 0.4,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { 
+                  position: 'top',
+                  onClick: (e, legendItem, legend) => {
+                    // 点击图例时显示数据源
+                    const sentimentMap = {
+                      '积极': 'positive',
+                      '中性': 'neutral',
+                      '消极': 'negative'
+                    };
+                    const sentiment = sentimentMap[legendItem.text];
+                    if (sentiment) {
+                      const nativeEvent = e.native || e.originalEvent || e;
+                      showSourceList(sentiment, platformName, nativeEvent);
+                    }
+                  }
+                },
+              },
+              onClick: (event, elements) => {
+                // 点击图表数据点时显示数据源 - 只显示该节点的数据
+                if (elements.length > 0) {
+                  const element = elements[0];
+                  const datasetIndex = element.datasetIndex;
+                  const dataIndex = element.index;
+                  const sentimentMap = ['positive', 'neutral', 'negative'];
+                  const sentiment = sentimentMap[datasetIndex];
+                  
+                  if (sentiment && currentSentimentTrend[dataIndex]) {
+                    // 获取点击的数据点对应的日期
+                    const clickedDate = currentSentimentTrend[dataIndex].date;
+                    if (clickedDate) {
+                      // 只显示该日期、该情感、该平台的数据
+                      const nativeEvent = event.native || event.originalEvent || event;
+                      showSourceList(sentiment, platformName, nativeEvent, clickedDate, clickedDate);
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                },
+                x: {
+                  ticks: { maxRotation: 45, minRotation: 45 },
+                },
+              },
+            },
+          });
+        }
+
+        // 显示详情视图
+        const detailView = document.getElementById('platform-detail-view');
+        detailView.classList.add('active');
+
+        // 更新选中状态
+        document.querySelectorAll('.platform-icon-card').forEach(card => {
+          card.classList.remove('active');
+        });
+        const card = document.getElementById(`platform-${index}`);
+        if (card) {
+          card.classList.add('active');
+        }
+
+        // 隐藏左侧和右侧内容，显示详情（占据整个情感分析区域）
+        const sentimentLeft = document.querySelector('.sentiment-left');
+        const gridContainer = document.querySelector('.platform-grid-container');
+        const grid = document.getElementById('platform-grid');
+        if (sentimentLeft) {
+          sentimentLeft.classList.add('hidden');
+        }
+        if (gridContainer) {
+          gridContainer.classList.add('hidden');
+        }
+        grid.classList.add('hidden');
+      }
+
+      // 关闭平台详情
+      function closePlatformDetail() {
+        const detailView = document.getElementById('platform-detail-view');
+        if (!detailView) return;
+        detailView.classList.remove('active');
+
+        // 显示左侧和右侧内容
+        const sentimentLeft = document.querySelector('.sentiment-left');
+        const gridContainer = document.querySelector('.platform-grid-container');
+        const grid = document.getElementById('platform-grid');
+        
+        if (sentimentLeft) {
+          sentimentLeft.classList.remove('hidden');
+        }
+        
+        if (gridContainer) {
+          gridContainer.classList.remove('hidden');
+        }
+        
+        if (grid) {
+          grid.classList.remove('hidden');
+        }
+
+        // 清除选中状态
+        document.querySelectorAll('.platform-icon-card').forEach(card => {
+          card.classList.remove('active');
+        });
+      }
+
+      // 显示数据源列表
+      async function showSourceList(sentiment, platform, event, startDateOverride, endDateOverride) {
+        const popup = document.getElementById('source-popup');
+        const popupBody = document.getElementById('source-popup-body');
+        const popupTitle = document.getElementById('source-popup-title');
+        
+        // 设置标题
+        const sentimentLabels = {
+          'positive': '积极',
+          'negative': '消极',
+          'neutral': '中性',
+          'unknown': '未知'
+        };
+        let title = '数据源列表';
+        if (sentiment) {
+          title = `${sentimentLabels[sentiment] || sentiment} 数据源`;
+        }
+        if (platform) {
+          title += ` - ${platform}`;
+        }
+        // 如果指定了日期范围，添加到标题
+        if (startDateOverride && endDateOverride && startDateOverride === endDateOverride) {
+          title += ` (${startDateOverride})`;
+        }
+        popupTitle.textContent = title;
+        
+        // 显示加载状态
+        popupBody.innerHTML = '<div class="source-loading"><span class="spinner"></span>加载中...</div>';
+        
+        // 获取当前筛选条件，如果提供了覆盖值则使用覆盖值（用于点击数据点时只显示该日期的数据）
+        const start = startDateOverride || document.getElementById('sentiment-filter-start').value;
+        const end = endDateOverride || document.getElementById('sentiment-filter-end').value;
+        
+        // 构建API URL
+        let url = '/api/v1/dashboard/sentiment-sources';
+        const params = [];
+        if (sentiment) params.push(`sentiment=${encodeURIComponent(sentiment)}`);
+        if (platform) params.push(`platform=${encodeURIComponent(platform)}`);
+        // 如果提供了日期覆盖值，使用覆盖值（点击数据点时只显示该日期的数据）
+        if (start) params.push(`start_date=${encodeURIComponent(start)}`);
+        if (end) params.push(`end_date=${encodeURIComponent(end)}`);
+        if (params.length > 0) {
+          url += '?' + params.join('&');
+        }
+        
+        console.log('Fetching sources from:', url);
+        
+        try {
+          // 添加缓存控制，确保获取最新数据
+          const res = await fetch(url, {
+            cache: 'no-cache',
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          });
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error('API Error:', res.status, errorText);
+            popupBody.innerHTML = `<div class="error">❌ 请求失败 (${res.status}): ${errorText || '未知错误'}<br/>请检查后端服务是否正常运行，并确保已重启服务以加载新路由。</div>`;
+            return;
+          }
+          
+          const data = await parseJsonResponse(res);
+          const sources = data?.sources || [];
+          
+          if (sources.length === 0) {
+            popupBody.innerHTML = '<div class="source-loading">暂无数据源</div>';
+          } else {
+            let html = `
+              <table class="source-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>标题</th>
+                    <th>平台</th>
+                    <th>情感倾向</th>
+                    <th>发布时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            sources.forEach(source => {
+              const iconHtml = renderPlatformIcon(source.platform || 'unknown');
+              const icon = iconHtml.includes('<img') ? iconHtml : (iconHtml || '🌐');
+              const sentiment = source.sentiment || 'unknown';
+              const sentimentLabel = sentimentLabels[sentiment] || sentiment;
+              const sentimentClass = sentiment === 'positive' ? 'positive' : 
+                                    sentiment === 'negative' ? 'negative' : 'neutral';
+              // 只使用发布时间，如果没有则显示 "-"
+              const date = source.publish_date ? new Date(source.publish_date).toLocaleString('zh-CN') : '-';
+              
+              html += `
+                <tr>
+                  <td>${source.id}</td>
+                  <td>
+                    <a href="#" onclick="showDocument(${source.id}); return false;" class="link">
+                      ${escapeHtml(source.title || '无标题')}
+                    </a>
+                  </td>
+                  <td>${icon} ${source.platform || 'unknown'}</td>
+                  <td><span class="badge ${sentimentClass}">${sentimentLabel}</span></td>
+                  <td>${date}</td>
+                  <td class="actions">
+                    <button onclick="showDocument(${source.id})">查看</button>
+                  </td>
+                </tr>
+              `;
+            });
+            
+            html += `
+                </tbody>
+              </table>
+            `;
+            popupBody.innerHTML = html;
+          }
+        } catch (err) {
+          popupBody.innerHTML = `<div class="error">❌ ${err.message}</div>`;
+        }
+        
+        // 定位弹出框到鼠标位置
+        if (event && (event.clientX !== undefined || event.touches)) {
+          const x = event.clientX || (event.touches && event.touches[0].clientX) || window.innerWidth / 2;
+          const y = event.clientY || (event.touches && event.touches[0].clientY) || window.innerHeight / 2;
+          popup.style.left = `${x + 10}px`;
+          popup.style.top = `${y + 10}px`;
+          popup.style.transform = 'none';
+          
+          // 确保不超出视窗
+          setTimeout(() => {
+            const rect = popup.getBoundingClientRect();
+            if (rect.right > window.innerWidth) {
+              popup.style.left = `${window.innerWidth - rect.width - 10}px`;
+            }
+            if (rect.bottom > window.innerHeight) {
+              popup.style.top = `${window.innerHeight - rect.height - 10}px`;
+            }
+            if (rect.left < 0) {
+              popup.style.left = '10px';
+            }
+            if (rect.top < 0) {
+              popup.style.top = '10px';
+            }
+          }, 0);
+        } else {
+          // 默认居中显示
+          popup.style.left = '50%';
+          popup.style.top = '50%';
+          popup.style.transform = 'translate(-50%, -50%)';
+        }
+        
+        // 显示弹出框
+        popup.classList.add('active');
+      }
+
+      // 关闭数据源弹出框
+      function closeSourcePopup() {
+        const popup = document.getElementById('source-popup');
+        popup.classList.remove('active');
+      }
+
+      // 点击外部关闭弹出框
+      document.addEventListener('click', (e) => {
+        const popup = document.getElementById('source-popup');
+        if (popup.classList.contains('active') && !popup.contains(e.target)) {
+          closeSourcePopup();
+        }
+      });
+
+      // 显示文档详情
+      async function showDocument(id) {
+        // 关闭数据源弹出框（如果打开）
+        closeSourcePopup();
+        
+        try {
+          const doc = await window.MarketApp.fetchJSON(`/api/v1/admin/documents/${id}`);
+          
+          const bodyHtml = `
+            <div><strong>标题:</strong> ${escapeHtml(doc.title || '(无)')}</div>
+            <div style="margin-top: 12px;"><strong>类型:</strong> <span class="badge ${doc.doc_type}">${doc.doc_type}</span></div>
+            <div style="margin-top: 12px;"><strong>州:</strong> ${doc.state || '(无)'}</div>
+            <div style="margin-top: 12px;"><strong>URL:</strong> <a href="${doc.uri}" target="_blank" class="link">${doc.uri}</a></div>
+            <div style="margin-top: 12px;"><strong>摘要:</strong> ${escapeHtml(doc.summary || '(无)')}</div>
+            ${doc.content ? `
+              <div style="margin-top: 12px;">
+                <strong>内容:</strong>
+                <div class="content-preview">${escapeHtml(doc.content.substring(0, 5000))}${doc.content.length > 5000 ? '...' : ''}</div>
+              </div>
+            ` : ''}
+            ${window.renderGraphExtractedCard ? window.renderGraphExtractedCard((typeof doc.extracted_data === 'string' ? (() => { try { return JSON.parse(doc.extracted_data); } catch { return {}; } })() : doc.extracted_data) || {}, escapeHtml) : ''}
+            <div style="margin-top: 12px;"><strong>发布时间:</strong> ${doc.publish_date ? new Date(doc.publish_date).toLocaleString('zh-CN') : '-'}</div>
+            <div style="margin-top: 12px;"><strong>创建时间:</strong> ${doc.created_at ? new Date(doc.created_at).toLocaleString('zh-CN') : '-'}</div>
+            <div style="margin-top: 12px;"><strong>更新时间:</strong> ${doc.updated_at ? new Date(doc.updated_at).toLocaleString('zh-CN') : '-'}</div>
+          `;
+          
+          document.getElementById('modal-title').textContent = `文档详情 #${id}`;
+          document.getElementById('modal-body').innerHTML = bodyHtml;
+          document.getElementById('modal').classList.add('active');
+        } catch (err) {
+          alert('加载失败: ' + err.message);
+        }
+      }
+
+      // 关闭模态框
+      function closeModal() {
+        document.getElementById('modal').classList.remove('active');
+      }
+
+      // 点击模态框外部关闭
+      document.getElementById('modal').addEventListener('click', (e) => {
+        if (e.target.id === 'modal') closeModal();
+      });
+
+      // HTML转义函数
+      function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // 加载情感分析
+      async function loadSentimentAnalysis() {
+        const start = document.getElementById('sentiment-filter-start').value;
+        const end = document.getElementById('sentiment-filter-end').value;
+        
+        let url = '/api/v1/dashboard/sentiment-analysis';
+        if (start) url += `?start_date=${start}`;
+        if (end) url += `${start ? '&' : '?'}end_date=${end}`;
+
+        try {
+          const data = await fetchJSON(url);
+          
+          // 安全检查：确保数据存在
+          const sentimentDistribution = data?.sentiment_distribution || {};
+          const platformDistribution = Array.isArray(data?.platform_distribution) ? data.platform_distribution : [];
+          currentSentimentTrend = Array.isArray(data?.sentiment_trend) ? data.sentiment_trend : [];
+          
+          // 计算并显示总体购买积极性
+          const enthusiasm = calculatePurchaseEnthusiasm(sentimentDistribution);
+          document.getElementById('enthusiasm-score').textContent = enthusiasm.score > 0 ? `+${enthusiasm.score}` : enthusiasm.score;
+          document.getElementById('enthusiasm-label').textContent = enthusiasm.label;
+          
+          // 渲染情感分布饼图
+          destroyChart('sentiment-dist');
+          const distCtx = document.getElementById('sentiment-dist-chart');
+          distCtx.innerHTML = '<canvas></canvas>';
+          const distCanvas = distCtx.querySelector('canvas');
+          // 添加鼠标事件监听器来获取鼠标位置
+          let lastMouseEvent = null;
+          distCanvas.addEventListener('mousemove', (e) => {
+            lastMouseEvent = e;
+          });
+          
+          charts['sentiment-dist'] = new Chart(distCanvas, {
+            type: 'doughnut',
+            data: {
+              labels: ['积极', '中性', '消极', '未知'],
+              datasets: [{
+                data: [
+                  sentimentDistribution.positive || 0,
+                  sentimentDistribution.neutral || 0,
+                  sentimentDistribution.negative || 0,
+                  sentimentDistribution.unknown || 0,
+                ],
+                backgroundColor: ['#10b981', '#6b7280', '#ef4444', '#94a3b8'],
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'bottom' },
+              },
+              onClick: (event, elements) => {
+                if (elements.length > 0) {
+                  const element = elements[0];
+                  const index = element.index;
+                  const sentimentMap = ['positive', 'neutral', 'negative', 'unknown'];
+                  const sentiment = sentimentMap[index];
+                  // 使用最后记录的鼠标事件或创建新事件
+                  const mouseEvent = lastMouseEvent || { clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 };
+                  showSourceList(sentiment, null, mouseEvent);
+                }
+              },
+            },
+          });
+          
+          // 渲染平台图标网格
+          renderPlatformGrid(platformDistribution);
+          
+          // 渲染关键词排行
+          renderKeywordRanking(data.keyword_ranking || []);
+          
+        } catch (err) {
+          showError('platform-grid', err.message);
+          document.getElementById('purchase-enthusiasm').innerHTML = `<div class="error">❌ ${err.message}</div>`;
+        }
+      }
+
+      // 渲染关键词排行
+      function renderKeywordRanking(keywordRanking) {
+        const container = document.getElementById('keyword-ranking-list');
+        
+        if (!Array.isArray(keywordRanking) || keywordRanking.length === 0) {
+          container.innerHTML = '<div style="color: #94a3b8; text-align: center; padding: 20px;">暂无关键词数据</div>';
+          return;
+        }
+        
+        let html = '<div class="keyword-ranking-list">';
+        keywordRanking.forEach((item, index) => {
+          const rank = index + 1;
+          const keyword = escapeHtml(item.keyword || '');
+          const count = item.count || 0;
+          const rankClass = rank <= 3 ? 'top-3' : '';
+          
+          html += `
+            <div class="keyword-item">
+              <span class="rank ${rankClass}">${rank}</span>
+              <span class="keyword-text">${keyword}</span>
+              <span class="keyword-count">${formatNumber(count)}</span>
+            </div>
+          `;
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+      }
+
+      // 自动刷新设置
+      function setupAutoRefresh(prefix, loadFn, timerKey) {
+        const checkbox = document.getElementById(`auto-refresh-${prefix}`);
+        const intervalInput = document.getElementById(`refresh-interval-${prefix}`);
+        
+        checkbox.addEventListener('change', function() {
+          if (this.checked) {
+            const interval = parseInt(intervalInput.value) * 1000;
+            refreshTimers[timerKey] = setInterval(loadFn, interval);
+          } else {
+            if (refreshTimers[timerKey]) {
+              clearInterval(refreshTimers[timerKey]);
+              delete refreshTimers[timerKey];
+            }
+          }
+        });
+        
+        intervalInput.addEventListener('change', function() {
+          if (checkbox.checked) {
+            if (refreshTimers[timerKey]) {
+              clearInterval(refreshTimers[timerKey]);
+            }
+            const interval = parseInt(this.value) * 1000;
+            refreshTimers[timerKey] = setInterval(loadFn, interval);
+          }
+        });
+      }
+
+      // 确保sentiment-layout是1:1布局
+      function ensureLayout() {
+        const sentimentLayout = document.querySelector('.sentiment-layout');
+        if (sentimentLayout) {
+          sentimentLayout.style.gridTemplateColumns = '1fr 1fr';
+          sentimentLayout.style.gap = '10px';
+        }
+      }
+      
+      // 初始化
+      window.addEventListener('DOMContentLoaded', () => {
+        ensureLayout();
+        loadSentimentAnalysis();
+        setupAutoRefresh('sentiment', loadSentimentAnalysis, 'sentiment');
+      });
+      
+      window.addEventListener('load', function() {
+        ensureLayout();
+      });
+      
+      window.addEventListener('resize', function() {
+        ensureLayout();
+      });
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>信息源库管理</title>
+    <link rel="stylesheet" href="/static/css/app-theme.css" />
+    <style>
+      body { padding: 0; }
+      .page { padding: 24px; max-width: 1400px; margin: 0 auto; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 1200px) { .grid { grid-template-columns: 1fr; } }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .row > * { min-width: 0; }
+      .muted { color: var(--text-muted); font-size: 13px; }
+      textarea { width: 100%; min-height: 80px; }
+      .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+      .toolbar select, .toolbar input { min-width: 170px; }
+      .small { font-size: 12px; color: var(--text-muted); }
+      .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 1200px) { .split { grid-template-columns: 1fr; } }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+      .pre {
+        background: #0b1220;
+        color: #dbeafe;
+        border-radius: 10px;
+        padding: 12px;
+        overflow: auto;
+        max-height: 320px;
+        white-space: pre-wrap;
+        border: 1px solid #1e293b;
+      }
+    </style>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/ui-core.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <h1><i data-lucide="database-zap" style="vertical-align: middle; margin-right: 8px;"></i>信息源库管理</h1>
+        <p>支持共享库（public）与项目库（project schema）分层管理，按 effective 视图查看最终生效配置。</p>
+      </section>
+
+      <section class="card" style="margin-bottom: 12px;">
+        <div class="toolbar">
+          <label for="projectKey">项目</label>
+          <select id="projectKey"></select>
+          <label for="scope">视图</label>
+          <select id="scope">
+            <option value="effective">effective（合并后）</option>
+            <option value="shared">shared（全局）</option>
+            <option value="project">project（项目私有）</option>
+          </select>
+          <button id="btnRefresh"><i data-lucide="refresh-cw"></i>刷新</button>
+          <button id="btnSyncShared" class="secondary"><i data-lucide="folder-sync"></i>同步共享库（文件→DB）</button>
+        </div>
+        <div id="globalStatus" class="status">等待操作</div>
+      </section>
+
+      <section class="split" style="margin-bottom: 12px;">
+        <div class="card">
+          <h2 class="section-title">通道列表（channels）</h2>
+          <div id="channelsWrap" class="table-wrap"></div>
+        </div>
+        <div class="card">
+          <h2 class="section-title">来源项列表（items）</h2>
+          <div id="itemsWrap" class="table-wrap"></div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2 class="section-title">项目侧新增/覆盖 Item</h2>
+          <div class="row">
+            <div style="flex: 1 1 220px;">
+              <label for="itemKey">item_key</label>
+              <input id="itemKey" placeholder="例如：reddit.lottery.project_a" />
+            </div>
+            <div style="flex: 1 1 220px;">
+              <label for="itemName">名称</label>
+              <input id="itemName" placeholder="例如：项目A Reddit 采集" />
+            </div>
+          </div>
+          <div class="row">
+            <div style="flex: 1 1 220px;">
+              <label for="channelKey">channel_key</label>
+              <select id="channelKey"></select>
+            </div>
+            <div style="flex: 1 1 220px;">
+              <label for="extendsItemKey">extends_item_key（可选）</label>
+              <input id="extendsItemKey" placeholder="例如：reddit.lottery" />
+            </div>
+          </div>
+          <div class="row">
+            <div style="flex: 1 1 220px;">
+              <label for="tags">tags（逗号分隔）</label>
+              <input id="tags" placeholder="social,project-a" />
+            </div>
+            <div style="flex: 1 1 220px;">
+              <label for="schedule">schedule（可选）</label>
+              <input id="schedule" placeholder="例如：0 7 * * *" />
+            </div>
+          </div>
+          <div style="margin-top: 8px;">
+            <label for="description">描述</label>
+            <input id="description" placeholder="用途说明" />
+          </div>
+          <div style="margin-top: 8px;">
+            <label for="paramsJson">params（JSON）</label>
+            <textarea id="paramsJson" class="mono">{ "subreddit": "Lottery", "limit": 20 }</textarea>
+          </div>
+          <div style="margin-top: 8px;">
+            <label for="extraJson">extra（JSON，可选）</label>
+            <textarea id="extraJson" class="mono">{}</textarea>
+          </div>
+          <div class="row" style="margin-top: 10px;">
+            <label><input type="checkbox" id="enabled" checked /> 启用</label>
+            <button id="btnUpsertItem"><i data-lucide="save"></i>保存到项目库</button>
+          </div>
+          <div id="upsertStatus" class="status" style="margin-top: 10px;">等待操作</div>
+        </div>
+
+        <div class="card">
+          <h2 class="section-title">执行 Item</h2>
+          <div class="row">
+            <div style="flex: 1 1 220px;">
+              <label for="runItemKey">item_key</label>
+              <input id="runItemKey" placeholder="从列表点击“运行”自动填充" />
+            </div>
+            <div style="flex: 1 1 220px;">
+              <label for="asyncMode">执行模式</label>
+              <select id="asyncMode">
+                <option value="false">同步</option>
+                <option value="true">异步（Celery）</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top: 8px;">
+            <label for="overrideParamsJson">override_params（JSON，可选）</label>
+            <textarea id="overrideParamsJson" class="mono">{}</textarea>
+          </div>
+          <div class="row" style="margin-top: 10px;">
+            <button id="btnRunItem"><i data-lucide="play"></i>执行</button>
+          </div>
+          <div id="runStatus" class="status" style="margin-top: 10px;">等待操作</div>
+          <h3 style="margin-top: 12px; margin-bottom: 6px;">执行结果</h3>
+          <pre id="runResult" class="pre">暂无结果</pre>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const { qs, setLoading, setError, setSuccess, setEmpty, escapeHtml } = window.UICore;
+
+      let CACHED_CHANNELS = [];
+      let CACHED_ITEMS = [];
+      let PROJECTS = [];
+
+      function currentProjectKey() {
+        return window.MarketApp.getProjectKey();
+      }
+
+      async function loadProjects() {
+        const res = await fetch("/api/v1/projects");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items.filter((x) => x.enabled !== false) : [];
+        PROJECTS = items;
+        const select = qs("projectKey");
+        select.innerHTML = items.map((p) => `<option value="${escapeHtml(p.project_key)}">${escapeHtml(p.name)} (${escapeHtml(p.project_key)})</option>`).join("");
+        const key = currentProjectKey();
+        if (items.some((x) => x.project_key === key)) {
+          select.value = key;
+        } else if (items[0]) {
+          select.value = items[0].project_key;
+          localStorage.setItem("market_project_key", items[0].project_key);
+        }
+      }
+
+      function parseJSONInput(id, fallback = {}) {
+        const raw = String(qs(id).value || "").trim();
+        if (!raw) return fallback;
+        try {
+          return JSON.parse(raw);
+        } catch (err) {
+          throw new Error(`${id} 不是合法 JSON: ${err.message || err}`);
+        }
+      }
+
+      function getScope() {
+        return qs("scope").value || "effective";
+      }
+
+      function getSelectedProject() {
+        return qs("projectKey").value || currentProjectKey();
+      }
+
+      function renderChannelSelect() {
+        const select = qs("channelKey");
+        const options = CACHED_CHANNELS
+          .map((c) => `<option value="${escapeHtml(c.channel_key)}">${escapeHtml(c.channel_key)} [${escapeHtml(c.scope || "-")}]</option>`)
+          .join("");
+        select.innerHTML = options || '<option value="">无可用通道</option>';
+      }
+
+      function renderChannelsTable(items) {
+        if (!items.length) {
+          setEmpty("channelsWrap", "暂无通道");
+          return;
+        }
+        const rows = items.map((c) => `
+          <tr>
+            <td><code>${escapeHtml(c.channel_key)}</code></td>
+            <td>${escapeHtml(c.name || "-")}</td>
+            <td>${escapeHtml(c.kind || "-")}</td>
+            <td>${escapeHtml(c.provider || "-")}</td>
+            <td>${escapeHtml(c.scope || "-")}</td>
+            <td>${c.enabled ? '<span class="badge success">启用</span>' : '<span class="badge warning">禁用</span>'}</td>
+          </tr>
+        `).join("");
+        qs("channelsWrap").innerHTML = `
+          <table>
+            <thead><tr><th>channel_key</th><th>名称</th><th>kind</th><th>provider</th><th>scope</th><th>状态</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
+
+      function fillItemToForm(item) {
+        qs("itemKey").value = item.item_key || "";
+        qs("itemName").value = item.name || "";
+        qs("channelKey").value = item.channel_key || "";
+        qs("extendsItemKey").value = item.extends_item_key || "";
+        qs("description").value = item.description || "";
+        qs("tags").value = Array.isArray(item.tags) ? item.tags.join(",") : "";
+        qs("schedule").value = item.schedule || "";
+        qs("enabled").checked = !!item.enabled;
+        qs("paramsJson").value = JSON.stringify(item.params || {}, null, 2);
+        qs("extraJson").value = JSON.stringify(item.extra || {}, null, 2);
+      }
+
+      function renderItemsTable(items) {
+        if (!items.length) {
+          setEmpty("itemsWrap", "暂无来源项");
+          return;
+        }
+        const rows = items.map((it) => `
+          <tr>
+            <td><code>${escapeHtml(it.item_key)}</code></td>
+            <td>${escapeHtml(it.name || "-")}</td>
+            <td><code>${escapeHtml(it.channel_key || "-")}</code></td>
+            <td>${escapeHtml(it.scope || "-")}</td>
+            <td>${it.enabled ? '<span class="badge success">启用</span>' : '<span class="badge warning">禁用</span>'}</td>
+            <td>
+              <button class="secondary" onclick="selectItem('${escapeHtml(it.item_key)}')"><i data-lucide="pencil"></i>编辑</button>
+              <button onclick="quickRun('${escapeHtml(it.item_key)}')"><i data-lucide="play"></i>运行</button>
+            </td>
+          </tr>
+        `).join("");
+        qs("itemsWrap").innerHTML = `
+          <table>
+            <thead><tr><th>item_key</th><th>名称</th><th>channel</th><th>scope</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      async function refreshData() {
+        setLoading("globalStatus", "加载通道与来源项...");
+        const scope = getScope();
+        const project_key = getSelectedProject();
+        const q = `scope=${encodeURIComponent(scope)}&project_key=${encodeURIComponent(project_key)}`;
+        try {
+          const [channelsRes, itemsRes] = await Promise.all([
+            fetch(`/api/v1/source_library/channels?${q}`),
+            fetch(`/api/v1/source_library/items?${q}`),
+          ]);
+          if (!channelsRes.ok) throw new Error(await channelsRes.text() || `HTTP ${channelsRes.status}`);
+          if (!itemsRes.ok) throw new Error(await itemsRes.text() || `HTTP ${itemsRes.status}`);
+          const channelsData = await channelsRes.json();
+          const itemsData = await itemsRes.json();
+          CACHED_CHANNELS = Array.isArray(channelsData?.items) ? channelsData.items : [];
+          CACHED_ITEMS = Array.isArray(itemsData?.items) ? itemsData.items : [];
+          renderChannelSelect();
+          renderChannelsTable(CACHED_CHANNELS);
+          renderItemsTable(CACHED_ITEMS);
+          setSuccess("globalStatus", `已加载：channels=${CACHED_CHANNELS.length}, items=${CACHED_ITEMS.length}`);
+        } catch (err) {
+          setError("globalStatus", `加载失败: ${err.message || err}`);
+          setEmpty("channelsWrap", "加载失败");
+          setEmpty("itemsWrap", "加载失败");
+        }
+      }
+
+      async function syncShared() {
+        setLoading("globalStatus", "同步共享库中...");
+        try {
+          const res = await fetch("/api/v1/source_library/sync_shared_from_files", { method: "POST" });
+          if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+          const data = await res.json();
+          setSuccess("globalStatus", `同步成功：channels=${data.upserted_channels || 0}, items=${data.upserted_items || 0}`);
+          await refreshData();
+        } catch (err) {
+          setError("globalStatus", `同步失败: ${err.message || err}`);
+        }
+      }
+
+      async function upsertProjectItem() {
+        const project_key = getSelectedProject();
+        if (!project_key) {
+          setError("upsertStatus", "请先选择项目");
+          return;
+        }
+        const item_key = String(qs("itemKey").value || "").trim();
+        const name = String(qs("itemName").value || "").trim();
+        const channel_key = String(qs("channelKey").value || "").trim();
+        if (!item_key || !name || !channel_key) {
+          setError("upsertStatus", "item_key / 名称 / channel_key 不能为空");
+          return;
+        }
+        let params = {};
+        let extra = {};
+        try {
+          params = parseJSONInput("paramsJson", {});
+          extra = parseJSONInput("extraJson", {});
+        } catch (err) {
+          setError("upsertStatus", err.message || String(err));
+          return;
+        }
+        const tags = String(qs("tags").value || "")
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean);
+        const payload = {
+          item_key,
+          name,
+          channel_key,
+          description: String(qs("description").value || "").trim() || null,
+          params,
+          tags,
+          schedule: String(qs("schedule").value || "").trim() || null,
+          extends_item_key: String(qs("extendsItemKey").value || "").trim() || null,
+          enabled: !!qs("enabled").checked,
+          extra,
+        };
+        setLoading("upsertStatus", "保存中...");
+        try {
+          const url = `/api/v1/source_library/items?project_key=${encodeURIComponent(project_key)}`;
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+          setSuccess("upsertStatus", "保存成功");
+          await refreshData();
+        } catch (err) {
+          setError("upsertStatus", `保存失败: ${err.message || err}`);
+        }
+      }
+
+      async function runItem() {
+        const itemKey = String(qs("runItemKey").value || "").trim();
+        if (!itemKey) {
+          setError("runStatus", "请输入 item_key");
+          return;
+        }
+        const project_key = getSelectedProject();
+        const async_mode = qs("asyncMode").value === "true";
+        let override_params = {};
+        try {
+          override_params = parseJSONInput("overrideParamsJson", {});
+        } catch (err) {
+          setError("runStatus", err.message || String(err));
+          return;
+        }
+        setLoading("runStatus", async_mode ? "异步提交中..." : "执行中...");
+        try {
+          const res = await fetch(`/api/v1/source_library/items/${encodeURIComponent(itemKey)}/run`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project_key, async_mode, override_params }),
+          });
+          if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+          const data = await res.json();
+          qs("runResult").textContent = JSON.stringify(data, null, 2);
+          setSuccess("runStatus", async_mode ? "已提交异步任务" : "执行成功");
+        } catch (err) {
+          setError("runStatus", `执行失败: ${err.message || err}`);
+        }
+      }
+
+      function selectItem(itemKey) {
+        const it = CACHED_ITEMS.find((x) => x.item_key === itemKey);
+        if (!it) return;
+        fillItemToForm(it);
+        qs("runItemKey").value = it.item_key || "";
+        qs("runResult").textContent = "已将条目载入编辑区";
+      }
+      window.selectItem = selectItem;
+
+      function quickRun(itemKey) {
+        qs("runItemKey").value = itemKey;
+        runItem();
+      }
+      window.quickRun = quickRun;
+
+      async function bootstrap() {
+        try {
+          await loadProjects();
+          await refreshData();
+          setSuccess("globalStatus", "初始化完成");
+        } catch (err) {
+          setError("globalStatus", `初始化失败: ${err.message || err}`);
+        }
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      qs("btnRefresh").addEventListener("click", refreshData);
+      qs("scope").addEventListener("change", refreshData);
+      qs("projectKey").addEventListener("change", async () => {
+        const key = getSelectedProject();
+        localStorage.setItem("market_project_key", key);
+        await refreshData();
+      });
+      qs("btnSyncShared").addEventListener("click", syncShared);
+      qs("btnUpsertItem").addEventListener("click", upsertProjectItem);
+      qs("btnRunItem").addEventListener("click", runItem);
+      bootstrap();
+    </script>
+  </body>
+</html>
+

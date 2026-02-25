@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>流程结果看板</title>
+    <link rel="stylesheet" href="/static/css/app-theme.css" />
+    <style>
+      body { padding: 0; }
+      .page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+      /* 防止图表在 iframe 中被 ResizeObserver 反复拉伸 */
+      canvas { display: block; max-width: 100%; }
+      #analysis canvas,
+      #macro-policy canvas,
+      #commodity canvas,
+      #ecommerce-price canvas { max-height: 260px; }
+    </style>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/ui-core.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <h1><i data-lucide="bar-chart-4" style="vertical-align: middle; margin-right: 8px;"></i>流程结果看板</h1>
+        <p>以“采集-提取-分析-看板”流程组织关键指标，同时支持按业务领域锚点浏览。</p>
+      </section>
+
+      <section class="card" id="board" style="margin-bottom: 12px;">
+        <div class="toolbar">
+          <button id="refreshAll"><i data-lucide="refresh-cw"></i> 刷新全部</button>
+          <button id="gotoIngest" class="secondary"><i data-lucide="plus-circle"></i> 去采集</button>
+          <span class="badge info" id="projectBadge"><i data-lucide="folder"></i> project: default</span>
+        </div>
+        <div class="grid-4">
+          <article class="card"><div><i data-lucide="file-text"></i> 文档总量</div><div id="kpiDocs" class="kpi">-</div><div id="kpiDocsSub" class="kpi-sub">-</div></article>
+          <article class="card"><div><i data-lucide="database"></i> 数据源</div><div id="kpiSources" class="kpi">-</div><div id="kpiSourcesSub" class="kpi-sub">-</div></article>
+          <article class="card"><div><i data-lucide="activity"></i> 任务状态</div><div id="kpiTasks" class="kpi">-</div><div id="kpiTasksSub" class="kpi-sub">-</div></article>
+          <article class="card"><div><i data-lucide="search"></i> 搜索历史</div><div id="kpiSearch" class="kpi">-</div><div id="kpiSearchSub" class="kpi-sub">-</div></article>
+        </div>
+      </section>
+
+      <section class="card" id="analysis" style="margin-bottom: 12px;">
+        <h2 class="section-title">流程分析</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h3 style="margin-top:0;">采集趋势（市场）</h3>
+            <canvas id="marketTrendChart" height="140"></canvas>
+          </div>
+          <div class="card">
+            <h3 style="margin-top:0;">提取结果（情感分布）</h3>
+            <canvas id="sentimentChart" height="140"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="macro-policy" style="margin-bottom: 12px;">
+        <h2 class="section-title">宏观政策 / 行业公司（搜索行为）</h2>
+        <canvas id="searchChart" height="90"></canvas>
+      </section>
+
+      <section class="card" id="commodity" style="margin-bottom: 12px;">
+        <h2 class="section-title">商品趋势</h2>
+        <canvas id="commodityChart" height="90"></canvas>
+      </section>
+
+      <section class="card" id="ecommerce-price" style="margin-bottom: 12px;">
+        <h2 class="section-title">电商价格趋势</h2>
+        <canvas id="ecomChart" height="90"></canvas>
+      </section>
+
+      <section class="card" id="public-opinion">
+        <h2 class="section-title">任务监控（最近20条）</h2>
+        <div id="taskTableWrap" class="table-wrap"></div>
+      </section>
+    </div>
+
+    <script>
+      const { qs, formatNumber, setError, setEmpty, escapeHtml, toDateTime } = window.UICore;
+      const charts = {};
+
+      function setKpi() {
+        qs("projectBadge").textContent = `project: ${window.MarketApp.getProjectKey()}`;
+      }
+
+      function drawLine(id, labels, values, label, color) {
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart(qs(id), {
+          type: "line",
+          data: { labels, datasets: [{ label, data: values, borderColor: color, backgroundColor: `${color}33`, tension: 0.3 }] },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2.6,
+            plugins: { legend: { display: true } },
+          },
+        });
+      }
+
+      function drawDoughnut(id, labels, values) {
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart(qs(id), {
+          type: "doughnut",
+          data: { labels, datasets: [{ data: values, backgroundColor: ["#16a34a", "#6b7280", "#dc2626", "#94a3b8"] }] },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1.6,
+            plugins: { legend: { position: "bottom" } },
+          },
+        });
+      }
+
+      async function loadStats() {
+        const data = await window.MarketApp.fetchJSON("/api/v1/dashboard/stats");
+        qs("kpiDocs").textContent = formatNumber(data?.documents?.total);
+        qs("kpiDocsSub").textContent = `今日 ${formatNumber(data?.documents?.recent_today)} / 7天 ${formatNumber(data?.documents?.recent_7d)}`;
+        qs("kpiSources").textContent = formatNumber(data?.sources?.total);
+        qs("kpiSourcesSub").textContent = `启用 ${formatNumber(data?.sources?.enabled)}`;
+        qs("kpiTasks").textContent = formatNumber(data?.tasks?.total);
+        qs("kpiTasksSub").textContent = `运行 ${formatNumber(data?.tasks?.running)} / 失败 ${formatNumber(data?.tasks?.failed)}`;
+        qs("kpiSearch").textContent = formatNumber(data?.search_history?.total);
+        qs("kpiSearchSub").textContent = "主题搜索记录";
+      }
+
+      async function loadMarketTrend() {
+        const data = await window.MarketApp.fetchJSON("/api/v1/dashboard/market-trends?period=daily");
+        const series = Array.isArray(data?.series) ? data.series : [];
+        drawLine("marketTrendChart", series.map((v) => v.date || ""), series.map((v) => v.sales_volume || 0), "销售额", "#2563eb");
+      }
+
+      async function loadSentiment() {
+        const data = await window.MarketApp.fetchJSON("/api/v1/dashboard/sentiment-analysis");
+        const d = data?.sentiment_distribution || {};
+        drawDoughnut("sentimentChart", ["积极", "中性", "消极", "未知"], [d.positive || 0, d.neutral || 0, d.negative || 0, d.unknown || 0]);
+      }
+
+      async function loadSearchTrend() {
+        const data = await window.MarketApp.fetchJSON("/api/v1/dashboard/search-analytics?limit=30");
+        const series = Array.isArray(data?.search_trend) ? data.search_trend : [];
+        drawLine("searchChart", series.map((v) => v.date || ""), series.map((v) => v.count || 0), "搜索次数", "#0ea5e9");
+      }
+
+      async function loadCommodity() {
+        const data = await window.MarketApp.fetchJSON("/api/v1/dashboard/commodity-trends");
+        const series = Array.isArray(data?.series) ? data.series : [];
+        drawLine("commodityChart", series.map((v) => v.date || ""), series.map((v) => v.value || 0), "商品指标", "#7c3aed");
+      }
+
+      async function loadEcom() {
+        const data = await window.MarketApp.fetchJSON("/api/v1/dashboard/ecom-price-trends");
+        const series = Array.isArray(data?.series) ? data.series : [];
+        drawLine(
+          "ecomChart",
+          series.map((v) => (v.captured_at || "").replace("T", " ").slice(0, 16)),
+          series.map((v) => v.price || 0),
+          "电商价格",
+          "#dc2626"
+        );
+      }
+
+      async function loadTasks() {
+        const data = await window.MarketApp.fetchJSON("/api/v1/dashboard/task-monitoring?limit=20");
+        const items = Array.isArray(data?.recent_tasks) ? data.recent_tasks : [];
+        if (!items.length) {
+          setEmpty("taskTableWrap", "暂无任务");
+          return;
+        }
+        const rows = items
+          .map((it) => {
+            const cls = it.status === "completed" ? "success" : it.status === "failed" ? "danger" : "warning";
+            return `<tr>
+              <td>${escapeHtml(it.job_type || "-")}</td>
+              <td><span class="badge ${cls}">${escapeHtml(it.status || "-")}</span></td>
+              <td>${toDateTime(it.started_at)}</td>
+              <td>${toDateTime(it.finished_at)}</td>
+              <td>${formatNumber(it.duration_seconds || 0)}s</td>
+            </tr>`;
+          })
+          .join("");
+        qs("taskTableWrap").innerHTML = `<table><thead><tr><th>任务</th><th>状态</th><th>开始</th><th>结束</th><th>耗时</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }
+
+      async function loadAll() {
+        lucide.createIcons();
+        setKpi();
+        try {
+          await Promise.all([loadStats(), loadMarketTrend(), loadSentiment(), loadSearchTrend(), loadCommodity(), loadEcom(), loadTasks()]);
+        } catch (error) {
+          setError("taskTableWrap", `加载看板失败: ${error.message}`);
+        }
+        if (window.location.hash) {
+          const target = document.querySelector(window.location.hash);
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+
+      qs("refreshAll").addEventListener("click", loadAll);
+      qs("gotoIngest").addEventListener("click", () => window.MarketApp.navigateInShell("index.html#ingest"));
+
+      window.addEventListener("DOMContentLoaded", loadAll);
+    </script>
+  </body>
+</html>

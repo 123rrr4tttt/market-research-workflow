@@ -1,0 +1,254 @@
+"""初始化LLM服务配置，将现有提示词保存到数据库"""
+import sys
+from pathlib import Path
+
+# 添加项目根目录到路径
+backend_dir = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(backend_dir))
+
+from app.models.base import SessionLocal
+from app.models.entities import LlmServiceConfig
+from sqlalchemy import select
+
+
+# 定义所有LLM服务的默认配置
+DEFAULT_CONFIGS = [
+    {
+        "service_name": "policy_classification",
+        "description": "政策分类服务：判断法案文本对线上彩票与代购的态度",
+        "system_prompt": "你是一名美国彩票政策分析助手，需要判断输入法案文本对线上彩票 与代购的态度。请输出 JSON，其中包含 `category`（允许/限制/禁止/不确定）、`confidence`（0-1 之间的小数）以及 `reason`（中文说明）。",
+        "user_prompt_template": "当前文本：\n{document}",
+        "model": None,  # 使用默认模型
+        "temperature": 0.2,
+        "max_tokens": None,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+    {
+        "service_name": "policy_summary",
+        "description": "政策摘要服务：概括政策文本，突出线上彩票与代购的影响",
+        "system_prompt": "请用中文概括输入的政策文本，突出线上彩票与代购的影响，输出 3 条要点列表。",
+        "user_prompt_template": "法案内容：\n{document}",
+        "model": None,
+        "temperature": 0.2,
+        "max_tokens": None,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+    {
+        "service_name": "sentiment_extraction",
+        "description": "情感提取服务：从文本中提取结构化的情感信息",
+        "system_prompt": None,
+        "user_prompt_template": """从以下文本中提取结构化的情感和信息：
+
+文本：
+{text}
+
+请提取以下信息，并以JSON格式返回（只返回JSON，不要其他解释）：
+{{
+  "sentiment_tags": ["标签1", "标签2"],  // 情感标签列表，如["entertainment", "hope", "addiction", "scam fear"]
+  "sentiment_orientation": "positive|negative|neutral",  // 情感倾向
+  "key_phrases": ["关键短语1", "关键短语2"],  // 关键短语列表
+  "emotion_words": ["情感词1", "情感词2"],  // 情感表达词汇列表
+  "topic": "主题关键词"  // 主要主题
+}}
+
+请确保返回有效的JSON格式。""",
+        "model": None,
+        "temperature": 0.2,
+        "max_tokens": None,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+    {
+        "service_name": "policy_info_extraction",
+        "description": "政策信息提取服务：从文本中提取政策相关信息",
+        "system_prompt": None,
+        "user_prompt_template": """从以下文本中提取政策相关信息：
+
+文本：
+{text}
+
+请提取以下信息，并以JSON格式返回（只返回JSON，不要其他解释）：
+{{
+  "affected_states": ["CA", "NY"],  // 受影响的州列表
+  "policy_direction": "允许|禁止|限制|更新",  // 政策方向
+  "policy_type": "regulation|bill|announcement|guidance",  // 政策类型
+  "key_points": ["要点1", "要点2"],  // 关键要点列表
+  "effective_date": "YYYY-MM-DD"  // 生效日期（如果无法确定则为null）
+}}
+
+请确保返回有效的JSON格式。""",
+        "model": None,
+        "temperature": 0.2,
+        "max_tokens": None,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+    {
+        "service_name": "policy_extraction",
+        "description": "政策结构化提取服务：提取政策的关键信息（州、生效日期、政策类型、关键要点）",
+        "system_prompt": None,
+        "user_prompt_template": """从以下文本中提取政策的关键信息：
+
+{text}
+
+请提取：州、生效日期、政策类型、关键要点。请以JSON格式返回，包含以下字段：
+- state: 州名（如CA, NY等）
+- effective_date: 生效日期（YYYY-MM-DD格式，如果无法确定则为null）
+- policy_type: 政策类型（如regulation, bill, announcement等）
+- key_points: 关键要点列表（最多5条）""",
+        "model": None,
+        "temperature": 0.2,
+        "max_tokens": None,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+    {
+        "service_name": "entities_relations_extraction",
+        "description": "实体关系提取服务：抽取与彩票政策/市场直接相关的实体与关系",
+        "system_prompt": None,
+        "user_prompt_template": "请从以下文本中抽取与彩票政策/市场直接相关的实体与关系，最多5个实体、3条关系；谓词必须在 {{regulates, affects, announces, changes_rule, reports_sales}} 中。\n\n{text}",
+        "model": None,
+        "temperature": 0.2,
+        "max_tokens": None,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+    {
+        "service_name": "market_info_extraction",
+        "description": "市场数据提取服务：提取彩票市场数据的关键信息",
+        "system_prompt": None,
+        "user_prompt_template": """Extract key lottery market data information from the following text:
+
+{text}
+
+Extract the following fields and return in JSON format. All text values must be in English:
+- state: State code (e.g., CA, NY)
+- game: Game type (e.g., Powerball, Mega Millions)
+- report_date: Report date (YYYY-MM-DD format, null if unavailable)
+- sales_volume: Sales volume (number, null if unavailable)
+- revenue: Revenue (number, null if unavailable)
+- jackpot: Jackpot amount (number, null if unavailable)
+- ticket_price: Ticket price (number, null if unavailable)
+- draw_number: Draw numbers (string, null if unavailable)
+- yoy_change: Year-over-year change percentage (number, null if unavailable)
+- mom_change: Month-over-month change percentage (number, null if unavailable)
+- key_findings: List of key findings (up to 5 items, all must be in English)""",
+        "model": None,
+        "temperature": 0.2,
+        "max_tokens": None,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+    {
+        "service_name": "keyword_generation",
+        "description": "关键词生成服务：基于用户主题生成搜索关键词",
+        "system_prompt": None,
+        "user_prompt_template": "你是一名搜索关键词生成助手。请基于用户主题，输出 3~5 个多样化的{language}搜索关键词。每行一个关键词，尽量包含与政策、市场或行情相关的词。\n主题：{topic}",
+        "model": None,
+        "temperature": 0.2,
+        "max_tokens": None,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+    {
+        "service_name": "social_keyword_generation",
+        "description": "社交平台关键词生成服务：一次生成搜索关键词和子论坛关键词",
+        "system_prompt": None,
+        "user_prompt_template": """你是一名社交媒体关键词生成助手。请基于用户主题，生成两类关键词{platform}。
+
+重要：所有关键词必须使用{language}生成。
+
+第一类：搜索关键词（用于搜索帖子内容）
+- 生成 3~5 个多样化的{language}搜索关键词
+- 关键词应该简洁明了，适合在社交媒体平台搜索
+- 包含用户常用的表达方式
+- 避免过于专业的术语
+- 如果要求英文，必须使用英文关键词
+
+第二类：子论坛关键词（用于发现Reddit子论坛）
+- 生成 5~10 个适合作为Reddit子论坛名称的{language}关键词
+- 关键词必须符合Reddit社区命名习惯：全小写、使用下划线分隔单词、简洁明了
+- 包含主题的核心词汇、同义词、变体
+- 如果要求英文，必须使用英文关键词
+- 示例格式：lottery, powerball, scratch_off, jackpot_winners
+
+请严格按照以下格式返回（每行一个关键词，不要添加编号或其他符号）：
+搜索关键词：
+关键词1
+关键词2
+关键词3
+
+子论坛关键词：
+关键词1
+关键词2
+关键词3
+关键词4
+
+主题：{topic}{base_keywords}""",
+        "model": None,
+        "temperature": 0.5,
+        "max_tokens": 500,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+    {
+        "service_name": "document_classification",
+        "description": "文档分类服务：将内容粗分类为'policy'或'market'",
+        "system_prompt": None,
+        "user_prompt_template": "请将以下内容粗分类为'policy'或'market'之一，仅返回这两个词之一。\n标题: {title}\n摘要: {snippet}\n正文片段: {content}\n分类:",
+        "model": None,
+        "temperature": 0.2,
+        "max_tokens": None,
+        "top_p": None,
+        "presence_penalty": None,
+        "frequency_penalty": None,
+        "enabled": True,
+    },
+]
+
+
+def init_llm_configs():
+    """初始化LLM服务配置"""
+    with SessionLocal() as db:
+        for config_data in DEFAULT_CONFIGS:
+            service_name = config_data["service_name"]
+            # 检查是否已存在
+            stmt = select(LlmServiceConfig).where(LlmServiceConfig.service_name == service_name)
+            existing = db.execute(stmt).scalar_one_or_none()
+            
+            if existing:
+                print(f"配置 '{service_name}' 已存在，跳过")
+                continue
+            
+            # 创建新配置
+            config = LlmServiceConfig(**config_data)
+            db.add(config)
+            print(f"创建配置: {service_name}")
+        
+        db.commit()
+        print("LLM服务配置初始化完成")
+
+
+if __name__ == "__main__":
+    init_llm_configs()
+

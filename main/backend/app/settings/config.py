@@ -30,6 +30,9 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = Field(default_factory=_get_default_database_url)
+    # Neutral default project key for local bootstrap.
+    active_project_key: str = Field(default="default")
+    project_schema_prefix: str = Field(default="project_")
 
     # Elasticsearch / Redis
     es_url: str = Field(default_factory=_get_default_es_url)
@@ -53,6 +56,7 @@ class Settings(BaseSettings):
     news_api_key: Optional[str] = Field(default=None)
     serpapi_key: Optional[str] = Field(default=None)
     serpstack_key: Optional[str] = Field(default=None)
+    serper_api_key: Optional[str] = Field(default=None)
     google_search_api_key: Optional[str] = Field(default=None)
     google_search_cse_id: Optional[str] = Field(default=None)
     azure_search_endpoint: Optional[str] = Field(default="https://lotto.search.windows.net")
@@ -63,7 +67,12 @@ class Settings(BaseSettings):
     reddit_client_id: Optional[str] = Field(default=None)
     reddit_client_secret: Optional[str] = Field(default=None)
     reddit_user_agent: Optional[str] = Field(default=None)
+    # Twitter/X API credentials
+    twitter_api_key: Optional[str] = Field(default=None)
+    twitter_api_secret: Optional[str] = Field(default=None)
     twitter_bearer_token: Optional[str] = Field(default=None)
+    twitter_access_token: Optional[str] = Field(default=None)
+    twitter_access_token_secret: Optional[str] = Field(default=None)
     rapidapi_key: Optional[str] = Field(default=None)
 
     # Embeddings

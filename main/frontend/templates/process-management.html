@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>任务进程管理</title>
+    <link rel="stylesheet" href="/static/css/app-theme.css" />
+    <style>
+      body { padding: 0; }
+      .page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    </style>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/ui-core.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <h1><i data-lucide="cpu" style="vertical-align: middle; margin-right: 8px;"></i>任务进程管理</h1>
+        <p>按流程阶段追踪任务状态：采集、提取、分析、管理。</p>
+      </section>
+
+      <section class="card" style="margin-bottom: 12px;">
+        <div class="toolbar">
+          <button id="refreshNow"><i data-lucide="refresh-cw"></i> 立即刷新</button>
+          <label><input type="checkbox" id="autoRefresh" checked /> 自动刷新</label>
+          <label for="refreshSeconds">间隔(秒)</label>
+          <select id="refreshSeconds">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="30">30</option>
+          </select>
+          <button id="goDashboard" class="secondary"><i data-lucide="layout-dashboard"></i> 去看板</button>
+        </div>
+        <div class="grid-4">
+          <article class="card"><div><i data-lucide="play-circle"></i> 运行中</div><div class="kpi" id="kpiRunning">-</div></article>
+          <article class="card"><div><i data-lucide="clock"></i> 等待中</div><div class="kpi" id="kpiPending">-</div></article>
+          <article class="card"><div><i data-lucide="server"></i> Worker</div><div class="kpi" id="kpiWorkers">-</div></article>
+          <article class="card"><div><i data-lucide="list"></i> 任务类型</div><div class="kpi" id="kpiTypes">-</div></article>
+        </div>
+      </section>
+
+      <section class="card" style="margin-bottom: 12px;">
+        <h2 class="section-title">当前任务</h2>
+        <div id="currentTasksWrap" class="table-wrap"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">历史任务（最近50条）</h2>
+        <div id="historyTasksWrap" class="table-wrap"></div>
+      </section>
+    </div>
+
+    <script>
+      const { qs, setEmpty, setError, escapeHtml, toDateTime, formatNumber } = window.UICore;
+      let timer = null;
+
+      function getStage(jobType) {
+        const value = String(jobType || "").toLowerCase();
+        if (value.includes("ingest") || value.includes("collect")) return "采集";
+        if (value.includes("extract")) return "提取";
+        if (value.includes("analysis") || value.includes("search")) return "分析";
+        return "管理";
+      }
+
+      function statusBadge(status) {
+        const s = String(status || "").toLowerCase();
+        if (s.includes("active") || s.includes("running")) return '<span class="badge warning">运行中</span>';
+        if (s.includes("pending") || s.includes("reserved") || s.includes("queued")) return '<span class="badge info">等待中</span>';
+        if (s.includes("completed") || s.includes("success")) return '<span class="badge success">已完成</span>';
+        if (s.includes("failed") || s.includes("failure") || s.includes("revoked")) return '<span class="badge danger">失败</span>';
+        return `<span class="badge info">${escapeHtml(status)}</span>`;
+      }
+
+      async function cancelTask(taskId) {
+        if (!confirm(`确认取消任务 ${taskId} ?`)) return;
+        try {
+          await window.MarketApp.fetchJSON(`/api/v1/process/${encodeURIComponent(taskId)}/cancel`, { method: "POST" });
+          await loadAll();
+        } catch (error) {
+          alert(`取消失败: ${error.message}`);
+        }
+      }
+
+      function renderCurrentTasks(data) {
+        const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+        const stats = data?.stats || {};
+        qs("kpiRunning").textContent = formatNumber(stats.active_tasks || 0);
+        qs("kpiPending").textContent = formatNumber(stats.pending_tasks || 0);
+        qs("kpiWorkers").textContent = formatNumber(stats.workers || 0);
+        qs("kpiTypes").textContent = formatNumber(stats.registered_task_types || 0);
+
+        if (!tasks.length) {
+          setEmpty("currentTasksWrap", "当前无运行任务");
+          return;
+        }
+        const rows = tasks
+          .map((t) => {
+            const stage = getStage(t.name);
+            return `<tr>
+              <td><span class="badge info">${stage}</span></td>
+              <td>${escapeHtml(t.name || "-")}</td>
+              <td>${statusBadge(t.status)}</td>
+              <td>${escapeHtml(t.worker || "-")}</td>
+              <td>${toDateTime(t.started_at)}</td>
+              <td><code>${escapeHtml(String(t.task_id || "-"))}</code></td>
+              <td><button class="danger" onclick="cancelTask('${escapeHtml(String(t.task_id || ""))}')">取消</button></td>
+            </tr>`;
+          })
+          .join("");
+        qs("currentTasksWrap").innerHTML = `
+          <table>
+            <thead><tr><th>阶段</th><th>任务名</th><th>状态</th><th>Worker</th><th>开始时间</th><th>Task ID</th><th>操作</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
+
+      function renderHistory(data) {
+        const list = Array.isArray(data?.history) ? data.history : [];
+        if (!list.length) {
+          setEmpty("historyTasksWrap", "暂无历史任务");
+          return;
+        }
+        const rows = list
+          .map((h) => {
+            const stage = getStage(h.job_type);
+            return `<tr>
+              <td><span class="badge info">${stage}</span></td>
+              <td>${escapeHtml(h.job_type || "-")}</td>
+              <td>${statusBadge(h.status)}</td>
+              <td>${toDateTime(h.started_at)}</td>
+              <td>${toDateTime(h.finished_at)}</td>
+              <td>${formatNumber(h.duration_seconds || 0)}s</td>
+              <td>${h.error ? `<span class="badge danger">${escapeHtml(String(h.error).slice(0, 40))}</span>` : "-"}</td>
+            </tr>`;
+          })
+          .join("");
+        qs("historyTasksWrap").innerHTML = `
+          <table>
+            <thead><tr><th>阶段</th><th>任务类型</th><th>状态</th><th>开始</th><th>结束</th><th>耗时</th><th>错误</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
+
+      async function loadAll() {
+        try {
+          const [current, history] = await Promise.all([
+            window.MarketApp.fetchJSON("/api/v1/process/list"),
+            window.MarketApp.fetchJSON("/api/v1/process/history?limit=50"),
+          ]);
+          renderCurrentTasks(current);
+          renderHistory(history);
+        } catch (error) {
+          setError("currentTasksWrap", `加载失败: ${error.message}`);
+          setError("historyTasksWrap", `加载失败: ${error.message}`);
+        }
+      }
+
+      function setupAutoRefresh() {
+        if (timer) clearInterval(timer);
+        if (!qs("autoRefresh").checked) return;
+        const sec = Number(qs("refreshSeconds").value) || 10;
+        timer = setInterval(loadAll, sec * 1000);
+      }
+
+      qs("refreshNow").addEventListener("click", loadAll);
+      qs("autoRefresh").addEventListener("change", setupAutoRefresh);
+      qs("refreshSeconds").addEventListener("change", setupAutoRefresh);
+      qs("goDashboard").addEventListener("click", () => window.MarketApp.navigateInShell("dashboard.html"));
+
+      window.cancelTask = cancelTask;
+      window.addEventListener("DOMContentLoaded", async () => {
+        lucide.createIcons();
+        await loadAll();
+        setupAutoRefresh();
+      });
+      window.addEventListener("beforeunload", () => {
+        if (timer) clearInterval(timer);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>后端数据仪表盘 - 系统监控</title>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      body { padding: 0; }
+      .container { padding: 24px; max-width: 1600px; margin: 0 auto; }
+      header { margin-bottom: 24px; }
+    </style>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      /* 在iframe中隐藏导航栏 */
+      body.in-iframe header > div:last-child {
+        display: none !important;
+      }
+      body.in-iframe header {
+        margin-bottom: 0;
+        border-radius: 0;
+      }
+      .container {
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        color: #0f172a;
+      }
+      header p {
+        margin: 0;
+        color: #64748b;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 4px solid #2563eb;
+      }
+      .stat-card h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 500;
+      }
+      .stat-card .value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 4px;
+      }
+      .stat-card .sub {
+        font-size: 13px;
+        color: #94a3b8;
+      }
+      .stat-card.success { border-left-color: #10b981; }
+      .stat-card.warning { border-left-color: #f59e0b; }
+      .stat-card.error { border-left-color: #ef4444; }
+      .stat-card.info { border-left-color: #3b82f6; }
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+      @media (max-width: 1200px) {
+        .dashboard-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      section {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      section h2 {
+        margin: 0 0 20px 0;
+        font-size: 20px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 12px;
+      }
+      .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 20px;
+      }
+      .filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        align-items: center;
+      }
+      .filters label {
+        font-weight: 500;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .filters input, .filters select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      .filters input[type="date"] {
+        min-width: 160px;
+      }
+      .filters button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .filters button:hover {
+        background: #1d4ed8;
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #64748b;
+      }
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #cbd5e1;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      .refresh-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .refresh-controls label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #64748b;
+      }
+      .refresh-controls input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+      }
+      .refresh-controls input[type="number"] {
+        width: 80px;
+        padding: 6px 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+      }
+      .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .badge-success { background: #dcfce7; color: #166534; }
+      .badge-error { background: #fee2e2; color: #991b1b; }
+      .badge-warning { background: #fef3c7; color: #92400e; }
+      .badge-info { background: #dbeafe; color: #1e40af; }
+      .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #64748b;
+      }
+      .task-item {
+        padding: 12px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .task-item:last-child {
+        border-bottom: none;
+      }
+      .task-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .task-type {
+        font-weight: 600;
+        color: #0f172a;
+      }
+      .task-error {
+        color: #991b1b;
+        font-size: 13px;
+        margin-top: 4px;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1><i data-lucide="layers"></i> 后端数据仪表盘</h1>
+        <p>系统监控与数据统计</p>
+      </header>
+
+      <!-- 统计卡片 -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card loading">
+          <i data-lucide="refresh-cw" class="spinner"></i> 加载中...
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <!-- 文档分析 -->
+        <section>
+          <div class="refresh-controls">
+            <h2><i data-lucide="file-text"></i> 文档分析</h2>
+            <div>
+              <label>
+                <input type="checkbox" id="auto-refresh-doc" /> 自动刷新
+                <input type="number" id="refresh-interval-doc" value="60" min="10" max="300" style="margin-left: 8px;" /> 秒
+              </label>
+            </div>
+          </div>
+          <div class="filters">
+            <label>开始日期：</label>
+            <input type="date" id="doc-filter-start" />
+            <label>结束日期：</label>
+            <input type="date" id="doc-filter-end" />
+            <button onclick="loadDocumentAnalysis()"><i data-lucide="filter"></i> 更新</button>
+          </div>
+          <div class="chart-container" id="doc-type-chart">
+            <div class="loading"><i data-lucide="refresh-cw" class="spinner"></i> 加载中...</div>
+          </div>
+          <div class="chart-container" id="doc-growth-chart">
+            <div class="loading"><i data-lucide="refresh-cw" class="spinner"></i> 加载中...</div>
+          </div>
+          <div class="chart-container" id="doc-source-chart">
+            <div class="loading"><i data-lucide="refresh-cw" class="spinner"></i> 加载中...</div>
+          </div>
+        </section>
+
+        <!-- 任务监控 -->
+        <section>
+          <div class="refresh-controls">
+            <h2><i data-lucide="activity"></i> 任务监控</h2>
+            <div>
+              <label>
+                <input type="checkbox" id="auto-refresh-task" checked /> 自动刷新
+                <input type="number" id="refresh-interval-task" value="10" min="5" max="60" style="margin-left: 8px;" /> 秒
+              </label>
+            </div>
+          </div>
+          <div id="task-stats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+            <div class="stat-card info">
+              <h3><i data-lucide="play"></i> 运行中</h3>
+              <div class="value" id="task-running">-</div>
+            </div>
+            <div class="stat-card success">
+              <h3><i data-lucide="check-circle"></i> 已完成</h3>
+              <div class="value" id="task-completed">-</div>
+            </div>
+            <div class="stat-card error">
+              <h3><i data-lucide="x-circle"></i> 失败</h3>
+              <div class="value" id="task-failed">-</div>
+            </div>
+          </div>
+          <div class="chart-container" id="task-type-chart" style="height: 200px;">
+            <div class="loading"><i data-lucide="refresh-cw" class="spinner"></i> 加载中...</div>
+          </div>
+          <div id="task-list" style="max-height: 400px; overflow-y: auto;">
+            <div class="loading"><i data-lucide="refresh-cw" class="spinner"></i> 加载中...</div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 搜索行为分析 -->
+      <section>
+        <div class="refresh-controls">
+          <h2><i data-lucide="search"></i> 搜索行为分析</h2>
+          <div>
+            <label>
+              <input type="checkbox" id="auto-refresh-search" /> 自动刷新
+              <input type="number" id="refresh-interval-search" value="60" min="10" max="300" style="margin-left: 8px;" /> 秒
+            </label>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div class="chart-container" id="search-topics-chart">
+            <div class="loading"><i data-lucide="refresh-cw" class="spinner"></i> 加载中...</div>
+          </div>
+          <div class="chart-container" id="search-trend-chart">
+            <div class="loading"><i data-lucide="refresh-cw" class="spinner"></i> 加载中...</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      // 全局变量存储图表实例
+      const charts = {};
+      let refreshTimers = {};
+
+      // 工具函数
+      function formatNumber(num) {
+        if (num == null) return '-';
+        return new Intl.NumberFormat('zh-CN').format(num);
+      }
+
+      async function fetchJSON(url) {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status}: ${text}`);
+        }
+        return res.json();
+      }
+
+      function showError(containerId, message) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = `<div class="error">❌ ${message}</div>`;
+      }
+
+      function showLoading(containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+      }
+
+      // 销毁图表
+      function destroyChart(chartId) {
+        if (charts[chartId]) {
+          charts[chartId].destroy();
+          delete charts[chartId];
+        }
+      }
+
+      // 加载概览统计
+      async function loadStats() {
+        try {
+          const data = await fetchJSON('/api/v1/dashboard/stats');
+          const grid = document.getElementById('stats-grid');
+          
+          grid.innerHTML = `
+            <div class="stat-card info">
+              <h3>文档总数</h3>
+              <div class="value">${formatNumber(data.documents.total)}</div>
+              <div class="sub">今日新增: ${formatNumber(data.documents.recent_today)} | 近7天: ${formatNumber(data.documents.recent_7d)}</div>
+            </div>
+            <div class="stat-card success">
+              <h3>数据源</h3>
+              <div class="value">${formatNumber(data.sources.total)}</div>
+              <div class="sub">启用: ${formatNumber(data.sources.enabled)}</div>
+            </div>
+            <div class="stat-card warning">
+              <h3>市场数据</h3>
+              <div class="value">${formatNumber(data.market_stats.total)}</div>
+              <div class="sub">覆盖 ${formatNumber(data.market_stats.states_count)} 个州</div>
+            </div>
+            <div class="stat-card info">
+              <h3>搜索历史</h3>
+              <div class="value">${formatNumber(data.search_history.total)}</div>
+            </div>
+            <div class="stat-card ${data.tasks.running > 0 ? 'warning' : 'success'}">
+              <h3>ETL任务</h3>
+              <div class="value">${formatNumber(data.tasks.total)}</div>
+              <div class="sub">运行中: ${formatNumber(data.tasks.running)} | 已完成: ${formatNumber(data.tasks.completed)} | 失败: ${formatNumber(data.tasks.failed)}</div>
+            </div>
+            <div class="stat-card success">
+              <h3>数据提取率</h3>
+              <div class="value">${data.documents.extraction_rate}%</div>
+              <div class="sub">结构化数据提取完成度</div>
+            </div>
+          `;
+        } catch (err) {
+          showError('stats-grid', err.message);
+        }
+      }
+
+      // 加载文档分析
+      async function loadDocumentAnalysis() {
+        const start = document.getElementById('doc-filter-start').value;
+        const end = document.getElementById('doc-filter-end').value;
+        
+        let url = '/api/v1/dashboard/document-analysis';
+        if (start) url += `?start_date=${start}`;
+        if (end) url += `${start ? '&' : '?'}end_date=${end}`;
+
+        try {
+          const data = await fetchJSON(url);
+          
+          // 安全检查：确保数据存在且为数组
+          const typeDistribution = Array.isArray(data?.type_distribution) ? data.type_distribution : [];
+          const growthTrend = Array.isArray(data?.growth_trend) ? data.growth_trend : [];
+          const sourceContribution = Array.isArray(data?.source_contribution) ? data.source_contribution : [];
+          
+          // 文档类型分布饼图
+          destroyChart('doc-type');
+          const typeCtx = document.getElementById('doc-type-chart');
+          typeCtx.innerHTML = '<canvas></canvas>';
+          charts['doc-type'] = new Chart(typeCtx.querySelector('canvas'), {
+            type: 'pie',
+            data: {
+              labels: typeDistribution.map(t => t.type || ''),
+              datasets: [{
+                data: typeDistribution.map(t => t.count || 0),
+                backgroundColor: [
+                  '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899',
+                ],
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'bottom' },
+              },
+            },
+          });
+
+          // 文档增长趋势
+          destroyChart('doc-growth');
+          const growthCtx = document.getElementById('doc-growth-chart');
+          growthCtx.innerHTML = '<canvas></canvas>';
+          charts['doc-growth'] = new Chart(growthCtx.querySelector('canvas'), {
+            type: 'line',
+            data: {
+              labels: growthTrend.map(t => t.date || ''),
+              datasets: [{
+                label: '新增文档数',
+                data: growthTrend.map(t => t.count || 0),
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                tension: 0.4,
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                },
+              },
+            },
+          });
+
+          // 数据源贡献度
+          destroyChart('doc-source');
+          const sourceCtx = document.getElementById('doc-source-chart');
+          sourceCtx.innerHTML = '<canvas></canvas>';
+          charts['doc-source'] = new Chart(sourceCtx.querySelector('canvas'), {
+            type: 'bar',
+            data: {
+              labels: sourceContribution.map(s => s.source_name || ''),
+              datasets: [{
+                label: '文档数',
+                data: sourceContribution.map(s => s.count || 0),
+                backgroundColor: '#10b981',
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              indexAxis: 'y',
+              plugins: {
+                legend: { display: false },
+              },
+              scales: {
+                x: {
+                  beginAtZero: true,
+                },
+              },
+            },
+          });
+        } catch (err) {
+          showError('doc-type-chart', err.message);
+        }
+      }
+
+      // 加载任务监控
+      async function loadTaskMonitoring() {
+        try {
+          const data = await fetchJSON('/api/v1/dashboard/task-monitoring?limit=20');
+          
+          // 安全检查：确保数据存在且为数组
+          const recentTasks = Array.isArray(data?.recent_tasks) ? data.recent_tasks : [];
+          const typeDistribution = Array.isArray(data?.type_distribution) ? data.type_distribution : [];
+          
+          // 更新任务统计
+          document.getElementById('task-running').textContent = formatNumber(
+            recentTasks.filter(t => t.status === 'running').length
+          );
+          document.getElementById('task-completed').textContent = formatNumber(
+            recentTasks.filter(t => t.status === 'completed').length
+          );
+          document.getElementById('task-failed').textContent = formatNumber(
+            recentTasks.filter(t => t.status === 'failed').length
+          );
+          
+          // 任务类型分布
+          destroyChart('task-type');
+          const typeCtx = document.getElementById('task-type-chart');
+          typeCtx.innerHTML = '<canvas></canvas>';
+          charts['task-type'] = new Chart(typeCtx.querySelector('canvas'), {
+            type: 'bar',
+            data: {
+              labels: typeDistribution.map(t => t.job_type || ''),
+              datasets: [
+                {
+                  label: '总数',
+                  data: typeDistribution.map(t => t.count || 0),
+                  backgroundColor: '#2563eb',
+                },
+                {
+                  label: '已完成',
+                  data: typeDistribution.map(t => t.completed || 0),
+                  backgroundColor: '#10b981',
+                },
+                {
+                  label: '失败',
+                  data: typeDistribution.map(t => t.failed || 0),
+                  backgroundColor: '#ef4444',
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'top' },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                },
+              },
+            },
+          });
+
+          // 任务列表
+          const taskList = document.getElementById('task-list');
+          if (recentTasks.length === 0) {
+            taskList.innerHTML = '<div class="empty-state">暂无任务记录</div>';
+          } else {
+            taskList.innerHTML = recentTasks.map(task => {
+              const statusBadge = {
+                'running': '<span class="badge badge-warning">运行中</span>',
+                'completed': '<span class="badge badge-success">已完成</span>',
+                'failed': '<span class="badge badge-error">失败</span>',
+                'queued': '<span class="badge badge-info">排队中</span>',
+              }[task.status] || `<span class="badge badge-info">${task.status}</span>`;
+              
+              const duration = task.duration_seconds 
+                ? `${Math.round(task.duration_seconds)}秒`
+                : '-';
+              
+              return `
+                <div class="task-item">
+                  <div class="task-header">
+                    <span class="task-type">${task.job_type || '-'}</span>
+                    ${statusBadge}
+                  </div>
+                  <div style="font-size: 13px; color: #64748b;">
+                    开始: ${task.started_at ? new Date(task.started_at).toLocaleString('zh-CN') : '-'} | 
+                    完成: ${task.finished_at ? new Date(task.finished_at).toLocaleString('zh-CN') : '-'} | 
+                    耗时: ${duration}
+                  </div>
+                  ${task.error ? `<div class="task-error">错误: ${task.error}</div>` : ''}
+                </div>
+              `;
+            }).join('');
+          }
+        } catch (err) {
+          showError('task-list', err.message);
+        }
+      }
+
+      // 加载搜索分析
+      async function loadSearchAnalytics() {
+        try {
+          const data = await fetchJSON('/api/v1/dashboard/search-analytics?limit=20');
+          
+          // 安全检查：确保数据存在且为数组
+          const popularTopics = Array.isArray(data?.popular_topics) ? data.popular_topics : [];
+          const searchTrend = Array.isArray(data?.search_trend) ? data.search_trend : [];
+          
+          // 热门搜索主题
+          destroyChart('search-topics');
+          const topicsCtx = document.getElementById('search-topics-chart');
+          topicsCtx.innerHTML = '<canvas></canvas>';
+          charts['search-topics'] = new Chart(topicsCtx.querySelector('canvas'), {
+            type: 'bar',
+            data: {
+              labels: popularTopics.slice(0, 10).map(t => t.topic && t.topic.length > 20 ? t.topic.substring(0, 20) + '...' : (t.topic || '')),
+              datasets: [{
+                label: '搜索次数',
+                data: popularTopics.slice(0, 10).map(t => t.count || 0),
+                backgroundColor: '#2563eb',
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              indexAxis: 'y',
+              plugins: {
+                legend: { display: false },
+              },
+              scales: {
+                x: {
+                  beginAtZero: true,
+                },
+              },
+            },
+          });
+
+          // 搜索趋势
+          destroyChart('search-trend');
+          const trendCtx = document.getElementById('search-trend-chart');
+          trendCtx.innerHTML = '<canvas></canvas>';
+          charts['search-trend'] = new Chart(trendCtx.querySelector('canvas'), {
+            type: 'line',
+            data: {
+              labels: searchTrend.map(t => t.date || ''),
+              datasets: [{
+                label: '搜索次数',
+                data: searchTrend.map(t => t.count || 0),
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                tension: 0.4,
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                },
+              },
+            },
+          });
+        } catch (err) {
+          showError('search-topics-chart', err.message);
+        }
+      }
+
+      // 自动刷新设置
+      function setupAutoRefresh(prefix, loadFn, timerKey) {
+        const checkbox = document.getElementById(`auto-refresh-${prefix}`);
+        const intervalInput = document.getElementById(`refresh-interval-${prefix}`);
+        
+        if (!checkbox || !intervalInput) return;
+        
+        checkbox.addEventListener('change', function() {
+          if (this.checked) {
+            const interval = parseInt(intervalInput.value) * 1000;
+            refreshTimers[timerKey] = setInterval(loadFn, interval);
+          } else {
+            if (refreshTimers[timerKey]) {
+              clearInterval(refreshTimers[timerKey]);
+              delete refreshTimers[timerKey];
+            }
+          }
+        });
+        
+        intervalInput.addEventListener('change', function() {
+          if (checkbox.checked) {
+            if (refreshTimers[timerKey]) {
+              clearInterval(refreshTimers[timerKey]);
+            }
+            const interval = parseInt(this.value) * 1000;
+            refreshTimers[timerKey] = setInterval(loadFn, interval);
+          }
+        });
+      }
+
+      // 初始化
+      window.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+        // 加载所有数据
+        loadStats();
+        loadDocumentAnalysis();
+        loadTaskMonitoring();
+        loadSearchAnalytics();
+        
+        // 设置自动刷新
+        setupAutoRefresh('doc', loadDocumentAnalysis, 'doc');
+        setupAutoRefresh('task', loadTaskMonitoring, 'task');
+        setupAutoRefresh('search', loadSearchAnalytics, 'search');
+        
+        // 任务监控默认开启自动刷新
+        document.getElementById('auto-refresh-task').checked = true;
+        refreshTimers['task'] = setInterval(loadTaskMonitoring, 10000);
+      });
+    </script>
+  </body>
+</html>
+

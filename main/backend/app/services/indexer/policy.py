@@ -13,6 +13,7 @@ from ...settings.config import settings
 from ..llm.provider import get_embeddings
 from ..search.es_client import get_es_client
 from ..job_logger import start_job, complete_job, fail_job
+from ..projects import current_project_key
 
 
 _CHUNK_SIZE = 800
@@ -102,6 +103,9 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
                         "_index": _ES_INDEX,
                         "_id": f"policy-{chunk.document.id}-{embedding_row.id}",
                         "embedding_id": embedding_row.id,
+                        "project_key": current_project_key(),
+                        "topic": (chunk.document.extracted_data or {}).get("topic"),
+                        "domain": (chunk.document.extracted_data or {}).get("domain"),
                         "document_id": chunk.document.id,
                         "chunk_index": chunk.chunk_index,
                         "state": chunk.document.state,

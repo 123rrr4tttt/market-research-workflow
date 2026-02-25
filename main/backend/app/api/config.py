@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from ..settings.config import settings
 from ..services.settings_manager import load_env_settings, update_env_settings, ENV_KEY_MAPPING
 from ..settings.config import reload_settings
+from ..contracts import success_response
 
 
 router = APIRouter(prefix="/config", tags=["config"])
@@ -12,12 +13,12 @@ router = APIRouter(prefix="/config", tags=["config"])
 @router.get("")
 def get_config():
     """Return selected runtime configuration (safe subset)."""
-    return {
+    return success_response({
         "env": settings.env,
         "llm_provider": settings.llm_provider,
         "embedding_model": settings.embedding_model,
         "es_url": settings.es_url,
-    }
+    })
 
 
 class EnvSettingsPayload(BaseModel):
@@ -45,7 +46,7 @@ class EnvSettingsPayload(BaseModel):
 
 @router.get("/env")
 def get_env_settings():
-    return load_env_settings()
+    return success_response(load_env_settings())
 
 
 @router.post("/env")
@@ -59,12 +60,12 @@ def update_env(payload: EnvSettingsPayload):
         raise HTTPException(status_code=400, detail=f"不支持的字段: {', '.join(invalid)}")
 
     updated = update_env_settings(payload_dict)
-    return {"updated": updated}
+    return success_response({"updated": updated})
 
 
 @router.post("/reload")
 def reload_env_settings():
     reload_settings()
-    return {"status": "reloaded"}
+    return success_response({"status": "reloaded"})
 
 

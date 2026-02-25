@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>市场信息工作台</title>
+    <style>
+      :root {
+        --sidebar-bg: #09090b;
+        --sidebar-border: #18181b;
+        --sidebar-text: #a1a1aa;
+        --sidebar-text-hover: #ffffff;
+        --sidebar-accent: #27272a;
+        --sidebar-active-bg: #18181b;
+        --sidebar-active-border: #3b82f6;
+        --accent: #3b82f6;
+        --surface: #fbfcfd;
+        --header-bg: #ffffff;
+        --header-border: #e4e4e7;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+        color: #09090b;
+        background: var(--surface);
+      }
+      .sidebar {
+        width: 260px;
+        background: linear-gradient(180deg, #09090b 0%, #18181b 100%);
+        border-right: 1px solid var(--sidebar-border);
+        display: flex;
+        flex-direction: column;
+        z-index: 1000;
+        transition: width 0.3s ease;
+      }
+      .brand {
+        padding: 28px 24px;
+        border-bottom: 1px solid var(--sidebar-border);
+      }
+      .brand h1 {
+        font-size: 20px;
+        font-weight: 800;
+        color: #ffffff;
+        letter-spacing: -0.03em;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .brand p {
+        color: var(--sidebar-text);
+        font-size: 12px;
+        margin-top: 4px;
+        font-weight: 500;
+      }
+      .project-picker {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--sidebar-border);
+      }
+      .project-picker label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--sidebar-text);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+      }
+      .project-picker-row {
+        display: flex;
+        gap: 8px;
+      }
+      .project-picker input {
+        flex: 1;
+        min-width: 0;
+        border: 1px solid #27272a;
+        background: #18181b;
+        color: #ffffff;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 13px;
+      }
+      .project-picker select {
+        flex: 1;
+        min-width: 0;
+        border: 1px solid #27272a;
+        background: #18181b;
+        color: #ffffff;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 13px;
+        appearance: none;
+      }
+      .project-picker button {
+        border: 1px solid #27272a;
+        background: #27272a;
+        color: #ffffff;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .project-picker button:hover {
+        background: #3f3f46;
+      }
+      .project-picker button.secondary {
+        background: transparent;
+        border-color: #3f3f46;
+        color: #d4d4d8;
+      }
+      .project-picker button.secondary:hover {
+        background: #27272a;
+        color: #ffffff;
+      }
+      .sidebar-nav {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 12px;
+      }
+      .group-title {
+        padding: 12px 8px 8px;
+        color: var(--sidebar-text);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+      .nav-item,
+      .nav-submenu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        text-decoration: none;
+        color: var(--sidebar-text);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-weight: 500;
+      }
+      .nav-item {
+        padding: 8px 12px;
+        font-size: 14px;
+        margin-bottom: 2px;
+      }
+      .nav-item:hover,
+      .nav-submenu-item:hover {
+        background: var(--sidebar-accent);
+        color: var(--sidebar-text-hover);
+      }
+      .nav-item.active,
+      .nav-submenu-item.active {
+        background: var(--sidebar-active-bg);
+        color: #ffffff;
+        box-shadow: inset 3px 0 0 var(--sidebar-active-border);
+      }
+      .nav-item.has-submenu {
+        display: block;
+        padding: 0;
+      }
+      .nav-item-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        position: relative;
+      }
+      .nav-item-content::after {
+        content: "→";
+        position: absolute;
+        right: 12px;
+        font-size: 12px;
+        opacity: 0.5;
+        transition: transform 0.2s;
+      }
+      .nav-item.has-submenu.expanded .nav-item-content::after {
+        transform: rotate(90deg);
+      }
+      .nav-submenu {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        padding-left: 12px;
+      }
+      .nav-item.has-submenu.expanded .nav-submenu {
+        max-height: 400px;
+        padding-bottom: 8px;
+      }
+      .nav-submenu-item {
+        font-size: 13px;
+        padding: 6px 12px;
+        margin-top: 2px;
+      }
+      .main-content {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+      }
+      .main-toolbar {
+        height: 56px;
+        border-bottom: 1px solid var(--header-border);
+        background: var(--header-bg);
+        padding: 0 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+      }
+      .crumb {
+        font-size: 14px;
+        font-weight: 600;
+        color: #18181b;
+      }
+      .project-hint {
+        font-size: 12px;
+        font-weight: 500;
+        color: #71717a;
+        background: #f4f4f5;
+        padding: 4px 10px;
+        border-radius: 4px;
+        border: 1px solid #e4e4e7;
+      }
+      .content-frame {
+        flex: 1;
+        width: 100%;
+        border: none;
+        background: var(--surface);
+      }
+      .content-frame.fullscreen {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10000;
+        background: #ffffff;
+      }
+      body.fullscreen-mode {
+        overflow: hidden;
+      }
+      .sidebar.hidden {
+        display: none;
+      }
+      @media (max-width: 900px) {
+        .sidebar {
+          width: 220px;
+        }
+      }
+    </style>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <h1><i data-lucide="radio"></i> 市场信息工作流</h1>
+        <p>Multi-project Research Hub</p>
+      </div>
+
+      <div class="project-picker">
+        <label for="projectSelect">项目</label>
+        <div class="project-picker-row">
+          <select id="projectSelect"></select>
+          <button type="button" onclick="applyProjectKey()">切换</button>
+          <button type="button" class="secondary" onclick="createProject()">新建</button>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav">
+        <div class="group-title">总览</div>
+        <a href="#" class="nav-item active" data-page="index.html" onclick="loadPage('index.html', this)">
+          <i data-lucide="home"></i><span>主页</span>
+        </a>
+        <a href="#" class="nav-item" data-page="dashboard.html" onclick="loadPage('dashboard.html', this)">
+          <i data-lucide="layout-dashboard"></i><span>综合仪表盘</span>
+        </a>
+
+        <div class="group-title">业务视角</div>
+        <a href="#" class="nav-item" data-page="dashboard.html#macro-policy" onclick="loadPage('dashboard.html#macro-policy', this)">
+          <i data-lucide="scroll-text"></i><span>宏观政策</span>
+        </a>
+        <a href="#" class="nav-item" data-page="dashboard.html#industry-company" onclick="loadPage('dashboard.html#industry-company', this)">
+          <i data-lucide="factory"></i><span>行业公司</span>
+        </a>
+        <a href="#" class="nav-item" data-page="dashboard.html#commodity" onclick="loadPage('dashboard.html#commodity', this)">
+          <i data-lucide="package"></i><span>商品</span>
+        </a>
+        <a href="#" class="nav-item" data-page="dashboard.html#ecommerce-price" onclick="loadPage('dashboard.html#ecommerce-price', this)">
+          <i data-lucide="shopping-cart"></i><span>电商价格</span>
+        </a>
+        <a href="#" class="nav-item" data-page="dashboard.html#public-opinion" onclick="loadPage('dashboard.html#public-opinion', this)">
+          <i data-lucide="message-square"></i><span>舆情</span>
+        </a>
+
+        <div class="group-title">流程视角</div>
+        <a href="#" class="nav-item" data-page="index.html#ingest" onclick="loadPage('index.html#ingest', this)">
+          <i data-lucide="download"></i><span>采集</span>
+        </a>
+        <a href="#" class="nav-item" data-page="admin.html#extracted" onclick="loadPage('admin.html#extracted', this)">
+          <i data-lucide="puzzle"></i><span>提取</span>
+        </a>
+        <a href="#" class="nav-item" data-page="dashboard.html#analysis" onclick="loadPage('dashboard.html#analysis', this)">
+          <i data-lucide="brain"></i><span>分析</span>
+        </a>
+        <a href="#" class="nav-item" data-page="dashboard.html#board" onclick="loadPage('dashboard.html#board', this)">
+          <i data-lucide="trending-up"></i><span>看板</span>
+        </a>
+        <div class="nav-item has-submenu" onclick="toggleSubmenu(this, event)">
+          <div class="nav-item-content"><i data-lucide="settings"></i><span>管理</span></div>
+          <div class="nav-submenu">
+            <a href="#" class="nav-submenu-item" data-page="process-management.html" onclick="loadPage('process-management.html', this)">
+              <i data-lucide="zap"></i><span>任务进程</span>
+            </a>
+            <a href="#" class="nav-submenu-item" data-page="admin.html" onclick="loadPage('admin.html', this)">
+              <i data-lucide="database"></i><span>数据管理</span>
+            </a>
+            <a href="#" class="nav-submenu-item" data-page="settings.html" onclick="loadPage('settings.html', this)">
+              <i data-lucide="settings-2"></i><span>系统设置</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="group-title">可视化</div>
+        <a href="#" class="nav-item" data-page="data-dashboard.html" onclick="loadPage('data-dashboard.html', this)">
+          <i data-lucide="area-chart"></i><span>数据仪表盘</span>
+        </a>
+        <a href="#" class="nav-item" data-page="market-data-visualization.html" onclick="loadPage('market-data-visualization.html', this)">
+          <i data-lucide="line-chart"></i><span>市场可视化</span>
+        </a>
+        <a href="#" class="nav-item" data-page="social-media-visualization.html" onclick="loadPage('social-media-visualization.html', this)">
+          <i data-lucide="message-circle"></i><span>社媒可视化</span>
+        </a>
+        <a href="#" class="nav-item" data-page="policy-dashboard.html" onclick="loadPage('policy-dashboard.html', this)">
+          <i data-lucide="landmark"></i><span>政策仪表盘</span>
+        </a>
+        <a href="#" class="nav-item" data-page="policy-visualization.html" onclick="loadPage('policy-visualization.html', this)">
+          <i data-lucide="pie-chart"></i><span>政策可视化</span>
+        </a>
+        <div class="nav-item has-submenu" onclick="toggleSubmenu(this, event)">
+          <div class="nav-item-content"><i data-lucide="share-2"></i><span>图谱</span></div>
+          <div class="nav-submenu">
+            <a href="#" class="nav-submenu-item" data-page="/graph.html?type=market" onclick="loadPage('/graph.html?type=market', this)">
+              <i data-lucide="network"></i><span>市场图谱</span>
+            </a>
+            <a href="#" class="nav-submenu-item" data-page="/graph.html?type=policy" onclick="loadPage('/graph.html?type=policy', this)">
+              <i data-lucide="network"></i><span>政策图谱</span>
+            </a>
+            <a href="#" class="nav-submenu-item" data-page="/graph.html?type=social" onclick="loadPage('/graph.html?type=social', this)">
+              <i data-lucide="network"></i><span>社媒图谱</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="group-title">系统管理</div>
+        <a href="#" class="nav-item" data-page="project-management.html" onclick="loadPage('project-management.html', this)">
+          <i data-lucide="folders"></i><span>项目管理</span>
+        </a>
+        <a href="#" class="nav-item" data-page="source-library-management.html" onclick="loadPage('source-library-management.html', this)">
+          <i data-lucide="database-zap"></i><span>信息源库管理</span>
+        </a>
+        <a href="#" class="nav-item" data-page="backend-dashboard.html" onclick="loadPage('backend-dashboard.html', this)">
+          <i data-lucide="layers"></i><span>后端监控</span>
+        </a>
+        <a href="#" class="nav-item" data-page="settings.html#llm-config" onclick="loadPage('settings.html#llm-config', this)">
+          <i data-lucide="bot"></i><span>LLM 配置</span>
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <div class="main-toolbar">
+        <div class="crumb" id="pageTitle">主页</div>
+        <div class="project-hint" id="projectHint">当前项目: default</div>
+      </div>
+      <iframe id="contentFrame" class="content-frame" src="index.html"></iframe>
+    </main>
+
+    <script>
+      const PAGE_TITLES = {
+        "index.html": "主页",
+        "dashboard.html": "综合仪表盘",
+        "backend-dashboard.html": "后端监控",
+        "project-management.html": "项目管理",
+        "source-library-management.html": "信息源库管理",
+        "data-dashboard.html": "数据仪表盘",
+        "market-data-visualization.html": "市场可视化",
+        "/graph.html": "图谱",
+        "/graph.html?type=market": "市场图谱",
+        "/graph.html?type=policy": "政策图谱",
+        "/graph.html?type=social": "社媒图谱",
+        "social-media-visualization.html": "社媒可视化",
+        "policy-dashboard.html": "政策仪表盘",
+        "policy-visualization.html": "政策可视化",
+        "dashboard.html#macro-policy": "宏观政策",
+        "dashboard.html#industry-company": "行业公司",
+        "dashboard.html#commodity": "商品",
+        "dashboard.html#ecommerce-price": "电商价格",
+        "dashboard.html#public-opinion": "舆情",
+        "index.html#ingest": "采集",
+        "admin.html#extracted": "提取",
+        "dashboard.html#analysis": "分析",
+        "dashboard.html#board": "看板",
+        "admin.html": "数据管理",
+        "process-management.html": "任务进程管理",
+        "settings.html": "系统设置",
+        "settings.html#llm-config": "LLM 配置"
+      };
+
+      let PROJECTS = [];
+
+      function normalizeProjectKey(raw) {
+        let key = String(raw || "").trim().toLowerCase();
+        key = key.replace(/[^a-z0-9_]+/g, "_");
+        key = key.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+        return key || "default";
+      }
+
+      function projectName(projectKey) {
+        const key = String(projectKey || "").trim();
+        const row = PROJECTS.find((p) => p.project_key === key);
+        return row?.name || key || "default";
+      }
+
+      function getProjectKey() {
+        return normalizeProjectKey(localStorage.getItem("market_project_key") || "default");
+      }
+
+      function getPageWithProjectKey(page) {
+        const [base, hash] = page.split("#");
+        const url = new URL(base.startsWith("/") ? base : "/" + base, window.location.origin);
+        url.searchParams.set("project_key", getProjectKey());
+        const path = `${url.pathname}${url.search}${hash ? `#${hash}` : ""}`;
+        return path;
+      }
+
+      function updateHeader(page) {
+        const clean = page.split("?")[0];
+        document.getElementById("pageTitle").textContent = PAGE_TITLES[clean] || clean;
+        const key = getProjectKey();
+        document.getElementById("projectHint").textContent = `当前项目: ${projectName(key)}`;
+        document.getElementById("projectHint").title = `project_key: ${key}`;
+      }
+
+      function toggleSubmenu(element, event) {
+        if (event) event.stopPropagation();
+        element.classList.toggle("expanded");
+      }
+
+      function clearActive() {
+        document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
+        document.querySelectorAll(".nav-submenu-item").forEach((item) => item.classList.remove("active"));
+      }
+
+      function applyActive(element) {
+        if (!element) return;
+        if (element.classList.contains("nav-submenu-item")) {
+          element.classList.add("active");
+          const parent = element.closest(".nav-item.has-submenu");
+          if (parent) {
+            parent.classList.add("expanded");
+            parent.classList.add("active");
+          }
+          return;
+        }
+        document.querySelectorAll(".nav-item.has-submenu").forEach((item) => item.classList.remove("active"));
+        element.classList.add("active");
+      }
+
+      function loadPage(page, element) {
+        clearActive();
+        applyActive(element);
+
+        const frame = document.getElementById("contentFrame");
+        const target = getPageWithProjectKey(page);
+        frame.src = target;
+        updateHeader(page);
+
+        if (window.history && window.history.pushState) {
+          window.history.pushState({ page }, "", `#${encodeURIComponent(page)}`);
+        }
+      }
+
+      function applyProjectKey() {
+        const select = document.getElementById("projectSelect");
+        const key = normalizeProjectKey(select.value);
+        localStorage.setItem("market_project_key", key);
+        select.value = key;
+        document.getElementById("projectHint").textContent = `当前项目: ${projectName(key)}`;
+        document.getElementById("projectHint").title = `project_key: ${key}`;
+
+        // Best-effort activate in control plane (single-user friendly)
+        fetch(`/api/v1/projects/${encodeURIComponent(key)}/activate`, { method: "POST" }).catch(() => {});
+
+        const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
+        const page = active ? active.getAttribute("data-page") : "index.html";
+        const frame = document.getElementById("contentFrame");
+        frame.src = getPageWithProjectKey(page);
+      }
+
+      async function createProject() {
+        const name = String(prompt("请输入项目名称（用于下拉展示）") || "").trim();
+        if (!name) return;
+
+        const keyInput = String(prompt("请输入项目 key（字母/数字/下划线，可留空自动生成）") || "").trim();
+        const project_key = keyInput ? normalizeProjectKey(keyInput) : normalizeProjectKey(`proj_${Date.now()}`);
+        if (keyInput && project_key === "default" && keyInput.toLowerCase().trim() !== "default") {
+          alert("项目 key 只能包含字母/数字/下划线，且至少包含一个字母或数字。请重新输入。");
+          return;
+        }
+
+        try {
+          const res = await fetch("/api/v1/projects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project_key, name, enabled: true }),
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `HTTP ${res.status}`);
+          }
+          // Activate and switch locally
+          await fetch(`/api/v1/projects/${encodeURIComponent(project_key)}/activate`, { method: "POST" });
+          localStorage.setItem("market_project_key", project_key);
+          await loadProjects();
+
+          // Reload current frame
+          const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
+          const page = active ? active.getAttribute("data-page") : "index.html";
+          document.getElementById("contentFrame").src = getPageWithProjectKey(page);
+        } catch (err) {
+          alert(`创建项目失败: ${err.message || err}`);
+        }
+      }
+
+      async function loadProjects() {
+        try {
+          const res = await fetch("/api/v1/projects");
+          if (!res.ok) return;
+          const data = await res.json();
+          const items = Array.isArray(data?.items) ? data.items : [];
+          PROJECTS = items.filter((p) => p && p.enabled !== false);
+
+          const select = document.getElementById("projectSelect");
+          if (!select) return;
+          select.innerHTML = PROJECTS.map((p) => `<option value="${p.project_key}">${p.name}</option>`).join("");
+
+          // Choose current key if exists, otherwise prefer active project from API
+          const storedKey = getProjectKey();
+          const apiActive = PROJECTS.find((p) => p.is_active) || PROJECTS[0];
+          const nextKey = PROJECTS.some((p) => p.project_key === storedKey) ? storedKey : (apiActive?.project_key || "default");
+
+          localStorage.setItem("market_project_key", nextKey);
+          select.value = nextKey;
+          document.getElementById("projectHint").textContent = `当前项目: ${projectName(nextKey)}`;
+          document.getElementById("projectHint").title = `project_key: ${nextKey}`;
+        } catch {
+          // ignore - dropdown will stay empty
+        }
+      }
+
+      window.addEventListener("popstate", function(event) {
+        if (!event.state || !event.state.page) return;
+        const navItem = document.querySelector(`[data-page="${event.state.page}"]`);
+        loadPage(event.state.page, navItem);
+      });
+
+      window.addEventListener("DOMContentLoaded", function() {
+        lucide.createIcons();
+        loadProjects();
+        updateHeader("index.html");
+
+        const projectSelect = document.getElementById("projectSelect");
+        if (projectSelect) {
+          projectSelect.addEventListener("change", applyProjectKey);
+        }
+
+        const hash = decodeURIComponent(window.location.hash.substring(1) || "");
+        if (hash) {
+          const navItem = document.querySelector(`[data-page="${hash}"]`);
+          if (navItem) {
+            loadPage(hash, navItem);
+          } else {
+            document.getElementById("contentFrame").src = getPageWithProjectKey(hash);
+            updateHeader(hash);
+          }
+        } else {
+          document.getElementById("contentFrame").src = getPageWithProjectKey("index.html");
+        }
+      });
+
+      window.addEventListener("message", function(event) {
+        if (!event.data) return;
+        const frame = document.getElementById("contentFrame");
+        const sidebar = document.querySelector(".sidebar");
+        const body = document.body;
+
+        if (event.data.type === "navigate" && event.data.page) {
+          const navItem = document.querySelector(`[data-page="${event.data.page}"]`);
+          if (navItem) loadPage(event.data.page, navItem);
+        }
+        if (event.data.type === "fullscreen") {
+          if (event.data.action === "enter") {
+            frame.classList.add("fullscreen");
+            sidebar.classList.add("hidden");
+            body.classList.add("fullscreen-mode");
+          } else if (event.data.action === "exit") {
+            frame.classList.remove("fullscreen");
+            sidebar.classList.remove("hidden");
+            body.classList.remove("fullscreen-mode");
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
+

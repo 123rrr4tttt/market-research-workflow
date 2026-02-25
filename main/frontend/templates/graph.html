@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>图谱可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/doc-card.js"></script>
+    <script src="/static/js/graph-viewer.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Sans SC", sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      body.in-iframe header { margin-bottom: 0; border-radius: 0; }
+      .container { max-width: 100%; margin: 0 auto; width: 100%; }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 { margin: 0 0 8px 0; font-size: 28px; color: #0f172a; }
+      header p { margin: 0; color: #64748b; }
+      .type-tabs {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+      .type-tabs a {
+        padding: 8px 16px;
+        background: #f1f5f9;
+        color: #475569;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      .type-tabs a:hover { background: #e2e8f0; color: #0f172a; }
+      .type-tabs a.active { background: #2563eb; color: white; }
+      .nav-links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+      .nav-links a {
+        padding: 10px 20px;
+        background: #2563eb;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        display: inline-block;
+        transition: background 0.2s;
+      }
+      .nav-links a.secondary { background: white; border: 1px solid #cbd5e1; color: #2563eb; }
+      .nav-links a:hover { background: #1d4ed8; }
+      .nav-links a.secondary:hover { background: #f1f5f9; }
+      .controls {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      .controls-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+      .controls-row:last-child { margin-bottom: 0; }
+      .controls label { font-weight: 500; color: #475569; white-space: nowrap; }
+      .controls input, .controls select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+      .controls input[type="date"] { min-width: 160px; }
+      .controls input[type="number"] { width: 100px; }
+      .controls button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .controls button:hover { background: #1d4ed8; }
+      .controls button.secondary { background: #64748b; }
+      .filter-extra { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 4px solid #2563eb;
+      }
+      .stat-card h3 { margin: 0 0 8px 0; font-size: 14px; color: #64748b; font-weight: 500; }
+      .stat-card .value { font-size: 32px; font-weight: 700; color: #0f172a; }
+      .graph-container {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+        position: relative;
+      }
+      .graph-container h2 {
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .graph-header-actions { display: flex; gap: 8px; align-items: center; }
+      .fullscreen-btn {
+        padding: 6px 12px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .fullscreen-btn:hover { background: #1d4ed8; }
+      .graph-control-panel {
+        position: absolute;
+        left: 16px;
+        bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 12px;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+        z-index: 20;
+        backdrop-filter: blur(4px);
+      }
+      .graph-control-panel label { font-size: 12px; color: #475569; white-space: nowrap; }
+      .graph-control-panel input[type="range"] { width: 160px; accent-color: #2563eb; }
+      .graph-control-panel span { min-width: 36px; text-align: right; font-size: 13px; font-weight: 600; color: #2563eb; }
+      .graph-control-panel .control-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; white-space: nowrap; }
+      .graph-control-panel .control-toggle input { accent-color: #2563eb; }
+      .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; color: #475569; font-size: 13px; }
+      .legend-item { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 8px; }
+      .legend-symbol { width: 14px; height: 14px; border-radius: 4px; }
+      #graph-chart { width: 100%; height: 720px; min-height: 500px; }
+      #graph-fullscreen-view { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; background: white; padding: 20px; box-sizing: border-box; }
+      #graph-fullscreen-view.active { display: block; }
+      #graph-fullscreen-view .graph-container { height: 100%; margin: 0; border-radius: 0; box-shadow: none; }
+      #fullscreen-graph-chart { width: 100%; height: calc(100vh - 90px); min-height: 500px; }
+      .info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+      .error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+      .loading { display: flex; align-items: center; justify-content: center; color: #64748b; padding: 40px 0; }
+      .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .details-panel {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 10001;
+        background: rgba(15,23,42,0.4);
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .details-panel.active { display: flex; }
+      .details-panel .modal-content {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        max-width: 560px;
+        max-height: 80vh;
+        overflow: auto;
+        position: relative;
+      }
+      .details-panel h3 { margin: 0 0 12px 0; font-size: 18px; color: #0f172a; padding-right: 32px; }
+      .details-panel .modal-close {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #64748b;
+        line-height: 1;
+        padding: 4px;
+      }
+      .details-panel .modal-close:hover { color: #0f172a; }
+      .details-panel .detail-body { background: #f8fafc; padding: 16px; border-radius: 8px; overflow-y: auto; font-size: 14px; max-height: 400px; margin: 0; }
+      .details-panel .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+      .details-panel .info-item { background: white; padding: 10px; border-radius: 6px; border: 1px solid #e5e7eb; }
+      .details-panel .info-item label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+      .details-panel .info-item .value { font-size: 14px; color: #1f2937; font-weight: 500; }
+      .details-panel .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .details-panel .tag-item { background: white; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 500; border: 1px solid #e5e7eb; }
+      .details-panel .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+      .details-panel .badge.positive { background: #dcfce7; color: #166534; }
+      .details-panel .badge.negative { background: #fee2e2; color: #991b1b; }
+      .details-panel .badge.neutral { background: #f1f5f9; color: #475569; }
+      .details-panel .extracted-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-top: 12px; }
+      .details-panel .extracted-section { margin-bottom: 16px; }
+      .details-panel .extracted-section h3 { margin: 0 0 8px 0; font-size: 14px; color: #64748b; font-weight: 600; }
+      .details-panel .content-preview { max-height: 200px; overflow-y: auto; padding: 12px; background: white; border-radius: 6px; white-space: pre-wrap; font-size: 12px; margin-top: 8px; }
+      .details-panel .relation-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+      .details-panel .relation-item { background: white; padding: 10px; border-radius: 6px; border: 1px solid #e5e7eb; font-size: 13px; }
+      .details-panel .link { color: #2563eb; text-decoration: none; word-break: break-all; }
+      .details-panel .link:hover { text-decoration: underline; }
+      @media (max-width: 768px) { body { padding: 16px; } header { padding: 20px; } .controls { padding: 16px; } .graph-container { padding: 16px; } }
+    </style>
+  </head>
+  <body>
+    <script>
+      if (window.self !== window.top) document.body.classList.add('in-iframe');
+    </script>
+    <div class="container">
+      <header>
+        <h1 id="graph-page-title">图谱可视化</h1>
+        <p id="graph-doc-type-hint" class="info" style="margin-top: 12px;"></p>
+        <p id="graph-structure-hint" class="info" style="margin-top: 8px;"></p>
+        <div class="type-tabs">
+          <a href="/graph.html?type=policy" id="tab-policy" class="active">政策图谱</a>
+          <a href="/graph.html?type=social" id="tab-social">社媒图谱</a>
+          <a href="/graph.html?type=market" id="tab-market">市场图谱</a>
+        </div>
+        <div class="nav-links">
+          <a href="/policy-visualization.html">政策仪表盘</a>
+          <a href="/social-media-visualization.html" class="secondary">社媒数据</a>
+          <a href="/market-data-visualization.html" class="secondary">市场可视化</a>
+        </div>
+      </header>
+
+      <div class="controls">
+        <div class="controls-row">
+          <label>开始日期：</label>
+          <input type="date" id="filter-start" />
+          <label>结束日期：</label>
+          <input type="date" id="filter-end" />
+          <span class="filter-extra" id="filter-extra"></span>
+          <label>数量限制：</label>
+          <input type="number" id="filter-limit" min="1" max="500" value="100" />
+          <button id="apply-btn">应用筛选</button>
+          <button id="reset-btn" class="secondary">重置</button>
+        </div>
+      </div>
+
+      <div class="stats" id="stats"></div>
+      <div id="message-area"></div>
+
+      <div class="graph-container" data-role="main">
+        <div class="graph-control-panel" id="graph-control-panel">
+          <label for="repulsion-slider">节点斥力</label>
+          <input type="range" id="repulsion-slider" min="60" max="360" step="10" value="180" />
+          <span id="repulsion-value">180</span>
+          <label class="control-toggle">
+            <input type="checkbox" id="label-toggle" checked />
+            显示标签
+          </label>
+        </div>
+        <h2>
+          <span id="graph-title">知识图谱</span>
+          <span class="graph-header-actions">
+            <button type="button" class="fullscreen-btn" id="fullscreen-btn">全屏查看</button>
+            <button type="button" class="fullscreen-btn secondary" id="refresh-btn">刷新</button>
+          </span>
+        </h2>
+        <div class="legend" id="legend"></div>
+        <div id="graph-chart">
+          <div class="loading"><span class="spinner"></span>加载中...</div>
+        </div>
+      </div>
+
+      <div class="details-panel" id="details-panel">
+        <div class="modal-content">
+          <h3 id="details-title">节点详情</h3>
+          <button type="button" class="modal-close" id="details-close-btn" aria-label="关闭">&times;</button>
+          <div id="details-content" class="detail-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="graph-fullscreen-view">
+      <div class="graph-container" data-role="fullscreen">
+        <h2>
+          <span id="fullscreen-title">知识图谱（全屏）</span>
+          <span class="graph-header-actions">
+            <button type="button" class="fullscreen-btn secondary" id="fullscreen-refresh-btn">刷新</button>
+            <button type="button" class="fullscreen-btn" id="exit-fullscreen-btn">退出全屏</button>
+          </span>
+        </h2>
+        <div class="legend" id="fullscreen-legend"></div>
+        <div id="fullscreen-graph-chart"></div>
+      </div>
+    </div>
+
+    <script>
+      const GV = window.GraphViewer;
+      const typeParam = new URLSearchParams(window.location.search).get('type') || 'policy';
+      const graphType = ['policy', 'social', 'market'].includes(typeParam) ? typeParam : 'policy';
+
+      document.querySelectorAll('.type-tabs a').forEach(a => {
+        a.classList.remove('active');
+        if (a.getAttribute('href')?.includes('type=' + graphType)) a.classList.add('active');
+      });
+
+      const messageArea = document.getElementById('message-area');
+      const detailsPanel = document.getElementById('details-panel');
+      const detailsTitle = document.getElementById('details-title');
+      const detailsContent = document.getElementById('details-content');
+      const limitInput = document.getElementById('filter-limit');
+      const repulsionSlider = document.getElementById('repulsion-slider');
+      const repulsionValueEl = document.getElementById('repulsion-value');
+      const labelToggle = document.getElementById('label-toggle');
+      const graphControlPanel = document.getElementById('graph-control-panel');
+      const mainGraphContainer = document.querySelector('.graph-container[data-role="main"]');
+      const fullscreenGraphContainer = document.querySelector('#graph-fullscreen-view .graph-container[data-role="fullscreen"]');
+
+      let graphChart = null;
+      let fullscreenChart = null;
+      let isFullscreen = false;
+      let latestGraphData = null;
+      let currentRepulsion = Number(repulsionSlider?.value || 180);
+      let showLabels = labelToggle ? labelToggle.checked : true;
+      let graphConfig = { nodeTypes: [], nodeLabels: {}, nodeColors: {}, nodeSymbols: {}, nodeSizeRules: {} };
+
+      const EXTRA_FILTERS = {
+        policy: () => `
+          <label>州：</label>
+          <select id="filter-state">
+            <option value="">全部</option>
+            <option value="CA">CA</option>
+            <option value="NY">NY</option>
+            <option value="TX">TX</option>
+            <option value="FL">FL</option>
+            <option value="IL">IL</option>
+          </select>
+          <label>政策类型：</label>
+          <select id="filter-type">
+            <option value="">全部</option>
+            <option value="regulation">法规</option>
+            <option value="bill">法案</option>
+            <option value="announcement">公告</option>
+          </select>
+        `,
+        social: () => `
+          <label>平台：</label>
+          <select id="filter-platform">
+            <option value="">全部</option>
+            <option value="reddit">Reddit</option>
+            <option value="twitter">Twitter</option>
+          </select>
+          <label>主题：</label>
+          <input type="text" id="filter-topic" placeholder="可选" />
+        `,
+        market: () => `
+          <label>州：</label>
+          <select id="filter-state">
+            <option value="">全部</option>
+            <option value="CA">CA</option>
+            <option value="NY">NY</option>
+            <option value="TX">TX</option>
+          </select>
+          <label>游戏：</label>
+          <input type="text" id="filter-game" placeholder="可选" />
+        `
+      };
+
+      function getFilterValues() {
+        const v = {
+          start_date: document.getElementById('filter-start')?.value || '',
+          end_date: document.getElementById('filter-end')?.value || '',
+          limit: limitInput?.value || '100'
+        };
+        if (graphType === 'policy') {
+          v.state = document.getElementById('filter-state')?.value || '';
+          v.policy_type = document.getElementById('filter-type')?.value || '';
+        } else if (graphType === 'social') {
+          v.platform = document.getElementById('filter-platform')?.value || '';
+          v.topic = document.getElementById('filter-topic')?.value?.trim() || '';
+        } else if (graphType === 'market') {
+          v.state = document.getElementById('filter-state')?.value || '';
+          v.game = document.getElementById('filter-game')?.value?.trim() || '';
+        }
+        return v;
+      }
+
+      function renderExtraFilters() {
+        const el = document.getElementById('filter-extra');
+        if (el) el.innerHTML = EXTRA_FILTERS[graphType]?.() || '';
+      }
+
+      function showMessage(type, text) {
+        messageArea.innerHTML = '';
+        if (!text) return;
+        const div = document.createElement('div');
+        div.className = type === 'error' ? 'error' : 'info';
+        div.textContent = text;
+        messageArea.appendChild(div);
+      }
+
+      function escapeHtml(text) {
+        if (text == null) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      async function showNodeDetail(nodeData, isEdge) {
+        detailsTitle.textContent = isEdge ? `连接详情 - ${nodeData.type || 'Edge'}` : `节点详情 - ${nodeData.title || nodeData.name || nodeData.text || nodeData.canonical_name || nodeData.id}`;
+        detailsContent.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;">加载中...</div>';
+        detailsPanel.classList.add('active');
+
+        if (isEdge) {
+          detailsContent.innerHTML = `<div class="extracted-card"><div class="info-grid">
+            <div class="info-item"><label>关系类型</label><div class="value">${escapeHtml(nodeData.type || '-')}</div></div>
+            ${nodeData.predicate ? `<div class="info-item"><label>谓词</label><div class="value">${escapeHtml(nodeData.predicate)}</div></div>` : ''}
+            ${nodeData.confidence != null ? `<div class="info-item"><label>置信度</label><div class="value">${(nodeData.confidence * 100).toFixed(1)}%</div></div>` : ''}
+          </div></div>`;
+          return;
+        }
+
+        const docTypes = ['Post', 'MarketData', 'Policy'];
+        if (docTypes.includes(nodeData.type) && nodeData.id && window.MarketApp?.fetchJSON) {
+          try {
+            const doc = await window.MarketApp.fetchJSON(`/api/v1/admin/documents/${nodeData.id}`);
+            let extractedData = doc?.extracted_data;
+            if (typeof extractedData === 'string') {
+              try { extractedData = JSON.parse(extractedData); } catch (e) { extractedData = {}; }
+            }
+            const extracted = extractedData || {};
+            const cardLabels = { nodeLabels: graphConfig.nodeLabels || {}, fieldLabels: graphConfig.fieldLabels || {} };
+            const cardHtml = window.renderGraphExtractedCard ? window.renderGraphExtractedCard(extracted, escapeHtml, cardLabels) : '';
+            const textOrContent = (extracted.text || doc?.content || '').substring(0, 5000);
+            const bodyHtml = `
+              <div><strong>标题:</strong> ${escapeHtml(doc?.title || '(无)')}</div>
+              ${doc?.uri ? `<div style="margin-top:12px;"><strong>URL:</strong> <a href="${doc.uri}" target="_blank" class="link">${escapeHtml(doc.uri)}</a></div>` : ''}
+              ${cardHtml}
+              ${textOrContent ? `<div style="margin-top:16px;"><strong>内容:</strong><div class="content-preview">${escapeHtml(textOrContent)}${(extracted.text || doc?.content || '').length > 5000 ? '...' : ''}</div></div>` : ''}
+              <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;">
+                <div><strong>创建时间:</strong> ${doc?.created_at ? new Date(doc.created_at).toLocaleString('zh-CN') : '-'}</div>
+                <div style="margin-top:8px;"><strong>更新时间:</strong> ${doc?.updated_at ? new Date(doc.updated_at).toLocaleString('zh-CN') : '-'}</div>
+              </div>
+            `;
+            detailsContent.innerHTML = bodyHtml;
+          } catch (err) {
+            console.error('加载文档详情失败:', err);
+            detailsContent.innerHTML = `<div class="error">加载失败: ${escapeHtml(err.message)}</div>`;
+          }
+        } else {
+          const items = [];
+          Object.keys(nodeData).filter(k => !['value', 'symbol', 'symbolSize', 'itemStyle', 'label', 'emphasis'].includes(k)).forEach(k => {
+            const v = nodeData[k];
+            if (v != null && typeof v !== 'object') items.push(`<div class="info-item"><label>${escapeHtml(k)}</label><div class="value">${escapeHtml(String(v))}</div></div>`);
+            else if (v != null && typeof v === 'object' && !Array.isArray(v)) items.push(`<div class="info-item"><label>${escapeHtml(k)}</label><div class="value">${escapeHtml(JSON.stringify(v))}</div></div>`);
+          });
+          detailsContent.innerHTML = `<div class="extracted-card"><div class="info-grid">${items.join('')}</div></div>`;
+        }
+      }
+
+      function attachControlPanel(container) {
+        if (!graphControlPanel || !container) return;
+        if (!container.contains(graphControlPanel)) container.insertBefore(graphControlPanel, container.firstChild);
+      }
+
+      async function loadGraphDocTypeHint() {
+        const hintEl = document.getElementById('graph-doc-type-hint');
+        const structureEl = document.getElementById('graph-structure-hint');
+        const statsEl = document.getElementById('stats');
+        const legendEl = document.getElementById('legend');
+        const fullscreenLegendEl = document.getElementById('fullscreen-legend');
+        if (!hintEl || !structureEl) return;
+        try {
+          const projectKey = window.MarketApp?.getProjectKey?.() || '';
+          const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : '';
+          const response = await fetch(`/api/v1/project-customization/graph-config${query}`);
+          const data = response.ok ? (await response.json())?.data : null;
+          const graphDocTypes = data?.graph_doc_types || {};
+          const labels = data?.graph_type_labels || {};
+          const graphNodeTypes = data?.graph_node_types || {};
+          const graphNodeLabels = data?.graph_node_labels || {};
+          const graphFieldLabels = data?.graph_field_labels || {};
+          const graphEdgeTypes = data?.graph_edge_types || {};
+          const relationLabels = data?.graph_relation_labels || {};
+          const keys = GV.GRAPH_CONFIG_KEYS[graphType];
+          const docTypes = Array.isArray(graphDocTypes[keys.docTypes]) ? graphDocTypes[keys.docTypes] : (graphType === 'policy' ? ['policy', 'policy_regulation'] : graphType === 'social' ? ['social_sentiment', 'social_feed'] : ['market']);
+          const nodeTypes = Array.isArray(graphNodeTypes[keys.nodeTypes]) ? graphNodeTypes[keys.nodeTypes] : (graphType === 'policy' ? ['Policy', 'State', 'PolicyType', 'KeyPoint', 'Entity'] : graphType === 'social' ? ['Post', 'Keyword', 'Entity', 'Topic', 'SentimentTag', 'User', 'Subreddit'] : ['MarketData', 'State', 'Segment', 'Entity']);
+          const edgeTypes = Array.isArray(graphEdgeTypes[keys.edgeTypes]) ? graphEdgeTypes[keys.edgeTypes] : [];
+          const typeLabel = labels[keys.label] || (graphType === 'policy' ? '政策图谱' : graphType === 'social' ? '社媒图谱' : '市场图谱');
+
+          graphConfig = {
+            nodeTypes,
+            nodeLabels: graphNodeLabels,
+            fieldLabels: graphFieldLabels,
+            nodeColors: { ...GV.NODE_COLORS_BY_TYPE[graphType] },
+            nodeSymbols: { ...GV.NODE_SYMBOLS_BY_TYPE[graphType] },
+            nodeSizeRules: graphType === 'policy' ? { Policy: { base: 18, max: 52 }, State: { base: 16, max: 48 }, PolicyType: { base: 15, max: 42 }, KeyPoint: { base: 12, max: 36 }, Entity: { base: 14, max: 40 } } : {}
+          };
+          Object.keys(graphConfig.nodeSizeRules).length === 0 && nodeTypes.forEach(t => { graphConfig.nodeSizeRules[t] = { base: 18, max: 38 }; });
+
+          const titleEl = document.getElementById('graph-page-title');
+          if (titleEl) titleEl.textContent = typeLabel;
+          document.getElementById('graph-title').textContent = typeLabel;
+          document.getElementById('fullscreen-title').textContent = typeLabel + '（全屏）';
+          hintEl.textContent = `${typeLabel}数据类型: ${docTypes.join(', ')}`;
+          const edgeLabels = edgeTypes.map(e => relationLabels[e] ? `${e}(${relationLabels[e]})` : e);
+          structureEl.textContent = `节点类型: ${nodeTypes.join(', ')}；关系类型: ${edgeLabels.join(', ')}`;
+
+          const lbl = (t) => graphNodeLabels[t] || t;
+          if (statsEl) {
+            statsEl.innerHTML = `<div class="stat-card"><h3>节点总数</h3><div class="value" id="stat-nodes">-</div></div><div class="stat-card"><h3>边总数</h3><div class="value" id="stat-edges">-</div></div>` +
+            nodeTypes.map(t => `<div class="stat-card"><h3>${lbl(t)}数量</h3><div class="value" id="stat-${t}">-</div></div>`).join('');
+          }
+          const legendHtml = nodeTypes.map(t => {
+            const color = graphConfig.nodeColors[t] || '#94a3b8';
+            const label = graphNodeLabels[t] || t;
+            return `<div class="legend-item"><span class="legend-symbol" style="background:${color};"></span>${t} ${label}</div>`;
+          }).join('');
+          if (legendEl) legendEl.innerHTML = legendHtml;
+          if (fullscreenLegendEl) fullscreenLegendEl.innerHTML = legendHtml;
+        } catch (e) {
+          hintEl.textContent = '加载配置失败';
+        }
+      }
+
+      async function loadGraph() {
+        showMessage('info', '正在加载图谱...');
+        detailsPanel.classList.remove('active');
+        latestGraphData = null;
+        const chartEl = document.getElementById('graph-chart');
+        chartEl.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+
+        try {
+          const params = GV.buildParams(graphType, getFilterValues());
+          const apiPath = GV.API_PATHS[graphType];
+          const response = await fetch(`${apiPath}?${params.toString()}`, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`获取失败: ${response.status}`);
+          const data = await response.json();
+          latestGraphData = data;
+          const nodes = data.nodes || [];
+          const edges = data.edges || [];
+          chartEl.innerHTML = '';
+          if (graphChart) { graphChart.dispose(); graphChart = null; }
+          graphChart = echarts.init(chartEl);
+          renderGraph({ nodes, edges });
+          updateStats({ nodes, edges });
+          if (nodes.length === 0) showMessage('info', '未查询到符合条件的数据。');
+          else showMessage('', '');
+        } catch (err) {
+          console.error('加载图谱失败', err);
+          showMessage('error', `加载图谱失败: ${err.message}`);
+          chartEl.innerHTML = '';
+          if (graphChart) { graphChart.dispose(); graphChart = null; }
+          graphChart = echarts.init(chartEl);
+          renderGraph({ nodes: [], edges: [] });
+          updateStats({ nodes: [], edges: [] });
+        }
+      }
+
+      function updateStats(data) {
+        const nodes = data.nodes || [];
+        const edges = data.edges || [];
+        const el = id => document.getElementById(id);
+        if (el('stat-nodes')) el('stat-nodes').textContent = nodes.length;
+        if (el('stat-edges')) el('stat-edges').textContent = edges.length;
+        (graphConfig.nodeTypes || []).forEach(t => {
+          const e = el('stat-' + t);
+          if (e) e.textContent = nodes.filter(n => n.type === t).length || 0;
+        });
+      }
+
+      function updateRepulsion() {
+        if (!graphChart || !latestGraphData) return;
+        graphChart.setOption({
+          series: [{
+            force: {
+              repulsion: currentRepulsion,
+              gravity: 0.08,
+              edgeLength: [80, 180],
+              friction: 0.2
+            }
+          }]
+        });
+        if (isFullscreen && fullscreenChart) {
+          fullscreenChart.setOption({
+            series: [{
+              force: {
+                repulsion: currentRepulsion,
+                gravity: 0.08,
+                edgeLength: [80, 180],
+                friction: 0.2
+              }
+            }]
+          });
+        }
+      }
+
+      function renderGraph(data) {
+        if (!graphChart) return;
+        const nodes = data.nodes || [];
+        const edges = data.edges || [];
+        const config = {
+          nodeColors: graphConfig.nodeColors,
+          nodeSymbols: graphConfig.nodeSymbols,
+          nodeSizeRules: graphConfig.nodeSizeRules,
+          showLabels
+        };
+        const { nodes: echartsNodes, edges: echartsEdges } = GV.transformGraphData(nodes, edges, config);
+
+        const option = {
+          tooltip: {
+            formatter: params => GV.tooltipFormatter(params, config)
+          },
+          series: [{
+            type: 'graph',
+            layout: 'force',
+            roam: true,
+            data: echartsNodes,
+            links: echartsEdges,
+            force: {
+              repulsion: currentRepulsion,
+              gravity: 0.08,
+              edgeLength: [80, 180],
+              friction: 0.2
+            },
+            lineStyle: { opacity: 0.9, width: 1, color: '#cbd5e1' },
+            emphasis: { focus: 'adjacency', lineStyle: { width: 2 } }
+          }]
+        };
+
+        graphChart.setOption(option, true);
+        graphChart.off('click');
+        graphChart.on('click', params => {
+          if (params.dataType === 'node') {
+            const value = params.data.value || params.data || {};
+            showNodeDetail(value, false);
+          } else if (params.dataType === 'edge') {
+            const value = params.data.value || params.data || {};
+            showNodeDetail(value, true);
+          }
+        });
+
+        if (isFullscreen && fullscreenChart && latestGraphData) renderFullscreenGraph();
+      }
+
+      function renderFullscreenGraph() {
+        if (!fullscreenChart || !latestGraphData) return;
+        const opt = graphChart.getOption();
+        fullscreenChart.setOption(opt, true);
+        fullscreenChart.off('click');
+        fullscreenChart.on('click', params => {
+          if (params.dataType === 'node') {
+            const value = params.data.value || params.data || {};
+            showNodeDetail(value, false);
+          } else if (params.dataType === 'edge') {
+            const value = params.data.value || params.data || {};
+            showNodeDetail(value, true);
+          }
+        });
+      }
+
+      function toggleFullscreen(enable) {
+        const fullscreenView = document.getElementById('graph-fullscreen-view');
+        const originalChartEl = document.getElementById('graph-chart');
+        if (enable && !isFullscreen) {
+          attachControlPanel(fullscreenGraphContainer);
+          if (originalChartEl) originalChartEl.style.display = 'none';
+          fullscreenView.classList.add('active');
+          isFullscreen = true;
+          if (!fullscreenChart) fullscreenChart = echarts.init(document.getElementById('fullscreen-graph-chart'));
+          renderFullscreenGraph();
+          fullscreenChart.resize();
+        } else if (!enable && isFullscreen) {
+          fullscreenView.classList.remove('active');
+          isFullscreen = false;
+          if (fullscreenChart) { fullscreenChart.dispose(); fullscreenChart = null; }
+          if (originalChartEl) originalChartEl.style.display = 'block';
+          attachControlPanel(mainGraphContainer);
+          graphChart && graphChart.resize();
+        }
+      }
+
+      function resetFilters() {
+        document.getElementById('filter-start').value = '';
+        document.getElementById('filter-end').value = '';
+        limitInput.value = 100;
+        if (graphType === 'policy') {
+          const stateEl = document.getElementById('filter-state');
+          const typeEl = document.getElementById('filter-type');
+          if (stateEl) stateEl.value = '';
+          if (typeEl) typeEl.value = '';
+        } else if (graphType === 'social') {
+          const platformEl = document.getElementById('filter-platform');
+          const topicEl = document.getElementById('filter-topic');
+          if (platformEl) platformEl.value = '';
+          if (topicEl) topicEl.value = '';
+        } else if (graphType === 'market') {
+          const stateEl = document.getElementById('filter-state');
+          const gameEl = document.getElementById('filter-game');
+          if (stateEl) stateEl.value = '';
+          if (gameEl) gameEl.value = '';
+        }
+        if (repulsionSlider) repulsionSlider.value = '180';
+        currentRepulsion = 180;
+        if (repulsionValueEl) repulsionValueEl.textContent = '180';
+        if (labelToggle) { labelToggle.checked = true; showLabels = true; }
+        loadGraph();
+      }
+
+      function init() {
+        renderExtraFilters();
+        window.addEventListener('resize', () => {
+          graphChart && graphChart.resize();
+          if (fullscreenChart) fullscreenChart.resize();
+        });
+        document.getElementById('apply-btn').addEventListener('click', () => doRefresh());
+        document.getElementById('reset-btn').addEventListener('click', resetFilters);
+        function doRefresh() {
+          if (isFullscreen) toggleFullscreen(false);
+          loadGraph();
+        }
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn) refreshBtn.addEventListener('click', (e) => { e.preventDefault(); doRefresh(); });
+        document.getElementById('fullscreen-btn').addEventListener('click', () => toggleFullscreen(true));
+        document.getElementById('exit-fullscreen-btn').addEventListener('click', () => toggleFullscreen(false));
+        document.getElementById('details-close-btn').addEventListener('click', () => detailsPanel.classList.remove('active'));
+        detailsPanel.addEventListener('click', (e) => { if (e.target === detailsPanel) detailsPanel.classList.remove('active'); });
+        const fullscreenRefreshBtn = document.getElementById('fullscreen-refresh-btn');
+        if (fullscreenRefreshBtn) fullscreenRefreshBtn.addEventListener('click', (e) => { e.preventDefault(); doRefresh(); });
+        if (repulsionSlider) {
+          repulsionSlider.addEventListener('input', e => {
+            currentRepulsion = Number(e.target.value);
+            if (repulsionValueEl) repulsionValueEl.textContent = String(currentRepulsion);
+            updateRepulsion();
+          });
+          if (repulsionValueEl) repulsionValueEl.textContent = String(currentRepulsion);
+        }
+        if (labelToggle) {
+          labelToggle.addEventListener('change', () => {
+            showLabels = labelToggle.checked;
+            if (latestGraphData) renderGraph(latestGraphData);
+          });
+        }
+        attachControlPanel(mainGraphContainer);
+        loadGraphDocTypeHint().then(() => loadGraph());
+      }
+
+      document.addEventListener('DOMContentLoaded', init);
+    </script>
+  </body>
+</html>

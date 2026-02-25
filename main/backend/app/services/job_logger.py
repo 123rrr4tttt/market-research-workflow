@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -9,11 +10,24 @@ from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
 
 
+def _fit_job_type(job_type: str, max_len: int = 16) -> str:
+    """Fit job_type into DB column length without collisions."""
+    if len(job_type) <= max_len:
+        return job_type
+    digest = hashlib.sha1(job_type.encode("utf-8", errors="ignore")).hexdigest()[:4]
+    prefix_len = max_len - 5  # reserve "_" + 4 hex chars
+    return f"{job_type[:prefix_len]}_{digest}"
+
+
 def start_job(job_type: str, params: Dict[str, Any] | None = None) -> int:
+    stored_job_type = _fit_job_type(job_type)
+    payload = dict(params or {})
+    if stored_job_type != job_type:
+        payload.setdefault("job_type_full", job_type)
     with SessionLocal() as session:
         job = EtlJobRun(
-            job_type=job_type,
-            params=params or {},
+            job_type=stored_job_type,
+            params=payload,
             status="running",
             started_at=datetime.utcnow(),
         )

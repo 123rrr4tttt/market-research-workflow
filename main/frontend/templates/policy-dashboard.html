@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>政策情报可视化系统 - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="/static/js/app-shell.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Sans SC", sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+      header {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        color: #0f172a;
+        font-weight: 700;
+      }
+      header p {
+        margin: 0;
+        color: #64748b;
+      }
+      .nav-links {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      .nav-links a {
+        padding: 10px 20px;
+        background: #2563eb;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+        display: inline-block;
+        transition: background 0.2s;
+      }
+      .nav-links a.secondary {
+        background: white;
+        border: 1px solid #cbd5e1;
+        color: #2563eb;
+      }
+      .nav-links a:hover {
+        background: #1d4ed8;
+      }
+      .nav-links a.secondary:hover {
+        background: #f1f5f9;
+      }
+      .filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        align-items: center;
+        background: white;
+        padding: 16px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .filters label {
+        font-weight: 500;
+        color: #475569;
+        white-space: nowrap;
+      }
+      .filters input, .filters select {
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+      .filters input[type="date"] {
+        min-width: 160px;
+      }
+      .filters button {
+        padding: 8px 16px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .filters button:hover {
+        background: #1d4ed8;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border-left: 4px solid #2563eb;
+      }
+      .stat-card h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 500;
+      }
+      .stat-card .value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 4px;
+      }
+      .stat-card .sub {
+        font-size: 13px;
+        color: #94a3b8;
+      }
+      .stat-card.success { border-left-color: #10b981; }
+      .stat-card.warning { border-left-color: #f59e0b; }
+      .stat-card.error { border-left-color: #ef4444; }
+      .stat-card.info { border-left-color: #3b82f6; }
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+      @media (max-width: 1200px) {
+        .dashboard-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      section {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 24px;
+      }
+      section h2 {
+        margin: 0 0 20px 0;
+        font-size: 20px;
+        color: #0f172a;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 12px;
+        font-weight: 600;
+      }
+      .chart-container {
+        position: relative;
+        height: 400px;
+        margin-bottom: 20px;
+      }
+      .chart-container.large {
+        height: 500px;
+      }
+      .chart-container.medium {
+        height: 350px;
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #64748b;
+      }
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #cbd5e1;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      .map-container {
+        height: 500px;
+        width: 100%;
+      }
+      .state-link {
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      .state-link:hover {
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>彩票政策情报可视化系统</h1>
+        <p>快速展示各州政策分布、类型与变化趋势</p>
+        <div class="nav-links">
+          <a href="/policy-dashboard.html">Dashboard</a>
+          <a href="/policy-tracking.html" class="secondary">政策追踪</a>
+        </div>
+      </header>
+
+      <div class="filters">
+        <label>州：</label>
+        <select id="filter-state">
+          <option value="">全部</option>
+          <option value="CA">California (CA)</option>
+          <option value="NY">New York (NY)</option>
+          <option value="TX">Texas (TX)</option>
+          <option value="FL">Florida (FL)</option>
+          <option value="IL">Illinois (IL)</option>
+        </select>
+        <label>政策类型：</label>
+        <select id="filter-type">
+          <option value="">全部</option>
+          <option value="regulation">法规</option>
+          <option value="bill">法案</option>
+          <option value="announcement">公告</option>
+          <option value="guidance">指导文件</option>
+        </select>
+        <label>开始日期：</label>
+        <input type="date" id="filter-start" />
+        <label>结束日期：</label>
+        <input type="date" id="filter-end" />
+        <button onclick="applyFilters()">应用筛选</button>
+        <button onclick="resetFilters()" style="background: #64748b;">重置</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card info">
+          <h3>政策总数</h3>
+          <div class="value" id="stat-total">-</div>
+          <div class="sub">所有政策文档</div>
+        </div>
+        <div class="stat-card success">
+          <h3>活跃政策</h3>
+          <div class="value" id="stat-active">-</div>
+          <div class="sub">当前生效中</div>
+        </div>
+        <div class="stat-card warning">
+          <h3>覆盖州数</h3>
+          <div class="value" id="stat-states">-</div>
+          <div class="sub">有政策的州</div>
+        </div>
+        <div class="stat-card">
+          <h3>政策类型</h3>
+          <div class="value" id="stat-types">-</div>
+          <div class="sub">不同类型数量</div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <section>
+          <h2>各州政策分布热力图</h2>
+          <div id="map-chart" class="map-container"></div>
+        </section>
+        <section>
+          <h2>政策类型分布</h2>
+          <div class="chart-container medium">
+            <canvas id="type-chart"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <div class="dashboard-grid">
+        <section>
+          <h2>政策数量趋势</h2>
+          <div class="chart-container">
+            <canvas id="trend-chart"></canvas>
+          </div>
+        </section>
+        <section>
+          <h2>政策状态分布</h2>
+          <div class="chart-container">
+            <canvas id="status-chart"></canvas>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      let typeChart, trendChart, statusChart, mapChart;
+      let currentFilters = {};
+
+      const STATE_CODE_NAME_MAP = {
+        AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+        CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+        HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
+        KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+        MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri',
+        MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
+        NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio',
+        OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+        SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+        VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+        DC: 'District of Columbia'
+      };
+      const STATE_NAME_CODE_MAP = Object.fromEntries(Object.entries(STATE_CODE_NAME_MAP).map(([code, name]) => [name, code]));
+      let usaMapRegistrationPromise = null;
+
+      async function ensureUSMapRegistered() {
+        if (!usaMapRegistrationPromise) {
+          const sources = [
+            '/api/v1/maps/usa',
+            'https://cdn.jsdelivr.net/gh/apache/echarts-website@asf-site/examples/data/asset/geo/USA.json'
+          ];
+          usaMapRegistrationPromise = (async () => {
+            let lastError = null;
+            for (const url of sources) {
+              try {
+                const response = await fetch(url, { cache: 'force-cache' });
+                if (!response.ok) {
+                  throw new Error(`加载地图失败: ${response.status}`);
+                }
+                const geoJson = await response.json();
+                echarts.registerMap('USA', geoJson);
+                return true;
+              } catch (error) {
+                lastError = error;
+                console.warn(`尝试加载地图失败 (${url}):`, error);
+              }
+            }
+            throw lastError || new Error('无法加载地图资源');
+          })();
+        }
+        return usaMapRegistrationPromise;
+      }
+
+      async function initializeMap() {
+        if (!mapChart) {
+          console.warn('地图图表未初始化，跳过地图初始化');
+          return;
+        }
+        try {
+          await ensureUSMapRegistered();
+          console.log('地图注册成功，开始设置地图选项');
+          mapChart.setOption({
+            tooltip: {
+              trigger: 'item',
+              formatter: params => `${params.name}<br/>政策数量: ${params.value || 0}`
+            },
+            visualMap: {
+              min: 0,
+              max: 1,
+              left: 'left',
+              top: 'bottom',
+              text: ['高', '低'],
+              calculable: true,
+              inRange: {
+                color: ['#e0f2fe', '#075985']
+              }
+            },
+            series: [{
+              name: '政策数量',
+              type: 'map',
+              map: 'USA',
+              roam: true,
+              emphasis: {
+                label: {
+                  show: true
+                }
+              },
+              data: []
+            }]
+          });
+
+          mapChart.off('click');
+          mapChart.on('click', params => {
+            const stateCode = STATE_NAME_CODE_MAP[params.name];
+            if (stateCode) {
+              window.location.href = `/policy-state-detail.html?state=${stateCode}`;
+            }
+          });
+        } catch (error) {
+          showError('地图资源加载失败，已降级为列表视图');
+          console.warn('地图初始化失败，已跳过渲染', error);
+        }
+      }
+
+      // 初始化
+      document.addEventListener('DOMContentLoaded', async function() {
+        console.log('页面加载完成，开始初始化');
+        try {
+          initCharts();
+          console.log('图表初始化完成');
+          
+          // 确保 mapChart 已初始化
+          if (!mapChart) {
+            console.error('地图图表初始化失败');
+            showError('地图组件初始化失败，请刷新页面重试');
+            return;
+          }
+          
+          await initializeMap();
+          console.log('地图初始化完成');
+          
+          await loadStats();
+          console.log('统计数据加载完成');
+        } catch (error) {
+          console.error('初始化过程中出错:', error);
+          showError('初始化失败: ' + error.message);
+        }
+      });
+
+      // 加载统计数据
+      async function loadStats() {
+        try {
+          const params = new URLSearchParams();
+          if (currentFilters.start) params.append('start', currentFilters.start);
+          if (currentFilters.end) params.append('end', currentFilters.end);
+          
+          const response = await fetch(`/api/v1/policies/stats?${params}`);
+          if (!response.ok) throw new Error('获取统计数据失败');
+          
+          const data = await response.json();
+          
+          // 更新统计卡片
+          document.getElementById('stat-total').textContent = data.total || 0;
+          document.getElementById('stat-active').textContent = data.active_count || 0;
+          document.getElementById('stat-states').textContent = data.states_count || 0;
+          document.getElementById('stat-types').textContent = data.type_distribution?.length || 0;
+          
+          // 更新图表
+          updateTypeChart(data.type_distribution || []);
+          updateStatusChart(data.status_distribution || []);
+          updateTrendChart(data.trend_series || []);
+          await updateMapChart(data.state_distribution || []);
+        } catch (error) {
+          console.error('加载统计数据失败:', error);
+          showError('加载统计数据失败: ' + error.message);
+        }
+      }
+
+      // 初始化图表
+      function initCharts() {
+        // 政策类型饼图
+        const typeCtx = document.getElementById('type-chart').getContext('2d');
+        typeChart = new Chart(typeCtx, {
+          type: 'doughnut',
+          data: {
+            labels: [],
+            datasets: [{
+              data: [],
+              backgroundColor: [
+                '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
+              ]
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom'
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return context.label + ': ' + context.parsed;
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        // 趋势折线图
+        const trendCtx = document.getElementById('trend-chart').getContext('2d');
+        trendChart = new Chart(trendCtx, {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: []
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'top'
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false
+              }
+            }
+          }
+        });
+
+        // 状态条形图
+        const statusCtx = document.getElementById('status-chart').getContext('2d');
+        statusChart = new Chart(statusCtx, {
+          type: 'bar',
+          data: {
+            labels: [],
+            datasets: [{
+              label: '政策数量',
+              data: [],
+              backgroundColor: '#94a3b8' // 默认颜色，会在更新时动态设置
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              }
+            }
+          }
+        });
+
+        // 地图热力图（使用ECharts）
+        const mapEl = document.getElementById('map-chart');
+        if (!mapEl) {
+          console.error('地图容器元素未找到: #map-chart');
+          return;
+        }
+        if (typeof echarts === 'undefined') {
+          console.error('ECharts 未加载');
+          return;
+        }
+        mapChart = echarts.init(mapEl);
+        if (!mapChart) {
+          console.error('地图图表初始化失败');
+        }
+      }
+
+      // 更新类型图表
+      function updateTypeChart(data) {
+        const labels = data.map(d => d.policy_type || 'unknown');
+        const values = data.map(d => d.count);
+        
+        typeChart.data.labels = labels;
+        typeChart.data.datasets[0].data = values;
+        typeChart.update();
+      }
+
+      // 更新状态图表
+      function updateStatusChart(data) {
+        if (!data || data.length === 0) {
+          statusChart.data.labels = [];
+          statusChart.data.datasets[0].data = [];
+          statusChart.update();
+          return;
+        }
+        
+        const labels = data.map(d => {
+          const status = d.status || 'unknown';
+          const statusMap = {
+            'active': '生效中',
+            'pending': '待生效',
+            'expired': '已过期',
+            'draft': '草案',
+            'unknown': '未知'
+          };
+          return statusMap[status] || status;
+        });
+        const values = data.map(d => d.count);
+        
+        // 保存原始状态值到图表实例中用于颜色匹配
+        statusChart._statusValues = data.map(d => d.status || 'unknown');
+        
+        statusChart.data.labels = labels;
+        statusChart.data.datasets[0].data = values;
+        
+        // 更新 backgroundColor 函数以使用状态值
+        statusChart.data.datasets[0].backgroundColor = function(context) {
+          if (!context || context.dataIndex === undefined) return '#94a3b8';
+          const statusValues = statusChart._statusValues || [];
+          const status = statusValues[context.dataIndex];
+          if (status === 'active') return '#10b981';
+          if (status === 'pending') return '#f59e0b';
+          if (status === 'expired') return '#6b7280';
+          return '#94a3b8';
+        };
+        
+        statusChart.update();
+      }
+
+      // 更新趋势图表
+      function updateTrendChart(data) {
+        const labels = data.map(d => {
+          if (!d.date) return '';
+          const date = new Date(d.date);
+          return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short' });
+        });
+        
+        trendChart.data.labels = labels;
+        trendChart.data.datasets = [{
+          label: '政策数量',
+          data: data.map(d => d.count),
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+          tension: 0.4
+        }];
+        trendChart.update();
+      }
+
+      // 更新地图图表
+      async function updateMapChart(data) {
+        if (!mapChart) {
+          console.warn('地图图表未初始化，跳过更新');
+          return;
+        }
+        try {
+          await ensureUSMapRegistered();
+        } catch (error) {
+          console.warn('地图未注册，跳过更新', error);
+          return;
+        }
+
+        console.log('更新地图数据:', data);
+        const formattedData = (data || [])
+          .map(item => {
+            const stateName = STATE_CODE_NAME_MAP[item.state];
+            if (!stateName) {
+              console.warn(`未找到州代码对应的州名: ${item.state}`);
+              return null;
+            }
+            return {
+              name: stateName,
+              value: item.count || 0
+            };
+          })
+          .filter(Boolean);
+
+        console.log('格式化后的地图数据:', formattedData);
+        const maxValue = formattedData.length ? Math.max(...formattedData.map(d => d.value)) : 1;
+        console.log('地图最大值:', maxValue);
+
+        const option = {
+          tooltip: {
+            trigger: 'item',
+            formatter: params => `${params.name}<br/>政策数量: ${params.value || 0}`
+          },
+          visualMap: {
+            min: 0,
+            max: maxValue || 1,
+            left: 'left',
+            top: 'bottom',
+            text: ['高', '低'],
+            calculable: true,
+            inRange: {
+              color: ['#e0f2fe', '#075985']
+            }
+          },
+          series: [{
+            name: '政策数量',
+            type: 'map',
+            map: 'USA',
+            roam: true,
+            emphasis: {
+              label: {
+                show: true
+              }
+            },
+            data: formattedData
+          }]
+        };
+        
+        console.log('设置地图选项:', option);
+        mapChart.setOption(option, true); // 使用 notMerge=true 确保完全替换
+        console.log('地图更新完成');
+      }
+
+      // 应用筛选
+      function applyFilters() {
+        currentFilters = {
+          state: document.getElementById('filter-state').value,
+          policy_type: document.getElementById('filter-type').value,
+          start: document.getElementById('filter-start').value,
+          end: document.getElementById('filter-end').value
+        };
+        loadStats();
+      }
+
+      // 重置筛选
+      function resetFilters() {
+        document.getElementById('filter-state').value = '';
+        document.getElementById('filter-type').value = '';
+        document.getElementById('filter-start').value = '';
+        document.getElementById('filter-end').value = '';
+        currentFilters = {};
+        loadStats();
+      }
+
+      // 显示错误
+      function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.textContent = message;
+        document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.stats-grid'));
+        setTimeout(() => errorDiv.remove(), 5000);
+      }
+    </script>
+  </body>
+</html>
+

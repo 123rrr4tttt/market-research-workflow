@@ -1,82 +1,34 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...models.base import SessionLocal
 from ...models.entities import MarketStat
-from .adapters import (
-    CaliforniaLotteryMarketAdapter,
-    MarketAdapter,
-    MarketRecord,
-    NewYorkLotteryMarketAdapter,
-    TexasLotteryMarketAdapter,
-    CaliforniaPowerballAdapter,
-    CaliforniaMegaMillionsAdapter,
-    USPowerballAdapter,
-    MagayoCaliforniaAdapter,
-    LotteryDataCaliforniaAdapter,
-)
+from .adapters import MarketAdapter, MarketRecord
 from ..job_logger import start_job, complete_job, fail_job
-
-AdapterFactory = Callable[[str], MarketAdapter]
-
-ADAPTERS: Dict[str, AdapterFactory] = {
-    "CA": CaliforniaLotteryMarketAdapter,
-    "NY": NewYorkLotteryMarketAdapter,
-    "TX": TexasLotteryMarketAdapter,
-}
-
-CA_GAME_MAP: Dict[str, AdapterFactory] = {
-    "SUPERLOTTO PLUS": CaliforniaLotteryMarketAdapter,
-    "POWERBALL": CaliforniaPowerballAdapter,
-    "MEGA MILLIONS": CaliforniaMegaMillionsAdapter,
-    "POWERBALL US": USPowerballAdapter,
-}
-
-def get_market_adapters(state: str, game: Optional[str] = None, source_hint: str | None = None) -> List[MarketAdapter]:
-    state_key = state.upper()
-    adapters: List[MarketAdapter] = []
-    hint = (source_hint or "").lower()
-    if hint in {"magayo", "magayo_api"}:
-        if state_key != "CA":
-            raise ValueError("Magayo 适配器目前仅支持 CA 州")
-        return [MagayoCaliforniaAdapter(state_key)]
-    if hint in {"lotterydata", "lotterydata_io"}:
-        if state_key != "CA":
-            raise ValueError("LotteryData.io 适配器目前仅支持 CA 州")
-        return [LotteryDataCaliforniaAdapter(state_key)]
-
-    if state_key == "CA":
-        if game:
-            gkey = game.strip().upper()
-            factory = CA_GAME_MAP.get(gkey)
-            if not factory:
-                raise ValueError(f"暂不支持的 CA 游戏: {game}")
-            adapters.append(factory("CA"))
-        else:
-            adapters.extend([
-                CaliforniaLotteryMarketAdapter("CA"),
-                CaliforniaPowerballAdapter("CA"),
-                CaliforniaMegaMillionsAdapter("CA"),
-                USPowerballAdapter("CA"),
-            ])
-        return adapters
-    if source_hint and source_hint.lower() == "ny_lottery":
-        return [NewYorkLotteryMarketAdapter("NY")]
-    if source_hint and source_hint.lower() == "tx_lottery":
-        return [TexasLotteryMarketAdapter("TX")]
-    factory = ADAPTERS.get(state_key)
-    if not factory:
-        raise ValueError(f"暂无州 {state_key} 的市场适配器")
-    return [factory(state_key)]
+from ...subprojects.online_lottery.services.market import resolve_market_adapters
 
 
-def ingest_market_data(state: str, source_hint: str | None = None, game: Optional[str] = None, limit: Optional[int] = None) -> dict:
-    adapters = get_market_adapters(state, game, source_hint)
+def get_market_adapters(
+    state: str,
+    source_hint: str | None = None,
+    inject_params: Dict[str, Any] | None = None,
+) -> List[MarketAdapter]:
+    """Resolve adapters via subproject. inject_params is for project-specific overrides (e.g. game for lottery)."""
+    return resolve_market_adapters(state=state, source_hint=source_hint, inject_params=inject_params or {})
+
+
+def ingest_market_data(
+    state: str,
+    source_hint: str | None = None,
+    limit: Optional[int] = None,
+    inject_params: Dict[str, Any] | None = None,
+) -> dict:
+    adapters = get_market_adapters(state, source_hint, inject_params or {})
     records: List[MarketRecord] = []
     for adapter in adapters:
         recs = list(adapter.fetch_records())
@@ -88,7 +40,7 @@ def ingest_market_data(state: str, source_hint: str | None = None, game: Optiona
     skipped = 0
     updated = 0
 
-    job_id = start_job("ingest_market", {"state": state, "game": game})
+    job_id = start_job("ingest_market", {"state": state})
 
     with SessionLocal() as session:
         try:
@@ -109,7 +61,7 @@ def ingest_market_data(state: str, source_hint: str | None = None, game: Optiona
 
                 db_entry = MarketStat(
                     state=record.state,
-                    game=(record.game or None),
+                    game=_normalize_game(record.game),
                     date=record.date,
                     sales_volume=_decimal_or_none(record.sales_volume),
                     revenue=_decimal_or_none(record.revenue),
@@ -142,12 +94,53 @@ def ingest_market_data(state: str, source_hint: str | None = None, game: Optiona
 
 
 def _get_existing(session: Session, state: str, game: Optional[str], stat_date) -> MarketStat | None:
+    """
+    查找现有记录，支持灵活的game字段匹配：
+    1. 首先尝试精确匹配（game字段完全一致，忽略大小写）
+    2. 如果精确匹配失败且新记录有game，尝试匹配同一天同一州但game为None的记录（用于补充game字段）
+    3. 如果新记录的game为None，尝试匹配有game字段的记录（可能来自不同数据源）
+    """
+    game_normalized = game.strip().upper() if game else None
+    
+    # 获取同一天同一州的所有记录
     stmt = select(MarketStat).where(
         MarketStat.state == state,
-        MarketStat.game == (game or None),
         MarketStat.date == stat_date,
     )
-    return session.execute(stmt).scalars().one_or_none()
+    all_results = session.execute(stmt).scalars().all()
+    
+    if not all_results:
+        return None
+    
+    # 首先尝试精确匹配（忽略大小写）
+    if game_normalized:
+        for result in all_results:
+            if result.game:
+                if result.game.strip().upper() == game_normalized:
+                    return result
+        
+        # 精确匹配失败，尝试匹配game为None的记录（用于补充game字段）
+        for result in all_results:
+            if result.game is None:
+                return result
+    else:
+        # 新记录的game为None，尝试匹配有game字段的记录（可能数据更完整）
+        # 优先返回有更多数据的记录
+        for result in all_results:
+            if result.game is not None:
+                if result.revenue is not None or result.sales_volume is not None:
+                    return result
+        
+        # 如果没有找到有数据的记录，返回第一个有game字段的记录
+        for result in all_results:
+            if result.game is not None:
+                return result
+        
+        # 如果都没有game字段，返回第一个（两者都是None）
+        if all_results:
+            return all_results[0]
+    
+    return None
 
 
 def _calculate_growth(session: Session, record: MarketRecord) -> tuple[float | None, float | None]:
@@ -199,9 +192,22 @@ def _decimal_or_none(value: float | None) -> Decimal | None:
         return None
 
 
+def _normalize_game(game: Optional[str]) -> Optional[str]:
+    """规范化game字段：去除空格并转换为标准格式"""
+    if not game:
+        return None
+    # 保持原始格式，但去除首尾空格
+    return game.strip() if game.strip() else None
+
+
 def _update_existing(entry: MarketStat, record: MarketRecord) -> bool:
+    """
+    更新现有记录，补充缺失的字段
+    优先使用新记录中非None的值来补充旧记录中None的字段
+    """
     changed = False
 
+    # 补充缺失的数值字段
     if record.sales_volume is not None and entry.sales_volume is None:
         entry.sales_volume = _decimal_or_none(record.sales_volume)
         changed = True
@@ -215,15 +221,28 @@ def _update_existing(entry: MarketStat, record: MarketRecord) -> bool:
         entry.ticket_price = _decimal_or_none(record.ticket_price)
         changed = True
 
+    # 更新元数据字段
     if record.source_name and entry.source_name != record.source_name:
         entry.source_name = record.source_name
         changed = True
     if record.uri and entry.source_uri != record.uri:
         entry.source_uri = record.uri
         changed = True
-    if record.game and entry.game != record.game:
-        entry.game = record.game
-        changed = True
+    
+    # 更新game字段：如果新记录有game而旧记录没有，或者game不一致，则更新
+    record_game_normalized = _normalize_game(record.game)
+    entry_game_normalized = _normalize_game(entry.game)
+    
+    if record_game_normalized:
+        if not entry_game_normalized:
+            # 新记录有game，旧记录没有，补充game字段
+            entry.game = record_game_normalized
+            changed = True
+        elif entry_game_normalized.upper() != record_game_normalized.upper():
+            # game字段不一致，使用新记录的game（可能更准确）
+            entry.game = record_game_normalized
+            changed = True
+    
     if record.draw_number and entry.draw_number != record.draw_number:
         entry.draw_number = record.draw_number
         changed = True
