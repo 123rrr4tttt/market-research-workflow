@@ -99,6 +99,8 @@
       let timer = null;
       let currentTasksCache = [];
       let historyTasksCache = [];
+      let historyTasksRawCache = [];
+      let historyTaskChildrenByParentId = new Map();
 
       function getStage(jobType) {
         const value = String(jobType || "").toLowerCase();
@@ -139,9 +141,22 @@
         return null;
       }
 
+      function parseHandlerClusterKey(itemKey) {
+        const s = String(itemKey || "").trim();
+        if (!s.startsWith("handler.cluster.")) return "";
+        return s.slice("handler.cluster.".length).trim();
+      }
+
       function pushMetaChip(meta, label, value) {
         if (value === null || value === undefined || value === "") return;
         meta.chips.push(`${label}:${value}`);
+      }
+
+      function resetWrapState(id) {
+        const el = qs(id);
+        if (!el) return;
+        el.classList.remove("status", "error", "loading", "success", "empty");
+        el.className = "table-wrap";
       }
 
       function appendGenericMetaChips(meta, ctx, source) {
@@ -271,6 +286,25 @@
       function getCurrentTaskMeta(t) {
         const dm = safeObject(t?.display_meta);
         if (Object.keys(dm).length) {
+          const handlerKey = parseHandlerClusterKey(dm.item_key);
+          if (handlerKey) {
+            const meta = {
+              project_key: dm.project_key || null,
+              summary: `Handler 聚类采集（${handlerKey}）`,
+              chips: [],
+            };
+            const maybeChips = [
+              ["project", dm.project_key],
+              ["channel", dm.channel],
+              ["handler", handlerKey],
+              ["item", dm.item_key],
+              ["关键词数", dm.query_terms_count],
+              ["URL", dm.url_count],
+              ["limit", dm.limit],
+            ];
+            for (const [k, v] of maybeChips) pushMetaChip(meta, k, v);
+            return meta;
+          }
           const meta = { project_key: dm.project_key || null, summary: String(dm.summary || "任务执行中"), chips: [] };
           const maybeChips = [
             ["project", dm.project_key],
@@ -285,9 +319,21 @@
           return meta;
         }
         const kwargs = safeObject(t?.kwargs);
+        const args = normalizeTaskArgs(t?.args);
+        const itemKey = firstDefined(kwargs.item_key, args[0]);
+        const handlerKey = parseHandlerClusterKey(itemKey);
+        if (handlerKey) {
+          const meta = { project_key: firstDefined(kwargs.project_key, args[1]) || null, summary: `Handler 聚类采集（${handlerKey}）`, chips: [] };
+          pushMetaChip(meta, "project", firstDefined(kwargs.project_key, args[1]));
+          pushMetaChip(meta, "handler", handlerKey);
+          pushMetaChip(meta, "item", itemKey);
+          appendGenericMetaChips(meta, { kwargs, args, project_key: meta.project_key }, kwargs);
+          meta.chips = Array.from(new Set(meta.chips));
+          return meta;
+        }
         const ctx = {
           name: String(t?.name || ""),
-          args: normalizeTaskArgs(t?.args),
+          args,
           kwargs,
           project_key: kwargs.project_key || null,
         };
@@ -359,6 +405,55 @@
         return out;
       }
 
+      function toMs(iso) {
+        const t = new Date(iso || "").getTime();
+        return Number.isFinite(t) ? t : null;
+      }
+
+      function buildHistoryGroupedView(list) {
+        const raw = Array.isArray(list) ? list : [];
+        const parentCandidates = raw.filter((h) => {
+          const dm = safeObject(h?.display_meta);
+          return dm.channel === "source_library";
+        });
+        const parentChildren = new Map();
+        const childIds = new Set();
+
+        for (const parent of parentCandidates) {
+          const pId = Number(parent?.id);
+          const pStart = toMs(parent?.started_at);
+          const pEnd = toMs(parent?.finished_at);
+          if (!Number.isFinite(pId) || pStart == null || pEnd == null) continue;
+          const children = raw.filter((row) => {
+            if (!row || row === parent) return false;
+            const rId = Number(row?.id);
+            if (!Number.isFinite(rId) || rId >= pId) return false;
+            const dm = safeObject(row?.display_meta);
+            const ch = String(dm.channel || "");
+            if (!ch || ch === "source_library") return false;
+            const rs = toMs(row?.started_at);
+            const re = toMs(row?.finished_at || row?.started_at);
+            if (rs == null || re == null) return false;
+            // Child task falls in parent run window (with 2s tolerance).
+            return rs >= (pStart - 2000) && re <= (pEnd + 2000);
+          });
+          if (children.length) {
+            parentChildren.set(pId, children);
+            children.forEach((c) => childIds.add(Number(c.id)));
+          }
+        }
+
+        const visible = raw
+          .filter((row) => !childIds.has(Number(row?.id)))
+          .map((row) => {
+            const pid = Number(row?.id);
+            const children = parentChildren.get(pid) || [];
+            if (!children.length) return row;
+            return { ...row, __children: children, __child_count: children.length };
+          });
+        return { visible, parentChildren };
+      }
+
       const HISTORY_TASK_RULES = [
         {
           match: (jobType) => jobType === "url_pool_fetch",
@@ -418,6 +513,25 @@
       function getHistoryTaskMeta(h) {
         const dm = safeObject(h?.display_meta);
         if (Object.keys(dm).length) {
+          const handlerKey = parseHandlerClusterKey(dm.item_key);
+          if (handlerKey) {
+            const meta = {
+              project_key: dm.project_key || null,
+              summary: `Handler 聚类采集（${handlerKey}）`,
+              chips: [],
+            };
+            const maybeChips = [
+              ["project", dm.project_key],
+              ["channel", dm.channel],
+              ["handler", handlerKey],
+              ["item", dm.item_key],
+              ["关键词数", dm.query_terms_count],
+              ["URL", dm.url_count],
+              ["limit", dm.limit],
+            ];
+            for (const [k, v] of maybeChips) pushMetaChip(meta, k, v);
+            return meta;
+          }
           const meta = { project_key: dm.project_key || null, summary: String(dm.summary || "任务执行"), chips: [] };
           const maybeChips = [
             ["project", dm.project_key],
@@ -432,6 +546,15 @@
           return meta;
         }
         const params = safeObject(h?.params);
+        const paramsHandlerKey = parseHandlerClusterKey(params.item_key);
+        if (paramsHandlerKey) {
+          const meta = { project_key: null, summary: `Handler 聚类采集（${paramsHandlerKey}）`, chips: [] };
+          pushMetaChip(meta, "handler", paramsHandlerKey);
+          pushMetaChip(meta, "item", params.item_key);
+          appendGenericMetaChips(meta, { params, jobType: String(h?.job_type || "") }, params);
+          meta.chips = Array.from(new Set(meta.chips));
+          return meta;
+        }
         const ctx = {
           jobType: String(h?.job_type || ""),
           params,
@@ -455,6 +578,39 @@
       function detailGridItem(label, value) {
         if (value === null || value === undefined || value === "") return "";
         return `<div class="detail-item"><div class="k">${escapeHtml(label)}</div><div class="v">${escapeHtml(String(value))}</div></div>`;
+      }
+
+      function renderUrlDetails(details) {
+        const rows = (Array.isArray(details) ? details : []).slice(0, 500);
+        if (!rows.length) return "";
+        const head = `<tr>
+          <th style="text-align:left; padding:6px 8px;">URL</th>
+          <th style="text-align:left; padding:6px 8px;">结果</th>
+          <th style="text-align:left; padding:6px 8px;">信息</th>
+        </tr>`;
+        const body = rows.map((r) => {
+          const url = escapeHtml(String(r?.url || "-"));
+          const action = escapeHtml(String(r?.action || "-"));
+          const meta = [];
+          if (r?.document_id != null) meta.push(`doc_id=${escapeHtml(String(r.document_id))}`);
+          if (r?.fetch_ms != null) meta.push(`fetch_ms=${escapeHtml(String(r.fetch_ms))}`);
+          if (r?.content_chars != null) meta.push(`content_chars=${escapeHtml(String(r.content_chars))}`);
+          if (r?.pool_scope) meta.push(`pool_scope=${escapeHtml(String(r.pool_scope))}`);
+          if (r?.pool_source) meta.push(`pool_source=${escapeHtml(String(r.pool_source))}`);
+          if (r?.pool_domain) meta.push(`pool_domain=${escapeHtml(String(r.pool_domain))}`);
+          const extra = r?.error ? `<div class="mono-mini" style="color: var(--danger, #b91c1c); margin-top: 4px;">${escapeHtml(String(r.error))}</div>` : "";
+          return `<tr>
+            <td style="padding:6px 8px; max-width: 420px; overflow:hidden; text-overflow: ellipsis; white-space: nowrap;" title="${url}">${url}</td>
+            <td style="padding:6px 8px;" class="mono-mini">${action}</td>
+            <td style="padding:6px 8px;" class="mono-mini">${meta.join(" · ")}${extra}</td>
+          </tr>`;
+        }).join("");
+        return `<div style="border:1px solid var(--border,#ddd); border-radius:10px; overflow:auto;">
+          <table style="border-collapse:collapse; width:100%; font-size:12px;">
+            <thead style="background: rgba(148,163,184,.10); position: sticky; top: 0;">${head}</thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>`;
       }
 
       function openTaskDetail(source, index) {
@@ -495,6 +651,36 @@
           if (Object.keys(kwargs).length) body.push(`<div class="detail-section"><h3>任务参数（kwargs）</h3><div class="json-tree">${renderJsonTree(kwargs)}</div></div>`);
           if (Array.isArray(item.args) && item.args.length) body.push(`<div class="detail-section"><h3>任务参数（args）</h3><div class="json-tree">${renderJsonTree(item.args)}</div></div>`);
         } else {
+          const dbg = safeObject(params?.debug);
+          if (Array.isArray(dbg?.url_details) && dbg.url_details.length) {
+            body.push(`<div class="detail-section"><h3>URL 逐条结果</h3>${renderUrlDetails(dbg.url_details)}</div>`);
+          }
+          const childTasks = Array.isArray(item?.__children)
+            ? item.__children
+            : (historyTaskChildrenByParentId.get(Number(item?.id)) || []);
+          if (childTasks.length) {
+            const childRows = childTasks.map((c) => {
+              const cdm = safeObject(c?.display_meta);
+              const parts = buildResultSummaryPieces(c);
+              return `<tr>
+                <td style="padding:6px 8px;">#${escapeHtml(String(c.id || "-"))}</td>
+                <td style="padding:6px 8px;">${escapeHtml(String(cdm.channel || c.job_type || "-"))}</td>
+                <td style="padding:6px 8px;">${statusBadge(c.status || "-")}</td>
+                <td style="padding:6px 8px;" class="mono-mini">${escapeHtml(parts.join(" | ") || "-")}</td>
+                <td style="padding:6px 8px;" class="mono-mini">${formatNumber(c.duration_seconds || 0)}s</td>
+              </tr>`;
+            }).join("");
+            body.push(`<div class="detail-section"><h3>子任务（${childTasks.length}）</h3>
+              <div style="border:1px solid var(--border,#ddd); border-radius:10px; overflow:auto;">
+                <table style="border-collapse:collapse; width:100%; font-size:12px;">
+                  <thead style="background: rgba(148,163,184,.10);">
+                    <tr><th style="text-align:left; padding:6px 8px;">ID</th><th style="text-align:left; padding:6px 8px;">通道/类型</th><th style="text-align:left; padding:6px 8px;">状态</th><th style="text-align:left; padding:6px 8px;">结果</th><th style="text-align:left; padding:6px 8px;">耗时</th></tr>
+                  </thead>
+                  <tbody>${childRows}</tbody>
+                </table>
+              </div>
+            </div>`);
+          }
           if (Object.keys(params).length) body.push(`<div class="detail-section"><h3>任务参数（params）</h3><div class="json-tree">${renderJsonTree(params)}</div></div>`);
           if (item.error) body.push(`<div class="detail-section"><h3>错误信息</h3><div class="json-tree">${renderJsonTree(item.error)}</div></div>`);
         }
@@ -507,6 +693,7 @@
       }
 
       function renderCurrentTasks(data) {
+        resetWrapState("currentTasksWrap");
         const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
         currentTasksCache = tasks;
         const stats = data?.stats || {};
@@ -553,19 +740,27 @@
       }
 
       function renderHistory(data) {
+        resetWrapState("historyTasksWrap");
         const list = Array.isArray(data?.history) ? data.history : [];
-        historyTasksCache = list;
-        if (!list.length) {
+        historyTasksRawCache = list;
+        const grouped = buildHistoryGroupedView(list);
+        historyTaskChildrenByParentId = grouped.parentChildren;
+        historyTasksCache = grouped.visible;
+        if (!historyTasksCache.length) {
           setEmpty("historyTasksWrap", "暂无历史任务");
           return;
         }
-        const rows = list
+        const rows = historyTasksCache
           .map((h, idx) => {
             const stage = getStage(h.job_type);
             const meta = getHistoryTaskMeta(h);
             const resultSummaryParts = buildResultSummaryPieces(h);
             const resultSummary = resultSummaryParts.length ? resultSummaryParts.join(" | ") : "-";
-            const chips = (meta.chips || []).slice(0, 4).map((c) => `<span class="task-chip">${escapeHtml(String(c))}</span>`).join("");
+            const chipsRaw = [...(meta.chips || [])];
+            if (Number(h.__child_count || 0) > 0) {
+              chipsRaw.unshift(`子任务:${h.__child_count}`);
+            }
+            const chips = chipsRaw.slice(0, 5).map((c) => `<span class="task-chip">${escapeHtml(String(c))}</span>`).join("");
             return `<tr class="click-row" onclick="openTaskDetail('history', ${idx})">
               <td><span class="badge info">${stage}</span></td>
               <td>
@@ -594,6 +789,8 @@
 
       async function loadAll() {
         try {
+          resetWrapState("currentTasksWrap");
+          resetWrapState("historyTasksWrap");
           const projectKey = window.MarketApp?.getProjectKey?.() || "";
           qs("projectHint").textContent = `项目：${projectKey || "-"}`;
           const historyUrl = projectKey

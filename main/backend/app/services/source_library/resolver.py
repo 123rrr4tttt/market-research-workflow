@@ -404,6 +404,27 @@ def list_channels_grouped_by_provider(scope: str = "effective", project_key: str
     return grouped
 
 
+def list_items_grouped_by_channel(scope: str = "effective", project_key: str | None = None) -> Dict[str, List[Dict[str, Any]]]:
+    """Group items by handler key (provider/kind), fallback channel_key."""
+    items = list_effective_items(scope=scope, project_key=project_key)
+    channels = list_effective_channels(scope=scope, project_key=project_key)
+    channel_map = {str(ch.get("channel_key") or "").strip(): ch for ch in channels}
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for it in items:
+        channel_key = str(it.get("channel_key") or "").strip()
+        ch = channel_map.get(channel_key) or {}
+        provider = str(ch.get("provider") or "").strip().lower()
+        kind = str(ch.get("kind") or "").strip().lower()
+        if provider and kind:
+            handler_key = f"{provider}/{kind}"
+        else:
+            handler_key = str(channel_key or "unknown").strip() or "unknown"
+        if handler_key not in grouped:
+            grouped[handler_key] = []
+        grouped[handler_key].append(it)
+    return grouped
+
+
 def list_effective_items(scope: str = "effective", project_key: str | None = None) -> List[Dict[str, Any]]:
     shared_items = _load_shared_items()
     project_items = _load_project_items(project_key)
@@ -441,6 +462,8 @@ def run_item_with_url_routing(
     skipped_total = 0
     by_url: List[Dict[str, Any]] = []
     errors: List[str] = []
+    query_terms = params.get("query_terms") or params.get("keywords") or params.get("search_keywords") or params.get("base_keywords") or params.get("topic_keywords")
+    has_query_terms = isinstance(query_terms, list) and any(str(x or "").strip() for x in query_terms)
 
     for url in urls:
         url_str = str(url).strip() if url else ""
@@ -448,7 +471,7 @@ def run_item_with_url_routing(
             by_url.append({"url": url_str or str(url), "channel_key": None, "error": "invalid url", "result": None})
             continue
 
-        channel_key = resolve_channel_for_url(url_str, project_key)
+        channel_key = resolve_channel_for_url(url_str, project_key, has_query_terms=has_query_terms)
         channel = channel_map.get(channel_key)
         if channel is None:
             channel = channel_map.get("url_pool")
@@ -500,9 +523,22 @@ def run_item_by_key(
     item = item_map.get(item_key)
     if item is None:
         raise ValueError(f"source item not found: {item_key}")
-    if not item.get("enabled", True):
-        raise ValueError(f"source item disabled: {item_key}")
+    return run_item_payload(item=item, channels=channels, project_key=project_key, override_params=override_params)
 
+
+def run_item_payload(
+    *,
+    item: Dict[str, Any],
+    channels: List[Dict[str, Any]] | None = None,
+    project_key: str | None = None,
+    override_params: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    if not item.get("enabled", True):
+        raise ValueError(f"source item disabled: {item.get('item_key')}")
+
+    channels = channels if channels is not None else list_effective_channels(scope="effective", project_key=project_key)
+    channel_map = {x["channel_key"]: x for x in channels}
+    item_key = str(item.get("item_key") or "").strip() or "_anonymous"
     # Base params: item.params + ingest_config + override (no channel yet)
     params = dict(item.get("params") or {})
     if project_key:

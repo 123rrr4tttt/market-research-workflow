@@ -33,10 +33,14 @@
       .badge.neutral { background: #f1f5f9; color: #475569; }
       .doc-row { cursor: pointer; transition: background 0.15s; }
       .doc-row:hover { background: #f8fafc; }
+      .manual-json { width: 100%; min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+      .manual-status { margin-left: 8px; font-size: 12px; color: #6b7280; }
+      .manual-status.ok { color: #166534; }
+      .manual-status.err { color: #991b1b; }
     </style>
     <script src="/static/js/app-shell.js"></script>
     <script src="/static/js/ui-core.js"></script>
-    <script src="/static/js/doc-card.js"></script>
+    <script src="/static/js/doc-card.js?v=20260226"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
   </head>
   <body>
@@ -77,9 +81,29 @@
         <h2 class="section-title">结构化结果</h2>
         <div class="toolbar">
           <button id="reloadExtracted">刷新</button>
+          <button id="reextractStructuredFill" class="secondary"><i data-lucide="sparkles"></i>重提取结构化信息（补齐）</button>
+          <button id="reextractStructuredForce" class="secondary"><i data-lucide="wand-2"></i>重提取结构化信息（强制）</button>
           <span class="badge info">仅展示带 extracted_data 的文档</span>
         </div>
+        <div id="reextractStatus" class="status" style="margin-bottom: 8px;">当前项目文档结构化信息重提取（主干统一结构化提取）</div>
         <div id="extractedWrap" class="table-wrap"></div>
+        <div class="card" style="margin-top: 12px;">
+          <h3 class="section-title">批量手动结构化</h3>
+          <p class="muted">对多条文档写入/合并相同的 extracted_data。ID 逗号或空格分隔。</p>
+          <div class="toolbar">
+            <label for="bulkDocIds">文档ID</label>
+            <input id="bulkDocIds" placeholder="如 101,102  或  101 102" style="min-width: 260px;" />
+            <button id="btnBulkFormat" class="secondary">格式化 JSON</button>
+            <button id="btnBulkValidate" class="secondary">校验 JSON</button>
+          </div>
+          <textarea id="bulkExtractedEditor" class="manual-json" placeholder='示例: { \"policy\": { \"state\": \"CA\" } }'></textarea>
+          <div class="toolbar" style="margin-top: 8px;">
+            <button id="btnBulkSaveReplace"><i data-lucide="save"></i>保存(替换)</button>
+            <button id="btnBulkSaveMerge" class="secondary">保存(合并)</button>
+            <button id="btnBulkClear" class="secondary">清空 extracted_data</button>
+            <span id="bulkStatus" class="manual-status"></span>
+          </div>
+        </div>
       </section>
 
       <section class="card" id="tab-graph" style="display:none;">
@@ -183,6 +207,118 @@
         }
       }
 
+      async function reextractStructuredDocuments(force = false) {
+        const pk = window.MarketApp?.getProjectKey?.() || "";
+        const url = pk
+          ? `/api/v1/admin/documents/re-extract?project_key=${encodeURIComponent(pk)}`
+          : "/api/v1/admin/documents/re-extract";
+        const statusId = "reextractStatus";
+        setLoading(statusId, force ? "正在强制重提取结构化信息..." : "正在补齐结构化信息...");
+        try {
+          const resp = await window.MarketApp.fetchJSON(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              force: !!force,
+              fetch_missing_content: true,
+              batch_size: 5,
+              treat_empty_er_as_missing: true,
+            }),
+          });
+          const r = resp?.data || resp || {};
+          setSuccess(
+            statusId,
+            `完成：扫描 ${Number(r.total || 0)}，成功 ${Number(r.success || 0)}，跳过 ${Number(r.skipped || 0)}，错误 ${Number(r.error || 0)}`
+          );
+          await listExtracted();
+        } catch (error) {
+          setError(statusId, `重提取失败: ${error.message}`);
+        }
+      }
+
+      function parseIds(raw) {
+        return (raw || "")
+          .split(/[^0-9]+/)
+          .map((s) => Number(s))
+          .filter((n) => Number.isInteger(n));
+      }
+
+      function setupBulkEditor() {
+        const editor = qs("bulkExtractedEditor");
+        const status = qs("bulkStatus");
+        const idsInput = qs("bulkDocIds");
+        if (!editor || !status || !idsInput) return;
+
+        function setStatus(msg, kind) {
+          status.textContent = msg || "";
+          status.className = `manual-status ${kind || ""}`.trim();
+        }
+
+        function parseEditorJSON() {
+          const raw = String(editor.value || "").trim();
+          if (!raw) return null;
+          return JSON.parse(raw);
+        }
+
+        function formatEditor(val) {
+          editor.value = val == null ? "" : JSON.stringify(val, null, 2);
+        }
+
+        function setDisabled(disabled) {
+          ["btnBulkFormat", "btnBulkValidate", "btnBulkSaveReplace", "btnBulkSaveMerge", "btnBulkClear"].forEach((id) => {
+            const el = qs(id);
+            if (el) el.disabled = !!disabled;
+          });
+        }
+
+        qs("btnBulkFormat")?.addEventListener("click", () => {
+          try {
+            const val = parseEditorJSON();
+            formatEditor(val);
+            setStatus("JSON 格式化完成", "ok");
+          } catch (e) {
+            setStatus(`JSON 无法解析: ${e.message || e}`, "err");
+          }
+        });
+
+        qs("btnBulkValidate")?.addEventListener("click", () => {
+          try {
+            parseEditorJSON();
+            setStatus("JSON 校验通过", "ok");
+          } catch (e) {
+            setStatus(`JSON 无法解析: ${e.message || e}`, "err");
+          }
+        });
+
+        async function save(mode, clearOnly = false) {
+          const ids = parseIds(idsInput.value);
+          if (!ids.length) {
+            setStatus("请先输入文档ID", "err");
+            return;
+          }
+          setDisabled(true);
+          try {
+            const val = clearOnly ? null : parseEditorJSON();
+            if (mode === "merge" && val == null) {
+              throw new Error("merge 模式需要非空 JSON 对象");
+            }
+            const res = await window.MarketApp.fetchJSON("/api/v1/admin/documents/bulk/extracted-data", {
+              method: "POST",
+              body: { doc_ids: ids, mode, extracted_data: val },
+            });
+            setStatus(`完成: 请求 ${res?.requested ?? ids.length}，更新 ${res?.updated ?? 0}，缺失 ${Array.isArray(res?.missing) ? res.missing.length : 0}`, "ok");
+          } catch (e) {
+            setStatus(`保存失败: ${e.message || e}`, "err");
+          } finally {
+            setDisabled(false);
+          }
+        }
+
+        qs("btnBulkSaveReplace")?.addEventListener("click", () => save("replace"));
+        qs("btnBulkSaveMerge")?.addEventListener("click", () => save("merge"));
+        qs("btnBulkClear")?.addEventListener("click", () => save("replace", true));
+      }
+
       async function loadSearchHistory() {
         setLoading("historyWrap", "加载搜索历史...");
         try {
@@ -254,8 +390,14 @@
             <div style="margin-top: 12px;"><strong>区域:</strong> ${escapeHtml(doc.state || "-")}</div>
             <div style="margin-top: 12px;"><strong>URL:</strong> <a href="${escapeHtml(doc.uri || "#")}" target="_blank" class="link">${escapeHtml(doc.uri || "-")}</a></div>
             <div style="margin-top: 12px;"><strong>摘要:</strong> ${escapeHtml((doc.summary || "").substring(0, 500))}${(doc.summary || "").length > 500 ? "..." : ""}</div>
+            <div id="docExtractedPreview">
+              ${
+                window.renderGraphExtractedCard
+                  ? (window.renderGraphExtractedCard(extractedData || {}, escapeHtml) || '<div class="empty">暂无结构化数据</div>')
+                  : '<div class="empty">暂无结构化数据</div>'
+              }
+            </div>
             ${doc.content ? `<div style="margin-top: 12px;"><strong>内容:</strong><div class="content-preview">${escapeHtml(doc.content.substring(0, 3000))}${doc.content.length > 3000 ? "..." : ""}</div></div>` : ""}
-            ${window.renderGraphExtractedCard ? window.renderGraphExtractedCard(extractedData || {}, escapeHtml) : ''}
             <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
               <div><strong>发布时间:</strong> ${toDateTime(doc.publish_date)}</div>
               <div style="margin-top: 8px;"><strong>创建时间:</strong> ${toDateTime(doc.created_at)}</div>
@@ -263,6 +405,7 @@
             </div>
           `;
           qs("doc-modal-body").innerHTML = bodyHtml;
+          if (window.lucide) window.lucide.createIcons();
         } catch (err) {
           qs("doc-modal-body").innerHTML = `<div class="error">加载失败: ${escapeHtml(err.message)}</div>`;
         }
@@ -293,12 +436,18 @@
       qs("refreshTab").addEventListener("click", refreshCurrentTab);
       qs("searchDocs").addEventListener("click", listDocuments);
       qs("reloadExtracted").addEventListener("click", listExtracted);
+      qs("reextractStructuredFill")?.addEventListener("click", () => reextractStructuredDocuments(false));
+      qs("reextractStructuredForce")?.addEventListener("click", async () => {
+        if (!confirm("确认强制重提取当前项目的可结构化文档？这会重新调用LLM，耗时较长。")) return;
+        await reextractStructuredDocuments(true);
+      });
       qs("exportGraph").addEventListener("click", exportGraph);
 
       window.addEventListener("DOMContentLoaded", async () => {
         lucide.createIcons();
         const hash = (window.location.hash || "").replace("#", "");
         if (hash === "extracted") switchTab("extracted");
+        setupBulkEditor();
         await refreshCurrentTab();
       });
     </script>

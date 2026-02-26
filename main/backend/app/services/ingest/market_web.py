@@ -14,9 +14,13 @@ from ...models.base import SessionLocal
 from ...models.entities import Document, Source
 from .doc_type_mapper import normalize_doc_type
 from ..llm.extraction import extract_market_info
+from ..extraction.application import ExtractionApplicationService
+from .adapters.http_utils import fetch_html
+from .url_pool import _extract_text_from_html
 
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
+_EXTRACTION_APP = ExtractionApplicationService()
 
 
 def _get_or_create_source(session: Session, name: str, kind: str, base_url: str) -> Source:
@@ -82,15 +86,26 @@ def collect_market_info(
 
                 title = item.get("title") or ""
                 snippet = item.get("snippet") or ""
+                content = None
+                try:
+                    # Disable snippet-only quick-save: try fetching正文 before入库.
+                    html, _ = fetch_html(link, timeout=8.0, retries=1)
+                    text = (_extract_text_from_html(html) or "").strip()
+                    if text:
+                        content = text
+                except Exception:
+                    content = None
 
                 extracted_data = {
                     "platform": item.get("source") or provider,
                     "keyword": item.get("keyword"),
                 }
                 if enable_extraction:
-                    text_to_extract = f"{title}\n\n{snippet}"
-                    market_info = extract_market_info(text_to_extract)
-                    if market_info:
+                    text_to_extract = "\n\n".join([x for x in [title.strip(), snippet.strip(), (content or "").strip()] if x])
+                    enriched = _EXTRACTION_APP.extract_structured_enriched(text_to_extract, include_market=True)
+                    if enriched:
+                        extracted_data.update(enriched)
+                    elif (market_info := extract_market_info(text_to_extract)):
                         extracted_data["market"] = market_info
 
                 document = Document(
@@ -100,6 +115,7 @@ def collect_market_info(
                     title=title,
                     summary=snippet,
                     publish_date=None,
+                    content=content,
                     uri=link,
                     extracted_data=extracted_data,
                 )

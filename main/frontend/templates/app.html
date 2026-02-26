@@ -232,8 +232,23 @@
       .content-frame {
         flex: 1;
         width: 100%;
+        height: 100%;
         border: none;
         background: var(--surface);
+      }
+      .frame-host {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        background: var(--surface);
+      }
+      .frame-host .content-frame {
+        position: absolute;
+        inset: 0;
+        display: none;
+      }
+      .frame-host .content-frame.active {
+        display: block;
       }
       .content-frame.fullscreen {
         position: fixed;
@@ -380,7 +395,9 @@
         <div class="crumb" id="pageTitle">主页</div>
         <div class="project-hint" id="projectHint">当前项目: default</div>
       </div>
-      <iframe id="contentFrame" class="content-frame" src="index.html"></iframe>
+      <div id="frameHost" class="frame-host">
+        <iframe id="contentFrame" class="content-frame active" src="index.html"></iframe>
+      </div>
     </main>
 
     <script>
@@ -415,6 +432,9 @@
       };
 
       let PROJECTS = [];
+      const FRAME_CACHE_LIMIT = 8;
+      const frameCache = new Map();
+      let activeFrameKey = null;
 
       function normalizeProjectKey(raw) {
         let key = String(raw || "").trim().toLowerCase();
@@ -439,6 +459,115 @@
         url.searchParams.set("project_key", getProjectKey());
         const path = `${url.pathname}${url.search}${hash ? `#${hash}` : ""}`;
         return path;
+      }
+
+      function splitTarget(target) {
+        const [withoutHash, hash = ""] = String(target || "").split("#");
+        return { withoutHash, hash };
+      }
+
+      function frameCacheKeyFromTarget(target) {
+        return splitTarget(target).withoutHash;
+      }
+
+      function getFrameHost() {
+        return document.getElementById("frameHost");
+      }
+
+      function getActiveFrame() {
+        if (activeFrameKey && frameCache.has(activeFrameKey)) return frameCache.get(activeFrameKey).frame;
+        return document.getElementById("contentFrame");
+      }
+
+      function touchFrameCache(key) {
+        const entry = frameCache.get(key);
+        if (!entry) return;
+        frameCache.delete(key);
+        frameCache.set(key, entry);
+      }
+
+      function evictFrameCacheIfNeeded() {
+        while (frameCache.size > FRAME_CACHE_LIMIT) {
+          const first = frameCache.entries().next().value;
+          if (!first) return;
+          const [key, entry] = first;
+          if (key === activeFrameKey) {
+            // move active to tail and keep looking
+            touchFrameCache(key);
+            continue;
+          }
+          try {
+            entry.frame.remove();
+          } catch (_) {}
+          frameCache.delete(key);
+        }
+      }
+
+      function ensureFrameForTarget(target) {
+        const key = frameCacheKeyFromTarget(target);
+        let entry = frameCache.get(key);
+        if (entry && entry.frame?.isConnected) {
+          touchFrameCache(key);
+          return entry.frame;
+        }
+        const host = getFrameHost();
+        const frame = document.createElement("iframe");
+        frame.className = "content-frame";
+        frame.setAttribute("loading", "eager");
+        frame.dataset.cacheKey = key;
+        frame.src = target;
+        host.appendChild(frame);
+        frameCache.set(key, { frame });
+        touchFrameCache(key);
+        evictFrameCacheIfNeeded();
+        return frame;
+      }
+
+      function initFrameCache() {
+        const frame = document.getElementById("contentFrame");
+        if (!frame) return;
+        const initialTarget = getPageWithProjectKey("index.html");
+        const key = frameCacheKeyFromTarget(initialTarget);
+        frame.dataset.cacheKey = key;
+        frameCache.set(key, { frame });
+        activeFrameKey = key;
+        frame.src = initialTarget;
+      }
+
+      function showFrameForTarget(target) {
+        const key = frameCacheKeyFromTarget(target);
+        let frame = frameCache.get(key)?.frame;
+        if (!frame || !frame.isConnected) {
+          frame = ensureFrameForTarget(target);
+        }
+        frameCache.forEach((entry, k) => {
+          if (!entry?.frame) return;
+          entry.frame.classList.toggle("active", k === key);
+        });
+        activeFrameKey = key;
+        touchFrameCache(key);
+        return frame;
+      }
+
+      function navigateFrame(frame, target) {
+        if (!frame) return;
+        const current = String(frame.getAttribute("src") || "");
+        if (current === target) return;
+        const nextParts = splitTarget(target);
+        const curParts = splitTarget(current);
+        if (curParts.withoutHash === nextParts.withoutHash) {
+          // Same page+project, only hash changed: try non-reload hash navigation.
+          try {
+            if (frame.contentWindow && frame.contentWindow.location) {
+              frame.contentWindow.location.hash = nextParts.hash ? `#${nextParts.hash}` : "";
+              frame.setAttribute("src", target);
+              return;
+            }
+          } catch (_) {
+            // Cross-context timing issue; fall through to src assignment.
+          }
+        }
+        frame.setAttribute("src", target);
       }
 
       function updateHeader(page) {
@@ -478,9 +607,9 @@
         clearActive();
         applyActive(element);
 
-        const frame = document.getElementById("contentFrame");
         const target = getPageWithProjectKey(page);
-        frame.src = target;
+        const frame = showFrameForTarget(target);
+        navigateFrame(frame, target);
         updateHeader(page);
 
         if (window.history && window.history.pushState) {
@@ -501,8 +630,9 @@
 
         const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
         const page = active ? active.getAttribute("data-page") : "index.html";
-        const frame = document.getElementById("contentFrame");
-        frame.src = getPageWithProjectKey(page);
+        const target = getPageWithProjectKey(page);
+        const frame = showFrameForTarget(target);
+        navigateFrame(frame, target);
       }
 
       async function createProject() {
@@ -534,7 +664,9 @@
           // Reload current frame
           const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
           const page = active ? active.getAttribute("data-page") : "index.html";
-          document.getElementById("contentFrame").src = getPageWithProjectKey(page);
+          const target = getPageWithProjectKey(page);
+          const frame = showFrameForTarget(target);
+          navigateFrame(frame, target);
         } catch (err) {
           alert(`创建项目失败: ${err.message || err}`);
         }
@@ -574,6 +706,7 @@
 
       window.addEventListener("DOMContentLoaded", function() {
         lucide.createIcons();
+        initFrameCache();
         loadProjects();
         updateHeader("index.html");
 
@@ -583,22 +716,26 @@
         }
 
         const hash = decodeURIComponent(window.location.hash.substring(1) || "");
-        if (hash) {
+          if (hash) {
           const navItem = document.querySelector(`[data-page="${hash}"]`);
           if (navItem) {
             loadPage(hash, navItem);
           } else {
-            document.getElementById("contentFrame").src = getPageWithProjectKey(hash);
+            const target = getPageWithProjectKey(hash);
+            const frame = showFrameForTarget(target);
+            navigateFrame(frame, target);
             updateHeader(hash);
           }
         } else {
-          document.getElementById("contentFrame").src = getPageWithProjectKey("index.html");
+          const target = getPageWithProjectKey("index.html");
+          const frame = showFrameForTarget(target);
+          navigateFrame(frame, target);
         }
       });
 
       window.addEventListener("message", function(event) {
         if (!event.data) return;
-        const frame = document.getElementById("contentFrame");
+        const frame = getActiveFrame();
         const sidebar = document.querySelector(".sidebar");
         const body = document.body;
 
@@ -621,4 +758,3 @@
     </script>
   </body>
 </html>
-

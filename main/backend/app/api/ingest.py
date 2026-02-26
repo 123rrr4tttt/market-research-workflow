@@ -316,7 +316,8 @@ def _resource_display_name(resource_id: str) -> str:
 
 
 class SourceLibraryRunPayload(BaseModel):
-    item_key: str = Field(..., min_length=1)
+    item_key: str | None = Field(default=None, min_length=1)
+    handler_key: str | None = Field(default=None, min_length=1, description="Run all items under this handler key (provider/kind)")
     project_key: str | None = Field(default=None)
     async_mode: bool = Field(default=False)
     override_params: dict = Field(default_factory=dict)
@@ -326,13 +327,89 @@ class SourceLibrarySyncPayload(BaseModel):
     project_key: str | None = Field(default=None)
 
 
+def _ensure_handler_cluster_item(*, project_key: str, handler_key: str) -> tuple[str, int]:
+    from .source_library import SourceLibraryItemUpsertPayload, upsert_project_item
+    from ..services.resource_pool import list_site_entries
+
+    hk = str(handler_key or "").strip().lower()
+    if not hk:
+        raise HTTPException(status_code=400, detail="handler_key is required")
+    if hk == "url_routing":
+        raise HTTPException(
+            status_code=400,
+            detail="handler_key=url_routing is item-level URL routing, not a URL-entry(entry_type) cluster. Use item_key to run url_routing items.",
+        )
+
+    page = 1
+    page_size = 200
+    site_entries: list[str] = []
+    while True:
+        rows, total = list_site_entries(
+            scope="effective",
+            project_key=project_key,
+            entry_type=hk,
+            enabled=True,
+            page=page,
+            page_size=page_size,
+        )
+        for r in rows:
+            u = str(r.get("site_url") or "").strip()
+            if u and u not in site_entries:
+                site_entries.append(u)
+        if not rows or page * page_size >= int(total or 0):
+            break
+        page += 1
+
+    if not site_entries:
+        raise HTTPException(status_code=404, detail=f"No enabled site_entries found for handler_key={hk}")
+
+    item_key = f"handler.cluster.{hk}"
+    payload = SourceLibraryItemUpsertPayload(
+        item_key=item_key,
+        name=f"Handler Cluster {hk}",
+        channel_key="handler.cluster",
+        description=f"Stable handler-cluster item generated from resource_pool.site_entries entry_type={hk}",
+        params={
+            "site_entries": site_entries,
+            "expected_entry_type": hk,
+        },
+        tags=["handler_cluster", hk],
+        enabled=True,
+        extra={
+            "creation_handler": "handler.entry_type",
+            "expected_entry_type": hk,
+            "stable_handler_cluster": True,
+        },
+    )
+    upsert_project_item(payload, project_key=project_key)
+    return item_key, len(site_entries)
+
+
 @router.post("/source-library/run")
 def ingest_source_library_run(payload: SourceLibraryRunPayload):
     """Run a source library item (collection task). Entry point for ingest flow."""
     project_key = _require_project_key(payload.project_key)
+    item_key = str(payload.item_key or "").strip()
+    handler_key = str(payload.handler_key or "").strip()
+    if not item_key and not handler_key:
+        raise HTTPException(status_code=400, detail="item_key or handler_key is required.")
+    if item_key and handler_key:
+        raise HTTPException(status_code=400, detail="item_key and handler_key are mutually exclusive.")
+
+    if handler_key:
+        try:
+            item_key, site_entry_count = _ensure_handler_cluster_item(project_key=project_key, handler_key=handler_key)
+            payload.override_params = dict(payload.override_params or {})
+            payload.override_params.setdefault("_handler_key", handler_key)
+            payload.override_params.setdefault("_handler_site_entry_count", site_entry_count)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            return _error_500(exc)
+
     if payload.async_mode:
         task = _tasks_module().task_run_source_library_item.delay(
-            payload.item_key,
+            item_key,
             project_key,
             payload.override_params or {},
         )
@@ -340,13 +417,13 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
             task_result_response(
                 task_id=task.id,
                 async_mode=True,
-                params={"item_key": payload.item_key},
+                params={"item_key": item_key},
             )
         )
     try:
         from ..services.collect_runtime import run_source_library_item_compat
         result = run_source_library_item_compat(
-            item_key=payload.item_key,
+            item_key=item_key,
             project_key=project_key,
             override_params=payload.override_params or {},
         )
@@ -610,4 +687,3 @@ def ingest_ecom_prices(payload: EcomPriceRequest):
             return success_response(collect_ecom_price_observations(limit=payload.limit))
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
-

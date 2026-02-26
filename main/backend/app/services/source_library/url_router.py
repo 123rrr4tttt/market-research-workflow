@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 from ..ingest_config.service import get_config
 
@@ -96,7 +96,29 @@ def _heuristic_channel_by_path(path: str) -> str | None:
     return None
 
 
-def resolve_channel_for_url(url: str, project_key: str | None) -> str:
+def _heuristic_keyword_aware_channel(url: str, path: str, *, has_query_terms: bool) -> str | None:
+    """
+    Prefer keyword-aware channels when the execution request carries query terms.
+    Only applies to URLs that look like search endpoints/templates.
+    """
+    if not has_query_terms:
+        return None
+    p = (path or "").lower()
+    if not p:
+        return None
+    try:
+        parsed = urlparse(url)
+        qs = parse_qs(parsed.query or "")
+    except Exception:
+        qs = {}
+    searchish_path = any(x in p for x in ("/search", "/find", "/query"))
+    searchish_qs = any(k.lower() in {"q", "query", "keyword", "keywords", "search"} for k in qs.keys())
+    if searchish_path or searchish_qs:
+        return "generic_web.search_template"
+    return None
+
+
+def resolve_channel_for_url(url: str, project_key: str | None, *, has_query_terms: bool = False) -> str:
     """
     Resolve channel_key for a URL using url_channel_routing config.
 
@@ -106,18 +128,19 @@ def resolve_channel_for_url(url: str, project_key: str | None) -> str:
     Returns channel_key; falls back to _DEFAULT_CHANNEL when no config or no match.
     """
     path = _path_from_url(url)
+    kw_aware = _heuristic_keyword_aware_channel(url, path, has_query_terms=has_query_terms)
     guessed = _heuristic_channel_by_path(path)
 
     if not project_key:
-        return guessed or _DEFAULT_CHANNEL
+        return kw_aware or guessed or _DEFAULT_CHANNEL
 
     cfg = get_config(project_key, "url_channel_routing")
     if not cfg or not isinstance(cfg.get("payload"), dict):
-        return guessed or _DEFAULT_CHANNEL
+        return kw_aware or guessed or _DEFAULT_CHANNEL
 
     rules = cfg["payload"].get("rules")
     if not isinstance(rules, list) or not rules:
-        return guessed or _DEFAULT_CHANNEL
+        return kw_aware or guessed or _DEFAULT_CHANNEL
 
     domain = _domain_from_url(url)
     for rule in rules:
@@ -133,6 +156,8 @@ def resolve_channel_for_url(url: str, project_key: str | None) -> str:
             continue
         return str(channel_key).strip()
 
+    if kw_aware:
+        return kw_aware
     if guessed:
         return guessed
 

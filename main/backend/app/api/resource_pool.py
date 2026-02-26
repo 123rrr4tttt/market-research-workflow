@@ -14,11 +14,13 @@ from ..services.projects import current_project_key
 from ..services.ingest_config import get_config as get_ingest_config
 from ..services.resource_pool import (
     classify_site_entry,
+    classify_site_entries_batch,
     discover_site_entries_from_urls,
     extract_from_documents,
     extract_from_tasks,
     list_urls,
     list_site_entries,
+    simplify_site_entries,
     unified_search_by_item,
     upsert_site_entry,
     upsert_capture_config,
@@ -292,6 +294,43 @@ def list_site_entries_api(
         return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
 
 
+@router.get("/site_entries/grouped", operation_id="resource_pool_group_site_entries")
+@router.get("/site-entries/grouped", operation_id="resource_pool_group_site_entries_dash")
+def group_site_entries_api(
+    project_key: str | None = Query(default=None),
+    scope: ScopeType = Query(default="effective"),
+    enabled: bool | None = Query(default=True),
+):
+    project_key, error = _get_project_key_or_error(project_key)
+    if error:
+        return error
+    try:
+        page = 1
+        page_size = 100
+        by_entry_type: dict[str, dict[str, Any]] = {}
+        while True:
+            items, total = list_site_entries(
+                scope=scope,
+                project_key=project_key,
+                enabled=enabled,
+                page=page,
+                page_size=page_size,
+            )
+            for row in items:
+                et = str(row.get("entry_type") or "domain_root").strip().lower() or "domain_root"
+                bucket = by_entry_type.setdefault(et, {"count": 0, "sample_urls": []})
+                bucket["count"] += 1
+                su = str(row.get("site_url") or "").strip()
+                if su and len(bucket["sample_urls"]) < 5:
+                    bucket["sample_urls"].append(su)
+            if not items or page * page_size >= int(total or 0):
+                break
+            page += 1
+        return JSONResponse(status_code=200, content=ok({"by_entry_type": by_entry_type, "scope": scope, "project_key": project_key}))
+    except Exception as exc:
+        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+
+
 @router.post("/site_entries", operation_id="resource_pool_upsert_site_entry")
 @router.post("/site-entries", operation_id="resource_pool_upsert_site_entry_dash")
 def upsert_site_entry_api(payload: UpsertSiteEntryPayload):
@@ -337,6 +376,16 @@ class DiscoverSiteEntriesPayload(BaseModel):
     write: bool = Field(default=False, description="If true, persist discovered candidates")
     run_auto_classify: bool = Field(default=False, description="If true, run classify on domain_root without sitemap/rss")
     use_llm: bool = Field(default=False, description="If true and run_auto_classify, use LLM for classification")
+    async_mode: bool = Field(default=False, description="Run discovery in background (Celery)")
+    batch_size: int = Field(default=20, ge=1, le=100, description="Domains per batch when async_mode=true")
+    simplify_pool_first: bool = Field(default=True, description="Simplify duplicate site entries before async batched discovery")
+
+
+class SimplifySiteEntriesPayload(BaseModel):
+    project_key: str | None = Field(default=None, description="Project identifier")
+    scope: Literal["project", "shared"] = Field(default="project")
+    domain: str | None = Field(default=None, description="Optional domain filter")
+    dry_run: bool = Field(default=True, description="Preview only; do not delete duplicates")
 
 
 @router.post("/discover/site-entries", operation_id="resource_pool_discover_site_entries")
@@ -362,6 +411,45 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload):
         deny_domains = payload.deny_domains if payload.deny_domains is not None else policy.get("deny_domains")
         run_auto_classify = payload.run_auto_classify if payload.run_auto_classify is not None else bool(policy.get("run_auto_classify", False))
         use_llm = payload.use_llm if payload.use_llm is not None else bool(policy.get("use_llm", False))
+
+        if payload.async_mode:
+            task = _get_tasks_module().task_discover_site_entries_batched.delay(
+                project_key=project_key,
+                url_scope=url_scope,
+                target_scope=target_scope,
+                domain=payload.domain,
+                limit_domains=limit_domains,
+                probe_timeout=probe_timeout,
+                include_link_alternate=include_link_alternate,
+                sitemap_paths=sitemap_paths,
+                rss_paths=rss_paths,
+                allow_domains=allow_domains,
+                deny_domains=deny_domains,
+                run_auto_classify=run_auto_classify,
+                use_llm=use_llm,
+                write=bool(payload.write) and not bool(payload.dry_run),
+                batch_size=payload.batch_size,
+                simplify_pool_first=bool(payload.simplify_pool_first),
+            )
+            return JSONResponse(
+                status_code=200,
+                content=ok(
+                    task_result_response(
+                        task_id=task.id,
+                        async_mode=True,
+                        params={
+                            "project_key": project_key,
+                            "url_scope": url_scope,
+                            "target_scope": target_scope,
+                            "limit_domains": limit_domains,
+                            "run_auto_classify": run_auto_classify,
+                            "use_llm": use_llm,
+                            "batch_size": payload.batch_size,
+                            "simplify_pool_first": bool(payload.simplify_pool_first),
+                        },
+                    )
+                ),
+            )
 
         result = discover_site_entries_from_urls(
             project_key=project_key,
@@ -407,6 +495,25 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload):
         )
     except ValueError as exc:
         return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
+
+
+@router.post("/site_entries/simplify", operation_id="resource_pool_simplify_site_entries")
+def simplify_site_entries_api(payload: SimplifySiteEntriesPayload):
+    project_key, error = _get_project_key_or_error(payload.project_key)
+    if error and payload.scope == "project":
+        return error
+    try:
+        result = simplify_site_entries(
+            scope=payload.scope,
+            project_key=project_key if payload.scope == "project" else None,
+            domain=payload.domain,
+            dry_run=payload.dry_run,
+        )
+        return JSONResponse(status_code=200, content=ok(result))
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
+    except Exception as exc:
+        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
     except Exception as exc:
         return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
 
@@ -417,6 +524,13 @@ class RecommendSiteEntryPayload(BaseModel):
     entry_type: str | None = Field(default=None, description="Optional known entry_type")
     template: str | None = Field(default=None, description="Optional template for search_template")
     use_llm: bool = Field(default=False, description="Whether to call LLM when rules cannot determine")
+
+
+class BatchRecommendSiteEntriesPayload(BaseModel):
+    project_key: str | None = Field(default=None, description="Project identifier")
+    entries: list[dict[str, Any]] = Field(default_factory=list, description="Rows: {site_url, entry_type?, template?}")
+    use_llm: bool = Field(default=True, description="Whether to use LLM for unresolved rows")
+    llm_batch_size: int = Field(default=20, ge=1, le=100, description="Batch size for one LLM request")
 
 
 @router.post("/site_entries/recommend", operation_id="resource_pool_recommend_site_entry")
@@ -441,9 +555,54 @@ def recommend_site_entry_api(payload: RecommendSiteEntryPayload):
                     "template": rec.template,
                     "validated": rec.validated,
                     "source": rec.source,
+                    "capabilities": rec.capabilities or {},
                 }
             ),
         )
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
+    except Exception as exc:
+        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+
+
+@router.post("/site_entries/recommend-batch", operation_id="resource_pool_recommend_site_entries_batch")
+def recommend_site_entries_batch_api(payload: BatchRecommendSiteEntriesPayload):
+    """Batch recommend channel/entry_type/template (+ capability/symbol-ready hints) for site entries."""
+    project_key, error = _get_project_key_or_error(payload.project_key)
+    if error:
+        return error
+    try:
+        rows = []
+        for i, row in enumerate(payload.entries or []):
+            if not isinstance(row, dict):
+                continue
+            site_url = str(row.get("site_url") or "").strip()
+            if not site_url:
+                continue
+            rows.append(
+                {
+                    "index": i,
+                    "site_url": site_url,
+                    "entry_type": row.get("entry_type"),
+                    "template": row.get("template"),
+                }
+            )
+        result = classify_site_entries_batch(rows, use_llm=payload.use_llm, llm_batch_size=payload.llm_batch_size)
+        normalized = [
+            {
+                "index": item.get("index"),
+                "site_url": item.get("site_url"),
+                "entry_type": item.get("entry_type"),
+                "channel_key": item.get("channel_key"),
+                "template": item.get("template"),
+                "validated": item.get("validated"),
+                "source": item.get("source"),
+                "capabilities": item.get("capabilities") or {},
+                "symbol_suggestion": item.get("symbol_suggestion"),
+            }
+            for item in result
+        ]
+        return JSONResponse(status_code=200, content=ok({"items": normalized, "count": len(normalized)}))
     except ValueError as exc:
         return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
     except Exception as exc:

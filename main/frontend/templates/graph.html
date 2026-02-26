@@ -550,6 +550,10 @@
         detailsPanel.classList.remove('active');
         latestGraphData = null;
         const chartEl = document.getElementById('graph-chart');
+        if (graphChart) {
+          try { graphChart.dispose(); } catch (e) { console.warn('dispose graphChart failed before reload', e); }
+          graphChart = null;
+        }
         chartEl.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
 
         try {
@@ -561,8 +565,11 @@
           latestGraphData = data;
           const nodes = data.nodes || [];
           const edges = data.edges || [];
+          if (graphChart) {
+            try { graphChart.dispose(); } catch (e) { console.warn('dispose graphChart failed before render', e); }
+            graphChart = null;
+          }
           chartEl.innerHTML = '';
-          if (graphChart) { graphChart.dispose(); graphChart = null; }
           graphChart = echarts.init(chartEl);
           renderGraph({ nodes, edges });
           updateStats({ nodes, edges });
@@ -571,8 +578,11 @@
         } catch (err) {
           console.error('加载图谱失败', err);
           showMessage('error', `加载图谱失败: ${err.message}`);
+          if (graphChart) {
+            try { graphChart.dispose(); } catch (e) { console.warn('dispose graphChart failed in error path', e); }
+            graphChart = null;
+          }
           chartEl.innerHTML = '';
-          if (graphChart) { graphChart.dispose(); graphChart = null; }
           graphChart = echarts.init(chartEl);
           renderGraph({ nodes: [], edges: [] });
           updateStats({ nodes: [], edges: [] });

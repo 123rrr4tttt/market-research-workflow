@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+from math import ceil
 
 from ..celery_app import celery_app
 from .projects import bind_project
@@ -157,6 +158,121 @@ def task_extract_resource_pool_from_tasks(
             since=since,
             limit=limit,
         )
+
+
+@celery_app.task(bind=True)
+def task_discover_site_entries_batched(
+    self,
+    project_key: str,
+    url_scope: str = "effective",
+    target_scope: str = "project",
+    domain: str | None = None,
+    limit_domains: int = 50,
+    probe_timeout: float = 8.0,
+    include_link_alternate: bool = True,
+    sitemap_paths: list[str] | None = None,
+    rss_paths: list[str] | None = None,
+    allow_domains: list[str] | None = None,
+    deny_domains: list[str] | None = None,
+    run_auto_classify: bool = False,
+    use_llm: bool = False,
+    write: bool = True,
+    batch_size: int = 20,
+    simplify_pool_first: bool = True,
+) -> dict:
+    from .resource_pool import (
+        discover_site_entries_from_urls,
+        list_discovery_domains,
+        simplify_site_entries,
+        write_discovered_site_entries,
+    )
+
+    ctx = bind_project(project_key) if project_key else nullcontext()
+    with ctx:
+        domains = list_discovery_domains(
+            project_key=project_key,
+            url_scope=url_scope,
+            domain=domain,
+            limit_domains=limit_domains,
+            allow_domains=allow_domains,
+            deny_domains=deny_domains,
+        )
+        batch_size = max(1, min(100, int(batch_size or 20)))
+        totals = {
+            "domains_scanned": 0,
+            "candidates_count": 0,
+            "probe_stats": {},
+            "errors": [],
+            "write_result": {"upserted": 0, "skipped": 0, "errors": []},
+            "batches_total": ceil(len(domains) / batch_size) if domains else 0,
+            "batches_completed": 0,
+            "pre_simplify": None,
+        }
+        if simplify_pool_first and write and target_scope in {"project", "shared"}:
+            try:
+                totals["pre_simplify"] = simplify_site_entries(
+                    scope=target_scope,
+                    project_key=project_key if target_scope == "project" else None,
+                    dry_run=False,
+                )
+            except Exception as exc:
+                totals["pre_simplify"] = {"error": str(exc)}
+        self.update_state(
+            state="STARTED",
+            meta={
+                "phase": "prepared",
+                "batches_total": totals["batches_total"],
+                "batches_completed": totals["batches_completed"],
+                "pre_simplify": totals["pre_simplify"],
+            },
+        )
+        for i in range(0, len(domains), batch_size):
+            batch_domains = domains[i : i + batch_size]
+            result = discover_site_entries_from_urls(
+                project_key=project_key,
+                url_scope=url_scope,
+                target_scope=target_scope,
+                domain=None,
+                limit_domains=max(len(batch_domains), 1),
+                probe_timeout=probe_timeout,
+                include_link_alternate=include_link_alternate,
+                sitemap_paths=sitemap_paths,
+                rss_paths=rss_paths,
+                allow_domains=batch_domains,
+                deny_domains=deny_domains,
+                run_auto_classify=run_auto_classify,
+                use_llm=use_llm,
+            )
+            totals["domains_scanned"] += int(result.domains_scanned or 0)
+            totals["candidates_count"] += len(result.candidates or [])
+            totals["errors"].extend(result.errors or [])
+            for k, v in (result.probe_stats or {}).items():
+                totals["probe_stats"][k] = int(totals["probe_stats"].get(k, 0)) + int(v or 0)
+            if write:
+                wr = write_discovered_site_entries(
+                    project_key=project_key,
+                    candidates=result.candidates,
+                    target_scope=target_scope,
+                    dry_run=False,
+                )
+                totals["write_result"]["upserted"] += int(wr.upserted or 0)
+                totals["write_result"]["skipped"] += int(wr.skipped or 0)
+                totals["write_result"]["errors"].extend(wr.errors or [])
+            totals["batches_completed"] += 1
+            self.update_state(
+                state="STARTED",
+                meta={
+                    "phase": "discovering",
+                    "batches_total": totals["batches_total"],
+                    "batches_completed": totals["batches_completed"],
+                    "domains_scanned": totals["domains_scanned"],
+                    "candidates_count": totals["candidates_count"],
+                    "probe_stats": totals["probe_stats"],
+                    "write_result": totals["write_result"],
+                    "pre_simplify": totals["pre_simplify"],
+                },
+            )
+        return totals
 
 
 @celery_app.task

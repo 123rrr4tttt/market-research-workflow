@@ -307,6 +307,7 @@ def get_task_info(task_id: str) -> dict:
             "successful": result.successful() if result.ready() else None,
             "failed": result.failed() if result.ready() else None,
             "result": result.result if result.ready() else None,
+            "progress": result.info if not result.ready() and isinstance(getattr(result, "info", None), dict) else None,
             "traceback": result.traceback if result.failed() else None,
         }
         

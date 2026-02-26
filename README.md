@@ -2,13 +2,13 @@
 
 > 最后更新：2026-02-26
 
-当前版本：`v0.1.0-rc.1`（预发行，团队试用）
+当前版本：`pre-release-1.5`（预发布，团队联调）
 
 本文档为项目主说明，涵盖定位、快速开始、架构与文档入口。所有路径均为**相对仓库根目录**。
 
 版本管理与协作建议见：`GIT_WORKFLOW.md`（轻量 Git 工作流）
 
-预发行试用（团队联调）：`RELEASE_NOTES_v0.1.0-rc.1.md`（v0.1.0-rc.1）
+预发布说明（团队联调）：`RELEASE_NOTES_pre-release-1.5.md`（pre-release-1.5）
 
 试用入口：
 - 管理页面：`http://localhost:8000/resource-pool-management.html`
@@ -42,7 +42,7 @@ cd "$PROJECT_DIR/ops"
 
 **访问**：OpenAPI `http://localhost:8000/docs` | 健康检查 `http://localhost:8000/api/v1/health`
 
-**试用入口**：管理页面 `http://localhost:8000/resource-pool-management.html`（资源池/来源库） | Release Notes `RELEASE_NOTES_v0.1.0-rc.1.md`
+**试用入口**：管理页面 `http://localhost:8000/resource-pool-management.html`（资源池/来源库） | Release Notes `RELEASE_NOTES_pre-release-1.5.md`
 
 **项目上下文**：部分接口（尤其资源池相关）需要 `X-Project-Key` Header 或 `project_key` 参数。
 
@@ -145,7 +145,8 @@ cd main/backend
 | `main/backend/API接口文档.md` | API 完整参考 |
 | `main/backend/docs/README.md` | 后端文档索引 |
 | `信息流优化/README.md` | 优化路线 |
-| `RELEASE_NOTES_v0.1.0-rc.1.md` | 预发行试用说明（团队联调路径、接口速查、验证清单） |
+| `RELEASE_NOTES_v0.1.0-rc.1.md` | 历史 RC 版本说明（v0.1.0-rc.1） |
+| `RELEASE_NOTES_pre-release-1.5.md` | 预发布 1.5 说明（资源库稳定化、任务展示、结构化补齐、图谱页修复） |
 | `GIT_WORKFLOW.md` | Git 工作流（轻量版） |
 
 ### 7.5 已实现能力：来源池与统一搜索

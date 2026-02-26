@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Any, Literal
 from sqlalchemy import select, func, or_, and_, nullslast, nullsfirst
 from sqlalchemy.orm import selectinload
 from datetime import datetime, date
@@ -15,6 +15,8 @@ from ..services.graph.doc_types import resolve_graph_doc_types
 from ..services.extraction.extract import extract_policy_info, extract_market_info, extract_entities_relations
 from ..services.projects import bind_project
 from ..contracts import success_response
+from ..services.ingest.adapters.http_utils import fetch_html
+from ..services.ingest.url_pool import _extract_text_from_html
 
 
 logger = logging.getLogger(__name__)
@@ -86,9 +88,25 @@ class DeleteDocumentsRequest(BaseModel):
     ids: List[int]
 
 
+def _deep_merge_json(base: Any, incoming: Any) -> Any:
+    if isinstance(base, dict) and isinstance(incoming, dict):
+        out: dict[str, Any] = dict(base)
+        for k, v in incoming.items():
+            if k in out:
+                out[k] = _deep_merge_json(out[k], v)
+            else:
+                out[k] = v
+        return out
+    return incoming
+
+
 class ReExtractRequest(BaseModel):
     doc_ids: Optional[List[int]] = None  # 如果为空，则提取所有政策文档
     force: bool = Field(default=False, description="是否强制重新提取已有数据的文档")
+    fetch_missing_content: bool = Field(default=False, description="content为空时，尝试抓取正文后再提取")
+    batch_size: int = Field(default=20, ge=1, le=200, description="分批提交大小（降低长事务）")
+    limit: Optional[int] = Field(default=None, ge=1, le=5000, description="最多处理文档数")
+    treat_empty_er_as_missing: bool = Field(default=True, description="entities_relations存在但实体/关系为空时仍视为缺失")
 
 
 @router.get("/stats")
@@ -320,6 +338,93 @@ def get_document(doc_id: int):
         })
 
 
+class UpdateExtractedDataRequest(BaseModel):
+    mode: Literal["replace", "merge"] = Field(default="replace", description="replace: 全量替换；merge: 递归合并(对象)")
+    extracted_data: Any = Field(default=None, description="要写入的 JSON 值；null 表示清空 extracted_data")
+
+
+class BulkUpdateExtractedDataRequest(BaseModel):
+    doc_ids: List[int] = Field(..., description="要更新的文档ID列表")
+    mode: Literal["replace", "merge"] = Field(default="replace", description="replace: 全量替换；merge: 递归合并(对象)")
+    extracted_data: Any = Field(default=None, description="要写入的 JSON 值；null 表示清空 extracted_data")
+
+
+@router.post("/documents/{doc_id}/extracted-data")
+def update_document_extracted_data(doc_id: int, payload: UpdateExtractedDataRequest):
+    """手动写入/合并文档 extracted_data（在库结构化结果）。"""
+    with SessionLocal() as session:
+        doc = session.execute(
+            select(Document).where(Document.id == doc_id)
+        ).scalar_one_or_none()
+
+        if not doc:
+            raise HTTPException(status_code=404, detail="文档不存在")
+
+        if payload.extracted_data is None:
+            doc.extracted_data = None
+        else:
+            if payload.mode == "merge":
+                base_val = doc.extracted_data or {}
+                if not isinstance(base_val, dict) or not isinstance(payload.extracted_data, dict):
+                    raise HTTPException(status_code=400, detail="merge 模式要求 extracted_data 为 JSON 对象(dict)")
+                doc.extracted_data = _deep_merge_json(base_val, payload.extracted_data)
+            else:
+                doc.extracted_data = payload.extracted_data
+
+        session.commit()
+        return success_response({"id": doc.id, "extracted_data": doc.extracted_data})
+
+
+@router.post("/documents/bulk/extracted-data")
+def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest):
+    """批量写入/合并文档 extracted_data。"""
+    if not payload.doc_ids:
+        raise HTTPException(status_code=400, detail="doc_ids 不能为空")
+
+    updated = 0
+    skipped = 0
+    errors: list[dict[str, Any]] = []
+
+    with SessionLocal() as session:
+        docs = (
+            session.execute(select(Document).where(Document.id.in_(payload.doc_ids)))
+            .scalars()
+            .all()
+        )
+        found_ids = {d.id for d in docs}
+        missing = [i for i in payload.doc_ids if i not in found_ids]
+
+        for doc in docs:
+            try:
+                if payload.extracted_data is None:
+                    doc.extracted_data = None
+                else:
+                    if payload.mode == "merge":
+                        base_val = doc.extracted_data or {}
+                        if not isinstance(base_val, dict) or not isinstance(payload.extracted_data, dict):
+                            skipped += 1
+                            errors.append({"id": doc.id, "error": "merge 模式要求 extracted_data 为 JSON 对象(dict)"})
+                            continue
+                        doc.extracted_data = _deep_merge_json(base_val, payload.extracted_data)
+                    else:
+                        doc.extracted_data = payload.extracted_data
+                updated += 1
+            except Exception as exc:  # noqa: BLE001
+                skipped += 1
+                errors.append({"id": doc.id, "error": str(exc)})
+
+        session.commit()
+
+    return success_response(
+        {
+            "requested": len(payload.doc_ids),
+            "updated": updated,
+            "skipped": skipped,
+            "missing": missing,
+            "errors": errors,
+        }
+    )
+
 @router.post("/documents/delete")
 def delete_documents(payload: DeleteDocumentsRequest):
     """删除文档"""
@@ -340,73 +445,98 @@ def delete_documents(payload: DeleteDocumentsRequest):
 @router.post("/documents/re-extract")
 def re_extract_documents(payload: ReExtractRequest):
     """重新提取文档的结构化数据"""
+    from ..services.extraction.application import ExtractionApplicationService
+    extraction_app = ExtractionApplicationService()
+    target_doc_types = ["policy", "policy_regulation", "market", "market_info", "social_sentiment", "social_feed"]
     with SessionLocal() as session:
         # 确定要提取的文档
         if payload.doc_ids:
-            query = select(Document).where(
-                Document.id.in_(payload.doc_ids),
-                Document.content.isnot(None)
-            )
+            conditions = [Document.id.in_(payload.doc_ids)]
+            if not bool(payload.fetch_missing_content):
+                conditions.append(Document.content.isnot(None))
+            query = select(Document).where(and_(*conditions))
         else:
-            # 提取所有政策和市场文档
+            # 提取主干常见可结构化文档（政策/市场/社媒）
             conditions = [
-                Document.doc_type.in_(["policy", "market"]),
+                Document.doc_type.in_(target_doc_types),
                 Document.content.isnot(None)
             ]
             if not payload.force:
-                conditions.append(Document.extracted_data.is_(None))
+                # 先用 DB 层粗过滤，细过滤在 Python 里做（支持“空 ER 也算缺失”）
+                pass
             query = select(Document).where(and_(*conditions))
         
+        if payload.limit:
+            query = query.limit(int(payload.limit))
         docs = session.execute(query).scalars().all()
+        if not payload.force:
+            filtered_docs: list[Document] = []
+            for d in docs:
+                ex = d.extracted_data if isinstance(d.extracted_data, dict) else {}
+                if not ex:
+                    filtered_docs.append(d)
+                    continue
+                if bool(payload.treat_empty_er_as_missing):
+                    er = ex.get("entities_relations")
+                    has_er = isinstance(er, dict) and bool((er.get("entities") or []) or (er.get("relations") or []))
+                    if not has_er:
+                        filtered_docs.append(d)
+            docs = filtered_docs
         
         success_count = 0
         error_count = 0
         skipped_count = 0
         
+        pending = 0
         for doc in docs:
             try:
-                if not doc.content:
-                    skipped_count += 1
-                    continue
-                
+                content_text = (doc.content or "").strip()
+                text_for_extract = content_text
+                if not text_for_extract and bool(payload.fetch_missing_content):
+                    try:
+                        uri = str(doc.uri or "").strip()
+                        if uri:
+                            html, _resp = fetch_html(uri, timeout=12.0, retries=1)
+                            content_text = (_extract_text_from_html(html) or "").strip()
+                            text_for_extract = content_text
+                            if content_text:
+                                doc.content = content_text
+                    except Exception as fetch_err:  # noqa: BLE001
+                        logger.warning("re_extract fetch_content failed doc_id=%s url=%s err=%s", doc.id, doc.uri, fetch_err)
+
+                # Unified prompt text: title + summary + content (or fallback if no正文)
+                title_text = (doc.title or "").strip()
+                summary_text = (doc.summary or "").strip()
+                parts = [x for x in [title_text, summary_text, content_text] if x]
+                if parts:
+                    text_for_extract = "\n\n".join(parts)
+                elif not text_for_extract:
+                    text_for_extract = ""
+
                 # 提取结构化信息
                 extracted_data = None
                 
-                if doc.doc_type == "policy":
-                    # 提取政策信息
-                    policy_info = extract_policy_info(doc.content)
-                    if policy_info:
-                        extracted_data = {"policy": policy_info}
-                    
-                    # 提取实体和关系
-                    er_data = extract_entities_relations(doc.content)
-                    if er_data:
-                        if extracted_data is None:
-                            extracted_data = {}
-                        extracted_data["entities_relations"] = er_data
-                
-                elif doc.doc_type == "market":
-                    # 提取市场数据信息
-                    market_info = extract_market_info(doc.content)
-                    if market_info:
-                        extracted_data = {"market": market_info}
-                    
-                    # 提取实体和关系
-                    er_data = extract_entities_relations(doc.content)
-                    if er_data:
-                        if extracted_data is None:
-                            extracted_data = {}
-                        extracted_data["entities_relations"] = er_data
+                dt = str(doc.doc_type or "").strip().lower()
+                if dt in {"policy", "policy_regulation"}:
+                    extracted_data = extraction_app.extract_structured_enriched(text_for_extract, include_policy=True)
+                elif dt in {"market", "market_info"}:
+                    extracted_data = extraction_app.extract_structured_enriched(text_for_extract, include_market=True)
+                elif dt in {"social_sentiment", "social_feed"}:
+                    extracted_data = extraction_app.extract_structured_enriched(text_for_extract, include_sentiment=True)
                 
                 if extracted_data:
                     doc.extracted_data = extracted_data
                     success_count += 1
+                    pending += 1
                 else:
                     skipped_count += 1
                     
             except Exception as e:
                 logger.warning(f"re_extract failed doc_id={doc.id} err={e}")
                 error_count += 1
+            if pending >= int(payload.batch_size):
+                session.commit()
+                pending = 0
         
         session.commit()
         
@@ -415,6 +545,9 @@ def re_extract_documents(payload: ReExtractRequest):
             "success": success_count,
             "error": error_count,
             "skipped": skipped_count,
+            "fetch_missing_content": bool(payload.fetch_missing_content),
+            "batch_size": int(payload.batch_size),
+            "treat_empty_er_as_missing": bool(payload.treat_empty_er_as_missing),
         })
 
 

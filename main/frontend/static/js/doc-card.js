@@ -28,7 +28,9 @@
       ? extracted.entities
       : Array.isArray(entRel.entities)
         ? entRel.entities
-        : [];
+        : Array.isArray(entRel.nodes)
+          ? entRel.nodes
+          : [];
     const keywords = Array.isArray(extracted.keywords)
       ? extracted.keywords
       : Array.isArray(sentiment.keywords)
@@ -140,7 +142,23 @@
     }
 
     // Entity relations (for policy/market)
-    const relList = Array.isArray(entRel.relations) ? entRel.relations : [];
+    const relList = Array.isArray(entRel.relations)
+      ? entRel.relations
+      : Array.isArray(entRel.edges)
+        ? entRel.edges
+        : [];
+    // Graph edges/nodes (generic graph payload)
+    const graph = extracted.graph || extracted.graph_data || {};
+    const graphEdges =
+      (Array.isArray(graph.edges) && graph.edges) ||
+      (Array.isArray(extracted.graph_edges) && extracted.graph_edges) ||
+      (Array.isArray(extracted.edges) && extracted.edges) ||
+      [];
+    const graphNodes =
+      (Array.isArray(graph.nodes) && graph.nodes) ||
+      (Array.isArray(extracted.graph_nodes) && extracted.graph_nodes) ||
+      (Array.isArray(extracted.nodes) && extracted.nodes) ||
+      [];
     if (relList.length > 0) {
       html += '<div class="extracted-section"><h3>🔗 实体关系</h3><div class="relation-list">';
       relList.forEach((r) => {
@@ -150,6 +168,33 @@
         if (subj || pred || obj) html += `<div class="relation-item">${esc(subj)} <strong>${esc(pred)}</strong> ${esc(obj)}</div>`;
       });
       html += "</div></div>";
+    }
+
+    // Generic graph nodes/edges
+    if (graphNodes.length > 0 || graphEdges.length > 0) {
+      html += '<div class="extracted-section"><h3>🕸️ 图谱</h3>';
+      if (graphNodes.length > 0) {
+        html += '<div style="margin-bottom:8px;"><label style="display:block;font-size:12px;color:#6b7280;margin-bottom:6px;font-weight:500;">节点</label><div class="tag-list">';
+        graphNodes.slice(0, 60).forEach((n) => {
+          const name = n.label || n.name || n.id || "";
+          const typ = n.type || n.kind || "";
+          html += `<span class="tag-item" style="background:#eef2ff;color:#312e81;border-color:#c7d2fe;" title="${esc(typ)}">${esc(String(name))}</span>`;
+        });
+        if (graphNodes.length > 60) html += `<span class="tag-item" style="background:#f1f5f9;color:#475569;">+${graphNodes.length - 60}</span>`;
+        html += "</div></div>";
+      }
+      if (graphEdges.length > 0) {
+        html += '<div><label style="display:block;font-size:12px;color:#6b7280;margin-bottom:6px;font-weight:500;">边</label><div class="relation-list">';
+        graphEdges.slice(0, 60).forEach((e) => {
+          const src = e.source || e.src || e.from || "";
+          const tgt = e.target || e.tgt || e.to || "";
+          const rel = e.label || e.relation || e.pred || "";
+          html += `<div class="relation-item">${esc(src)} <strong>${esc(rel || "→")}</strong> ${esc(tgt)}</div>`;
+        });
+        if (graphEdges.length > 60) html += `<div class="relation-item muted">... 还有 ${graphEdges.length - 60} 条</div>`;
+        html += "</div></div>";
+      }
+      html += "</div>";
     }
 
     html += "</div>";

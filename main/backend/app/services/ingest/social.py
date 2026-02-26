@@ -12,7 +12,10 @@ from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ...models.base import SessionLocal
 from ...models.entities import Document
 from .adapters.social_reddit import RedditAdapter
+from .adapters.http_utils import fetch_html
+from .url_pool import _extract_text_from_html
 from ..llm.extraction import extract_structured_sentiment, extract_policy_info
+from ..extraction.application import ExtractionApplicationService
 from ..keyword_generation import generate_social_keywords
 from .doc_type_mapper import normalize_doc_type
 from .keyword_library import (
@@ -23,6 +26,7 @@ from .keyword_library import (
 
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
+_EXTRACTION_APP = ExtractionApplicationService()
 
 
 def collect_user_social_sentiment(
@@ -187,19 +191,9 @@ def collect_user_social_sentiment(
                     }
                     
                     if enable_extraction:
-                        sentiment_info = extract_structured_sentiment(post.text)
-                        if sentiment_info:
-                            extracted_data["sentiment"] = sentiment_info
-                            
-                            # 从sentiment中提取keywords（使用key_phrases作为关键词）
-                            if sentiment_info.get("key_phrases"):
-                                extracted_data["keywords"] = sentiment_info["key_phrases"]
-                        
-                        # 提取实体和关系（用于图谱构建）
-                        from ..extraction.extract import extract_entities_relations
-                        er_data = extract_entities_relations(post.text)
-                        if er_data and er_data.get("entities"):
-                            extracted_data["entities"] = er_data["entities"]
+                        enriched = _EXTRACTION_APP.extract_structured_enriched(post.text or "", include_sentiment=True)
+                        if enriched:
+                            extracted_data.update(enriched)
                     
                     document = Document(
                         source_id=source_id,
@@ -321,15 +315,25 @@ def collect_policy_and_regulation(
 
                 title = item.get("title") or ""
                 snippet = item.get("snippet") or ""
+                content = None
+                try:
+                    html, _ = fetch_html(link, timeout=8.0, retries=1)
+                    text = (_extract_text_from_html(html) or "").strip()
+                    if text:
+                        content = text
+                except Exception:
+                    content = None
 
                 extracted_data = {
                     "platform": item.get("source") or provider,
                     "keyword": item.get("keyword"),
                 }
                 if enable_extraction:
-                    text_to_extract = f"{title}\n\n{snippet}"
-                    policy_info = extract_policy_info(text_to_extract)
-                    if policy_info:
+                    text_to_extract = "\n\n".join([x for x in [title.strip(), snippet.strip(), (content or "").strip()] if x])
+                    enriched = _EXTRACTION_APP.extract_structured_enriched(text_to_extract, include_policy=True)
+                    if enriched:
+                        extracted_data.update(enriched)
+                    elif (policy_info := extract_policy_info(text_to_extract)):
                         extracted_data["policy"] = policy_info
 
                 document = Document(
@@ -339,6 +343,7 @@ def collect_policy_and_regulation(
                     title=title,
                     summary=snippet,
                     publish_date=None,
+                    content=content,
                     uri=link,
                     extracted_data=extracted_data,
                 )

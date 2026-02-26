@@ -804,31 +804,13 @@ def store_results(
                 extracted_data = None
                 if content:
                     try:
+                        from ..extraction.application import ExtractionApplicationService
+                        extraction_app = ExtractionApplicationService()
                         if kind == "policy":
-                            # 提取政策信息
-                            policy_info = extract_policy_info(content)
-                            if policy_info:
-                                extracted_data = {"policy": policy_info}
-                            
-                            # 提取实体和关系（Phase 2.5）
-                            er_data = extract_entities_relations(content)
-                            if er_data:
-                                if extracted_data is None:
-                                    extracted_data = {}
-                                extracted_data["entities_relations"] = er_data
+                            extracted_data = extraction_app.extract_structured_enriched(content, include_policy=True)
                         
                         elif kind == "market":
-                            # 提取市场数据信息
-                            market_info = extract_market_info(content)
-                            if market_info:
-                                extracted_data = {"market": market_info}
-                            
-                            # 提取实体和关系（Phase 2.5）
-                            er_data = extract_entities_relations(content)
-                            if er_data:
-                                if extracted_data is None:
-                                    extracted_data = {}
-                                extracted_data["entities_relations"] = er_data
+                            extracted_data = extraction_app.extract_structured_enriched(content, include_market=True)
                     except Exception as e:
                         logger.warning("discovery.store extraction failed url=%s err=%s", link, e)
                 
@@ -869,5 +851,3 @@ def store_results(
             logger.warning("discovery.store index failed ids=%s err=%s", policy_to_index, exc)
 
     return {"inserted": inserted, "updated": updated, "skipped": skipped, "store_available": True}
-
-

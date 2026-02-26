@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qsl, quote_plus, urlencode, urljoin, urlsplit, urlunsplit
@@ -276,6 +277,51 @@ def unified_search_by_item(
     if not item:
         raise ValueError(f"source item not found: {item_key}")
 
+    return unified_search_by_item_payload(
+        project_key=project_key,
+        item=item,
+        query_terms=terms,
+        max_candidates=max_candidates,
+        write_to_pool=write_to_pool,
+        pool_scope=pool_scope,
+        pool_source=pool_source,
+        probe_timeout=probe_timeout,
+        auto_ingest=auto_ingest,
+        ingest_limit=ingest_limit,
+    )
+
+
+def unified_search_by_item_payload(
+    *,
+    project_key: str,
+    item: dict[str, Any],
+    query_terms: list[str] | str,
+    max_candidates: int = 200,
+    write_to_pool: bool = False,
+    pool_scope: str = "project",
+    pool_source: str = "unified_search",
+    probe_timeout: float = 10.0,
+    auto_ingest: bool = False,
+    ingest_limit: int = 10,
+) -> UnifiedSearchResult:
+    terms = _as_terms(query_terms)
+    item_key = str(item.get("item_key") or "").strip()
+    if not item_key:
+        raise ValueError("item.item_key is required")
+    if not project_key:
+        raise ValueError("project_key is required")
+    max_candidates = min(max(1, int(max_candidates)), 2000)
+    if pool_scope not in {"project", "shared"}:
+        pool_scope = "project"
+
+    params = item.get("params") or {}
+    if not isinstance(params, dict):
+        params = {}
+    extra = item.get("extra") or {}
+    if not isinstance(extra, dict):
+        extra = {}
+    expected_entry_type = str(params.get("expected_entry_type") or extra.get("expected_entry_type") or "").strip().lower()
+
     site_entry_urls = _resolve_item_site_entries(item)
     if not site_entry_urls:
         raise ValueError("item.params.site_entries is required and cannot be empty for unified search")
@@ -292,7 +338,9 @@ def unified_search_by_item(
 
     joined_q = quote_plus(" ".join(terms)) if terms else ""
 
-    for su in site_entry_urls:
+    def _process_site_entry(su: str) -> dict[str, Any]:
+        local_errors: list[dict[str, str]] = []
+        local_candidates: list[tuple[str, dict[str, Any]]] = []
         try:
             entry = get_site_entry_by_url(scope="effective", project_key=project_key, site_url=su) or {
                 "site_url": su,
@@ -301,23 +349,35 @@ def unified_search_by_item(
                 "template": None,
                 "scope": None,
             }
-            used_entries.append(entry)
             etype = str(entry.get("entry_type") or "domain_root").strip().lower()
+            if expected_entry_type and etype != expected_entry_type:
+                local_errors.append(
+                    {
+                        "site_url": su,
+                        "error": f"entry_type mismatch: expected={expected_entry_type}, actual={etype}",
+                    }
+                )
+                return {"entry": entry, "candidates": local_candidates, "errors": local_errors}
+
             base_url = str(entry.get("site_url") or su)
             template = entry.get("template")
             entry_domain = (entry.get("domain") or domain_from_url(base_url) or "").strip().lower()
+
+            def _push_local(u: str, *, ref: dict[str, Any]) -> None:
+                if u:
+                    local_candidates.append((u, ref))
 
             if etype == "rss":
                 xml_text, _ = fetch_html(base_url, timeout=probe_timeout, retries=1)
                 urls = _extract_urls_from_rss_xml(xml_text)
                 for u in _filter_urls_by_terms(urls, terms):
-                    _push(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "rss"})
+                    _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "rss"})
             elif etype == "sitemap":
                 urls = _collect_sitemap_urls(sitemap_url=base_url, timeout=probe_timeout)
                 for u in _filter_urls_by_terms(urls, terms):
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
                         continue
-                    _push(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "sitemap"})
+                    _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "sitemap"})
             elif etype == "search_template":
                 tpl = str(template or base_url).strip()
                 if "{{q}}" not in tpl:
@@ -328,17 +388,27 @@ def unified_search_by_item(
                 for u in _filter_urls_by_terms(urls, terms):
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
                         continue
-                    _push(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "search_template"})
-            else:
-                # domain_root / official_api: skip for MVP
-                pass
+                    _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "search_template"})
+            return {"entry": entry, "candidates": local_candidates, "errors": local_errors}
         except HttpFetchError as exc:
-            errors.append({"site_url": su, "error": str(exc)})
+            local_errors.append({"site_url": su, "error": str(exc)})
         except Exception as exc:  # noqa: BLE001
-            errors.append({"site_url": su, "error": str(exc)})
+            local_errors.append({"site_url": su, "error": str(exc)})
+        return {"entry": None, "candidates": local_candidates, "errors": local_errors}
 
-        if len(candidates) >= max_candidates:
-            break
+    max_workers = max(1, min(8, len(site_entry_urls)))
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = [ex.submit(_process_site_entry, su) for su in site_entry_urls]
+        for fut in as_completed(futures):
+            res = fut.result()
+            entry = res.get("entry")
+            if isinstance(entry, dict):
+                used_entries.append(entry)
+            for e in res.get("errors") or []:
+                if isinstance(e, dict):
+                    errors.append(e)
+            for u, ref in (res.get("candidates") or []):
+                _push(u, ref=ref)
 
     candidates = candidates[:max_candidates]
 
@@ -387,4 +457,3 @@ def unified_search_by_item(
         ingest_result=ingest_result,
         errors=errors,
     )
-

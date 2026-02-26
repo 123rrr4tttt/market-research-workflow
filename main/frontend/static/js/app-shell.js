@@ -62,15 +62,45 @@
 
   function buildApiError(response, payload, fallbackMessage) {
     const fromEnvelope = payload && payload.error ? payload.error : null;
-    const err = new Error(
+    const payloadDetail = payload && typeof payload === "object" ? String(payload.detail || "") : "";
+    const envelopeMessage = fromEnvelope && fromEnvelope.message ? String(fromEnvelope.message) : "";
+    const projectKey = getProjectKey();
+    const rawMessage = envelopeMessage || payloadDetail || "";
+    const looksLikeUndefinedTable =
+      /UndefinedTable|relation\s+\"[^\"]+\"\s+does\s+not\s+exist/i.test(rawMessage);
+    const looksLikeProjectInitIssue =
+      looksLikeUndefinedTable ||
+      (
+        response &&
+        [400, 500, 503].includes(response.status) &&
+        projectKey &&
+        /数据库服务不可用|数据库连接失败/i.test(rawMessage)
+      );
+
+    let message =
       fromEnvelope && fromEnvelope.message
         ? fromEnvelope.message
-        : fallbackMessage || `HTTP ${response ? response.status : 0}`
+        : fallbackMessage || `HTTP ${response ? response.status : 0}`;
+
+    if (looksLikeProjectInitIssue) {
+      const target = projectKey || "当前项目";
+      const isDefault = target === "default";
+      message = isDefault
+        ? "当前项目 default 尚未初始化（缺少项目表）。请切换到已初始化项目（如 demo_proj）或先初始化 default。"
+        : `项目 ${target} 可能尚未初始化（缺少项目表）。请先初始化该项目或切换到已初始化项目。`;
+    }
+
+    const err = new Error(
+      message
     );
     err.httpStatus = response ? response.status : 0;
     err.code = fromEnvelope && fromEnvelope.code ? fromEnvelope.code : "HTTP_ERROR";
     err.details = fromEnvelope && fromEnvelope.details ? fromEnvelope.details : {};
     err.raw = payload;
+    if (looksLikeProjectInitIssue) {
+      err.code = "PROJECT_NOT_INITIALIZED";
+      err.projectKey = projectKey;
+    }
     return err;
   }
 

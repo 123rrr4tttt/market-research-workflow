@@ -113,13 +113,15 @@
         </section>
         <section class="grid" style="margin-bottom: 12px;">
           <div class="card">
-            <h2 class="section-title">通道聚类（channels 按 provider）</h2>
-            <p class="muted" style="margin-bottom: 8px;">按工具类型（provider）分组，便于 handler 管理。</p>
+            <h2 class="section-title">Item Handler 聚类（按 entry_type 分组视图）</h2>
+            <p class="muted" style="margin-bottom: 8px;">保留 handler 聚类视图（按 site_entries 的 entry_type 分组）。可将某个 item 同步为 handler 维护模式，并按同类站点入口增量刷新。</p>
             <div class="section-toolbar">
+              <input id="itemChannelClusterSearch" type="text" placeholder="搜索 handler / item_key / 名称..." style="min-width: 260px;" />
               <div class="spacer"></div>
-              <button id="btnLoadChannelCluster" class="secondary"><i data-lucide="git-branch"></i>加载</button>
+              <button id="btnSyncAllHandlerClusters" class="secondary"><i data-lucide="layers"></i>生成/更新全部 Handler 聚类</button>
+              <button id="btnLoadItemChannelCluster" class="secondary"><i data-lucide="refresh-cw"></i>更新</button>
             </div>
-            <div id="channelClusterWrap" class="table-wrap" style="margin-top: 12px; max-height: 240px; overflow: auto;"></div>
+            <div id="itemChannelClusterWrap" class="table-wrap" style="margin-top: 12px; max-height: 240px; overflow: auto;"></div>
           </div>
         </section>
 
@@ -604,6 +606,7 @@
       let PROJECTS = [];
       let CACHED_CHANNELS = [];
       let CACHED_ITEMS = [];
+      let CACHED_ITEM_CHANNEL_CLUSTER = {};
       let CACHED_SITE_ENTRIES = [];
 
       function getProjectKey() {
@@ -931,6 +934,7 @@
           renderChannelsTable(CACHED_CHANNELS);
           renderItemsList(CACHED_ITEMS);
           refreshItemSelectors();
+          void loadItemChannelCluster();
           setSuccess("sourceStatus", `已加载：channels=${CACHED_CHANNELS.length}, items=${CACHED_ITEMS.length}`);
         } catch (err) {
           setError("sourceStatus", "加载失败: " + (err.message || err));
@@ -970,24 +974,135 @@
         }
       }
 
-      async function loadChannelCluster() {
-        const scope = qs("scopeSource").value || "effective";
+      function renderItemChannelCluster(byChannel, keyword) {
+        const wrap = qs("itemChannelClusterWrap");
+        if (!wrap) return;
+        const grouped = byChannel || {};
+        const q = String(keyword || "").trim().toLowerCase();
+        const keys = Object.keys(grouped).sort();
+        if (!keys.length) {
+          wrap.innerHTML = "<p class=\"muted\">暂无数据</p>";
+          return;
+        }
+        const html = keys.map((channelKey) => {
+          const items = Array.isArray(grouped[channelKey]) ? grouped[channelKey] : [];
+          const filtered = q
+            ? items.filter((it) => {
+                const hay = `${it.channel_key || ""} ${it.item_key || ""} ${it.name || ""}`.toLowerCase();
+                return hay.includes(q);
+              })
+            : items;
+          if (q && !String(channelKey).toLowerCase().includes(q) && !filtered.length) return "";
+          const countLabel = q ? `${filtered.length} / ${items.length}` : String(items.length);
+          const rows = filtered.map((it) => `
+            <tr>
+              <td><code>${escapeHtml(it.item_key || "-")}</code></td>
+              <td>${escapeHtml(it.name || "-")}</td>
+              <td>${it.enabled ? '<span class="badge success">启用</span>' : '<span class="badge warning">禁用</span>'}</td>
+              <td style="white-space: nowrap;">
+                <button class="secondary btn-item-cluster-pick" data-key="${escapeHtml(it.item_key || "")}">定位</button>
+                <button class="secondary btn-item-cluster-refresh" data-key="${escapeHtml(it.item_key || "")}" data-handler="${escapeHtml(channelKey)}">同步并刷新</button>
+              </td>
+            </tr>
+          `).join("");
+          return `<div style="margin-bottom: 12px;">
+            <strong><code>${escapeHtml(channelKey)}</code></strong> (${countLabel})
+            ${rows ? `<table><tbody>${rows}</tbody></table>` : `<p class="muted" style="margin: 6px 0 0 0;">该分组无匹配项</p>`}
+          </div>`;
+        }).filter(Boolean).join("");
+        wrap.innerHTML = html || "<p class=\"muted\">无匹配结果</p>";
+        wrap.querySelectorAll(".btn-item-cluster-pick").forEach((btn) => {
+          btn.addEventListener("click", () => selectItem(btn.dataset.key || ""));
+        });
+        wrap.querySelectorAll(".btn-item-cluster-refresh").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            await syncAndRefreshHandlerItem(String(btn.dataset.key || ""), String(btn.dataset.handler || ""));
+          });
+        });
+      }
+
+      async function syncAndRefreshHandlerItem(itemKey, handlerKey) {
         const pk = getProjectKey();
         if (!pk) { setError("sourceStatus", "请先选择项目"); return; }
-        const wrap = qs("channelClusterWrap");
+        if (!itemKey) { setError("sourceStatus", "item_key 不能为空"); return; }
+        if (!handlerKey || handlerKey === "url_routing") {
+          setError("sourceStatus", "仅支持 entry_type handler（不支持 url_routing）");
+          return;
+        }
+        const target = CACHED_ITEMS.find((x) => String(x.item_key || "") === itemKey);
+        if (!target) {
+          setError("sourceStatus", `未在缓存中找到 item: ${itemKey}，请先刷新来源项`);
+          return;
+        }
+        const extra = (target.extra && typeof target.extra === "object") ? { ...target.extra } : {};
+        extra.creation_handler = "handler.entry_type";
+        extra.expected_entry_type = handlerKey;
+        if (extra.auto_maintain == null) extra.auto_maintain = true;
+        const upsertPayload = {
+          item_key: target.item_key,
+          name: target.name || target.item_key,
+          channel_key: target.channel_key,
+          description: target.description || null,
+          params: (target.params && typeof target.params === "object") ? target.params : {},
+          tags: Array.isArray(target.tags) ? target.tags : [],
+          schedule: target.schedule || null,
+          extends_item_key: target.extends_item_key || null,
+          enabled: target.enabled !== false,
+          extra,
+        };
+        setLoading("sourceStatus", `同步并刷新 ${itemKey} (${handlerKey})...`);
         try {
-          const d = await window.MarketApp.api.get(`/api/v1/source_library/channels/grouped?scope=${encodeURIComponent(scope)}&project_key=${encodeURIComponent(pk)}`);
-          const byProvider = d?.by_provider || {};
-          const keys = Object.keys(byProvider).sort();
-          if (!keys.length) { wrap.innerHTML = "<p class=\"muted\">暂无数据</p>"; return; }
-          const html = keys.map((prov) => {
-            const chs = byProvider[prov] || [];
-            const rows = chs.map((ch) => `<tr><td><code>${escapeHtml(ch.channel_key)}</code></td><td>${escapeHtml(ch.name || "-")}</td><td>${escapeHtml(ch.kind || "-")}</td></tr>`).join("");
-            return `<div style="margin-bottom: 12px;"><strong>${escapeHtml(prov)}</strong> (${chs.length})<table><tbody>${rows}</tbody></table></div>`;
-          }).join("");
-          wrap.innerHTML = html;
+          await window.MarketApp.api.post(`/api/v1/source_library/items?project_key=${encodeURIComponent(pk)}`, upsertPayload);
+          const refreshResult = await window.MarketApp.api.post(`/api/v1/source_library/items/${encodeURIComponent(itemKey)}/refresh`, {
+            project_key: pk,
+            incremental: true,
+            max_site_entries: 500,
+          });
+          const added = refreshResult?.added ?? "-";
+          const after = refreshResult?.site_entries_after ?? "-";
+          setSuccess("sourceStatus", `已同步为 handler 模式并刷新：item=${itemKey}，handler=${handlerKey}，新增=${added}，总数=${after}`);
+          await refreshSourceData();
+          if (String(qs("itemKey")?.value || "") === itemKey) {
+            selectItem(itemKey);
+          }
         } catch (err) {
-          wrap.innerHTML = "<p class=\"muted\">加载失败: " + (err.message || err) + "</p>";
+          setError("sourceStatus", "同步/刷新失败: " + (err.message || err));
+        }
+      }
+
+      async function loadItemChannelCluster() {
+        const scope = qs("scopeSource").value || "effective";
+        const pk = getProjectKey();
+        const wrap = qs("itemChannelClusterWrap");
+        if (!pk) { setError("sourceStatus", "请先选择项目"); return; }
+        if (wrap) wrap.innerHTML = "<p class=\"muted\">加载中...</p>";
+        try {
+          const d = await window.MarketApp.api.get(`/api/v1/source_library/items/grouped?scope=${encodeURIComponent(scope)}&project_key=${encodeURIComponent(pk)}`);
+          CACHED_ITEM_CHANNEL_CLUSTER = d?.by_handler || {};
+          renderItemChannelCluster(CACHED_ITEM_CHANNEL_CLUSTER, qs("itemChannelClusterSearch")?.value || "");
+        } catch (err) {
+          if (wrap) wrap.innerHTML = "<p class=\"muted\">加载失败: " + (err.message || err) + "</p>";
+        }
+      }
+
+      async function syncAllHandlerClusters() {
+        const pk = getProjectKey();
+        if (!pk) { setError("sourceStatus", "请先选择项目"); return; }
+        setLoading("sourceStatus", "生成/更新 Handler 聚类中...");
+        try {
+          const result = await window.MarketApp.api.post("/api/v1/source_library/handler_clusters/sync", {
+            project_key: pk,
+            incremental: true,
+            max_site_entries: 500,
+          });
+          const handlerCount = Number(result?.handler_count || 0);
+          const rows = Array.isArray(result?.results) ? result.results : [];
+          const added = rows.reduce((sum, r) => sum + Number(r?.added || 0), 0);
+          setSuccess("sourceStatus", `已生成/更新 ${formatNumber(handlerCount)} 个 handler 聚类 item，新增入口 ${formatNumber(added)}`);
+          await refreshSourceData();
+          await loadItemChannelCluster();
+        } catch (err) {
+          setError("sourceStatus", "生成/更新 Handler 聚类失败: " + (err.message || err));
         }
       }
 
@@ -1763,7 +1878,9 @@
       qs("scopeNews").addEventListener("change", loadNews);
       qs("btnRefreshSource")?.addEventListener("click", refreshSourceData);
       qs("scopeSource")?.addEventListener("change", refreshSourceData);
-      qs("btnLoadChannelCluster")?.addEventListener("click", loadChannelCluster);
+      qs("btnLoadItemChannelCluster")?.addEventListener("click", loadItemChannelCluster);
+      qs("btnSyncAllHandlerClusters")?.addEventListener("click", syncAllHandlerClusters);
+      qs("itemChannelClusterSearch")?.addEventListener("input", (e) => renderItemChannelCluster(CACHED_ITEM_CHANNEL_CLUSTER, e.target.value));
       qs("btnUpsertItem")?.addEventListener("click", upsertProjectItem);
       qs("btnOpenSiteEntryPicker")?.addEventListener("click", openSiteEntryPicker);
       qs("btnOpenSiteEntryPickerForUrls")?.addEventListener("click", openSiteEntryPicker);

@@ -90,29 +90,11 @@
         <h2 class="section-title">采集快捷入口</h2>
 
         <div class="ingest-partition">
-          <h3 class="partition-title"><i data-lucide="database" style="width: 16px; height: 16px; vertical-align: middle;"></i> 来源库查询</h3>
-          <div class="toolbar">
-            <label for="sourceLibraryItem">来源库项</label>
-            <select id="sourceLibraryItem" style="min-width: 320px;"></select>
-            <button id="btnSyncSourceLibrary" class="btn">同步来源库</button>
-            <button id="btnRunSourceLibraryItem" class="btn btn-primary">运行来源库项</button>
-            <button id="btnPolicy"><i data-lucide="download-cloud"></i> 政策采集</button>
-          </div>
-          <p class="hint">选择来源库项执行采集；政策采集依赖所选来源库项的 state 配置。</p>
-        </div>
-
-        <div class="ingest-partition">
-          <h3 class="partition-title"><i data-lucide="search" style="width: 16px; height: 16px; vertical-align: middle;"></i> 一般查询</h3>
+          <h3 class="partition-title"><i data-lucide="sliders-horizontal" style="width: 16px; height: 16px; vertical-align: middle;"></i> 通用检索设置</h3>
           <div class="toolbar">
             <label for="queryTerms">查询词</label>
             <input id="queryTerms" placeholder="输入查询词，逗号分隔" style="min-width: 280px;" />
             <button id="btnSuggestKeywords" class="secondary" title="调用子项目联想服务，获得联想词后确认搜索">获取联想词</button>
-            <label for="maxItems">每查询词结果数</label>
-            <input id="maxItems" type="number" min="1" max="100" value="20" style="width: 90px;" />
-            <label for="startOffset">起始偏移</label>
-            <input id="startOffset" type="number" min="1" max="91" placeholder="1" style="width: 70px;" title="1=第1条,11=第2页,留空从第1条" />
-            <label for="daysBack">时间范围(天)</label>
-            <input id="daysBack" type="number" min="1" max="365" placeholder="-" style="width: 70px;" title="仅搜最近N天,留空不限制" />
             <label for="searchLanguageBtn">语言</label>
             <div id="searchLanguageMulti" class="multi-select" aria-label="语言多选下拉">
               <button id="searchLanguageBtn" type="button" class="multi-select-btn">默认</button>
@@ -131,31 +113,81 @@
               <option value="serpapi">serpapi</option>
               <option value="auto">auto</option>
             </select>
-            <label for="commodityLimit">商品天数</label>
-            <input id="commodityLimit" type="number" min="1" max="365" value="30" style="width: 90px;" title="每个指标抓取的历史天数" />
-            <label for="ecomLimit">电商条数</label>
-            <input id="ecomLimit" type="number" min="1" max="500" value="100" style="width: 90px;" title="最大商品数量" />
             <label for="asyncMode">异步</label>
             <input id="asyncMode" type="checkbox" />
           </div>
+          <div class="toolbar">
+            <label for="maxItems">每查询词结果数</label>
+            <input id="maxItems" type="number" min="1" max="100" value="20" style="width: 90px;" />
+            <label for="startOffset">起始偏移</label>
+            <input id="startOffset" type="number" min="1" max="91" placeholder="1" style="width: 70px;" title="1=第1条,11=第2页,留空从第1条" />
+            <label for="daysBack">时间范围(天)</label>
+            <input id="daysBack" type="number" min="1" max="365" placeholder="-" style="width: 70px;" title="仅搜最近N天,留空不限制" />
+            <label for="enableExtraction">结构化提取</label>
+            <input id="enableExtraction" type="checkbox" checked />
+          </div>
+          <p class="hint">通用查询词/语言/联想词与检索参数会被政策法规、市场、舆情采集复用；运行来源库项时也会作为覆盖参数传入。</p>
+        </div>
+
+        <div class="ingest-partition">
+          <h3 class="partition-title"><i data-lucide="database" style="width: 16px; height: 16px; vertical-align: middle;"></i> 来源库项运行</h3>
+          <div class="toolbar">
+            <label for="sourceLibraryItem">来源库项</label>
+            <select id="sourceLibraryItem" style="min-width: 320px;"></select>
+            <label for="sourceLibraryHandlerSelect">Handler 聚类（entry_type）</label>
+            <select id="sourceLibraryHandlerSelect" style="min-width: 220px;">
+              <option value="">(选择 Handler 聚类)</option>
+            </select>
+            <span id="sourceLibraryHandlerDebug" class="hint" style="margin-left: 6px;"></span>
+            <button id="btnSyncSourceLibrary" class="btn">同步来源库</button>
+            <button id="btnRunSourceLibraryItem" class="btn btn-primary">运行来源库项</button>
+            <button id="btnRunSourceLibraryHandler" class="btn">运行 Handler 聚类</button>
+          </div>
+          <p class="hint">可传 `item_key` 或 `handler_key`（二选一，`handler_key` 为来源库 item 的 entry_type 聚类，如 `rss` / `sitemap` / `search_template`）。使用上方通用检索设置作为 `override_params`；查询词会透传到执行任务。</p>
+        </div>
+
+        <div class="ingest-partition">
+          <h3 class="partition-title"><i data-lucide="scroll-text" style="width: 16px; height: 16px; vertical-align: middle;"></i> 政策类采集</h3>
+          <div class="toolbar">
+            <button id="btnPolicyRegulation"><i data-lucide="scroll-text"></i> 政策法规采集</button>
+            <button id="btnPolicy"><i data-lucide="download-cloud"></i> 政策采集（按来源项州）</button>
+          </div>
+          <p class="hint">政策法规采集使用上方通用查询词、语言、搜索服务、结果数、偏移和时间范围；“政策采集（按来源项州）”依赖所选来源库项中的 `state`。</p>
+        </div>
+
+        <div class="ingest-partition">
+          <h3 class="partition-title"><i data-lucide="bar-chart-3" style="width: 16px; height: 16px; vertical-align: middle;"></i> 市场采集</h3>
+          <div class="toolbar">
+            <button id="btnMarket"><i data-lucide="bar-chart-3"></i> 市场采集</button>
+          </div>
+          <p class="hint">市场采集复用上方通用查询词 / 语言 / 搜索服务 / 结果数 / 偏移 / 时间范围 / 结构化提取设置。</p>
+        </div>
+
+        <div class="ingest-partition">
+          <h3 class="partition-title"><i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i> 舆情采集</h3>
           <div class="toolbar">
             <label for="socialPlatformSelect">平台名称</label>
             <select id="socialPlatformSelect" style="min-width: 180px;"></select>
             <label for="baseSubredditsSelect">基础子论坛</label>
             <select id="baseSubredditsSelect" multiple></select>
-            <label for="enableExtraction">结构化提取</label>
-            <input id="enableExtraction" type="checkbox" checked />
             <label for="enableSubredditDiscovery">子论坛发现</label>
             <input id="enableSubredditDiscovery" type="checkbox" checked />
-          </div>
-          <div class="toolbar">
-            <button id="btnPolicyRegulation"><i data-lucide="scroll-text"></i> 政策法规采集</button>
-            <button id="btnMarket"><i data-lucide="bar-chart-3"></i> 市场采集</button>
-            <button id="btnCommodity"><i data-lucide="box"></i> 商品采集</button>
-            <button id="btnEcom"><i data-lucide="tag"></i> 电商价格采集</button>
             <button id="btnSocial"><i data-lucide="users"></i> 舆情采集</button>
           </div>
-          <p class="hint">政策法规/市场/舆情共用查询词；起始偏移、时间范围、语言、搜索服务用于政策/市场采集；运行来源库项时可覆盖上述参数。</p>
+          <p class="hint">舆情采集复用上方通用查询词、结果数与结构化提取设置；此处分组配置平台、基础子论坛与子论坛发现。</p>
+        </div>
+
+        <div class="ingest-partition">
+          <h3 class="partition-title"><i data-lucide="box" style="width: 16px; height: 16px; vertical-align: middle;"></i> 商品与电商采集</h3>
+          <div class="toolbar">
+            <label for="commodityLimit">商品天数</label>
+            <input id="commodityLimit" type="number" min="1" max="365" value="30" style="width: 90px;" title="每个指标抓取的历史天数" />
+            <button id="btnCommodity"><i data-lucide="box"></i> 商品采集</button>
+            <label for="ecomLimit" style="margin-left: 12px;">电商条数</label>
+            <input id="ecomLimit" type="number" min="1" max="500" value="100" style="width: 90px;" title="最大商品数量" />
+            <button id="btnEcom"><i data-lucide="tag"></i> 电商价格采集</button>
+          </div>
+          <p class="hint">商品与电商采集不依赖查询词，分别使用本分组的条数/天数参数。</p>
         </div>
 
         <div id="actionStatus" class="status">等待触发采集任务</div>
@@ -314,6 +346,22 @@
         return item && item.params && typeof item.params === "object" ? item.params : {};
       }
 
+      function getSourceItemKeywords(params) {
+        const p = params && typeof params === "object" ? params : {};
+        const candidates = [
+          p.query_terms,
+          p.keywords,
+          p.search_keywords,
+          p.base_keywords,
+          p.topic_keywords,
+        ];
+        for (const raw of candidates) {
+          const list = normalizeTextList(raw);
+          if (list.length) return list;
+        }
+        return [];
+      }
+
       function setSelectOptions(selectId, values, preferred = "") {
         const select = qs(selectId);
         const options = Array.from(new Set((values || []).map((v) => String(v || "").trim()).filter(Boolean)));
@@ -351,15 +399,62 @@
           allSubreddits.length ? allSubreddits : ["MachineLearning", "robotics", "ArtificialInteligence", "singularity"],
           preferredSubreddits
         );
+
+        // Prefer source-item keywords when the query box is empty (or still matches previous auto-fill).
+        const queryInput = qs("queryTerms");
+        if (queryInput) {
+          const selectedKeywords = getSourceItemKeywords(selectedParams);
+          const previousAuto = String(queryInput.dataset.sourceAutofill || "").trim();
+          const currentValue = String(queryInput.value || "").trim();
+          const canAutofill = !currentValue || (previousAuto && currentValue === previousAuto);
+          if (selectedKeywords.length && canAutofill) {
+            const nextValue = selectedKeywords.join(", ");
+            queryInput.value = nextValue;
+            queryInput.dataset.sourceAutofill = nextValue;
+          } else if (!selectedKeywords.length && previousAuto && currentValue === previousAuto) {
+            queryInput.value = "";
+            queryInput.dataset.sourceAutofill = "";
+          }
+        }
       }
 
       async function loadSourceLibraryItems() {
         const projectKey = window.MarketApp.getProjectKey();
-        const data = await window.MarketApp.fetchJSON(`/api/v1/source_library/items?scope=effective&project_key=${encodeURIComponent(projectKey)}`);
-        const items = Array.isArray(data?.items) ? data.items.filter((x) => x && x.enabled !== false) : [];
+        const [itemsData, itemHandlerGroupedData, siteEntryGroupedData] = await Promise.all([
+          window.MarketApp.fetchJSON(`/api/v1/source_library/items?scope=effective&project_key=${encodeURIComponent(projectKey)}`),
+          window.MarketApp.fetchJSON(`/api/v1/source_library/items/grouped?scope=effective&project_key=${encodeURIComponent(projectKey)}`),
+          window.MarketApp.fetchJSON(`/api/v1/resource_pool/site_entries/grouped?scope=effective&project_key=${encodeURIComponent(projectKey)}`),
+        ]);
+        const items = Array.isArray(itemsData?.items) ? itemsData.items.filter((x) => x && x.enabled !== false) : [];
+        // For UI display, handler clusters are URL-entry clusters (resource_pool site_entries by entry_type).
+        // Keep item-grouped handlers for compatibility/debug with ingest handler_batch behavior.
+        const byHandlerForItems = (itemHandlerGroupedData && typeof itemHandlerGroupedData === "object" && itemHandlerGroupedData.by_handler && typeof itemHandlerGroupedData.by_handler === "object")
+          ? itemHandlerGroupedData.by_handler
+          : {};
+        const byEntryType = (siteEntryGroupedData && typeof siteEntryGroupedData === "object" && siteEntryGroupedData.by_entry_type && typeof siteEntryGroupedData.by_entry_type === "object")
+          ? siteEntryGroupedData.by_entry_type
+          : {};
         SOURCE_ITEMS.length = 0;
         SOURCE_ITEMS.push(...items);
         const select = qs("sourceLibraryItem");
+        const handlerSelect = qs("sourceLibraryHandlerSelect");
+        const handlerDebug = qs("sourceLibraryHandlerDebug");
+        const handlerKeys = Object.keys(byEntryType).sort();
+        const fallbackHandlerCount = handlerKeys.filter((h) => h === "url_routing").length;
+        if (handlerSelect) {
+          handlerSelect.innerHTML = [
+            '<option value="">(选择 Handler 聚类)</option>',
+            ...handlerKeys.map((h) => {
+              const count = Number(byEntryType?.[h]?.count || 0);
+              return `<option value="${escapeHtml(h)}">${escapeHtml(h)} (${count})</option>`;
+            }),
+          ].join("");
+        }
+        if (handlerDebug) {
+          const preview = handlerKeys.slice(0, 4).join(", ");
+          const itemHandlerKinds = Object.keys(byHandlerForItems).length;
+          handlerDebug.textContent = `URL聚类=${handlerKeys.length}, item映射分组=${itemHandlerKinds}${preview ? ` | ${preview}` : ""}`;
+        }
         if (!SOURCE_ITEMS.length) {
           select.innerHTML = '<option value="">(暂无来源库项)</option>';
           refreshDropdownsFromSourceConfig();
@@ -417,14 +512,39 @@
         };
       }
 
+      function getHandlerBatchSummary(data) {
+        const root = (data && typeof data === "object") ? data : {};
+        const payload = (root.result && typeof root.result === "object") ? root.result : root;
+        if (!payload || payload.mode !== "handler_batch") return null;
+        const itemKeys = Array.isArray(payload.item_keys) ? payload.item_keys : [];
+        const tasks = Array.isArray(payload.tasks) ? payload.tasks : [];
+        const results = Array.isArray(payload.results) ? payload.results : [];
+        return {
+          handlerKey: String(payload.handler_key || ""),
+          itemCount: itemKeys.length,
+          asyncCount: tasks.length,
+          resultCount: results.length,
+        };
+      }
+
       async function runAction(actionName, req) {
-        toggleDisabled(["btnPolicy", "btnPolicyRegulation", "btnMarket", "btnCommodity", "btnEcom", "btnSocial", "btnSyncSourceLibrary", "btnRunSourceLibraryItem"], true);
+        toggleDisabled(["btnPolicy", "btnPolicyRegulation", "btnMarket", "btnCommodity", "btnEcom", "btnSocial", "btnSyncSourceLibrary", "btnRunSourceLibraryItem", "btnRunSourceLibraryHandler"], true);
         setLoading("actionStatus", `${actionName}执行中...`);
         try {
           const data = await req();
           if (data.task_id) {
             setSuccess("actionStatus", `${actionName}已提交，任务ID: ${data.task_id}`);
           } else {
+            const handlerBatch = getHandlerBatchSummary(data);
+            if (handlerBatch) {
+              const executed = handlerBatch.asyncCount || handlerBatch.resultCount || handlerBatch.itemCount;
+              setSuccess(
+                "actionStatus",
+                `${actionName}完成（entry_type=${handlerBatch.handlerKey || "-"}，命中 ${formatNumber(handlerBatch.itemCount)} 个 item，执行 ${formatNumber(executed)} 项）`
+              );
+              await loadHistory();
+              return;
+            }
             const counts = getActionSummaryCounts(data);
             const errorSuffix = counts.errors ? `，错误 ${formatNumber(counts.errors)}` : "";
             setSuccess(
@@ -436,7 +556,7 @@
         } catch (error) {
           setError("actionStatus", `${actionName}失败: ${error.message}`);
         } finally {
-          toggleDisabled(["btnPolicy", "btnPolicyRegulation", "btnMarket", "btnCommodity", "btnEcom", "btnSocial", "btnSyncSourceLibrary", "btnRunSourceLibraryItem"], false);
+          toggleDisabled(["btnPolicy", "btnPolicyRegulation", "btnMarket", "btnCommodity", "btnEcom", "btnSocial", "btnSyncSourceLibrary", "btnRunSourceLibraryItem", "btnRunSourceLibraryHandler"], false);
         }
       }
 
@@ -456,10 +576,18 @@
           overrides.limit = limit;
           overrides.max_items = limit;
         }
-        const terms = getQueryTerms();
+        let terms = getQueryTerms();
+        if (!terms.length) {
+          terms = getSourceItemKeywords(getSelectedSourceParams());
+        }
         if (terms.length) {
           overrides.query_terms = terms;
           overrides.keywords = terms;
+          // Keep keyword aliases in sync because different source-library channels/items
+          // may read different field names.
+          overrides.search_keywords = terms;
+          overrides.base_keywords = terms;
+          overrides.topic_keywords = terms;
         }
         const so = getStartOffset();
         if (so != null) overrides.start_offset = so;
@@ -481,10 +609,32 @@
       async function runSelectedSourceLibraryItem() {
         const projectKey = window.MarketApp.getProjectKey();
         const itemKey = String(qs("sourceLibraryItem").value || "").trim();
-        if (!itemKey) throw new Error("请先选择一个来源库项");
+        const handlerKey = String(qs("sourceLibraryHandlerSelect")?.value || "").trim();
+        if (!itemKey && !handlerKey) throw new Error("请先选择一个来源库项或输入 handler_key");
+        if (itemKey && handlerKey) throw new Error("来源库项与 handler_key 只能二选一");
         if (!projectKey) throw new Error("请先选择项目（project_key）");
         const payload = {
-          item_key: itemKey,
+          item_key: itemKey || null,
+          handler_key: handlerKey || null,
+          project_key: projectKey,
+          async_mode: !!qs("asyncMode").checked,
+          override_params: buildOverrideParamsFromForm(),
+        };
+        return await window.MarketApp.fetchJSON("/api/v1/ingest/source-library/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      async function runSelectedSourceLibraryHandler() {
+        const projectKey = window.MarketApp.getProjectKey();
+        const handlerKey = String(qs("sourceLibraryHandlerSelect")?.value || "").trim();
+        if (!handlerKey) throw new Error("请先选择 Handler 聚类（entry_type）");
+        if (!projectKey) throw new Error("请先选择项目（project_key）");
+        const payload = {
+          item_key: null,
+          handler_key: handlerKey,
           project_key: projectKey,
           async_mode: !!qs("asyncMode").checked,
           override_params: buildOverrideParamsFromForm(),
@@ -714,6 +864,12 @@
       qs("refreshHistory").addEventListener("click", loadHistory);
       qs("gotoProcess").addEventListener("click", () => window.MarketApp.navigateInShell("process-management.html"));
       qs("sourceLibraryItem").addEventListener("change", refreshDropdownsFromSourceConfig);
+      qs("sourceLibraryHandlerSelect")?.addEventListener("change", () => {
+        const v = String(qs("sourceLibraryHandlerSelect")?.value || "").trim();
+        if (!v) return;
+        const itemSel = qs("sourceLibraryItem");
+        if (itemSel) itemSel.value = "";
+      });
       qs("btnSyncSourceLibrary").addEventListener("click", () =>
         runAction("同步来源库", async () => {
           const res = await syncSourceLibraryFromFiles();
@@ -724,6 +880,20 @@
       qs("btnRunSourceLibraryItem").addEventListener("click", () =>
         runAction("运行来源库项", runSelectedSourceLibraryItem)
       );
+      qs("btnRunSourceLibraryHandler")?.addEventListener("click", () =>
+        runAction("运行 Handler 聚类", runSelectedSourceLibraryHandler)
+      );
+
+      qs("queryTerms")?.addEventListener("input", () => {
+        const el = qs("queryTerms");
+        if (!el) return;
+        const current = String(el.value || "").trim();
+        const auto = String(el.dataset.sourceAutofill || "").trim();
+        if (!auto) return;
+        if (current !== auto) {
+          el.dataset.sourceAutofill = "";
+        }
+      });
 
       window.addEventListener("DOMContentLoaded", async () => {
         lucide.createIcons();
