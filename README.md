@@ -4,7 +4,9 @@
 
 当前版本：`v0.1.5-rc1`（预发布，团队联调）
 
-本版本附带可导入的 `demo_proj` 演示数据包（仓库路径：`main/backend/seed_data/project_demo_proj_v0.1.5-rc1.sql`；前端下载：`/static/demo/project_demo_proj_v0.1.5-rc1.sql`），可配合导入脚本（仓库路径：`main/backend/scripts/load_demo_proj_seed.sh`；前端下载：`/static/demo/load_demo_proj_seed.sh`）快速恢复联调数据。
+本版本附带可导入的 `demo_proj` 演示数据包 项目部署后在页面 注入初始项目即可一键部署
+
+（仓库路径：`main/backend/seed_data/project_demo_proj_v0.1.5-rc1.sql`；前端下载：`/static/demo/project_demo_proj_v0.1.5-rc1.sql`），可配合导入脚本（仓库路径：`main/backend/scripts/load_demo_proj_seed.sh`；前端下载：`/static/demo/load_demo_proj_seed.sh`）快速恢复联调数据。
 
 本文档为项目主说明，涵盖定位、快速开始、架构与文档入口。所有路径均为**相对仓库根目录**。
 
