@@ -6,7 +6,7 @@ from ...project_customization.service import get_project_customization
 
 DEFAULT_GRAPH_DOC_TYPES: dict[str, list[str]] = {
     "social": ["social_sentiment", "social_feed"],
-    "market": ["market"],
+    "market": ["market_info", "market"],
     "policy": ["policy", "policy_regulation"],
 }
 

@@ -285,6 +285,7 @@
         <div class="project-picker-row">
           <select id="projectSelect"></select>
           <button type="button" onclick="applyProjectKey()">切换</button>
+          <button type="button" onclick="injectInitialProject()">注入初始项目</button>
           <button type="button" class="secondary" onclick="createProject()">新建</button>
         </div>
       </div>
@@ -669,6 +670,43 @@
           navigateFrame(frame, target);
         } catch (err) {
           alert(`创建项目失败: ${err.message || err}`);
+        }
+      }
+
+      async function injectInitialProject() {
+        const defaultName = `初始项目 ${new Date().toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
+        const name = String(prompt("请输入新项目名称（将从 demo_proj 注入初始数据）", defaultName) || "").trim();
+        if (!name) return;
+        const keyInput = String(prompt("请输入项目 key（可留空自动生成）", "") || "").trim();
+        const project_key = keyInput ? normalizeProjectKey(keyInput) : "";
+        try {
+          const res = await fetch("/api/v1/projects/inject-initial", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              project_key: project_key || null,
+              name,
+              source_project_key: "demo_proj",
+              overwrite: false,
+              activate: true,
+            }),
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          const nextKey = data.project_key || project_key;
+          if (nextKey) localStorage.setItem("market_project_key", nextKey);
+          await loadProjects();
+          const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
+          const page = active ? active.getAttribute("data-page") : "index.html";
+          const target = getPageWithProjectKey(page);
+          const frame = showFrameForTarget(target);
+          navigateFrame(frame, target);
+          alert(`注入完成：${data.project_key || nextKey}`);
+        } catch (err) {
+          alert(`注入初始项目失败: ${err.message || err}`);
         }
       }
 

@@ -6,11 +6,7 @@ DB_NAME="${DB_NAME:-postgres}"
 DB_USER="${DB_USER:-postgres}"
 TARGET_SCHEMA="${TARGET_SCHEMA:-project_demo_proj}"
 STRUCTURE_SCHEMA="${STRUCTURE_SCHEMA:-project_default}"
-PROJECT_KEY="${PROJECT_KEY:-demo_proj}"
-PROJECT_NAME="${PROJECT_NAME:-Demo Project}"
-ACTIVATE_PROJECT="${ACTIVATE_PROJECT:-true}"
 TABLES=(
-  sources
   documents
   etl_job_runs
   resource_pool_urls
@@ -50,24 +46,4 @@ for t in "${TABLES[@]}"; do
   fi
 done
 docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 < "$USE_SQL"
-
-# Register project in control-plane so frontend project list can see it.
-docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<SQL
-CREATE SCHEMA IF NOT EXISTS public;
-INSERT INTO public.projects (project_key, name, schema_name, enabled, is_active)
-VALUES ('${PROJECT_KEY}', '${PROJECT_NAME}', '${TARGET_SCHEMA}', true, false)
-ON CONFLICT (project_key) DO UPDATE
-SET name = EXCLUDED.name,
-    schema_name = EXCLUDED.schema_name,
-    enabled = true;
-SQL
-
-if [[ "${ACTIVATE_PROJECT}" == "true" ]]; then
-  docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<SQL
-UPDATE public.projects SET is_active = false;
-UPDATE public.projects SET is_active = true WHERE project_key = '${PROJECT_KEY}';
-SQL
-fi
-
 echo "Loaded seed into schema: ${TARGET_SCHEMA}"
-echo "Registered project in public.projects: ${PROJECT_KEY} (${TARGET_SCHEMA})"

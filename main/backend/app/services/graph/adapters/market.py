@@ -92,9 +92,13 @@ class MarketAdapter:
                 return None
         
         # 获取数据源名称
-        source_name = None
-        if doc.source:
-            source_name = doc.source.name
+        # Avoid lazy-loading doc.source here: imported demo schemas may not include sources table,
+        # and a single UndefinedTable can poison the whole transaction.
+        source_name = (
+            str(extracted.get("platform") or "").strip()
+            or str(extracted.get("source") or "").strip()
+            or None
+        )
         
         # 提取实体信息
         entities_relations = extracted.get("entities_relations", {})
@@ -114,4 +118,3 @@ class MarketAdapter:
             title=doc.title,
             entities=entities or [],
         )
-

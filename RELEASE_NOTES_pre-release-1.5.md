@@ -4,7 +4,9 @@
 - 版本名称：`v0.1.5-rc1`
 - 适用场景：团队联调、资源库/来源库稳定化验证、图谱与结构化回填验证
 
-本版本附带 `demo_proj` 演示数据包（`main/backend/seed_data/project_demo_proj_v0.1.5-rc1.sql`）与导入脚本（`main/backend/scripts/load_demo_proj_seed.sh`），用于团队快速部署后直接查看项目页面与任务/图谱效果。
+本版本附带 `demo_proj` 演示数据包与导入脚本，支持仓库内使用与前端直接下载：
+- 数据包：`main/backend/seed_data/project_demo_proj_v0.1.5-rc1.sql`（前端下载：`/static/demo/project_demo_proj_v0.1.5-rc1.sql`）
+- 导入脚本：`main/backend/scripts/load_demo_proj_seed.sh`（前端下载：`/static/demo/load_demo_proj_seed.sh`）
 
 ## 摘要
 

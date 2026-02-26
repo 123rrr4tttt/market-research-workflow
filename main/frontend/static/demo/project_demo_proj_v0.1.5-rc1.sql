@@ -17,18 +17,6 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Data for Name: sources; Type: TABLE DATA; Schema: project_demo_proj; Owner: -
---
-
-INSERT INTO project_demo_proj.sources (name, kind, base_url, enabled, created_at, updated_at, id) VALUES ('Reddit Social Sentiment', 'social', 'reddit.com', true, '2026-02-25 09:41:46.501325+00', '2026-02-25 09:41:46.501325+00', 9);
-INSERT INTO project_demo_proj.sources (name, kind, base_url, enabled, created_at, updated_at, id) VALUES ('Google News', 'news', 'news.google.com', true, '2026-02-25 09:43:51.820876+00', '2026-02-25 09:43:51.820876+00', 10);
-INSERT INTO project_demo_proj.sources (name, kind, base_url, enabled, created_at, updated_at, id) VALUES ('CA Legislature Search', 'state_site', 'https://leginfo.legislature.ca.gov/faces/billSearchClient.xhtml?session_year=2023&keyword=lottery', true, '2026-02-25 09:58:43.112078+00', '2026-02-25 09:58:43.112078+00', 11);
-INSERT INTO project_demo_proj.sources (name, kind, base_url, enabled, created_at, updated_at, id) VALUES ('Google News Policy', 'news', 'news.google.com', true, '2026-02-25 10:23:33.25194+00', '2026-02-25 10:23:33.25194+00', 12);
-INSERT INTO project_demo_proj.sources (name, kind, base_url, enabled, created_at, updated_at, id) VALUES ('Search API Market', 'search', 'search', true, '2026-02-25 12:50:57.190068+00', '2026-02-25 12:50:57.190068+00', 15);
-INSERT INTO project_demo_proj.sources (name, kind, base_url, enabled, created_at, updated_at, id) VALUES ('url_pool', 'url_fetch', '', true, '2026-02-26 11:56:38.780581+00', '2026-02-26 11:56:38.780581+00', 17);
-
-
---
 -- Data for Name: documents; Type: TABLE DATA; Schema: project_demo_proj; Owner: -
 --
 
@@ -3651,13 +3639,6 @@ SELECT pg_catalog.setval('project_demo_proj.resource_pool_urls_id_seq', 68, true
 --
 
 SELECT pg_catalog.setval('project_demo_proj.source_library_items_id_seq', 6, true);
-
-
---
--- Name: sources_id_seq; Type: SEQUENCE SET; Schema: project_demo_proj; Owner: -
---
-
-SELECT pg_catalog.setval('project_demo_proj.sources_id_seq', 17, true);
 
 
 --

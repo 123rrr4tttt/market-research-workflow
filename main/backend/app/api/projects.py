@@ -42,6 +42,14 @@ class UpdateProjectPayload(BaseModel):
     enabled: bool | None = None
 
 
+class InjectInitialProjectPayload(BaseModel):
+    project_key: str | None = Field(default=None, min_length=1, max_length=64)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    source_project_key: str = Field(default="demo_proj", min_length=1, max_length=64)
+    overwrite: bool = False
+    activate: bool = True
+
+
 TENANT_TABLES = [
     Source.__table__,
     Document.__table__,
@@ -51,6 +59,23 @@ TENANT_TABLES = [
     EtlJobRun.__table__,
     SearchHistory.__table__,
     LlmServiceConfig.__table__,
+    Topic.__table__,
+    IngestChannel.__table__,
+    SourceLibraryItem.__table__,
+    MarketMetricPoint.__table__,
+    Product.__table__,
+    PriceObservation.__table__,
+    ResourcePoolUrl.__table__,
+    ResourcePoolSiteEntry.__table__,
+]
+
+# Seed/inject path uses a safe subset of tenant tables (exclude embeddings/vector + llm configs).
+INITIAL_PROJECT_TABLES = [
+    Source.__table__,
+    Document.__table__,
+    MarketStat.__table__,
+    ConfigState.__table__,
+    SearchHistory.__table__,
     Topic.__table__,
     IngestChannel.__table__,
     SourceLibraryItem.__table__,
@@ -116,6 +141,119 @@ def create_project(payload: CreateProjectPayload) -> dict:
         Base.metadata.create_all(bind=conn, tables=TENANT_TABLES, checkfirst=True)
 
     return {"id": row.id, "schema_name": schema_name}
+
+
+@router.post("/inject-initial")
+def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
+    source_key = _normalize_project_key(payload.source_project_key)
+    if not source_key:
+        raise HTTPException(status_code=400, detail="source_project_key is required")
+    target_key = _normalize_project_key(payload.project_key or f"{source_key}_{int(__import__('time').time())}")
+    if target_key in ("public", "default"):
+        raise HTTPException(status_code=409, detail="project_key is reserved")
+    source_schema = project_schema_name(source_key)
+    target_schema = project_schema_name(target_key)
+    target_name = (payload.name or f"{source_key}（初始注入）").strip()
+
+    with engine.begin() as conn:
+        source_exists = conn.execute(
+            text("SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name=:s)"),
+            {"s": source_schema},
+        ).scalar()
+        if not source_exists:
+            raise HTTPException(status_code=404, detail=f"source project schema not found: {source_schema}")
+
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            src_project = session.execute(select(Project).where(Project.project_key == source_key)).scalar_one_or_none()
+            if src_project is None:
+                raise HTTPException(status_code=404, detail=f"source project not found: {source_key}")
+
+            existed = session.execute(select(Project).where(Project.project_key == target_key)).scalar_one_or_none()
+            if existed and not payload.overwrite:
+                raise HTTPException(status_code=409, detail="project_key already exists (set overwrite=true)")
+
+            if existed and payload.overwrite:
+                session.delete(existed)
+                session.commit()
+                with engine.begin() as conn:
+                    conn.execute(text(f'DROP SCHEMA IF EXISTS "{target_schema}" CASCADE'))
+
+            row = Project(
+                project_key=target_key,
+                name=target_name,
+                schema_name=target_schema,
+                enabled=True,
+                is_active=False,
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+
+    with engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{target_schema}"'))
+        conn.execute(text(f'SET search_path TO "{target_schema}"'))
+        Base.metadata.create_all(bind=conn, tables=INITIAL_PROJECT_TABLES, checkfirst=True)
+
+        copied_counts: dict[str, int] = {}
+        # Copy only tables that exist in source schema.
+        for table in INITIAL_PROJECT_TABLES:
+            tname = table.name
+            source_table_exists = conn.execute(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                    "WHERE table_schema=:schema AND table_name=:table)"
+                ),
+                {"schema": source_schema, "table": tname},
+            ).scalar()
+            if not source_table_exists:
+                copied_counts[tname] = 0
+                continue
+            conn.execute(text(f'TRUNCATE TABLE "{target_schema}"."{tname}" RESTART IDENTITY CASCADE'))
+            inserted = conn.execute(
+                text(f'INSERT INTO "{target_schema}"."{tname}" SELECT * FROM "{source_schema}"."{tname}"')
+            )
+            copied_counts[tname] = int(getattr(inserted, "rowcount", 0) or 0)
+            # best-effort sequence alignment for id-based tables
+            try:
+                conn.execute(
+                    text(
+                        """
+                        DO $$
+                        DECLARE seq_name text;
+                        BEGIN
+                          SELECT pg_get_serial_sequence(format('%I.%I', :schema_name, :table_name), 'id') INTO seq_name;
+                          IF seq_name IS NOT NULL THEN
+                            EXECUTE format(
+                              'SELECT setval(%L, COALESCE((SELECT MAX(id) FROM %I.%I), 0) + 1, false)',
+                              seq_name, :schema_name, :table_name
+                            );
+                          END IF;
+                        END$$;
+                        """
+                    ),
+                    {"schema_name": target_schema, "table_name": tname},
+                )
+            except Exception:
+                # not all copied tables have id sequences; ignore
+                pass
+
+    if payload.activate:
+        with bind_schema("public"):
+            with SessionLocal() as session:
+                all_rows = session.execute(select(Project)).scalars().all()
+                for p in all_rows:
+                    p.is_active = p.project_key == target_key
+                session.commit()
+
+    return {
+        "project_key": target_key,
+        "name": target_name,
+        "schema_name": target_schema,
+        "source_project_key": source_key,
+        "activated": bool(payload.activate),
+        "copied_counts": copied_counts,
+    }
 
 
 @router.patch("/{project_key}")
