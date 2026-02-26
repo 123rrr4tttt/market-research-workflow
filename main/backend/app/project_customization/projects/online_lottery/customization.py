@@ -75,3 +75,25 @@ class OnlineLotteryCustomization(ProjectCustomization):
             "2. 结合提供的基础关键词提炼同义词、动名词、复合短语，避免仅做简单的单词变体；\n"
             "3. 每条关键词独立成行，不附加额外说明。"
         )
+
+    def get_domain_tokens(self) -> Optional[list[str]]:
+        from ....subprojects.online_lottery.domain.keywords import LOTTERY_TOKENS
+        return list(LOTTERY_TOKENS)
+
+    def get_report_title(self) -> str:
+        return "彩票情报简报"
+
+    def get_news_resource_handlers(self) -> Dict[str, Any]:
+        """Project pool (子项目库): lottery-specific news sources."""
+        from ....subprojects.online_lottery.services import (
+            collect_calottery_news_for_project,
+            collect_calottery_retailer_updates_for_project,
+        )
+        return {
+            "calottery": collect_calottery_news_for_project,
+            "calottery_retailer": collect_calottery_retailer_updates_for_project,
+        }
+
+    def get_shared_news_resource_handlers(self) -> Dict[str, Any]:
+        """Shared pool (总库): none for lottery project; use trunk defaults if any."""
+        return {}

@@ -11,6 +11,7 @@ from .source_library.resolver import run_item_by_key
 from .ingest.news import (
     collect_google_news,
 )
+from ..project_customization import get_project_customization
 from ..subprojects.online_lottery.services import (
     collect_calottery_news_for_project,
     collect_calottery_retailer_updates_for_project,
@@ -84,6 +85,25 @@ def task_collect_calottery_retailer(limit: int = 10, project_key: str | None = N
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         return collect_calottery_retailer_updates_for_project(limit=limit)
+
+
+@celery_app.task
+def task_collect_news_resource(
+    resource_id: str,
+    limit: int = 10,
+    project_key: str | None = None,
+) -> dict:
+    """Dispatch to news resource handler. Effective = shared (总库) + project (子项目库), project overrides."""
+    ctx = bind_project(project_key) if project_key else nullcontext()
+    with ctx:
+        customization = get_project_customization(project_key)
+        shared = customization.get_shared_news_resource_handlers()
+        project_handlers = customization.get_news_resource_handlers()
+        handlers = {**shared, **project_handlers}
+        handler = handlers.get(resource_id)
+        if not handler:
+            raise ValueError(f"Project '{project_key}' does not support news resource '{resource_id}'")
+        return handler(limit=limit)
 
 
 @celery_app.task

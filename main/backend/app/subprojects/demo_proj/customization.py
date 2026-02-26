@@ -33,3 +33,15 @@ class DemoProjCustomization(ProjectCustomization):
             "2. 结合提供的基础关键词提炼同义词、动名词、复合短语；\n"
             "3. 每条关键词独立成行，不附加额外说明。"
         )
+
+    def get_domain_tokens(self) -> Optional[list[str]]:
+        return ["embodied", "robot", "robotics", "ai", "humanoid", "autonomous"]
+
+    def get_report_title(self) -> str:
+        return "具身智能情报简报"
+
+    def get_news_resource_handlers(self) -> Dict[str, Any]:
+        return {}
+
+    def get_shared_news_resource_handlers(self) -> Dict[str, Any]:
+        return {}

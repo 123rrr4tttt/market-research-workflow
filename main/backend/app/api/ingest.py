@@ -5,6 +5,7 @@ from typing import Optional
 import logging
 from functools import lru_cache
 
+from ..project_customization import get_project_customization
 from ..subprojects.online_lottery.domain.news import DEFAULT_REDDIT_SUBREDDIT
 from ..services.job_logger import list_jobs
 from ..services.projects import bind_project, current_project_key
@@ -223,44 +224,43 @@ def ingest_california_reports(payload: CaliforniaReportRequest):
         return _error_500(exc)
 
 
-@router.post("/news/calottery")
-def ingest_calottery_news(payload: NewsRequest):
+def _dispatch_news_resource(resource_id: str, payload: NewsRequest):
+    """Dispatch to news resource handler. Effective = shared (总库) + project (子项目库), project overrides."""
     project_key = _require_project_key(payload.project_key)
+    customization = get_project_customization(project_key)
+    shared = customization.get_shared_news_resource_handlers()
+    project_handlers = customization.get_news_resource_handlers()
+    handlers = {**shared, **project_handlers}
+    handler = handlers.get(resource_id)
+    if not handler:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Project '{project_key}' does not support news resource '{resource_id}'.",
+        )
     if payload.async_mode:
-        task = _tasks_module().task_collect_calottery_news.delay(payload.limit, project_key)
+        task = _tasks_module().task_collect_news_resource.delay(resource_id, payload.limit, project_key)
         return success_response(
             task_result_response(
                 task_id=task.id,
                 async_mode=True,
-                params={"limit": payload.limit},
+                params={"resource_id": resource_id, "limit": payload.limit},
             )
         )
     try:
         with bind_project(project_key):
-            from ..subprojects.online_lottery.services import collect_calottery_news_for_project
-            return success_response(collect_calottery_news_for_project(limit=payload.limit))
+            return success_response(handler(limit=payload.limit))
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
+
+
+@router.post("/news/calottery")
+def ingest_calottery_news(payload: NewsRequest):
+    return _dispatch_news_resource("calottery", payload)
 
 
 @router.post("/news/calottery/retailer")
 def ingest_calottery_retailer(payload: NewsRequest):
-    project_key = _require_project_key(payload.project_key)
-    if payload.async_mode:
-        task = _tasks_module().task_collect_calottery_retailer.delay(payload.limit, project_key)
-        return success_response(
-            task_result_response(
-                task_id=task.id,
-                async_mode=True,
-                params={"limit": payload.limit},
-            )
-        )
-    try:
-        with bind_project(project_key):
-            from ..subprojects.online_lottery.services import collect_calottery_retailer_updates_for_project
-            return success_response(collect_calottery_retailer_updates_for_project(limit=payload.limit))
-    except Exception as exc:  # noqa: BLE001
-        return _error_500(exc)
+    return _dispatch_news_resource("calottery_retailer", payload)
 
 
 @router.post("/social/reddit")

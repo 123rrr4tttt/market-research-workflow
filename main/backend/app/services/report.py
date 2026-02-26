@@ -9,6 +9,7 @@ from sqlalchemy import and_, select
 
 from ..models.base import SessionLocal
 from ..models.entities import Document, MarketStat
+from ..project_customization import get_project_customization
 from .llm.service import summarize_policy_text
 
 
@@ -76,7 +77,8 @@ def generate_html_report(states: Sequence[str], start: str | None, end: str | No
             }
         )
 
-    html = ["<section><h1>彩票情报简报</h1>"]
+    title = get_project_customization().get_report_title()
+    html = [f"<section><h1>{title}</h1>"]
     html.append(f"<p>州：{', '.join(states)}；时间：{start or '全部'} - {end or '全部'}</p>")
 
     html.append("<h2>政策概览</h2><ul>")

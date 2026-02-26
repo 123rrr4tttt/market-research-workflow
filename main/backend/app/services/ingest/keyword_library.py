@@ -11,8 +11,8 @@ except ModuleNotFoundError:  # pragma: no cover
     redis = None
 
 from ...settings.config import settings
-from ..projects import current_project_key
-from ...subprojects.online_lottery.domain.keywords import LOTTERY_TOKENS
+from ...services.projects import current_project_key
+from ...project_customization import get_project_customization
 
 
 logger = logging.getLogger(__name__)
@@ -20,11 +20,24 @@ logger = logging.getLogger(__name__)
 _REDIS_CLIENT: "redis.Redis | None" = None
 _FALLBACK_STORE: Dict[str, Set[str]] = {}
 
+# Key: social:keywords:{project_key}:{platform} for project pool, social:keywords:shared:{platform} for shared
+_SHARED_KEY = "shared"
+
+
 def _domain_tokens() -> set[str]:
-    key = (current_project_key() or "").strip().lower()
-    if key == "online_lottery":
-        return set(LOTTERY_TOKENS)
-    return set()
+    """Domain tokens from project customization. Empty = no filter (allow all)."""
+    try:
+        tokens = get_project_customization().get_domain_tokens()
+        return set(tokens) if tokens else set()
+    except Exception:  # noqa: BLE001
+        return set()
+
+
+def _pool_key(platform: str) -> str:
+    """Project-specific or shared pool key."""
+    key = (current_project_key() or "").strip().lower() or _SHARED_KEY
+    platform_key = platform.strip().lower() or "default"
+    return f"social:keywords:{key}:{platform_key}"
 
 
 def _get_redis_client():
@@ -45,9 +58,6 @@ def _get_redis_client():
     return _REDIS_CLIENT
 
 
-def _build_key(platform: str) -> str:
-    platform_key = platform.strip().lower() or "default"
-    return f"social:keywords:{platform_key}"
 
 
 _NON_LATIN_PATTERN = re.compile(r"[^a-z0-9\s]")
@@ -62,12 +72,12 @@ def normalize_keyword(keyword: str) -> str:
     return cleaned.strip()
 
 
-def _is_lottery_keyword(normalized: str) -> bool:
+def _is_domain_keyword(normalized: str) -> bool:
+    """True if keyword passes domain filter. Empty tokens = allow all."""
     if not normalized:
         return False
     tokens = _domain_tokens()
     if not tokens:
-        # Non-lottery projects should not be constrained by lottery tokens.
         return True
     words = normalized.split()
     for token in tokens:
@@ -86,8 +96,8 @@ def clean_keywords(keywords: Iterable[str]) -> List[str]:
         normalized = normalize_keyword(keyword)
         if not normalized or normalized in seen:
             continue
-        if not _is_lottery_keyword(normalized):
-            logger.debug("keyword_library: filtered out non-lottery keyword '%s' -> '%s'", keyword, normalized)
+        if not _is_domain_keyword(normalized):
+            logger.debug("keyword_library: filtered out non-domain keyword '%s' -> '%s'", keyword, normalized)
             continue
         seen.add(normalized)
         cleaned.append(normalized)
@@ -99,7 +109,7 @@ def store_keywords(platform: str, keywords: Iterable[str]) -> List[str]:
     if not cleaned:
         return []
 
-    key = _build_key(platform)
+    key = _pool_key(platform)
     client = _get_redis_client()
     if client is None:
         storage = _FALLBACK_STORE.setdefault(key, set())
@@ -118,7 +128,7 @@ def store_keywords(platform: str, keywords: Iterable[str]) -> List[str]:
 
 
 def get_keywords(platform: str) -> List[str]:
-    key = _build_key(platform)
+    key = _pool_key(platform)
     client = _get_redis_client()
     if client is None:
         storage = _FALLBACK_STORE.get(key, set())

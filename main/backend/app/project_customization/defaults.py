@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from .interfaces import ChannelHandler, ProjectCustomization, WorkflowDefinition
+from .interfaces import ChannelHandler, NewsResourceHandler, ProjectCustomization, WorkflowDefinition
 
 
 @dataclass(slots=True)
@@ -37,3 +37,15 @@ class DefaultProjectCustomization(ProjectCustomization):
 
     def get_social_keyword_guidelines(self) -> Optional[str]:
         return None
+
+    def get_domain_tokens(self) -> Optional[list[str]]:
+        return None
+
+    def get_report_title(self) -> str:
+        return "商业报告"
+
+    def get_news_resource_handlers(self) -> Dict[str, NewsResourceHandler]:
+        return {}
+
+    def get_shared_news_resource_handlers(self) -> Dict[str, NewsResourceHandler]:
+        return {}

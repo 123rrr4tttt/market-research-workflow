@@ -101,7 +101,11 @@ def _ensure_bootstrap_projects() -> None:
     """
     Bootstrap control-plane projects and migrate away from legacy "default".
 
-    All projects are peers. We keep "public" reserved for a future aggregation layer.
+    Meaning:
+    - One-time migration: legacy project_key "default" -> "online_lottery" (schema rename,
+      table moves, aggregator remap). This is historical migration, not subproject injection.
+    - First install: if no projects exist, create "business_survey" (商业调查) as the initial project.
+    - All projects are peers. "public" schema is reserved for control-plane and shared tables.
     """
     try:
         with engine.begin() as conn:
@@ -159,7 +163,7 @@ def _ensure_bootstrap_projects() -> None:
 
             count = conn.execute(text("SELECT COUNT(*) FROM public.projects")).scalar() or 0
             if int(count) == 0:
-                # Bootstrap a first project if none exists yet.
+                # Bootstrap a first project if none exists yet (generic business survey).
                 conn.execute(
                     text(
                         """
@@ -168,18 +172,18 @@ def _ensure_bootstrap_projects() -> None:
                         """
                     ),
                     {
-                        "project_key": "online_lottery",
-                        "name": "线上彩票项目",
-                        "schema_name": "project_online_lottery",
+                        "project_key": "business_survey",
+                        "name": "商业调查",
+                        "schema_name": "project_business_survey",
                     },
                 )
 
             # If tenant tables were previously created in public schema, move them into
-            # the online_lottery schema so schema-per-project isolation works.
-            conn.execute(text('CREATE SCHEMA IF NOT EXISTS "project_online_lottery"'))
+            # the first project schema (legacy migration only).
             has_public_docs = conn.execute(text("SELECT to_regclass('public.documents') IS NOT NULL")).scalar()
             has_target_docs = conn.execute(text("SELECT to_regclass('project_online_lottery.documents') IS NOT NULL")).scalar()
             if has_public_docs and not has_target_docs:
+                conn.execute(text('CREATE SCHEMA IF NOT EXISTS "project_online_lottery"'))
                 tenant_tables = [
                     "sources",
                     "documents",
