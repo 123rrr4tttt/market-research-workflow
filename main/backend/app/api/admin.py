@@ -457,6 +457,13 @@ def _augment_market_graph_with_topic_structured(graph, documents: list[Document]
             "operation_structured": "HAS_OPERATION_ENTITY",
         }.get(topic_field, "HAS_TOPIC_ENTITY")
 
+    def _topic_entity_id(text: str, entity_type: str | None) -> str:
+        t = str(text or "").strip().lower()
+        et = str(entity_type or "").strip().lower()
+        if not t:
+            return ""
+        return f"{et}:{t}" if et else t
+
     def _ensure_node(node_type: str, node_id: str, props: dict[str, Any]):
         key = f"{node_type}:{node_id}"
         if key not in graph.nodes:
@@ -488,7 +495,7 @@ def _augment_market_graph_with_topic_structured(graph, documents: list[Document]
                 etype = str(ent.get("type") or "").strip().lower()
                 if not text:
                     continue
-                eid = f"{etype}:{text.lower()}" if etype else text.lower()
+                eid = _topic_entity_id(text, etype)
                 entity_node_type = _topic_entity_node_type(field, etype)
                 node = _ensure_node(entity_node_type, eid, {"text": text, "entity_type": etype or None})
                 graph.edges.append(GraphEdge(type=_relation_type_for_topic(field), from_node=market_node, to_node=node, properties={"weight": 1.0}))
@@ -501,8 +508,8 @@ def _augment_market_graph_with_topic_structured(graph, documents: list[Document]
                 pred = str(rel.get("predicate") or "").strip()
                 if not subj or not obj:
                     continue
-                subj_id = subj.lower()
-                obj_id = obj.lower()
+                subj_id = _topic_entity_id(subj, str(rel.get("subject_type") or ""))
+                obj_id = _topic_entity_id(obj, str(rel.get("object_type") or ""))
                 rel_subj_type = _topic_entity_node_type(field, str(rel.get("subject_type") or ""))
                 rel_obj_type = _topic_entity_node_type(field, str(rel.get("object_type") or ""))
                 subj_node = _ensure_node(rel_subj_type, subj_id, {"text": subj, "entity_type": rel.get("subject_type")})

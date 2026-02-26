@@ -11,14 +11,14 @@
     market: { MarketData: '#2563eb', State: '#f59e0b', Segment: '#10b981', Game: '#10b981', Entity: '#8b5cf6' },
     market_deep_entities: {
       MarketData: '#2563eb', State: '#f59e0b', Segment: '#10b981', Entity: '#8b5cf6',
-      CompanyEntity: '#0ea5e9', CompanyBrand: '#38bdf8', CompanyUnit: '#0284c7', CompanyPartner: '#0891b2', CompanyChannel: '#155e75',
-      ProductEntity: '#22c55e', ProductModel: '#16a34a', ProductCategory: '#84cc16', ProductBrand: '#65a30d', ProductComponent: '#10b981', ProductScenario: '#059669',
-      OperationEntity: '#f97316', OperationPlatform: '#fb923c', OperationStore: '#ea580c', OperationChannel: '#f59e0b', OperationMetric: '#ef4444', OperationStrategy: '#e11d48', OperationRegion: '#f43f5e', OperationPeriod: '#fb7185',
+      CompanyEntity: '#0ea5e9', CompanyBrand: '#2563eb', CompanyUnit: '#14b8a6', CompanyPartner: '#8b5cf6', CompanyChannel: '#f59e0b',
+      ProductEntity: '#22c55e', ProductModel: '#16a34a', ProductCategory: '#84cc16', ProductBrand: '#10b981', ProductComponent: '#06b6d4', ProductScenario: '#eab308',
+      OperationEntity: '#f97316', OperationPlatform: '#ef4444', OperationStore: '#ec4899', OperationChannel: '#f59e0b', OperationMetric: '#dc2626', OperationStrategy: '#7c3aed', OperationRegion: '#fb7185', OperationPeriod: '#a16207',
       TopicTag: '#a855f7'
     },
-    company: { MarketData: '#2563eb', CompanyEntity: '#0ea5e9', CompanyBrand: '#38bdf8', CompanyUnit: '#0284c7', CompanyPartner: '#0891b2', CompanyChannel: '#155e75', TopicTag: '#a855f7' },
-    product: { MarketData: '#2563eb', ProductEntity: '#22c55e', ProductModel: '#16a34a', ProductCategory: '#84cc16', ProductBrand: '#65a30d', ProductComponent: '#10b981', ProductScenario: '#059669', TopicTag: '#a855f7' },
-    operation: { MarketData: '#2563eb', OperationEntity: '#f97316', OperationPlatform: '#fb923c', OperationStore: '#ea580c', OperationChannel: '#f59e0b', OperationMetric: '#ef4444', OperationStrategy: '#e11d48', OperationRegion: '#f43f5e', OperationPeriod: '#fb7185', TopicTag: '#a855f7' }
+    company: { MarketData: '#2563eb', CompanyEntity: '#0ea5e9', CompanyBrand: '#2563eb', CompanyUnit: '#14b8a6', CompanyPartner: '#8b5cf6', CompanyChannel: '#f59e0b', TopicTag: '#a855f7' },
+    product: { MarketData: '#2563eb', ProductEntity: '#22c55e', ProductModel: '#16a34a', ProductCategory: '#84cc16', ProductBrand: '#10b981', ProductComponent: '#06b6d4', ProductScenario: '#eab308', TopicTag: '#a855f7' },
+    operation: { MarketData: '#2563eb', OperationEntity: '#f97316', OperationPlatform: '#ef4444', OperationStore: '#ec4899', OperationChannel: '#f59e0b', OperationMetric: '#dc2626', OperationStrategy: '#7c3aed', OperationRegion: '#fb7185', OperationPeriod: '#a16207', TopicTag: '#a855f7' }
   };
 
   const NODE_SYMBOLS_BY_TYPE = {
@@ -27,14 +27,14 @@
     market: { MarketData: 'circle', State: 'rect', Segment: 'diamond', Game: 'diamond', Entity: 'triangle' },
     market_deep_entities: {
       MarketData: 'circle', State: 'rect', Segment: 'diamond', Entity: 'triangle',
-      CompanyEntity: 'roundRect', CompanyBrand: 'roundRect', CompanyUnit: 'rect', CompanyPartner: 'triangle', CompanyChannel: 'diamond',
-      ProductEntity: 'diamond', ProductModel: 'diamond', ProductCategory: 'rect', ProductBrand: 'roundRect', ProductComponent: 'triangle', ProductScenario: 'pin',
-      OperationEntity: 'rect', OperationPlatform: 'rect', OperationStore: 'roundRect', OperationChannel: 'diamond', OperationMetric: 'triangle', OperationStrategy: 'pin', OperationRegion: 'rect', OperationPeriod: 'roundRect',
+      CompanyEntity: 'circle', CompanyBrand: 'emptyDiamond', CompanyUnit: 'rect', CompanyPartner: 'emptyTriangle', CompanyChannel: 'pin',
+      ProductEntity: 'roundRect', ProductModel: 'emptyDiamond', ProductCategory: 'rect', ProductBrand: 'emptyCircle', ProductComponent: 'triangle', ProductScenario: 'emptyPin',
+      OperationEntity: 'roundRect', OperationPlatform: 'emptyCircle', OperationStore: 'diamond', OperationChannel: 'emptyRect', OperationMetric: 'triangle', OperationStrategy: 'emptyPin', OperationRegion: 'arrow', OperationPeriod: 'emptyRoundRect',
       TopicTag: 'pin'
     },
-    company: { MarketData: 'circle', CompanyEntity: 'roundRect', CompanyBrand: 'roundRect', CompanyUnit: 'rect', CompanyPartner: 'triangle', CompanyChannel: 'diamond', TopicTag: 'pin' },
-    product: { MarketData: 'circle', ProductEntity: 'diamond', ProductModel: 'diamond', ProductCategory: 'rect', ProductBrand: 'roundRect', ProductComponent: 'triangle', ProductScenario: 'pin', TopicTag: 'pin' },
-    operation: { MarketData: 'circle', OperationEntity: 'rect', OperationPlatform: 'rect', OperationStore: 'roundRect', OperationChannel: 'diamond', OperationMetric: 'triangle', OperationStrategy: 'pin', OperationRegion: 'rect', OperationPeriod: 'roundRect', TopicTag: 'pin' }
+    company: { MarketData: 'circle', CompanyEntity: 'circle', CompanyBrand: 'emptyDiamond', CompanyUnit: 'rect', CompanyPartner: 'emptyTriangle', CompanyChannel: 'pin', TopicTag: 'arrow' },
+    product: { MarketData: 'circle', ProductEntity: 'roundRect', ProductModel: 'emptyDiamond', ProductCategory: 'rect', ProductBrand: 'emptyCircle', ProductComponent: 'triangle', ProductScenario: 'emptyPin', TopicTag: 'arrow' },
+    operation: { MarketData: 'circle', OperationEntity: 'roundRect', OperationPlatform: 'emptyCircle', OperationStore: 'diamond', OperationChannel: 'emptyRect', OperationMetric: 'triangle', OperationStrategy: 'emptyPin', OperationRegion: 'arrow', OperationPeriod: 'emptyRoundRect', TopicTag: 'emptyDiamond' }
   };
 
   const API_PATHS = {
