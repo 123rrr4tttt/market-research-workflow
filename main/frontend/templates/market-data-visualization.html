@@ -673,13 +673,8 @@
         }
       }
 
-      async function fetchJSON(url) {
-        const res = await fetch(url);
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`HTTP ${res.status}: ${text}`);
-        }
-        return res.json();
+      async function fetchJSON(url, init) {
+        return window.MarketApp.fetchJSON(url, init);
       }
 
       function showError(containerId, message) {
@@ -867,8 +862,7 @@
         try {
           const projectKey = window.MarketApp?.getProjectKey?.() || '';
           const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : '';
-          const response = await fetch(`/api/v1/project-customization/graph-config${query}`);
-          const data = response.ok ? (await response.json())?.data : null;
+          const data = await window.MarketApp.fetchJSON(`/api/v1/project-customization/graph-config${query}`);
           const graphDocTypes = data?.graph_doc_types || {};
           const labels = data?.graph_type_labels || {};
           const graphNodeTypes = data?.graph_node_types || {};
@@ -963,23 +957,12 @@
           if (state) params.append('state', state);
           if (game) params.append('game', game);
           params.append('limit', '100');
-          const response = await fetch(`/api/v1/admin/market-graph?${params}`);
-          
           let graphData;
-          if (!response.ok) {
-            try {
-              const errorData = await response.json();
-              if (errorData.nodes !== undefined && errorData.edges !== undefined) {
-                graphData = { nodes: errorData.nodes || [], edges: errorData.edges || [] };
-              } else {
-                throw new Error(errorData.error || `HTTP ${response.status}`);
-              }
-            } catch (e) {
-              console.warn('API返回错误，使用空数据:', e);
-              graphData = { nodes: [], edges: [] };
-            }
-          } else {
-            graphData = await response.json();
+          try {
+            graphData = await window.MarketApp.fetchJSON(`/api/v1/admin/market-graph?${params}`);
+          } catch (e) {
+            console.warn('API返回错误，使用空数据:', e);
+            graphData = { nodes: [], edges: [] };
           }
           
           console.log('API返回的数据:', graphData);

@@ -162,9 +162,7 @@
       }
 
       async function loadProjects() {
-        const res = await fetch("/api/v1/projects");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const data = await window.MarketApp.api.get("/api/v1/projects");
         const items = Array.isArray(data?.items) ? data.items.filter((x) => x.enabled !== false) : [];
         PROJECTS = items;
         const select = qs("projectKey");
@@ -273,14 +271,10 @@
         const project_key = getSelectedProject();
         const q = `scope=${encodeURIComponent(scope)}&project_key=${encodeURIComponent(project_key)}`;
         try {
-          const [channelsRes, itemsRes] = await Promise.all([
-            fetch(`/api/v1/source_library/channels?${q}`),
-            fetch(`/api/v1/source_library/items?${q}`),
+          const [channelsData, itemsData] = await Promise.all([
+            window.MarketApp.api.get(`/api/v1/source_library/channels?${q}`),
+            window.MarketApp.api.get(`/api/v1/source_library/items?${q}`),
           ]);
-          if (!channelsRes.ok) throw new Error(await channelsRes.text() || `HTTP ${channelsRes.status}`);
-          if (!itemsRes.ok) throw new Error(await itemsRes.text() || `HTTP ${itemsRes.status}`);
-          const channelsData = await channelsRes.json();
-          const itemsData = await itemsRes.json();
           CACHED_CHANNELS = Array.isArray(channelsData?.items) ? channelsData.items : [];
           CACHED_ITEMS = Array.isArray(itemsData?.items) ? itemsData.items : [];
           renderChannelSelect();
@@ -297,9 +291,7 @@
       async function syncShared() {
         setLoading("globalStatus", "同步共享库中...");
         try {
-          const res = await fetch("/api/v1/source_library/sync_shared_from_files", { method: "POST" });
-          if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
-          const data = await res.json();
+          const data = await window.MarketApp.api.post("/api/v1/source_library/sync_shared_from_files", null);
           setSuccess("globalStatus", `同步成功：channels=${data.upserted_channels || 0}, items=${data.upserted_items || 0}`);
           await refreshData();
         } catch (err) {
@@ -348,12 +340,7 @@
         setLoading("upsertStatus", "保存中...");
         try {
           const url = `/api/v1/source_library/items?project_key=${encodeURIComponent(project_key)}`;
-          const res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+          await window.MarketApp.api.post(url, payload);
           setSuccess("upsertStatus", "保存成功");
           await refreshData();
         } catch (err) {
@@ -378,13 +365,7 @@
         }
         setLoading("runStatus", async_mode ? "异步提交中..." : "执行中...");
         try {
-          const res = await fetch(`/api/v1/source_library/items/${encodeURIComponent(itemKey)}/run`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ project_key, async_mode, override_params }),
-          });
-          if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
-          const data = await res.json();
+          const data = await window.MarketApp.api.post(`/api/v1/source_library/items/${encodeURIComponent(itemKey)}/run`, { project_key, async_mode, override_params });
           qs("runResult").textContent = JSON.stringify(data, null, 2);
           setSuccess("runStatus", async_mode ? "已提交异步任务" : "执行成功");
         } catch (err) {

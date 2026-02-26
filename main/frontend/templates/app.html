@@ -271,6 +271,7 @@
       }
     </style>
 
+    <script src="/static/js/app-shell.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
   </head>
   <body>
@@ -292,33 +293,68 @@
 
       <nav class="sidebar-nav" id="sidebarNav">
         <div class="group-title">总览</div>
-        <a href="#" class="nav-item active" data-page="index.html" onclick="loadPage('index.html', this)">
-          <i data-lucide="home"></i><span>主页</span>
+        <a href="#" class="nav-item active" data-page="process-management.html" onclick="loadPage('process-management.html', this)">
+          <i data-lucide="zap"></i><span>任务</span>
         </a>
-        <a href="#" class="nav-item" data-page="dashboard.html" onclick="loadPage('dashboard.html', this)">
-          <i data-lucide="layout-dashboard"></i><span>综合仪表盘</span>
+        <a href="#" class="nav-item" data-page="admin.html" onclick="loadPage('admin.html', this)">
+          <i data-lucide="database"></i><span>数据</span>
         </a>
 
-        <div class="group-title">业务视角</div>
-        <a href="#" class="nav-item" data-page="dashboard.html#macro-policy" onclick="loadPage('dashboard.html#macro-policy', this)">
-          <i data-lucide="scroll-text"></i><span>宏观政策</span>
+        <div class="group-title">数据侧面</div>
+        <a href="#" class="nav-item" data-page="data-dashboard.html" onclick="loadPage('data-dashboard.html', this)">
+          <i data-lucide="area-chart"></i><span>数据仪表盘</span>
         </a>
-        <a href="#" class="nav-item" data-page="dashboard.html#industry-company" onclick="loadPage('dashboard.html#industry-company', this)">
+        <a href="#" class="nav-item" data-page="market-data-visualization.html" onclick="loadPage('market-data-visualization.html', this)">
+          <i data-lucide="line-chart"></i><span>市场</span>
+        </a>
+        <a href="#" class="nav-item" data-page="social-media-visualization.html" onclick="loadPage('social-media-visualization.html', this)">
+          <i data-lucide="message-square"></i><span>舆情</span>
+        </a>
+        <a href="#" class="nav-item" data-page="policy-visualization.html" onclick="loadPage('policy-visualization.html', this)">
+          <i data-lucide="landmark"></i><span>政策</span>
+        </a>
+        <a href="#" class="nav-item" data-page="topic-dashboard.html?topic=company" onclick="loadPage('topic-dashboard.html?topic=company', this)">
           <i data-lucide="factory"></i><span>行业公司</span>
         </a>
-        <a href="#" class="nav-item" data-page="dashboard.html#commodity" onclick="loadPage('dashboard.html#commodity', this)">
+        <a href="#" class="nav-item" data-page="topic-dashboard.html?topic=product" onclick="loadPage('topic-dashboard.html?topic=product', this)">
           <i data-lucide="package"></i><span>商品</span>
         </a>
-        <a href="#" class="nav-item" data-page="dashboard.html#ecommerce-price" onclick="loadPage('dashboard.html#ecommerce-price', this)">
-          <i data-lucide="shopping-cart"></i><span>电商价格</span>
+        <a href="#" class="nav-item" data-page="topic-dashboard.html?topic=operation" onclick="loadPage('topic-dashboard.html?topic=operation', this)">
+          <i data-lucide="shopping-cart"></i><span>电商/经营</span>
         </a>
-        <a href="#" class="nav-item" data-page="dashboard.html#public-opinion" onclick="loadPage('dashboard.html#public-opinion', this)">
-          <i data-lucide="message-square"></i><span>舆情</span>
+
+        <div class="group-title">图谱</div>
+        <a href="#" class="nav-item" data-page="/graph.html?type=market" onclick="loadPage('/graph.html?type=market', this)">
+          <i data-lucide="network"></i><span>市场图谱</span>
+        </a>
+        <a href="#" class="nav-item" data-page="/graph.html?type=policy" onclick="loadPage('/graph.html?type=policy', this)">
+          <i data-lucide="network"></i><span>政策图谱</span>
+        </a>
+        <a href="#" class="nav-item" data-page="/graph.html?type=social" onclick="loadPage('/graph.html?type=social', this)">
+          <i data-lucide="network"></i><span>社媒图谱</span>
+        </a>
+        <a href="#" class="nav-item" data-page="/graph.html?type=company" onclick="loadPage('/graph.html?type=company', this)">
+          <i data-lucide="building-2"></i><span>公司图谱</span>
+        </a>
+        <a href="#" class="nav-item" data-page="/graph.html?type=product" onclick="loadPage('/graph.html?type=product', this)">
+          <i data-lucide="box"></i><span>商品图谱</span>
+        </a>
+        <a href="#" class="nav-item" data-page="/graph.html?type=operation" onclick="loadPage('/graph.html?type=operation', this)">
+          <i data-lucide="shopping-bag"></i><span>电商/经营图谱</span>
+        </a>
+        <a href="#" class="nav-item" data-page="/graph.html?type=market_deep_entities" onclick="loadPage('/graph.html?type=market_deep_entities', this)">
+          <i data-lucide="git-branch-plus"></i><span>市场实体加细图</span>
         </a>
 
         <div class="group-title">流程视角</div>
-        <a href="#" class="nav-item" data-page="index.html#ingest" onclick="loadPage('index.html#ingest', this)">
+        <a href="#" class="nav-item" data-page="ingest.html" onclick="loadPage('ingest.html', this)">
           <i data-lucide="download"></i><span>采集</span>
+        </a>
+        <a href="#" class="nav-item" data-page="ingest.html?mode=specialized" onclick="loadPage('ingest.html?mode=specialized', this)">
+          <i data-lucide="sparkles"></i><span>特化采集</span>
+        </a>
+        <a href="#" class="nav-item" data-page="raw-data-processing.html" onclick="loadPage('raw-data-processing.html', this)">
+          <i data-lucide="file-input"></i><span>数据处理</span>
         </a>
         <a href="#" class="nav-item" data-page="admin.html#extracted" onclick="loadPage('admin.html#extracted', this)">
           <i data-lucide="puzzle"></i><span>提取</span>
@@ -329,51 +365,6 @@
         <a href="#" class="nav-item" data-page="dashboard.html#board" onclick="loadPage('dashboard.html#board', this)">
           <i data-lucide="trending-up"></i><span>看板</span>
         </a>
-        <div class="nav-item has-submenu" onclick="toggleSubmenu(this, event)">
-          <div class="nav-item-content"><i data-lucide="settings"></i><span>管理</span></div>
-          <div class="nav-submenu">
-            <a href="#" class="nav-submenu-item" data-page="process-management.html" onclick="loadPage('process-management.html', this)">
-              <i data-lucide="zap"></i><span>任务进程</span>
-            </a>
-            <a href="#" class="nav-submenu-item" data-page="admin.html" onclick="loadPage('admin.html', this)">
-              <i data-lucide="database"></i><span>数据管理</span>
-            </a>
-            <a href="#" class="nav-submenu-item" data-page="settings.html" onclick="loadPage('settings.html', this)">
-              <i data-lucide="settings-2"></i><span>系统设置</span>
-            </a>
-          </div>
-        </div>
-
-        <div class="group-title">可视化</div>
-        <a href="#" class="nav-item" data-page="data-dashboard.html" onclick="loadPage('data-dashboard.html', this)">
-          <i data-lucide="area-chart"></i><span>数据仪表盘</span>
-        </a>
-        <a href="#" class="nav-item" data-page="market-data-visualization.html" onclick="loadPage('market-data-visualization.html', this)">
-          <i data-lucide="line-chart"></i><span>市场可视化</span>
-        </a>
-        <a href="#" class="nav-item" data-page="social-media-visualization.html" onclick="loadPage('social-media-visualization.html', this)">
-          <i data-lucide="message-circle"></i><span>社媒可视化</span>
-        </a>
-        <a href="#" class="nav-item" data-page="policy-dashboard.html" onclick="loadPage('policy-dashboard.html', this)">
-          <i data-lucide="landmark"></i><span>政策仪表盘</span>
-        </a>
-        <a href="#" class="nav-item" data-page="policy-visualization.html" onclick="loadPage('policy-visualization.html', this)">
-          <i data-lucide="pie-chart"></i><span>政策可视化</span>
-        </a>
-        <div class="nav-item has-submenu" onclick="toggleSubmenu(this, event)">
-          <div class="nav-item-content"><i data-lucide="share-2"></i><span>图谱</span></div>
-          <div class="nav-submenu">
-            <a href="#" class="nav-submenu-item" data-page="/graph.html?type=market" onclick="loadPage('/graph.html?type=market', this)">
-              <i data-lucide="network"></i><span>市场图谱</span>
-            </a>
-            <a href="#" class="nav-submenu-item" data-page="/graph.html?type=policy" onclick="loadPage('/graph.html?type=policy', this)">
-              <i data-lucide="network"></i><span>政策图谱</span>
-            </a>
-            <a href="#" class="nav-submenu-item" data-page="/graph.html?type=social" onclick="loadPage('/graph.html?type=social', this)">
-              <i data-lucide="network"></i><span>社媒图谱</span>
-            </a>
-          </div>
-        </div>
 
         <div class="group-title">系统管理</div>
         <a href="#" class="nav-item" data-page="project-management.html" onclick="loadPage('project-management.html', this)">
@@ -385,6 +376,9 @@
         <a href="#" class="nav-item" data-page="backend-dashboard.html" onclick="loadPage('backend-dashboard.html', this)">
           <i data-lucide="layers"></i><span>后端监控</span>
         </a>
+        <a href="#" class="nav-item" data-page="settings.html" onclick="loadPage('settings.html', this)">
+          <i data-lucide="settings-2"></i><span>系统设置</span>
+        </a>
         <a href="#" class="nav-item" data-page="settings.html#llm-config" onclick="loadPage('settings.html#llm-config', this)">
           <i data-lucide="bot"></i><span>LLM 配置</span>
         </a>
@@ -393,41 +387,43 @@
 
     <main class="main-content">
       <div class="main-toolbar">
-        <div class="crumb" id="pageTitle">主页</div>
+        <div class="crumb" id="pageTitle">任务</div>
         <div class="project-hint" id="projectHint">当前项目: default</div>
       </div>
       <div id="frameHost" class="frame-host">
-        <iframe id="contentFrame" class="content-frame active" src="index.html"></iframe>
+        <iframe id="contentFrame" class="content-frame active" src="process-management.html"></iframe>
       </div>
     </main>
 
     <script>
       const PAGE_TITLES = {
-        "index.html": "主页",
+        "process-management.html": "任务",
+        "admin.html": "数据",
         "dashboard.html": "综合仪表盘",
         "backend-dashboard.html": "后端监控",
         "project-management.html": "项目管理",
         "resource-pool-management.html": "信息资源库管理",
         "data-dashboard.html": "数据仪表盘",
-        "market-data-visualization.html": "市场可视化",
+        "market-data-visualization.html": "市场",
+        "social-media-visualization.html": "舆情",
+        "policy-visualization.html": "政策",
         "/graph.html": "图谱",
         "/graph.html?type=market": "市场图谱",
         "/graph.html?type=policy": "政策图谱",
         "/graph.html?type=social": "社媒图谱",
-        "social-media-visualization.html": "社媒可视化",
-        "policy-dashboard.html": "政策仪表盘",
-        "policy-visualization.html": "政策可视化",
-        "dashboard.html#macro-policy": "宏观政策",
-        "dashboard.html#industry-company": "行业公司",
-        "dashboard.html#commodity": "商品",
-        "dashboard.html#ecommerce-price": "电商价格",
-        "dashboard.html#public-opinion": "舆情",
-        "index.html#ingest": "采集",
+        "/graph.html?type=company": "公司图谱",
+        "/graph.html?type=product": "商品图谱",
+        "/graph.html?type=operation": "电商/经营图谱",
+        "/graph.html?type=market_deep_entities": "市场实体加细图",
+        "topic-dashboard.html?topic=company": "行业公司",
+        "topic-dashboard.html?topic=product": "商品",
+        "topic-dashboard.html?topic=operation": "电商/经营",
+        "ingest.html": "采集",
+        "ingest.html?mode=specialized": "特化采集",
+        "raw-data-processing.html": "数据处理",
         "admin.html#extracted": "提取",
         "dashboard.html#analysis": "分析",
         "dashboard.html#board": "看板",
-        "admin.html": "数据管理",
-        "process-management.html": "任务进程管理",
         "settings.html": "系统设置",
         "settings.html#llm-config": "LLM 配置"
       };
@@ -451,13 +447,16 @@
       }
 
       function getProjectKey() {
-        return normalizeProjectKey(localStorage.getItem("market_project_key") || "default");
+        const raw = localStorage.getItem("market_project_key");
+        if (raw == null || String(raw).trim() === "") return "";
+        return normalizeProjectKey(raw);
       }
 
       function getPageWithProjectKey(page) {
         const [base, hash] = page.split("#");
         const url = new URL(base.startsWith("/") ? base : "/" + base, window.location.origin);
-        url.searchParams.set("project_key", getProjectKey());
+        const projectKey = getProjectKey();
+        if (projectKey) url.searchParams.set("project_key", projectKey);
         const path = `${url.pathname}${url.search}${hash ? `#${hash}` : ""}`;
         return path;
       }
@@ -527,7 +526,7 @@
       function initFrameCache() {
         const frame = document.getElementById("contentFrame");
         if (!frame) return;
-        const initialTarget = getPageWithProjectKey("index.html");
+        const initialTarget = getPageWithProjectKey("process-management.html");
         const key = frameCacheKeyFromTarget(initialTarget);
         frame.dataset.cacheKey = key;
         frameCache.set(key, { frame });
@@ -572,8 +571,8 @@
       }
 
       function updateHeader(page) {
-        const clean = page.split("?")[0];
-        document.getElementById("pageTitle").textContent = PAGE_TITLES[clean] || clean;
+        const title = PAGE_TITLES[page] || PAGE_TITLES[page.split("?")[0]] || page;
+        document.getElementById("pageTitle").textContent = title;
         const key = getProjectKey();
         document.getElementById("projectHint").textContent = `当前项目: ${projectName(key)}`;
         document.getElementById("projectHint").title = `project_key: ${key}`;
@@ -620,17 +619,23 @@
 
       function applyProjectKey() {
         const select = document.getElementById("projectSelect");
-        const key = normalizeProjectKey(select.value);
+        const raw = String(select?.value || "").trim();
+        if (!raw) {
+          document.getElementById("projectHint").textContent = "当前项目: 未选择";
+          document.getElementById("projectHint").title = "project_key: (none)";
+          return;
+        }
+        const key = normalizeProjectKey(raw);
         localStorage.setItem("market_project_key", key);
         select.value = key;
         document.getElementById("projectHint").textContent = `当前项目: ${projectName(key)}`;
         document.getElementById("projectHint").title = `project_key: ${key}`;
 
         // Best-effort activate in control plane (single-user friendly)
-        fetch(`/api/v1/projects/${encodeURIComponent(key)}/activate`, { method: "POST" }).catch(() => {});
+        window.MarketApp.api.post(`/api/v1/projects/${encodeURIComponent(key)}/activate`, null).catch(() => {});
 
         const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
-        const page = active ? active.getAttribute("data-page") : "index.html";
+        const page = active ? active.getAttribute("data-page") : "process-management.html";
         const target = getPageWithProjectKey(page);
         const frame = showFrameForTarget(target);
         navigateFrame(frame, target);
@@ -648,23 +653,15 @@
         }
 
         try {
-          const res = await fetch("/api/v1/projects", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ project_key, name, enabled: true }),
-          });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `HTTP ${res.status}`);
-          }
+          await window.MarketApp.api.post("/api/v1/projects", { project_key, name, enabled: true });
           // Activate and switch locally
-          await fetch(`/api/v1/projects/${encodeURIComponent(project_key)}/activate`, { method: "POST" });
+          await window.MarketApp.api.post(`/api/v1/projects/${encodeURIComponent(project_key)}/activate`, null);
           localStorage.setItem("market_project_key", project_key);
           await loadProjects();
 
           // Reload current frame
           const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
-          const page = active ? active.getAttribute("data-page") : "index.html";
+          const page = active ? active.getAttribute("data-page") : "process-management.html";
           const target = getPageWithProjectKey(page);
           const frame = showFrameForTarget(target);
           navigateFrame(frame, target);
@@ -680,27 +677,18 @@
         const keyInput = String(prompt("请输入项目 key（可留空自动生成）", "") || "").trim();
         const project_key = keyInput ? normalizeProjectKey(keyInput) : "";
         try {
-          const res = await fetch("/api/v1/projects/inject-initial", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              project_key: project_key || null,
-              name,
-              source_project_key: "demo_proj",
-              overwrite: false,
-              activate: true,
-            }),
+          const data = await window.MarketApp.api.post("/api/v1/projects/inject-initial", {
+            project_key: project_key || null,
+            name,
+            source_project_key: "demo_proj",
+            overwrite: false,
+            activate: true,
           });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `HTTP ${res.status}`);
-          }
-          const data = await res.json();
           const nextKey = data.project_key || project_key;
           if (nextKey) localStorage.setItem("market_project_key", nextKey);
           await loadProjects();
           const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
-          const page = active ? active.getAttribute("data-page") : "index.html";
+          const page = active ? active.getAttribute("data-page") : "process-management.html";
           const target = getPageWithProjectKey(page);
           const frame = showFrameForTarget(target);
           navigateFrame(frame, target);
@@ -712,25 +700,44 @@
 
       async function loadProjects() {
         try {
-          const res = await fetch("/api/v1/projects");
-          if (!res.ok) return;
-          const data = await res.json();
+          const data = await window.MarketApp.api.get("/api/v1/projects");
+          if (!data) return;
           const items = Array.isArray(data?.items) ? data.items : [];
           PROJECTS = items.filter((p) => p && p.enabled !== false);
 
           const select = document.getElementById("projectSelect");
           if (!select) return;
-          select.innerHTML = PROJECTS.map((p) => `<option value="${p.project_key}">${p.name}</option>`).join("");
+          select.innerHTML = [
+            '<option value="">(选择项目)</option>',
+            ...PROJECTS.map((p) => `<option value="${p.project_key}">${p.name}</option>`),
+          ].join("");
 
-          // Choose current key if exists, otherwise prefer active project from API
-          const storedKey = getProjectKey();
-          const apiActive = PROJECTS.find((p) => p.is_active) || PROJECTS[0];
-          const nextKey = PROJECTS.some((p) => p.project_key === storedKey) ? storedKey : (apiActive?.project_key || "default");
+          // Prefer remembered choice; if it no longer exists, do not auto-switch to another project.
+          const rawStored = localStorage.getItem("market_project_key");
+          const hasStored = rawStored != null && String(rawStored).trim() !== "";
+          const storedKey = hasStored ? normalizeProjectKey(rawStored) : "";
+          const storedExists = !!storedKey && PROJECTS.some((p) => p.project_key === storedKey);
 
-          localStorage.setItem("market_project_key", nextKey);
-          select.value = nextKey;
-          document.getElementById("projectHint").textContent = `当前项目: ${projectName(nextKey)}`;
-          document.getElementById("projectHint").title = `project_key: ${nextKey}`;
+          let nextKey = "";
+          if (storedExists) {
+            nextKey = storedKey;
+          } else if (!hasStored) {
+            const apiActive = PROJECTS.find((p) => p.is_active) || PROJECTS[0];
+            nextKey = apiActive?.project_key || "";
+            if (nextKey) localStorage.setItem("market_project_key", nextKey);
+          }
+
+          select.value = nextKey || "";
+          if (nextKey) {
+            document.getElementById("projectHint").textContent = `当前项目: ${projectName(nextKey)}`;
+            document.getElementById("projectHint").title = `project_key: ${nextKey}`;
+          } else if (hasStored && !storedExists) {
+            document.getElementById("projectHint").textContent = "当前项目: 上次选择不存在，请重新选择";
+            document.getElementById("projectHint").title = `project_key: ${storedKey || "(invalid)"}`;
+          } else {
+            document.getElementById("projectHint").textContent = "当前项目: 未选择";
+            document.getElementById("projectHint").title = "project_key: (none)";
+          }
         } catch {
           // ignore - dropdown will stay empty
         }
@@ -746,7 +753,7 @@
         lucide.createIcons();
         initFrameCache();
         loadProjects();
-        updateHeader("index.html");
+        updateHeader("process-management.html");
 
         const projectSelect = document.getElementById("projectSelect");
         if (projectSelect) {
@@ -754,7 +761,7 @@
         }
 
         const hash = decodeURIComponent(window.location.hash.substring(1) || "");
-          if (hash) {
+        if (hash) {
           const navItem = document.querySelector(`[data-page="${hash}"]`);
           if (navItem) {
             loadPage(hash, navItem);
@@ -765,7 +772,7 @@
             updateHeader(hash);
           }
         } else {
-          const target = getPageWithProjectKey("index.html");
+          const target = getPageWithProjectKey("process-management.html");
           const frame = showFrameForTarget(target);
           navigateFrame(frame, target);
         }

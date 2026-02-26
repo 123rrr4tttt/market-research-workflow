@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>市场信息工作台首页</title>
+    <title>采集 - 市场信息工作台</title>
     <link rel="stylesheet" href="/static/css/app-theme.css" />
     <style>
       /* 确保 iframe 内的 body 没有 padding，由 .page 控制 */
@@ -17,6 +17,7 @@
       .modal-overlay h3 { margin: 0 0 8px 0; }
       .ingest-partition { padding: 16px 0; border-bottom: 1px solid var(--border, #e2e8f0); }
       .ingest-partition:last-of-type { border-bottom: none; padding-bottom: 0; }
+      .hidden { display: none !important; }
       .partition-title { margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--text, #1e293b); }
       .multi-select { position: relative; display: inline-block; min-width: 96px; }
       .multi-select-btn {
@@ -61,7 +62,7 @@
     <div class="page">
       <section class="hero">
         <h1><i data-lucide="layout" style="vertical-align: middle; margin-right: 8px;"></i>市场信息工作台</h1>
-        <p>业务层覆盖宏观政策、行业公司、商品、电商价格、舆情；操作层覆盖采集、提取、分析、看板、管理。</p>
+        <p>业务层覆盖宏观政策、行业公司、商品、电商/经营、舆情；操作层覆盖采集、提取、分析、看板、管理。</p>
       </section>
 
       <section class="card" style="margin-bottom: 12px;">
@@ -80,8 +81,8 @@
             <p>商品指标历史与趋势采集</p>
           </article>
           <article class="card">
-            <div class="badge info"><i data-lucide="shopping-cart" style="width: 14px; height: 14px; margin-right: 4px;"></i> 电商价格与舆情</div>
-            <p>电商价格观测与社交情绪变化</p>
+            <div class="badge info"><i data-lucide="shopping-cart" style="width: 14px; height: 14px; margin-right: 4px;"></i> 电商/经营与舆情</div>
+            <p>电商/经营观测与社交情绪变化</p>
           </article>
         </div>
       </section>
@@ -89,7 +90,7 @@
       <section class="card" style="margin-bottom: 12px;" id="ingest">
         <h2 class="section-title">采集快捷入口</h2>
 
-        <div class="ingest-partition">
+        <div class="ingest-partition" id="partitionCommon">
           <h3 class="partition-title"><i data-lucide="sliders-horizontal" style="width: 16px; height: 16px; vertical-align: middle;"></i> 通用检索设置</h3>
           <div class="toolbar">
             <label for="queryTerms">查询词</label>
@@ -113,6 +114,13 @@
               <option value="serpapi">serpapi</option>
               <option value="auto">auto</option>
             </select>
+            <label for="topicFocus">专题焦点</label>
+            <select id="topicFocus" style="width: 120px;">
+              <option value="">默认</option>
+              <option value="company">公司</option>
+              <option value="product">商品</option>
+              <option value="operation">电商/经营</option>
+            </select>
             <label for="asyncMode">异步</label>
             <input id="asyncMode" type="checkbox" />
           </div>
@@ -129,7 +137,7 @@
           <p class="hint">通用查询词/语言/联想词与检索参数会被政策法规、市场、舆情采集复用；运行来源库项时也会作为覆盖参数传入。</p>
         </div>
 
-        <div class="ingest-partition">
+        <div class="ingest-partition" id="partitionSourceLibrary">
           <h3 class="partition-title"><i data-lucide="database" style="width: 16px; height: 16px; vertical-align: middle;"></i> 来源库项运行</h3>
           <div class="toolbar">
             <label for="sourceLibraryItem">来源库项</label>
@@ -146,7 +154,7 @@
           <p class="hint">可传 `item_key` 或 `handler_key`（二选一，`handler_key` 为来源库 item 的 entry_type 聚类，如 `rss` / `sitemap` / `search_template`）。使用上方通用检索设置作为 `override_params`；查询词会透传到执行任务。</p>
         </div>
 
-        <div class="ingest-partition">
+        <div class="ingest-partition" id="partitionPolicy">
           <h3 class="partition-title"><i data-lucide="scroll-text" style="width: 16px; height: 16px; vertical-align: middle;"></i> 政策类采集</h3>
           <div class="toolbar">
             <button id="btnPolicyRegulation"><i data-lucide="scroll-text"></i> 政策法规采集</button>
@@ -155,7 +163,7 @@
           <p class="hint">政策法规采集使用上方通用查询词、语言、搜索服务、结果数、偏移和时间范围；“政策采集（按来源项州）”依赖所选来源库项中的 `state`。</p>
         </div>
 
-        <div class="ingest-partition">
+        <div class="ingest-partition" id="partitionMarket">
           <h3 class="partition-title"><i data-lucide="bar-chart-3" style="width: 16px; height: 16px; vertical-align: middle;"></i> 市场采集</h3>
           <div class="toolbar">
             <button id="btnMarket"><i data-lucide="bar-chart-3"></i> 市场采集</button>
@@ -163,7 +171,7 @@
           <p class="hint">市场采集复用上方通用查询词 / 语言 / 搜索服务 / 结果数 / 偏移 / 时间范围 / 结构化提取设置。</p>
         </div>
 
-        <div class="ingest-partition">
+        <div class="ingest-partition" id="partitionSocial">
           <h3 class="partition-title"><i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i> 舆情采集</h3>
           <div class="toolbar">
             <label for="socialPlatformSelect">平台名称</label>
@@ -177,7 +185,7 @@
           <p class="hint">舆情采集复用上方通用查询词、结果数与结构化提取设置；此处分组配置平台、基础子论坛与子论坛发现。</p>
         </div>
 
-        <div class="ingest-partition">
+        <div class="ingest-partition" id="partitionCommodityEcom">
           <h3 class="partition-title"><i data-lucide="box" style="width: 16px; height: 16px; vertical-align: middle;"></i> 商品与电商采集</h3>
           <div class="toolbar">
             <label for="commodityLimit">商品天数</label>
@@ -185,9 +193,37 @@
             <button id="btnCommodity"><i data-lucide="box"></i> 商品采集</button>
             <label for="ecomLimit" style="margin-left: 12px;">电商条数</label>
             <input id="ecomLimit" type="number" min="1" max="500" value="100" style="width: 90px;" title="最大商品数量" />
-            <button id="btnEcom"><i data-lucide="tag"></i> 电商价格采集</button>
+            <button id="btnEcom"><i data-lucide="tag"></i> 电商/经营采集</button>
           </div>
           <p class="hint">商品与电商采集不依赖查询词，分别使用本分组的条数/天数参数。</p>
+        </div>
+
+        <div class="ingest-partition hidden" id="partitionSpecializedGuide">
+          <h3 class="partition-title"><i data-lucide="sparkles" style="width: 16px; height: 16px; vertical-align: middle;"></i> 特化采集入口（三分区）</h3>
+          <div class="grid-3" style="display:grid; grid-template-columns:repeat(3,minmax(220px,1fr)); gap:12px;">
+            <article class="card">
+              <div class="badge info"><i data-lucide="building-2" style="width:14px;height:14px;margin-right:4px;"></i> 公司</div>
+              <p class="hint" style="margin:8px 0 10px;">自动将专题焦点设为 company，使用市场/舆情采集补齐公司相关线索。</p>
+              <div class="toolbar">
+                <button id="btnPresetCompany">切到公司专题</button>
+              </div>
+            </article>
+            <article class="card">
+              <div class="badge info"><i data-lucide="box" style="width:14px;height:14px;margin-right:4px;"></i> 商品</div>
+              <p class="hint" style="margin:8px 0 10px;">自动将专题焦点设为 product，并联动商品与市场采集。</p>
+              <div class="toolbar">
+                <button id="btnPresetProduct">切到商品专题</button>
+              </div>
+            </article>
+            <article class="card">
+              <div class="badge info"><i data-lucide="shopping-bag" style="width:14px;height:14px;margin-right:4px;"></i> 电商/经营</div>
+              <p class="hint" style="margin:8px 0 10px;">自动将专题焦点设为 operation，并联动电商/经营与市场/舆情采集。</p>
+              <div class="toolbar">
+                <button id="btnPresetOperation">切到电商/经营专题</button>
+              </div>
+            </article>
+          </div>
+          <p class="hint">该页面保留原采集布局与按钮，仅通过专题焦点和分区显隐收敛成“特化采集”视图。</p>
         </div>
 
         <div id="actionStatus" class="status">等待触发采集任务</div>
@@ -217,6 +253,43 @@
 
     <script>
       const { qs, setLoading, setError, setSuccess, setEmpty, formatNumber, toDateTime, escapeHtml, toggleDisabled } = window.UICore;
+      const INGEST_PAGE_MODE = new URLSearchParams(window.location.search).get("mode") || "default";
+
+      function applyIngestPageMode() {
+        const heroTitle = document.querySelector(".hero h1");
+        const heroDesc = document.querySelector(".hero p");
+        const overviewCard = document.querySelectorAll(".page > section.card")[0];
+        const pageTitleMap = {
+          default: "市场信息工作台",
+          specialized: "特化采集工作台",
+        };
+        if (heroTitle) {
+          heroTitle.innerHTML = `<i data-lucide="layout" style="vertical-align: middle; margin-right: 8px;"></i>${pageTitleMap[INGEST_PAGE_MODE] || pageTitleMap.default}`;
+        }
+        if (INGEST_PAGE_MODE === "specialized") {
+          if (heroDesc) heroDesc.textContent = "公司 / 商品 / 电商经营 三分区特化采集入口；保留通用查询词与原有采集按钮布局。";
+          if (overviewCard) overviewCard.classList.add("hidden");
+          qs("partitionSourceLibrary")?.classList.add("hidden");
+          qs("partitionPolicy")?.classList.add("hidden");
+          qs("partitionMarket")?.classList.add("hidden");
+          qs("partitionSocial")?.classList.add("hidden");
+          qs("partitionCommodityEcom")?.classList.add("hidden");
+          qs("partitionSpecializedGuide")?.classList.remove("hidden");
+        } else {
+          qs("partitionSpecializedGuide")?.classList.add("hidden");
+          qs("partitionPolicy")?.classList.remove("hidden");
+          qs("partitionSourceLibrary")?.classList.remove("hidden");
+          qs("partitionMarket")?.classList.remove("hidden");
+          qs("partitionSocial")?.classList.remove("hidden");
+          qs("partitionCommodityEcom")?.classList.remove("hidden");
+        }
+      }
+
+      function setTopicFocusPreset(value, message) {
+        const el = qs("topicFocus");
+        if (el) el.value = value;
+        setSuccess("actionStatus", message);
+      }
 
       function getAsyncMode() {
         return !!qs("asyncMode").checked;
@@ -319,6 +392,11 @@
 
       function getSearchProvider() {
         const v = String(qs("searchProvider").value || "").trim();
+        return v || null;
+      }
+
+      function getTopicFocus() {
+        const v = String(qs("topicFocus")?.value || "").trim();
         return v || null;
       }
 
@@ -468,11 +546,14 @@
         const cleaned = Array.isArray(rawTerms) ? rawTerms.map((x) => String(x || "").trim()).filter(Boolean) : [];
         if (!cleaned.length) return [];
         const topic = cleaned.join(" ");
+        const topicFocus = getTopicFocus();
+        const effectivePlatform = topicFocus ? null : platform;
         const payload = {
           topic,
           language: (getSearchLanguage() || "zh").trim() || "zh",
-          platform,
+          platform: effectivePlatform,
           base_keywords: cleaned,
+          ...(topicFocus ? { topic_focus: topicFocus } : {}),
         };
         const data = await window.MarketApp.fetchJSON("/api/v1/discovery/generate-keywords", {
           method: "POST",
@@ -769,6 +850,7 @@
           const db = getDaysBack(); if (db != null) body.days_back = db;
           const lang = getSearchLanguage(); if (lang) body.language = lang;
           const prov = getSearchProvider(); if (prov) body.provider = prov;
+          const tf = getTopicFocus(); if (tf) body.topic_focus = tf;
           return window.MarketApp.fetchJSON("/api/v1/ingest/market", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -798,6 +880,7 @@
           const db = getDaysBack(); if (db != null) body.days_back = db;
           const lang = getSearchLanguage(); if (lang) body.language = lang;
           const prov = getSearchProvider(); if (prov) body.provider = prov;
+          const tf = getTopicFocus(); if (tf) body.topic_focus = tf;
           return window.MarketApp.fetchJSON("/api/v1/ingest/policy/regulation", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -821,7 +904,7 @@
       );
 
       qs("btnEcom").addEventListener("click", () =>
-        runAction("电商价格采集", () =>
+        runAction("电商/经营采集", () =>
           window.MarketApp.fetchJSON("/api/v1/ingest/ecom/prices", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -842,21 +925,23 @@
         }
         runAction("舆情采集", async () => {
           const queryTerms = rawTerms;
+          const body = {
+            query_terms: queryTerms,
+            keywords: queryTerms,
+            platforms: getSocialPlatforms(),
+            max_items: getSocialLimit(),
+            limit: getSocialLimit(),
+            async_mode: getAsyncMode(),
+            enable_extraction: getEnableExtraction(),
+            enable_subreddit_discovery: getEnableSubredditDiscovery(),
+            base_subreddits: getBaseSubreddits(),
+            project_key: window.MarketApp.getProjectKey(),
+          };
+          const tf = getTopicFocus(); if (tf) body.topic_focus = tf;
           return window.MarketApp.fetchJSON("/api/v1/ingest/social/sentiment", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              query_terms: queryTerms,
-              keywords: queryTerms,
-              platforms: getSocialPlatforms(),
-              max_items: getSocialLimit(),
-              limit: getSocialLimit(),
-              async_mode: getAsyncMode(),
-              enable_extraction: getEnableExtraction(),
-              enable_subreddit_discovery: getEnableSubredditDiscovery(),
-              base_subreddits: getBaseSubreddits(),
-              project_key: window.MarketApp.getProjectKey(),
-            }),
+            body: JSON.stringify(body),
           });
         });
       });
@@ -883,7 +968,6 @@
       qs("btnRunSourceLibraryHandler")?.addEventListener("click", () =>
         runAction("运行 Handler 聚类", runSelectedSourceLibraryHandler)
       );
-
       qs("queryTerms")?.addEventListener("input", () => {
         const el = qs("queryTerms");
         if (!el) return;
@@ -896,7 +980,11 @@
       });
 
       window.addEventListener("DOMContentLoaded", async () => {
+        applyIngestPageMode();
         lucide.createIcons();
+        qs("btnPresetCompany")?.addEventListener("click", () => setTopicFocusPreset("company", "已切换到公司专题焦点，可直接执行市场/舆情采集"));
+        qs("btnPresetProduct")?.addEventListener("click", () => setTopicFocusPreset("product", "已切换到商品专题焦点，可执行市场/商品/电商采集"));
+        qs("btnPresetOperation")?.addEventListener("click", () => setTopicFocusPreset("operation", "已切换到电商/经营专题焦点，可执行市场/舆情/电商采集"));
         try {
           await loadSourceLibraryItems();
         } catch (error) {

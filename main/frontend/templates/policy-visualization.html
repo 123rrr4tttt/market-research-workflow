@@ -336,11 +336,7 @@
             let lastError = null;
             for (const url of sources) {
               try {
-                const response = await fetch(url, { cache: 'force-cache' });
-                if (!response.ok) {
-                  throw new Error(`加载地图失败: ${response.status}`);
-                }
-                const geoJson = await response.json();
+                const geoJson = await window.MarketApp.fetchJSON(url);
                 echarts.registerMap('USA', geoJson);
                 return true;
               } catch (error) {
@@ -437,10 +433,7 @@
           if (currentFilters.start) params.append('start', currentFilters.start);
           if (currentFilters.end) params.append('end', currentFilters.end);
           
-          const response = await fetch(`/api/v1/policies/stats?${params}`);
-          if (!response.ok) throw new Error('获取统计数据失败');
-          
-          const data = await response.json();
+          const data = await window.MarketApp.fetchJSON(`/api/v1/policies/stats?${params}`);
           
           // 更新统计卡片
           document.getElementById('stat-total').textContent = data.total || 0;

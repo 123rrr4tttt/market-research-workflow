@@ -151,6 +151,67 @@ def generate_keywords(topic: str, language: str = "zh") -> List[str]:
         ]
 
 
+def generate_topic_keywords(
+    topic: str,
+    *,
+    topic_focus: str,
+    language: str = "zh",
+    base_keywords: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Generate topic-focused search keywords (company/product/operation) for collection.
+
+    This is collection-layer keyword expansion, separate from structured extraction prompts.
+    """
+    focus = str(topic_focus or "").strip().lower()
+    if focus not in {"company", "product", "operation"}:
+        return {"search_keywords": [], "topic_hints": []}
+
+    base = [str(x).strip() for x in (base_keywords or []) if str(x).strip()]
+    if not base:
+        base = [topic]
+
+    # Cheap deterministic fallback extensions
+    zh_suffix = {
+        "company": ["公司", "企业", "品牌", "合作", "供应链", "渠道"],
+        "product": ["产品", "型号", "品类", "参数", "发布", "应用场景"],
+        "operation": ["经营", "商业模式", "运营模式", "电商", "平台", "渠道策略"],
+    }
+    en_suffix = {
+        "company": ["company", "brand", "partnership", "supply chain", "channel"],
+        "product": ["product", "model", "category", "specs", "launch", "use case"],
+        "operation": ["operation", "business model", "ecommerce", "platform", "channel strategy"],
+    }
+    hints = (zh_suffix if _base_language(language) == "zh" else en_suffix).get(focus, [])
+    fallback = _dedup_keywords([f"{kw} {s}" for kw in base[:4] for s in hints[:4]])
+
+    try:
+        if settings.llm_provider == "openai" and not settings.openai_api_key:
+            return {"search_keywords": fallback[:12], "topic_hints": hints[:8]}
+        prompt = (
+            "你是一名专题搜索关键词生成助手。请基于主题和专题方向生成 6~12 个用于检索的关键词。"
+            "只返回 JSON，格式为 {\"search_keywords\":[],\"topic_hints\":[]}。\n"
+            f"主题: {topic}\n专题: {focus}\n语言: {language}\n已有基础关键词: {base[:10]}\n"
+            "要求：关键词偏检索用途，不要输出结构化字段；topic_hints 是主题提示词，可更抽象。"
+        )
+        model = get_chat_model()
+        response = model.invoke(prompt)
+        content = response.content if hasattr(response, "content") else str(response)
+        data = None
+        try:
+            from ..extraction.json_utils import extract_json_payload as _extract_json
+            data = _extract_json(content)
+        except Exception:
+            data = None
+        if isinstance(data, dict):
+            search_kw = _dedup_keywords([str(x).strip() for x in (data.get("search_keywords") or []) if str(x).strip()])
+            topic_hints = _dedup_keywords([str(x).strip() for x in (data.get("topic_hints") or []) if str(x).strip()])
+            if search_kw:
+                return {"search_keywords": search_kw[:12], "topic_hints": topic_hints[:12]}
+    except Exception:
+        logger.warning("generate_topic_keywords: llm failed, fallback", exc_info=True)
+    return {"search_keywords": fallback[:12], "topic_hints": hints[:8]}
+
+
 def filter_existing(results: List[dict]) -> List[dict]:
     """过滤已入库的文档"""
     urls = [r.get("link") for r in results if r.get("link")]

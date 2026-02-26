@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from ..project_customization.service import get_project_customization
-from ..services.search.web import generate_keywords
+from ..services.search.web import generate_keywords, generate_topic_keywords
 from ..services.discovery.application import DiscoveryApplicationService
 from ..services.keyword_generation import generate_social_keywords, generate_subreddit_keywords
 from ..services.job_logger import start_job, complete_job, fail_job
@@ -218,6 +218,7 @@ class KeywordGenerationRequest(BaseModel):
     language: str = Field(default="zh", description="关键词语言 zh/en")
     platform: Optional[str] = Field(default=None, description="平台名称（如reddit/twitter），用于社交平台关键词生成")
     base_keywords: Optional[list[str]] = Field(default=None, description="基础关键词列表（可选），用于增强生成")
+    topic_focus: Optional[str] = Field(default=None, description="专题焦点 company/product/operation（可选）")
 
 
 @router.post("/generate-keywords", responses=DISCOVERY_ERROR_RESPONSES)
@@ -254,13 +255,26 @@ def generate_keywords_api(payload: KeywordGenerationRequest):
                 return_combined=True,
             )
             if isinstance(keyword_result, dict):
-                sw = keyword_result.get("search_keywords", [])
+                sw = list(keyword_result.get("search_keywords", []) or [])
                 sr = keyword_result.get("subreddit_keywords", [])
+                if payload.topic_focus:
+                    try:
+                        tkw = generate_topic_keywords(
+                            payload.topic,
+                            topic_focus=payload.topic_focus,
+                            language=payload.language,
+                            base_keywords=payload.base_keywords or [],
+                        ) or {}
+                        extra = [str(x).strip() for x in (tkw.get("search_keywords") or []) if str(x).strip()]
+                        sw = list(dict.fromkeys([*sw, *extra]))
+                    except Exception as topic_exc:  # noqa: BLE001
+                        logger.warning("Keyword suggestion topic_focus augment (social) failed: %s", topic_exc)
                 logger.info("Keyword suggestion: trunk social result search_keywords=%s subreddit_keywords=%s", sw, sr)
                 return success_response({
                     "topic": payload.topic,
                     "language": payload.language,
                     "platform": payload.platform,
+                    "topic_focus": payload.topic_focus,
                     "search_keywords": sw,
                     "subreddit_keywords": sr,
                 })
@@ -273,12 +287,25 @@ def generate_keywords_api(payload: KeywordGenerationRequest):
             })
 
         logger.info("Keyword suggestion: trunk path=general, calling generate_keywords")
-        keywords = generate_keywords(payload.topic, payload.language)
+        keywords = list(generate_keywords(payload.topic, payload.language) or [])
+        if payload.topic_focus:
+            try:
+                tkw = generate_topic_keywords(
+                    payload.topic,
+                    topic_focus=payload.topic_focus,
+                    language=payload.language,
+                    base_keywords=payload.base_keywords or [],
+                ) or {}
+                extra = [str(x).strip() for x in (tkw.get("search_keywords") or []) if str(x).strip()]
+                keywords = list(dict.fromkeys([*keywords, *extra]))
+            except Exception as topic_exc:  # noqa: BLE001
+                logger.warning("Keyword suggestion topic_focus augment (general) failed: %s", topic_exc)
         logger.info("Keyword suggestion: trunk general result keywords=%s", keywords)
         return success_response({
             "topic": payload.topic,
             "language": payload.language,
             "platform": payload.platform,
+            "topic_focus": payload.topic_focus,
             "keywords": keywords,
         })
     except Exception as exc:  # noqa: BLE001

@@ -1,11 +1,11 @@
-# 预发布说明：v0.1.5-rc1（2026-02-26）
+# 预发布说明：v0.1.7-rc1（2026-02-26）
 
 - 版本类型：`预发布（Pre-release）`
-- 版本名称：`v0.1.5-rc1`
+- 版本名称：`v0.1.7-rc1`
 - 适用场景：团队联调、资源库/来源库稳定化验证、图谱与结构化回填验证
 
 本版本附带 `demo_proj` 演示数据包与导入脚本，支持仓库内使用与前端直接下载：
-- 数据包：`main/backend/seed_data/project_demo_proj_v0.1.5-rc1.sql`（前端下载：`/static/demo/project_demo_proj_v0.1.5-rc1.sql`）
+- 数据包：`main/backend/seed_data/project_demo_proj_v0.1.7-rc1.sql`（前端下载：`/static/demo/project_demo_proj_v0.1.7-rc1.sql`）
 - 导入脚本：`main/backend/scripts/load_demo_proj_seed.sh`（前端下载：`/static/demo/load_demo_proj_seed.sh`）
 
 ## 摘要
@@ -91,7 +91,7 @@
 - 图谱节点是否有实体连接，取决于来源文档是否有正文及实体提取结果
 - `main/backend/.env` 中 `SERPER_API_KEY` 格式错误（引号未闭合）仍需手工修复，否则会影响部分搜索链路
 
-## 推荐验证清单（v0.1.5-rc1）
+## 推荐验证清单（v0.1.7-rc1）
 
 1. 资源库页面一键生成/更新 Handler 聚类是否成功生成 `handler.cluster.*` 项
 2. 运行 `handler.cluster.search_template` 是否能并行命中多个站点入口

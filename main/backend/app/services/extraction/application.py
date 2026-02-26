@@ -9,6 +9,11 @@ from .service import (
     extract_policy_info,
     extract_structured_sentiment,
 )
+from .topic_extract import (
+    extract_company_info,
+    extract_product_info,
+    extract_operation_info,
+)
 
 
 @dataclass
@@ -32,6 +37,9 @@ class ExtractionApplicationService:
         include_policy: bool = False,
         include_market: bool = False,
         include_sentiment: bool = False,
+        include_company: bool = False,
+        include_product: bool = False,
+        include_operation: bool = False,
     ) -> Optional[dict[str, Any]]:
         """
         Mainline unified structured extraction:
@@ -71,6 +79,21 @@ class ExtractionApplicationService:
             if market:
                 out["market"] = market
 
+        if include_company:
+            company = extract_company_info(raw)
+            if company:
+                out["company_structured"] = company
+
+        if include_product:
+            product = extract_product_info(raw)
+            if product:
+                out["product_structured"] = product
+
+        if include_operation:
+            operation = extract_operation_info(raw)
+            if operation:
+                out["operation_structured"] = operation
+
         return out or None
 
     # Backward-compatible alias during migration; use extract_structured_enriched in new code.
@@ -81,10 +104,16 @@ class ExtractionApplicationService:
         include_policy: bool = False,
         include_market: bool = False,
         include_sentiment: bool = False,
+        include_company: bool = False,
+        include_product: bool = False,
+        include_operation: bool = False,
     ) -> Optional[dict[str, Any]]:
         return self.extract_structured_enriched(
             text,
             include_policy=include_policy,
             include_market=include_market,
             include_sentiment=include_sentiment,
+            include_company=include_company,
+            include_product=include_product,
+            include_operation=include_operation,
         )

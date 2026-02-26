@@ -6,6 +6,7 @@
     <title>图谱可视化</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/ui-cards.js"></script>
     <script src="/static/js/doc-card.js"></script>
     <script src="/static/js/graph-viewer.js"></script>
     <style>
@@ -29,37 +30,6 @@
       }
       h1 { margin: 0 0 8px 0; font-size: 28px; color: #0f172a; }
       header p { margin: 0; color: #64748b; }
-      .type-tabs {
-        display: flex;
-        gap: 8px;
-        margin-top: 16px;
-        flex-wrap: wrap;
-      }
-      .type-tabs a {
-        padding: 8px 16px;
-        background: #f1f5f9;
-        color: #475569;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 500;
-        transition: all 0.2s;
-      }
-      .type-tabs a:hover { background: #e2e8f0; color: #0f172a; }
-      .type-tabs a.active { background: #2563eb; color: white; }
-      .nav-links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-      .nav-links a {
-        padding: 10px 20px;
-        background: #2563eb;
-        color: white;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 500;
-        display: inline-block;
-        transition: background 0.2s;
-      }
-      .nav-links a.secondary { background: white; border: 1px solid #cbd5e1; color: #2563eb; }
-      .nav-links a:hover { background: #1d4ed8; }
-      .nav-links a.secondary:hover { background: #f1f5f9; }
       .controls {
         background: white;
         padding: 20px;
@@ -161,9 +131,27 @@
       .graph-control-panel span { min-width: 36px; text-align: right; font-size: 13px; font-weight: 600; color: #2563eb; }
       .graph-control-panel .control-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; white-space: nowrap; }
       .graph-control-panel .control-toggle input { accent-color: #2563eb; }
-      .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; color: #475569; font-size: 13px; }
-      .legend-item { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 8px; }
-      .legend-symbol { width: 14px; height: 14px; border-radius: 4px; }
+      .legend { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; color: #475569; font-size: 13px; }
+      .legend-group { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; }
+      .legend-group.collapsed .legend-group-items { display: none; }
+      .legend-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .legend-group-title { font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+      .legend-group-actions { display: flex; align-items: center; gap: 6px; }
+      .legend-group-btn { border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 8px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+      .legend-group-btn.is-off { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+      .legend-group-items { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .legend-item { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; user-select: none; }
+      .legend-item.is-hidden { opacity: 0.45; background: #f8fafc; border-color: #e2e8f0; text-decoration: line-through; }
+      .legend-symbol { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; position: relative; }
+      .legend-symbol-shape { width: 12px; height: 12px; display: block; background: currentColor; }
+      .legend-symbol-shape.circle { border-radius: 999px; }
+      .legend-symbol-shape.roundRect { border-radius: 4px; }
+      .legend-symbol-shape.rect { border-radius: 0; }
+      .legend-symbol-shape.diamond { transform: rotate(45deg) scale(0.9); border-radius: 1px; }
+      .legend-symbol-shape.triangle { width: 0; height: 0; background: transparent; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid currentColor; }
+      .legend-symbol-shape.pin { width: 10px; height: 10px; border-radius: 999px; }
+      .legend-symbol-shape.pin::after { content: ""; position: absolute; left: 5px; top: 8px; width: 2px; height: 6px; background: currentColor; transform: rotate(20deg); border-radius: 1px; }
+      .legend-symbol-shape.arrow { width: 0; height: 0; background: transparent; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 12px solid currentColor; }
       #graph-chart { width: 100%; height: 720px; min-height: 500px; }
       #graph-fullscreen-view { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; background: white; padding: 20px; box-sizing: border-box; }
       #graph-fullscreen-view.active { display: block; }
@@ -241,16 +229,6 @@
         <h1 id="graph-page-title">图谱可视化</h1>
         <p id="graph-doc-type-hint" class="info" style="margin-top: 12px;"></p>
         <p id="graph-structure-hint" class="info" style="margin-top: 8px;"></p>
-        <div class="type-tabs">
-          <a href="/graph.html?type=policy" id="tab-policy" class="active">政策图谱</a>
-          <a href="/graph.html?type=social" id="tab-social">社媒图谱</a>
-          <a href="/graph.html?type=market" id="tab-market">市场图谱</a>
-        </div>
-        <div class="nav-links">
-          <a href="/policy-visualization.html">政策仪表盘</a>
-          <a href="/social-media-visualization.html" class="secondary">社媒数据</a>
-          <a href="/market-data-visualization.html" class="secondary">市场可视化</a>
-        </div>
       </header>
 
       <div class="controls">
@@ -273,7 +251,7 @@
       <div class="graph-container" data-role="main">
         <div class="graph-control-panel" id="graph-control-panel">
           <label for="repulsion-slider">节点斥力</label>
-          <input type="range" id="repulsion-slider" min="60" max="360" step="10" value="180" />
+          <input type="range" id="repulsion-slider" min="60" max="720" step="10" value="180" />
           <span id="repulsion-value">180</span>
           <label class="control-toggle">
             <input type="checkbox" id="label-toggle" checked />
@@ -319,12 +297,7 @@
     <script>
       const GV = window.GraphViewer;
       const typeParam = new URLSearchParams(window.location.search).get('type') || 'policy';
-      const graphType = ['policy', 'social', 'market'].includes(typeParam) ? typeParam : 'policy';
-
-      document.querySelectorAll('.type-tabs a').forEach(a => {
-        a.classList.remove('active');
-        if (a.getAttribute('href')?.includes('type=' + graphType)) a.classList.add('active');
-      });
+      const graphType = ['policy', 'social', 'market', 'market_deep_entities', 'company', 'product', 'operation'].includes(typeParam) ? typeParam : 'policy';
 
       const messageArea = document.getElementById('message-area');
       const detailsPanel = document.getElementById('details-panel');
@@ -345,6 +318,10 @@
       let currentRepulsion = Number(repulsionSlider?.value || 180);
       let showLabels = labelToggle ? labelToggle.checked : true;
       let graphConfig = { nodeTypes: [], nodeLabels: {}, nodeColors: {}, nodeSymbols: {}, nodeSizeRules: {} };
+      const hiddenNodeTypes = new Set();
+      const collapsedLegendGroups = new Set();
+      const FALLBACK_TYPE_COLORS = ['#2563eb', '#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#14b8a6', '#f59e0b', '#64748b', '#06b6d4'];
+      const FALLBACK_TYPE_SYMBOLS = ['circle', 'roundRect', 'diamond', 'rect', 'triangle', 'pin'];
 
       const EXTRA_FILTERS = {
         policy: () => `
@@ -376,6 +353,60 @@
           <input type="text" id="filter-topic" placeholder="可选" />
         `,
         market: () => `
+          <label>视图：</label>
+          <select id="filter-market-view">
+            <option value="market">标准图谱</option>
+            <option value="market_deep_entities">实体加细图</option>
+          </select>
+          <label>州：</label>
+          <select id="filter-state">
+            <option value="">全部</option>
+            <option value="CA">CA</option>
+            <option value="NY">NY</option>
+            <option value="TX">TX</option>
+          </select>
+          <label>游戏：</label>
+          <input type="text" id="filter-game" placeholder="可选" />
+        `,
+        market_deep_entities: () => `
+          <label>视图：</label>
+          <select id="filter-market-view">
+            <option value="market">标准图谱</option>
+            <option value="market_deep_entities">实体加细图</option>
+          </select>
+          <label>州：</label>
+          <select id="filter-state">
+            <option value="">全部</option>
+            <option value="CA">CA</option>
+            <option value="NY">NY</option>
+            <option value="TX">TX</option>
+          </select>
+          <label>游戏：</label>
+          <input type="text" id="filter-game" placeholder="可选" />
+        `,
+        company: () => `
+          <label>州：</label>
+          <select id="filter-state">
+            <option value="">全部</option>
+            <option value="CA">CA</option>
+            <option value="NY">NY</option>
+            <option value="TX">TX</option>
+          </select>
+          <label>游戏：</label>
+          <input type="text" id="filter-game" placeholder="可选" />
+        `,
+        product: () => `
+          <label>州：</label>
+          <select id="filter-state">
+            <option value="">全部</option>
+            <option value="CA">CA</option>
+            <option value="NY">NY</option>
+            <option value="TX">TX</option>
+          </select>
+          <label>游戏：</label>
+          <input type="text" id="filter-game" placeholder="可选" />
+        `,
+        operation: () => `
           <label>州：</label>
           <select id="filter-state">
             <option value="">全部</option>
@@ -400,16 +431,59 @@
         } else if (graphType === 'social') {
           v.platform = document.getElementById('filter-platform')?.value || '';
           v.topic = document.getElementById('filter-topic')?.value?.trim() || '';
-        } else if (graphType === 'market') {
+        } else if (graphType === 'market' || graphType === 'market_deep_entities' || graphType === 'company' || graphType === 'product' || graphType === 'operation') {
           v.state = document.getElementById('filter-state')?.value || '';
           v.game = document.getElementById('filter-game')?.value?.trim() || '';
         }
         return v;
       }
 
+      function filterTopicSpecializedGraph(data, type) {
+        if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) return data;
+        const topicTypePrefixes = type === 'company'
+          ? ['Company']
+          : (type === 'product' ? ['Product'] : ['Operation']);
+        const isTopicType = (nodeType) => {
+          const t = String(nodeType || '');
+          return topicTypePrefixes.some(prefix => t === `${prefix}Entity` || t.startsWith(prefix));
+        };
+        const topicKeys = new Set();
+        const marketKeys = new Set();
+        const keepEdges = [];
+
+        const keyOf = (n) => `${n.type}:${n.id}`;
+        const nodeMap = new Map((data.nodes || []).map(n => [keyOf(n), n]));
+        for (const edge of (data.edges || [])) {
+          const fromKey = edge?.from ? `${edge.from.type}:${edge.from.id}` : '';
+          const toKey = edge?.to ? `${edge.to.type}:${edge.to.id}` : '';
+          const fromType = edge?.from?.type;
+          const toType = edge?.to?.type;
+          const connectsTopic = isTopicType(fromType) || isTopicType(toType);
+          if (!connectsTopic) continue;
+          keepEdges.push(edge);
+          if (isTopicType(fromType)) topicKeys.add(fromKey);
+          if (isTopicType(toType)) topicKeys.add(toKey);
+          if (fromType === 'MarketData') marketKeys.add(fromKey);
+          if (toType === 'MarketData') marketKeys.add(toKey);
+          if (fromType === 'TopicTag') topicKeys.add(fromKey);
+          if (toType === 'TopicTag') topicKeys.add(toKey);
+        }
+
+        const keepKeys = new Set([...topicKeys, ...marketKeys]);
+        const nodes = (data.nodes || []).filter(n => keepKeys.has(keyOf(n)));
+        const edges = (data.edges || []).filter(e => {
+          const fromKey = e?.from ? `${e.from.type}:${e.from.id}` : '';
+          const toKey = e?.to ? `${e.to.type}:${e.to.id}` : '';
+          return keepKeys.has(fromKey) && keepKeys.has(toKey);
+        });
+        return { ...data, nodes, edges };
+      }
+
       function renderExtraFilters() {
         const el = document.getElementById('filter-extra');
         if (el) el.innerHTML = EXTRA_FILTERS[graphType]?.() || '';
+        const marketViewEl = document.getElementById('filter-market-view');
+        if (marketViewEl) marketViewEl.value = graphType === 'market_deep_entities' ? 'market_deep_entities' : 'market';
       }
 
       function showMessage(type, text) {
@@ -421,11 +495,211 @@
         messageArea.appendChild(div);
       }
 
+      function legendGroupForType(type) {
+        const t = String(type || '');
+        if (t.startsWith('Company')) return 'company';
+        if (t.startsWith('Product')) return 'product';
+        if (t.startsWith('Operation')) return 'operation';
+        if (['MarketData', 'State', 'Segment', 'Entity', 'TopicTag', 'Policy', 'Post', 'Keyword', 'Topic', 'SentimentTag', 'User', 'Subreddit'].includes(t)) return 'base';
+        return 'other';
+      }
+
+      function legendGroupLabel(groupKey) {
+        return ({ base: '基础图例', company: '公司图例', product: '商品图例', operation: '电商/经营图例', other: '其他图例' })[groupKey] || '其他图例';
+      }
+
+      function buildLegendHtml(nodeTypes) {
+        const symbolAlias = {
+          emptyCircle: 'circle',
+          emptyRect: 'rect',
+          emptyRoundRect: 'roundRect',
+          emptyDiamond: 'diamond',
+          emptyTriangle: 'triangle',
+          emptyPin: 'pin',
+          emptyArrow: 'arrow',
+        };
+        const grouped = new Map();
+        (nodeTypes || []).forEach((t) => {
+          const g = legendGroupForType(t);
+          if (!grouped.has(g)) grouped.set(g, []);
+          grouped.get(g).push(t);
+        });
+        const order = ['base', 'company', 'product', 'operation', 'other'];
+        return order.filter(g => grouped.has(g)).map((g) => {
+          const types = grouped.get(g) || [];
+          const allHidden = types.length > 0 && types.every(t => hiddenNodeTypes.has(t));
+          const collapsed = collapsedLegendGroups.has(g);
+          const itemsHtml = types.map(t => {
+            const color = graphConfig.nodeColors?.[t] || '#94a3b8';
+            const label = graphConfig.nodeLabels?.[t] || t;
+            const symbol = symbolAlias[String(graphConfig.nodeSymbols?.[t] || 'circle')] || String(graphConfig.nodeSymbols?.[t] || 'circle');
+            const symbolClass = ['circle', 'roundRect', 'rect', 'diamond', 'triangle', 'pin', 'arrow'].includes(symbol) ? symbol : 'circle';
+            const hiddenCls = hiddenNodeTypes.has(t) ? ' is-hidden' : '';
+            return `<div class="legend-item${hiddenCls}" data-legend-type="${t}" title="点击切换显示/隐藏"><span class="legend-symbol" style="color:${color};"><span class="legend-symbol-shape ${symbolClass}"></span></span>${t} ${label}</div>`;
+          }).join('');
+          return `<div class="legend-group${collapsed ? ' collapsed' : ''}" data-legend-group="${g}">
+            <div class="legend-group-header">
+              <div class="legend-group-title" data-legend-group-collapse="${g}"><span>${collapsed ? '▸' : '▾'}</span><span>${legendGroupLabel(g)}</span><span style="font-size:12px;color:#64748b;">(${types.length})</span></div>
+              <div class="legend-group-actions">
+                <button type="button" class="legend-group-btn ${allHidden ? 'is-off' : ''}" data-legend-group-toggle="${g}">${allHidden ? '显示全部' : '隐藏全部'}</button>
+              </div>
+            </div>
+            <div class="legend-group-items">${itemsHtml}</div>
+          </div>`;
+        }).join('');
+      }
+
+      function renderLegend(nodeTypes) {
+        const legendEl = document.getElementById('legend');
+        const fullscreenLegendEl = document.getElementById('fullscreen-legend');
+        const html = buildLegendHtml(nodeTypes);
+        if (legendEl) legendEl.innerHTML = html;
+        if (fullscreenLegendEl) fullscreenLegendEl.innerHTML = html;
+        [legendEl, fullscreenLegendEl].forEach((root) => {
+          if (!root) return;
+          root.onclick = (e) => {
+            const typeItem = e.target.closest('[data-legend-type]');
+            if (typeItem) {
+              const t = typeItem.getAttribute('data-legend-type');
+              if (!t) return;
+              if (hiddenNodeTypes.has(t)) hiddenNodeTypes.delete(t); else hiddenNodeTypes.add(t);
+              renderLegend(graphConfig.nodeTypes || []);
+              if (latestGraphData) { renderGraph(latestGraphData); updateStats(filterGraphByHiddenTypes(latestGraphData)); }
+              return;
+            }
+            const groupToggle = e.target.closest('[data-legend-group-toggle]');
+            if (groupToggle) {
+              const g = groupToggle.getAttribute('data-legend-group-toggle');
+              const groupTypes = (graphConfig.nodeTypes || []).filter(t => legendGroupForType(t) === g);
+              const allHidden = groupTypes.length > 0 && groupTypes.every(t => hiddenNodeTypes.has(t));
+              groupTypes.forEach(t => { if (allHidden) hiddenNodeTypes.delete(t); else hiddenNodeTypes.add(t); });
+              renderLegend(graphConfig.nodeTypes || []);
+              if (latestGraphData) { renderGraph(latestGraphData); updateStats(filterGraphByHiddenTypes(latestGraphData)); }
+              return;
+            }
+            const groupCollapse = e.target.closest('[data-legend-group-collapse]');
+            if (groupCollapse) {
+              const g = groupCollapse.getAttribute('data-legend-group-collapse');
+              if (!g) return;
+              if (collapsedLegendGroups.has(g)) collapsedLegendGroups.delete(g); else collapsedLegendGroups.add(g);
+              renderLegend(graphConfig.nodeTypes || []);
+            }
+          };
+        });
+      }
+
+      function filterGraphByHiddenTypes(data) {
+        const nodes = (data?.nodes || []).filter(n => !hiddenNodeTypes.has(String(n?.type || '')));
+        const keep = new Set(nodes.map(n => `${n.type}:${n.id}`));
+        const edges = (data?.edges || []).filter(e => {
+          const fk = e?.from ? `${e.from.type}:${e.from.id}` : '';
+          const tk = e?.to ? `${e.to.type}:${e.to.id}` : '';
+          return keep.has(fk) && keep.has(tk);
+        });
+        return { ...(data || {}), nodes, edges };
+      }
+
+      function renderStatsSkeleton(nodeTypes) {
+        const statsEl = document.getElementById('stats');
+        if (!statsEl) return;
+        const lbl = (t) => graphConfig.nodeLabels?.[t] || t;
+        statsEl.innerHTML = `<div class="stat-card"><h3>节点总数</h3><div class="value" id="stat-nodes">-</div></div><div class="stat-card"><h3>边总数</h3><div class="value" id="stat-edges">-</div></div>` +
+          (nodeTypes || []).map(t => `<div class="stat-card"><h3>${lbl(t)}数量</h3><div class="value" id="stat-${t}">-</div></div>`).join('');
+      }
+
+      function adaptNodePresentationToData(nodes) {
+        const actualTypes = Array.from(new Set((nodes || []).map(n => n?.type).filter(Boolean)));
+        const configuredTypes = Array.isArray(graphConfig.nodeTypes) ? graphConfig.nodeTypes : [];
+        const orderedTypes = configuredTypes.filter(t => actualTypes.includes(t));
+        actualTypes.forEach(t => { if (!orderedTypes.includes(t)) orderedTypes.push(t); });
+
+        graphConfig.nodeTypes = orderedTypes;
+        graphConfig.nodeColors = graphConfig.nodeColors || {};
+        graphConfig.nodeSymbols = graphConfig.nodeSymbols || {};
+        graphConfig.nodeSizeRules = graphConfig.nodeSizeRules || {};
+        orderedTypes.forEach((t, idx) => {
+          if (!graphConfig.nodeColors[t]) graphConfig.nodeColors[t] = FALLBACK_TYPE_COLORS[idx % FALLBACK_TYPE_COLORS.length];
+          if (!graphConfig.nodeSymbols[t]) graphConfig.nodeSymbols[t] = FALLBACK_TYPE_SYMBOLS[idx % FALLBACK_TYPE_SYMBOLS.length];
+          if (!graphConfig.nodeSizeRules[t]) graphConfig.nodeSizeRules[t] = { base: 18, max: 38 };
+        });
+
+        renderStatsSkeleton(orderedTypes);
+        renderLegend(orderedTypes);
+      }
+
       function escapeHtml(text) {
         if (text == null) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+      }
+
+      function getGraphContextHtml(nodeData) {
+        try {
+          const data = latestGraphData;
+          if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) return '';
+          const nodeKey = `${nodeData.type}:${nodeData.id}`;
+          const nodeByKey = new Map((data.nodes || []).map(n => [`${n.type}:${n.id}`, n]));
+          const incident = [];
+          const neighborTypeCounts = new Map();
+          const predicates = new Map();
+          const relatedDocs = new Map();
+
+          for (const edge of (data.edges || [])) {
+            const fromKey = edge?.from ? `${edge.from.type}:${edge.from.id}` : '';
+            const toKey = edge?.to ? `${edge.to.type}:${edge.to.id}` : '';
+            if (fromKey !== nodeKey && toKey !== nodeKey) continue;
+            incident.push(edge);
+            const other = fromKey === nodeKey ? edge.to : edge.from;
+            if (other?.type) neighborTypeCounts.set(other.type, (neighborTypeCounts.get(other.type) || 0) + 1);
+            const pred = String(edge?.predicate || edge?.type || '').trim();
+            if (pred) predicates.set(pred, (predicates.get(pred) || 0) + 1);
+            if (other?.type === 'MarketData' && other?.id != null) {
+              const nk = `${other.type}:${other.id}`;
+              const nn = nodeByKey.get(nk) || other;
+              const label = nn.title || nn.name || nn.text || `文档 ${other.id}`;
+              relatedDocs.set(String(other.id), { id: other.id, label });
+            }
+          }
+
+          const degree = incident.length;
+          const neighborItems = Array.from(neighborTypeCounts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([t, c]) => `${t}: ${c}`);
+          const predItems = Array.from(predicates.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([p, c]) => `${p} (${c})`);
+          const docs = Array.from(relatedDocs.values()).slice(0, 8);
+          if (window.UICards?.renderSectionCard) {
+            return window.UICards.renderSectionCard({
+              title: '图谱上下文',
+              compact: true,
+              style: 'margin-bottom:12px;',
+              metrics: [
+                { label: '连接数（Degree）', value: degree },
+                { label: '关联节点类型数', value: neighborTypeCounts.size },
+                { label: '关联文档数（MarketData）', value: relatedDocs.size },
+              ],
+              chipGroups: [
+                { label: '相邻节点类型分布', items: neighborItems },
+                { label: '关键关系/谓词', items: predItems },
+              ],
+              lists: [
+                {
+                  label: '关联文档（Top 8）',
+                  emptyText: '无直接关联文档节点',
+                  items: docs.map(d => ({ html: `<a class="link" href="#" data-doc-id=\"${window.UICards.esc(String(d.id))}\">${window.UICards.esc(String(d.label))}</a>` })),
+                }
+              ]
+            });
+          }
+          const docsHtml = docs.length ? docs.map(d => `<li><a class="link" href="#" data-doc-id=\"${escapeHtml(String(d.id))}\">${escapeHtml(String(d.label))}</a></li>`).join('') : '<li style="color:#64748b;">无直接关联文档节点</li>';
+          return `<div class="extracted-card" style="margin-bottom:12px;"><div style="font-weight:700;color:#0f172a;margin-bottom:10px;">图谱上下文</div><div class="info-grid"><div class="info-item"><label>连接数（Degree）</label><div class="value">${degree}</div></div><div class="info-item"><label>关联节点类型数</label><div class="value">${neighborTypeCounts.size}</div></div><div class="info-item"><label>关联文档数（MarketData）</label><div class="value">${relatedDocs.size}</div></div></div><div style="margin-top:12px;"><label style="display:block;color:#64748b;font-size:12px;margin-bottom:6px;">相邻节点类型分布</label><div style="display:flex;flex-wrap:wrap;gap:6px;">${neighborItems.map(x=>`<span class=\"chip\">${escapeHtml(x)}</span>`).join('') || '<span style=\"color:#64748b;\">无</span>'}</div></div><div style=\"margin-top:12px;\"><label style=\"display:block;color:#64748b;font-size:12px;margin-bottom:6px;\">关键关系/谓词</label><div style=\"display:flex;flex-wrap:wrap;gap:6px;\">${predItems.map(x=>`<span class=\"chip\">${escapeHtml(x)}</span>`).join('') || '<span style=\"color:#64748b;\">无</span>'}</div></div><div style=\"margin-top:12px;\"><label style=\"display:block;color:#64748b;font-size:12px;margin-bottom:6px;\">关联文档（Top 8）</label><ul style=\"margin:0;padding-left:18px;\">${docsHtml}</ul></div></div>`;
+        } catch (e) {
+          console.warn('build graph context failed', e);
+          return '';
+        }
       }
 
       async function showNodeDetail(nodeData, isEdge) {
@@ -443,6 +717,7 @@
         }
 
         const docTypes = ['Post', 'MarketData', 'Policy'];
+        const graphContextHtml = getGraphContextHtml(nodeData);
         if (docTypes.includes(nodeData.type) && nodeData.id && window.MarketApp?.fetchJSON) {
           try {
             const doc = await window.MarketApp.fetchJSON(`/api/v1/admin/documents/${nodeData.id}`);
@@ -455,6 +730,7 @@
             const cardHtml = window.renderGraphExtractedCard ? window.renderGraphExtractedCard(extracted, escapeHtml, cardLabels) : '';
             const textOrContent = (extracted.text || doc?.content || '').substring(0, 5000);
             const bodyHtml = `
+              ${graphContextHtml}
               <div><strong>标题:</strong> ${escapeHtml(doc?.title || '(无)')}</div>
               ${doc?.uri ? `<div style="margin-top:12px;"><strong>URL:</strong> <a href="${doc.uri}" target="_blank" class="link">${escapeHtml(doc.uri)}</a></div>` : ''}
               ${cardHtml}
@@ -465,6 +741,15 @@
               </div>
             `;
             detailsContent.innerHTML = bodyHtml;
+            window.enhanceExtractedCardTabs?.(detailsContent);
+            detailsContent.querySelectorAll('[data-doc-id]').forEach(el => {
+              el.addEventListener('click', async (evt) => {
+                evt.preventDefault();
+                const id = el.getAttribute('data-doc-id');
+                if (!id) return;
+                await showNodeDetail({ type: 'MarketData', id: Number(id) }, false);
+              });
+            });
           } catch (err) {
             console.error('加载文档详情失败:', err);
             detailsContent.innerHTML = `<div class="error">加载失败: ${escapeHtml(err.message)}</div>`;
@@ -476,7 +761,16 @@
             if (v != null && typeof v !== 'object') items.push(`<div class="info-item"><label>${escapeHtml(k)}</label><div class="value">${escapeHtml(String(v))}</div></div>`);
             else if (v != null && typeof v === 'object' && !Array.isArray(v)) items.push(`<div class="info-item"><label>${escapeHtml(k)}</label><div class="value">${escapeHtml(JSON.stringify(v))}</div></div>`);
           });
-          detailsContent.innerHTML = `<div class="extracted-card"><div class="info-grid">${items.join('')}</div></div>`;
+          detailsContent.innerHTML = `${graphContextHtml}<div class="extracted-card"><div class="info-grid">${items.join('')}</div></div>`;
+          window.enhanceExtractedCardTabs?.(detailsContent);
+          detailsContent.querySelectorAll('[data-doc-id]').forEach(el => {
+            el.addEventListener('click', async (evt) => {
+              evt.preventDefault();
+              const id = el.getAttribute('data-doc-id');
+              if (!id) return;
+              await showNodeDetail({ type: 'MarketData', id: Number(id) }, false);
+            });
+          });
         }
       }
 
@@ -489,14 +783,11 @@
         const hintEl = document.getElementById('graph-doc-type-hint');
         const structureEl = document.getElementById('graph-structure-hint');
         const statsEl = document.getElementById('stats');
-        const legendEl = document.getElementById('legend');
-        const fullscreenLegendEl = document.getElementById('fullscreen-legend');
         if (!hintEl || !structureEl) return;
         try {
           const projectKey = window.MarketApp?.getProjectKey?.() || '';
           const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : '';
-          const response = await fetch(`/api/v1/project-customization/graph-config${query}`);
-          const data = response.ok ? (await response.json())?.data : null;
+          const data = await window.MarketApp.fetchJSON(`/api/v1/project-customization/graph-config${query}`);
           const graphDocTypes = data?.graph_doc_types || {};
           const labels = data?.graph_type_labels || {};
           const graphNodeTypes = data?.graph_node_types || {};
@@ -505,10 +796,10 @@
           const graphEdgeTypes = data?.graph_edge_types || {};
           const relationLabels = data?.graph_relation_labels || {};
           const keys = GV.GRAPH_CONFIG_KEYS[graphType];
-          const docTypes = Array.isArray(graphDocTypes[keys.docTypes]) ? graphDocTypes[keys.docTypes] : (graphType === 'policy' ? ['policy', 'policy_regulation'] : graphType === 'social' ? ['social_sentiment', 'social_feed'] : ['market']);
-          const nodeTypes = Array.isArray(graphNodeTypes[keys.nodeTypes]) ? graphNodeTypes[keys.nodeTypes] : (graphType === 'policy' ? ['Policy', 'State', 'PolicyType', 'KeyPoint', 'Entity'] : graphType === 'social' ? ['Post', 'Keyword', 'Entity', 'Topic', 'SentimentTag', 'User', 'Subreddit'] : ['MarketData', 'State', 'Segment', 'Entity']);
+          const docTypes = Array.isArray(graphDocTypes[keys.docTypes]) ? graphDocTypes[keys.docTypes] : (graphType === 'policy' ? ['policy', 'policy_regulation'] : graphType === 'social' ? ['social_sentiment', 'social_feed'] : ['market_info', 'market']);
+          const nodeTypes = Array.isArray(graphNodeTypes[keys.nodeTypes]) ? graphNodeTypes[keys.nodeTypes] : (graphType === 'policy' ? ['Policy', 'State', 'PolicyType', 'KeyPoint', 'Entity'] : graphType === 'social' ? ['Post', 'Keyword', 'Entity', 'Topic', 'SentimentTag', 'User', 'Subreddit'] : (graphType === 'market_deep_entities' ? ['MarketData', 'State', 'Segment', 'Entity', 'CompanyEntity', 'ProductEntity', 'OperationEntity', 'TopicTag'] : (graphType === 'company' ? ['MarketData', 'CompanyEntity', 'TopicTag'] : (graphType === 'product' ? ['MarketData', 'ProductEntity', 'TopicTag'] : (graphType === 'operation' ? ['MarketData', 'OperationEntity', 'TopicTag'] : ['MarketData', 'State', 'Segment', 'Entity'])))));
           const edgeTypes = Array.isArray(graphEdgeTypes[keys.edgeTypes]) ? graphEdgeTypes[keys.edgeTypes] : [];
-          const typeLabel = labels[keys.label] || (graphType === 'policy' ? '政策图谱' : graphType === 'social' ? '社媒图谱' : '市场图谱');
+          const typeLabel = graphType === 'company' ? '公司图谱' : graphType === 'product' ? '商品图谱' : graphType === 'operation' ? '电商/经营图谱' : (labels[keys.label] || (graphType === 'policy' ? '政策图谱' : graphType === 'social' ? '社媒图谱' : graphType === 'market_deep_entities' ? '市场实体加细图' : '市场图谱'));
 
           graphConfig = {
             nodeTypes,
@@ -528,18 +819,8 @@
           const edgeLabels = edgeTypes.map(e => relationLabels[e] ? `${e}(${relationLabels[e]})` : e);
           structureEl.textContent = `节点类型: ${nodeTypes.join(', ')}；关系类型: ${edgeLabels.join(', ')}`;
 
-          const lbl = (t) => graphNodeLabels[t] || t;
-          if (statsEl) {
-            statsEl.innerHTML = `<div class="stat-card"><h3>节点总数</h3><div class="value" id="stat-nodes">-</div></div><div class="stat-card"><h3>边总数</h3><div class="value" id="stat-edges">-</div></div>` +
-            nodeTypes.map(t => `<div class="stat-card"><h3>${lbl(t)}数量</h3><div class="value" id="stat-${t}">-</div></div>`).join('');
-          }
-          const legendHtml = nodeTypes.map(t => {
-            const color = graphConfig.nodeColors[t] || '#94a3b8';
-            const label = graphNodeLabels[t] || t;
-            return `<div class="legend-item"><span class="legend-symbol" style="background:${color};"></span>${t} ${label}</div>`;
-          }).join('');
-          if (legendEl) legendEl.innerHTML = legendHtml;
-          if (fullscreenLegendEl) fullscreenLegendEl.innerHTML = legendHtml;
+          if (statsEl) renderStatsSkeleton(nodeTypes);
+          renderLegend(nodeTypes);
         } catch (e) {
           hintEl.textContent = '加载配置失败';
         }
@@ -559,12 +840,14 @@
         try {
           const params = GV.buildParams(graphType, getFilterValues());
           const apiPath = GV.API_PATHS[graphType];
-          const response = await fetch(`${apiPath}?${params.toString()}`, { cache: 'no-store' });
-          if (!response.ok) throw new Error(`获取失败: ${response.status}`);
-          const data = await response.json();
-          latestGraphData = data;
-          const nodes = data.nodes || [];
-          const edges = data.edges || [];
+          const data = await window.MarketApp.fetchJSON(`${apiPath}?${params.toString()}`, { cache: 'no-store' });
+          const preparedData = (graphType === 'company' || graphType === 'product' || graphType === 'operation')
+            ? filterTopicSpecializedGraph(data, graphType)
+            : data;
+          latestGraphData = preparedData;
+          const nodes = preparedData.nodes || [];
+          const edges = preparedData.edges || [];
+          adaptNodePresentationToData(nodes);
           if (graphChart) {
             try { graphChart.dispose(); } catch (e) { console.warn('dispose graphChart failed before render', e); }
             graphChart = null;
@@ -572,8 +855,15 @@
           chartEl.innerHTML = '';
           graphChart = echarts.init(chartEl);
           renderGraph({ nodes, edges });
-          updateStats({ nodes, edges });
-          if (nodes.length === 0) showMessage('info', '未查询到符合条件的数据。');
+          updateStats(filterGraphByHiddenTypes({ nodes, edges }));
+          if (nodes.length === 0) {
+            if (graphType === 'company' || graphType === 'product' || graphType === 'operation') {
+              const topicLabel = graphType === 'company' ? '公司' : (graphType === 'product' ? '商品' : '电商/经营');
+              showMessage('info', `未查询到 ${topicLabel}专题图谱节点。请先在对应专题页面运行“${topicLabel}专题析取（补齐/强制）”。`);
+            } else {
+              showMessage('info', '未查询到符合条件的数据。');
+            }
+          }
           else showMessage('', '');
         } catch (err) {
           console.error('加载图谱失败', err);
@@ -585,7 +875,8 @@
           chartEl.innerHTML = '';
           graphChart = echarts.init(chartEl);
           renderGraph({ nodes: [], edges: [] });
-          updateStats({ nodes: [], edges: [] });
+          adaptNodePresentationToData([]);
+          updateStats(filterGraphByHiddenTypes({ nodes: [], edges: [] }));
         }
       }
 
@@ -627,10 +918,42 @@
         }
       }
 
+      function updateLabelVisibility() {
+        const applyToChart = (chart) => {
+          if (!chart) return;
+          const opt = chart.getOption?.();
+          const series = opt?.series?.[0];
+          if (!series || !Array.isArray(series.data)) return;
+          const nextData = series.data.map((n) => {
+            const node = n?.value || {};
+            const size = Number(n?.symbolSize || 0);
+            const shouldShowLabel = !!showLabels && size >= 22;
+            return {
+              ...n,
+              label: {
+                ...(n.label || {}),
+                show: shouldShowLabel,
+              },
+              emphasis: {
+                ...(n.emphasis || {}),
+                label: {
+                  ...((n.emphasis || {}).label || {}),
+                  show: true,
+                }
+              }
+            };
+          });
+          chart.setOption({ series: [{ data: nextData }] }, false, false);
+        };
+        applyToChart(graphChart);
+        applyToChart(fullscreenChart);
+      }
+
       function renderGraph(data) {
         if (!graphChart) return;
-        const nodes = data.nodes || [];
-        const edges = data.edges || [];
+        const filtered = filterGraphByHiddenTypes(data);
+        const nodes = filtered.nodes || [];
+        const edges = filtered.edges || [];
         const config = {
           nodeColors: graphConfig.nodeColors,
           nodeSymbols: graphConfig.nodeSymbols,
@@ -694,17 +1017,26 @@
       function toggleFullscreen(enable) {
         const fullscreenView = document.getElementById('graph-fullscreen-view');
         const originalChartEl = document.getElementById('graph-chart');
+        const notifyAppShellFullscreen = (action) => {
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'fullscreen', action }, '*');
+            }
+          } catch (_) {}
+        };
         if (enable && !isFullscreen) {
           attachControlPanel(fullscreenGraphContainer);
           if (originalChartEl) originalChartEl.style.display = 'none';
           fullscreenView.classList.add('active');
           isFullscreen = true;
+          notifyAppShellFullscreen('enter');
           if (!fullscreenChart) fullscreenChart = echarts.init(document.getElementById('fullscreen-graph-chart'));
           renderFullscreenGraph();
           fullscreenChart.resize();
         } else if (!enable && isFullscreen) {
           fullscreenView.classList.remove('active');
           isFullscreen = false;
+          notifyAppShellFullscreen('exit');
           if (fullscreenChart) { fullscreenChart.dispose(); fullscreenChart = null; }
           if (originalChartEl) originalChartEl.style.display = 'block';
           attachControlPanel(mainGraphContainer);
@@ -726,7 +1058,9 @@
           const topicEl = document.getElementById('filter-topic');
           if (platformEl) platformEl.value = '';
           if (topicEl) topicEl.value = '';
-        } else if (graphType === 'market') {
+        } else if (graphType === 'market' || graphType === 'market_deep_entities' || graphType === 'company' || graphType === 'product' || graphType === 'operation') {
+          const viewEl = document.getElementById('filter-market-view');
+          if (viewEl) viewEl.value = graphType === 'market_deep_entities' ? 'market_deep_entities' : 'market';
           const stateEl = document.getElementById('filter-state');
           const gameEl = document.getElementById('filter-game');
           if (stateEl) stateEl.value = '';
@@ -748,6 +1082,14 @@
         document.getElementById('apply-btn').addEventListener('click', () => doRefresh());
         document.getElementById('reset-btn').addEventListener('click', resetFilters);
         function doRefresh() {
+          const viewEl = document.getElementById('filter-market-view');
+          const selectedView = viewEl?.value || '';
+          if ((graphType === 'market' || graphType === 'market_deep_entities') && selectedView && selectedView !== graphType) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('type', selectedView);
+            window.location.href = url.toString();
+            return;
+          }
           if (isFullscreen) toggleFullscreen(false);
           loadGraph();
         }
@@ -770,7 +1112,7 @@
         if (labelToggle) {
           labelToggle.addEventListener('change', () => {
             showLabels = labelToggle.checked;
-            if (latestGraphData) renderGraph(latestGraphData);
+            updateLabelVisibility();
           });
         }
         attachControlPanel(mainGraphContainer);

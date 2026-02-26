@@ -16,14 +16,20 @@ def register_ui_routes(
     template_dir: Path,
     usa_map_path: Path,
 ) -> None:
-    @app.get("/", response_class=HTMLResponse)
+    @app.get("/", response_class=RedirectResponse)
     def index(request: Request):
-        return templates.TemplateResponse("index.html", {"request": request})
+        """Root redirects to app shell"""
+        return RedirectResponse(url="/app.html", status_code=302)
 
-    @app.get("/index.html", response_class=HTMLResponse)
+    @app.get("/index.html", response_class=RedirectResponse)
     def index_html(request: Request):
-        """主页的 index.html 路由"""
-        return templates.TemplateResponse("index.html", {"request": request})
+        """Legacy index redirects to app shell"""
+        return RedirectResponse(url="/app.html", status_code=302)
+
+    @app.get("/ingest.html", response_class=HTMLResponse)
+    def ingest_page(request: Request):
+        """Ingest page (采集入口) - loaded in app iframe"""
+        return templates.TemplateResponse("ingest.html", {"request": request})
 
     @app.get("/settings.html", response_class=HTMLResponse)
     def settings_page(request: Request):
@@ -43,6 +49,11 @@ def register_ui_routes(
             logging.getLogger("app").error(f"Template directory: {template_dir}")
             logging.getLogger("app").error(f"Dashboard file exists: {(template_dir / 'dashboard.html').exists()}")
             raise
+
+    @app.get("/topic-dashboard.html", response_class=HTMLResponse)
+    def topic_dashboard_page(request: Request):
+        """专题结果页（公司/商品/电商经营）"""
+        return templates.TemplateResponse("topic-dashboard.html", {"request": request})
 
     @app.get("/dashboard", response_class=HTMLResponse)
     def dashboard_redirect(request: Request):
@@ -69,10 +80,10 @@ def register_ui_routes(
         """后端数据仪表盘页面（系统监控）"""
         return templates.TemplateResponse("backend-dashboard.html", {"request": request})
 
-    @app.get("/policy-dashboard.html", response_class=HTMLResponse)
+    @app.get("/policy-dashboard.html", response_class=RedirectResponse)
     def policy_dashboard_page(request: Request):
-        """政策可视化仪表盘页面"""
-        return templates.TemplateResponse("policy-dashboard.html", {"request": request})
+        """Redirect to policy-visualization.html (merged)"""
+        return RedirectResponse(url="/policy-visualization.html", status_code=302)
 
     @app.get("/policy-state-detail.html", response_class=HTMLResponse)
     def policy_state_detail_page(request: Request):
@@ -145,6 +156,11 @@ def register_ui_routes(
     def process_management_page(request: Request):
         """进程管理页面"""
         return templates.TemplateResponse("process-management.html", {"request": request})
+
+    @app.get("/raw-data-processing.html", response_class=HTMLResponse)
+    def raw_data_processing_page(request: Request):
+        """流程视角-数据处理页面（Raw Data直入库）"""
+        return templates.TemplateResponse("raw-data-processing.html", {"request": request})
 
     @app.get("/source-library-management.html", response_class=RedirectResponse)
     def source_library_management_redirect(request: Request):

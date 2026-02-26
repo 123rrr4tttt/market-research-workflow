@@ -56,17 +56,38 @@
       </section>
 
       <section class="card" id="macro-policy" style="margin-bottom: 12px;">
-        <h2 class="section-title">宏观政策 / 行业公司（搜索行为）</h2>
+        <div class="toolbar" style="justify-content: space-between; align-items: center;">
+          <h2 class="section-title" style="margin:0;">宏观政策 / 行业公司（搜索行为）</h2>
+          <div class="toolbar">
+            <button id="btnTopicExtractCompany" class="secondary"><i data-lucide="building-2"></i> 公司专题析取（补齐）</button>
+            <button id="btnTopicExtractCompanyForce"><i data-lucide="sparkles"></i> 公司专题析取（强制）</button>
+          </div>
+        </div>
+        <div id="topicExtractCompanyStatus" class="hint" style="margin-bottom: 8px;">公司专题析取未执行</div>
         <canvas id="searchChart" height="90"></canvas>
       </section>
 
       <section class="card" id="commodity" style="margin-bottom: 12px;">
-        <h2 class="section-title">商品趋势</h2>
+        <div class="toolbar" style="justify-content: space-between; align-items: center;">
+          <h2 class="section-title" style="margin:0;">商品趋势</h2>
+          <div class="toolbar">
+            <button id="btnTopicExtractProduct" class="secondary"><i data-lucide="box"></i> 商品专题析取（补齐）</button>
+            <button id="btnTopicExtractProductForce"><i data-lucide="sparkles"></i> 商品专题析取（强制）</button>
+          </div>
+        </div>
+        <div id="topicExtractProductStatus" class="hint" style="margin-bottom: 8px;">商品专题析取未执行</div>
         <canvas id="commodityChart" height="90"></canvas>
       </section>
 
       <section class="card" id="ecommerce-price" style="margin-bottom: 12px;">
-        <h2 class="section-title">电商价格趋势</h2>
+        <div class="toolbar" style="justify-content: space-between; align-items: center;">
+          <h2 class="section-title" style="margin:0;">电商/经营趋势</h2>
+          <div class="toolbar">
+            <button id="btnTopicExtractOperation" class="secondary"><i data-lucide="shopping-bag"></i> 电商/经营专题析取（补齐）</button>
+            <button id="btnTopicExtractOperationForce"><i data-lucide="sparkles"></i> 电商/经营专题析取（强制）</button>
+          </div>
+        </div>
+        <div id="topicExtractOperationStatus" class="hint" style="margin-bottom: 8px;">电商/经营专题析取未执行</div>
         <canvas id="ecomChart" height="90"></canvas>
       </section>
 
@@ -155,7 +176,7 @@
           "ecomChart",
           series.map((v) => (v.captured_at || "").replace("T", " ").slice(0, 16)),
           series.map((v) => v.price || 0),
-          "电商价格",
+          "电商/经营",
           "#dc2626"
         );
       }
@@ -182,6 +203,39 @@
         qs("taskTableWrap").innerHTML = `<table><thead><tr><th>任务</th><th>状态</th><th>开始</th><th>结束</th><th>耗时</th></tr></thead><tbody>${rows}</tbody></table>`;
       }
 
+      function renderTopicExtractStatus(elId, data, topicLabel) {
+        const el = qs(elId);
+        if (!el) return;
+        if (!data) {
+          el.textContent = `${topicLabel}专题析取未执行`;
+          return;
+        }
+        const hits = data?.topic_hits || {};
+        const fallbacks = data?.topic_fallback_hits || {};
+        const coverage = data?.topic_avg_coverage || {};
+        el.textContent = `已完成：总计 ${formatNumber(data.total)}，成功 ${formatNumber(data.success)}，跳过 ${formatNumber(data.skipped)}，错误 ${formatNumber(data.error)}；命中 ${formatNumber(hits[topicLabel] || 0)}，补集 ${formatNumber(fallbacks[topicLabel] || 0)}，覆盖率 ${(Number(coverage[topicLabel] || 0) * 100).toFixed(1)}%`;
+      }
+
+      async function runTopicExtract(topic, force = false) {
+        const topicName = topic === "company" ? "公司" : topic === "product" ? "商品" : "电商/经营";
+        const statusId = topic === "company" ? "topicExtractCompanyStatus" : topic === "product" ? "topicExtractProductStatus" : "topicExtractOperationStatus";
+        const el = qs(statusId);
+        if (el) el.textContent = `${topicName}专题析取执行中...`;
+        const data = await window.MarketApp.fetchJSON("/api/v1/admin/documents/topic-extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topics: [topic],
+            force,
+            fetch_missing_content: true,
+            batch_size: 5,
+            limit: 200,
+            candidate_mode: "rules_then_llm",
+          }),
+        });
+        renderTopicExtractStatus(statusId, data, topic);
+      }
+
       async function loadAll() {
         lucide.createIcons();
         setKpi();
@@ -197,7 +251,13 @@
       }
 
       qs("refreshAll").addEventListener("click", loadAll);
-      qs("gotoIngest").addEventListener("click", () => window.MarketApp.navigateInShell("index.html#ingest"));
+      qs("gotoIngest").addEventListener("click", () => window.MarketApp.navigateInShell("ingest.html"));
+      qs("btnTopicExtractCompany")?.addEventListener("click", () => runTopicExtract("company", false));
+      qs("btnTopicExtractProduct")?.addEventListener("click", () => runTopicExtract("product", false));
+      qs("btnTopicExtractOperation")?.addEventListener("click", () => runTopicExtract("operation", false));
+      qs("btnTopicExtractCompanyForce")?.addEventListener("click", () => { if (confirm("强制重跑公司专题析取？会增加 LLM 调用。")) runTopicExtract("company", true); });
+      qs("btnTopicExtractProductForce")?.addEventListener("click", () => { if (confirm("强制重跑商品专题析取？会增加 LLM 调用。")) runTopicExtract("product", true); });
+      qs("btnTopicExtractOperationForce")?.addEventListener("click", () => { if (confirm("强制重跑电商/经营专题析取？会增加 LLM 调用。")) runTopicExtract("operation", true); });
 
       window.addEventListener("DOMContentLoaded", loadAll);
     </script>

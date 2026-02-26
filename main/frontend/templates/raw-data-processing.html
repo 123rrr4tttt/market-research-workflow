@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>数据处理</title>
+    <link rel="stylesheet" href="/static/css/app-theme.css" />
+    <style>
+      body { padding: 0; }
+      .page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+      .editor { width: 100%; min-height: 320px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .help { color: #6b7280; font-size: 12px; margin-top: 8px; }
+      .split { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    </style>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/ui-core.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <h1><i data-lucide="file-input" style="vertical-align: middle; margin-right: 8px;"></i>数据处理</h1>
+        <p>Raw Data 直入库：跳过数据获取阶段，直接进入结构化信息提取流程。</p>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Raw Data 直入库</h2>
+        <div class="toolbar">
+          <label for="rawImportDocType">类型</label>
+          <select id="rawImportDocType" style="min-width: 150px;">
+            <option value="raw_note">raw_note</option>
+            <option value="market_info">market_info</option>
+            <option value="policy">policy</option>
+            <option value="social_sentiment">social_sentiment</option>
+            <option value="news">news</option>
+          </select>
+          <label for="rawImportExtractionMode">提取模式</label>
+          <select id="rawImportExtractionMode" style="min-width: 120px;">
+            <option value="auto">auto</option>
+            <option value="market">market</option>
+            <option value="policy">policy</option>
+            <option value="social">social</option>
+          </select>
+          <label for="rawImportEnableExtraction">结构化提取</label>
+          <input id="rawImportEnableExtraction" type="checkbox" checked />
+        </div>
+        <div class="toolbar">
+          <label for="rawChunkSize">分片长度</label>
+          <input id="rawChunkSize" type="number" min="500" max="8000" value="2800" style="width: 90px;" />
+          <label for="rawChunkOverlap">重叠</label>
+          <input id="rawChunkOverlap" type="number" min="0" max="1000" value="200" style="width: 80px;" />
+          <label for="rawMaxChunks">最多分片</label>
+          <input id="rawMaxChunks" type="number" min="1" max="50" value="8" style="width: 80px;" />
+          <label for="rawOverwrite">覆盖已存在URI</label>
+          <input id="rawOverwrite" type="checkbox" />
+        </div>
+        <div class="toolbar">
+          <label for="rawImportFile">文件</label>
+          <input id="rawImportFile" type="file" accept=".txt,.md,.json,.log,.html" />
+          <button id="btnLoadRawFile" class="secondary">读取文件</button>
+          <button id="btnRawImport"><i data-lucide="database-zap"></i> 直入库并处理</button>
+        </div>
+        <div class="split">
+          <textarea id="rawImportEditor" class="editor" placeholder="粘贴原始文本（可包含多个链接）。支持 JSON: [{ title, uri, uris, text }] 或 { items:[...] }；纯文本可用 --- 分隔多条。"></textarea>
+        </div>
+        <p class="help">多 URL 会写入 `extracted_data._raw_input.uris`（数组），并保留首个 URL 为兼容 `uri`。大文本会分片提取后自动合并。</p>
+        <div id="rawImportStatus" class="status">等待导入</div>
+      </section>
+    </div>
+
+    <script>
+      const { qs, setLoading, setError, setSuccess } = window.UICore;
+
+      function parseRawImportPayload() {
+        const raw = String(qs("rawImportEditor")?.value || "").trim();
+        if (!raw) throw new Error("请先粘贴内容");
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return { items: parsed };
+          if (parsed && Array.isArray(parsed.items)) return parsed;
+          throw new Error("JSON 需为数组或 {items:[...]}");
+        } catch (_) {
+          const chunks = raw.split(/\n---+\n/g).map((x) => x.trim()).filter(Boolean);
+          return { items: chunks.map((text) => ({ text })) };
+        }
+      }
+
+      async function loadRawFileToEditor() {
+        const file = qs("rawImportFile")?.files?.[0];
+        if (!file) return setError("rawImportStatus", "请先选择文件");
+        const text = await file.text();
+        qs("rawImportEditor").value = text;
+        setSuccess("rawImportStatus", `已载入文件：${file.name}（${text.length} chars）`);
+      }
+
+      async function runRawImport() {
+        const base = parseRawImportPayload();
+        const payload = {
+          ...base,
+          source_name: "raw_import",
+          infer_from_links: true,
+          enable_extraction: !!qs("rawImportEnableExtraction")?.checked,
+          default_doc_type: qs("rawImportDocType")?.value || "raw_note",
+          extraction_mode: qs("rawImportExtractionMode")?.value || "auto",
+          overwrite_on_uri: !!qs("rawOverwrite")?.checked,
+          chunk_size: Number(qs("rawChunkSize")?.value || 2800),
+          chunk_overlap: Number(qs("rawChunkOverlap")?.value || 200),
+          max_chunks: Number(qs("rawMaxChunks")?.value || 8),
+        };
+        return window.MarketApp.fetchJSON("/api/v1/admin/documents/raw-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      async function onImportClick() {
+        setLoading("rawImportStatus", "正在导入并处理...");
+        try {
+          const res = await runRawImport();
+          setSuccess(
+            "rawImportStatus",
+            `完成 inserted=${res?.inserted || 0}, updated=${res?.updated || 0}, skipped=${res?.skipped || 0}, errors=${res?.error_count || 0}`
+          );
+        } catch (e) {
+          setError("rawImportStatus", `导入失败: ${e.message}`);
+        }
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        qs("btnLoadRawFile")?.addEventListener("click", loadRawFileToEditor);
+        qs("btnRawImport")?.addEventListener("click", onImportClick);
+        lucide.createIcons();
+      });
+    </script>
+  </body>
+  </html>

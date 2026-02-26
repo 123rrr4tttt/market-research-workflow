@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-SEED_FILE="${1:-main/backend/seed_data/project_demo_proj_v0.1.5-rc1.sql}"
+SEED_FILE="${1:-main/backend/seed_data/project_demo_proj_v0.1.7-rc1.sql}"
 DB_CONTAINER="${DB_CONTAINER:-ops-db-1}"
 DB_NAME="${DB_NAME:-postgres}"
 DB_USER="${DB_USER:-postgres}"

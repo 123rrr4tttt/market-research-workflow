@@ -82,6 +82,32 @@ def _normalize_max_items(
     return max(min_value, min(max_value, value))
 
 
+def _expand_query_terms_with_topic_focus(
+    query_terms: list[str],
+    *,
+    topic_focus: str | None,
+    language: str | None,
+) -> tuple[list[str], dict]:
+    focus = str(topic_focus or "").strip().lower()
+    if focus not in {"company", "product", "operation"}:
+        return query_terms, {}
+    try:
+        from ..services.search.web import generate_topic_keywords
+        topic = " ".join(query_terms[:4]).strip() or (query_terms[0] if query_terms else "")
+        kw = generate_topic_keywords(
+            topic,
+            topic_focus=focus,
+            language=language or "zh",
+            base_keywords=query_terms,
+        )
+        extra = [str(x).strip() for x in (kw.get("search_keywords") or []) if str(x).strip()]
+        merged = list(dict.fromkeys([*query_terms, *extra]))
+        return merged, {"topic_focus": focus, "topic_hints": kw.get("topic_hints") or [], "topic_search_keywords": extra}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("topic keyword expansion failed focus=%s err=%s", focus, exc)
+        return query_terms, {}
+
+
 class PolicyIngestRequest(BaseModel):
     state: str = Field(..., description="州，例如 CA")
     source_hint: str | None = Field(default=None, description="可选源标识")
@@ -171,6 +197,7 @@ class MarketIngestRequest(BaseModel):
     days_back: int | None = Field(default=None, ge=1, le=365, description="仅搜最近N天")
     language: str | None = Field(default=None, description="语言 en/zh")
     provider: str | None = Field(default=None, description="搜索服务 serper/google/serpstack/serpapi/ddg/auto")
+    topic_focus: str | None = Field(default=None, description="专题焦点 company/product/operation（可选）")
 
 
 class CaliforniaReportRequest(BaseModel):
@@ -207,6 +234,9 @@ def ingest_market(payload: MarketIngestRequest):
     """Generic market info (web search). Project-specific fixed sources use source library."""
     project_key = _require_project_key(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords, field_name="query_terms")
+    query_terms, topic_meta = _expand_query_terms_with_topic_focus(
+        query_terms, topic_focus=payload.topic_focus, language=payload.language or "en"
+    )
     max_items = _normalize_max_items(payload.max_items, payload.limit)
     if payload.async_mode:
         task = _tasks_module().task_ingest_market.delay(
@@ -223,7 +253,7 @@ def ingest_market(payload: MarketIngestRequest):
             task_result_response(
                 task_id=task.id,
                 async_mode=True,
-                params={"query_terms": query_terms, "max_items": max_items},
+                params={"query_terms": query_terms, "max_items": max_items, **({"topic_focus": payload.topic_focus} if payload.topic_focus else {})},
             )
         )
     try:
@@ -240,7 +270,12 @@ def ingest_market(payload: MarketIngestRequest):
                 provider=payload.provider or "auto",
             )
             cr = run_collect(req)
-            return success_response(dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta}))
+            raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta})
+            if topic_meta:
+                raw["topic_focus"] = topic_meta.get("topic_focus")
+                raw["topic_hints"] = topic_meta.get("topic_hints") or []
+                raw["topic_search_keywords"] = topic_meta.get("topic_search_keywords") or []
+            return success_response(raw)
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -553,6 +588,7 @@ class SocialSentimentRequest(BaseModel):
     base_subreddits: Optional[list[str]] = Field(default=None, description="基础子论坛列表（如果为None，使用默认列表）")
     async_mode: bool = Field(default=False, description="是否异步执行")
     project_key: str | None = Field(default=None, description="项目标识")
+    topic_focus: str | None = Field(default=None, description="专题焦点 company/product/operation（可选）")
 
 
 class PolicyRegulationRequest(BaseModel):
@@ -567,6 +603,7 @@ class PolicyRegulationRequest(BaseModel):
     days_back: int | None = Field(default=None, ge=1, le=365, description="仅搜最近N天")
     language: str | None = Field(default=None, description="语言 en/zh")
     provider: str | None = Field(default=None, description="搜索服务 serper/google/serpstack/serpapi/ddg/auto")
+    topic_focus: str | None = Field(default=None, description="专题焦点 company/product/operation（可选）")
 
 
 @router.post("/social/sentiment")
@@ -574,6 +611,9 @@ def ingest_social_sentiment(payload: SocialSentimentRequest):
     """收集社交媒体情感数据"""
     project_key = _require_project_key(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords)
+    query_terms, topic_meta = _expand_query_terms_with_topic_focus(
+        query_terms, topic_focus=payload.topic_focus, language="en"
+    )
     max_items = _normalize_max_items(payload.max_items, payload.limit)
     if payload.async_mode:
         task = _tasks_module().task_collect_social_sentiment.delay(
@@ -589,19 +629,24 @@ def ingest_social_sentiment(payload: SocialSentimentRequest):
             task_result_response(
                 task_id=task.id,
                 async_mode=True,
-                params={"query_terms": query_terms, "max_items": max_items, "platforms": payload.platforms},
+                params={"query_terms": query_terms, "max_items": max_items, "platforms": payload.platforms, **({"topic_focus": payload.topic_focus} if payload.topic_focus else {})},
             )
         )
     try:
         with bind_project(project_key):
-            return success_response(_social_ingest_app().collect_social_sentiment(
+            result = _social_ingest_app().collect_social_sentiment(
                 keywords=query_terms,
                 platforms=payload.platforms,
                 limit=max_items,
                 enable_extraction=payload.enable_extraction,
                 enable_subreddit_discovery=payload.enable_subreddit_discovery,
                 base_subreddits=payload.base_subreddits,
-            ))
+            )
+            if isinstance(result, dict) and topic_meta:
+                result.setdefault("topic_focus", topic_meta.get("topic_focus"))
+                result.setdefault("topic_hints", topic_meta.get("topic_hints") or [])
+                result.setdefault("topic_search_keywords", topic_meta.get("topic_search_keywords") or [])
+            return success_response(result)
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -611,6 +656,9 @@ def ingest_policy_regulation(payload: PolicyRegulationRequest):
     """收集政策法规相关新闻"""
     project_key = _require_project_key(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords)
+    query_terms, topic_meta = _expand_query_terms_with_topic_focus(
+        query_terms, topic_focus=payload.topic_focus, language=payload.language or "en"
+    )
     max_items = _normalize_max_items(payload.max_items, payload.limit)
     if payload.async_mode:
         task = _tasks_module().task_collect_policy_regulation.delay(
@@ -627,7 +675,7 @@ def ingest_policy_regulation(payload: PolicyRegulationRequest):
             task_result_response(
                 task_id=task.id,
                 async_mode=True,
-                params={"query_terms": query_terms, "max_items": max_items},
+                params={"query_terms": query_terms, "max_items": max_items, **({"topic_focus": payload.topic_focus} if payload.topic_focus else {})},
             )
         )
     try:
@@ -644,7 +692,12 @@ def ingest_policy_regulation(payload: PolicyRegulationRequest):
                 provider=payload.provider or "auto",
             )
             cr = run_collect(req)
-            return success_response(dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta}))
+            raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta})
+            if topic_meta:
+                raw["topic_focus"] = topic_meta.get("topic_focus")
+                raw["topic_hints"] = topic_meta.get("topic_hints") or []
+                raw["topic_search_keywords"] = topic_meta.get("topic_search_keywords") or []
+            return success_response(raw)
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 

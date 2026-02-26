@@ -3,7 +3,7 @@ from __future__ import annotations
 
 MENU_CONFIG = {
     "items": [
-        {"key": "home", "label": "主页", "path": "index.html", "order": 10, "visible": True},
+        {"key": "home", "label": "主页", "path": "app.html", "order": 10, "visible": True},
         {"key": "dashboard", "label": "综合仪表盘", "path": "dashboard.html", "order": 20, "visible": True},
         {"key": "data", "label": "数据仪表盘", "path": "data-dashboard.html", "order": 30, "visible": True},
         {"key": "market", "label": "市场可视化", "path": "market-data-visualization.html", "order": 40, "visible": True},

@@ -8,25 +8,53 @@
   const NODE_COLORS_BY_TYPE = {
     policy: { Policy: '#2563eb', State: '#f59e0b', PolicyType: '#10b981', KeyPoint: '#ec4899', Entity: '#8b5cf6' },
     social: { Post: '#2563eb', Keyword: '#10b981', Entity: '#f59e0b', Topic: '#8b5cf6', SentimentTag: '#ec4899', User: '#64748b', Subreddit: '#14b8a6' },
-    market: { MarketData: '#2563eb', State: '#f59e0b', Segment: '#10b981', Game: '#10b981', Entity: '#8b5cf6' }
+    market: { MarketData: '#2563eb', State: '#f59e0b', Segment: '#10b981', Game: '#10b981', Entity: '#8b5cf6' },
+    market_deep_entities: {
+      MarketData: '#2563eb', State: '#f59e0b', Segment: '#10b981', Entity: '#8b5cf6',
+      CompanyEntity: '#0ea5e9', CompanyBrand: '#38bdf8', CompanyUnit: '#0284c7', CompanyPartner: '#0891b2', CompanyChannel: '#155e75',
+      ProductEntity: '#22c55e', ProductModel: '#16a34a', ProductCategory: '#84cc16', ProductBrand: '#65a30d', ProductComponent: '#10b981', ProductScenario: '#059669',
+      OperationEntity: '#f97316', OperationPlatform: '#fb923c', OperationStore: '#ea580c', OperationChannel: '#f59e0b', OperationMetric: '#ef4444', OperationStrategy: '#e11d48', OperationRegion: '#f43f5e', OperationPeriod: '#fb7185',
+      TopicTag: '#a855f7'
+    },
+    company: { MarketData: '#2563eb', CompanyEntity: '#0ea5e9', CompanyBrand: '#38bdf8', CompanyUnit: '#0284c7', CompanyPartner: '#0891b2', CompanyChannel: '#155e75', TopicTag: '#a855f7' },
+    product: { MarketData: '#2563eb', ProductEntity: '#22c55e', ProductModel: '#16a34a', ProductCategory: '#84cc16', ProductBrand: '#65a30d', ProductComponent: '#10b981', ProductScenario: '#059669', TopicTag: '#a855f7' },
+    operation: { MarketData: '#2563eb', OperationEntity: '#f97316', OperationPlatform: '#fb923c', OperationStore: '#ea580c', OperationChannel: '#f59e0b', OperationMetric: '#ef4444', OperationStrategy: '#e11d48', OperationRegion: '#f43f5e', OperationPeriod: '#fb7185', TopicTag: '#a855f7' }
   };
 
   const NODE_SYMBOLS_BY_TYPE = {
     policy: { Policy: 'circle', State: 'rect', PolicyType: 'diamond', KeyPoint: 'roundRect', Entity: 'triangle' },
     social: { Post: 'circle', Keyword: 'diamond', Entity: 'rect', Topic: 'triangle', SentimentTag: 'pin', User: 'roundRect', Subreddit: 'arrow' },
-    market: { MarketData: 'circle', State: 'rect', Segment: 'diamond', Game: 'diamond', Entity: 'triangle' }
+    market: { MarketData: 'circle', State: 'rect', Segment: 'diamond', Game: 'diamond', Entity: 'triangle' },
+    market_deep_entities: {
+      MarketData: 'circle', State: 'rect', Segment: 'diamond', Entity: 'triangle',
+      CompanyEntity: 'roundRect', CompanyBrand: 'roundRect', CompanyUnit: 'rect', CompanyPartner: 'triangle', CompanyChannel: 'diamond',
+      ProductEntity: 'diamond', ProductModel: 'diamond', ProductCategory: 'rect', ProductBrand: 'roundRect', ProductComponent: 'triangle', ProductScenario: 'pin',
+      OperationEntity: 'rect', OperationPlatform: 'rect', OperationStore: 'roundRect', OperationChannel: 'diamond', OperationMetric: 'triangle', OperationStrategy: 'pin', OperationRegion: 'rect', OperationPeriod: 'roundRect',
+      TopicTag: 'pin'
+    },
+    company: { MarketData: 'circle', CompanyEntity: 'roundRect', CompanyBrand: 'roundRect', CompanyUnit: 'rect', CompanyPartner: 'triangle', CompanyChannel: 'diamond', TopicTag: 'pin' },
+    product: { MarketData: 'circle', ProductEntity: 'diamond', ProductModel: 'diamond', ProductCategory: 'rect', ProductBrand: 'roundRect', ProductComponent: 'triangle', ProductScenario: 'pin', TopicTag: 'pin' },
+    operation: { MarketData: 'circle', OperationEntity: 'rect', OperationPlatform: 'rect', OperationStore: 'roundRect', OperationChannel: 'diamond', OperationMetric: 'triangle', OperationStrategy: 'pin', OperationRegion: 'rect', OperationPeriod: 'roundRect', TopicTag: 'pin' }
   };
 
   const API_PATHS = {
     policy: '/api/v1/admin/policy-graph',
     social: '/api/v1/admin/content-graph',
-    market: '/api/v1/admin/market-graph'
+    market: '/api/v1/admin/market-graph',
+    market_deep_entities: '/api/v1/admin/market-graph',
+    company: '/api/v1/admin/market-graph',
+    product: '/api/v1/admin/market-graph',
+    operation: '/api/v1/admin/market-graph'
   };
 
   const GRAPH_CONFIG_KEYS = {
     policy: { docTypes: 'policy', nodeTypes: 'policy', edgeTypes: 'policy', label: 'policy' },
     social: { docTypes: 'social', nodeTypes: 'social', edgeTypes: 'social', label: 'social' },
-    market: { docTypes: 'market', nodeTypes: 'market', edgeTypes: 'market', label: 'market' }
+    market: { docTypes: 'market', nodeTypes: 'market', edgeTypes: 'market', label: 'market' },
+    market_deep_entities: { docTypes: 'market', nodeTypes: 'market', edgeTypes: 'market', label: 'market' },
+    company: { docTypes: 'market', nodeTypes: 'market', edgeTypes: 'market', label: 'market' },
+    product: { docTypes: 'market', nodeTypes: 'market', edgeTypes: 'market', label: 'market' },
+    operation: { docTypes: 'market', nodeTypes: 'market', edgeTypes: 'market', label: 'market' }
   };
 
   function nodeKey(node) {
@@ -85,9 +113,10 @@
     } else if (type === 'social') {
       if (filterValues.platform) params.append('platform', filterValues.platform);
       if (filterValues.topic) params.append('topic', filterValues.topic);
-    } else if (type === 'market') {
+    } else if (type === 'market' || type === 'market_deep_entities' || type === 'company' || type === 'product' || type === 'operation') {
       if (filterValues.state) params.append('state', filterValues.state);
       if (filterValues.game) params.append('game', filterValues.game);
+      if (type === 'market_deep_entities' || type === 'company' || type === 'product' || type === 'operation') params.append('view', 'market_deep_entities');
     }
     return params;
   }

@@ -40,6 +40,7 @@
     </style>
     <script src="/static/js/app-shell.js"></script>
     <script src="/static/js/ui-core.js"></script>
+    <script src="/static/js/ui-cards.js"></script>
     <script src="/static/js/doc-card.js?v=20260226"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
   </head>
@@ -83,9 +84,12 @@
           <button id="reloadExtracted">刷新</button>
           <button id="reextractStructuredFill" class="secondary"><i data-lucide="sparkles"></i>重提取结构化信息（补齐）</button>
           <button id="reextractStructuredForce" class="secondary"><i data-lucide="wand-2"></i>重提取结构化信息（强制）</button>
+          <button id="topicExtractFill" class="secondary"><i data-lucide="network"></i>专题析取（补齐）</button>
+          <button id="topicExtractForce" class="secondary"><i data-lucide="zap"></i>专题析取（强制）</button>
           <span class="badge info">仅展示带 extracted_data 的文档</span>
         </div>
         <div id="reextractStatus" class="status" style="margin-bottom: 8px;">当前项目文档结构化信息重提取（主干统一结构化提取）</div>
+        <div id="topicExtractStatus" class="status" style="margin-bottom: 8px;">专题析取（company / product / operation）</div>
         <div id="extractedWrap" class="table-wrap"></div>
         <div class="card" style="margin-top: 12px;">
           <h3 class="section-title">批量手动结构化</h3>
@@ -233,6 +237,38 @@
           await listExtracted();
         } catch (error) {
           setError(statusId, `重提取失败: ${error.message}`);
+        }
+      }
+
+      async function topicExtractDocuments(force = false) {
+        const pk = window.MarketApp?.getProjectKey?.() || "";
+        const url = pk
+          ? `/api/v1/admin/documents/topic-extract?project_key=${encodeURIComponent(pk)}`
+          : "/api/v1/admin/documents/topic-extract";
+        const statusId = "topicExtractStatus";
+        setLoading(statusId, force ? "正在强制专题析取..." : "正在专题析取（补齐）...");
+        try {
+          const resp = await window.MarketApp.fetchJSON(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              topics: ["company", "product", "operation"],
+              force: !!force,
+              fetch_missing_content: true,
+              batch_size: 5,
+              limit: 100,
+              candidate_mode: "rules_then_llm",
+            }),
+          });
+          const r = resp?.data || resp || {};
+          const hits = r.topic_hits || {};
+          setSuccess(
+            statusId,
+            `完成：扫描 ${Number(r.total || 0)}，成功 ${Number(r.success || 0)}，跳过 ${Number(r.skipped || 0)}，错误 ${Number(r.error || 0)}；命中 company=${Number(hits.company || 0)} product=${Number(hits.product || 0)} operation=${Number(hits.operation || 0)}`
+          );
+          await listExtracted();
+        } catch (error) {
+          setError(statusId, `专题析取失败: ${error.message}`);
         }
       }
 
@@ -384,11 +420,25 @@
           if (typeof extractedData === "string") {
             try { extractedData = JSON.parse(extractedData); } catch { extractedData = null; }
           }
+          const metaCardHtml = window.UICards?.renderSectionCard
+            ? window.UICards.renderSectionCard({
+                title: "文档基础信息",
+                compact: true,
+                metrics: [
+                  { label: "标题", value: doc.title || "(无)" },
+                  { label: "类型", html: `<span class=\"badge\">${escapeHtml(doc.doc_type || "-")}</span>` },
+                  { label: "区域", value: doc.state || "-" },
+                  { label: "URL", html: doc.uri ? `<a href=\"${escapeHtml(doc.uri)}\" target=\"_blank\" class=\"link\">${escapeHtml(doc.uri)}</a>` : "-" },
+                ]
+              })
+            : "";
           const bodyHtml = `
-            <div><strong>标题:</strong> ${escapeHtml(doc.title || "(无)")}</div>
-            <div style="margin-top: 12px;"><strong>类型:</strong> <span class="badge">${escapeHtml(doc.doc_type || "-")}</span></div>
-            <div style="margin-top: 12px;"><strong>区域:</strong> ${escapeHtml(doc.state || "-")}</div>
-            <div style="margin-top: 12px;"><strong>URL:</strong> <a href="${escapeHtml(doc.uri || "#")}" target="_blank" class="link">${escapeHtml(doc.uri || "-")}</a></div>
+            ${metaCardHtml || `
+              <div><strong>标题:</strong> ${escapeHtml(doc.title || "(无)")}</div>
+              <div style="margin-top: 12px;"><strong>类型:</strong> <span class="badge">${escapeHtml(doc.doc_type || "-")}</span></div>
+              <div style="margin-top: 12px;"><strong>区域:</strong> ${escapeHtml(doc.state || "-")}</div>
+              <div style="margin-top: 12px;"><strong>URL:</strong> <a href="${escapeHtml(doc.uri || "#")}" target="_blank" class="link">${escapeHtml(doc.uri || "-")}</a></div>
+            `}
             <div style="margin-top: 12px;"><strong>摘要:</strong> ${escapeHtml((doc.summary || "").substring(0, 500))}${(doc.summary || "").length > 500 ? "..." : ""}</div>
             <div id="docExtractedPreview">
               ${
@@ -405,6 +455,7 @@
             </div>
           `;
           qs("doc-modal-body").innerHTML = bodyHtml;
+          window.enhanceExtractedCardTabs?.(qs("doc-modal-body"));
           if (window.lucide) window.lucide.createIcons();
         } catch (err) {
           qs("doc-modal-body").innerHTML = `<div class="error">加载失败: ${escapeHtml(err.message)}</div>`;
@@ -440,6 +491,11 @@
       qs("reextractStructuredForce")?.addEventListener("click", async () => {
         if (!confirm("确认强制重提取当前项目的可结构化文档？这会重新调用LLM，耗时较长。")) return;
         await reextractStructuredDocuments(true);
+      });
+      qs("topicExtractFill")?.addEventListener("click", () => topicExtractDocuments(false));
+      qs("topicExtractForce")?.addEventListener("click", async () => {
+        if (!confirm("确认强制专题析取当前项目文档？这会重新调用LLM，耗时较长。")) return;
+        await topicExtractDocuments(true);
       });
       qs("exportGraph").addEventListener("click", exportGraph);
 

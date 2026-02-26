@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>专题结果页</title>
+    <link rel="stylesheet" href="/static/css/app-theme.css" />
+    <style>
+      body { padding: 0; }
+      .page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+      canvas { display: block; max-width: 100%; }
+      #topicChart { max-height: 320px; }
+    </style>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/ui-core.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <h1 id="pageTitle"><i data-lucide="panel-top-open" style="vertical-align: middle; margin-right: 8px;"></i>专题结果页</h1>
+        <p id="pageDesc">按专题查看数据趋势与专题析取入口。</p>
+      </section>
+
+      <section class="card" style="margin-bottom: 12px;">
+        <div class="toolbar">
+          <button id="refreshPage"><i data-lucide="refresh-cw"></i> 刷新</button>
+          <button id="gotoIngest" class="secondary"><i data-lucide="plus-circle"></i> 去特化采集</button>
+          <span class="badge info" id="projectBadge"><i data-lucide="folder"></i> project: -</span>
+        </div>
+      </section>
+
+      <section class="card" style="margin-bottom: 12px;">
+        <div class="toolbar" style="justify-content: space-between; align-items: center;">
+          <h2 class="section-title" id="topicSectionTitle" style="margin:0;">专题趋势</h2>
+          <div class="toolbar">
+            <button id="btnTopicExtractFill" class="secondary"><i data-lucide="wrench"></i> 专题析取（补齐）</button>
+            <button id="btnTopicExtractForce"><i data-lucide="sparkles"></i> 专题析取（强制）</button>
+          </div>
+        </div>
+        <div id="topicExtractStatus" class="hint" style="margin-bottom: 8px;">专题析取未执行</div>
+        <canvas id="topicChart" height="110"></canvas>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">最近任务（20条）</h2>
+        <div id="taskTableWrap" class="table-wrap"></div>
+      </section>
+    </div>
+
+    <script>
+      const { qs, formatNumber, setError, setEmpty, escapeHtml, toDateTime } = window.UICore;
+      const topic = (new URLSearchParams(window.location.search).get('topic') || 'company').trim();
+      const TOPIC_CONF = {
+        company: {
+          title: '行业公司专题页',
+          desc: '聚焦公司/品牌/组织相关搜索行为与专题析取。',
+          chartTitle: '行业公司（搜索行为）',
+          chartLoader: 'search',
+          chartLabel: '搜索次数',
+          chartColor: '#0ea5e9',
+          statusLabel: '公司',
+        },
+        product: {
+          title: '商品专题页',
+          desc: '聚焦商品/型号/品类趋势与专题析取。',
+          chartTitle: '商品趋势',
+          chartLoader: 'commodity',
+          chartLabel: '商品指标',
+          chartColor: '#7c3aed',
+          statusLabel: '商品',
+        },
+        operation: {
+          title: '电商/经营专题页',
+          desc: '聚焦电商/经营趋势与专题析取。',
+          chartTitle: '电商/经营趋势',
+          chartLoader: 'operation',
+          chartLabel: '电商/经营',
+          chartColor: '#dc2626',
+          statusLabel: '电商/经营',
+        },
+      };
+      const conf = TOPIC_CONF[topic] || TOPIC_CONF.company;
+      let chart = null;
+
+      function setMeta() {
+        qs('pageTitle').innerHTML = `<i data-lucide="panel-top-open" style="vertical-align: middle; margin-right: 8px;"></i>${conf.title}`;
+        qs('pageDesc').textContent = conf.desc;
+        qs('topicSectionTitle').textContent = conf.chartTitle;
+        qs('projectBadge').textContent = `project: ${window.MarketApp.getProjectKey()}`;
+      }
+
+      function drawLine(labels, values) {
+        if (chart) chart.destroy();
+        chart = new Chart(qs('topicChart'), {
+          type: 'line',
+          data: { labels, datasets: [{ label: conf.chartLabel, data: values, borderColor: conf.chartColor, backgroundColor: `${conf.chartColor}33`, tension: 0.3 }] },
+          options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2.8, plugins: { legend: { display: true } } }
+        });
+      }
+
+      async function loadTopicChart() {
+        if (conf.chartLoader === 'search') {
+          const data = await window.MarketApp.fetchJSON('/api/v1/dashboard/search-analytics?limit=30');
+          const series = Array.isArray(data?.search_trend) ? data.search_trend : [];
+          drawLine(series.map(v => v.date || ''), series.map(v => v.count || 0));
+          return;
+        }
+        if (conf.chartLoader === 'commodity') {
+          const data = await window.MarketApp.fetchJSON('/api/v1/dashboard/commodity-trends');
+          const series = Array.isArray(data?.series) ? data.series : [];
+          drawLine(series.map(v => v.date || ''), series.map(v => v.value || 0));
+          return;
+        }
+        const data = await window.MarketApp.fetchJSON('/api/v1/dashboard/ecom-price-trends');
+        const series = Array.isArray(data?.series) ? data.series : [];
+        drawLine(series.map(v => (v.captured_at || '').replace('T', ' ').slice(0, 16)), series.map(v => v.price || 0));
+      }
+
+      async function loadTasks() {
+        const data = await window.MarketApp.fetchJSON('/api/v1/dashboard/task-monitoring?limit=20');
+        const items = Array.isArray(data?.recent_tasks) ? data.recent_tasks : [];
+        if (!items.length) { setEmpty('taskTableWrap', '暂无任务'); return; }
+        const rows = items.map((it) => {
+          const cls = it.status === 'completed' ? 'success' : it.status === 'failed' ? 'danger' : 'warning';
+          return `<tr><td>${escapeHtml(it.job_type || '-')}</td><td><span class="badge ${cls}">${escapeHtml(it.status || '-')}</span></td><td>${toDateTime(it.started_at)}</td><td>${toDateTime(it.finished_at)}</td><td>${formatNumber(it.duration_seconds || 0)}s</td></tr>`;
+        }).join('');
+        qs('taskTableWrap').innerHTML = `<table><thead><tr><th>任务</th><th>状态</th><th>开始</th><th>结束</th><th>耗时</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }
+
+      function renderTopicExtractStatus(data) {
+        const el = qs('topicExtractStatus');
+        if (!data) { el.textContent = `${conf.statusLabel}专题析取未执行`; return; }
+        const hits = data?.topic_hits || {};
+        const fallbacks = data?.topic_fallback_hits || {};
+        const coverage = data?.topic_avg_coverage || {};
+        el.textContent = `已完成：总计 ${formatNumber(data.total)}，成功 ${formatNumber(data.success)}，跳过 ${formatNumber(data.skipped)}，错误 ${formatNumber(data.error)}；命中 ${formatNumber(hits[topic] || 0)}，补集 ${formatNumber(fallbacks[topic] || 0)}，覆盖率 ${(Number(coverage[topic] || 0) * 100).toFixed(1)}%`;
+      }
+
+      async function runTopicExtract(force = false) {
+        qs('topicExtractStatus').textContent = `${conf.statusLabel}专题析取执行中...`;
+        const data = await window.MarketApp.fetchJSON('/api/v1/admin/documents/topic-extract', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topics: [topic], force, fetch_missing_content: true, batch_size: 5, limit: 200, candidate_mode: 'rules_then_llm' })
+        });
+        renderTopicExtractStatus(data);
+      }
+
+      async function loadAll() {
+        lucide.createIcons();
+        setMeta();
+        try { await Promise.all([loadTopicChart(), loadTasks()]); }
+        catch (e) { setError('taskTableWrap', `加载失败: ${e.message}`); }
+      }
+
+      qs('refreshPage').addEventListener('click', loadAll);
+      qs('gotoIngest').addEventListener('click', () => window.MarketApp.navigateInShell('ingest.html?mode=specialized'));
+      qs('btnTopicExtractFill').addEventListener('click', () => runTopicExtract(false));
+      qs('btnTopicExtractForce').addEventListener('click', () => { if (confirm(`强制重跑${conf.statusLabel}专题析取？会增加 LLM 调用。`)) runTopicExtract(true); });
+      window.addEventListener('DOMContentLoaded', loadAll);
+    </script>
+  </body>
+</html>

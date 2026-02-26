@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from sqlalchemy import text
 
 from .models.base import Base, engine
+from .settings.config import settings
 from .models.entities import (
     ConfigState,
     Document,
@@ -97,7 +98,7 @@ def register_startup_hooks(app: FastAPI) -> None:
                             )
 
                 count = conn.execute(text("SELECT COUNT(*) FROM public.projects")).scalar() or 0
-                if int(count) == 0:
+                if int(count) == 0 and bool(getattr(settings, "bootstrap_create_initial_project", False)):
                     conn.execute(
                         text(
                             """
@@ -110,6 +111,10 @@ def register_startup_hooks(app: FastAPI) -> None:
                             "name": "商业调查",
                             "schema_name": "project_business_survey",
                         },
+                    )
+                elif int(count) == 0:
+                    logging.getLogger("app").info(
+                        "project bootstrap skipped: no projects found and bootstrap_create_initial_project=false"
                     )
 
                 has_public_docs = conn.execute(text("SELECT to_regclass('public.documents') IS NOT NULL")).scalar()

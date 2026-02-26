@@ -1121,13 +1121,8 @@
       window.formatNumber = formatNumber;
       window.formatCurrency = formatCurrency;
 
-      async function fetchJSON(url) {
-        const res = await fetch(url);
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`HTTP ${res.status}: ${text}`);
-        }
-        return res.json();
+      async function fetchJSON(url, init) {
+        return window.MarketApp.fetchJSON(url, init);
       }
 
       // 辅助函数：安全地解析 JSON 响应
@@ -1642,22 +1637,7 @@
         console.log('Fetching sources from:', url);
         
         try {
-          // 添加缓存控制，确保获取最新数据
-          const res = await fetch(url, {
-            cache: 'no-cache',
-            headers: {
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache'
-            }
-          });
-          if (!res.ok) {
-            const errorText = await res.text();
-            console.error('API Error:', res.status, errorText);
-            popupBody.innerHTML = `<div class="error">❌ 请求失败 (${res.status}): ${errorText || '未知错误'}<br/>请检查后端服务是否正常运行，并确保已重启服务以加载新路由。</div>`;
-            return;
-          }
-          
-          const data = await parseJsonResponse(res);
+          const data = await window.MarketApp.fetchJSON(url);
           const sources = data?.sources || [];
           
           if (sources.length === 0) {

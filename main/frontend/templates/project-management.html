@@ -92,9 +92,7 @@
       }
 
       async function fetchProjects() {
-        const res = await fetch("/api/v1/projects");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const data = await window.MarketApp.api.get("/api/v1/projects");
         const items = Array.isArray(data?.items) ? data.items : [];
         return items;
       }
@@ -171,16 +169,7 @@
         if (!next) return;
         setLoading("createStatus", "重命名中...");
         try {
-          // Force control-plane route context to avoid tenant-project query contamination.
-          const res = await fetch(`/api/v1/projects/${encodeURIComponent(key)}?project_key=public`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: next }),
-          });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `HTTP ${res.status}`);
-          }
+          await window.MarketApp.api.request("PATCH", `/api/v1/projects/${encodeURIComponent(key)}?project_key=public`, { body: { name: next } });
           setSuccess("createStatus", "重命名成功");
           await renderProjects();
         } catch (err) {
@@ -193,11 +182,7 @@
         if (!confirm(`确认归档项目 ${key} ?（数据保留，仅从可用列表隐藏）`)) return;
         setLoading("createStatus", "归档中...");
         try {
-          const res = await fetch(`/api/v1/projects/${encodeURIComponent(key)}/archive`, { method: "POST" });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `HTTP ${res.status}`);
-          }
+          await window.MarketApp.api.post(`/api/v1/projects/${encodeURIComponent(key)}/archive`, null);
           setSuccess("createStatus", "已归档");
           await renderProjects();
         } catch (err) {
@@ -209,11 +194,7 @@
         const key = normalizeProjectKey(projectKey);
         setLoading("createStatus", "恢复中...");
         try {
-          const res = await fetch(`/api/v1/projects/${encodeURIComponent(key)}/restore`, { method: "POST" });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `HTTP ${res.status}`);
-          }
+          await window.MarketApp.api.post(`/api/v1/projects/${encodeURIComponent(key)}/restore`, null);
           setSuccess("createStatus", "已恢复");
           await renderProjects();
         } catch (err) {
@@ -235,11 +216,7 @@
         setLoading("createStatus", hard ? "硬删除中..." : "删除中...");
         try {
           const url = `/api/v1/projects/${encodeURIComponent(key)}${hard ? "?hard=true" : ""}`;
-          const res = await fetch(url, { method: "DELETE" });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `HTTP ${res.status}`);
-          }
+          await window.MarketApp.api.delete(url);
           setSuccess("createStatus", hard ? "已硬删除" : "已删除（归档）");
 
           // If current project becomes unavailable, switch to active/enabled.
@@ -264,11 +241,7 @@
         const key = normalizeProjectKey(projectKey);
         setLoading("createStatus", "切换中...");
         try {
-          const res = await fetch(`/api/v1/projects/${encodeURIComponent(key)}/activate`, { method: "POST" });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `HTTP ${res.status}`);
-          }
+          await window.MarketApp.api.post(`/api/v1/projects/${encodeURIComponent(key)}/activate`, null);
           localStorage.setItem("market_project_key", key);
           setSuccess("createStatus", "切换成功，正在刷新工作台...");
           // Ask shell to reload current page
@@ -344,15 +317,7 @@
 
         setLoading("createStatus", "创建项目中...");
         try {
-          const res = await fetch("/api/v1/projects", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ project_key, name, enabled: true }),
-          });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `HTTP ${res.status}`);
-          }
+          await window.MarketApp.api.post("/api/v1/projects", { project_key, name, enabled: true });
           await activateProject(project_key);
         } catch (err) {
           setError("createStatus", `创建失败: ${err.message || err}`);
