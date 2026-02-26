@@ -1,10 +1,18 @@
 # 市场情报（market-intel）项目说明
 
-> 最后更新：2026-02
+> 最后更新：2026-02-26
+
+当前版本：`v0.1.0-rc.1`（预发行，团队试用）
 
 本文档为项目主说明，涵盖定位、快速开始、架构与文档入口。所有路径均为**相对仓库根目录**。
 
 版本管理与协作建议见：`GIT_WORKFLOW.md`（轻量 Git 工作流）
+
+预发行试用（团队联调）：`RELEASE_NOTES_v0.1.0-rc.1.md`（v0.1.0-rc.1）
+
+试用入口：
+- 管理页面：`http://localhost:8000/resource-pool-management.html`
+- OpenAPI：`http://localhost:8000/docs`
 
 ---
 
@@ -33,6 +41,10 @@ cd "$PROJECT_DIR/ops"
 **首次运行**：复制 `main/backend/.env.example` 为 `main/backend/.env`（可选，有默认值）。
 
 **访问**：OpenAPI `http://localhost:8000/docs` | 健康检查 `http://localhost:8000/api/v1/health`
+
+**试用入口**：管理页面 `http://localhost:8000/resource-pool-management.html`（资源池/来源库） | Release Notes `RELEASE_NOTES_v0.1.0-rc.1.md`
+
+**项目上下文**：部分接口（尤其资源池相关）需要 `X-Project-Key` Header 或 `project_key` 参数。
 
 ### 2.2 本地开发（后端）
 
@@ -75,10 +87,14 @@ cd main/backend
 | dashboard, admin, process | 仪表盘、管理台、任务 |
 | projects, topics, products, governance | 项目/主题/商品/治理 |
 | llm_config, config, source_library, project_customization | 配置与定制 |
+| resource_pool | 资源池与统一搜索（来源沉淀/站点入口/候选写回/自动入库） |
 
 ### 4.2 服务层
 
 - `ingest/` + `adapters/`：政策、市场、新闻、社媒、商品、电商采集
+- `resource_pool/`：资源池、站点入口发现、统一搜索、候选写回与 `url_pool` 衔接
+- `collect_runtime/`：采集运行时（适配器化执行骨架）
+- `source_library/`：来源库（adapter/registry/router）
 - `search/`：检索、索引、历史、智能搜索
 - `llm/` + `extraction/`：结构化提取与模型调用
 - `graph/`：图谱构建与导出
@@ -104,7 +120,7 @@ cd main/backend
 
 模板由 `main/frontend/templates` 提供，入口在 `main.py`。
 
-**主要页面**：index、app、settings、admin、dashboard、policy-*、social-media-*、project-management、process-management、market-data-visualization 等。
+**主要页面**：index、app、settings、admin、dashboard、resource-pool-management（资源池/来源库）、process-management、project-management、policy-*、social-media-*、market-data-visualization 等。
 
 ---
 
@@ -129,15 +145,18 @@ cd main/backend
 | `main/backend/API接口文档.md` | API 完整参考 |
 | `main/backend/docs/README.md` | 后端文档索引 |
 | `信息流优化/README.md` | 优化路线 |
+| `RELEASE_NOTES_v0.1.0-rc.1.md` | 预发行试用说明（团队联调路径、接口速查、验证清单） |
+| `GIT_WORKFLOW.md` | Git 工作流（轻量版） |
 
 ### 7.5 已实现能力：来源池与统一搜索
 
-以下能力已落地，详见 `main/backend/docs/RESOURCE_LIBRARY_DEFINITION.md`、`RESOURCE_POOL_EXTRACTION_API.md`：
+以下能力已落地，详见 `main/backend/docs/RESOURCE_LIBRARY_DEFINITION.md`、`main/backend/docs/RESOURCE_POOL_EXTRACTION_API.md`：
 
 - **自动提取**：从文档/任务提取 URL 写入 `resource_pool_urls`；从 URL 自动发现站点入口（`site_entries`：domain_root、RSS、sitemap、link_alternate）
 - **去重**：`resource_pool_urls` 唯一约束；统一搜索写回时按 URL 去重
 - **进一步收集**：统一搜索（query_terms + item 绑定的 site_entries）→ 候选 URL 写回池 → `url_pool` 抓取入库；支持 `auto_ingest` 一条龙完成
 - **多项目隔离**：resource_pool、site_entries、documents 均按 `project_<key>` schema 隔离
+- **管理入口**：`http://localhost:8000/resource-pool-management.html`
 
 ---
 
