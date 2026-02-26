@@ -34,3 +34,6 @@ class DefaultProjectCustomization(ProjectCustomization):
     ) -> Optional[Dict[str, Any]]:
         """Default: no project-specific suggestion; trunk uses built-in LLM service."""
         return None
+
+    def get_social_keyword_guidelines(self) -> Optional[str]:
+        return None

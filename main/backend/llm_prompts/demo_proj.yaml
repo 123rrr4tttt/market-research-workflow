@@ -1,0 +1,200 @@
+# Demo project: 具身智能 (Embodied AI) - overrides default.yaml for demo_proj only
+
+- service_name: policy_classification
+  description: "政策分类服务（具身智能）：判断政策文本对具身智能/机器人的态度"
+  system_prompt: "你是一名具身智能与机器人政策分析助手，需要判断输入政策文本对具身智能、人形机器人、自主系统的态度。请输出 JSON，其中包含 `category`（允许/限制/禁止/不确定）、`confidence`（0-1 之间的小数）以及 `reason`（中文说明）。"
+  user_prompt_template: "当前文本：\n{document}"
+  model: null
+  temperature: 0.2
+  max_tokens: null
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true
+
+- service_name: policy_summary
+  description: "政策摘要服务（具身智能）：概括政策文本，突出对具身智能与机器人的影响"
+  system_prompt: "请用中文概括输入的政策文本，突出对具身智能、人形机器人、自主系统的影响，输出 3 条要点列表。"
+  user_prompt_template: "法案内容：\n{document}"
+  model: null
+  temperature: 0.2
+  max_tokens: null
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true
+
+- service_name: sentiment_extraction
+  description: "情感提取服务（具身智能）：从具身智能/机器人相关文本中提取结构化情感"
+  system_prompt: null
+  user_prompt_template: |
+    从以下具身智能/机器人相关文本中提取结构化的情感和信息：
+
+    文本：
+    {text}
+
+    请提取以下信息，并以JSON格式返回（只返回JSON，不要其他解释）：
+    {{
+      "sentiment_tags": ["标签1", "标签2"],  // 如["excitement", "safety_concern", "job_displacement", "breakthrough"]
+      "sentiment_orientation": "positive|negative|neutral",
+      "key_phrases": ["关键短语1", "关键短语2"],
+      "emotion_words": ["情感词1", "情感词2"],
+      "topic": "主题关键词"  // 如 embodied ai, humanoid robot, robotics
+    }}
+
+    请确保返回有效的JSON格式。
+  model: null
+  temperature: 0.2
+  max_tokens: null
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true
+
+- service_name: policy_info_extraction
+  description: "政策信息提取（具身智能）：从文本中提取具身智能/机器人相关政策信息"
+  system_prompt: null
+  user_prompt_template: |
+    从以下文本中提取具身智能/机器人相关政策相关信息：
+
+    文本：
+    {text}
+
+    请以JSON格式返回（只返回JSON，不要其他解释）：
+    {{
+      "affected_states": ["CA", "US", "EU"],  // 受影响地区
+      "policy_direction": "允许|禁止|限制|支持",
+      "policy_type": "regulation|bill|guideline|announcement",
+      "key_points": ["要点1", "要点2"],
+      "effective_date": "YYYY-MM-DD"
+    }}
+
+    请确保返回有效的JSON格式。
+  model: null
+  temperature: 0.2
+  max_tokens: null
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true
+
+- service_name: policy_extraction
+  description: "政策结构化提取（具身智能）：提取AI/机器人政策的关键信息"
+  system_prompt: null
+  user_prompt_template: |
+    从以下具身智能/机器人相关政策文本中提取关键信息：
+
+    {text}
+
+    请以JSON格式返回，包含以下字段：
+    - state: 州/国家代码（如CA, US, EU等）
+    - effective_date: 生效日期（YYYY-MM-DD格式，无法确定则为null）
+    - policy_type: 政策类型（如regulation, bill, guideline, announcement等）
+    - key_points: 关键要点列表（最多5条，与具身智能/机器人相关）
+  model: null
+  temperature: 0.2
+  max_tokens: null
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true
+
+- service_name: entities_relations_extraction
+  description: "实体关系提取（具身智能）：抽取与具身智能/机器人相关的实体与关系"
+  system_prompt: null
+  user_prompt_template: "请从以下文本中抽取与具身智能、机器人、自主系统直接相关的实体与关系，最多5个实体、3条关系；谓词在 {{develops, deploys, regulates, acquires, partners_with, reports_on}} 中。\n\n{text}"
+  model: null
+  temperature: 0.2
+  max_tokens: null
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true
+
+- service_name: market_info_extraction
+  description: "市场数据提取（具身智能）：提取具身智能/机器人市场数据"
+  system_prompt: null
+  user_prompt_template: |
+    Extract key embodied AI / robotics market data from the following text:
+
+    {text}
+
+    Return JSON with these fields (all values in English):
+    - state: Region/country (e.g., US, China, EU)
+    - game: Product/category (e.g., humanoid robot, AGV, service robot)
+    - report_date: Report date (YYYY-MM-DD, null if unavailable)
+    - sales_volume: Deployment/shipment volume (number, null if unavailable)
+    - revenue: Revenue or market size (number, null if unavailable)
+    - jackpot: Major funding/order amount (number, null if unavailable)
+    - ticket_price: Unit price / ASP (number, null if unavailable)
+    - draw_number: Model or version (string, null if unavailable)
+    - yoy_change: YoY growth % (number, null if unavailable)
+    - mom_change: MoM growth % (number, null if unavailable)
+    - key_findings: Key findings list (up to 5 items, in English)
+  model: null
+  temperature: 0.2
+  max_tokens: null
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true
+
+- service_name: keyword_generation
+  description: "关键词生成（具身智能）：基于主题生成具身智能相关搜索关键词"
+  system_prompt: null
+  user_prompt_template: "你是一名搜索关键词生成助手。请基于用户主题，输出 3~5 个多样化的{language}搜索关键词，聚焦具身智能、机器人、人形机器人、自主系统等领域。每行一个关键词。\n主题：{topic}"
+  model: null
+  temperature: 0.2
+  max_tokens: null
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true
+
+- service_name: social_keyword_generation
+  description: "社交关键词生成（具身智能）：生成具身智能/机器人社区搜索与子论坛关键词"
+  system_prompt: null
+  user_prompt_template: |
+    你是一名社交媒体关键词生成助手。请基于用户主题，生成两类具身智能/机器人相关关键词{platform}。
+
+    重要：所有关键词必须使用{language}生成。
+
+    第一类：搜索关键词（用于搜索帖子内容）
+    - 生成 3~5 个多样化的{language}搜索关键词
+    - 聚焦 embodied AI, humanoid robot, robotics, AGI, automation 等
+    - 包含社区常用表达
+
+    第二类：子论坛关键词（用于发现Reddit子论坛）
+    - 生成 5~10 个适合作为Reddit子论坛名称的{language}关键词
+    - 全小写、下划线分隔，如 robotics, humanoid_robots, embodied_ai
+    - 包含主题核心词汇、同义词、变体
+
+    请严格按照以下格式返回（每行一个关键词，不要编号）：
+    搜索关键词：
+    关键词1
+    关键词2
+
+    子论坛关键词：
+    关键词1
+    关键词2
+
+    主题：{topic}{base_keywords}
+  model: null
+  temperature: 0.5
+  max_tokens: 500
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true
+
+- service_name: document_classification
+  description: "文档分类（具身智能）：将内容粗分类为 policy 或 market"
+  system_prompt: null
+  user_prompt_template: "请将以下具身智能/机器人相关内容粗分类为'policy'（政策法规）或'market'（市场/产品/融资）之一，仅返回这两个词之一。\n标题: {title}\n摘要: {snippet}\n正文片段: {content}\n分类:"
+  model: null
+  temperature: 0.2
+  max_tokens: null
+  top_p: null
+  presence_penalty: null
+  frequency_penalty: null
+  enabled: true

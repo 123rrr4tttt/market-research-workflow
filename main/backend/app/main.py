@@ -247,6 +247,20 @@ def _ensure_all_project_schemas_ready() -> None:
 
 
 @app.on_event("startup")
+def _sync_llm_prompts_from_files() -> None:
+    """Sync LLM prompts from llm_prompts/*.yaml into each project's DB."""
+    try:
+        from scripts.sync_llm_prompts import sync_prompts
+
+        prompts_dir = Path(__file__).resolve().parent.parent / "llm_prompts"
+        if (prompts_dir / "default.yaml").exists():
+            n = sync_prompts()
+            logging.getLogger("app").info("LLM prompts synced: %d configs", n)
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger("app").warning("LLM prompts sync failed: %s", exc)
+
+
+@app.on_event("startup")
 def _ensure_shared_library_tables_ready() -> None:
     """Ensure source library shared tables exist in public schema."""
     shared_tables = [

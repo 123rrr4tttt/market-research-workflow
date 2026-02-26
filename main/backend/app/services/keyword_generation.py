@@ -14,13 +14,6 @@ from ..settings.config import settings
 
 logger = logging.getLogger(__name__)
 
-SOCIAL_KEYWORD_GUIDELINES = (
-    "生成要求：\n"
-    "1. 所有搜索关键词需紧扣彩票主题，同时覆盖玩法、奖金、渠道、用户行为、多人协作等不同场景；\n"
-    "2. 结合提供的基础关键词提炼同义词、动名词、复合短语，避免仅做简单的单词变体；\n"
-    "3. 每条关键词独立成行，不附加额外说明。"
-)
-
 
 def generate_social_keywords(
     topic: str, 
@@ -72,13 +65,16 @@ def generate_social_keywords(
                 config_name, config is not None, bool(config and config.get("user_prompt_template")),
             )
             if config and config.get("user_prompt_template"):
-                updated_template = ensure_prompt_has_guidelines(
-                    config_name,
-                    config.get("user_prompt_template"),
-                    SOCIAL_KEYWORD_GUIDELINES,
-                )
-                if updated_template:
-                    config["user_prompt_template"] = updated_template
+                from ..project_customization import get_project_customization
+                guidelines = get_project_customization().get_social_keyword_guidelines()
+                if guidelines:
+                    updated = ensure_prompt_has_guidelines(
+                        config_name,
+                        config.get("user_prompt_template"),
+                        guidelines,
+                    )
+                    if updated:
+                        config["user_prompt_template"] = updated
                 template_to_use = config.get("user_prompt_template", "")
                 
                 # 使用合并配置生成两种关键词
@@ -252,13 +248,16 @@ def generate_social_keywords(
             config = get_llm_config("keyword_generation")
         
         if config and config.get("user_prompt_template"):
-            updated_template = ensure_prompt_has_guidelines(
-                config_name,
-                config.get("user_prompt_template"),
-                SOCIAL_KEYWORD_GUIDELINES,
-            )
-            if updated_template:
-                config["user_prompt_template"] = updated_template
+            from ..project_customization import get_project_customization
+            guidelines = get_project_customization().get_social_keyword_guidelines()
+            if guidelines:
+                updated = ensure_prompt_has_guidelines(
+                    config_name,
+                    config.get("user_prompt_template"),
+                    guidelines,
+                )
+                if updated:
+                    config["user_prompt_template"] = updated
             # 使用配置的提示词
             language_str = "英文" if language.lower().startswith("en") else "中文"
             platform_str = f"，适合在{platform}平台搜索" if platform else ""
@@ -294,10 +293,13 @@ def generate_social_keywords(
             # 使用默认提示词（针对社交平台优化）
             language_str = "英文" if language.lower().startswith("en") else "中文"
             platform_hint = f"，适合在{platform}平台搜索" if platform else ""
+            from ..project_customization import get_project_customization
+            guidelines = get_project_customization().get_social_keyword_guidelines()
+            guidelines_str = f"\n{guidelines}" if guidelines else ""
             prompt = (
                 f"你是一名社交媒体关键词生成助手。请基于用户主题，生成 3~5 个多样化的{language_str}搜索关键词"
                 f"{platform_hint}。"
-                f"\n{SOCIAL_KEYWORD_GUIDELINES}"
+                f"{guidelines_str}"
                 f"\n\n主题：{topic}"
             )
             model = get_chat_model()

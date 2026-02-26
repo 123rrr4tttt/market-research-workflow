@@ -67,3 +67,11 @@ class OnlineLotteryCustomization(ProjectCustomization):
             return result
         logger.info("online_lottery.suggest_keywords: result (list) keywords=%s", result)
         return {"search_keywords": result, "subreddit_keywords": []}
+
+    def get_social_keyword_guidelines(self) -> Optional[str]:
+        return (
+            "生成要求：\n"
+            "1. 所有搜索关键词需紧扣彩票主题，同时覆盖玩法、奖金、渠道、用户行为、多人协作等不同场景；\n"
+            "2. 结合提供的基础关键词提炼同义词、动名词、复合短语，避免仅做简单的单词变体；\n"
+            "3. 每条关键词独立成行，不附加额外说明。"
+        )

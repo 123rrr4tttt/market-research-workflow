@@ -19,16 +19,18 @@ class DemoProjExtractionAdapter(SubprojectExtractionAdapter):
         return {**data, "domain_payload": payload}
 
     def augment_market(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        # Map from MarketExtracted fields (game, jackpot, ticket_price, draw_number)
+        # to embodied AI domain terms (segment, funding_amount, unit_price, version)
         payload = {
             "domain": "embodied_ai",
             "region": data.get("state"),
-            "segment": data.get("segment"),
+            "segment": data.get("segment") or data.get("game"),
             "report_date": data.get("report_date"),
             "deployment_volume": data.get("sales_volume"),
             "market_size": data.get("revenue"),
-            "financing_or_order_amount": data.get("funding_amount"),
-            "asp": data.get("unit_price"),
-            "model_or_version": data.get("version"),
+            "financing_or_order_amount": data.get("funding_amount") or data.get("jackpot"),
+            "asp": data.get("unit_price") or data.get("ticket_price"),
+            "model_or_version": data.get("version") or data.get("draw_number"),
             "yoy_growth": data.get("yoy_change"),
             "mom_growth": data.get("mom_change"),
             "highlights": data.get("key_findings", []),

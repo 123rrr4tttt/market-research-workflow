@@ -52,3 +52,11 @@ class ProjectCustomization(Protocol):
         Return dict with keys: search_keywords (list), optionally subreddit_keywords (list).
         """
         ...
+
+    def get_social_keyword_guidelines(self) -> Optional[str]:
+        """Optional guidelines appended to social_keyword_generation prompt.
+
+        Return None to skip appending (use template as-is).
+        Return str to append to template (e.g. domain-specific constraints).
+        """
+        ...

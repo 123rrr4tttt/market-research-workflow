@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from ...project_customization.interfaces import ChannelHandler, ProjectCustomization, WorkflowDefinition
 from .mappings import FIELD_MAPPING, LLM_MAPPING, MENU_CONFIG, WORKFLOW_MAPPING
@@ -25,3 +25,11 @@ class DemoProjCustomization(ProjectCustomization):
 
     def get_channel_handlers(self) -> Dict[tuple[str, str], ChannelHandler]:
         return {}
+
+    def get_social_keyword_guidelines(self) -> Optional[str]:
+        return (
+            "生成要求：\n"
+            "1. 所有搜索关键词需紧扣具身智能、机器人、自主系统主题；\n"
+            "2. 结合提供的基础关键词提炼同义词、动名词、复合短语；\n"
+            "3. 每条关键词独立成行，不附加额外说明。"
+        )
