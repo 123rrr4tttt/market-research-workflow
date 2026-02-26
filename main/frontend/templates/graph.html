@@ -65,19 +65,36 @@
       .filter-extra { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
       .stats {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 16px;
-        margin-bottom: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
       }
       .stat-card {
-        background: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border-left: 4px solid #2563eb;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        padding: 12px 14px;
+        border-radius: 10px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        border: 1px solid #e7edf5;
+        border-left: 3px solid #3b82f6;
+        min-height: 72px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
-      .stat-card h3 { margin: 0 0 8px 0; font-size: 14px; color: #64748b; font-weight: 500; }
-      .stat-card .value { font-size: 32px; font-weight: 700; color: #0f172a; }
+      .stat-card h3 {
+        margin: 0 0 4px 0;
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        line-height: 1.25;
+      }
+      .stat-card .value {
+        font-size: 24px;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1;
+      }
       .graph-container {
         background: white;
         padding: 24px;
@@ -118,29 +135,74 @@
         bottom: 16px;
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 12px;
+        row-gap: 8px;
         padding: 10px 14px;
         background: rgba(255, 255, 255, 0.92);
         border-radius: 12px;
         box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
         z-index: 20;
         backdrop-filter: blur(4px);
+        max-width: calc(100% - 32px);
       }
       .graph-control-panel label { font-size: 12px; color: #475569; white-space: nowrap; }
-      .graph-control-panel input[type="range"] { width: 160px; accent-color: #2563eb; }
+      .graph-control-panel input[type="range"] {
+        width: 132px;
+        min-width: 110px;
+        height: 18px;
+        background: transparent;
+        accent-color: #2563eb;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .graph-control-panel input[type="range"]::-webkit-slider-runnable-track {
+        height: 4px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #dbeafe, #93c5fd);
+      }
+      .graph-control-panel input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        margin-top: -5px;
+        border-radius: 50%;
+        background: #2563eb;
+        border: 2px solid #ffffff;
+        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
+      }
+      .graph-control-panel input[type="range"]::-moz-range-track {
+        height: 4px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #dbeafe, #93c5fd);
+      }
+      .graph-control-panel input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #2563eb;
+        border: 2px solid #ffffff;
+        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
+      }
       .graph-control-panel span { min-width: 36px; text-align: right; font-size: 13px; font-weight: 600; color: #2563eb; }
       .graph-control-panel .control-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; white-space: nowrap; }
       .graph-control-panel .control-toggle input { accent-color: #2563eb; }
-      .legend { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; color: #475569; font-size: 13px; }
-      .legend-group { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; }
+      .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; color: #475569; font-size: 13px; align-items: flex-start; }
+      .legend-group { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 8px; }
+      .legend-group:not(.collapsed) { flex: 1 1 100%; width: 100%; }
+      .legend-group.collapsed { flex: 0 0 auto; width: auto; padding: 4px 8px; }
       .legend-group.collapsed .legend-group-items { display: none; }
+      .legend-group.collapsed .legend-group-actions { display: none; }
+      .legend-group.collapsed .legend-group-title { font-weight: 600; font-size: 12px; }
+      .legend-group.collapsed .legend-group-title span:first-child { font-size: 11px; }
       .legend-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .legend-group-title { font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
       .legend-group-actions { display: flex; align-items: center; gap: 6px; }
       .legend-group-btn { border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 8px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
       .legend-group-btn.is-off { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
-      .legend-group-items { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-      .legend-item { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; user-select: none; }
+      .legend-group-items { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 6px; }
+      .legend-item { display: flex; align-items: center; gap: 6px; width: 100%; background: #f1f5f9; padding: 5px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; user-select: none; line-height: 1.1; }
       .legend-item.is-hidden { opacity: 0.45; background: #f8fafc; border-color: #e2e8f0; text-decoration: line-through; }
       .legend-symbol { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; position: relative; }
       .legend-symbol-shape { width: 12px; height: 12px; display: block; background: currentColor; }
@@ -259,8 +321,16 @@
       <div class="graph-container" data-role="main">
         <div class="graph-control-panel" id="graph-control-panel">
           <label for="repulsion-slider">节点斥力</label>
-          <input type="range" id="repulsion-slider" min="60" max="720" step="10" value="180" />
+          <input type="range" id="repulsion-slider" min="0" max="720" step="10" value="180" />
           <span id="repulsion-value">180</span>
+          <label for="node-scale-slider">节点尺寸</label>
+          <input type="range" id="node-scale-slider" min="0" max="180" step="5" value="100" />
+          <span id="node-scale-value">100%</span>
+          <label for="legend-lang-select">图例语言</label>
+          <select id="legend-lang-select">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+          </select>
           <label class="control-toggle">
             <input type="checkbox" id="label-toggle" checked />
             显示标签
@@ -314,6 +384,9 @@
       const limitInput = document.getElementById('filter-limit');
       const repulsionSlider = document.getElementById('repulsion-slider');
       const repulsionValueEl = document.getElementById('repulsion-value');
+      const nodeScaleSlider = document.getElementById('node-scale-slider');
+      const nodeScaleValueEl = document.getElementById('node-scale-value');
+      const legendLangSelect = document.getElementById('legend-lang-select');
       const labelToggle = document.getElementById('label-toggle');
       const graphControlPanel = document.getElementById('graph-control-panel');
       const mainGraphContainer = document.querySelector('.graph-container[data-role="main"]');
@@ -324,10 +397,48 @@
       let isFullscreen = false;
       let latestGraphData = null;
       let currentRepulsion = Number(repulsionSlider?.value || 180);
+      let nodeScaleFactor = Number(nodeScaleSlider?.value || 100) / 100;
       let showLabels = labelToggle ? labelToggle.checked : true;
+      let legendLang = (localStorage.getItem('graphLegendLang') || 'zh') === 'en' ? 'en' : 'zh';
       let graphConfig = { nodeTypes: [], nodeLabels: {}, nodeColors: {}, nodeSymbols: {}, nodeSizeRules: {} };
+      const LEGEND_ZH_LABELS_FALLBACK = {
+        MarketData: '市场数据',
+        State: '地区',
+        Segment: '品类',
+        Game: '游戏',
+        Entity: '实体',
+        Policy: '政策',
+        PolicyType: '政策类型',
+        KeyPoint: '要点',
+        Post: '帖子',
+        Keyword: '关键词',
+        Topic: '主题',
+        TopicTag: '专题标签',
+        SentimentTag: '情感标签',
+        User: '用户',
+        Subreddit: '社区',
+        CompanyEntity: '公司主体',
+        CompanyBrand: '公司品牌',
+        CompanyUnit: '业务单元',
+        CompanyPartner: '合作方',
+        CompanyChannel: '公司渠道',
+        ProductEntity: '商品主体',
+        ProductModel: '商品型号',
+        ProductCategory: '商品品类',
+        ProductBrand: '商品品牌',
+        ProductComponent: '商品组件',
+        ProductScenario: '适用场景',
+        OperationEntity: '经营主体',
+        OperationPlatform: '经营平台',
+        OperationStore: '店铺',
+        OperationChannel: '经营渠道',
+        OperationMetric: '经营指标',
+        OperationStrategy: '经营策略',
+        OperationRegion: '经营区域',
+        OperationPeriod: '经营周期',
+      };
       const hiddenNodeTypes = new Set();
-      const collapsedLegendGroups = new Set();
+      const collapsedLegendGroups = new Set(['company', 'product', 'operation', 'other']);
       const nodeLayoutCache = new Map();
       const FALLBACK_TYPE_COLORS = ['#2563eb', '#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#14b8a6', '#f59e0b', '#64748b', '#06b6d4'];
       const FALLBACK_TYPE_SYMBOLS = ['circle', 'roundRect', 'diamond', 'rect', 'triangle', 'pin'];
@@ -513,8 +624,22 @@
         return 'other';
       }
 
+      function humanizeTypeName(type) {
+        return String(type || '')
+          .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+          .replace(/_/g, ' ')
+          .trim();
+      }
+
+      function legendTypeLabel(type) {
+        if (legendLang === 'en') return humanizeTypeName(type);
+        return graphConfig.nodeLabels?.[type] || LEGEND_ZH_LABELS_FALLBACK[type] || type;
+      }
+
       function legendGroupLabel(groupKey) {
-        return ({ base: '基础图例', company: '公司图例', product: '商品图例', operation: '电商/经营图例', other: '其他图例' })[groupKey] || '其他图例';
+        const zh = ({ base: '基础图例', company: '公司图例', product: '商品图例', operation: '电商/经营图例', other: '其他图例' })[groupKey] || '其他图例';
+        const en = ({ base: 'Base Legend', company: 'Company Legend', product: 'Product Legend', operation: 'Operation Legend', other: 'Other Legend' })[groupKey] || 'Other Legend';
+        return legendLang === 'en' ? en : zh;
       }
 
       function buildLegendHtml(nodeTypes) {
@@ -531,17 +656,19 @@
           const collapsed = collapsedLegendGroups.has(g);
           const itemsHtml = types.map(t => {
             const color = graphConfig.nodeColors?.[t] || '#94a3b8';
-            const label = graphConfig.nodeLabels?.[t] || t;
+            const label = legendTypeLabel(t);
             const symbol = String(graphConfig.nodeSymbols?.[t] || 'circle');
             const symbolClass = ['circle', 'emptyCircle', 'roundRect', 'emptyRoundRect', 'rect', 'emptyRect', 'diamond', 'emptyDiamond', 'triangle', 'emptyTriangle', 'pin', 'emptyPin', 'arrow', 'emptyArrow'].includes(symbol) ? symbol : 'circle';
             const hiddenCls = hiddenNodeTypes.has(t) ? ' is-hidden' : '';
-            return `<div class="legend-item${hiddenCls}" data-legend-type="${t}" title="点击切换显示/隐藏"><span class="legend-symbol" style="color:${color};"><span class="legend-symbol-shape ${symbolClass}"></span></span>${t} ${label}</div>`;
+            const title = legendLang === 'en' ? 'Click to toggle visible/hidden' : '点击切换显示/隐藏';
+            const text = legendLang === 'en' ? `${label} (${t})` : `${t} ${label}`;
+            return `<div class="legend-item${hiddenCls}" data-legend-type="${t}" title="${title}"><span class="legend-symbol" style="color:${color};"><span class="legend-symbol-shape ${symbolClass}"></span></span>${text}</div>`;
           }).join('');
           return `<div class="legend-group${collapsed ? ' collapsed' : ''}" data-legend-group="${g}">
             <div class="legend-group-header">
               <div class="legend-group-title" data-legend-group-collapse="${g}"><span>${collapsed ? '▸' : '▾'}</span><span>${legendGroupLabel(g)}</span><span style="font-size:12px;color:#64748b;">(${types.length})</span></div>
               <div class="legend-group-actions">
-                <button type="button" class="legend-group-btn ${allHidden ? 'is-off' : ''}" data-legend-group-toggle="${g}">${allHidden ? '显示全部' : '隐藏全部'}</button>
+                <button type="button" class="legend-group-btn ${allHidden ? 'is-off' : ''}" data-legend-group-toggle="${g}">${legendLang === 'en' ? (allHidden ? 'Show All' : 'Hide All') : (allHidden ? '显示全部' : '隐藏全部')}</button>
               </div>
             </div>
             <div class="legend-group-items">${itemsHtml}</div>
@@ -581,7 +708,21 @@
             if (groupCollapse) {
               const g = groupCollapse.getAttribute('data-legend-group-collapse');
               if (!g) return;
-              if (collapsedLegendGroups.has(g)) collapsedLegendGroups.delete(g); else collapsedLegendGroups.add(g);
+              const willExpand = collapsedLegendGroups.has(g);
+              // Accordion mode: only one group expanded at a time.
+              collapsedLegendGroups.clear();
+              if (!willExpand) {
+                // clicking expanded one -> collapse all
+                collapsedLegendGroups.add('base');
+                collapsedLegendGroups.add('company');
+                collapsedLegendGroups.add('product');
+                collapsedLegendGroups.add('operation');
+                collapsedLegendGroups.add('other');
+              } else {
+                ['base', 'company', 'product', 'operation', 'other'].forEach(key => {
+                  if (key !== g) collapsedLegendGroups.add(key);
+                });
+              }
               renderLegend(graphConfig.nodeTypes || []);
             }
           };
@@ -627,7 +768,31 @@
         transformed.nodes = (transformed.nodes || []).map((n) => {
           const v = n?.value || {};
           const pos = nodeLayoutCache.get(`${v.type}:${v.id}`);
-          return pos ? { ...n, x: pos.x, y: pos.y } : n;
+          const scaledSize = Math.max(6, Math.round(Number(n?.symbolSize || 0) * nodeScaleFactor));
+          const shouldShowLabel = !!showLabels && scaledSize >= 22;
+          const labelFontSize = Math.max(10, Math.min(18, Math.round(scaledSize * 0.42)));
+          const scaled = {
+            ...n,
+            symbolSize: scaledSize,
+            label: {
+              ...(n.label || {}),
+              show: shouldShowLabel,
+              fontSize: labelFontSize,
+              backgroundColor: shouldShowLabel ? 'rgba(255,255,255,0.85)' : 'transparent',
+              padding: shouldShowLabel ? [2, Math.max(4, Math.round(labelFontSize * 0.35))] : 0,
+            },
+            emphasis: {
+              ...(n.emphasis || {}),
+              label: {
+                ...((n.emphasis || {}).label || {}),
+                show: true,
+                fontSize: Math.max(labelFontSize, 12),
+                backgroundColor: 'rgba(255,255,255,0.92)',
+                padding: [2, Math.max(4, Math.round(labelFontSize * 0.35))],
+              }
+            }
+          };
+          return pos ? { ...scaled, x: pos.x, y: pos.y } : scaled;
         });
         return { filtered, transformed, config };
       }
@@ -662,9 +827,12 @@
       function renderStatsSkeleton(nodeTypes) {
         const statsEl = document.getElementById('stats');
         if (!statsEl) return;
-        const lbl = (t) => graphConfig.nodeLabels?.[t] || t;
-        statsEl.innerHTML = `<div class="stat-card"><h3>节点总数</h3><div class="value" id="stat-nodes">-</div></div><div class="stat-card"><h3>边总数</h3><div class="value" id="stat-edges">-</div></div>` +
-          (nodeTypes || []).map(t => `<div class="stat-card"><h3>${lbl(t)}数量</h3><div class="value" id="stat-${t}">-</div></div>`).join('');
+        const lbl = (t) => legendLang === 'en' ? humanizeTypeName(t) : (graphConfig.nodeLabels?.[t] || LEGEND_ZH_LABELS_FALLBACK[t] || t);
+        const nodeTitle = legendLang === 'en' ? 'Nodes' : '节点总数';
+        const edgeTitle = legendLang === 'en' ? 'Edges' : '边总数';
+        const countSuffix = legendLang === 'en' ? ' Count' : '数量';
+        statsEl.innerHTML = `<div class="stat-card"><h3>${nodeTitle}</h3><div class="value" id="stat-nodes">-</div></div><div class="stat-card"><h3>${edgeTitle}</h3><div class="value" id="stat-edges">-</div></div>` +
+          (nodeTypes || []).map(t => `<div class="stat-card"><h3>${lbl(t)}${countSuffix}</h3><div class="value" id="stat-${t}">-</div></div>`).join('');
       }
 
       function adaptNodePresentationToData(nodes) {
@@ -859,7 +1027,15 @@
           const docTypes = Array.isArray(graphDocTypes[keys.docTypes]) ? graphDocTypes[keys.docTypes] : (graphType === 'policy' ? ['policy', 'policy_regulation'] : graphType === 'social' ? ['social_sentiment', 'social_feed'] : ['market_info', 'market']);
           const nodeTypes = Array.isArray(graphNodeTypes[keys.nodeTypes]) ? graphNodeTypes[keys.nodeTypes] : (graphType === 'policy' ? ['Policy', 'State', 'PolicyType', 'KeyPoint', 'Entity'] : graphType === 'social' ? ['Post', 'Keyword', 'Entity', 'Topic', 'SentimentTag', 'User', 'Subreddit'] : (graphType === 'market_deep_entities' ? ['MarketData', 'State', 'Segment', 'Entity', 'CompanyEntity', 'ProductEntity', 'OperationEntity', 'TopicTag'] : (graphType === 'company' ? ['MarketData', 'CompanyEntity', 'TopicTag'] : (graphType === 'product' ? ['MarketData', 'ProductEntity', 'TopicTag'] : (graphType === 'operation' ? ['MarketData', 'OperationEntity', 'TopicTag'] : ['MarketData', 'State', 'Segment', 'Entity'])))));
           const edgeTypes = Array.isArray(graphEdgeTypes[keys.edgeTypes]) ? graphEdgeTypes[keys.edgeTypes] : [];
-          const typeLabel = graphType === 'company' ? '公司图谱' : graphType === 'product' ? '商品图谱' : graphType === 'operation' ? '电商/经营图谱' : (labels[keys.label] || (graphType === 'policy' ? '政策图谱' : graphType === 'social' ? '社媒图谱' : graphType === 'market_deep_entities' ? '市场实体加细图' : '市场图谱'));
+          const typeLabel = graphType === 'company'
+            ? '公司图谱'
+            : graphType === 'product'
+              ? '商品图谱'
+              : graphType === 'operation'
+                ? '电商/经营图谱'
+                : graphType === 'market_deep_entities'
+                  ? '市场实体加细图'
+                  : (labels[keys.label] || (graphType === 'policy' ? '政策图谱' : graphType === 'social' ? '社媒图谱' : '市场图谱'));
 
           graphConfig = {
             nodeTypes,
@@ -985,20 +1161,24 @@
           const series = opt?.series?.[0];
           if (!series || !Array.isArray(series.data)) return;
           const nextData = series.data.map((n) => {
-            const node = n?.value || {};
             const size = Number(n?.symbolSize || 0);
             const shouldShowLabel = !!showLabels && size >= 22;
+            const labelFontSize = Math.max(10, Math.min(18, Math.round(size * 0.42)));
             return {
               ...n,
               label: {
                 ...(n.label || {}),
                 show: shouldShowLabel,
+                fontSize: labelFontSize,
+                backgroundColor: shouldShowLabel ? 'rgba(255,255,255,0.85)' : 'transparent',
+                padding: shouldShowLabel ? [2, Math.max(4, Math.round(labelFontSize * 0.35))] : 0,
               },
               emphasis: {
                 ...(n.emphasis || {}),
                 label: {
                   ...((n.emphasis || {}).label || {}),
                   show: true,
+                  fontSize: Math.max(labelFontSize, 12),
                 }
               }
             };
@@ -1007,6 +1187,33 @@
         };
         applyToChart(graphChart);
         applyToChart(fullscreenChart);
+      }
+
+      function updateNodeScaleVisibility() {
+        if (!latestGraphData) return;
+        cacheNodeLayoutFromChart(graphChart);
+        cacheNodeLayoutFromChart(fullscreenChart);
+        const { filtered, transformed } = buildEchartsGraphData(latestGraphData);
+        const applyToChart = (chart) => {
+          if (!chart) return;
+          chart.setOption({
+            series: [{
+              type: 'graph',
+              layout: 'force',
+              data: transformed.nodes || [],
+              links: transformed.edges || [],
+              force: {
+                repulsion: currentRepulsion,
+                gravity: 0.08,
+                edgeLength: [80, 180],
+                friction: 0.2
+              }
+            }]
+          }, false, false);
+        };
+        applyToChart(graphChart);
+        applyToChart(fullscreenChart);
+        updateStats(filtered);
       }
 
       function renderGraph(data) {
@@ -1122,6 +1329,9 @@
         if (repulsionSlider) repulsionSlider.value = '180';
         currentRepulsion = 180;
         if (repulsionValueEl) repulsionValueEl.textContent = '180';
+        if (nodeScaleSlider) nodeScaleSlider.value = '100';
+        nodeScaleFactor = 1;
+        if (nodeScaleValueEl) nodeScaleValueEl.textContent = '100%';
         if (labelToggle) { labelToggle.checked = true; showLabels = true; }
         loadGraph();
       }
@@ -1162,10 +1372,29 @@
           });
           if (repulsionValueEl) repulsionValueEl.textContent = String(currentRepulsion);
         }
+        if (nodeScaleSlider) {
+          nodeScaleSlider.addEventListener('input', e => {
+            const raw = Number(e.target.value || 100);
+            nodeScaleFactor = raw / 100;
+            if (nodeScaleValueEl) nodeScaleValueEl.textContent = `${raw}%`;
+            updateNodeScaleVisibility();
+          });
+          if (nodeScaleValueEl) nodeScaleValueEl.textContent = `${Math.round(nodeScaleFactor * 100)}%`;
+        }
         if (labelToggle) {
           labelToggle.addEventListener('change', () => {
             showLabels = labelToggle.checked;
             updateLabelVisibility();
+          });
+        }
+        if (legendLangSelect) {
+          legendLangSelect.value = legendLang;
+          legendLangSelect.addEventListener('change', () => {
+            legendLang = legendLangSelect.value === 'en' ? 'en' : 'zh';
+            try { localStorage.setItem('graphLegendLang', legendLang); } catch (_) {}
+            renderStatsSkeleton(graphConfig.nodeTypes || []);
+            renderLegend(graphConfig.nodeTypes || []);
+            if (latestGraphData) updateStats(filterGraphByHiddenTypes(latestGraphData));
           });
         }
         attachControlPanel(mainGraphContainer);
