@@ -2,13 +2,15 @@
 
 > 最后更新：2026-02-26
 
-当前版本：`pre-release-1.5`（预发布，团队联调）
+当前版本：`v0.1.5-rc1`（预发布，团队联调）
+
+本版本附带可导入的 `demo_proj` 演示数据包（`main/backend/seed_data/project_demo_proj_v0.1.5-rc1.sql`），可配合脚本 `main/backend/scripts/load_demo_proj_seed.sh` 快速恢复联调数据。
 
 本文档为项目主说明，涵盖定位、快速开始、架构与文档入口。所有路径均为**相对仓库根目录**。
 
 版本管理与协作建议见：`GIT_WORKFLOW.md`（轻量 Git 工作流）
 
-预发布说明（团队联调）：`RELEASE_NOTES_pre-release-1.5.md`（pre-release-1.5）
+预发布说明（团队联调）：`RELEASE_NOTES_pre-release-1.5.md`（v0.1.5-rc1）
 
 试用入口：
 - 管理页面：`http://localhost:8000/resource-pool-management.html`
