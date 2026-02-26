@@ -14,6 +14,45 @@ from ..settings.config import settings
 
 logger = logging.getLogger(__name__)
 
+_BILINGUAL_LANG_MODES = {"bi", "bilingual", "zh-en", "zh_en", "both", "multi", "multilingual"}
+
+
+def _is_bilingual_mode(language: str | None) -> bool:
+    return str(language or "").strip().lower() in _BILINGUAL_LANG_MODES
+
+
+def _social_language_label(language: str) -> str:
+    if _is_bilingual_mode(language):
+        return "中英文双语（search关键词需同时包含中文与英文；subreddit关键词保持英文）"
+    return "英文" if language.lower().startswith("en") else "中文"
+
+
+def _has_zh(text: str) -> bool:
+    return any("\u4e00" <= ch <= "\u9fff" for ch in str(text or ""))
+
+
+def _has_en(text: str) -> bool:
+    return any(("a" <= ch.lower() <= "z") for ch in str(text or ""))
+
+
+def _ensure_bilingual_search_keywords(
+    keywords: List[str],
+    topic: str,
+    platform: Optional[str],
+) -> List[str]:
+    if not keywords:
+        return keywords
+    has_zh = any(_has_zh(k) for k in keywords)
+    has_en = any(_has_en(k) for k in keywords)
+    if has_zh and has_en:
+        return keywords
+    supplemental = _get_fallback_keywords(topic, "zh" if not has_zh else "en", platform)
+    out = list(keywords)
+    for kw in supplemental:
+        if kw not in out:
+            out.append(kw)
+    return out
+
 
 def generate_social_keywords(
     topic: str, 
@@ -78,7 +117,7 @@ def generate_social_keywords(
                 template_to_use = config.get("user_prompt_template", "")
                 
                 # 使用合并配置生成两种关键词
-                language_str = "英文" if language.lower().startswith("en") else "中文"
+                language_str = _social_language_label(language)
                 platform_str = f"，适合在{platform}平台" if platform else ""
                 base_keywords_str = f"\n基础关键词：{', '.join(base_keywords)}" if base_keywords else ""
                 
@@ -220,6 +259,9 @@ def generate_social_keywords(
                             _get_fallback_keywords(topic, language, platform)
                         ) or ([topic.strip()] if topic.strip() else [])
 
+                if _is_bilingual_mode(language):
+                    search_keywords = _ensure_bilingual_search_keywords(search_keywords, topic, platform)
+
                 if platform and search_keywords:
                     store_lottery_keywords(platform, search_keywords)
                     logger.info(
@@ -259,7 +301,7 @@ def generate_social_keywords(
                 if updated:
                     config["user_prompt_template"] = updated
             # 使用配置的提示词
-            language_str = "英文" if language.lower().startswith("en") else "中文"
+            language_str = _social_language_label(language)
             platform_str = f"，适合在{platform}平台搜索" if platform else ""
             # format_prompt_template 使用 {变量} 格式，直接传递 platform 参数
             template = config["user_prompt_template"]
@@ -291,7 +333,7 @@ def generate_social_keywords(
             )
         else:
             # 使用默认提示词（针对社交平台优化）
-            language_str = "英文" if language.lower().startswith("en") else "中文"
+            language_str = _social_language_label(language)
             platform_hint = f"，适合在{platform}平台搜索" if platform else ""
             from ..project_customization import get_project_customization
             guidelines = get_project_customization().get_social_keyword_guidelines()
@@ -361,6 +403,15 @@ def generate_social_keywords(
 
 def _get_fallback_keywords(topic: str, language: str, platform: Optional[str] = None) -> List[str]:
     """获取fallback关键词"""
+    if _is_bilingual_mode(language):
+        zh = _get_fallback_keywords(topic, "zh", platform)
+        en = _get_fallback_keywords(topic, "en", platform)
+        out: List[str] = []
+        for kw in [*zh, *en]:
+            if kw not in out:
+                out.append(kw)
+        return out[:8]
+
     if language.lower().startswith("en"):
         keywords = [
             topic,
@@ -533,4 +584,3 @@ def _get_fallback_subreddit_keywords(topic: str, base_keywords: Optional[List[st
                 keywords.append(plural)
     
     return keywords[:10]  # 最多返回10个
-

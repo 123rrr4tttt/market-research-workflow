@@ -18,6 +18,8 @@ from ..models.entities import (
     PriceObservation,
     Product,
     Project,
+    ResourcePoolUrl,
+    ResourcePoolSiteEntry,
     SearchHistory,
     SourceLibraryItem,
     Source,
@@ -55,6 +57,8 @@ TENANT_TABLES = [
     MarketMetricPoint.__table__,
     Product.__table__,
     PriceObservation.__table__,
+    ResourcePoolUrl.__table__,
+    ResourcePoolSiteEntry.__table__,
 ]
 
 

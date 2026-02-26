@@ -26,6 +26,7 @@ LEGACY_ALLOWLIST = {
     "templates/social-media-graph.html",
     "templates/social-media-visualization.html",
     "templates/source-library-management.html",
+    "templates/resource-pool-management.html",
 }
 
 

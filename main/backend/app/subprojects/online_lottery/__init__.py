@@ -6,13 +6,6 @@ from .domain import (
     DEFAULT_REDDIT_SUBREDDIT,
     LOTTERY_TOKENS,
 )
-from .services import (
-    collect_calottery_news_for_project,
-    collect_calottery_retailer_updates_for_project,
-    collect_reddit_discussions_for_project,
-    ingest_lottery_stats,
-    resolve_market_adapters,
-)
 from .extraction_adapter import OnlineLotteryExtractionAdapter
 PROJECT_KEY = "online_lottery"
 PROJECT_KEY_PREFIX_ALIASES: list[str] = []
@@ -35,3 +28,17 @@ __all__ = [
     "resolve_market_adapters",
     "OnlineLotteryExtractionAdapter",
 ]
+
+
+def __getattr__(name: str):
+    if name in {
+        "collect_calottery_news_for_project",
+        "collect_calottery_retailer_updates_for_project",
+        "collect_reddit_discussions_for_project",
+        "ingest_lottery_stats",
+        "resolve_market_adapters",
+    }:
+        from . import services as _services
+
+        return getattr(_services, name)
+    raise AttributeError(name)

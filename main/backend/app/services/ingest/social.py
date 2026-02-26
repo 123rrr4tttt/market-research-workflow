@@ -7,6 +7,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from ..job_logger import start_job, complete_job, fail_job
+from ..collect_runtime.display_meta import build_display_meta
+from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ...models.base import SessionLocal
 from ...models.entities import Document
 from .adapters.social_reddit import RedditAdapter
@@ -300,6 +302,17 @@ def collect_policy_and_regulation(
                 if not link:
                     continue
                 links.append(link)
+                try:
+                    from ..resource_pool import DefaultResourcePoolAppendAdapter
+                    from ..projects import current_project_key
+                    pk = (current_project_key() or "").strip()
+                    if pk:
+                        DefaultResourcePoolAppendAdapter().append_url(
+                            link, source="ingest", source_ref={"keyword": item.get("keyword")},
+                            project_key=pk, job_type="policy_regulation",
+                        )
+                except Exception:  # noqa: BLE001
+                    pass
 
                 existed = session.query(Document).filter(Document.uri == link).first()
                 if existed:
@@ -353,6 +366,24 @@ def collect_policy_and_regulation(
             "links": links,
             "doc_type": normalized_doc_type,
         }
+        result["display_meta"] = build_display_meta(
+            CollectRequest(
+                channel="search.policy",
+                query_terms=list(keywords or []),
+                limit=limit,
+                provider=provider,
+                language=language,
+                source_context={"summary": "政策/监管采集"},
+            ),
+            CollectResult(
+                channel="search.policy",
+                inserted=inserted,
+                skipped=skipped,
+                updated=0,
+                status="completed",
+            ),
+            summary="政策/监管采集",
+        )
         complete_job(job_id, result=result)
         return result
 
@@ -379,4 +410,3 @@ def _get_or_create_source(session: Session, name: str, kind: str, base_url: str)
     session.add(source)
     session.flush()
     return source
-

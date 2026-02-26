@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import OperationalError, DatabaseError
 from typing import Optional
@@ -6,10 +6,12 @@ import logging
 from functools import lru_cache
 
 from ..project_customization import get_project_customization
+from ..services.ingest_config import get_config as get_ingest_config, upsert_config as upsert_ingest_config
 from ..subprojects.online_lottery.domain.news import DEFAULT_REDDIT_SUBREDDIT
 from ..services.job_logger import list_jobs
 from ..services.projects import bind_project, current_project_key
 from ..contracts import (
+    ErrorCode,
     error_response,
     map_exception_to_error,
     success_response,
@@ -88,6 +90,52 @@ class PolicyIngestRequest(BaseModel):
 
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
+
+
+class IngestConfigUpsertPayload(BaseModel):
+    project_key: str | None = Field(default=None, description="Project key (optional, fallback to context)")
+    config_key: str = Field(..., min_length=1, description="Config key, e.g. social_forum")
+    config_type: str = Field(..., min_length=1, description="Config type")
+    payload: dict | None = Field(default=None, description="Config payload (JSON)")
+
+
+@router.get("/config")
+def get_ingest_config_endpoint(
+    project_key: str | None = Query(default=None),
+    config_key: str = Query(..., description="Config key, e.g. social_forum"),
+):
+    """Get ingest config by project_key and config_key."""
+    pk = _require_project_key(project_key)
+    data = get_ingest_config(pk, config_key)
+    if data is None:
+        return JSONResponse(
+            status_code=404,
+            content=error_response(ErrorCode.NOT_FOUND, f"Config not found: {config_key}"),
+        )
+    return success_response(data)
+
+
+@router.post("/config")
+def post_ingest_config_endpoint(body: IngestConfigUpsertPayload):
+    """Upsert ingest config."""
+    pk = (body.project_key or "").strip()
+    if not pk:
+        pk = (current_project_key() or "").strip()
+    if not pk:
+        return JSONResponse(
+            status_code=400,
+            content=error_response(ErrorCode.INVALID_INPUT, "project_key is required"),
+        )
+    try:
+        data = upsert_ingest_config(
+            project_key=pk,
+            config_key=body.config_key,
+            config_type=body.config_type,
+            payload=body.payload,
+        )
+        return success_response(data)
+    except Exception as exc:  # noqa: BLE001
+        return _error_500(exc)
 
 
 @router.post("/policy")
@@ -180,16 +228,19 @@ def ingest_market(payload: MarketIngestRequest):
         )
     try:
         with bind_project(project_key):
-            from ..services.ingest.market_web import collect_market_info
-            return success_response(collect_market_info(
-                keywords=query_terms,
-                limit=max_items,
+            from ..services.collect_runtime import collect_request_from_market_api, run_collect
+            req = collect_request_from_market_api(
+                query_terms=query_terms,
+                max_items=max_items,
+                project_key=project_key,
                 enable_extraction=payload.enable_extraction,
                 start_offset=payload.start_offset,
                 days_back=payload.days_back,
                 language=payload.language or "en",
                 provider=payload.provider or "auto",
-            ))
+            )
+            cr = run_collect(req)
+            return success_response(dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta}))
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -251,6 +302,97 @@ def _dispatch_news_resource(resource_id: str, payload: NewsRequest):
             return success_response(handler(limit=payload.limit))
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
+
+
+_NEWS_RESOURCE_DISPLAY_NAMES: dict[str, str] = {
+    "calottery": "CA Lottery News",
+    "calottery_retailer": "CA Lottery Retailer News",
+    "google_news": "Google News",
+}
+
+
+def _resource_display_name(resource_id: str) -> str:
+    return _NEWS_RESOURCE_DISPLAY_NAMES.get(resource_id) or resource_id.replace("_", " ").title()
+
+
+class SourceLibraryRunPayload(BaseModel):
+    item_key: str = Field(..., min_length=1)
+    project_key: str | None = Field(default=None)
+    async_mode: bool = Field(default=False)
+    override_params: dict = Field(default_factory=dict)
+
+
+class SourceLibrarySyncPayload(BaseModel):
+    project_key: str | None = Field(default=None)
+
+
+@router.post("/source-library/run")
+def ingest_source_library_run(payload: SourceLibraryRunPayload):
+    """Run a source library item (collection task). Entry point for ingest flow."""
+    project_key = _require_project_key(payload.project_key)
+    if payload.async_mode:
+        task = _tasks_module().task_run_source_library_item.delay(
+            payload.item_key,
+            project_key,
+            payload.override_params or {},
+        )
+        return success_response(
+            task_result_response(
+                task_id=task.id,
+                async_mode=True,
+                params={"item_key": payload.item_key},
+            )
+        )
+    try:
+        from ..services.collect_runtime import run_source_library_item_compat
+        result = run_source_library_item_compat(
+            item_key=payload.item_key,
+            project_key=project_key,
+            override_params=payload.override_params or {},
+        )
+        return success_response(result)
+    except Exception as exc:  # noqa: BLE001
+        return _error_500(exc)
+
+
+@router.post("/source-library/sync")
+def ingest_source_library_sync(payload: SourceLibrarySyncPayload):
+    """Sync shared source library from files to DB. Entry point for ingest flow."""
+    try:
+        from ..services.source_library import sync_shared_library_from_files
+        result = sync_shared_library_from_files()
+        return success_response({"ok": True, **result})
+    except Exception as exc:  # noqa: BLE001
+        return _error_500(exc)
+
+
+@router.get("/news-resources")
+def list_news_resources(
+    project_key: str | None = Query(default=None),
+    scope: str = Query(default="effective", description="shared | project | effective"),
+):
+    """List available news ingest resources for the project. Effective = shared + project merged."""
+    pk = _require_project_key(project_key)
+    if scope not in ("shared", "project", "effective"):
+        scope = "effective"
+    customization = get_project_customization(pk)
+    shared = customization.get_shared_news_resource_handlers()
+    project_handlers = customization.get_news_resource_handlers()
+    items: list[dict] = []
+    if scope == "shared":
+        for rid in shared:
+            items.append({"resource_id": rid, "name": _resource_display_name(rid), "scope": "shared"})
+    elif scope == "project":
+        for rid in project_handlers:
+            items.append({"resource_id": rid, "name": _resource_display_name(rid), "scope": "project"})
+    else:
+        merged: dict[str, dict] = {}
+        for rid in shared:
+            merged[rid] = {"resource_id": rid, "name": _resource_display_name(rid), "scope": "shared"}
+        for rid in project_handlers:
+            merged[rid] = {"resource_id": rid, "name": _resource_display_name(rid), "scope": "project"}
+        items = list(merged.values())
+    return success_response({"items": items, "scope": scope})
 
 
 @router.post("/news/calottery")
@@ -413,15 +555,19 @@ def ingest_policy_regulation(payload: PolicyRegulationRequest):
         )
     try:
         with bind_project(project_key):
-            return success_response(_social_ingest_app().collect_policy_regulation(
-                keywords=query_terms,
-                limit=max_items,
+            from ..services.collect_runtime import collect_request_from_policy_api, run_collect
+            req = collect_request_from_policy_api(
+                query_terms=query_terms,
+                max_items=max_items,
+                project_key=project_key,
                 enable_extraction=payload.enable_extraction,
                 start_offset=payload.start_offset,
                 days_back=payload.days_back,
                 language=payload.language or "en",
                 provider=payload.provider or "auto",
-            ))
+            )
+            cr = run_collect(req)
+            return success_response(dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta}))
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -464,5 +610,4 @@ def ingest_ecom_prices(payload: EcomPriceRequest):
             return success_response(collect_ecom_price_observations(limit=payload.limit))
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
-
 

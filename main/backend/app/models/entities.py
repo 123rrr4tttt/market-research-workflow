@@ -351,3 +351,134 @@ class PriceObservation(BigIDMixin, Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+
+class SharedResourcePoolUrl(BigIDMixin, Base):
+    """Shared pool (总库) URL storage in public schema."""
+
+    __tablename__ = "shared_resource_pool_urls"
+    __table_args__ = (
+        UniqueConstraint("url", name="uq_shared_resource_pool_urls_url"),
+        {"schema": "public"},
+    )
+
+    url = Column(Text, nullable=False)
+    domain = Column(String(255), nullable=True)
+    source = Column(String(32), nullable=False)
+    source_ref = Column(JSONB, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResourcePoolUrl(BigIDMixin, Base):
+    """Project pool (子项目库) URL storage in project schema."""
+
+    __tablename__ = "resource_pool_urls"
+    __table_args__ = (UniqueConstraint("url", name="uq_resource_pool_urls_url"),)
+
+    url = Column(Text, nullable=False)
+    domain = Column(String(255), nullable=True)
+    source = Column(String(32), nullable=False)
+    source_ref = Column(JSONB, nullable=True)
+    project_key = Column(String(64), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ResourcePoolCaptureConfig(BigIDMixin, Base):
+    """Capture config: which job_types to capture URLs for, scope, enabled."""
+
+    __tablename__ = "resource_pool_capture_config"
+    __table_args__ = (
+        UniqueConstraint("project_key", name="uq_resource_pool_capture_config_project"),
+        {"schema": "public"},
+    )
+
+    project_key = Column(String(64), nullable=False)
+    scope = Column(String(16), nullable=False, server_default="project")
+    job_types = Column(JSONB, nullable=False)
+    enabled = Column(Boolean, nullable=False, server_default=expression.true())
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SharedResourcePoolSiteEntry(BigIDMixin, Base):
+    """Shared pool (总库) site entry storage in public schema."""
+
+    __tablename__ = "shared_resource_pool_site_entries"
+    __table_args__ = (
+        UniqueConstraint("site_url", name="uq_shared_resource_pool_site_entries_site_url"),
+        {"schema": "public"},
+    )
+
+    site_url = Column(Text, nullable=False)
+    domain = Column(String(255), nullable=True)
+    entry_type = Column(String(32), nullable=False, server_default="domain_root")
+    template = Column(Text, nullable=True)
+    name = Column(String(255), nullable=True)
+    capabilities = Column(JSONB, nullable=True)
+    source = Column(String(32), nullable=False, server_default="manual")
+    source_ref = Column(JSONB, nullable=True)
+    tags = Column(JSONB, nullable=True)
+    enabled = Column(Boolean, nullable=False, server_default=expression.true())
+    extra = Column(JSONB, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ResourcePoolSiteEntry(BigIDMixin, Base):
+    """Project pool (子项目库) site entry storage in project schema."""
+
+    __tablename__ = "resource_pool_site_entries"
+    __table_args__ = (
+        UniqueConstraint("site_url", name="uq_resource_pool_site_entries_site_url"),
+    )
+
+    site_url = Column(Text, nullable=False)
+    domain = Column(String(255), nullable=True)
+    entry_type = Column(String(32), nullable=False, server_default="domain_root")
+    template = Column(Text, nullable=True)
+    name = Column(String(255), nullable=True)
+    capabilities = Column(JSONB, nullable=True)
+    source = Column(String(32), nullable=False, server_default="manual")
+    source_ref = Column(JSONB, nullable=True)
+    tags = Column(JSONB, nullable=True)
+    enabled = Column(Boolean, nullable=False, server_default=expression.true())
+    project_key = Column(String(64), nullable=True)
+    extra = Column(JSONB, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class IngestConfig(Base):
+    """Project ingest config: structure/schedule configs keyed by project_key + config_key."""
+
+    __tablename__ = "ingest_config"
+    __table_args__ = (
+        {"schema": "public"},
+    )
+
+    project_key = Column(String(64), primary_key=True, nullable=False)
+    config_key = Column(String(128), primary_key=True, nullable=False)
+    config_type = Column(String(64), nullable=False)
+    payload = Column(JSONB, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+

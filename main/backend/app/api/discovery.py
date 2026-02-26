@@ -96,6 +96,7 @@ def discovery_search(payload: DiscoveryRequest, debug: bool = Query(False), pers
             exclude_existing=payload.exclude_existing,
             start_offset=payload.start_offset,
             persist=persist,
+            job_type="discovery_search",
         )
         results = body.get("results", [])
         if debug:
@@ -146,6 +147,7 @@ def discovery_smart(payload: SmartDiscoveryRequest, persist: bool = Query(True))
             provider=payload.provider,
             days_back=payload.days_back,
             persist=persist,
+            job_type="discovery_smart",
         )
         results = body.get("results", [])
         complete_job(
@@ -195,6 +197,7 @@ def discovery_deep(payload: DeepDiscoveryRequest, persist: bool = Query(True)):
             breadth=payload.breadth,
             max_results=payload.max_results,
             persist=persist,
+            job_type="discovery_deep",
         )
         complete_job(
             job_id,
@@ -236,29 +239,11 @@ def generate_keywords_api(payload: KeywordGenerationRequest):
 
     try:
         customization = get_project_customization()
-        logger.info("Keyword suggestion: using customization for project_key=%s", customization.project_key)
-        project_result = customization.suggest_keywords(
-            topic=payload.topic,
-            base_keywords=payload.base_keywords,
-            platform=payload.platform,
-            language=payload.language,
+        logger.info(
+            "Keyword suggestion: trunk-owned generation (project_key=%s). "
+            "Project customization only contributes prompt/guidelines, not generation routing.",
+            customization.project_key,
         )
-        if project_result is not None:
-            search_kw = project_result.get("search_keywords", [])
-            subreddit_kw = project_result.get("subreddit_keywords", [])
-            logger.info(
-                "Keyword suggestion: project customization returned, search_keywords=%s, subreddit_keywords=%s",
-                search_kw, subreddit_kw,
-            )
-            return success_response({
-                "topic": payload.topic,
-                "language": payload.language,
-                "platform": payload.platform,
-                "search_keywords": search_kw,
-                "subreddit_keywords": subreddit_kw,
-            })
-
-        logger.info("Keyword suggestion: project returned None, using trunk fallback")
         if payload.platform and payload.platform.strip():
             logger.info("Keyword suggestion: trunk path=social, calling generate_social_keywords")
             keyword_result = generate_social_keywords(

@@ -8,6 +8,35 @@
     <style>
       body { padding: 0; }
       .page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+      .task-main { display: grid; gap: 4px; }
+      .task-sub { color: var(--text-muted); font-size: 12px; line-height: 1.35; }
+      .task-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .task-chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: var(--accent); font-size: 12px; white-space: nowrap; }
+      .mono-mini { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+      .click-row { cursor: pointer; }
+      .click-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+      .detail-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 9999; }
+      .detail-overlay.open { display: flex; }
+      .detail-card { width: min(920px, 100%); max-height: 85vh; overflow: auto; background: var(--surface, #fff); border: 1px solid var(--border, #ddd); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+      .detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--border, #ddd); }
+      .detail-title { margin: 0; font-size: 18px; }
+      .detail-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+      .detail-body { padding: 16px 18px; display: grid; gap: 14px; }
+      .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+      .detail-item { border: 1px solid var(--border, #ddd); border-radius: 10px; padding: 10px 12px; }
+      .detail-item .k { color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
+      .detail-item .v { word-break: break-word; }
+      .detail-section h3 { margin: 0 0 8px; font-size: 14px; }
+      .detail-pre { margin: 0; padding: 12px; border-radius: 10px; background: rgba(148,163,184,.12); overflow: auto; font-size: 12px; line-height: 1.4; }
+      .detail-close { border-radius: 10px; }
+      .json-tree { border: 1px solid var(--border, #ddd); border-radius: 10px; padding: 8px 10px; background: rgba(148,163,184,.06); font-size: 12px; }
+      .json-tree details { margin-left: 12px; }
+      .json-tree details > summary { cursor: pointer; user-select: none; }
+      .json-tree .json-row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; padding: 2px 0; }
+      .json-tree .json-key { color: var(--text-muted); word-break: break-word; }
+      .json-tree .json-val { word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .json-tree .json-type { color: var(--text-muted); }
+      @media (max-width: 720px) { .detail-grid { grid-template-columns: 1fr; } }
     </style>
     <script src="/static/js/app-shell.js"></script>
     <script src="/static/js/ui-core.js"></script>
@@ -18,6 +47,7 @@
       <section class="hero">
         <h1><i data-lucide="cpu" style="vertical-align: middle; margin-right: 8px;"></i>任务进程管理</h1>
         <p>按流程阶段追踪任务状态：采集、提取、分析、管理。</p>
+        <p class="muted" id="projectHint">项目：-</p>
       </section>
 
       <section class="card" style="margin-bottom: 12px;">
@@ -51,12 +81,28 @@
       </section>
     </div>
 
+    <div id="taskDetailOverlay" class="detail-overlay" role="dialog" aria-modal="true" aria-labelledby="taskDetailTitle">
+      <div class="detail-card" onclick="event.stopPropagation()">
+        <div class="detail-head">
+          <div>
+            <h2 id="taskDetailTitle" class="detail-title">任务详情</h2>
+            <div id="taskDetailSub" class="detail-sub">-</div>
+          </div>
+          <button id="taskDetailClose" class="secondary detail-close">关闭</button>
+        </div>
+        <div id="taskDetailBody" class="detail-body"></div>
+      </div>
+    </div>
+
     <script>
       const { qs, setEmpty, setError, escapeHtml, toDateTime, formatNumber } = window.UICore;
       let timer = null;
+      let currentTasksCache = [];
+      let historyTasksCache = [];
 
       function getStage(jobType) {
         const value = String(jobType || "").toLowerCase();
+        if (value.includes("url_pool_fetch") || value.includes("poolfetch")) return "采集";
         if (value.includes("ingest") || value.includes("collect")) return "采集";
         if (value.includes("extract")) return "提取";
         if (value.includes("analysis") || value.includes("search")) return "分析";
@@ -72,6 +118,330 @@
         return `<span class="badge info">${escapeHtml(status)}</span>`;
       }
 
+      function safeObject(v) {
+        return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+      }
+
+      function normalizeTaskArgs(args) {
+        if (Array.isArray(args)) return args;
+        if (typeof args === "string") {
+          const s = args.trim();
+          if (!s) return [];
+          return [s];
+        }
+        return [];
+      }
+
+      function firstDefined(...vals) {
+        for (const v of vals) {
+          if (v !== null && v !== undefined && v !== "") return v;
+        }
+        return null;
+      }
+
+      function pushMetaChip(meta, label, value) {
+        if (value === null || value === undefined || value === "") return;
+        meta.chips.push(`${label}:${value}`);
+      }
+
+      function appendGenericMetaChips(meta, ctx, source) {
+        const src = safeObject(source);
+        const arrLen = (v) => (Array.isArray(v) ? v.length : null);
+        const genericProject = firstDefined(
+          meta.project_key,
+          src.project_key,
+          src.project,
+        );
+        const genericKeywords = firstDefined(
+          arrLen(src.query_terms),
+          arrLen(src.keywords),
+          arrLen(src.search_keywords),
+          arrLen(src.base_keywords),
+        );
+        const genericLimit = firstDefined(src.limit, src.max_items, src.max_results, src.page_size, src.url_count);
+        const genericItem = firstDefined(src.item_key, src.resource_id, src.channel_key);
+        const genericProvider = firstDefined(src.provider, src.search_provider);
+        const genericScope = firstDefined(src.scope);
+        const genericState = firstDefined(src.state);
+
+        pushMetaChip(meta, "project", genericProject);
+        pushMetaChip(meta, "item", genericItem);
+        pushMetaChip(meta, "provider", genericProvider);
+        pushMetaChip(meta, "scope", genericScope);
+        pushMetaChip(meta, "state", genericState);
+        pushMetaChip(meta, "关键词数", genericKeywords);
+        pushMetaChip(meta, "limit", genericLimit);
+      }
+
+      function buildMetaFromRule(rule, ctx, fallbackSummary) {
+        const meta = { project_key: firstDefined(ctx.project_key), summary: fallbackSummary, chips: [] };
+        if (!rule) {
+          appendGenericMetaChips(meta, ctx, safeObject(ctx.kwargs || ctx.params || {}));
+          return meta;
+        }
+        meta.summary = typeof rule.summary === "function" ? rule.summary(ctx) : (rule.summary || fallbackSummary);
+        if (typeof rule.projectKey === "function") {
+          meta.project_key = firstDefined(rule.projectKey(ctx), meta.project_key);
+        }
+        for (const chip of (rule.chips || [])) {
+          const value = typeof chip.value === "function" ? chip.value(ctx) : chip.value;
+          pushMetaChip(meta, chip.label, value);
+        }
+        // Supplement rule-specific chips with generic extraction to reduce metadata misses for evolving payloads.
+        appendGenericMetaChips(meta, ctx, safeObject(ctx.kwargs || ctx.params || {}));
+        // De-duplicate while preserving order
+        meta.chips = Array.from(new Set(meta.chips));
+        return meta;
+      }
+
+      const CURRENT_TASK_RULES = [
+        {
+          match: (name) => name.includes("task_run_source_library_item"),
+          summary: (c) => `执行来源项 ${firstDefined(c.kwargs.item_key, c.args[0]) || "-"}`,
+          projectKey: (c) => firstDefined(c.kwargs.project_key, c.args[1]),
+          chips: [
+            { label: "item", value: (c) => firstDefined(c.kwargs.item_key, c.args[0]) },
+            { label: "project", value: (c) => firstDefined(c.kwargs.project_key, c.args[1]) },
+          ],
+        },
+        {
+          match: (name) => name.includes("task_extract_resource_pool_from_documents"),
+          summary: "从文档提取 URL 到资源池",
+          projectKey: (c) => firstDefined(c.kwargs.project_key, c.args[0]),
+          chips: [
+            { label: "project", value: (c) => firstDefined(c.kwargs.project_key, c.args[0]) },
+            { label: "scope", value: (c) => firstDefined(c.kwargs.scope, c.args[1]) },
+            { label: "limit", value: (c) => firstDefined(c.kwargs.limit, c.args[5]) },
+          ],
+        },
+        {
+          match: (name) => name.includes("task_extract_resource_pool_from_tasks"),
+          summary: "从任务回溯提取 URL 到资源池",
+          projectKey: (c) => firstDefined(c.kwargs.project_key, c.args[0]),
+          chips: [
+            { label: "project", value: (c) => firstDefined(c.kwargs.project_key, c.args[0]) },
+            { label: "scope", value: (c) => firstDefined(c.kwargs.scope, c.args[1]) },
+            { label: "job_type", value: (c) => firstDefined(c.kwargs.job_type, c.args[3]) },
+            { label: "limit", value: (c) => firstDefined(c.kwargs.limit, c.args[5]) },
+          ],
+        },
+        {
+          match: (name) => name.includes("task_ingest_market"),
+          summary: "市场信息采集",
+          projectKey: (c) => firstDefined(c.kwargs.project_key, c.args[3]),
+          chips: [
+            { label: "project", value: (c) => firstDefined(c.kwargs.project_key, c.args[3]) },
+            { label: "关键词数", value: (c) => (Array.isArray(firstDefined(c.kwargs.query_terms, c.args[0])) ? firstDefined(c.kwargs.query_terms, c.args[0]).length : null) },
+            { label: "limit", value: (c) => firstDefined(c.kwargs.max_items, c.args[1]) },
+          ],
+        },
+        {
+          match: (name) => name.includes("task_collect_social_sentiment"),
+          summary: "社媒情绪采集",
+          projectKey: (c) => c.kwargs.project_key,
+          chips: [
+            { label: "project", value: (c) => c.kwargs.project_key },
+            { label: "关键词数", value: (c) => (Array.isArray(c.kwargs.keywords) ? c.kwargs.keywords.length : null) },
+            { label: "platforms", value: (c) => (Array.isArray(c.kwargs.platforms) ? c.kwargs.platforms.join(",") : null) },
+            { label: "limit", value: (c) => c.kwargs.limit },
+          ],
+        },
+        {
+          match: (name) => name.includes("task_collect_policy_regulation"),
+          summary: "政策/监管采集",
+          projectKey: (c) => c.kwargs.project_key,
+          chips: [
+            { label: "project", value: (c) => c.kwargs.project_key },
+            { label: "关键词数", value: (c) => (Array.isArray(c.kwargs.keywords) ? c.kwargs.keywords.length : null) },
+            { label: "limit", value: (c) => c.kwargs.limit },
+          ],
+        },
+        {
+          match: (name) => name.includes("task_collect_reddit"),
+          summary: "Reddit 采集",
+          projectKey: (c) => firstDefined(c.kwargs.project_key, c.args[2]),
+          chips: [
+            { label: "project", value: (c) => firstDefined(c.kwargs.project_key, c.args[2]) },
+            { label: "subreddit", value: (c) => firstDefined(c.kwargs.subreddit, c.args[0]) },
+            { label: "limit", value: (c) => firstDefined(c.kwargs.limit, c.args[1]) },
+          ],
+        },
+      ];
+
+      function getCurrentTaskMeta(t) {
+        const dm = safeObject(t?.display_meta);
+        if (Object.keys(dm).length) {
+          const meta = { project_key: dm.project_key || null, summary: String(dm.summary || "任务执行中"), chips: [] };
+          const maybeChips = [
+            ["project", dm.project_key],
+            ["channel", dm.channel],
+            ["item", dm.item_key],
+            ["provider", dm.provider],
+            ["关键词数", dm.query_terms_count],
+            ["URL", dm.url_count],
+            ["limit", dm.limit],
+          ];
+          for (const [k, v] of maybeChips) pushMetaChip(meta, k, v);
+          return meta;
+        }
+        const kwargs = safeObject(t?.kwargs);
+        const ctx = {
+          name: String(t?.name || ""),
+          args: normalizeTaskArgs(t?.args),
+          kwargs,
+          project_key: kwargs.project_key || null,
+        };
+        const rule = CURRENT_TASK_RULES.find((r) => r.match(ctx.name));
+        return buildMetaFromRule(rule, ctx, "任务执行中");
+      }
+
+      function secondsSince(startedAt) {
+        if (!startedAt) return null;
+        const ts = new Date(startedAt).getTime();
+        if (!Number.isFinite(ts)) return null;
+        return Math.max(0, Math.floor((Date.now() - ts) / 1000));
+      }
+
+      function stableJson(v) {
+        try {
+          return JSON.stringify(v, null, 2);
+        } catch (_) {
+          return String(v);
+        }
+      }
+
+      function jsonPreview(v) {
+        if (Array.isArray(v)) return `[${v.length}]`;
+        if (v && typeof v === "object") return `{${Object.keys(v).length}}`;
+        if (typeof v === "string") return v.length > 80 ? `${v.slice(0, 80)}...` : v;
+        return String(v);
+      }
+
+      function renderJsonTree(value, level = 0) {
+        if (value === null) return '<span class="json-val json-type">null</span>';
+        if (value === undefined) return '<span class="json-val json-type">undefined</span>';
+        if (typeof value !== "object") {
+          return `<span class="json-val">${escapeHtml(String(value))}</span>`;
+        }
+        if (Array.isArray(value)) {
+          const open = level < 1 ? " open" : "";
+          const rows = value.map((v, i) => `
+            <div class="json-row">
+              <div class="json-key">[${i}]</div>
+              <div class="json-val">${renderJsonTree(v, level + 1)}</div>
+            </div>`).join("") || `<div class="json-row"><div class="json-key"></div><div class="json-type">empty array</div></div>`;
+          return `<details${open}><summary><span class="json-type">Array</span> ${escapeHtml(jsonPreview(value))}</summary>${rows}</details>`;
+        }
+        const entries = Object.entries(value);
+        const open = level < 1 ? " open" : "";
+        const rows = entries.map(([k, v]) => `
+          <div class="json-row">
+            <div class="json-key">${escapeHtml(k)}</div>
+            <div class="json-val">${renderJsonTree(v, level + 1)}</div>
+          </div>`).join("") || `<div class="json-row"><div class="json-key"></div><div class="json-type">empty object</div></div>`;
+        return `<details${open}><summary><span class="json-type">Object</span> ${escapeHtml(jsonPreview(value))}</summary>${rows}</details>`;
+      }
+
+      function buildResultSummaryPieces(record) {
+        const p = safeObject(record?.params);
+        const dm = safeObject(record?.display_meta);
+        const inserted = firstDefined(dm.inserted, p.inserted);
+        const skipped = firstDefined(dm.skipped, p.skipped);
+        const updated = firstDefined(dm.updated, p.updated);
+        const errorsCount = firstDefined(dm.errors_count, p.errors_count);
+        const urlCount = firstDefined(dm.url_count, p.urls, p.url_count);
+        const out = [];
+        if (inserted != null) out.push(`新增 ${formatNumber(inserted)}`);
+        if (updated != null) out.push(`更新 ${formatNumber(updated)}`);
+        if (skipped != null) out.push(`跳过 ${formatNumber(skipped)}`);
+        if (errorsCount != null && Number(errorsCount) > 0) out.push(`错误 ${formatNumber(errorsCount)}`);
+        if (urlCount != null) out.push(`URL ${formatNumber(urlCount)}`);
+        return out;
+      }
+
+      const HISTORY_TASK_RULES = [
+        {
+          match: (jobType) => jobType === "url_pool_fetch",
+          summary: "URL 池抓取并写入文档",
+          chips: [
+            { label: "project", value: () => window.MarketApp?.getProjectKey?.() || "" },
+            { label: "scope", value: (c) => c.params.scope },
+            { label: "limit", value: (c) => c.params.limit },
+            { label: "URL", value: (c) => firstDefined(c.params.urls, c.params.url_count) },
+          ],
+        },
+        {
+          match: (jobType) => jobType.includes("market_info"),
+          summary: "市场信息采集",
+          chips: [
+            { label: "provider", value: (c) => c.params.provider },
+            { label: "关键词数", value: (c) => (Array.isArray(c.params.keywords) ? c.params.keywords.length : null) },
+            { label: "limit", value: (c) => c.params.limit },
+          ],
+        },
+        {
+          match: (jobType) => jobType.includes("policy_regu") || jobType.includes("policy_regulation"),
+          summary: "政策/监管采集",
+          chips: [
+            { label: "provider", value: (c) => c.params.provider },
+            { label: "关键词数", value: (c) => (Array.isArray(c.params.keywords) ? c.params.keywords.length : null) },
+            { label: "limit", value: (c) => c.params.limit },
+          ],
+        },
+        {
+          match: (jobType) => jobType.includes("index_policy"),
+          summary: "政策索引",
+          chips: [
+            { label: "文档数", value: (c) => (Array.isArray(c.params.document_ids) ? c.params.document_ids.length : null) },
+          ],
+        },
+        {
+          match: (jobType) => jobType.includes("source_library") || jobType.includes("run_source_library"),
+          summary: "来源项执行",
+          chips: [{ label: "item", value: (c) => c.params.item_key }],
+        },
+        {
+          match: (jobType) => jobType.includes("reddit"),
+          summary: "Reddit 采集",
+          chips: [
+            { label: "subreddit", value: (c) => c.params.subreddit },
+            { label: "limit", value: (c) => c.params.limit },
+          ],
+        },
+        {
+          match: (jobType) => jobType.includes("weekly") || jobType.includes("monthly"),
+          summary: "报告采集",
+          chips: [{ label: "limit", value: (c) => c.params.limit }],
+        },
+      ];
+
+      function getHistoryTaskMeta(h) {
+        const dm = safeObject(h?.display_meta);
+        if (Object.keys(dm).length) {
+          const meta = { project_key: dm.project_key || null, summary: String(dm.summary || "任务执行"), chips: [] };
+          const maybeChips = [
+            ["project", dm.project_key],
+            ["channel", dm.channel],
+            ["item", dm.item_key],
+            ["provider", dm.provider],
+            ["关键词数", dm.query_terms_count],
+            ["URL", dm.url_count],
+            ["limit", dm.limit],
+          ];
+          for (const [k, v] of maybeChips) pushMetaChip(meta, k, v);
+          return meta;
+        }
+        const params = safeObject(h?.params);
+        const ctx = {
+          jobType: String(h?.job_type || ""),
+          params,
+          project_key: null,
+        };
+        const rule = HISTORY_TASK_RULES.find((r) => r.match(ctx.jobType));
+        const meta = buildMetaFromRule(rule, ctx, "任务执行");
+        return meta;
+      }
+
       async function cancelTask(taskId) {
         if (!confirm(`确认取消任务 ${taskId} ?`)) return;
         try {
@@ -82,8 +452,63 @@
         }
       }
 
+      function detailGridItem(label, value) {
+        if (value === null || value === undefined || value === "") return "";
+        return `<div class="detail-item"><div class="k">${escapeHtml(label)}</div><div class="v">${escapeHtml(String(value))}</div></div>`;
+      }
+
+      function openTaskDetail(source, index) {
+        const list = source === "current" ? currentTasksCache : historyTasksCache;
+        const item = list[Number(index)];
+        if (!item) return;
+        const isCurrent = source === "current";
+        const meta = isCurrent ? getCurrentTaskMeta(item) : getHistoryTaskMeta(item);
+        const dm = safeObject(item.display_meta);
+        const params = safeObject(item.params);
+        const kwargs = safeObject(item.kwargs);
+        const body = [];
+        const resultSummary = isCurrent ? [] : buildResultSummaryPieces(item);
+        qs("taskDetailTitle").textContent = meta.summary || (isCurrent ? "当前任务详情" : "历史任务详情");
+        qs("taskDetailSub").textContent = isCurrent
+          ? `${item.name || "-"} · ${item.task_id || "-"}`
+          : `${item.job_type || "-"} · #${item.id || "-"}`;
+
+        body.push(`<div class="detail-grid">
+          ${detailGridItem("阶段", getStage(isCurrent ? item.name : item.job_type))}
+          ${detailGridItem("状态", isCurrent ? (item.status || "-") : (item.status || "-"))}
+          ${detailGridItem("项目", firstDefined(dm.project_key, meta.project_key))}
+          ${detailGridItem("通道", dm.channel)}
+          ${detailGridItem("开始时间", toDateTime(item.started_at))}
+          ${detailGridItem("结束时间", isCurrent ? "" : toDateTime(item.finished_at))}
+          ${detailGridItem("运行时长", isCurrent ? (secondsSince(item.started_at) == null ? "" : `${secondsSince(item.started_at)}s`) : `${formatNumber(item.duration_seconds || 0)}s`)}
+          ${detailGridItem("Worker", isCurrent ? item.worker : "")}
+          ${detailGridItem("Task ID", isCurrent ? item.task_id : "")}
+          ${detailGridItem("Job Type", isCurrent ? "" : item.job_type)}
+          ${detailGridItem("结果摘要", resultSummary.join(" | "))}
+        </div>`);
+
+        if (meta.chips?.length) {
+          body.push(`<div class="detail-section"><h3>业务标签</h3><div class="task-chips">${meta.chips.map((c) => `<span class="task-chip">${escapeHtml(String(c))}</span>`).join("")}</div></div>`);
+        }
+        if (Object.keys(dm).length) body.push(`<div class="detail-section"><h3>统一展示元信息（display_meta）</h3><div class="json-tree">${renderJsonTree(dm)}</div></div>`);
+        if (isCurrent) {
+          if (Object.keys(kwargs).length) body.push(`<div class="detail-section"><h3>任务参数（kwargs）</h3><div class="json-tree">${renderJsonTree(kwargs)}</div></div>`);
+          if (Array.isArray(item.args) && item.args.length) body.push(`<div class="detail-section"><h3>任务参数（args）</h3><div class="json-tree">${renderJsonTree(item.args)}</div></div>`);
+        } else {
+          if (Object.keys(params).length) body.push(`<div class="detail-section"><h3>任务参数（params）</h3><div class="json-tree">${renderJsonTree(params)}</div></div>`);
+          if (item.error) body.push(`<div class="detail-section"><h3>错误信息</h3><div class="json-tree">${renderJsonTree(item.error)}</div></div>`);
+        }
+        qs("taskDetailBody").innerHTML = body.join("");
+        qs("taskDetailOverlay").classList.add("open");
+      }
+
+      function closeTaskDetail() {
+        qs("taskDetailOverlay").classList.remove("open");
+      }
+
       function renderCurrentTasks(data) {
         const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+        currentTasksCache = tasks;
         const stats = data?.stats || {};
         qs("kpiRunning").textContent = formatNumber(stats.active_tasks || 0);
         qs("kpiPending").textContent = formatNumber(stats.pending_tasks || 0);
@@ -95,22 +520,33 @@
           return;
         }
         const rows = tasks
-          .map((t) => {
+          .map((t, idx) => {
             const stage = getStage(t.name);
-            return `<tr>
+            const meta = getCurrentTaskMeta(t);
+            const runningSec = secondsSince(t.started_at);
+            const chips = (meta.chips || []).slice(0, 4).map((c) => `<span class="task-chip">${escapeHtml(String(c))}</span>`).join("");
+            const title = meta.summary || t.name || "-";
+            return `<tr class="click-row" onclick="openTaskDetail('current', ${idx})">
               <td><span class="badge info">${stage}</span></td>
-              <td>${escapeHtml(t.name || "-")}</td>
+              <td>
+                <div class="task-main">
+                  <div>${escapeHtml(title)}</div>
+                  <div class="task-sub mono-mini">${escapeHtml(t.name || "-")}</div>
+                  ${chips ? `<div class="task-chips">${chips}</div>` : ""}
+                </div>
+              </td>
               <td>${statusBadge(t.status)}</td>
               <td>${escapeHtml(t.worker || "-")}</td>
               <td>${toDateTime(t.started_at)}</td>
+              <td>${runningSec == null ? "-" : `${formatNumber(runningSec)}s`}</td>
               <td><code>${escapeHtml(String(t.task_id || "-"))}</code></td>
-              <td><button class="danger" onclick="cancelTask('${escapeHtml(String(t.task_id || ""))}')">取消</button></td>
+              <td><button class="danger" onclick="event.stopPropagation(); cancelTask('${escapeHtml(String(t.task_id || ""))}')">取消</button></td>
             </tr>`;
           })
           .join("");
         qs("currentTasksWrap").innerHTML = `
           <table>
-            <thead><tr><th>阶段</th><th>任务名</th><th>状态</th><th>Worker</th><th>开始时间</th><th>Task ID</th><th>操作</th></tr></thead>
+            <thead><tr><th>阶段</th><th>任务（运营摘要）</th><th>状态</th><th>Worker</th><th>开始时间</th><th>已运行</th><th>Task ID</th><th>操作</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         `;
@@ -118,27 +554,39 @@
 
       function renderHistory(data) {
         const list = Array.isArray(data?.history) ? data.history : [];
+        historyTasksCache = list;
         if (!list.length) {
           setEmpty("historyTasksWrap", "暂无历史任务");
           return;
         }
         const rows = list
-          .map((h) => {
+          .map((h, idx) => {
             const stage = getStage(h.job_type);
-            return `<tr>
+            const meta = getHistoryTaskMeta(h);
+            const resultSummaryParts = buildResultSummaryPieces(h);
+            const resultSummary = resultSummaryParts.length ? resultSummaryParts.join(" | ") : "-";
+            const chips = (meta.chips || []).slice(0, 4).map((c) => `<span class="task-chip">${escapeHtml(String(c))}</span>`).join("");
+            return `<tr class="click-row" onclick="openTaskDetail('history', ${idx})">
               <td><span class="badge info">${stage}</span></td>
-              <td>${escapeHtml(h.job_type || "-")}</td>
+              <td>
+                <div class="task-main">
+                  <div>${escapeHtml(meta.summary || "任务执行")}</div>
+                  <div class="task-sub mono-mini">${escapeHtml(h.job_type || "-")}</div>
+                  ${chips ? `<div class="task-chips">${chips}</div>` : ""}
+                </div>
+              </td>
               <td>${statusBadge(h.status)}</td>
               <td>${toDateTime(h.started_at)}</td>
               <td>${toDateTime(h.finished_at)}</td>
               <td>${formatNumber(h.duration_seconds || 0)}s</td>
+              <td>${escapeHtml(resultSummary)}</td>
               <td>${h.error ? `<span class="badge danger">${escapeHtml(String(h.error).slice(0, 40))}</span>` : "-"}</td>
             </tr>`;
           })
           .join("");
         qs("historyTasksWrap").innerHTML = `
           <table>
-            <thead><tr><th>阶段</th><th>任务类型</th><th>状态</th><th>开始</th><th>结束</th><th>耗时</th><th>错误</th></tr></thead>
+            <thead><tr><th>阶段</th><th>任务（运营摘要）</th><th>状态</th><th>开始</th><th>结束</th><th>耗时</th><th>结果</th><th>错误</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         `;
@@ -146,9 +594,14 @@
 
       async function loadAll() {
         try {
+          const projectKey = window.MarketApp?.getProjectKey?.() || "";
+          qs("projectHint").textContent = `项目：${projectKey || "-"}`;
+          const historyUrl = projectKey
+            ? `/api/v1/process/history?limit=50&project_key=${encodeURIComponent(projectKey)}`
+            : "/api/v1/process/history?limit=50";
           const [current, history] = await Promise.all([
             window.MarketApp.fetchJSON("/api/v1/process/list"),
-            window.MarketApp.fetchJSON("/api/v1/process/history?limit=50"),
+            window.MarketApp.fetchJSON(historyUrl),
           ]);
           renderCurrentTasks(current);
           renderHistory(history);
@@ -169,8 +622,14 @@
       qs("autoRefresh").addEventListener("change", setupAutoRefresh);
       qs("refreshSeconds").addEventListener("change", setupAutoRefresh);
       qs("goDashboard").addEventListener("click", () => window.MarketApp.navigateInShell("dashboard.html"));
+      qs("taskDetailClose").addEventListener("click", closeTaskDetail);
+      qs("taskDetailOverlay").addEventListener("click", closeTaskDetail);
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeTaskDetail();
+      });
 
       window.cancelTask = cancelTask;
+      window.openTaskDetail = openTaskDetail;
       window.addEventListener("DOMContentLoaded", async () => {
         lucide.createIcons();
         await loadAll();

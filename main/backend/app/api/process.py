@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import nullcontext
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
@@ -13,6 +14,7 @@ from sqlalchemy import select, func
 from ..celery_app import celery_app
 from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
+from ..services.projects import bind_project
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/process", tags=["process"])
@@ -27,6 +29,7 @@ class TaskInfo(BaseModel):
     kwargs: Dict[str, Any]
     worker: Optional[str] = None
     started_at: Optional[str] = None
+    display_meta: Optional[Dict[str, Any]] = None
 
 
 class TaskListResponse(BaseModel):
@@ -42,6 +45,7 @@ def list_tasks(
 ) -> TaskListResponse:
     """获取Celery任务列表"""
     try:
+        from ..services.collect_runtime import infer_display_meta_from_celery_task
         inspect = celery_app.control.inspect()
         tasks = []
         
@@ -75,6 +79,7 @@ def list_tasks(
                     kwargs=task.get('kwargs', {}),
                     worker=worker_name,
                     started_at=datetime.fromtimestamp(task.get('time_start', 0)).isoformat() if task.get('time_start') else None,
+                    display_meta=infer_display_meta_from_celery_task(task.get('name', 'unknown'), task.get('args', []), task.get('kwargs', {})),
                 )
                 tasks.append(task_info)
         
@@ -94,6 +99,11 @@ def list_tasks(
                     args=task.get('request', {}).get('args', []),
                     kwargs=task.get('request', {}).get('kwargs', {}),
                     worker=worker_name,
+                    display_meta=infer_display_meta_from_celery_task(
+                        task.get('request', {}).get('task', 'unknown'),
+                        task.get('request', {}).get('args', []),
+                        task.get('request', {}).get('kwargs', {}),
+                    ),
                 )
                 tasks.append(task_info)
         
@@ -113,6 +123,7 @@ def list_tasks(
                     args=task.get('args', []),
                     kwargs=task.get('kwargs', {}),
                     worker=worker_name,
+                    display_meta=infer_display_meta_from_celery_task(task.get('name', 'unknown'), task.get('args', []), task.get('kwargs', {})),
                 )
                 tasks.append(task_info)
         
@@ -189,68 +200,74 @@ def get_task_history(
     limit: int = Query(default=50, ge=1, le=500),
     status: Optional[str] = Query(None, description="任务状态过滤: completed, failed, running"),
     job_type: Optional[str] = Query(None, description="任务类型过滤"),
+    project_key: Optional[str] = Query(None, description="项目标识（用于查询对应项目 schema 的任务历史）"),
 ) -> dict:
     """获取任务历史记录"""
     try:
-        with SessionLocal() as session:
-            query = select(EtlJobRun)
+        from ..services.collect_runtime import extract_display_meta_from_params
+        ctx = bind_project(project_key) if project_key else nullcontext()
+        with ctx:
+            with SessionLocal() as session:
+                query = select(EtlJobRun)
             
             # 应用过滤器
-            if status:
-                query = query.where(EtlJobRun.status == status)
-            if job_type:
-                query = query.where(EtlJobRun.job_type == job_type)
+                if status:
+                    query = query.where(EtlJobRun.status == status)
+                if job_type:
+                    query = query.where(EtlJobRun.job_type == job_type)
             
             # 按开始时间倒序排列
-            query = query.order_by(EtlJobRun.started_at.desc().nullslast()).limit(limit)
+                query = query.order_by(EtlJobRun.started_at.desc().nullslast()).limit(limit)
             
-            jobs = session.execute(query).scalars().all()
+                jobs = session.execute(query).scalars().all()
             
             # 转换为字典格式
-            history = []
-            for job in jobs:
-                duration = None
-                if job.started_at and job.finished_at:
-                    duration = (job.finished_at - job.started_at).total_seconds()
-                elif job.started_at:
-                    duration = (datetime.now(job.started_at.tzinfo) - job.started_at).total_seconds()
-                
-                history.append({
-                    "id": job.id,
-                    "job_type": job.job_type,
-                    "status": job.status,
-                    "params": job.params or {},
-                    "started_at": job.started_at.isoformat() if job.started_at else None,
-                    "finished_at": job.finished_at.isoformat() if job.finished_at else None,
-                    "duration_seconds": duration,
-                    "error": job.error,
-                })
+                history = []
+                for job in jobs:
+                    duration = None
+                    if job.started_at and job.finished_at:
+                        duration = (job.finished_at - job.started_at).total_seconds()
+                    elif job.started_at:
+                        duration = (datetime.now(job.started_at.tzinfo) - job.started_at).total_seconds()
+
+                    history.append({
+                        "id": job.id,
+                        "job_type": job.job_type,
+                        "status": job.status,
+                        "params": job.params or {},
+                        "display_meta": extract_display_meta_from_params(job.params or {}),
+                        "started_at": job.started_at.isoformat() if job.started_at else None,
+                        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+                        "duration_seconds": duration,
+                        "error": job.error,
+                    })
             
             # 获取统计信息
-            total_query = select(func.count(EtlJobRun.id))
-            if status:
-                total_query = total_query.where(EtlJobRun.status == status)
-            if job_type:
-                total_query = total_query.where(EtlJobRun.job_type == job_type)
-            total = session.execute(total_query).scalar() or 0
+                total_query = select(func.count(EtlJobRun.id))
+                if status:
+                    total_query = total_query.where(EtlJobRun.status == status)
+                if job_type:
+                    total_query = total_query.where(EtlJobRun.job_type == job_type)
+                total = session.execute(total_query).scalar() or 0
             
             # 按状态统计
-            status_stats = {}
-            status_query = select(
-                EtlJobRun.status,
-                func.count(EtlJobRun.id).label("count")
-            )
-            if job_type:
-                status_query = status_query.where(EtlJobRun.job_type == job_type)
-            status_query = status_query.group_by(EtlJobRun.status)
-            for row in session.execute(status_query).all():
-                status_stats[row.status] = row.count
-            
-            return {
-                "history": history,
-                "total": total,
-                "status_stats": status_stats,
-            }
+                status_stats = {}
+                status_query = select(
+                    EtlJobRun.status,
+                    func.count(EtlJobRun.id).label("count")
+                )
+                if job_type:
+                    status_query = status_query.where(EtlJobRun.job_type == job_type)
+                status_query = status_query.group_by(EtlJobRun.status)
+                for row in session.execute(status_query).all():
+                    status_stats[row.status] = row.count
+
+                return {
+                    "history": history,
+                    "total": total,
+                    "status_stats": status_stats,
+                    "project_key": project_key,
+                }
 
     except Exception as e:
         logger.exception("获取任务历史记录失败")

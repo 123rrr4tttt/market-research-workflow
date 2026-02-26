@@ -11,8 +11,10 @@ from ..models.base import SessionLocal
 from ..models.entities import SourceLibraryItem
 from ..services.projects import bind_project
 from ..services.source_library import (
+    list_channels_grouped_by_provider,
     list_effective_channels,
     list_effective_items,
+    list_items_by_symbol,
     run_item_by_key,
     sync_shared_library_from_files,
 )
@@ -64,6 +66,32 @@ def list_items(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"items": items, "scope": scope, "project_key": project_key}
+
+
+@router.get("/items/by_symbol")
+def list_items_by_symbol_api(
+    scope: ScopeType = Query(default="effective"),
+    project_key: str | None = Query(default=None),
+) -> dict:
+    """Items grouped by tag (symbol). For Phase 5 symbol clustering."""
+    try:
+        grouped = list_items_by_symbol(scope=scope, project_key=project_key)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"by_symbol": grouped, "scope": scope, "project_key": project_key}
+
+
+@router.get("/channels/grouped")
+def list_channels_grouped_api(
+    scope: ScopeType = Query(default="effective"),
+    project_key: str | None = Query(default=None),
+) -> dict:
+    """Channels grouped by provider (tool type). For Phase 5 handler clustering."""
+    try:
+        grouped = list_channels_grouped_by_provider(scope=scope, project_key=project_key)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"by_provider": grouped, "scope": scope, "project_key": project_key}
 
 
 @router.post("/items")

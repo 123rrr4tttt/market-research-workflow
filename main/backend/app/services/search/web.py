@@ -23,7 +23,56 @@ from ...models.entities import Document
 logger = logging.getLogger(__name__)
 
 
+_BILINGUAL_LANG_MODES = {"bi", "bilingual", "zh-en", "zh_en", "both", "multi", "multilingual"}
+
+
+def _base_language(language: str) -> str:
+    lang = (language or "").strip().lower()
+    if lang.startswith("zh"):
+        return "zh"
+    if lang.startswith("en"):
+        return "en"
+    return "en"
+
+
+def _is_bilingual_mode(language: str) -> bool:
+    return (language or "").strip().lower() in _BILINGUAL_LANG_MODES
+
+
+def _dedup_keywords(items: List[str]) -> List[str]:
+    out: List[str] = []
+    seen: set[str] = set()
+    for raw in items:
+        kw = str(raw or "").strip()
+        if not kw or kw in seen:
+            continue
+        seen.add(kw)
+        out.append(kw)
+    return out
+
+
 def generate_keywords(topic: str, language: str = "zh") -> List[str]:
+    if _is_bilingual_mode(language):
+        # Keep bilingual support in prompt-generation layer only (no search execution routing).
+        if settings.llm_provider == "openai" and not settings.openai_api_key:
+            return _dedup_keywords(generate_keywords(topic, "zh") + generate_keywords(topic, "en"))
+        try:
+            prompt = (
+                "你是一名搜索关键词生成助手。请基于用户主题输出 6~10 个中英文混合的搜索关键词。"
+                "要求同时包含中文和英文关键词，每行一个关键词，不要解释，尽量覆盖政策、市场、产业链、技术与销售/财报相关角度。\n"
+                "主题：" + topic
+            )
+            model = get_chat_model()
+            response = model.invoke(prompt)
+            text = response.content if hasattr(response, "content") else str(response)
+            keywords = _dedup_keywords([line.strip("- ") for line in text.splitlines() if line.strip("- ").strip()])
+            if keywords:
+                logger.info("generate_keywords: llm bilingual keywords=%s", keywords)
+                return keywords
+        except Exception:
+            logger.warning("generate_keywords: llm bilingual failed, fallback to zh+en", exc_info=True)
+        return _dedup_keywords(generate_keywords(topic, "zh") + generate_keywords(topic, "en"))
+
     # If no valid provider/key configured, skip LLM and use fallback keywords
     if settings.llm_provider == "openai" and not settings.openai_api_key:
         logger.info("generate_keywords: using fallback (no OPENAI key), topic=%s lang=%s", topic, language)
@@ -670,4 +719,3 @@ def _add_result_dedup(results: List[dict], seen_links: Set[str], item: Dict[str,
         pass
     results.append(item)
     return True
-

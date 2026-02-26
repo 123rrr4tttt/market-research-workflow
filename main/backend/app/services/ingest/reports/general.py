@@ -4,6 +4,7 @@ import logging
 from typing import Iterable
 
 from ...job_logger import start_job, complete_job, fail_job
+from ...projects import current_project_key
 from ....models.base import SessionLocal
 from ....models.entities import Document, Source
 from ...search.web import search_sources
@@ -23,7 +24,7 @@ def collect_weekly_market_reports(limit: int = 10) -> dict:
         results = []
         for keyword in keywords:
             results.extend(search_sources(keyword, language="en", max_results=limit))
-        result = _store_documents(results, doc_type="weekly_report", limit=limit)
+        result = _store_documents(results, doc_type="weekly_report", limit=limit, job_type="weekly_market_reports")
         complete_job(job_id, result=result)
         return result
     except Exception as exc:  # noqa: BLE001
@@ -43,7 +44,7 @@ def collect_monthly_financial_reports(limit: int = 8) -> dict:
         results = []
         for keyword in keywords:
             results.extend(search_sources(keyword, language="en", max_results=limit))
-        result = _store_documents(results, doc_type="monthly_report", limit=limit)
+        result = _store_documents(results, doc_type="monthly_report", limit=limit, job_type="monthly_financial_reports")
         complete_job(job_id, result=result)
         return result
     except Exception as exc:  # noqa: BLE001
@@ -52,7 +53,9 @@ def collect_monthly_financial_reports(limit: int = 8) -> dict:
         raise
 
 
-def _store_documents(results: Iterable[dict], doc_type: str, limit: int) -> dict:
+def _store_documents(
+    results: Iterable[dict], doc_type: str, limit: int, job_type: str | None = None
+) -> dict:
     inserted = 0
     skipped = 0
     stored_links: list[str] = []
@@ -63,6 +66,17 @@ def _store_documents(results: Iterable[dict], doc_type: str, limit: int) -> dict
             if not link:
                 continue
             stored_links.append(link)
+            if job_type:
+                try:
+                    from ...resource_pool import DefaultResourcePoolAppendAdapter
+                    pk = (current_project_key() or "").strip()
+                    if pk:
+                        DefaultResourcePoolAppendAdapter().append_url(
+                            link, source="ingest", source_ref={"doc_type": doc_type},
+                            project_key=pk, job_type=job_type,
+                        )
+                except Exception:  # noqa: BLE001
+                    pass
             existed = session.query(Document).filter(Document.uri == link).one_or_none()
             if existed:
                 skipped += 1

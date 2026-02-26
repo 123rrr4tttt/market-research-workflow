@@ -8,6 +8,7 @@ from typing import Iterable, List, Optional
 from sqlalchemy.orm import Session
 
 from ..job_logger import start_job, complete_job, fail_job
+from ..projects import current_project_key
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
 from .doc_type_mapper import normalize_doc_type
@@ -45,6 +46,7 @@ def collect_calottery_news(limit: int = 10) -> dict:
             source_name="California Lottery News",
             base_url="calottery.com",
             default_state="CA",
+            job_type="calottery_news",
         )
         complete_job(job_id, result=result)
         return result
@@ -65,6 +67,7 @@ def collect_calottery_retailer_updates(limit: int = 10) -> dict:
             source_name="California Lottery Retailer News",
             base_url="calottery.com",
             default_state="CA",
+            job_type="calottery_retailer_news",
         )
         complete_job(job_id, result=result)
         return result
@@ -115,6 +118,7 @@ def collect_reddit_discussions(
             source_name=source_name,
             base_url="reddit.com",
             default_state="CA",
+            job_type="reddit_discussions",
         )
         complete_job(job_id, result=result)
         return result
@@ -122,6 +126,21 @@ def collect_reddit_discussions(
         logger.exception("collect_reddit_discussions failed")
         fail_job(job_id, str(exc))
         raise
+
+
+def _maybe_append_to_resource_pool(link: str, job_type: str, source_ref: dict) -> None:
+    """Append URL to resource pool if capture enabled for project + job_type."""
+    project_key = (current_project_key() or "").strip()
+    if not project_key:
+        return
+    try:
+        from ..resource_pool import DefaultResourcePoolAppendAdapter
+        DefaultResourcePoolAppendAdapter().append_url(
+            link, source="ingest", source_ref=source_ref,
+            project_key=project_key, job_type=job_type,
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _persist_news_items(
@@ -132,6 +151,7 @@ def _persist_news_items(
     base_url: str,
     default_state: str | None,
     kind: str = "news",
+    job_type: str | None = None,
 ) -> dict:
     normalized_doc_type = normalize_doc_type(doc_type)
     inserted = 0
@@ -147,6 +167,8 @@ def _persist_news_items(
             if not link:
                 continue
             links.append(link)
+            if job_type:
+                _maybe_append_to_resource_pool(link, job_type, {"source": source_name})
             existed = session.query(Document).filter(Document.uri == link).one_or_none()
             if existed:
                 skipped += 1
@@ -258,6 +280,7 @@ def _persist_reddit_items(
     source_name: str,
     base_url: str,
     default_state: str | None,
+    job_type: str | None = None,
 ) -> dict:
     """存储Reddit帖子数据，包含完整的结构化信息"""
     normalized_doc_type = normalize_doc_type(doc_type)
@@ -274,6 +297,8 @@ def _persist_reddit_items(
             if not link:
                 continue
             links.append(link)
+            if job_type:
+                _maybe_append_to_resource_pool(link, job_type, {"subreddit": post.subreddit})
             existed = session.query(Document).filter(Document.uri == link).one_or_none()
             if existed:
                 skipped += 1
@@ -374,6 +399,7 @@ def collect_google_news(keywords: List[str], limit: int = 20) -> dict:
             source_name="Google News",
             base_url="news.google.com",
             default_state=None,  # Google News可能涉及多个州
+            job_type="google_news",
         )
         complete_job(job_id, result=result)
         return result
@@ -390,6 +416,7 @@ def _persist_google_news_items(
     source_name: str,
     base_url: str,
     default_state: str | None,
+    job_type: str | None = None,
 ) -> dict:
     """存储Google News数据"""
     normalized_doc_type = normalize_doc_type(doc_type)
@@ -406,6 +433,8 @@ def _persist_google_news_items(
             if not link:
                 continue
             links.append(link)
+            if job_type:
+                _maybe_append_to_resource_pool(link, job_type, {"keyword": item.keyword})
             existed = session.query(Document).filter(Document.uri == link).one_or_none()
             if existed:
                 skipped += 1

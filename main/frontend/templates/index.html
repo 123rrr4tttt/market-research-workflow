@@ -15,6 +15,43 @@
       .modal-overlay.active { display: flex; }
       .modal-overlay .modal-content { background: var(--card-bg, #fff); border-radius: 8px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
       .modal-overlay h3 { margin: 0 0 8px 0; }
+      .ingest-partition { padding: 16px 0; border-bottom: 1px solid var(--border, #e2e8f0); }
+      .ingest-partition:last-of-type { border-bottom: none; padding-bottom: 0; }
+      .partition-title { margin: 0 0 12px 0; font-size: 15px; font-weight: 600; color: var(--text, #1e293b); }
+      .multi-select { position: relative; display: inline-block; min-width: 96px; }
+      .multi-select-btn {
+        min-width: 96px;
+        height: 32px;
+        border: 1px solid var(--border, #d0d7de);
+        border-radius: 6px;
+        background: var(--card-bg, #fff);
+        color: var(--text, #111827);
+        padding: 0 10px;
+        text-align: left;
+        cursor: pointer;
+      }
+      .multi-select-panel {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        min-width: 120px;
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border, #d0d7de);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        padding: 6px 8px;
+        z-index: 100;
+        display: none;
+      }
+      .multi-select.open .multi-select-panel { display: block; }
+      .multi-select-panel label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        padding: 4px 2px;
+        cursor: pointer;
+      }
     </style>
     <script src="/static/js/app-shell.js"></script>
     <script src="/static/js/ui-core.js"></script>
@@ -51,62 +88,76 @@
 
       <section class="card" style="margin-bottom: 12px;" id="ingest">
         <h2 class="section-title">采集快捷入口</h2>
-        <div class="toolbar">
-          <label for="sourceLibraryItem">来源库项</label>
-          <select id="sourceLibraryItem" style="min-width: 320px;"></select>
-          <button id="btnSyncSourceLibrary" class="btn">同步来源库</button>
-          <button id="btnRunSourceLibraryItem" class="btn btn-primary">运行来源库项</button>
-          <label for="queryTerms">查询词</label>
-          <input id="queryTerms" placeholder="输入查询词，逗号分隔" style="min-width: 280px;" />
-          <button id="btnSuggestKeywords" class="secondary" title="调用子项目联想服务，获得联想词后确认搜索">获取联想词</button>
-          <label for="maxItems">每查询词结果数</label>
-          <input id="maxItems" type="number" min="1" max="100" value="20" style="width: 90px;" />
-          <label for="startOffset">起始偏移</label>
-          <input id="startOffset" type="number" min="1" max="91" placeholder="1" style="width: 70px;" title="1=第1条,11=第2页,留空从第1条" />
-          <label for="daysBack">时间范围(天)</label>
-          <input id="daysBack" type="number" min="1" max="365" placeholder="-" style="width: 70px;" title="仅搜最近N天,留空不限制" />
-          <label for="searchLanguage">语言</label>
-          <select id="searchLanguage" style="width: 70px;">
-            <option value="">默认</option>
-            <option value="en">en</option>
-            <option value="zh">zh</option>
-          </select>
-          <label for="searchProvider">搜索服务</label>
-          <select id="searchProvider" style="width: 90px;">
-            <option value="">默认</option>
-            <option value="serper">serper</option>
-            <option value="google">google</option>
-            <option value="ddg">ddg</option>
-            <option value="serpstack">serpstack</option>
-            <option value="serpapi">serpapi</option>
-            <option value="auto">auto</option>
-          </select>
-          <label for="commodityLimit">商品天数</label>
-          <input id="commodityLimit" type="number" min="1" max="365" value="30" style="width: 90px;" title="每个指标抓取的历史天数" />
-          <label for="ecomLimit">电商条数</label>
-          <input id="ecomLimit" type="number" min="1" max="500" value="100" style="width: 90px;" title="最大商品数量" />
-          <label for="asyncMode">异步</label>
-          <input id="asyncMode" type="checkbox" />
+
+        <div class="ingest-partition">
+          <h3 class="partition-title"><i data-lucide="database" style="width: 16px; height: 16px; vertical-align: middle;"></i> 来源库查询</h3>
+          <div class="toolbar">
+            <label for="sourceLibraryItem">来源库项</label>
+            <select id="sourceLibraryItem" style="min-width: 320px;"></select>
+            <button id="btnSyncSourceLibrary" class="btn">同步来源库</button>
+            <button id="btnRunSourceLibraryItem" class="btn btn-primary">运行来源库项</button>
+            <button id="btnPolicy"><i data-lucide="download-cloud"></i> 政策采集</button>
+          </div>
+          <p class="hint">选择来源库项执行采集；政策采集依赖所选来源库项的 state 配置。</p>
         </div>
-        <div class="hint">说明：政策/市场/舆情采集共用查询词；起始偏移(1=第1条,11=第2页)、时间范围、语言、搜索服务用于政策/市场采集；子项目固定来源在来源库中运行对应项。</div>
-        <div class="toolbar">
-          <label for="socialPlatformSelect">平台名称</label>
-          <select id="socialPlatformSelect" style="min-width: 180px;"></select>
-          <label for="baseSubredditsSelect">基础子论坛</label>
-          <select id="baseSubredditsSelect" multiple></select>
-          <label for="enableExtraction">结构化提取</label>
-          <input id="enableExtraction" type="checkbox" checked />
-          <label for="enableSubredditDiscovery">子论坛发现</label>
-          <input id="enableSubredditDiscovery" type="checkbox" checked />
+
+        <div class="ingest-partition">
+          <h3 class="partition-title"><i data-lucide="search" style="width: 16px; height: 16px; vertical-align: middle;"></i> 一般查询</h3>
+          <div class="toolbar">
+            <label for="queryTerms">查询词</label>
+            <input id="queryTerms" placeholder="输入查询词，逗号分隔" style="min-width: 280px;" />
+            <button id="btnSuggestKeywords" class="secondary" title="调用子项目联想服务，获得联想词后确认搜索">获取联想词</button>
+            <label for="maxItems">每查询词结果数</label>
+            <input id="maxItems" type="number" min="1" max="100" value="20" style="width: 90px;" />
+            <label for="startOffset">起始偏移</label>
+            <input id="startOffset" type="number" min="1" max="91" placeholder="1" style="width: 70px;" title="1=第1条,11=第2页,留空从第1条" />
+            <label for="daysBack">时间范围(天)</label>
+            <input id="daysBack" type="number" min="1" max="365" placeholder="-" style="width: 70px;" title="仅搜最近N天,留空不限制" />
+            <label for="searchLanguageBtn">语言</label>
+            <div id="searchLanguageMulti" class="multi-select" aria-label="语言多选下拉">
+              <button id="searchLanguageBtn" type="button" class="multi-select-btn">默认</button>
+              <div id="searchLanguagePanel" class="multi-select-panel">
+                <label><input type="checkbox" value="zh" /> zh</label>
+                <label><input type="checkbox" value="en" /> en</label>
+              </div>
+            </div>
+            <label for="searchProvider">搜索服务</label>
+            <select id="searchProvider" style="width: 90px;">
+              <option value="">默认</option>
+              <option value="serper">serper</option>
+              <option value="google">google</option>
+              <option value="ddg">ddg</option>
+              <option value="serpstack">serpstack</option>
+              <option value="serpapi">serpapi</option>
+              <option value="auto">auto</option>
+            </select>
+            <label for="commodityLimit">商品天数</label>
+            <input id="commodityLimit" type="number" min="1" max="365" value="30" style="width: 90px;" title="每个指标抓取的历史天数" />
+            <label for="ecomLimit">电商条数</label>
+            <input id="ecomLimit" type="number" min="1" max="500" value="100" style="width: 90px;" title="最大商品数量" />
+            <label for="asyncMode">异步</label>
+            <input id="asyncMode" type="checkbox" />
+          </div>
+          <div class="toolbar">
+            <label for="socialPlatformSelect">平台名称</label>
+            <select id="socialPlatformSelect" style="min-width: 180px;"></select>
+            <label for="baseSubredditsSelect">基础子论坛</label>
+            <select id="baseSubredditsSelect" multiple></select>
+            <label for="enableExtraction">结构化提取</label>
+            <input id="enableExtraction" type="checkbox" checked />
+            <label for="enableSubredditDiscovery">子论坛发现</label>
+            <input id="enableSubredditDiscovery" type="checkbox" checked />
+          </div>
+          <div class="toolbar">
+            <button id="btnPolicyRegulation"><i data-lucide="scroll-text"></i> 政策法规采集</button>
+            <button id="btnMarket"><i data-lucide="bar-chart-3"></i> 市场采集</button>
+            <button id="btnCommodity"><i data-lucide="box"></i> 商品采集</button>
+            <button id="btnEcom"><i data-lucide="tag"></i> 电商价格采集</button>
+            <button id="btnSocial"><i data-lucide="users"></i> 舆情采集</button>
+          </div>
+          <p class="hint">政策法规/市场/舆情共用查询词；起始偏移、时间范围、语言、搜索服务用于政策/市场采集；运行来源库项时可覆盖上述参数。</p>
         </div>
-        <div class="toolbar">
-          <button id="btnPolicy"><i data-lucide="download-cloud"></i> 政策采集</button>
-          <button id="btnPolicyRegulation"><i data-lucide="scroll-text"></i> 政策法规采集</button>
-          <button id="btnMarket"><i data-lucide="bar-chart-3"></i> 市场采集</button>
-          <button id="btnCommodity"><i data-lucide="box"></i> 商品采集</button>
-          <button id="btnEcom"><i data-lucide="tag"></i> 电商价格采集</button>
-          <button id="btnSocial"><i data-lucide="users"></i> 舆情采集</button>
-        </div>
+
         <div id="actionStatus" class="status">等待触发采集任务</div>
       </section>
 
@@ -205,8 +256,33 @@
       }
 
       function getSearchLanguage() {
-        const v = String(qs("searchLanguage").value || "").trim();
-        return v || null;
+        const box = qs("searchLanguageMulti");
+        const values = Array.from(box?.querySelectorAll('input[type="checkbox"]:checked') || [])
+          .map((el) => String(el.value || "").trim())
+          .filter(Boolean);
+        if (!values.length) return null;
+        const uniq = Array.from(new Set(values));
+        if (uniq.length >= 2 && uniq.includes("zh") && uniq.includes("en")) return "zh-en";
+        return uniq[0] || null;
+      }
+
+      function updateSearchLanguageButtonLabel() {
+        const box = qs("searchLanguageMulti");
+        const btn = qs("searchLanguageBtn");
+        if (!box || !btn) return;
+        const values = Array.from(box.querySelectorAll('input[type="checkbox"]:checked'))
+          .map((el) => String(el.value || "").trim())
+          .filter(Boolean);
+        const uniq = Array.from(new Set(values));
+        if (!uniq.length) {
+          btn.textContent = "默认";
+          return;
+        }
+        if (uniq.length >= 2 && uniq.includes("zh") && uniq.includes("en")) {
+          btn.textContent = "zh + en";
+          return;
+        }
+        btn.textContent = uniq[0];
       }
 
       function getSearchProvider() {
@@ -329,6 +405,18 @@
         return raw.split(",").map((v) => v.trim()).filter(Boolean);
       }
 
+      function getActionSummaryCounts(data) {
+        const root = (data && typeof data === "object") ? data : {};
+        const nested = (root.result && typeof root.result === "object") ? root.result : null;
+        const carrier = nested || root;
+        return {
+          inserted: Number(carrier.inserted || 0),
+          updated: Number(carrier.updated || 0),
+          skipped: Number(carrier.skipped || 0),
+          errors: Array.isArray(carrier.errors) ? carrier.errors.length : 0,
+        };
+      }
+
       async function runAction(actionName, req) {
         toggleDisabled(["btnPolicy", "btnPolicyRegulation", "btnMarket", "btnCommodity", "btnEcom", "btnSocial", "btnSyncSourceLibrary", "btnRunSourceLibraryItem"], true);
         setLoading("actionStatus", `${actionName}执行中...`);
@@ -337,9 +425,11 @@
           if (data.task_id) {
             setSuccess("actionStatus", `${actionName}已提交，任务ID: ${data.task_id}`);
           } else {
+            const counts = getActionSummaryCounts(data);
+            const errorSuffix = counts.errors ? `，错误 ${formatNumber(counts.errors)}` : "";
             setSuccess(
               "actionStatus",
-              `${actionName}完成，新增 ${formatNumber(data.inserted || 0)}，更新 ${formatNumber(data.updated || 0)}，跳过 ${formatNumber(data.skipped || 0)}`
+              `${actionName}完成，新增 ${formatNumber(counts.inserted)}，更新 ${formatNumber(counts.updated)}，跳过 ${formatNumber(counts.skipped)}${errorSuffix}`
             );
           }
           await loadHistory();
@@ -352,8 +442,10 @@
 
       async function syncSourceLibraryFromFiles() {
         const projectKey = window.MarketApp.getProjectKey();
-        return await window.MarketApp.fetchJSON(`/api/v1/source_library/sync_shared_from_files?project_key=${encodeURIComponent(projectKey || "")}`, {
+        return await window.MarketApp.fetchJSON("/api/v1/ingest/source-library/sync", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_key: projectKey || "" }),
         });
       }
 
@@ -378,6 +470,11 @@
         const prov = getSearchProvider();
         if (prov) overrides.provider = prov;
         overrides.enable_extraction = getEnableExtraction();
+        const baseSubs = getBaseSubreddits();
+        if (baseSubs && baseSubs.length) overrides.base_subreddits = baseSubs;
+        const platforms = getSocialPlatforms();
+        if (platforms && platforms.length) overrides.platforms = platforms;
+        overrides.enable_subreddit_discovery = getEnableSubredditDiscovery();
         return overrides;
       }
 
@@ -387,11 +484,12 @@
         if (!itemKey) throw new Error("请先选择一个来源库项");
         if (!projectKey) throw new Error("请先选择项目（project_key）");
         const payload = {
+          item_key: itemKey,
           project_key: projectKey,
           async_mode: !!qs("asyncMode").checked,
           override_params: buildOverrideParamsFromForm(),
         };
-        return await window.MarketApp.fetchJSON(`/api/v1/source_library/items/${encodeURIComponent(itemKey)}/run`, {
+        return await window.MarketApp.fetchJSON("/api/v1/ingest/source-library/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -484,6 +582,21 @@
       qs("keywordSuggestionModal").addEventListener("click", (e) => {
         if (e.target.id === "keywordSuggestionModal") hideKeywordSuggestionModal();
       });
+
+      qs("searchLanguageBtn")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        qs("searchLanguageMulti")?.classList.toggle("open");
+      });
+      qs("searchLanguagePanel")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+      qs("searchLanguagePanel")?.querySelectorAll('input[type="checkbox"]').forEach((el) => {
+        el.addEventListener("change", updateSearchLanguageButtonLabel);
+      });
+      document.addEventListener("click", () => {
+        qs("searchLanguageMulti")?.classList.remove("open");
+      });
+      updateSearchLanguageButtonLabel();
 
       qs("btnMarket").addEventListener("click", () => {
         const rawTerms = getQueryTerms();

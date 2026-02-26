@@ -691,7 +691,12 @@ def _store_tables_available(session) -> bool:
         raise
 
 
-def store_results(results: List[Dict]) -> Dict[str, int]:
+def store_results(
+    results: List[Dict],
+    *,
+    project_key: str | None = None,
+    job_type: str | None = None,
+) -> Dict[str, int]:
     inserted = 0
     updated = 0
     skipped = 0
@@ -706,6 +711,20 @@ def store_results(results: List[Dict]) -> Dict[str, int]:
                 if not link:
                     skipped += 1
                     continue
+                # Resource pool capture hook: append URL when capture enabled for project + job_type
+                if project_key and job_type:
+                    try:
+                        from ..resource_pool import DefaultResourcePoolAppendAdapter
+                        adapter = DefaultResourcePoolAppendAdapter()
+                        adapter.append_url(
+                            link,
+                            source="discovery",
+                            source_ref={"domain": item.get("domain") or urlparse(link).netloc},
+                            project_key=project_key,
+                            job_type=job_type,
+                        )
+                    except Exception as rp_exc:  # noqa: BLE001
+                        logger.debug("resource_pool append skipped: %s", rp_exc)
                 domain = item.get("domain") or urlparse(link).netloc
                 title = (item.get("title") or "").replace("\x00", "").strip() or domain
                 snippet = (item.get("snippet") or "").replace("\x00", "").strip()

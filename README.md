@@ -4,6 +4,8 @@
 
 本文档为项目主说明，涵盖定位、快速开始、架构与文档入口。所有路径均为**相对仓库根目录**。
 
+版本管理与协作建议见：`GIT_WORKFLOW.md`（轻量 Git 工作流）
+
 ---
 
 ## 1. 项目概述
@@ -128,16 +130,23 @@ cd main/backend
 | `main/backend/docs/README.md` | 后端文档索引 |
 | `信息流优化/README.md` | 优化路线 |
 
+### 7.5 已实现能力：来源池与统一搜索
+
+以下能力已落地，详见 `main/backend/docs/RESOURCE_LIBRARY_DEFINITION.md`、`RESOURCE_POOL_EXTRACTION_API.md`：
+
+- **自动提取**：从文档/任务提取 URL 写入 `resource_pool_urls`；从 URL 自动发现站点入口（`site_entries`：domain_root、RSS、sitemap、link_alternate）
+- **去重**：`resource_pool_urls` 唯一约束；统一搜索写回时按 URL 去重
+- **进一步收集**：统一搜索（query_terms + item 绑定的 site_entries）→ 候选 URL 写回池 → `url_pool` 抓取入库；支持 `auto_ingest` 一条龙完成
+- **多项目隔离**：resource_pool、site_entries、documents 均按 `project_<key>` schema 隔离
+
 ---
 
 ## 8. 进一步开发规划
 
-### 8.1 来源池的自动提取与整合
+### 8.1 来源池的自动提取与整合（待完成）
 
-- **自动提取**：从网页/API 自动发现并提取信息源，纳入来源池
 - **分级**：按可信度、更新频率、覆盖范围对来源分级
-- **整合**：跨来源去重、合并、冲突消解
-- **进一步收集**：基于分级与主题的增量/定向采集策略
+- **整合**：跨来源合并、冲突消解（去重已实现）
 
 ### 8.2 完善工作流平台化
 

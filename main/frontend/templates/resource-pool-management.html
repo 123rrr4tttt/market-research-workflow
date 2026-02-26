@@ -1,0 +1,1856 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>信息资源库管理</title>
+    <link rel="stylesheet" href="/static/css/app-theme.css" />
+    <style>
+      body { padding: 0; }
+      .page { padding: 24px; max-width: 1400px; margin: 0 auto; }
+      .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+      .tab { padding: 10px 16px; cursor: pointer; font-weight: 500; color: var(--text-muted); border-radius: var(--radius) var(--radius) 0 0; }
+      .tab:hover { color: var(--text); background: var(--accent); }
+      .tab.active { color: var(--primary); background: var(--card); border: 1px solid var(--border); border-bottom-color: var(--card); margin-bottom: -1px; }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 1200px) { .grid { grid-template-columns: 1fr; } }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .row > * { min-width: 0; }
+      .muted { color: var(--text-muted); font-size: 13px; }
+      .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+      .toolbar select, .toolbar input { min-width: 140px; }
+      .toolbar label { white-space: nowrap; }
+      .toolbar button { white-space: nowrap; }
+      .toolbar-group { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-width: 0; }
+      .toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .toolbar-split { justify-content: space-between; align-items: flex-start; }
+      .toolbar-stack { display: grid; gap: 8px; }
+      .action-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+      .inline-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+      .inline-actions button { margin: 0; }
+      .btn-primary-action { box-shadow: 0 1px 0 rgba(0,0,0,0.03); }
+      .section-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+      .section-toolbar .spacer { flex: 1 1 auto; min-width: 0; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+      .url-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .url-cell a { color: var(--primary); }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+      .chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; background: var(--accent); cursor: pointer; }
+      .chip.selected { background: var(--primary); color: white; }
+      .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 1200px) { .split { grid-template-columns: 1fr; } }
+      textarea { width: 100%; min-height: 80px; }
+      .toolbar select, .toolbar input { min-width: 170px; }
+      .pre { background: #0b1220; color: #dbeafe; border-radius: 10px; padding: 12px; overflow: auto; max-height: 320px; white-space: pre-wrap; border: 1px solid #1e293b; }
+      .site-entry-picker-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: none; align-items: center; justify-content: center; }
+      .site-entry-picker-modal.active { display: flex; }
+      .site-entry-picker-modal .modal-content { background: var(--card, #fff); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-md); max-width: 560px; max-height: 80vh; width: 100%; display: flex; flex-direction: column; }
+      .site-entry-picker-modal .picker-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+      .site-entry-picker-modal .picker-toolbar input[type="text"] { flex: 1; min-width: 140px; }
+      .site-entry-picker-modal .modal-body { overflow-y: auto; max-height: 360px; margin: 8px 0; }
+      .site-entry-picker-modal .picker-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+      .site-entry-picker-modal .picker-row:last-child { border-bottom: none; }
+      .site-entry-picker-modal .picker-row.hidden { display: none; }
+      .site-entry-picker-modal .picker-row label { flex: 1; cursor: pointer; min-width: 0; }
+      .site-entry-picker-modal .picker-row .url-cell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .site-entry-picker-modal .modal-footer { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+    </style>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/ui-core.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <h1><i data-lucide="database-zap" style="vertical-align: middle; margin-right: 8px;"></i>信息资源库管理</h1>
+        <p>信息源库（channels/items）、URL 资源池、采集资源统一管理，贯穿总库/子项目库二分。</p>
+        <div class="toolbar" style="margin-top: 12px;">
+          <label for="projectSelect">项目</label>
+          <select id="projectSelect"></select>
+        </div>
+      </section>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="source-library">信息源库</div>
+        <div class="tab" data-tab="urls">URL 资源池</div>
+        <div class="tab" data-tab="site-entries">站点入口</div>
+        <div class="tab" data-tab="capture">捕获配置</div>
+        <div class="tab" data-tab="ingest-config">采集配置</div>
+        <div class="tab" data-tab="news">采集资源</div>
+      </div>
+
+      <section class="tab-panel active" id="panel-source-library">
+        <div class="card" style="margin-bottom: 12px;">
+          <div class="toolbar toolbar-split">
+            <div class="toolbar-group">
+              <label for="scopeSource">视图</label>
+              <select id="scopeSource">
+                <option value="effective">effective（合并后）</option>
+                <option value="shared">shared（全局）</option>
+                <option value="project">project（项目私有）</option>
+              </select>
+            </div>
+            <div class="toolbar-actions">
+              <button id="btnRefreshSource"><i data-lucide="refresh-cw"></i>刷新</button>
+            </div>
+          </div>
+          <p class="muted" style="margin-top: 8px;">执行来源项、同步共享库请到 <a href="index.html#ingest">采集快捷入口</a>。</p>
+          <div id="sourceStatus" class="status">等待操作</div>
+        </div>
+
+        <section class="split" style="margin-bottom: 12px;">
+          <div class="card">
+            <h2 class="section-title">通道列表（channels）</h2>
+            <div id="channelsWrap" class="table-wrap"></div>
+          </div>
+          <div class="card">
+            <h2 class="section-title">来源项</h2>
+            <p class="muted" style="margin-bottom: 8px;">每个 item 即一个符号聚类，索引其下的 URL。编辑主要修改 item 内索引的 URL（params.urls 或 site_entries）。</p>
+            <div id="itemsBySymbolWrap" class="table-wrap" style="max-height: 360px; overflow: auto;"></div>
+          </div>
+        </section>
+        <section class="grid" style="margin-bottom: 12px;">
+          <div class="card">
+            <h2 class="section-title">通道聚类（channels 按 provider）</h2>
+            <p class="muted" style="margin-bottom: 8px;">按工具类型（provider）分组，便于 handler 管理。</p>
+            <div class="section-toolbar">
+              <div class="spacer"></div>
+              <button id="btnLoadChannelCluster" class="secondary"><i data-lucide="git-branch"></i>加载</button>
+            </div>
+            <div id="channelClusterWrap" class="table-wrap" style="margin-top: 12px; max-height: 240px; overflow: auto;"></div>
+          </div>
+        </section>
+
+        <section class="grid">
+          <div class="card" id="cardItemEdit">
+            <h2 class="section-title">Item 编辑</h2>
+            <p class="muted" style="margin-bottom: 8px;">新增或覆盖 item。url_pool 用 params.urls；其他 channel 用 site_entries。</p>
+            <div class="row">
+              <div style="flex: 1 1 220px;"><label for="itemKey">item_key</label><input id="itemKey" placeholder="例如：reddit.lottery.project_a" /></div>
+              <div style="flex: 1 1 220px;"><label for="itemName">名称</label><input id="itemName" placeholder="例如：项目A Reddit 采集" /></div>
+            </div>
+            <div class="row">
+              <div style="flex: 1 1 220px;"><label for="channelKey">channel_key</label><select id="channelKey"></select></div>
+              <div style="flex: 1 1 220px;"><label for="extendsItemKey">extends_item_key（可选）</label><input id="extendsItemKey" placeholder="例如：reddit.lottery" /></div>
+            </div>
+            <div class="row">
+              <div style="flex: 1 1 220px;"><label for="tags">tags（逗号分隔）</label><input id="tags" placeholder="social,project-a" /></div>
+            </div>
+            <div style="margin-top: 8px;"><label for="description">描述</label><input id="description" placeholder="用途说明" /></div>
+            <div id="itemUrlSection" style="margin-top: 8px; display: none;">
+              <label for="itemUrls">URL 列表（params.urls，url_pool 用）</label>
+              <div class="row" style="gap: 8px; align-items: flex-end;">
+                <textarea id="itemUrls" class="mono" rows="4" placeholder="https://example.com/&#10;https://example.com/news/..." style="flex: 1; min-width: 0;"></textarea>
+                <button type="button" id="btnOpenSiteEntryPickerForUrls" class="secondary" title="从站点入口列表勾选"><i data-lucide="list-checks"></i>打开列表勾选</button>
+              </div>
+            </div>
+            <div id="itemSiteEntriesSection" style="margin-top: 8px; display: none;">
+              <label for="itemSiteEntries">site_entries（可选）</label>
+              <div class="row" style="gap: 8px; align-items: flex-end;">
+                <textarea id="itemSiteEntries" class="mono" rows="4" placeholder="https://example.com/&#10;https://example.com/rss.xml" style="flex: 1; min-width: 0;"></textarea>
+                <button type="button" id="btnOpenSiteEntryPicker" class="secondary" title="从站点入口列表勾选"><i data-lucide="list-checks"></i>打开列表勾选</button>
+              </div>
+            </div>
+            <div id="channelSourceFields" style="margin-top: 8px; display: none;">
+              <div id="fieldReddit" class="channel-field" style="display: none;">
+                <label for="paramSubreddits">subreddits（逗号分隔）</label>
+                <input id="paramSubreddits" placeholder="Lottery, gambling, lottery_results" />
+              </div>
+              <div id="fieldGoogleNews" class="channel-field" style="display: none;">
+                <label for="paramKeywords">keywords（可选，逗号分隔）</label>
+                <input id="paramKeywords" placeholder="lottery, regulation, market" />
+              </div>
+              <div id="fieldPolicy" class="channel-field" style="display: none;">
+                <label for="paramState">state</label>
+                <input id="paramState" placeholder="CA, NY, TX" />
+              </div>
+              <div id="fieldMarket" class="channel-field" style="display: none;">
+                <p class="muted">来源由采集页 query_terms 提供，此处无需填写。</p>
+              </div>
+            </div>
+            <div class="action-row">
+              <label><input type="checkbox" id="enabled" checked /> 启用</label>
+              <button id="btnUpsertItem" class="btn-primary-action"><i data-lucide="save"></i>保存到项目库</button>
+            </div>
+            <div id="upsertStatus" class="status" style="margin-top: 10px;">等待操作</div>
+          </div>
+        </section>
+      </section>
+
+      <section class="tab-panel" id="panel-urls">
+        <div class="card" style="margin-bottom: 12px;">
+          <div class="toolbar">
+            <label for="scopeUrls">视图</label>
+            <select id="scopeUrls">
+              <option value="effective">effective（合并）</option>
+              <option value="shared">shared（总库）</option>
+              <option value="project">project（项目）</option>
+            </select>
+            <label for="sourceFilter">来源</label>
+            <select id="sourceFilter">
+              <option value="">全部</option>
+              <option value="document">document</option>
+              <option value="task">task</option>
+              <option value="discovery">discovery</option>
+              <option value="ingest">ingest</option>
+            </select>
+            <label for="domainFilter">域名</label>
+            <input id="domainFilter" type="text" placeholder="模糊过滤" />
+            <button id="btnRefreshUrls"><i data-lucide="refresh-cw"></i>刷新</button>
+          </div>
+          <div id="urlsStatus" class="status">等待操作</div>
+        </div>
+
+        <div class="card">
+          <h2 class="section-title">URL 列表</h2>
+          <div id="urlsWrap" class="table-wrap"></div>
+          <div class="row" style="margin-top: 12px; justify-content: space-between;">
+            <span class="muted" id="urlsPagination">-</span>
+            <div class="row">
+              <button id="btnPrevPage" class="secondary">上一页</button>
+              <button id="btnNextPage" class="secondary">下一页</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid" style="margin-top: 16px;">
+          <div class="card">
+            <h2 class="section-title">从文档提取</h2>
+            <div class="row">
+              <div style="flex: 1 1 220px;">
+                <label for="extractScope">写入 scope</label>
+                <select id="extractScope">
+                  <option value="project">project</option>
+                  <option value="shared">shared</option>
+                </select>
+              </div>
+              <div style="flex: 1 1 220px;">
+                <label for="extractLimit">limit</label>
+                <input id="extractLimit" type="number" value="500" min="1" max="5000" />
+              </div>
+            </div>
+            <div class="row">
+              <label><input type="checkbox" id="extractAsync" /> 异步</label>
+              <button id="btnExtractDocs"><i data-lucide="file-search"></i>从文档提取</button>
+            </div>
+            <div id="extractStatus" class="status" style="margin-top: 8px;">-</div>
+          </div>
+
+          <div class="card">
+            <h2 class="section-title">从任务回溯提取</h2>
+            <div class="row">
+              <div style="flex: 1 1 220px;">
+                <label for="tasksScope">写入 scope</label>
+                <select id="tasksScope">
+                  <option value="project">project</option>
+                  <option value="shared">shared</option>
+                </select>
+              </div>
+              <div style="flex: 1 1 220px;">
+                <label for="tasksJobType">job_type</label>
+                <input id="tasksJobType" placeholder="如 discovery_search" />
+              </div>
+            </div>
+            <div class="row">
+              <div style="flex: 1 1 220px;">
+                <label for="tasksLimit">limit</label>
+                <input id="tasksLimit" type="number" value="100" min="1" max="500" />
+              </div>
+              <div style="flex: 1 1 220px;">
+                <label for="tasksSince">since (ISO)</label>
+                <input id="tasksSince" placeholder="可选" />
+              </div>
+            </div>
+            <div class="row">
+              <label><input type="checkbox" id="tasksAsync" /> 异步</label>
+              <button id="btnExtractTasks"><i data-lucide="history"></i>从任务提取</button>
+            </div>
+            <div id="tasksStatus" class="status" style="margin-top: 8px;">-</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-site-entries">
+        <div class="card" style="margin-bottom: 12px;">
+          <div class="toolbar-stack">
+            <div class="toolbar toolbar-split">
+              <div class="toolbar-group">
+                <label for="scopeSiteEntries">视图</label>
+                <select id="scopeSiteEntries">
+                  <option value="effective">effective（合并）</option>
+                  <option value="shared">shared（总库）</option>
+                  <option value="project">project（项目）</option>
+                </select>
+                <label for="siteEntriesType">类型</label>
+                <select id="siteEntriesType">
+                  <option value="">全部</option>
+                  <option value="domain_root">domain_root</option>
+                  <option value="rss">rss</option>
+                  <option value="sitemap">sitemap</option>
+                  <option value="search_template">search_template</option>
+                  <option value="official_api">official_api</option>
+                </select>
+                <label for="siteEntriesDomainFilter">域名</label>
+                <input id="siteEntriesDomainFilter" type="text" placeholder="模糊过滤" />
+              </div>
+              <div class="toolbar-actions">
+                <button id="btnRefreshSiteEntries"><i data-lucide="refresh-cw"></i>刷新</button>
+              </div>
+            </div>
+            <div class="toolbar">
+              <label><input type="checkbox" id="discoverRunAutoClassify" /> 对 domain_root 做二次推断</label>
+              <label><input type="checkbox" id="discoverUseLlm" title="需配置 LLM API key" /> 启用 LLM</label>
+              <div class="toolbar-actions">
+                <button id="btnDiscoverSiteEntriesDry" class="secondary"><i data-lucide="wand-2"></i>从 URL 池探测（dry_run）</button>
+                <button id="btnDiscoverSiteEntriesWrite" class="btn-primary-action"><i data-lucide="wand-2"></i>从 URL 池探测并写入</button>
+              </div>
+            </div>
+            <div class="toolbar toolbar-split">
+              <div class="toolbar-group">
+                <label for="bindSiteEntriesItemSelect">绑定到 item_key</label>
+                <select id="bindSiteEntriesItemSelect">
+                  <option value="">请选择 item</option>
+                </select>
+                <input id="bindSiteEntriesItemKey" placeholder="或手动输入 item_key" />
+                <label><input type="checkbox" id="bindSiteEntriesReplace" /> 覆盖已有 site_entries</label>
+              </div>
+              <div class="toolbar-actions">
+                <button id="btnBindSiteEntriesToItem"><i data-lucide="link-2"></i>将勾选入口写入 Item</button>
+              </div>
+            </div>
+          </div>
+          <div id="siteEntriesStatus" class="status">等待操作</div>
+        </div>
+
+        <div class="card">
+          <h2 class="section-title">站点入口列表</h2>
+          <div id="siteEntriesWrap" class="table-wrap"></div>
+          <div class="row" style="margin-top: 12px; justify-content: space-between;">
+            <span class="muted" id="siteEntriesPagination">-</span>
+            <div class="row">
+              <button id="btnPrevSiteEntriesPage" class="secondary">上一页</button>
+              <button id="btnNextSiteEntriesPage" class="secondary">下一页</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 16px;">
+          <h2 class="section-title">新增/更新站点入口</h2>
+          <p class="muted" style="margin-bottom: 8px;">最小管理单元为可检索入口：domain_root / RSS / sitemap / 站内搜索模板 / 官方 API。</p>
+          <div class="row">
+            <div style="flex: 1 1 280px;">
+              <label for="siteEntryUrl">site_url</label>
+              <div class="row" style="gap: 8px; align-items: flex-end;">
+                <input id="siteEntryUrl" placeholder="https://example.com/ 或 RSS/sitemap URL" style="flex: 1; min-width: 0;" />
+                <label title="启用时调用 LLM 推断（需配置 API key）"><input type="checkbox" id="siteEntryUseLlm" /> LLM</label>
+                <button type="button" id="btnRecommendSiteEntry" class="secondary" title="根据 URL 规则推荐 entry_type 与 channel"><i data-lucide="sparkles"></i>采纳建议</button>
+              </div>
+            </div>
+            <div style="flex: 1 1 180px;">
+              <label for="siteEntryEntryType">entry_type</label>
+              <select id="siteEntryEntryType">
+                <option value="domain_root">domain_root</option>
+                <option value="rss">rss</option>
+                <option value="sitemap">sitemap</option>
+                <option value="search_template">search_template</option>
+                <option value="official_api">official_api</option>
+              </select>
+            </div>
+            <div style="flex: 1 1 180px;">
+              <label for="siteEntryEnabled">启用</label>
+              <select id="siteEntryEnabled">
+                <option value="true">是</option>
+                <option value="false">否</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" style="margin-top: 8px;">
+            <div style="flex: 1 1 220px;">
+              <label for="siteEntryName">name（可选）</label>
+              <input id="siteEntryName" placeholder="展示名称" />
+            </div>
+            <div style="flex: 1 1 220px;">
+              <label for="siteEntryDomain">domain（可选）</label>
+              <input id="siteEntryDomain" placeholder="example.com（留空自动解析）" />
+            </div>
+          </div>
+          <div style="margin-top: 8px;">
+            <label for="siteEntryTemplate">template（可选）</label>
+            <input id="siteEntryTemplate" placeholder="search_template 用，如 https://example.com/search?q={{q}}&page={{page}}" />
+          </div>
+          <div style="margin-top: 8px;">
+            <label for="siteEntryTags">tags（逗号分隔，可选）</label>
+            <input id="siteEntryTags" placeholder="rss,finance,official" />
+          </div>
+          <div class="action-row">
+            <label for="siteEntryScope">写入 scope</label>
+            <select id="siteEntryScope">
+              <option value="project">project</option>
+              <option value="shared">shared</option>
+            </select>
+            <button id="btnSaveSiteEntry" class="btn-primary-action"><i data-lucide="save"></i>保存</button>
+            <button id="btnClearSiteEntry" class="secondary">清空</button>
+          </div>
+          <div id="siteEntryFormStatus" class="status" style="margin-top: 8px;">-</div>
+        </div>
+
+        <div class="card" style="margin-top: 16px;">
+          <h2 class="section-title">按 Item 统一搜索（MVP）</h2>
+          <p class="muted" style="margin-bottom: 8px;">读取 item.params.site_entries，对每个站点入口做 RSS/sitemap/search_template 检索，输出候选 URL（可写回 URL 资源池）。</p>
+          <div class="row">
+            <div style="flex: 1 1 260px;">
+              <label for="unifiedSearchItemSelect">item_key</label>
+              <select id="unifiedSearchItemSelect">
+                <option value="">请选择 item</option>
+              </select>
+              <input id="unifiedSearchItemKey" placeholder="或手动输入 item_key" style="margin-top: 6px;" />
+            </div>
+            <div style="flex: 1 1 180px;">
+              <label for="unifiedSearchMax">max_candidates</label>
+              <input id="unifiedSearchMax" type="number" min="1" max="2000" value="200" />
+            </div>
+            <div style="flex: 1 1 180px;">
+              <label for="unifiedSearchTimeout">probe_timeout（秒）</label>
+              <input id="unifiedSearchTimeout" type="number" min="1" max="60" value="10" />
+            </div>
+          </div>
+          <div style="margin-top: 8px;">
+            <label for="unifiedSearchTerms">query_terms（每行一个，可空）</label>
+            <textarea id="unifiedSearchTerms" class="mono" rows="4" placeholder="openai&#10;policy"></textarea>
+          </div>
+          <div class="action-row">
+            <label><input type="checkbox" id="unifiedSearchWrite" /> 写回 URL 资源池</label>
+            <label for="unifiedSearchPoolScope">写入 scope</label>
+            <select id="unifiedSearchPoolScope">
+              <option value="project">project</option>
+              <option value="shared">shared</option>
+            </select>
+            <label><input type="checkbox" id="unifiedSearchSameDomainOnly" /> 仅预览同域结果</label>
+            <label for="unifiedSearchPreviewLimit">预览条数</label>
+            <input id="unifiedSearchPreviewLimit" type="number" min="1" max="500" value="50" style="width: 100px;" />
+            <button id="btnUnifiedSearch" class="btn-primary-action"><i data-lucide="search"></i>运行统一搜索</button>
+          </div>
+          <div id="unifiedSearchStatus" class="status" style="margin-top: 8px;">-</div>
+          <div class="pre" id="unifiedSearchOutput" style="margin-top: 10px; display:none;"></div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-ingest-config">
+        <div class="card" style="margin-bottom: 12px;">
+          <h2 class="section-title">论坛结构（social_forum）</h2>
+          <p class="muted">平台、基础子论坛、是否启用子论坛发现。具体采集参数在采集页设置。</p>
+          <div class="row" style="margin-top: 12px;">
+            <div style="flex: 1 1 280px;">
+              <label>平台（platforms）</label>
+              <div class="chips" id="ingestPlatformChips"></div>
+            </div>
+          </div>
+          <div style="margin-top: 12px;">
+            <label for="ingestBaseSubreddits">base_subreddits（每行一个）</label>
+            <textarea id="ingestBaseSubreddits" class="mono" rows="4" placeholder="Lottery&#10;gambling&#10;lottery_results"></textarea>
+          </div>
+          <div style="margin-top: 10px;">
+            <label><input type="checkbox" id="ingestEnableSubredditDiscovery" checked /> enable_subreddit_discovery</label>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 12px;">
+          <h2 class="section-title">URL→Channel 映射（url_channel_routing）</h2>
+          <p class="muted">每行一条规则：pattern,channel_key[,path_suffix:.xml][,path_contains:sitemap]。示例：reddit.com,reddit；default,generic_web.rss,path_suffix:.xml；default,generic_web.sitemap,path_contains:sitemap</p>
+          <div style="margin-top: 12px;">
+            <label for="ingestUrlChannelRules">规则列表</label>
+            <textarea id="ingestUrlChannelRules" class="mono" rows="6" placeholder="reddit.com,reddit&#10;default,generic_web.rss,path_suffix:.xml&#10;default,generic_web.sitemap,path_contains:sitemap&#10;default,url_pool"></textarea>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 12px;">
+          <h2 class="section-title">站点入口探测策略（site_entry_discovery_policy）</h2>
+          <p class="muted">控制从 URL 资源池自动发现站点入口（domain_root/rss/sitemap/link alternate）的参数。</p>
+          <div class="row" style="margin-top: 12px;">
+            <div style="flex: 1 1 220px;">
+              <label for="siteEntryDiscoveryLimitDomains">limit_domains</label>
+              <input id="siteEntryDiscoveryLimitDomains" type="number" min="1" max="500" value="50" />
+            </div>
+            <div style="flex: 1 1 220px;">
+              <label for="siteEntryDiscoveryProbeTimeout">probe_timeout（秒）</label>
+              <input id="siteEntryDiscoveryProbeTimeout" type="number" min="1" max="60" value="8" />
+            </div>
+            <div style="flex: 1 1 220px;">
+              <label><input type="checkbox" id="siteEntryDiscoveryIncludeAlternate" checked /> include_link_alternate</label>
+            </div>
+          </div>
+          <div class="grid" style="margin-top: 12px;">
+            <div>
+              <label for="siteEntryDiscoveryAllowDomains">allow_domains（每行一个，可选）</label>
+              <textarea id="siteEntryDiscoveryAllowDomains" class="mono" rows="4" placeholder="example.com"></textarea>
+            </div>
+            <div>
+              <label for="siteEntryDiscoveryDenyDomains">deny_domains（每行一个，可选）</label>
+              <textarea id="siteEntryDiscoveryDenyDomains" class="mono" rows="4" placeholder="bad.example.com"></textarea>
+            </div>
+          </div>
+          <div class="grid" style="margin-top: 12px;">
+            <div>
+              <label for="siteEntryDiscoverySitemapPaths">sitemap_paths（每行一个，以 / 开头，可选）</label>
+              <textarea id="siteEntryDiscoverySitemapPaths" class="mono" rows="4" placeholder="/sitemap.xml&#10;/sitemap_index.xml"></textarea>
+            </div>
+            <div>
+              <label for="siteEntryDiscoveryRssPaths">rss_paths（每行一个，以 / 开头，可选）</label>
+              <textarea id="siteEntryDiscoveryRssPaths" class="mono" rows="4" placeholder="/rss.xml&#10;/feed"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 12px;">
+          <h2 class="section-title">采集事件与调度</h2>
+          <p class="muted">占位，后续实现。</p>
+        </div>
+
+        <div class="action-row">
+          <button id="btnSaveIngestConfig" class="btn-primary-action"><i data-lucide="save"></i>保存采集配置</button>
+        </div>
+        <div id="ingestConfigStatus" class="status" style="margin-top: 8px;">-</div>
+      </section>
+
+      <section class="tab-panel" id="panel-capture">
+        <div class="card">
+          <h2 class="section-title">自动捕获配置</h2>
+          <p class="muted">启用后，discovery/ingest 执行时产生的 URL 将自动写入资源池。</p>
+          <div class="row" style="margin-top: 12px;">
+            <div style="flex: 1 1 220px;">
+              <label for="captureScope">写入 scope</label>
+              <select id="captureScope">
+                <option value="project">project</option>
+                <option value="shared">shared</option>
+              </select>
+            </div>
+            <div style="flex: 1 1 220px;">
+              <label for="captureEnabled">启用</label>
+              <select id="captureEnabled">
+                <option value="true">是</option>
+                <option value="false">否</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top: 12px;">
+            <label>job_types（勾选启用）</label>
+            <div class="chips" id="jobTypeChips"></div>
+          </div>
+          <div class="action-row">
+            <button id="btnSaveCapture" class="btn-primary-action"><i data-lucide="save"></i>保存配置</button>
+          </div>
+          <div id="captureStatus" class="status" style="margin-top: 8px;">-</div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-news">
+        <div class="card" style="margin-bottom: 12px;">
+          <div class="toolbar">
+            <label for="scopeNews">视图</label>
+            <select id="scopeNews">
+              <option value="effective">effective（合并）</option>
+              <option value="shared">shared（总库）</option>
+              <option value="project">project（项目）</option>
+            </select>
+            <button id="btnRefreshNews"><i data-lucide="refresh-cw"></i>刷新</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2 class="section-title">采集资源列表</h2>
+          <p class="muted">当前项目可用的新闻采集源，可通过采集入口执行。</p>
+          <div id="newsWrap" class="table-wrap"></div>
+        </div>
+      </section>
+
+      <div id="siteEntryPickerModal" class="site-entry-picker-modal">
+        <div class="modal-content">
+          <h3 class="section-title">选择 site_entries</h3>
+          <p class="muted" style="margin: 0 0 8px 0;">勾选要加入 item 的站点入口。搜索后全选/不选仅作用于当前显示行。已勾选置顶。</p>
+          <div class="picker-toolbar">
+            <input type="text" id="siteEntryPickerSearch" placeholder="搜索 URL、域名、类型..." />
+            <button type="button" id="siteEntryPickerSelectVisible" class="secondary">全选</button>
+            <button type="button" id="siteEntryPickerDeselectAll" class="secondary">不选</button>
+          </div>
+          <div id="siteEntryPickerBody" class="modal-body"></div>
+          <div class="modal-footer">
+            <span class="muted" id="siteEntryPickerCount">0 条</span>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" id="siteEntryPickerCancel" class="secondary">取消</button>
+              <button type="button" id="siteEntryPickerConfirm">确定</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const { qs, setLoading, setError, setSuccess, setEmpty, escapeHtml } = window.UICore;
+
+      const JOB_TYPES = [
+        "discovery_search", "discovery_smart", "discovery_deep",
+        "google_news", "reddit_discussions", "calottery_news", "calottery_retailer_news",
+        "policy_regulation", "weekly_market_reports", "monthly_financial_reports",
+        "ingest_policy", "market_info",
+      ];
+
+      const INGEST_PLATFORMS = ["reddit"];
+
+      let urlPage = 1;
+      const urlPageSize = 20;
+      let siteEntriesPage = 1;
+      const siteEntriesPageSize = 20;
+      let PROJECTS = [];
+      let CACHED_CHANNELS = [];
+      let CACHED_ITEMS = [];
+      let CACHED_SITE_ENTRIES = [];
+
+      function getProjectKey() {
+        const sel = qs("projectSelect");
+        if (sel && sel.value) return sel.value;
+        return window.MarketApp?.getProjectKey?.() || '';
+      }
+
+      async function loadProjects() {
+        try {
+          const data = await window.MarketApp.api.get("/api/v1/projects");
+          const items = Array.isArray(data?.items) ? data.items.filter((x) => x.enabled !== false) : [];
+          PROJECTS = items;
+          const select = qs("projectSelect");
+          if (!select) return;
+          select.innerHTML = items.map((p) =>
+            `<option value="${escapeHtml(p.project_key)}">${escapeHtml(p.name)} (${escapeHtml(p.project_key)})</option>`
+          ).join("");
+          const key = window.MarketApp?.getProjectKey?.() || "";
+          if (items.some((x) => x.project_key === key)) {
+            select.value = key;
+          } else if (items[0]) {
+            select.value = items[0].project_key;
+          }
+        } catch (err) {
+          console.warn("loadProjects failed", err);
+        }
+      }
+
+      function parseJSONInput(id, fallback = {}) {
+        const raw = String(qs(id).value || "").trim();
+        if (!raw) return fallback;
+        try { return JSON.parse(raw); } catch (err) { throw new Error(`${id} 不是合法 JSON: ${err.message || err}`); }
+      }
+
+      let _lastChannelKeys = null;
+      function renderChannelSelect() {
+        const select = qs("channelKey");
+        if (!select) return;
+        const keys = CACHED_CHANNELS.map((c) => c.channel_key || "").join("\0");
+        if (_lastChannelKeys !== null && keys === _lastChannelKeys) return;
+        _lastChannelKeys = keys;
+        const preservedValue = String(select.value || "").trim();
+        const options = CACHED_CHANNELS.map((c) => `<option value="${escapeHtml(c.channel_key)}">${escapeHtml(c.channel_key)} [${escapeHtml(c.scope || "-")}]</option>`).join("");
+        select.innerHTML = options || '<option value="">无可用通道</option>';
+        if (preservedValue && CACHED_CHANNELS.some((c) => (c.channel_key || "") === preservedValue)) {
+          select.value = preservedValue;
+        }
+        syncChannelSourceFields();
+      }
+
+      function renderChannelsTable(items) {
+        if (!items.length) { setEmpty("channelsWrap", "暂无通道"); return; }
+        const rows = items.map((c) => `<tr><td><code>${escapeHtml(c.channel_key)}</code></td><td>${escapeHtml(c.name || "-")}</td><td>${escapeHtml(c.kind || "-")}</td><td>${escapeHtml(c.provider || "-")}</td><td>${escapeHtml(c.scope || "-")}</td><td>${c.enabled ? '<span class="badge success">启用</span>' : '<span class="badge warning">禁用</span>'}</td></tr>`).join("");
+        qs("channelsWrap").innerHTML = `<table><thead><tr><th>channel_key</th><th>名称</th><th>kind</th><th>provider</th><th>scope</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }
+
+      function getChannelType(channelKey) {
+        const k = (channelKey || "").toLowerCase();
+        if (k.includes("reddit")) return "reddit";
+        if (k.includes("google")) return "google_news";
+        if (k.includes("policy")) return "policy";
+        if (k.includes("market")) return "market";
+        return null;
+      }
+
+      function syncChannelSourceFields() {
+        const channelKey = String(qs("channelKey").value || "").trim();
+        const type = getChannelType(channelKey);
+        const isUrlPool = channelKey === "url_pool";
+        qs("itemUrlSection").style.display = isUrlPool ? "block" : "none";
+        qs("itemSiteEntriesSection").style.display = isUrlPool ? "none" : "block";
+        const wrap = qs("channelSourceFields");
+        wrap.style.display = type ? "block" : "none";
+        qs("fieldReddit").style.display = type === "reddit" ? "block" : "none";
+        qs("fieldGoogleNews").style.display = type === "google_news" ? "block" : "none";
+        qs("fieldPolicy").style.display = type === "policy" ? "block" : "none";
+        qs("fieldMarket").style.display = type === "market" ? "block" : "none";
+      }
+
+      function fillItemToForm(item) {
+        qs("itemKey").value = item.item_key || "";
+        qs("itemName").value = item.name || "";
+        qs("channelKey").value = item.channel_key || "";
+        qs("extendsItemKey").value = item.extends_item_key || "";
+        qs("description").value = item.description || "";
+        qs("tags").value = Array.isArray(item.tags) ? item.tags.join(",") : "";
+        qs("enabled").checked = !!item.enabled;
+        const p = item.params || {};
+        qs("paramSubreddits").value = Array.isArray(p.subreddits) ? p.subreddits.join(", ") : (Array.isArray(p.base_subreddits) ? p.base_subreddits.join(", ") : (p.subreddit || ""));
+        qs("paramKeywords").value = Array.isArray(p.keywords) ? p.keywords.join(", ") : "";
+        qs("paramState").value = p.state || "";
+        qs("itemUrls").value = Array.isArray(p.urls) ? p.urls.join("\n") : "";
+        qs("itemSiteEntries").value = Array.isArray(p.site_entries) ? p.site_entries.join("\n") : "";
+        syncChannelSourceFields();
+      }
+
+      let PICKER_SITE_ENTRIES = [];
+
+      function getCurrentSiteEntriesFromForm() {
+        const raw = String(qs("itemSiteEntries").value || "").trim();
+        return raw.split(/\r?\n/).map((s) => s.trim()).filter((s) => s && s.startsWith("http"));
+      }
+
+      function getCurrentUrlsFromForm() {
+        const raw = String(qs("itemUrls").value || "").trim();
+        return raw.split(/\r?\n/).map((s) => s.trim()).filter((s) => s && s.startsWith("http"));
+      }
+
+      function isPickerForUrlPool() {
+        return String(qs("channelKey").value || "").trim() === "url_pool";
+      }
+
+      function normalizeUrlForCompare(u) {
+        if (!u || typeof u !== "string") return "";
+        u = u.trim();
+        if (!u.startsWith("http")) return u;
+        try {
+          const parsed = new URL(u);
+          const path = (parsed.pathname || "/").replace(/\/+$/, "") || "/";
+          let result = parsed.origin + path + (parsed.search || "");
+          if (result.endsWith("/") && result.length > 10) result = result.slice(0, -1);
+          return result;
+        } catch (_) {
+          return u.endsWith("/") && u.length > 8 ? u.slice(0, -1) : u;
+        }
+      }
+
+      function collectUrlsForPicker(rawUrls) {
+        const set = new Set();
+        (Array.isArray(rawUrls) ? rawUrls : []).forEach((u) => {
+          const s = (typeof u === "string" ? u : (u && (u.url || u.site_url || String(u))) || "").trim();
+          if (s && s.startsWith("http")) {
+            set.add(normalizeUrlForCompare(s));
+            set.add(s);
+          }
+        });
+        return set;
+      }
+
+      function renderSiteEntryPickerRows(items, currentUrls, searchTerm) {
+        const term = String(searchTerm || "").trim().toLowerCase();
+        const rows = items.map((e) => {
+          const url = String(e.site_url || e.url || "").trim();
+          const domain = String(e.domain || "").toLowerCase();
+          const entryType = String(e.entry_type || "").toLowerCase();
+          const searchable = `${url} ${domain} ${entryType}`.toLowerCase();
+          const match = !term || searchable.includes(term);
+          const norm = normalizeUrlForCompare(url);
+          const checked = currentUrls.has(norm) || currentUrls.has(url);
+          const label = escapeHtml(url) + (e.entry_type ? ` <span class="muted">(${escapeHtml(e.entry_type)})</span>` : "");
+          return { url, searchable, match, checked, label };
+        });
+        rows.sort((a, b) => {
+          if (a.checked !== b.checked) return a.checked ? -1 : 1;
+          return 0;
+        });
+        return rows.map((r) => {
+          const hidden = r.match ? "" : " hidden";
+          const cb = r.checked ? " checked" : "";
+          return `<div class="picker-row" data-url="${escapeHtml(r.url)}" data-search="${escapeHtml(r.searchable)}"${hidden}><label><input type="checkbox" class="site-entry-picker-cb" data-url="${escapeHtml(r.url)}"${cb} /> <span class="url-cell">${r.label}</span></label></div>`;
+        }).join("");
+      }
+
+      function updateSiteEntryPickerCount() {
+        const body = qs("siteEntryPickerBody");
+        const visible = body.querySelectorAll(".picker-row:not(.hidden)");
+        const checked = body.querySelectorAll(".picker-row:not(.hidden) .site-entry-picker-cb:checked");
+        qs("siteEntryPickerCount").textContent = `已选 ${checked.length} / ${visible.length} 条`;
+      }
+
+      function filterSiteEntryPicker(searchTerm) {
+        const term = String(searchTerm || "").trim().toLowerCase();
+        qs("siteEntryPickerBody").querySelectorAll(".picker-row").forEach((row) => {
+          const searchable = (row.dataset.search || "").toLowerCase();
+          row.classList.toggle("hidden", term && !searchable.includes(term));
+        });
+        sortSiteEntryPickerRows();
+        updateSiteEntryPickerCount();
+      }
+
+      function sortSiteEntryPickerRows() {
+        const body = qs("siteEntryPickerBody");
+        const rows = Array.from(body.querySelectorAll(".picker-row"));
+        rows.sort((a, b) => {
+          if (a.classList.contains("hidden") !== b.classList.contains("hidden")) return a.classList.contains("hidden") ? 1 : -1;
+          const aChecked = a.querySelector(".site-entry-picker-cb")?.checked;
+          const bChecked = b.querySelector(".site-entry-picker-cb")?.checked;
+          if (aChecked !== bChecked) return aChecked ? -1 : 1;
+          return 0;
+        });
+        rows.forEach((r) => body.appendChild(r));
+      }
+
+      let _pickerScrollY = 0;
+
+      async function openSiteEntryPicker() {
+        const pk = getProjectKey();
+        if (!pk) { setError("upsertStatus", "请先选择项目"); return; }
+        _pickerScrollY = window.scrollY;
+        document.body.style.overflow = "hidden";
+        const modal = qs("siteEntryPickerModal");
+        const body = qs("siteEntryPickerBody");
+        body.innerHTML = "<p class=\"muted\">加载中...</p>";
+        qs("siteEntryPickerSearch").value = "";
+        modal.classList.add("active");
+        const itemKey = String(qs("itemKey")?.value || "").trim();
+        const it = CACHED_ITEMS.find((x) => x.item_key === itemKey);
+        let rawUrls;
+        if (it?.params) {
+          const p = it.params;
+          rawUrls = isPickerForUrlPool()
+            ? (Array.isArray(p.urls) ? p.urls : [])
+            : (Array.isArray(p.site_entries) ? p.site_entries : []);
+        } else {
+          rawUrls = isPickerForUrlPool() ? getCurrentUrlsFromForm() : getCurrentSiteEntriesFromForm();
+        }
+        const currentUrls = collectUrlsForPicker(rawUrls);
+        try {
+          const params = new URLSearchParams({ scope: "effective", page: 1, page_size: 100, project_key: pk });
+          const envelope = await window.MarketApp.api.getFull(`/api/v1/resource_pool/site_entries?${params}`);
+          const data = envelope?.data;
+          const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+          PICKER_SITE_ENTRIES = items;
+          if (!items.length) {
+            body.innerHTML = "<p class=\"muted\">暂无站点入口，请先在「站点入口」Tab 中新增。</p>";
+            qs("siteEntryPickerCount").textContent = "0 条";
+          } else {
+            body.innerHTML = renderSiteEntryPickerRows(items, currentUrls, "");
+            filterSiteEntryPicker("");
+          }
+        } catch (err) {
+          body.innerHTML = `<p class="muted">加载失败: ${escapeHtml(err.message || err)}</p>`;
+          qs("siteEntryPickerCount").textContent = "";
+        }
+      }
+
+      function closeSiteEntryPicker() {
+        qs("siteEntryPickerModal").classList.remove("active");
+        document.body.style.overflow = "";
+        window.scrollTo(0, _pickerScrollY);
+      }
+
+      function confirmSiteEntryPicker() {
+        const selected = Array.from(qs("siteEntryPickerBody").querySelectorAll(".site-entry-picker-cb:checked"))
+          .map((el) => el.dataset.url)
+          .filter((u) => u && u.startsWith("http"));
+        if (isPickerForUrlPool()) {
+          qs("itemUrls").value = selected.join("\n");
+        } else {
+          qs("itemSiteEntries").value = selected.join("\n");
+        }
+        closeSiteEntryPicker();
+      }
+
+      function getItemUrlCount(it) {
+        const p = it.params || {};
+        const urls = Array.isArray(p.urls) ? p.urls.length : 0;
+        const entries = Array.isArray(p.site_entries) ? p.site_entries.length : 0;
+        return urls || entries;
+      }
+
+      function renderItemsList(items) {
+        const wrap = qs("itemsBySymbolWrap");
+        if (!wrap) return;
+        if (!items || !items.length) { setEmpty("itemsBySymbolWrap", "暂无来源项"); return; }
+        const rows = items.map((it) => {
+          const k = escapeHtml(it.item_key);
+          const urlCount = getItemUrlCount(it);
+          const urlHint = urlCount > 0 ? `${urlCount} URL` : "-";
+          return `<tr>
+            <td><code>${k}</code></td>
+            <td>${escapeHtml(it.name || "-")}</td>
+            <td><code>${escapeHtml(it.channel_key || "-")}</code></td>
+            <td>${escapeHtml(it.scope || "-")}</td>
+            <td class="muted">${escapeHtml(urlHint)}</td>
+            <td>${it.enabled ? '<span class="badge success">启用</span>' : '<span class="badge warning">禁用</span>'}</td>
+            <td>
+              <div class="inline-actions">
+                <button class="secondary btn-edit-item" data-key="${k}" title="编辑 item 内索引的 URL"><i data-lucide="pencil"></i>编辑</button>
+                <button class="btn-run-item" data-key="${k}"><i data-lucide="play"></i>运行</button>
+              </div>
+            </td>
+          </tr>`;
+        }).join("");
+        wrap.innerHTML = `<table><thead><tr><th>item_key</th><th>名称</th><th>channel</th><th>scope</th><th>URL 数</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`;
+        wrap.querySelectorAll(".btn-edit-item").forEach((b) => b.addEventListener("click", () => selectItem(b.dataset.key)));
+        wrap.querySelectorAll(".btn-run-item").forEach((b) => b.addEventListener("click", () => runItem(b.dataset.key)));
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      function refreshItemSelectors() {
+        const options = CACHED_ITEMS
+          .filter((it) => it && it.enabled !== false)
+          .map((it) => `<option value="${escapeHtml(it.item_key)}">${escapeHtml(it.item_key)}${it.name ? ` - ${escapeHtml(it.name)}` : ""}</option>`)
+          .join("");
+        const bindSelect = qs("bindSiteEntriesItemSelect");
+        const unifiedSelect = qs("unifiedSearchItemSelect");
+        const bindCurrent = String(qs("bindSiteEntriesItemKey")?.value || "");
+        const unifiedCurrent = String(qs("unifiedSearchItemKey")?.value || "");
+        if (bindSelect) {
+          bindSelect.innerHTML = `<option value="">请选择 item</option>${options}`;
+          if (bindCurrent) bindSelect.value = bindCurrent;
+        }
+        if (unifiedSelect) {
+          unifiedSelect.innerHTML = `<option value="">请选择 item</option>${options}`;
+          if (unifiedCurrent) unifiedSelect.value = unifiedCurrent;
+        }
+      }
+
+      async function refreshSourceData() {
+        setLoading("sourceStatus", "加载通道与来源项...");
+        const scope = qs("scopeSource").value || "effective";
+        const pk = getProjectKey();
+        if (!pk) { setError("sourceStatus", "请先选择项目"); return; }
+        const q = `scope=${encodeURIComponent(scope)}&project_key=${encodeURIComponent(pk)}`;
+        try {
+          const [channelsData, itemsData] = await Promise.all([
+            window.MarketApp.api.get(`/api/v1/source_library/channels?${q}`),
+            window.MarketApp.api.get(`/api/v1/source_library/items?${q}`),
+          ]);
+          CACHED_CHANNELS = Array.isArray(channelsData?.items) ? channelsData.items : [];
+          CACHED_ITEMS = Array.isArray(itemsData?.items) ? itemsData.items : [];
+          renderChannelSelect();
+          renderChannelsTable(CACHED_CHANNELS);
+          renderItemsList(CACHED_ITEMS);
+          refreshItemSelectors();
+          setSuccess("sourceStatus", `已加载：channels=${CACHED_CHANNELS.length}, items=${CACHED_ITEMS.length}`);
+        } catch (err) {
+          setError("sourceStatus", "加载失败: " + (err.message || err));
+          setEmpty("channelsWrap", "加载失败");
+          setEmpty("itemsBySymbolWrap", "加载失败");
+        }
+      }
+
+      async function runItem(itemKey) {
+        const pk = getProjectKey();
+        if (!pk) { setError("sourceStatus", "请先选择项目"); return; }
+        setLoading("sourceStatus", `执行 ${itemKey}...`);
+        try {
+          const data = await window.MarketApp.api.post(`/api/v1/ingest/source-library/run`, {
+            item_key: itemKey,
+            project_key: pk,
+            async_mode: false,
+            override_params: {},
+          });
+          const root = data || {};
+          const payload = (root && typeof root === "object" && root.result && typeof root.result === "object")
+            ? root.result
+            : root;
+          const inner = (payload && typeof payload === "object" && payload.result && typeof payload.result === "object")
+            ? payload.result
+            : payload;
+
+          // Prefer collection (Document ingest) metrics; fall back to pool/search style metrics.
+          const inserted = inner?.inserted ?? inner?.inserted_count ?? inner?.written?.inserted ?? "-";
+          const skipped = inner?.skipped ?? inner?.skipped_count ?? inner?.written?.skipped ?? "-";
+          const urls = inner?.urls ?? inner?.url_count ?? inner?.candidates?.length;
+          const labelParts = [`文档新增=${inserted}`, `跳过=${skipped}`];
+          if (urls != null) labelParts.push(`输入URL=${urls}`);
+          setSuccess("sourceStatus", `执行完成（采集口径）: ${labelParts.join("，")}`);
+        } catch (err) {
+          setError("sourceStatus", "执行失败: " + (err.message || err));
+        }
+      }
+
+      async function loadChannelCluster() {
+        const scope = qs("scopeSource").value || "effective";
+        const pk = getProjectKey();
+        if (!pk) { setError("sourceStatus", "请先选择项目"); return; }
+        const wrap = qs("channelClusterWrap");
+        try {
+          const d = await window.MarketApp.api.get(`/api/v1/source_library/channels/grouped?scope=${encodeURIComponent(scope)}&project_key=${encodeURIComponent(pk)}`);
+          const byProvider = d?.by_provider || {};
+          const keys = Object.keys(byProvider).sort();
+          if (!keys.length) { wrap.innerHTML = "<p class=\"muted\">暂无数据</p>"; return; }
+          const html = keys.map((prov) => {
+            const chs = byProvider[prov] || [];
+            const rows = chs.map((ch) => `<tr><td><code>${escapeHtml(ch.channel_key)}</code></td><td>${escapeHtml(ch.name || "-")}</td><td>${escapeHtml(ch.kind || "-")}</td></tr>`).join("");
+            return `<div style="margin-bottom: 12px;"><strong>${escapeHtml(prov)}</strong> (${chs.length})<table><tbody>${rows}</tbody></table></div>`;
+          }).join("");
+          wrap.innerHTML = html;
+        } catch (err) {
+          wrap.innerHTML = "<p class=\"muted\">加载失败: " + (err.message || err) + "</p>";
+        }
+      }
+
+      function buildParamsFromChannelFields() {
+        const channelKey = String(qs("channelKey").value || "").trim();
+        if (channelKey === "url_pool") {
+          const raw = String(qs("itemUrls").value || "").trim();
+          const urls = raw.split(/\r?\n/).map((u) => u.trim()).filter((u) => u && u.startsWith("http"));
+          return { urls };
+        }
+        const type = getChannelType(channelKey);
+        const params = {};
+        if (type === "reddit") {
+          const raw = String(qs("paramSubreddits").value || "").trim();
+          if (raw) params.subreddits = raw.split(",").map((s) => s.trim()).filter(Boolean);
+        } else if (type === "google_news") {
+          const raw = String(qs("paramKeywords").value || "").trim();
+          if (raw) params.keywords = raw.split(",").map((s) => s.trim()).filter(Boolean);
+        } else if (type === "policy") {
+          const state = String(qs("paramState").value || "").trim();
+          if (state) params.state = state;
+        }
+        const rawSiteEntries = String(qs("itemSiteEntries").value || "")
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter((s) => s && s.startsWith("http"));
+        if (rawSiteEntries.length) params.site_entries = rawSiteEntries;
+        return params;
+      }
+
+      async function upsertProjectItem() {
+        const pk = getProjectKey();
+        if (!pk) { setError("upsertStatus", "请先选择项目"); return; }
+        const item_key = String(qs("itemKey").value || "").trim();
+        const name = String(qs("itemName").value || "").trim();
+        const channel_key = String(qs("channelKey").value || "").trim();
+        if (!item_key || !name || !channel_key) { setError("upsertStatus", "item_key / 名称 / channel_key 不能为空"); return; }
+        const params = buildParamsFromChannelFields();
+        if (channel_key === "url_pool" && (!params.urls || !params.urls.length)) {
+          setError("upsertStatus", "url_pool 需至少一个有效 URL");
+          return;
+        }
+        const tags = String(qs("tags").value || "").split(",").map((x) => x.trim()).filter(Boolean);
+        const payload = {
+          item_key,
+          name,
+          channel_key,
+          description: String(qs("description").value || "").trim() || null,
+          params,
+          tags,
+          schedule: null,
+          extends_item_key: String(qs("extendsItemKey").value || "").trim() || null,
+          enabled: !!qs("enabled").checked,
+          extra: {},
+        };
+        setLoading("upsertStatus", "保存中...");
+        try {
+          await window.MarketApp.api.post(`/api/v1/source_library/items?project_key=${encodeURIComponent(pk)}`, payload);
+          setSuccess("upsertStatus", "保存成功");
+          await refreshSourceData();
+        } catch (err) { setError("upsertStatus", "保存失败: " + (err.message || err)); }
+      }
+
+      function selectItem(itemKey) {
+        const it = CACHED_ITEMS.find((x) => x.item_key === itemKey);
+        if (!it) return;
+        fillItemToForm(it);
+        if (qs("bindSiteEntriesItemKey")) qs("bindSiteEntriesItemKey").value = it.item_key || "";
+        if (qs("bindSiteEntriesItemSelect")) qs("bindSiteEntriesItemSelect").value = it.item_key || "";
+        if (qs("unifiedSearchItemKey")) qs("unifiedSearchItemKey").value = it.item_key || "";
+        if (qs("unifiedSearchItemSelect")) qs("unifiedSearchItemSelect").value = it.item_key || "";
+        const isUrlPool = it.channel_key === "url_pool";
+        const el = isUrlPool ? qs("itemUrls") : qs("itemSiteEntries");
+        if (el) setTimeout(() => el.focus({ preventScroll: true }), 50);
+        if (window.lucide) window.lucide.createIcons();
+      }
+      window.selectItem = selectItem;
+
+      function getBase() {
+        const pk = getProjectKey();
+        return pk ? `/api/v1/resource_pool?project_key=${encodeURIComponent(pk)}` : '/api/v1/resource_pool';
+      }
+
+      async function loadUrls() {
+        const scope = qs("scopeUrls").value || "effective";
+        const source = qs("sourceFilter").value || "";
+        const domain = qs("domainFilter").value?.trim() || "";
+        const pk = getProjectKey();
+        if (!pk) {
+          setError("urlsStatus", "请先选择项目");
+          return;
+        }
+        setLoading("urlsStatus", "加载中...");
+        const params = new URLSearchParams({ scope, page: urlPage, page_size: urlPageSize });
+        if (source) params.set("source", source);
+        if (domain) params.set("domain", domain);
+        params.set("project_key", pk);
+        try {
+          const envelope = await window.MarketApp.api.getFull(`/api/v1/resource_pool/urls?${params}`);
+          const data = envelope?.data || {};
+          const items = data?.items || [];
+          const meta = envelope?.meta || {};
+          const pagination = meta?.pagination || {};
+          const total = pagination.total ?? 0;
+          const totalPages = pagination.total_pages ?? 1;
+
+          if (!items.length) {
+            setEmpty("urlsWrap", "暂无 URL");
+            qs("urlsPagination").textContent = total > 0 ? `第 ${urlPage}/${totalPages} 页，共 ${total} 条` : "0 条";
+          } else {
+            const rows = items.map((r) => `
+              <tr>
+                <td class="url-cell"><a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.url)}</a></td>
+                <td>${escapeHtml(r.domain || "-")}</td>
+                <td>${escapeHtml(r.source || "-")}</td>
+                <td>${escapeHtml(r.scope || "-")}</td>
+                <td>${escapeHtml(r.created_at ? new Date(r.created_at).toLocaleString("zh-CN") : "-")}</td>
+              </tr>
+            `).join("");
+            qs("urlsWrap").innerHTML = `
+              <table>
+                <thead><tr><th>URL</th><th>域名</th><th>来源</th><th>scope</th><th>创建时间</th></tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            `;
+            qs("urlsPagination").textContent = `第 ${urlPage}/${totalPages} 页，共 ${total} 条`;
+          }
+          qs("btnPrevPage").disabled = urlPage <= 1;
+          qs("btnNextPage").disabled = urlPage >= totalPages;
+          setSuccess("urlsStatus", `已加载 ${items.length} 条`);
+        } catch (err) {
+          setError("urlsStatus", "加载失败: " + (err.message || err));
+          setEmpty("urlsWrap", "加载失败");
+        }
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      async function extractFromDocs() {
+        const pk = getProjectKey();
+        if (!pk) {
+          setError("extractStatus", "请先选择项目");
+          return;
+        }
+        const scope = qs("extractScope").value || "project";
+        const limit = parseInt(qs("extractLimit").value || "500", 10) || 500;
+        const asyncMode = !!qs("extractAsync").checked;
+        setLoading("extractStatus", asyncMode ? "提交中..." : "提取中...");
+        try {
+          const d = await window.MarketApp.api.post("/api/v1/resource_pool/extract/from-documents", {
+            project_key: pk,
+            scope,
+            filters: { limit },
+            async_mode: asyncMode,
+          });
+          if (asyncMode && d?.task_id) {
+            setSuccess("extractStatus", "已提交异步任务: " + d.task_id);
+          } else {
+            const r = d?.result || d;
+            setSuccess("extractStatus", `文档 ${r?.documents_scanned ?? 0}，新增 ${r?.urls_new ?? 0}，重复 ${r?.urls_duplicate ?? 0}`);
+          }
+          loadUrls();
+        } catch (err) {
+          setError("extractStatus", "失败: " + (err.message || err));
+        }
+      }
+
+      async function extractFromTasks() {
+        const pk = getProjectKey();
+        if (!pk) {
+          setError("tasksStatus", "请先选择项目");
+          return;
+        }
+        const scope = qs("tasksScope").value || "project";
+        const jobType = qs("tasksJobType").value?.trim() || null;
+        const limit = parseInt(qs("tasksLimit").value || "100", 10) || 100;
+        const since = qs("tasksSince").value?.trim() || null;
+        const asyncMode = !!qs("tasksAsync").checked;
+        setLoading("tasksStatus", asyncMode ? "提交中..." : "提取中...");
+        try {
+          const d = await window.MarketApp.api.post("/api/v1/resource_pool/capture/from-tasks", {
+            project_key: pk,
+            scope,
+            job_type: jobType,
+            limit,
+            since,
+            async_mode: asyncMode,
+          });
+          if (asyncMode && d?.task_id) {
+            setSuccess("tasksStatus", "已提交异步任务: " + d.task_id);
+          } else {
+            const r = d?.result || d;
+            setSuccess("tasksStatus", `任务 ${r?.tasks_scanned ?? 0}，新增 ${r?.urls_new ?? 0}，重复 ${r?.urls_duplicate ?? 0}`);
+          }
+          loadUrls();
+        } catch (err) {
+          setError("tasksStatus", "失败: " + (err.message || err));
+        }
+      }
+
+      function renderJobTypeChips() {
+        const wrap = qs("jobTypeChips");
+        wrap.innerHTML = JOB_TYPES.map((jt) =>
+          `<span class="chip" data-job="${escapeHtml(jt)}">${escapeHtml(jt)}</span>`
+        ).join("");
+        wrap.querySelectorAll(".chip").forEach((el) => {
+          el.addEventListener("click", () => el.classList.toggle("selected"));
+        });
+      }
+
+      function getSelectedJobTypes() {
+        return Array.from(qs("jobTypeChips").querySelectorAll(".chip.selected")).map((el) => el.dataset.job);
+      }
+
+      async function saveCapture() {
+        const pk = getProjectKey();
+        if (!pk) {
+          setError("captureStatus", "请先选择项目");
+          return;
+        }
+        const jobTypes = getSelectedJobTypes();
+        if (!jobTypes.length) {
+          setError("captureStatus", "请至少勾选一个 job_type");
+          return;
+        }
+        const scope = qs("captureScope").value || "project";
+        const enabled = qs("captureEnabled").value === "true";
+        setLoading("captureStatus", "保存中...");
+        try {
+          await window.MarketApp.api.post("/api/v1/resource_pool/capture/enable", {
+            project_key: pk,
+            scope,
+            job_types: jobTypes,
+            enabled,
+          });
+          setSuccess("captureStatus", "配置已保存");
+        } catch (err) {
+          setError("captureStatus", "失败: " + (err.message || err));
+        }
+      }
+
+      async function loadNews() {
+        const scope = qs("scopeNews").value || "effective";
+        const pk = getProjectKey();
+        if (!pk) {
+          setEmpty("newsWrap", "请先选择项目");
+          return;
+        }
+        try {
+          const data = await window.MarketApp.api.get(`/api/v1/ingest/news-resources?scope=${encodeURIComponent(scope)}&project_key=${encodeURIComponent(pk)}`);
+          const items = data?.items || [];
+          if (!items.length) {
+            setEmpty("newsWrap", "暂无采集资源");
+          } else {
+            const rows = items.map((r) => `
+              <tr>
+                <td><code>${escapeHtml(r.resource_id)}</code></td>
+                <td>${escapeHtml(r.name || r.resource_id)}</td>
+                <td><span class="badge ${r.scope === "shared" ? "info" : "success"}">${escapeHtml(r.scope)}</span></td>
+              </tr>
+            `).join("");
+            qs("newsWrap").innerHTML = `
+              <table>
+                <thead><tr><th>resource_id</th><th>名称</th><th>scope</th></tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            `;
+          }
+        } catch (err) {
+          setEmpty("newsWrap", "加载失败: " + (err.message || err));
+        }
+      }
+
+      function fillSiteEntryForm(entry) {
+        qs("siteEntryUrl").value = entry?.site_url || "";
+        qs("siteEntryEntryType").value = entry?.entry_type || "domain_root";
+        qs("siteEntryTemplate").value = entry?.template || "";
+        qs("siteEntryName").value = entry?.name || "";
+        qs("siteEntryDomain").value = entry?.domain || "";
+        qs("siteEntryTags").value = Array.isArray(entry?.tags) ? entry.tags.join(",") : "";
+        qs("siteEntryEnabled").value = entry?.enabled === false ? "false" : "true";
+        qs("siteEntryScope").value = entry?.scope === "shared" ? "shared" : "project";
+      }
+
+      function renderSiteEntriesTable(items) {
+        if (!items.length) { setEmpty("siteEntriesWrap", "暂无站点入口"); return; }
+        const rows = items.map((r) => {
+          const rawUrl = String(r.site_url || "");
+          const encodedUrl = encodeURIComponent(rawUrl);
+          const url = escapeHtml(rawUrl || "-");
+          return `
+            <tr>
+              <td><input type="checkbox" class="site-entry-select" data-url="${encodedUrl}" /></td>
+              <td class="url-cell"><a href="${url}" target="_blank" rel="noopener">${url}</a></td>
+              <td>${escapeHtml(r.domain || "-")}</td>
+              <td><code>${escapeHtml(r.entry_type || "-")}</code></td>
+              <td>${escapeHtml(r.scope || "-")}</td>
+              <td>${r.enabled ? '<span class="badge success">启用</span>' : '<span class="badge warning">禁用</span>'}</td>
+              <td>${escapeHtml(r.created_at ? new Date(r.created_at).toLocaleString("zh-CN") : "-")}</td>
+              <td><button class="secondary btn-edit-site-entry" data-url="${encodedUrl}"><i data-lucide="pencil"></i>编辑</button></td>
+            </tr>
+          `;
+        }).join("");
+        qs("siteEntriesWrap").innerHTML = `
+          <table>
+            <thead><tr><th><input type="checkbox" id="siteEntriesSelectAll" /></th><th>site_url</th><th>域名</th><th>类型</th><th>scope</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+        qs("siteEntriesSelectAll")?.addEventListener("change", (e) => {
+          const checked = !!e.target.checked;
+          qs("siteEntriesWrap").querySelectorAll(".site-entry-select").forEach((el) => { el.checked = checked; });
+        });
+        qs("siteEntriesWrap").querySelectorAll(".btn-edit-site-entry").forEach((b) => {
+          b.addEventListener("click", () => {
+            const rawUrl = decodeURIComponent(String(b.dataset.url || ""));
+            const entry = CACHED_SITE_ENTRIES.find((x) => String(x.site_url || "") === rawUrl);
+            if (entry) fillSiteEntryForm(entry);
+            setSuccess("siteEntryFormStatus", "已载入到表单，可直接修改后保存");
+          });
+        });
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      function getSelectedSiteEntryUrls() {
+        return Array.from(qs("siteEntriesWrap").querySelectorAll(".site-entry-select:checked"))
+          .map((el) => decodeURIComponent(String(el.dataset.url || "")))
+          .filter((u) => u && u.startsWith("http"));
+      }
+
+      async function bindSelectedSiteEntriesToItem() {
+        const pk = getProjectKey();
+        if (!pk) { setError("siteEntriesStatus", "请先选择项目"); return; }
+        const itemKey = String(qs("bindSiteEntriesItemSelect").value || qs("bindSiteEntriesItemKey").value || "").trim();
+        if (!itemKey) { setError("siteEntriesStatus", "请填写目标 item_key"); return; }
+        const selectedUrls = getSelectedSiteEntryUrls();
+        if (!selectedUrls.length) { setError("siteEntriesStatus", "请先勾选至少一个站点入口"); return; }
+        if (!CACHED_ITEMS.length) {
+          await refreshSourceData();
+        }
+        const target = CACHED_ITEMS.find((x) => x.item_key === itemKey);
+        if (!target) {
+          setError("siteEntriesStatus", "未找到该 item_key，请先在“项目侧新增/覆盖 Item”中创建");
+          return;
+        }
+        const replace = !!qs("bindSiteEntriesReplace").checked;
+        const oldParams = (target.params && typeof target.params === "object") ? target.params : {};
+        const oldSiteEntries = Array.isArray(oldParams.site_entries) ? oldParams.site_entries.map((x) => String(x).trim()).filter(Boolean) : [];
+        const mergedSiteEntries = replace
+          ? selectedUrls
+          : Array.from(new Set([...oldSiteEntries, ...selectedUrls]));
+        const addedCount = mergedSiteEntries.filter((u) => !oldSiteEntries.includes(u)).length;
+        const unchangedCount = selectedUrls.filter((u) => oldSiteEntries.includes(u)).length;
+        const replacedFrom = replace ? oldSiteEntries.length : 0;
+        const payload = {
+          item_key: target.item_key,
+          name: target.name || target.item_key,
+          channel_key: target.channel_key,
+          description: target.description || null,
+          params: { ...oldParams, site_entries: mergedSiteEntries },
+          tags: Array.isArray(target.tags) ? target.tags : [],
+          schedule: target.schedule || null,
+          extends_item_key: target.extends_item_key || null,
+          enabled: target.enabled !== false,
+          extra: (target.extra && typeof target.extra === "object") ? target.extra : {},
+        };
+        setLoading("siteEntriesStatus", "写入 item 中...");
+        try {
+          await window.MarketApp.api.post(`/api/v1/source_library/items?project_key=${encodeURIComponent(pk)}`, payload);
+          const msg = replace
+            ? `已覆盖 item=${itemKey}，旧=${replacedFrom}，新=${mergedSiteEntries.length}（本次选中=${selectedUrls.length}）`
+            : `已写入 item=${itemKey}，总数=${mergedSiteEntries.length}，新增=${addedCount}，已存在=${unchangedCount}`;
+          setSuccess("siteEntriesStatus", msg);
+          await refreshSourceData();
+          if (qs("itemKey").value === itemKey) {
+            qs("itemSiteEntries").value = mergedSiteEntries.join("\n");
+          }
+        } catch (err) {
+          setError("siteEntriesStatus", "写入失败: " + (err.message || err));
+        }
+      }
+
+      async function loadSiteEntries() {
+        const scope = qs("scopeSiteEntries").value || "effective";
+        const entryType = qs("siteEntriesType").value || "";
+        const domain = qs("siteEntriesDomainFilter").value?.trim() || "";
+        const pk = getProjectKey();
+        if (!pk) { setError("siteEntriesStatus", "请先选择项目"); return; }
+        setLoading("siteEntriesStatus", "加载中...");
+        const params = new URLSearchParams({ scope, page: siteEntriesPage, page_size: siteEntriesPageSize, project_key: pk });
+        if (entryType) params.set("entry_type", entryType);
+        if (domain) params.set("domain", domain);
+        try {
+          const envelope = await window.MarketApp.api.getFull(`/api/v1/resource_pool/site_entries?${params}`);
+          const data = envelope?.data || {};
+          const items = data?.items || [];
+          const pagination = envelope?.meta?.pagination || {};
+          const total = pagination.total ?? 0;
+          const totalPages = pagination.total_pages ?? 1;
+          CACHED_SITE_ENTRIES = Array.isArray(items) ? items : [];
+          renderSiteEntriesTable(CACHED_SITE_ENTRIES);
+          qs("siteEntriesPagination").textContent = `第 ${siteEntriesPage}/${totalPages} 页，共 ${total} 条`;
+          qs("btnPrevSiteEntriesPage").disabled = siteEntriesPage <= 1;
+          qs("btnNextSiteEntriesPage").disabled = siteEntriesPage >= totalPages;
+          setSuccess("siteEntriesStatus", `已加载 ${items.length} 条`);
+        } catch (err) {
+          setError("siteEntriesStatus", "加载失败: " + (err.message || err));
+          setEmpty("siteEntriesWrap", "加载失败");
+        }
+      }
+
+      async function recommendSiteEntry() {
+        const pk = getProjectKey();
+        if (!pk) { setError("siteEntryFormStatus", "请先选择项目"); return; }
+        const site_url = String(qs("siteEntryUrl").value || "").trim();
+        if (!site_url) { setError("siteEntryFormStatus", "请先填写 site_url"); return; }
+        setLoading("siteEntryFormStatus", "推荐中...");
+        try {
+          const d = await window.MarketApp.api.post("/api/v1/resource_pool/site_entries/recommend", {
+            project_key: pk,
+            site_url,
+            entry_type: qs("siteEntryEntryType").value || null,
+            template: String(qs("siteEntryTemplate").value || "").trim() || null,
+            use_llm: !!qs("siteEntryUseLlm")?.checked,
+          });
+          if (d?.channel_key) {
+            qs("siteEntryEntryType").value = d.entry_type || "domain_root";
+            if (d.template) qs("siteEntryTemplate").value = d.template;
+            setSuccess("siteEntryFormStatus", `推荐: ${d.channel_key} (${d.source})`);
+          } else {
+            setError("siteEntryFormStatus", "推荐失败");
+          }
+        } catch (err) {
+          setError("siteEntryFormStatus", "推荐失败: " + (err.message || err));
+        }
+      }
+
+      async function saveSiteEntry() {
+        const pk = getProjectKey();
+        if (!pk) { setError("siteEntryFormStatus", "请先选择项目"); return; }
+        const scope = qs("siteEntryScope").value || "project";
+        const site_url = String(qs("siteEntryUrl").value || "").trim();
+        if (!site_url) { setError("siteEntryFormStatus", "site_url 不能为空"); return; }
+        const payload = {
+          project_key: pk,
+          scope,
+          site_url,
+          entry_type: qs("siteEntryEntryType").value || "domain_root",
+          template: String(qs("siteEntryTemplate").value || "").trim() || null,
+          name: String(qs("siteEntryName").value || "").trim() || null,
+          domain: String(qs("siteEntryDomain").value || "").trim() || null,
+          tags: String(qs("siteEntryTags").value || "").split(",").map((x) => x.trim()).filter(Boolean),
+          enabled: qs("siteEntryEnabled").value === "true",
+          capabilities: {},
+          source: "manual",
+          source_ref: {},
+          extra: {},
+        };
+        setLoading("siteEntryFormStatus", "保存中...");
+        try {
+          await window.MarketApp.api.post("/api/v1/resource_pool/site_entries", payload);
+          setSuccess("siteEntryFormStatus", "保存成功");
+          await loadSiteEntries();
+        } catch (err) {
+          setError("siteEntryFormStatus", "保存失败: " + (err.message || err));
+        }
+      }
+
+      async function discoverSiteEntries(dryRun = true) {
+        const pk = getProjectKey();
+        if (!pk) { setError("siteEntriesStatus", "请先选择项目"); return; }
+        const urlScope = qs("scopeUrls")?.value || "project";
+        const targetScope = qs("siteEntryScope")?.value || "project";
+        setLoading("siteEntriesStatus", dryRun ? "探测中（dry_run）..." : "探测并写入中...");
+        try {
+          const envelope = await window.MarketApp.api.post("/api/v1/resource_pool/discover/site-entries", {
+            project_key: pk,
+            url_scope: urlScope,
+            target_scope: targetScope,
+            limit_domains: 50,
+            probe_timeout: 6,
+            include_link_alternate: true,
+            dry_run: dryRun,
+            write: !dryRun,
+            run_auto_classify: !!qs("discoverRunAutoClassify")?.checked,
+            use_llm: !!qs("discoverUseLlm")?.checked,
+          });
+          const candidatesCount = envelope?.candidates_count ?? 0;
+          const scanned = envelope?.domains_scanned ?? 0;
+          const wr = envelope?.write_result;
+          if (!dryRun && wr) {
+            setSuccess("siteEntriesStatus", `已扫描 domain=${scanned}，候选=${candidatesCount}，写入=${wr.upserted}，跳过=${wr.skipped}`);
+            await loadSiteEntries();
+          } else {
+            setSuccess("siteEntriesStatus", `已扫描 domain=${scanned}，候选=${candidatesCount}（dry_run 未写入）`);
+          }
+        } catch (err) {
+          setError("siteEntriesStatus", "探测失败: " + (err.message || err));
+        }
+      }
+
+      async function runUnifiedSearch() {
+        const pk = getProjectKey();
+        if (!pk) { setError("unifiedSearchStatus", "请先选择项目"); return; }
+        const item_key = String(qs("unifiedSearchItemSelect").value || qs("unifiedSearchItemKey").value || "").trim();
+        if (!item_key) { setError("unifiedSearchStatus", "item_key 不能为空"); return; }
+        const max_candidates = parseInt(qs("unifiedSearchMax").value || "200", 10) || 200;
+        const probe_timeout = parseFloat(qs("unifiedSearchTimeout").value || "10") || 10;
+        const query_terms = String(qs("unifiedSearchTerms").value || "")
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const write_to_pool = !!qs("unifiedSearchWrite").checked;
+        const pool_scope = qs("unifiedSearchPoolScope").value || "project";
+        const sameDomainOnly = !!qs("unifiedSearchSameDomainOnly").checked;
+        const previewLimit = parseInt(qs("unifiedSearchPreviewLimit").value || "50", 10) || 50;
+        setLoading("unifiedSearchStatus", write_to_pool ? "搜索并写回中..." : "搜索中...");
+        qs("unifiedSearchOutput").style.display = "none";
+        try {
+          const envelope = await window.MarketApp.api.post("/api/v1/resource_pool/unified-search", {
+            project_key: pk,
+            item_key,
+            query_terms,
+            max_candidates,
+            probe_timeout,
+            write_to_pool,
+            pool_scope,
+          });
+          const candidates = Array.isArray(envelope?.candidates) ? envelope.candidates : [];
+          const errors = Array.isArray(envelope?.errors) ? envelope.errors : [];
+          const written = envelope?.written;
+          const usedEntries = Array.isArray(envelope?.site_entries_used) ? envelope.site_entries_used : [];
+          const baseDomains = new Set(
+            usedEntries
+              .map((x) => String(x?.domain || "").trim().toLowerCase())
+              .filter(Boolean)
+          );
+          const filteredCandidates = sameDomainOnly
+            ? candidates.filter((u) => {
+              try {
+                const d = new URL(u).hostname.toLowerCase().replace(/^www\./, "");
+                return baseDomains.has(d);
+              } catch (_) {
+                return false;
+              }
+            })
+            : candidates;
+          const previewCandidates = filteredCandidates.slice(0, Math.max(1, Math.min(500, previewLimit)));
+          const summary = written
+            ? `候选=${candidates.length}，预览=${previewCandidates.length}，写入新=${written.urls_new ?? 0}，跳过=${written.urls_skipped ?? 0}，错误=${errors.length}`
+            : `候选=${candidates.length}，预览=${previewCandidates.length}，错误=${errors.length}`;
+          setSuccess("unifiedSearchStatus", summary);
+          const previewPayload = {
+            ...envelope,
+            preview: {
+              same_domain_only: sameDomainOnly,
+              preview_limit: previewLimit,
+              base_domains: Array.from(baseDomains),
+              filtered_count: filteredCandidates.length,
+              preview_candidates: previewCandidates,
+            },
+          };
+          qs("unifiedSearchOutput").textContent = JSON.stringify(previewPayload, null, 2);
+          qs("unifiedSearchOutput").style.display = "block";
+          if (write_to_pool) {
+            await loadUrls();
+          }
+        } catch (err) {
+          setError("unifiedSearchStatus", "运行失败: " + (err.message || err));
+        }
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      function clearSiteEntryForm() {
+        fillSiteEntryForm({ site_url: "", entry_type: "domain_root", enabled: true, tags: [], scope: "project" });
+        setSuccess("siteEntryFormStatus", "已清空");
+      }
+
+      function renderIngestPlatformChips() {
+        const wrap = qs("ingestPlatformChips");
+        if (!wrap) return;
+        wrap.innerHTML = INGEST_PLATFORMS.map((p) =>
+          `<span class="chip" data-platform="${escapeHtml(p)}">${escapeHtml(p)}</span>`
+        ).join("");
+        wrap.querySelectorAll(".chip").forEach((el) => {
+          el.addEventListener("click", () => el.classList.toggle("selected"));
+        });
+      }
+
+      function getSelectedIngestPlatforms() {
+        const wrap = qs("ingestPlatformChips");
+        if (!wrap) return [];
+        return Array.from(wrap.querySelectorAll(".chip.selected")).map((el) => el.dataset.platform);
+      }
+
+      function setSelectedIngestPlatforms(platforms) {
+        const wrap = qs("ingestPlatformChips");
+        if (!wrap) return;
+        const set = new Set(Array.isArray(platforms) ? platforms : []);
+        wrap.querySelectorAll(".chip").forEach((el) => {
+          el.classList.toggle("selected", set.has(el.dataset.platform));
+        });
+      }
+
+      async function loadIngestConfig() {
+        const pk = getProjectKey();
+        if (!pk) {
+          setError("ingestConfigStatus", "请先选择项目");
+          return;
+        }
+        const base = `/api/v1/ingest/config?project_key=${encodeURIComponent(pk)}`;
+        try {
+          const [forumRes, routingRes, siteEntryRes] = await Promise.all([
+            window.MarketApp.api.getFull(`${base}&config_key=social_forum`).catch(() => null),
+            window.MarketApp.api.getFull(`${base}&config_key=url_channel_routing`).catch(() => null),
+            window.MarketApp.api.getFull(`${base}&config_key=site_entry_discovery_policy`).catch(() => null),
+          ]);
+          const forumData = forumRes?.data?.payload || {};
+          const routingData = routingRes?.data?.payload || {};
+          const siteEntryData = siteEntryRes?.data?.payload || {};
+          setSelectedIngestPlatforms(forumData.platforms || ["reddit"]);
+          const subreddits = Array.isArray(forumData.base_subreddits) ? forumData.base_subreddits : [];
+          qs("ingestBaseSubreddits").value = subreddits.join("\n");
+          qs("ingestEnableSubredditDiscovery").checked = forumData.enable_subreddit_discovery !== false;
+          const rules = Array.isArray(routingData.rules) ? routingData.rules : [];
+          qs("ingestUrlChannelRules").value = rules.map((r) => {
+            let line = `${r.pattern || ""},${r.channel_key || ""}`;
+            const extras = [];
+            if (r.path_suffix) extras.push(`path_suffix:${r.path_suffix}`);
+            if (r.path_contains) extras.push(`path_contains:${r.path_contains}`);
+            if (r.path_prefix) extras.push(`path_prefix:${r.path_prefix}`);
+            if (extras.length) line += "," + extras.join(",");
+            return line;
+          }).filter((s) => s !== ",").join("\n");
+
+          qs("siteEntryDiscoveryLimitDomains").value = String(siteEntryData.limit_domains ?? 50);
+          qs("siteEntryDiscoveryProbeTimeout").value = String(siteEntryData.probe_timeout ?? 8);
+          qs("siteEntryDiscoveryIncludeAlternate").checked = siteEntryData.include_link_alternate !== false;
+          qs("siteEntryDiscoveryAllowDomains").value = Array.isArray(siteEntryData.allow_domains) ? siteEntryData.allow_domains.join("\n") : "";
+          qs("siteEntryDiscoveryDenyDomains").value = Array.isArray(siteEntryData.deny_domains) ? siteEntryData.deny_domains.join("\n") : "";
+          qs("siteEntryDiscoverySitemapPaths").value = Array.isArray(siteEntryData.sitemap_paths) ? siteEntryData.sitemap_paths.join("\n") : "";
+          qs("siteEntryDiscoveryRssPaths").value = Array.isArray(siteEntryData.rss_paths) ? siteEntryData.rss_paths.join("\n") : "";
+          setSuccess("ingestConfigStatus", "配置已加载");
+        } catch (err) {
+          setError("ingestConfigStatus", "加载失败: " + (err.message || err));
+        }
+      }
+
+      async function saveIngestConfig() {
+        const pk = getProjectKey();
+        if (!pk) {
+          setError("ingestConfigStatus", "请先选择项目");
+          return;
+        }
+        setLoading("ingestConfigStatus", "保存中...");
+        try {
+          const platforms = getSelectedIngestPlatforms();
+          if (!platforms.length) {
+            setError("ingestConfigStatus", "请至少勾选一个平台");
+            return;
+          }
+          const baseSubreddits = String(qs("ingestBaseSubreddits").value || "")
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const enableSubredditDiscovery = !!qs("ingestEnableSubredditDiscovery").checked;
+          const forumPayload = {
+            project_key: pk,
+            config_key: "social_forum",
+            config_type: "structure",
+            payload: {
+              platforms,
+              base_subreddits: baseSubreddits,
+              enable_subreddit_discovery: enableSubredditDiscovery,
+            },
+          };
+          const rawRules = String(qs("ingestUrlChannelRules").value || "")
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const rules = rawRules.map((line) => {
+            const parts = line.split(",").map((p) => p.trim());
+            const pattern = parts[0] || "";
+            const channel_key = parts[1] || "";
+            const rule = { pattern, channel_key };
+            for (let i = 2; i < parts.length; i++) {
+              const p = parts[i];
+              const colon = p.indexOf(":");
+              if (colon > 0) {
+                const k = p.slice(0, colon).trim();
+                const v = p.slice(colon + 1).trim();
+                if (k === "path_suffix" || k === "path_contains" || k === "path_prefix") rule[k] = v;
+              }
+            }
+            return rule;
+          }).filter((r) => r.pattern || r.channel_key);
+          const routingPayload = {
+            project_key: pk,
+            config_key: "url_channel_routing",
+            config_type: "structure",
+            payload: { rules },
+          };
+
+          const allowDomains = String(qs("siteEntryDiscoveryAllowDomains").value || "")
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const denyDomains = String(qs("siteEntryDiscoveryDenyDomains").value || "")
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const sitemapPaths = String(qs("siteEntryDiscoverySitemapPaths").value || "")
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const rssPaths = String(qs("siteEntryDiscoveryRssPaths").value || "")
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const limitDomains = parseInt(qs("siteEntryDiscoveryLimitDomains").value || "50", 10) || 50;
+          const probeTimeout = parseFloat(qs("siteEntryDiscoveryProbeTimeout").value || "8") || 8;
+          const includeAlternate = !!qs("siteEntryDiscoveryIncludeAlternate").checked;
+          const siteEntryPolicyPayload = {
+            project_key: pk,
+            config_key: "site_entry_discovery_policy",
+            config_type: "policy",
+            payload: {
+              limit_domains: limitDomains,
+              probe_timeout: probeTimeout,
+              include_link_alternate: includeAlternate,
+              allow_domains: allowDomains,
+              deny_domains: denyDomains,
+              sitemap_paths: sitemapPaths,
+              rss_paths: rssPaths,
+            },
+          };
+          await window.MarketApp.api.post("/api/v1/ingest/config", forumPayload);
+          await window.MarketApp.api.post("/api/v1/ingest/config", routingPayload);
+          await window.MarketApp.api.post("/api/v1/ingest/config", siteEntryPolicyPayload);
+          setSuccess("ingestConfigStatus", "配置已保存");
+        } catch (err) {
+          setError("ingestConfigStatus", "保存失败: " + (err.message || err));
+        }
+      }
+
+      function switchTab(tabId) {
+        document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+        const tab = document.querySelector(`[data-tab="${tabId}"]`);
+        const panel = document.getElementById(`panel-${tabId}`);
+        if (tab) tab.classList.add("active");
+        if (panel) panel.classList.add("active");
+        // Avoid re-render when on source-library: only refresh when no cached data (initial load)
+        if (tabId === "source-library") {
+          if (CACHED_ITEMS.length === 0 && CACHED_CHANNELS.length === 0) refreshSourceData();
+        }
+        if (tabId === "urls") { loadUrls(); requestAnimationFrame(() => { if (window.lucide) window.lucide.createIcons(); }); }
+        if (tabId === "site-entries") loadSiteEntries();
+        if (tabId === "news") loadNews();
+        if (tabId === "ingest-config") loadIngestConfig();
+      }
+
+      qs("btnRefreshUrls").addEventListener("click", loadUrls);
+      qs("scopeUrls").addEventListener("change", loadUrls);
+      qs("sourceFilter").addEventListener("change", loadUrls);
+      qs("domainFilter").addEventListener("change", loadUrls);
+      qs("btnPrevPage").addEventListener("click", () => { urlPage = Math.max(1, urlPage - 1); loadUrls(); });
+      qs("btnNextPage").addEventListener("click", () => { urlPage++; loadUrls(); });
+      qs("btnExtractDocs").addEventListener("click", extractFromDocs);
+      qs("btnExtractTasks").addEventListener("click", extractFromTasks);
+      qs("btnSaveCapture").addEventListener("click", saveCapture);
+      qs("btnSaveIngestConfig")?.addEventListener("click", saveIngestConfig);
+      qs("btnRefreshNews").addEventListener("click", loadNews);
+      qs("scopeNews").addEventListener("change", loadNews);
+      qs("btnRefreshSource")?.addEventListener("click", refreshSourceData);
+      qs("scopeSource")?.addEventListener("change", refreshSourceData);
+      qs("btnLoadChannelCluster")?.addEventListener("click", loadChannelCluster);
+      qs("btnUpsertItem")?.addEventListener("click", upsertProjectItem);
+      qs("btnOpenSiteEntryPicker")?.addEventListener("click", openSiteEntryPicker);
+      qs("btnOpenSiteEntryPickerForUrls")?.addEventListener("click", openSiteEntryPicker);
+      qs("siteEntryPickerSearch")?.addEventListener("input", (e) => filterSiteEntryPicker(e.target.value));
+      qs("siteEntryPickerSelectVisible")?.addEventListener("click", () => {
+        qs("siteEntryPickerBody")?.querySelectorAll(".picker-row:not(.hidden) .site-entry-picker-cb").forEach((cb) => { cb.checked = true; });
+        sortSiteEntryPickerRows();
+        updateSiteEntryPickerCount();
+      });
+      qs("siteEntryPickerDeselectAll")?.addEventListener("click", () => {
+        qs("siteEntryPickerBody")?.querySelectorAll(".picker-row:not(.hidden) .site-entry-picker-cb").forEach((cb) => { cb.checked = false; });
+        sortSiteEntryPickerRows();
+        updateSiteEntryPickerCount();
+      });
+      qs("siteEntryPickerBody")?.addEventListener("change", () => {
+        sortSiteEntryPickerRows();
+        updateSiteEntryPickerCount();
+      });
+      qs("siteEntryPickerCancel")?.addEventListener("click", closeSiteEntryPicker);
+      qs("siteEntryPickerConfirm")?.addEventListener("click", confirmSiteEntryPicker);
+      qs("siteEntryPickerModal")?.addEventListener("click", (e) => { if (e.target.id === "siteEntryPickerModal") closeSiteEntryPicker(); });
+      qs("channelKey")?.addEventListener("change", syncChannelSourceFields);
+      qs("btnRefreshSiteEntries")?.addEventListener("click", loadSiteEntries);
+      qs("scopeSiteEntries")?.addEventListener("change", () => { siteEntriesPage = 1; loadSiteEntries(); });
+      qs("siteEntriesType")?.addEventListener("change", () => { siteEntriesPage = 1; loadSiteEntries(); });
+      qs("siteEntriesDomainFilter")?.addEventListener("change", () => { siteEntriesPage = 1; loadSiteEntries(); });
+      qs("btnPrevSiteEntriesPage")?.addEventListener("click", () => { siteEntriesPage = Math.max(1, siteEntriesPage - 1); loadSiteEntries(); });
+      qs("btnNextSiteEntriesPage")?.addEventListener("click", () => { siteEntriesPage++; loadSiteEntries(); });
+      qs("btnSaveSiteEntry")?.addEventListener("click", saveSiteEntry);
+      qs("btnRecommendSiteEntry")?.addEventListener("click", recommendSiteEntry);
+      qs("btnClearSiteEntry")?.addEventListener("click", clearSiteEntryForm);
+      qs("btnBindSiteEntriesToItem")?.addEventListener("click", bindSelectedSiteEntriesToItem);
+      qs("bindSiteEntriesItemSelect")?.addEventListener("change", () => {
+        const key = String(qs("bindSiteEntriesItemSelect").value || "");
+        qs("bindSiteEntriesItemKey").value = key;
+      });
+      qs("unifiedSearchItemSelect")?.addEventListener("change", () => {
+        const key = String(qs("unifiedSearchItemSelect").value || "");
+        qs("unifiedSearchItemKey").value = key;
+      });
+      // Minimal discovery triggers (buttons injected below if present)
+      document.getElementById("btnDiscoverSiteEntriesDry")?.addEventListener("click", () => discoverSiteEntries(true));
+      document.getElementById("btnDiscoverSiteEntriesWrite")?.addEventListener("click", () => discoverSiteEntries(false));
+      document.getElementById("btnUnifiedSearch")?.addEventListener("click", runUnifiedSearch);
+      qs("projectSelect")?.addEventListener("change", () => {
+        const key = qs("projectSelect").value;
+        if (key && window.MarketApp) {
+          localStorage.setItem("market_project_key", key);
+          refreshSourceData();
+          loadUrls();
+          loadSiteEntries();
+          loadNews();
+          if (document.getElementById("panel-ingest-config")?.classList.contains("active")) {
+            loadIngestConfig();
+          }
+        }
+      });
+
+      document.querySelectorAll(".tab").forEach((t) => {
+        t.addEventListener("click", () => switchTab(t.dataset.tab));
+      });
+
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "project_changed" }, "*");
+      }
+      window.addEventListener("message", (e) => {
+        if (e.data?.type === "project_changed") {
+          refreshSourceData();
+          loadUrls();
+          loadSiteEntries();
+          loadNews();
+          if (document.getElementById("panel-ingest-config")?.classList.contains("active")) {
+            loadIngestConfig();
+          }
+        }
+      });
+
+      const hashTab = (window.location.hash || "").replace(/^#/, "");
+      const initialTab = ["source-library", "urls", "site-entries", "capture", "ingest-config", "news"].includes(hashTab) ? hashTab : "source-library";
+
+      renderJobTypeChips();
+      renderIngestPlatformChips();
+      loadProjects().then(() => {
+        switchTab(initialTab);
+        clearSiteEntryForm();
+      });
+      if (window.lucide) window.lucide.createIcons();
+    </script>
+  </body>
+</html>

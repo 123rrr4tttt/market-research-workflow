@@ -24,5 +24,15 @@ class DefaultDiscoveryAdapter:
             kwargs.get("max_results", 20),
         )
 
-    def store(self, results: list[dict[str, Any]]) -> dict[str, int]:
-        return store_results(results)
+    def store(
+        self,
+        results: list[dict[str, Any]],
+        *,
+        project_key: str | None = None,
+        job_type: str | None = None,
+    ) -> dict[str, int]:
+        return store_results(
+            results,
+            project_key=project_key,
+            job_type=job_type,
+        )

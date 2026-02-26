@@ -8,6 +8,8 @@
 
 原始文档已归档至 `main/backend/docs/archive/ingest-architecture/`。
 
+**相关文档**：信息资源库（item/channel、来源字段、URL→Channel 路由）见 `RESOURCE_LIBRARY_DEFINITION.md`。
+
 ## 2. 架构分层
 
 ```
@@ -90,14 +92,25 @@ API 层 (app/api/ingest.py) — 需 project_key，绑定项目 schema
 
 - 对“内容相似但不完全相同”场景识别能力有限
 
-## 8. 同步/异步执行模式
+## 8. 参数合并顺序（run_item_by_key）
+
+当通过 `run_item_by_key` 执行来源采集时，最终请求参数按以下顺序合并（后者覆盖前者）：
+
+1. `channel.default_params` — 通道默认参数
+2. `item.params` — 来源项参数
+3. `ingest_config` — 项目摄取配置（如 `social_forum` 的 payload）
+4. `override_params` — 采集页传入的运行时覆盖参数
+
+合并后传入 channel 适配器执行。
+
+## 9. 同步/异步执行模式
 
 - 同步：直接执行服务函数，适合小批量调试
 - 异步：通过 `Celery` 任务执行，返回 `task_id`
 
 建议生产环境默认优先异步，便于稳定性与可观测性。
 
-## 9. 数据质量与可观测性建议
+## 10. 数据质量与可观测性建议
 
 建议记录：
 
@@ -107,7 +120,7 @@ API 层 (app/api/ingest.py) — 需 project_key，绑定项目 schema
 - 数据新鲜度
 - 多源冲突次数
 
-## 10. 历史归档（来源）
+## 11. 历史归档（来源）
 
 - `main/backend/docs/archive/ingest-architecture/INGEST_FLOW_DIAGRAM.md`
 - `main/backend/docs/archive/ingest-architecture/INGEST_PIPELINE_ANALYSIS.md`

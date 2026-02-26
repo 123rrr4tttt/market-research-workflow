@@ -7,6 +7,8 @@ from typing import List
 from sqlalchemy.orm import Session
 
 from ..job_logger import start_job, complete_job, fail_job
+from ..collect_runtime.display_meta import build_display_meta
+from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..search.web import search_sources
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
@@ -118,6 +120,24 @@ def collect_market_info(
             "links": links,
             "doc_type": normalized_doc_type,
         }
+        result["display_meta"] = build_display_meta(
+            CollectRequest(
+                channel="search.market",
+                query_terms=list(keywords or []),
+                limit=limit,
+                provider=provider,
+                language=language,
+                source_context={"summary": "市场信息采集"},
+            ),
+            CollectResult(
+                channel="search.market",
+                inserted=inserted,
+                skipped=skipped,
+                updated=0,
+                status="completed",
+            ),
+            summary="市场信息采集",
+        )
         complete_job(job_id, result=result)
         return result
 
