@@ -17,15 +17,11 @@ from .adapters.social_reddit import RedditAdapter, RedditPost
 from .adapters.news_google import GoogleNewsAdapter, GoogleNewsItem
 from ..http.client import default_http_client
 from ...settings.config import settings
-from ...subprojects.online_lottery.domain.news import (
-    CALOTTERY_NEWS_URL,
-    CALOTTERY_RETAILER_URL,
-    DEFAULT_REDDIT_SUBREDDIT,
-)
 
 
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
+DEFAULT_REDDIT_SUBREDDIT = settings.default_reddit_subreddit
 
 @dataclass(slots=True)
 class NewsItem:
@@ -35,44 +31,33 @@ class NewsItem:
     published_at: datetime | None = None
 
 
-def collect_calottery_news(limit: int = 10) -> dict:
-    job_id = start_job("calottery_news", {"limit": limit})
+def collect_official_news_updates(
+    *,
+    url: str,
+    source_name: str,
+    base_url: str,
+    doc_type: str = "official_update",
+    default_state: str | None = None,
+    job_type: str = "official_news",
+    title_fallback: str = "Official Update",
+    limit: int = 10,
+) -> dict:
+    job_id = start_job(job_type, {"limit": limit, "source_name": source_name})
     try:
-        html, _ = fetch_html(CALOTTERY_NEWS_URL)
-        items = list(_extract_calottery_items(html))
+        html, _ = fetch_html(url)
+        items = list(_extract_official_news_items(html, base_url=base_url, title_fallback=title_fallback))
         result = _persist_news_items(
             items=items[: max(limit, 0)],
-            doc_type="official_update",
-            source_name="California Lottery News",
-            base_url="calottery.com",
-            default_state="CA",
-            job_type="calottery_news",
+            doc_type=doc_type,
+            source_name=source_name,
+            base_url=base_url,
+            default_state=default_state,
+            job_type=job_type,
         )
         complete_job(job_id, result=result)
         return result
     except Exception as exc:  # noqa: BLE001
-        logger.exception("collect_calottery_news failed")
-        fail_job(job_id, str(exc))
-        raise
-
-
-def collect_calottery_retailer_updates(limit: int = 10) -> dict:
-    job_id = start_job("calottery_retailer_news", {"limit": limit})
-    try:
-        html, _ = fetch_html(CALOTTERY_RETAILER_URL)
-        items = list(_extract_calottery_items(html))
-        result = _persist_news_items(
-            items=items[: max(limit, 0)],
-            doc_type="retailer_update",
-            source_name="California Lottery Retailer News",
-            base_url="calottery.com",
-            default_state="CA",
-            job_type="calottery_retailer_news",
-        )
-        complete_job(job_id, result=result)
-        return result
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("collect_calottery_retailer_updates failed")
+        logger.exception("collect_official_news_updates failed")
         fail_job(job_id, str(exc))
         raise
 
@@ -217,7 +202,12 @@ def _get_or_create_source(session: Session, name: str, kind: str, base_url: str)
     return source
 
 
-def _extract_calottery_items(html: str) -> Iterable[NewsItem]:
+def _extract_official_news_items(
+    html: str,
+    *,
+    base_url: str,
+    title_fallback: str = "Official Update",
+) -> Iterable[NewsItem]:
     parser = make_html_parser(html)
     selectors = [
         ".news-release-card",
@@ -235,12 +225,12 @@ def _extract_calottery_items(html: str) -> Iterable[NewsItem]:
             if not href or href in seen:
                 continue
             seen.add(href)
-            title = link_node.text(strip=True) or "California Lottery Update"
+            title = link_node.text(strip=True) or title_fallback
             summary_node = node.css_first("p")
             summary = summary_node.text(strip=True) if summary_node else None
             date_node = node.css_first("time")
             published = _parse_date_safe(date_node.attributes.get("datetime")) if date_node else None
-            yield NewsItem(title=title, link=_normalize_url(href), summary=summary, published_at=published)
+            yield NewsItem(title=title, link=_normalize_url(href, base_url=base_url), summary=summary, published_at=published)
 
     # fallback: generic anchors on page
     for link_node in parser.css("a"):
@@ -250,8 +240,8 @@ def _extract_calottery_items(html: str) -> Iterable[NewsItem]:
         if "news" not in href.lower() and "press" not in href.lower():
             continue
         seen.add(href)
-        title = link_node.text(strip=True) or "California Lottery Update"
-        yield NewsItem(title=title, link=_normalize_url(href))
+        title = link_node.text(strip=True) or title_fallback
+        yield NewsItem(title=title, link=_normalize_url(href, base_url=base_url))
 
 
 def _parse_date_safe(value: str | None) -> datetime | None:
@@ -266,11 +256,14 @@ def _parse_date_safe(value: str | None) -> datetime | None:
     return None
 
 
-def _normalize_url(href: str) -> str:
+def _normalize_url(href: str, *, base_url: str) -> str:
     href = href.strip()
     if href.startswith("http://") or href.startswith("https://"):
         return href
-    return f"https://www.calottery.com{href}" if href.startswith("/") else f"https://www.calottery.com/{href}"
+    normalized_base = base_url.strip().rstrip("/")
+    if not normalized_base.startswith("http://") and not normalized_base.startswith("https://"):
+        normalized_base = f"https://{normalized_base}"
+    return f"{normalized_base}{href}" if href.startswith("/") else f"{normalized_base}/{href}"
 
 
 def _persist_reddit_items(
@@ -474,4 +467,3 @@ def _persist_google_news_items(
         "links": links,
         "doc_type": normalized_doc_type,
     }
-

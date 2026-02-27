@@ -7,9 +7,9 @@ from functools import lru_cache
 
 from ..project_customization import get_project_customization
 from ..services.ingest_config import get_config as get_ingest_config, upsert_config as upsert_ingest_config
-from ..subprojects.online_lottery.domain.news import DEFAULT_REDDIT_SUBREDDIT
 from ..services.job_logger import list_jobs
 from ..services.projects import bind_project, current_project_key
+from ..settings.config import settings
 from ..contracts import (
     ErrorCode,
     error_response,
@@ -211,7 +211,7 @@ class NewsRequest(BaseModel):
 
 
 class RedditRequest(BaseModel):
-    subreddit: str = Field(default=DEFAULT_REDDIT_SUBREDDIT, description="子论坛名称")
+    subreddit: str = Field(default_factory=lambda: settings.default_reddit_subreddit, description="子论坛名称")
     limit: int = Field(default=20, ge=1, le=100, description="抓取贴文数")
     async_mode: bool = Field(default=False, description="是否异步执行")
     project_key: str | None = Field(default=None, description="项目标识")
@@ -340,8 +340,6 @@ def _dispatch_news_resource(resource_id: str, payload: NewsRequest):
 
 
 _NEWS_RESOURCE_DISPLAY_NAMES: dict[str, str] = {
-    "calottery": "CA Lottery News",
-    "calottery_retailer": "CA Lottery Retailer News",
     "google_news": "Google News",
 }
 
@@ -507,14 +505,23 @@ def list_news_resources(
     return success_response({"items": items, "scope": scope})
 
 
-@router.post("/news/calottery")
-def ingest_calottery_news(payload: NewsRequest):
-    return _dispatch_news_resource("calottery", payload)
+@router.post("/news/resource/{resource_id}")
+def ingest_news_resource(resource_id: str, payload: NewsRequest):
+    """Generic project news resource entrypoint."""
+    return _dispatch_news_resource(resource_id, payload)
 
 
-@router.post("/news/calottery/retailer")
-def ingest_calottery_retailer(payload: NewsRequest):
-    return _dispatch_news_resource("calottery_retailer", payload)
+@router.post("/subprojects/{subproject_key}/news/{resource_id}")
+def ingest_subproject_news_resource(subproject_key: str, resource_id: str, payload: NewsRequest):
+    """Subproject-scoped news resource entrypoint."""
+    route_project_key = (subproject_key or "").strip()
+    if not route_project_key:
+        raise HTTPException(status_code=400, detail="subproject_key is required")
+    body_project_key = (payload.project_key or "").strip()
+    if body_project_key and body_project_key != route_project_key:
+        raise HTTPException(status_code=400, detail="project_key in body must match subproject_key in path")
+    scoped_payload = payload.model_copy(update={"project_key": route_project_key})
+    return _dispatch_news_resource(resource_id, scoped_payload)
 
 
 @router.post("/social/reddit")

@@ -78,8 +78,8 @@ Total routes: **135**
 | GET | `/api/v1/ingest/history` | `ingest_history` |  |
 | POST | `/api/v1/ingest/market` | `ingest_market` |  |
 | GET | `/api/v1/ingest/news-resources` | `list_news_resources` |  |
-| POST | `/api/v1/ingest/news/calottery` | `ingest_calottery_news` |  |
-| POST | `/api/v1/ingest/news/calottery/retailer` | `ingest_calottery_retailer` |  |
+| POST | `/api/v1/ingest/news/resource/{resource_id}` | `ingest_news_resource` |  |
+| POST | `/api/v1/ingest/subprojects/{subproject_key}/news/{resource_id}` | `ingest_subproject_news_resource` |  |
 | POST | `/api/v1/ingest/policy` | `ingest_policy` |  |
 | POST | `/api/v1/ingest/policy/regulation` | `ingest_policy_regulation` |  |
 | POST | `/api/v1/ingest/reports/california` | `ingest_california_reports` |  |
