@@ -1,0 +1,36 @@
+model = "gpt-5.3-codex"
+model_reasoning_effort = "medium"
+
+[projects."/Users/wangyiliang/projects/信息收集工作流"]
+trust_level = "trusted"
+
+[projects."/Users/wangyiliang/Downloads/PS4"]
+trust_level = "trusted"
+
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 64
+max_depth = 1
+
+[agents.default]
+description = "General-purpose helper."
+
+[agents.reviewer]
+description = "Find security, correctness, and test risks in code."
+config_file = "agents/reviewer.toml"
+
+[agents.explorer]
+description = "Fast codebase explorer for read-heavy tasks."
+config_file = "agents/custom-explorer.toml"
+
+[mcp_servers.figma]
+url = "https://mcp.figma.com/mcp"
+
+[mcp_servers.playwright]
+args = ["@playwright/mcp@latest"]
+command = "npx"
+
+[tui]
+status_line = ["model-with-reasoning", "context-remaining", "current-dir"]
