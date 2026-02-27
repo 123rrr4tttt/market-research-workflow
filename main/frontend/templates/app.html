@@ -391,7 +391,13 @@
         <div class="project-hint" id="projectHint">当前项目: default</div>
       </div>
       <div id="frameHost" class="frame-host">
-        <iframe id="contentFrame" class="content-frame active" src="process-management.html"></iframe>
+        <iframe
+          id="contentFrame"
+          class="content-frame active"
+          src="process-management.html"
+          allowfullscreen
+          allow="fullscreen"
+        ></iframe>
       </div>
     </main>
 
@@ -514,6 +520,8 @@
         const frame = document.createElement("iframe");
         frame.className = "content-frame";
         frame.setAttribute("loading", "eager");
+        frame.setAttribute("allowfullscreen", "");
+        frame.setAttribute("allow", "fullscreen");
         frame.dataset.cacheKey = key;
         frame.src = target;
         host.appendChild(frame);

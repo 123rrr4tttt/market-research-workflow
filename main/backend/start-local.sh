@@ -1,10 +1,21 @@
 #!/bin/bash
 # 本地开发环境启动脚本
 
-set -e  # 遇到错误立即退出（除明确使用set +e的地方）
+set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+
+compose() {
+    if command -v docker-compose >/dev/null 2>&1; then
+        docker-compose "$@"
+    elif docker compose version >/dev/null 2>&1; then
+        docker compose "$@"
+    else
+        echo "❌ 未找到 docker-compose 或 docker compose"
+        return 127
+    fi
+}
 
 DEV_RELOAD="${DEV_RELOAD:-1}"
 if [ "${1:-}" = "--low-memory" ]; then
@@ -13,60 +24,49 @@ fi
 
 echo "🚀 启动本地开发环境..."
 
-# 检查虚拟环境
 if [ ! -d ".venv311" ]; then
     echo "❌ 虚拟环境不存在，请先创建：python3.11 -m venv .venv311"
     exit 1
 fi
 
-# 激活虚拟环境
 source .venv311/bin/activate
 
-# 确保本地启动环境隔离：清除DOCKER_ENV环境变量
-# 这样可以确保使用localhost而不是容器服务名
 unset DOCKER_ENV
 export DOCKER_ENV=""
 
-# 检查.env文件
 if [ ! -f ".env" ]; then
     echo "⚠️  .env文件不存在，将使用默认配置（localhost）"
-    echo "💡 提示：可以复制 .env.local.example 为 .env.local 并修改配置"
+    echo "💡 提示：可以复制 .env.example 为 .env 并修改配置"
 fi
 
-# 启动数据库服务（如果需要）
 OPS_DIR="$(cd "$SCRIPT_DIR/../ops" && pwd)"
 if [ -f "$OPS_DIR/docker-compose.yml" ]; then
     echo ""
     echo "📦 检查数据库服务状态..."
-    
-    # 检查Docker是否运行
+
     if ! docker info >/dev/null 2>&1; then
         echo "⚠️  Docker未运行，跳过数据库服务启动"
-        echo "💡 提示：如需使用数据库，请先启动Docker并运行：cd $OPS_DIR && docker-compose up -d db es redis"
+        echo "💡 提示：如需使用数据库，请先启动Docker并运行：cd $OPS_DIR && docker compose up -d db es redis"
     else
         cd "$OPS_DIR"
-        
-        # 检查服务是否已运行
-        set +e  # 允许错误
-        DB_RUNNING=$(docker-compose ps -q db 2>/dev/null | wc -l | tr -d ' ')
-        ES_RUNNING=$(docker-compose ps -q es 2>/dev/null | wc -l | tr -d ' ')
-        REDIS_RUNNING=$(docker-compose ps -q redis 2>/dev/null | wc -l | tr -d ' ')
-        set -e  # 恢复错误检查
-        
+        set +e
+        DB_RUNNING=$(compose ps -q db 2>/dev/null | wc -l | tr -d ' ')
+        ES_RUNNING=$(compose ps -q es 2>/dev/null | wc -l | tr -d ' ')
+        REDIS_RUNNING=$(compose ps -q redis 2>/dev/null | wc -l | tr -d ' ')
+        set -e
+
         if [ "$DB_RUNNING" -eq 0 ] || [ "$ES_RUNNING" -eq 0 ] || [ "$REDIS_RUNNING" -eq 0 ]; then
             echo "🚀 启动数据库服务（db, es, redis）..."
-            docker-compose up -d db es redis
-            
-            # 等待服务就绪
+            compose up -d db es redis
+
             echo "⏳ 等待数据库服务就绪..."
             sleep 3
-            
-            # 检查PostgreSQL是否就绪
+
             MAX_RETRIES=15
             RETRY=0
-            set +e  # 允许错误
+            set +e
             while [ $RETRY -lt $MAX_RETRIES ]; do
-                if docker-compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then
+                if compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then
                     echo "✅ PostgreSQL已就绪"
                     break
                 fi
@@ -77,10 +77,9 @@ if [ -f "$OPS_DIR/docker-compose.yml" ]; then
                 fi
             done
             set -e
-            
-            # 检查Elasticsearch是否就绪
+
             RETRY=0
-            set +e  # 允许错误
+            set +e
             while [ $RETRY -lt $MAX_RETRIES ]; do
                 if curl -s http://localhost:9200 >/dev/null 2>&1; then
                     echo "✅ Elasticsearch已就绪"
@@ -93,37 +92,35 @@ if [ -f "$OPS_DIR/docker-compose.yml" ]; then
                 fi
             done
             set -e
-            
+
             echo "✅ 数据库服务启动完成"
         else
             echo "✅ 数据库服务已在运行"
         fi
-        
+
         cd "$SCRIPT_DIR"
     fi
 else
     echo "⚠️  未找到docker-compose.yml，跳过数据库服务启动"
 fi
 
-# 检查端口是否被占用
-if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
+if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
     echo ""
     echo "⚠️  端口8000已被占用"
-    
-    # 检查是否是Docker容器占用的端口
+
     set +e
     DOCKER_CONTAINER=$(docker ps --format "{{.ID}}\t{{.Ports}}" | grep ":8000->" | awk '{print $1}' | head -1)
     set -e
-    
+
     if [ -n "$DOCKER_CONTAINER" ]; then
         echo "检测到Docker容器正在使用8000端口（容器ID: $DOCKER_CONTAINER）"
         echo "💡 提示：如果要在本地运行，请先停止Docker容器："
-        echo "   cd $OPS_DIR && docker-compose stop backend"
+        echo "   cd $OPS_DIR && docker compose stop backend"
         read -p "是否要停止Docker backend容器？(y/n) " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             cd "$OPS_DIR"
-            docker-compose stop backend 2>/dev/null || true
+            compose stop backend 2>/dev/null || true
             cd "$SCRIPT_DIR"
             sleep 2
         else
@@ -159,10 +156,8 @@ echo ""
 echo "按 Ctrl+C 停止服务"
 echo ""
 
-# 启动服务（明确设置DOCKER_ENV为空，确保使用localhost）
 if [ "$DEV_RELOAD" = "1" ]; then
     DOCKER_ENV="" uvicorn app.main:app --reload --port 8000
 else
     DOCKER_ENV="" uvicorn app.main:app --port 8000
 fi
-
