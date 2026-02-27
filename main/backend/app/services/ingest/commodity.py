@@ -4,12 +4,13 @@ import csv
 from datetime import date
 from decimal import Decimal
 from io import StringIO
-from typing import Iterable
+from typing import Any, Iterable
 
 from sqlalchemy import select
 
 from ...models.base import SessionLocal
 from ...models.entities import MarketMetricPoint
+from ..extraction.numeric_general import extract_numeric_general
 from ..http.client import default_http_client
 from ..job_logger import complete_job, fail_job, start_job
 
@@ -19,6 +20,7 @@ DEFAULT_SYMBOLS: dict[str, str] = {
     "commodity.gold.spot": "gc.f",
     "commodity.copper.future": "hg.f",
 }
+MIN_NUMERIC_QUALITY_SCORE = 60.0
 
 
 def _fetch_stooq_rows(symbol: str) -> Iterable[dict[str, str]]:
@@ -27,6 +29,46 @@ def _fetch_stooq_rows(symbol: str) -> Iterable[dict[str, str]]:
     reader = csv.DictReader(StringIO(text))
     for row in reader:
         yield row
+
+
+def _build_numeric_quality(*, raw_value: Any, scope: str, source: str) -> tuple[float | None, dict[str, Any]]:
+    parsed = extract_numeric_general(raw_value, scope=scope)
+    value = parsed.get("value")
+    quality_score = float(parsed.get("quality_score", 0.0))
+    status = "ok" if parsed.get("parsed") else "parse_failed"
+    quality = {
+        "scope": scope,
+        "data_class": "project_extension",
+        "parsed_fields": {
+            "value": {
+                "status": status,
+                "metadata": parsed.get("meta", {}),
+                "error_code": parsed.get("error_code"),
+            }
+        },
+        "issues": [] if parsed.get("parsed") else [f"value:{parsed.get('error_code', 'NUMERIC_PARSE_FAILED')}"],
+        "quality_score": quality_score,
+        "source": source,
+    }
+    if not parsed.get("parsed") or value is None:
+        return None, quality
+    if quality_score < MIN_NUMERIC_QUALITY_SCORE:
+        quality["issues"].append("value:low_quality")
+        return None, quality
+    return float(value), quality
+
+
+def _merge_numeric_quality(extra: dict[str, Any] | None, quality: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(extra) if isinstance(extra, dict) else {}
+    existing = payload.get("numeric_quality")
+    if isinstance(existing, dict):
+        payload["numeric_quality"] = {
+            "source": existing,
+            "ingest": quality,
+        }
+    else:
+        payload["numeric_quality"] = quality
+    return payload
 
 
 def ingest_commodity_metrics(symbols: dict[str, str] | None = None, limit: int = 30) -> dict:
@@ -49,10 +91,18 @@ def ingest_commodity_metrics(symbols: dict[str, str] | None = None, limit: int =
                         continue
                     try:
                         metric_date = date.fromisoformat(dt_text)
-                        value = Decimal(close_text)
                     except Exception:
                         skipped += 1
                         continue
+                    normalized_value, quality = _build_numeric_quality(
+                        raw_value=close_text,
+                        scope="commodity.metric",
+                        source="ingest_commodity_normalize",
+                    )
+                    if normalized_value is None:
+                        skipped += 1
+                        continue
+                    value = Decimal(str(normalized_value))
 
                     source_uri = f"https://stooq.com/q/d/l/?s={symbol}&i=d"
                     existed = session.execute(
@@ -66,6 +116,7 @@ def ingest_commodity_metrics(symbols: dict[str, str] | None = None, limit: int =
                     if existed:
                         if Decimal(str(existed.value)) != value:
                             existed.value = value
+                            existed.extra = _merge_numeric_quality(existed.extra, quality)
                             updated += 1
                         else:
                             skipped += 1
@@ -80,7 +131,7 @@ def ingest_commodity_metrics(symbols: dict[str, str] | None = None, limit: int =
                             currency="USD",
                             source_name="stooq",
                             source_uri=source_uri,
-                            extra={"symbol": symbol},
+                            extra=_merge_numeric_quality({"symbol": symbol}, quality),
                         )
                     )
                     inserted += 1
