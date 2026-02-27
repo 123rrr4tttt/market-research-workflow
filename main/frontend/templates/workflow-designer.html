@@ -110,12 +110,27 @@
         position: relative;
         overflow: hidden;
       }
+      .canvas-shell {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        align-items: stretch;
+      }
+      @media (max-width: 980px) {
+        .canvas-shell {
+          grid-template-columns: 1fr;
+        }
+      }
       .canvas-svg {
         position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
-        pointer-events: none;
+        pointer-events: auto;
+      }
+      .edge-path {
+        cursor: pointer;
+        pointer-events: stroke;
       }
       .canvas-node {
         position: absolute;
@@ -130,11 +145,57 @@
         opacity: 0.86;
         box-shadow: 0 12px 22px rgba(16, 58, 123, 0.2);
       }
+      .canvas-node.selected {
+        border-color: #1f6feb;
+        box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.16), 0 10px 18px rgba(16, 58, 123, 0.16);
+      }
+      .canvas-node.runtime-success {
+        border-color: #8fd1ad;
+        background: #f4fdf7;
+      }
+      .canvas-node.runtime-running {
+        border-color: #8db6f6;
+        background: #f4f9ff;
+      }
+      .canvas-node.runtime-error {
+        border-color: #ecb2b2;
+        background: #fff6f6;
+      }
+      .canvas-node.runtime-skipped {
+        border-color: #e7dba5;
+        background: #fffdf4;
+      }
+      .canvas-node.runtime-idle {
+        border-color: #cfe1ff;
+        background: #fff;
+      }
       .canvas-node .head {
         cursor: move;
         padding: 8px 10px 4px;
         font-size: 12px;
         font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .canvas-node .head-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .canvas-node .head-remove {
+        border: 1px solid #f2c6c6;
+        background: #fff7f7;
+        color: #a62e2e;
+        border-radius: 999px;
+        width: 20px;
+        min-width: 20px;
+        height: 20px;
+        padding: 0;
+        line-height: 18px;
+        font-size: 12px;
+        cursor: pointer;
       }
       .canvas-node .meta {
         margin: 0;
@@ -143,8 +204,21 @@
       .canvas-node .ports {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         padding: 0 10px 8px;
+        gap: 10px;
+      }
+      .port-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+      .port-group.in {
+        align-items: flex-start;
+      }
+      .port-group.out {
+        align-items: flex-end;
       }
       .port {
         border: 1px solid #bfd7ff;
@@ -153,6 +227,10 @@
         padding: 2px 8px;
         background: #f6faff;
         cursor: pointer;
+        max-width: 72px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .port.active {
         background: #1f6feb;
@@ -221,6 +299,65 @@
       .table th {
         color: #5d7294;
       }
+      .edge-row-selected td {
+        background: #eef5ff;
+      }
+      .edge-map-panel {
+        margin-top: 8px;
+        border: 1px solid #d8e7fb;
+        border-radius: 10px;
+        padding: 8px;
+        background: #f9fcff;
+      }
+      .edge-map-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+        gap: 6px;
+        margin-top: 6px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 6px;
+      }
+      .edge-map-row.conflict-low {
+        border-color: #f1deaa;
+        background: #fffdf6;
+      }
+      .edge-map-row.conflict-medium {
+        border-color: #efc982;
+        background: #fff9ee;
+      }
+      .edge-map-row.conflict-high {
+        border-color: #f1b5b5;
+        background: #fff6f6;
+      }
+      .edge-map-row-note {
+        grid-column: 1 / -1;
+        color: #845f16;
+        font-size: 12px;
+      }
+      .edge-conflict-summary {
+        margin-top: 8px;
+      }
+      .badge.severity-low {
+        border-color: #e8d59c;
+        color: #7e641f;
+        background: #fffaf0;
+      }
+      .badge.severity-medium {
+        border-color: #edbf70;
+        color: #8b5b16;
+        background: #fff7ea;
+      }
+      .badge.severity-high {
+        border-color: #efb8b8;
+        color: #b23232;
+        background: #fff4f4;
+      }
+      @media (max-width: 980px) {
+        .edge-map-row {
+          grid-template-columns: 1fr;
+        }
+      }
       .badge {
         display: inline-block;
         border: 1px solid #d0e2ff;
@@ -228,6 +365,31 @@
         border-radius: 999px;
         padding: 2px 8px;
         font-size: 11px;
+      }
+      .badge.status-success {
+        border-color: #9fddbb;
+        color: #1f7a49;
+        background: #f2fbf5;
+      }
+      .badge.status-running {
+        border-color: #9dc2fb;
+        color: #1f5cc4;
+        background: #f1f7ff;
+      }
+      .badge.status-error {
+        border-color: #efb8b8;
+        color: #b23232;
+        background: #fff4f4;
+      }
+      .badge.status-skipped {
+        border-color: #ebdfaa;
+        color: #8a6a1d;
+        background: #fffdf1;
+      }
+      .badge.status-idle {
+        border-color: #d8e7fb;
+        color: #4f678d;
+        background: #f7faff;
       }
       .diag {
         border: 1px solid #eee;
@@ -255,6 +417,101 @@
       }
       .status {
         margin-top: 10px;
+      }
+      .params-panel {
+        margin-top: 10px;
+        border: 1px solid #d8e7fb;
+        border-radius: 12px;
+        background: #fcfeff;
+        padding: 10px;
+        position: relative;
+      }
+      .params-panel h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+      }
+      .params-panel .hint {
+        margin: 0;
+        color: #5d7397;
+        font-size: 12px;
+      }
+      .kv-row {
+        display: grid;
+        gap: 6px;
+        grid-template-columns: 1fr 1fr auto;
+        margin-bottom: 6px;
+      }
+      .kv-row button {
+        padding: 6px 8px;
+      }
+      .node-module-search {
+        position: relative;
+        min-width: 280px;
+        flex: 1 1 280px;
+      }
+      .node-module-search input {
+        width: 100%;
+      }
+      .node-module-list {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        max-height: 220px;
+        overflow: auto;
+        border: 1px solid #cde0fb;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(16, 58, 123, 0.12);
+        z-index: 20;
+        display: none;
+      }
+      .node-module-list.open {
+        display: block;
+      }
+      .node-module-option {
+        padding: 8px 10px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .node-module-option:hover,
+      .node-module-option.active {
+        background: #eef5ff;
+      }
+      .node-module-empty {
+        padding: 8px 10px;
+        color: #6a7f9f;
+        font-size: 13px;
+      }
+      .var-suggest-list {
+        position: absolute;
+        min-width: 240px;
+        max-width: 360px;
+        max-height: 220px;
+        overflow: auto;
+        border: 1px solid #cde0fb;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(16, 58, 123, 0.12);
+        z-index: 30;
+        display: none;
+      }
+      .var-suggest-list.open {
+        display: block;
+      }
+      .var-suggest-option {
+        padding: 8px 10px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .var-suggest-option:hover,
+      .var-suggest-option.active {
+        background: #eef5ff;
+      }
+      .var-suggest-empty {
+        padding: 8px 10px;
+        color: #6a7f9f;
+        font-size: 13px;
       }
     </style>
     <script src="/static/js/app-shell.js"></script>
@@ -372,15 +629,27 @@
               </div>
             </div>
             <div class="toolbar">
+              <div class="node-module-search" id="newNodeModuleSearchWrap">
+                <input id="newNodeModuleSearch" type="text" placeholder="搜索模块（标题 / key）" autocomplete="off" />
+                <div id="newNodeModuleList" class="node-module-list"></div>
+              </div>
+              <select id="newNodeModule" style="display:none;"></select>
+              <button id="btnAddNode">新增模块节点</button>
               <button id="btnResetTemplate">重置模板</button>
               <button id="btnAddEdge">新增连线</button>
               <button id="btnInsertBranch">插入条件分支节点</button>
               <button id="btnConnectMode">连线模式：关闭</button>
             </div>
             <div id="edgeTableWrap"></div>
-            <div class="canvas-wrap" id="graphCanvasWrap">
-              <svg id="graphCanvasSvg" class="canvas-svg"></svg>
-              <div id="graphCanvas"></div>
+            <div class="canvas-shell">
+              <div class="canvas-wrap" id="graphCanvasWrap">
+                <svg id="graphCanvasSvg" class="canvas-svg"></svg>
+                <div id="graphCanvas"></div>
+              </div>
+              <aside class="params-panel">
+                <h3>节点参数</h3>
+                <div id="nodeParamsPanel"></div>
+              </aside>
             </div>
           </div>
         </section>
@@ -437,14 +706,93 @@
         compile: null,
         gaps: [],
         runtimeDiagnostics: [],
+        nodeRuntimeStatuses: {},
+        runtimeNodeSummary: { success: 0, running: 0, error: 0, skipped: 0, idle: 0 },
         nodeOverrides: {},
         connectMode: false,
         connectSourceNodeId: "",
+        connectSourceHandle: "",
+        connectDraft: null,
         dragNodeId: "",
         dragStartX: 0,
         dragStartY: 0,
         nodeStartX: 0,
         nodeStartY: 0,
+        selectedNodeId: "",
+        selectedEdgeId: "",
+        manualCompileDiagnostics: [],
+        variableValidationDiagnostics: [],
+      };
+
+      function createRuntimeSummary() {
+        return { success: 0, running: 0, error: 0, skipped: 0, idle: 0 };
+      }
+
+      function normalizeRuntimeNodeStatus(status) {
+        const value = String(status == null ? "" : status).toLowerCase();
+        if (value === "success") return "success";
+        if (value === "running") return "running";
+        if (value === "error") return "error";
+        if (value === "skipped") return "skipped";
+        return "idle";
+      }
+
+      function recalcRuntimeSummary() {
+        const summary = createRuntimeSummary();
+        const nodes = (state.design && state.design.nodes) || [];
+        if (nodes.length) {
+          nodes.forEach((node) => {
+            const status = normalizeRuntimeNodeStatus((state.nodeRuntimeStatuses || {})[node.id] || "idle");
+            summary[status] += 1;
+          });
+        } else {
+          Object.values(state.nodeRuntimeStatuses || {}).forEach((status) => {
+            const safe = normalizeRuntimeNodeStatus(status);
+            summary[safe] += 1;
+          });
+        }
+        state.runtimeNodeSummary = summary;
+      }
+
+      function resetRuntimeNodeState() {
+        state.nodeRuntimeStatuses = {};
+        recalcRuntimeSummary();
+      }
+
+      function applyRuntimeNodeStatuses(nodeStatuses) {
+        const next = {};
+        const list = Array.isArray(nodeStatuses) ? nodeStatuses : [];
+        const nodes = (state.design && state.design.nodes) || [];
+        const titleToId = new Map(nodes.map((node) => [String(node.title || ""), String(node.id || "")]));
+        list.forEach((item) => {
+          if (!item || typeof item !== "object") return;
+          const status = normalizeRuntimeNodeStatus(item.status);
+          const nodeId = String(item.node_id || "").trim();
+          if (nodeId && nodes.some((node) => node.id === nodeId)) {
+            next[nodeId] = status;
+            return;
+          }
+          const byTitleId = titleToId.get(String(item.node_name || ""));
+          if (byTitleId) {
+            next[byTitleId] = status;
+          }
+        });
+        state.nodeRuntimeStatuses = next;
+        recalcRuntimeSummary();
+      }
+      const nodeModuleSearchState = {
+        options: [],
+        filtered: [],
+        activeIndex: -1,
+        open: false,
+      };
+      const variableSuggestState = {
+        open: false,
+        suggestions: [],
+        activeIndex: -1,
+        inputKey: "",
+        triggerStart: -1,
+        triggerEnd: -1,
       };
 
       function readRunParams() {
@@ -482,6 +830,303 @@
         falseTarget.innerHTML = options.join("");
       }
 
+      function renderNewNodeModuleOptions() {
+        const select = qs("newNodeModule");
+        const registry = Core.MODULE_REGISTRY && typeof Core.MODULE_REGISTRY === "object" ? Core.MODULE_REGISTRY : {};
+        const moduleKeys = Object.keys(registry).filter((key) => key !== "branch_condition");
+        const options = moduleKeys.map((key) => {
+          const def = registry[key] || {};
+          const label = def.title ? `${def.title} (${key})` : key;
+          const keyword = `${label} ${key}`.toLowerCase();
+          return { key, label, keyword };
+        });
+        const optionHtml = options.map((item) => {
+          const { key, label } = item;
+          return `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`;
+        });
+        select.innerHTML = optionHtml.join("");
+        nodeModuleSearchState.options = options;
+        nodeModuleSearchState.filtered = options.slice();
+        nodeModuleSearchState.activeIndex = options.length ? 0 : -1;
+        syncNewNodeModuleFromSelect();
+        renderNewNodeModuleSearchList();
+      }
+
+      function syncNewNodeModuleFromSelect() {
+        const select = qs("newNodeModule");
+        const input = qs("newNodeModuleSearch");
+        const selected = nodeModuleSearchState.options.find((item) => item.key === select.value) || nodeModuleSearchState.options[0];
+        if (!selected) {
+          if (input) input.value = "";
+          return;
+        }
+        if (select.value !== selected.key) select.value = selected.key;
+        if (input) input.value = selected.label;
+      }
+
+      function setNodeModuleSearchOpen(open) {
+        nodeModuleSearchState.open = !!open;
+        const list = qs("newNodeModuleList");
+        if (!list) return;
+        list.classList.toggle("open", nodeModuleSearchState.open);
+      }
+
+      function renderNewNodeModuleSearchList() {
+        const list = qs("newNodeModuleList");
+        if (!list) return;
+        const items = nodeModuleSearchState.filtered;
+        if (!items.length) {
+          list.innerHTML = '<div class="node-module-empty">未找到匹配模块</div>';
+          return;
+        }
+        if (nodeModuleSearchState.activeIndex < 0) nodeModuleSearchState.activeIndex = 0;
+        if (nodeModuleSearchState.activeIndex >= items.length) nodeModuleSearchState.activeIndex = items.length - 1;
+        list.innerHTML = items
+          .map((item, idx) => {
+            const cls = idx === nodeModuleSearchState.activeIndex ? "node-module-option active" : "node-module-option";
+            return `<div class="${cls}" data-module-index="${idx}" data-module-key="${escapeHtml(item.key)}">${escapeHtml(item.label)}</div>`;
+          })
+          .join("");
+      }
+
+      function filterNewNodeModuleOptions(keyword) {
+        const normalized = String(keyword || "").trim().toLowerCase();
+        if (!normalized) {
+          nodeModuleSearchState.filtered = nodeModuleSearchState.options.slice();
+        } else {
+          nodeModuleSearchState.filtered = nodeModuleSearchState.options.filter((item) => item.keyword.includes(normalized));
+        }
+        nodeModuleSearchState.activeIndex = nodeModuleSearchState.filtered.length ? 0 : -1;
+        renderNewNodeModuleSearchList();
+      }
+
+      function pickNewNodeModule(option) {
+        if (!option) return false;
+        qs("newNodeModule").value = option.key;
+        qs("newNodeModuleSearch").value = option.label;
+        setNodeModuleSearchOpen(false);
+        return true;
+      }
+
+      function pickActiveNewNodeModule() {
+        const idx = nodeModuleSearchState.activeIndex;
+        const option = idx >= 0 ? nodeModuleSearchState.filtered[idx] : null;
+        return pickNewNodeModule(option);
+      }
+
+      function onNewNodeModuleSearchInput(event) {
+        filterNewNodeModuleOptions(event.target.value);
+        setNodeModuleSearchOpen(true);
+      }
+
+      function onNewNodeModuleSearchFocus() {
+        filterNewNodeModuleOptions(qs("newNodeModuleSearch").value);
+        setNodeModuleSearchOpen(true);
+      }
+
+      function onNewNodeModuleSearchKeyDown(event) {
+        const items = nodeModuleSearchState.filtered;
+        if (!items.length && (event.key === "Enter" || event.key === "ArrowUp" || event.key === "ArrowDown")) {
+          event.preventDefault();
+          return;
+        }
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setNodeModuleSearchOpen(true);
+          nodeModuleSearchState.activeIndex = Math.min(items.length - 1, nodeModuleSearchState.activeIndex + 1);
+          renderNewNodeModuleSearchList();
+          return;
+        }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          setNodeModuleSearchOpen(true);
+          nodeModuleSearchState.activeIndex = Math.max(0, nodeModuleSearchState.activeIndex - 1);
+          renderNewNodeModuleSearchList();
+          return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const picked = pickActiveNewNodeModule();
+          if (!picked) return;
+          addNodeByModule();
+          return;
+        }
+        if (event.key === "Escape") {
+          setNodeModuleSearchOpen(false);
+        }
+      }
+
+      function onNewNodeModuleListMouseDown(event) {
+        const optionEl = event.target.closest("[data-module-index]");
+        if (!optionEl) return;
+        event.preventDefault();
+        const idx = Number(optionEl.getAttribute("data-module-index"));
+        if (!Number.isInteger(idx) || idx < 0 || idx >= nodeModuleSearchState.filtered.length) return;
+        const option = nodeModuleSearchState.filtered[idx];
+        pickNewNodeModule(option);
+      }
+
+      function onDocumentClick(event) {
+        const wrap = qs("newNodeModuleSearchWrap");
+        if (!wrap) return;
+        if (!wrap.contains(event.target)) setNodeModuleSearchOpen(false);
+        const panel = qs("nodeParamsPanel");
+        if (panel && !panel.contains(event.target)) {
+          setVariableSuggestOpen(false);
+        }
+      }
+
+      function normalizeSeverity(value) {
+        const text = String(value || "").toLowerCase();
+        if (text === "high") return "high";
+        if (text === "medium") return "medium";
+        if (text === "low") return "low";
+        return "none";
+      }
+
+      function getSeverityRank(value) {
+        const severity = normalizeSeverity(value);
+        if (severity === "high") return 3;
+        if (severity === "medium") return 2;
+        if (severity === "low") return 1;
+        return 0;
+      }
+
+      function setVariableSuggestOpen(open) {
+        variableSuggestState.open = !!open;
+        const list = qs("nodeVariableSuggestList");
+        if (!list) return;
+        list.classList.toggle("open", variableSuggestState.open);
+      }
+
+      function resetVariableSuggestState() {
+        variableSuggestState.suggestions = [];
+        variableSuggestState.activeIndex = -1;
+        variableSuggestState.inputKey = "";
+        variableSuggestState.triggerStart = -1;
+        variableSuggestState.triggerEnd = -1;
+      }
+
+      function hideVariableSuggestions() {
+        resetVariableSuggestState();
+        setVariableSuggestOpen(false);
+      }
+
+      function getVariableTriggerContext(text, cursor) {
+        const value = String(text == null ? "" : text);
+        const pos = Number.isInteger(cursor) ? cursor : value.length;
+        const before = value.slice(0, pos);
+        const openIndex = before.lastIndexOf("{{");
+        if (openIndex < 0) return null;
+        const closeIndex = before.lastIndexOf("}}");
+        if (closeIndex > openIndex) return null;
+        const keyword = before.slice(openIndex + 2).trim();
+        return { triggerStart: openIndex, triggerEnd: pos, keyword };
+      }
+
+      function getVariableSuggestInputKey(inputEl) {
+        if (!inputEl) return "";
+        return String(inputEl.getAttribute("data-param-input-key") || "");
+      }
+
+      function renderVariableSuggestionList() {
+        const list = qs("nodeVariableSuggestList");
+        if (!list) return;
+        const items = variableSuggestState.suggestions;
+        if (!items.length) {
+          list.innerHTML = '<div class="var-suggest-empty">未找到可用变量</div>';
+          return;
+        }
+        if (variableSuggestState.activeIndex < 0) variableSuggestState.activeIndex = 0;
+        if (variableSuggestState.activeIndex >= items.length) variableSuggestState.activeIndex = items.length - 1;
+        list.innerHTML = items
+          .map((item, idx) => {
+            const cls = idx === variableSuggestState.activeIndex ? "var-suggest-option active" : "var-suggest-option";
+            return `<div class="${cls}" data-var-suggest-index="${idx}" title="${escapeHtml(item.expression || "")}">${escapeHtml(item.label || item.expression || "")}</div>`;
+          })
+          .join("");
+      }
+
+      function repositionVariableSuggestList(inputEl) {
+        const list = qs("nodeVariableSuggestList");
+        const panel = qs("nodeParamsPanel");
+        if (!list || !panel || !inputEl || !panel.contains(inputEl)) return;
+        const panelRect = panel.getBoundingClientRect();
+        const inputRect = inputEl.getBoundingClientRect();
+        const top = inputRect.bottom - panelRect.top + 4;
+        const left = inputRect.left - panelRect.left;
+        list.style.top = `${Math.max(0, top)}px`;
+        list.style.left = `${Math.max(0, left)}px`;
+      }
+
+      function applyVariableSuggestion(inputEl, item) {
+        if (!inputEl || !item) return;
+        const value = String(inputEl.value || "");
+        const triggerStart = variableSuggestState.triggerStart;
+        const triggerEnd = variableSuggestState.triggerEnd;
+        if (triggerStart < 0 || triggerEnd < triggerStart) return;
+        const before = value.slice(0, triggerStart);
+        const after = value.slice(triggerEnd);
+        const expression = String(item.expression || "");
+        inputEl.value = `${before}${expression}${after}`;
+        const nextCursor = before.length + expression.length;
+        if (typeof inputEl.setSelectionRange === "function") inputEl.setSelectionRange(nextCursor, nextCursor);
+        hideVariableSuggestions();
+        syncSelectedNodeParamsFromPanel();
+        compileFromState({ skipPanelSync: true });
+      }
+
+      function updateVariableSuggestions(inputEl) {
+        if (!inputEl || !state.selectedNodeId) {
+          hideVariableSuggestions();
+          return;
+        }
+        const trigger = getVariableTriggerContext(inputEl.value, inputEl.selectionStart);
+        if (!trigger) {
+          hideVariableSuggestions();
+          return;
+        }
+        const all = Core && typeof Core.getVariableReferenceSuggestions === "function"
+          ? Core.getVariableReferenceSuggestions(state.design, state.selectedNodeId, { keyword: trigger.keyword })
+          : [];
+        const suggestions = Array.isArray(all) ? all.slice(0, 60) : [];
+        variableSuggestState.suggestions = suggestions;
+        variableSuggestState.activeIndex = suggestions.length ? 0 : -1;
+        variableSuggestState.inputKey = getVariableSuggestInputKey(inputEl);
+        variableSuggestState.triggerStart = trigger.triggerStart;
+        variableSuggestState.triggerEnd = trigger.triggerEnd;
+        renderVariableSuggestionList();
+        repositionVariableSuggestList(inputEl);
+        setVariableSuggestOpen(true);
+      }
+
+      function collectVariableValidationDiagnostics(design) {
+        if (!Core || typeof Core.validateVariableExpressions !== "function") return [];
+        const nodes = Array.isArray(design && design.nodes) ? design.nodes : [];
+        const diagnostics = [];
+        nodes.forEach((node) => {
+          const params = node && node.params && typeof node.params === "object" && !Array.isArray(node.params) ? node.params : {};
+          Object.entries(params).forEach(([key, value]) => {
+            if (typeof value !== "string") return;
+            if (!value.includes("{{") && !value.includes("}}")) return;
+            const result = Core.validateVariableExpressions(value, design);
+            const errors = result && Array.isArray(result.errors) ? result.errors : [];
+            errors.forEach((item) => {
+              const kind = String(item && item.kind || "");
+              const severity = kind === "unknown_field" ? "warning" : "error";
+              const type = severity === "error" ? "variable_error" : "variable_warning";
+              const message = item && item.message ? item.message : "变量表达式无效";
+              diagnostics.push({
+                kind: type,
+                severity,
+                message: `[${String(node.id || "-")}.${String(key || "-")}] ${message}`,
+              });
+            });
+          });
+        });
+        return diagnostics;
+      }
+
       function renderPipeline() {
         const nodes = state.design && state.design.nodes ? state.design.nodes : [];
         qs("pipelineView").innerHTML = nodes
@@ -515,24 +1160,409 @@
         return { x: Number(node.position.x || 0) + 90, y: Number(node.position.y || 0) + 40 };
       }
 
+      function getCanvasPoint(event) {
+        const wrap = qs("graphCanvasWrap");
+        if (!wrap) return { x: 0, y: 0 };
+        const rect = wrap.getBoundingClientRect();
+        const maxX = Math.max(0, rect.width);
+        const maxY = Math.max(0, rect.height);
+        const x = Math.min(maxX, Math.max(0, event.clientX - rect.left));
+        const y = Math.min(maxY, Math.max(0, event.clientY - rect.top));
+        return { x, y };
+      }
+
+      function setManualCompileDiagnostic(message, kind = "compile_error") {
+        state.manualCompileDiagnostics = [{ kind, message: String(message || "") }];
+        renderDiagnostics();
+      }
+
+      function clearManualCompileDiagnostic() {
+        if (!(state.manualCompileDiagnostics || []).length) return;
+        state.manualCompileDiagnostics = [];
+        renderDiagnostics();
+      }
+
+      function resetConnectionDraft() {
+        state.connectSourceNodeId = "";
+        state.connectSourceHandle = "";
+        state.connectDraft = null;
+      }
+
+      function cancelConnectionDraft(silent) {
+        const hadDraft = !!(state.connectDraft || state.connectSourceNodeId);
+        resetConnectionDraft();
+        renderCanvas();
+        if (!silent && hadDraft) setSuccess("status", "已取消连线");
+      }
+
+      function normalizeEdgeHandle(edgeLike, key) {
+        if (!edgeLike || typeof edgeLike !== "object") return "";
+        const snake = key === "source" ? "source_handle" : "target_handle";
+        const camel = key === "source" ? "sourceHandle" : "targetHandle";
+        return String(edgeLike[snake] || edgeLike[camel] || "").trim();
+      }
+
+      function buildNodePortHandles(node) {
+        if (!node || typeof node !== "object") return { inputs: [], outputs: [] };
+        const schema = Core && typeof Core.getModuleSchema === "function" ? Core.getModuleSchema(node.module_key) : null;
+        const moduleDef = (Core && Core.MODULE_REGISTRY && Core.MODULE_REGISTRY[node.module_key]) || {};
+
+        const inputFields = schema && schema.input_fields && typeof schema.input_fields === "object" ? Object.keys(schema.input_fields) : [];
+        const inputTypes = Array.isArray(schema && schema.input_types)
+          ? schema.input_types
+          : (Array.isArray(moduleDef.input_types) ? moduleDef.input_types : []);
+        const outputTypes = Array.isArray(schema && schema.output_types)
+          ? schema.output_types
+          : (Array.isArray(moduleDef.output_types) ? moduleDef.output_types : []);
+
+        const inputs = [];
+        if (inputFields.length) {
+          inputFields.forEach((fieldName, idx) => {
+            const dataType = String(inputTypes[idx] || inputTypes[0] || "").trim();
+            const handle = dataType ? `in:${fieldName}:${dataType}` : `in:${fieldName}`;
+            inputs.push({ handle, label: dataType ? `${fieldName}:${dataType}` : fieldName });
+          });
+        } else if (inputTypes.length) {
+          inputTypes.forEach((dataType) => {
+            const typeName = String(dataType || "").trim() || "input";
+            inputs.push({ handle: `in:${typeName}`, label: typeName });
+          });
+        } else {
+          inputs.push({ handle: "in:default", label: "input" });
+        }
+
+        const outputs = outputTypes.length
+          ? outputTypes.map((dataType) => {
+              const typeName = String(dataType || "").trim() || "output";
+              return { handle: `out:${typeName}`, label: typeName };
+            })
+          : [{ handle: "out:default", label: "output" }];
+        return { inputs, outputs };
+      }
+
+      function findPortElement(direction, nodeId, handleId) {
+        const nodeAttr = direction === "out" ? "data-port-out-node" : "data-port-in-node";
+        const handleAttr = direction === "out" ? "data-port-out-handle" : "data-port-in-handle";
+        const portElements = document.querySelectorAll(`[${nodeAttr}]`);
+        for (const element of portElements) {
+          if (String(element.getAttribute(nodeAttr) || "") !== String(nodeId || "")) continue;
+          if (String(element.getAttribute(handleAttr) || "") !== String(handleId || "")) continue;
+          return element;
+        }
+        return null;
+      }
+
+      function nodePortPoint(nodeId, direction, handleId) {
+        const wrap = qs("graphCanvasWrap");
+        const wrapRect = wrap ? wrap.getBoundingClientRect() : null;
+        const portEl = findPortElement(direction, nodeId, handleId);
+        if (wrapRect && portEl) {
+          const rect = portEl.getBoundingClientRect();
+          return {
+            x: direction === "out" ? rect.right - wrapRect.left : rect.left - wrapRect.left,
+            y: rect.top - wrapRect.top + rect.height / 2,
+          };
+        }
+        const center = nodeCenter(nodeId);
+        return {
+          x: direction === "out" ? center.x + 90 : center.x - 90,
+          y: center.y,
+        };
+      }
+
+      function callIsConnectionAllowed(sourceId, targetId, sourceHandle, targetHandle) {
+        if (!Core || typeof Core.isConnectionAllowed !== "function") {
+          return { allowed: true, message: "" };
+        }
+        const sourceHandleText = String(sourceHandle || "").trim();
+        const targetHandleText = String(targetHandle || "").trim();
+        const options = {
+          sourceHandle: sourceHandleText,
+          targetHandle: targetHandleText,
+          source_handle: sourceHandleText,
+          target_handle: targetHandleText,
+        };
+        const candidates = [
+          [state.design, sourceId, targetId, options],
+          [state.design, { source: sourceId, target: targetId }],
+          [{ design: state.design, source: sourceId, target: targetId }],
+          [sourceId, targetId, options],
+        ];
+        for (const args of candidates) {
+          try {
+            const result = Core.isConnectionAllowed(...args);
+            if (typeof result === "boolean") {
+              return { allowed: result, message: result ? "" : `不允许连线：${sourceId} -> ${targetId}` };
+            }
+            if (result && typeof result === "object") {
+              const allowed = "allowed" in result ? !!result.allowed : ("ok" in result ? !!result.ok : true);
+              const message = String(result.message || result.reason || result.error || "");
+              return { allowed, message };
+            }
+          } catch (_) {}
+        }
+        return { allowed: true, message: "" };
+      }
+
+      function tryCreateEdge(sourceId, targetId, sourceHandle = "", targetHandle = "") {
+        if (!sourceId || !targetId) return false;
+        const normalizedSourceHandle = String(sourceHandle || "").trim();
+        const normalizedTargetHandle = String(targetHandle || "").trim();
+        if (sourceId === targetId) {
+          const msg = "不允许节点自连接";
+          setManualCompileDiagnostic(msg);
+          setError("status", msg);
+          return false;
+        }
+        const exists = (state.design.edges || []).some((e) => {
+          if (e.source !== sourceId || e.target !== targetId) return false;
+          return normalizeEdgeHandle(e, "source") === normalizedSourceHandle && normalizeEdgeHandle(e, "target") === normalizedTargetHandle;
+        });
+        if (exists) {
+          const msg = "该连线已存在";
+          setManualCompileDiagnostic(msg, "warn");
+          setError("status", msg);
+          return false;
+        }
+        const allowed = callIsConnectionAllowed(sourceId, targetId, normalizedSourceHandle, normalizedTargetHandle);
+        if (!allowed.allowed) {
+          const msg = allowed.message || `连线不合法：${sourceId} -> ${targetId}`;
+          setManualCompileDiagnostic(msg);
+          setError("status", msg);
+          return false;
+        }
+        clearManualCompileDiagnostic();
+        const edge = {
+          id: createEntityId("e"),
+          source: sourceId,
+          target: targetId,
+          mapping: { count_rule: "many_to_many", field_map: [] },
+        };
+        if (normalizedSourceHandle) edge.source_handle = normalizedSourceHandle;
+        if (normalizedTargetHandle) edge.target_handle = normalizedTargetHandle;
+        state.design.edges.push(edge);
+        compileFromState();
+        const suffix = normalizedSourceHandle || normalizedTargetHandle ? ` (${normalizedSourceHandle || "-"} -> ${normalizedTargetHandle || "-"})` : "";
+        setSuccess("status", `已连线：${sourceId} -> ${targetId}${suffix}`);
+        return true;
+      }
+
+      function renderNodeParamsPanel() {
+        const host = qs("nodeParamsPanel");
+        if (!host) return;
+        const node = (state.design && state.design.nodes || []).find((n) => n.id === state.selectedNodeId);
+        if (!node) {
+          host.innerHTML = '<p class="hint">点击画布节点查看并编辑参数（schema + 自定义）。</p>';
+          return;
+        }
+        const params = node.params && typeof node.params === "object" && !Array.isArray(node.params) ? node.params : {};
+        const schema = Core && typeof Core.getModuleSchema === "function" ? Core.getModuleSchema(node.module_key) : null;
+        const renderableFields = Core && typeof Core.getRenderableInputFields === "function" ? Core.getRenderableInputFields(node.module_key) : [];
+        const schemaMeta = schema && schema.input_fields && typeof schema.input_fields === "object" ? schema.input_fields : {};
+        const schemaFieldSet = new Set((Array.isArray(renderableFields) ? renderableFields : []).map((field) => String(field && field.key || "").trim()).filter(Boolean));
+        const schemaRows = (Array.isArray(renderableFields) ? renderableFields : [])
+          .map((field) => {
+            const key = String(field && field.key || "").trim();
+            if (!key) return "";
+            const meta = schemaMeta[key] || field || {};
+            const type = String(meta.type || field.type || "string");
+            const required = Boolean(meta.required || field.required);
+            const hasValue = Object.prototype.hasOwnProperty.call(params, key);
+            const rawValue = hasValue ? params[key] : meta.default;
+            const valueText = formatParamValueForInput(rawValue);
+            const enumValues = Array.isArray(meta.enum) ? meta.enum : [];
+            let control = "";
+            if (enumValues.length) {
+              const options = enumValues
+                .map((item) => {
+                  const optionValue = String(item == null ? "" : item);
+                  const selected = optionValue === String(valueText || "") ? "selected" : "";
+                  return `<option value="${escapeHtml(optionValue)}" ${selected}>${escapeHtml(optionValue)}</option>`;
+                })
+                .join("");
+              control = `<select data-param-schema-key="${escapeHtml(key)}">${options}</select>`;
+            } else if (type === "boolean") {
+              const checked = rawValue === true ? "checked" : "";
+              control = `<input type="checkbox" data-param-schema-key="${escapeHtml(key)}" ${checked} />`;
+            } else if (type === "object" || type === "array") {
+              control = `<textarea data-param-schema-key="${escapeHtml(key)}" data-param-autocomplete="1" data-param-input-key="schema:${escapeHtml(key)}" placeholder="${type === "array" ? '["a","b"]' : '{"k":"v"}'}">${escapeHtml(valueText)}</textarea>`;
+            } else {
+              const inputType = type === "number" ? "number" : "text";
+              const autoAttr = inputType === "text" ? ` data-param-autocomplete="1" data-param-input-key="schema:${escapeHtml(key)}"` : "";
+              control = `<input type="${inputType}" data-param-schema-key="${escapeHtml(key)}"${autoAttr} value="${escapeHtml(valueText)}" placeholder="${escapeHtml(type)}" />`;
+            }
+            return `<div style="margin-bottom:8px;">
+              <label>${escapeHtml(key)} ${required ? '<span class="badge">required</span>' : ""}</label>
+              ${control}
+            </div>`;
+          })
+          .join("");
+        const customEntries = Object.entries(params).filter(([key]) => !schemaFieldSet.has(String(key || "").trim()));
+        const customRows = customEntries.length
+          ? customEntries
+              .map(([k, v], idx) => {
+                const value = typeof v === "string" ? v : JSON.stringify(v);
+                return `<div class="kv-row" data-param-custom-row="${idx}">
+                  <input data-param-key value="${escapeHtml(String(k))}" placeholder="key" />
+                  <input data-param-value data-param-autocomplete="1" data-param-input-key="custom:${idx}:value" value="${escapeHtml(String(value == null ? "" : value))}" placeholder="value" />
+                  <button type="button" data-param-remove="${idx}">删除</button>
+                </div>`;
+              })
+              .join("")
+          : "";
+        host.innerHTML = `
+          <div class="diag">
+            <div class="title">${escapeHtml(node.title)} (${escapeHtml(node.id)})</div>
+            <div class="msg">${escapeHtml(node.module_key || "-")}</div>
+          </div>
+          <div class="diag">
+            <div class="title">Schema 参数</div>
+            <div class="msg">自动基于 Core.getRenderableInputFields / Core.getModuleSchema 渲染</div>
+          </div>
+          <div id="nodeSchemaParamsRows">${schemaRows || '<p class="hint">该模块未声明 schema 字段。</p>'}</div>
+          <div class="diag" style="margin-top:8px;">
+            <div class="title">自定义参数</div>
+            <div class="msg">用于补充 schema 外参数</div>
+          </div>
+          <div id="nodeParamsCustomRows">${customRows || '<p class="hint">当前无自定义参数，可新增。</p>'}</div>
+          <div class="toolbar">
+            <button type="button" data-param-add="1">新增参数</button>
+          </div>
+          <div id="nodeVariableSuggestList" class="var-suggest-list"></div>
+        `;
+        hideVariableSuggestions();
+      }
+
+      function parseParamValue(raw) {
+        const text = String(raw == null ? "" : raw).trim();
+        if (!text) return "";
+        if (text === "true") return true;
+        if (text === "false") return false;
+        if (text === "null") return null;
+        if (/^-?\d+(\.\d+)?$/.test(text)) return Number(text);
+        if ((text.startsWith("{") && text.endsWith("}")) || (text.startsWith("[") && text.endsWith("]"))) {
+          try {
+            return JSON.parse(text);
+          } catch (_) {
+            return text;
+          }
+        }
+        return text;
+      }
+
+      function formatParamValueForInput(value) {
+        if (value == null) return "";
+        if (typeof value === "object") {
+          try {
+            return JSON.stringify(value);
+          } catch (_) {
+            return "";
+          }
+        }
+        return String(value);
+      }
+
+      function syncSelectedNodeParamsFromPanel() {
+        const node = (state.design && state.design.nodes || []).find((n) => n.id === state.selectedNodeId);
+        const host = qs("nodeParamsPanel");
+        if (!node || !host) return;
+        const next = {};
+        const schema = Core && typeof Core.getModuleSchema === "function" ? Core.getModuleSchema(node.module_key) : null;
+        const renderableFields = Core && typeof Core.getRenderableInputFields === "function" ? Core.getRenderableInputFields(node.module_key) : [];
+        const schemaMeta = schema && schema.input_fields && typeof schema.input_fields === "object" ? schema.input_fields : {};
+        const fieldSet = new Set();
+        (Array.isArray(renderableFields) ? renderableFields : []).forEach((field) => {
+          const key = String(field && field.key || "").trim();
+          if (!key) return;
+          fieldSet.add(key);
+          const inputEl = host.querySelector(`[data-param-schema-key="${key}"]`);
+          if (!inputEl) return;
+          const rawValue = inputEl.type === "checkbox" ? inputEl.checked : inputEl.value;
+          const fieldMeta = schemaMeta[key] || field || {};
+          if (Core && typeof Core.coerceParamValue === "function") {
+            next[key] = Core.coerceParamValue(rawValue, fieldMeta);
+          } else {
+            next[key] = parseParamValue(rawValue);
+          }
+        });
+        const rows = host.querySelectorAll("[data-param-custom-row]");
+        rows.forEach((row) => {
+          const keyEl = row.querySelector("[data-param-key]");
+          const valueEl = row.querySelector("[data-param-value]");
+          const key = keyEl ? String(keyEl.value || "").trim() : "";
+          if (!key) return;
+          if (fieldSet.has(key)) return;
+          const value = valueEl ? valueEl.value : "";
+          next[key] = parseParamValue(value);
+        });
+        node.params = next;
+      }
+
+      function getDesignEdgeById(edgeId) {
+        return (state.design && state.design.edges || []).find((edge) => edge.id === edgeId) || null;
+      }
+
+      function syncSelectedEdgeFieldMapFromPanel() {
+        const edge = getDesignEdgeById(state.selectedEdgeId);
+        if (!edge) return;
+        const host = qs("edgeTableWrap");
+        if (!host) return;
+        if (!edge.mapping || typeof edge.mapping !== "object") edge.mapping = { count_rule: "many_to_many", field_map: [] };
+        const countRuleEl = host.querySelector("#edgeCountRuleInput");
+        if (countRuleEl) edge.mapping.count_rule = String(countRuleEl.value || "").trim() || "many_to_many";
+        const rows = host.querySelectorAll("[data-edge-map-row]");
+        const nextFieldMap = [];
+        rows.forEach((row) => {
+          const fromEl = row.querySelector("[data-edge-map-from]");
+          const toEl = row.querySelector("[data-edge-map-to]");
+          const defaultEl = row.querySelector("[data-edge-map-default]");
+          nextFieldMap.push({
+            from: String(fromEl ? fromEl.value : "").trim(),
+            to: String(toEl ? toEl.value : "").trim(),
+            default: defaultEl ? defaultEl.value : "",
+          });
+        });
+        if (Mapping && typeof Mapping.normalizeFieldMap === "function") {
+          edge.mapping.field_map = Mapping.normalizeFieldMap(nextFieldMap);
+        } else {
+          edge.mapping.field_map = nextFieldMap.filter((item) => item.to);
+        }
+      }
+
       function renderCanvas() {
         ensureNodePositions();
         const host = qs("graphCanvas");
         const svg = qs("graphCanvasSvg");
         const nodes = (state.design && state.design.nodes) || [];
         const edges = (state.design && state.design.edges) || [];
+        const activeSourceNodeId = (state.connectDraft && state.connectDraft.sourceId) || state.connectSourceNodeId;
+        const activeSourceHandle = (state.connectDraft && state.connectDraft.sourceHandle) || state.connectSourceHandle;
 
         host.innerHTML = nodes
           .map((n) => {
             const x = Number(n.position && n.position.x || 0);
             const y = Number(n.position && n.position.y || 0);
-            const sourceActive = state.connectSourceNodeId === n.id;
-            return `<div class="canvas-node" data-node-id="${escapeHtml(n.id)}" style="left:${x}px;top:${y}px;">
-              <div class="head" data-drag-handle="1">${escapeHtml(n.title)}</div>
+            const selected = state.selectedNodeId === n.id;
+            const runtimeStatus = normalizeRuntimeNodeStatus((state.nodeRuntimeStatuses || {})[n.id] || "idle");
+            const portHandles = buildNodePortHandles(n);
+            const inputPorts = portHandles.inputs
+              .map((port) => `<button class="port port-in" data-port-in-node="${escapeHtml(n.id)}" data-port-in-handle="${escapeHtml(port.handle)}" title="${escapeHtml(port.label)}">${escapeHtml(port.label)}</button>`)
+              .join("");
+            const outputPorts = portHandles.outputs
+              .map((port) => {
+                const sourceActive = activeSourceNodeId === n.id && activeSourceHandle === port.handle;
+                return `<button class="port port-out ${sourceActive ? "active" : ""}" data-port-out-node="${escapeHtml(n.id)}" data-port-out-handle="${escapeHtml(port.handle)}" title="${escapeHtml(port.label)}">${escapeHtml(port.label)}</button>`;
+              })
+              .join("");
+            return `<div class="canvas-node runtime-${runtimeStatus} ${selected ? "selected" : ""}" data-node-id="${escapeHtml(n.id)}" style="left:${x}px;top:${y}px;">
+              <div class="head" data-drag-handle="1">
+                <span class="head-title">${escapeHtml(n.title)}</span>
+                <button class="head-remove" type="button" data-node-delete="${escapeHtml(n.id)}">x</button>
+              </div>
               <div class="meta">${escapeHtml(n.module_key)} · ${escapeHtml(n.data_type || "-")}</div>
               <div class="ports">
-                <button class="port" data-port-in="${escapeHtml(n.id)}">输入</button>
-                <button class="port ${sourceActive ? "active" : ""}" data-port-out="${escapeHtml(n.id)}">输出</button>
+                <div class="port-group in">${inputPorts}</div>
+                <div class="port-group out">${outputPorts}</div>
               </div>
             </div>`;
           })
@@ -540,55 +1570,181 @@
 
         const lines = edges
           .map((e) => {
-            const s = nodeCenter(e.source);
-            const t = nodeCenter(e.target);
+            const sourceHandle = normalizeEdgeHandle(e, "source");
+            const targetHandle = normalizeEdgeHandle(e, "target");
+            const s = nodePortPoint(e.source, "out", sourceHandle);
+            const t = nodePortPoint(e.target, "in", targetHandle);
             const mid = (s.x + t.x) / 2;
             const color = e.branch === "true" ? "#13a05f" : e.branch === "false" ? "#cf2e2e" : "#7aa0d6";
-            return `<path d="M ${s.x} ${s.y} C ${mid} ${s.y}, ${mid} ${t.y}, ${t.x} ${t.y}" stroke="${color}" stroke-width="2" fill="none"></path>`;
+            return `<path class="edge-path" data-edge-id="${escapeHtml(e.id)}" d="M ${s.x} ${s.y} C ${mid} ${s.y}, ${mid} ${t.y}, ${t.x} ${t.y}" stroke="${color}" stroke-width="2" fill="none"></path>`;
           })
           .join("");
-        svg.innerHTML = lines;
+        let preview = "";
+        if (state.connectDraft && state.connectDraft.sourceId) {
+          const s = nodePortPoint(state.connectDraft.sourceId, "out", state.connectDraft.sourceHandle);
+          const t = { x: Number(state.connectDraft.currentX || s.x), y: Number(state.connectDraft.currentY || s.y) };
+          const mid = (s.x + t.x) / 2;
+          preview = `<path d="M ${s.x} ${s.y} C ${mid} ${s.y}, ${mid} ${t.y}, ${t.x} ${t.y}" stroke="#1f6feb" stroke-width="2" stroke-dasharray="6 4" fill="none"></path>`;
+        }
+        svg.innerHTML = `${lines}${preview}`;
       }
 
       function renderEdgeTable() {
         const edges = state.design && state.design.edges ? state.design.edges : [];
         if (!edges.length) {
+          state.selectedEdgeId = "";
           qs("edgeTableWrap").innerHTML = '<div class="badge">暂无连线</div>';
           return;
         }
+        if (!state.selectedEdgeId || !edges.some((e) => e.id === state.selectedEdgeId)) {
+          state.selectedEdgeId = edges[0].id;
+        }
+        const selectedEdge = edges.find((e) => e.id === state.selectedEdgeId) || edges[0];
+        const nodeMap = new Map(((state.design && state.design.nodes) || []).map((n) => [n.id, n]));
+        const sourceNode = selectedEdge ? nodeMap.get(selectedEdge.source) : null;
+        const targetNode = selectedEdge ? nodeMap.get(selectedEdge.target) : null;
+        const sourceDef = sourceNode ? Core.MODULE_REGISTRY[sourceNode.module_key] : null;
+        const targetDef = targetNode ? Core.MODULE_REGISTRY[targetNode.module_key] : null;
+        const sourceFields = sourceDef && Array.isArray(sourceDef.output_fields) ? sourceDef.output_fields : [];
+        const targetFields = targetDef && Array.isArray(targetDef.required_input_fields) ? targetDef.required_input_fields : [];
+        const mapping = selectedEdge && selectedEdge.mapping && typeof selectedEdge.mapping === "object" ? selectedEdge.mapping : { count_rule: "many_to_many", field_map: [] };
+        const currentFieldMap = Mapping && typeof Mapping.getEdgeFieldMap === "function"
+          ? Mapping.getEdgeFieldMap(state.design, selectedEdge.id)
+          : (Array.isArray(mapping.field_map) ? mapping.field_map : []);
+        const conflictModel = Mapping && typeof Mapping.getEdgeFieldMapConflictModel === "function"
+          ? Mapping.getEdgeFieldMapConflictModel(state.design, selectedEdge.id)
+          : { severity: "none", conflicts: [], highlight: { by_index: [] } };
+        const conflictQuery = Mapping && typeof Mapping.queryEdgeConflicts === "function"
+          ? Mapping.queryEdgeConflicts(state.design, selectedEdge.id)
+          : { severity: conflictModel.severity, conflicts: conflictModel.conflicts };
+        const conflictById = new Map((Array.isArray(conflictModel.conflicts) ? conflictModel.conflicts : []).map((item) => [item.id, item]));
+        const rowHighlights = (conflictModel && conflictModel.highlight && Array.isArray(conflictModel.highlight.by_index))
+          ? conflictModel.highlight.by_index
+          : [];
+        const editableFieldMap = currentFieldMap.length ? currentFieldMap : [{ from: "", to: "", default: "" }];
+        const buildFieldOptions = function (items, currentValue) {
+          const normalized = Array.isArray(items) ? items.map((item) => String(item || "").trim()).filter(Boolean) : [];
+          const options = normalized.slice();
+          if (currentValue && !options.includes(currentValue)) options.push(currentValue);
+          return [`<option value="">(留空)</option>`]
+            .concat(options.map((value) => `<option value="${escapeHtml(value)}" ${value === currentValue ? "selected" : ""}>${escapeHtml(value)}</option>`))
+            .join("");
+        };
         const rows = edges
           .map(
             (e) =>
-              `<tr>
+              `<tr class="${e.id === state.selectedEdgeId ? "edge-row-selected" : ""}">
                 <td>${escapeHtml(e.id)}</td>
                 <td>${escapeHtml(e.source)}</td>
                 <td>${escapeHtml(e.target)}</td>
+                <td>${escapeHtml(normalizeEdgeHandle(e, "source") || "-")}</td>
+                <td>${escapeHtml(normalizeEdgeHandle(e, "target") || "-")}</td>
                 <td>${escapeHtml(e.branch || "-")}</td>
                 <td>${escapeHtml((e.mapping && e.mapping.count_rule) || "-")}</td>
+                <td>
+                  <button type="button" data-edge-select="${escapeHtml(e.id)}">映射</button>
+                  <button type="button" data-edge-delete="${escapeHtml(e.id)}">删除</button>
+                </td>
               </tr>`
           )
           .join("");
-        qs("edgeTableWrap").innerHTML = `<table class="table"><thead><tr><th>edge</th><th>source</th><th>target</th><th>branch</th><th>count_rule</th></tr></thead><tbody>${rows}</tbody></table>`;
+        const fieldRows = editableFieldMap
+          .map(
+            (item, idx) => {
+              const highlight = rowHighlights[idx] || { severity: "none", conflict_ids: [] };
+              const severity = normalizeSeverity(highlight.severity);
+              const conflictText = (Array.isArray(highlight.conflict_ids) ? highlight.conflict_ids : [])
+                .map((id) => conflictById.get(id))
+                .filter(Boolean)
+                .map((entry) => entry.message)
+                .filter(Boolean)
+                .join("；");
+              const rowClass = severity === "none" ? "" : ` conflict-${severity}`;
+              return `
+              <div class="edge-map-row${rowClass}" data-edge-map-row="${idx}">
+                <select data-edge-map-from="${idx}">${buildFieldOptions(sourceFields, String(item.from || ""))}</select>
+                <select data-edge-map-to="${idx}">${buildFieldOptions(targetFields, String(item.to || ""))}</select>
+                <input data-edge-map-default="${idx}" value="${escapeHtml(formatParamValueForInput(item.default))}" placeholder="default（可选）" />
+                <button type="button" data-edge-map-remove="${idx}">删除</button>
+                ${conflictText ? `<div class="edge-map-row-note">${escapeHtml(conflictText)}</div>` : ""}
+              </div>`;
+            }
+          )
+          .join("");
+        const summarySeverity = normalizeSeverity(conflictQuery.severity);
+        const summaryClass = summarySeverity === "none" ? "" : ` severity-${summarySeverity}`;
+        const conflictSummary = Array.isArray(conflictQuery.conflicts) && conflictQuery.conflicts.length
+          ? `<div class="diag edge-conflict-summary ${getSeverityRank(summarySeverity) >= 3 ? "error" : "warn"}">
+              <div class="title">字段映射冲突</div>
+              <div class="msg"><span class="badge${summaryClass}">severity: ${escapeHtml(summarySeverity)}</span> <span class="badge">conflicts: ${conflictQuery.conflicts.length}</span></div>
+            </div>`
+          : `<div class="diag edge-conflict-summary"><div class="title">字段映射冲突</div><div class="msg"><span class="badge">severity: none</span> <span class="badge">conflicts: 0</span></div></div>`;
+        qs("edgeTableWrap").innerHTML = `
+          <table class="table"><thead><tr><th>edge</th><th>source</th><th>target</th><th>source_handle</th><th>target_handle</th><th>branch</th><th>count_rule</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>
+          <div class="edge-map-panel">
+            <div class="diag">
+              <div class="title">字段映射编辑：${escapeHtml(selectedEdge.id)} (${escapeHtml(sourceNode ? sourceNode.title : selectedEdge.source)} -> ${escapeHtml(targetNode ? targetNode.title : selectedEdge.target)})</div>
+              <div class="msg">源字段：${sourceFields.length ? sourceFields.map((field) => `<span class="badge">${escapeHtml(field)}</span>`).join(" ") : '<span class="badge">无声明 output_fields</span>'}</div>
+              <div class="msg">目标必填：${targetFields.length ? targetFields.map((field) => `<span class="badge">${escapeHtml(field)}</span>`).join(" ") : '<span class="badge">无声明 required_input_fields</span>'}</div>
+            </div>
+            ${conflictSummary}
+            <div class="row">
+              <div>
+                <label for="edgeCountRuleInput">count_rule</label>
+                <select id="edgeCountRuleInput">
+                  <option value="many_to_many" ${String(mapping.count_rule || "many_to_many") === "many_to_many" ? "selected" : ""}>many_to_many</option>
+                  <option value="one_to_one" ${String(mapping.count_rule || "") === "one_to_one" ? "selected" : ""}>one_to_one</option>
+                  <option value="one_to_many" ${String(mapping.count_rule || "") === "one_to_many" ? "selected" : ""}>one_to_many</option>
+                  <option value="many_to_one" ${String(mapping.count_rule || "") === "many_to_one" ? "selected" : ""}>many_to_one</option>
+                </select>
+              </div>
+            </div>
+            <div>${fieldRows}</div>
+            <div class="toolbar" style="margin-top:8px;">
+              <button type="button" data-edge-map-add="1">新增映射行</button>
+              <button type="button" data-edge-map-suggest="1">一键建议</button>
+            </div>
+          </div>
+        `;
       }
 
       function renderDiagnostics() {
-        const compileDiagnostics = (state.compile && state.compile.diagnostics) || [];
+        const compileDiagnostics = [
+          ...((state.manualCompileDiagnostics) || []),
+          ...((state.variableValidationDiagnostics) || []),
+          ...(((state.compile && state.compile.diagnostics) || [])),
+        ];
         const runtimeDiagnostics = state.runtimeDiagnostics || [];
+        const summary = state.runtimeNodeSummary || createRuntimeSummary();
+        const statusLabels = [
+          ["success", "成功"],
+          ["running", "运行中"],
+          ["error", "失败"],
+          ["skipped", "跳过"],
+          ["idle", "空闲"],
+        ];
+        const summaryHtml = `<div class="diag">
+          <div class="title">节点状态摘要</div>
+          <div class="msg">${statusLabels
+            .map(([key, label]) => `<span class="badge status-${key}">${escapeHtml(label)} ${Number(summary[key] || 0)}</span>`)
+            .join(" ")}</div>
+        </div>`;
 
         qs("compileDiagnostics").innerHTML = compileDiagnostics.length
           ? compileDiagnostics
               .map((d) => {
-                const cls = d.kind === "compile_error" ? "error" : "warn";
+                const severity = String(d && d.severity || "").toLowerCase();
+                const cls = d.kind === "compile_error" || d.kind === "variable_error" || severity === "error" ? "error" : "warn";
                 return `<div class="diag ${cls}"><div class="title">${escapeHtml(d.kind || "diagnostic")}</div><div class="msg">${escapeHtml(d.message || "-")}</div></div>`;
               })
               .join("")
           : '<div class="badge">无编译错误</div>';
 
         qs("runtimeDiagnostics").innerHTML = runtimeDiagnostics.length
-          ? runtimeDiagnostics
+          ? `${summaryHtml}${runtimeDiagnostics
               .map((d) => `<div class="diag error"><div class="title">${escapeHtml(d.kind || "runtime")}</div><div class="msg">${escapeHtml((d.http_status ? `HTTP ${d.http_status} · ` : "") + (d.message || "请求失败"))}</div></div>`)
-              .join("")
-          : '<div class="badge">无运行错误</div>';
+              .join("")}`
+          : `${summaryHtml}<div class="badge">无运行错误</div>`;
       }
 
       function renderGaps() {
@@ -611,7 +1767,13 @@
           .join("");
       }
 
-      function compileFromState() {
+      function compileFromState(options) {
+        const opts = options && typeof options === "object" ? options : {};
+        if (!opts.skipPanelSync) {
+          syncSelectedNodeParamsFromPanel();
+          syncSelectedEdgeFieldMapFromPanel();
+        }
+        state.variableValidationDiagnostics = collectVariableValidationDiagnostics(state.design);
         state.design = Core.applyGlobalType(state.design, qs("globalDataType").value, state.nodeOverrides);
         state.gaps = Mapping.detectInterfaceGaps(state.design, Core.MODULE_REGISTRY);
 
@@ -632,17 +1794,47 @@
           null,
           2
         );
+        recalcRuntimeSummary();
         renderPipeline();
         renderEdgeTable();
         renderGaps();
         renderDiagnostics();
         renderNodeOptions();
         renderCanvas();
+        renderNodeParamsPanel();
+      }
+
+      function createEntityId(prefix) {
+        const safePrefix = String(prefix || "id");
+        const candidates = [
+          Core && typeof Core.generateId === "function" ? Core.generateId : null,
+          Core && typeof Core.createId === "function" ? Core.createId : null,
+          Core && typeof Core.genId === "function" ? Core.genId : null,
+          Core && typeof Core.nextId === "function" ? Core.nextId : null,
+        ].filter(Boolean);
+        for (const fn of candidates) {
+          try {
+            const id = fn(safePrefix);
+            if (typeof id === "string" && id.trim()) return id;
+          } catch (_) {}
+          try {
+            const id = fn();
+            if (typeof id === "string" && id.trim()) return id;
+          } catch (_) {}
+        }
+        if (typeof crypto !== "undefined" && crypto && typeof crypto.randomUUID === "function") {
+          return `${safePrefix}_${crypto.randomUUID()}`;
+        }
+        return `${safePrefix}_${Math.random().toString(36).slice(2, 10)}`;
       }
 
       function resetTemplate() {
         state.runtimeDiagnostics = [];
+        state.selectedNodeId = "";
+        state.manualCompileDiagnostics = [];
+        resetConnectionDraft();
         state.design = Core.createDefaultDesign(collectForm());
+        resetRuntimeNodeState();
         compileFromState();
       }
 
@@ -653,59 +1845,102 @@
           setError("status", "请选择源节点和目标节点");
           return;
         }
-        if (source === target) {
-          setError("status", "不允许节点自连接");
+        tryCreateEdge(source, target);
+      }
+
+      function addNodeByModule() {
+        const moduleKey = String(qs("newNodeModule").value || "").trim();
+        if (!moduleKey) {
+          setError("status", "请选择模块");
           return;
         }
-        const edgeId = `e_${Date.now()}`;
-        state.design.edges.push({ id: edgeId, source, target, mapping: { count_rule: "", field_map: [] } });
+        ensureNodePositions();
+        const nodes = state.design && Array.isArray(state.design.nodes) ? state.design.nodes : [];
+        const maxX = nodes.length ? Math.max(...nodes.map((n) => Number((n.position && n.position.x) || 0))) : 0;
+        const maxY = nodes.length ? Math.max(...nodes.map((n) => Number((n.position && n.position.y) || 0))) : 0;
+        const nextPosition = { x: maxX + 220, y: maxY > 220 ? 84 : maxY + 60 };
+        const next = Core.buildNodeFromModule(moduleKey, {
+          data_type: qs("globalDataType").value || "market_info",
+          position: nextPosition,
+          fallbackPosition: nextPosition,
+        });
+        if (!next) {
+          setError("status", `模块不可用：${moduleKey}`);
+          return;
+        }
+        if (!next.id) next.id = createEntityId("n");
+        state.design.nodes.push(next);
         compileFromState();
-        setSuccess("status", `连线已新增：${edgeId}`);
+        setSuccess("status", `已新增节点：${next.id}`);
+      }
+
+      function removeEdgeById(edgeId) {
+        const before = (state.design.edges || []).length;
+        state.design.edges = (state.design.edges || []).filter((e) => e.id !== edgeId);
+        if ((state.design.edges || []).length === before) return;
+        compileFromState();
+        setSuccess("status", `连线已删除：${edgeId}`);
+      }
+
+      function removeNodeById(nodeId) {
+        const before = (state.design.nodes || []).length;
+        state.design.nodes = (state.design.nodes || []).filter((n) => n.id !== nodeId);
+        if ((state.design.nodes || []).length === before) return;
+        state.design.edges = (state.design.edges || []).filter((e) => e.source !== nodeId && e.target !== nodeId);
+        if (state.connectSourceNodeId === nodeId || (state.connectDraft && state.connectDraft.sourceId === nodeId)) resetConnectionDraft();
+        if (state.selectedNodeId === nodeId) state.selectedNodeId = "";
+        compileFromState();
+        setSuccess("status", `节点已删除：${nodeId}`);
       }
 
       function toggleConnectMode() {
         state.connectMode = !state.connectMode;
-        state.connectSourceNodeId = "";
+        resetConnectionDraft();
         qs("btnConnectMode").textContent = `连线模式：${state.connectMode ? "开启" : "关闭"}`;
         renderCanvas();
       }
 
-      function createEdgeByCanvas(sourceId, targetId) {
-        if (!sourceId || !targetId || sourceId === targetId) return;
-        const exists = (state.design.edges || []).some((e) => e.source === sourceId && e.target === targetId);
-        if (exists) {
-          setError("status", "该连线已存在");
-          return;
-        }
-        state.design.edges.push({
-          id: `e_${Date.now()}`,
-          source: sourceId,
-          target: targetId,
-          mapping: { count_rule: "", field_map: [] },
-        });
-        compileFromState();
-        setSuccess("status", `已连线：${sourceId} -> ${targetId}`);
-      }
-
       function onCanvasClick(event) {
-        const out = event.target.getAttribute("data-port-out");
-        const inn = event.target.getAttribute("data-port-in");
-        if (!state.connectMode) return;
-
-        if (out) {
-          state.connectSourceNodeId = out;
-          renderCanvas();
+        const edgeId = event.target.getAttribute("data-edge-id");
+        if (edgeId) {
+          removeEdgeById(edgeId);
           return;
         }
-        if (inn && state.connectSourceNodeId) {
-          const source = state.connectSourceNodeId;
-          state.connectSourceNodeId = "";
-          createEdgeByCanvas(source, inn);
-          renderCanvas();
+        const nodeDeleteId = event.target.getAttribute("data-node-delete");
+        if (nodeDeleteId) {
+          removeNodeById(nodeDeleteId);
+          return;
+        }
+        const nodeEl = event.target.closest(".canvas-node");
+        if (nodeEl) {
+          const nodeId = nodeEl.getAttribute("data-node-id");
+          if (nodeId) {
+            state.selectedNodeId = nodeId;
+            renderCanvas();
+            renderNodeParamsPanel();
+          }
         }
       }
 
       function onCanvasMouseDown(event) {
+        const outPortNode = event.target.getAttribute("data-port-out-node");
+        const outPortHandle = event.target.getAttribute("data-port-out-handle");
+        if (state.connectMode && outPortNode) {
+          const point = getCanvasPoint(event);
+          state.connectSourceNodeId = outPortNode;
+          state.connectSourceHandle = String(outPortHandle || "");
+          state.connectDraft = {
+            sourceId: outPortNode,
+            sourceHandle: String(outPortHandle || ""),
+            currentX: point.x,
+            currentY: point.y,
+          };
+          clearManualCompileDiagnostic();
+          renderCanvas();
+          event.preventDefault();
+          return;
+        }
+        if (event.target.getAttribute("data-node-delete")) return;
         const handle = event.target.closest("[data-drag-handle]");
         if (!handle) return;
         const nodeEl = event.target.closest(".canvas-node");
@@ -722,21 +1957,56 @@
       }
 
       function onCanvasMouseMove(event) {
+        if (state.connectDraft && state.connectMode) {
+          const point = getCanvasPoint(event);
+          state.connectDraft.currentX = point.x;
+          state.connectDraft.currentY = point.y;
+          renderCanvas();
+          return;
+        }
         if (!state.dragNodeId) return;
         const dx = event.clientX - state.dragStartX;
         const dy = event.clientY - state.dragStartY;
         const node = (state.design.nodes || []).find((n) => n.id === state.dragNodeId);
         if (!node) return;
-        node.position.x = Math.max(0, state.nodeStartX + dx);
-        node.position.y = Math.max(0, state.nodeStartY + dy);
+        const wrap = qs("graphCanvasWrap");
+        const nodeEl = document.querySelector(`.canvas-node[data-node-id="${state.dragNodeId}"]`);
+        const nodeWidth = nodeEl ? nodeEl.offsetWidth : 180;
+        const nodeHeight = nodeEl ? nodeEl.offsetHeight : 80;
+        const maxX = Math.max(0, Number((wrap && wrap.clientWidth) || 0) - nodeWidth);
+        const maxY = Math.max(0, Number((wrap && wrap.clientHeight) || 0) - nodeHeight);
+        const nextX = state.nodeStartX + dx;
+        const nextY = state.nodeStartY + dy;
+        node.position.x = Math.min(maxX, Math.max(0, nextX));
+        node.position.y = Math.min(maxY, Math.max(0, nextY));
         renderCanvas();
       }
 
-      function onCanvasMouseUp() {
+      function onCanvasMouseUp(event) {
+        if (state.connectDraft) {
+          const pointEl = document.elementFromPoint(event.clientX, event.clientY);
+          const inPort = pointEl ? pointEl.closest("[data-port-in-node]") : null;
+          const source = state.connectDraft.sourceId;
+          const sourceHandle = String(state.connectDraft.sourceHandle || "");
+          const target = inPort ? inPort.getAttribute("data-port-in-node") : "";
+          const targetHandle = inPort ? String(inPort.getAttribute("data-port-in-handle") || "") : "";
+          resetConnectionDraft();
+          renderCanvas();
+          if (source && target) tryCreateEdge(source, target, sourceHandle, targetHandle);
+          return;
+        }
         if (!state.dragNodeId) return;
         state.dragNodeId = "";
         const dragging = document.querySelector(".canvas-node.dragging");
         if (dragging) dragging.classList.remove("dragging");
+      }
+
+      function onGlobalKeyDown(event) {
+        if (event.key !== "Escape") return;
+        if (state.connectDraft || state.connectSourceNodeId) {
+          event.preventDefault();
+          cancelConnectionDraft(false);
+        }
       }
 
       function insertBranchNode() {
@@ -777,9 +2047,151 @@
         setSuccess("status", `已升级为适配器节点：${gap.edge_id}`);
       }
 
+      function onEdgeTableAction(event) {
+        const selectEdgeId = event.target.getAttribute("data-edge-select");
+        if (selectEdgeId) {
+          state.selectedEdgeId = selectEdgeId;
+          renderEdgeTable();
+          return;
+        }
+        const addRow = event.target.getAttribute("data-edge-map-add");
+        if (addRow) {
+          const edge = getDesignEdgeById(state.selectedEdgeId);
+          if (!edge) return;
+          if (!edge.mapping || typeof edge.mapping !== "object") edge.mapping = { count_rule: "many_to_many", field_map: [] };
+          if (!Array.isArray(edge.mapping.field_map)) edge.mapping.field_map = [];
+          edge.mapping.field_map.push({ from: "", to: "", default: "" });
+          compileFromState({ skipPanelSync: true });
+          return;
+        }
+        const removeRow = event.target.getAttribute("data-edge-map-remove");
+        if (removeRow != null) {
+          const edge = getDesignEdgeById(state.selectedEdgeId);
+          if (!edge || !edge.mapping || !Array.isArray(edge.mapping.field_map)) return;
+          const index = Number(removeRow);
+          if (!Number.isInteger(index) || index < 0 || index >= edge.mapping.field_map.length) return;
+          edge.mapping.field_map.splice(index, 1);
+          compileFromState({ skipPanelSync: true });
+          return;
+        }
+        const suggest = event.target.getAttribute("data-edge-map-suggest");
+        if (suggest) {
+          const edge = getDesignEdgeById(state.selectedEdgeId);
+          if (!edge) return;
+          if (!edge.mapping || typeof edge.mapping !== "object") edge.mapping = { count_rule: "many_to_many", field_map: [] };
+          if (Mapping && typeof Mapping.suggestEdgeFieldMap === "function") {
+            edge.mapping.field_map = Mapping.suggestEdgeFieldMap(state.design, Core.MODULE_REGISTRY, edge.id);
+            compileFromState({ skipPanelSync: true });
+            setSuccess("status", `已生成字段映射建议：${edge.id}`);
+          }
+          return;
+        }
+        const edgeId = event.target.getAttribute("data-edge-delete");
+        if (!edgeId) return;
+        removeEdgeById(edgeId);
+      }
+
+      function onNodeParamsPanelAction(event) {
+        const add = event.target.getAttribute("data-param-add");
+        if (add) {
+          const rows = qs("nodeParamsCustomRows");
+          if (rows) {
+            const count = rows.querySelectorAll("[data-param-custom-row]").length;
+            const div = document.createElement("div");
+            div.className = "kv-row";
+            div.setAttribute("data-param-custom-row", String(count));
+            div.innerHTML = `
+              <input data-param-key value="" placeholder="key" />
+              <input data-param-value data-param-autocomplete="1" data-param-input-key="custom:${count}:value" value="" placeholder="value" />
+              <button type="button" data-param-remove="${count}">删除</button>
+            `;
+            rows.appendChild(div);
+          }
+          return;
+        }
+        const remove = event.target.getAttribute("data-param-remove");
+        if (remove == null) return;
+        const row = event.target.closest("[data-param-custom-row]");
+        if (row) row.remove();
+        syncSelectedNodeParamsFromPanel();
+        compileFromState();
+      }
+
+      function onNodeParamsPanelChange(event) {
+        if (!event.target.matches("[data-param-schema-key], [data-param-key], [data-param-value]")) return;
+        hideVariableSuggestions();
+        syncSelectedNodeParamsFromPanel();
+        compileFromState();
+      }
+
+      function onNodeParamsPanelInput(event) {
+        const target = event.target;
+        if (!target || !target.matches("[data-param-autocomplete]")) return;
+        updateVariableSuggestions(target);
+      }
+
+      function onNodeParamsPanelKeyDown(event) {
+        const target = event.target;
+        if (!target || !target.matches("[data-param-autocomplete]")) return;
+        if (!variableSuggestState.open) return;
+        if (variableSuggestState.inputKey !== getVariableSuggestInputKey(target)) return;
+        const items = variableSuggestState.suggestions;
+        if (!items.length && (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Enter")) {
+          event.preventDefault();
+          return;
+        }
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          variableSuggestState.activeIndex = Math.min(items.length - 1, variableSuggestState.activeIndex + 1);
+          renderVariableSuggestionList();
+          return;
+        }
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          variableSuggestState.activeIndex = Math.max(0, variableSuggestState.activeIndex - 1);
+          renderVariableSuggestionList();
+          return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const index = variableSuggestState.activeIndex;
+          if (index < 0 || index >= items.length) return;
+          applyVariableSuggestion(target, items[index]);
+          return;
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          hideVariableSuggestions();
+        }
+      }
+
+      function onNodeParamsPanelMouseDown(event) {
+        const optionEl = event.target.closest("[data-var-suggest-index]");
+        if (!optionEl) return;
+        event.preventDefault();
+        const index = Number(optionEl.getAttribute("data-var-suggest-index"));
+        if (!Number.isInteger(index) || index < 0 || index >= variableSuggestState.suggestions.length) return;
+        const panel = qs("nodeParamsPanel");
+        const inputKey = variableSuggestState.inputKey;
+        const activeInput = Array.from(panel.querySelectorAll("[data-param-input-key]"))
+          .find((el) => String(el.getAttribute("data-param-input-key") || "") === inputKey);
+        if (!activeInput) return;
+        applyVariableSuggestion(activeInput, variableSuggestState.suggestions[index]);
+      }
+
+      function onEdgeTableChange(event) {
+        if (!event.target.matches("[data-edge-map-from], [data-edge-map-to], [data-edge-map-default], #edgeCountRuleInput")) return;
+        syncSelectedEdgeFieldMapFromPanel();
+        compileFromState();
+      }
+
       async function saveTemplate() {
+        syncSelectedNodeParamsFromPanel();
+        syncSelectedEdgeFieldMapFromPanel();
+        compileFromState();
         const compileErrors = (state.compile && state.compile.compile_errors) || [];
-        if (compileErrors.length) {
+        const variableErrors = (state.variableValidationDiagnostics || []).filter((item) => String(item && item.severity || "").toLowerCase() === "error");
+        if (compileErrors.length || variableErrors.length) {
           setError("status", "存在编译错误，禁止保存");
           return;
         }
@@ -846,6 +2258,7 @@
           if (typeof firstSearch.params.limit === "number") qs("limitInput").value = String(firstSearch.params.limit);
         }
 
+        resetRuntimeNodeState();
         compileFromState();
         setSuccess("status", `模板已读取：${workflowName}`);
       }
@@ -867,6 +2280,11 @@
           runParams.limit = Number(qs("limitInput").value || 20);
         }
 
+        state.runtimeDiagnostics = [];
+        resetRuntimeNodeState();
+        renderCanvas();
+        renderDiagnostics();
+
         const result = await Runtime.runWorkflow(
           workflowName,
           {
@@ -876,8 +2294,17 @@
           { maxRetries: 2 }
         );
 
-        state.runtimeDiagnostics = result.diagnostics || [];
+        const normalizedRuntime = Runtime.normalizeRuntimeDiagnostics(
+          result && result.ok ? result.data : { status: "error", error: result && result.error ? result.error.message : "请求失败", diagnostics: { timeline: result.diagnostics || [] } },
+          { workflowName }
+        );
+        state.runtimeDiagnostics =
+          (normalizedRuntime && normalizedRuntime.diagnostics && normalizedRuntime.diagnostics.timeline) ||
+          result.diagnostics ||
+          [];
+        applyRuntimeNodeStatuses((normalizedRuntime && normalizedRuntime.node_statuses) || []);
         renderDiagnostics();
+        renderCanvas();
         if (!result.ok) {
           setError("status", `运行失败（已重试${result.attempts}次）：${result.error && result.error.message ? result.error.message : "请求失败"}`);
           return;
@@ -903,14 +2330,28 @@
         });
 
         qs("btnResetTemplate").addEventListener("click", resetTemplate);
+        qs("btnAddNode").addEventListener("click", addNodeByModule);
         qs("btnAddEdge").addEventListener("click", addFreeEdge);
         qs("btnInsertBranch").addEventListener("click", insertBranchNode);
         qs("btnConnectMode").addEventListener("click", toggleConnectMode);
         qs("gapList").addEventListener("click", onGapAction);
+        qs("edgeTableWrap").addEventListener("click", onEdgeTableAction);
+        qs("edgeTableWrap").addEventListener("change", onEdgeTableChange);
         qs("graphCanvasWrap").addEventListener("click", onCanvasClick);
         qs("graphCanvasWrap").addEventListener("mousedown", onCanvasMouseDown);
+        qs("nodeParamsPanel").addEventListener("click", onNodeParamsPanelAction);
+        qs("nodeParamsPanel").addEventListener("mousedown", onNodeParamsPanelMouseDown);
+        qs("nodeParamsPanel").addEventListener("input", onNodeParamsPanelInput);
+        qs("nodeParamsPanel").addEventListener("keydown", onNodeParamsPanelKeyDown);
+        qs("nodeParamsPanel").addEventListener("change", onNodeParamsPanelChange);
+        qs("newNodeModuleSearch").addEventListener("input", onNewNodeModuleSearchInput);
+        qs("newNodeModuleSearch").addEventListener("focus", onNewNodeModuleSearchFocus);
+        qs("newNodeModuleSearch").addEventListener("keydown", onNewNodeModuleSearchKeyDown);
+        qs("newNodeModuleList").addEventListener("mousedown", onNewNodeModuleListMouseDown);
         window.addEventListener("mousemove", onCanvasMouseMove);
         window.addEventListener("mouseup", onCanvasMouseUp);
+        window.addEventListener("keydown", onGlobalKeyDown);
+        document.addEventListener("click", onDocumentClick);
 
         qs("btnLoad").addEventListener("click", () => loadTemplate().catch((e) => setError("status", `读取失败：${e.message || e}`)));
         qs("btnSave").addEventListener("click", () => saveTemplate().catch((e) => setError("status", `保存失败：${e.message || e}`)));
@@ -921,6 +2362,7 @@
 
       function init() {
         qs("wfName").value = "workflow_visual_builder";
+        renderNewNodeModuleOptions();
         bindEvents();
         resetTemplate();
       }
