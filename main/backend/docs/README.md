@@ -1,6 +1,6 @@
 # 后端文档索引
 
-> 最后更新：2026-02
+> 最后更新：2026-02-27
 
 本目录存放 `main/backend` 的设计说明、接口规范、配置指南与阶段性研究资料。
 
@@ -109,3 +109,16 @@
 | [archive/social-retrospectives/](archive/social-retrospectives/) | 社交平台数据获取流程反思 |
 | [archive/testing-reports/](archive/testing-reports/) | 测试结果与验证报告 |
 | [archive/graph-specs/](archive/graph-specs/) | 图谱数据结构历史规范 |
+
+## 9. 第8节路线追踪（readme-8x）
+
+以下文档用于同步 `README.md#8-进一步开发规划` 的实施状态：
+
+| 文档 | 说明 |
+|------|------|
+| `../README.md` | 根目录“进一步开发规划”主表（含状态与下步动作） |
+| `../../plans/status-8x-2026-02-27.md` | 第8节执行清单（owner / 证据 / 验收） |
+| 状态枚举 | `planned / in_progress / partial / blocked / done` |
+| `UNIFIED_SEARCH_ENHANCEMENT_PLAN.md` | 统一搜索增强计划（与 8.1 的细化工作相关） |
+| `DOC_MERGE_PLAN.md` | 阶段性文档归并记录 |
+| `RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md` | 资源库执行计划（含当前占位项） |

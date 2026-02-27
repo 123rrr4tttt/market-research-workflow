@@ -1,6 +1,6 @@
 # 市场情报（market-intel）项目说明
 
-> 最后更新：2026-02-26
+> 最后更新：2026-02-27
 
 当前版本：`v0.1.7-rc1`（预发布，团队联调）
 
@@ -163,52 +163,110 @@ cd main/backend
 - **多项目隔离**：resource_pool、site_entries、documents 均按 `project_<key>` schema 隔离
 - **管理入口**：`http://localhost:8000/resource-pool-management.html`
 
+### 7.6 与第 8 节规划的偏差说明（核验时间：2026-02-27）
+
+- 第8节为工作区实际实现状态：`8.1` 基本已形成稳定增量；`8.2 / 8.4 / 8.7 / 8.8` 为进行中；`8.3` 尚未开始；`8.5 / 8.6` 处于部分完成状态。
+- 由于近期迭代集中在 `resource_pool` 与主干采集稳定性，未与第8节保持 1:1 实时同步，本文档后续条目已按“真实状态”重写为：
+  - `状态 / 完成度`：`已完成 / 部分完成 / 进行中 / 未开始`
+  - `证据`：对应服务层或 API 路径
+  - `下步动作`：本轮可执行闭环任务
+
 ---
 
 ## 8. 进一步开发规划
 
-### 8.1 来源池的自动提取与整合（待完成）
+> 最近核验：`2026-02-27`
+> 可执行清单：`plans/status-8x-2026-02-27.md`
 
-- **分级**：按可信度、更新频率、覆盖范围对来源分级
-- **整合**：跨来源合并、冲突消解（去重已实现）
+### 8.1 来源池的自动提取与整合（已完成）
+
+**状态**：`已完成`  
+**完成度**：已实现核心链路，覆盖源抽取、站点入口发现、统一搜索并发执行与写回逻辑。  
+**证据**：
+- `main/backend/app/services/resource_pool/unified_search.py`
+- `main/backend/app/api/resource_pool.py`
+- `RELEASE_NOTES_pre-release-1.7.md`
+**下步动作**：
+- 将分级、跨源整合策略沉淀为可配置阈值（信任度、频率、覆盖率）并加入回归验收项。
+- 形成 8.1 的验收文档：每条写回 URL 的来源可追溯 `source_ref.site_entry_url`。
 
 ### 8.2 完善工作流平台化
-
-- **项目模板创建**：支持从模板创建新项目，预置工作流、看板、信息源配置
-- **工作流可编辑**：在 UI 中配置采集流程、触发条件、依赖关系
-- **看板可编辑**：自定义看板布局、指标、筛选与视图
-- **无 LLM 模式**：基于完善的来源池与符号化处理流程，支持纯规则/模板驱动的采集与结构化，不依赖 LLM
+ 
+**状态**：`进行中`  
+**完成度**：有执行入口与工作流映射，未形成“可编辑模板/看板”完整闭环。  
+**证据**：
+- `main/backend/app/api/project_customization.py`
+- `main/frontend/templates/dashboard.html`
+**下步动作**：
+- 先补齐“模板定义 + 看板定义”最小持久化模型（数据库/配置）。
+- 建立工作流编辑参数校验与保存-执行一体链路，补齐 API 与前端回显。
 
 ### 8.3 集成 Perplexity
-
-- 接入 Perplexity API，作为搜索/发现与问答的补充能力
-- 与现有 Serper/DDG/Google 等形成多源搜索与结果融合
+ 
+**状态**：`未开始`  
+**完成度**：当前未发现 Perplexity 接口或适配器实现。  
+**证据**：未检索到 `perplexity` 适配/API 代码路径  
+**下步动作**：
+- 先定义 provider 适配层（`search` 与 `discover` 双通道）。
+- 新增密钥/限流配置与 `source_priority` 聚合策略。
+- 增加聚合结果可复现对比测试。
 
 ### 8.4 时间轴与事件/实体演化
-
-- **时间轴**：对事件、实体按时间顺序建模与可视化
-- **演化数据**：追踪实体（公司、商品、政策等）随时间的变化、版本与关联关系
+ 
+**状态**：`进行中`  
+**完成度**：已有时间线展示能力，但未形成统一事件-实体版本模型。  
+**证据**：
+- `main/frontend/templates/policy-tracking.html`
+- `main/frontend/templates/policy-state-detail.html`
+**下步动作**：
+- 设计统一事件与实体版本 schema（事件来源、时间、实体关系、版本字段）。
+- 增加“实体沿时间线”后端查询接口与前端切换视图。
 
 ### 8.5 RAG + LLM 对话与分析报告
-
-- **RAG 对话**：基于已入库文档的检索增强生成，支持多轮问答
-- **分析报告**：基于 RAG 上下文生成结构化分析报告（政策解读、市场趋势、竞品分析等）
+ 
+**状态**：`部分完成`  
+**完成度**：已有混合检索/向量入库能力，但未形成对话与报告 API 闭环。  
+**证据**：
+- `main/backend/app/services/search/hybrid.py`
+- `main/backend/app/services/indexer/policy.py`
+- `main/backend/app/api/search.py`（备注为统一检索入口，尚无 chat/report 专属路由）
+**下步动作**：
+- 在 `api/search` 下补充 `POST /chat` 与 `POST /analysis-report` 任务链路。
+- 在前端补齐会话状态（上下文、引用展示、报告下载）。
 
 ### 8.6 以公司、商品、电商为对象的信息收集
-
-- **公司**：以公司为对象的信息采集（舆情、动态、关联数据）
-- **商品**：以商品为对象的信息采集（商品库、价格追踪、竞品对比）
-- **电商**：以电商/售卖为对象的信息采集（销售渠道、价格观测、库存与促销）
+ 
+**状态**：`部分完成`  
+**完成度**：已具备专题抽取、图谱/看板展示基础，但未完成统一的对象型采集闭环。  
+**证据**：
+- `main/backend/app/api/admin.py`
+- `main/backend/app/api/products.py`
+- `main/frontend/templates/graph.html`
+**下步动作**：
+- 建立对象型采集任务（company/product/operation）编排模板和项目级配置。
+- 把实体对象、价格观测、竞品对比打通到统一任务/报表链路。
 
 ### 8.7 数据类型优化
-
-- 扩展 `doc_type` 与 `extracted_data` 结构，支持更多业务类型
-- 统一时间、金额、枚举等字段的格式与校验
-- 图谱节点/边类型的规范化与扩展
+ 
+**状态**：`进行中`  
+**完成度**：继续在提取与归一化中扩展 `extracted_data` 字段与时间提取准确性，但全局规范仍未完全统一。  
+**证据**：
+- `main/backend/app/services/discovery/store.py`
+- `main/backend/app/services/extraction/extract.py`
+**下步动作**：
+- 固化 `doc_type` 与 `extracted_data` JSON schema 版本化约束。
+- 补齐全量日期、金额、枚举校验与历史记录回放脚本。
 
 ### 8.8 其他迭代
+ 
+**状态**：`进行中`  
+**完成度**：核心稳定性在持续修复，但“占位页/历史脚本治理”等事项待收口。  
+**证据**：
+- `main/backend/app/services/collect_runtime/adapters/source_library.py`
+- `main/backend/app/services/collect_runtime/adapters/url_pool.py`
+- `main/frontend/templates/resource-pool-management.html`（存在“占位”文案）
+**下步动作**：
+- 列出 adapter 可靠性清单并对接统一重试/限流策略。
+- 完成关键链路测试清单与历史脚本整理，新增“可复用运维命令”归档。
 
-- 完善 adapter 稳定性（重试、限流、站点兼容）
-- 补齐 ingest、dashboard、project 切换等关键链路测试
-- 图谱与治理能力增加操作面与可视化联动
-- 清理历史脚本，沉淀为可复用运维命令
+**交付状态总览文件**：`plans/status-8x-2026-02-27.md`
