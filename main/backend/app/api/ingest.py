@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import OperationalError, DatabaseError
-from typing import Optional
+from typing import Any, Literal, Optional
 import logging
+import hashlib
 from functools import lru_cache
 
 from ..project_customization import get_project_customization
@@ -613,6 +614,454 @@ class PolicyRegulationRequest(BaseModel):
     topic_focus: str | None = Field(default=None, description="专题焦点 company/product/operation（可选）")
 
 
+class GraphStructuredSelectedNode(BaseModel):
+    type: str = Field(..., description="节点类型")
+    id: str | None = Field(default=None, description="兼容字段：节点ID")
+    entry_id: str | None = Field(default=None, description="节点入口ID（优先）")
+    label: str = Field(..., description="节点标签")
+    topic_focus: str | None = Field(default=None, description="可选专题焦点 company/product/operation/general")
+
+
+class GraphStructuredDashboardParams(BaseModel):
+    language: str | None = Field(default="en", description="语言 en/zh")
+    provider: str | None = Field(default="auto", description="搜索服务 serper/google/serpstack/serpapi/ddg/auto")
+    max_items: int | None = Field(default=20, ge=1, le=100, description="每批每关键词结果数")
+    start_offset: int | None = Field(default=None, ge=1, le=91, description="起始偏移(1=第1条,11=第2页)")
+    days_back: int | None = Field(default=None, ge=1, le=365, description="仅搜最近N天")
+    enable_extraction: bool = Field(default=True, description="是否启用LLM结构化提取")
+    async_mode: bool = Field(default=False, description="是否异步执行")
+    platforms: list[str] = Field(default=["reddit"], description="社媒平台列表")
+    enable_subreddit_discovery: bool = Field(default=True, description="是否启用子论坛发现")
+    base_subreddits: Optional[list[str]] = Field(default=None, description="基础子论坛列表")
+    project_key: str | None = Field(default=None, description="项目标识")
+
+
+class GraphStructuredSearchRequest(BaseModel):
+    selected_nodes: list[GraphStructuredSelectedNode] = Field(default_factory=list, description="图谱选中节点")
+    dashboard: GraphStructuredDashboardParams = Field(default_factory=GraphStructuredDashboardParams, description="采集面板参数")
+    llm_assist: bool = Field(default=False, description="是否使用 LLM 扩展关键词")
+    flow_type: Literal["collect", "source_collect"] = Field(default="collect", description="执行流类型")
+    intent_mode: Literal["keyword", "keyword_llm"] | None = Field(default=None, description="意图模式（未传时兼容 llm_assist）")
+
+
+_SOCIAL_NODE_TYPES = {"post", "keyword", "topic", "sentimenttag", "user", "subreddit", "social"}
+_MARKET_NODE_TYPES = {"market", "marketdata", "segment", "company", "product", "operation"}
+_POLICY_NODE_TYPES = {"policy", "policytype", "keypoint"}
+_SHARED_NODE_TYPES = {"entity", "state"}
+_COMPANY_HINTS = ("company", "enterprise", "organization", "brand", "vendor", "supplier", "corp", "inc", "公司", "企业", "品牌", "厂商", "供应商")
+_PRODUCT_HINTS = ("product", "item", "sku", "model", "segment", "game", "产品", "商品", "品类", "型号", "游戏")
+_OPERATION_HINTS = ("operation", "operations", "channel", "sales", "logistics", "retail", "market", "region", "state", "运营", "渠道", "销售", "物流", "门店", "市场", "地区", "州")
+
+
+def _normalize_graph_label(node: GraphStructuredSelectedNode) -> str:
+    label = str(node.label or "").strip()
+    if label:
+        return label
+    nid = _entry_id_of(node)
+    if nid:
+        return nid
+    return str(node.type or "").strip()
+
+
+def _entry_id_of(node: GraphStructuredSelectedNode) -> str:
+    entry_id = str(node.entry_id or "").strip()
+    if entry_id:
+        return entry_id
+    return str(node.id or "").strip()
+
+
+def _classify_node_batch_types(node: GraphStructuredSelectedNode) -> list[str]:
+    nt = str(node.type or "").strip().lower()
+    if nt in _POLICY_NODE_TYPES:
+        return ["policy"]
+    if nt in _SOCIAL_NODE_TYPES:
+        return ["social"]
+    if nt in _MARKET_NODE_TYPES:
+        return ["market"]
+    if nt in _SHARED_NODE_TYPES:
+        return ["policy", "market"]
+    return ["market"]
+
+
+def _infer_market_topic_focus(node: GraphStructuredSelectedNode) -> str:
+    explicit = str(node.topic_focus or "").strip().lower()
+    if explicit in {"company", "product", "operation", "general"}:
+        return explicit
+    text = f"{node.type} {node.label}".lower()
+    if any(h in text for h in _COMPANY_HINTS):
+        return "company"
+    if any(h in text for h in _PRODUCT_HINTS):
+        return "product"
+    if any(h in text for h in _OPERATION_HINTS):
+        return "operation"
+    return "general"
+
+
+def _unique_terms(terms: list[str]) -> list[str]:
+    return list(dict.fromkeys([str(t).strip() for t in terms if str(t).strip()]))
+
+
+def _normalize_batch_token(value: str, *, fallback: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return fallback
+    out = "".join(ch if (ch.isalnum() or ch in {"-", "_"}) else "_" for ch in text)
+    out = out.strip("_")
+    return out or fallback
+
+
+def _resolve_intent_mode(payload: GraphStructuredSearchRequest) -> Literal["keyword", "keyword_llm"]:
+    mode = str(payload.intent_mode or "").strip().lower()
+    if mode == "keyword":
+        return "keyword"
+    if mode == "keyword_llm":
+        return "keyword_llm"
+    return "keyword_llm" if payload.llm_assist else "keyword"
+
+
+def _collect_intents_for_node(node: GraphStructuredSelectedNode) -> list[dict[str, str]]:
+    intents: list[dict[str, str]] = []
+    for batch_type in _classify_node_batch_types(node):
+        if batch_type == "market":
+            focus = _infer_market_topic_focus(node)
+            intents.append(
+                {
+                    "batch_type": "market",
+                    "intent": f"market_{focus}",
+                    "topic_focus": focus,
+                }
+            )
+            continue
+        intents.append({"batch_type": batch_type, "intent": batch_type})
+    return intents
+
+
+def _run_policy_batch(
+    *,
+    project_key: str,
+    query_terms: list[str],
+    dashboard: GraphStructuredDashboardParams,
+    llm_assist: bool,
+    batch_id: str = "policy",
+) -> dict[str, Any]:
+    terms = _unique_terms(query_terms)
+    topic_meta: dict[str, Any] = {}
+    if llm_assist:
+        terms, topic_meta = _expand_query_terms_with_topic_focus(
+            terms,
+            topic_focus=None,
+            language=dashboard.language or "en",
+        )
+    max_items = _normalize_max_items(dashboard.max_items, None)
+    if dashboard.async_mode:
+        task = _tasks_module().task_collect_policy_regulation.delay(
+            terms,
+            max_items,
+            dashboard.enable_extraction,
+            project_key,
+            dashboard.start_offset,
+            dashboard.days_back,
+            dashboard.language,
+            dashboard.provider,
+        )
+        return {
+            "batch_id": batch_id,
+            "batch_name": batch_id,
+            "type": "policy",
+            "query_terms": terms,
+            "task_id": task.id,
+            "async_mode": True,
+            **({"topic_meta": topic_meta} if topic_meta else {}),
+        }
+
+    with bind_project(project_key):
+        from ..services.collect_runtime import collect_request_from_policy_api, run_collect
+
+        req = collect_request_from_policy_api(
+            query_terms=terms,
+            max_items=max_items,
+            project_key=project_key,
+            enable_extraction=dashboard.enable_extraction,
+            start_offset=dashboard.start_offset,
+            days_back=dashboard.days_back,
+            language=dashboard.language or "en",
+            provider=dashboard.provider or "auto",
+        )
+        cr = run_collect(req)
+        raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta})
+        if topic_meta:
+            raw["topic_meta"] = topic_meta
+        return {
+            "batch_id": batch_id,
+            "batch_name": batch_id,
+            "type": "policy",
+            "query_terms": terms,
+            "async_mode": False,
+            "result": raw,
+        }
+
+
+def _run_social_batch(
+    *,
+    project_key: str,
+    query_terms: list[str],
+    dashboard: GraphStructuredDashboardParams,
+    llm_assist: bool,
+    batch_id: str = "social",
+) -> dict[str, Any]:
+    terms = _unique_terms(query_terms)
+    topic_meta: dict[str, Any] = {}
+    if llm_assist:
+        terms, topic_meta = _expand_query_terms_with_topic_focus(
+            terms,
+            topic_focus=None,
+            language=dashboard.language or "en",
+        )
+    max_items = _normalize_max_items(dashboard.max_items, None)
+    if dashboard.async_mode:
+        task = _tasks_module().task_collect_social_sentiment.delay(
+            terms,
+            dashboard.platforms,
+            max_items,
+            dashboard.enable_extraction,
+            dashboard.enable_subreddit_discovery,
+            dashboard.base_subreddits,
+            project_key,
+        )
+        return {
+            "batch_id": batch_id,
+            "batch_name": batch_id,
+            "type": "social",
+            "query_terms": terms,
+            "platforms": dashboard.platforms,
+            "task_id": task.id,
+            "async_mode": True,
+            **({"topic_meta": topic_meta} if topic_meta else {}),
+        }
+
+    with bind_project(project_key):
+        result = _social_ingest_app().collect_social_sentiment(
+            keywords=terms,
+            platforms=dashboard.platforms,
+            limit=max_items,
+            enable_extraction=dashboard.enable_extraction,
+            enable_subreddit_discovery=dashboard.enable_subreddit_discovery,
+            base_subreddits=dashboard.base_subreddits,
+        )
+        if isinstance(result, dict) and topic_meta:
+            result.setdefault("topic_meta", topic_meta)
+        return {
+            "batch_id": batch_id,
+            "batch_name": batch_id,
+            "type": "social",
+            "query_terms": terms,
+            "platforms": dashboard.platforms,
+            "async_mode": False,
+            "result": result,
+        }
+
+
+def _run_market_batch(
+    *,
+    project_key: str,
+    query_terms: list[str],
+    topic_focus: str,
+    dashboard: GraphStructuredDashboardParams,
+    llm_assist: bool,
+    batch_id: str | None = None,
+) -> dict[str, Any]:
+    terms = _unique_terms(query_terms)
+    topic_meta: dict[str, Any] = {}
+    if llm_assist:
+        terms, topic_meta = _expand_query_terms_with_topic_focus(
+            terms,
+            topic_focus=topic_focus,
+            language=dashboard.language or "en",
+        )
+    max_items = _normalize_max_items(dashboard.max_items, None)
+    final_batch_id = batch_id or f"market:{topic_focus}"
+    if dashboard.async_mode:
+        task = _tasks_module().task_ingest_market.delay(
+            terms,
+            max_items,
+            dashboard.enable_extraction,
+            project_key,
+            dashboard.start_offset,
+            dashboard.days_back,
+            dashboard.language,
+            dashboard.provider,
+        )
+        return {
+            "batch_id": final_batch_id,
+            "batch_name": final_batch_id,
+            "type": "market",
+            "topic_focus": topic_focus,
+            "query_terms": terms,
+            "task_id": task.id,
+            "async_mode": True,
+            **({"topic_meta": topic_meta} if topic_meta else {}),
+        }
+
+    with bind_project(project_key):
+        from ..services.collect_runtime import collect_request_from_market_api, run_collect
+
+        req = collect_request_from_market_api(
+            query_terms=terms,
+            max_items=max_items,
+            project_key=project_key,
+            enable_extraction=dashboard.enable_extraction,
+            start_offset=dashboard.start_offset,
+            days_back=dashboard.days_back,
+            language=dashboard.language or "en",
+            provider=dashboard.provider or "auto",
+        )
+        cr = run_collect(req)
+        raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped, "display_meta": cr.display_meta})
+        if topic_meta:
+            raw["topic_meta"] = topic_meta
+        return {
+            "batch_id": final_batch_id,
+            "batch_name": final_batch_id,
+            "type": "market",
+            "topic_focus": topic_focus,
+            "query_terms": terms,
+            "async_mode": False,
+            "result": raw,
+        }
+
+
+def _run_source_collect_batch(
+    *,
+    project_key: str,
+    entry_id: str,
+    intent: str,
+    query_terms: list[str],
+    dashboard: GraphStructuredDashboardParams,
+    llm_assist: bool,
+    batch_id: str,
+) -> dict[str, Any]:
+    terms = _unique_terms(query_terms)
+    topic_meta: dict[str, Any] = {}
+    if llm_assist:
+        terms, topic_meta = _expand_query_terms_with_topic_focus(
+            terms,
+            topic_focus=None,
+            language=dashboard.language or "en",
+        )
+    max_items = _normalize_max_items(dashboard.max_items, None)
+    normalized_entry_id = _normalize_batch_token(entry_id, fallback="unknown")
+    normalized_intent = _normalize_batch_token(intent, fallback="general")
+    # Append a short hash to avoid collisions after token normalization.
+    fingerprint = hashlib.sha1(f"{entry_id}::{intent}".encode("utf-8")).hexdigest()[:8]
+    item_key = f"graph::{normalized_entry_id}::{normalized_intent}::{fingerprint}"
+
+    from .source_library import SourceLibraryItemUpsertPayload, upsert_project_item
+    from ..services.source_library import list_effective_items
+    from ..services.collect_runtime import run_source_library_item_compat
+
+    with bind_project(project_key):
+        existing = list_effective_items(scope="effective", project_key=project_key)
+        existed_before = any(str(item.get("item_key") or "").strip() == item_key for item in existing if isinstance(item, dict))
+        upsert_project_item(
+            SourceLibraryItemUpsertPayload(
+                item_key=item_key,
+                name=f"Graph Source {normalized_entry_id} {normalized_intent}",
+                channel_key="url_pool",
+                description="Graph structured-search generated source_collect item.",
+                params={
+                    "query_terms": terms,
+                    "keywords": terms,
+                    "limit": max_items,
+                    "scope": "effective",
+                },
+                tags=["graph_structured", normalized_entry_id, normalized_intent],
+                enabled=True,
+                extra={
+                    "generated_by": "graph_structured_search",
+                    "entry_id": normalized_entry_id,
+                    "intent": normalized_intent,
+                    "flow_type": "source_collect",
+                },
+            ),
+            project_key=project_key,
+        )
+        override_params = {
+            "query_terms": terms,
+            "keywords": terms,
+            "limit": max_items,
+            "scope": "effective",
+            "provider": dashboard.provider or "auto",
+            "language": dashboard.language or "en",
+            "enable_extraction": dashboard.enable_extraction,
+        }
+        if dashboard.async_mode:
+            task = _tasks_module().task_run_source_library_item.delay(
+                item_key,
+                project_key,
+                override_params,
+            )
+            return {
+                "batch_id": batch_id,
+                "batch_name": batch_id,
+                "type": "source_collect",
+                "entry_id": entry_id,
+                "intent": intent,
+                "item_key": item_key,
+                "query_terms": terms,
+                "task_id": task.id,
+                "async_mode": True,
+                "result": {
+                    "sources_inserted": 0,
+                    "sources_updated": 0,
+                    "skipped": 0,
+                    "errors": [],
+                    "item_inserted": 0 if existed_before else 1,
+                    "item_updated": 1 if existed_before else 0,
+                    "bootstrap_required": False,
+                    "warnings": [],
+                },
+                **({"topic_meta": topic_meta} if topic_meta else {}),
+            }
+
+        run_result = run_source_library_item_compat(
+            item_key=item_key,
+            project_key=project_key,
+            override_params=override_params,
+        )
+
+    nested = run_result.get("result") if isinstance(run_result, dict) else {}
+    errors = nested.get("errors") if isinstance(nested, dict) else []
+    sources_inserted = int((nested or {}).get("inserted") or 0)
+    sources_updated = int((nested or {}).get("updated") or 0)
+    skipped = int((nested or {}).get("skipped") or 0)
+    has_errors = isinstance(errors, list) and any(str(e or "").strip() for e in errors)
+    bootstrap_required = (sources_inserted + sources_updated == 0) and not has_errors
+    warnings: list[str] = []
+    if bootstrap_required:
+        warnings.append("No source candidates produced. Bootstrap URL pool or source templates, then retry source_collect.")
+    return {
+        "batch_id": batch_id,
+        "batch_name": batch_id,
+        "type": "source_collect",
+        "entry_id": entry_id,
+        "intent": intent,
+        "item_key": item_key,
+        "query_terms": terms,
+        "async_mode": False,
+        "result": {
+            "sources_inserted": sources_inserted,
+            "sources_updated": sources_updated,
+            "skipped": skipped,
+            "errors": errors if isinstance(errors, list) else [str(errors)],
+            "item_inserted": 0 if existed_before else 1,
+            "item_updated": 1 if existed_before else 0,
+            "bootstrap_required": bootstrap_required,
+            "warnings": warnings,
+        },
+        **({"topic_meta": topic_meta} if topic_meta else {}),
+    }
+
+
 @router.post("/social/sentiment")
 def ingest_social_sentiment(payload: SocialSentimentRequest):
     """收集社交媒体情感数据"""
@@ -656,6 +1105,148 @@ def ingest_social_sentiment(payload: SocialSentimentRequest):
             return success_response(result)
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
+
+
+@router.post("/graph/structured-search")
+def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
+    project_key = _require_project_key(payload.dashboard.project_key)
+    if not payload.selected_nodes:
+        raise HTTPException(status_code=400, detail="selected_nodes is required and cannot be empty.")
+    flow_type = str(payload.flow_type or "collect").strip().lower()
+    if flow_type not in {"collect", "source_collect"}:
+        raise HTTPException(status_code=400, detail="flow_type must be collect or source_collect.")
+    intent_mode = _resolve_intent_mode(payload)
+    llm_assist = intent_mode == "keyword_llm"
+
+    grouped_intents: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for node in payload.selected_nodes:
+        entry_id = _entry_id_of(node)
+        if not entry_id:
+            continue
+        label = _normalize_graph_label(node)
+        if not label:
+            continue
+        for spec in _collect_intents_for_node(node):
+            key = (entry_id, str(spec.get("intent") or "").strip(), str(spec.get("batch_type") or "").strip())
+            current = grouped_intents.get(key)
+            if current is None:
+                grouped_intents[key] = {
+                    "entry_id": entry_id,
+                    "intent": key[1],
+                    "batch_type": key[2],
+                    "topic_focus": spec.get("topic_focus"),
+                    "terms": [label],
+                }
+            else:
+                current["terms"] = _unique_terms([*(current.get("terms") or []), label])
+
+    if not grouped_intents:
+        raise HTTPException(status_code=400, detail="selected_nodes does not contain usable labels.")
+
+    batches: list[dict[str, Any]] = []
+    batch_seq: dict[tuple[str, str, str], int] = {}
+    try:
+        ordered_specs = sorted(grouped_intents.values(), key=lambda x: (str(x.get("entry_id")), str(x.get("intent")), str(x.get("batch_type"))))
+        for spec in ordered_specs:
+            entry_id = str(spec.get("entry_id") or "").strip()
+            intent = str(spec.get("intent") or "").strip() or "general"
+            batch_type = str(spec.get("batch_type") or "").strip()
+            terms = _unique_terms(spec.get("terms") or [])
+            if not entry_id or not terms:
+                continue
+            key = (flow_type, entry_id, intent)
+            batch_seq[key] = batch_seq.get(key, 0) + 1
+            batch_id = f"{_normalize_batch_token(flow_type, fallback='collect')}:{_normalize_batch_token(entry_id, fallback='unknown')}:{_normalize_batch_token(intent, fallback='general')}:b{batch_seq[key]}"
+            if flow_type == "source_collect":
+                batches.append(
+                    _run_source_collect_batch(
+                        project_key=project_key,
+                        entry_id=entry_id,
+                        intent=intent,
+                        query_terms=terms,
+                        dashboard=payload.dashboard,
+                        llm_assist=llm_assist,
+                        batch_id=batch_id,
+                    )
+                )
+                continue
+            if batch_type == "policy":
+                batches.append(
+                    _run_policy_batch(
+                        project_key=project_key,
+                        query_terms=terms,
+                        dashboard=payload.dashboard,
+                        llm_assist=llm_assist,
+                        batch_id=batch_id,
+                    )
+                )
+            elif batch_type == "social":
+                batches.append(
+                    _run_social_batch(
+                        project_key=project_key,
+                        query_terms=terms,
+                        dashboard=payload.dashboard,
+                        llm_assist=llm_assist,
+                        batch_id=batch_id,
+                    )
+                )
+            elif batch_type == "market":
+                batches.append(
+                    _run_market_batch(
+                        project_key=project_key,
+                        query_terms=terms,
+                        topic_focus=str(spec.get("topic_focus") or "general"),
+                        dashboard=payload.dashboard,
+                        llm_assist=llm_assist,
+                        batch_id=batch_id,
+                    )
+                )
+    except Exception as exc:  # noqa: BLE001
+        return _error_500(exc)
+
+    type_counts: dict[str, int] = {"policy": 0, "social": 0, "market": 0, "source_collect": 0}
+    for batch in batches:
+        bt = str(batch.get("type") or "").strip().lower()
+        if bt in type_counts:
+            type_counts[bt] += 1
+
+    summary: dict[str, Any] = {
+        "selected_node_count": len(payload.selected_nodes),
+        "batch_count": len(batches),
+        "async_mode": payload.dashboard.async_mode,
+        "llm_assist": llm_assist,
+        "flow_type": flow_type,
+        "intent_mode": intent_mode,
+        "types": {
+            "policy": type_counts["policy"],
+            "social": type_counts["social"],
+            "market": type_counts["market"],
+            "source_collect": type_counts["source_collect"],
+        },
+    }
+    accepted = len(batches)
+    queued = sum(1 for b in batches if b.get("task_id"))
+    failed = 0
+    for batch in batches:
+        result = batch.get("result") if isinstance(batch, dict) else None
+        if isinstance(result, dict):
+            errs = result.get("errors")
+            if isinstance(errs, list) and any(str(e or "").strip() for e in errs):
+                failed += 1
+    summary["accepted"] = accepted
+    summary["queued"] = queued
+    summary["failed"] = failed
+    if payload.dashboard.async_mode:
+        summary["task_count"] = queued
+
+    return success_response(
+        {
+            "flow_type": flow_type,
+            "intent_mode": intent_mode,
+            "batches": batches,
+            "summary": summary,
+        }
+    )
 
 
 @router.post("/policy/regulation")

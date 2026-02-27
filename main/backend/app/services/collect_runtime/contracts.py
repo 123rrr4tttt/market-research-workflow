@@ -3,10 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+FLOW_COLLECT = "collect"
+FLOW_SOURCE_COLLECT = "source_collect"
+ALLOWED_COLLECT_FLOWS = {FLOW_COLLECT, FLOW_SOURCE_COLLECT}
+
 
 @dataclass(slots=True)
 class CollectRequest:
-    flow: str = "collect"
+    flow: str = FLOW_COLLECT
     channel: str = ""
     project_key: str | None = None
     query_terms: list[str] = field(default_factory=list)
@@ -24,7 +28,7 @@ class CollectRequest:
 
 @dataclass(slots=True)
 class CollectResult:
-    flow: str = "collect"
+    flow: str = FLOW_COLLECT
     channel: str = ""
     status: str = "completed"
     inserted: int = 0

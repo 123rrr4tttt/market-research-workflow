@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     active_project_key: str = Field(default="default")
     project_schema_prefix: str = Field(default="project_")
     bootstrap_create_initial_project: bool = Field(default=False)
+    enable_legacy_default_to_online_lottery_migration: bool = Field(default=False)
+    default_reddit_subreddit: str = Field(default="news")
 
     # Elasticsearch / Redis
     es_url: str = Field(default_factory=_get_default_es_url)

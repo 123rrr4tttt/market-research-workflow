@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .contracts import CollectRequest, CollectResult
+from .contracts import ALLOWED_COLLECT_FLOWS, CollectRequest, CollectResult, FLOW_COLLECT, FLOW_SOURCE_COLLECT
 
 
 def _dedup_text_list(values: list[str] | None) -> list[str] | None:
@@ -17,9 +17,12 @@ def _dedup_text_list(values: list[str] | None) -> list[str] | None:
 
 
 def build_display_meta(request: CollectRequest, result: CollectResult | None = None, *, summary: str | None = None) -> dict[str, Any]:
+    flow = str(request.flow or "").strip() or FLOW_COLLECT
+    if flow not in ALLOWED_COLLECT_FLOWS:
+        flow = FLOW_COLLECT
     meta: dict[str, Any] = {
         "version": 1,
-        "flow": "collect",
+        "flow": flow,
         "channel": request.channel,
         "summary": summary or request.source_context.get("summary") or request.channel,
         "project_key": request.project_key,
@@ -77,6 +80,7 @@ def infer_display_meta_from_celery_task(name: str, args: list[Any], kwargs: dict
     if "task_run_source_library_item" in n:
         item_key = k.get("item_key") or (args[0] if len(args) > 0 else None)
         req = CollectRequest(
+            flow=FLOW_SOURCE_COLLECT,
             channel="source_library",
             project_key=k.get("project_key") or (args[1] if len(args) > 1 else None),
             item_key=item_key,

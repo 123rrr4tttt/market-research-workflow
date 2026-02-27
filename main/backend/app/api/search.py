@@ -11,7 +11,7 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 @router.get("")
 def search(
-    q: str = Query("lottery"),
+    q: str = Query("market trend"),
     state: str | None = None,
     modality: str = Query("any"),
     rank: str = Query("hybrid"),
@@ -44,5 +44,4 @@ def init_search_indices():
     """Create ES indices if not present (idempotent)."""
     es = get_es_client()
     return ensure_indices(es)
-
 
