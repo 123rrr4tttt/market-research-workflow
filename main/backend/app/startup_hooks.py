@@ -37,11 +37,12 @@ def register_startup_hooks(app: FastAPI) -> None:
     @app.on_event("startup")
     def _ensure_bootstrap_projects() -> None:
         """
-        Bootstrap control-plane projects and migrate away from legacy "default".
+        Bootstrap control-plane projects with neutral defaults.
 
         Meaning:
-        - One-time migration: legacy project_key "default" -> "online_lottery" (schema rename,
-          table moves, aggregator remap). This is historical migration, not subproject injection.
+        - Optional one-time migration: legacy project_key "default" -> "online_lottery"
+          (schema rename, table moves, aggregator remap), controlled by
+          `enable_legacy_default_to_online_lottery_migration`.
         - First install: if no projects exist, create "business_survey" (商业调查) as the initial project.
         - All projects are peers. "public" schema is reserved for control-plane and shared tables.
         """
@@ -52,7 +53,7 @@ def register_startup_hooks(app: FastAPI) -> None:
                 legacy = conn.execute(
                     text("SELECT project_key, schema_name FROM public.projects WHERE project_key = 'default' LIMIT 1")
                 ).first()
-                if legacy:
+                if legacy and bool(getattr(settings, "enable_legacy_default_to_online_lottery_migration", False)):
                     has_old_schema = conn.execute(
                         text("SELECT to_regclass('project_default.documents') IS NOT NULL")
                     ).scalar()
@@ -118,11 +119,12 @@ def register_startup_hooks(app: FastAPI) -> None:
                     )
 
                 has_public_docs = conn.execute(text("SELECT to_regclass('public.documents') IS NOT NULL")).scalar()
+                neutral_schema = f'{settings.project_schema_prefix}{settings.active_project_key}'
                 has_target_docs = conn.execute(
-                    text("SELECT to_regclass('project_online_lottery.documents') IS NOT NULL")
+                    text(f"SELECT to_regclass('{neutral_schema}.documents') IS NOT NULL")
                 ).scalar()
                 if has_public_docs and not has_target_docs:
-                    conn.execute(text('CREATE SCHEMA IF NOT EXISTS "project_online_lottery"'))
+                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{neutral_schema}"'))
                     tenant_tables = [
                         "sources",
                         "documents",
@@ -141,10 +143,10 @@ def register_startup_hooks(app: FastAPI) -> None:
                         "resource_pool_urls",
                     ]
                     for t in tenant_tables:
-                        conn.execute(text(f'ALTER TABLE IF EXISTS public."{t}" SET SCHEMA "project_online_lottery"'))
+                        conn.execute(text(f'ALTER TABLE IF EXISTS public."{t}" SET SCHEMA "{neutral_schema}"'))
                     for t in tenant_tables:
                         conn.execute(
-                            text(f'ALTER SEQUENCE IF EXISTS public."{t}_id_seq" SET SCHEMA "project_online_lottery"')
+                            text(f'ALTER SEQUENCE IF EXISTS public."{t}_id_seq" SET SCHEMA "{neutral_schema}"')
                         )
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("app").warning("failed to bootstrap projects: %s", exc)

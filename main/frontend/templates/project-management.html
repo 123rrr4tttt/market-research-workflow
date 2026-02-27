@@ -83,7 +83,7 @@
         let key = String(raw || "").trim().toLowerCase();
         key = key.replace(/[^a-z0-9_]+/g, "_");
         key = key.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
-        return key || "online_lottery";
+        return key || "default";
       }
 
       function setCurrentProject(projectKey, projectName) {
@@ -335,4 +335,3 @@
     </script>
   </body>
 </html>
-

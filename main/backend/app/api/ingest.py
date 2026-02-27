@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import OperationalError, DatabaseError
 from typing import Any, Literal, Optional
 import logging
+import hashlib
 from functools import lru_cache
 
 from ..project_customization import get_project_customization
@@ -943,7 +944,9 @@ def _run_source_collect_batch(
     max_items = _normalize_max_items(dashboard.max_items, None)
     normalized_entry_id = _normalize_batch_token(entry_id, fallback="unknown")
     normalized_intent = _normalize_batch_token(intent, fallback="general")
-    item_key = f"graph::{normalized_entry_id}::{normalized_intent}"
+    # Append a short hash to avoid collisions after token normalization.
+    fingerprint = hashlib.sha1(f"{entry_id}::{intent}".encode("utf-8")).hexdigest()[:8]
+    item_key = f"graph::{normalized_entry_id}::{normalized_intent}::{fingerprint}"
 
     from .source_library import SourceLibraryItemUpsertPayload, upsert_project_item
     from ..services.source_library import list_effective_items
@@ -1007,6 +1010,8 @@ def _run_source_collect_batch(
                     "errors": [],
                     "item_inserted": 0 if existed_before else 1,
                     "item_updated": 1 if existed_before else 0,
+                    "bootstrap_required": False,
+                    "warnings": [],
                 },
                 **({"topic_meta": topic_meta} if topic_meta else {}),
             }
@@ -1019,6 +1024,14 @@ def _run_source_collect_batch(
 
     nested = run_result.get("result") if isinstance(run_result, dict) else {}
     errors = nested.get("errors") if isinstance(nested, dict) else []
+    sources_inserted = int((nested or {}).get("inserted") or 0)
+    sources_updated = int((nested or {}).get("updated") or 0)
+    skipped = int((nested or {}).get("skipped") or 0)
+    has_errors = isinstance(errors, list) and any(str(e or "").strip() for e in errors)
+    bootstrap_required = (sources_inserted + sources_updated == 0) and not has_errors
+    warnings: list[str] = []
+    if bootstrap_required:
+        warnings.append("No source candidates produced. Bootstrap URL pool or source templates, then retry source_collect.")
     return {
         "batch_id": batch_id,
         "batch_name": batch_id,
@@ -1029,12 +1042,14 @@ def _run_source_collect_batch(
         "query_terms": terms,
         "async_mode": False,
         "result": {
-            "sources_inserted": int((nested or {}).get("inserted") or 0),
-            "sources_updated": int((nested or {}).get("updated") or 0),
-            "skipped": int((nested or {}).get("skipped") or 0),
+            "sources_inserted": sources_inserted,
+            "sources_updated": sources_updated,
+            "skipped": skipped,
             "errors": errors if isinstance(errors, list) else [str(errors)],
             "item_inserted": 0 if existed_before else 1,
             "item_updated": 1 if existed_before else 0,
+            "bootstrap_required": bootstrap_required,
+            "warnings": warnings,
         },
         **({"topic_meta": topic_meta} if topic_meta else {}),
     }
