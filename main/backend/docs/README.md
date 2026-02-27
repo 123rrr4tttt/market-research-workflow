@@ -118,6 +118,11 @@
 |------|------|
 | `../README.md` | 根目录“进一步开发规划”主表（含状态与下步动作） |
 | `../../plans/status-8x-2026-02-27.md` | 第8节执行清单（owner / 证据 / 验收） |
+| `../../plans/8x-multi-agent-kickoff-2026-02-27.md` | 多智能体启动稿（角色边界与执行规则） |
+| `../../plans/8x-round-1-2026-02-27.md` | 第1轮执行记录（任务卡 + 验收前置） |
+| `../../plans/8x-round-2-2026-02-27.md` | 第2轮执行记录（P0 优先项） |
+| `../../plans/8x-round-2-2026-02-27-taskboard.md` | 第2轮任务看板（8.2/8.5/8.6） |
+| `../../plans/decision-log-2026-02-27.md` | 关键决策与执行边界记录 |
 | 状态枚举 | `planned / in_progress / partial / blocked / done` |
 | `UNIFIED_SEARCH_ENHANCEMENT_PLAN.md` | 统一搜索增强计划（与 8.1 的细化工作相关） |
 | `DOC_MERGE_PLAN.md` | 阶段性文档归并记录 |

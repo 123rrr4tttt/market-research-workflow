@@ -1668,7 +1668,7 @@
             const color = market.yoy_change >= 0 ? '#10b981' : '#ef4444';
             html += `<div class="info-item">
               <label>同比变化</label>
-              <div class="value" style="color: ${color}">${market.yoy_change >= 0 ? '+' : ''}${market.yoy_change.toFixed(1)}%</div>
+              <div class="value" style="color: ${color}">${formatGrowthPercent(market.yoy_change)}</div>
             </div>`;
           }
           
@@ -1676,7 +1676,7 @@
             const color = market.mom_change >= 0 ? '#10b981' : '#ef4444';
             html += `<div class="info-item">
               <label>环比变化</label>
-              <div class="value" style="color: ${color}">${market.mom_change >= 0 ? '+' : ''}${market.mom_change.toFixed(1)}%</div>
+              <div class="value" style="color: ${color}">${formatGrowthPercent(market.mom_change)}</div>
             </div>`;
           }
           
@@ -1743,6 +1743,16 @@
         return div.innerHTML;
       }
 
+      function formatGrowthPercent(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
+          return '';
+        }
+        // 兼容两种输入：ratio(0.12) 与 percent(12.0)
+        const normalized = Math.abs(num) <= 1 ? num * 100 : num;
+        return `${normalized >= 0 ? '+' : ''}${normalized.toFixed(1)}%`;
+      }
+
       // 点击模态框外部关闭
       window.onclick = function(event) {
         const modal = document.getElementById('market-modal');
@@ -1753,4 +1763,3 @@
     </script>
   </body>
 </html>
-

@@ -7,6 +7,7 @@ from datetime import datetime
 
 from ....models.entities import Document
 from ..models import NormalizedMarketData
+from ...extraction.numeric import normalize_market_payload
 
 logger = logging.getLogger(__name__)
 
@@ -82,15 +83,17 @@ class MarketAdapter:
                 except Exception as e:
                     logger.warning(f"Document {doc.id} publish_date conversion failed: {e}")
         
-        # 转换数值字段
-        def to_float(value):
-            if value is None:
-                return None
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return None
-        
+        try:
+            market, market_quality = normalize_market_payload(market, scope="lottery.market")
+            if market_quality:
+                market["_numeric_quality"] = market_quality
+        except Exception as e:
+            logger.warning("MarketAdapter.to_normalized: normalize_market_payload failed: %s", e)
+            market_quality = None
+
+        if market_quality:
+            market["_numeric_quality"] = market_quality
+
         # 获取数据源名称
         # Avoid lazy-loading doc.source here: imported demo schemas may not include sources table,
         # and a single UndefinedTable can poison the whole transaction.
@@ -109,10 +112,10 @@ class MarketAdapter:
             state=state,
             game=game,
             date=date,
-            sales_volume=to_float(market.get("sales_volume")),
-            revenue=to_float(market.get("revenue")),
-            jackpot=to_float(market.get("jackpot")),
-            ticket_price=to_float(market.get("ticket_price")),
+            sales_volume=market.get("sales_volume"),
+            revenue=market.get("revenue"),
+            jackpot=market.get("jackpot"),
+            ticket_price=market.get("ticket_price"),
             source_name=source_name,
             source_uri=doc.uri,
             title=doc.title,

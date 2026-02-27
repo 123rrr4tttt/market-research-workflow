@@ -10,6 +10,7 @@ from ..llm.config_loader import get_llm_config, format_prompt_template
 from ...subprojects import get_extraction_adapter
 from .models import PolicyExtracted, MarketExtracted, ERPayload
 from .json_utils import extract_json_payload
+from .numeric import normalize_market_payload
 
 
 logger = logging.getLogger(__name__)
@@ -254,7 +255,7 @@ Extract the following fields and return in JSON format. All text values must be 
             model = get_chat_model()
         
         # 尝试使用 structured output
-        if hasattr(model, 'with_structured_output'):
+        if hasattr(model, "with_structured_output"):
             try:
                 result = model.with_structured_output(MarketExtracted).invoke(prompt)
                 data = result.model_dump()
@@ -264,6 +265,11 @@ Extract the following fields and return in JSON format. All text values must be 
                 # 确保key_findings中的文本都是英文
                 if "key_findings" in data and isinstance(data["key_findings"], list):
                     data["key_findings"] = [str(item) for item in data["key_findings"]]
+                try:
+                    data, quality = normalize_market_payload(data, scope="lottery.market")
+                    data["numeric_quality"] = quality
+                except Exception as e:
+                    logger.warning("extract_market_info: market normalization failed (structured): %s", e)
                 return get_extraction_adapter().augment_market(data)
             except Exception as e:
                 logger.warning("extract_market_info: structured_output failed, fallback to JSON: %s", e)
@@ -286,6 +292,11 @@ Extract the following fields and return in JSON format. All text values must be 
             # 确保key_findings中的文本都是英文
             if "key_findings" in data and isinstance(data["key_findings"], list):
                 data["key_findings"] = [str(item) for item in data["key_findings"]]
+            try:
+                data, quality = normalize_market_payload(data, scope="lottery.market")
+                data["numeric_quality"] = quality
+            except Exception as e:
+                logger.warning("extract_market_info: market normalization failed (json fallback): %s", e)
             return get_extraction_adapter().augment_market(data)
         except (json.JSONDecodeError, Exception) as e:
             logger.warning("extract_market_info: JSON parse failed: %s", e)
@@ -294,4 +305,3 @@ Extract the following fields and return in JSON format. All text values must be 
     except Exception as e:
         logger.warning("extract_market_info: extraction failed: %s", e, exc_info=True)
         return None
-

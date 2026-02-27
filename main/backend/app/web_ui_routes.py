@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -16,14 +18,31 @@ def register_ui_routes(
     template_dir: Path,
     usa_map_path: Path,
 ) -> None:
+    def _modern_frontend_redirect(request: Request) -> RedirectResponse | None:
+        """Redirect shell entry routes to modern frontend when enabled."""
+        base = str(os.getenv("MODERN_FRONTEND_URL") or "").strip().rstrip("/")
+        if not base:
+            return None
+        query = dict(request.query_params)
+        target = f"{base}/"
+        if query:
+            target = f"{target}?{urlencode(query)}"
+        return RedirectResponse(url=target, status_code=302)
+
     @app.get("/", response_class=RedirectResponse)
     def index(request: Request):
         """Root redirects to app shell"""
+        modern = _modern_frontend_redirect(request)
+        if modern is not None:
+            return modern
         return RedirectResponse(url="/app.html", status_code=302)
 
     @app.get("/index.html", response_class=RedirectResponse)
     def index_html(request: Request):
         """Legacy index redirects to app shell"""
+        modern = _modern_frontend_redirect(request)
+        if modern is not None:
+            return modern
         return RedirectResponse(url="/app.html", status_code=302)
 
     @app.get("/ingest.html", response_class=HTMLResponse)
@@ -50,6 +69,11 @@ def register_ui_routes(
             logging.getLogger("app").error(f"Dashboard file exists: {(template_dir / 'dashboard.html').exists()}")
             raise
 
+    @app.get("/workflow-designer.html", response_class=HTMLResponse)
+    def workflow_designer_page(request: Request):
+        """图形化工作流编排页面（用户设计 -> 抽象层 -> 主干模块）"""
+        return templates.TemplateResponse("workflow-designer.html", {"request": request})
+
     @app.get("/topic-dashboard.html", response_class=HTMLResponse)
     def topic_dashboard_page(request: Request):
         """专题结果页（公司/商品/电商经营）"""
@@ -63,11 +87,17 @@ def register_ui_routes(
     @app.get("/app.html", response_class=HTMLResponse)
     def app_page(request: Request):
         """主应用页面（带侧边栏）"""
+        modern = _modern_frontend_redirect(request)
+        if modern is not None:
+            return modern
         return templates.TemplateResponse("app.html", {"request": request})
 
     @app.get("/app", response_class=HTMLResponse)
     def app_redirect(request: Request):
         """重定向 /app 到 /app.html"""
+        modern = _modern_frontend_redirect(request)
+        if modern is not None:
+            return modern
         return RedirectResponse(url="/app.html", status_code=301)
 
     @app.get("/data-dashboard.html", response_class=HTMLResponse)

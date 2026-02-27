@@ -212,14 +212,30 @@ def collect_request_from_source_library_api(*, item_key: str, project_key: str |
     )
 
 
-def collect_request_from_url_pool(*, project_key: str | None, urls: list[str] | None = None, scope: str | None = None, limit: int | None = None, source_filter: str | None = None, domain: str | None = None) -> CollectRequest:
+def collect_request_from_url_pool(
+    *,
+    project_key: str | None,
+    urls: list[str] | None = None,
+    scope: str | None = None,
+    limit: int | None = None,
+    source_filter: str | None = None,
+    domain: str | None = None,
+    query_terms: list[str] | None = None,
+    options: dict[str, Any] | None = None,
+) -> CollectRequest:
+    extra_options = dict(options or {})
+    if source_filter is not None:
+        extra_options["source_filter"] = source_filter
+    if domain is not None:
+        extra_options["domain"] = domain
     return CollectRequest(
         channel="url_pool",
         project_key=project_key,
         urls=normalize_urls(urls or []),
+        query_terms=normalize_query_terms(query_terms or []),
         scope=(str(scope).strip() if scope else None),
         limit=normalize_limit(limit, 50),
-        options={"source_filter": source_filter, "domain": domain},
+        options=extra_options,
         source_context={"summary": "URL 池抓取并写入文档"},
     )
 

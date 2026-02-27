@@ -41,6 +41,35 @@
         </div>
       </section>
 
+      <section class="card" id="workflow-platform" style="margin-bottom: 12px;">
+        <h2 class="section-title">工作流平台化（最小闭环）</h2>
+        <div class="toolbar" style="justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div class="toolbar" style="gap: 8px; align-items: center;">
+            <input id="workflowNameInput" class="mono" placeholder="workflow 名称" style="min-width: 260px;" />
+            <button id="btnOpenWorkflowDesigner" class="secondary"><i data-lucide="workflow"></i> 进入设计器</button>
+            <button id="btnLoadWorkflowTemplate" class="secondary"><i data-lucide="book-open"></i> 读取模板</button>
+            <button id="btnDeleteWorkflowTemplate" class="secondary danger"><i data-lucide="trash-2"></i> 删除模板</button>
+            <button id="btnRunWorkflow" class="secondary"><i data-lucide="play"></i> 运行</button>
+          </div>
+          <button id="btnSaveWorkflowTemplate"><i data-lucide="save"></i> 保存模板</button>
+        </div>
+        <div class="status" id="workflowTemplateStatus" style="margin-bottom: 8px;">未加载模板</div>
+        <div class="grid-2" style="gap: 12px;">
+          <div>
+            <label for="workflowStepInput" class="section-title" style="margin-bottom: 6px; display: block;">步骤定义（JSON）</label>
+            <textarea id="workflowStepInput" class="mono" style="width: 100%; min-height: 210px;" placeholder='[{"handler": "ingest.market", "params": {"keywords":["robot"],"limit":10}}]'></textarea>
+          </div>
+          <div>
+            <label for="workflowBoardInput" class="section-title" style="margin-bottom: 6px; display: block;">看板布局（JSON）</label>
+            <textarea id="workflowBoardInput" class="mono" style="width: 100%; min-height: 210px;" placeholder='{"layout": "list", "refresh_interval": 30}'></textarea>
+          </div>
+        </div>
+        <div style="margin-top: 10px;">
+          <label for="workflowRunParamsInput" class="section-title" style="margin-bottom: 6px; display: block;">运行参数（JSON，可选）</label>
+          <textarea id="workflowRunParamsInput" class="mono" style="width: 100%; min-height: 110px;" placeholder='{"keywords":["robotics"],"limit":10}'></textarea>
+        </div>
+      </section>
+
       <section class="card" id="analysis" style="margin-bottom: 12px;">
         <h2 class="section-title">流程分析</h2>
         <div class="grid-2">
@@ -98,7 +127,7 @@
     </div>
 
     <script>
-      const { qs, formatNumber, setError, setEmpty, escapeHtml, toDateTime } = window.UICore;
+      const { qs, formatNumber, setError, setSuccess, setEmpty, escapeHtml, toDateTime } = window.UICore;
       const charts = {};
 
       function setKpi() {
@@ -216,6 +245,130 @@
         el.textContent = `已完成：总计 ${formatNumber(data.total)}，成功 ${formatNumber(data.success)}，跳过 ${formatNumber(data.skipped)}，错误 ${formatNumber(data.error)}；命中 ${formatNumber(hits[topicLabel] || 0)}，补集 ${formatNumber(fallbacks[topicLabel] || 0)}，覆盖率 ${(Number(coverage[topicLabel] || 0) * 100).toFixed(1)}%`;
       }
 
+      async function listWorkflowNames() {
+        try {
+          const data = await window.MarketApp.fetchJSON("/api/v1/project-customization/workflows");
+          return Array.isArray(data?.items) ? data.items : [];
+        } catch (error) {
+          return [];
+        }
+      }
+
+      async function loadWorkflowTemplate(name = "") {
+        const workflowName = (name || qs("workflowNameInput")?.value || "").trim();
+        if (!workflowName) {
+          setError("workflowTemplateStatus", "请先输入 workflow 名称");
+          return;
+        }
+        const data = await window.MarketApp.fetchJSON(`/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/template`);
+        qs("workflowNameInput").value = data?.workflow_name || workflowName;
+        const steps = Array.isArray(data?.steps) ? data.steps : [];
+        const boardLayout = data?.board_layout;
+        qs("workflowStepInput").value = JSON.stringify(steps, null, 2);
+        qs("workflowBoardInput").value = JSON.stringify(boardLayout || {}, null, 2);
+        const source = data?.meta?.source || "builtin";
+        setSuccess("workflowTemplateStatus", `已加载模板：${workflowName}（${source}）`);
+      }
+
+      async function saveWorkflowTemplate() {
+        const workflowName = (qs("workflowNameInput")?.value || "").trim();
+        if (!workflowName) {
+          setError("workflowTemplateStatus", "请先输入 workflow 名称");
+          return;
+        }
+        const currentProject = String(window.MarketApp.getProjectKey ? window.MarketApp.getProjectKey() : "").trim();
+        let steps;
+        let boardLayout;
+        try {
+          const stepPayload = JSON.parse((qs("workflowStepInput")?.value || "[]").trim() || "[]");
+          if (Array.isArray(stepPayload)) {
+            steps = stepPayload;
+          } else if (Array.isArray(stepPayload?.steps)) {
+            steps = stepPayload.steps;
+          } else {
+            throw new Error("steps 应为数组或包含 steps 的 JSON 对象");
+          }
+          const boardPayload = JSON.parse((qs("workflowBoardInput")?.value || "{}").trim() || "{}");
+          boardLayout = boardPayload && typeof boardPayload === "object" ? boardPayload : {};
+          if (Array.isArray(steps)) {
+            for (const item of steps) {
+              if (!item || typeof item !== "object" || !item.handler) {
+                throw new Error("每个步骤必须包含 handler");
+              }
+            }
+          }
+          await window.MarketApp.fetchJSON(`/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/template`, {
+            method: "POST",
+            body: {
+              project_key: currentProject,
+              steps,
+              board_layout: boardLayout,
+            },
+          });
+          setSuccess("workflowTemplateStatus", `已保存模板：${workflowName}`);
+        } catch (error) {
+          setError("workflowTemplateStatus", `保存失败：${error.message || error}`);
+        }
+      }
+
+      async function runWorkflowTemplate() {
+        const workflowName = (qs("workflowNameInput")?.value || "").trim();
+        if (!workflowName) {
+          setError("workflowTemplateStatus", "请先输入 workflow 名称");
+          return;
+        }
+        try {
+          const runParamsRaw = ((qs("workflowRunParamsInput")?.value || "{}").trim() || "{}");
+          let runParams = {};
+          if (runParamsRaw) {
+            runParams = JSON.parse(runParamsRaw);
+            if (!runParams || typeof runParams !== "object" || Array.isArray(runParams)) {
+              throw new Error("运行参数必须是 JSON 对象");
+            }
+          }
+          const data = await window.MarketApp.fetchJSON(`/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/run`, {
+            method: "POST",
+            body: {
+              project_key: window.MarketApp.getProjectKey(),
+              params: runParams,
+            },
+          });
+          setSuccess("workflowTemplateStatus", `已提交运行：${workflowName}（状态 ${escapeHtml(data?.status || "-" )}）`);
+        } catch (error) {
+          setError("workflowTemplateStatus", `运行失败：${error.message || error}`);
+        }
+      }
+
+      async function deleteWorkflowTemplate() {
+        const workflowName = (qs("workflowNameInput")?.value || "").trim();
+        if (!workflowName) {
+          setError("workflowTemplateStatus", "请先输入 workflow 名称");
+          return;
+        }
+        if (!confirm(`确认删除自定义模板 ${workflowName} 吗？`)) {
+          return;
+        }
+        try {
+          const projectKey = (window.MarketApp.getProjectKey ? window.MarketApp.getProjectKey() : "").trim();
+          const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : "";
+          await window.MarketApp.fetchJSON(`/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/template${query}`, {
+            method: "DELETE",
+          });
+          setSuccess("workflowTemplateStatus", `已删除模板：${workflowName}`);
+          await bootstrapWorkflowPlatform();
+        } catch (error) {
+          setError("workflowTemplateStatus", `删除失败：${error.message || error}`);
+        }
+      }
+
+      async function bootstrapWorkflowPlatform() {
+        const names = await listWorkflowNames();
+        if (names.length) {
+          qs("workflowNameInput").value = names[0];
+          await loadWorkflowTemplate(names[0]);
+        }
+      }
+
       async function runTopicExtract(topic, force = false) {
         const topicName = topic === "company" ? "公司" : topic === "product" ? "商品" : "电商/经营";
         const statusId = topic === "company" ? "topicExtractCompanyStatus" : topic === "product" ? "topicExtractProductStatus" : "topicExtractOperationStatus";
@@ -240,7 +393,16 @@
         lucide.createIcons();
         setKpi();
         try {
-          await Promise.all([loadStats(), loadMarketTrend(), loadSentiment(), loadSearchTrend(), loadCommodity(), loadEcom(), loadTasks()]);
+          await Promise.all([
+            loadStats(),
+            loadMarketTrend(),
+            loadSentiment(),
+            loadSearchTrend(),
+            loadCommodity(),
+            loadEcom(),
+            loadTasks(),
+            bootstrapWorkflowPlatform(),
+          ]);
         } catch (error) {
           setError("taskTableWrap", `加载看板失败: ${error.message}`);
         }
@@ -258,6 +420,11 @@
       qs("btnTopicExtractCompanyForce")?.addEventListener("click", () => { if (confirm("强制重跑公司专题析取？会增加 LLM 调用。")) runTopicExtract("company", true); });
       qs("btnTopicExtractProductForce")?.addEventListener("click", () => { if (confirm("强制重跑商品专题析取？会增加 LLM 调用。")) runTopicExtract("product", true); });
       qs("btnTopicExtractOperationForce")?.addEventListener("click", () => { if (confirm("强制重跑电商/经营专题析取？会增加 LLM 调用。")) runTopicExtract("operation", true); });
+      qs("btnLoadWorkflowTemplate")?.addEventListener("click", () => loadWorkflowTemplate());
+      qs("btnSaveWorkflowTemplate")?.addEventListener("click", () => saveWorkflowTemplate());
+      qs("btnRunWorkflow")?.addEventListener("click", () => runWorkflowTemplate());
+      qs("btnDeleteWorkflowTemplate")?.addEventListener("click", () => deleteWorkflowTemplate());
+      qs("btnOpenWorkflowDesigner")?.addEventListener("click", () => window.MarketApp.navigateInShell("workflow-designer.html"));
 
       window.addEventListener("DOMContentLoaded", loadAll);
     </script>

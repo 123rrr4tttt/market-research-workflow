@@ -225,6 +225,24 @@ def _filter_urls_by_terms(urls: list[str], terms: list[str]) -> list[str]:
     return out
 
 
+def _filter_urls_by_terms_with_fallback(
+    urls: list[str],
+    terms: list[str],
+    *,
+    fallback_limit: int = 30,
+) -> tuple[list[str], bool]:
+    """
+    First try strict URL-term match; if nothing matches, fall back to top URLs.
+    This avoids false-zero results on sites where result URLs don't carry query terms.
+    """
+    filtered = _filter_urls_by_terms(urls, terms)
+    if filtered:
+        return filtered, False
+    if not terms:
+        return urls, False
+    return urls[: max(1, int(fallback_limit))], True
+
+
 def _resolve_item_site_entries(item: dict[str, Any]) -> list[str]:
     params = item.get("params") or {}
     if not isinstance(params, dict):
@@ -260,6 +278,7 @@ def unified_search_by_item(
     probe_timeout: float = 10.0,
     auto_ingest: bool = False,
     ingest_limit: int = 10,
+    enable_extraction: bool = True,
 ) -> UnifiedSearchResult:
     terms = _as_terms(query_terms)
     item_key = (item_key or "").strip()
@@ -288,6 +307,7 @@ def unified_search_by_item(
         probe_timeout=probe_timeout,
         auto_ingest=auto_ingest,
         ingest_limit=ingest_limit,
+        enable_extraction=enable_extraction,
     )
 
 
@@ -303,6 +323,7 @@ def unified_search_by_item_payload(
     probe_timeout: float = 10.0,
     auto_ingest: bool = False,
     ingest_limit: int = 10,
+    enable_extraction: bool = True,
 ) -> UnifiedSearchResult:
     terms = _as_terms(query_terms)
     item_key = str(item.get("item_key") or "").strip()
@@ -370,11 +391,21 @@ def unified_search_by_item_payload(
             if etype == "rss":
                 xml_text, _ = fetch_html(base_url, timeout=probe_timeout, retries=1)
                 urls = _extract_urls_from_rss_xml(xml_text)
-                for u in _filter_urls_by_terms(urls, terms):
+                picked, used_fallback = _filter_urls_by_terms_with_fallback(urls, terms)
+                if used_fallback:
+                    local_errors.append(
+                        {"site_url": base_url, "error": "url_term_filter_empty_fallback_used"}
+                    )
+                for u in picked:
                     _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "rss"})
             elif etype == "sitemap":
                 urls = _collect_sitemap_urls(sitemap_url=base_url, timeout=probe_timeout)
-                for u in _filter_urls_by_terms(urls, terms):
+                picked, used_fallback = _filter_urls_by_terms_with_fallback(urls, terms)
+                if used_fallback:
+                    local_errors.append(
+                        {"site_url": base_url, "error": "url_term_filter_empty_fallback_used"}
+                    )
+                for u in picked:
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
                         continue
                     _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "sitemap"})
@@ -385,7 +416,12 @@ def unified_search_by_item_payload(
                 url = tpl.replace("{{q}}", joined_q).replace("{{page}}", "1")
                 html, _ = fetch_html(url, timeout=probe_timeout, retries=1)
                 urls = _extract_urls_from_html(html, base_url=url)
-                for u in _filter_urls_by_terms(urls, terms):
+                picked, used_fallback = _filter_urls_by_terms_with_fallback(urls, terms)
+                if used_fallback:
+                    local_errors.append(
+                        {"site_url": base_url, "error": "url_term_filter_empty_fallback_used"}
+                    )
+                for u in picked:
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
                         continue
                     _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "search_template"})
@@ -443,6 +479,8 @@ def unified_search_by_item_payload(
                     project_key=project_key,
                     source_filter=pool_source,
                     limit=min(ingest_limit, 50),
+                    query_terms=terms,
+                    enable_extraction=bool(enable_extraction),
                 )
             ingest_result = ir
         except Exception as exc:  # noqa: BLE001

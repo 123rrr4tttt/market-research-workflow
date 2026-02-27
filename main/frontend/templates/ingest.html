@@ -96,6 +96,13 @@
             <label for="queryTerms">查询词</label>
             <input id="queryTerms" placeholder="输入查询词，逗号分隔" style="min-width: 280px;" />
             <button id="btnSuggestKeywords" class="secondary" title="调用子项目联想服务，获得联想词后确认搜索">获取联想词</button>
+            <label for="topicFocus">专题联想</label>
+            <select id="topicFocus" style="width: 120px;">
+              <option value="">默认</option>
+              <option value="company">公司</option>
+              <option value="product">商品</option>
+              <option value="operation">电商/经营</option>
+            </select>
             <label for="searchLanguageBtn">语言</label>
             <div id="searchLanguageMulti" class="multi-select" aria-label="语言多选下拉">
               <button id="searchLanguageBtn" type="button" class="multi-select-btn">默认</button>
@@ -113,13 +120,6 @@
               <option value="serpstack">serpstack</option>
               <option value="serpapi">serpapi</option>
               <option value="auto">auto</option>
-            </select>
-            <label for="topicFocus">专题焦点</label>
-            <select id="topicFocus" style="width: 120px;">
-              <option value="">默认</option>
-              <option value="company">公司</option>
-              <option value="product">商品</option>
-              <option value="operation">电商/经营</option>
             </select>
             <label for="asyncMode">异步</label>
             <input id="asyncMode" type="checkbox" />
@@ -200,30 +200,26 @@
 
         <div class="ingest-partition hidden" id="partitionSpecializedGuide">
           <h3 class="partition-title"><i data-lucide="sparkles" style="width: 16px; height: 16px; vertical-align: middle;"></i> 特化采集入口（三分区）</h3>
-          <div class="grid-3" style="display:grid; grid-template-columns:repeat(3,minmax(220px,1fr)); gap:12px;">
-            <article class="card">
-              <div class="badge info"><i data-lucide="building-2" style="width:14px;height:14px;margin-right:4px;"></i> 公司</div>
-              <p class="hint" style="margin:8px 0 10px;">自动将专题焦点设为 company，使用市场/舆情采集补齐公司相关线索。</p>
-              <div class="toolbar">
-                <button id="btnPresetCompany">切到公司专题</button>
-              </div>
-            </article>
-            <article class="card">
-              <div class="badge info"><i data-lucide="box" style="width:14px;height:14px;margin-right:4px;"></i> 商品</div>
-              <p class="hint" style="margin:8px 0 10px;">自动将专题焦点设为 product，并联动商品与市场采集。</p>
-              <div class="toolbar">
-                <button id="btnPresetProduct">切到商品专题</button>
-              </div>
-            </article>
-            <article class="card">
-              <div class="badge info"><i data-lucide="shopping-bag" style="width:14px;height:14px;margin-right:4px;"></i> 电商/经营</div>
-              <p class="hint" style="margin:8px 0 10px;">自动将专题焦点设为 operation，并联动电商/经营与市场/舆情采集。</p>
-              <div class="toolbar">
-                <button id="btnPresetOperation">切到电商/经营专题</button>
-              </div>
-            </article>
+          <div class="toolbar">
+            <button id="btnRunSpecializedIngest" class="btn btn-primary">开始采集</button>
           </div>
-          <p class="hint">该页面保留原采集布局与按钮，仅通过专题焦点和分区显隐收敛成“特化采集”视图。</p>
+          <p class="hint">专题由上方“获取联想词”旁的“专题联想”下拉决定。点击“开始采集”后统一走主干采集流程。</p>
+        </div>
+
+        <div class="ingest-partition hidden" id="partitionSpecializedSourceSearch">
+          <h3 class="partition-title"><i data-lucide="search" style="width: 16px; height: 16px; vertical-align: middle;"></i> 信息源库搜索（特化）</h3>
+          <div class="toolbar">
+            <label for="specializedSourceSearch">关键词</label>
+            <input id="specializedSourceSearch" placeholder="按名称 / item_key / tags / 描述筛选来源库项" style="min-width: 320px;" />
+            <button id="btnSpecializedSourceSearch" class="secondary">搜索</button>
+            <label for="specializedSourceResult">结果</label>
+            <select id="specializedSourceResult" style="min-width: 360px;">
+              <option value="">(请输入关键词搜索)</option>
+            </select>
+            <button id="btnSpecializedUseSource" class="btn">选中为当前来源项</button>
+            <button id="btnSpecializedRunSource" class="btn btn-primary">运行选中来源项</button>
+          </div>
+          <p class="hint">使用已同步来源库做快速筛选。选中后会同步到“来源库项”并沿用通用检索设置作为覆盖参数执行。</p>
         </div>
 
         <div id="actionStatus" class="status">等待触发采集任务</div>
@@ -275,8 +271,10 @@
           qs("partitionSocial")?.classList.add("hidden");
           qs("partitionCommodityEcom")?.classList.add("hidden");
           qs("partitionSpecializedGuide")?.classList.remove("hidden");
+          qs("partitionSpecializedSourceSearch")?.classList.remove("hidden");
         } else {
           qs("partitionSpecializedGuide")?.classList.add("hidden");
+          qs("partitionSpecializedSourceSearch")?.classList.add("hidden");
           qs("partitionPolicy")?.classList.remove("hidden");
           qs("partitionSourceLibrary")?.classList.remove("hidden");
           qs("partitionMarket")?.classList.remove("hidden");
@@ -419,6 +417,31 @@
         return SOURCE_ITEMS.find((x) => x.item_key === selected) || null;
       }
 
+      function filterSourceItemsByKeyword(keyword) {
+        const q = String(keyword || "").trim().toLowerCase();
+        if (!q) return [];
+        return SOURCE_ITEMS.filter((it) => {
+          const name = String(it?.name || "").toLowerCase();
+          const key = String(it?.item_key || "").toLowerCase();
+          const desc = String(it?.description || "").toLowerCase();
+          const tags = Array.isArray(it?.tags) ? it.tags.map((x) => String(x || "").toLowerCase()).join(" ") : "";
+          return name.includes(q) || key.includes(q) || desc.includes(q) || tags.includes(q);
+        });
+      }
+
+      function renderSpecializedSourceResults(items) {
+        const sel = qs("specializedSourceResult");
+        if (!sel) return;
+        const rows = Array.isArray(items) ? items : [];
+        if (!rows.length) {
+          sel.innerHTML = '<option value="">(未找到匹配来源库项)</option>';
+          return;
+        }
+        sel.innerHTML = rows
+          .map((it) => `<option value="${escapeHtml(it.item_key)}">${escapeHtml(it.name || it.item_key)} (${escapeHtml(it.item_key)})</option>`)
+          .join("");
+      }
+
       function getSelectedSourceParams() {
         const item = getSelectedSourceItem();
         return item && item.params && typeof item.params === "object" ? item.params : {};
@@ -535,10 +558,14 @@
         }
         if (!SOURCE_ITEMS.length) {
           select.innerHTML = '<option value="">(暂无来源库项)</option>';
+          renderSpecializedSourceResults([]);
           refreshDropdownsFromSourceConfig();
           return;
         }
         select.innerHTML = SOURCE_ITEMS.map((it) => `<option value="${escapeHtml(it.item_key)}">${escapeHtml(it.name || it.item_key)} (${escapeHtml(it.item_key)})</option>`).join("");
+        if (INGEST_PAGE_MODE === "specialized") {
+          renderSpecializedSourceResults(SOURCE_ITEMS.slice(0, 20));
+        }
         refreshDropdownsFromSourceConfig();
       }
 
@@ -727,6 +754,75 @@
         });
       }
 
+      async function requestMarketIngest(rawTerms) {
+        const queryTerms = Array.isArray(rawTerms) ? rawTerms : getQueryTerms();
+        if (!queryTerms.length) throw new Error("请先输入查询词（逗号分隔）");
+        const body = {
+          query_terms: queryTerms,
+          keywords: queryTerms,
+          max_items: getSocialLimit(),
+          limit: getSocialLimit(),
+          async_mode: getAsyncMode(),
+          enable_extraction: getEnableExtraction(),
+          project_key: window.MarketApp.getProjectKey(),
+        };
+        const so = getStartOffset(); if (so != null) body.start_offset = so;
+        const db = getDaysBack(); if (db != null) body.days_back = db;
+        const lang = getSearchLanguage(); if (lang) body.language = lang;
+        const prov = getSearchProvider(); if (prov) body.provider = prov;
+        return window.MarketApp.fetchJSON("/api/v1/ingest/market", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+
+      async function requestSocialIngest(rawTerms) {
+        const queryTerms = Array.isArray(rawTerms) ? rawTerms : getQueryTerms();
+        if (!queryTerms.length) throw new Error("请先输入查询词（逗号分隔）");
+        const body = {
+          query_terms: queryTerms,
+          keywords: queryTerms,
+          platforms: getSocialPlatforms(),
+          max_items: getSocialLimit(),
+          limit: getSocialLimit(),
+          async_mode: getAsyncMode(),
+          enable_extraction: getEnableExtraction(),
+          enable_subreddit_discovery: getEnableSubredditDiscovery(),
+          base_subreddits: getBaseSubreddits(),
+          project_key: window.MarketApp.getProjectKey(),
+        };
+        return window.MarketApp.fetchJSON("/api/v1/ingest/social/sentiment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+
+      async function requestCommodityIngest() {
+        return window.MarketApp.fetchJSON("/api/v1/ingest/commodity/metrics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            limit: getCommodityLimit(),
+            async_mode: getAsyncMode(),
+            project_key: window.MarketApp.getProjectKey(),
+          }),
+        });
+      }
+
+      async function requestEcomIngest() {
+        return window.MarketApp.fetchJSON("/api/v1/ingest/ecom/prices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            limit: getEcomLimit(),
+            async_mode: getAsyncMode(),
+            project_key: window.MarketApp.getProjectKey(),
+          }),
+        });
+      }
+
       async function loadHistory() {
         setLoading("historyContainer", "加载任务历史...");
         try {
@@ -835,28 +931,7 @@
           setError("actionStatus", "请先输入查询词（逗号分隔）");
           return;
         }
-        runAction("市场采集", async () => {
-          const queryTerms = rawTerms;
-          const body = {
-            query_terms: queryTerms,
-            keywords: queryTerms,
-            max_items: getSocialLimit(),
-            limit: getSocialLimit(),
-            async_mode: getAsyncMode(),
-            enable_extraction: getEnableExtraction(),
-            project_key: window.MarketApp.getProjectKey(),
-          };
-          const so = getStartOffset(); if (so != null) body.start_offset = so;
-          const db = getDaysBack(); if (db != null) body.days_back = db;
-          const lang = getSearchLanguage(); if (lang) body.language = lang;
-          const prov = getSearchProvider(); if (prov) body.provider = prov;
-          const tf = getTopicFocus(); if (tf) body.topic_focus = tf;
-          return window.MarketApp.fetchJSON("/api/v1/ingest/market", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-        });
+        runAction("市场采集", () => requestMarketIngest(rawTerms));
       });
 
       qs("btnPolicyRegulation").addEventListener("click", () => {
@@ -880,7 +955,6 @@
           const db = getDaysBack(); if (db != null) body.days_back = db;
           const lang = getSearchLanguage(); if (lang) body.language = lang;
           const prov = getSearchProvider(); if (prov) body.provider = prov;
-          const tf = getTopicFocus(); if (tf) body.topic_focus = tf;
           return window.MarketApp.fetchJSON("/api/v1/ingest/policy/regulation", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -890,31 +964,11 @@
       });
 
       qs("btnCommodity").addEventListener("click", () =>
-        runAction("商品采集", () =>
-          window.MarketApp.fetchJSON("/api/v1/ingest/commodity/metrics", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              limit: getCommodityLimit(),
-              async_mode: getAsyncMode(),
-              project_key: window.MarketApp.getProjectKey(),
-            }),
-          })
-        )
+        runAction("商品采集", () => requestCommodityIngest())
       );
 
       qs("btnEcom").addEventListener("click", () =>
-        runAction("电商/经营采集", () =>
-          window.MarketApp.fetchJSON("/api/v1/ingest/ecom/prices", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              limit: getEcomLimit(),
-              async_mode: getAsyncMode(),
-              project_key: window.MarketApp.getProjectKey(),
-            }),
-          })
-        )
+        runAction("电商/经营采集", () => requestEcomIngest())
       );
 
       qs("btnSocial").addEventListener("click", () => {
@@ -923,27 +977,7 @@
           setError("actionStatus", "请先输入查询词（逗号分隔）");
           return;
         }
-        runAction("舆情采集", async () => {
-          const queryTerms = rawTerms;
-          const body = {
-            query_terms: queryTerms,
-            keywords: queryTerms,
-            platforms: getSocialPlatforms(),
-            max_items: getSocialLimit(),
-            limit: getSocialLimit(),
-            async_mode: getAsyncMode(),
-            enable_extraction: getEnableExtraction(),
-            enable_subreddit_discovery: getEnableSubredditDiscovery(),
-            base_subreddits: getBaseSubreddits(),
-            project_key: window.MarketApp.getProjectKey(),
-          };
-          const tf = getTopicFocus(); if (tf) body.topic_focus = tf;
-          return window.MarketApp.fetchJSON("/api/v1/ingest/social/sentiment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-        });
+        runAction("舆情采集", () => requestSocialIngest(rawTerms));
       });
 
       qs("refreshHistory").addEventListener("click", loadHistory);
@@ -982,9 +1016,57 @@
       window.addEventListener("DOMContentLoaded", async () => {
         applyIngestPageMode();
         lucide.createIcons();
-        qs("btnPresetCompany")?.addEventListener("click", () => setTopicFocusPreset("company", "已切换到公司专题焦点，可直接执行市场/舆情采集"));
-        qs("btnPresetProduct")?.addEventListener("click", () => setTopicFocusPreset("product", "已切换到商品专题焦点，可执行市场/商品/电商采集"));
-        qs("btnPresetOperation")?.addEventListener("click", () => setTopicFocusPreset("operation", "已切换到电商/经营专题焦点，可执行市场/舆情/电商采集"));
+        qs("btnRunSpecializedIngest")?.addEventListener("click", () => {
+          const selected = String(qs("topicFocus")?.value || "").trim();
+          const label = selected === "product" ? "商品" : (selected === "operation" ? "电商/经营" : "默认");
+          const specializedSourceKey = String(qs("specializedSourceResult")?.value || "").trim();
+          if (specializedSourceKey) {
+            const sourceSel = qs("sourceLibraryItem");
+            if (sourceSel) sourceSel.value = specializedSourceKey;
+            refreshDropdownsFromSourceConfig();
+            setSuccess("actionStatus", `当前联想专题=${label}，优先执行来源库项...`);
+            runAction("运行来源库项（特化）", runSelectedSourceLibraryItem);
+            return;
+          }
+          setSuccess("actionStatus", `当前联想专题=${label}，开始统一采集...`);
+          qs("btnMarket")?.click();
+        });
+        qs("btnSpecializedSourceSearch")?.addEventListener("click", () => {
+          const kw = String(qs("specializedSourceSearch")?.value || "").trim();
+          const baseRows = kw ? filterSourceItemsByKeyword(kw) : SOURCE_ITEMS.slice(0, 50);
+          const rows = baseRows;
+          renderSpecializedSourceResults(rows);
+          if (!rows.length) setError("actionStatus", "未找到匹配的信息源库项");
+          else setSuccess("actionStatus", `已匹配 ${rows.length} 个来源库项`);
+        });
+        qs("specializedSourceSearch")?.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            qs("btnSpecializedSourceSearch")?.click();
+          }
+        });
+        qs("btnSpecializedUseSource")?.addEventListener("click", () => {
+          const key = String(qs("specializedSourceResult")?.value || "").trim();
+          if (!key) {
+            setError("actionStatus", "请先选择一个来源库项");
+            return;
+          }
+          const sourceSel = qs("sourceLibraryItem");
+          if (sourceSel) sourceSel.value = key;
+          refreshDropdownsFromSourceConfig();
+          setSuccess("actionStatus", `已选中来源库项：${key}`);
+        });
+        qs("btnSpecializedRunSource")?.addEventListener("click", () => {
+          const key = String(qs("specializedSourceResult")?.value || "").trim();
+          if (!key) {
+            setError("actionStatus", "请先选择一个来源库项");
+            return;
+          }
+          const sourceSel = qs("sourceLibraryItem");
+          if (sourceSel) sourceSel.value = key;
+          refreshDropdownsFromSourceConfig();
+          runAction("运行来源库项（特化）", runSelectedSourceLibraryItem);
+        });
         try {
           await loadSourceLibraryItems();
         } catch (error) {

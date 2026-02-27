@@ -101,6 +101,7 @@
       let historyTasksCache = [];
       let historyTasksRawCache = [];
       let historyTaskChildrenByParentId = new Map();
+      let currentTaskFlowReqSeq = 0;
 
       function getStage(jobType) {
         const value = String(jobType || "").toLowerCase();
@@ -341,6 +342,65 @@
         return buildMetaFromRule(rule, ctx, "任务执行中");
       }
 
+      function compactLine(s, max = 140) {
+        const v = String(s || "").replace(/\s+/g, " ").trim();
+        if (!v) return "";
+        return v.length > max ? `${v.slice(0, max)}...` : v;
+      }
+
+      function extractFlowPreviewFromLog(text) {
+        const lines = String(text || "").split("\n").map((x) => x.trim()).filter(Boolean);
+        if (!lines.length) return "等待控制台输出...";
+        const hits = lines.filter((line) => {
+          const l = line.toLowerCase();
+          return (
+            l.includes("candidate") ||
+            l.includes("inserted") ||
+            l.includes("updated") ||
+            l.includes("skipped") ||
+            l.includes("url") ||
+            l.includes("pool") ||
+            l.includes("ingest") ||
+            l.includes("error") ||
+            l.includes("failed") ||
+            l.includes("written")
+          );
+        });
+        const source = hits.length ? hits : lines;
+        return compactLine(source[source.length - 1]);
+      }
+
+      async function fetchCurrentTaskFlowPreview(task) {
+        const tid = String(task?.task_id || "");
+        if (!tid || tid.startsWith("db-job-")) {
+          const dm = safeObject(task?.display_meta);
+          const parts = [];
+          if (dm.channel) parts.push(`channel=${dm.channel}`);
+          if (dm.item_key) parts.push(`item=${dm.item_key}`);
+          if (dm.query_terms_count != null) parts.push(`关键词=${dm.query_terms_count}`);
+          return parts.length ? `DB任务: ${parts.join(" | ")}` : "DB任务执行中...";
+        }
+        try {
+          const data = await window.MarketApp.fetchJSON(`/api/v1/process/${encodeURIComponent(tid)}/logs?tail=120`);
+          return extractFlowPreviewFromLog(data?.text || "");
+        } catch (e) {
+          return `日志读取失败: ${e.message}`;
+        }
+      }
+
+      async function hydrateCurrentTaskFlow(tasks, reqSeq) {
+        const list = Array.isArray(tasks) ? tasks : [];
+        await Promise.all(
+          list.map(async (t, idx) => {
+            const el = qs(`taskFlow-${idx}`);
+            if (!el) return;
+            const preview = await fetchCurrentTaskFlowPreview(t);
+            if (reqSeq !== currentTaskFlowReqSeq) return;
+            el.textContent = `数据流: ${preview}`;
+          })
+        );
+      }
+
       function secondsSince(startedAt) {
         if (!startedAt) return null;
         const ts = new Date(startedAt).getTime();
@@ -391,15 +451,56 @@
       function buildResultSummaryPieces(record) {
         const p = safeObject(record?.params);
         const dm = safeObject(record?.display_meta);
-        const inserted = firstDefined(dm.inserted, p.inserted);
-        const skipped = firstDefined(dm.skipped, p.skipped);
-        const updated = firstDefined(dm.updated, p.updated);
-        const errorsCount = firstDefined(dm.errors_count, p.errors_count);
-        const urlCount = firstDefined(dm.url_count, p.urls, p.url_count);
+        const parentChannel = String(dm.channel || "");
+        const children = Array.isArray(record?.__children) ? record.__children : [];
+
+        const sumChild = (pickers) => {
+          let total = 0;
+          let hit = false;
+          for (const ch of children) {
+            const cdm = safeObject(ch?.display_meta);
+            const cp = safeObject(ch?.params);
+            let v = null;
+            for (const fn of pickers) {
+              v = fn(cdm, cp);
+              if (v != null) break;
+            }
+            if (v != null && Number.isFinite(Number(v))) {
+              total += Number(v);
+              hit = true;
+            }
+          }
+          return hit ? total : null;
+        };
+
+        const childInserted = sumChild([(cdm, cp) => firstDefined(cdm.inserted, cp.inserted)]);
+        const childUpdated = sumChild([(cdm, cp) => firstDefined(cdm.updated, cp.updated)]);
+        const childSkipped = sumChild([(cdm, cp) => firstDefined(cdm.skipped, cp.skipped)]);
+        const childErrors = sumChild([(cdm, cp) => firstDefined(cdm.errors_count, cp.errors_count)]);
+        const childUrls = sumChild([
+          (cdm, cp) => firstDefined(cdm.url_count, cp.urls, cp.url_count),
+          (cdm, cp) => firstDefined(cp.pool_returned, cp.pool_total),
+        ]);
+
+        const inserted = (parentChannel === "source_library" && childInserted != null)
+          ? childInserted
+          : firstDefined(dm.inserted, p.inserted);
+        const skipped = (parentChannel === "source_library" && childSkipped != null)
+          ? childSkipped
+          : firstDefined(dm.skipped, p.skipped);
+        const updated = (parentChannel === "source_library" && childUpdated != null)
+          ? childUpdated
+          : firstDefined(dm.updated, p.updated);
+        const errorsCount = (parentChannel === "source_library" && childErrors != null)
+          ? childErrors
+          : firstDefined(dm.errors_count, p.errors_count);
+        const urlCount = (parentChannel === "source_library" && childUrls != null)
+          ? childUrls
+          : firstDefined(dm.url_count, p.urls, p.url_count);
         const out = [];
         if (inserted != null) out.push(`新增 ${formatNumber(inserted)}`);
-        if (updated != null) out.push(`更新 ${formatNumber(updated)}`);
-        if (skipped != null) out.push(`跳过 ${formatNumber(skipped)}`);
+        if (updated != null && Number(updated) > 0) out.push(`更新 ${formatNumber(updated)}`);
+        if (skipped != null && Number(skipped) > 0) out.push(`跳过 ${formatNumber(skipped)}`);
         if (errorsCount != null && Number(errorsCount) > 0) out.push(`错误 ${formatNumber(errorsCount)}`);
         if (urlCount != null) out.push(`URL ${formatNumber(urlCount)}`);
         return out;
@@ -527,7 +628,7 @@
               ["item", dm.item_key],
               ["关键词数", dm.query_terms_count],
               ["URL", dm.url_count],
-              ["limit", dm.limit],
+              ["入库批次", dm.limit],
             ];
             for (const [k, v] of maybeChips) pushMetaChip(meta, k, v);
             return meta;
@@ -719,6 +820,7 @@
                 <div class="task-main">
                   <div>${escapeHtml(title)}</div>
                   <div class="task-sub mono-mini">${escapeHtml(t.name || "-")}</div>
+                  <div class="task-sub mono-mini" id="taskFlow-${idx}">数据流: 加载中...</div>
                   ${chips ? `<div class="task-chips">${chips}</div>` : ""}
                 </div>
               </td>
@@ -737,6 +839,8 @@
             <tbody>${rows}</tbody>
           </table>
         `;
+        currentTaskFlowReqSeq += 1;
+        hydrateCurrentTaskFlow(tasks, currentTaskFlowReqSeq);
       }
 
       function renderHistory(data) {
@@ -796,8 +900,11 @@
           const historyUrl = projectKey
             ? `/api/v1/process/history?limit=50&project_key=${encodeURIComponent(projectKey)}`
             : "/api/v1/process/history?limit=50";
+          const listUrl = projectKey
+            ? `/api/v1/process/list?project_key=${encodeURIComponent(projectKey)}`
+            : "/api/v1/process/list";
           const [current, history] = await Promise.all([
-            window.MarketApp.fetchJSON("/api/v1/process/list"),
+            window.MarketApp.fetchJSON(listUrl),
             window.MarketApp.fetchJSON(historyUrl),
           ]);
           renderCurrentTasks(current);

@@ -11,6 +11,7 @@ from ...models.entities import MarketStat
 from .adapters import MarketAdapter, MarketRecord
 from ..job_logger import start_job, complete_job, fail_job
 from ...subprojects.online_lottery.services.market import resolve_market_adapters
+from ..extraction.numeric import normalize_market_payload
 
 
 def get_market_adapters(
@@ -49,6 +50,7 @@ def ingest_market_data(
                     skipped += 1
                     continue
 
+                record, _ = _normalize_market_record(record)
                 existing = _get_existing(session, record.state, record.game, record.date)
                 if existing:
                     if _update_existing(existing, record):
@@ -158,9 +160,11 @@ def _calculate_growth(session: Session, record: MarketRecord) -> tuple[float | N
     mom = None
     yoy = None
 
+    # Return growth as percentage value, e.g. 10.5 = 10.5%
+    # to keep consistency with extraction schema and dashboard display conventions.
     if prev and prev.revenue and record.revenue:
         try:
-            mom = float((record.revenue - float(prev.revenue)) / float(prev.revenue))
+            mom = float((record.revenue - float(prev.revenue)) / float(prev.revenue) * 100)
         except ZeroDivisionError:
             mom = None
 
@@ -176,7 +180,7 @@ def _calculate_growth(session: Session, record: MarketRecord) -> tuple[float | N
     )
     if prev_year and prev_year.revenue and record.revenue:
         try:
-            yoy = float((record.revenue - float(prev_year.revenue)) / float(prev_year.revenue))
+            yoy = float((record.revenue - float(prev_year.revenue)) / float(prev_year.revenue) * 100)
         except ZeroDivisionError:
             yoy = None
 
@@ -190,6 +194,51 @@ def _decimal_or_none(value: float | None) -> Decimal | None:
         return Decimal(str(value))
     except Exception:  # noqa: BLE001
         return None
+
+
+def _normalize_market_record(record: MarketRecord) -> tuple[MarketRecord, dict]:
+    """Normalize market numeric fields in each record before persistence."""
+    raw_market = {
+        "sales_volume": record.sales_volume,
+        "revenue": record.revenue,
+        "jackpot": record.jackpot,
+        "ticket_price": record.ticket_price,
+        "yoy_change": None,
+        "mom_change": None,
+    }
+    try:
+        normalized_market, quality = normalize_market_payload(raw_market, scope="lottery.market")
+    except Exception as e:
+        logger.warning("ingest_market_data: market normalization failed, fallback raw: %s", e)
+        normalized_market = raw_market
+        quality = {
+            "scope": "project.lottery.market",
+            "data_class": "project_extension",
+            "parsed_fields": {},
+            "issues": ["normalize_failed"],
+            "quality_score": 0.0,
+        }
+
+    record.sales_volume = normalized_market.get("sales_volume")
+    record.revenue = normalized_market.get("revenue")
+    record.jackpot = normalized_market.get("jackpot")
+    record.ticket_price = normalized_market.get("ticket_price")
+
+    quality["source"] = "ingest_market_normalize"
+    merged_quality = dict(quality)
+    if isinstance(record.extra, dict):
+        existing_extra = dict(record.extra)
+    else:
+        existing_extra = {}
+    if isinstance(existing_extra.get("numeric_quality"), dict):
+        existing_extra["numeric_quality"] = {
+            "source": existing_extra["numeric_quality"],
+            "ingest": merged_quality,
+        }
+    else:
+        existing_extra["numeric_quality"] = merged_quality
+    record.extra = existing_extra
+    return record, merged_quality
 
 
 def _normalize_game(game: Optional[str]) -> Optional[str]:
@@ -251,5 +300,3 @@ def _update_existing(entry: MarketStat, record: MarketRecord) -> bool:
         changed = True
 
     return changed
-
-

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from typing import List, Dict, Set, Optional
+from typing import Any, List, Dict, Set, Optional
 from datetime import datetime, timedelta
 import os
 import logging
 import time
+import re
 
 from duckduckgo_search import DDGS
 from duckduckgo_search.exceptions import RatelimitException
 from ..http.client import default_http_client
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 from sqlalchemy import select
 
 from ..llm.provider import get_chat_model
@@ -21,6 +22,54 @@ from ...models.entities import Document
 # Azure AI Search removed - it's for searching your own data, not web search
 
 logger = logging.getLogger(__name__)
+
+_TRACKING_QUERY_PARAMS = {
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "utm_id",
+    "utm_name",
+    "utm_reader",
+    "gclid",
+    "fbclid",
+    "msclkid",
+    "ref",
+    "spm",
+    "fromsource",
+    "sc_source",
+}
+
+_NUMERIC_INTENT_KEYWORDS = {
+    "sales",
+    "revenue",
+    "earnings",
+    "market",
+    "quarter",
+    "report",
+    "data",
+    "stats",
+    "volume",
+    "jackpot",
+    "ticket",
+    "prize",
+}
+
+_TRUSTED_DOMAINS = {
+    "reuters.com",
+    "www.reuters.com",
+    "bloomberg.com",
+    "www.bloomberg.com",
+    "wsj.com",
+    "www.wsj.com",
+    "ft.com",
+    "www.ft.com",
+    "sec.gov",
+    "www.sec.gov",
+    "govinfo.gov",
+    "www.nasdaq.com",
+}
 
 
 _BILINGUAL_LANG_MODES = {"bi", "bilingual", "zh-en", "zh_en", "both", "multi", "multilingual"}
@@ -49,6 +98,72 @@ def _dedup_keywords(items: List[str]) -> List[str]:
         seen.add(kw)
         out.append(kw)
     return out
+
+
+def _canonicalize_url(url: str) -> str:
+    try:
+        parsed = urlparse(url)
+        query = [
+            (key, value)
+            for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+            if key.lower() not in _TRACKING_QUERY_PARAMS
+        ]
+        canonical_query = urlencode(query)
+        return urlunparse((
+            parsed.scheme or "https",
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            canonical_query,
+            "",
+        ))
+    except Exception:
+        return url
+
+
+def _contains_numeric_intent(text: str) -> bool:
+    if not text:
+        return False
+    lowered = text.lower()
+    if re.search(r"\d", lowered):
+        return True
+    return any(token in lowered for token in _NUMERIC_INTENT_KEYWORDS)
+
+
+def _score_search_result(item: Dict[str, Any], *, topic: str, keywords: List[str]) -> float:
+    title = (item.get("title") or "").lower()
+    snippet = (item.get("snippet") or "").lower()
+    link = (item.get("canonical_link") or item.get("link") or "").lower()
+    source = (item.get("source") or "").lower()
+    candidate = " ".join([title, snippet, link])
+
+    score = 0.0
+    for keyword in {topic, *keywords}:
+        if keyword and keyword.lower() in candidate:
+            score += 1.8
+
+    if _contains_numeric_intent(candidate):
+        score += 1.6
+
+    domain = _extract_domain(item.get("canonical_link") or item.get("link"))
+    if domain and domain.lower() in _TRUSTED_DOMAINS:
+        score += 2.0
+
+    if source in {"serpapi", "serpstack", "serper", "google", "ddg"}:
+        score += 0.3
+
+    if not title:
+        score -= 0.6
+    if not snippet:
+        score -= 0.3
+    return round(score, 3)
+
+
+def _extract_domain(url: str) -> str:
+    try:
+        return urlparse(url).netloc
+    except Exception:
+        return ""
 
 
 def generate_keywords(topic: str, language: str = "zh") -> List[str]:
@@ -214,7 +329,11 @@ def generate_topic_keywords(
 
 def filter_existing(results: List[dict]) -> List[dict]:
     """过滤已入库的文档"""
-    urls = [r.get("link") for r in results if r.get("link")]
+    urls = [
+        r.get("canonical_link") or r.get("link")
+        for r in results
+        if r.get("canonical_link") or r.get("link")
+    ]
     if not urls:
         return results
     
@@ -225,7 +344,10 @@ def filter_existing(results: List[dict]) -> List[dict]:
             ).all()
         }
     
-    filtered = [r for r in results if r.get("link") not in existing_urls]
+    filtered = [
+        r for r in results
+        if (r.get("canonical_link") or r.get("link")) not in existing_urls
+    ]
     logger.info("filter_existing: input=%d existing=%d filtered=%d", len(results), len(existing_urls), len(filtered))
     return filtered
 
@@ -547,10 +669,18 @@ def search_sources(
     # 过滤已存在的文档
     if exclude_existing:
         results = filter_existing(results)
-    
-    # 时间排序（简单实现：按URL域名排序，实际中可以根据搜索结果的时间戳排序）
-    # 注意：大部分搜索API不返回精确的时间戳，这里先简单处理
-    
+        
+    # 结果重排：以数字相关性、可信来源与主题匹配优先
+    for item in results:
+        try:
+            item["relevance_score"] = _score_search_result(item, topic=topic, keywords=keywords)
+        except Exception as e:
+            logger.warning("search_sources: scoring failed for %s: %s", item.get("link"), e)
+            item.setdefault("relevance_score", 0.0)
+    results.sort(key=lambda item: item.get("relevance_score", 0.0), reverse=True)
+    if len(results) > max_results:
+        results = results[:max_results]
+
     logger.info("search_sources: total=%d exclude_existing=%s", len(results), exclude_existing)
     return results
 
@@ -769,14 +899,23 @@ def _google_search(
 
 def _add_result_dedup(results: List[dict], seen_links: Set[str], item: Dict[str, str]) -> bool:
     link = (item.get("link") or "").strip()
-    if not link or link in seen_links:
+    if not link:
         return False
-    seen_links.add(link)
+
+    canonical_link = _canonicalize_url(link)
+    if canonical_link in seen_links:
+        return False
+    seen_links.add(canonical_link)
+    item["link"] = canonical_link
+    item["canonical_link"] = canonical_link
+
     # 附加域名信息，方便前端展示多样性
     try:
-        host = urlparse(link).netloc
+        host = _extract_domain(canonical_link)
         item.setdefault("domain", host)
     except Exception:
         pass
+
+    item["relevance_score"] = 0.0
     results.append(item)
     return True

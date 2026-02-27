@@ -14,6 +14,7 @@ from ..job_logger import complete_job, fail_job, start_job
 from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..resource_pool import list_urls
+from ..extraction.application import ExtractionApplicationService
 from .adapters.http_utils import fetch_html, make_html_parser
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ _DEFAULT_LIMIT = 50
 _DEBUG_MAX_URLS = 200
 _DEBUG_MAX_POOL_ITEMS = 50
 _DEBUG_MAX_ERRORS = 50
+_EXTRACTION_APP = ExtractionApplicationService()
 
 
 def _safe_exc(exc: Exception) -> str:
@@ -48,6 +50,15 @@ def _normalize_url_list(urls: Any) -> List[str]:
     """Extract and normalize URL list from channel/params."""
     if isinstance(urls, list):
         return [str(u).strip() for u in urls if u and str(u).strip().startswith(("http://", "https://"))]
+    return []
+
+
+def _normalize_terms(value: Any) -> List[str]:
+    if isinstance(value, list):
+        return [str(x).strip() for x in value if str(x or "").strip()]
+    if isinstance(value, str):
+        s = value.strip()
+        return [s] if s else []
     return []
 
 
@@ -81,6 +92,9 @@ def collect_urls_from_list(
     urls: List[str],
     *,
     project_key: Optional[str] = None,
+    query_terms: Optional[List[str]] = None,
+    extra_params: Optional[Dict[str, Any]] = None,
+    enable_extraction: bool = True,
 ) -> Dict[str, Any]:
     """
     Fetch a given list of URLs and store as Document.
@@ -103,16 +117,21 @@ def collect_urls_from_list(
             },
         }
 
-    job_id = start_job(
-        "url_pool_fetch",
-        {
-            "mode": "list",
-            "url_count": len(urls),
-            "raw_url_count": raw_count,
-            "normalized_url_count": normalized_count,
-            "filtered_out": max(0, raw_count - normalized_count),
-        },
-    )
+    normalized_terms = _normalize_terms(query_terms)
+    job_params: Dict[str, Any] = {
+        "mode": "list",
+        "url_count": len(urls),
+        "raw_url_count": raw_count,
+        "normalized_url_count": normalized_count,
+        "filtered_out": max(0, raw_count - normalized_count),
+    }
+    if normalized_terms:
+        job_params["query_terms"] = normalized_terms
+    if isinstance(extra_params, dict) and extra_params:
+        for key in ("keywords", "search_keywords", "base_keywords", "topic_keywords", "provider", "language", "scope", "source", "source_filter", "domain"):
+            if key in extra_params and key not in job_params:
+                job_params[key] = extra_params.get(key)
+    job_id = start_job("url_pool_fetch", job_params)
     try:
         inserted = 0
         skipped = 0
@@ -140,12 +159,29 @@ def collect_urls_from_list(
                     content = _extract_text_from_html(html)
                     parsed = urlparse(url)
                     domain_str = parsed.netloc or parsed.path[:50] or "unknown"
+                    extracted_data = {"platform": "url_pool"}
+                    if enable_extraction and content:
+                        try:
+                            enriched = _EXTRACTION_APP.extract_structured_enriched(
+                                "\n\n".join([x for x in [domain_str, content or ""] if x]),
+                                include_market=True,
+                                include_policy=True,
+                                include_sentiment=True,
+                                include_company=True,
+                                include_product=True,
+                                include_operation=True,
+                            )
+                            if isinstance(enriched, dict) and enriched:
+                                extracted_data.update(enriched)
+                        except Exception as ex:  # noqa: BLE001
+                            logger.warning("url_pool extraction failed for %s: %s", url[:80], ex)
                     doc = Document(
                         source_id=source_id,
                         doc_type=_DOC_TYPE,
                         title=domain_str,
                         content=content[:50000] if content else None,
                         uri=url,
+                        extracted_data=extracted_data,
                     )
                     session.add(doc)
                     inserted += 1
@@ -192,6 +228,7 @@ def collect_urls_from_list(
                 channel="url_pool",
                 project_key=project_key,
                 urls=list(urls),
+                query_terms=normalized_terms,
                 limit=len(urls),
                 source_context={"summary": "URL 池抓取并写入文档"},
             ),
@@ -219,6 +256,9 @@ def collect_urls_from_pool(
     domain: Optional[str] = None,
     source_filter: Optional[str] = None,
     limit: int = _DEFAULT_LIMIT,
+    query_terms: Optional[List[str]] = None,
+    extra_params: Optional[Dict[str, Any]] = None,
+    enable_extraction: bool = True,
 ) -> Dict[str, Any]:
     """
     Fetch URLs from resource pool, fetch each, store as Document.
@@ -227,10 +267,15 @@ def collect_urls_from_pool(
     """
     from ..projects import bind_project
 
-    job_id = start_job(
-        "url_pool_fetch",
-        {"scope": scope, "domain": domain, "source": source_filter, "limit": limit},
-    )
+    normalized_terms = _normalize_terms(query_terms)
+    job_params: Dict[str, Any] = {"scope": scope, "domain": domain, "source": source_filter, "limit": limit}
+    if normalized_terms:
+        job_params["query_terms"] = normalized_terms
+    if isinstance(extra_params, dict) and extra_params:
+        for key in ("keywords", "search_keywords", "base_keywords", "topic_keywords", "provider", "language"):
+            if key in extra_params and key not in job_params:
+                job_params[key] = extra_params.get(key)
+    job_id = start_job("url_pool_fetch", job_params)
     try:
         items, total = list_urls(
             scope=scope,
@@ -297,12 +342,29 @@ def collect_urls_from_pool(
                         content = _extract_text_from_html(html)
                         parsed = urlparse(url)
                         domain_str = parsed.netloc or parsed.path[:50] or "unknown"
+                        extracted_data = {"platform": "url_pool"}
+                        if enable_extraction and content:
+                            try:
+                                enriched = _EXTRACTION_APP.extract_structured_enriched(
+                                    "\n\n".join([x for x in [domain_str, content or ""] if x]),
+                                    include_market=True,
+                                    include_policy=True,
+                                    include_sentiment=True,
+                                    include_company=True,
+                                    include_product=True,
+                                    include_operation=True,
+                                )
+                                if isinstance(enriched, dict) and enriched:
+                                    extracted_data.update(enriched)
+                            except Exception as ex:  # noqa: BLE001
+                                logger.warning("url_pool extraction failed for %s: %s", url[:80], ex)
                         doc = Document(
                             source_id=source_id,
                             doc_type=_DOC_TYPE,
                             title=domain_str,
                             content=content[:50000] if content else None,
                             uri=url,
+                            extracted_data=extracted_data,
                         )
                         session.add(doc)
                         inserted += 1
@@ -376,6 +438,7 @@ def collect_urls_from_pool(
                 channel="url_pool",
                 project_key=project_key,
                 urls=list(urls),
+                query_terms=normalized_terms,
                 scope=scope,
                 limit=limit,
                 source_context={"summary": "URL 池抓取并写入文档"},

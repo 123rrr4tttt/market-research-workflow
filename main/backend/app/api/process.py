@@ -41,11 +41,12 @@ class TaskListResponse(BaseModel):
 @router.get("/list")
 def list_tasks(
     status_filter: Optional[str] = None,
-    limit: int = 100
+    limit: int = 100,
+    project_key: Optional[str] = None,
 ) -> TaskListResponse:
     """获取Celery任务列表"""
     try:
-        from ..services.collect_runtime import infer_display_meta_from_celery_task
+        from ..services.collect_runtime import infer_display_meta_from_celery_task, extract_display_meta_from_params
         inspect = celery_app.control.inspect()
         tasks = []
         
@@ -127,6 +128,44 @@ def list_tasks(
                 )
                 tasks.append(task_info)
         
+        # 回填数据库中的 running 任务（用于同步执行链路或 worker 重启后仍在执行窗口内的任务展示）
+        if not status_filter or status_filter in {"active", "running"}:
+            ctx = bind_project(project_key) if project_key else nullcontext()
+            with ctx:
+                with SessionLocal() as session:
+                    q = (
+                        select(EtlJobRun)
+                        .where(EtlJobRun.status == "running")
+                        .order_by(EtlJobRun.started_at.desc().nullslast())
+                        .limit(max(1, min(limit, 300)))
+                    )
+                    running_jobs = session.execute(q).scalars().all()
+            existing_ids = {str(t.task_id) for t in tasks}
+            for job in running_jobs:
+                pseudo_id = f"db-job-{job.id}"
+                if pseudo_id in existing_ids:
+                    continue
+                params = dict(job.params or {})
+                display_meta = extract_display_meta_from_params(params)
+                task_name = (
+                    str(params.get("job_type_full") or "").strip()
+                    or str(job.job_type or "").strip()
+                    or "db_running_job"
+                )
+                task_info = TaskInfo(
+                    task_id=pseudo_id,
+                    name=task_name,
+                    status="active",
+                    args=[],
+                    kwargs=params,
+                    worker="db-running",
+                    started_at=job.started_at.isoformat() if job.started_at else None,
+                    display_meta=display_meta,
+                )
+                tasks.append(task_info)
+                total_tasks += 1
+                active_count += 1
+
         # 限制返回数量
         tasks = tasks[:limit]
         

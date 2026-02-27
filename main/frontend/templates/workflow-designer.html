@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>工作流设计器</title>
+    <link rel="stylesheet" href="/static/css/app-theme.css" />
+    <style>
+      :root {
+        --bg-a: #f5fbff;
+        --bg-b: #edf4ff;
+        --line: #d6e6fb;
+        --text: #12213c;
+        --muted: #536b90;
+        --accent: #1f6feb;
+      }
+      body {
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 10% 0%, #d9ecff 0%, transparent 44%),
+          radial-gradient(circle at 90% 20%, #edf8ff 0%, transparent 48%),
+          linear-gradient(180deg, var(--bg-a), var(--bg-b));
+      }
+      .page {
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 22px;
+      }
+      .hero h1 {
+        margin: 0;
+        font-size: 29px;
+        letter-spacing: -0.02em;
+      }
+      .hero p {
+        margin: 8px 0 0;
+        color: var(--muted);
+      }
+      .grid {
+        margin-top: 12px;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 1fr 1fr;
+      }
+      @media (max-width: 980px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(15, 63, 129, 0.08);
+      }
+      .card h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+      .rows {
+        display: grid;
+        gap: 8px;
+      }
+      .row {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 1fr 1fr;
+      }
+      @media (max-width: 720px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+      label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid #cde0fb;
+        border-radius: 10px;
+        background: #fdfefe;
+        color: #10223f;
+        padding: 9px 11px;
+        font-size: 14px;
+      }
+      textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+      .pipeline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+        margin-top: 7px;
+      }
+      .canvas-wrap {
+        margin-top: 10px;
+        border: 1px solid #d8e7fb;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #fbfdff, #f6faff);
+        height: 380px;
+        position: relative;
+        overflow: hidden;
+      }
+      .canvas-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      .canvas-node {
+        position: absolute;
+        width: 180px;
+        border: 1px solid #cfe1ff;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 6px 18px rgba(16, 58, 123, 0.12);
+        user-select: none;
+      }
+      .canvas-node.dragging {
+        opacity: 0.86;
+        box-shadow: 0 12px 22px rgba(16, 58, 123, 0.2);
+      }
+      .canvas-node .head {
+        cursor: move;
+        padding: 8px 10px 4px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .canvas-node .meta {
+        margin: 0;
+        padding: 0 10px 8px;
+      }
+      .canvas-node .ports {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 10px 8px;
+      }
+      .port {
+        border: 1px solid #bfd7ff;
+        border-radius: 999px;
+        font-size: 11px;
+        padding: 2px 8px;
+        background: #f6faff;
+        cursor: pointer;
+      }
+      .port.active {
+        background: #1f6feb;
+        border-color: #1f6feb;
+        color: #fff;
+      }
+      .node {
+        border: 1px solid #cfe1ff;
+        border-radius: 10px;
+        background: #fff;
+        min-width: 128px;
+        padding: 8px 10px;
+      }
+      .node .t {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .node .d {
+        margin-top: 3px;
+        color: #5d7397;
+        font-size: 12px;
+      }
+      .arrow {
+        color: #8ca5ca;
+        font-weight: 700;
+      }
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      button {
+        border: 1px solid #c0d7fa;
+        background: #fff;
+        color: #174489;
+        border-radius: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+      button.warn {
+        border-color: #f8c8c8;
+        color: #9a2121;
+        background: #fff9f9;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .table th,
+      .table td {
+        border-bottom: 1px solid #edf3fb;
+        text-align: left;
+        font-size: 12px;
+        padding: 6px;
+      }
+      .table th {
+        color: #5d7294;
+      }
+      .badge {
+        display: inline-block;
+        border: 1px solid #d0e2ff;
+        color: #436896;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11px;
+      }
+      .diag {
+        border: 1px solid #eee;
+        border-radius: 10px;
+        padding: 8px;
+        margin-bottom: 8px;
+        background: #fff;
+      }
+      .diag.error {
+        border-color: #f0b6b6;
+        background: #fff7f7;
+      }
+      .diag.warn {
+        border-color: #f0ddb0;
+        background: #fffdf4;
+      }
+      .diag .title {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .diag .msg {
+        margin-top: 4px;
+        color: #5c708f;
+        font-size: 12px;
+      }
+      .status {
+        margin-top: 10px;
+      }
+    </style>
+    <script src="/static/js/app-shell.js"></script>
+    <script src="/static/js/ui-core.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="/static/js/workflow-designer-core.js"></script>
+    <script src="/static/js/workflow-designer-mapping.js"></script>
+    <script src="/static/js/workflow-designer-runtime.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <h1>工作流设计器</h1>
+        <p>用户设计 -> 抽象层编译 -> 主干模块调用。默认模板起步，支持受控自由连线与接口适配。</p>
+      </section>
+
+      <section class="grid">
+        <section class="card">
+          <h2>1) 设计区</h2>
+          <div class="rows">
+            <div class="row">
+              <div>
+                <label for="wfName">流程名称</label>
+                <input id="wfName" placeholder="workflow_visual_builder" />
+              </div>
+              <div>
+                <label for="globalDataType">全局数据类型</label>
+                <select id="globalDataType">
+                  <option value="market_info">market_info（市场）</option>
+                  <option value="policy_regulation">policy_regulation（政策）</option>
+                  <option value="social_sentiment">social_sentiment（舆情）</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="searchModule">搜索模块</label>
+                <select id="searchModule">
+                  <option value="market">market</option>
+                  <option value="policy">policy</option>
+                  <option value="social">social</option>
+                  <option value="news">news</option>
+                  <option value="reddit">reddit</option>
+                </select>
+              </div>
+              <div>
+                <label for="vizModule">可视化模块</label>
+                <select id="vizModule">
+                  <option value="trend">trend</option>
+                  <option value="timeline">timeline</option>
+                  <option value="graph">graph</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="llmProvider">LLM策略</label>
+                <select id="llmProvider">
+                  <option value="auto">auto</option>
+                  <option value="openai">openai</option>
+                  <option value="azure">azure</option>
+                  <option value="ollama">ollama</option>
+                </select>
+              </div>
+              <div>
+                <label for="llmEnabled">LLM模块</label>
+                <select id="llmEnabled">
+                  <option value="on">on</option>
+                  <option value="off">off</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="queryInput">关键词 / 主题（逗号分隔）</label>
+                <input id="queryInput" placeholder="robotics, ai chips" />
+              </div>
+              <div>
+                <label for="limitInput">抓取数量</label>
+                <input id="limitInput" type="number" min="1" max="200" value="20" />
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="edgeFrom">自由连线：源节点</label>
+                <select id="edgeFrom"></select>
+              </div>
+              <div>
+                <label for="edgeTo">目标节点</label>
+                <select id="edgeTo"></select>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="branchField">分支字段</label>
+                <input id="branchField" value="sentiment" />
+              </div>
+              <div>
+                <label for="branchOperator">分支条件</label>
+                <select id="branchOperator">
+                  <option value="contains">contains</option>
+                  <option value="eq">eq</option>
+                  <option value="neq">neq</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="branchValue">分支值</label>
+                <input id="branchValue" value="positive" />
+              </div>
+              <div>
+                <label for="branchFalseTarget">false 分支目标节点</label>
+                <select id="branchFalseTarget"></select>
+              </div>
+            </div>
+            <div class="toolbar">
+              <button id="btnResetTemplate">重置模板</button>
+              <button id="btnAddEdge">新增连线</button>
+              <button id="btnInsertBranch">插入条件分支节点</button>
+              <button id="btnConnectMode">连线模式：关闭</button>
+            </div>
+            <div id="edgeTableWrap"></div>
+            <div class="canvas-wrap" id="graphCanvasWrap">
+              <svg id="graphCanvasSvg" class="canvas-svg"></svg>
+              <div id="graphCanvas"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>2) 抽象层编译区</h2>
+          <div class="pipeline" id="pipelineView"></div>
+          <div style="margin-top: 10px;">
+            <label for="compilePreview">编译结果（只读）</label>
+            <textarea id="compilePreview" class="mono" readonly></textarea>
+          </div>
+          <div style="margin-top: 10px;">
+            <label>接口缺口（数量/字段）</label>
+            <div id="gapList"></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="grid" style="margin-top: 12px;">
+        <section class="card">
+          <h2>3) 诊断区</h2>
+          <label>编译诊断</label>
+          <div id="compileDiagnostics"></div>
+          <label>运行诊断</label>
+          <div id="runtimeDiagnostics"></div>
+        </section>
+
+        <section class="card">
+          <h2>4) 执行区</h2>
+          <div>
+            <label for="runParamsInput">运行附加参数（JSON，可选）</label>
+            <textarea id="runParamsInput" class="mono" placeholder='{"state":"CA"}'></textarea>
+          </div>
+          <div class="toolbar" style="margin-top: 10px;">
+            <button id="btnLoad">读取模板</button>
+            <button id="btnSave" class="primary">保存模板</button>
+            <button id="btnRun" class="primary">运行流程</button>
+            <button id="btnDelete" class="warn">删除模板</button>
+            <button id="btnBack">返回工作台</button>
+          </div>
+          <div id="status" class="status">未执行操作</div>
+        </section>
+      </section>
+    </div>
+
+    <script>
+      const { qs, setError, setSuccess, escapeHtml } = window.UICore;
+      const Core = window.WorkflowDesignerCore;
+      const Mapping = window.WorkflowDesignerMapping;
+      const Runtime = window.WorkflowDesignerRuntime;
+
+      let state = {
+        design: null,
+        compile: null,
+        gaps: [],
+        runtimeDiagnostics: [],
+        nodeOverrides: {},
+        connectMode: false,
+        connectSourceNodeId: "",
+        dragNodeId: "",
+        dragStartX: 0,
+        dragStartY: 0,
+        nodeStartX: 0,
+        nodeStartY: 0,
+      };
+
+      function readRunParams() {
+        const raw = String(qs("runParamsInput").value || "").trim();
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("运行附加参数必须是 JSON 对象");
+        }
+        return parsed;
+      }
+
+      function collectForm() {
+        return {
+          workflowName: String(qs("wfName").value || "").trim() || "workflow_visual_builder",
+          globalDataType: qs("globalDataType").value,
+          searchModule: qs("searchModule").value,
+          vizModule: qs("vizModule").value,
+          llmProvider: qs("llmProvider").value,
+          llmEnabled: qs("llmEnabled").value === "on",
+          queryText: String(qs("queryInput").value || ""),
+          limit: Number(qs("limitInput").value || 20),
+        };
+      }
+
+      function renderNodeOptions() {
+        const source = qs("edgeFrom");
+        const target = qs("edgeTo");
+        const falseTarget = qs("branchFalseTarget");
+        const options = (state.design && state.design.nodes ? state.design.nodes : []).map(
+          (n) => `<option value="${escapeHtml(n.id)}">${escapeHtml(n.title)} (${escapeHtml(n.id)})</option>`
+        );
+        source.innerHTML = options.join("");
+        target.innerHTML = options.join("");
+        falseTarget.innerHTML = options.join("");
+      }
+
+      function renderPipeline() {
+        const nodes = state.design && state.design.nodes ? state.design.nodes : [];
+        qs("pipelineView").innerHTML = nodes
+          .map((n, idx) => {
+            const arrow = idx === nodes.length - 1 ? "" : '<span class="arrow">→</span>';
+            return `<div class="node"><div class="t">${escapeHtml(n.title)}</div><div class="d">${escapeHtml(n.module_key)} · ${escapeHtml(n.data_type || "-")}</div></div>${arrow}`;
+          })
+          .join("");
+      }
+
+      function ensureNodePositions() {
+        if (!state.design || !Array.isArray(state.design.nodes)) return;
+        let x = 24;
+        const yBase = 84;
+        state.design.nodes.forEach((n, idx) => {
+          if (!n.position || typeof n.position !== "object") {
+            n.position = { x, y: yBase + (idx % 2) * 120 };
+            x += 220;
+          } else {
+            const px = Number(n.position.x);
+            const py = Number(n.position.y);
+            n.position.x = Number.isFinite(px) ? px : x;
+            n.position.y = Number.isFinite(py) ? py : yBase;
+          }
+        });
+      }
+
+      function nodeCenter(nodeId) {
+        const node = (state.design && state.design.nodes || []).find((n) => n.id === nodeId);
+        if (!node || !node.position) return { x: 0, y: 0 };
+        return { x: Number(node.position.x || 0) + 90, y: Number(node.position.y || 0) + 40 };
+      }
+
+      function renderCanvas() {
+        ensureNodePositions();
+        const host = qs("graphCanvas");
+        const svg = qs("graphCanvasSvg");
+        const nodes = (state.design && state.design.nodes) || [];
+        const edges = (state.design && state.design.edges) || [];
+
+        host.innerHTML = nodes
+          .map((n) => {
+            const x = Number(n.position && n.position.x || 0);
+            const y = Number(n.position && n.position.y || 0);
+            const sourceActive = state.connectSourceNodeId === n.id;
+            return `<div class="canvas-node" data-node-id="${escapeHtml(n.id)}" style="left:${x}px;top:${y}px;">
+              <div class="head" data-drag-handle="1">${escapeHtml(n.title)}</div>
+              <div class="meta">${escapeHtml(n.module_key)} · ${escapeHtml(n.data_type || "-")}</div>
+              <div class="ports">
+                <button class="port" data-port-in="${escapeHtml(n.id)}">输入</button>
+                <button class="port ${sourceActive ? "active" : ""}" data-port-out="${escapeHtml(n.id)}">输出</button>
+              </div>
+            </div>`;
+          })
+          .join("");
+
+        const lines = edges
+          .map((e) => {
+            const s = nodeCenter(e.source);
+            const t = nodeCenter(e.target);
+            const mid = (s.x + t.x) / 2;
+            const color = e.branch === "true" ? "#13a05f" : e.branch === "false" ? "#cf2e2e" : "#7aa0d6";
+            return `<path d="M ${s.x} ${s.y} C ${mid} ${s.y}, ${mid} ${t.y}, ${t.x} ${t.y}" stroke="${color}" stroke-width="2" fill="none"></path>`;
+          })
+          .join("");
+        svg.innerHTML = lines;
+      }
+
+      function renderEdgeTable() {
+        const edges = state.design && state.design.edges ? state.design.edges : [];
+        if (!edges.length) {
+          qs("edgeTableWrap").innerHTML = '<div class="badge">暂无连线</div>';
+          return;
+        }
+        const rows = edges
+          .map(
+            (e) =>
+              `<tr>
+                <td>${escapeHtml(e.id)}</td>
+                <td>${escapeHtml(e.source)}</td>
+                <td>${escapeHtml(e.target)}</td>
+                <td>${escapeHtml(e.branch || "-")}</td>
+                <td>${escapeHtml((e.mapping && e.mapping.count_rule) || "-")}</td>
+              </tr>`
+          )
+          .join("");
+        qs("edgeTableWrap").innerHTML = `<table class="table"><thead><tr><th>edge</th><th>source</th><th>target</th><th>branch</th><th>count_rule</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }
+
+      function renderDiagnostics() {
+        const compileDiagnostics = (state.compile && state.compile.diagnostics) || [];
+        const runtimeDiagnostics = state.runtimeDiagnostics || [];
+
+        qs("compileDiagnostics").innerHTML = compileDiagnostics.length
+          ? compileDiagnostics
+              .map((d) => {
+                const cls = d.kind === "compile_error" ? "error" : "warn";
+                return `<div class="diag ${cls}"><div class="title">${escapeHtml(d.kind || "diagnostic")}</div><div class="msg">${escapeHtml(d.message || "-")}</div></div>`;
+              })
+              .join("")
+          : '<div class="badge">无编译错误</div>';
+
+        qs("runtimeDiagnostics").innerHTML = runtimeDiagnostics.length
+          ? runtimeDiagnostics
+              .map((d) => `<div class="diag error"><div class="title">${escapeHtml(d.kind || "runtime")}</div><div class="msg">${escapeHtml((d.http_status ? `HTTP ${d.http_status} · ` : "") + (d.message || "请求失败"))}</div></div>`)
+              .join("")
+          : '<div class="badge">无运行错误</div>';
+      }
+
+      function renderGaps() {
+        if (!state.gaps.length) {
+          qs("gapList").innerHTML = '<div class="badge">无接口缺口</div>';
+          return;
+        }
+        qs("gapList").innerHTML = state.gaps
+          .map(
+            (g, idx) =>
+              `<div class="diag warn">
+                <div class="title">${escapeHtml(g.type)} · ${escapeHtml(g.source)} -> ${escapeHtml(g.target)}</div>
+                <div class="msg">${escapeHtml(g.message || "")}</div>
+                <div class="toolbar" style="margin-top:6px;">
+                  <button data-gap-fix="${idx}">快速修复</button>
+                  <button data-gap-adapter="${idx}">升级为适配器节点</button>
+                </div>
+              </div>`
+          )
+          .join("");
+      }
+
+      function compileFromState() {
+        state.design = Core.applyGlobalType(state.design, qs("globalDataType").value, state.nodeOverrides);
+        state.gaps = Mapping.detectInterfaceGaps(state.design, Core.MODULE_REGISTRY);
+
+        const compile = Core.compileDesign(state.design, {
+          workflow_name: String(qs("wfName").value || "workflow_visual_builder").trim(),
+          layout: qs("vizModule").value,
+          node_overrides: state.nodeOverrides,
+          edge_mappings: Mapping.collectEdgeMappings(state.design),
+          adapter_nodes: Mapping.collectAdapterNodes(state.design),
+        });
+        state.compile = compile;
+        qs("compilePreview").value = JSON.stringify(
+          {
+            workflow_name: compile.workflow_name,
+            steps: compile.steps,
+            board_layout: compile.board_layout,
+          },
+          null,
+          2
+        );
+        renderPipeline();
+        renderEdgeTable();
+        renderGaps();
+        renderDiagnostics();
+        renderNodeOptions();
+        renderCanvas();
+      }
+
+      function resetTemplate() {
+        state.runtimeDiagnostics = [];
+        state.design = Core.createDefaultDesign(collectForm());
+        compileFromState();
+      }
+
+      function addFreeEdge() {
+        const source = qs("edgeFrom").value;
+        const target = qs("edgeTo").value;
+        if (!source || !target) {
+          setError("status", "请选择源节点和目标节点");
+          return;
+        }
+        if (source === target) {
+          setError("status", "不允许节点自连接");
+          return;
+        }
+        const edgeId = `e_${Date.now()}`;
+        state.design.edges.push({ id: edgeId, source, target, mapping: { count_rule: "", field_map: [] } });
+        compileFromState();
+        setSuccess("status", `连线已新增：${edgeId}`);
+      }
+
+      function toggleConnectMode() {
+        state.connectMode = !state.connectMode;
+        state.connectSourceNodeId = "";
+        qs("btnConnectMode").textContent = `连线模式：${state.connectMode ? "开启" : "关闭"}`;
+        renderCanvas();
+      }
+
+      function createEdgeByCanvas(sourceId, targetId) {
+        if (!sourceId || !targetId || sourceId === targetId) return;
+        const exists = (state.design.edges || []).some((e) => e.source === sourceId && e.target === targetId);
+        if (exists) {
+          setError("status", "该连线已存在");
+          return;
+        }
+        state.design.edges.push({
+          id: `e_${Date.now()}`,
+          source: sourceId,
+          target: targetId,
+          mapping: { count_rule: "", field_map: [] },
+        });
+        compileFromState();
+        setSuccess("status", `已连线：${sourceId} -> ${targetId}`);
+      }
+
+      function onCanvasClick(event) {
+        const out = event.target.getAttribute("data-port-out");
+        const inn = event.target.getAttribute("data-port-in");
+        if (!state.connectMode) return;
+
+        if (out) {
+          state.connectSourceNodeId = out;
+          renderCanvas();
+          return;
+        }
+        if (inn && state.connectSourceNodeId) {
+          const source = state.connectSourceNodeId;
+          state.connectSourceNodeId = "";
+          createEdgeByCanvas(source, inn);
+          renderCanvas();
+        }
+      }
+
+      function onCanvasMouseDown(event) {
+        const handle = event.target.closest("[data-drag-handle]");
+        if (!handle) return;
+        const nodeEl = event.target.closest(".canvas-node");
+        if (!nodeEl) return;
+        const nodeId = nodeEl.getAttribute("data-node-id");
+        const node = (state.design.nodes || []).find((n) => n.id === nodeId);
+        if (!node || !node.position) return;
+        state.dragNodeId = nodeId;
+        state.dragStartX = event.clientX;
+        state.dragStartY = event.clientY;
+        state.nodeStartX = Number(node.position.x || 0);
+        state.nodeStartY = Number(node.position.y || 0);
+        nodeEl.classList.add("dragging");
+      }
+
+      function onCanvasMouseMove(event) {
+        if (!state.dragNodeId) return;
+        const dx = event.clientX - state.dragStartX;
+        const dy = event.clientY - state.dragStartY;
+        const node = (state.design.nodes || []).find((n) => n.id === state.dragNodeId);
+        if (!node) return;
+        node.position.x = Math.max(0, state.nodeStartX + dx);
+        node.position.y = Math.max(0, state.nodeStartY + dy);
+        renderCanvas();
+      }
+
+      function onCanvasMouseUp() {
+        if (!state.dragNodeId) return;
+        state.dragNodeId = "";
+        const dragging = document.querySelector(".canvas-node.dragging");
+        if (dragging) dragging.classList.remove("dragging");
+      }
+
+      function insertBranchNode() {
+        const sourceNodeId = qs("edgeFrom").value;
+        const trueTargetId = qs("edgeTo").value;
+        const falseTargetId = qs("branchFalseTarget").value;
+        const field = String(qs("branchField").value || "").trim() || "sentiment";
+        const operator = qs("branchOperator").value;
+        const value = String(qs("branchValue").value || "").trim();
+
+        state.design = Core.insertConditionBranchNode(state.design, {
+          sourceNodeId,
+          trueTargetId,
+          falseTargetId,
+          field,
+          operator,
+          value,
+        });
+        compileFromState();
+        setSuccess("status", "已插入条件分支节点");
+      }
+
+      function onGapAction(event) {
+        const fix = event.target.getAttribute("data-gap-fix");
+        const adapter = event.target.getAttribute("data-gap-adapter");
+        if (fix == null && adapter == null) return;
+        const index = Number(fix != null ? fix : adapter);
+        if (!Number.isInteger(index) || index < 0 || index >= state.gaps.length) return;
+        const gap = state.gaps[index];
+        if (fix != null) {
+          state.design = Mapping.quickFixGap(state.design, gap, Core.MODULE_REGISTRY);
+          compileFromState();
+          setSuccess("status", `已应用快速修复：${gap.edge_id}`);
+          return;
+        }
+        state.design = Mapping.promoteEdgeToAdapter(state.design, gap.edge_id);
+        compileFromState();
+        setSuccess("status", `已升级为适配器节点：${gap.edge_id}`);
+      }
+
+      async function saveTemplate() {
+        const compileErrors = (state.compile && state.compile.compile_errors) || [];
+        if (compileErrors.length) {
+          setError("status", "存在编译错误，禁止保存");
+          return;
+        }
+        const payload = {
+          project_key: window.MarketApp.getProjectKey(),
+          steps: state.compile.steps,
+          board_layout: state.compile.board_layout,
+        };
+        await Runtime.saveTemplate(state.compile.workflow_name, payload);
+        setSuccess("status", `模板已保存：${state.compile.workflow_name}`);
+      }
+
+      async function loadTemplate() {
+        const workflowName = String(qs("wfName").value || "").trim();
+        if (!workflowName) {
+          setError("status", "请先输入流程名称");
+          return;
+        }
+        const data = await Runtime.loadTemplate(workflowName);
+        const board = data && data.board_layout && typeof data.board_layout === "object" ? data.board_layout : {};
+        const design = board.design && typeof board.design === "object" ? board.design : {};
+        const graph = board.graph && typeof board.graph === "object" ? board.graph : {};
+        const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+        const edges = Array.isArray(graph.edges) ? graph.edges : [];
+
+        qs("wfName").value = data.workflow_name || workflowName;
+        qs("globalDataType").value = design.global_data_type || "market_info";
+        qs("llmProvider").value = design.llm_policy || "auto";
+        qs("vizModule").value = design.visualization_module || board.layout || "trend";
+
+        if (nodes.length) {
+          state.design = {
+            global_data_type: design.global_data_type || "market_info",
+            llm_policy: design.llm_policy || "auto",
+            visualization_module: design.visualization_module || board.layout || "trend",
+            nodes,
+            edges,
+            diagnostics: [],
+          };
+        } else {
+          resetTemplate();
+        }
+
+        const firstSearch = (state.design.nodes || []).find((n) => String(n.module_key || "").startsWith("search_"));
+        if (firstSearch) {
+          const key = String(firstSearch.module_key || "");
+          if (key === "search_market") qs("searchModule").value = "market";
+          if (key === "search_policy") qs("searchModule").value = "policy";
+          if (key === "search_social") qs("searchModule").value = "social";
+          if (key === "search_news") qs("searchModule").value = "news";
+          if (key === "search_reddit") qs("searchModule").value = "reddit";
+        }
+        const llmNode = (state.design.nodes || []).find((n) => n.module_key === "llm_extract");
+        if (llmNode && llmNode.params) {
+          qs("llmEnabled").value = llmNode.params.enabled === false ? "off" : "on";
+          if (typeof llmNode.params.provider === "string" && llmNode.params.provider) {
+            qs("llmProvider").value = llmNode.params.provider;
+          }
+        }
+        if (firstSearch && firstSearch.params) {
+          if (Array.isArray(firstSearch.params.keywords)) qs("queryInput").value = firstSearch.params.keywords.join(", ");
+          if (typeof firstSearch.params.subreddit === "string" && firstSearch.params.subreddit) qs("queryInput").value = firstSearch.params.subreddit;
+          if (typeof firstSearch.params.source_hint === "string" && firstSearch.params.source_hint) qs("queryInput").value = firstSearch.params.source_hint;
+          if (typeof firstSearch.params.limit === "number") qs("limitInput").value = String(firstSearch.params.limit);
+        }
+
+        compileFromState();
+        setSuccess("status", `模板已读取：${workflowName}`);
+      }
+
+      async function runWorkflow() {
+        const compileErrors = (state.compile && state.compile.compile_errors) || [];
+        if (compileErrors.length) {
+          setError("status", "存在编译错误，禁止运行");
+          return;
+        }
+
+        const workflowName = state.compile.workflow_name;
+        const runParams = readRunParams();
+        const keywords = Core.parseKeywords(qs("queryInput").value);
+        if (keywords.length && !runParams.keywords && !runParams.subreddit && !runParams.source_hint) {
+          runParams.keywords = keywords;
+        }
+        if (!runParams.limit) {
+          runParams.limit = Number(qs("limitInput").value || 20);
+        }
+
+        const result = await Runtime.runWorkflow(
+          workflowName,
+          {
+            project_key: window.MarketApp.getProjectKey(),
+            params: runParams,
+          },
+          { maxRetries: 2 }
+        );
+
+        state.runtimeDiagnostics = result.diagnostics || [];
+        renderDiagnostics();
+        if (!result.ok) {
+          setError("status", `运行失败（已重试${result.attempts}次）：${result.error && result.error.message ? result.error.message : "请求失败"}`);
+          return;
+        }
+        setSuccess("status", `运行成功：${workflowName}（尝试${result.attempts}次）`);
+      }
+
+      async function deleteTemplate() {
+        const workflowName = String(qs("wfName").value || "").trim();
+        if (!workflowName) {
+          setError("status", "请先输入流程名称");
+          return;
+        }
+        if (!confirm(`确认删除模板 ${workflowName} 吗？`)) return;
+        await Runtime.deleteTemplate(workflowName, window.MarketApp.getProjectKey());
+        setSuccess("status", `模板已删除：${workflowName}`);
+      }
+
+      function bindEvents() {
+        const ids = ["wfName", "globalDataType", "searchModule", "vizModule", "llmProvider", "llmEnabled", "queryInput", "limitInput"];
+        ids.forEach((id) => {
+          qs(id).addEventListener("change", resetTemplate);
+        });
+
+        qs("btnResetTemplate").addEventListener("click", resetTemplate);
+        qs("btnAddEdge").addEventListener("click", addFreeEdge);
+        qs("btnInsertBranch").addEventListener("click", insertBranchNode);
+        qs("btnConnectMode").addEventListener("click", toggleConnectMode);
+        qs("gapList").addEventListener("click", onGapAction);
+        qs("graphCanvasWrap").addEventListener("click", onCanvasClick);
+        qs("graphCanvasWrap").addEventListener("mousedown", onCanvasMouseDown);
+        window.addEventListener("mousemove", onCanvasMouseMove);
+        window.addEventListener("mouseup", onCanvasMouseUp);
+
+        qs("btnLoad").addEventListener("click", () => loadTemplate().catch((e) => setError("status", `读取失败：${e.message || e}`)));
+        qs("btnSave").addEventListener("click", () => saveTemplate().catch((e) => setError("status", `保存失败：${e.message || e}`)));
+        qs("btnRun").addEventListener("click", () => runWorkflow().catch((e) => setError("status", `运行失败：${e.message || e}`)));
+        qs("btnDelete").addEventListener("click", () => deleteTemplate().catch((e) => setError("status", `删除失败：${e.message || e}`)));
+        qs("btnBack").addEventListener("click", () => window.MarketApp.navigateInShell("dashboard.html#workflow-platform"));
+      }
+
+      function init() {
+        qs("wfName").value = "workflow_visual_builder";
+        bindEvents();
+        resetTemplate();
+      }
+
+      window.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

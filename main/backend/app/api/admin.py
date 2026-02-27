@@ -60,6 +60,7 @@ class DocumentListRequest(BaseModel):
     page_size: int = Field(default=20, ge=1, le=100)
     state: Optional[str] = None
     doc_type: Optional[str] = None
+    has_extracted_data: Optional[bool] = None
     search: Optional[str] = None
     sort_by: Optional[str] = Field(default="created_at", description="排序字段: created_at, publish_date, id")
     sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向: asc, desc")
@@ -758,6 +759,10 @@ def list_documents(payload: DocumentListRequest):
             conditions.append(Document.state == payload.state.upper())
         if payload.doc_type:
             conditions.append(Document.doc_type == payload.doc_type)
+        if payload.has_extracted_data is True:
+            conditions.append(Document.extracted_data.isnot(None))
+        elif payload.has_extracted_data is False:
+            conditions.append(Document.extracted_data.is_(None))
         if payload.search:
             search_term = f"%{payload.search}%"
             conditions.append(
@@ -879,6 +884,7 @@ def list_documents(payload: DocumentListRequest):
                 "state": doc.state,
                 "source_id": doc.source_id,
                 "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
                 "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
                 "has_extracted_data": doc.extracted_data is not None,
             })
@@ -1028,7 +1034,6 @@ def re_extract_documents(payload: ReExtractRequest):
     """重新提取文档的结构化数据"""
     from ..services.extraction.application import ExtractionApplicationService
     extraction_app = ExtractionApplicationService()
-    target_doc_types = ["policy", "policy_regulation", "market", "market_info", "social_sentiment", "social_feed"]
     with SessionLocal() as session:
         # 确定要提取的文档
         if payload.doc_ids:
@@ -1037,14 +1042,10 @@ def re_extract_documents(payload: ReExtractRequest):
                 conditions.append(Document.content.isnot(None))
             query = select(Document).where(and_(*conditions))
         else:
-            # 提取主干常见可结构化文档（政策/市场/社媒）
-            conditions = [
-                Document.doc_type.in_(target_doc_types),
-                Document.content.isnot(None)
-            ]
-            if not payload.force:
-                # 先用 DB 层粗过滤，细过滤在 Python 里做（支持“空 ER 也算缺失”）
-                pass
+            # 不限制 doc_type：只要有可提取文本（或允许回抓正文）就参与候选
+            conditions: list[Any] = []
+            if not bool(payload.fetch_missing_content):
+                conditions.append(Document.content.isnot(None))
             query = select(Document).where(and_(*conditions))
         
         if payload.limit:
@@ -1098,12 +1099,12 @@ def re_extract_documents(payload: ReExtractRequest):
                 extracted_data = None
                 
                 dt = str(doc.doc_type or "").strip().lower()
-                if dt in {"policy", "policy_regulation"}:
-                    extracted_data = extraction_app.extract_structured_enriched(text_for_extract, include_policy=True)
-                elif dt in {"market", "market_info"}:
-                    extracted_data = extraction_app.extract_structured_enriched(text_for_extract, include_market=True)
-                elif dt in {"social_sentiment", "social_feed"}:
-                    extracted_data = extraction_app.extract_structured_enriched(text_for_extract, include_sentiment=True)
+                extracted_data = extraction_app.extract_structured_enriched(
+                    text_for_extract,
+                    include_policy=dt in {"policy", "policy_regulation"},
+                    include_market=dt in {"market", "market_info"},
+                    include_sentiment=dt in {"social_sentiment", "social_feed"},
+                )
                 
                 if extracted_data:
                     doc.extracted_data = extracted_data
@@ -2113,12 +2114,23 @@ def get_policy_graph(
 
 
 @router.get("/search-history")
-def get_search_history(limit: int = Query(default=100, ge=1, le=1000)):
+def get_search_history(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=1000),
+):
     """获取搜索历史"""
     with SessionLocal() as session:
-        query = select(SearchHistory).order_by(SearchHistory.last_search_time.desc()).limit(limit)
+        total_query = select(func.count()).select_from(SearchHistory)
+        total = session.execute(total_query).scalar() or 0
+
+        query = (
+            select(SearchHistory)
+            .order_by(SearchHistory.last_search_time.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         history = session.execute(query).scalars().all()
-        
+
         items = []
         for h in history:
             items.append({
@@ -2126,5 +2138,10 @@ def get_search_history(limit: int = Query(default=100, ge=1, le=1000)):
                 "topic": h.topic,
                 "last_search_time": h.last_search_time.isoformat() if h.last_search_time else None,
             })
-        
-        return success_response({"items": items, "total": len(items)})
+
+        return success_response({
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        })

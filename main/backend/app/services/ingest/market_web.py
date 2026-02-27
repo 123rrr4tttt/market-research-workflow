@@ -10,6 +10,7 @@ from ..job_logger import start_job, complete_job, fail_job
 from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..search.web import search_sources
+from ..extraction.numeric import normalize_market_payload
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
 from .doc_type_mapper import normalize_doc_type
@@ -104,9 +105,28 @@ def collect_market_info(
                     text_to_extract = "\n\n".join([x for x in [title.strip(), snippet.strip(), (content or "").strip()] if x])
                     enriched = _EXTRACTION_APP.extract_structured_enriched(text_to_extract, include_market=True)
                     if enriched:
+                        market_raw = enriched.get("market")
+                        if isinstance(market_raw, dict):
+                            try:
+                                market_norm, market_quality = normalize_market_payload(
+                                    market_raw,
+                                    scope="lottery.market",
+                                )
+                                market_norm["numeric_quality"] = market_quality
+                                enriched["market"] = market_norm
+                            except Exception as e:
+                                logger.warning("collect_market_info: market normalization failed: %s", e)
                         extracted_data.update(enriched)
                     elif (market_info := extract_market_info(text_to_extract)):
-                        extracted_data["market"] = market_info
+                        try:
+                            market_norm, market_quality = normalize_market_payload(
+                                market_info,
+                                scope="lottery.market",
+                            )
+                            market_norm["numeric_quality"] = market_quality
+                            extracted_data["market"] = market_norm
+                        except Exception as e:
+                            logger.warning("collect_market_info: market normalization fallback failed: %s", e)
 
                 document = Document(
                     source_id=source_id,

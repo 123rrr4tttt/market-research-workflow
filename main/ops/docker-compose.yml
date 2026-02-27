@@ -55,6 +55,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_LOG_FILE: /var/log/celery/worker.log
       OPENAI_API_BASE: "https://api.openai.com/v1"
+      MODERN_FRONTEND_URL: "http://localhost:5174"
     depends_on:
       db:
         condition: service_healthy
@@ -140,8 +141,18 @@ services:
     profiles:
       - test
 
+  frontend-modern:
+    build:
+      context: ../frontend-modern
+      dockerfile: Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5174:80"
+    profiles:
+      - modern-ui
+
 volumes:
   db_data:
   es_data:
-
-

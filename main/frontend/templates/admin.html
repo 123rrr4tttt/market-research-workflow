@@ -139,6 +139,18 @@
     <script>
       const { qs, setLoading, setError, setEmpty, setSuccess, escapeHtml, toDateTime } = window.UICore;
       let currentTab = "docs";
+      let docsPage = 1;
+      let docsPageSize = 30;
+      let docsTotal = 0;
+      let docsTotalPages = 1;
+      let extractedPage = 1;
+      let extractedPageSize = 30;
+      let extractedTotal = 0;
+      let extractedTotalPages = 1;
+      let historyPage = 1;
+      let historyPageSize = 30;
+      let historyTotal = 0;
+      let historyTotalPages = 1;
 
       function switchTab(tab) {
         currentTab = tab;
@@ -147,12 +159,13 @@
         });
       }
 
-      async function listDocuments() {
+      async function listDocuments(page = docsPage) {
+        docsPage = Math.max(1, Number(page) || 1);
         setLoading("docsWrap", "加载文档中...");
         try {
           const payload = {
-            page: 1,
-            page_size: 30,
+            page: docsPage,
+            page_size: docsPageSize,
             search: qs("docSearch").value || null,
             doc_type: qs("docType").value || null,
             sort_by: "created_at",
@@ -164,6 +177,13 @@
             body: JSON.stringify(payload),
           });
           const items = Array.isArray(data?.items) ? data.items : [];
+          docsTotal = Number(data?.total || 0);
+          docsPageSize = Number(data?.page_size || docsPageSize || 30);
+          docsTotalPages = Math.max(1, Math.ceil(docsTotal / docsPageSize));
+          if (!items.length && docsTotal > 0 && docsPage > docsTotalPages) {
+            docsPage = docsTotalPages;
+            return listDocuments(docsPage);
+          }
           if (!items.length) {
             setEmpty("docsWrap", "暂无文档");
             return;
@@ -178,26 +198,54 @@
               <td>${d.has_extracted_data ? '<span class="badge success">已提取</span>' : '<span class="badge warning">未提取</span>'}</td>
             </tr>`
           );
-          qs("docsWrap").innerHTML = `<table><thead><tr><th>ID</th><th>标题</th><th>类型</th><th>区域</th><th>发布时间</th><th>提取状态</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+          qs("docsWrap").innerHTML = `
+            <table>
+              <thead><tr><th>ID</th><th>标题</th><th>类型</th><th>区域</th><th>发布时间</th><th>提取状态</th></tr></thead>
+              <tbody>${rows.join("")}</tbody>
+            </table>
+            <div class="toolbar" style="margin-top: 10px; justify-content: space-between;">
+              <span class="muted">第 ${docsPage}/${docsTotalPages} 页，共 ${docsTotal} 条</span>
+              <div>
+                <button id="docsPrevPage" class="secondary" ${docsPage <= 1 ? "disabled" : ""}>上一页</button>
+                <button id="docsNextPage" class="secondary" ${docsPage >= docsTotalPages ? "disabled" : ""}>下一页</button>
+              </div>
+            </div>
+          `;
+          qs("docsPrevPage")?.addEventListener("click", () => listDocuments(docsPage - 1));
+          qs("docsNextPage")?.addEventListener("click", () => listDocuments(docsPage + 1));
         } catch (error) {
           setError("docsWrap", `加载失败: ${error.message}`);
         }
       }
 
-      async function listExtracted() {
+      async function listExtracted(page = extractedPage) {
+        extractedPage = Math.max(1, Number(page) || 1);
         setLoading("extractedWrap", "加载结构化结果...");
         try {
           const data = await window.MarketApp.fetchJSON("/api/v1/admin/documents/list", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ page: 1, page_size: 100, sort_by: "created_at", sort_order: "desc" }),
+            body: JSON.stringify({
+              page: extractedPage,
+              page_size: extractedPageSize,
+              has_extracted_data: true,
+              sort_by: "created_at",
+              sort_order: "desc",
+            }),
           });
-          const items = (Array.isArray(data?.items) ? data.items : []).filter((x) => x.has_extracted_data);
+          const items = Array.isArray(data?.items) ? data.items : [];
+          extractedTotal = Number(data?.total || 0);
+          extractedPageSize = Number(data?.page_size || extractedPageSize || 30);
+          extractedTotalPages = Math.max(1, Math.ceil(extractedTotal / extractedPageSize));
+          if (!items.length && extractedTotal > 0 && extractedPage > extractedTotalPages) {
+            extractedPage = extractedTotalPages;
+            return listExtracted(extractedPage);
+          }
           if (!items.length) {
             setEmpty("extractedWrap", "暂无已提取文档");
             return;
           }
-          const rows = items.slice(0, 50).map((d) =>
+          const rows = items.map((d) =>
             `<tr class="doc-row" data-doc-id="${d.id}">
               <td>${d.id}</td>
               <td>${escapeHtml(d.title || "-")}</td>
@@ -205,7 +253,21 @@
               <td>${toDateTime(d.updated_at || d.created_at)}</td>
             </tr>`
           );
-          qs("extractedWrap").innerHTML = `<table><thead><tr><th>ID</th><th>标题</th><th>类型</th><th>最近更新时间</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+          qs("extractedWrap").innerHTML = `
+            <table>
+              <thead><tr><th>ID</th><th>标题</th><th>类型</th><th>最近更新时间</th></tr></thead>
+              <tbody>${rows.join("")}</tbody>
+            </table>
+            <div class="toolbar" style="margin-top: 10px; justify-content: space-between;">
+              <span class="muted">第 ${extractedPage}/${extractedTotalPages} 页，共 ${extractedTotal} 条</span>
+              <div>
+                <button id="extractedPrevPage" class="secondary" ${extractedPage <= 1 ? "disabled" : ""}>上一页</button>
+                <button id="extractedNextPage" class="secondary" ${extractedPage >= extractedTotalPages ? "disabled" : ""}>下一页</button>
+              </div>
+            </div>
+          `;
+          qs("extractedPrevPage")?.addEventListener("click", () => listExtracted(extractedPage - 1));
+          qs("extractedNextPage")?.addEventListener("click", () => listExtracted(extractedPage + 1));
         } catch (error) {
           setError("extractedWrap", `加载失败: ${error.message}`);
         }
@@ -355,11 +417,23 @@
         qs("btnBulkClear")?.addEventListener("click", () => save("replace", true));
       }
 
-      async function loadSearchHistory() {
+      async function loadSearchHistory(page = historyPage) {
+        historyPage = Math.max(1, Number(page) || 1);
         setLoading("historyWrap", "加载搜索历史...");
         try {
-          const data = await window.MarketApp.fetchJSON("/api/v1/admin/search-history?limit=100");
+          const params = new URLSearchParams({
+            page: String(historyPage),
+            page_size: String(historyPageSize),
+          });
+          const data = await window.MarketApp.fetchJSON(`/api/v1/admin/search-history?${params.toString()}`);
           const items = Array.isArray(data?.items) ? data.items : [];
+          historyTotal = Number(data?.total || 0);
+          historyPageSize = Number(data?.page_size || historyPageSize || 30);
+          historyTotalPages = Math.max(1, Math.ceil(historyTotal / historyPageSize));
+          if (!items.length && historyTotal > 0 && historyPage > historyTotalPages) {
+            historyPage = historyTotalPages;
+            return loadSearchHistory(historyPage);
+          }
           if (!items.length) {
             setEmpty("historyWrap", "暂无搜索历史");
             return;
@@ -370,11 +444,21 @@
                 <td>${h.id}</td>
                 <td>${escapeHtml(h.topic || "-")}</td>
                 <td>${toDateTime(h.last_search_time)}</td>
-                <td>${toDateTime(h.created_at)}</td>
               </tr>`
             )
             .join("");
-          qs("historyWrap").innerHTML = `<table><thead><tr><th>ID</th><th>主题</th><th>最后搜索</th><th>创建时间</th></tr></thead><tbody>${rows}</tbody></table>`;
+          qs("historyWrap").innerHTML = `
+            <table><thead><tr><th>ID</th><th>主题</th><th>最后搜索</th></tr></thead><tbody>${rows}</tbody></table>
+            <div class="toolbar" style="margin-top: 10px; justify-content: space-between;">
+              <span class="muted">第 ${historyPage}/${historyTotalPages} 页，共 ${historyTotal} 条</span>
+              <div>
+                <button id="historyPrevPage" class="secondary" ${historyPage <= 1 ? "disabled" : ""}>上一页</button>
+                <button id="historyNextPage" class="secondary" ${historyPage >= historyTotalPages ? "disabled" : ""}>下一页</button>
+              </div>
+            </div>
+          `;
+          qs("historyPrevPage")?.addEventListener("click", () => loadSearchHistory(historyPage - 1));
+          qs("historyNextPage")?.addEventListener("click", () => loadSearchHistory(historyPage + 1));
         } catch (error) {
           setError("historyWrap", `加载失败: ${error.message}`);
         }
@@ -485,8 +569,20 @@
         });
       });
       qs("refreshTab").addEventListener("click", refreshCurrentTab);
-      qs("searchDocs").addEventListener("click", listDocuments);
-      qs("reloadExtracted").addEventListener("click", listExtracted);
+      qs("searchDocs").addEventListener("click", () => {
+        docsPage = 1;
+        listDocuments(1);
+      });
+      qs("docSearch")?.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        docsPage = 1;
+        listDocuments(1);
+      });
+      qs("docType")?.addEventListener("change", () => {
+        docsPage = 1;
+        listDocuments(1);
+      });
+      qs("reloadExtracted").addEventListener("click", () => listExtracted(extractedPage));
       qs("reextractStructuredFill")?.addEventListener("click", () => reextractStructuredDocuments(false));
       qs("reextractStructuredForce")?.addEventListener("click", async () => {
         if (!confirm("确认强制重提取当前项目的可结构化文档？这会重新调用LLM，耗时较长。")) return;
