@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     # Elasticsearch / Redis
     es_url: str = Field(default_factory=_get_default_es_url)
     redis_url: str = Field(default_factory=_get_default_redis_url)
+    celery_log_level: str = Field(default="info")
+    celery_concurrency: int = Field(default=3)
+    celery_prefetch_multiplier: int = Field(default=2)
+    celery_max_tasks_per_child: int = Field(default=100)
+    celery_max_memory_per_child: int = Field(default=500000)
+    celery_queues: str = Field(default="celery")
+    graph_structured_async_dispatch_workers: int = Field(default=4)
 
     # LLM providers
     llm_provider: str = Field(default="openai")  # openai | azure | ollama

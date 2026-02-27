@@ -4,7 +4,8 @@ from sqlalchemy.exc import OperationalError, DatabaseError
 from typing import Any, Literal, Optional
 import logging
 import hashlib
-from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache, partial
 
 from ..project_customization import get_project_customization
 from ..services.ingest_config import get_config as get_ingest_config, upsert_config as upsert_ingest_config
@@ -622,6 +623,13 @@ class GraphStructuredSelectedNode(BaseModel):
     topic_focus: str | None = Field(default=None, description="可选专题焦点 company/product/operation/general")
 
 
+class GraphStructuredSelectedEdge(BaseModel):
+    source_entry_id: str | None = Field(default=None, description="边起点 entry_id（可选）")
+    target_entry_id: str | None = Field(default=None, description="边终点 entry_id（可选）")
+    relation: str | None = Field(default=None, description="关系类型（可选）")
+    label: str | None = Field(default=None, description="关系标签（可选）")
+
+
 class GraphStructuredDashboardParams(BaseModel):
     language: str | None = Field(default="en", description="语言 en/zh")
     provider: str | None = Field(default="auto", description="搜索服务 serper/google/serpstack/serpapi/ddg/auto")
@@ -633,11 +641,13 @@ class GraphStructuredDashboardParams(BaseModel):
     platforms: list[str] = Field(default=["reddit"], description="社媒平台列表")
     enable_subreddit_discovery: bool = Field(default=True, description="是否启用子论坛发现")
     base_subreddits: Optional[list[str]] = Field(default=None, description="基础子论坛列表")
+    source_item_keys: list[str] = Field(default_factory=list, description="来源库 item_key 列表（可选）")
     project_key: str | None = Field(default=None, description="项目标识")
 
 
 class GraphStructuredSearchRequest(BaseModel):
     selected_nodes: list[GraphStructuredSelectedNode] = Field(default_factory=list, description="图谱选中节点")
+    selected_edges: list[GraphStructuredSelectedEdge] = Field(default_factory=list, description="图谱选中边（可选）")
     dashboard: GraphStructuredDashboardParams = Field(default_factory=GraphStructuredDashboardParams, description="采集面板参数")
     llm_assist: bool = Field(default=False, description="是否使用 LLM 扩展关键词")
     flow_type: Literal["collect", "source_collect"] = Field(default="collect", description="执行流类型")
@@ -939,6 +949,7 @@ def _run_source_collect_batch(
     dashboard: GraphStructuredDashboardParams,
     llm_assist: bool,
     batch_id: str,
+    source_item_key: str | None = None,
 ) -> dict[str, Any]:
     terms = _unique_terms(query_terms)
     topic_meta: dict[str, Any] = {}
@@ -951,40 +962,45 @@ def _run_source_collect_batch(
     max_items = _normalize_max_items(dashboard.max_items, None)
     normalized_entry_id = _normalize_batch_token(entry_id, fallback="unknown")
     normalized_intent = _normalize_batch_token(intent, fallback="general")
-    # Append a short hash to avoid collisions after token normalization.
-    fingerprint = hashlib.sha1(f"{entry_id}::{intent}".encode("utf-8")).hexdigest()[:8]
-    item_key = f"graph::{normalized_entry_id}::{normalized_intent}::{fingerprint}"
-
-    from .source_library import SourceLibraryItemUpsertPayload, upsert_project_item
-    from ..services.source_library import list_effective_items
+    selected_item_key = str(source_item_key or "").strip()
+    item_key = selected_item_key
     from ..services.collect_runtime import run_source_library_item_compat
 
     with bind_project(project_key):
-        existing = list_effective_items(scope="effective", project_key=project_key)
-        existed_before = any(str(item.get("item_key") or "").strip() == item_key for item in existing if isinstance(item, dict))
-        upsert_project_item(
-            SourceLibraryItemUpsertPayload(
-                item_key=item_key,
-                name=f"Graph Source {normalized_entry_id} {normalized_intent}",
-                channel_key="url_pool",
-                description="Graph structured-search generated source_collect item.",
-                params={
-                    "query_terms": terms,
-                    "keywords": terms,
-                    "limit": max_items,
-                    "scope": "effective",
-                },
-                tags=["graph_structured", normalized_entry_id, normalized_intent],
-                enabled=True,
-                extra={
-                    "generated_by": "graph_structured_search",
-                    "entry_id": normalized_entry_id,
-                    "intent": normalized_intent,
-                    "flow_type": "source_collect",
-                },
-            ),
-            project_key=project_key,
-        )
+        existed_before = True
+        auto_generated_item = False
+        if not item_key:
+            # Append a short hash to avoid collisions after token normalization.
+            fingerprint = hashlib.sha1(f"{entry_id}::{intent}".encode("utf-8")).hexdigest()[:8]
+            item_key = f"graph::{normalized_entry_id}::{normalized_intent}::{fingerprint}"
+            from .source_library import SourceLibraryItemUpsertPayload, upsert_project_item
+            from ..services.source_library import list_effective_items
+            existing = list_effective_items(scope="effective", project_key=project_key)
+            existed_before = any(str(item.get("item_key") or "").strip() == item_key for item in existing if isinstance(item, dict))
+            upsert_project_item(
+                SourceLibraryItemUpsertPayload(
+                    item_key=item_key,
+                    name=f"Graph Source {normalized_entry_id} {normalized_intent}",
+                    channel_key="url_pool",
+                    description="Graph structured-search generated source_collect item.",
+                    params={
+                        "query_terms": terms,
+                        "keywords": terms,
+                        "limit": max_items,
+                        "scope": "effective",
+                    },
+                    tags=["graph_structured", normalized_entry_id, normalized_intent],
+                    enabled=True,
+                    extra={
+                        "generated_by": "graph_structured_search",
+                        "entry_id": normalized_entry_id,
+                        "intent": normalized_intent,
+                        "flow_type": "source_collect",
+                    },
+                ),
+                project_key=project_key,
+            )
+            auto_generated_item = True
         override_params = {
             "query_terms": terms,
             "keywords": terms,
@@ -1015,8 +1031,8 @@ def _run_source_collect_batch(
                     "sources_updated": 0,
                     "skipped": 0,
                     "errors": [],
-                    "item_inserted": 0 if existed_before else 1,
-                    "item_updated": 1 if existed_before else 0,
+                    "item_inserted": 0 if (existed_before or not auto_generated_item) else 1,
+                    "item_updated": 1 if (existed_before and auto_generated_item) else 0,
                     "bootstrap_required": False,
                     "warnings": [],
                 },
@@ -1053,8 +1069,8 @@ def _run_source_collect_batch(
             "sources_updated": sources_updated,
             "skipped": skipped,
             "errors": errors if isinstance(errors, list) else [str(errors)],
-            "item_inserted": 0 if existed_before else 1,
-            "item_updated": 1 if existed_before else 0,
+            "item_inserted": 0 if (existed_before or not auto_generated_item) else 1,
+            "item_updated": 1 if (existed_before and auto_generated_item) else 0,
             "bootstrap_required": bootstrap_required,
             "warnings": warnings,
         },
@@ -1117,6 +1133,16 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
         raise HTTPException(status_code=400, detail="flow_type must be collect or source_collect.")
     intent_mode = _resolve_intent_mode(payload)
     llm_assist = intent_mode == "keyword_llm"
+    source_item_keys = _unique_terms(payload.dashboard.source_item_keys or [])
+    selected_edge_count = len(payload.selected_edges or [])
+    logger.info(
+        "graph structured search accepted project=%s flow_type=%s intent_mode=%s nodes=%s edges=%s",
+        project_key,
+        flow_type,
+        intent_mode,
+        len(payload.selected_nodes),
+        selected_edge_count,
+    )
 
     grouped_intents: dict[tuple[str, str, str], dict[str, Any]] = {}
     for node in payload.selected_nodes:
@@ -1144,6 +1170,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
         raise HTTPException(status_code=400, detail="selected_nodes does not contain usable labels.")
 
     batches: list[dict[str, Any]] = []
+    async_dispatchers: list[Any] = []
     batch_seq: dict[tuple[str, str, str], int] = {}
     try:
         ordered_specs = sorted(grouped_intents.values(), key=lambda x: (str(x.get("entry_id")), str(x.get("intent")), str(x.get("batch_type"))))
@@ -1158,8 +1185,26 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
             batch_seq[key] = batch_seq.get(key, 0) + 1
             batch_id = f"{_normalize_batch_token(flow_type, fallback='collect')}:{_normalize_batch_token(entry_id, fallback='unknown')}:{_normalize_batch_token(intent, fallback='general')}:b{batch_seq[key]}"
             if flow_type == "source_collect":
-                batches.append(
-                    _run_source_collect_batch(
+                if source_item_keys:
+                    for idx, source_item_key in enumerate(source_item_keys):
+                        call = partial(
+                            _run_source_collect_batch,
+                            project_key=project_key,
+                            entry_id=entry_id,
+                            intent=intent,
+                            query_terms=terms,
+                            dashboard=payload.dashboard,
+                            llm_assist=llm_assist,
+                            batch_id=f"{batch_id}:src{idx + 1}",
+                            source_item_key=source_item_key,
+                        )
+                        if payload.dashboard.async_mode:
+                            async_dispatchers.append(call)
+                        else:
+                            batches.append(call())
+                else:
+                    call = partial(
+                        _run_source_collect_batch,
                         project_key=project_key,
                         entry_id=entry_id,
                         intent=intent,
@@ -1168,39 +1213,70 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
                         llm_assist=llm_assist,
                         batch_id=batch_id,
                     )
-                )
+                    if payload.dashboard.async_mode:
+                        async_dispatchers.append(call)
+                    else:
+                        batches.append(call())
                 continue
             if batch_type == "policy":
-                batches.append(
-                    _run_policy_batch(
-                        project_key=project_key,
-                        query_terms=terms,
-                        dashboard=payload.dashboard,
-                        llm_assist=llm_assist,
-                        batch_id=batch_id,
-                    )
+                call = partial(
+                    _run_policy_batch,
+                    project_key=project_key,
+                    query_terms=terms,
+                    dashboard=payload.dashboard,
+                    llm_assist=llm_assist,
+                    batch_id=batch_id,
                 )
+                if payload.dashboard.async_mode:
+                    async_dispatchers.append(call)
+                else:
+                    batches.append(call())
             elif batch_type == "social":
-                batches.append(
-                    _run_social_batch(
-                        project_key=project_key,
-                        query_terms=terms,
-                        dashboard=payload.dashboard,
-                        llm_assist=llm_assist,
-                        batch_id=batch_id,
-                    )
+                call = partial(
+                    _run_social_batch,
+                    project_key=project_key,
+                    query_terms=terms,
+                    dashboard=payload.dashboard,
+                    llm_assist=llm_assist,
+                    batch_id=batch_id,
                 )
+                if payload.dashboard.async_mode:
+                    async_dispatchers.append(call)
+                else:
+                    batches.append(call())
             elif batch_type == "market":
-                batches.append(
-                    _run_market_batch(
-                        project_key=project_key,
-                        query_terms=terms,
-                        topic_focus=str(spec.get("topic_focus") or "general"),
-                        dashboard=payload.dashboard,
-                        llm_assist=llm_assist,
-                        batch_id=batch_id,
-                    )
+                call = partial(
+                    _run_market_batch,
+                    project_key=project_key,
+                    query_terms=terms,
+                    topic_focus=str(spec.get("topic_focus") or "general"),
+                    dashboard=payload.dashboard,
+                    llm_assist=llm_assist,
+                    batch_id=batch_id,
                 )
+                if payload.dashboard.async_mode:
+                    async_dispatchers.append(call)
+                else:
+                    batches.append(call())
+        if async_dispatchers:
+            if len(async_dispatchers) == 1:
+                batches.append(async_dispatchers[0]())
+            else:
+                worker_count = max(
+                    1,
+                    min(
+                        int(settings.graph_structured_async_dispatch_workers or 4),
+                        len(async_dispatchers),
+                    ),
+                )
+                ordered_results: list[dict[str, Any] | None] = [None] * len(async_dispatchers)
+                with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                    future_to_index = {
+                        executor.submit(dispatcher): idx for idx, dispatcher in enumerate(async_dispatchers)
+                    }
+                    for future in as_completed(future_to_index):
+                        ordered_results[future_to_index[future]] = future.result()
+                batches.extend([result for result in ordered_results if isinstance(result, dict)])
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -1212,6 +1288,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
 
     summary: dict[str, Any] = {
         "selected_node_count": len(payload.selected_nodes),
+        "selected_edge_count": selected_edge_count,
         "batch_count": len(batches),
         "async_mode": payload.dashboard.async_mode,
         "llm_assist": llm_assist,
@@ -1223,6 +1300,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
             "market": type_counts["market"],
             "source_collect": type_counts["source_collect"],
         },
+        "source_item_key_count": len(source_item_keys),
     }
     accepted = len(batches)
     queued = sum(1 for b in batches if b.get("task_id"))
@@ -1239,12 +1317,27 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
     if payload.dashboard.async_mode:
         summary["task_count"] = queued
 
+    selected_edges_meta = [
+        {
+            "source_entry_id": str(edge.source_entry_id or "").strip() or None,
+            "target_entry_id": str(edge.target_entry_id or "").strip() or None,
+            "relation": str(edge.relation or "").strip() or None,
+            "label": str(edge.label or "").strip() or None,
+        }
+        for edge in (payload.selected_edges or [])
+    ]
+
     return success_response(
         {
             "flow_type": flow_type,
             "intent_mode": intent_mode,
             "batches": batches,
             "summary": summary,
+            "meta": {
+                "selected_edge_count": selected_edge_count,
+                "selected_edges": selected_edges_meta,
+                "source_item_keys": source_item_keys,
+            },
         }
     )
 

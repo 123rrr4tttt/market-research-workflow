@@ -13,7 +13,7 @@
 cp .env.example .env
 
 # 编辑 .env，设置本地服务地址（可选，有默认值）
-# DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/postgres
+# DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/market_intel_local
 # ES_URL=http://localhost:9200
 # REDIS_URL=redis://localhost:6379/0
 ```
@@ -21,7 +21,7 @@ cp .env.example .env
 #### 方式二：使用环境变量
 
 ```bash
-export DATABASE_URL="postgresql+psycopg2://postgres:postgres@localhost:5432/postgres"
+export DATABASE_URL="postgresql+psycopg2://postgres:postgres@localhost:5432/market_intel_local"
 export ES_URL="http://localhost:9200"
 export REDIS_URL="redis://localhost:6379/0"
 ```
@@ -30,7 +30,7 @@ export REDIS_URL="redis://localhost:6379/0"
 
 #### 自动启动（推荐）
 
-使用 `start-local.sh` 脚本会自动检查并启动数据库服务，无需手动操作。
+使用 `start-local.sh` 脚本会自动准备 Python 虚拟环境与依赖，并启动本地开发服务。
 
 #### 手动启动（可选）
 
@@ -47,27 +47,57 @@ docker-compose up -d db es redis
 - Elasticsearch (端口 9200)
 - Redis (端口 6379)
 
-### 3. 启动后端服务
+### 3. 启动本地全量开发服务
 
-#### 方式一：使用启动脚本（推荐，自动启动数据库服务）
+#### 方式一：使用启动脚本（推荐，默认纯本机依赖 + modern 前端）
 
 ```bash
-# 一键启动（会自动检查并启动数据库服务）
+# 一键启动（纯本机依赖模式，不触发 Docker db/es/redis）
 ./start-local.sh
 
 # 低内存模式启动（关闭自动重载）
 ./start-local.sh --low-memory
 
-# 停止服务（包括数据库服务）
+# 非交互模式（适合自动化）
+./start-local.sh --non-interactive
+
+# 强制模式（端口冲突时自动处理并继续）
+./start-local.sh --force
+
+# 需要 Docker 托管依赖时（可选）
+./start-local.sh --with-docker-deps
+
+# 停止服务（后端 + modern 前端，可选停止数据库服务）
 ./stop-local.sh
+
+# 停止服务并同时停止 Docker db/es/redis（可选）
+./stop-local.sh --with-docker-deps
 ```
 
 启动脚本会自动：
-- ✅ 检查并启动数据库服务（PostgreSQL, Elasticsearch, Redis）
-- ✅ 等待服务就绪后再启动后端
+- ✅ 自动创建 `.venv311`（若不存在）并按 `requirements.txt` 安装依赖（按哈希变更增量更新）
+- ✅ 默认纯本机模式，不自动操作 Docker 依赖服务
+- ✅ 启动 modern 前端开发服务（默认端口 5173）
+- ✅ 自动检测并尝试拉起本机 PostgreSQL（默认 `localhost:5432`，优先 Homebrew service）
+- ✅ 自动检测并尝试拉起本机 Redis（默认 `localhost:6379`，优先 Homebrew service）
 - ✅ 检查端口占用并提示处理
-- ✅ 如果Docker未运行，会跳过数据库服务启动并给出提示
+- ✅ 需要时可通过 `--with-docker-deps` 启动 Docker 依赖
 - ✅ 支持低内存模式（`--low-memory` 或 `DEV_RELOAD=0`）
+- ✅ 默认同时启动本机 Celery worker（异步任务可直接消费）
+- ✅ 可用 `--no-local-worker` 关闭本机 worker 启动
+
+与一键 Docker 入口（仓库根目录）配合时：
+- `./scripts/docker-deploy.sh start --non-interactive --force`：用于非交互/强制执行链路
+- `./scripts/docker-deploy.sh start --profile <name>`：按 compose profile 启动
+- `./scripts/docker-deploy.sh status <services...>`、`logs -f <services...>`：按服务维度排查
+- `./scripts/docker-deploy.sh preflight|health`：启动前检查与健康检查
+- `./scripts/docker-deploy.sh stop`（内部 `stop-all.sh`）默认保留数据卷；清空数据需显式 `docker compose down -v`
+
+纯本地统一入口（仓库根目录）：
+- `./scripts/local-deploy.sh start|stop|restart|status|health`
+- `./scripts/local-deploy.sh start`（默认一键启动 backend + frontend + worker）
+- `./scripts/local-deploy.sh stop`（默认一键停止并回收 worker）
+- `./scripts/platform-macos.sh start|stop|restart|status|health`（等价代理）
 
 #### 方式二：手动启动
 
@@ -87,10 +117,15 @@ uvicorn app.main:app --port 8000
 `ops/docker-compose.yml` 支持以下环境变量（未设置时使用默认值）：
 
 - `ES_JAVA_OPTS`（默认 `-Xms512m -Xmx512m`）
-- `CELERY_CONCURRENCY`（默认 `1`）
-- `CELERY_PREFETCH_MULTIPLIER`（默认 `1`）
-- `CELERY_MAX_TASKS_PER_CHILD`（默认 `50`）
-- `CELERY_MAX_MEMORY_PER_CHILD`（默认 `300000`，单位 KiB）
+- `CELERY_LOG_LEVEL`（默认 `info`）
+- `CELERY_CONCURRENCY`（Docker 默认 `1`；本机 `start-local.sh` 默认 `3`）
+- `CELERY_PREFETCH_MULTIPLIER`（Docker 默认 `1`；本机默认 `2`）
+- `CELERY_MAX_TASKS_PER_CHILD`（Docker 默认 `50`；本机默认 `100`）
+- `CELERY_MAX_MEMORY_PER_CHILD`（Docker 默认 `300000`，单位 KiB；本机默认 `500000`）
+- `CELERY_QUEUES`（仅本机 `start-local.sh` 使用，默认 `celery`）
+- `GRAPH_STRUCTURED_ASYNC_DISPATCH_WORKERS`（默认 `4`，`/ingest/graph/structured-search` 异步批量入队并发度）
+
+`start-local.sh` 启动的本机 Celery worker 也会读取以上同名环境变量，便于本机与 Docker 参数一致、快速回滚。
 
 ### 4. 验证服务
 
@@ -150,4 +185,3 @@ docker-compose up -d
 ```
 
 这将在Docker容器中运行所有服务，自动使用容器网络配置。
-
