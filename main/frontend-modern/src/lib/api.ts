@@ -1,21 +1,49 @@
 import axios from 'axios'
 import type {
+  AdminActionResponse,
+  AdminDeleteDocumentsPayload,
+  AdminDocumentListPayload,
+  AdminDocumentListResponse,
+  AdminReExtractPayload,
   AdminStats,
+  AdminTopicExtractPayload,
+  AdminTopicExtractResponse,
   ApiEnvelope,
   DashboardStats,
-  LlmServiceConfigItem,
+  DocumentBulkExtractedPayload,
+  DocumentExtractedPayload,
+  DocumentItem,
+  EnvSettings,
+  GraphExportResponse,
   GraphConfigResponse,
   GraphResponse,
   HealthResponse,
   IngestJobRow,
-  PolicyItem,
+  LlmProjectTemplatesResponse,
+  LlmServiceConfigItem,
+  LlmTemplateCopyPayload,
+  LlmTemplateCopyResponse,
+  LlmTemplateUpdatePayload,
+  LlmTemplateUpdateResponse,
   PolicyDetail,
+  PolicyItem,
   PolicyStats,
   ProcessHistoryResponse,
+  ProcessTaskDetail,
   ProcessTaskList,
+  ProcessTaskLogsResponse,
   ProcessTaskStats,
   ProductItem,
   ProjectItem,
+  RawImportPayload,
+  RawImportResult,
+  ResourcePoolBatchRecommendationPayload,
+  ResourcePoolBatchRecommendationResponse,
+  ResourcePoolDiscoverPayload,
+  ResourcePoolDiscoverResponse,
+  ResourcePoolRecommendationPayload,
+  ResourcePoolRecommendationResponse,
+  ResourcePoolUpsertSiteEntryPayload,
   ResourcePoolUrlItem,
   SearchHistoryItem,
   SiteEntryGroupedResponse,
@@ -23,7 +51,8 @@ import type {
   SourceLibraryItem,
   TopicItem,
   WorkflowTemplate,
-  EnvSettings,
+  WorkflowTemplateMutationResponse,
+  WorkflowTemplatePayload,
 } from './types'
 
 const STORAGE_KEY = 'market_project_key'
@@ -88,6 +117,11 @@ async function get<T>(url: string) {
 
 async function post<T>(url: string, body: unknown) {
   const { data } = await client.post<ApiEnvelope<T> | T>(url, body)
+  return unwrap<T>(data)
+}
+
+async function put<T>(url: string, body: unknown) {
+  const { data } = await client.put<ApiEnvelope<T> | T>(url, body)
   return unwrap<T>(data)
 }
 
@@ -227,6 +261,43 @@ export async function upsertSiteEntry(payload: {
   })
 }
 
+export async function recommendSiteEntry(payload: ResourcePoolRecommendationPayload) {
+  return post<ResourcePoolRecommendationResponse>('/api/v1/resource_pool/site_entries/recommend', {
+    project_key: payload.project_key || getProjectKey(),
+    site_url: payload.site_url,
+    entry_type: payload.entry_type ?? null,
+    template: payload.template ?? null,
+    use_llm: payload.use_llm ?? false,
+  })
+}
+
+export async function recommendSiteEntriesBatch(payload: ResourcePoolBatchRecommendationPayload) {
+  return post<ResourcePoolBatchRecommendationResponse>('/api/v1/resource_pool/site_entries/recommend-batch', {
+    project_key: payload.project_key || getProjectKey(),
+    entries: payload.entries || [],
+    use_llm: payload.use_llm ?? true,
+    llm_batch_size: payload.llm_batch_size ?? 20,
+  })
+}
+
+export async function bindSiteEntry(payload: ResourcePoolUpsertSiteEntryPayload) {
+  return post<Record<string, unknown>>('/api/v1/resource_pool/site_entries', {
+    project_key: payload.project_key || getProjectKey(),
+    scope: payload.scope || 'project',
+    site_url: payload.site_url,
+    entry_type: payload.entry_type || 'domain_root',
+    template: payload.template ?? null,
+    name: payload.name ?? null,
+    domain: payload.domain ?? null,
+    tags: payload.tags || [],
+    enabled: payload.enabled ?? true,
+    capabilities: payload.capabilities || {},
+    source: payload.source || 'manual',
+    source_ref: payload.source_ref || {},
+    extra: payload.extra || {},
+  })
+}
+
 export async function extractResourcePoolFromDocuments(asyncMode = true) {
   return post<Record<string, unknown>>('/api/v1/resource_pool/extract/from-documents', {
     scope: 'project',
@@ -243,6 +314,19 @@ export async function discoverSiteEntries(asyncMode = true) {
     dry_run: false,
     write: true,
     async_mode: asyncMode,
+  })
+}
+
+export async function discoverSiteEntriesAdvanced(payload: ResourcePoolDiscoverPayload = {}) {
+  return post<ResourcePoolDiscoverResponse>('/api/v1/resource_pool/discover/site-entries', {
+    project_key: payload.project_key || getProjectKey(),
+    url_scope: payload.url_scope || 'effective',
+    target_scope: payload.target_scope || 'project',
+    limit_domains: payload.limit_domains ?? 60,
+    probe_timeout: payload.probe_timeout ?? 6,
+    dry_run: payload.dry_run ?? false,
+    write: payload.write ?? true,
+    async_mode: payload.async_mode ?? true,
   })
 }
 
@@ -272,6 +356,14 @@ export async function getProcessStats() {
 
 export async function listProcessHistory(limit = 50) {
   return get<ProcessHistoryResponse>(`/api/v1/process/history?limit=${limit}`)
+}
+
+export async function getProcessTaskDetail(taskId: string) {
+  return get<ProcessTaskDetail>(`/api/v1/process/${encodeURIComponent(taskId)}`)
+}
+
+export async function getProcessTaskLogs(taskId: string, tail = 200) {
+  return get<ProcessTaskLogsResponse>(`/api/v1/process/${encodeURIComponent(taskId)}/logs?tail=${tail}`)
 }
 
 export async function cancelTask(taskId: string, terminate = false) {
@@ -406,6 +498,20 @@ export async function getWorkflowTemplate(workflowName: string) {
   return get<WorkflowTemplate>(`/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/template`)
 }
 
+export async function upsertWorkflowTemplate(workflowName: string, payload: WorkflowTemplatePayload) {
+  return post<WorkflowTemplateMutationResponse>(
+    `/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/template`,
+    payload,
+  )
+}
+
+export async function deleteWorkflowTemplate(workflowName: string, projectKey?: string) {
+  const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : ''
+  return del<WorkflowTemplateMutationResponse>(
+    `/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/template${query}`,
+  )
+}
+
 export async function runWorkflow(workflowName: string, params: Record<string, unknown>) {
   return post<Record<string, unknown>>(`/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/run`, {
     project_key: getProjectKey(),
@@ -418,6 +524,28 @@ export async function listLlmConfigs() {
   return asList<LlmServiceConfigItem>(data)
 }
 
+export async function listProjectLlmTemplates(projectKey = getProjectKey()) {
+  return get<LlmProjectTemplatesResponse>(`/api/v1/llm-config/projects/${encodeURIComponent(projectKey)}`)
+}
+
+export async function updateProjectLlmTemplate(
+  serviceName: string,
+  payload: LlmTemplateUpdatePayload,
+  projectKey = getProjectKey(),
+) {
+  return put<LlmTemplateUpdateResponse>(
+    `/api/v1/llm-config/projects/${encodeURIComponent(projectKey)}/${encodeURIComponent(serviceName)}`,
+    payload,
+  )
+}
+
+export async function copyProjectLlmTemplates(payload: LlmTemplateCopyPayload, projectKey = getProjectKey()) {
+  return post<LlmTemplateCopyResponse>(
+    `/api/v1/llm-config/projects/${encodeURIComponent(projectKey)}/copy-from`,
+    payload,
+  )
+}
+
 export async function getAdminStats() {
   return get<AdminStats>('/api/v1/admin/stats')
 }
@@ -427,6 +555,64 @@ export async function getSearchHistory(page = 1, pageSize = 50) {
     `/api/v1/admin/search-history?page=${page}&page_size=${pageSize}`,
   )
   return asList<SearchHistoryItem>(data)
+}
+
+export async function listAdminDocuments(payload: AdminDocumentListPayload = {}) {
+  return post<AdminDocumentListResponse>('/api/v1/admin/documents/list', {
+    page: payload.page ?? 1,
+    page_size: payload.page_size ?? 20,
+    state: payload.state ?? null,
+    doc_type: payload.doc_type ?? null,
+    has_extracted_data: payload.has_extracted_data ?? null,
+    search: payload.search ?? null,
+    sort_by: payload.sort_by ?? 'created_at',
+    sort_order: payload.sort_order ?? 'desc',
+  })
+}
+
+export async function getAdminDocument(docId: number) {
+  return get<DocumentItem>(`/api/v1/admin/documents/${docId}`)
+}
+
+export async function updateDocumentExtractedData(docId: number, payload: DocumentExtractedPayload) {
+  return post<{ id?: number; extracted_data?: unknown }>(
+    `/api/v1/admin/documents/${docId}/extracted-data`,
+    payload,
+  )
+}
+
+export async function bulkUpdateDocumentExtractedData(payload: DocumentBulkExtractedPayload) {
+  return post<AdminActionResponse>('/api/v1/admin/documents/bulk/extracted-data', payload)
+}
+
+export async function clearDocumentExtractedData(docIds: number[]) {
+  return bulkUpdateDocumentExtractedData({
+    doc_ids: docIds,
+    mode: 'replace',
+    extracted_data: null,
+  })
+}
+
+export async function deleteAdminDocuments(payload: AdminDeleteDocumentsPayload | number[]) {
+  const ids = Array.isArray(payload) ? payload : payload.ids
+  return post<{ deleted?: number }>('/api/v1/admin/documents/delete', { ids })
+}
+
+export async function reExtractDocuments(payload: AdminReExtractPayload = {}) {
+  return post<AdminActionResponse>('/api/v1/admin/documents/re-extract', payload)
+}
+
+export async function topicExtractDocuments(payload: AdminTopicExtractPayload = {}) {
+  return post<AdminTopicExtractResponse>('/api/v1/admin/documents/topic-extract', payload)
+}
+
+export async function rawImportDocuments(payload: RawImportPayload) {
+  return post<RawImportResult>('/api/v1/admin/documents/raw-import', payload)
+}
+
+export async function exportGraph(docIds: number[] | string) {
+  const value = Array.isArray(docIds) ? docIds.join(',') : String(docIds || '')
+  return get<GraphExportResponse>(`/api/v1/admin/export-graph?doc_ids=${encodeURIComponent(value)}`)
 }
 
 export async function cleanupGovernance(retentionDays: number) {

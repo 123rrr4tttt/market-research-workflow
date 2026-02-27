@@ -7,6 +7,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+compose() {
+    if command -v docker-compose >/dev/null 2>&1; then
+        docker-compose "$@"
+    elif docker compose version >/dev/null 2>&1; then
+        docker compose "$@"
+    else
+        echo "❌ 未找到 docker-compose 或 docker compose"
+        return 127
+    fi
+}
+
 echo "🚀 统一容器启动脚本"
 echo "===================="
 echo ""
@@ -24,6 +35,7 @@ if ! docker info >/dev/null 2>&1; then
     echo "   然后重新运行此脚本: ./start-all.sh"
     exit 1
 fi
+
 echo "✅ Docker 已运行"
 echo ""
 
@@ -52,35 +64,30 @@ echo ""
 
 # 停止现有服务（如果存在）
 echo "🛑 停止现有服务..."
-cd "$SCRIPT_DIR"
-docker-compose down 2>/dev/null || true
+compose down 2>/dev/null || true
 echo "✅ 清理完成"
 echo ""
 
 # 启动主服务
 echo "📦 启动主服务..."
 echo "   包括: PostgreSQL, Elasticsearch, Redis, Backend API, Celery Worker"
-cd "$SCRIPT_DIR"
-docker-compose up -d
+compose up -d
 
 echo ""
 echo "⏳ 等待主服务启动..."
 sleep 10
 
-# 检查主服务状态
 echo ""
 echo "📊 主服务状态:"
-docker-compose ps
+compose ps
 
-# 等待服务就绪
 echo ""
 echo "⏳ 等待服务就绪（最多60秒）..."
 MAX_WAIT=60
 WAITED=0
 
-# 检查 PostgreSQL
 while [ $WAITED -lt $MAX_WAIT ]; do
-    if docker-compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then
+    if compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then
         echo "✅ PostgreSQL 已就绪"
         break
     fi
@@ -88,7 +95,6 @@ while [ $WAITED -lt $MAX_WAIT ]; do
     WAITED=$((WAITED + 2))
 done
 
-# 检查 Elasticsearch
 WAITED=0
 while [ $WAITED -lt $MAX_WAIT ]; do
     if curl -s http://localhost:9200 >/dev/null 2>&1; then
@@ -99,10 +105,9 @@ while [ $WAITED -lt $MAX_WAIT ]; do
     WAITED=$((WAITED + 2))
 done
 
-# 检查 Redis
 WAITED=0
 while [ $WAITED -lt $MAX_WAIT ]; do
-    if docker-compose exec -T redis redis-cli ping >/dev/null 2>&1; then
+    if compose exec -T redis redis-cli ping >/dev/null 2>&1; then
         echo "✅ Redis 已就绪"
         break
     fi
@@ -110,7 +115,6 @@ while [ $WAITED -lt $MAX_WAIT ]; do
     WAITED=$((WAITED + 2))
 done
 
-# 检查 Backend
 WAITED=0
 while [ $WAITED -lt $MAX_WAIT ]; do
     if curl -s http://localhost:8000/api/v1/health >/dev/null 2>&1; then
@@ -121,10 +125,9 @@ while [ $WAITED -lt $MAX_WAIT ]; do
     WAITED=$((WAITED + 2))
 done
 
-# 检查 Celery Worker
 WAITED=0
 while [ $WAITED -lt $MAX_WAIT ]; do
-    if docker-compose ps celery-worker | grep -q "Up" 2>/dev/null; then
+    if compose ps celery-worker | grep -q "Up" 2>/dev/null; then
         echo "✅ Celery Worker 已启动"
         break
     fi
@@ -133,24 +136,17 @@ while [ $WAITED -lt $MAX_WAIT ]; do
 done
 
 echo ""
-
-# 最终状态检查
 echo "📊 所有服务状态汇总"
 echo "===================="
 echo ""
-
-# 主服务状态
 echo "主服务:"
-cd "$SCRIPT_DIR"
-docker-compose ps
+compose ps
 echo ""
 
-# 健康检查
 echo "🏥 服务健康检查"
 echo "================"
 echo ""
 
-# Backend 健康检查
 echo -n "Backend API: "
 if curl -s http://localhost:8000/api/v1/health >/dev/null 2>&1; then
     echo "✅ 健康"
@@ -161,25 +157,23 @@ else
 fi
 echo ""
 
-# Celery Worker 健康检查
 echo -n "Celery Worker: "
-if docker-compose ps celery-worker | grep -q "Up" 2>/dev/null; then
+if compose ps celery-worker | grep -q "Up" 2>/dev/null; then
     echo "✅ 运行中"
-    echo "   查看日志: docker-compose logs -f celery-worker"
+    echo "   查看日志: docker compose logs -f celery-worker"
 else
     echo "❌ 未运行"
-    echo "   请检查日志: docker-compose logs celery-worker"
+    echo "   请检查日志: docker compose logs celery-worker"
 fi
 echo ""
 
 echo "✅ 所有服务启动完成！"
 echo ""
 echo "📝 常用命令:"
-echo "   查看所有日志: cd ops && docker-compose logs -f"
-echo "   查看后端日志: cd ops && docker-compose logs -f backend"
+echo "   查看所有日志: cd ops && docker compose logs -f"
+echo "   查看后端日志: cd ops && docker compose logs -f backend"
 echo "   停止所有服务: cd ops && ./stop-all.sh"
 echo ""
 echo "🌐 服务访问地址:"
 echo "   Backend API: http://localhost:8000/docs"
 echo ""
-

@@ -1,23 +1,133 @@
-import { useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import FigmaSideNav, { type NavMode } from './components/FigmaSideNav'
 import { activateProject, getHealth, getProjectKey, listProjects, setProjectKey } from './lib/api'
-import CatalogPage from './pages/CatalogPage'
-import DashboardPage from './pages/DashboardPage'
-import IngestPage from './pages/IngestPage'
-import OpsPage from './pages/OpsPage'
-import PolicyPage from './pages/PolicyPage'
-import ProcessPage from './pages/ProcessPage'
-import ProjectsPage from './pages/ProjectsPage'
-import GraphPage from './pages/GraphPage'
-import ResourcePage from './pages/ResourcePage'
-import SettingsPage from './pages/SettingsPage'
-import WorkflowPage from './pages/WorkflowPage'
+
+const CatalogPage = lazy(() => import('./pages/CatalogPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const IngestPage = lazy(() => import('./pages/IngestPage'))
+const OpsPage = lazy(() => import('./pages/OpsPage'))
+const PolicyPage = lazy(() => import('./pages/PolicyPage'))
+const ProcessPage = lazy(() => import('./pages/ProcessPage'))
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
+const GraphPage = lazy(() => import('./pages/GraphPage'))
+const ResourcePage = lazy(() => import('./pages/ResourcePage'))
+const RawDataPage = lazy(() => import('./pages/RawDataPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const WorkflowPage = lazy(() => import('./pages/WorkflowPage'))
 
 type FigmaTheme = 'light' | 'dark' | 'brand'
+const defaultNavMode: NavMode = 'overviewTasks'
+
+const hashByMode: Record<NavMode, string> = {
+  overviewTasks: '#process-management.html',
+  overviewData: '#admin.html',
+  dataDashboard: '#dashboard.html',
+  dataMarket: '#market-data-visualization.html',
+  dataSocial: '#social-media-visualization.html',
+  dataPolicy: '#policy-visualization.html',
+  dataCatalog: '#topic-dashboard.html?topic=company',
+  graphMarket: '#graph.html?type=market',
+  graphPolicy: '#graph.html?type=policy',
+  graphSocial: '#graph.html?type=social',
+  graphCompany: '#topic-dashboard.html?topic=company',
+  graphProduct: '#topic-dashboard.html?topic=product',
+  graphOperation: '#topic-dashboard.html?topic=operation',
+  graphDeep: '#graph.html?type=market_deep_entities',
+  flowIngest: '#ingest.html',
+  flowSpecialized: '#ingest.html?mode=specialized',
+  flowProcessing: '#process-management.html?view=processing',
+  flowRawData: '#raw-data-processing.html',
+  flowExtract: '#admin.html#extracted',
+  flowAnalysis: '#dashboard.html#analysis',
+  flowBoard: '#dashboard.html#board',
+  flowWorkflow: '#workflow-designer.html',
+  sysProjects: '#project-management.html',
+  sysResource: '#resource-pool-management.html',
+  sysBackend: '#backend-dashboard.html',
+  sysSettings: '#settings.html',
+  sysLlm: '#settings.html#llm-config',
+}
+
+const navModes = new Set<NavMode>(Object.keys(hashByMode) as NavMode[])
+
+function parseLegacyHashToMode(rawHash: string): NavMode | null {
+  const decoded = decodeURIComponent((rawHash || '').replace(/^#/, '')).trim().toLowerCase()
+  if (!decoded) return null
+  if (navModes.has(decoded as NavMode)) return decoded as NavMode
+
+  if (decoded.includes('raw-data-processing.html') || decoded === 'raw-data' || decoded.includes('/raw-data')) {
+    return 'flowRawData'
+  }
+
+  const [pathQuery, hashFragment = ''] = decoded.split('#')
+  const [path, rawQuery = ''] = pathQuery.split('?')
+  const query = new URLSearchParams(rawQuery)
+  const fragment = hashFragment.trim()
+
+  if (path.includes('settings.html')) {
+    if (fragment.includes('llm-config')) return 'sysLlm'
+    return 'sysSettings'
+  }
+
+  if (path.includes('admin.html')) {
+    if (fragment.includes('extracted') || fragment.includes('extract')) return 'flowExtract'
+    return 'overviewData'
+  }
+
+  if (path.includes('process-management.html')) {
+    if (query.get('view') === 'processing' || fragment.includes('processing')) return 'flowProcessing'
+    return 'overviewTasks'
+  }
+
+  if (path.includes('dashboard.html')) {
+    if (fragment.includes('analysis')) return 'flowAnalysis'
+    if (fragment.includes('board')) return 'flowBoard'
+    if (fragment.includes('market')) return 'dataMarket'
+    if (fragment.includes('social')) return 'dataSocial'
+    return 'dataDashboard'
+  }
+
+  if (path.includes('topic-dashboard.html')) {
+    const topic = (query.get('topic') || '').toLowerCase()
+    if (topic === 'company') return 'graphCompany'
+    if (topic === 'product' || topic === 'commodity') return 'graphProduct'
+    if (topic === 'operation' || topic === 'ecom') return 'graphOperation'
+    if (topic === 'policy') return 'dataPolicy'
+    if (topic === 'social' || topic === 'public-opinion') return 'dataSocial'
+    if (topic === 'market') return 'dataMarket'
+    return 'dataCatalog'
+  }
+
+  if (path.includes('graph.html')) {
+    const graphType = (query.get('type') || '').toLowerCase()
+    if (graphType === 'policy') return 'graphPolicy'
+    if (graphType === 'social') return 'graphSocial'
+    if (graphType === 'company') return 'graphCompany'
+    if (graphType === 'product' || graphType === 'commodity') return 'graphProduct'
+    if (graphType === 'operation' || graphType === 'ecom') return 'graphOperation'
+    if (graphType === 'deep' || graphType === 'market_deep_entities') return 'graphDeep'
+    return 'graphMarket'
+  }
+
+  if (path.includes('market-data-visualization.html')) return 'dataMarket'
+  if (path.includes('social-media-visualization.html')) return 'dataSocial'
+  if (path.includes('policy-visualization.html')) return 'dataPolicy'
+  if (path.includes('raw-data-processing.html') || path.includes('raw-data.html')) return 'flowRawData'
+  if (path.includes('workflow-designer.html')) return 'flowWorkflow'
+  if (path.includes('project-management.html')) return 'sysProjects'
+  if (path.includes('resource-pool-management.html')) return 'sysResource'
+  if (path.includes('backend-dashboard.html')) return 'sysBackend'
+  if (path.includes('ingest.html')) {
+    if ((query.get('mode') || '').toLowerCase() === 'specialized') return 'flowSpecialized'
+    return 'flowIngest'
+  }
+
+  return null
+}
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<NavMode>('overviewTasks')
+  const [viewMode, setViewMode] = useState<NavMode>(() => parseLegacyHashToMode(window.location.hash) || defaultNavMode)
   const [figmaTheme] = useState<FigmaTheme>('dark')
   const [projectKey, setProjectKeyState] = useState(getProjectKey())
 
@@ -47,6 +157,7 @@ export default function App() {
     flowIngest: '采集',
     flowSpecialized: '特化采集',
     flowProcessing: '数据处理',
+    flowRawData: '原始数据处理',
     flowExtract: '提取',
     flowAnalysis: '分析',
     flowBoard: '看板',
@@ -73,6 +184,7 @@ export default function App() {
     }
     if (viewMode === 'flowIngest') return <IngestPage projectKey={projectKey} variant="ingest" />
     if (viewMode === 'flowSpecialized') return <IngestPage projectKey={projectKey} variant="specialized" />
+    if (viewMode === 'flowRawData') return <RawDataPage projectKey={projectKey} variant="rawData" />
     if (viewMode === 'dataPolicy') return <PolicyPage projectKey={projectKey} variant="policy" />
     if (viewMode === 'dataCatalog') return <CatalogPage projectKey={projectKey} variant="catalog" />
     if (viewMode === 'flowWorkflow') return <WorkflowPage projectKey={projectKey} variant="workflow" />
@@ -91,9 +203,26 @@ export default function App() {
     return null
   })()
 
+  useEffect(() => {
+    const syncModeFromHash = () => {
+      const nextMode = parseLegacyHashToMode(window.location.hash) || defaultNavMode
+      setViewMode((prev) => (prev === nextMode ? prev : nextMode))
+    }
+
+    window.addEventListener('hashchange', syncModeFromHash)
+    syncModeFromHash()
+    return () => window.removeEventListener('hashchange', syncModeFromHash)
+  }, [])
+
+  const handleModeChange = (mode: NavMode) => {
+    setViewMode(mode)
+    const nextHash = hashByMode[mode]
+    if (nextHash && window.location.hash !== nextHash) window.location.hash = nextHash
+  }
+
   return (
     <div className="layout-root">
-      <FigmaSideNav mode={viewMode} onModeChange={setViewMode} theme={figmaTheme} />
+      <FigmaSideNav mode={viewMode} onModeChange={handleModeChange} theme={figmaTheme} />
       <main className={`main-area is-${figmaTheme}`}>
         <section className="panel page-head">
           <div className="panel-header">
@@ -118,9 +247,11 @@ export default function App() {
           </div>
         </section>
 
-        <div className="content-stack">
-          {modernContent}
-        </div>
+        <Suspense fallback={<section className="panel"><p className="status-line">页面加载中...</p></section>}>
+          <div className="content-stack">
+            {modernContent}
+          </div>
+        </Suspense>
       </main>
     </div>
   )

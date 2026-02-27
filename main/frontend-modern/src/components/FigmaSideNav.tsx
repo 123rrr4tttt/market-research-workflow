@@ -43,6 +43,7 @@ export type NavMode =
   | 'flowIngest'
   | 'flowSpecialized'
   | 'flowProcessing'
+  | 'flowRawData'
   | 'flowExtract'
   | 'flowAnalysis'
   | 'flowBoard'
@@ -95,6 +96,7 @@ const groups: Array<{ title: string; items: Array<{ key: NavMode; label: string 
       { key: 'flowIngest', label: '采集' },
       { key: 'flowSpecialized', label: '特化采集' },
       { key: 'flowProcessing', label: '数据处理' },
+      { key: 'flowRawData', label: '原始数据处理' },
       { key: 'flowExtract', label: '提取' },
       { key: 'flowAnalysis', label: '分析' },
       { key: 'flowBoard', label: '看板' },
@@ -131,6 +133,7 @@ const iconByLabel: Record<string, ComponentType<{ size?: number; className?: str
   采集: Download,
   特化采集: Sparkles,
   数据处理: FileInput,
+  原始数据处理: Database,
   提取: Puzzle,
   分析: Brain,
   看板: TrendingUp,
