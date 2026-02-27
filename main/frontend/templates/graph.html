@@ -63,6 +63,32 @@
       .controls button:hover { background: #1d4ed8; }
       .controls button.secondary { background: #64748b; }
       .filter-extra { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+      .mode-switch { display: inline-flex; align-items: center; gap: 8px; }
+      .mode-switch select { min-width: 140px; }
+      .ingest-dashboard {
+        margin-top: 6px;
+        border: 1px solid #dbeafe;
+        background: #f8fbff;
+        border-radius: 10px;
+        padding: 12px;
+        width: 100%;
+      }
+      .ingest-dashboard h3 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        color: #0f172a;
+      }
+      .ingest-dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px 12px;
+      }
+      .ingest-dashboard-item { display: flex; flex-direction: column; gap: 4px; }
+      .ingest-dashboard-item label { font-size: 12px; color: #475569; }
+      .ingest-dashboard-item input[type="text"],
+      .ingest-dashboard-item input[type="number"] { width: 100%; }
+      .ingest-dashboard-item.checkbox { flex-direction: row; align-items: center; gap: 6px; }
+      .ingest-dashboard-item.checkbox label { margin: 0; }
       .stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -188,6 +214,30 @@
       .graph-control-panel span { min-width: 36px; text-align: right; font-size: 13px; font-weight: 600; color: #2563eb; }
       .graph-control-panel .control-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; white-space: nowrap; }
       .graph-control-panel .control-toggle input { accent-color: #2563eb; }
+      .control-btn {
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #334155;
+        border-radius: 8px;
+        padding: 4px 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .control-btn.primary {
+        background: #2563eb;
+        border-color: #1d4ed8;
+        color: #ffffff;
+      }
+      .control-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .graph-control-panel .selection-count {
+        min-width: auto;
+        font-size: 12px;
+        color: #0f172a;
+        font-weight: 600;
+      }
       .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; color: #475569; font-size: 13px; align-items: flex-start; }
       .legend-group { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 8px; }
       .legend-group:not(.collapsed) { flex: 1 1 100%; width: 100%; }
@@ -287,6 +337,73 @@
       .details-panel .relation-item { background: white; padding: 10px; border-radius: 6px; border: 1px solid #e5e7eb; font-size: 13px; }
       .details-panel .link { color: #2563eb; text-decoration: none; word-break: break-all; }
       .details-panel .link:hover { text-decoration: underline; }
+      .selection-export-panel {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 10002;
+        background: rgba(15,23,42,0.45);
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .selection-export-panel.active { display: flex; }
+      .selection-export-panel .modal-content {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        width: min(780px, 100%);
+        max-height: 85vh;
+        overflow: auto;
+        position: relative;
+      }
+      .selection-export-panel h3 { margin: 0 0 8px 0; font-size: 18px; color: #0f172a; padding-right: 32px; }
+      .selection-export-panel .modal-close {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #64748b;
+        line-height: 1;
+        padding: 4px;
+      }
+      .selection-export-panel .modal-close:hover { color: #0f172a; }
+      .selection-export-panel .hint { color: #64748b; font-size: 12px; margin-bottom: 8px; }
+      .selection-export-panel .preview,
+      .selection-export-panel .result-summary {
+        margin-top: 10px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 12px;
+        color: #334155;
+      }
+      .selection-export-panel .preview h4,
+      .selection-export-panel .result-summary h4 { margin: 0 0 8px 0; font-size: 13px; color: #0f172a; }
+      .selection-export-panel .batch-list { display: flex; flex-direction: column; gap: 8px; }
+      .selection-export-panel .batch-item { background: #ffffff; border: 1px solid #dbeafe; border-radius: 6px; padding: 8px; }
+      .selection-export-panel textarea {
+        width: 100%;
+        min-height: 180px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: 12px;
+        padding: 10px;
+        resize: vertical;
+      }
+      .selection-export-panel .actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
       @media (max-width: 768px) { body { padding: 16px; } header { padding: 20px; } .controls { padding: 16px; } .graph-container { padding: 16px; } }
     </style>
   </head>
@@ -313,6 +430,31 @@
           <button id="apply-btn">应用筛选</button>
           <button id="reset-btn" class="secondary">重置</button>
         </div>
+        <div class="controls-row">
+          <span class="mode-switch">
+            <label for="graph-mode-select">图谱模式：</label>
+            <select id="graph-mode-select">
+              <option value="browse">浏览模式</option>
+              <option value="collect">采集模式</option>
+            </select>
+          </span>
+        </div>
+        <div class="ingest-dashboard" id="ingest-dashboard" style="display:none;">
+          <h3>采集仪表板参数</h3>
+          <div class="ingest-dashboard-grid">
+            <div class="ingest-dashboard-item"><label for="dashboard-language">language</label><input type="text" id="dashboard-language" value="en" /></div>
+            <div class="ingest-dashboard-item"><label for="dashboard-provider">provider</label><input type="text" id="dashboard-provider" value="auto" /></div>
+            <div class="ingest-dashboard-item"><label for="dashboard-max-items">max_items</label><input type="number" id="dashboard-max-items" value="100" min="1" max="100" /></div>
+            <div class="ingest-dashboard-item"><label for="dashboard-start-offset">start_offset</label><input type="number" id="dashboard-start-offset" value="" min="1" /></div>
+            <div class="ingest-dashboard-item"><label for="dashboard-days-back">days_back</label><input type="number" id="dashboard-days-back" value="7" min="0" max="365" /></div>
+            <div class="ingest-dashboard-item"><label for="dashboard-platforms">platforms (comma-separated)</label><input type="text" id="dashboard-platforms" value="reddit" /></div>
+            <div class="ingest-dashboard-item"><label for="dashboard-base-subreddits">base_subreddits (comma-separated)</label><input type="text" id="dashboard-base-subreddits" value="" /></div>
+            <div class="ingest-dashboard-item checkbox"><input type="checkbox" id="dashboard-enable-extraction" checked /><label for="dashboard-enable-extraction">enable_extraction</label></div>
+            <div class="ingest-dashboard-item checkbox"><input type="checkbox" id="dashboard-async-mode" checked /><label for="dashboard-async-mode">async_mode</label></div>
+            <div class="ingest-dashboard-item checkbox"><input type="checkbox" id="dashboard-enable-subreddit-discovery" /><label for="dashboard-enable-subreddit-discovery">enable_subreddit_discovery</label></div>
+            <div class="ingest-dashboard-item checkbox"><input type="checkbox" id="dashboard-llm-assist" checked /><label for="dashboard-llm-assist">llm_assist</label></div>
+          </div>
+        </div>
       </div>
 
       <div class="stats" id="stats"></div>
@@ -335,6 +477,13 @@
             <input type="checkbox" id="label-toggle" checked />
             显示标签
           </label>
+          <label class="control-toggle">
+            <input type="checkbox" id="selection-toggle" />
+            选择模式
+          </label>
+          <span class="selection-count" id="selection-count">已选 0</span>
+          <button type="button" class="control-btn" id="selection-clear-btn" disabled>清空</button>
+          <button type="button" class="control-btn primary" id="selection-export-btn" disabled>结构化任务</button>
         </div>
         <h2>
           <span id="graph-title">知识图谱</span>
@@ -354,6 +503,22 @@
           <h3 id="details-title">节点详情</h3>
           <button type="button" class="modal-close" id="details-close-btn" aria-label="关闭">&times;</button>
           <div id="details-content" class="detail-body"></div>
+        </div>
+      </div>
+
+      <div class="selection-export-panel" id="selection-export-panel">
+        <div class="modal-content">
+          <h3>结构化搜索任务</h3>
+          <button type="button" class="modal-close" id="selection-export-close-btn" aria-label="关闭">&times;</button>
+          <p class="hint">单击只点亮节点，双击点亮节点及一跳邻居。可复制结构化任务 JSON，或直接生成结构化任务并提交。</p>
+          <textarea id="selection-export-text" readonly></textarea>
+          <div class="preview" id="structured-task-preview"></div>
+          <div class="result-summary" id="structured-task-result"></div>
+          <div class="actions">
+            <button type="button" class="control-btn" id="selection-copy-btn">复制结构化任务JSON</button>
+            <button type="button" class="control-btn primary" id="selection-send-collect-btn">生成结构化采集任务</button>
+            <button type="button" class="control-btn primary" id="selection-send-source-btn">生成来源采集任务</button>
+          </div>
         </div>
       </div>
     </div>
@@ -388,6 +553,16 @@
       const nodeScaleValueEl = document.getElementById('node-scale-value');
       const legendLangSelect = document.getElementById('legend-lang-select');
       const labelToggle = document.getElementById('label-toggle');
+      const selectionToggle = document.getElementById('selection-toggle');
+      const selectionCountEl = document.getElementById('selection-count');
+      const selectionClearBtn = document.getElementById('selection-clear-btn');
+      const selectionExportBtn = document.getElementById('selection-export-btn');
+      const selectionExportPanel = document.getElementById('selection-export-panel');
+      const selectionExportText = document.getElementById('selection-export-text');
+      const structuredTaskPreviewEl = document.getElementById('structured-task-preview');
+      const structuredTaskResultEl = document.getElementById('structured-task-result');
+      const graphModeSelect = document.getElementById('graph-mode-select');
+      const ingestDashboardEl = document.getElementById('ingest-dashboard');
       const graphControlPanel = document.getElementById('graph-control-panel');
       const mainGraphContainer = document.querySelector('.graph-container[data-role="main"]');
       const fullscreenGraphContainer = document.querySelector('#graph-fullscreen-view .graph-container[data-role="fullscreen"]');
@@ -440,6 +615,13 @@
       const hiddenNodeTypes = new Set();
       const collapsedLegendGroups = new Set(['company', 'product', 'operation', 'other']);
       const nodeLayoutCache = new Map();
+      const selectedNodeKeys = new Set();
+      let selectionEnabled = false;
+      let adjacencyIndex = new Map();
+      let lastSelectionExportPayload = null;
+      let currentGraphMode = 'browse';
+      let nodeClickTimer = null;
+      let currentFilteredGraphData = { nodes: [], edges: [] };
       const FALLBACK_TYPE_COLORS = ['#2563eb', '#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#14b8a6', '#f59e0b', '#64748b', '#06b6d4'];
       const FALLBACK_TYPE_SYMBOLS = ['circle', 'roundRect', 'diamond', 'rect', 'triangle', 'pin'];
 
@@ -615,6 +797,233 @@
         messageArea.appendChild(div);
       }
 
+      function keyOfNode(node) {
+        return `${node?.type}:${node?.id}`;
+      }
+
+      function buildSelectionIndex(data) {
+        const index = new Map();
+        const edges = data?.edges || [];
+        for (const edge of edges) {
+          const fromKey = edge?.from ? `${edge.from.type}:${edge.from.id}` : '';
+          const toKey = edge?.to ? `${edge.to.type}:${edge.to.id}` : '';
+          if (!fromKey || !toKey) continue;
+          if (!index.has(fromKey)) index.set(fromKey, new Set());
+          if (!index.has(toKey)) index.set(toKey, new Set());
+          index.get(fromKey).add(toKey);
+          index.get(toKey).add(fromKey);
+        }
+        return index;
+      }
+
+      function getSelectedLabel(node) {
+        return String(node?.title || node?.name || node?.text || node?.canonical_name || `${node?.type}:${node?.id}` || '').trim();
+      }
+
+      function buildSelectionExportPayload() {
+        const nodes = currentFilteredGraphData?.nodes || [];
+        const edges = currentFilteredGraphData?.edges || [];
+        const nodeByKey = new Map(nodes.map((n) => [keyOfNode(n), n]));
+        const selectedNodes = Array.from(selectedNodeKeys).map((key) => nodeByKey.get(key)).filter(Boolean);
+        const selectedSet = new Set(selectedNodes.map((n) => keyOfNode(n)));
+        const selectedEdges = edges.filter((e) => selectedSet.has(`${e.from?.type}:${e.from?.id}`) && selectedSet.has(`${e.to?.type}:${e.to?.id}`));
+        const dashboard = getDashboardParams();
+        const llmAssist = !!document.getElementById('dashboard-llm-assist')?.checked;
+        return {
+          project_key: window.MarketApp?.getProjectKey?.() || '',
+          graph_type: graphType,
+          mode: currentGraphMode,
+          selected_count: selectedNodes.length,
+          edge_count: selectedEdges.length,
+          dashboard,
+          llm_assist: llmAssist,
+          selected_nodes: selectedNodes.map((node) => ({
+            type: node.type,
+            id: node.id,
+            entry_id: node.id,
+            label: getSelectedLabel(node)
+          })),
+          edges: selectedEdges.map((edge) => ({
+            type: edge.type,
+            from: edge.from,
+            to: edge.to
+          }))
+        };
+      }
+
+      function renderSelectionExportText(payload) {
+        if (!selectionExportText) return;
+        selectionExportText.value = JSON.stringify(payload || {}, null, 2);
+      }
+
+      function updateSelectionUiState() {
+        const count = selectedNodeKeys.size;
+        if (selectionCountEl) selectionCountEl.textContent = `已选 ${count}`;
+        if (selectionClearBtn) selectionClearBtn.disabled = count === 0;
+        if (selectionExportBtn) selectionExportBtn.disabled = count === 0;
+      }
+
+      function clearSelection({ rerender = true } = {}) {
+        selectedNodeKeys.clear();
+        lastSelectionExportPayload = null;
+        updateSelectionUiState();
+        if (rerender && latestGraphData) updateHiddenTypeVisibility();
+      }
+
+      function openSelectionExportPanel() {
+        if (!selectionExportPanel) return;
+        lastSelectionExportPayload = buildSelectionExportPayload();
+        renderSelectionExportText(lastSelectionExportPayload);
+        renderStructuredTaskPreview(lastSelectionExportPayload);
+        renderStructuredTaskResult(null);
+        selectionExportPanel.classList.add('active');
+      }
+
+      function closeSelectionExportPanel() {
+        if (!selectionExportPanel) return;
+        selectionExportPanel.classList.remove('active');
+      }
+
+      async function copySelectionToClipboard() {
+        if (!lastSelectionExportPayload) lastSelectionExportPayload = buildSelectionExportPayload();
+        const text = JSON.stringify(lastSelectionExportPayload, null, 2);
+        try {
+          await navigator.clipboard.writeText(text);
+          showMessage('info', `已复制 ${lastSelectionExportPayload.selected_count || 0} 个节点的结构化任务 JSON 到剪贴板。`);
+          return;
+        } catch (_) {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          try {
+            document.execCommand('copy');
+            showMessage('info', `已复制 ${lastSelectionExportPayload.selected_count || 0} 个节点的结构化任务 JSON 到剪贴板。`);
+          } catch (err) {
+            showMessage('error', `复制失败: ${err?.message || '请手动复制导出文本。'}`);
+          } finally {
+            document.body.removeChild(textarea);
+          }
+        }
+      }
+
+      function parseCommaSeparated(value) {
+        return String(value || '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+
+      function getDashboardParams() {
+        const maxItemsRaw = Number(document.getElementById('dashboard-max-items')?.value || 100);
+        const maxItems = Number.isFinite(maxItemsRaw) ? Math.min(Math.max(Math.trunc(maxItemsRaw), 1), 100) : 100;
+        const startOffsetRaw = Number(document.getElementById('dashboard-start-offset')?.value);
+        const startOffset = Number.isFinite(startOffsetRaw) && startOffsetRaw > 0 ? Math.trunc(startOffsetRaw) : null;
+        const daysBackRaw = Number(document.getElementById('dashboard-days-back')?.value || 7);
+        const daysBackNormalized = Number.isFinite(daysBackRaw) ? Math.min(Math.trunc(daysBackRaw), 365) : 7;
+        const platforms = parseCommaSeparated(document.getElementById('dashboard-platforms')?.value || '');
+        const baseSubreddits = parseCommaSeparated(document.getElementById('dashboard-base-subreddits')?.value || '');
+        return {
+          language: document.getElementById('dashboard-language')?.value?.trim() || 'en',
+          provider: document.getElementById('dashboard-provider')?.value?.trim() || 'auto',
+          max_items: maxItems,
+          start_offset: startOffset,
+          days_back: daysBackNormalized > 0 ? daysBackNormalized : null,
+          enable_extraction: !!document.getElementById('dashboard-enable-extraction')?.checked,
+          async_mode: !!document.getElementById('dashboard-async-mode')?.checked,
+          platforms: platforms.length ? platforms : ['reddit'],
+          enable_subreddit_discovery: !!document.getElementById('dashboard-enable-subreddit-discovery')?.checked,
+          base_subreddits: baseSubreddits.length ? baseSubreddits : null,
+        };
+      }
+
+      function splitPreviewBatches(selectedNodes, batchSize = 10) {
+        const batches = [];
+        for (let i = 0; i < selectedNodes.length; i += batchSize) {
+          batches.push(selectedNodes.slice(i, i + batchSize));
+        }
+        return batches;
+      }
+
+      function renderStructuredTaskPreview(payload) {
+        if (!structuredTaskPreviewEl) return;
+        const selectedNodes = Array.isArray(payload?.selected_nodes) ? payload.selected_nodes : [];
+        if (!selectedNodes.length) {
+          structuredTaskPreviewEl.innerHTML = '<h4>结构化任务预览（按批次）</h4><div>暂无可提交节点。</div>';
+          return;
+        }
+        const batches = splitPreviewBatches(selectedNodes, 10);
+        structuredTaskPreviewEl.innerHTML = `<h4>结构化任务预览（按批次）</h4>
+          <div class="batch-list">
+            ${batches.map((items, idx) => `<div class="batch-item"><strong>批次 ${idx + 1}</strong>（${items.length}）<div>${items.map((n) => escapeHtml(`${n.type}:${n.id} ${n.label || ''}`)).join('<br/>')}</div></div>`).join('')}
+          </div>`;
+      }
+
+      function renderStructuredTaskResult(result) {
+        if (!structuredTaskResultEl) return;
+        if (!result) {
+          structuredTaskResultEl.innerHTML = '<h4>执行结果摘要</h4><div>尚未提交。</div>';
+          return;
+        }
+        const summary = result.summary || result.execution_summary || {};
+        const batches = Array.isArray(result.batches) ? result.batches : (Array.isArray(result.structured_tasks) ? result.structured_tasks : []);
+        const batchNames = batches
+          .map((batch, idx) => batch?.batch_name || batch?.name || batch?.title || `批次 ${idx + 1}`)
+          .filter(Boolean);
+        structuredTaskResultEl.innerHTML = `<h4>执行结果摘要</h4>
+          <div>status: ${escapeHtml(String(result.status || 'ok'))}</div>
+          <div>flow_type: ${escapeHtml(String(result.flow_type || '-'))}</div>
+          <div>accepted: ${escapeHtml(String(summary.accepted ?? result.accepted ?? '-'))}</div>
+          <div>queued: ${escapeHtml(String(summary.queued ?? result.queued ?? '-'))}</div>
+          <div>failed: ${escapeHtml(String(summary.failed ?? result.failed ?? '-'))}</div>
+          <div>batches: ${batches.length}</div>
+          <div>batch_names: ${escapeHtml(batchNames.join(', ') || '-')}</div>`;
+      }
+
+      function setGraphMode(mode) {
+        currentGraphMode = mode === 'collect' ? 'collect' : 'browse';
+        if (graphModeSelect && graphModeSelect.value !== currentGraphMode) {
+          graphModeSelect.value = currentGraphMode;
+        }
+        if (ingestDashboardEl) ingestDashboardEl.style.display = currentGraphMode === 'collect' ? 'block' : 'none';
+        const submitCollectBtn = document.getElementById('selection-send-collect-btn');
+        const submitSourceBtn = document.getElementById('selection-send-source-btn');
+        if (submitCollectBtn) submitCollectBtn.disabled = currentGraphMode !== 'collect';
+        if (submitSourceBtn) submitSourceBtn.disabled = currentGraphMode !== 'collect';
+      }
+
+      async function submitStructuredSearchTasks(flowType = 'collect') {
+        if (currentGraphMode !== 'collect') {
+          showMessage('error', '请先切换到采集模式，再提交结构化搜索任务。');
+          return;
+        }
+        if (!lastSelectionExportPayload) lastSelectionExportPayload = buildSelectionExportPayload();
+        if (!Array.isArray(lastSelectionExportPayload.selected_nodes) || !lastSelectionExportPayload.selected_nodes.length) {
+          showMessage('error', '当前未选中可提交节点。');
+          return;
+        }
+        const requestPayload = {
+          selected_nodes: lastSelectionExportPayload.selected_nodes,
+          dashboard: lastSelectionExportPayload.dashboard,
+          llm_assist: !!lastSelectionExportPayload.llm_assist,
+          flow_type: flowType,
+          intent_mode: 'keyword_llm',
+        };
+        renderStructuredTaskResult({ status: 'submitting', flow_type: flowType, summary: { accepted: '-', queued: '-', failed: '-' }, batches: [] });
+        try {
+          const result = await window.MarketApp.fetchJSON('/api/v1/ingest/graph/structured-search', {
+            method: 'POST',
+            body: requestPayload,
+          });
+          renderStructuredTaskResult({ ...(result || {}), flow_type: result?.flow_type || flowType });
+          showMessage('info', `结构化搜索任务已提交（${lastSelectionExportPayload.selected_nodes.length} 个节点，flow_type=${flowType}）。`);
+        } catch (err) {
+          renderStructuredTaskResult({ status: 'error', flow_type: flowType, summary: { failed: 1 }, batches: [] });
+          showMessage('error', `提交结构化搜索任务失败: ${err?.message || '未知错误'}`);
+        }
+      }
+
       function legendGroupForType(type) {
         const t = String(type || '');
         if (t.startsWith('Company')) return 'company';
@@ -756,8 +1165,14 @@
 
       function buildEchartsGraphData(data) {
         const filtered = filterGraphByHiddenTypes(data);
+        currentFilteredGraphData = filtered;
         const nodes = filtered.nodes || [];
         const edges = filtered.edges || [];
+        adjacencyIndex = buildSelectionIndex(filtered);
+        const visibleKeys = new Set(nodes.map((n) => keyOfNode(n)));
+        Array.from(selectedNodeKeys).forEach((k) => {
+          if (!visibleKeys.has(k)) selectedNodeKeys.delete(k);
+        });
         const config = {
           nodeColors: graphConfig.nodeColors,
           nodeSymbols: graphConfig.nodeSymbols,
@@ -767,17 +1182,29 @@
         const transformed = GV.transformGraphData(nodes, edges, config);
         transformed.nodes = (transformed.nodes || []).map((n) => {
           const v = n?.value || {};
+          const key = `${v.type}:${v.id}`;
           const pos = nodeLayoutCache.get(`${v.type}:${v.id}`);
           const scaledSize = Math.max(6, Math.round(Number(n?.symbolSize || 0) * nodeScaleFactor));
           const shouldShowLabel = !!showLabels && scaledSize >= 22;
           const labelFontSize = Math.max(10, Math.min(18, Math.round(scaledSize * 0.42)));
+          const isSelected = selectedNodeKeys.has(key);
+          const dimmed = !!selectionEnabled && selectedNodeKeys.size > 0 && !isSelected;
           const scaled = {
             ...n,
             symbolSize: scaledSize,
+            itemStyle: {
+              ...(n.itemStyle || {}),
+              opacity: dimmed ? 0.18 : 1,
+              borderWidth: isSelected ? 3 : 0,
+              borderColor: isSelected ? '#0f172a' : 'transparent',
+              shadowBlur: isSelected ? 16 : 0,
+              shadowColor: isSelected ? 'rgba(15,23,42,0.35)' : 'transparent'
+            },
             label: {
               ...(n.label || {}),
               show: shouldShowLabel,
               fontSize: labelFontSize,
+              opacity: dimmed ? 0.3 : 1,
               backgroundColor: shouldShowLabel ? 'rgba(255,255,255,0.85)' : 'transparent',
               padding: shouldShowLabel ? [2, Math.max(4, Math.round(labelFontSize * 0.35))] : 0,
             },
@@ -794,6 +1221,21 @@
           };
           return pos ? { ...scaled, x: pos.x, y: pos.y } : scaled;
         });
+        transformed.edges = (transformed.edges || []).map((e) => {
+          const src = String(e?.source || '');
+          const tgt = String(e?.target || '');
+          const active = selectedNodeKeys.has(src) && selectedNodeKeys.has(tgt);
+          const dimmed = !!selectionEnabled && selectedNodeKeys.size > 0 && !active;
+          return {
+            ...e,
+            lineStyle: {
+              ...(e.lineStyle || {}),
+              opacity: dimmed ? 0.08 : 0.9,
+              width: dimmed ? 0.5 : Math.max(1.2, Number(e?.lineStyle?.width || 1))
+            }
+          };
+        });
+        updateSelectionUiState();
         return { filtered, transformed, config };
       }
 
@@ -1066,6 +1508,7 @@
         showMessage('info', '正在加载图谱...');
         detailsPanel.classList.remove('active');
         latestGraphData = null;
+        clearSelection({ rerender: false });
         const chartEl = document.getElementById('graph-chart');
         if (graphChart) {
           try { graphChart.dispose(); } catch (e) { console.warn('dispose graphChart failed before reload', e); }
@@ -1216,6 +1659,25 @@
         updateStats(filtered);
       }
 
+      function handleNodeSingleSelect(nodeData) {
+        if (!nodeData || nodeData.type == null || nodeData.id == null) return;
+        const key = `${nodeData.type}:${nodeData.id}`;
+        if (selectedNodeKeys.has(key)) selectedNodeKeys.delete(key);
+        else selectedNodeKeys.add(key);
+        lastSelectionExportPayload = null;
+        updateHiddenTypeVisibility();
+      }
+
+      function handleNodeDoubleSelect(nodeData) {
+        if (!nodeData || nodeData.type == null || nodeData.id == null) return;
+        const key = `${nodeData.type}:${nodeData.id}`;
+        selectedNodeKeys.add(key);
+        const neighbors = adjacencyIndex.get(key) || new Set();
+        neighbors.forEach((n) => selectedNodeKeys.add(n));
+        lastSelectionExportPayload = null;
+        updateHiddenTypeVisibility();
+      }
+
       function renderGraph(data) {
         if (!graphChart) return;
         const { transformed, config } = buildEchartsGraphData(data);
@@ -1245,14 +1707,33 @@
 
         graphChart.setOption(option, true);
         graphChart.off('click');
+        graphChart.off('dblclick');
         graphChart.on('click', params => {
           if (params.dataType === 'node') {
             const value = params.data.value || params.data || {};
-            showNodeDetail(value, false);
+            if (!selectionEnabled) {
+              showNodeDetail(value, false);
+              return;
+            }
+            if (nodeClickTimer) clearTimeout(nodeClickTimer);
+            nodeClickTimer = setTimeout(() => {
+              handleNodeSingleSelect(value);
+              nodeClickTimer = null;
+            }, 220);
           } else if (params.dataType === 'edge') {
+            if (selectionEnabled) return;
             const value = params.data.value || params.data || {};
             showNodeDetail(value, true);
           }
+        });
+        graphChart.on('dblclick', params => {
+          if (!selectionEnabled || params.dataType !== 'node') return;
+          if (nodeClickTimer) {
+            clearTimeout(nodeClickTimer);
+            nodeClickTimer = null;
+          }
+          const value = params.data.value || params.data || {};
+          handleNodeDoubleSelect(value);
         });
 
         if (isFullscreen && fullscreenChart && latestGraphData) renderFullscreenGraph();
@@ -1263,14 +1744,33 @@
         const opt = graphChart.getOption();
         fullscreenChart.setOption(opt, true);
         fullscreenChart.off('click');
+        fullscreenChart.off('dblclick');
         fullscreenChart.on('click', params => {
           if (params.dataType === 'node') {
             const value = params.data.value || params.data || {};
-            showNodeDetail(value, false);
+            if (!selectionEnabled) {
+              showNodeDetail(value, false);
+              return;
+            }
+            if (nodeClickTimer) clearTimeout(nodeClickTimer);
+            nodeClickTimer = setTimeout(() => {
+              handleNodeSingleSelect(value);
+              nodeClickTimer = null;
+            }, 220);
           } else if (params.dataType === 'edge') {
+            if (selectionEnabled) return;
             const value = params.data.value || params.data || {};
             showNodeDetail(value, true);
           }
+        });
+        fullscreenChart.on('dblclick', params => {
+          if (!selectionEnabled || params.dataType !== 'node') return;
+          if (nodeClickTimer) {
+            clearTimeout(nodeClickTimer);
+            nodeClickTimer = null;
+          }
+          const value = params.data.value || params.data || {};
+          handleNodeDoubleSelect(value);
         });
       }
 
@@ -1333,6 +1833,30 @@
         nodeScaleFactor = 1;
         if (nodeScaleValueEl) nodeScaleValueEl.textContent = '100%';
         if (labelToggle) { labelToggle.checked = true; showLabels = true; }
+        if (selectionToggle) { selectionToggle.checked = false; selectionEnabled = false; }
+        const resetDashboard = [
+          ['dashboard-language', 'en'],
+          ['dashboard-provider', 'auto'],
+          ['dashboard-max-items', '100'],
+          ['dashboard-start-offset', ''],
+          ['dashboard-days-back', '7'],
+          ['dashboard-platforms', 'reddit'],
+          ['dashboard-base-subreddits', ''],
+        ];
+        resetDashboard.forEach(([id, value]) => {
+          const el = document.getElementById(id);
+          if (el) el.value = value;
+        });
+        ['dashboard-enable-extraction', 'dashboard-async-mode', 'dashboard-llm-assist'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.checked = true;
+        });
+        ['dashboard-enable-subreddit-discovery'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.checked = false;
+        });
+        setGraphMode('browse');
+        clearSelection({ rerender: false });
         loadGraph();
       }
 
@@ -1397,6 +1921,58 @@
             if (latestGraphData) updateStats(filterGraphByHiddenTypes(latestGraphData));
           });
         }
+        if (graphModeSelect) {
+          graphModeSelect.addEventListener('change', () => {
+            setGraphMode(graphModeSelect.value);
+            lastSelectionExportPayload = null;
+          });
+        }
+        [
+          'dashboard-language',
+          'dashboard-provider',
+          'dashboard-max-items',
+          'dashboard-start-offset',
+          'dashboard-days-back',
+          'dashboard-platforms',
+          'dashboard-base-subreddits',
+          'dashboard-enable-extraction',
+          'dashboard-async-mode',
+          'dashboard-enable-subreddit-discovery',
+          'dashboard-llm-assist',
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          const eventName = el.type === 'checkbox' ? 'change' : 'input';
+          el.addEventListener(eventName, () => {
+            lastSelectionExportPayload = null;
+            if (selectionExportPanel?.classList.contains('active')) {
+              lastSelectionExportPayload = buildSelectionExportPayload();
+              renderSelectionExportText(lastSelectionExportPayload);
+              renderStructuredTaskPreview(lastSelectionExportPayload);
+            }
+          });
+        });
+        if (selectionToggle) {
+          selectionToggle.addEventListener('change', () => {
+            selectionEnabled = !!selectionToggle.checked;
+            if (!selectionEnabled) clearSelection({ rerender: false });
+            updateSelectionUiState();
+            if (latestGraphData) updateHiddenTypeVisibility();
+          });
+        }
+        if (selectionClearBtn) {
+          selectionClearBtn.addEventListener('click', () => clearSelection());
+        }
+        if (selectionExportBtn) {
+          selectionExportBtn.addEventListener('click', () => openSelectionExportPanel());
+        }
+        document.getElementById('selection-export-close-btn')?.addEventListener('click', closeSelectionExportPanel);
+        document.getElementById('selection-copy-btn')?.addEventListener('click', () => copySelectionToClipboard());
+        document.getElementById('selection-send-collect-btn')?.addEventListener('click', () => submitStructuredSearchTasks('collect'));
+        document.getElementById('selection-send-source-btn')?.addEventListener('click', () => submitStructuredSearchTasks('source_collect'));
+        selectionExportPanel?.addEventListener('click', (e) => { if (e.target === selectionExportPanel) closeSelectionExportPanel(); });
+        setGraphMode(graphModeSelect?.value || 'browse');
+        updateSelectionUiState();
         attachControlPanel(mainGraphContainer);
         loadGraphDocTypeHint().then(() => loadGraph());
       }

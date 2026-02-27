@@ -4,7 +4,7 @@ from dataclasses import replace
 from math import ceil
 from typing import Any
 
-from .contracts import CollectRequest, CollectResult
+from .contracts import CollectRequest, CollectResult, FLOW_SOURCE_COLLECT
 from .adapters.search_market import SearchMarketAdapter
 from .adapters.search_policy import SearchPolicyAdapter
 from .adapters.source_library import SourceLibraryAdapter, to_source_library_response
@@ -191,6 +191,7 @@ def collect_request_from_policy_api(*, query_terms: list[str], max_items: int, p
 def collect_request_from_source_library_api(*, item_key: str, project_key: str | None, override_params: dict | None = None) -> CollectRequest:
     ov = dict(override_params or {})
     return CollectRequest(
+        flow=FLOW_SOURCE_COLLECT,
         channel="source_library",
         project_key=project_key,
         item_key=str(item_key or "").strip() or None,
