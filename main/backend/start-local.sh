@@ -180,6 +180,16 @@ try_start_brew_postgres() {
         done < <(brew list --formula 2>/dev/null | awk '/^postgresql(@[0-9]+)?$/ {print $1}' | sort -rV)
     fi
 
+    # Auto-install postgresql when Homebrew exists but postgresql formula/service is missing.
+    if [ ${#svcs[@]} -eq 0 ]; then
+        echo "📦 未检测到 PostgreSQL，尝试使用 Homebrew 自动安装 postgresql..."
+        if brew install postgresql >/dev/null 2>&1; then
+            while IFS= read -r formula; do
+                [ -n "$formula" ] && svcs+=("$formula")
+            done < <(brew list --formula 2>/dev/null | awk '/^postgresql(@[0-9]+)?$/ {print $1}' | sort -rV)
+        fi
+    fi
+
     if [ ${#svcs[@]} -eq 0 ]; then
         return 1
     fi
@@ -337,7 +347,7 @@ ensure_backend_venv() {
 
     if [ "$cur_hash" != "$old_hash" ]; then
         echo "📦 安装后端 Python 依赖（$REQ_FILE）..."
-        if ! pip install -r "$REQ_FILE"; then
+        if ! python -m pip install -r "$REQ_FILE"; then
             echo "❌ 后端依赖安装失败。"
             echo "请检查网络或私有源配置后重试：pip install -r $REQ_FILE"
             return 1
