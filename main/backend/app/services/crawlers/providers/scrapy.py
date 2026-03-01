@@ -3,6 +3,10 @@ from __future__ import annotations
 import os
 
 from ..base import CrawlerDispatchRequest, CrawlerDispatchResult
+from ..scrapyd_bootstrap import (
+    ensure_bootstrap_project_deployed,
+    is_bootstrap_recoverable_schedule_error,
+)
 from ..scrapyd_client import ScrapydClient
 from ..scrapyd_runtime import ensure_scrapyd_ready
 
@@ -18,7 +22,7 @@ class ScrapyCrawlerProvider:
         )
 
     def dispatch(self, request: CrawlerDispatchRequest) -> CrawlerDispatchResult:
-        response = self.client.schedule_spider(
+        first_response = self.client.schedule_spider(
             project=request.project,
             spider=request.spider,
             arguments=dict(request.arguments or {}),
@@ -27,13 +31,45 @@ class ScrapyCrawlerProvider:
             priority=request.priority,
             job_id=request.job_id,
         )
+        response = first_response
+        attempt_count = 1
+        raw: dict[str, object] = {"schedule": first_response}
+        if is_bootstrap_recoverable_schedule_error(
+            first_response,
+            project=request.project,
+            spider=request.spider,
+        ):
+            raw["schedule_first"] = first_response
+            raw.pop("schedule", None)
+            try:
+                bootstrap = ensure_bootstrap_project_deployed(
+                    self.client,
+                    project=request.project,
+                    spider=request.spider,
+                )
+                raw["bootstrap"] = bootstrap
+                response = self.client.schedule_spider(
+                    project=request.project,
+                    spider=request.spider,
+                    arguments=dict(request.arguments or {}),
+                    settings=dict(request.settings or {}),
+                    version=request.version,
+                    priority=request.priority,
+                    job_id=request.job_id,
+                )
+                raw["schedule_retry"] = response
+                attempt_count = 2
+            except Exception as exc:  # noqa: BLE001
+                raw["bootstrap_error"] = str(exc)
+                response = first_response
+
         status = str(response.get("status") or "unknown").strip().lower()
         return CrawlerDispatchResult(
             provider_type=self.provider_type,
             provider_status=status,
             provider_job_id=str(response.get("jobid") or "").strip() or None,
-            attempt_count=1,
-            raw={"schedule": response},
+            attempt_count=attempt_count,
+            raw=raw,
         )
 
     def poll(

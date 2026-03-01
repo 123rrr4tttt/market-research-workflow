@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -20,6 +20,16 @@ from ..services.crawlers_mgmt import (
 
 
 router = APIRouter(prefix="/crawler", tags=["crawler"])
+
+
+def _resolve_registration_project_key(request: Request) -> str | None:
+    header_key = str(request.headers.get("X-Project-Key") or "").strip()
+    if header_key:
+        return header_key
+    query_key = str(request.query_params.get("project_key") or "").strip()
+    if query_key:
+        return query_key
+    return None
 
 
 class ImportCrawlerProjectPayload(BaseModel):
@@ -111,13 +121,18 @@ def get_crawler_project_api(project_key: str):
 
 
 @router.post("/projects/{project_key}/deploy")
-def deploy_crawler_project_api(project_key: str, payload: DeployCrawlerProjectPayload):
+def deploy_crawler_project_api(
+    project_key: str,
+    payload: DeployCrawlerProjectPayload,
+    request: Request,
+):
     try:
         result = deploy_project(
             project_key=project_key,
             requested_version=payload.requested_version,
             planner_mode=payload.planner_mode,
             async_mode=payload.async_mode,
+            registration_project_key=_resolve_registration_project_key(request),
         )
         return JSONResponse(status_code=200, content=ok(result))
     except CrawlerProjectNotFoundError as exc:
@@ -138,13 +153,18 @@ def deploy_crawler_project_api(project_key: str, payload: DeployCrawlerProjectPa
 
 
 @router.post("/projects/{project_key}/rollback")
-def rollback_crawler_project_api(project_key: str, payload: RollbackCrawlerProjectPayload):
+def rollback_crawler_project_api(
+    project_key: str,
+    payload: RollbackCrawlerProjectPayload,
+    request: Request,
+):
     try:
         result = rollback_project(
             project_key=project_key,
             target_version=payload.to_version or payload.target_version,
             planner_mode=payload.planner_mode,
             async_mode=payload.async_mode,
+            registration_project_key=_resolve_registration_project_key(request),
         )
         return JSONResponse(status_code=200, content=ok(result))
     except CrawlerProjectNotFoundError as exc:

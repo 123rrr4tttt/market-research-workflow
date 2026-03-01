@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 from urllib.parse import urlencode
 
@@ -62,6 +63,30 @@ class ScrapydClient:
 
     def cancel_job(self, *, project: str, job_id: str) -> dict[str, Any]:
         return self._post("/cancel.json", {"project": project, "job": job_id})
+
+    def add_version(
+        self,
+        *,
+        project: str,
+        version: str,
+        egg_bytes: bytes,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, str] = {
+            "project": str(project or "").strip(),
+            "version": str(version or "").strip(),
+        }
+        if metadata:
+            payload["meta"] = json.dumps(dict(metadata), ensure_ascii=True)
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.post(
+                f"{self.base_url}/addversion.json",
+                data=payload,
+                files={"egg": ("project.egg", egg_bytes, "application/octet-stream")},
+            )
+            resp.raise_for_status()
+            body = resp.json()
+            return body if isinstance(body, dict) else {"status": "error", "body": body}
 
 
 __all__ = ["ScrapydClient"]

@@ -536,10 +536,17 @@ def run_item_with_url_routing(
     query_terms = params.get("query_terms") or params.get("keywords") or params.get("search_keywords") or params.get("base_keywords") or params.get("topic_keywords")
     has_query_terms = isinstance(query_terms, list) and any(str(x or "").strip() for x in query_terms)
     prefer_crawler_first = bool(params.get("prefer_crawler_first", True))
-    preferred_crawler_channel_key = _prefer_crawler_channel_key(
-        channel_map=channel_map,
-        project_key=project_key,
-    ) if prefer_crawler_first else None
+    preferred_crawler_channel_key: str | None = None
+    if prefer_crawler_first:
+        item_channel_key = str(item.get("channel_key") or "").strip()
+        item_channel = channel_map.get(item_channel_key)
+        if item_channel_key and item_channel and item_channel.get("enabled", True) and _is_crawler_channel(item_channel):
+            preferred_crawler_channel_key = item_channel_key
+        else:
+            preferred_crawler_channel_key = _prefer_crawler_channel_key(
+                channel_map=channel_map,
+                project_key=project_key,
+            )
 
     for url in urls:
         url_str = str(url).strip() if url else ""

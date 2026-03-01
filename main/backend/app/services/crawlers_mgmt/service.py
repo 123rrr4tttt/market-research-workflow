@@ -346,6 +346,7 @@ def deploy_project(
     requested_version: str | None = None,
     planner_mode: str | None = None,
     async_mode: bool = False,
+    registration_project_key: str | None = None,
 ) -> dict[str, Any]:
     with bind_schema("public"):
         with SessionLocal() as session:
@@ -380,14 +381,16 @@ def deploy_project(
             if async_mode:
                 import_payload = dict(project.import_payload or {})
                 manifest = dict(import_payload.get("manifest") or {})
+                registration_key = str(registration_project_key or "").strip() or project.project_key
                 metadata = {
                     "crawler_project_id": int(project.id),
                     "crawler_project_key": project.project_key,
+                    "registration_project_key": registration_key,
                     **dict(import_payload.get("metadata") or {}),
                 }
                 try:
                     task = _tasks_module().task_orchestrate_crawler_deploy.delay(
-                        project_key=project.project_key,
+                        project_key=registration_key,
                         scrapy_project=str(
                             import_payload.get("scrapy_project")
                             or manifest.get("scrapy_project")
@@ -443,6 +446,7 @@ def rollback_project(
     target_version: str | None = None,
     planner_mode: str | None = None,
     async_mode: bool = False,
+    registration_project_key: str | None = None,
 ) -> dict[str, Any]:
     with bind_schema("public"):
         with SessionLocal() as session:
@@ -476,9 +480,10 @@ def rollback_project(
             if async_mode:
                 import_payload = dict(project.import_payload or {})
                 manifest = dict(import_payload.get("manifest") or {})
+                registration_key = str(registration_project_key or "").strip() or project.project_key
                 try:
                     task = _tasks_module().task_orchestrate_crawler_rollback.delay(
-                        project_key=project.project_key,
+                        project_key=registration_key,
                         scrapy_project=str(
                             import_payload.get("scrapy_project")
                             or manifest.get("scrapy_project")
