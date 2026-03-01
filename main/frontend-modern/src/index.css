@@ -79,11 +79,28 @@ button, select, input, textarea { font-family: inherit; }
 .figma-side-nav__title {
   margin: 0;
   padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(116, 132, 156, 0.95);
   font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+
+.figma-side-nav__title-chevron {
+  opacity: 0.75;
+  transition: transform 0.2s ease;
+}
+
+.figma-side-nav__title-chevron.is-open {
+  transform: rotate(180deg);
 }
 
 .figma-side-nav__item {

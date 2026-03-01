@@ -1,8 +1,9 @@
-import type { ComponentType } from 'react'
+import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import {
   AreaChart,
   Brain,
   Building2,
+  ChevronDown,
   Database,
   DatabaseZap,
   Download,
@@ -146,13 +147,43 @@ const iconByLabel: Record<string, ComponentType<{ size?: number; className?: str
 }
 
 export default function FigmaSideNav({ mode, onModeChange, theme = 'dark' }: Props) {
+  const [expandedByGroup, setExpandedByGroup] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(groups.map((group) => [group.title, true])),
+  )
+
+  const groupByMode = useMemo(() => {
+    const pairs = groups.flatMap((group) => group.items.map((item) => [item.key, group.title] as const))
+    return Object.fromEntries(pairs) as Record<NavMode, string>
+  }, [])
+
+  useEffect(() => {
+    const currentGroup = groupByMode[mode]
+    if (!currentGroup) return
+    setExpandedByGroup((prev) => {
+      if (prev[currentGroup]) return prev
+      return { ...prev, [currentGroup]: true }
+    })
+  }, [groupByMode, mode])
+
   return (
     <aside className={`figma-side-nav is-${theme}`} data-node-id="1186:27288">
       <div className="figma-side-nav__group">
         {groups.map((group) => (
           <section key={group.title} className="figma-side-nav__section">
-            <h4 className="figma-side-nav__title">{group.title}</h4>
-            {group.items.map((item) => {
+            <button
+              type="button"
+              className="figma-side-nav__title"
+              onClick={() => {
+                setExpandedByGroup((prev) => ({ ...prev, [group.title]: !prev[group.title] }))
+              }}
+            >
+              <span>{group.title}</span>
+              <ChevronDown
+                size={14}
+                className={`figma-side-nav__title-chevron ${expandedByGroup[group.title] ? 'is-open' : ''}`}
+              />
+            </button>
+            {expandedByGroup[group.title] ? group.items.map((item) => {
               const Icon = iconByLabel[item.label] || ShoppingCart
               const active = mode === item.key
               return (
@@ -166,7 +197,7 @@ export default function FigmaSideNav({ mode, onModeChange, theme = 'dark' }: Pro
                   <span className="figma-side-nav__label">{item.label}</span>
                 </button>
               )
-            })}
+            }) : null}
           </section>
         ))}
       </div>
