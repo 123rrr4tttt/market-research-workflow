@@ -125,3 +125,30 @@
 - Implication:
   - Ingest path request/route context is reachable and project headers resolve correctly.
   - `demo_proj` needs DB sequence repair before using it as stable ingest-write evidence.
+
+## Project Initialization Fix (tenant completeness + sequence binding)
+- File:
+  - `main/backend/app/api/projects.py`
+- Changes:
+  - `_create_tenant_tables_best_effort()` now always executes `_ensure_tenant_id_sequences(schema_name)`.
+  - Added `_ensure_tenant_id_sequences(schema_name)`:
+    - creates per-table local sequences (`<schema>.<table>_id_seq`) if missing
+    - sets `id` default to local sequence via `nextval('<schema>.<table>_id_seq'::regclass)`
+    - aligns sequence value with `MAX(id)+1`
+  - `inject_initial_project()` now invokes `_create_tenant_tables_best_effort(target_schema)` after copy to ensure full tenant tables (including `etl_job_runs`) and correct defaults.
+
+## New Project Create + Raw Import Validation (post-fix)
+- Method:
+  - Direct invocation: `create_project(CreateProjectPayload(...))`
+  - Created project: `init_fix_0301095525` (schema: `project_init_fix_0301095525`)
+  - Verified:
+    - `etl_job_runs` table exists
+    - `id` default expression is schema-local:
+      - `nextval('project_init_fix_0301095525.etl_job_runs_id_seq'::regclass)`
+  - Executed raw import under `bind_project(project_key)`:
+    - `run_raw_import_documents(...)` returned `inserted=1`, `error_count=0`
+  - DB checks:
+    - `project_init_fix_0301095525.documents` count = 1
+    - `project_init_fix_0301095525.etl_job_runs` (`job_type='raw_import'`) count = 1
+- Conclusion:
+  - Initialization fix is effective for newly created projects and raw import no longer fails due missing/incorrect job table sequence wiring.

@@ -271,6 +271,48 @@ def _create_tenant_tables_best_effort(schema_name: str) -> None:
                     )
                     continue
                 raise
+    _ensure_tenant_id_sequences(schema_name)
+
+
+def _ensure_tenant_id_sequences(schema_name: str) -> None:
+    """
+    Ensure every tenant table uses schema-local id sequence default.
+
+    This prevents cross-schema sequence drift such as:
+    project_x.table.id DEFAULT nextval('project_default.table_id_seq'::regclass)
+    """
+    table_names = [t.name for t in TENANT_TABLES if "id" in t.c]
+    for table_name in table_names:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    DO $$
+                    DECLARE
+                      seq_qualified text := format('%I.%I_id_seq', :schema_name, :table_name);
+                      table_qualified text := format('%I.%I', :schema_name, :table_name);
+                      has_table regclass;
+                    BEGIN
+                      EXECUTE format('SELECT to_regclass(%L)', table_qualified) INTO has_table;
+                      IF has_table IS NULL THEN
+                        RETURN;
+                      END IF;
+
+                      EXECUTE format('CREATE SEQUENCE IF NOT EXISTS %s', seq_qualified);
+                      EXECUTE format('ALTER SEQUENCE %s OWNED BY %I.%I.id', seq_qualified, :schema_name, :table_name);
+                      EXECUTE format(
+                        'ALTER TABLE %I.%I ALTER COLUMN id SET DEFAULT nextval(%L::regclass)',
+                        :schema_name, :table_name, seq_qualified
+                      );
+                      EXECUTE format(
+                        'SELECT setval(%L, COALESCE((SELECT MAX(id) FROM %I.%I), 0) + 1, false)',
+                        seq_qualified, :schema_name, :table_name
+                      );
+                    END$$;
+                    """
+                ),
+                {"schema_name": schema_name, "table_name": table_name},
+            )
 
 
 def _apply_llm_configs_to_project(project_key: str, llm_configs: list[AutoLlmConfigPayload]) -> int:
@@ -463,6 +505,9 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
             except Exception:
                 # not all copied tables have id sequences; ignore
                 pass
+
+    # Ensure inject path has full tenant tables + schema-local id sequence defaults.
+    _create_tenant_tables_best_effort(target_schema)
 
     if payload.activate:
         with bind_schema("public"):

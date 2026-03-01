@@ -40,6 +40,14 @@ evidence: `tests/test_ingest_baseline_matrix_unittest.py`
 status: done
 evidence: `tests/test_frontend_modern_entry_baseline_unittest.py`
 
+9. Fix project initialization for tenant table completeness and schema-local id sequences
+status: done
+evidence: `app/api/projects.py` (`_create_tenant_tables_best_effort`, `_ensure_tenant_id_sequences`, inject path follow-up ensure)
+
+10. Create new project and validate raw import end-to-end on initialized schema
+status: done
+evidence: project `init_fix_0301095525` created; `etl_job_runs` default sequence bound to project schema; raw import inserted document and job record
+
 ## Follow-ups
 1. Enable `project_key_enforcement_mode=require` after client rollout.
 2. Repair `project_demo_proj.etl_job_runs` sequence/PK state (current market ingest may fail with duplicate PK).
