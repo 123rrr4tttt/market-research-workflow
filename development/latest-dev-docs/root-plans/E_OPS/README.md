@@ -2,9 +2,14 @@
 
 > 最后更新：2026-03-01  
 > 当前版本：`v0.9-rc2.0`（预发布，团队联调）
+> 合并校对清单：见 `MERGED_PLAN_REVIEW.md`（含保留/合并/疑似过时与链接校验结论）
 
 本仓库实现一体化信息工作流：多来源采集 -> 结构化处理 -> 索引检索 -> 可视化与运维管理。  
 适用于政策、市场、新闻、社媒等主题的数据采集与分析。
+
+## 文档分层
+
+- `root-plans` 四层结构说明：见 [DIR_MAP.md](./DIR_MAP.md)
 
 ## 1. 项目总览
 
@@ -325,7 +330,6 @@ cd main/ops
 
 ## 12. 文档导航
 
-- 开发重要索引（第一入口）：`development/latest-dev-docs/README.md`
 - 快速启动：`main/QUICKSTART.md`
 - Docker 运维：`main/ops/README.md`
 - 后端说明：`main/backend/README.md`
@@ -377,21 +381,3 @@ cd main/ops
 ## 15. 协作规范
 
 代码协作与分支策略见：`GIT_WORKFLOW.md`
-
-### 15.1 开发文档目录规范（`development/`）
-
-`development/` 用于承载研发过程文档与归档快照。`development/latest-dev-docs/` 是本项目开发文档的**重要索引与第一入口**。
-
-- 建议从 `development/latest-dev-docs/README.md` 开始阅读，再进入各子项目 `INDEX.md` 与 `main/index.md`。
-
-该目录下每个子项目目录（如 `root-plans`、`backend-core`、`backend-docs`、`ops-frontend`、`development-plans`）遵循同一规则：
-
-- `main/`：主文档目录，仅放该子项目的合并主文档（`MERGED_*.md`）及 `main/index.md`。
-- 其他分类目录：归档目录单列保留（如 `A_ARCHITECTURE/`、`B_API/`、`C_INGEST/`、`D_TEST/`、`E_OPS/`、`F_PLAN/`、`G_REVIEW/`），用于按主题追溯历史材料。
-- 子项目根 `INDEX.md`：必须先指向 `main/`，再列出归档目录。
-
-维护要求：
-
-- 新增/迁移开发说明时，优先落到对应子项目 `main/` 或归档目录，并同步更新该子项目 `INDEX.md`。
-- 顶层导航需同步：`development/latest-dev-docs/README.md` 与 `development/latest-dev-docs/MERGED_OVERVIEW.md`。
-- 禁止只在零散路径保留“唯一副本”而不进 `development/latest-dev-docs`（避免遗漏归档与断链）。

@@ -22,3 +22,17 @@
 
 - 代码主体用英文，注释可用中文；以完成目标为重，不过度发散。
 - 新增 API 时遵循项目既有 envelope 与分层（如 `status/data/error/meta`、`API -> services -> adapters`）。
+
+## 开发文档目录规范（`development/`）
+
+- `development/latest-dev-docs/` 是本项目开发文档的**重要索引与第一入口**。
+- 处理开发说明相关任务时，优先在该目录完成检索、落盘与索引更新。
+- 每个子项目目录（如 `root-plans`、`backend-core`、`backend-docs`、`ops-frontend`、`development-plans`）统一规则：
+  - `main/`：主文档目录，仅放该子项目的合并主文档（`MERGED_*.md`）与 `main/index.md`。
+  - 其他分类目录（如 `A_ARCHITECTURE`、`B_API`、`C_INGEST`、`D_TEST`、`E_OPS`、`F_PLAN`、`G_REVIEW`）：归档目录，单列展示，按主题追溯历史材料。
+  - 子项目根 `INDEX.md`：必须先指向 `main/`，再列出归档目录。
+- 新增/迁移开发说明时：
+  - 优先写入对应子项目 `main/` 或归档目录。
+  - 同步更新该子项目 `INDEX.md`。
+  - 同步更新顶层导航：`development/latest-dev-docs/README.md` 与 `development/latest-dev-docs/MERGED_OVERVIEW.md`。
+- 禁止只在零散路径保留“唯一副本”而不进入 `development/latest-dev-docs`（避免遗漏归档与断链）。
