@@ -165,6 +165,80 @@ def _normalize_iso_date(value: Any) -> date | None:
             return None
 
 
+def _resolve_extraction_flags(extraction_mode: str, doc_type: str) -> dict[str, bool]:
+    mode = (extraction_mode or "auto").strip().lower()
+    dtype = (doc_type or "").strip().lower()
+    if mode == "auto":
+        if dtype in {"market", "market_info"}:
+            mode = "market"
+        elif dtype in {"policy", "policy_regulation"}:
+            mode = "policy"
+        elif dtype in {"social_sentiment", "social_feed"}:
+            mode = "social"
+        else:
+            # raw_note/news should maximize structure at write-time.
+            mode = "comprehensive"
+
+    include_policy = mode in {"policy", "comprehensive"}
+    include_market = mode in {"market", "comprehensive"}
+    include_sentiment = mode in {"social", "comprehensive"}
+
+    # Topic-oriented extraction is always enabled to enrich graph/read models.
+    include_company = True
+    include_product = True
+    include_operation = True
+
+    return {
+        "mode": mode,  # type: ignore[typeddict-item]
+        "include_policy": include_policy,
+        "include_market": include_market,
+        "include_sentiment": include_sentiment,
+        "include_company": include_company,
+        "include_product": include_product,
+        "include_operation": include_operation,
+    }
+
+
+def _build_structured_summary(
+    extracted_data: dict[str, Any],
+    *,
+    extraction_enabled: bool,
+    chunks_used: int,
+    extraction_mode: str,
+) -> dict[str, Any]:
+    er = extracted_data.get("entities_relations")
+    entities = er.get("entities") if isinstance(er, dict) else []
+    relations = er.get("relations") if isinstance(er, dict) else []
+    summary = {
+        "extraction_enabled": bool(extraction_enabled),
+        "extraction_mode": extraction_mode,
+        "chunks_used": int(chunks_used),
+        "entity_count": len(entities) if isinstance(entities, list) else 0,
+        "relation_count": len(relations) if isinstance(relations, list) else 0,
+        "has_policy": isinstance(extracted_data.get("policy"), dict),
+        "has_market": isinstance(extracted_data.get("market"), dict),
+        "has_sentiment": isinstance(extracted_data.get("sentiment"), dict),
+        "has_company": isinstance(extracted_data.get("company_structured"), dict),
+        "has_product": isinstance(extracted_data.get("product_structured"), dict),
+        "has_operation": isinstance(extracted_data.get("operation_structured"), dict),
+    }
+    return summary
+
+
+def _derive_publish_date_from_extracted(extracted_data: dict[str, Any]) -> date | None:
+    policy = extracted_data.get("policy")
+    if isinstance(policy, dict):
+        derived = _normalize_iso_date(policy.get("effective_date"))
+        if derived:
+            return derived
+    market = extracted_data.get("market")
+    if isinstance(market, dict):
+        derived = _normalize_iso_date(market.get("report_date"))
+        if derived:
+            return derived
+    return None
+
+
 def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[str, Any]:
     extraction_app = ExtractionApplicationService()
     now = datetime.utcnow()
@@ -174,7 +248,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
     infer_from_links = bool(payload.get("infer_from_links", True))
     enable_extraction = bool(payload.get("enable_extraction", True))
     default_doc_type = str(payload.get("default_doc_type") or "raw_note")
-    extraction_mode = str(payload.get("extraction_mode") or "auto")
+    extraction_mode = str(payload.get("extraction_mode") or "auto").strip().lower()
     overwrite_on_uri = bool(payload.get("overwrite_on_uri", False))
     chunk_size = int(payload.get("chunk_size") or 2800)
     chunk_overlap = int(payload.get("chunk_overlap") or 200)
@@ -287,33 +361,38 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                     extracted_base = doc.extracted_data if isinstance(doc.extracted_data, dict) else {}
                     extracted_base["_raw_input"] = _deep_merge_json(extracted_base.get("_raw_input", {}), raw_meta)
 
+                    mode = extraction_mode
                     if enable_extraction:
-                        mode = extraction_mode
-                        if mode == "auto":
-                            if doc_type in {"market", "market_info"}:
-                                mode = "market"
-                            elif doc_type in {"policy", "policy_regulation"}:
-                                mode = "policy"
-                            elif doc_type in {"social_sentiment", "social_feed"}:
-                                mode = "social"
-                            else:
-                                mode = "social"
+                        extraction_flags = _resolve_extraction_flags(extraction_mode, doc_type)
+                        mode = str(extraction_flags.get("mode") or extraction_mode)
 
                         extracted_parts: list[dict[str, Any]] = []
                         for chunk in chunks:
-                            if mode == "market":
-                                extracted = extraction_app.extract_structured_enriched(chunk, include_market=True)
-                            elif mode == "policy":
-                                extracted = extraction_app.extract_structured_enriched(chunk, include_policy=True)
-                            elif mode == "social":
-                                extracted = extraction_app.extract_structured_enriched(chunk, include_sentiment=True)
-                            else:
-                                extracted = extraction_app.extract_structured_enriched(chunk)
+                            extracted = extraction_app.extract_structured_enriched(
+                                chunk,
+                                include_policy=bool(extraction_flags.get("include_policy")),
+                                include_market=bool(extraction_flags.get("include_market")),
+                                include_sentiment=bool(extraction_flags.get("include_sentiment")),
+                                include_company=bool(extraction_flags.get("include_company")),
+                                include_product=bool(extraction_flags.get("include_product")),
+                                include_operation=bool(extraction_flags.get("include_operation")),
+                            )
                             if isinstance(extracted, dict) and extracted:
                                 extracted_parts.append(extracted)
 
                         if extracted_parts:
                             extracted_base = _deep_merge_json(extracted_base, _merge_extracted_batch(extracted_parts))
+                            if doc.publish_date is None:
+                                derived = _derive_publish_date_from_extracted(extracted_base)
+                                if derived:
+                                    doc.publish_date = derived
+
+                    extracted_base["_structured_summary"] = _build_structured_summary(
+                        extracted_base,
+                        extraction_enabled=enable_extraction,
+                        chunks_used=len(chunks),
+                        extraction_mode=mode,
+                    )
 
                     doc.extracted_data = extracted_base
                     item_results.append(

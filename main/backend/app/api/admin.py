@@ -157,7 +157,7 @@ class RawImportRequest(BaseModel):
     infer_from_links: bool = Field(default=True, description="从文本中识别首个 URL 作为 uri")
     enable_extraction: bool = Field(default=True, description="是否直接进入结构化提取流程")
     default_doc_type: Literal["market_info", "policy", "social_sentiment", "news", "raw_note"] = "raw_note"
-    extraction_mode: Literal["auto", "market", "policy", "social"] = "auto"
+    extraction_mode: Literal["auto", "market", "policy", "social", "comprehensive"] = "auto"
     overwrite_on_uri: bool = Field(default=False, description="相同 URI 是否覆盖已存在文档内容")
     chunk_size: int = Field(default=2800, ge=500, le=8000, description="大文本分片长度（字符）")
     chunk_overlap: int = Field(default=200, ge=0, le=1000, description="分片重叠长度（字符）")
