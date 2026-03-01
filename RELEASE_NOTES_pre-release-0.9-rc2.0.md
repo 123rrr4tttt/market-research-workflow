@@ -1,11 +1,11 @@
-# 预发布说明：v0.1.7-rc1（2026-02-26）
+# 预发布说明：v0.9-rc2.0（2026-02-26）
 
 - 版本类型：`预发布（Pre-release）`
-- 版本名称：`v0.1.7-rc1`
+- 版本名称：`v0.9-rc2.0`
 - 适用场景：团队联调、资源库/来源库稳定化验证、图谱与结构化回填验证
 
 本版本附带 `demo_proj` 演示数据包与导入脚本，支持仓库内使用与前端直接下载：
-- 数据包：`main/backend/seed_data/project_demo_proj_v0.1.7-rc1.sql`（前端下载：`/static/demo/project_demo_proj_v0.1.7-rc1.sql`）
+- 数据包：`main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql`（前端下载：`/static/demo/project_demo_proj_v0.9-rc2.0.sql`）
 - 导入脚本：`main/backend/scripts/load_demo_proj_seed.sh`（前端下载：`/static/demo/load_demo_proj_seed.sh`）
 
 ## 摘要
@@ -102,7 +102,35 @@
   - `8.5 / 8.6 部分完成`。
 - 对应可执行清单与状态口径请以 `plans/status-8x-2026-02-27.md` 与 `main/backend/docs/README.md` 为准。
 
-## 推荐验证清单（v0.1.7-rc1）
+## 8.8 测试标准化与 CI 门禁增强（2026-03-01）
+
+- 后端测试完成分层标准化：
+  - `main/backend/tests/unit`
+  - `main/backend/tests/integration`
+  - `main/backend/tests/contract`
+  - `main/backend/tests/e2e`
+- 新增 `pytest` 严格 marker 约束（`main/backend/pytest.ini`）：
+  - `unit / integration / contract / e2e / slow / external`
+  - 启用 `--strict-markers`
+- GitHub Actions 后端测试 workflow 升级为并行 job：
+  - `unit-check`
+  - `integration-check`
+  - `contract-check`（PR 跳过，main/schedule/manual 执行）
+  - `e2e-check`（PR 跳过，main/schedule/manual 执行）
+  - `docker-check`（保留 compose 测试与失败诊断 artifact）
+- 增加 `concurrency`（同一 ref 新运行取消旧运行）和 pip 缓存，加速 CI 反馈。
+- 新增 `e2e` 冒烟用例，覆盖：
+  - `/api/v1/health`
+  - `/api/v1/health/deep`
+  - `X-Project-Key` 请求头上下文与 header/query 优先级
+- 本地分层验证（`main/backend`）：
+  - `pytest -m unit -q`：18 passed
+  - `pytest -m integration -q`：17 passed
+  - `pytest -m contract -q`：8 passed
+  - `pytest -m e2e -q`：4 passed
+  - `pytest -q`：47 passed
+
+## 推荐验证清单（v0.9-rc2.0）
 
 1. 资源库页面一键生成/更新 Handler 聚类是否成功生成 `handler.cluster.*` 项
 2. 运行 `handler.cluster.search_template` 是否能并行命中多个站点入口

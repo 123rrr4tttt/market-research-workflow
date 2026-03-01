@@ -1,7 +1,7 @@
 # 市场情报（market-intel）项目说明
 
-> 最后更新：2026-02-28  
-> 当前版本：`v0.1.7-rc1`（预发布，团队联调）
+> 最后更新：2026-03-01  
+> 当前版本：`v0.9-rc2.0`（预发布，团队联调）
 
 本仓库实现一体化信息工作流：多来源采集 -> 结构化处理 -> 索引检索 -> 可视化与运维管理。  
 适用于政策、市场、新闻、社媒等主题的数据采集与分析。
@@ -255,7 +255,40 @@ curl "$BASE/resource_pool/urls?project_key=demo_proj&scope=effective&page=1&page
 
 说明：部分接口要求 `project_key` 参数或 `X-Project-Key` 请求头。
 
-## 9. 运维与排障
+## 9. 测试分层与 CI 门禁
+
+后端测试目录：`main/backend/tests`，按分层组织为：
+
+- `unit`：纯逻辑测试，快速反馈
+- `integration`：模块装配与协作测试
+- `contract`：API Envelope / OpenAPI 契约稳定性测试
+- `e2e`：关键链路冒烟测试
+
+`pytest` 已启用 `--strict-markers`，marker 定义见 `main/backend/pytest.ini`。
+
+本地执行（仓库根目录）：
+
+```bash
+cp main/backend/.env.example main/backend/.env
+cd main/backend
+.venv311/bin/python -m pytest -m unit -q
+.venv311/bin/python -m pytest -m integration -q
+.venv311/bin/python -m pytest -m contract -q
+.venv311/bin/python -m pytest -m e2e -q
+```
+
+CI 门禁（`.github/workflows/backend-tests.yml`）：
+
+- `pull_request`：`unit-check + integration-check + docker-check`
+- `main` 分支 `push` / `schedule` / `workflow_dispatch`：`unit-check + integration-check + contract-check + e2e-check + docker-check`
+
+当前 `e2e` 冒烟已覆盖：
+
+- `/api/v1/health`
+- `/api/v1/health/deep`
+- `X-Project-Key` 请求头解析与 header/query 优先级
+
+## 10. 运维与排障
 
 常用命令：
 
@@ -282,15 +315,15 @@ cd main/ops
 ./test-docker-startup.sh
 ```
 
-## 10. 演示数据
+## 11. 演示数据
 
-- SQL 数据包：`main/backend/seed_data/project_demo_proj_v0.1.7-rc1.sql`
+- SQL 数据包：`main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql`
 - 导入脚本：`main/backend/scripts/load_demo_proj_seed.sh`
 - 前端静态下载：
-  - `/static/demo/project_demo_proj_v0.1.7-rc1.sql`
+  - `/static/demo/project_demo_proj_v0.9-rc2.0.sql`
   - `/static/demo/load_demo_proj_seed.sh`
 
-## 11. 文档导航
+## 12. 文档导航
 
 - 快速启动：`main/QUICKSTART.md`
 - Docker 运维：`main/ops/README.md`
@@ -302,10 +335,11 @@ cd main/ops
 - 资源库定义：`main/backend/docs/RESOURCE_LIBRARY_DEFINITION.md`
 - 资源池 API：`main/backend/docs/RESOURCE_POOL_EXTRACTION_API.md`
 - 前端迁移契约：`main/backend/docs/FRONTEND_MODERNIZATION_API_MAP_2026-02-27.md`
+- 后端测试分层说明：`main/backend/tests/README.md`
 - 迭代计划：`plans/status-8x-2026-02-27.md`
-- 版本说明：`RELEASE_NOTES_pre-release-1.7.md`
+- 版本说明：`RELEASE_NOTES_pre-release-0.9-rc2.0.md`
 
-## 12. 当前已知风险（供联调参考）
+## 13. 当前已知风险（供联调参考）
 
 - 新旧前端并行，功能存在重叠，迁移仍在进行中。
 - `resource_pool` 路由存在下划线/连字符兼容写法，建议逐步统一。
@@ -313,6 +347,6 @@ cd main/ops
 - 异步任务依赖 Celery/Redis，排查问题需结合 worker 日志。
 - 外部搜索/社媒/LLM 供应商能力受 API Key 与配额影响。
 
-## 13. 协作规范
+## 14. 协作规范
 
 代码协作与分支策略见：`GIT_WORKFLOW.md`

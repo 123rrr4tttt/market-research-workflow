@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-SEED_FILE="${1:-$BACKEND_DIR/seed_data/project_demo_proj_v0.1.7-rc1.sql}"
+SEED_FILE="${1:-$BACKEND_DIR/seed_data/project_demo_proj_v0.9-rc2.0.sql}"
 DB_CONTAINER="${DB_CONTAINER:-}"
 USE_LOCAL="${USE_LOCAL:-0}"
 CLEAN_EXISTING="${CLEAN_EXISTING:-0}"
