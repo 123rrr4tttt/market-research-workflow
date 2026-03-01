@@ -13,6 +13,7 @@ export const endpoints = {
   projects: {
     root: `${API_BASE}/projects`,
     byKey: (projectKey: string) => `${API_BASE}/projects/${encodeURIComponent(projectKey)}`,
+    injectInitial: `${API_BASE}/projects/inject-initial`,
     autoCreate: `${API_BASE}/projects/auto-create`,
     activate: (projectKey: string) => `${API_BASE}/projects/${encodeURIComponent(projectKey)}/activate`,
     archive: (projectKey: string) => `${API_BASE}/projects/${encodeURIComponent(projectKey)}/archive`,

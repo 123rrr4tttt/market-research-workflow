@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import FigmaSideNav, { type NavMode } from '../../components/FigmaSideNav'
-import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKey, listProjects } from '../../lib/api'
+import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKey, injectInitialProject, listProjects } from '../../lib/api'
 import { queryKeys } from '../../lib/queryKeys'
 import { defaultNavMode, hashByMode, parseLegacyHashToMode } from '../navigation'
 
@@ -21,6 +21,7 @@ const WorkflowPage = lazy(() => import('../../pages/WorkflowPage'))
 type FigmaTheme = 'light' | 'dark' | 'brand'
 
 export default function AppShell() {
+  const queryClient = useQueryClient()
   const [viewMode, setViewMode] = useState<NavMode>(() => parseLegacyHashToMode(window.location.hash) || defaultNavMode)
   const [figmaTheme] = useState<FigmaTheme>('dark')
   const [projectKey, setProjectKeyState] = useState(getProjectKey())
@@ -51,6 +52,32 @@ export default function AppShell() {
     },
     onError: (error) => {
       setSwitchMessage(`切换失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    },
+  })
+
+  const injectInitialMutation = useMutation({
+    mutationFn: async (targetProjectKey: string) => {
+      const target = String(targetProjectKey || '').trim()
+      if (!target) throw new Error('请选择目标项目')
+      if (target === 'demo_proj') throw new Error('demo_proj 是模板项目，不允许作为注入目标')
+      return injectInitialProject({
+        source_project_key: 'demo_proj',
+        project_key: target,
+        overwrite: true,
+        activate: true,
+      })
+    },
+    onSuccess: async (result) => {
+      const next = String(result?.project_key || '').trim()
+      if (next) {
+        setProjectKeyState(next)
+        setPendingProjectKey(next)
+      }
+      setSwitchMessage(`初始化注入完成: ${next || pendingProjectKey}`)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })
+    },
+    onError: (error) => {
+      setSwitchMessage(`初始化注入失败: ${error instanceof Error ? error.message : '未知错误'}`)
     },
   })
 
@@ -179,6 +206,25 @@ export default function AppShell() {
             disabled={activateMutation.isPending || !pendingProjectKey || pendingProjectKey === projectKey}
           >
             {activateMutation.isPending ? '切换中...' : '确认切换项目'}
+          </button>
+          <button
+            onClick={() => {
+              const target = String(pendingProjectKey || '').trim()
+              if (!target) return
+              const ok = window.confirm(`将从 demo_proj 注入初始化到项目 ${target}（覆盖模式）并激活，是否继续？`)
+              if (!ok) return
+              injectInitialMutation.mutate(target)
+            }}
+            disabled={injectInitialMutation.isPending || !pendingProjectKey}
+            title="参考 legacy 逻辑：从 demo_proj 注入初始化到当前目标项目"
+          >
+            {injectInitialMutation.isPending ? '注入中...' : '注入初始化项目'}
+          </button>
+          <button
+            onClick={() => handleModeChange('sysProjects')}
+            title="跳转到项目管理页面创建新项目"
+          >
+            创建新项目
           </button>
           {switchMessage ? <span className="status-line app-status-bar__message">{switchMessage}</span> : null}
         </div>

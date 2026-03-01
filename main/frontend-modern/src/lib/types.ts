@@ -60,6 +60,23 @@ export type AutoCreateProjectPayload = {
   }>
 }
 
+export type InjectInitialProjectPayload = {
+  project_key?: string | null
+  name?: string | null
+  source_project_key?: string
+  overwrite?: boolean
+  activate?: boolean
+}
+
+export type InjectInitialProjectResult = {
+  project_key: string
+  name?: string
+  schema_name?: string
+  source_project_key?: string
+  activated?: boolean
+  copied_counts?: Record<string, number>
+}
+
 export type AutoCreateProjectResult = {
   project_key: string
   name?: string

@@ -28,6 +28,8 @@ import type {
   AdminStats,
   AutoCreateProjectPayload,
   AutoCreateProjectResult,
+  InjectInitialProjectPayload,
+  InjectInitialProjectResult,
   AdminTopicExtractPayload,
   AdminTopicExtractResponse,
   DashboardStats,
@@ -110,6 +112,16 @@ export async function createProject(payload: { project_key: string; name: string
 
 export async function autoCreateProject(payload: AutoCreateProjectPayload) {
   return post<AutoCreateProjectResult>(endpoints.projects.autoCreate, payload)
+}
+
+export async function injectInitialProject(payload: InjectInitialProjectPayload) {
+  return post<InjectInitialProjectResult>(endpoints.projects.injectInitial, {
+    source_project_key: payload.source_project_key || 'demo_proj',
+    project_key: payload.project_key || null,
+    name: payload.name || null,
+    overwrite: payload.overwrite ?? true,
+    activate: payload.activate ?? true,
+  })
 }
 
 export async function updateProject(projectKey: string, payload: { name?: string; enabled?: boolean }) {
