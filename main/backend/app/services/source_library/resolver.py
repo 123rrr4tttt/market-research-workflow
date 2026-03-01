@@ -57,6 +57,14 @@ def _inject_url_params_for_channel(
     per_url_params.setdefault("url", url_str)
     per_url_params["urls"] = [url_str]
 
+    # Crawler providers consume runtime payload from params.arguments.
+    provider_type = str(channel.get("provider_type") or "").strip().lower()
+    if provider_type in {"scrapy", "crawlee", "meltano"}:
+        arguments = _as_dict(per_url_params.get("arguments"))
+        arguments.setdefault("url", url_str)
+        arguments.setdefault("urls", [url_str])
+        per_url_params["arguments"] = arguments
+
     if provider == "generic_web":
         per_url_params.setdefault("site_url", url_str)
         if kind == "rss":
@@ -68,6 +76,42 @@ def _inject_url_params_for_channel(
             if "{{q}}" in url_str and "template" not in per_url_params:
                 per_url_params["template"] = url_str
     return per_url_params
+
+
+def _is_crawler_channel(channel: Dict[str, Any] | None) -> bool:
+    if not isinstance(channel, dict):
+        return False
+    provider_type = str(channel.get("provider_type") or "").strip().lower()
+    return provider_type in {"scrapy", "crawlee", "meltano"}
+
+
+def _prefer_crawler_channel_key(
+    *,
+    channel_map: Dict[str, Dict[str, Any]],
+    project_key: str | None,
+) -> str | None:
+    candidates: list[str] = []
+    for channel_key, channel in channel_map.items():
+        if not channel.get("enabled", True):
+            continue
+        if _is_crawler_channel(channel):
+            candidates.append(str(channel_key))
+    if not candidates:
+        return None
+
+    pk = str(project_key or "").strip().lower()
+
+    def _score(key: str) -> tuple[int, str]:
+        lowered = key.lower()
+        if pk and lowered == f"crawler.{pk}":
+            return (0, lowered)
+        if pk and lowered.startswith(f"crawler.{pk}."):
+            return (1, lowered)
+        if lowered.startswith("crawler."):
+            return (2, lowered)
+        return (3, lowered)
+
+    return sorted(candidates, key=_score)[0]
 
 
 def _channel_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
@@ -491,6 +535,11 @@ def run_item_with_url_routing(
     errors: List[str] = []
     query_terms = params.get("query_terms") or params.get("keywords") or params.get("search_keywords") or params.get("base_keywords") or params.get("topic_keywords")
     has_query_terms = isinstance(query_terms, list) and any(str(x or "").strip() for x in query_terms)
+    prefer_crawler_first = bool(params.get("prefer_crawler_first", True))
+    preferred_crawler_channel_key = _prefer_crawler_channel_key(
+        channel_map=channel_map,
+        project_key=project_key,
+    ) if prefer_crawler_first else None
 
     for url in urls:
         url_str = str(url).strip() if url else ""
@@ -498,10 +547,16 @@ def run_item_with_url_routing(
             by_url.append({"url": url_str or str(url), "channel_key": None, "error": "invalid url", "result": None})
             continue
 
-        channel_key = resolve_channel_for_url(url_str, project_key, has_query_terms=has_query_terms)
+        channel_key = preferred_crawler_channel_key or resolve_channel_for_url(
+            url_str,
+            project_key,
+            has_query_terms=has_query_terms,
+        )
         channel = channel_map.get(channel_key)
         if channel is None:
             channel = channel_map.get("url_pool")
+            if channel is not None:
+                channel_key = "url_pool"
         if channel is None:
             by_url.append({"url": url_str, "channel_key": channel_key, "error": "channel not found", "result": None})
             continue
