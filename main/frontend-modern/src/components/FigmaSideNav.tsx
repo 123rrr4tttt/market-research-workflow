@@ -17,6 +17,7 @@ import {
   Network,
   Package,
   Puzzle,
+  Radar,
   Settings2,
   ShoppingBag,
   ShoppingCart,
@@ -50,6 +51,7 @@ export type NavMode =
   | 'flowBoard'
   | 'flowWorkflow'
   | 'sysProjects'
+  | 'sysCrawler'
   | 'sysResource'
   | 'sysBackend'
   | 'sysSettings'
@@ -108,6 +110,7 @@ const groups: Array<{ title: string; items: Array<{ key: NavMode; label: string 
     title: '系统管理',
     items: [
       { key: 'sysProjects', label: '项目管理' },
+      { key: 'sysCrawler', label: '爬虫管理' },
       { key: 'sysResource', label: '信息资源库管理' },
       { key: 'sysBackend', label: '后端监控' },
       { key: 'sysSettings', label: '系统设置' },
@@ -140,6 +143,7 @@ const iconByLabel: Record<string, ComponentType<{ size?: number; className?: str
   看板: TrendingUp,
   工作流模板: TrendingUp,
   项目管理: Folders,
+  爬虫管理: Radar,
   信息资源库管理: DatabaseZap,
   后端监控: Layers,
   系统设置: Settings2,

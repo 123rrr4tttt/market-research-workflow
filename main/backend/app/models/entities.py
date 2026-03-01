@@ -490,3 +490,64 @@ class IngestConfig(Base):
     updated_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class CrawlerProject(BigIDMixin, Base):
+    """Crawler project registry stored in public schema."""
+
+    __tablename__ = "crawler_projects"
+    __table_args__ = (
+        UniqueConstraint("project_key", name="uq_crawler_projects_project_key"),
+        {"schema": "public"},
+    )
+
+    project_key = Column(String(64), nullable=False, unique=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    source_type = Column(String(32), nullable=False, server_default="manual")
+    source_uri = Column(Text, nullable=True)
+    provider = Column(String(64), nullable=False, server_default="scrapyd")
+    status = Column(String(32), nullable=False, server_default="imported")
+    current_version = Column(String(128), nullable=True)
+    deployed_version = Column(String(128), nullable=True)
+    previous_version = Column(String(128), nullable=True)
+    import_payload = Column(JSONB, nullable=True)
+    analysis_plan = Column(JSONB, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CrawlerDeployRun(BigIDMixin, Base):
+    """Deploy/Rollback run tracking for crawler projects."""
+
+    __tablename__ = "crawler_deploy_runs"
+    __table_args__ = (
+        {"schema": "public"},
+    )
+
+    crawler_project_id = Column(
+        BigInteger,
+        ForeignKey("public.crawler_projects.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    action = Column(String(16), nullable=False)  # deploy | rollback
+    status = Column(String(16), nullable=False, server_default="running")
+    requested_version = Column(String(128), nullable=True)
+    from_version = Column(String(128), nullable=True)
+    to_version = Column(String(128), nullable=True)
+    planner_mode = Column(String(16), nullable=False, server_default="heuristic")
+    plan = Column(JSONB, nullable=True)
+    external_provider = Column(String(64), nullable=True)
+    external_job_id = Column(String(255), nullable=True)
+    error = Column(Text, nullable=True)
+    started_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

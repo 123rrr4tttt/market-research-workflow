@@ -19,6 +19,17 @@ export const endpoints = {
     archive: (projectKey: string) => `${API_BASE}/projects/${encodeURIComponent(projectKey)}/archive`,
     restore: (projectKey: string) => `${API_BASE}/projects/${encodeURIComponent(projectKey)}/restore`,
   },
+  crawler: {
+    projects: `${API_BASE}/crawler/projects`,
+    projectByKey: (crawlerProjectKey: string) => `${API_BASE}/crawler/projects/${encodeURIComponent(crawlerProjectKey)}`,
+    importProject: `${API_BASE}/crawler/projects/import`,
+    deploy: (crawlerProjectKey: string) => `${API_BASE}/crawler/projects/${encodeURIComponent(crawlerProjectKey)}/deploy`,
+    rollback: (crawlerProjectKey: string) => `${API_BASE}/crawler/projects/${encodeURIComponent(crawlerProjectKey)}/rollback`,
+    deployRuns: `${API_BASE}/crawler/deploy-runs`,
+    deployRunById: (runId: string | number) => `${API_BASE}/crawler/deploy-runs/${encodeURIComponent(String(runId))}`,
+    deployRunsByProject: (crawlerProjectKey: string) =>
+      `${API_BASE}/crawler/projects/${encodeURIComponent(crawlerProjectKey)}/deploy-runs`,
+  },
   sourceLibrary: {
     channels: `${API_BASE}/source_library/channels`,
     channelsQuery: (query: URLSearchParams | string) => withQuery(`${API_BASE}/source_library/channels`, query),

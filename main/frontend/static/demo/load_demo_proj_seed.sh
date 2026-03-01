@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-SEED_FILE="${1:-main/backend/seed_data/project_demo_proj_v0.1.5-rc1.sql}"
+if [[ $# -ge 1 ]]; then
+  SEED_FILE="$1"
+else
+  LATEST_SEED="$(ls -1 main/backend/seed_data/project_demo_proj*.sql 2>/dev/null | sort -V | tail -n1 || true)"
+  SEED_FILE="${LATEST_SEED:-main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql}"
+fi
 DB_CONTAINER="${DB_CONTAINER:-ops-db-1}"
 DB_NAME="${DB_NAME:-postgres}"
 DB_USER="${DB_USER:-postgres}"

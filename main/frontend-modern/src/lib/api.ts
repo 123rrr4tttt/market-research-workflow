@@ -9,6 +9,15 @@ import {
   setProjectKey,
 } from './api/client'
 import { fetchEnvSettings, saveEnvSettings } from './api/services/config'
+import {
+  deployCrawlerProject as deployCrawlerProjectByKey,
+  fetchCrawlerDeployRunDetail,
+  fetchCrawlerDeployRuns,
+  fetchCrawlerProjectDetail,
+  fetchCrawlerProjects,
+  importCrawlerProject as createCrawlerProjectImport,
+  rollbackCrawlerProject as rollbackCrawlerProjectByKey,
+} from './api/services/crawlers'
 import { fetchDeepHealth, fetchHealth } from './api/services/health'
 import {
   activateProjectByKey,
@@ -28,6 +37,10 @@ import type {
   AdminStats,
   AutoCreateProjectPayload,
   AutoCreateProjectResult,
+  CrawlerDeployRunItem,
+  CrawlerProjectDeployPayload,
+  CrawlerProjectImportPayload,
+  CrawlerProjectRollbackPayload,
   InjectInitialProjectPayload,
   InjectInitialProjectResult,
   AdminTopicExtractPayload,
@@ -138,6 +151,34 @@ export async function restoreProject(projectKey: string) {
 
 export async function deleteProject(projectKey: string, hard = false) {
   return deleteProjectRecord(projectKey, hard)
+}
+
+export async function listCrawlerProjects() {
+  return fetchCrawlerProjects()
+}
+
+export async function getCrawlerProjectDetail(crawlerProjectKey: string) {
+  return fetchCrawlerProjectDetail(crawlerProjectKey)
+}
+
+export async function importCrawlerProject(payload: CrawlerProjectImportPayload) {
+  return createCrawlerProjectImport(payload)
+}
+
+export async function deployCrawlerProject(projectKey: string, payload: CrawlerProjectDeployPayload = {}) {
+  return deployCrawlerProjectByKey(projectKey, payload)
+}
+
+export async function rollbackCrawlerProject(projectKey: string, payload: CrawlerProjectRollbackPayload = {}) {
+  return rollbackCrawlerProjectByKey(projectKey, payload)
+}
+
+export async function listCrawlerDeployRuns(params?: { crawlerProjectKey?: string; limit?: number }) {
+  return fetchCrawlerDeployRuns(params)
+}
+
+export async function getCrawlerDeployRunDetail(runId: string | number): Promise<CrawlerDeployRunItem> {
+  return fetchCrawlerDeployRunDetail(runId)
 }
 
 export async function listSourceItems() {

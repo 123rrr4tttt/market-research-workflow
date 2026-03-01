@@ -80,3 +80,44 @@
 2. 紧接 `T02/T06/T14`
 3. 再推进 `T09/T12/T16` 与测试 `T20/T21`
 4. 最后 `T13/T15/T22/T23`，完成后做 `T24` 灰度发布
+
+## 7. 2026-03-01 当日落实状态（多 Agent 原子并行）
+
+本轮按“爬虫管理独立页面 + 自动接入/部署编排”目标落地，状态如下：
+
+- [x] A01 新增后端爬虫管理 API 路由：`/api/v1/crawler/*`
+- [x] A02 新增爬虫项目与部署运行表模型：`CrawlerProject` / `CrawlerDeployRun`
+- [x] A03 新增对应 migration：`20260301_000003_add_crawler_management_tables.py`
+- [x] A04 新增爬虫管理 service（导入/列表/详情/部署/回滚/运行查询）
+- [x] A05 新增 Scrapyd 编排层（addversion/delversion + source_library 自动注册）
+- [x] A06 新增 Celery 原子任务（deploy/register/orchestrate/rollback/provider-toggle）
+- [x] A07 前端新增独立页面 `CrawlerManagePage`（与信息资源管理拆分）
+- [x] A08 前端导航接入新页面入口 `crawler-management.html`
+- [x] A09 前端 API 契约补齐（crawler endpoints/types/services）
+- [x] A10 关键契约修复：后端按 `project_key` 路由，前后端 deploy/rollback 响应对齐
+- [x] A11 支持“仅 URL 导入”的最小自动化路径（无 egg 时 registration-only）
+- [x] A12 新增/补充测试文件（bridge / contract）
+
+### 7.1 原子任务产出文件（本轮）
+
+- `main/backend/app/api/crawler.py`
+- `main/backend/app/services/crawlers_mgmt/service.py`
+- `main/backend/app/services/crawlers_mgmt/orchestration.py`
+- `main/backend/app/services/crawlers_mgmt/__init__.py`
+- `main/backend/app/services/tasks.py`
+- `main/backend/app/models/entities.py`
+- `main/backend/migrations/versions/20260301_000003_add_crawler_management_tables.py`
+- `main/frontend-modern/src/pages/CrawlerManagePage.tsx`
+- `main/frontend-modern/src/app/shell/AppShell.tsx`
+- `main/frontend-modern/src/app/navigation/index.ts`
+- `main/frontend-modern/src/lib/api/endpoints.ts`
+- `main/frontend-modern/src/lib/api/services/crawlers.ts`
+- `main/frontend-modern/src/lib/api.ts`
+- `main/frontend-modern/src/lib/types.ts`
+
+### 7.2 验收记录
+
+1. 前端构建：`npm run build` 通过（`main/frontend-modern`）。
+2. 后端语法检查：`python3 -m py_compile` 通过（变更文件）。
+3. 后端新增测试：`python3 -m pytest` 执行结果为 `skip`（当前环境缺少完整依赖）。
+4. 后端应用启动验证未完成：当前环境缺少 `fastapi` 运行依赖。

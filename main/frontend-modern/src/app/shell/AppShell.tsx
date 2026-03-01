@@ -12,6 +12,7 @@ const OpsPage = lazy(() => import('../../pages/OpsPage'))
 const PolicyPage = lazy(() => import('../../pages/PolicyPage'))
 const ProcessPage = lazy(() => import('../../pages/ProcessPage'))
 const ProjectsPage = lazy(() => import('../../pages/ProjectsPage'))
+const CrawlerManagePage = lazy(() => import('../../pages/CrawlerManagePage'))
 const GraphPage = lazy(() => import('../../pages/GraphPage'))
 const ResourcePage = lazy(() => import('../../pages/ResourcePage'))
 const RawDataPage = lazy(() => import('../../pages/RawDataPage'))
@@ -105,6 +106,7 @@ export default function AppShell() {
     flowBoard: '看板',
     flowWorkflow: '工作流模板',
     sysProjects: '项目管理',
+    sysCrawler: '爬虫管理',
     sysResource: '信息资源库管理',
     sysBackend: '后端监控',
     sysSettings: '系统设置',
@@ -152,6 +154,7 @@ export default function AppShell() {
     if (viewMode === 'graphOperation') return <GraphPage projectKey={projectKey} variant="graphOperation" />
     if (viewMode === 'graphDeep') return <GraphPage projectKey={projectKey} variant="graphDeep" />
     if (viewMode === 'sysProjects') return <ProjectsPage projectKey={projectKey} onProjectChange={setProjectKeyState} />
+    if (viewMode === 'sysCrawler') return <CrawlerManagePage projectKey={projectKey} />
     if (viewMode === 'sysResource') return <ResourcePage projectKey={projectKey} variant="resource" />
     if (viewMode === 'flowExtract') return <ResourcePage projectKey={projectKey} variant="extract" />
     if (viewMode === 'sysSettings') return <SettingsPage projectKey={projectKey} variant="settings" />
@@ -216,7 +219,7 @@ export default function AppShell() {
               injectInitialMutation.mutate(target)
             }}
             disabled={injectInitialMutation.isPending || !pendingProjectKey}
-            title="参考 legacy 逻辑：从 demo_proj 注入初始化到当前目标项目"
+            title="从内置存档模板（demo_proj）注入初始化到当前目标项目；缺失时后端会自动引导模板"
           >
             {injectInitialMutation.isPending ? '注入中...' : '注入初始化项目'}
           </button>

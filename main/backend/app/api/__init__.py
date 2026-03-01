@@ -19,6 +19,7 @@ from .governance import router as governance_router
 from .source_library import router as source_library_router
 from .project_customization import router as project_customization_router
 from .resource_pool import router as resource_pool_router
+from .crawler import router as crawler_router
 
 
 router = APIRouter()
@@ -41,5 +42,5 @@ router.include_router(governance_router)
 router.include_router(source_library_router)
 router.include_router(project_customization_router)
 router.include_router(resource_pool_router)
-
+router.include_router(crawler_router)
 

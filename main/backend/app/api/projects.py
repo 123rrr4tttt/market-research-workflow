@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -118,6 +120,82 @@ INITIAL_PROJECT_TABLES = [
 ]
 
 llm_config_service = LlmConfigService()
+
+
+def _backend_root_dir() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _locate_demo_seed_file() -> Path | None:
+    seed_dir = _backend_root_dir() / "seed_data"
+    candidates = list(seed_dir.glob("project_demo_proj*.sql"))
+    if not candidates:
+        return None
+
+    def _version_key(path: Path) -> tuple[int, ...]:
+        # e.g. project_demo_proj_v0.9-rc2.0.sql -> (0, 9, 2, 0)
+        nums = re.findall(r"\d+", path.name)
+        return tuple(int(n) for n in nums) if nums else (0,)
+
+    return sorted(candidates, key=_version_key)[-1]
+
+
+def _demo_schema_has_seed_data(schema_name: str) -> bool:
+    with engine.begin() as conn:
+        table_exists = conn.execute(
+            text(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema=:schema AND table_name='documents')"
+            ),
+            {"schema": schema_name},
+        ).scalar()
+        if not table_exists:
+            return False
+        count = conn.execute(text(f'SELECT COUNT(*) FROM "{schema_name}"."documents"')).scalar()
+        return int(count or 0) > 0
+
+
+def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
+    if source_key != "demo_proj":
+        return
+    source_schema = project_schema_name(source_key)
+    if _demo_schema_has_seed_data(source_schema):
+        return
+
+    seed_file = _locate_demo_seed_file()
+    if not seed_file:
+        raise HTTPException(status_code=500, detail="demo seed file not found under backend/seed_data")
+
+    sql_text = seed_file.read_text(encoding="utf-8")
+    # Data-only dumps may include sequence setval statements that can fail on fresh schemas.
+    filtered_sql = "\n".join(
+        line for line in sql_text.splitlines() if not re.search(r"pg_catalog\.setval", line, re.IGNORECASE)
+    )
+
+    with engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{source_schema}"'))
+        conn.exec_driver_sql(filtered_sql)
+
+    # Ensure full tenant table structure + schema-local id sequence defaults.
+    _create_tenant_tables_best_effort(source_schema)
+
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            row = session.execute(select(Project).where(Project.project_key == source_key)).scalar_one_or_none()
+            if row is None:
+                session.add(
+                    Project(
+                        project_key=source_key,
+                        name="Demo Project",
+                        schema_name=source_schema,
+                        enabled=True,
+                        is_active=False,
+                    )
+                )
+            else:
+                row.schema_name = source_schema
+                row.enabled = True
+            session.commit()
 PROMPT_FACTORY_SERVICE_NAME = "prompt_factory"
 PROMPT_FACTORY_TARGET_SERVICES = [
     "keyword_generation",
@@ -425,6 +503,9 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
     source_schema = project_schema_name(source_key)
     target_schema = project_schema_name(target_key)
     target_name = (payload.name or f"{source_key}（初始注入）").strip()
+
+    # New-deploy convenience: lazily bootstrap demo template from bundled seed archive.
+    _bootstrap_demo_seed_if_needed(source_key)
 
     with engine.begin() as conn:
         source_exists = conn.execute(

@@ -26,6 +26,7 @@ export const hashByMode: Record<NavMode, string> = {
   flowBoard: '#dashboard.html#board',
   flowWorkflow: '#workflow-designer.html',
   sysProjects: '#project-management.html',
+  sysCrawler: '#crawler-management.html',
   sysResource: '#resource-pool-management.html',
   sysBackend: '#backend-dashboard.html',
   sysSettings: '#settings.html',
@@ -99,6 +100,7 @@ export function parseLegacyHashToMode(rawHash: string): NavMode | null {
   if (path.includes('raw-data-processing.html') || path.includes('raw-data.html')) return 'flowRawData'
   if (path.includes('workflow-designer.html')) return 'flowWorkflow'
   if (path.includes('project-management.html')) return 'sysProjects'
+  if (path.includes('crawler-management.html')) return 'sysCrawler'
   if (path.includes('resource-pool-management.html')) return 'sysResource'
   if (path.includes('backend-dashboard.html')) return 'sysBackend'
   if (path.includes('ingest.html')) {

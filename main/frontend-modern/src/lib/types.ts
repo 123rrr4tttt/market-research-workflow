@@ -39,6 +39,65 @@ export type ProjectItem = {
   is_active?: boolean
 }
 
+export type CrawlerProjectItem = {
+  id?: number
+  project_key: string
+  name?: string
+  description?: string | null
+  source_type?: string
+  source_uri?: string | null
+  provider?: string
+  status?: string
+  current_version?: string | null
+  deployed_version?: string | null
+  previous_version?: string | null
+  import_payload?: Record<string, unknown> | null
+  analysis_plan?: Record<string, unknown> | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export type CrawlerDeployRunItem = {
+  id?: number
+  crawler_project_id?: number
+  crawler_project_key?: string
+  action?: 'deploy' | 'rollback' | string
+  status?: string
+  requested_version?: string | null
+  from_version?: string | null
+  to_version?: string | null
+  planner_mode?: string
+  plan?: Record<string, unknown> | null
+  external_provider?: string | null
+  external_job_id?: string | null
+  error?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+  created_at?: string | null
+}
+
+export type CrawlerProjectImportPayload = {
+  project_key?: string | null
+  name?: string | null
+  repo_url: string
+  branch?: string | null
+  provider_hint?: string | null
+  description?: string | null
+  enable_now?: boolean
+}
+
+export type CrawlerProjectDeployPayload = {
+  requested_version?: string | null
+  planner_mode?: string | null
+  async_mode?: boolean
+}
+
+export type CrawlerProjectRollbackPayload = {
+  to_version?: string | null
+  planner_mode?: string | null
+  async_mode?: boolean
+}
+
 export type AutoCreateProjectPayload = {
   project_name: string
   project_key?: string | null
@@ -305,6 +364,7 @@ export type RouteToken =
   | 'ingest-specialized'
   | 'raw-data-processing'
   | 'resource-pool-management'
+  | 'crawler-management'
   | 'project-management'
   | 'settings'
   | 'settings-llm-config'

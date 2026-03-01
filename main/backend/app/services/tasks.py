@@ -51,6 +51,17 @@ def _map_provider_status(status: str | None, default: str = "running") -> str:
     return default
 
 
+def _map_control_status(status: str | None, default: str = "running") -> str:
+    value = str(status or "").strip().lower()
+    if value in {"ok", "completed", "finished", "done", "success", "successful"}:
+        return "completed"
+    if value in {"queued", "accepted", "running", "started", "processing", "retry"}:
+        return "running"
+    if value in {"failed", "failure", "error", "cancelled", "canceled"}:
+        return "failed"
+    return default
+
+
 def _load_crawlers_bridge_api():
     try:
         module = import_module(".crawlers.bridge", package=__package__)
@@ -612,4 +623,287 @@ def task_poll_crawler_job(
         }
     except Exception as exc:
         fail_job(int(job_id), str(exc), external_provider=str(provider), external_job_id=str(provider_job_id))
+        raise
+
+
+@celery_app.task
+def task_crawler_deploy_version(
+    project: str,
+    version: str,
+    egg_file_path: str | None = None,
+    egg_content_b64: str | None = None,
+    base_url: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    from .crawlers_mgmt import deploy_scrapy_project_version
+    from .job_logger import fail_job, update_job_tracking
+
+    try:
+        result = deploy_scrapy_project_version(
+            project=project,
+            version=version,
+            egg_file_path=egg_file_path,
+            egg_content_b64=egg_content_b64,
+            base_url=base_url,
+            metadata=metadata or {},
+        )
+        if job_id is not None:
+            update_job_tracking(
+                int(job_id),
+                status=_map_control_status(result.get("provider_status")),
+                result={"crawler_deploy": result},
+            )
+        return result
+    except Exception as exc:
+        if job_id is not None:
+            fail_job(int(job_id), str(exc), external_provider="scrapy")
+        raise
+
+
+@celery_app.task
+def task_register_source_library_scrapy_binding(
+    project_key: str,
+    channel_key: str,
+    item_key: str,
+    spider: str,
+    scrapy_project: str,
+    channel_name: str | None = None,
+    item_name: str | None = None,
+    description: str | None = None,
+    arguments: dict[str, Any] | None = None,
+    settings: dict[str, Any] | None = None,
+    item_params_patch: dict[str, Any] | None = None,
+    channel_extra_patch: dict[str, Any] | None = None,
+    item_extra_patch: dict[str, Any] | None = None,
+    enabled: bool = True,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    from .crawlers_mgmt import register_or_update_source_library_scrapy_binding
+    from .job_logger import fail_job, update_job_tracking
+
+    try:
+        result = register_or_update_source_library_scrapy_binding(
+            project_key=project_key,
+            channel_key=channel_key,
+            item_key=item_key,
+            spider=spider,
+            scrapy_project=scrapy_project,
+            channel_name=channel_name,
+            item_name=item_name,
+            description=description,
+            arguments=arguments or {},
+            settings=settings or {},
+            item_params_patch=item_params_patch or {},
+            channel_extra_patch=channel_extra_patch or {},
+            item_extra_patch=item_extra_patch or {},
+            enabled=enabled,
+        )
+        if job_id is not None:
+            update_job_tracking(
+                int(job_id),
+                status="running",
+                result={"crawler_auto_register": result},
+            )
+        return result
+    except Exception as exc:
+        if job_id is not None:
+            fail_job(int(job_id), str(exc), external_provider="scrapy")
+        raise
+
+
+@celery_app.task
+def task_orchestrate_crawler_deploy(
+    project_key: str,
+    scrapy_project: str,
+    spider: str,
+    channel_key: str,
+    item_key: str,
+    version: str,
+    egg_file_path: str | None = None,
+    egg_content_b64: str | None = None,
+    base_url: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    channel_name: str | None = None,
+    item_name: str | None = None,
+    description: str | None = None,
+    arguments: dict[str, Any] | None = None,
+    settings: dict[str, Any] | None = None,
+    item_params_patch: dict[str, Any] | None = None,
+    channel_extra_patch: dict[str, Any] | None = None,
+    item_extra_patch: dict[str, Any] | None = None,
+    enabled: bool = True,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    from .job_logger import fail_job, update_job_tracking
+
+    try:
+        if egg_file_path or egg_content_b64:
+            deploy_result = task_crawler_deploy_version.run(
+                project=scrapy_project,
+                version=version,
+                egg_file_path=egg_file_path,
+                egg_content_b64=egg_content_b64,
+                base_url=base_url,
+                metadata=metadata or {},
+                job_id=job_id,
+            )
+        else:
+            deploy_result = {
+                "provider_type": "scrapy",
+                "provider_status": "skipped_no_artifact",
+                "project": scrapy_project,
+                "version": version,
+                "raw": {"reason": "egg artifact not provided; registration-only mode"},
+            }
+        register_result = task_register_source_library_scrapy_binding.run(
+            project_key=project_key,
+            channel_key=channel_key,
+            item_key=item_key,
+            spider=spider,
+            scrapy_project=scrapy_project,
+            channel_name=channel_name,
+            item_name=item_name,
+            description=description,
+            arguments=arguments or {},
+            settings=settings or {},
+            item_params_patch=item_params_patch or {},
+            channel_extra_patch=channel_extra_patch or {},
+            item_extra_patch=item_extra_patch or {},
+            enabled=enabled,
+            job_id=job_id,
+        )
+        orchestrated = {
+            "project_key": project_key,
+            "channel_key": channel_key,
+            "item_key": item_key,
+            "provider_type": "scrapy",
+            "deploy": deploy_result,
+            "register": register_result,
+        }
+        if job_id is not None:
+            update_job_tracking(
+                int(job_id),
+                status="completed",
+                result={"crawler_deploy_orchestration": orchestrated},
+            )
+        return orchestrated
+    except Exception as exc:
+        if job_id is not None:
+            fail_job(int(job_id), str(exc), external_provider="scrapy")
+        raise
+
+
+@celery_app.task
+def task_crawler_rollback_version(
+    project: str,
+    version: str,
+    base_url: str | None = None,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    from .crawlers_mgmt import rollback_scrapy_project_version
+    from .job_logger import fail_job, update_job_tracking
+
+    try:
+        result = rollback_scrapy_project_version(
+            project=project,
+            version=version,
+            base_url=base_url,
+        )
+        if job_id is not None:
+            update_job_tracking(
+                int(job_id),
+                status=_map_control_status(result.get("provider_status")),
+                result={"crawler_rollback": result},
+            )
+        return result
+    except Exception as exc:
+        if job_id is not None:
+            fail_job(int(job_id), str(exc), external_provider="scrapy")
+        raise
+
+
+@celery_app.task
+def task_disable_source_library_channel_provider_native(
+    project_key: str,
+    channel_key: str,
+    item_key: str | None = None,
+    keep_item_enabled: bool = True,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    from .crawlers_mgmt import apply_source_library_native_rollback
+    from .job_logger import fail_job, update_job_tracking
+
+    try:
+        result = apply_source_library_native_rollback(
+            project_key=project_key,
+            channel_key=channel_key,
+            item_key=item_key,
+            keep_item_enabled=keep_item_enabled,
+        )
+        if job_id is not None:
+            update_job_tracking(
+                int(job_id),
+                status="running",
+                result={"crawler_provider_native_rollback": result},
+            )
+        return result
+    except Exception as exc:
+        if job_id is not None:
+            fail_job(int(job_id), str(exc), external_provider="scrapy")
+        raise
+
+
+@celery_app.task
+def task_orchestrate_crawler_rollback(
+    project_key: str,
+    scrapy_project: str,
+    channel_key: str,
+    item_key: str | None = None,
+    version: str | None = None,
+    base_url: str | None = None,
+    disable_provider_type_to_native: bool = True,
+    keep_item_enabled: bool = True,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    from .job_logger import fail_job, update_job_tracking
+
+    try:
+        rollback_result: dict[str, Any] | None = None
+        if version:
+            rollback_result = task_crawler_rollback_version.run(
+                project=scrapy_project,
+                version=version,
+                base_url=base_url,
+                job_id=job_id,
+            )
+
+        native_result: dict[str, Any] | None = None
+        if disable_provider_type_to_native:
+            native_result = task_disable_source_library_channel_provider_native.run(
+                project_key=project_key,
+                channel_key=channel_key,
+                item_key=item_key,
+                keep_item_enabled=keep_item_enabled,
+                job_id=job_id,
+            )
+
+        orchestrated = {
+            "project_key": project_key,
+            "channel_key": channel_key,
+            "item_key": item_key,
+            "provider_type": "native" if disable_provider_type_to_native else "scrapy",
+            "rollback": rollback_result,
+            "provider_toggle": native_result,
+        }
+        if job_id is not None:
+            update_job_tracking(
+                int(job_id),
+                status="completed",
+                result={"crawler_rollback_orchestration": orchestrated},
+            )
+        return orchestrated
+    except Exception as exc:
+        if job_id is not None:
+            fail_job(int(job_id), str(exc), external_provider="scrapy")
         raise

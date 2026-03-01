@@ -5,7 +5,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-SEED_FILE="${1:-$BACKEND_DIR/seed_data/project_demo_proj_v0.9-rc2.0.sql}"
+if [[ $# -ge 1 ]]; then
+  SEED_FILE="$1"
+else
+  LATEST_SEED="$(ls -1 "$BACKEND_DIR"/seed_data/project_demo_proj*.sql 2>/dev/null | sort -V | tail -n1 || true)"
+  SEED_FILE="${LATEST_SEED:-$BACKEND_DIR/seed_data/project_demo_proj_v0.9-rc2.0.sql}"
+fi
 DB_CONTAINER="${DB_CONTAINER:-}"
 USE_LOCAL="${USE_LOCAL:-0}"
 CLEAN_EXISTING="${CLEAN_EXISTING:-0}"
