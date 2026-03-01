@@ -246,6 +246,28 @@ def _filter_urls_by_terms_with_fallback(
     return urls[: max(1, int(fallback_limit))], True
 
 
+def _is_low_value_candidate_url(url: str) -> bool:
+    u = str(url or "").strip().lower()
+    if not u:
+        return True
+    low_markers = (
+        "/login",
+        "/signin",
+        "/sign-in",
+        "/signup",
+        "/sign-up",
+        "/register",
+        "/privacy",
+        "/tos",
+        "/terms",
+        "/about",
+        "/account",
+        "/settings",
+        "/subscribe",
+    )
+    return any(marker in u for marker in low_markers)
+
+
 def _resolve_item_site_entries(item: dict[str, Any]) -> list[str]:
     params = item.get("params") or {}
     if not isinstance(params, dict):
@@ -486,6 +508,8 @@ def unified_search_by_item_payload(
                 _push(u, ref=ref)
 
     candidates = candidates[:max_candidates]
+    # For fallback-retrieved links, drop low-value navigation/legal/account pages.
+    candidates = [u for u in candidates if not _is_low_value_candidate_url(u)]
 
     written: dict[str, int] | None = None
     if write_to_pool and candidates:

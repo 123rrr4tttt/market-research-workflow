@@ -91,10 +91,10 @@ class SourceLibraryAdapter:
                                 auto_ingest=bool(override_params.get("auto_ingest", True)),
                                 ingest_limit=batch_ingest_limit,
                                 enable_extraction=bool(override_params.get("enable_extraction", True)),
-                                allow_term_fallback=bool(override_params.get("allow_term_fallback", False)),
+                                allow_term_fallback=bool(override_params.get("allow_term_fallback", True)),
                             )
                         )
-                    benign_markers = {"url_term_filter_empty_fallback_used"}
+                    benign_markers = {"url_term_filter_empty_fallback_used", "url_term_filter_empty_no_fallback"}
                     merged_site_entries = []
                     seen_entry = set()
                     merged_candidates = []
