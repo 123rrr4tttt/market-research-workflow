@@ -73,6 +73,13 @@ preflight() {
     fi
   done
 
+  if [[ -f "${ROOT_DIR}/main/backend/.env" ]]; then
+    echo "✅ Found env file: main/backend/.env"
+  else
+    echo "❌ Missing env file: main/backend/.env (try: cp main/backend/.env.example main/backend/.env)"
+    missing=1
+  fi
+
   if ! docker info >/dev/null 2>&1; then
     echo "⚠️ Docker daemon not running (cannot deploy now)"
     return 2

@@ -22,6 +22,7 @@ from .models import (
     NormalizedMarketData,
     NormalizedPolicyData,
 )
+from .relation_ontology import relation_annotation
 
 logger = logging.getLogger(__name__)
 
@@ -795,8 +796,11 @@ def build_policy_graph(
             if not subject_node or not object_node:
                 continue
 
+            ann = relation_annotation(relation.get("predicate"))
             properties = {
-                "predicate": relation.get("predicate"),
+                "predicate": ann["predicate_norm"],
+                "predicate_raw": ann["predicate_raw"],
+                "relation_class": ann["relation_class"],
                 "evidence": relation.get("evidence"),
                 "confidence": relation.get("confidence"),
                 "date": relation.get("date"),
@@ -816,4 +820,3 @@ def build_policy_graph(
 
     logger.info("Built policy graph with %s nodes and %s edges", len(graph.nodes), len(graph.edges))
     return graph
-

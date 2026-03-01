@@ -3,6 +3,13 @@
 
 set -e
 
+# Ensure Homebrew tools (node, psql, etc.) are in PATH when available
+if [[ -x /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
+elif [[ -x /usr/local/bin/brew ]]; then
+    eval "$(/usr/local/bin/brew shellenv 2>/dev/null)" || true
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 FRONTEND_DIR="$ROOT_DIR/frontend-modern"
@@ -45,6 +52,7 @@ USE_DOCKER_DEPS=0
 NON_INTERACTIVE=0
 FORCE=0
 WITH_LOCAL_WORKER=1
+AUTO_INSTALL_DEPS=1
 
 usage() {
     cat <<'EOF'
@@ -57,7 +65,11 @@ Options:
   --force               强制模式，端口冲突时自动处理并继续
   --with-local-worker   同时启动本机 Celery worker（默认已开启）
   --no-local-worker     不启动本机 Celery worker
+  --no-auto-install     不自动安装缺失依赖（Homebrew/Node/PostgreSQL/Redis/pgvector）
   -h, --help            显示帮助
+
+初始化时自动：安装 Python 依赖、PostgreSQL/Redis（Homebrew）、pgvector、Node.js、
+复制 .env、数据库迁移、演示数据导入（无数据时）。
 EOF
 }
 
@@ -86,6 +98,10 @@ while [ $# -gt 0 ]; do
             ;;
         --no-local-worker)
             WITH_LOCAL_WORKER=0
+            shift
+            ;;
+        --no-auto-install)
+            AUTO_INSTALL_DEPS=0
             shift
             ;;
         -h|--help)
@@ -164,8 +180,52 @@ is_tcp_open() {
     return 1
 }
 
+ensure_homebrew_available() {
+    if command -v brew >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if [ "$AUTO_INSTALL_DEPS" != "1" ]; then
+        return 1
+    fi
+
+    if [[ "$OSTYPE" != darwin* ]] && [[ "$OSTYPE" != linux* ]]; then
+        echo "⚠️  当前系统不支持自动安装 Homebrew（OSTYPE=$OSTYPE）"
+        return 1
+    fi
+
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "⚠️  缺少 curl，无法自动安装 Homebrew"
+        return 1
+    fi
+
+    if [ "$NON_INTERACTIVE" != "1" ]; then
+        echo "⚠️  未检测到 Homebrew，准备自动安装。"
+        read -p "是否继续安装 Homebrew？(y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            return 1
+        fi
+    fi
+
+    echo "📦 正在安装 Homebrew（仅首次会较慢）..."
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || return 1
+
+    if [[ -x /opt/homebrew/bin/brew ]]; then
+        eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
+    elif [[ -x /usr/local/bin/brew ]]; then
+        eval "$(/usr/local/bin/brew shellenv 2>/dev/null)" || true
+    fi
+
+    if command -v brew >/dev/null 2>&1; then
+        echo "✅ Homebrew 安装完成"
+        return 0
+    fi
+    return 1
+}
+
 try_start_brew_postgres() {
-    if ! command -v brew >/dev/null 2>&1; then
+    if ! ensure_homebrew_available; then
         return 1
     fi
 
@@ -209,7 +269,7 @@ try_start_brew_postgres() {
 }
 
 try_start_brew_redis() {
-    if ! command -v brew >/dev/null 2>&1; then
+    if ! ensure_homebrew_available; then
         return 1
     fi
 
@@ -358,6 +418,145 @@ ensure_backend_venv() {
     fi
 }
 
+run_psql_local() {
+    local psql_cmd=""
+    if command -v psql >/dev/null 2>&1; then
+        psql_cmd="psql"
+    elif [[ -x /opt/homebrew/opt/postgresql/bin/psql ]]; then
+        psql_cmd="/opt/homebrew/opt/postgresql/bin/psql"
+    elif [[ -x /usr/local/opt/postgresql/bin/psql ]]; then
+        psql_cmd="/usr/local/opt/postgresql/bin/psql"
+    else
+        return 127
+    fi
+    PGPASSWORD="${PGPASSWORD:-}" "$psql_cmd" -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-postgres}" "$@" 2>/dev/null
+}
+
+# Ensure DB user from .env can connect; on Homebrew PostgreSQL, create postgres user if missing
+ensure_postgres_user_ready() {
+    if [ "$USE_DOCKER_DEPS" = "1" ]; then
+        return 0
+    fi
+    if [ -f ".env" ]; then
+        set -a
+        # shellcheck source=/dev/null
+        source ".env"
+        set +a
+        if [[ -n "${DATABASE_URL:-}" ]] && [[ "$DATABASE_URL" =~ postgresql[^:]*://([^:]+):([^@]*)@([^:]+):([0-9]+)/([^?]*) ]]; then
+            DB_USER="${BASH_REMATCH[1]}"
+            PGPASSWORD="${BASH_REMATCH[2]}"
+            DB_HOST="${BASH_REMATCH[3]}"
+            DB_PORT="${BASH_REMATCH[4]}"
+            DB_NAME="${BASH_REMATCH[5]}"
+        fi
+    fi
+    if run_psql_local -c "SELECT 1" >/dev/null 2>&1; then
+        echo "✅ 数据库用户 ${DB_USER:-postgres} 连接正常"
+        return 0
+    fi
+    # Homebrew PostgreSQL often has no postgres user; try current user and create postgres
+    local current_user
+    current_user="$(whoami 2>/dev/null || echo "$USER")"
+    if [ -z "$current_user" ]; then
+        return 1
+    fi
+    local psql_cmd=""
+    if command -v psql >/dev/null 2>&1; then
+        psql_cmd="psql"
+    elif [[ -x /opt/homebrew/opt/postgresql/bin/psql ]]; then
+        psql_cmd="/opt/homebrew/opt/postgresql/bin/psql"
+    elif [[ -x /usr/local/opt/postgresql/bin/psql ]]; then
+        psql_cmd="/usr/local/opt/postgresql/bin/psql"
+    else
+        return 127
+    fi
+    if PGPASSWORD="" "$psql_cmd" -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" -U "$current_user" -d "${DB_NAME:-postgres}" -c "SELECT 1" >/dev/null 2>&1; then
+        echo "📦 检测到 Homebrew PostgreSQL 无 postgres 用户，尝试创建..."
+        if PGPASSWORD="" "$psql_cmd" -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" -U "$current_user" -d "${DB_NAME:-postgres}" -c "DO \$\$ BEGIN CREATE USER postgres WITH PASSWORD 'postgres' SUPERUSER; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;" 2>/dev/null; then
+            echo "✅ 已创建 postgres 用户（密码: postgres）"
+            if run_psql_local -c "SELECT 1" >/dev/null 2>&1; then
+                return 0
+            fi
+        fi
+        echo "⚠️  无法创建 postgres 用户。请手动执行："
+        echo "   psql -U $current_user -d ${DB_NAME:-postgres} -c \"CREATE USER postgres WITH PASSWORD 'postgres' SUPERUSER;\""
+        echo "   或修改 .env 中 DATABASE_URL 使用当前用户：postgresql+psycopg2://$current_user@localhost:5432/postgres"
+        return 1
+    fi
+    return 1
+}
+
+ensure_pgvector_available() {
+    if [ "$USE_DOCKER_DEPS" = "1" ]; then
+        return 0
+    fi
+    if [ -f ".env" ]; then
+        set -a
+        # shellcheck source=/dev/null
+        source ".env"
+        set +a
+        if [[ -n "${DATABASE_URL:-}" ]] && [[ "$DATABASE_URL" =~ postgresql[^:]*://([^:]+):([^@]*)@([^:]+):([0-9]+)/([^?]*) ]]; then
+            DB_USER="${BASH_REMATCH[1]}"
+            PGPASSWORD="${BASH_REMATCH[2]}"
+            DB_HOST="${BASH_REMATCH[3]}"
+            DB_PORT="${BASH_REMATCH[4]}"
+            DB_NAME="${BASH_REMATCH[5]}"
+        fi
+    fi
+    if run_psql_local -c "SELECT 1 FROM pg_extension WHERE extname='vector'" 2>/dev/null | grep -q 1; then
+        echo "✅ pgvector 扩展已安装"
+        return 0
+    fi
+    if run_psql_local -c "CREATE EXTENSION IF NOT EXISTS vector" 2>/dev/null; then
+        echo "✅ pgvector 扩展已启用"
+        return 0
+    fi
+    echo "⚠️  pgvector 扩展不可用，尝试通过 Homebrew 安装..."
+    if ! ensure_homebrew_available; then
+        echo "❌ 未找到 Homebrew，请先安装: https://brew.sh"
+        return 1
+    fi
+    if brew install pgvector 2>/dev/null; then
+        echo "📦 pgvector 已安装，重启 PostgreSQL..."
+        pg_svc=$(brew services list 2>/dev/null | awk '/^postgresql(@[0-9]+)?[[:space:]]/ {print $1}' | head -1)
+        if [ -n "$pg_svc" ]; then
+            brew services restart "$pg_svc" 2>/dev/null || true
+        else
+            brew services restart postgresql 2>/dev/null || brew services restart postgresql@16 2>/dev/null || true
+        fi
+        echo "⏳ 等待 PostgreSQL 就绪..."
+        sleep 5
+        for _ in $(seq 1 15); do
+            if run_psql_local -c "SELECT 1" >/dev/null 2>&1; then
+                if run_psql_local -c "CREATE EXTENSION IF NOT EXISTS vector" 2>/dev/null; then
+                    echo "✅ pgvector 扩展已启用"
+                    return 0
+                fi
+            fi
+            sleep 1
+        done
+    fi
+    echo "⚠️  pgvector 安装或启用失败，数据库迁移可能失败"
+    return 0
+}
+
+ensure_node_available() {
+    if command -v npm >/dev/null 2>&1; then
+        return 0
+    fi
+    echo "⚠️  未检测到 npm，尝试通过 Homebrew 安装 Node.js..."
+    if ! ensure_homebrew_available; then
+        echo "⚠️  未找到 Homebrew，跳过 modern 前端启动"
+        return 1
+    fi
+    if brew install node 2>/dev/null; then
+        echo "✅ Node.js 已安装"
+        eval "$(brew shellenv 2>/dev/null)" || true
+        return 0
+    fi
+    return 1
+}
+
 ensure_local_worker_running() {
     if [ "$WITH_LOCAL_WORKER" != "1" ]; then
         return 0
@@ -408,8 +607,13 @@ unset DOCKER_ENV
 export DOCKER_ENV=""
 
 if [ ! -f ".env" ]; then
-    echo "⚠️  .env文件不存在，将使用默认配置（localhost）"
-    echo "💡 提示：可以复制 .env.example 为 .env 并修改配置"
+    if [ -f ".env.example" ]; then
+        echo "📄 复制 .env.example 为 .env"
+        cp .env.example .env
+    else
+        echo "⚠️  .env文件不存在，将使用默认配置（localhost）"
+        echo "💡 提示：可以复制 .env.example 为 .env 并修改配置"
+    fi
 fi
 
 if [ "$USE_DOCKER_DEPS" = "1" ]; then
@@ -447,16 +651,67 @@ else
     echo ""
     echo "📦 使用纯本机依赖模式（不启动 Docker db/es/redis）"
     ensure_local_postgres_running || exit 1
+    ensure_postgres_user_ready || exit 1
     ensure_local_redis_running || exit 1
+    ensure_pgvector_available || true
 fi
+
+# Run alembic migrations and seed demo data when empty
+ensure_db_migrated_and_seeded() {
+    echo ""
+    echo "📦 检查数据库迁移与演示数据..."
+    local migrated=0
+    local last_err=""
+    for attempt in 1 2 3 4 5; do
+        last_err=$(alembic upgrade head 2>&1) && migrated=1 && break
+        if [ "$attempt" -lt 5 ]; then
+            echo "⏳ 迁移失败，${attempt}秒后重试 ($attempt/5)..."
+            sleep "$attempt"
+        fi
+    done
+    if [ "$migrated" != "1" ]; then
+        echo "⚠️  数据库迁移失败"
+        echo "$last_err" | tail -15
+        echo "💡 若数据库状态不一致，可新建空库: createdb market_intel_dev 并修改 .env 中 DATABASE_URL 的数据库名"
+        return 0
+    fi
+    # Check if demo_proj exists; if not, load seed
+    if python -c "
+from sqlalchemy import create_engine, text
+from app.settings.config import settings
+e = create_engine(settings.database_url)
+with e.connect() as c:
+    r = c.execute(text(\"SELECT 1 FROM public.projects WHERE project_key='demo_proj' LIMIT 1\")).fetchone()
+    exit(0 if r else 1)
+" 2>/dev/null; then
+        echo "✅ 演示项目 demo_proj 已存在"
+        return 0
+    fi
+    echo "📥 未检测到演示数据，导入 demo_proj 种子..."
+    SEED_SCRIPT="$SCRIPT_DIR/scripts/load_demo_proj_seed.sh"
+    if [ -f "$SEED_SCRIPT" ]; then
+        if USE_LOCAL=1 bash "$SEED_SCRIPT" 2>/dev/null; then
+            echo "✅ 演示数据导入完成"
+        else
+            echo "⚠️  演示数据导入失败，可稍后手动执行: USE_LOCAL=1 $SEED_SCRIPT"
+        fi
+    else
+        echo "⚠️  未找到导入脚本: $SEED_SCRIPT"
+    fi
+}
+
+ensure_db_migrated_and_seeded
 
 if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
     echo ""
     echo "⚠️  端口8000已被占用"
 
-    set +e
-    DOCKER_CONTAINER=$(docker ps --format "{{.ID}}\t{{.Ports}}" | grep ":8000->" | awk '{print $1}' | head -1)
-    set -e
+    DOCKER_CONTAINER=""
+    if command -v docker >/dev/null 2>&1; then
+        set +e
+        DOCKER_CONTAINER=$(docker ps --format "{{.ID}}\t{{.Ports}}" 2>/dev/null | grep ":8000->" | awk '{print $1}' | head -1)
+        set -e
+    fi
 
     if [ -n "$DOCKER_CONTAINER" ]; then
         echo "检测到Docker容器正在使用8000端口（容器ID: $DOCKER_CONTAINER）"
@@ -506,6 +761,7 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
     fi
 fi
 
+ensure_node_available || true
 ensure_modern_frontend_running
 ensure_local_worker_running || exit 1
 
@@ -519,7 +775,8 @@ fi
 echo "✅ 启动后端服务（端口8000，${RELOAD_DESC}）..."
 echo "🔒 环境隔离：已清除DOCKER_ENV，使用localhost连接数据库服务"
 echo "📝 日志文件：/tmp/uvicorn.log"
-echo "🌐 API文档：http://localhost:8000/docs"
+echo "🌐 API文档：http://localhost:8000/docs（本机）"
+echo "🌐 局域网访问：http://$(ipconfig getifaddr en0 2>/dev/null || ifconfig | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | head -1):8000/docs"
 echo "📊 健康检查：http://localhost:8000/api/v1/health"
 echo "🎨 modern 前端：http://$FRONTEND_HOST:$FRONTEND_PORT"
 if [ "$WITH_LOCAL_WORKER" = "1" ]; then
@@ -529,8 +786,9 @@ echo ""
 echo "按 Ctrl+C 停止服务"
 echo ""
 
+BACKEND_HOST="${BACKEND_HOST:-0.0.0.0}"
 if [ "$DEV_RELOAD" = "1" ]; then
-    DOCKER_ENV="" uvicorn app.main:app --reload --port 8000
+    DOCKER_ENV="" uvicorn app.main:app --reload --host "$BACKEND_HOST" --port 8000
 else
-    DOCKER_ENV="" uvicorn app.main:app --port 8000
+    DOCKER_ENV="" uvicorn app.main:app --host "$BACKEND_HOST" --port 8000
 fi

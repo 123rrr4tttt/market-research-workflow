@@ -29,6 +29,7 @@ docker run --rm -p 5174:80 --network <your-compose-network> market-frontend-mode
 ```
 
 容器内 Nginx 已将 `/api/*` 反向代理到 `http://backend:8000`。
+默认建议不设置 `VITE_API_BASE_URL`（保持空值），前端将继续使用同源 `/api/*` 并走 Nginx 反代。
 
 ## 3) docker-compose 示例
 
@@ -37,6 +38,8 @@ services:
   frontend-modern:
     build:
       context: ./main/frontend-modern
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
     ports:
       - "5174:80"
     depends_on:
@@ -48,6 +51,10 @@ services:
 docker compose -f main/ops/docker-compose.yml --profile modern-ui up -d frontend-modern
 
 默认情况下（compose 中 backend 已设置 `MODERN_FRONTEND_URL=http://localhost:5174`），访问 `http://localhost:8000/`、`/app`、`/app.html` 会重定向到 modern 前端。
+
+变量说明：
+- `VITE_API_PROXY_TARGET`：仅本地 `npm run dev` 代理目标。
+- `VITE_API_BASE_URL`：前端构建期变量，写入静态产物；不设置时保持当前相对路径行为。
 ```
 
 ## 4) 对齐的核心 API

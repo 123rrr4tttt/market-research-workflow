@@ -97,5 +97,9 @@ settings = Settings()
 
 def reload_settings() -> Settings:
     global settings
-    settings = Settings()
+    new_settings = Settings()
+    # Keep object identity so modules that imported `settings` by reference
+    # observe refreshed values after reload.
+    for field_name in new_settings.model_fields.keys():
+        setattr(settings, field_name, getattr(new_settings, field_name))
     return settings

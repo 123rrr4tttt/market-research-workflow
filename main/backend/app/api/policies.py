@@ -20,6 +20,7 @@ from ..contracts.schemas.policies import (
 )
 from ..models.base import SessionLocal
 from ..models.entities import Document
+from ..services.graph.relation_ontology import relation_annotation
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/policies", tags=["policies"])
@@ -354,6 +355,7 @@ def get_state_policies(
 
             entity_counts: dict[str, int] = {}
             relation_counts: dict[str, int] = {}
+            relation_class_counts: dict[str, int] = {}
             all_key_points: list[str] = []
             for doc in documents:
                 extracted = doc.extracted_data or {}
@@ -365,8 +367,11 @@ def get_state_policies(
                     entity_type = entity.get("type", "unknown")
                     entity_counts[entity_type] = entity_counts.get(entity_type, 0) + 1
                 for relation in entities_relations.get("relations", []):
-                    predicate = relation.get("predicate", "unknown")
+                    ann = relation_annotation(relation.get("predicate", "unknown"))
+                    predicate = ann["predicate_norm"]
                     relation_counts[predicate] = relation_counts.get(predicate, 0) + 1
+                    relation_class = ann["relation_class"]
+                    relation_class_counts[relation_class] = relation_class_counts.get(relation_class, 0) + 1
 
             return ok(
                 {
@@ -380,6 +385,9 @@ def get_state_policies(
                         "entity_distribution": [{"type": k, "count": v} for k, v in entity_counts.items()],
                         "relation_distribution": [
                             {"predicate": k, "count": v} for k, v in relation_counts.items()
+                        ],
+                        "relation_class_distribution": [
+                            {"relation_class": k, "count": v} for k, v in relation_class_counts.items()
                         ],
                         "key_points_count": len(all_key_points),
                     },

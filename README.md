@@ -1,6 +1,6 @@
 # 市场情报（market-intel）项目说明
 
-> 最后更新：2026-02-27  
+> 最后更新：2026-02-28  
 > 当前版本：`v0.1.7-rc1`（预发布，团队联调）
 
 本仓库实现一体化信息工作流：多来源采集 -> 结构化处理 -> 索引检索 -> 可视化与运维管理。  
@@ -15,6 +15,33 @@
   - `main/frontend-modern`：新版 React + Vite + TypeScript
 - 首选运行方式：Docker（首选脚本：`./scripts/docker-deploy.sh`）
 - 多项目隔离：按 `project_<key>` schema 进行业务数据隔离
+
+## 1.1 依赖一览
+
+### Docker 模式（推荐）
+
+| 依赖 | 说明 |
+|------|------|
+| **Docker** | 含 Docker Compose，用于运行全栈服务 |
+| **Git** | 克隆与版本管理 |
+
+### 本地开发模式（`local-start`）
+
+| 依赖 | 说明 | 自动安装 |
+|------|------|----------|
+| **Homebrew** | **必装**，用于安装 PostgreSQL、Redis；macOS 本地模式核心依赖 | 需[手动安装](https://brew.sh) |
+| **Python 3.11+** | 后端运行时 | 否 |
+| **PostgreSQL** | 数据库（端口 5432） | 是，通过 Homebrew |
+| **Redis** | 消息队列（端口 6379） | 是，通过 Homebrew |
+| **Elasticsearch** | 全文检索（端口 9200） | 否，需 `--with-docker-deps` 或手动启动 |
+| **Node.js / npm** | 前端构建（modern 前端） | 否 |
+| **Git** | 版本管理 | 否 |
+
+> **重要**：本地模式依赖 **Homebrew**。若未安装，请先执行：
+> ```bash
+> /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+> ```
+> 安装后按提示将 `brew` 加入 PATH。
 
 ## 2. 快速开始（首选 Docker）
 
@@ -39,30 +66,8 @@ cp main/backend/.env.example main/backend/.env
 ### 2.4 常用运维命令（首选）
 
 ```bash
-# 启动/停止/重启
-./scripts/docker-deploy.sh start
 ./scripts/docker-deploy.sh stop
 ./scripts/docker-deploy.sh restart
-
-# 预检查 / 状态 / 日志 / 健康检查
-./scripts/docker-deploy.sh preflight
-./scripts/docker-deploy.sh status
-./scripts/docker-deploy.sh logs -f backend
-./scripts/docker-deploy.sh health
-```
-
-参数能力（统一透传给底层脚本）：
-- `--non-interactive`：非交互模式，适合 CI/自动化
-- `--force`：强制执行清理/重启流程（不删除数据卷）
-- `--profile <name>`：按 compose profile 启动（例如 `modern-ui`）
-- `services...`：按服务维度查看状态/日志（例如 `status backend redis`、`logs -f celery-worker`）
-
-示例：
-
-```bash
-./scripts/docker-deploy.sh start --non-interactive --force --profile modern-ui
-./scripts/docker-deploy.sh status backend redis
-./scripts/docker-deploy.sh logs -f celery-worker
 ```
 
 ### 2.5 常用访问地址
@@ -74,20 +79,30 @@ cp main/backend/.env.example main/backend/.env
 
 本地（非 Docker）模式仅用于开发调试，生产与联调默认按 Docker 链路执行。
 
-### 2.6 脚本收敛（主入口 2 个）
+### 2.6 本地首次启动（macOS）
 
-当前统一为两个主入口：
-- Docker 链路：`./scripts/docker-deploy.sh`
-- 纯本地链路：`./scripts/local-deploy.sh`
+若使用本机 PostgreSQL/Redis（非 Docker），首次启动步骤：
 
-平台脚本（`platform-macos/linux/windows`）现在只代理纯本地链路，不再混用 Docker 子命令。
+```bash
+# 1. 复制配置（若尚未存在）
+cp main/backend/.env.example main/backend/.env
 
-`local-deploy.sh` 子命令：
-- `start`：纯本地启动（后端 + modern 前端）
-- `stop`：纯本地停止
-- `restart`：纯本地重启
-- `status`：本地端口状态检查（8000/5173）
-- `health`：检查本地后端健康接口
+# 2. 一键启动（自动安装依赖、迁移、导入演示数据）
+./scripts/platform-macos.sh local-start
+```
+
+脚本会自动：安装 Python 依赖、PostgreSQL/Redis（Homebrew）、pgvector、Node.js，执行数据库迁移，无演示数据时导入 demo_proj。若 Homebrew PostgreSQL 无 `postgres` 用户，会尝试自动创建。
+
+### 2.7 平台封装脚本（每个平台一个入口）
+
+说明：平台脚本的 `start` / `stop` / `restart` 会统一转发到 `./scripts/docker-deploy.sh` 对应命令。`local-start` 调用 `main/backend/start-local.sh`。
+
+统一子命令：
+- `start`：Docker 启动全服务
+- `stop`：Docker 停止全服务
+- `restart`：Docker 重启全服务
+- `local-start`：本地后端启动（依赖 `main/backend/start-local.sh`）
+- `local-stop`：本地后端停止（依赖 `main/backend/stop-local.sh`）
 
 macOS：
 
@@ -95,19 +110,9 @@ macOS：
 ./scripts/platform-macos.sh start
 ./scripts/platform-macos.sh stop
 ./scripts/platform-macos.sh restart
-./scripts/platform-macos.sh status
-./scripts/platform-macos.sh health
 ./scripts/platform-macos.sh local-start
 ./scripts/platform-macos.sh local-stop
 ```
-
-macOS `local-start` 说明（当前默认）：
-- 一键启动本机后端 + modern 前端（`127.0.0.1:8000` / `127.0.0.1:5173`）
-- 默认纯本机依赖，不自动拉起 Docker `db/es/redis`
-- 会自动检查并尝试启动本机 PostgreSQL（Homebrew service）
-- 会自动创建后端虚拟环境 `.venv311` 并按 `requirements.txt` 安装/更新依赖
-- 当前本机库建议使用：`market_intel_local`（见 `main/backend/.env` 的 `DATABASE_URL`）
-- 若要改用 Docker 依赖：`cd main/backend && ./start-local.sh --with-docker-deps`
 
 Linux：
 
@@ -115,8 +120,6 @@ Linux：
 ./scripts/platform-linux.sh start
 ./scripts/platform-linux.sh stop
 ./scripts/platform-linux.sh restart
-./scripts/platform-linux.sh status
-./scripts/platform-linux.sh health
 ./scripts/platform-linux.sh local-start
 ./scripts/platform-linux.sh local-stop
 ```
@@ -127,8 +130,6 @@ Windows（PowerShell，自动尝试 Git Bash/WSL）：
 .\scripts\platform-windows.ps1 start
 .\scripts\platform-windows.ps1 stop
 .\scripts\platform-windows.ps1 restart
-.\scripts\platform-windows.ps1 status
-.\scripts\platform-windows.ps1 health
 .\scripts\platform-windows.ps1 local-start
 .\scripts\platform-windows.ps1 local-stop
 ```
@@ -153,7 +154,7 @@ Windows（PowerShell，自动尝试 Git Bash/WSL）：
 
 ## 4. 前端入口与迁移关系
 
-- 默认情况下，访问 `/`、`/app`、`/app.html` 会重定向到新版前端（优先使用 `MODERN_FRONTEND_URL`；未配置时默认 `http://127.0.0.1:5173`）。
+- 默认情况下，若配置了 `MODERN_FRONTEND_URL`，访问 `/`、`/app`、`/app.html` 会重定向到新版前端。
 - 旧版页面可通过 `?legacy=1` 回退访问。
 - 本地开发新版前端：
 

@@ -6,6 +6,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+compose() {
+    if command -v docker-compose >/dev/null 2>&1; then
+        docker-compose "$@"
+    elif docker compose version >/dev/null 2>&1; then
+        docker compose "$@"
+    else
+        echo "❌ 未找到 docker-compose 或 docker compose"
+        return 127
+    fi
+}
+
 echo "🧪 Docker启动测试"
 echo "=================="
 echo ""
@@ -28,7 +39,7 @@ echo "✅ docker-compose.yml 存在"
 
 # 验证配置
 echo "🔍 验证docker-compose配置..."
-docker-compose config >/dev/null 2>&1
+compose config >/dev/null 2>&1
 if [ $? -eq 0 ]; then
     echo "✅ docker-compose配置有效"
 else
@@ -54,16 +65,16 @@ echo ""
 
 # 停止现有服务（如果存在）
 echo "🛑 停止现有服务..."
-docker-compose down 2>/dev/null || true
+compose down 2>/dev/null || true
 echo ""
 
 # 启动服务
 echo "🚀 启动服务..."
-echo "   这将启动: PostgreSQL, Elasticsearch, Redis, Backend"
+echo "   这将启动: PostgreSQL, Elasticsearch, Redis, Backend, Celery Worker"
 echo "   预计需要1-2分钟..."
 echo ""
 
-docker-compose up -d
+compose up -d
 
 echo ""
 echo "⏳ 等待服务启动..."
@@ -72,7 +83,7 @@ sleep 5
 # 检查服务状态
 echo ""
 echo "📊 服务状态:"
-docker-compose ps
+compose ps
 
 echo ""
 echo "📋 检查服务健康状态..."
@@ -80,7 +91,7 @@ echo ""
 
 # 检查PostgreSQL
 echo -n "PostgreSQL: "
-if docker-compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then
+if compose exec -T db pg_isready -U postgres >/dev/null 2>&1; then
     echo "✅ 健康"
 else
     echo "❌ 未就绪"
@@ -96,7 +107,7 @@ fi
 
 # 检查Redis
 echo -n "Redis: "
-if docker-compose exec -T redis redis-cli ping >/dev/null 2>&1; then
+if compose exec -T redis redis-cli ping >/dev/null 2>&1; then
     echo "✅ 健康"
 else
     echo "❌ 未就绪"
@@ -130,6 +141,15 @@ else
     echo "   响应: $HEALTH_RESPONSE"
 fi
 
+# 检查Celery Worker状态
+echo ""
+echo -n "Celery Worker: "
+if compose ps celery-worker | grep -q "Up" >/dev/null 2>&1; then
+    echo "✅ 运行中"
+else
+    echo "❌ 未运行"
+fi
+
 # 深度健康检查
 echo ""
 echo "🔍 深度健康检查:"
@@ -140,17 +160,20 @@ echo "   响应: $DEEP_HEALTH"
 echo ""
 echo "📋 最近的后端日志（最后10行）:"
 echo "----------------------------------------"
-docker-compose logs --tail=10 backend
+compose logs --tail=10 backend
+echo ""
+echo "📋 最近的 Worker 日志（最后10行）:"
+compose logs --tail=10 celery-worker
 echo "----------------------------------------"
 
 echo ""
 echo "✅ 测试完成！"
 echo ""
 echo "📝 有用的命令:"
-echo "   查看所有日志: docker-compose logs -f"
-echo "   查看后端日志: docker-compose logs -f backend"
-echo "   停止服务: docker-compose down"
-echo "   重启服务: docker-compose restart"
+echo "   查看所有日志: docker compose logs -f"
+echo "   查看后端日志: docker compose logs -f backend"
+echo "   查看Worker日志: docker compose logs -f celery-worker"
+echo "   停止服务: docker compose down"
+echo "   重启服务: docker compose restart"
 echo "   访问API文档: http://localhost:8000/docs"
 echo ""
-

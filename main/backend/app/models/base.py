@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, declarative_base, declarative_mixin
 from sqlalchemy import BigInteger, Column
@@ -59,9 +61,13 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 
-# Ensure default project schema exists to avoid startup failures.
-with engine.begin() as _conn:
-    _conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{project_schema_name(settings.active_project_key)}"'))
+# Ensure default project schema exists. If DB is temporarily unavailable in local dev,
+# allow process startup and let health/deep checks report degraded state.
+try:
+    with engine.begin() as _conn:
+        _conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{project_schema_name(settings.active_project_key)}"'))
+except Exception as exc:  # noqa: BLE001
+    logging.getLogger("app.models.base").warning("db bootstrap skipped: %s", exc)
 
 
 @event.listens_for(SessionLocal, "after_begin")
@@ -90,5 +96,4 @@ def get_db():
         yield db
     finally:
         db.close()
-
 

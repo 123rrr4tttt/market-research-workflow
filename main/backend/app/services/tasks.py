@@ -380,6 +380,15 @@ def task_sync_aggregator() -> dict:
 
 
 @celery_app.task
+def task_raw_import_documents(payload: dict, project_key: str | None = None) -> dict:
+    from .ingest.raw_import import run_raw_import_documents
+
+    ctx = bind_project(project_key) if project_key else nullcontext()
+    with ctx:
+        return run_raw_import_documents(payload=payload or {}, project_key=project_key or "")
+
+
+@celery_app.task
 def task_run_source_library_item(
     item_key: str,
     project_key: str | None = None,

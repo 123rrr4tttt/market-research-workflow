@@ -10,6 +10,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
 
+from migrations.util import table_exists
+
 
 revision = "20260226_000002"
 down_revision = "20260226_000001"
@@ -18,23 +20,25 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "resource_pool_capture_config",
-        sa.Column("id", sa.BigInteger(), primary_key=True, autoincrement=True),
-        sa.Column("project_key", sa.String(length=64), nullable=False),
-        sa.Column("scope", sa.String(length=16), nullable=False, server_default="project"),
-        sa.Column("job_types", pg.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        schema="public",
-    )
-    op.create_unique_constraint(
-        "uq_resource_pool_capture_config_project",
-        "resource_pool_capture_config",
-        ["project_key"],
-        schema="public",
-    )
+    conn = op.get_bind()
+    if not table_exists(conn, "resource_pool_capture_config"):
+        op.create_table(
+            "resource_pool_capture_config",
+            sa.Column("id", sa.BigInteger(), primary_key=True, autoincrement=True),
+            sa.Column("project_key", sa.String(length=64), nullable=False),
+            sa.Column("scope", sa.String(length=16), nullable=False, server_default="project"),
+            sa.Column("job_types", pg.JSONB(astext_type=sa.Text()), nullable=False),
+            sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+            sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+            sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+            schema="public",
+        )
+        op.create_unique_constraint(
+            "uq_resource_pool_capture_config_project",
+            "resource_pool_capture_config",
+            ["project_key"],
+            schema="public",
+        )
 
 
 def downgrade() -> None:

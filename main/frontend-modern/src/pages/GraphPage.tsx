@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { EChartsType } from 'echarts/core'
 import { getGraphConfig, getMarketGraph, getPolicyGraph, getSocialGraph, listSourceItems, submitGraphStructuredSearchTasks } from '../lib/api'
@@ -9,6 +9,7 @@ import type {
   GraphStructuredSearchResponse,
   SourceLibraryItem,
 } from '../lib/types'
+import { GRAPH_COLOR_THEMES, assignLegendColors, type PaletteKey } from '../lib/graph-colors'
 
 type Variant = 'graphMarket' | 'graphPolicy' | 'graphSocial' | 'graphCompany' | 'graphProduct' | 'graphOperation' | 'graphDeep'
 
@@ -92,29 +93,31 @@ const SYMBOLS: Record<string, string> = {
   TopicTag: 'arrow',
 }
 
-type PaletteKey = 'tol_bright' | 'tol_vibrant' | 'tol_muted' | 'okabe_ito' | 'tableau10'
-
-const COLOR_PALETTES: Record<PaletteKey, { label: string; colors: string[] }> = {
-  tol_bright: {
-    label: 'Tol Bright（推荐）',
-    colors: ['#4477AA', '#EE6677', '#228833', '#CCBB44', '#66CCEE', '#AA3377', '#BBBBBB'],
-  },
-  tol_vibrant: {
-    label: 'Tol Vibrant',
-    colors: ['#EE7733', '#0077BB', '#33BBEE', '#EE3377', '#CC3311', '#009988', '#BBBBBB'],
-  },
-  tol_muted: {
-    label: 'Tol Muted',
-    colors: ['#CC6677', '#332288', '#DDCC77', '#117733', '#88CCEE', '#882255', '#44AA99', '#999933', '#AA4499'],
-  },
-  okabe_ito: {
-    label: 'Okabe-Ito（色盲友好）',
-    colors: ['#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#D55E00', '#CC79A7', '#000000'],
-  },
-  tableau10: {
-    label: 'Tableau 10',
-    colors: ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF9DA7', '#9C755F', '#BAB0AC'],
-  },
+function normalizeNodeType(rawType: unknown) {
+  const raw = String(rawType || '').trim()
+  if (!raw) return raw
+  const compact = raw.toLowerCase().replace(/[\s_-]+/g, '')
+  const aliasMap: Record<string, string> = {
+    productsenario: 'ProductScenario',
+    prodctscenario: 'ProductScenario',
+    prodctsenario: 'ProductScenario',
+    proudctscenario: 'ProductScenario',
+    proudctsenario: 'ProductScenario',
+    productcomponent: 'ProductComponent',
+    prodctcomponent: 'ProductComponent',
+    productmodel: 'ProductModel',
+    prodctmodel: 'ProductModel',
+    productentity: 'ProductEntity',
+    prodctentity: 'ProductEntity',
+    productcategory: 'ProductCategory',
+    prodctcategory: 'ProductCategory',
+    productbrand: 'ProductBrand',
+    prodctbrand: 'ProductBrand',
+    product: 'ProductEntity',
+    prodct: 'ProductEntity',
+    proudct: 'ProductEntity',
+  }
+  return aliasMap[compact] || raw
 }
 
 function hashText(input: string) {
@@ -132,39 +135,24 @@ function hexToRgb(hex: string) {
   }
 }
 
-function rgbToHex(r: number, g: number, b: number) {
-  return `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`
-}
-
-function tint(hex: string, ratio: number) {
-  const { r, g, b } = hexToRgb(hex)
-  return rgbToHex(
-    r + (255 - r) * ratio,
-    g + (255 - g) * ratio,
-    b + (255 - b) * ratio,
-  )
-}
-
-function brightenHex(hex: string) {
-  const raw = hex.replace('#', '')
-  const r = parseInt(raw.slice(0, 2), 16)
-  const g = parseInt(raw.slice(2, 4), 16)
-  const b = parseInt(raw.slice(4, 6), 16)
-  const lift = (v: number) => Math.min(255, Math.round(v + (255 - v) * 0.14))
-  return `#${lift(r).toString(16).padStart(2, '0')}${lift(g).toString(16).padStart(2, '0')}${lift(b).toString(16).padStart(2, '0')}`
-}
-
 function distinctChipColor(index: number) {
   const hue = Math.round((index * 137.508) % 360)
   return `hsl(${hue} 78% 62%)`
 }
 
 function nodeKey(node: GraphNodeItem) {
-  return `${node.type}:${node.id}`
+  return `${normalizeNodeType(node.type)}:${node.id}`
 }
 
 function edgeNodeKey(node: GraphEdgeItem['from'] | GraphEdgeItem['to']) {
-  return `${node.type}:${node.id}`
+  return `${normalizeNodeType(node.type)}:${node.id}`
+}
+
+function collectFocusNodeKeys(centerKey: string, adjacency: Map<string, Set<string>>) {
+  const keys = new Set<string>()
+  keys.add(centerKey)
+  ;(adjacency.get(centerKey) || new Set()).forEach((neighbor) => keys.add(neighbor))
+  return keys
 }
 
 function nodeName(node: GraphNodeItem) {
@@ -193,6 +181,103 @@ const GROUP_LABEL: Record<string, string> = {
   social: '社媒',
   market: '市场',
   other: '其他',
+}
+
+type EdgeLegendTier = 'class' | 'pred' | 'type'
+
+type EdgeLineType = 'solid' | 'dashed' | 'dotted'
+
+type EdgeLegendItem = {
+  key: string
+  tier: EdgeLegendTier
+  lineType: EdgeLineType
+  label: string
+  count: number
+  color: string
+}
+
+const EDGE_TIER_LABEL: Record<EdgeLegendTier, string> = {
+  class: '关系大类',
+  pred: '关系谓词',
+  type: '边类型',
+}
+
+const RELATION_CLASS_LABEL: Record<string, string> = {
+  governance: '治理/监管',
+  event: '事件发布',
+  metric: '指标披露',
+  impact: '影响变化',
+  collaboration: '合作关系',
+  dependency: '依赖关系',
+  supply_chain: '供应链',
+  distribution: '分销渠道',
+  competition: '竞争关系',
+  operation: '运营关系',
+  taxonomy: '分类归属',
+  targeting: '场景指向',
+  channel: '渠道目标',
+  strategy: '经营策略',
+  composition: '组成关系',
+  other: '其他关系',
+}
+
+const EDGE_LINE_TYPE_BY_TIER: Record<EdgeLegendTier, EdgeLineType> = {
+  class: 'solid',
+  pred: 'dashed',
+  type: 'dotted',
+}
+
+const EDGE_WIDTH_BY_TIER: Record<EdgeLegendTier, number> = {
+  class: 1.8,
+  pred: 1.4,
+  type: 1.2,
+}
+
+const EDGE_ALPHA_BY_TIER: Record<EdgeLegendTier, number> = {
+  class: 0.72,
+  pred: 0.58,
+  type: 0.5,
+}
+
+function normalizeEdgeToken(value: unknown) {
+  return String(value || '').trim()
+}
+
+function edgeLegendTier(edge: GraphEdgeItem): EdgeLegendTier {
+  if (normalizeEdgeToken(edge.relation_class)) return 'class'
+  if (normalizeEdgeToken(edge.predicate)) return 'pred'
+  return 'type'
+}
+
+function edgeLegendRawValue(edge: GraphEdgeItem): string {
+  const tier = edgeLegendTier(edge)
+  if (tier === 'class') return normalizeEdgeToken(edge.relation_class).toLowerCase()
+  if (tier === 'pred') return normalizeEdgeToken(edge.predicate).toLowerCase()
+  return normalizeEdgeToken(edge.type).toUpperCase() || 'REL'
+}
+
+function edgeLegendKey(edge: GraphEdgeItem): string {
+  const tier = edgeLegendTier(edge)
+  return `${tier}:${edgeLegendRawValue(edge)}`
+}
+
+function relationLabel(token: string, labels?: Record<string, string>) {
+  const raw = String(token || '').trim()
+  if (!raw) return '-'
+  const variants = [raw, raw.toUpperCase(), raw.toLowerCase()]
+  for (const key of variants) {
+    if (labels?.[key]) return labels[key]
+  }
+  return raw
+}
+
+function edgeLegendLabel(edge: GraphEdgeItem, labels?: Record<string, string>) {
+  const tier = edgeLegendTier(edge)
+  if (tier === 'class') {
+    const cls = edgeLegendRawValue(edge)
+    return RELATION_CLASS_LABEL[cls] || cls
+  }
+  return relationLabel(edgeLegendRawValue(edge), labels)
 }
 
 const DEFAULT_NODE_TYPES_BY_KIND: Record<GraphKind, string[]> = {
@@ -226,7 +311,24 @@ const NODE_CARD_WIDTH = 360
 const NODE_CARD_MARGIN = 14
 const NODE_CARD_POINTER_OFFSET = 10
 const GRAPH_SELECT_DEBUG = true
-const DOUBLE_CLICK_WINDOW_MS = 300
+const GRAPH_SELECT_DEEP_DEBUG = false
+const DOUBLE_CLICK_WINDOW_MS = 420
+const GRAPH_LIMIT_MIN = 1
+const GRAPH_LIMIT_MAX = 2000
+const GRAPH_LIMIT_DEFAULT = 100
+const CONTROL_PANEL_MIN_WIDTH = 280
+const CONTROL_PANEL_MAX_WIDTH = 720
+
+function clampGraphLimit(value: number) {
+  if (!Number.isFinite(value)) return GRAPH_LIMIT_DEFAULT
+  return Math.max(GRAPH_LIMIT_MIN, Math.min(GRAPH_LIMIT_MAX, Math.trunc(value)))
+}
+
+function clampControlPanelWidth(value: number, viewportWidth: number) {
+  const viewportBound = Math.max(CONTROL_PANEL_MIN_WIDTH, viewportWidth - 28)
+  const maxAllowed = Math.min(CONTROL_PANEL_MAX_WIDTH, viewportBound)
+  return Math.max(CONTROL_PANEL_MIN_WIDTH, Math.min(maxAllowed, Math.round(value)))
+}
 
 function cardFields(node: GraphNodeItem) {
   const list: Array<[string, string]> = [
@@ -378,6 +480,7 @@ type VisibleSubgraph = {
   visibleNodes: GraphNodeItem[]
   visibleEdges: GraphEdgeItem[]
   visibleNodeKeys: Set<string>
+  edgeResolvedKeyMap: Map<GraphEdgeItem, { fromKey: string; toKey: string }>
 }
 
 function computeVisibleSubgraph(
@@ -387,9 +490,45 @@ function computeVisibleSubgraph(
   hiddenTypes: Record<string, boolean>,
 ): VisibleSubgraph {
   const variantTypes = new Set(DEFAULT_NODE_TYPES_BY_KIND[graphKind])
-  const variantNodes = nodes.filter((n) => variantTypes.has(n.type))
+  const variantNodes = nodes.filter((n) => variantTypes.has(normalizeNodeType(n.type)))
   const variantNodeKeys = new Set(variantNodes.map(nodeKey))
-  const variantEdges = edges.filter((e) => variantNodeKeys.has(edgeNodeKey(e.from)) && variantNodeKeys.has(edgeNodeKey(e.to)))
+  const variantAliasToCanonicalKey = new Map<string, string>()
+  const variantIdToCanonicalKeys = new Map<string, Set<string>>()
+  const appendIdAlias = (idRaw: unknown, canonical: string) => {
+    const id = String(idRaw ?? '').trim()
+    if (!id) return
+    const bucket = variantIdToCanonicalKeys.get(id) || new Set<string>()
+    bucket.add(canonical)
+    variantIdToCanonicalKeys.set(id, bucket)
+  }
+  variantNodes.forEach((node) => {
+    const canonical = nodeKey(node)
+    appendIdAlias(node.id, canonical)
+    const entryId = node.entry_id
+    if (entryId == null || String(entryId).trim() === '') return
+    variantAliasToCanonicalKey.set(`${node.type}:${entryId}`, canonical)
+    appendIdAlias(entryId, canonical)
+  })
+  const resolveVariantRefKey = (ref: GraphEdgeItem['from'] | GraphEdgeItem['to']) => {
+    const raw = edgeNodeKey(ref)
+    if (variantNodeKeys.has(raw)) return raw
+    const alias = variantAliasToCanonicalKey.get(raw)
+    if (alias) return alias
+    const idOnly = String(ref.id ?? '').trim()
+    if (!idOnly) return null
+    const candidates = variantIdToCanonicalKeys.get(idOnly)
+    if (!candidates || candidates.size !== 1) return null
+    return Array.from(candidates)[0] || null
+  }
+
+  const edgeResolvedKeyMap = new Map<GraphEdgeItem, { fromKey: string; toKey: string }>()
+  const variantEdges = edges.filter((e) => {
+    const fromKey = resolveVariantRefKey(e.from)
+    const toKey = resolveVariantRefKey(e.to)
+    if (!fromKey || !toKey) return false
+    edgeResolvedKeyMap.set(e, { fromKey, toKey })
+    return true
+  })
 
   let connectedNodes = variantNodes
   let connectedEdges = variantEdges
@@ -402,8 +541,10 @@ function computeVisibleSubgraph(
     if (specialSeedKeys.length) {
       const adjacency = new Map<string, Set<string>>()
       variantEdges.forEach((edge) => {
-        const from = edgeNodeKey(edge.from)
-        const to = edgeNodeKey(edge.to)
+        const resolved = edgeResolvedKeyMap.get(edge)
+        if (!resolved) return
+        const from = resolved.fromKey
+        const to = resolved.toKey
         if (!adjacency.has(from)) adjacency.set(from, new Set())
         if (!adjacency.has(to)) adjacency.set(to, new Set())
         adjacency.get(from)?.add(to)
@@ -422,7 +563,11 @@ function computeVisibleSubgraph(
       connectedNodes = variantNodes.filter((node) => reachableFromSpecial.has(nodeKey(node)))
       connectedNodeKeys = new Set(connectedNodes.map(nodeKey))
       connectedEdges = variantEdges.filter(
-        (edge) => connectedNodeKeys.has(edgeNodeKey(edge.from)) && connectedNodeKeys.has(edgeNodeKey(edge.to)),
+        (edge) => {
+          const resolved = edgeResolvedKeyMap.get(edge)
+          if (!resolved) return false
+          return connectedNodeKeys.has(resolved.fromKey) && connectedNodeKeys.has(resolved.toKey)
+        },
       )
     }
   }
@@ -430,7 +575,11 @@ function computeVisibleSubgraph(
   const visibleNodes = connectedNodes.filter((node) => !hiddenTypes[node.type])
   const visibleNodeKeys = new Set(visibleNodes.map(nodeKey))
   const visibleEdges = connectedEdges.filter(
-    (edge) => visibleNodeKeys.has(edgeNodeKey(edge.from)) && visibleNodeKeys.has(edgeNodeKey(edge.to)),
+    (edge) => {
+      const resolved = edgeResolvedKeyMap.get(edge)
+      if (!resolved) return false
+      return visibleNodeKeys.has(resolved.fromKey) && visibleNodeKeys.has(resolved.toKey)
+    },
   )
 
   return {
@@ -440,6 +589,7 @@ function computeVisibleSubgraph(
     visibleNodes,
     visibleEdges,
     visibleNodeKeys,
+    edgeResolvedKeyMap,
   }
 }
 
@@ -447,6 +597,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const graphKind = TYPE_TO_KIND[variant]
   const chartRef = useRef<HTMLDivElement | null>(null)
   const fullscreenWrapRef = useRef<HTMLDivElement | null>(null)
+  const controlPanelRef = useRef<HTMLDivElement | null>(null)
+  const controlResizeRightRef = useRef<number | null>(null)
   const chartInstRef = useRef<EChartsType | null>(null)
   const echartsLibRef = useRef<typeof import('echarts/core') | null>(null)
   const nodeLookupRef = useRef<Record<string, GraphNodeItem>>({})
@@ -460,7 +612,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [platform, setPlatform] = useState('')
   const [topic, setTopic] = useState('')
   const [game, setGame] = useState('')
-  const [limit, setLimit] = useState(100)
+  const [limit, setLimit] = useState(GRAPH_LIMIT_DEFAULT)
   const [visualDraft, setVisualDraft] = useState({
     repulsion: 180,
     nodeScale: 100,
@@ -482,22 +634,35 @@ export default function GraphPage({ projectKey, variant }: Props) {
     platform: '',
     topic: '',
     game: '',
-    limit: 100,
+    limit: GRAPH_LIMIT_DEFAULT,
   })
   const [selectedNode, setSelectedNode] = useState<GraphNodeItem | null>(null)
   const [nodeCardAnchor, setNodeCardAnchor] = useState<NodeCardAnchor | null>(null)
   const [chartReady, setChartReady] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isCompactViewport, setIsCompactViewport] = useState(false)
   const [showOverlay, setShowOverlay] = useState(true)
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
-  const [paletteKey, setPaletteKey] = useState<PaletteKey>('tol_bright')
+  const [expandedEdgeGroup, setExpandedEdgeGroup] = useState<EdgeLegendTier | null>(null)
+  const [paletteKey, setPaletteKey] = useState<PaletteKey>('bcp_unified')
+  const [colorRotate, setColorRotate] = useState(58)
+  const [absoluteContrast, setAbsoluteContrast] = useState(62)
+  const [controlPanelWidth, setControlPanelWidth] = useState(430)
+  const [controlSectionOpen, setControlSectionOpen] = useState<Record<'view' | 'color' | 'filter', boolean>>({
+    view: true,
+    color: true,
+    filter: true,
+  })
+  const [hiddenEdgeKinds, setHiddenEdgeKinds] = useState<Record<string, boolean>>({})
   const [relationGroupOpen, setRelationGroupOpen] = useState<Record<string, boolean>>({})
   const [expandedNeighborType, setExpandedNeighborType] = useState<string | null>(null)
   const [expandedPredicate, setExpandedPredicate] = useState<string | null>(null)
   const [expandedElementLabel, setExpandedElementLabel] = useState<string | null>(null)
   const [selectionEnabled, setSelectionEnabled] = useState(false)
-  const [selectedNodeKeys, setSelectedNodeKeys] = useState<Set<string>>(new Set())
+  const [manualSelectedNodeKeys, setManualSelectedNodeKeys] = useState<Set<string>>(new Set())
+  const [radiationSelectionByCenter, setRadiationSelectionByCenter] = useState<Record<string, boolean>>({})
   const [selectionPinned, setSelectionPinned] = useState(false)
+  const [autoFocusEnabled, setAutoFocusEnabled] = useState(true)
   const [hoverNodeKey, setHoverNodeKey] = useState<string | null>(null)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [submittingMap, setSubmittingMap] = useState<Record<'collect' | 'source_collect', boolean>>({
@@ -527,6 +692,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const lastClickRef = useRef<{ key: string; ts: number } | null>(null)
   const selectionEnabledRef = useRef(false)
   const adjacencyConnectedMapRef = useRef<Map<string, Set<string>>>(new Map())
+  const dragFocusNodeKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     selectionEnabledRef.current = selectionEnabled
@@ -535,8 +701,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
   useEffect(() => {
     // Avoid carrying hidden type masks across graph variants.
     setHiddenTypes({})
+    setHiddenEdgeKinds({})
     setExpandedGroup(null)
-    setSelectedNodeKeys(new Set())
+    setExpandedEdgeGroup(null)
+    setManualSelectedNodeKeys(new Set())
+    setRadiationSelectionByCenter({})
     setSelectionPinned(false)
     setHoverNodeKey(null)
   }, [graphKind])
@@ -546,6 +715,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
     queryFn: getGraphConfig,
     enabled: Boolean(projectKey),
   })
+
+  const effectiveLimit = clampGraphLimit(appliedFilters.limit)
 
   const graphData = useQuery({
     queryKey: [
@@ -559,7 +730,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
       appliedFilters.platform,
       appliedFilters.topic,
       appliedFilters.game,
-      appliedFilters.limit,
+      effectiveLimit,
     ],
     queryFn: async () => {
       if (graphKind === 'policy') {
@@ -568,7 +739,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           end_date: appliedFilters.endDate,
           state: appliedFilters.state,
           policy_type: appliedFilters.policyType,
-          limit: appliedFilters.limit,
+          limit: effectiveLimit,
         })
       }
       if (graphKind === 'social') {
@@ -577,7 +748,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           end_date: appliedFilters.endDate,
           platform: appliedFilters.platform,
           topic: appliedFilters.topic,
-          limit: appliedFilters.limit,
+          limit: effectiveLimit,
         })
       }
       return getMarketGraph({
@@ -591,7 +762,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         topic_scope: graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
           ? graphKind
           : undefined,
-        limit: appliedFilters.limit,
+        limit: effectiveLimit,
       })
     },
     enabled: Boolean(projectKey),
@@ -602,6 +773,19 @@ export default function GraphPage({ projectKey, variant }: Props) {
     queryFn: listSourceItems,
     enabled: Boolean(projectKey) && taskModalOpen,
   })
+
+  const colorDistribution = useMemo(() => {
+    const rotateT = Math.max(0, Math.min(1, colorRotate / 100))
+    const contrastT = Math.max(0, Math.min(1, absoluteContrast / 100))
+    return {
+      // 在同色系内：旋转控制色相起点，绝对色差控制间距并同步扩张分配域。
+      rotation: rotateT,
+      spread: 0.5 + rotateT * 1.4,
+      // 绝对色差越大，同步扩张配色域，避免图例扎堆在同一小段颜色。
+      contrast: contrastT,
+      domainExpand: contrastT,
+    }
+  }, [colorRotate, absoluteContrast])
 
   const nodeTypes = useMemo(() => {
     const set = new Set<string>(DEFAULT_NODE_TYPES_BY_KIND[graphKind])
@@ -616,16 +800,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [graphData.data?.nodes, graphConfig.data?.graph_node_types, graphKind])
 
   const nodeTypeColor = useMemo(() => {
-    const map: Record<string, string> = {}
-    const palette = COLOR_PALETTES[paletteKey].colors
-    nodeTypes.forEach((type) => {
-      const h = hashText(type)
-      const base = palette[h % palette.length]
-      const mix = ((h >> 8) % 20) / 100
-      map[type] = tint(brightenHex(base), 0.06 + mix)
-    })
-    return map
-  }, [nodeTypes, paletteKey])
+    return assignLegendColors(nodeTypes, paletteKey, 'node', colorDistribution)
+  }, [nodeTypes, paletteKey, colorDistribution])
 
   const stats = useMemo(() => {
     const nodes = graphData.data?.nodes || []
@@ -647,7 +823,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const topology = useMemo(() => {
     const nodes = graphData.data?.nodes || []
     const edges = graphData.data?.edges || []
-    const { connectedNodes, connectedEdges, connectedNodeKeys, visibleNodes, visibleEdges, visibleNodeKeys } = computeVisibleSubgraph(
+    const { connectedNodes, connectedEdges, connectedNodeKeys, visibleNodes, visibleEdges, visibleNodeKeys, edgeResolvedKeyMap } = computeVisibleSubgraph(
       nodes,
       edges,
       graphKind,
@@ -656,8 +832,10 @@ export default function GraphPage({ projectKey, variant }: Props) {
 
     const degreeMap = new Map<string, number>()
     visibleEdges.forEach((edge) => {
-      degreeMap.set(edgeNodeKey(edge.from), (degreeMap.get(edgeNodeKey(edge.from)) || 0) + 1)
-      degreeMap.set(edgeNodeKey(edge.to), (degreeMap.get(edgeNodeKey(edge.to)) || 0) + 1)
+      const resolved = edgeResolvedKeyMap.get(edge)
+      if (!resolved) return
+      degreeMap.set(resolved.fromKey, (degreeMap.get(resolved.fromKey) || 0) + 1)
+      degreeMap.set(resolved.toKey, (degreeMap.get(resolved.toKey) || 0) + 1)
     })
     const degrees = Array.from(degreeMap.values())
     const minDeg = degrees.length ? Math.min(...degrees) : 0
@@ -674,10 +852,59 @@ export default function GraphPage({ projectKey, variant }: Props) {
       minDeg,
       rangeDeg,
       visibleNodeKeys,
+      edgeResolvedKeyMap,
       rawNodeCount: visibleNodes.length,
       rawEdgeCount: visibleEdges.length,
     }
   }, [graphData.data, hiddenTypes, graphKind])
+
+  const edgeLegendItems = useMemo(() => {
+    const labels = graphConfig.data?.graph_relation_labels
+    const counters = new Map<string, { sample: GraphEdgeItem; count: number }>()
+    topology.connectedEdges.forEach((edge) => {
+      const key = edgeLegendKey(edge)
+      const prev = counters.get(key)
+      if (prev) {
+        prev.count += 1
+        return
+      }
+      counters.set(key, { sample: edge, count: 1 })
+    })
+    const sortedKeys = Array.from(counters.keys()).sort((a, b) => a.localeCompare(b, 'zh-CN'))
+    const colorByKey = assignLegendColors(sortedKeys, paletteKey, 'edge', colorDistribution)
+    const items = Array.from(counters.entries()).map(([key, info]) => {
+      const tier = edgeLegendTier(info.sample)
+      return {
+        key,
+        tier,
+        lineType: EDGE_LINE_TYPE_BY_TIER[tier],
+        label: edgeLegendLabel(info.sample, labels),
+        count: info.count,
+        color: colorByKey[key] || '#7dd3fc',
+      } satisfies EdgeLegendItem
+    })
+    return items.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'zh-CN'))
+  }, [topology.connectedEdges, graphConfig.data?.graph_relation_labels, paletteKey, colorDistribution])
+
+  const edgeLegendItemByKey = useMemo(() => {
+    return new Map(edgeLegendItems.map((item) => [item.key, item]))
+  }, [edgeLegendItems])
+
+  const edgeLegendGroups = useMemo(() => {
+    const grouped: Record<EdgeLegendTier, EdgeLegendItem[]> = {
+      class: [],
+      pred: [],
+      type: [],
+    }
+    edgeLegendItems.forEach((item) => grouped[item.tier].push(item))
+    return (Object.keys(grouped) as EdgeLegendTier[])
+      .map((tier) => [tier, grouped[tier]] as const)
+      .filter(([, items]) => items.length > 0)
+  }, [edgeLegendItems])
+
+  const visibleEdges = useMemo(() => {
+    return topology.visibleEdges.filter((edge) => !hiddenEdgeKinds[edgeLegendKey(edge)])
+  }, [topology.visibleEdges, hiddenEdgeKinds])
 
   const connectedNodeMap = useMemo(() => {
     return new Map(topology.connectedNodes.map((node) => [nodeKey(node), node]))
@@ -687,19 +914,30 @@ export default function GraphPage({ projectKey, variant }: Props) {
     const map = new Map<string, Set<string>>()
     const edges = topology.connectedEdges || []
     edges.forEach((edge) => {
-      const from = edgeNodeKey(edge.from)
-      const to = edgeNodeKey(edge.to)
+      const resolved = topology.edgeResolvedKeyMap.get(edge)
+      if (!resolved) return
+      const from = resolved.fromKey
+      const to = resolved.toKey
       if (!map.has(from)) map.set(from, new Set())
       if (!map.has(to)) map.set(to, new Set())
       map.get(from)?.add(to)
       map.get(to)?.add(from)
     })
     return map
-  }, [topology.connectedEdges])
+  }, [topology.connectedEdges, topology.edgeResolvedKeyMap])
 
   useEffect(() => {
     adjacencyConnectedMapRef.current = adjacencyConnectedMap
   }, [adjacencyConnectedMap])
+
+  const selectedNodeKeys = useMemo(() => {
+    const merged = new Set(manualSelectedNodeKeys)
+    Object.entries(radiationSelectionByCenter).forEach(([centerKey, enabled]) => {
+      if (!enabled) return
+      collectFocusNodeKeys(centerKey, adjacencyConnectedMap).forEach((item) => merged.add(item))
+    })
+    return merged
+  }, [manualSelectedNodeKeys, radiationSelectionByCenter, adjacencyConnectedMap])
 
   useEffect(() => {
     if (selectionPinned && !selectedNodeKeys.size) setSelectionPinned(false)
@@ -717,11 +955,16 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [topology.connectedNodes.length, topology.visibleNodes.length, hiddenTypes])
 
   useEffect(() => {
-    setSelectedNodeKeys((prev) => {
+    setManualSelectedNodeKeys((prev) => {
       if (!prev.size) return prev
       const next = new Set(Array.from(prev).filter((key) => topology.connectedNodeKeys.has(key)))
       if (next.size === prev.size && Array.from(prev).every((key) => next.has(key))) return prev
       return next
+    })
+    setRadiationSelectionByCenter((prev) => {
+      const nextEntries = Object.entries(prev).filter(([key]) => topology.connectedNodeKeys.has(key))
+      if (nextEntries.length === Object.keys(prev).length) return prev
+      return Object.fromEntries(nextEntries)
     })
     setSelectedNode((prev) => {
       if (!prev) return prev
@@ -774,8 +1017,10 @@ export default function GraphPage({ projectKey, variant }: Props) {
       .map((key) => connectedNodeMap.get(key))
       .filter((node): node is GraphNodeItem => Boolean(node))
     const selectedSet = new Set(selectedNodes.map((node) => nodeKey(node)))
-    const selectedEdges = topology.visibleEdges.filter((edge) => {
-      return selectedSet.has(edgeNodeKey(edge.from)) && selectedSet.has(edgeNodeKey(edge.to))
+    const selectedEdges = visibleEdges.filter((edge) => {
+      const resolved = topology.edgeResolvedKeyMap.get(edge)
+      if (!resolved) return false
+      return selectedSet.has(resolved.fromKey) && selectedSet.has(resolved.toKey)
     })
     return {
       project_key: projectKey,
@@ -799,7 +1044,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
       })),
       edges: selectedEdges,
     }
-  }, [selectedNodeKeys, connectedNodeMap, topology.visibleEdges, projectKey, graphKind, dashboardParams, dashboard.llmAssist])
+  }, [selectedNodeKeys, connectedNodeMap, visibleEdges, topology.edgeResolvedKeyMap, projectKey, graphKind, dashboardParams, dashboard.llmAssist])
 
   const copyStructuredPayload = async () => {
     const text = JSON.stringify(selectedExportPayload, null, 2)
@@ -853,8 +1098,10 @@ export default function GraphPage({ projectKey, variant }: Props) {
     const edges = topology.connectedEdges
     const nodeByKey = connectedNodeMap
     const incident = edges.filter((edge) => {
-      const fk = edgeNodeKey(edge.from)
-      const tk = edgeNodeKey(edge.to)
+      const resolved = topology.edgeResolvedKeyMap.get(edge)
+      if (!resolved) return false
+      const fk = resolved.fromKey
+      const tk = resolved.toKey
       return fk === centerKey || tk === centerKey
     })
     if (!incident.length) {
@@ -878,8 +1125,10 @@ export default function GraphPage({ projectKey, variant }: Props) {
     const relationsByPredicate = new Map<string, NodeGraphContext['relationItems']>()
 
     incident.forEach((edge, index) => {
-      const fk = edgeNodeKey(edge.from)
-      const tk = edgeNodeKey(edge.to)
+      const resolved = topology.edgeResolvedKeyMap.get(edge)
+      if (!resolved) return
+      const fk = resolved.fromKey
+      const tk = resolved.toKey
       const outbound = fk === centerKey
       const otherKey = fk === centerKey ? tk : fk
       const other = nodeByKey.get(otherKey)
@@ -941,7 +1190,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
       relationsByPredicate: Object.fromEntries(relationsByPredicate.entries()),
       relationItems,
     }
-  }, [selectedNode, topology.connectedNodeKeys, topology.connectedEdges, connectedNodeMap])
+  }, [selectedNode, topology.connectedNodeKeys, topology.connectedEdges, topology.edgeResolvedKeyMap, connectedNodeMap])
 
   const nodeAllElements = useMemo(() => buildNodeElements(selectedNode), [selectedNode])
   const nodeElementGroups = useMemo(() => {
@@ -984,6 +1233,16 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [])
 
   useEffect(() => {
+    const onWindowResize = () => {
+      setIsCompactViewport(window.innerWidth <= 980)
+      setControlPanelWidth((prev) => clampControlPanelWidth(prev, window.innerWidth))
+    }
+    onWindowResize()
+    window.addEventListener('resize', onWindowResize)
+    return () => window.removeEventListener('resize', onWindowResize)
+  }, [])
+
+  useEffect(() => {
     const onFullscreenChange = () => {
       const active = document.fullscreenElement === fullscreenWrapRef.current
       setIsFullscreen(active)
@@ -1010,6 +1269,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
     }
     lastClickRef.current = null
     setHoverNodeKey(null)
+    setRadiationSelectionByCenter({})
   }, [variant])
 
   useEffect(() => {
@@ -1077,22 +1337,41 @@ export default function GraphPage({ projectKey, variant }: Props) {
               clickTimerRef.current = null
             }
             if (GRAPH_SELECT_DEBUG) console.info('[graph-select] dispatch-double', { nodeKey: key })
-            const neighbors = Array.from(adjacencyConnectedMapRef.current.get(key) || [])
-            if (GRAPH_SELECT_DEBUG) console.info('[graph-select] double-toggle-neighbors', { key, neighborCount: neighbors.length, neighbors })
-            setSelectedNodeKeys((prev) => {
-              const next = new Set(prev)
-              neighbors.forEach((item) => {
-                if (next.has(item)) next.delete(item)
-                else next.add(item)
+            const radiationSet = collectFocusNodeKeys(key, adjacencyConnectedMapRef.current)
+            const neighbors = Array.from(radiationSet).filter((item) => item !== key)
+            if (GRAPH_SELECT_DEEP_DEBUG) {
+              const incident = (topology.connectedEdges || []).reduce((acc, edge) => {
+                const resolved = topology.edgeResolvedKeyMap.get(edge)
+                if (!resolved) return acc
+                if (resolved.fromKey === key || resolved.toKey === key) {
+                  acc.push({
+                    from: resolved.fromKey,
+                    to: resolved.toKey,
+                    type: edge.type,
+                    predicate: edge.predicate,
+                  })
+                }
+                return acc
+              }, [] as Array<{ from: string; to: string; type?: string; predicate?: string }>)
+              console.info('[graph-select] double-neighbor-debug', {
+                key,
+                neighborCount: neighbors.length,
+                neighbors,
+                incidentCount: incident.length,
+                incident,
               })
-              return next
+            }
+            if (GRAPH_SELECT_DEBUG) console.info('[graph-select] double-toggle-neighbors', { key, neighborCount: neighbors.length, neighbors })
+            setRadiationSelectionByCenter((prev) => {
+              const nextOn = !prev[key]
+              return { ...prev, [key]: nextOn }
             })
             return
           }
           if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current)
           clickTimerRef.current = window.setTimeout(() => {
             if (GRAPH_SELECT_DEBUG) console.info('[graph-select] dispatch-single', { nodeKey: key })
-            setSelectedNodeKeys((prev) => {
+            setManualSelectedNodeKeys((prev) => {
               const next = new Set(prev)
               if (next.has(key)) next.delete(key)
               else next.add(key)
@@ -1104,13 +1383,67 @@ export default function GraphPage({ projectKey, variant }: Props) {
         })
         chartInstRef.current.on('mouseover', (params) => {
           if (params.dataType !== 'node') return
+          const mouseEvent = (params as { event?: { event?: MouseEvent } }).event?.event
+          if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) > 0) {
+            // During drag, keep focus pinned to the drag-origin node.
+            setHoverNodeKey(dragFocusNodeKeyRef.current)
+            return
+          }
+          if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) === 0) {
+            dragFocusNodeKeyRef.current = null
+          }
           const nodeId = params.data && typeof params.data === 'object' && 'id' in params.data
             ? String(params.data.id || '')
             : ''
           if (!nodeId) return
           setHoverNodeKey(nodeId)
         })
+        chartInstRef.current.on('mousedown', (params) => {
+          if (params.dataType !== 'node') return
+          const nodeId = params.data && typeof params.data === 'object' && 'id' in params.data
+            ? String(params.data.id || '')
+            : ''
+          if (!nodeId) return
+          dragFocusNodeKeyRef.current = nodeId
+          setHoverNodeKey(nodeId)
+        })
+        chartInstRef.current.on('mouseup', (params) => {
+          if (dragFocusNodeKeyRef.current == null) return
+          dragFocusNodeKeyRef.current = null
+          if (params.dataType === 'node') {
+            const nodeId = params.data && typeof params.data === 'object' && 'id' in params.data
+              ? String(params.data.id || '')
+              : ''
+            setHoverNodeKey(nodeId || null)
+            return
+          }
+          setHoverNodeKey(null)
+        })
+        chartInstRef.current.on('mouseout', (params) => {
+          const mouseEvent = (params as { event?: { event?: MouseEvent } }).event?.event
+          if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) === 0) {
+            dragFocusNodeKeyRef.current = null
+          }
+          if (dragFocusNodeKeyRef.current) return
+          if (params.dataType === 'node') {
+            setHoverNodeKey(null)
+          }
+        })
+        chartInstRef.current.on('mousemove', (params) => {
+          const mouseEvent = (params as { event?: { event?: MouseEvent } }).event?.event
+          if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) === 0) {
+            dragFocusNodeKeyRef.current = null
+          }
+          if (dragFocusNodeKeyRef.current) {
+            setHoverNodeKey(dragFocusNodeKeyRef.current)
+            return
+          }
+          if (params.dataType !== 'node') {
+            setHoverNodeKey(null)
+          }
+        })
         chartInstRef.current.on('globalout', () => {
+          dragFocusNodeKeyRef.current = null
           setHoverNodeKey(null)
         })
       }
@@ -1129,6 +1462,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         chartInstRef.current.dispose()
         chartInstRef.current = null
       }
+      dragFocusNodeKeyRef.current = null
       if (renderFrameRef.current !== null) {
         window.cancelAnimationFrame(renderFrameRef.current)
         renderFrameRef.current = null
@@ -1140,7 +1474,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
     if (!chartReady) return
     const chart = chartInstRef.current
     if (!chart) return
-    const { nodes, visibleNodes, visibleEdges, degreeMap, minDeg, rangeDeg } = topology
+    const { nodes, visibleNodes, degreeMap, minDeg, rangeDeg } = topology
     nodeLookupRef.current = Object.fromEntries(nodes.map((n) => [nodeKey(n), n]))
     const prevPos = { ...nodePositionRef.current }
     try {
@@ -1156,15 +1490,13 @@ export default function GraphPage({ projectKey, variant }: Props) {
     }
     const shouldShowNodeLabel = visualApplied.showLabel && visibleNodes.length <= 220
     const shouldShowEdgeLabel = false
-    const focusSet = new Set<string>()
-    if (selectionPinned) {
-      selectedNodeKeys.forEach((center) => focusSet.add(center))
-      if (hoverNodeKey && selectedNodeKeys.has(hoverNodeKey)) {
-        focusSet.add(hoverNodeKey)
-        ;(adjacencyConnectedMap.get(hoverNodeKey) || new Set()).forEach((neighbor) => focusSet.add(neighbor))
-      }
+    const autoFocusSet = new Set<string>()
+    const focusCenterKey = autoFocusEnabled ? hoverNodeKey : null
+    if (focusCenterKey) {
+      collectFocusNodeKeys(focusCenterKey, adjacencyConnectedMap).forEach((item) => autoFocusSet.add(item))
     }
-    const enableFocusDim = selectionPinned && focusSet.size > 0
+    const enablePinnedOnlyDim = selectionPinned && selectedNodeKeys.size > 0
+    const enableAutoFocusDim = autoFocusEnabled && autoFocusSet.size > 0
 
     const seriesNodes = visibleNodes.map((node) => {
       const key = nodeKey(node)
@@ -1172,7 +1504,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
       const size = Math.round((18 + ((deg - minDeg) / rangeDeg) * 28) * (visualApplied.nodeScale / 100))
       const show = shouldShowNodeLabel && size >= 24
       const selected = selectedNodeKeys.has(key)
-      const dimByFocus = enableFocusDim && !selected && !focusSet.has(key)
+      const dimByPinnedOnly = enablePinnedOnlyDim && !selected
+      const dimByAutoFocus = enableAutoFocusDim && !autoFocusSet.has(key)
+      const dimByFocus = enablePinnedOnlyDim ? dimByPinnedOnly : dimByAutoFocus
       const nodeColor = nodeTypeColor[node.type] || '#7dd3fc'
       const { r, g, b } = hexToRgb(nodeColor)
       return {
@@ -1204,11 +1538,21 @@ export default function GraphPage({ projectKey, variant }: Props) {
     })
 
     const seriesEdges = visibleEdges.map((edge) => {
-      const fromKey = edgeNodeKey(edge.from)
-      const toKey = edgeNodeKey(edge.to)
+      const resolved = topology.edgeResolvedKeyMap.get(edge)
+      if (!resolved) return null
+      const fromKey = resolved.fromKey
+      const toKey = resolved.toKey
       const fromSelected = selectedNodeKeys.has(fromKey)
       const toSelected = selectedNodeKeys.has(toKey)
-      const dimByFocus = enableFocusDim && !fromSelected && !toSelected && !(focusSet.has(fromKey) && focusSet.has(toKey))
+      const dimByPinnedOnly = enablePinnedOnlyDim && !(fromSelected && toSelected)
+      const dimByAutoFocus =
+        enableAutoFocusDim &&
+        !(autoFocusSet.has(fromKey) && autoFocusSet.has(toKey))
+      const dimByFocus = enablePinnedOnlyDim ? dimByPinnedOnly : dimByAutoFocus
+      const style = edgeLegendItemByKey.get(edgeLegendKey(edge))
+      const tier = style?.tier || 'type'
+      const edgeColor = style?.color || '#7dd3fc'
+      const { r, g, b } = hexToRgb(edgeColor)
       return {
         source: fromKey,
         target: toKey,
@@ -1216,8 +1560,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
         lineStyle: {
           color: dimByFocus
             ? 'rgba(125, 211, 252, 0.04)'
-            : (edge.type === 'POLICY_RELATION' ? 'rgba(125, 211, 252, 0.68)' : 'rgba(125, 211, 252, 0.2)'),
-          width: dimByFocus ? 0.7 : (edge.type === 'POLICY_RELATION' ? 1.6 : 1),
+            : `rgba(${r}, ${g}, ${b}, ${EDGE_ALPHA_BY_TIER[tier]})`,
+          width: dimByFocus ? 0.7 : EDGE_WIDTH_BY_TIER[tier],
+          type: style?.lineType || 'dotted',
           curveness: edge.type === 'POLICY_RELATION' ? 0.18 : 0,
         },
         label: {
@@ -1226,7 +1571,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           color: 'rgba(147, 197, 253, 0.8)',
         },
       }
-    })
+    }).filter((item): item is NonNullable<typeof item> => Boolean(item))
 
     const option = {
         backgroundColor: '#030712',
@@ -1243,7 +1588,10 @@ export default function GraphPage({ projectKey, variant }: Props) {
             }
             if (params.dataType === 'edge') {
               const edge = (params.data?.value || {}) as GraphEdgeItem
-              return `关系: ${edge.type || 'REL'}${edge.predicate ? `<br/>谓词: ${edge.predicate}` : ''}`
+              const classToken = String(edge.relation_class || '').trim().toLowerCase()
+              const classLabel = classToken ? (RELATION_CLASS_LABEL[classToken] || classToken) : ''
+              const predicate = String(edge.predicate || '').trim()
+              return `关系: ${edge.type || 'REL'}${classLabel ? `<br/>大类: ${classLabel}` : ''}${predicate ? `<br/>谓词: ${predicate}` : ''}`
             }
             return ''
           },
@@ -1253,7 +1601,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
             type: 'graph',
             layout: 'force',
             roam: true,
-            draggable: false,
+            draggable: true,
             left: 0,
             right: 0,
             top: 0,
@@ -1274,14 +1622,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
             links: seriesEdges,
             labelLayout: { hideOverlap: true },
             lineStyle: { opacity: 0.85 },
-            blur: {
-              itemStyle: { opacity: 0.1 },
-              lineStyle: { opacity: 0.06 },
-              label: { show: false },
-            },
             emphasis: {
-              focus: 'adjacency',
-              blurScope: 'global',
+              focus: 'none',
               scale: false,
             },
           },
@@ -1295,7 +1637,33 @@ export default function GraphPage({ projectKey, variant }: Props) {
     nodePositionRef.current = Object.fromEntries(
       seriesNodes.map((item) => [String(item.id), { x: item.x, y: item.y }]),
     )
-  }, [topology, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey])
+  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode])
+
+  const onControlResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (isCompactViewport) return
+    event.preventDefault()
+    const panel = controlPanelRef.current
+    if (!panel) return
+    const rect = panel.getBoundingClientRect()
+    controlResizeRightRef.current = rect.right
+    const onMove = (moveEvent: MouseEvent) => {
+      const right = controlResizeRightRef.current
+      if (!Number.isFinite(right)) return
+      const next = (right as number) - moveEvent.clientX
+      setControlPanelWidth(clampControlPanelWidth(next, window.innerWidth))
+    }
+    const onEnd = () => {
+      controlResizeRightRef.current = null
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onEnd)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onEnd)
+  }
 
   return (
     <div className="content-stack gv2-root">
@@ -1312,14 +1680,22 @@ export default function GraphPage({ projectKey, variant }: Props) {
             <div className="gv2-overlay-top">
               <button
                 type="button"
-                className={`gv2-select-mode-btn ${selectionEnabled ? 'is-active' : ''}`.trim()}
+                className={`gv2-select-mode-btn ${selectionEnabled ? '' : 'is-off'}`.trim()}
                 onClick={() => setSelectionEnabled((v) => !v)}
               >
                 选择模式
               </button>
               <button
                 type="button"
-                className={`gv2-select-mode-btn ${selectionPinned ? 'is-active' : ''}`.trim()}
+                className={`gv2-select-mode-btn ${autoFocusEnabled ? '' : 'is-off'}`.trim()}
+                onClick={() => setAutoFocusEnabled((v) => !v)}
+                title="基于当前节点详情自动隐没无关节点（与选择模式独立）"
+              >
+                聚焦隐没
+              </button>
+              <button
+                type="button"
+                className={`gv2-select-mode-btn ${selectionPinned ? '' : 'is-off'}`.trim()}
                 onClick={() => setSelectionPinned((v) => !v)}
                 disabled={!selectedNodeKeys.size}
               >
@@ -1348,166 +1724,262 @@ export default function GraphPage({ projectKey, variant }: Props) {
               <button onClick={() => setShowOverlay((v) => !v)}>{showOverlay ? '收起面板' : '展开面板'}</button>
             </div>
 
-            <div className={`gv2-floating-controls ${showOverlay ? '' : 'is-collapsed'}`}>
-              <label className="gv2-control-chip">
-                节点斥力
-                <input
-                  type="range"
-                  min={0}
-                  max={720}
-                  step={10}
-                  value={visualDraft.repulsion}
-                  onChange={(e) => {
-                    const repulsion = Number(e.target.value)
-                    setVisualDraft((prev) => ({ ...prev, repulsion }))
-                    setVisualApplied((prev) => ({ ...prev, repulsion }))
-                  }}
-                />
-                <span>{visualDraft.repulsion}</span>
-              </label>
-              <label className="gv2-control-chip">
-                节点尺寸
-                <input
-                  type="range"
-                  min={0}
-                  max={180}
-                  step={5}
-                  value={visualDraft.nodeScale}
-                  onChange={(e) => {
-                    const nodeScale = Number(e.target.value)
-                    setVisualDraft((prev) => ({ ...prev, nodeScale }))
-                    setVisualApplied((prev) => ({ ...prev, nodeScale }))
-                  }}
-                />
-                <span>{visualDraft.nodeScale}%</span>
-              </label>
-              <label className="gv2-control-chip">
-                节点透明
-                <input
-                  type="range"
-                  min={20}
-                  max={95}
-                  step={5}
-                  value={visualDraft.nodeAlpha}
-                  onChange={(e) => {
-                    const nodeAlpha = Number(e.target.value)
-                    setVisualDraft((prev) => ({ ...prev, nodeAlpha }))
-                    setVisualApplied((prev) => ({ ...prev, nodeAlpha }))
-                  }}
-                />
-                <span>{visualDraft.nodeAlpha}%</span>
-              </label>
-              <label className="gv2-control-chip gv2-checkbox">
-                <input
-                  type="checkbox"
-                  checked={visualDraft.showLabel}
-                  onChange={(e) => {
-                    const checked = e.target.checked
-                    setVisualDraft((prev) => ({ ...prev, showLabel: checked }))
-                    setVisualApplied((prev) => ({ ...prev, showLabel: checked }))
-                  }}
-                />
-                显示标签
-              </label>
-              <div className="gv2-control-chip"><span>已选 {selectedNodeKeys.size}</span><button type="button" className="secondary" onClick={() => setSelectedNodeKeys(new Set())} disabled={!selectedNodeKeys.size}>清空</button></div>
-              <label className="gv2-control-chip">
-                色系主题
-                <select value={paletteKey} onChange={(e) => setPaletteKey(e.target.value as PaletteKey)}>
-                  {Object.entries(COLOR_PALETTES).map(([key, val]) => (
-                    <option key={key} value={key}>{val.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="gv2-control-chip">
-                开始日期
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              </label>
-              <label className="gv2-control-chip">
-                结束日期
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-              </label>
-              {(graphKind === 'policy' || graphKind === 'market' || graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation') ? (
-                <label className="gv2-control-chip">
-                  州
-                  <input value={state} placeholder="CA / NY / TX" onChange={(e) => setState(e.target.value)} />
-                </label>
-              ) : null}
-              {graphKind === 'policy' ? (
-                <label className="gv2-control-chip">
-                  政策类型
-                  <input value={policyType} placeholder="regulation / bill" onChange={(e) => setPolicyType(e.target.value)} />
-                </label>
-              ) : null}
-              {graphKind === 'social' ? (
-                <>
-                  <label className="gv2-control-chip">
-                    平台
-                    <input value={platform} placeholder="reddit / twitter" onChange={(e) => setPlatform(e.target.value)} />
-                  </label>
-                  <label className="gv2-control-chip">
-                    主题
-                    <input value={topic} placeholder="关键词" onChange={(e) => setTopic(e.target.value)} />
-                  </label>
-                </>
-              ) : null}
-              {(graphKind === 'market' || graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation') ? (
-                <label className="gv2-control-chip">
-                  游戏
-                  <input value={game} placeholder="游戏名" onChange={(e) => setGame(e.target.value)} />
-                </label>
-              ) : null}
-              <label className="gv2-control-chip">
-                数量限制
-                <input
-                  type="range"
-                  min={1}
-                  max={2000}
-                  step={1}
-                  value={limit}
-                  onChange={(e) => setLimit(Math.max(1, Math.min(2000, Number(e.target.value) || 1)))}
-                />
-                <span>{limit}</span>
-              </label>
-              <div className="gv2-control-chip">
-                <button onClick={() => setAppliedFilters({
-                  startDate,
-                  endDate,
-                  state,
-                  policyType,
-                  platform,
-                  topic,
-                  game,
-                  limit,
-                })}
-                >
-                  应用筛选
-                </button>
+            <div
+              ref={controlPanelRef}
+              className={`gv2-floating-controls ${showOverlay ? '' : 'is-collapsed'}`}
+              style={isCompactViewport ? undefined : { width: `${controlPanelWidth}px` }}
+            >
+              <div className="gv2-floating-controls-resizer" onMouseDown={onControlResizeStart} />
+              <section className={`gv2-control-section ${controlSectionOpen.view ? '' : 'is-collapsed'}`}>
                 <button
-                  className="secondary"
-                  onClick={() => {
-                    setStartDate('')
-                    setEndDate('')
-                    setState('')
-                    setPolicyType('')
-                    setPlatform('')
-                    setTopic('')
-                    setGame('')
-                    setLimit(100)
-                    setAppliedFilters({
-                      startDate: '',
-                      endDate: '',
-                      state: '',
-                      policyType: '',
-                      platform: '',
-                      topic: '',
-                      game: '',
-                      limit: 100,
-                    })
-                  }}
+                  type="button"
+                  className="gv2-control-section-head"
+                  onClick={() => setControlSectionOpen((prev) => ({ ...prev, view: !prev.view }))}
                 >
-                  重置
+                  <strong>视图调节</strong>
+                  <span>{controlSectionOpen.view ? '收起' : '展开'}</span>
                 </button>
-              </div>
+                {controlSectionOpen.view ? (
+                  <div className="gv2-control-section-body">
+                    <label className="gv2-control-chip">
+                      节点斥力
+                      <input
+                        type="range"
+                        min={0}
+                        max={720}
+                        step={10}
+                        value={visualDraft.repulsion}
+                        onChange={(e) => {
+                          const repulsion = Number(e.target.value)
+                          setVisualDraft((prev) => ({ ...prev, repulsion }))
+                          setVisualApplied((prev) => ({ ...prev, repulsion }))
+                        }}
+                      />
+                      <span>{visualDraft.repulsion}</span>
+                    </label>
+                    <label className="gv2-control-chip">
+                      节点尺寸
+                      <input
+                        type="range"
+                        min={0}
+                        max={180}
+                        step={5}
+                        value={visualDraft.nodeScale}
+                        onChange={(e) => {
+                          const nodeScale = Number(e.target.value)
+                          setVisualDraft((prev) => ({ ...prev, nodeScale }))
+                          setVisualApplied((prev) => ({ ...prev, nodeScale }))
+                        }}
+                      />
+                      <span>{visualDraft.nodeScale}%</span>
+                    </label>
+                    <label className="gv2-control-chip">
+                      节点透明
+                      <input
+                        type="range"
+                        min={20}
+                        max={95}
+                        step={5}
+                        value={visualDraft.nodeAlpha}
+                        onChange={(e) => {
+                          const nodeAlpha = Number(e.target.value)
+                          setVisualDraft((prev) => ({ ...prev, nodeAlpha }))
+                          setVisualApplied((prev) => ({ ...prev, nodeAlpha }))
+                        }}
+                      />
+                      <span>{visualDraft.nodeAlpha}%</span>
+                    </label>
+                    <label className="gv2-control-chip gv2-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={visualDraft.showLabel}
+                        onChange={(e) => {
+                          const checked = e.target.checked
+                          setVisualDraft((prev) => ({ ...prev, showLabel: checked }))
+                          setVisualApplied((prev) => ({ ...prev, showLabel: checked }))
+                        }}
+                      />
+                      显示标签
+                    </label>
+                    <div className="gv2-control-chip">
+                      <span>已选 {selectedNodeKeys.size}</span>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => {
+                          setManualSelectedNodeKeys(new Set())
+                          setRadiationSelectionByCenter({})
+                        }}
+                        disabled={!selectedNodeKeys.size}
+                      >
+                        清空
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+
+              <section className={`gv2-control-section ${controlSectionOpen.color ? '' : 'is-collapsed'}`}>
+                <button
+                  type="button"
+                  className="gv2-control-section-head"
+                  onClick={() => setControlSectionOpen((prev) => ({ ...prev, color: !prev.color }))}
+                >
+                  <strong>配色调节</strong>
+                  <span>{controlSectionOpen.color ? '收起' : '展开'}</span>
+                </button>
+                {controlSectionOpen.color ? (
+                  <div className="gv2-control-section-body">
+                    <label className="gv2-control-chip">
+                      色系主题
+                      <select value={paletteKey} onChange={(e) => setPaletteKey(e.target.value as PaletteKey)}>
+                        {Object.entries(GRAPH_COLOR_THEMES).map(([key, val]) => (
+                          <option key={key} value={key}>{val.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="gv2-control-chip">
+                      色差旋转
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={colorRotate}
+                        onChange={(e) => setColorRotate(Number(e.target.value))}
+                      />
+                      <span>{colorRotate}%</span>
+                    </label>
+                    <label className="gv2-control-chip">
+                      绝对色差
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={absoluteContrast}
+                        onChange={(e) => setAbsoluteContrast(Number(e.target.value))}
+                      />
+                      <span>{absoluteContrast}%</span>
+                    </label>
+                  </div>
+                ) : null}
+              </section>
+
+              <section className={`gv2-control-section ${controlSectionOpen.filter ? '' : 'is-collapsed'}`}>
+                <button
+                  type="button"
+                  className="gv2-control-section-head"
+                  onClick={() => setControlSectionOpen((prev) => ({ ...prev, filter: !prev.filter }))}
+                >
+                  <strong>数据筛选</strong>
+                  <span>{controlSectionOpen.filter ? '收起' : '展开'}</span>
+                </button>
+                {controlSectionOpen.filter ? (
+                  <div className="gv2-control-section-body">
+                    <label className="gv2-control-chip">
+                      开始日期
+                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                    </label>
+                    <label className="gv2-control-chip">
+                      结束日期
+                      <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                    </label>
+                    {(graphKind === 'policy' || graphKind === 'market' || graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation') ? (
+                      <label className="gv2-control-chip">
+                        州
+                        <input value={state} placeholder="CA / NY / TX" onChange={(e) => setState(e.target.value)} />
+                      </label>
+                    ) : null}
+                    {graphKind === 'policy' ? (
+                      <label className="gv2-control-chip">
+                        政策类型
+                        <input value={policyType} placeholder="regulation / bill" onChange={(e) => setPolicyType(e.target.value)} />
+                      </label>
+                    ) : null}
+                    {graphKind === 'social' ? (
+                      <>
+                        <label className="gv2-control-chip">
+                          平台
+                          <input value={platform} placeholder="reddit / twitter" onChange={(e) => setPlatform(e.target.value)} />
+                        </label>
+                        <label className="gv2-control-chip">
+                          主题
+                          <input value={topic} placeholder="关键词" onChange={(e) => setTopic(e.target.value)} />
+                        </label>
+                      </>
+                    ) : null}
+                    {(graphKind === 'market' || graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation') ? (
+                      <label className="gv2-control-chip">
+                        游戏
+                        <input value={game} placeholder="游戏名" onChange={(e) => setGame(e.target.value)} />
+                      </label>
+                    ) : null}
+                    <label className="gv2-control-chip">
+                      数量限制
+                      <input
+                        type="range"
+                        min={GRAPH_LIMIT_MIN}
+                        max={GRAPH_LIMIT_MAX}
+                        step={1}
+                        value={limit}
+                        onChange={(e) => setLimit(clampGraphLimit(Number(e.target.value)))}
+                      />
+                      <span>{limit}</span>
+                    </label>
+                    <div className="gv2-control-chip">
+                      <button
+                        onClick={() => {
+                          setAppliedFilters({
+                            startDate,
+                            endDate,
+                            state,
+                            policyType,
+                            platform,
+                            topic,
+                            game,
+                            limit: clampGraphLimit(limit),
+                          })
+                          // Keep filter behavior predictable: applying query filters should reset legend hide masks.
+                          setHiddenTypes({})
+                          setHiddenEdgeKinds({})
+                        }}
+                      >
+                        应用筛选
+                      </button>
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          setStartDate('')
+                          setEndDate('')
+                          setState('')
+                          setPolicyType('')
+                          setPlatform('')
+                          setTopic('')
+                          setGame('')
+                          setLimit(GRAPH_LIMIT_DEFAULT)
+                          setAppliedFilters({
+                            startDate: '',
+                            endDate: '',
+                            state: '',
+                            policyType: '',
+                            platform: '',
+                            topic: '',
+                            game: '',
+                            limit: GRAPH_LIMIT_DEFAULT,
+                          })
+                          setHiddenTypes({})
+                          setHiddenEdgeKinds({})
+                          setExpandedGroup(null)
+                          setExpandedEdgeGroup(null)
+                        }}
+                      >
+                        重置
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
             </div>
             <div className={`gv2-legend-float ${showOverlay ? '' : 'is-collapsed'}`}>
               <div className="gv2-legend-groups">
@@ -1556,6 +2028,60 @@ export default function GraphPage({ projectKey, variant }: Props) {
                       </button>
                     )
                   })}
+                </div>
+              ) : null}
+              {edgeLegendGroups.length ? (
+                <div className="gv2-legend-edge-wrap">
+                  <div className="gv2-legend-section-title">边图例</div>
+                  <div className="gv2-legend-groups gv2-edge-legend-groups">
+                    {edgeLegendGroups.map(([tier, items]) => {
+                      const sample = items[0]
+                      const active = expandedEdgeGroup === tier
+                      return (
+                        <button
+                          key={tier}
+                          type="button"
+                          className={`gv2-legend-node gv2-edge-legend-node ${active ? 'is-active' : ''}`}
+                          title={EDGE_TIER_LABEL[tier]}
+                          onClick={(e) => {
+                            if (e.detail > 1) return
+                            setExpandedEdgeGroup((prev) => (prev === tier ? null : tier))
+                          }}
+                          onDoubleClick={() => {
+                            setHiddenEdgeKinds((prev) => {
+                              const next = { ...prev }
+                              items.forEach((item) => {
+                                next[item.key] = !next[item.key]
+                              })
+                              return next
+                            })
+                          }}
+                        >
+                          <span className={`gv2-edge-line-badge is-${sample.lineType}`} style={{ '--edge-color': sample.color } as CSSProperties}><i /></span>
+                          <span className="gv2-legend-node-label">{EDGE_TIER_LABEL[tier]}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {expandedEdgeGroup ? (
+                    <div className="gv2-type-grid gv2-edge-type-grid">
+                      {(edgeLegendGroups.find(([tier]) => tier === expandedEdgeGroup)?.[1] || []).map((item) => {
+                        const hidden = Boolean(hiddenEdgeKinds[item.key])
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            className={`gv2-type gv2-type--edge ${hidden ? 'is-hidden' : ''}`}
+                            onClick={() => setHiddenEdgeKinds((prev) => ({ ...prev, [item.key]: !prev[item.key] }))}
+                          >
+                            <span className={`gv2-edge-line-badge is-${item.lineType}`} style={{ '--edge-color': item.color } as CSSProperties}><i /></span>
+                            <span>{item.label}</span>
+                            <small>{item.count}</small>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -1806,7 +2332,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         <div className="gv2-node-expand-list">
                           {(nodeElementGroups.find((group) => group.label === expandedElementLabel)?.items || []).map((item) => (
                             <span key={item.id}>
-                              <i style={{ background: COLOR_PALETTES[paletteKey].colors[hashText(`el:${item.label}`) % COLOR_PALETTES[paletteKey].colors.length] }} />
+                              <i style={{ background: GRAPH_COLOR_THEMES[paletteKey].colors[hashText(`el:${item.label}`) % GRAPH_COLOR_THEMES[paletteKey].colors.length] }} />
                               {item.value}
                             </span>
                           ))}

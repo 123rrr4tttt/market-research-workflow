@@ -2,6 +2,19 @@
 
 > 最后更新：2026-02 | 首次运行请复制 `.env.example` 为 `.env`
 
+## 依赖要求
+
+| 依赖 | 说明 | 自动安装 |
+|------|------|----------|
+| **Homebrew** | 推荐，用于自动安装 PostgreSQL、Redis、Node.js | 脚本可自动安装（也可手动） |
+| Python 3.11+ | 后端运行时 | 否 |
+| PostgreSQL | 数据库（5432） | 是，通过 Homebrew |
+| Redis | 消息队列（6379） | 是，通过 Homebrew |
+| Elasticsearch | 全文检索（9200） | 否，需 `--with-docker-deps` 或手动启动 |
+| Node.js / npm | modern 前端 | 否 |
+
+> **重要**：默认会尝试自动安装 Homebrew（如缺失）；如不希望自动安装，可使用 `./start-local.sh --no-auto-install`。
+
 ## 快速开始
 
 ### 1. 环境配置
@@ -64,6 +77,9 @@ docker-compose up -d db es redis
 # 强制模式（端口冲突时自动处理并继续）
 ./start-local.sh --force
 
+# 关闭自动安装（缺依赖时只提示，不自动安装）
+./start-local.sh --no-auto-install
+
 # 需要 Docker 托管依赖时（可选）
 ./start-local.sh --with-docker-deps
 
@@ -75,6 +91,7 @@ docker-compose up -d db es redis
 ```
 
 启动脚本会自动：
+- ✅ 若检测到缺失 Homebrew，会尝试自动安装（可通过 `--no-auto-install` 关闭）
 - ✅ 自动创建 `.venv311`（若不存在）并按 `requirements.txt` 安装依赖（按哈希变更增量更新）
 - ✅ 默认纯本机模式，不自动操作 Docker 依赖服务
 - ✅ 启动 modern 前端开发服务（默认端口 5173）

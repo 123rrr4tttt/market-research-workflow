@@ -13,7 +13,6 @@ import logging
 
 from ..models.base import SessionLocal
 from ..models.entities import Document, Source, MarketStat, SearchHistory
-from ..services.graph.doc_types import resolve_graph_doc_types, resolve_graph_topic_scope_entities
 from ..services.extraction.extract import extract_policy_info, extract_market_info, extract_entities_relations
 from ..services.extraction.application import ExtractionApplicationService
 from ..services.extraction.topic_workflow import (
@@ -24,14 +23,22 @@ from ..services.extraction.topic_workflow import (
     topic_has_data as wf_topic_has_data,
 )
 from ..services.projects import bind_project
-from ..contracts import success_response
+from ..services.graph.relation_ontology import relation_annotation
+from ..contracts import success_response, task_result_response
 from ..services.ingest.adapters.http_utils import fetch_html
+from ..services.ingest.raw_import import run_raw_import_documents
 from ..services.ingest.url_pool import _extract_text_from_html
 from ..project_customization import get_project_customization
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _tasks_module():
+    from ..services import tasks
+
+    return tasks
 
 
 def _project_key_from_request(request: Request) -> str:
@@ -155,6 +162,7 @@ class RawImportRequest(BaseModel):
     chunk_size: int = Field(default=2800, ge=500, le=8000, description="大文本分片长度（字符）")
     chunk_overlap: int = Field(default=200, ge=0, le=1000, description="分片重叠长度（字符）")
     max_chunks: int = Field(default=8, ge=1, le=50, description="单条文本最多分片数")
+    async_mode: bool = Field(default=False, description="是否走 Celery 异步任务")
 
 
 _URL_RE = re.compile(r"https?://[^\s<>()\"']+")
@@ -413,7 +421,11 @@ def _topic_rule_score(topic: str, text: str, extracted_data: dict[str, Any] | No
     return score
 
 
-def _augment_market_graph_with_topic_structured(graph, documents: list[Document]) -> None:
+def _augment_market_graph_with_topic_structured(
+    graph,
+    documents: list[Document],
+    topic_scope: Literal["company", "product", "operation", ""] | None = None,
+) -> None:
     from app.services.graph.models import GraphNode, GraphEdge
 
     def _topic_entity_node_type(topic_field: str, entity_type: str) -> str:
@@ -458,18 +470,60 @@ def _augment_market_graph_with_topic_structured(graph, documents: list[Document]
             "operation_structured": "HAS_OPERATION_ENTITY",
         }.get(topic_field, "HAS_TOPIC_ENTITY")
 
-    def _topic_entity_id(text: str, entity_type: str | None) -> str:
-        t = str(text or "").strip().lower()
-        et = str(entity_type or "").strip().lower()
-        if not t:
-            return ""
-        return f"{et}:{t}" if et else t
+    def _topic_group(topic_field: str) -> str:
+        return {
+            "company_structured": "company",
+            "product_structured": "product",
+            "operation_structured": "operation",
+        }.get(topic_field, "generic")
+
+    def _normalize_entity_text(text: str) -> str:
+        return " ".join(str(text or "").strip().lower().split())
 
     def _ensure_node(node_type: str, node_id: str, props: dict[str, Any]):
         key = f"{node_type}:{node_id}"
         if key not in graph.nodes:
             graph.nodes[key] = GraphNode(type=node_type, id=node_id, properties=props)
+        else:
+            # Keep existing node identity but backfill sparse properties.
+            node_props = graph.nodes[key].properties
+            for k, v in (props or {}).items():
+                if k not in node_props or node_props.get(k) in (None, "", []):
+                    node_props[k] = v
         return graph.nodes[key]
+
+    edge_keys: set[tuple[str, str, str, str, str, str]] = set()
+
+    def _edge_key(edge_type: str, from_node: GraphNode, to_node: GraphNode, properties: dict[str, Any] | None) -> tuple[str, str, str, str, str, str]:
+        pred = str((properties or {}).get("predicate") or "").strip().lower()
+        return (
+            edge_type,
+            str(from_node.type),
+            str(from_node.id),
+            str(to_node.type),
+            str(to_node.id),
+            pred,
+        )
+
+    # Seed with existing edges to avoid duplicates when augmenting.
+    for edge in graph.edges:
+        edge_keys.add(_edge_key(edge.type, edge.from_node, edge.to_node, edge.properties))
+
+    def _append_edge_once(edge_type: str, from_node: GraphNode, to_node: GraphNode, properties: dict[str, Any] | None = None) -> None:
+        key = _edge_key(edge_type, from_node, to_node, properties)
+        if key in edge_keys:
+            return
+        edge_keys.add(key)
+        graph.edges.append(GraphEdge(type=edge_type, from_node=from_node, to_node=to_node, properties=properties or {}))
+
+    scope_to_field = {
+        "company": "company_structured",
+        "product": "product_structured",
+        "operation": "operation_structured",
+    }
+    topic_scope_norm = str(topic_scope or "").strip().lower()
+    only_field = scope_to_field.get(topic_scope_norm)
+    topic_fields = [only_field] if only_field else ["company_structured", "product_structured", "operation_structured"]
 
     for doc in documents:
         market_key = f"MarketData:{doc.id}"
@@ -477,7 +531,53 @@ def _augment_market_graph_with_topic_structured(graph, documents: list[Document]
         if market_node is None:
             continue
         ex = doc.extracted_data if isinstance(doc.extracted_data, dict) else {}
-        for field in ["company_structured", "product_structured", "operation_structured"]:
+        # Unified entity registry per document+topic-group: one node per normalized text.
+        entity_registry: dict[tuple[str, str], tuple[str, str]] = {}
+
+        def _ensure_unified_topic_entity(topic_field: str, text: str, entity_type: str | None) -> GraphNode | None:
+            norm = _normalize_entity_text(text)
+            if not norm:
+                return None
+            group = _topic_group(topic_field)
+            reg_key = (group, norm)
+            if reg_key in entity_registry:
+                node_type, node_id = entity_registry[reg_key]
+                return _ensure_node(
+                    node_type,
+                    node_id,
+                    {
+                        "text": str(text or "").strip(),
+                        "entity_group": group,
+                        "entity_type": str(entity_type or "").strip().lower() or None,
+                    },
+                )
+
+            et = str(entity_type or "").strip().lower()
+            node_type = _topic_entity_node_type(topic_field, et)
+            # Use group+normalized text as stable id to unify same entity across entity/relation lists.
+            node_id = f"{group}:{norm}"
+            entity_registry[reg_key] = (node_type, node_id)
+            return _ensure_node(
+                node_type,
+                node_id,
+                {
+                    "text": str(text or "").strip(),
+                    "entity_group": group,
+                    "entity_type": et or None,
+                },
+            )
+
+        def _attach_market_topic_entity(topic_field: str, node: GraphNode | None) -> None:
+            if node is None:
+                return
+            _append_edge_once(
+                _relation_type_for_topic(topic_field),
+                market_node,
+                node,
+                {"weight": 1.0},
+            )
+
+        for field in topic_fields:
             topic_data = ex.get(field)
             if not isinstance(topic_data, dict):
                 continue
@@ -487,7 +587,7 @@ def _augment_market_graph_with_topic_structured(graph, documents: list[Document]
                 if not t:
                     continue
                 topic_node = _ensure_node("TopicTag", t.lower(), {"label": t})
-                graph.edges.append(GraphEdge(type="HAS_TOPIC_TAG", from_node=market_node, to_node=topic_node, properties={}))
+                _append_edge_once("HAS_TOPIC_TAG", market_node, topic_node, {})
             # entities
             for ent in (topic_data.get("entities") or []):
                 if not isinstance(ent, dict):
@@ -496,10 +596,8 @@ def _augment_market_graph_with_topic_structured(graph, documents: list[Document]
                 etype = str(ent.get("type") or "").strip().lower()
                 if not text:
                     continue
-                eid = _topic_entity_id(text, etype)
-                entity_node_type = _topic_entity_node_type(field, etype)
-                node = _ensure_node(entity_node_type, eid, {"text": text, "entity_type": etype or None})
-                graph.edges.append(GraphEdge(type=_relation_type_for_topic(field), from_node=market_node, to_node=node, properties={"weight": 1.0}))
+                node = _ensure_unified_topic_entity(field, text, etype)
+                _attach_market_topic_entity(field, node)
             # relations between topic entities (optional lightweight edge synthesis)
             for rel in (topic_data.get("relations") or []):
                 if not isinstance(rel, dict):
@@ -509,79 +607,56 @@ def _augment_market_graph_with_topic_structured(graph, documents: list[Document]
                 pred = str(rel.get("predicate") or "").strip()
                 if not subj or not obj:
                     continue
-                subj_id = _topic_entity_id(subj, str(rel.get("subject_type") or ""))
-                obj_id = _topic_entity_id(obj, str(rel.get("object_type") or ""))
-                rel_subj_type = _topic_entity_node_type(field, str(rel.get("subject_type") or ""))
-                rel_obj_type = _topic_entity_node_type(field, str(rel.get("object_type") or ""))
-                subj_node = _ensure_node(rel_subj_type, subj_id, {"text": subj, "entity_type": rel.get("subject_type")})
-                obj_node = _ensure_node(rel_obj_type, obj_id, {"text": obj, "entity_type": rel.get("object_type")})
-                graph.edges.append(GraphEdge(type="TOPIC_RELATION", from_node=subj_node, to_node=obj_node, properties={"predicate": pred}))
+                subj_node = _ensure_unified_topic_entity(field, subj, str(rel.get("subject_type") or ""))
+                obj_node = _ensure_unified_topic_entity(field, obj, str(rel.get("object_type") or ""))
+                # Ensure all topic relation entities stay connected to MarketData backbone.
+                _attach_market_topic_entity(field, subj_node)
+                _attach_market_topic_entity(field, obj_node)
+                if subj_node is not None and obj_node is not None:
+                    ann = relation_annotation(pred)
+                    _append_edge_once(
+                        "TOPIC_RELATION",
+                        subj_node,
+                        obj_node,
+                        {
+                            "predicate": ann["predicate_norm"],
+                            "predicate_raw": ann["predicate_raw"],
+                            "relation_class": ann["relation_class"],
+                        },
+                    )
 
-
-def _prune_market_graph_by_topic_scope(graph, topic_scope: str | None, topic_scope_entities: dict[str, list[str]] | None):
-    from app.services.graph.models import Graph
-
-    normalized_scope = str(topic_scope or "").strip().lower()
-    if not normalized_scope:
-        return graph
-
-    mapping = topic_scope_entities if isinstance(topic_scope_entities, dict) else {}
-    scope_types = {str(item or "").strip() for item in (mapping.get(normalized_scope) or []) if str(item or "").strip()}
-    if not scope_types:
-        return graph
-
-    if not graph.nodes:
-        return Graph(schema_version=graph.schema_version)
-
-    adjacency: dict[str, set[str]] = {}
-    for edge in graph.edges:
-        from_key = f"{edge.from_node.type}:{edge.from_node.id}"
-        to_key = f"{edge.to_node.type}:{edge.to_node.id}"
-        if from_key not in graph.nodes or to_key not in graph.nodes:
-            continue
-        adjacency.setdefault(from_key, set()).add(to_key)
-        adjacency.setdefault(to_key, set()).add(from_key)
-
-    # Keep only connected components that contain both:
-    # 1) topic-scope entities (Company*/Product*/Operation*)
-    # 2) market roots (MarketData)
-    unvisited = set(graph.nodes.keys())
-    kept_node_keys: set[str] = set()
-    while unvisited:
-        start = unvisited.pop()
-        component = {start}
-        stack = [start]
-        has_scope = graph.nodes[start].type in scope_types
-        has_market_root = graph.nodes[start].type == "MarketData"
-        while stack:
-            current = stack.pop()
-            for neighbor in adjacency.get(current, set()):
-                if neighbor in component:
+    if topic_scope_norm in ("company", "product", "operation"):
+        scope_prefix = {
+            "company": "Company",
+            "product": "Product",
+            "operation": "Operation",
+        }[topic_scope_norm]
+        seed_keys = [k for k, n in graph.nodes.items() if str(getattr(n, "type", "")).startswith(scope_prefix)]
+        if seed_keys:
+            adjacency: dict[str, set[str]] = {}
+            for edge in graph.edges:
+                from_key = f"{edge.from_node.type}:{edge.from_node.id}"
+                to_key = f"{edge.to_node.type}:{edge.to_node.id}"
+                adjacency.setdefault(from_key, set()).add(to_key)
+                adjacency.setdefault(to_key, set()).add(from_key)
+            keep_keys: set[str] = set()
+            queue = list(seed_keys)
+            while queue:
+                cur = queue.pop(0)
+                if cur in keep_keys:
                     continue
-                component.add(neighbor)
-                if neighbor in unvisited:
-                    unvisited.remove(neighbor)
-                node_type = graph.nodes.get(neighbor).type if graph.nodes.get(neighbor) else ""
-                if node_type in scope_types:
-                    has_scope = True
-                if node_type == "MarketData":
-                    has_market_root = True
-                stack.append(neighbor)
-        if has_scope and has_market_root:
-            kept_node_keys.update(component)
-
-    pruned = Graph(schema_version=graph.schema_version)
-    for node_key in kept_node_keys:
-        node = graph.nodes.get(node_key)
-        if node is not None:
-            pruned.nodes[node_key] = node
-
-    for edge in graph.edges:
-        from_key = f"{edge.from_node.type}:{edge.from_node.id}"
-        to_key = f"{edge.to_node.type}:{edge.to_node.id}"
-        if from_key in kept_node_keys and to_key in kept_node_keys:
-            pruned.edges.append(edge)
-    return pruned
+                keep_keys.add(cur)
+                for nxt in adjacency.get(cur, set()):
+                    if nxt not in keep_keys:
+                        queue.append(nxt)
+            if keep_keys:
+                graph.nodes = {k: n for k, n in graph.nodes.items() if k in keep_keys}
+                graph.edges = [
+                    e
+                    for e in graph.edges
+                    if f"{e.from_node.type}:{e.from_node.id}" in keep_keys
+                    and f"{e.to_node.type}:{e.to_node.id}" in keep_keys
+                ]
 
 
 @router.get("/stats")
@@ -642,175 +717,20 @@ def get_stats():
 
 @router.post("/documents/raw-import")
 def raw_import_documents(request: Request, payload: RawImportRequest):
-    """Raw data direct ingest: skip fetch stage, store documents and optionally run structured extraction."""
+    """Raw data direct ingest: skip fetch stage and reuse project-consistent ingest flow."""
     project_key = _project_key_from_request(request)
-    extraction_app = ExtractionApplicationService()
-    now = datetime.utcnow()
-
-    with bind_project(project_key):
-        with SessionLocal() as session:
-            source = session.execute(
-                select(Source).where(Source.name == payload.source_name)
-            ).scalar_one_or_none()
-            if source is None:
-                source = Source(
-                    name=payload.source_name,
-                    kind=payload.source_kind or "manual",
-                    base_url=None,
-                    enabled=True,
-                )
-                session.add(source)
-                session.flush()
-
-            inserted = 0
-            updated = 0
-            skipped = 0
-            errors: list[dict[str, Any]] = []
-            item_results: list[dict[str, Any]] = []
-
-            for idx, item in enumerate(payload.items):
-                try:
-                    text = str(item.text or "").strip()
-                    if not text:
-                        skipped += 1
-                        continue
-
-                    uri_list = _normalize_uri_list(item, payload.infer_from_links)
-                    uri = uri_list[0] if uri_list else None
-                    title = (item.title or "").strip() or None
-                    if not title:
-                        first_line = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
-                        title = (first_line[:240] if first_line else None)
-                    summary = (item.summary or "").strip() or None
-                    if not summary:
-                        summary = text[:400] if len(text) > 400 else None
-
-                    text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-                    doc_type = _normalize_doc_type_for_raw(item.doc_type, payload.default_doc_type)
-
-                    publish_date_value = None
-                    if item.publish_date:
-                        try:
-                            publish_date_value = datetime.fromisoformat(str(item.publish_date)).date()
-                        except Exception:
-                            try:
-                                publish_date_value = date.fromisoformat(str(item.publish_date))
-                            except Exception:
-                                publish_date_value = None
-
-                    existing = None
-                    if uri:
-                        existing = session.execute(select(Document).where(Document.uri == uri)).scalar_one_or_none()
-                    if existing is None:
-                        existing = session.execute(select(Document).where(Document.text_hash == text_hash)).scalar_one_or_none()
-
-                    doc = existing
-                    if doc and not payload.overwrite_on_uri:
-                        skipped += 1
-                        item_results.append({"index": idx, "doc_id": doc.id, "status": "skipped_exists", "uri": doc.uri})
-                        continue
-
-                    if doc is None:
-                        doc = Document(
-                            source_id=source.id,
-                            state=(item.state or None),
-                            doc_type=doc_type,
-                            title=title,
-                            publish_date=publish_date_value,
-                            content=text,
-                            summary=summary,
-                            text_hash=text_hash,
-                            uri=uri,
-                            created_at=now,
-                            updated_at=now,
-                        )
-                        session.add(doc)
-                        session.flush()
-                        inserted += 1
-                    else:
-                        doc.source_id = source.id
-                        doc.state = item.state or doc.state
-                        doc.doc_type = doc_type or doc.doc_type
-                        doc.title = title or doc.title
-                        doc.publish_date = publish_date_value or doc.publish_date
-                        doc.content = text
-                        doc.summary = summary or doc.summary
-                        doc.text_hash = text_hash
-                        doc.uri = uri or doc.uri
-                        doc.updated_at = now
-                        updated += 1
-
-                    if payload.enable_extraction:
-                        extract_mode = payload.extraction_mode
-                        if extract_mode == "auto":
-                            if doc_type in {"market", "market_info"}:
-                                extract_mode = "market"
-                            elif doc_type in {"policy", "policy_regulation"}:
-                                extract_mode = "policy"
-                            elif doc_type in {"social_sentiment", "social_feed"}:
-                                extract_mode = "social"
-                            else:
-                                extract_mode = "social"  # generic path with ER+sentiment as default
-
-                        chunks = _chunk_text_for_extraction(
-                            text,
-                            chunk_size=int(payload.chunk_size),
-                            overlap=int(payload.chunk_overlap),
-                            max_chunks=int(payload.max_chunks),
-                        )
-                        extracted_parts: list[dict[str, Any]] = []
-                        for chunk in chunks:
-                            if extract_mode == "market":
-                                extracted = extraction_app.extract_structured_enriched(chunk, include_market=True)
-                            elif extract_mode == "policy":
-                                extracted = extraction_app.extract_structured_enriched(chunk, include_policy=True)
-                            elif extract_mode == "social":
-                                extracted = extraction_app.extract_structured_enriched(chunk, include_sentiment=True)
-                            else:
-                                extracted = extraction_app.extract_structured_enriched(chunk)
-                            if isinstance(extracted, dict) and extracted:
-                                extracted_parts.append(extracted)
-
-                        final_extracted = _merge_extracted_batch(extracted_parts) if extracted_parts else {}
-                        if final_extracted:
-                            raw_meta = {
-                                "uris": uri_list,
-                                "uri_count": len(uri_list),
-                                "chunk_count": len(chunks),
-                                "chunk_size": int(payload.chunk_size),
-                                "chunk_overlap": int(payload.chunk_overlap),
-                            }
-                            final_extracted["_raw_input"] = _deep_merge_json(
-                                final_extracted.get("_raw_input", {}),
-                                raw_meta,
-                            )
-                            doc.extracted_data = final_extracted
-
-                    item_results.append({
-                        "index": idx,
-                        "doc_id": doc.id,
-                        "status": "ok",
-                        "uri": doc.uri,
-                        "uris": uri_list,
-                        "doc_type": doc.doc_type,
-                    })
-                except Exception as e:  # noqa: BLE001
-                    logger.warning("raw_import failed idx=%s err=%s", idx, e)
-                    errors.append({"index": idx, "error": str(e)})
-
-            session.commit()
-            return success_response(
-                {
-                    "inserted": inserted,
-                    "updated": updated,
-                    "skipped": skipped,
-                    "error_count": len(errors),
-                    "errors": errors[:20],
-                    "items": item_results[:50],
-                    "source_name": source.name,
-                    "project_key": project_key,
-                }
+    payload_dict = payload.model_dump(mode="python")
+    if payload.async_mode:
+        task = _tasks_module().task_raw_import_documents.delay(payload_dict, project_key)
+        return success_response(
+            task_result_response(
+                task_id=task.id,
+                async_mode=True,
+                params={"source_name": payload.source_name, "items_total": len(payload.items)},
             )
+        )
+    with bind_project(project_key):
+        return success_response(run_raw_import_documents(payload_dict, project_key))
 
 
 @router.post("/documents/list")
@@ -1724,16 +1644,16 @@ def get_content_graph(
     from app.services.graph.exporter import export_to_json
     from app.services.graph.models import Graph
     project_key = _project_key_from_request(request)
-    graph_doc_types = resolve_graph_doc_types(project_key)
-    social_doc_types = graph_doc_types.get("social") or ["social_sentiment", "social_feed"]
-
     try:
         with bind_project(project_key):
             with SessionLocal() as session:
                 # 构建查询条件
                 conditions = [
-                    Document.doc_type.in_(social_doc_types),
                     Document.extracted_data.isnot(None),
+                    or_(
+                        Document.extracted_data["sentiment"].isnot(None),
+                        Document.extracted_data["entities_relations"].isnot(None),
+                    ),
                 ]
 
                 # 时间过滤
@@ -1856,8 +1776,8 @@ def get_market_graph(
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
     state: Optional[str] = Query(None, description="州代码过滤，如 CA"),
     game: Optional[str] = Query(None, description="游戏类型过滤"),
-    topic_scope: Optional[Literal["company", "product", "operation"]] = Query(None, description="专题范围(company/product/operation)"),
     view: Optional[str] = Query(None, description="视图模式，如 market_deep_entities"),
+    topic_scope: Optional[Literal["company", "product", "operation"]] = Query(None, description="专题范围过滤"),
     limit: int = Query(default=100, ge=1, le=2000, description="限制数据数量"),
 ):
     """根据条件获取市场数据图谱（从Document表中查询doc_type='market'的文档）"""
@@ -1868,17 +1788,34 @@ def get_market_graph(
     from app.services.graph.models import Graph
     from datetime import datetime
     project_key = _project_key_from_request(request)
-    graph_doc_types = resolve_graph_doc_types(project_key)
-    market_doc_types = graph_doc_types.get("market") or ["market"]
+    deep_view = str(view or "").strip().lower() == "market_deep_entities" or bool(topic_scope)
 
     try:
         with bind_project(project_key):
             with SessionLocal() as session:
                 from sqlalchemy import and_, or_, func
                 conditions = [
-                    Document.doc_type.in_(market_doc_types),
                     Document.extracted_data.isnot(None),
                 ]
+                if deep_view:
+                    if topic_scope == "company":
+                        conditions.append(Document.extracted_data["company_structured"].isnot(None))
+                    elif topic_scope == "product":
+                        conditions.append(Document.extracted_data["product_structured"].isnot(None))
+                    elif topic_scope == "operation":
+                        conditions.append(Document.extracted_data["operation_structured"].isnot(None))
+                    else:
+                        conditions.append(
+                            or_(
+                                Document.extracted_data["market"].isnot(None),
+                                Document.extracted_data["company_structured"].isnot(None),
+                                Document.extracted_data["product_structured"].isnot(None),
+                                Document.extracted_data["operation_structured"].isnot(None),
+                                Document.extracted_data["entities_relations"].isnot(None),
+                            )
+                        )
+                else:
+                    conditions.append(Document.extracted_data["market"].isnot(None))
 
                 if state:
                     state_upper = state.upper()
@@ -1982,17 +1919,11 @@ def get_market_graph(
                     json_data = export_to_json(empty_graph)
                     return JSONResponse(content=json_data)
 
-                if str(view or "").strip().lower() == "market_deep_entities":
+                if deep_view:
                     try:
-                        _augment_market_graph_with_topic_structured(graph, documents)
+                        _augment_market_graph_with_topic_structured(graph, documents, topic_scope=topic_scope)
                     except Exception as e:
                         logger.warning(f"扩展专题图谱节点失败: {e}")
-                if topic_scope:
-                    graph = _prune_market_graph_by_topic_scope(
-                        graph,
-                        topic_scope=topic_scope,
-                        topic_scope_entities=resolve_graph_topic_scope_entities(project_key),
-                    )
 
                 try:
                     json_data = export_to_json(graph)
@@ -2034,9 +1965,6 @@ def get_policy_graph(
     from app.services.graph.exporter import export_to_json
     from app.services.graph.models import Graph
     project_key = _project_key_from_request(request)
-    graph_doc_types = resolve_graph_doc_types(project_key)
-    policy_doc_types = graph_doc_types.get("policy") or ["policy", "policy_regulation"]
-
     def _parse_date(value: Optional[str]) -> Optional[date]:
         if not value:
             return None
@@ -2050,8 +1978,8 @@ def get_policy_graph(
         with bind_project(project_key):
             with SessionLocal() as session:
                 conditions = [
-                    Document.doc_type.in_(policy_doc_types),
                     Document.extracted_data.isnot(None),
+                    Document.extracted_data["policy"].isnot(None),
                 ]
 
                 if state:
@@ -2074,7 +2002,7 @@ def get_policy_graph(
                     Document.created_at.desc(),
                 )
 
-                sql_limit = min(limit * 3, 1000)
+                sql_limit = min(limit * 3, 6000)
                 query = query.limit(sql_limit)
 
                 documents = session.execute(query).scalars().all()

@@ -824,6 +824,8 @@ export type GraphNodeItem = {
 export type GraphEdgeItem = {
   type?: string
   predicate?: string
+  predicate_raw?: string
+  relation_class?: string
   from: GraphNodeRef
   to: GraphNodeRef
   [key: string]: unknown

@@ -36,6 +36,7 @@ from ..services.projects.context import bind_project, bind_schema, project_schem
 
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+logger = logging.getLogger(__name__)
 
 
 class CreateProjectPayload(BaseModel):
@@ -117,7 +118,6 @@ INITIAL_PROJECT_TABLES = [
 ]
 
 llm_config_service = LlmConfigService()
-logger = logging.getLogger(__name__)
 PROMPT_FACTORY_SERVICE_NAME = "prompt_factory"
 PROMPT_FACTORY_TARGET_SERVICES = [
     "keyword_generation",
@@ -248,6 +248,31 @@ def _project_exists(project_key: str) -> bool:
             return row is not None
 
 
+def _create_tenant_tables_best_effort(schema_name: str) -> None:
+    """
+    Create tenant tables, but tolerate missing pgvector extension by
+    skipping only the embeddings table instead of failing project creation.
+    """
+    with engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
+    for table in TENANT_TABLES:
+        with engine.begin() as conn:
+            conn.execute(text(f'SET search_path TO "{schema_name}"'))
+            try:
+                table.create(bind=conn, checkfirst=True)
+            except Exception as exc:  # noqa: BLE001
+                table_name = getattr(table, "name", "")
+                message = str(exc).lower()
+                if table_name == "embeddings" and "vector" in message and "does not exist" in message:
+                    logger.warning(
+                        "skip embeddings table for schema=%s because pgvector extension is unavailable: %s",
+                        schema_name,
+                        exc,
+                    )
+                    continue
+                raise
+
+
 def _apply_llm_configs_to_project(project_key: str, llm_configs: list[AutoLlmConfigPayload]) -> int:
     if not llm_configs:
         return 0
@@ -338,11 +363,8 @@ def create_project(payload: CreateProjectPayload) -> dict:
             session.commit()
             session.refresh(row)
 
-    with engine.begin() as conn:
-        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-        # Initialize tenant tables in target schema only.
-        conn.execute(text(f'SET search_path TO "{schema_name}"'))
-        Base.metadata.create_all(bind=conn, tables=TENANT_TABLES, checkfirst=True)
+    # Initialize tenant tables in target schema (best-effort for optional pgvector).
+    _create_tenant_tables_best_effort(schema_name)
 
     return {"id": row.id, "schema_name": schema_name}
 

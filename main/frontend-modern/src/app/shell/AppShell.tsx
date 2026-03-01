@@ -155,55 +155,51 @@ export default function AppShell() {
 
   return (
     <div className="layout-root">
+      <section className={`panel app-status-bar app-global-status is-${figmaTheme}`}>
+        <div className="app-status-bar__top">
+          <span className="status-line app-status-bar__current">当前项目: {projectKey}</span>
+          <label className="app-status-bar__project">
+            <span>切换项目</span>
+            <select
+              value={pendingProjectKey}
+              onChange={(e) => {
+                setPendingProjectKey(e.target.value)
+                setSwitchMessage('')
+              }}
+              disabled={activateMutation.isPending}
+            >
+              {!projects.data?.find((item) => item.project_key === projectKey) ? <option value={projectKey}>{projectKey}</option> : null}
+              {(projects.data || []).map((item) => (
+                <option key={item.project_key} value={item.project_key}>{item.project_key}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            onClick={() => activateMutation.mutate(pendingProjectKey)}
+            disabled={activateMutation.isPending || !pendingProjectKey || pendingProjectKey === projectKey}
+          >
+            {activateMutation.isPending ? '切换中...' : '确认切换项目'}
+          </button>
+          {switchMessage ? <span className="status-line app-status-bar__message">{switchMessage}</span> : null}
+        </div>
+        <div className="app-status-bar__chips">
+          <span className={statusChipClass(health.data?.status)}>API {health.data?.status || 'loading'}</span>
+          <span className={statusChipClass(deepHealth.data?.database)}>DB {deepHealth.data?.database || 'loading'}</span>
+          <span className={statusChipClass(deepHealth.data?.elasticsearch)}>ES {deepHealth.data?.elasticsearch || 'loading'}</span>
+          <span className={llmKeyReady ? 'chip chip-ok' : 'chip chip-danger'}>LLM key {llmKeyReady ? 'ready' : 'missing'}</span>
+          <span className={searchKeyReady ? 'chip chip-ok' : 'chip chip-warn'}>Search key {searchKeyReady ? 'ready' : 'missing'}</span>
+          <span className={newsKeyReady ? 'chip chip-ok' : 'chip chip-warn'}>News key {newsKeyReady ? 'ready' : 'missing'}</span>
+          <span className={dbConfigReady ? 'chip chip-ok' : 'chip chip-warn'}>DB url {dbConfigReady ? 'ready' : 'missing'}</span>
+          <span className="chip chip-warn">LLM {health.data?.provider || '-'}</span>
+          <span className="chip chip-warn">ENV {health.data?.env || '-'}</span>
+        </div>
+      </section>
+
       <FigmaSideNav mode={viewMode} onModeChange={handleModeChange} theme={figmaTheme} />
       <main className={`main-area is-${figmaTheme}`}>
-        <section className="panel app-status-bar">
-          <div className="app-status-bar__head">
-            <h2>{pageTitle}</h2>
-            <span className="status-line">当前项目: {projectKey}</span>
-          </div>
-          <div className="app-status-bar__controls">
-            <label className="app-status-bar__project">
-              <span>切换项目</span>
-              <select
-                value={pendingProjectKey}
-                onChange={(e) => {
-                  setPendingProjectKey(e.target.value)
-                  setSwitchMessage('')
-                }}
-                disabled={activateMutation.isPending}
-              >
-                {!projects.data?.find((item) => item.project_key === projectKey) ? <option value={projectKey}>{projectKey}</option> : null}
-                {(projects.data || []).map((item) => (
-                  <option key={item.project_key} value={item.project_key}>{item.project_key}</option>
-                ))}
-              </select>
-            </label>
-            <button
-              onClick={() => activateMutation.mutate(pendingProjectKey)}
-              disabled={activateMutation.isPending || !pendingProjectKey || pendingProjectKey === projectKey}
-            >
-              {activateMutation.isPending ? '切换中...' : '确认切换项目'}
-            </button>
-          </div>
-          <div className="app-status-bar__chips">
-            <span className={statusChipClass(health.data?.status)}>API {health.data?.status || 'loading'}</span>
-            <span className={statusChipClass(deepHealth.data?.database)}>DB {deepHealth.data?.database || 'loading'}</span>
-            <span className={statusChipClass(deepHealth.data?.elasticsearch)}>ES {deepHealth.data?.elasticsearch || 'loading'}</span>
-            <span className={llmKeyReady ? 'chip chip-ok' : 'chip chip-danger'}>LLM key {llmKeyReady ? 'ready' : 'missing'}</span>
-            <span className={searchKeyReady ? 'chip chip-ok' : 'chip chip-warn'}>Search key {searchKeyReady ? 'ready' : 'missing'}</span>
-            <span className={newsKeyReady ? 'chip chip-ok' : 'chip chip-warn'}>News key {newsKeyReady ? 'ready' : 'missing'}</span>
-            <span className={dbConfigReady ? 'chip chip-ok' : 'chip chip-warn'}>DB url {dbConfigReady ? 'ready' : 'missing'}</span>
-            <span className="chip chip-warn">LLM {health.data?.provider || '-'}</span>
-            <span className="chip chip-warn">ENV {health.data?.env || '-'}</span>
-          </div>
-          {switchMessage ? <p className="status-line">{switchMessage}</p> : null}
-        </section>
-
-        <section className="panel page-head">
+        <section className="panel app-page-title">
           <div className="panel-header">
             <h2>{pageTitle}</h2>
-            <span className="status-line">页面视图: {viewMode}</span>
           </div>
         </section>
 
