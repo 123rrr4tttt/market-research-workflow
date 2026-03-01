@@ -38,6 +38,10 @@ class CollectResult:
     items: list[dict[str, Any]] | None = None
     meta: dict[str, Any] = field(default_factory=dict)
     display_meta: dict[str, Any] = field(default_factory=dict)
+    provider_job_id: str | None = None
+    provider_type: str | None = None
+    provider_status: str | None = None
+    attempt_count: int | None = None
 
 
 class CollectAdapter(Protocol):

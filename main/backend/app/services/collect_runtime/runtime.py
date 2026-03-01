@@ -9,6 +9,7 @@ from .adapters.search_market import SearchMarketAdapter
 from .adapters.search_policy import SearchPolicyAdapter
 from .adapters.source_library import SourceLibraryAdapter, to_source_library_response
 from .adapters.url_pool import UrlPoolAdapter
+from .adapters.crawler_scrapy import CrawlerScrapyAdapter
 
 
 _ADAPTERS = {
@@ -16,6 +17,7 @@ _ADAPTERS = {
     "search.policy": SearchPolicyAdapter(),
     "source_library": SourceLibraryAdapter(),
     "url_pool": UrlPoolAdapter(),
+    "crawler.scrapy": CrawlerScrapyAdapter(),
 }
 
 _AUTO_BATCH_CHANNELS = {"search.market", "search.policy"}
@@ -52,13 +54,35 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
     links_seen: set[str] = set()
     merged_links: list[str] = []
     raw_batches: list[dict[str, Any]] = []
+    provider_types: set[str] = set()
+    provider_statuses: list[str] = []
+    provider_job_ids: list[str] = []
+    provider_jobs_seen: set[str] = set()
+    attempts_total = 0
+    has_attempt_count = False
     for terms, cr in batch_results:
         out.inserted += int(cr.inserted or 0)
         out.updated += int(cr.updated or 0)
         out.skipped += int(cr.skipped or 0)
         out.errors.extend(cr.errors or [])
         raw = dict((cr.meta or {}).get("raw") or {})
-        raw_batches.append({"query_terms": terms, "result": raw})
+        batch_meta: dict[str, Any] = {"query_terms": terms, "result": raw}
+        if cr.provider_job_id:
+            batch_meta["provider_job_id"] = cr.provider_job_id
+        if cr.provider_type:
+            batch_meta["provider_type"] = cr.provider_type
+            provider_types.add(cr.provider_type)
+        if cr.provider_status:
+            batch_meta["provider_status"] = cr.provider_status
+            provider_statuses.append(cr.provider_status)
+        if cr.attempt_count is not None:
+            batch_meta["attempt_count"] = int(cr.attempt_count)
+            attempts_total += int(cr.attempt_count)
+            has_attempt_count = True
+        if cr.provider_job_id and cr.provider_job_id not in provider_jobs_seen:
+            provider_jobs_seen.add(cr.provider_job_id)
+            provider_job_ids.append(cr.provider_job_id)
+        raw_batches.append(batch_meta)
         for link in (raw.get("links") or []):
             s = str(link or "").strip()
             if s and s not in links_seen:
@@ -76,6 +100,14 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
     }
     if merged_links:
         raw_merged["links"] = merged_links
+    if provider_job_ids:
+        raw_merged["provider_job_ids"] = provider_job_ids
+    if provider_types:
+        raw_merged["provider_types"] = sorted(provider_types)
+    if provider_statuses:
+        raw_merged["provider_statuses"] = provider_statuses
+    if has_attempt_count:
+        raw_merged["attempt_count_total"] = attempts_total
     out.meta = {
         "raw": raw_merged,
         "auto_batched": True,
@@ -85,6 +117,15 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
     # Adapter-specific summary stays same; display_meta builder will fill standard stats.
     from .display_meta import build_display_meta
     summary = (parent_request.source_context or {}).get("summary")
+    if len(provider_job_ids) == 1:
+        out.provider_job_id = provider_job_ids[0]
+    if len(provider_types) == 1:
+        out.provider_type = next(iter(provider_types))
+    if provider_statuses:
+        unique_statuses = set(provider_statuses)
+        out.provider_status = provider_statuses[0] if len(unique_statuses) == 1 else "mixed"
+    if has_attempt_count:
+        out.attempt_count = attempts_total
     out.display_meta = build_display_meta(parent_request, out, summary=summary)
     return out
 

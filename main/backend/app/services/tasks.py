@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from importlib import import_module
 from contextlib import nullcontext
 from math import ceil
+from typing import Any
 
 from ..celery_app import celery_app
+from ..models.base import SessionLocal
+from ..models.entities import EtlJobRun
 from .projects import bind_project
 
 _social_ingest_app = None
@@ -26,6 +30,96 @@ def _get_indexing_app():
 
         _indexing_app = IndexingApplicationService()
     return _indexing_app
+
+
+def _normalize_crawler_response(payload: Any) -> dict[str, Any]:
+    if isinstance(payload, dict):
+        return payload
+    if hasattr(payload, "__dict__"):
+        return {k: v for k, v in vars(payload).items() if not k.startswith("_")}
+    return {"raw": payload}
+
+
+def _map_provider_status(status: str | None, default: str = "running") -> str:
+    value = str(status or "").strip().lower()
+    if value in {"queued", "accepted", "running", "started", "processing", "retry"}:
+        return "running"
+    if value in {"completed", "finished", "success", "successful", "done"}:
+        return "completed"
+    if value in {"failed", "failure", "error", "cancelled", "canceled"}:
+        return "failed"
+    return default
+
+
+def _load_crawlers_bridge_api():
+    try:
+        module = import_module(".crawlers.bridge", package=__package__)
+    except Exception:
+        module = None
+
+    submit_fn = getattr(module, "submit_crawler_job", None) if module else None
+    poll_fn = getattr(module, "poll_crawler_job", None) if module else None
+    if callable(submit_fn) and callable(poll_fn):
+        return submit_fn, poll_fn
+
+    from .crawlers.base import CrawlerDispatchRequest
+    from .crawlers.registry import get_provider
+
+    def _fallback_submit(**payload: Any) -> dict[str, Any]:
+        provider_key = str(payload.get("provider") or payload.get("external_provider") or "").strip()
+        provider = get_provider(provider_key)
+        if not provider:
+            raise ValueError(f"crawler provider is not registered: {provider_key}")
+        request = CrawlerDispatchRequest(
+            provider=provider_key,
+            project=str(payload.get("project") or ""),
+            spider=str(payload.get("spider") or ""),
+            arguments=dict(payload.get("arguments") or {}),
+            settings=dict(payload.get("settings") or {}),
+            version=payload.get("version"),
+            priority=payload.get("priority"),
+            job_id=payload.get("external_job_id"),
+        )
+        result = provider.dispatch(request)
+        return {
+            "provider_status": result.provider_status,
+            "provider_job_id": result.provider_job_id,
+            "provider_type": result.provider_type,
+            "attempt_count": result.attempt_count,
+            "raw": result.raw,
+        }
+
+    def _fallback_poll(**payload: Any) -> dict[str, Any]:
+        provider_key = str(payload.get("external_provider") or payload.get("provider") or "").strip()
+        provider = get_provider(provider_key)
+        if not provider:
+            raise ValueError(f"crawler provider is not registered: {provider_key}")
+        poll_fn_local = getattr(provider, "poll", None)
+        if not callable(poll_fn_local):
+            raise ValueError(f"crawler provider does not support poll(): {provider_key}")
+        result = poll_fn_local(
+            external_job_id=payload.get("external_job_id"),
+            project=payload.get("project"),
+            spider=payload.get("spider"),
+            options=dict(payload.get("options") or {}),
+        )
+        return _normalize_crawler_response(result)
+
+    return _fallback_submit, _fallback_poll
+
+
+def _load_db_job_tracking(job_id: int) -> dict[str, Any]:
+    with SessionLocal() as session:
+        row = session.get(EtlJobRun, int(job_id))
+        if not row:
+            return {}
+        return {
+            "external_provider": row.external_provider,
+            "external_job_id": row.external_job_id,
+            "retry_count": row.retry_count,
+            "status": row.status,
+            "params": dict(row.params or {}),
+        }
 
 
 @celery_app.task
@@ -401,3 +495,121 @@ def task_run_source_library_item(
         project_key=project_key,
         override_params=override_params or {},
     )
+
+
+@celery_app.task
+def task_submit_crawler_job(
+    job_id: int,
+    provider: str,
+    project: str,
+    spider: str,
+    arguments: dict[str, Any] | None = None,
+    settings: dict[str, Any] | None = None,
+    version: str | None = None,
+    priority: int | None = None,
+) -> dict[str, Any]:
+    from .job_logger import fail_job, update_job_tracking
+
+    submit_fn, _ = _load_crawlers_bridge_api()
+    try:
+        submitted = _normalize_crawler_response(
+            submit_fn(
+                provider=provider,
+                project=project,
+                spider=spider,
+                arguments=arguments or {},
+                settings=settings or {},
+                version=version,
+                priority=priority,
+            )
+        )
+        external_job_id = str(
+            submitted.get("external_job_id")
+            or submitted.get("provider_job_id")
+            or ""
+        ).strip() or None
+        external_provider = str(
+            submitted.get("external_provider")
+            or submitted.get("provider_type")
+            or provider
+            or ""
+        ).strip() or None
+        retry_count = submitted.get("retry_count")
+        if retry_count is None:
+            retry_count = submitted.get("attempt_count")
+        update_job_tracking(
+            int(job_id),
+            external_job_id=external_job_id,
+            external_provider=external_provider,
+            retry_count=int(retry_count) if retry_count is not None else None,
+            status=_map_provider_status(submitted.get("provider_status"), default="running"),
+            result={"crawler_submit": submitted},
+        )
+        return {
+            "job_id": int(job_id),
+            "external_provider": external_provider,
+            "external_job_id": external_job_id,
+            "status": _map_provider_status(submitted.get("provider_status"), default="running"),
+            "raw": submitted,
+        }
+    except Exception as exc:
+        fail_job(int(job_id), str(exc))
+        raise
+
+
+@celery_app.task
+def task_poll_crawler_job(
+    job_id: int,
+    external_provider: str | None = None,
+    external_job_id: str | None = None,
+    project: str | None = None,
+    spider: str | None = None,
+    options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    from .job_logger import fail_job, update_job_tracking
+
+    _, poll_fn = _load_crawlers_bridge_api()
+    tracked = _load_db_job_tracking(int(job_id))
+    provider = external_provider or tracked.get("external_provider")
+    provider_job_id = external_job_id or tracked.get("external_job_id")
+    if not provider or not provider_job_id:
+        raise ValueError(
+            f"missing crawler tracking fields for job_id={job_id}: "
+            f"external_provider={provider!r}, external_job_id={provider_job_id!r}"
+        )
+
+    try:
+        polled = _normalize_crawler_response(
+            poll_fn(
+                external_provider=provider,
+                external_job_id=provider_job_id,
+                provider=provider,
+                project=project,
+                spider=spider,
+                options=options or {},
+            )
+        )
+        provider_status = polled.get("provider_status") or polled.get("status")
+        retry_count = polled.get("retry_count")
+        if retry_count is None:
+            retry_count = polled.get("attempt_count")
+        mapped_status = _map_provider_status(provider_status, default=str(tracked.get("status") or "running"))
+        update_job_tracking(
+            int(job_id),
+            external_job_id=str(polled.get("external_job_id") or provider_job_id),
+            external_provider=str(polled.get("external_provider") or provider),
+            retry_count=int(retry_count) if retry_count is not None else None,
+            status=mapped_status,
+            result={"crawler_poll": polled},
+            error=str(polled.get("error") or "") or None,
+        )
+        return {
+            "job_id": int(job_id),
+            "external_provider": str(polled.get("external_provider") or provider),
+            "external_job_id": str(polled.get("external_job_id") or provider_job_id),
+            "status": mapped_status,
+            "raw": polled,
+        }
+    except Exception as exc:
+        fail_job(int(job_id), str(exc), external_provider=str(provider), external_job_id=str(provider_job_id))
+        raise

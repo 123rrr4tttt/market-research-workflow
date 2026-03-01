@@ -45,6 +45,10 @@ def build_display_meta(request: CollectRequest, result: CollectResult | None = N
                 "updated": result.updated,
                 "skipped": result.skipped,
                 "errors_count": len(result.errors or []),
+                "provider_job_id": result.provider_job_id,
+                "provider_type": result.provider_type,
+                "provider_status": result.provider_status,
+                "attempt_count": result.attempt_count,
             }
         )
     return {k: v for k, v in meta.items() if v is not None}

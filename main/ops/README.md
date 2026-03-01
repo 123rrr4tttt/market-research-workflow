@@ -28,10 +28,21 @@
 # 启动所有服务（独立项目全量服务）
 cd "$PROJECT_DIR/ops"
 ./start-all.sh
+
+# 启动核心服务 + scrapyd（可选 profile）
+./start-all.sh --profile scrapyd
 ```
 
 这将自动启动：
 - ✅ **主服务**：PostgreSQL, Elasticsearch, Redis, Backend API, Celery Worker
+- ℹ️ **可选服务**：Scrapyd（`--profile scrapyd` 时启用，端口 `6800`）
+
+推荐先运行 preflight（含端口检查）：
+
+```bash
+./scripts/docker-deploy.sh preflight
+./scripts/docker-deploy.sh preflight --profile scrapyd
+```
 
 ### 停止所有服务
 
@@ -207,6 +218,9 @@ lsof -i :5432
 
 # 检查9200端口（Elasticsearch）
 lsof -i :9200
+
+# 检查6800端口（Scrapyd，可选）
+lsof -i :6800
 ```
 
 **解决方案：**

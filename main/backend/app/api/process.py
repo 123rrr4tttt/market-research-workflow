@@ -19,6 +19,7 @@ from ..services.projects import bind_project
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/process", tags=["process"])
+_DB_JOB_PREFIX = "db-job-"
 
 
 class TaskInfo(BaseModel):
@@ -342,10 +343,68 @@ def cancel_task(task_id: str, terminate: bool = False) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"取消任务失败: {str(e)}")
 
 
+def _parse_db_job_id(task_id: str) -> int | None:
+    if not str(task_id or "").startswith(_DB_JOB_PREFIX):
+        return None
+    suffix = str(task_id)[len(_DB_JOB_PREFIX):].strip()
+    if not suffix.isdigit():
+        return None
+    return int(suffix)
+
+
+def _resolve_db_job(task_id: str) -> EtlJobRun | None:
+    job_id = _parse_db_job_id(task_id)
+    if job_id is None:
+        return None
+    with SessionLocal() as session:
+        return session.get(EtlJobRun, job_id)
+
+
+def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
+    status_raw = str(job.status or "running").strip().lower()
+    ready = status_raw in {"completed", "failed", "cancelled", "canceled"}
+    is_external = bool(str(job.external_provider or "").strip())
+    result_payload = None
+    if ready:
+        result_payload = dict(job.params or {})
+        if is_external:
+            result_payload.setdefault(
+                "external_log_hint",
+                "External provider task is tracked in DB; live worker logs are unavailable.",
+            )
+    progress_payload = None
+    if not ready:
+        progress_payload = dict(job.params or {})
+        if is_external:
+            progress_payload.setdefault("external_provider", job.external_provider)
+            progress_payload.setdefault("external_job_id", job.external_job_id)
+    return {
+        "task_id": task_id,
+        "name": str((job.params or {}).get("job_type_full") or job.job_type or "db_job"),
+        "status": str(job.status or "running").upper(),
+        "ready": ready,
+        "successful": ready and status_raw == "completed",
+        "failed": ready and status_raw == "failed",
+        "result": result_payload,
+        "progress": progress_payload,
+        "traceback": job.error if status_raw == "failed" else None,
+        "worker": "external-provider" if is_external else "db-running",
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "external_provider": job.external_provider,
+        "external_job_id": job.external_job_id,
+        "retry_count": job.retry_count,
+        "source": "db",
+    }
+
+
 @router.get("/{task_id}")
 def get_task_info(task_id: str) -> dict[str, Any]:
     """获取任务详细信息"""
     try:
+        db_job = _resolve_db_job(task_id)
+        if db_job is not None:
+            return ok(_db_job_to_task_info(task_id, db_job))
+
         result = celery_app.AsyncResult(task_id)
         
         task_info = {
@@ -422,6 +481,37 @@ def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -
     可通过环境变量 CELERY_LOG_FILE 覆盖。
     """
     try:
+        db_job = _resolve_db_job(task_id)
+        if db_job is not None:
+            is_external = bool(str(db_job.external_provider or "").strip())
+            summary_lines = [
+                f"task_id={task_id}",
+                f"status={db_job.status or 'running'}",
+                f"external_provider={db_job.external_provider or '-'}",
+                f"external_job_id={db_job.external_job_id or '-'}",
+                f"retry_count={db_job.retry_count if db_job.retry_count is not None else '-'}",
+            ]
+            if db_job.error:
+                summary_lines.append(f"error={db_job.error}")
+            if is_external:
+                summary_lines.append(
+                    "logs=External provider task is DB-tracked; Celery worker log stream is not available."
+                )
+            else:
+                summary_lines.append(
+                    "logs=DB pseudo task id has no direct Celery log stream; check ETL job params/history."
+                )
+            return ok(
+                {
+                    "task_id": task_id,
+                    "tail": tail,
+                    "filtered": True,
+                    "text": "\n".join(summary_lines[-tail:]),
+                    "log_file": "db://etl_job_runs",
+                    "source": "db",
+                }
+            )
+
         log_file = os.getenv("CELERY_LOG_FILE") or "/var/log/celery/worker.log"
         if not os.path.exists(log_file):
             raise HTTPException(status_code=404, detail="日志文件不存在或未挂载")

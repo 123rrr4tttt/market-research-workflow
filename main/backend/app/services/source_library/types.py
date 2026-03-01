@@ -10,6 +10,9 @@ class ChannelRecord:
     name: str
     kind: str
     provider: str
+    provider_type: str
+    provider_config: Dict[str, Any]
+    execution_policy: Dict[str, Any]
     description: str | None
     credential_refs: list[str]
     default_params: Dict[str, Any]
@@ -33,4 +36,3 @@ class SourceItemRecord:
     enabled: bool
     extra: Dict[str, Any]
     scope: str
-

@@ -55,6 +55,8 @@ cp main/backend/.env.example main/backend/.env
 
 ```bash
 ./scripts/docker-deploy.sh preflight
+# 启用可选 profile 校验（如 scrapyd）
+./scripts/docker-deploy.sh preflight --profile scrapyd
 ```
 
 ### 2.3 一键启动（首选）
@@ -144,6 +146,7 @@ Windows（PowerShell，自动尝试 Git Bash/WSL）：
 - `backend`（FastAPI）:`8000`
 - `celery-worker`（异步任务）
 - `frontend-modern`（可选 profile：`modern-ui`）:`5174`
+- `scrapyd`（可选 profile：`scrapyd`）:`6800`
 
 后端核心环境变量：
 
@@ -345,6 +348,7 @@ lsof -i :8000
 lsof -i :5432
 lsof -i :9200
 lsof -i :6379
+lsof -i :6800
 ```
 
 快速自检：
@@ -352,6 +356,8 @@ lsof -i :6379
 ```bash
 cd main/ops
 ./test-docker-startup.sh
+# 可选：同时验证 scrapyd profile
+./test-docker-startup.sh --with-scrapyd
 ```
 
 ## 11. 演示数据

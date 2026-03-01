@@ -40,6 +40,17 @@ parse_services() {
     done
 }
 
+profile_selected() {
+    local target="$1"
+    local p
+    for p in "${PROFILE_ARGS[@]}"; do
+        if [ "$p" = "$target" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --non-interactive)
@@ -93,6 +104,11 @@ service_selected() {
     local target="$1"
     local s
     if [ ${#SERVICE_ARGS[@]} -eq 0 ]; then
+        case "$target" in
+            frontend-modern) profile_selected modern-ui && return 0 || return 1 ;;
+            backend-test) profile_selected test && return 0 || return 1 ;;
+            scrapyd) profile_selected scrapyd && return 0 || return 1 ;;
+        esac
         return 0
     fi
     for s in "${SERVICE_ARGS[@]}"; do
@@ -124,6 +140,7 @@ echo "===================="
 echo ""
 echo "这将启动当前独立项目的主服务："
 echo "  ✅ PostgreSQL, Elasticsearch, Redis, Backend API, Celery Worker"
+echo "  ℹ️ 可选服务: Scrapyd（需 --profile scrapyd）"
 echo ""
 
 # 检查 Docker 是否运行
@@ -168,6 +185,7 @@ service_selected db && check_port 5432 "PostgreSQL"
 service_selected es && check_port 9200 "Elasticsearch"
 service_selected redis && check_port 6379 "Redis"
 service_selected backend && check_port 8000 "Backend API"
+service_selected scrapyd && check_port 6800 "Scrapyd"
 echo "✅ 端口检查完成"
 echo ""
 
@@ -217,6 +235,9 @@ fi
 if service_selected celery-worker; then
     wait_for "Celery Worker" "compose ps celery-worker | grep -q 'Up' 2>/dev/null" || FAILED=1
 fi
+if service_selected scrapyd; then
+    wait_for "Scrapyd" "curl -sf http://localhost:6800/daemonstatus.json >/dev/null 2>&1" || FAILED=1
+fi
 
 echo ""
 echo "📊 所有服务状态汇总"
@@ -250,6 +271,18 @@ if service_selected celery-worker; then
     else
         echo "❌ 未运行"
         echo "   请检查日志: docker compose logs celery-worker"
+    fi
+    echo ""
+fi
+
+if service_selected scrapyd; then
+    echo -n "Scrapyd: "
+    if curl -sf http://localhost:6800/daemonstatus.json >/dev/null 2>&1; then
+        echo "✅ 运行中"
+        echo "   状态接口: http://localhost:6800/daemonstatus.json"
+    else
+        echo "❌ 未就绪"
+        echo "   请检查日志: docker compose logs scrapyd"
     fi
     echo ""
 fi

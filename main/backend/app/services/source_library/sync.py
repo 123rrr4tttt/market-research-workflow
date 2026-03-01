@@ -48,6 +48,12 @@ def sync_shared_library_from_files() -> Dict[str, Any]:
                 row.name = str(payload.get("name") or channel_key)
                 row.kind = str(payload.get("kind") or "unknown")
                 row.provider = str(payload.get("provider") or "unknown")
+                if hasattr(row, "provider_type"):
+                    row.provider_type = str(payload.get("provider_type") or "native")
+                if hasattr(row, "provider_config"):
+                    row.provider_config = _as_dict(payload.get("provider_config"))
+                if hasattr(row, "execution_policy"):
+                    row.execution_policy = _as_dict(payload.get("execution_policy"))
                 row.description = payload.get("description")
                 row.credential_refs = _as_list(payload.get("credential_refs"))
                 row.default_params = _as_dict(payload.get("default_params"))
@@ -86,4 +92,3 @@ def sync_shared_library_from_files() -> Dict[str, Any]:
         "upserted_channels": upserted_channels,
         "upserted_items": upserted_items,
     }
-

@@ -19,7 +19,14 @@ def _fit_job_type(job_type: str, max_len: int = 16) -> str:
     return f"{job_type[:prefix_len]}_{digest}"
 
 
-def start_job(job_type: str, params: Dict[str, Any] | None = None) -> int:
+def start_job(
+    job_type: str,
+    params: Dict[str, Any] | None = None,
+    *,
+    external_job_id: str | None = None,
+    external_provider: str | None = None,
+    retry_count: int | None = None,
+) -> int:
     stored_job_type = _fit_job_type(job_type)
     payload = dict(params or {})
     if stored_job_type != job_type:
@@ -29,6 +36,9 @@ def start_job(job_type: str, params: Dict[str, Any] | None = None) -> int:
             job_type=stored_job_type,
             params=payload,
             status="running",
+            external_job_id=external_job_id,
+            external_provider=external_provider,
+            retry_count=retry_count,
             started_at=datetime.utcnow(),
         )
         session.add(job)
@@ -36,13 +46,27 @@ def start_job(job_type: str, params: Dict[str, Any] | None = None) -> int:
         return job.id
 
 
-def complete_job(job_id: int, status: str = "completed", result: Dict[str, Any] | None = None) -> None:
+def complete_job(
+    job_id: int,
+    status: str = "completed",
+    result: Dict[str, Any] | None = None,
+    *,
+    external_job_id: str | None = None,
+    external_provider: str | None = None,
+    retry_count: int | None = None,
+) -> None:
     with SessionLocal() as session:
         job = session.get(EtlJobRun, job_id)
         if not job:
             return
         job.status = status
         job.finished_at = datetime.utcnow()
+        if external_job_id is not None:
+            job.external_job_id = external_job_id
+        if external_provider is not None:
+            job.external_provider = external_provider
+        if retry_count is not None:
+            job.retry_count = retry_count
         if result:
             params = dict(job.params or {})
             params.update(result)
@@ -50,7 +74,14 @@ def complete_job(job_id: int, status: str = "completed", result: Dict[str, Any] 
         session.commit()
 
 
-def fail_job(job_id: int, error: str) -> None:
+def fail_job(
+    job_id: int,
+    error: str,
+    *,
+    external_job_id: str | None = None,
+    external_provider: str | None = None,
+    retry_count: int | None = None,
+) -> None:
     with SessionLocal() as session:
         job = session.get(EtlJobRun, job_id)
         if not job:
@@ -58,6 +89,45 @@ def fail_job(job_id: int, error: str) -> None:
         job.status = "failed"
         job.finished_at = datetime.utcnow()
         job.error = error[:2000]
+        if external_job_id is not None:
+            job.external_job_id = external_job_id
+        if external_provider is not None:
+            job.external_provider = external_provider
+        if retry_count is not None:
+            job.retry_count = retry_count
+        session.commit()
+
+
+def update_job_tracking(
+    job_id: int,
+    *,
+    external_job_id: str | None = None,
+    external_provider: str | None = None,
+    retry_count: int | None = None,
+    status: str | None = None,
+    result: Dict[str, Any] | None = None,
+    error: str | None = None,
+) -> None:
+    with SessionLocal() as session:
+        job = session.get(EtlJobRun, job_id)
+        if not job:
+            return
+        if external_job_id is not None:
+            job.external_job_id = external_job_id
+        if external_provider is not None:
+            job.external_provider = external_provider
+        if retry_count is not None:
+            job.retry_count = retry_count
+        if status is not None:
+            job.status = status
+            if status in {"completed", "failed", "cancelled"} and not job.finished_at:
+                job.finished_at = datetime.utcnow()
+        if result:
+            params = dict(job.params or {})
+            params.update(result)
+            job.params = params
+        if error is not None:
+            job.error = error[:2000]
         session.commit()
 
 
@@ -77,11 +147,13 @@ def list_jobs(limit: int = 20) -> List[dict[str, Any]]:
                     "job_type": job.job_type,
                     "status": job.status,
                     "params": job.params,
+                    "external_job_id": job.external_job_id,
+                    "external_provider": job.external_provider,
+                    "retry_count": job.retry_count,
                     "started_at": job.started_at.isoformat() if job.started_at else None,
                     "finished_at": job.finished_at.isoformat() if job.finished_at else None,
                     "error": job.error,
                 }
             )
         return result
-
 

@@ -7,6 +7,7 @@ from ...project_customization import get_project_customization
 from .handler_registry import get
 
 _REGISTERED = False
+_CRAWLER_PROVIDER_TYPES = {"scrapy", "crawlee", "meltano"}
 
 
 def _ensure_handlers_registered() -> None:
@@ -37,6 +38,69 @@ def validate_params(params: Dict[str, Any], param_schema: Dict[str, Any]) -> Non
         raise ValueError(f"missing required params: {missing}")
 
 
+def _run_via_crawler_provider_registry(
+    *,
+    channel: Dict[str, Any],
+    params: Dict[str, Any],
+    project_key: str | None,
+    provider_type: str,
+) -> Dict[str, Any]:
+    from ..crawlers.base import CrawlerDispatchRequest
+    from ..crawlers.registry import get_provider
+
+    provider = get_provider(provider_type)
+    if provider is None:
+        raise ValueError(f"unsupported crawler provider_type: {provider_type}")
+
+    provider_config = channel.get("provider_config")
+    if not isinstance(provider_config, dict):
+        provider_config = {}
+    execution_policy = channel.get("execution_policy")
+    if not isinstance(execution_policy, dict):
+        execution_policy = {}
+
+    spider = str(params.get("spider") or params.get("spider_name") or provider_config.get("spider") or "").strip()
+    project = str(
+        params.get("scrapy_project")
+        or params.get("project")
+        or provider_config.get("project")
+        or project_key
+        or ""
+    ).strip()
+    if not project:
+        raise ValueError(f"{provider_type} channel requires project/project_key")
+    if not spider:
+        raise ValueError(f"{provider_type} channel requires spider/spider_name")
+
+    dispatch = provider.dispatch(
+        CrawlerDispatchRequest(
+            provider=provider_type,
+            project=project,
+            spider=spider,
+            arguments=dict(params.get("arguments") or {}),
+            settings=dict(params.get("settings") or {}),
+            version=params.get("version"),
+            priority=params.get("priority"),
+            job_id=params.get("job_id"),
+        )
+    )
+    ok_status = {"ok", "queued", "scheduled", "running", "accepted"}
+    status = str(dispatch.provider_status or "").strip().lower()
+    errors: list[str] = [] if status in ok_status else [f"crawler provider status: {status or 'unknown'}"]
+    return {
+        "inserted": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": errors,
+        "provider_job_id": dispatch.provider_job_id,
+        "provider_type": dispatch.provider_type,
+        "provider_status": dispatch.provider_status,
+        "attempt_count": dispatch.attempt_count,
+        "execution_policy": execution_policy,
+        "provider_config": provider_config,
+    }
+
+
 def run_channel(
     *,
     channel: Dict[str, Any],
@@ -53,6 +117,15 @@ def run_channel(
             raise ValueError(f"missing credentials for channel {channel.get('channel_key')}: {missing_creds}")
 
     validate_params(params=params, param_schema=channel.get("param_schema") or {})
+
+    provider_type = str(channel.get("provider_type") or "native").strip().lower()
+    if provider_type in _CRAWLER_PROVIDER_TYPES:
+        return _run_via_crawler_provider_registry(
+            channel=channel,
+            params=params,
+            project_key=project_key,
+            provider_type=provider_type,
+        )
 
     provider = str(channel.get("provider", "")).strip().lower()
     kind = str(channel.get("kind", "")).strip().lower()

@@ -157,6 +157,19 @@ services:
     profiles:
       - modern-ui
 
+  scrapyd:
+    image: vimagick/scrapyd:latest
+    ports:
+      - "6800:6800"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:6800/daemonstatus.json || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    profiles:
+      - scrapyd
+
 volumes:
   db_data:
   es_data:

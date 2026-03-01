@@ -17,7 +17,7 @@ Commands:
   status     Show compose service status
   logs       Tail backend logs (extra args override default backend target)
   health     Check API health endpoints
-  preflight  Validate required commands/files and docker availability
+  preflight  Validate commands/files/docker/ports (supports: --profile <name>)
 USAGE
 }
 
@@ -44,8 +44,33 @@ require_ops_dir() {
 }
 
 preflight() {
+  local compose_flags=()
+  local preflight_profiles_label=""
+  local preflight_scrapyd=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --profile)
+        if [[ $# -lt 2 ]]; then
+          echo "❌ --profile requires a value"
+          return 2
+        fi
+        compose_flags+=(--profile "$2")
+        preflight_profiles_label+="$2 "
+        if [[ "$2" == "scrapyd" ]]; then
+          preflight_scrapyd=true
+        fi
+        shift 2
+        ;;
+      *)
+        echo "❌ Unknown preflight arg: $1"
+        return 2
+        ;;
+    esac
+  done
+
   require_ops_dir
   local missing=0
+
   for cmd in docker curl; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
       echo "❌ Missing command: $cmd"
@@ -85,11 +110,38 @@ preflight() {
     return 2
   fi
 
+  check_port() {
+    local port="$1"
+    local service_name="$2"
+    if ! command -v lsof >/dev/null 2>&1; then
+      echo "⚠️ lsof not found; skip port check for ${service_name} (${port})"
+      return 0
+    fi
+    if lsof -i :"${port}" >/dev/null 2>&1; then
+      echo "❌ Port ${port} in use (${service_name})"
+      missing=1
+      return 1
+    fi
+    echo "✅ Port ${port} available (${service_name})"
+    return 0
+  }
+
+  check_port 5432 "PostgreSQL"
+  check_port 9200 "Elasticsearch"
+  check_port 6379 "Redis"
+  check_port 8000 "Backend API"
+  if [[ "$preflight_scrapyd" == true ]]; then
+    check_port 6800 "Scrapyd"
+  fi
+
   (
     cd "${OPS_DIR}"
-    compose config >/dev/null
+    compose "${compose_flags[@]}" config >/dev/null
   )
   echo "✅ Compose config is valid"
+  if [[ -n "$preflight_profiles_label" ]]; then
+    echo "✅ Compose profiles checked: ${preflight_profiles_label}"
+  fi
 
   if [[ $missing -ne 0 ]]; then
     return 1
@@ -138,7 +190,7 @@ case "$cmd" in
     echo
     ;;
   preflight)
-    preflight
+    preflight "$@"
     ;;
   *)
     usage
