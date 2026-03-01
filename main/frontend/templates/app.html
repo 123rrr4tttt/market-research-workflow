@@ -3,811 +3,115 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>市场信息工作台</title>
+    <title>Legacy App Shell</title>
     <style>
       :root {
-        --sidebar-bg: #09090b;
-        --sidebar-border: #18181b;
-        --sidebar-text: #a1a1aa;
-        --sidebar-text-hover: #ffffff;
-        --sidebar-accent: #27272a;
-        --sidebar-active-bg: #18181b;
-        --sidebar-active-border: #3b82f6;
-        --accent: #3b82f6;
-        --surface: #fbfcfd;
-        --header-bg: #ffffff;
-        --header-border: #e4e4e7;
+        --bg: #f6f7fb;
+        --surface: #ffffff;
+        --text: #111827;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
       }
       * {
         box-sizing: border-box;
-        margin: 0;
-        padding: 0;
       }
       body {
-        font-family: "Inter", system-ui, -apple-system, sans-serif;
-        display: flex;
-        height: 100vh;
-        overflow: hidden;
-        color: #09090b;
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at 20% 10%, #e8efff 0%, var(--bg) 45%);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .card {
+        width: min(760px, 100%);
         background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        padding: 28px;
       }
-      .sidebar {
-        width: 260px;
-        background: linear-gradient(180deg, #09090b 0%, #18181b 100%);
-        border-right: 1px solid var(--sidebar-border);
+      h1 {
+        margin: 0 0 10px;
+        font-size: 24px;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .actions {
+        margin-top: 18px;
         display: flex;
-        flex-direction: column;
-        z-index: 1000;
-        transition: width 0.3s ease;
+        flex-wrap: wrap;
+        gap: 10px;
       }
-      .brand {
-        padding: 28px 24px;
-        border-bottom: 1px solid var(--sidebar-border);
-      }
-      .brand h1 {
-        font-size: 20px;
-        font-weight: 800;
-        color: #ffffff;
-        letter-spacing: -0.03em;
-        display: flex;
+      .btn {
+        display: inline-flex;
         align-items: center;
-        gap: 12px;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        padding: 9px 14px;
+        font-size: 14px;
+        text-decoration: none;
+        color: var(--text);
+        background: #fff;
       }
-      .brand p {
-        color: var(--sidebar-text);
-        font-size: 12px;
-        margin-top: 4px;
-        font-weight: 500;
+      .btn.primary {
+        color: #fff;
+        background: var(--primary);
+        border-color: var(--primary);
       }
-      .project-picker {
-        padding: 16px 20px;
-        border-bottom: 1px solid var(--sidebar-border);
+      .btn.primary:hover {
+        background: var(--primary-hover);
       }
-      .project-picker label {
-        display: block;
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--sidebar-text);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 8px;
-      }
-      .project-picker-row {
-        display: flex;
+      .links {
+        margin-top: 20px;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+        display: grid;
         gap: 8px;
       }
-      .project-picker input {
-        flex: 1;
-        min-width: 0;
-        border: 1px solid #27272a;
-        background: #18181b;
-        color: #ffffff;
-        border-radius: 6px;
-        padding: 6px 10px;
-        font-size: 13px;
-      }
-      .project-picker select {
-        flex: 1;
-        min-width: 0;
-        border: 1px solid #27272a;
-        background: #18181b;
-        color: #ffffff;
-        border-radius: 6px;
-        padding: 6px 10px;
-        font-size: 13px;
-        appearance: none;
-      }
-      .project-picker button {
-        border: 1px solid #27272a;
-        background: #27272a;
-        color: #ffffff;
-        border-radius: 6px;
-        padding: 6px 12px;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 500;
-      }
-      .project-picker button:hover {
-        background: #3f3f46;
-      }
-      .project-picker button.secondary {
-        background: transparent;
-        border-color: #3f3f46;
-        color: #d4d4d8;
-      }
-      .project-picker button.secondary:hover {
-        background: #27272a;
-        color: #ffffff;
-      }
-      .sidebar-nav {
-        flex: 1;
-        overflow-y: auto;
-        padding: 16px 12px;
-      }
-      .group-title {
-        padding: 12px 8px 8px;
-        color: var(--sidebar-text);
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-      }
-      .nav-item,
-      .nav-submenu-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        width: 100%;
+      .links a {
+        color: #374151;
         text-decoration: none;
-        color: var(--sidebar-text);
+      }
+      .links a:hover {
+        color: #111827;
+        text-decoration: underline;
+      }
+      code {
+        background: #f3f4f6;
+        border: 1px solid var(--line);
         border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-weight: 500;
-      }
-      .nav-item {
-        padding: 8px 12px;
-        font-size: 14px;
-        margin-bottom: 2px;
-      }
-      .nav-item:hover,
-      .nav-submenu-item:hover {
-        background: var(--sidebar-accent);
-        color: var(--sidebar-text-hover);
-      }
-      .nav-item.active,
-      .nav-submenu-item.active {
-        background: var(--sidebar-active-bg);
-        color: #ffffff;
-        box-shadow: inset 3px 0 0 var(--sidebar-active-border);
-      }
-      .nav-item.has-submenu {
-        display: block;
-        padding: 0;
-      }
-      .nav-item-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 12px;
-        position: relative;
-      }
-      .nav-item-content::after {
-        content: "→";
-        position: absolute;
-        right: 12px;
-        font-size: 12px;
-        opacity: 0.5;
-        transition: transform 0.2s;
-      }
-      .nav-item.has-submenu.expanded .nav-item-content::after {
-        transform: rotate(90deg);
-      }
-      .nav-submenu {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        padding-left: 12px;
-      }
-      .nav-item.has-submenu.expanded .nav-submenu {
-        max-height: 400px;
-        padding-bottom: 8px;
-      }
-      .nav-submenu-item {
-        font-size: 13px;
-        padding: 6px 12px;
-        margin-top: 2px;
-      }
-      .main-content {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        background: var(--surface);
-      }
-      .main-toolbar {
-        height: 56px;
-        border-bottom: 1px solid var(--header-border);
-        background: var(--header-bg);
-        padding: 0 24px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-      }
-      .crumb {
-        font-size: 14px;
-        font-weight: 600;
-        color: #18181b;
-      }
-      .project-hint {
-        font-size: 12px;
-        font-weight: 500;
-        color: #71717a;
-        background: #f4f4f5;
-        padding: 4px 10px;
-        border-radius: 4px;
-        border: 1px solid #e4e4e7;
-      }
-      .content-frame {
-        flex: 1;
-        width: 100%;
-        height: 100%;
-        border: none;
-        background: var(--surface);
-      }
-      .frame-host {
-        position: relative;
-        flex: 1;
-        min-height: 0;
-        background: var(--surface);
-      }
-      .frame-host .content-frame {
-        position: absolute;
-        inset: 0;
-        display: none;
-      }
-      .frame-host .content-frame.active {
-        display: block;
-      }
-      .content-frame.fullscreen {
-        position: fixed;
-        inset: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: 10000;
-        background: #ffffff;
-      }
-      body.fullscreen-mode {
-        overflow: hidden;
-      }
-      .sidebar.hidden {
-        display: none;
-      }
-      @media (max-width: 900px) {
-        .sidebar {
-          width: 220px;
-        }
+        padding: 2px 6px;
       }
     </style>
-
-    <script src="/static/js/app-shell.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
   </head>
   <body>
-    <aside class="sidebar">
-      <div class="brand">
-        <h1><i data-lucide="radio"></i> 市场信息工作流</h1>
-        <p>Multi-project Research Hub</p>
+    <section class="card">
+      <h1>Legacy 页面（维护模式）</h1>
+      <p>
+        默认前端已切换到 modern。这个页面仅作为旧版回退入口，建议优先使用新版界面。
+        若需要保留旧版兼容路径，可通过 URL 参数 <code>?legacy=1</code> 访问。
+      </p>
+
+      <div class="actions">
+        <a class="btn primary" href="/">进入 modern 前端</a>
+        <a class="btn" href="/process-management.html?legacy=1">进入旧版任务页</a>
+        <a class="btn" href="/admin.html?legacy=1">进入旧版数据页</a>
       </div>
 
-      <div class="project-picker">
-        <label for="projectSelect">项目</label>
-        <div class="project-picker-row">
-          <select id="projectSelect"></select>
-          <button type="button" onclick="applyProjectKey()">切换</button>
-          <button type="button" onclick="injectInitialProject()">注入初始项目</button>
-          <button type="button" class="secondary" onclick="createProject()">新建</button>
-        </div>
+      <div class="links">
+        <a href="/dashboard.html?legacy=1">旧版综合仪表盘</a>
+        <a href="/resource-pool-management.html?legacy=1">旧版信息资源库管理</a>
+        <a href="/settings.html?legacy=1">旧版系统设置</a>
       </div>
-
-      <nav class="sidebar-nav" id="sidebarNav">
-        <div class="group-title">总览</div>
-        <a href="#" class="nav-item active" data-page="process-management.html" onclick="loadPage('process-management.html', this)">
-          <i data-lucide="zap"></i><span>任务</span>
-        </a>
-        <a href="#" class="nav-item" data-page="admin.html" onclick="loadPage('admin.html', this)">
-          <i data-lucide="database"></i><span>数据</span>
-        </a>
-
-        <div class="group-title">数据侧面</div>
-        <a href="#" class="nav-item" data-page="data-dashboard.html" onclick="loadPage('data-dashboard.html', this)">
-          <i data-lucide="area-chart"></i><span>数据仪表盘</span>
-        </a>
-        <a href="#" class="nav-item" data-page="market-data-visualization.html" onclick="loadPage('market-data-visualization.html', this)">
-          <i data-lucide="line-chart"></i><span>市场</span>
-        </a>
-        <a href="#" class="nav-item" data-page="social-media-visualization.html" onclick="loadPage('social-media-visualization.html', this)">
-          <i data-lucide="message-square"></i><span>舆情</span>
-        </a>
-        <a href="#" class="nav-item" data-page="policy-visualization.html" onclick="loadPage('policy-visualization.html', this)">
-          <i data-lucide="landmark"></i><span>政策</span>
-        </a>
-        <a href="#" class="nav-item" data-page="topic-dashboard.html?topic=company" onclick="loadPage('topic-dashboard.html?topic=company', this)">
-          <i data-lucide="factory"></i><span>行业公司</span>
-        </a>
-        <a href="#" class="nav-item" data-page="topic-dashboard.html?topic=product" onclick="loadPage('topic-dashboard.html?topic=product', this)">
-          <i data-lucide="package"></i><span>商品</span>
-        </a>
-        <a href="#" class="nav-item" data-page="topic-dashboard.html?topic=operation" onclick="loadPage('topic-dashboard.html?topic=operation', this)">
-          <i data-lucide="shopping-cart"></i><span>电商/经营</span>
-        </a>
-
-        <div class="group-title">图谱</div>
-        <a href="#" class="nav-item" data-page="/graph.html?type=market" onclick="loadPage('/graph.html?type=market', this)">
-          <i data-lucide="network"></i><span>市场图谱</span>
-        </a>
-        <a href="#" class="nav-item" data-page="/graph.html?type=policy" onclick="loadPage('/graph.html?type=policy', this)">
-          <i data-lucide="network"></i><span>政策图谱</span>
-        </a>
-        <a href="#" class="nav-item" data-page="/graph.html?type=social" onclick="loadPage('/graph.html?type=social', this)">
-          <i data-lucide="network"></i><span>社媒图谱</span>
-        </a>
-        <a href="#" class="nav-item" data-page="/graph.html?type=company" onclick="loadPage('/graph.html?type=company', this)">
-          <i data-lucide="building-2"></i><span>公司图谱</span>
-        </a>
-        <a href="#" class="nav-item" data-page="/graph.html?type=product" onclick="loadPage('/graph.html?type=product', this)">
-          <i data-lucide="box"></i><span>商品图谱</span>
-        </a>
-        <a href="#" class="nav-item" data-page="/graph.html?type=operation" onclick="loadPage('/graph.html?type=operation', this)">
-          <i data-lucide="shopping-bag"></i><span>电商/经营图谱</span>
-        </a>
-        <a href="#" class="nav-item" data-page="/graph.html?type=market_deep_entities" onclick="loadPage('/graph.html?type=market_deep_entities', this)">
-          <i data-lucide="git-branch-plus"></i><span>市场实体加细图</span>
-        </a>
-
-        <div class="group-title">流程视角</div>
-        <a href="#" class="nav-item" data-page="ingest.html" onclick="loadPage('ingest.html', this)">
-          <i data-lucide="download"></i><span>采集</span>
-        </a>
-        <a href="#" class="nav-item" data-page="ingest.html?mode=specialized" onclick="loadPage('ingest.html?mode=specialized', this)">
-          <i data-lucide="sparkles"></i><span>特化采集</span>
-        </a>
-        <a href="#" class="nav-item" data-page="raw-data-processing.html" onclick="loadPage('raw-data-processing.html', this)">
-          <i data-lucide="file-input"></i><span>数据处理</span>
-        </a>
-        <a href="#" class="nav-item" data-page="admin.html#extracted" onclick="loadPage('admin.html#extracted', this)">
-          <i data-lucide="puzzle"></i><span>提取</span>
-        </a>
-        <a href="#" class="nav-item" data-page="dashboard.html#analysis" onclick="loadPage('dashboard.html#analysis', this)">
-          <i data-lucide="brain"></i><span>分析</span>
-        </a>
-        <a href="#" class="nav-item" data-page="dashboard.html#board" onclick="loadPage('dashboard.html#board', this)">
-          <i data-lucide="trending-up"></i><span>看板</span>
-        </a>
-
-        <div class="group-title">系统管理</div>
-        <a href="#" class="nav-item" data-page="project-management.html" onclick="loadPage('project-management.html', this)">
-          <i data-lucide="folders"></i><span>项目管理</span>
-        </a>
-        <a href="#" class="nav-item" data-page="resource-pool-management.html" onclick="loadPage('resource-pool-management.html', this)">
-          <i data-lucide="database-zap"></i><span>信息资源库管理</span>
-        </a>
-        <a href="#" class="nav-item" data-page="backend-dashboard.html" onclick="loadPage('backend-dashboard.html', this)">
-          <i data-lucide="layers"></i><span>后端监控</span>
-        </a>
-        <a href="#" class="nav-item" data-page="settings.html" onclick="loadPage('settings.html', this)">
-          <i data-lucide="settings-2"></i><span>系统设置</span>
-        </a>
-        <a href="#" class="nav-item" data-page="settings.html#llm-config" onclick="loadPage('settings.html#llm-config', this)">
-          <i data-lucide="bot"></i><span>LLM 配置</span>
-        </a>
-      </nav>
-    </aside>
-
-    <main class="main-content">
-      <div class="main-toolbar">
-        <div class="crumb" id="pageTitle">任务</div>
-        <div class="project-hint" id="projectHint">当前项目: default</div>
-      </div>
-      <div id="frameHost" class="frame-host">
-        <iframe
-          id="contentFrame"
-          class="content-frame active"
-          src="process-management.html"
-          allowfullscreen
-          allow="fullscreen"
-        ></iframe>
-      </div>
-    </main>
-
-    <script>
-      const PAGE_TITLES = {
-        "process-management.html": "任务",
-        "admin.html": "数据",
-        "dashboard.html": "综合仪表盘",
-        "backend-dashboard.html": "后端监控",
-        "project-management.html": "项目管理",
-        "resource-pool-management.html": "信息资源库管理",
-        "data-dashboard.html": "数据仪表盘",
-        "market-data-visualization.html": "市场",
-        "social-media-visualization.html": "舆情",
-        "policy-visualization.html": "政策",
-        "/graph.html": "图谱",
-        "/graph.html?type=market": "市场图谱",
-        "/graph.html?type=policy": "政策图谱",
-        "/graph.html?type=social": "社媒图谱",
-        "/graph.html?type=company": "公司图谱",
-        "/graph.html?type=product": "商品图谱",
-        "/graph.html?type=operation": "电商/经营图谱",
-        "/graph.html?type=market_deep_entities": "市场实体加细图",
-        "topic-dashboard.html?topic=company": "行业公司",
-        "topic-dashboard.html?topic=product": "商品",
-        "topic-dashboard.html?topic=operation": "电商/经营",
-        "ingest.html": "采集",
-        "ingest.html?mode=specialized": "特化采集",
-        "raw-data-processing.html": "数据处理",
-        "admin.html#extracted": "提取",
-        "dashboard.html#analysis": "分析",
-        "dashboard.html#board": "看板",
-        "settings.html": "系统设置",
-        "settings.html#llm-config": "LLM 配置"
-      };
-
-      let PROJECTS = [];
-      const FRAME_CACHE_LIMIT = 8;
-      const frameCache = new Map();
-      let activeFrameKey = null;
-
-      function normalizeProjectKey(raw) {
-        let key = String(raw || "").trim().toLowerCase();
-        key = key.replace(/[^a-z0-9_]+/g, "_");
-        key = key.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
-        return key || "default";
-      }
-
-      function projectName(projectKey) {
-        const key = String(projectKey || "").trim();
-        const row = PROJECTS.find((p) => p.project_key === key);
-        return row?.name || key || "default";
-      }
-
-      function getProjectKey() {
-        const raw = localStorage.getItem("market_project_key");
-        if (raw == null || String(raw).trim() === "") return "";
-        return normalizeProjectKey(raw);
-      }
-
-      function getPageWithProjectKey(page) {
-        const [base, hash] = page.split("#");
-        const url = new URL(base.startsWith("/") ? base : "/" + base, window.location.origin);
-        const projectKey = getProjectKey();
-        if (projectKey) url.searchParams.set("project_key", projectKey);
-        const path = `${url.pathname}${url.search}${hash ? `#${hash}` : ""}`;
-        return path;
-      }
-
-      function splitTarget(target) {
-        const [withoutHash, hash = ""] = String(target || "").split("#");
-        return { withoutHash, hash };
-      }
-
-      function frameCacheKeyFromTarget(target) {
-        return splitTarget(target).withoutHash;
-      }
-
-      function getFrameHost() {
-        return document.getElementById("frameHost");
-      }
-
-      function getActiveFrame() {
-        if (activeFrameKey && frameCache.has(activeFrameKey)) return frameCache.get(activeFrameKey).frame;
-        return document.getElementById("contentFrame");
-      }
-
-      function touchFrameCache(key) {
-        const entry = frameCache.get(key);
-        if (!entry) return;
-        frameCache.delete(key);
-        frameCache.set(key, entry);
-      }
-
-      function evictFrameCacheIfNeeded() {
-        while (frameCache.size > FRAME_CACHE_LIMIT) {
-          const first = frameCache.entries().next().value;
-          if (!first) return;
-          const [key, entry] = first;
-          if (key === activeFrameKey) {
-            // move active to tail and keep looking
-            touchFrameCache(key);
-            continue;
-          }
-          try {
-            entry.frame.remove();
-          } catch (_) {}
-          frameCache.delete(key);
-        }
-      }
-
-      function ensureFrameForTarget(target) {
-        const key = frameCacheKeyFromTarget(target);
-        let entry = frameCache.get(key);
-        if (entry && entry.frame?.isConnected) {
-          touchFrameCache(key);
-          return entry.frame;
-        }
-        const host = getFrameHost();
-        const frame = document.createElement("iframe");
-        frame.className = "content-frame";
-        frame.setAttribute("loading", "eager");
-        frame.setAttribute("allowfullscreen", "");
-        frame.setAttribute("allow", "fullscreen");
-        frame.dataset.cacheKey = key;
-        frame.src = target;
-        host.appendChild(frame);
-        frameCache.set(key, { frame });
-        touchFrameCache(key);
-        evictFrameCacheIfNeeded();
-        return frame;
-      }
-
-      function initFrameCache() {
-        const frame = document.getElementById("contentFrame");
-        if (!frame) return;
-        const initialTarget = getPageWithProjectKey("process-management.html");
-        const key = frameCacheKeyFromTarget(initialTarget);
-        frame.dataset.cacheKey = key;
-        frameCache.set(key, { frame });
-        activeFrameKey = key;
-        frame.src = initialTarget;
-      }
-
-      function showFrameForTarget(target) {
-        const key = frameCacheKeyFromTarget(target);
-        let frame = frameCache.get(key)?.frame;
-        if (!frame || !frame.isConnected) {
-          frame = ensureFrameForTarget(target);
-        }
-        frameCache.forEach((entry, k) => {
-          if (!entry?.frame) return;
-          entry.frame.classList.toggle("active", k === key);
-        });
-        activeFrameKey = key;
-        touchFrameCache(key);
-        return frame;
-      }
-
-      function navigateFrame(frame, target) {
-        if (!frame) return;
-        const current = String(frame.getAttribute("src") || "");
-        if (current === target) return;
-        const nextParts = splitTarget(target);
-        const curParts = splitTarget(current);
-        if (curParts.withoutHash === nextParts.withoutHash) {
-          // Same page+project, only hash changed: try non-reload hash navigation.
-          try {
-            if (frame.contentWindow && frame.contentWindow.location) {
-              frame.contentWindow.location.hash = nextParts.hash ? `#${nextParts.hash}` : "";
-              frame.setAttribute("src", target);
-              return;
-            }
-          } catch (_) {
-            // Cross-context timing issue; fall through to src assignment.
-          }
-        }
-        frame.setAttribute("src", target);
-      }
-
-      function updateHeader(page) {
-        const title = PAGE_TITLES[page] || PAGE_TITLES[page.split("?")[0]] || page;
-        document.getElementById("pageTitle").textContent = title;
-        const key = getProjectKey();
-        document.getElementById("projectHint").textContent = `当前项目: ${projectName(key)}`;
-        document.getElementById("projectHint").title = `project_key: ${key}`;
-      }
-
-      function toggleSubmenu(element, event) {
-        if (event) event.stopPropagation();
-        element.classList.toggle("expanded");
-      }
-
-      function clearActive() {
-        document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
-        document.querySelectorAll(".nav-submenu-item").forEach((item) => item.classList.remove("active"));
-      }
-
-      function applyActive(element) {
-        if (!element) return;
-        if (element.classList.contains("nav-submenu-item")) {
-          element.classList.add("active");
-          const parent = element.closest(".nav-item.has-submenu");
-          if (parent) {
-            parent.classList.add("expanded");
-            parent.classList.add("active");
-          }
-          return;
-        }
-        document.querySelectorAll(".nav-item.has-submenu").forEach((item) => item.classList.remove("active"));
-        element.classList.add("active");
-      }
-
-      function loadPage(page, element) {
-        clearActive();
-        applyActive(element);
-
-        const target = getPageWithProjectKey(page);
-        const frame = showFrameForTarget(target);
-        navigateFrame(frame, target);
-        updateHeader(page);
-
-        if (window.history && window.history.pushState) {
-          window.history.pushState({ page }, "", `#${encodeURIComponent(page)}`);
-        }
-      }
-
-      function applyProjectKey() {
-        const select = document.getElementById("projectSelect");
-        const raw = String(select?.value || "").trim();
-        if (!raw) {
-          document.getElementById("projectHint").textContent = "当前项目: 未选择";
-          document.getElementById("projectHint").title = "project_key: (none)";
-          return;
-        }
-        const key = normalizeProjectKey(raw);
-        localStorage.setItem("market_project_key", key);
-        select.value = key;
-        document.getElementById("projectHint").textContent = `当前项目: ${projectName(key)}`;
-        document.getElementById("projectHint").title = `project_key: ${key}`;
-
-        // Best-effort activate in control plane (single-user friendly)
-        window.MarketApp.api.post(`/api/v1/projects/${encodeURIComponent(key)}/activate`, null).catch(() => {});
-
-        const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
-        const page = active ? active.getAttribute("data-page") : "process-management.html";
-        const target = getPageWithProjectKey(page);
-        const frame = showFrameForTarget(target);
-        navigateFrame(frame, target);
-      }
-
-      async function createProject() {
-        const name = String(prompt("请输入项目名称（用于下拉展示）") || "").trim();
-        if (!name) return;
-
-        const keyInput = String(prompt("请输入项目 key（字母/数字/下划线，可留空自动生成）") || "").trim();
-        const project_key = keyInput ? normalizeProjectKey(keyInput) : normalizeProjectKey(`proj_${Date.now()}`);
-        if (keyInput && project_key === "default" && keyInput.toLowerCase().trim() !== "default") {
-          alert("项目 key 只能包含字母/数字/下划线，且至少包含一个字母或数字。请重新输入。");
-          return;
-        }
-
-        try {
-          await window.MarketApp.api.post("/api/v1/projects", { project_key, name, enabled: true });
-          // Activate and switch locally
-          await window.MarketApp.api.post(`/api/v1/projects/${encodeURIComponent(project_key)}/activate`, null);
-          localStorage.setItem("market_project_key", project_key);
-          await loadProjects();
-
-          // Reload current frame
-          const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
-          const page = active ? active.getAttribute("data-page") : "process-management.html";
-          const target = getPageWithProjectKey(page);
-          const frame = showFrameForTarget(target);
-          navigateFrame(frame, target);
-        } catch (err) {
-          alert(`创建项目失败: ${err.message || err}`);
-        }
-      }
-
-      async function injectInitialProject() {
-        const defaultName = `初始项目 ${new Date().toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
-        const name = String(prompt("请输入新项目名称（将从 demo_proj 注入初始数据）", defaultName) || "").trim();
-        if (!name) return;
-        const keyInput = String(prompt("请输入项目 key（可留空自动生成）", "") || "").trim();
-        const project_key = keyInput ? normalizeProjectKey(keyInput) : "";
-        try {
-          const data = await window.MarketApp.api.post("/api/v1/projects/inject-initial", {
-            project_key: project_key || null,
-            name,
-            source_project_key: "demo_proj",
-            overwrite: false,
-            activate: true,
-          });
-          const nextKey = data.project_key || project_key;
-          if (nextKey) localStorage.setItem("market_project_key", nextKey);
-          await loadProjects();
-          const active = document.querySelector(".nav-submenu-item.active") || document.querySelector(".nav-item.active");
-          const page = active ? active.getAttribute("data-page") : "process-management.html";
-          const target = getPageWithProjectKey(page);
-          const frame = showFrameForTarget(target);
-          navigateFrame(frame, target);
-          alert(`注入完成：${data.project_key || nextKey}`);
-        } catch (err) {
-          alert(`注入初始项目失败: ${err.message || err}`);
-        }
-      }
-
-      async function loadProjects() {
-        try {
-          const data = await window.MarketApp.api.get("/api/v1/projects");
-          if (!data) return;
-          const items = Array.isArray(data?.items) ? data.items : [];
-          PROJECTS = items.filter((p) => p && p.enabled !== false);
-
-          const select = document.getElementById("projectSelect");
-          if (!select) return;
-          select.innerHTML = [
-            '<option value="">(选择项目)</option>',
-            ...PROJECTS.map((p) => `<option value="${p.project_key}">${p.name}</option>`),
-          ].join("");
-
-          // Prefer remembered choice; if it no longer exists, do not auto-switch to another project.
-          const rawStored = localStorage.getItem("market_project_key");
-          const hasStored = rawStored != null && String(rawStored).trim() !== "";
-          const storedKey = hasStored ? normalizeProjectKey(rawStored) : "";
-          const storedExists = !!storedKey && PROJECTS.some((p) => p.project_key === storedKey);
-
-          let nextKey = "";
-          if (storedExists) {
-            nextKey = storedKey;
-          } else if (!hasStored) {
-            const apiActive = PROJECTS.find((p) => p.is_active) || PROJECTS[0];
-            nextKey = apiActive?.project_key || "";
-            if (nextKey) localStorage.setItem("market_project_key", nextKey);
-          }
-
-          select.value = nextKey || "";
-          if (nextKey) {
-            document.getElementById("projectHint").textContent = `当前项目: ${projectName(nextKey)}`;
-            document.getElementById("projectHint").title = `project_key: ${nextKey}`;
-          } else if (hasStored && !storedExists) {
-            document.getElementById("projectHint").textContent = "当前项目: 上次选择不存在，请重新选择";
-            document.getElementById("projectHint").title = `project_key: ${storedKey || "(invalid)"}`;
-          } else {
-            document.getElementById("projectHint").textContent = "当前项目: 未选择";
-            document.getElementById("projectHint").title = "project_key: (none)";
-          }
-        } catch {
-          // ignore - dropdown will stay empty
-        }
-      }
-
-      window.addEventListener("popstate", function(event) {
-        if (!event.state || !event.state.page) return;
-        const navItem = document.querySelector(`[data-page="${event.state.page}"]`);
-        loadPage(event.state.page, navItem);
-      });
-
-      window.addEventListener("DOMContentLoaded", function() {
-        lucide.createIcons();
-        initFrameCache();
-        loadProjects();
-        updateHeader("process-management.html");
-
-        const projectSelect = document.getElementById("projectSelect");
-        if (projectSelect) {
-          projectSelect.addEventListener("change", applyProjectKey);
-        }
-
-        const hash = decodeURIComponent(window.location.hash.substring(1) || "");
-        if (hash) {
-          const navItem = document.querySelector(`[data-page="${hash}"]`);
-          if (navItem) {
-            loadPage(hash, navItem);
-          } else {
-            const target = getPageWithProjectKey(hash);
-            const frame = showFrameForTarget(target);
-            navigateFrame(frame, target);
-            updateHeader(hash);
-          }
-        } else {
-          const target = getPageWithProjectKey("process-management.html");
-          const frame = showFrameForTarget(target);
-          navigateFrame(frame, target);
-        }
-      });
-
-      window.addEventListener("message", function(event) {
-        if (!event.data) return;
-        const frame = getActiveFrame();
-        const sidebar = document.querySelector(".sidebar");
-        const body = document.body;
-
-        if (event.data.type === "navigate" && event.data.page) {
-          const navItem = document.querySelector(`[data-page="${event.data.page}"]`);
-          if (navItem) loadPage(event.data.page, navItem);
-        }
-        if (event.data.type === "fullscreen") {
-          if (event.data.action === "enter") {
-            frame.classList.add("fullscreen");
-            sidebar.classList.add("hidden");
-            body.classList.add("fullscreen-mode");
-          } else if (event.data.action === "exit") {
-            frame.classList.remove("fullscreen");
-            sidebar.classList.remove("hidden");
-            body.classList.remove("fullscreen-mode");
-          }
-        }
-      });
-    </script>
+    </section>
   </body>
 </html>

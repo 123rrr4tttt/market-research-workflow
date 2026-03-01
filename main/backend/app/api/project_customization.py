@@ -13,6 +13,7 @@ from ..services.graph.doc_types import (
     resolve_graph_node_labels,
     resolve_graph_node_types,
     resolve_graph_relation_labels,
+    resolve_graph_topic_scope_entities,
     resolve_graph_type_labels,
 )
 from ..services.projects.workflow import (
@@ -345,6 +346,7 @@ def get_graph_config(project_key: str | None = Query(default=None)):
             "graph_field_labels": resolve_graph_field_labels(customization.project_key),
             "graph_edge_types": resolve_graph_edge_types(customization.project_key),
             "graph_relation_labels": resolve_graph_relation_labels(customization.project_key),
+            "graph_topic_scope_entities": resolve_graph_topic_scope_entities(customization.project_key),
         }
     )
 

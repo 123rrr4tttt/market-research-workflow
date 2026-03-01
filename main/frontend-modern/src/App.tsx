@@ -30,9 +30,9 @@ const hashByMode: Record<NavMode, string> = {
   graphMarket: '#graph.html?type=market',
   graphPolicy: '#graph.html?type=policy',
   graphSocial: '#graph.html?type=social',
-  graphCompany: '#topic-dashboard.html?topic=company',
-  graphProduct: '#topic-dashboard.html?topic=product',
-  graphOperation: '#topic-dashboard.html?topic=operation',
+  graphCompany: '#graph.html?type=company',
+  graphProduct: '#graph.html?type=product',
+  graphOperation: '#graph.html?type=operation',
   graphDeep: '#graph.html?type=market_deep_entities',
   flowIngest: '#ingest.html',
   flowSpecialized: '#ingest.html?mode=specialized',
@@ -80,14 +80,6 @@ function parseLegacyHashToMode(rawHash: string): NavMode | null {
     return 'overviewTasks'
   }
 
-  if (path.includes('dashboard.html')) {
-    if (fragment.includes('analysis')) return 'flowAnalysis'
-    if (fragment.includes('board')) return 'flowBoard'
-    if (fragment.includes('market')) return 'dataMarket'
-    if (fragment.includes('social')) return 'dataSocial'
-    return 'dataDashboard'
-  }
-
   if (path.includes('topic-dashboard.html')) {
     const topic = (query.get('topic') || '').toLowerCase()
     if (topic === 'company') return 'graphCompany'
@@ -97,6 +89,14 @@ function parseLegacyHashToMode(rawHash: string): NavMode | null {
     if (topic === 'social' || topic === 'public-opinion') return 'dataSocial'
     if (topic === 'market') return 'dataMarket'
     return 'dataCatalog'
+  }
+
+  if (path.includes('dashboard.html')) {
+    if (fragment.includes('analysis')) return 'flowAnalysis'
+    if (fragment.includes('board')) return 'flowBoard'
+    if (fragment.includes('market')) return 'dataMarket'
+    if (fragment.includes('social')) return 'dataSocial'
+    return 'dataDashboard'
   }
 
   if (path.includes('graph.html')) {

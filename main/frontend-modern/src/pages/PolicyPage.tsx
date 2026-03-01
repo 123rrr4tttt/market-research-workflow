@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Database, RefreshCw } from 'lucide-react'
 import { getPolicyDetail, getPolicyStats, listPolicies } from '../lib/api'
@@ -30,10 +30,6 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
   const [policyPage, setPolicyPage] = useState(1)
   const [selectedPolicyId, setSelectedPolicyId] = useState<number | null>(null)
 
-  useEffect(() => {
-    setPolicyPage(1)
-  }, [policyStateFilter])
-
   const policyStats = useQuery({
     queryKey: ['policy-stats', projectKey],
     queryFn: getPolicyStats,
@@ -46,22 +42,17 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
     enabled: Boolean(projectKey),
   })
 
-  useEffect(() => {
+  const effectiveSelectedPolicyId = useMemo(() => {
     const items = policyList.data || []
-    if (!items.length) {
-      setSelectedPolicyId(null)
-      return
-    }
-
-    if (selectedPolicyId == null || !items.some((item) => item.id === selectedPolicyId)) {
-      setSelectedPolicyId(items[0].id)
-    }
+    if (!items.length) return null
+    if (selectedPolicyId != null && items.some((item) => item.id === selectedPolicyId)) return selectedPolicyId
+    return items[0].id
   }, [policyList.data, selectedPolicyId])
 
   const policyDetail = useQuery({
-    queryKey: ['policy-detail', projectKey, selectedPolicyId],
-    queryFn: () => getPolicyDetail(Number(selectedPolicyId)),
-    enabled: Boolean(projectKey) && selectedPolicyId != null,
+    queryKey: ['policy-detail', projectKey, effectiveSelectedPolicyId],
+    queryFn: () => getPolicyDetail(Number(effectiveSelectedPolicyId)),
+    enabled: Boolean(projectKey) && effectiveSelectedPolicyId != null,
   })
 
   const stateOptions = useMemo(() => {
@@ -139,7 +130,13 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
           <div className="form-grid cols-2" style={{ marginBottom: 12 }}>
             <label>
               <span>省份筛选</span>
-              <select value={policyStateFilter} onChange={(e) => setPolicyStateFilter(e.target.value)}>
+              <select
+                value={policyStateFilter}
+                onChange={(e) => {
+                  setPolicyStateFilter(e.target.value)
+                  setPolicyPage(1)
+                }}
+              >
                 <option value="">全部</option>
                 {stateOptions.map((state) => (
                   <option key={state} value={state}>
@@ -173,7 +170,7 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
                   <tr
                     key={item.id}
                     onClick={() => setSelectedPolicyId(item.id)}
-                    style={{ cursor: 'pointer', background: selectedPolicyId === item.id ? 'rgba(59, 130, 246, 0.1)' : undefined }}
+                    style={{ cursor: 'pointer', background: effectiveSelectedPolicyId === item.id ? 'rgba(59, 130, 246, 0.1)' : undefined }}
                   >
                     <td>{item.id}</td>
                     <td>{item.title || '-'}</td>
@@ -202,9 +199,9 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
             <span className="chip">{activePolicy?.id ? `ID: ${activePolicy.id}` : '未选择'}</span>
           </div>
 
-          {selectedPolicyId == null ? <p className="empty-cell">请先在左侧选择一条政策</p> : null}
+          {effectiveSelectedPolicyId == null ? <p className="empty-cell">请先在左侧选择一条政策</p> : null}
 
-          {selectedPolicyId != null ? (
+          {effectiveSelectedPolicyId != null ? (
             <div className="content-stack" style={{ gap: 10 }}>
               <article className="panel" style={{ padding: 12 }}>
                 <div className="form-grid cols-2">

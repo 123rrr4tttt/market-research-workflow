@@ -22,10 +22,17 @@ FIELD_MAPPING = {
         "market": ["IN_STATE", "HAS_SEGMENT", "MENTIONS_ENTITY"],
         "policy": ["APPLIES_TO_STATE", "HAS_TYPE", "HAS_KEYPOINT", "MENTIONS_ENTITY", "POLICY_RELATION"],
     },
+    "graph_topic_scope_entities": {
+        "company": ["CompanyEntity", "CompanyBrand", "CompanyUnit", "CompanyPartner", "CompanyChannel"],
+        "product": ["ProductEntity", "ProductModel", "ProductCategory", "ProductBrand", "ProductComponent", "ProductScenario"],
+        "operation": ["OperationEntity", "OperationPlatform", "OperationStore", "OperationChannel", "OperationMetric", "OperationStrategy", "OperationRegion", "OperationPeriod"],
+    },
     "graph_node_labels": {
         "State": "地区",
         "Segment": "品类",
-        "MarketData": "市场数据",
+        "MarketData": "数据",
+        "Policy": "数据",
+        "Post": "数据",
     },
     "graph_field_labels": {
         "state": "地区",

@@ -119,7 +119,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
   const handlerGrouped = useQuery({ queryKey: ['site-entry-grouped', projectKey], queryFn: listSiteEntryGrouped })
   const history = useQuery({ queryKey: ['ingest-history', projectKey], queryFn: () => listIngestHistory(12) })
 
-  const sourceItemList = sourceItems.data || []
+  const sourceItemList = useMemo(() => sourceItems.data || [], [sourceItems.data])
   const selectedSourceItem = useMemo(
     () => sourceItemList.find((item) => item.item_key === form.sourceItemKey) || null,
     [sourceItemList, form.sourceItemKey],

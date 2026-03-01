@@ -16,6 +16,28 @@
 
 ## 快速启动
 
+### 统一入口（推荐）
+
+优先在仓库根目录使用：
+
+```bash
+./scripts/docker-deploy.sh preflight
+./scripts/docker-deploy.sh start --non-interactive --force
+./scripts/docker-deploy.sh status
+./scripts/docker-deploy.sh logs -f backend
+./scripts/docker-deploy.sh health
+./scripts/docker-deploy.sh stop
+```
+
+参数说明（用于一键脚本）：
+- `--non-interactive`：非交互执行，适合 CI/自动化环境
+- `--force`：强制清理并继续执行（不删除数据卷）
+- `--profile <name>`：按 compose profile 启动
+- `services...`：按服务范围查看状态/日志（如 `status backend redis`、`logs -f celery-worker`）
+
+说明：平台入口（macOS/Linux/Windows）现仅用于纯本地链路（`local-deploy.sh` 代理），
+Docker 运维请统一使用 `./scripts/docker-deploy.sh`。
+
 ### 统一启动（唯一推荐方式）
 
 ```bash
@@ -34,6 +56,11 @@ cd "$PROJECT_DIR/ops"
 cd "$PROJECT_DIR/ops"
 ./stop-all.sh
 ```
+
+`stop-all.sh` 清理策略：
+- 默认执行 `docker compose down`：停止并移除容器/网络，保留数据卷
+- 不会默认删除卷，避免误删数据
+- 若确需清空数据，手动执行 `docker compose down -v`
 
 ### 查看服务状态
 
@@ -285,4 +312,3 @@ docker-compose restart backend
 4. **配置日志**：设置日志轮转和集中日志管理
 5. **资源限制**：为服务设置适当的资源限制（CPU、内存）
 6. **安全配置**：使用强密码、启用 TLS 等
-

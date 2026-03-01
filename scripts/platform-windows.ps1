@@ -1,12 +1,14 @@
 param(
     [Parameter(Mandatory = $false, Position = 0)]
-    [string]$Action
+    [string]$Action,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$ExtraArgs
 )
 
-$ValidActions = @("start", "stop", "restart", "local-start", "local-stop")
+$ValidActions = @("start", "stop", "restart", "status", "health", "local-start", "local-stop")
 
 function Show-Usage {
-    Write-Host "用法: .\scripts\platform-windows.ps1 {start|stop|restart|local-start|local-stop}"
+    Write-Host "用法: .\scripts\platform-windows.ps1 {start|stop|restart|status|health|local-start|local-stop} [extra args...]"
 }
 
 if ([string]::IsNullOrWhiteSpace($Action) -or -not ($ValidActions -contains $Action)) {
@@ -26,7 +28,7 @@ $BashCommand = Get-Command bash -ErrorAction SilentlyContinue
 $WslCommand = Get-Command wsl -ErrorAction SilentlyContinue
 
 if ($BashCommand) {
-    & $BashCommand.Source $BashScriptPath $Action
+    & $BashCommand.Source $BashScriptPath $Action @ExtraArgs
     exit $LASTEXITCODE
 }
 
@@ -38,7 +40,7 @@ if ($WslCommand) {
         $Rest = $UnixScriptPath.Substring(2)
         $UnixScriptPath = "/mnt/$Drive$Rest"
     }
-    & $WslCommand.Source bash $UnixScriptPath $Action
+    & $WslCommand.Source bash $UnixScriptPath $Action @ExtraArgs
     exit $LASTEXITCODE
 }
 

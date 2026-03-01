@@ -39,6 +39,44 @@ function stringifyBlock(value: unknown) {
   }
 }
 
+function firstDefined<T>(...values: T[]): T | null {
+  for (const value of values) {
+    if (value !== null && value !== undefined && value !== '') return value
+  }
+  return null
+}
+
+function toFiniteNumber(value: unknown) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function buildResultSummary(input: {
+  display_meta?: Record<string, unknown> | null
+  params?: Record<string, unknown> | null
+  result?: unknown
+  progress?: Record<string, unknown> | null
+}) {
+  const dm = (input.display_meta || {}) as Record<string, unknown>
+  const params = (input.params || {}) as Record<string, unknown>
+  const progress = (input.progress || {}) as Record<string, unknown>
+  const result = (input.result && typeof input.result === 'object' ? input.result : {}) as Record<string, unknown>
+
+  const inserted = toFiniteNumber(firstDefined(dm.inserted, params.inserted, result.inserted, progress.inserted))
+  const updated = toFiniteNumber(firstDefined(dm.updated, params.updated, result.updated, progress.updated))
+  const skipped = toFiniteNumber(firstDefined(dm.skipped, params.skipped, result.skipped, progress.skipped))
+  const errors = toFiniteNumber(firstDefined(dm.errors_count, params.errors_count, result.errors_count, progress.errors_count))
+  const urls = toFiniteNumber(firstDefined(dm.url_count, params.url_count, params.urls, result.url_count, result.urls))
+
+  const parts: string[] = []
+  if (inserted != null) parts.push(`新增 ${inserted}`)
+  if (updated != null) parts.push(`更新 ${updated}`)
+  if (skipped != null) parts.push(`跳过 ${skipped}`)
+  if (errors != null && errors > 0) parts.push(`错误 ${errors}`)
+  if (urls != null) parts.push(`URL ${urls}`)
+  return parts.length ? parts.join(' | ') : '-'
+}
+
 function getTaskSourceKind(task?: ProcessTaskItem, fallback?: string | null) {
   if (task?.source) return task.source
   if (fallback) return fallback
@@ -52,6 +90,7 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
   const [refreshIntervalSec, setRefreshIntervalSec] = useState(8)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null)
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
 
   const refreshIntervalMs = autoRefreshEnabled ? Math.max(3, refreshIntervalSec) * 1000 : false
@@ -124,8 +163,28 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
     () => (processList.data?.tasks || []).find((task) => task.task_id === selectedTaskId),
     [processList.data?.tasks, selectedTaskId],
   )
-  const selectedMeta = taskDetail.data?.display_meta || selectedTask?.display_meta || null
-  const selectedSourceKind = getTaskSourceKind(selectedTask, taskDetail.data?.worker ? 'worker' : null)
+  const selectedHistoryTask = useMemo(
+    () => (processHistory.data?.history || []).find((row) => Number(row.id) === Number(selectedHistoryId)),
+    [processHistory.data?.history, selectedHistoryId],
+  )
+  const selectedCurrent = Boolean(selectedTaskId)
+  const selectedMeta = selectedCurrent
+    ? taskDetail.data?.display_meta || selectedTask?.display_meta || null
+    : selectedHistoryTask?.display_meta || null
+  const selectedSourceKind = selectedCurrent
+    ? getTaskSourceKind(selectedTask, taskDetail.data?.worker ? 'worker' : null)
+    : selectedHistoryTask?.source || 'history'
+  const selectedResultSummary = selectedCurrent
+    ? buildResultSummary({
+        display_meta: (taskDetail.data?.display_meta || selectedTask?.display_meta || null) as Record<string, unknown> | null,
+        params: (taskDetail.data?.kwargs || selectedTask?.kwargs || null) as Record<string, unknown> | null,
+        progress: (taskDetail.data?.progress || selectedTask?.progress || null) as Record<string, unknown> | null,
+        result: taskDetail.data?.result,
+      })
+    : buildResultSummary({
+        display_meta: (selectedHistoryTask?.display_meta || null) as Record<string, unknown> | null,
+        params: (selectedHistoryTask?.params || null) as Record<string, unknown> | null,
+      })
   const cancellableSelectedTaskIds = selectedTaskIds.filter((taskId) => {
     const task = (processList.data?.tasks || []).find((item) => item.task_id === taskId)
     return task ? canCancelTask(task) : false
@@ -153,6 +212,14 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
     }
     clearSelectedTasks()
     await refreshAll()
+  }
+
+  const detailPreStyle = {
+    marginTop: 8,
+    maxHeight: 280,
+    overflow: 'auto' as const,
+    whiteSpace: 'pre-wrap' as const,
+    overflowWrap: 'anywhere' as const,
   }
 
   return (
@@ -275,7 +342,12 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
                     />
                   </td>
                   <td>
-                    <button onClick={() => setSelectedTaskId((prev) => (prev === task.task_id ? null : task.task_id))}>
+                    <button
+                      onClick={() => {
+                        setSelectedHistoryId(null)
+                        setSelectedTaskId((prev) => (prev === task.task_id ? null : task.task_id))
+                      }}
+                    >
                       {selectedTaskId === task.task_id ? '收起' : '详情'}
                     </button>
                     <button
@@ -300,28 +372,46 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
         </div>
       </section>
 
-      {selectedTaskId ? (
-        <section className="panel">
-          <div className="panel-header">
-            <h2>任务详情 {selectedTaskId}</h2>
+      {selectedTaskId || selectedHistoryId ? (
+        <div
+          className="process-detail-backdrop"
+          onClick={() => {
+            setSelectedTaskId(null)
+            setSelectedHistoryId(null)
+          }}
+        >
+          <section className="panel process-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-header">
+            <h2>
+              任务详情 {selectedCurrent ? selectedTaskId : `history#${selectedHistoryId}`}
+            </h2>
             <div className="inline-actions">
               <button
                 onClick={() => {
                   void queryClient.invalidateQueries({ queryKey: ['process-task-detail', projectKey, selectedTaskId] })
                   void queryClient.invalidateQueries({ queryKey: ['process-task-logs', projectKey, selectedTaskId] })
                 }}
-                disabled={taskDetail.isFetching || taskLogs.isFetching}
+                disabled={!selectedCurrent || taskDetail.isFetching || taskLogs.isFetching}
               >
                 <RefreshCw size={14} />
-                {taskDetail.isFetching || taskLogs.isFetching ? '刷新中...' : '刷新'}
+                {selectedCurrent && (taskDetail.isFetching || taskLogs.isFetching) ? '刷新中...' : '刷新'}
               </button>
-              <button onClick={() => setSelectedTaskId(null)}>关闭</button>
+              <button
+                onClick={() => {
+                  setSelectedTaskId(null)
+                  setSelectedHistoryId(null)
+                }}
+              >
+                关闭
+              </button>
             </div>
-          </div>
-          <div className="content-stack">
+            </div>
+            <div className="content-stack">
             <div>
               <strong>状态：</strong>
-              <span className={statusClass(taskDetail.data?.status || selectedTask?.status)}>{taskDetail.data?.status || selectedTask?.status || '-'}</span>
+              <span className={statusClass(selectedCurrent ? (taskDetail.data?.status || selectedTask?.status) : selectedHistoryTask?.status)}>
+                {selectedCurrent ? (taskDetail.data?.status || selectedTask?.status || '-') : (selectedHistoryTask?.status || '-')}
+              </span>
             </div>
             <div>
               <strong>来源：</strong>
@@ -331,49 +421,95 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
               {selectedMeta?.provider ? ` | provider=${selectedMeta.provider}` : ''}
             </div>
             <div>
+              <strong>结果摘要：</strong>
+              {selectedResultSummary}
+            </div>
+            <div>
               <strong>Worker：</strong>
-              {taskDetail.data?.worker || selectedTask?.worker || '-'}
+              {selectedCurrent ? (taskDetail.data?.worker || selectedTask?.worker || '-') : (selectedHistoryTask?.worker || '-')}
             </div>
             <div>
               <strong>Started：</strong>
-              {formatDate(taskDetail.data?.started_at || selectedTask?.started_at)}
+              {formatDate(selectedCurrent ? (taskDetail.data?.started_at || selectedTask?.started_at) : selectedHistoryTask?.started_at)}
             </div>
+            {!selectedCurrent ? (
+              <>
+                <div>
+                  <strong>Finished：</strong>
+                  {formatDate(selectedHistoryTask?.finished_at)}
+                </div>
+                <div>
+                  <strong>Duration(s)：</strong>
+                  {selectedHistoryTask?.duration_seconds != null ? selectedHistoryTask.duration_seconds.toFixed(1) : '-'}
+                </div>
+                <div>
+                  <strong>job_type：</strong>
+                  {selectedHistoryTask?.job_type || '-'}
+                </div>
+              </>
+            ) : null}
             <div>
               <strong>display_meta</strong>
-              <pre style={{ marginTop: 8, maxHeight: 220, overflow: 'auto' }}>{stringifyBlock(selectedMeta)}</pre>
+              <pre style={detailPreStyle}>{stringifyBlock(selectedMeta)}</pre>
             </div>
-            <div>
-              <strong>args</strong>
-              <pre style={{ marginTop: 8, maxHeight: 220, overflow: 'auto' }}>
-                {stringifyBlock(taskDetail.data?.args || selectedTask?.args)}
-              </pre>
+            {selectedCurrent ? (
+              <>
+                <div>
+                  <strong>args</strong>
+                  <pre style={detailPreStyle}>
+                    {stringifyBlock(taskDetail.data?.args || selectedTask?.args)}
+                  </pre>
+                </div>
+                <div>
+                  <strong>kwargs</strong>
+                  <pre style={detailPreStyle}>
+                    {stringifyBlock(taskDetail.data?.kwargs || selectedTask?.kwargs)}
+                  </pre>
+                </div>
+                <div>
+                  <strong>progress</strong>
+                  <pre style={detailPreStyle}>
+                    {stringifyBlock(taskDetail.data?.progress || selectedTask?.progress)}
+                  </pre>
+                </div>
+                <div>
+                  <strong>result</strong>
+                  <pre style={detailPreStyle}>
+                    {stringifyBlock(taskDetail.data?.result)}
+                  </pre>
+                </div>
+                <div>
+                  <strong>traceback</strong>
+                  <pre style={detailPreStyle}>
+                    {stringifyBlock(taskDetail.data?.traceback || selectedTask?.traceback)}
+                  </pre>
+                </div>
+                <div>
+                  <strong>logs (tail 200)</strong>
+                  <pre style={detailPreStyle}>
+                    {taskLogs.isError ? '日志加载失败' : stringifyBlock(taskLogs.data?.text)}
+                  </pre>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <strong>params</strong>
+                  <pre style={detailPreStyle}>
+                    {stringifyBlock(selectedHistoryTask?.params)}
+                  </pre>
+                </div>
+                <div>
+                  <strong>error</strong>
+                  <pre style={detailPreStyle}>
+                    {stringifyBlock(selectedHistoryTask?.error)}
+                  </pre>
+                </div>
+              </>
+            )}
             </div>
-            <div>
-              <strong>kwargs</strong>
-              <pre style={{ marginTop: 8, maxHeight: 220, overflow: 'auto' }}>
-                {stringifyBlock(taskDetail.data?.kwargs || selectedTask?.kwargs)}
-              </pre>
-            </div>
-            <div>
-              <strong>progress</strong>
-              <pre style={{ marginTop: 8, maxHeight: 220, overflow: 'auto' }}>
-                {stringifyBlock(taskDetail.data?.progress || selectedTask?.progress)}
-              </pre>
-            </div>
-            <div>
-              <strong>traceback</strong>
-              <pre style={{ marginTop: 8, maxHeight: 220, overflow: 'auto' }}>
-                {stringifyBlock(taskDetail.data?.traceback || selectedTask?.traceback)}
-              </pre>
-            </div>
-            <div>
-              <strong>logs (tail 200)</strong>
-              <pre style={{ marginTop: 8, maxHeight: 280, overflow: 'auto' }}>
-                {taskLogs.isError ? '日志加载失败' : stringifyBlock(taskLogs.data?.text)}
-              </pre>
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
       ) : null}
 
       <section className="panel">
@@ -397,6 +533,8 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
                 <th>开始</th>
                 <th>结束</th>
                 <th>耗时(秒)</th>
+                <th>结果</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -410,11 +548,22 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
                   <td>{formatDate(row.started_at)}</td>
                   <td>{formatDate(row.finished_at)}</td>
                   <td>{row.duration_seconds != null ? row.duration_seconds.toFixed(1) : '-'}</td>
+                  <td>{buildResultSummary({ display_meta: row.display_meta as Record<string, unknown> | null, params: row.params || null })}</td>
+                  <td>
+                    <button
+                      onClick={() => {
+                        setSelectedTaskId(null)
+                        setSelectedHistoryId((prev) => (prev === Number(row.id) ? null : Number(row.id)))
+                      }}
+                    >
+                      {selectedHistoryId === Number(row.id) ? '收起' : '详情'}
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!processHistory.data?.history?.length ? (
                 <tr>
-                  <td colSpan={6} className="empty-cell">
+                  <td colSpan={8} className="empty-cell">
                     暂无历史数据
                   </td>
                 </tr>

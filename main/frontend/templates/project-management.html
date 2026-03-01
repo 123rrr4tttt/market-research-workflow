@@ -24,6 +24,7 @@
       .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
       .row > * { min-width: 0; }
       input { min-width: 240px; }
+      textarea { min-width: 320px; min-height: 96px; }
       .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
       .editable-name {
         cursor: text;
@@ -62,6 +63,36 @@
           <div class="actions" style="padding-top: 22px;">
             <button id="btnCreate"><i data-lucide="plus"></i>创建并切换</button>
             <button id="btnRefresh" class="secondary"><i data-lucide="refresh-cw"></i>刷新列表</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 12px;">
+          <div style="flex: 1 1 380px;">
+            <label for="autoPrompt">LLM 提示词（可选）</label>
+            <textarea id="autoPrompt" placeholder="可粘贴项目级 user_prompt_template，用于自动写入指定 service。"></textarea>
+          </div>
+          <div>
+            <label for="autoTemplate">模板项目</label>
+            <select id="autoTemplate">
+              <option value="demo_proj">demo_proj</option>
+              <option value="online_lottery">online_lottery</option>
+              <option value="business_survey">business_survey</option>
+            </select>
+          </div>
+          <div>
+            <label for="autoLlmService">LLM 服务名</label>
+            <select id="autoLlmService">
+              <option value="prompt_factory">prompt_factory</option>
+              <option value="keyword_generation">keyword_generation</option>
+              <option value="social_keyword_generation">social_keyword_generation</option>
+              <option value="policy_extraction">policy_extraction</option>
+              <option value="market_info_extraction">market_info_extraction</option>
+              <option value="entities_relations_extraction">entities_relations_extraction</option>
+              <option value="site_entry_classification">site_entry_classification</option>
+              <option value="document_classification">document_classification</option>
+            </select>
+          </div>
+          <div class="actions" style="padding-top: 22px;">
+            <button id="btnAutoCreate"><i data-lucide="sparkles"></i>模板+提示词自动创建</button>
           </div>
         </div>
         <div id="createStatus" class="status" style="margin-top: 12px;">等待操作</div>
@@ -324,7 +355,48 @@
         }
       }
 
+      async function autoCreateWithTemplateAndPrompt() {
+        const name = String(qs("newName").value || "").trim();
+        if (!name) {
+          setError("createStatus", "请先填写项目名称");
+          return;
+        }
+        const rawKey = String(qs("newKey").value || "").trim();
+        const template_project_key = String(qs("autoTemplate").value || "demo_proj").trim();
+        const llmServiceName = String(qs("autoLlmService").value || "keyword_generation").trim();
+        const userPrompt = String(qs("autoPrompt").value || "").trim();
+
+        const body = {
+          project_name: name,
+          project_key: rawKey || null,
+          template_project_key,
+          activate: true,
+          copy_initial_data: true,
+          llm_configs: userPrompt
+            ? [
+                {
+                  service_name: llmServiceName || "keyword_generation",
+                  user_prompt_template: userPrompt,
+                  enabled: true,
+                },
+              ]
+            : [],
+        };
+
+        setLoading("createStatus", "按模板自动创建中...");
+        try {
+          const result = await window.MarketApp.api.post("/api/v1/projects/auto-create", body);
+          const key = String(result?.project_key || "").trim();
+          if (key) localStorage.setItem("market_project_key", key);
+          setSuccess("createStatus", `创建成功：${key || "新项目"}，正在刷新工作台...`);
+          window.MarketApp.navigateInShell("project-management.html");
+        } catch (err) {
+          setError("createStatus", `自动创建失败: ${err.message || err}`);
+        }
+      }
+
       qs("btnCreate").addEventListener("click", createAndSwitch);
+      qs("btnAutoCreate").addEventListener("click", autoCreateWithTemplateAndPrompt);
       qs("btnRefresh").addEventListener("click", renderProjects);
 
       window.addEventListener("DOMContentLoaded", () => {

@@ -80,6 +80,12 @@ DEFAULT_GRAPH_RELATION_LABELS: dict[str, str] = {
     "POLICY_RELATION": "政策关系",
 }
 
+DEFAULT_GRAPH_TOPIC_SCOPE_ENTITIES: dict[str, list[str]] = {
+    "company": ["CompanyEntity", "CompanyBrand", "CompanyUnit", "CompanyPartner", "CompanyChannel"],
+    "product": ["ProductEntity", "ProductModel", "ProductCategory", "ProductBrand", "ProductComponent", "ProductScenario"],
+    "operation": ["OperationEntity", "OperationPlatform", "OperationStore", "OperationChannel", "OperationMetric", "OperationStrategy", "OperationRegion", "OperationPeriod"],
+}
+
 
 def resolve_graph_doc_types(project_key: str | None = None) -> dict[str, list[str]]:
     customization = get_project_customization(project_key)
@@ -189,6 +195,22 @@ def resolve_graph_relation_labels(project_key: str | None = None) -> dict[str, s
             continue
         labels[normalized] = str(value or "").strip() or labels.get(normalized, normalized)
     return labels
+
+
+def resolve_graph_topic_scope_entities(project_key: str | None = None) -> dict[str, list[str]]:
+    customization = get_project_customization(project_key)
+    field_mapping = customization.get_field_mapping() or {}
+    raw = field_mapping.get("graph_topic_scope_entities")
+
+    if not isinstance(raw, dict):
+        return {k: list(v) for k, v in DEFAULT_GRAPH_TOPIC_SCOPE_ENTITIES.items()}
+
+    resolved: dict[str, list[str]] = {}
+    for scope, defaults in DEFAULT_GRAPH_TOPIC_SCOPE_ENTITIES.items():
+        configured = raw.get(scope, defaults)
+        values = _normalize_string_list(configured)
+        resolved[scope] = values or list(defaults)
+    return resolved
 
 
 def _normalize_doc_type_list(value: Any) -> list[str]:

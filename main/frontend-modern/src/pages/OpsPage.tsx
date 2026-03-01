@@ -66,16 +66,15 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
     enabled: Boolean(projectKey && activeDocCardId),
   })
 
-  const parseDocIds = () => {
+  const selectedCount = selectedDocIds.length
+  const selectedCsv = useMemo(() => selectedDocIds.join(','), [selectedDocIds])
+  const parsedDocIds = useMemo(() => {
     const tokens = docIdsText
       .split(/[,\s]+/)
       .map((item) => Number.parseInt(item.trim(), 10))
       .filter((item) => Number.isFinite(item) && item > 0)
     return Array.from(new Set(tokens))
-  }
-  const selectedCount = selectedDocIds.length
-  const selectedCsv = useMemo(() => selectedDocIds.join(','), [selectedDocIds])
-  const parsedDocIds = useMemo(() => parseDocIds(), [docIdsText])
+  }, [docIdsText])
   const docTotalPages = Math.max(1, Math.ceil((adminDocuments.data?.total || 0) / Math.max(1, adminDocuments.data?.page_size || 20)))
 
   const toggleDocSelection = (docId: number) => {

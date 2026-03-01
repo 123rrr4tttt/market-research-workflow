@@ -669,6 +669,43 @@ tbody tr:last-child td { border-bottom: 0; }
 
 .empty-cell { text-align: center; color: var(--text-soft); }
 
+.process-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(1, 4, 12, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.process-detail-modal {
+  width: min(980px, 96vw);
+  max-height: 88vh;
+  overflow: auto;
+  background: #0d141d;
+  border: 1px solid rgba(130, 220, 255, 0.36);
+  color: #e9f2ff;
+  box-shadow:
+    0 0 0 1px rgba(130, 220, 255, 0.18),
+    0 16px 44px rgba(0, 0, 0, 0.55);
+}
+
+.process-detail-modal strong,
+.process-detail-modal h2,
+.process-detail-modal div,
+.process-detail-modal span {
+  color: inherit;
+}
+
+.process-detail-modal pre {
+  background: rgba(2, 8, 18, 0.95);
+  color: #d9e9ff;
+  border: 1px solid rgba(130, 220, 255, 0.28);
+  padding: 10px 12px;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -1130,6 +1167,35 @@ button {
   display: block;
 }
 
+.gv2-macro-stats {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gv2-macro-stat {
+  border: 1px solid var(--gv2-line);
+  background: rgba(7, 13, 22, 0.8);
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gv2-macro-stat span {
+  font-size: 11px;
+  color: var(--gv2-text-soft);
+}
+
+.gv2-macro-stat strong {
+  font-size: 14px;
+  color: var(--gv2-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .gv2-chart-wrap {
   position: relative;
   border: 1px solid var(--gv2-line-strong);
@@ -1158,6 +1224,16 @@ button {
   background: rgba(2, 6, 23, 0.85);
   border: 1px solid var(--gv2-line);
   padding: 4px 8px;
+}
+
+.gv2-loading.gv2-loading-error {
+  right: auto;
+  left: 10px;
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(69, 10, 10, 0.8);
+  max-width: min(80%, 720px);
+  z-index: 9;
 }
 
 .gv2-floating-controls {
@@ -1195,6 +1271,45 @@ button {
   border: 1px solid var(--gv2-line);
   padding: 4px 7px;
   font-size: 12px;
+}
+
+.main-area.is-dark .gv2-overlay-top .gv2-select-mode-btn {
+  border-color: rgba(130, 220, 255, 0.22);
+  color: rgba(210, 228, 247, 0.72);
+  background: rgba(8, 14, 20, 0.92);
+  font-weight: 600;
+}
+
+.main-area.is-dark .gv2-overlay-top .gv2-select-mode-btn:hover {
+  border-color: rgba(130, 220, 255, 0.38);
+  background: rgba(12, 22, 30, 0.94);
+}
+
+.main-area.is-dark .gv2-overlay-top .gv2-select-mode-btn.is-active {
+  color: #dff0ff;
+  border-color: rgba(130, 220, 255, 0.56);
+  background: rgba(18, 34, 46, 0.94);
+}
+
+.gv2-inline-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(2, 8, 18, 0.72);
+  border: 1px solid var(--gv2-line);
+  padding: 4px 7px;
+  font-size: 12px;
+  color: var(--gv2-text-soft);
+}
+
+.gv2-inline-control select {
+  border: 1px solid var(--gv2-line);
+  background: #0d1522;
+  color: var(--gv2-text);
+}
+
+.gv2-inline-control.gv2-inline-check input {
+  accent-color: var(--gv2-accent);
 }
 
 .gv2-legend-float {
@@ -1657,6 +1772,152 @@ button {
   box-shadow: 0 0 10px var(--gv2-glow);
 }
 
+.gv2-task-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 31;
+}
+
+.gv2-task-modal {
+  width: min(860px, 96%);
+  max-height: 86vh;
+  overflow: auto;
+  border: 1px solid var(--gv2-line-strong);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #0d1420 0%, #060b14 100%);
+  padding: 14px;
+}
+
+.gv2-task-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.gv2-task-modal-head button {
+  border: 1px solid var(--gv2-line);
+  background: #0a0f17;
+  color: var(--gv2-text-soft);
+}
+
+.gv2-task-modal-hint {
+  margin: 0 0 10px;
+  color: var(--gv2-text-soft);
+  font-size: 12px;
+}
+
+.gv2-task-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gv2-task-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--gv2-text-soft);
+}
+
+.gv2-task-grid input {
+  border: 1px solid var(--gv2-line);
+  background: var(--gv2-panel-2);
+  color: var(--gv2-text);
+}
+
+.gv2-source-panel {
+  margin-top: 10px;
+  border: 1px solid var(--gv2-line);
+  border-radius: 10px;
+  background: rgba(8, 13, 22, 0.9);
+  padding: 10px;
+}
+
+.gv2-source-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--gv2-text-soft);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.gv2-source-panel-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.gv2-source-panel-tools input {
+  border: 1px solid var(--gv2-line);
+  background: var(--gv2-panel-2);
+  color: var(--gv2-text);
+}
+
+.gv2-source-panel-list {
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 6px;
+  display: grid;
+  gap: 6px;
+}
+
+.gv2-source-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 8px;
+  align-items: center;
+  color: var(--gv2-text);
+  font-size: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.gv2-source-item small {
+  grid-column: 2 / 3;
+  color: var(--gv2-text-dim);
+}
+
+.gv2-task-json {
+  width: 100%;
+  min-height: 160px;
+  margin-top: 10px;
+  border: 1px solid var(--gv2-line);
+  background: #040a15;
+  color: var(--gv2-text);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.gv2-task-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.gv2-task-result {
+  margin-top: 8px;
+  border: 1px solid var(--gv2-line);
+  border-radius: 8px;
+  padding: 8px;
+  color: var(--gv2-text-soft);
+  font-size: 12px;
+}
+
+
 .gv2-chart-wrap--fullscreen-ready:fullscreen,
 .gv2-chart-wrap--fullscreen-ready:-webkit-full-screen {
   width: 100vw;
@@ -1728,5 +1989,9 @@ button {
   .gv2-chart {
     height: 62vh;
     min-height: 420px;
+  }
+
+  .gv2-macro-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

@@ -6,10 +6,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 BACKEND_DIR="${ROOT_DIR}/main/backend"
-DEPLOY_SCRIPT="${ROOT_DIR}/scripts/docker-deploy.sh"
+LOCAL_DEPLOY_SCRIPT="${ROOT_DIR}/scripts/local-deploy.sh"
 
 usage() {
-  echo "Usage: $(basename "$0") {start|stop|restart|local-start|local-stop}"
+  echo "Usage: $(basename "$0") {start|stop|restart|status|health|local-start|local-stop} [extra args...]"
 }
 
 if [[ ! -d "${BACKEND_DIR}" ]]; then
@@ -17,38 +17,42 @@ if [[ ! -d "${BACKEND_DIR}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${DEPLOY_SCRIPT}" ]]; then
-  echo "Error: script not found: ${DEPLOY_SCRIPT}" >&2
+if [[ ! -f "${LOCAL_DEPLOY_SCRIPT}" ]]; then
+  echo "Error: script not found: ${LOCAL_DEPLOY_SCRIPT}" >&2
   exit 1
 fi
 
-if [[ $# -ne 1 ]]; then
+if [[ $# -lt 1 ]]; then
   usage
   exit 1
 fi
 
 cmd="$1"
-target=""
+shift
+target="${LOCAL_DEPLOY_SCRIPT}"
 target_arg=""
 
 case "${cmd}" in
   start)
-    target="${DEPLOY_SCRIPT}"
-    target_arg="${cmd}"
+    target_arg="start"
     ;;
   stop)
-    target="${DEPLOY_SCRIPT}"
-    target_arg="${cmd}"
+    target_arg="stop"
     ;;
   restart)
-    target="${DEPLOY_SCRIPT}"
-    target_arg="${cmd}"
+    target_arg="restart"
+    ;;
+  status)
+    target_arg="status"
+    ;;
+  health)
+    target_arg="health"
     ;;
   local-start)
-    target="${BACKEND_DIR}/start-local.sh"
+    target_arg="start"
     ;;
   local-stop)
-    target="${BACKEND_DIR}/stop-local.sh"
+    target_arg="stop"
     ;;
   *)
     echo "Error: unsupported command: ${cmd}" >&2
@@ -63,7 +67,4 @@ if [[ ! -f "${target}" ]]; then
 fi
 
 echo "Running: ${cmd}"
-if [[ -n "${target_arg}" ]]; then
-  exec "${target}" "${target_arg}"
-fi
-exec "${target}"
+exec "${target}" "${target_arg}" "$@"

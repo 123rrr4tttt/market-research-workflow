@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Settings2 } from 'lucide-react'
 import {
@@ -99,7 +99,7 @@ function toNullableInt(value: string) {
 
 export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageProps) {
   const queryClient = useQueryClient()
-  const [envDraft, setEnvDraft] = useState<EnvSettings>({})
+  const [envDraft, setEnvDraft] = useState<EnvSettings | null>(null)
   const [saveMessage, setSaveMessage] = useState('')
   const [templateDrafts, setTemplateDrafts] = useState<Record<string, ProjectLlmTemplateDraft>>({})
   const [templateMessage, setTemplateMessage] = useState('')
@@ -121,37 +121,23 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
     enabled: Boolean(projectKey),
   })
 
-  useEffect(() => {
-    if (envSettings.data) setEnvDraft(envSettings.data)
-  }, [envSettings.data])
-
   const templateItems = useMemo(
     () => (llmTemplates.data?.items || []) as ProjectLlmTemplateItem[],
     [llmTemplates.data?.items],
   )
-
-  useEffect(() => {
-    if (!templateItems.length) {
-      setTemplateDrafts({})
-      return
-    }
-    const nextDrafts: Record<string, ProjectLlmTemplateDraft> = {}
-    for (const item of templateItems) {
-      nextDrafts[item.service_name] = toDraft(item)
-    }
-    setTemplateDrafts(nextDrafts)
-  }, [templateItems])
+  const effectiveEnvDraft = envDraft ?? envSettings.data ?? {}
 
   const envSaveMutation = useMutation({
     mutationFn: async () => {
       const payload: Record<string, string> = {}
-      for (const [key, value] of Object.entries(envDraft)) {
+      for (const [key, value] of Object.entries(effectiveEnvDraft)) {
         if (String(value || '').trim()) payload[key] = String(value).trim()
       }
       return updateEnvSettings(payload)
     },
     onSuccess: async () => {
       setSaveMessage('环境配置已更新')
+      setEnvDraft(null)
       await queryClient.invalidateQueries({ queryKey: ['env-settings'] })
     },
     onError: (error) => {
@@ -212,10 +198,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
     },
   })
 
-  const hasAnyEnvValue = useMemo(
-    () => Object.values(envDraft).some((value) => String(value || '').trim().length > 0),
-    [envDraft],
-  )
+  const hasAnyEnvValue = Object.values(effectiveEnvDraft).some((value) => String(value || '').trim().length > 0)
 
   return (
     <div className="content-stack">
@@ -231,7 +214,13 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
             环境配置
           </h2>
           <div className="inline-actions">
-            <button onClick={() => queryClient.invalidateQueries({ queryKey: ['env-settings'] })} disabled={envSettings.isFetching}>
+            <button
+              onClick={() => {
+                setEnvDraft(null)
+                queryClient.invalidateQueries({ queryKey: ['env-settings'] })
+              }}
+              disabled={envSettings.isFetching}
+            >
               <RefreshCw size={14} />
               {envSettings.isFetching ? '刷新中...' : '刷新'}
             </button>
@@ -243,8 +232,13 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
             <label key={key}>
               <span>{key}</span>
               <input
-                value={envDraft[key] || ''}
-                onChange={(e) => setEnvDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                value={effectiveEnvDraft[key] || ''}
+                onChange={(e) =>
+                  setEnvDraft((prev) => ({
+                    ...(prev ?? envSettings.data ?? {}),
+                    [key]: e.target.value,
+                  }))
+                }
                 placeholder={`输入 ${key}`}
               />
             </label>
