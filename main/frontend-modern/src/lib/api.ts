@@ -1,4 +1,24 @@
-import axios from 'axios'
+import { endpoints } from './api/endpoints'
+import {
+  asList,
+  getProjectKey,
+  httpDelete as del,
+  httpGet as get,
+  httpPost as post,
+  httpPut as put,
+  setProjectKey,
+} from './api/client'
+import { fetchEnvSettings, saveEnvSettings } from './api/services/config'
+import { fetchDeepHealth, fetchHealth } from './api/services/health'
+import {
+  activateProjectByKey,
+  archiveProjectRecord,
+  createProjectRecord,
+  deleteProjectRecord,
+  fetchProjects,
+  restoreProjectRecord,
+  updateProjectRecord,
+} from './api/services/projects'
 import type {
   AdminActionResponse,
   AdminDeleteDocumentsPayload,
@@ -8,16 +28,13 @@ import type {
   AdminStats,
   AdminTopicExtractPayload,
   AdminTopicExtractResponse,
-  ApiEnvelope,
   DashboardStats,
   DocumentBulkExtractedPayload,
   DocumentExtractedPayload,
   DocumentItem,
-  EnvSettings,
   GraphExportResponse,
   GraphConfigResponse,
   GraphResponse,
-  HealthResponse,
   IngestJobRow,
   LlmProjectTemplatesResponse,
   LlmServiceConfigItem,
@@ -34,7 +51,6 @@ import type {
   ProcessTaskLogsResponse,
   ProcessTaskStats,
   ProductItem,
-  ProjectItem,
   RawImportPayload,
   RawImportResult,
   ResourcePoolBatchRecommendationPayload,
@@ -55,136 +71,46 @@ import type {
   WorkflowTemplatePayload,
 } from './types'
 
-const STORAGE_KEY = 'market_project_key'
-
-function normalizeProjectKey(raw: string) {
-  return (
-    String(raw || 'default')
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_]+/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'default'
-  )
-}
-
-export function getProjectKey() {
-  return normalizeProjectKey(window.localStorage.getItem(STORAGE_KEY) || 'default')
-}
-
-export function setProjectKey(projectKey: string) {
-  const next = normalizeProjectKey(projectKey)
-  window.localStorage.setItem(STORAGE_KEY, next)
-  return next
-}
-
-const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
-  timeout: 30000,
-})
-
-client.interceptors.request.use((config) => {
-  const projectKey = getProjectKey()
-  config.headers['X-Project-Key'] = projectKey
-
-  const original = String(config.url || '')
-  const isAbsolute = /^https?:\/\//i.test(original)
-  const url = new URL(original || '/', isAbsolute ? undefined : window.location.origin)
-
-  if (url.pathname.startsWith('/api/')) {
-    url.searchParams.set('project_key', projectKey)
-  }
-
-  config.url = isAbsolute ? url.toString() : `${url.pathname}${url.search}${url.hash}`
-  return config
-})
-
-function unwrap<T>(payload: ApiEnvelope<T> | T): T {
-  if (payload && typeof payload === 'object' && 'status' in payload && 'data' in payload) {
-    const envelope = payload as ApiEnvelope<T>
-    if (envelope.status === 'error') {
-      throw new Error(envelope.error?.message || 'Request failed')
-    }
-    return envelope.data as T
-  }
-  return payload as T
-}
-
-async function get<T>(url: string) {
-  const { data } = await client.get<ApiEnvelope<T> | T>(url)
-  return unwrap<T>(data)
-}
-
-async function post<T>(url: string, body: unknown) {
-  const { data } = await client.post<ApiEnvelope<T> | T>(url, body)
-  return unwrap<T>(data)
-}
-
-async function put<T>(url: string, body: unknown) {
-  const { data } = await client.put<ApiEnvelope<T> | T>(url, body)
-  return unwrap<T>(data)
-}
-
-async function patch<T>(url: string, body: unknown) {
-  const { data } = await client.patch<ApiEnvelope<T> | T>(url, body)
-  return unwrap<T>(data)
-}
-
-async function del<T>(url: string) {
-  const { data } = await client.delete<ApiEnvelope<T> | T>(url)
-  return unwrap<T>(data)
-}
-
-function asList<T>(value: unknown): T[] {
-  if (Array.isArray(value)) return value as T[]
-  if (value && typeof value === 'object' && 'items' in value) {
-    const items = (value as { items?: unknown }).items
-    return Array.isArray(items) ? (items as T[]) : []
-  }
-  return []
-}
-
 export async function getHealth() {
-  return get<HealthResponse>('/api/v1/health')
+  return fetchHealth()
+}
+
+export { getProjectKey, setProjectKey }
+
+export async function getDeepHealth() {
+  return fetchDeepHealth()
 }
 
 export async function getDashboardStats() {
-  return get<DashboardStats>('/api/v1/dashboard/stats')
+  return get<DashboardStats>(endpoints.dashboard.stats)
 }
 
 export async function listProjects() {
-  const data = await get<ProjectItem[] | { items?: ProjectItem[] }>('/api/v1/projects')
-  return asList<ProjectItem>(data)
+  return fetchProjects()
 }
 
 export async function activateProject(projectKey: string) {
-  const key = normalizeProjectKey(projectKey)
-  await post(`/api/v1/projects/${encodeURIComponent(key)}/activate`, null)
-  setProjectKey(key)
-  return key
+  return activateProjectByKey(projectKey)
 }
 
 export async function createProject(payload: { project_key: string; name: string; enabled?: boolean }) {
-  return post<{ id?: number; schema_name?: string }>('/api/v1/projects', {
-    ...payload,
-    enabled: payload.enabled ?? true,
-  })
+  return createProjectRecord(payload)
 }
 
 export async function updateProject(projectKey: string, payload: { name?: string; enabled?: boolean }) {
-  return patch<{ project_key: string }>(`/api/v1/projects/${encodeURIComponent(projectKey)}`, payload)
+  return updateProjectRecord(projectKey, payload)
 }
 
 export async function archiveProject(projectKey: string) {
-  return post<{ archived: boolean }>(`/api/v1/projects/${encodeURIComponent(projectKey)}/archive`, null)
+  return archiveProjectRecord(projectKey)
 }
 
 export async function restoreProject(projectKey: string) {
-  return post<{ archived: boolean }>(`/api/v1/projects/${encodeURIComponent(projectKey)}/restore`, null)
+  return restoreProjectRecord(projectKey)
 }
 
 export async function deleteProject(projectKey: string, hard = false) {
-  return del<{ deleted: boolean }>(`/api/v1/projects/${encodeURIComponent(projectKey)}?hard=${hard ? 'true' : 'false'}`)
+  return deleteProjectRecord(projectKey, hard)
 }
 
 export async function listSourceItems() {
@@ -422,11 +348,11 @@ export async function runSourceLibrary(payload: {
 }
 
 export async function getEnvSettings() {
-  return get<EnvSettings>('/api/v1/config/env')
+  return fetchEnvSettings()
 }
 
 export async function updateEnvSettings(payload: Record<string, string>) {
-  return post<{ updated?: string[] }>('/api/v1/config/env', payload)
+  return saveEnvSettings(payload)
 }
 
 export async function listTopics() {

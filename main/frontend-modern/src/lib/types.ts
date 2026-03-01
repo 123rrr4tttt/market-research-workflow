@@ -24,6 +24,12 @@ export type HealthResponse = {
   env: string
 }
 
+export type DeepHealthResponse = {
+  status: string
+  database?: string
+  elasticsearch?: string
+}
+
 export type ProjectItem = {
   id?: number
   project_key: string
