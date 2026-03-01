@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import unittest
 
+import pytest
+
 from app.services.discovery.application import DiscoveryApplicationService
 from app.services.extraction.application import ExtractionApplicationService
 from app.services.indexer.application import IndexingApplicationService
+
+pytestmark = pytest.mark.unit
 
 
 class ModuleWiringTestCase(unittest.TestCase):

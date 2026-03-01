@@ -9,7 +9,11 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+pytestmark = pytest.mark.unit
 
 
 class _ScalarOneResult:
@@ -67,7 +71,7 @@ class _DummyQuery:
 class CommodityEcomNormalizationTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        extraction_path = Path(__file__).resolve().parents[1] / "app" / "services" / "extraction"
+        extraction_path = Path(__file__).resolve().parents[2] / "app" / "services" / "extraction"
         cls._orig_modules = {
             "app.models.base": sys.modules.get("app.models.base"),
             "app.models.entities": sys.modules.get("app.models.entities"),

@@ -4,9 +4,135 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: backend-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  unit-check:
+    name: unit-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run pytest (unit)
+        working-directory: main/backend
+        run: |
+          pytest -m unit -q
+
+  integration-check:
+    name: integration-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run pytest (integration)
+        working-directory: main/backend
+        run: |
+          pytest -m integration -q
+
+  contract-check:
+    if: github.event_name != 'pull_request'
+    name: contract-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run pytest (contract)
+        working-directory: main/backend
+        run: |
+          pytest -m contract -q
+
+  e2e-check:
+    if: github.event_name != 'pull_request'
+    name: e2e-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run pytest (e2e)
+        working-directory: main/backend
+        run: |
+          pytest -m e2e -q
+
+  docker-check:
+    name: docker-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -20,6 +146,21 @@ jobs:
       - name: Run backend tests in docker compose
         run: |
           docker compose -f main/ops/docker-compose.yml --profile test up --build --abort-on-container-exit --exit-code-from backend-test backend-test
+
+      - name: Collect docker compose diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          docker compose -f main/ops/docker-compose.yml ps -a > artifacts/compose-ps.txt
+          docker compose -f main/ops/docker-compose.yml logs --no-color > artifacts/compose-logs.txt
+
+      - name: Upload docker compose diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-compose-diagnostics
+          path: artifacts/
+          if-no-files-found: warn
 
       - name: Teardown
         if: always()

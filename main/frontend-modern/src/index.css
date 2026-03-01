@@ -1543,9 +1543,11 @@ button {
 }
 
 .gv2-control-chip input[type='range'] {
-  width: clamp(96px, 72%, 176px);
+  width: 100%;
   max-width: 100%;
   justify-self: start;
+  margin: 0;
+  padding: 0;
 }
 
 .gv2-control-chip span {
@@ -1599,8 +1601,8 @@ button {
 }
 
 .gv2-edge-line-badge {
-  width: 28px;
-  height: 12px;
+  width: calc(28px * var(--edge-badge-scale, 1));
+  height: calc(12px * var(--edge-badge-scale, 1));
   display: inline-flex;
   align-items: center;
 }
@@ -1608,18 +1610,15 @@ button {
 .gv2-edge-line-badge i {
   width: 100%;
   height: 0;
-  border-top: 2px solid var(--edge-color, var(--gv2-accent));
+  border-top: calc(2px * var(--edge-badge-scale, 1)) solid var(--edge-color, var(--gv2-accent));
   position: relative;
 }
 
+.gv2-edge-line-badge i::before,
 .gv2-edge-line-badge i::after {
   content: '';
   position: absolute;
-  right: -1px;
-  top: -5px;
-  border-left: 5px solid var(--edge-color, var(--gv2-accent));
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
+  display: none;
 }
 
 .gv2-edge-line-badge.is-dashed i {
@@ -1628,6 +1627,54 @@ button {
 
 .gv2-edge-line-badge.is-dotted i {
   border-top-style: dotted;
+}
+
+.gv2-edge-line-badge.is-stroke-straight i::after,
+.gv2-edge-line-badge.is-stroke-curved i::after {
+  display: block;
+  right: -1px;
+  top: calc(-5px * var(--edge-badge-scale, 1));
+  border-left: calc(5px * var(--edge-badge-scale, 1)) solid var(--edge-color, var(--gv2-accent));
+  border-top: calc(4px * var(--edge-badge-scale, 1)) solid transparent;
+  border-bottom: calc(4px * var(--edge-badge-scale, 1)) solid transparent;
+}
+
+.gv2-edge-line-badge.is-stroke-double i::before,
+.gv2-edge-line-badge.is-stroke-double i::after {
+  display: block;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: calc(2px * var(--edge-badge-scale, 1)) solid var(--edge-color, var(--gv2-accent));
+}
+
+.gv2-edge-line-badge.is-stroke-double i::before {
+  top: calc(-3px * var(--edge-badge-scale, 1));
+}
+
+.gv2-edge-line-badge.is-stroke-double i::after {
+  top: calc(2px * var(--edge-badge-scale, 1));
+}
+
+.gv2-edge-line-badge.is-stroke-curved i {
+  border-radius: 999px;
+}
+
+.gv2-edge-line-badge.is-stroke-wavy i {
+  border-top: 0;
+  height: calc(6px * var(--edge-badge-scale, 1));
+  top: calc(-2px * var(--edge-badge-scale, 1));
+  background:
+    radial-gradient(circle at calc(3px * var(--edge-badge-scale, 1)) calc(3px * var(--edge-badge-scale, 1)), var(--edge-color, var(--gv2-accent)) calc(2px * var(--edge-badge-scale, 1)), transparent calc(2px * var(--edge-badge-scale, 1))) 0 0 / calc(8px * var(--edge-badge-scale, 1)) calc(6px * var(--edge-badge-scale, 1)) repeat-x;
+}
+
+.gv2-edge-line-badge.is-stroke-wavy i::after {
+  display: block;
+  right: -1px;
+  top: calc(-5px * var(--edge-badge-scale, 1));
+  border-left: calc(5px * var(--edge-badge-scale, 1)) solid var(--edge-color, var(--gv2-accent));
+  border-top: calc(4px * var(--edge-badge-scale, 1)) solid transparent;
+  border-bottom: calc(4px * var(--edge-badge-scale, 1)) solid transparent;
 }
 
 .gv2-node-card {
