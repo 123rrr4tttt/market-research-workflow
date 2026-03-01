@@ -1737,14 +1737,31 @@ export default function GraphPage({ projectKey, variant }: Props) {
     const { nodes, visibleNodes, degreeMap, minDeg, rangeDeg } = topology
     nodeLookupRef.current = Object.fromEntries(nodes.map((n) => [nodeKey(n), n]))
     const prevPos2D = { ...nodePositionRef.current }
+    let currentCenter: [string | number, string | number] | undefined
+    let currentZoom: number | undefined
     try {
-      const current = chart.getOption() as { series?: Array<{ data?: Array<{ id?: string; x?: number; y?: number }> }> }
-      const currentData = current?.series?.[0]?.data || []
+      const current = chart.getOption() as {
+        series?: Array<{
+          data?: Array<{ id?: string; x?: number; y?: number }>
+          center?: [string | number, string | number]
+          zoom?: number
+        }>
+      }
+      const currentSeries = current?.series?.[0]
+      const currentData = currentSeries?.data || []
       currentData.forEach((item) => {
         const id = String(item?.id || '')
         if (!id) return
         prevPos2D[id] = { x: item.x, y: item.y }
       })
+      if (renderMode !== 'projection3d') {
+        if (Array.isArray(currentSeries?.center) && currentSeries.center.length === 2) {
+          currentCenter = [currentSeries.center[0], currentSeries.center[1]]
+        }
+        if (typeof currentSeries?.zoom === 'number' && Number.isFinite(currentSeries.zoom)) {
+          currentZoom = currentSeries.zoom
+        }
+      }
     } catch {
       // keep previous cached positions
     }
@@ -1932,8 +1949,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
             // Lock projection mode to viewport center; keep roam/drag only in 2D.
             roam: renderMode === 'projection3d' ? false : true,
             draggable: renderMode !== 'projection3d',
-            center: renderMode === 'projection3d' ? ['50%', '50%'] : undefined,
-            zoom: renderMode === 'projection3d' ? 1 : undefined,
+            center: renderMode === 'projection3d' ? ['50%', '50%'] : currentCenter,
+            zoom: renderMode === 'projection3d' ? 1 : currentZoom,
             hoverAnimation: false,
             left: 0,
             right: 0,
