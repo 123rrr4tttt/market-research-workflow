@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     database_url: str = Field(default_factory=_get_default_database_url)
     # Neutral default project key for local bootstrap.
     active_project_key: str = Field(default="default")
+    project_key_enforcement_mode: str = Field(default="warn")  # warn | require
     project_schema_prefix: str = Field(default="project_")
     bootstrap_create_initial_project: bool = Field(default=False)
     enable_legacy_default_to_online_lottery_migration: bool = Field(default=False)

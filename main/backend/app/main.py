@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
@@ -27,6 +28,7 @@ app = FastAPI(title="Market Intel API", version="0.1.0-rc.1")
 # Cache active project for fallback routing
 _ACTIVE_PROJECT_CACHE_KEY: str | None = None
 _ACTIVE_PROJECT_CACHE_TS: float = 0.0
+_REQUEST_LOGGER = logging.getLogger("app.request")
 
 def _get_active_project_key_fallback() -> str | None:
     global _ACTIVE_PROJECT_CACHE_KEY, _ACTIVE_PROJECT_CACHE_TS
@@ -46,6 +48,18 @@ def _get_active_project_key_fallback() -> str | None:
     except Exception:
         return None
     return None
+
+
+def _resolve_request_project_context(request: Request) -> tuple[str, str, bool]:
+    """Resolve project key source for observability and fallback warning."""
+    header_key = (request.headers.get("X-Project-Key") or "").strip()
+    if header_key:
+        return header_key, "header", False
+    query_key = (request.query_params.get("project_key") or "").strip()
+    if query_key:
+        return query_key, "query", False
+    fallback = _get_active_project_key_fallback() or settings.active_project_key
+    return fallback, "fallback", True
 
 # 在 Docker 环境中，frontend 目录通过 volume 挂载到 /app/frontend
 # 优先使用挂载的本地 frontend 目录（对应当前独立项目的 frontend）
@@ -92,18 +106,36 @@ REQUEST_LATENCY = Histogram(
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
-    project_key = request.headers.get("X-Project-Key") or request.query_params.get("project_key")
-    if not project_key:
-        project_key = _get_active_project_key_fallback() or settings.active_project_key
+    project_key, project_key_source, project_key_is_fallback = _resolve_request_project_context(request)
+    request_id = (request.headers.get("X-Request-Id") or "").strip() or str(uuid.uuid4())
     start = time.perf_counter()
     with bind_project(project_key):
         response: Response = await call_next(request)
     elapsed = time.perf_counter() - start
     endpoint = request.url.path
+    response.headers["X-Request-Id"] = request_id
+    response.headers["X-Project-Key-Resolved"] = project_key
+    response.headers["X-Project-Key-Source"] = project_key_source
+    if project_key_is_fallback:
+        response.headers["X-Project-Key-Warning"] = "fallback_used"
     REQUEST_COUNT.labels(request.method, endpoint, response.status_code).inc()
     REQUEST_LATENCY.labels(endpoint).observe(elapsed)
-    logging.getLogger("app").info(
-        "request", extra={"method": request.method, "path": endpoint, "status": response.status_code, "latency": elapsed}
+    if project_key_is_fallback:
+        _REQUEST_LOGGER.warning(
+            "project_key_fallback_used path=%s resolved_project_key=%s request_id=%s",
+            endpoint,
+            project_key,
+            request_id,
+        )
+    _REQUEST_LOGGER.info(
+        "request path=%s method=%s status=%s latency=%.4f request_id=%s project_key=%s project_key_source=%s",
+        endpoint,
+        request.method,
+        response.status_code,
+        elapsed,
+        request_id,
+        project_key,
+        project_key_source,
     )
     return response
 

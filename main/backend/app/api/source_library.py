@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from contextlib import nullcontext
+import logging
 from typing import Any, Dict, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from ..contracts import ErrorCode, error_response
 from ..models.base import SessionLocal
 from ..models.entities import SourceLibraryItem
-from ..services.projects import bind_project
+from ..services.projects import bind_project, current_project_key
 from ..services.resource_pool import get_site_entry_by_url, list_site_entries
 from ..services.resource_pool.url_utils import normalize_url
 from ..services.source_library import (
@@ -21,10 +22,12 @@ from ..services.source_library import (
     sync_shared_library_from_files,
 )
 from ..services.tasks import task_run_source_library_item
+from ..settings.config import settings
 
 ScopeType = Literal["shared", "project", "effective"]
 
 router = APIRouter(prefix="/source_library", tags=["source_library"])
+logger = logging.getLogger(__name__)
 
 
 class SourceLibraryItemUpsertPayload(BaseModel):
@@ -57,6 +60,35 @@ class SyncHandlerClustersPayload(BaseModel):
     handlers: list[str] | None = None
     incremental: bool = True
     max_site_entries: int = Field(default=500, ge=1, le=5000)
+
+
+def _require_project_key(project_key: str | None) -> str:
+    key = (project_key or "").strip()
+    if key:
+        return key
+
+    enforcement_mode = str(getattr(settings, "project_key_enforcement_mode", "warn")).strip().lower()
+    if enforcement_mode == "require":
+        raise HTTPException(
+            status_code=400,
+            detail=error_response(
+                ErrorCode.PROJECT_KEY_REQUIRED,
+                "project_key is required. Please select a project first.",
+            ),
+        )
+
+    fallback = (current_project_key() or "").strip()
+    if fallback:
+        logger.warning("project_key_fallback_used endpoint=source_library resolved_project_key=%s", fallback)
+        return fallback
+
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(
+            ErrorCode.PROJECT_KEY_REQUIRED,
+            "project_key is required. Please select a project first.",
+        ),
+    )
 
 
 @router.get("/channels")
@@ -479,9 +511,7 @@ def sync_handler_clusters(payload: SyncHandlerClustersPayload) -> dict:
 @router.post("/items/{item_key}/run")
 def run_item(item_key: str, payload: RunItemPayload) -> dict:
     try:
-        project_key = (payload.project_key or "").strip()
-        if not project_key:
-            raise HTTPException(status_code=400, detail="project_key is required. Please select a project first.")
+        project_key = _require_project_key(payload.project_key)
         if payload.async_mode:
             task = task_run_source_library_item.delay(
                 item_key,
@@ -496,6 +526,8 @@ def run_item(item_key: str, payload: RunItemPayload) -> dict:
             override_params=payload.override_params or {},
         )
         return {"async": False, **result}
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -503,8 +535,9 @@ def run_item(item_key: str, payload: RunItemPayload) -> dict:
 @router.post("/sync_shared_from_files")
 def sync_shared_from_files(project_key: str | None = None) -> dict:
     try:
-        with (bind_project(project_key) if project_key else nullcontext()):
+        resolved_project_key = _require_project_key(project_key)
+        with bind_project(resolved_project_key):
             result = sync_shared_library_from_files()
-            return {"ok": True, **result}
+            return {"ok": True, "project_key": resolved_project_key, **result}
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc

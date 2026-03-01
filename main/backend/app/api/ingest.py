@@ -45,14 +45,33 @@ def _error_500(exc: Exception) -> JSONResponse:
 
 
 def _require_project_key(project_key: str | None) -> str:
-    # Prefer explicit payload project_key, fallback to request-scoped context
-    # injected by middleware from query/header (X-Project-Key / project_key).
+    """Stage-1 policy: allow context fallback but emit warning for observability."""
     key = (project_key or "").strip()
-    if not key:
-        key = (current_project_key() or "").strip()
-    if not key:
-        raise HTTPException(status_code=400, detail="project_key is required. Please select a project first.")
-    return key
+    if key:
+        return key
+
+    enforcement_mode = str(getattr(settings, "project_key_enforcement_mode", "warn")).strip().lower()
+    if enforcement_mode == "require":
+        raise HTTPException(
+            status_code=400,
+            detail=error_response(
+                ErrorCode.PROJECT_KEY_REQUIRED,
+                "project_key is required. Please select a project first.",
+            ),
+        )
+
+    fallback = (current_project_key() or "").strip()
+    if fallback:
+        logger.warning("project_key_fallback_used endpoint=ingest resolved_project_key=%s", fallback)
+        return fallback
+
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(
+            ErrorCode.PROJECT_KEY_REQUIRED,
+            "project_key is required. Please select a project first.",
+        ),
+    )
 
 
 def _normalize_query_terms(
@@ -152,7 +171,7 @@ def post_ingest_config_endpoint(body: IngestConfigUpsertPayload):
     if not pk:
         return JSONResponse(
             status_code=400,
-            content=error_response(ErrorCode.INVALID_INPUT, "project_key is required"),
+            content=error_response(ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required"),
         )
     try:
         data = upsert_ingest_config(
