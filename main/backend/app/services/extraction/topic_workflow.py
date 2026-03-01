@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any
 
@@ -228,6 +230,44 @@ def _extract_topic_from_chunk(extraction_app: Any, topic: str, text: str) -> dic
     return payload if isinstance(payload, dict) else empty_topic_structured()
 
 
+def _resolve_parallel_workers(total_tasks: int) -> int:
+    if total_tasks <= 1:
+        return 1
+    cap_raw = str(os.getenv("TOPIC_WORKFLOW_MAX_PARALLEL", "8")).strip()
+    try:
+        cap = max(1, int(cap_raw))
+    except Exception:
+        cap = 8
+    return max(1, min(total_tasks, cap))
+
+
+def _run_topic_chunk_tasks(
+    *,
+    extraction_app: Any,
+    tasks: list[tuple[str, TopicChunk]],
+) -> dict[str, list[dict[str, Any]]]:
+    if not tasks:
+        return {}
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    workers = _resolve_parallel_workers(len(tasks))
+    if workers == 1:
+        for topic, ch in tasks:
+            payload = _extract_topic_from_chunk(extraction_app, topic, ch.text)
+            grouped.setdefault(topic, []).append(payload)
+        return grouped
+
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="topic-workflow") as executor:
+        future_map = {executor.submit(_extract_topic_from_chunk, extraction_app, topic, ch.text): topic for topic, ch in tasks}
+        for future in as_completed(future_map):
+            topic = future_map[future]
+            try:
+                payload = future.result()
+            except Exception:
+                payload = empty_topic_structured()
+            grouped.setdefault(topic, []).append(payload if isinstance(payload, dict) else empty_topic_structured())
+    return grouped
+
+
 def run_topic_extraction_workflow(
     *,
     extraction_app: Any,
@@ -246,6 +286,7 @@ def run_topic_extraction_workflow(
 
     topic_results: dict[str, dict[str, Any]] = {}
     diagnostics: dict[str, Any] = {"chunks_total": len(chunks), "topics": {}}
+    total_chunk_tasks = 0
 
     for topic in topics:
         scored: list[TopicChunk] = []
@@ -253,16 +294,26 @@ def run_topic_extraction_workflow(
             score, matched = score_chunk_for_topic(topic, ch.text, extracted_data=ex, er=er, dicts=dictionaries)
             scored.append(TopicChunk(ch.chunk_id, ch.text, ch.start, ch.end, matched, score))
         selected, coverage = select_chunks_with_coverage(scored, max_chunks=max_selected_chunks, min_score=1)
+        total_chunk_tasks += len(selected)
         merged = empty_topic_structured()
-        for ch in selected:
-            merged = merge_topic_structured(merged, _extract_topic_from_chunk(extraction_app, topic, ch.text))
+        selected_payloads = _run_topic_chunk_tasks(
+            extraction_app=extraction_app,
+            tasks=[(topic, ch) for ch in selected],
+        )
+        for payload in selected_payloads.get(topic, []):
+            merged = merge_topic_structured(merged, payload)
         fallback_used = False
         if (not topic_has_data(merged) or coverage < 0.5) and len(chunks) > len(selected):
             fallback_used = True
             selected_ids = {c.chunk_id for c in selected}
             residual = [c for c in chunks if c.chunk_id not in selected_ids][:fallback_max_chunks]
-            for ch in residual:
-                merged = merge_topic_structured(merged, _extract_topic_from_chunk(extraction_app, topic, ch.text))
+            total_chunk_tasks += len(residual)
+            residual_payloads = _run_topic_chunk_tasks(
+                extraction_app=extraction_app,
+                tasks=[(topic, ch) for ch in residual],
+            )
+            for payload in residual_payloads.get(topic, []):
+                merged = merge_topic_structured(merged, payload)
         topic_results[topic] = merged
         diagnostics["topics"][topic] = {
             "selected_chunks": [c.chunk_id for c in selected],
@@ -272,5 +323,6 @@ def run_topic_extraction_workflow(
             "max_score": max([c.score for c in scored], default=0),
         }
 
+    diagnostics["parallel_workers"] = _resolve_parallel_workers(total_chunk_tasks)
+    diagnostics["total_chunk_tasks"] = total_chunk_tasks
     return {"results": topic_results, "diagnostics": diagnostics}
-

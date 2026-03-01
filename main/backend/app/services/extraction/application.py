@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -18,6 +20,17 @@ from .topic_extract import (
 
 @dataclass
 class ExtractionApplicationService:
+    @staticmethod
+    def _resolve_parallel_workers(total_tasks: int) -> int:
+        if total_tasks <= 1:
+            return 1
+        cap_raw = str(os.getenv("EXTRACTION_MAX_PARALLEL", "6")).strip()
+        try:
+            cap = max(1, int(cap_raw))
+        except Exception:
+            cap = 6
+        return max(1, min(total_tasks, cap))
+
     def extract_policy(self, text: str) -> Optional[dict[str, Any]]:
         return extract_policy_info(text)
 
@@ -61,38 +74,43 @@ class ExtractionApplicationService:
                 # Backward compatibility for graph adapters that also read extracted_data.entities
                 out["entities"] = ents
 
-        # Specialized overlays.
+        # Specialized overlays run in a shared parallel executor.
+        tasks: list[tuple[str, Any]] = []
         if include_sentiment:
-            sentiment = extract_structured_sentiment(raw)
-            if sentiment:
-                out["sentiment"] = sentiment
-                if sentiment.get("key_phrases") and not out.get("keywords"):
-                    out["keywords"] = sentiment["key_phrases"]
-
+            tasks.append(("sentiment", extract_structured_sentiment))
         if include_policy:
-            policy = extract_policy_info(raw)
-            if policy:
-                out["policy"] = policy
-
+            tasks.append(("policy", extract_policy_info))
         if include_market:
-            market = extract_market_info(raw)
-            if market:
-                out["market"] = market
-
+            tasks.append(("market", extract_market_info))
         if include_company:
-            company = extract_company_info(raw)
-            if company:
-                out["company_structured"] = company
-
+            tasks.append(("company_structured", extract_company_info))
         if include_product:
-            product = extract_product_info(raw)
-            if product:
-                out["product_structured"] = product
-
+            tasks.append(("product_structured", extract_product_info))
         if include_operation:
-            operation = extract_operation_info(raw)
-            if operation:
-                out["operation_structured"] = operation
+            tasks.append(("operation_structured", extract_operation_info))
+
+        if tasks:
+            workers = self._resolve_parallel_workers(len(tasks))
+            if workers == 1:
+                for key, fn in tasks:
+                    value = fn(raw)
+                    if value:
+                        out[key] = value
+            else:
+                with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="extract-overlay") as executor:
+                    future_map = {executor.submit(fn, raw): key for key, fn in tasks}
+                    for future in as_completed(future_map):
+                        key = future_map[future]
+                        try:
+                            value = future.result()
+                        except Exception:
+                            value = None
+                        if value:
+                            out[key] = value
+
+        sentiment = out.get("sentiment")
+        if isinstance(sentiment, dict) and sentiment.get("key_phrases") and not out.get("keywords"):
+            out["keywords"] = sentiment["key_phrases"]
 
         return out or None
 
