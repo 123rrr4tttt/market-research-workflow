@@ -48,21 +48,23 @@
 
 禁止页面内直接 `fetch(...)`，统一使用 `window.MarketApp.api.get(...)` / `getFull(...)`。白名单：`app-shell.js`（提供封装实现）。
 
-### 0.5 规范遵守现状（2026-02）
+### 0.5 规范遵守现状（2026-03）
 
 | 类别 | 状态 | 说明 |
 |------|------|------|
-| 响应 Envelope | 部分 | `policies` 已用 `ok`/`ok_page`/`fail`；`ingest`/`admin`/`config`/`discovery` 等通过 `success_response`/`error_response` 间接产出 envelope |
-| 未用 Envelope | 待迁移 | `projects`、`source_library` 返回裸 JSON，待迁移 |
+| 响应 Envelope | 基本完成 | 主要业务模块统一为 envelope；`admin` 图谱成功/错误分支均已显式走 `success_response` / `error_response` |
+| 未用 Envelope | 收敛中 | 少量历史接口仍在迁移中，以 `API_CONTRACT_STANDARD.md` 为准 |
 | 错误 HTTP 码 | 遵守 | 失败时返回 4xx/5xx，未用 200 表示失败 |
 | 分页 | 部分 | `policies` 使用 `meta.pagination`；其他列表接口格式不一 |
 | 前端 Direct Fetch | 遗留 | 见下方「Direct Fetch 现状」 |
 
 **Direct Fetch 现状**（仍使用 `fetch()` 的页面，待逐步迁移至 `MarketApp.api`）：
 
-- `policy-graph.html`、`social-media-graph.html`、`market-data-visualization.html`、`graph.html`
+- `market-data-visualization.html`、`graph.html`
 - `project-management.html`、`app.html`、`source-library-management.html`
 - `backend-dashboard.html`、`data-dashboard.html`、`policy-dashboard.html`、`policy-visualization.html`、`social-media-visualization.html`
+
+已封存（不再开发）：`policy-graph.html`、`social-media-graph.html`（入口统一重定向到 `graph.html?type=...`）。
 
 已使用 `MarketApp.api`：`settings.html`、`policy-state-detail.html`、`policy-tracking.html`、`policy-api.js`。
 

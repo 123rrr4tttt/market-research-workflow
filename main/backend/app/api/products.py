@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import Product
 
@@ -28,7 +29,7 @@ def list_products(enabled: bool | None = None) -> dict:
         if enabled is not None:
             stmt = stmt.where(Product.enabled == enabled)
         rows = session.execute(stmt).scalars().all()
-        return {
+        return ok({
             "items": [
                 {
                     "id": row.id,
@@ -42,7 +43,7 @@ def list_products(enabled: bool | None = None) -> dict:
                 }
                 for row in rows
             ]
-        }
+        })
 
 
 @router.post("")
@@ -60,7 +61,7 @@ def create_product(payload: ProductPayload) -> dict:
         session.add(row)
         session.commit()
         session.refresh(row)
-        return {"id": row.id}
+        return ok({"id": row.id})
 
 
 @router.put("/{product_id}")
@@ -77,7 +78,7 @@ def update_product(product_id: int, payload: ProductPayload) -> dict:
         row.currency = payload.currency
         row.enabled = payload.enabled
         session.commit()
-        return {"updated": product_id}
+        return ok({"updated": product_id})
 
 
 @router.delete("/{product_id}")
@@ -88,4 +89,4 @@ def delete_product(product_id: int) -> dict:
             raise HTTPException(status_code=404, detail="product not found")
         session.delete(row)
         session.commit()
-        return {"deleted": product_id}
+        return ok({"deleted": product_id})

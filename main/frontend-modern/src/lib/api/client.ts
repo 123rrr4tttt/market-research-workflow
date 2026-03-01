@@ -29,6 +29,45 @@ export const apiClient = axios.create({
   timeout: 30000,
 })
 
+export type ApiClientErrorShape = {
+  status: ApiEnvelope<unknown>['status']
+  code: string
+  details?: Record<string, unknown>
+  meta?: ApiEnvelope<unknown>['meta']
+}
+
+export class ApiClientError extends Error implements ApiClientErrorShape {
+  status: ApiEnvelope<unknown>['status']
+  code: string
+  details?: Record<string, unknown>
+  meta?: ApiEnvelope<unknown>['meta']
+
+  constructor({
+    message,
+    status,
+    code,
+    details,
+    meta,
+  }: {
+    message: string
+    status: ApiEnvelope<unknown>['status']
+    code: string
+    details?: Record<string, unknown>
+    meta?: ApiEnvelope<unknown>['meta']
+  }) {
+    super(message)
+    this.name = 'ApiClientError'
+    this.status = status
+    this.code = code
+    this.details = details
+    this.meta = meta
+  }
+}
+
+export function isApiClientError(error: unknown): error is ApiClientError {
+  return error instanceof ApiClientError
+}
+
 apiClient.interceptors.request.use((config) => {
   const projectKey = getProjectKey()
   config.headers['X-Project-Key'] = projectKey
@@ -49,7 +88,13 @@ export function unwrapEnvelope<T>(payload: ApiEnvelope<T> | T): T {
   if (payload && typeof payload === 'object' && 'status' in payload && 'data' in payload) {
     const envelope = payload as ApiEnvelope<T>
     if (envelope.status === 'error') {
-      throw new Error(envelope.error?.message || 'Request failed')
+      throw new ApiClientError({
+        message: envelope.error?.message || 'Request failed',
+        status: envelope.status,
+        code: envelope.error?.code || 'REQUEST_FAILED',
+        details: envelope.error?.details,
+        meta: envelope.meta,
+      })
     }
     return envelope.data as T
   }

@@ -15,6 +15,22 @@ class ErrorCode(str, Enum):
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
+def map_status_to_error_code(status_code: int) -> ErrorCode:
+    if status_code in (400, 422):
+        return ErrorCode.INVALID_INPUT
+    if status_code == 404:
+        return ErrorCode.NOT_FOUND
+    if status_code == 429:
+        return ErrorCode.RATE_LIMITED
+    if status_code in (502, 503, 504):
+        return ErrorCode.UPSTREAM_ERROR
+    if status_code == 500:
+        return ErrorCode.INTERNAL_ERROR
+    if status_code == 409:
+        return ErrorCode.INVALID_INPUT
+    return ErrorCode.INTERNAL_ERROR
+
+
 def map_exception_to_error(exc: Exception) -> tuple[ErrorCode, str, dict[str, Any] | None]:
     msg = str(exc) or exc.__class__.__name__
     lower = msg.lower()

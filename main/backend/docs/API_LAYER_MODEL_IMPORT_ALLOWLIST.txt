@@ -1,0 +1,27 @@
+# Wave0 baseline allowlist for API-layer direct model imports.
+# Format:
+#   <api_file.py>|from ..models[.submodule] import <sorted names>
+
+admin.py|from ..models.base import SessionLocal
+admin.py|from ..models.base import engine
+dashboard.py|from ..models.base import SessionLocal
+dashboard.py|from ..models.base import engine
+llm_config.py|from ..models.base import SessionLocal, get_db
+market.py|from ..models.base import SessionLocal
+policies.py|from ..models.base import SessionLocal
+process.py|from ..models.base import SessionLocal
+products.py|from ..models.base import SessionLocal
+projects.py|from ..models.base import Base
+projects.py|from ..models.base import SessionLocal, engine
+source_library.py|from ..models.base import SessionLocal
+topics.py|from ..models.base import SessionLocal
+admin.py|from ..models.entities import Document, MarketStat, SearchHistory, Source
+dashboard.py|from ..models.entities import Document, EtlJobRun, MarketMetricPoint, MarketStat, PriceObservation, Product, SearchHistory, Source
+llm_config.py|from ..models.entities import LlmServiceConfig, Project
+market.py|from ..models.entities import MarketStat
+policies.py|from ..models.entities import Document
+process.py|from ..models.entities import EtlJobRun
+products.py|from ..models.entities import Product
+projects.py|from ..models.entities import ConfigState, Document, Embedding, EtlJobRun, IngestChannel, LlmServiceConfig, MarketMetricPoint, MarketStat, PriceObservation, Product, Project, ResourcePoolSiteEntry, ResourcePoolUrl, SearchHistory, Source, SourceLibraryItem, Topic
+source_library.py|from ..models.entities import SourceLibraryItem
+topics.py|from ..models.entities import Topic

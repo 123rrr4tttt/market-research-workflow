@@ -68,7 +68,14 @@ import type {
   SearchHistoryItem,
   SiteEntryGroupedResponse,
   SiteEntryItem,
+  SourceLibraryChannel,
+  SourceLibraryHandlerSyncPayload,
+  SourceLibraryHandlerSyncResponse,
   SourceLibraryItem,
+  SourceLibraryItemRefreshPayload,
+  SourceLibraryItemUpsertPayload,
+  SourceLibraryItemsGroupedResponse,
+  SourceLibraryScope,
   TopicItem,
   WorkflowTemplate,
   WorkflowTemplateMutationResponse,
@@ -102,7 +109,7 @@ export async function createProject(payload: { project_key: string; name: string
 }
 
 export async function autoCreateProject(payload: AutoCreateProjectPayload) {
-  return post<AutoCreateProjectResult>('/api/v1/projects/auto-create', payload)
+  return post<AutoCreateProjectResult>(endpoints.projects.autoCreate, payload)
 }
 
 export async function updateProject(projectKey: string, payload: { name?: string; enabled?: boolean }) {
@@ -122,13 +129,68 @@ export async function deleteProject(projectKey: string, hard = false) {
 }
 
 export async function listSourceItems() {
-  const data = await get<SourceLibraryItem[] | { items?: SourceLibraryItem[] }>('/api/v1/source_library/items?scope=effective')
+  return listSourceLibraryItemsWithScope('effective')
+}
+
+export async function listSourceLibraryItemsWithScope(scope: SourceLibraryScope = 'effective') {
+  const query = new URLSearchParams({ scope })
+  const data = await get<SourceLibraryItem[] | { items?: SourceLibraryItem[] }>(endpoints.sourceLibrary.itemsQuery(query))
   return asList<SourceLibraryItem>(data)
 }
 
+export async function listSourceLibraryChannels(scope: SourceLibraryScope = 'effective') {
+  const query = new URLSearchParams({ scope })
+  const data = await get<SourceLibraryChannel[] | { items?: SourceLibraryChannel[] }>(
+    endpoints.sourceLibrary.channelsQuery(query),
+  )
+  return asList<SourceLibraryChannel>(data)
+}
+
+export async function listSourceLibraryItemsGrouped(scope: SourceLibraryScope = 'effective') {
+  const query = new URLSearchParams({ scope })
+  return get<SourceLibraryItemsGroupedResponse>(endpoints.sourceLibrary.itemsGroupedQuery(query))
+}
+
+export async function upsertSourceLibraryItem(payload: SourceLibraryItemUpsertPayload) {
+  return post<{ item_key?: string; project_key?: string; ok?: boolean }>(endpoints.sourceLibrary.items, {
+    item_key: payload.item_key,
+    name: payload.name,
+    channel_key: payload.channel_key,
+    description: payload.description ?? null,
+    params: payload.params ?? {},
+    tags: payload.tags ?? [],
+    schedule: payload.schedule ?? null,
+    extends_item_key: payload.extends_item_key ?? null,
+    enabled: payload.enabled ?? true,
+    extra: payload.extra ?? {},
+  })
+}
+
+export async function refreshSourceLibraryItem(itemKey: string, payload: SourceLibraryItemRefreshPayload = {}) {
+  return post<Record<string, unknown>>(endpoints.sourceLibrary.itemRefresh(itemKey), {
+    project_key: getProjectKey(),
+    incremental: payload.incremental ?? true,
+    max_site_entries: payload.max_site_entries ?? 500,
+  })
+}
+
+export async function syncSourceLibraryHandlerClusters(payload: SourceLibraryHandlerSyncPayload = {}) {
+  return post<SourceLibraryHandlerSyncResponse>(endpoints.sourceLibrary.handlerClustersSync, {
+    project_key: getProjectKey(),
+    handlers: payload.handlers ?? [],
+    incremental: payload.incremental ?? true,
+    max_site_entries: payload.max_site_entries ?? 500,
+  })
+}
+
 export async function listResourcePoolUrls(page = 1, pageSize = 20) {
+  const query = new URLSearchParams({
+    scope: 'effective',
+    page: String(page),
+    page_size: String(pageSize),
+  })
   const data = await get<ResourcePoolUrlItem[] | { items?: ResourcePoolUrlItem[] }>(
-    `/api/v1/resource_pool/urls?scope=effective&page=${page}&page_size=${pageSize}`,
+    endpoints.resourcePool.urlsQuery(query),
   )
   return asList<ResourcePoolUrlItem>(data)
 }
@@ -147,14 +209,19 @@ export async function listResourcePoolUrlsWithFilters(params?: {
   if (params?.domain?.trim()) query.set('domain', params.domain.trim())
   if (params?.source?.trim()) query.set('source', params.source.trim())
   const data = await get<ResourcePoolUrlItem[] | { items?: ResourcePoolUrlItem[] }>(
-    `/api/v1/resource_pool/urls?${query.toString()}`,
+    endpoints.resourcePool.urlsQuery(query),
   )
   return asList<ResourcePoolUrlItem>(data)
 }
 
 export async function listSiteEntries(page = 1, pageSize = 20) {
+  const query = new URLSearchParams({
+    scope: 'effective',
+    page: String(page),
+    page_size: String(pageSize),
+  })
   const data = await get<SiteEntryItem[] | { items?: SiteEntryItem[] }>(
-    `/api/v1/resource_pool/site_entries?scope=effective&page=${page}&page_size=${pageSize}`,
+    endpoints.resourcePool.siteEntriesQuery(query),
   )
   return asList<SiteEntryItem>(data)
 }
@@ -173,7 +240,7 @@ export async function listSiteEntriesWithFilters(params?: {
   if (params?.domain?.trim()) query.set('domain', params.domain.trim())
   if (params?.entryType?.trim()) query.set('entry_type', params.entryType.trim())
   const data = await get<SiteEntryItem[] | { items?: SiteEntryItem[] }>(
-    `/api/v1/resource_pool/site_entries?${query.toString()}`,
+    endpoints.resourcePool.siteEntriesQuery(query),
   )
   return asList<SiteEntryItem>(data)
 }
@@ -185,7 +252,7 @@ export async function upsertSiteEntry(payload: {
   name?: string
   enabled?: boolean
 }) {
-  return post<Record<string, unknown>>('/api/v1/resource_pool/site_entries', {
+  return post<Record<string, unknown>>(endpoints.resourcePool.siteEntries, {
     scope: payload.scope || 'project',
     site_url: payload.site_url,
     entry_type: payload.entry_type || 'domain_root',
@@ -196,7 +263,7 @@ export async function upsertSiteEntry(payload: {
 }
 
 export async function recommendSiteEntry(payload: ResourcePoolRecommendationPayload) {
-  return post<ResourcePoolRecommendationResponse>('/api/v1/resource_pool/site_entries/recommend', {
+  return post<ResourcePoolRecommendationResponse>(endpoints.resourcePool.siteEntriesRecommend, {
     project_key: payload.project_key || getProjectKey(),
     site_url: payload.site_url,
     entry_type: payload.entry_type ?? null,
@@ -206,7 +273,7 @@ export async function recommendSiteEntry(payload: ResourcePoolRecommendationPayl
 }
 
 export async function recommendSiteEntriesBatch(payload: ResourcePoolBatchRecommendationPayload) {
-  return post<ResourcePoolBatchRecommendationResponse>('/api/v1/resource_pool/site_entries/recommend-batch', {
+  return post<ResourcePoolBatchRecommendationResponse>(endpoints.resourcePool.siteEntriesRecommendBatch, {
     project_key: payload.project_key || getProjectKey(),
     entries: payload.entries || [],
     use_llm: payload.use_llm ?? true,
@@ -215,7 +282,7 @@ export async function recommendSiteEntriesBatch(payload: ResourcePoolBatchRecomm
 }
 
 export async function bindSiteEntry(payload: ResourcePoolUpsertSiteEntryPayload) {
-  return post<Record<string, unknown>>('/api/v1/resource_pool/site_entries', {
+  return post<Record<string, unknown>>(endpoints.resourcePool.siteEntries, {
     project_key: payload.project_key || getProjectKey(),
     scope: payload.scope || 'project',
     site_url: payload.site_url,
@@ -233,7 +300,7 @@ export async function bindSiteEntry(payload: ResourcePoolUpsertSiteEntryPayload)
 }
 
 export async function extractResourcePoolFromDocuments(asyncMode = true) {
-  return post<Record<string, unknown>>('/api/v1/resource_pool/extract/from-documents', {
+  return post<Record<string, unknown>>(endpoints.resourcePool.extractFromDocuments, {
     scope: 'project',
     filters: { limit: 500 },
     async_mode: asyncMode,
@@ -241,7 +308,7 @@ export async function extractResourcePoolFromDocuments(asyncMode = true) {
 }
 
 export async function discoverSiteEntries(asyncMode = true) {
-  return post<Record<string, unknown>>('/api/v1/resource_pool/discover/site-entries', {
+  return post<Record<string, unknown>>(endpoints.resourcePool.discoverSiteEntries, {
     url_scope: 'effective',
     target_scope: 'project',
     limit_domains: 60,
@@ -252,7 +319,7 @@ export async function discoverSiteEntries(asyncMode = true) {
 }
 
 export async function discoverSiteEntriesAdvanced(payload: ResourcePoolDiscoverPayload = {}) {
-  return post<ResourcePoolDiscoverResponse>('/api/v1/resource_pool/discover/site-entries', {
+  return post<ResourcePoolDiscoverResponse>(endpoints.resourcePool.discoverSiteEntries, {
     project_key: payload.project_key || getProjectKey(),
     url_scope: payload.url_scope || 'effective',
     target_scope: payload.target_scope || 'project',
@@ -265,14 +332,15 @@ export async function discoverSiteEntriesAdvanced(payload: ResourcePoolDiscoverP
 }
 
 export async function simplifySiteEntries(dryRun = false) {
-  return post<Record<string, unknown>>('/api/v1/resource_pool/site_entries/simplify', {
+  return post<Record<string, unknown>>(endpoints.resourcePool.siteEntriesSimplify, {
     scope: 'project',
     dry_run: dryRun,
   })
 }
 
 export async function listSiteEntryGrouped() {
-  return get<SiteEntryGroupedResponse>('/api/v1/resource_pool/site_entries/grouped?scope=effective')
+  const query = new URLSearchParams({ scope: 'effective' })
+  return get<SiteEntryGroupedResponse>(endpoints.resourcePool.siteEntriesGroupedQuery(query))
 }
 
 export async function listIngestHistory(limit = 8) {
@@ -285,7 +353,7 @@ export async function listProcessTasks(limit = 50) {
 }
 
 export async function getProcessStats() {
-  return get<ProcessTaskStats>('/api/v1/process/stats')
+  return get<ProcessTaskStats>(endpoints.process.stats)
 }
 
 export async function listProcessHistory(limit = 50) {
@@ -311,7 +379,7 @@ export async function generateKeywords(payload: {
   topic_focus?: string
   base_keywords?: string[]
 }) {
-  return post<{ search_keywords?: string[]; keywords?: string[] }>('/api/v1/discovery/generate-keywords', payload)
+  return post<{ search_keywords?: string[]; keywords?: string[] }>(endpoints.discovery.generateKeywords, payload)
 }
 
 export async function ingestPolicy(payload: {
@@ -319,31 +387,31 @@ export async function ingestPolicy(payload: {
   source_hint?: string | null
   async_mode: boolean
 }) {
-  return post<Record<string, unknown>>('/api/v1/ingest/policy', payload)
+  return post<Record<string, unknown>>(endpoints.ingest.policy, payload)
 }
 
 export async function ingestPolicyRegulation(payload: Record<string, unknown>) {
-  return post<Record<string, unknown>>('/api/v1/ingest/policy/regulation', payload)
+  return post<Record<string, unknown>>(endpoints.ingest.policyRegulation, payload)
 }
 
 export async function ingestMarket(payload: Record<string, unknown>) {
-  return post<Record<string, unknown>>('/api/v1/ingest/market', payload)
+  return post<Record<string, unknown>>(endpoints.ingest.market, payload)
 }
 
 export async function ingestSocial(payload: Record<string, unknown>) {
-  return post<Record<string, unknown>>('/api/v1/ingest/social/sentiment', payload)
+  return post<Record<string, unknown>>(endpoints.ingest.socialSentiment, payload)
 }
 
 export async function ingestCommodity(payload: { limit: number; async_mode: boolean }) {
-  return post<Record<string, unknown>>('/api/v1/ingest/commodity/metrics', payload)
+  return post<Record<string, unknown>>(endpoints.ingest.commodityMetrics, payload)
 }
 
 export async function ingestEcom(payload: { limit: number; async_mode: boolean }) {
-  return post<Record<string, unknown>>('/api/v1/ingest/ecom/prices', payload)
+  return post<Record<string, unknown>>(endpoints.ingest.ecomPrices, payload)
 }
 
 export async function syncSourceLibrary() {
-  return post<Record<string, unknown>>('/api/v1/ingest/source-library/sync', {})
+  return post<Record<string, unknown>>(endpoints.ingest.sourceLibrarySync, {})
 }
 
 export async function runSourceLibrary(payload: {
@@ -352,7 +420,7 @@ export async function runSourceLibrary(payload: {
   async_mode: boolean
   override_params: Record<string, unknown>
 }) {
-  return post<Record<string, unknown>>('/api/v1/ingest/source-library/run', payload)
+  return post<Record<string, unknown>>(endpoints.ingest.sourceLibraryRun, payload)
 }
 
 export async function getEnvSettings() {
@@ -364,7 +432,7 @@ export async function updateEnvSettings(payload: Record<string, string>) {
 }
 
 export async function listTopics() {
-  const data = await get<TopicItem[] | { items?: TopicItem[] }>('/api/v1/topics')
+  const data = await get<TopicItem[] | { items?: TopicItem[] }>(endpoints.topics.root)
   return asList<TopicItem>(data)
 }
 
@@ -377,15 +445,15 @@ export async function createTopic(payload: {
   enabled: boolean
   description?: string | null
 }) {
-  return post<{ id: number }>('/api/v1/topics', payload)
+  return post<{ id: number }>(endpoints.topics.root, payload)
 }
 
 export async function deleteTopic(topicId: number) {
-  return del<{ deleted: number }>(`/api/v1/topics/${topicId}`)
+  return del<{ deleted: number }>(endpoints.topics.byId(topicId))
 }
 
 export async function listProducts() {
-  const data = await get<ProductItem[] | { items?: ProductItem[] }>('/api/v1/products')
+  const data = await get<ProductItem[] | { items?: ProductItem[] }>(endpoints.products.root)
   return asList<ProductItem>(data)
 }
 
@@ -398,15 +466,15 @@ export async function createProduct(payload: {
   currency?: string | null
   enabled: boolean
 }) {
-  return post<{ id: number }>('/api/v1/products', payload)
+  return post<{ id: number }>(endpoints.products.root, payload)
 }
 
 export async function deleteProduct(productId: number) {
-  return del<{ deleted: number }>(`/api/v1/products/${productId}`)
+  return del<{ deleted: number }>(endpoints.products.byId(productId))
 }
 
 export async function getPolicyStats() {
-  return get<PolicyStats>('/api/v1/policies/stats')
+  return get<PolicyStats>(endpoints.policies.stats)
 }
 
 export async function listPolicies(state = '', page = 1, pageSize = 20) {
@@ -415,51 +483,46 @@ export async function listPolicies(state = '', page = 1, pageSize = 20) {
     page_size: String(pageSize),
   })
   if (state.trim()) query.set('state', state.trim().toUpperCase())
-  const data = await get<PolicyItem[] | { items?: PolicyItem[] }>(`/api/v1/policies?${query.toString()}`)
+  const data = await get<PolicyItem[] | { items?: PolicyItem[] }>(`${endpoints.policies.root}?${query.toString()}`)
   return asList<PolicyItem>(data)
 }
 
 export async function getPolicyDetail(policyId: number) {
-  return get<PolicyDetail>(`/api/v1/policies/${policyId}`)
+  return get<PolicyDetail>(endpoints.policies.byId(policyId))
 }
 
 export async function listWorkflows() {
-  const data = await get<string[] | { items?: string[] }>('/api/v1/project-customization/workflows')
+  const data = await get<string[] | { items?: string[] }>(endpoints.workflow.root)
   return asList<string>(data)
 }
 
 export async function getWorkflowTemplate(workflowName: string) {
-  return get<WorkflowTemplate>(`/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/template`)
+  return get<WorkflowTemplate>(endpoints.workflow.template(workflowName))
 }
 
 export async function upsertWorkflowTemplate(workflowName: string, payload: WorkflowTemplatePayload) {
-  return post<WorkflowTemplateMutationResponse>(
-    `/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/template`,
-    payload,
-  )
+  return post<WorkflowTemplateMutationResponse>(endpoints.workflow.template(workflowName), payload)
 }
 
 export async function deleteWorkflowTemplate(workflowName: string, projectKey?: string) {
   const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : ''
-  return del<WorkflowTemplateMutationResponse>(
-    `/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/template${query}`,
-  )
+  return del<WorkflowTemplateMutationResponse>(`${endpoints.workflow.template(workflowName)}${query}`)
 }
 
 export async function runWorkflow(workflowName: string, params: Record<string, unknown>) {
-  return post<Record<string, unknown>>(`/api/v1/project-customization/workflows/${encodeURIComponent(workflowName)}/run`, {
+  return post<Record<string, unknown>>(endpoints.workflow.run(workflowName), {
     project_key: getProjectKey(),
     params,
   })
 }
 
 export async function listLlmConfigs() {
-  const data = await get<LlmServiceConfigItem[] | { items?: LlmServiceConfigItem[] }>('/api/v1/llm-config')
+  const data = await get<LlmServiceConfigItem[] | { items?: LlmServiceConfigItem[] }>(endpoints.llm.root)
   return asList<LlmServiceConfigItem>(data)
 }
 
 export async function listProjectLlmTemplates(projectKey = getProjectKey()) {
-  return get<LlmProjectTemplatesResponse>(`/api/v1/llm-config/projects/${encodeURIComponent(projectKey)}`)
+  return get<LlmProjectTemplatesResponse>(endpoints.llm.project(projectKey))
 }
 
 export async function updateProjectLlmTemplate(
@@ -467,32 +530,26 @@ export async function updateProjectLlmTemplate(
   payload: LlmTemplateUpdatePayload,
   projectKey = getProjectKey(),
 ) {
-  return put<LlmTemplateUpdateResponse>(
-    `/api/v1/llm-config/projects/${encodeURIComponent(projectKey)}/${encodeURIComponent(serviceName)}`,
-    payload,
-  )
+  return put<LlmTemplateUpdateResponse>(endpoints.llm.projectService(projectKey, serviceName), payload)
 }
 
 export async function copyProjectLlmTemplates(payload: LlmTemplateCopyPayload, projectKey = getProjectKey()) {
-  return post<LlmTemplateCopyResponse>(
-    `/api/v1/llm-config/projects/${encodeURIComponent(projectKey)}/copy-from`,
-    payload,
-  )
+  return post<LlmTemplateCopyResponse>(endpoints.llm.copyFrom(projectKey), payload)
 }
 
 export async function getAdminStats() {
-  return get<AdminStats>('/api/v1/admin/stats')
+  return get<AdminStats>(endpoints.admin.stats)
 }
 
 export async function getSearchHistory(page = 1, pageSize = 50) {
   const data = await get<SearchHistoryItem[] | { items?: SearchHistoryItem[] }>(
-    `/api/v1/admin/search-history?page=${page}&page_size=${pageSize}`,
+    `${endpoints.admin.searchHistory}?page=${page}&page_size=${pageSize}`,
   )
   return asList<SearchHistoryItem>(data)
 }
 
 export async function listAdminDocuments(payload: AdminDocumentListPayload = {}) {
-  return post<AdminDocumentListResponse>('/api/v1/admin/documents/list', {
+  return post<AdminDocumentListResponse>(endpoints.admin.documentList, {
     page: payload.page ?? 1,
     page_size: payload.page_size ?? 20,
     state: payload.state ?? null,
@@ -505,18 +562,15 @@ export async function listAdminDocuments(payload: AdminDocumentListPayload = {})
 }
 
 export async function getAdminDocument(docId: number) {
-  return get<DocumentItem>(`/api/v1/admin/documents/${docId}`)
+  return get<DocumentItem>(endpoints.admin.documentById(docId))
 }
 
 export async function updateDocumentExtractedData(docId: number, payload: DocumentExtractedPayload) {
-  return post<{ id?: number; extracted_data?: unknown }>(
-    `/api/v1/admin/documents/${docId}/extracted-data`,
-    payload,
-  )
+  return post<{ id?: number; extracted_data?: unknown }>(endpoints.admin.documentExtractedData(docId), payload)
 }
 
 export async function bulkUpdateDocumentExtractedData(payload: DocumentBulkExtractedPayload) {
-  return post<AdminActionResponse>('/api/v1/admin/documents/bulk/extracted-data', payload)
+  return post<AdminActionResponse>(endpoints.admin.documentsBulkExtractedData, payload)
 }
 
 export async function clearDocumentExtractedData(docIds: number[]) {
@@ -529,38 +583,38 @@ export async function clearDocumentExtractedData(docIds: number[]) {
 
 export async function deleteAdminDocuments(payload: AdminDeleteDocumentsPayload | number[]) {
   const ids = Array.isArray(payload) ? payload : payload.ids
-  return post<{ deleted?: number }>('/api/v1/admin/documents/delete', { ids })
+  return post<{ deleted?: number }>(endpoints.admin.documentsDelete, { ids })
 }
 
 export async function reExtractDocuments(payload: AdminReExtractPayload = {}) {
-  return post<AdminActionResponse>('/api/v1/admin/documents/re-extract', payload)
+  return post<AdminActionResponse>(endpoints.admin.documentsReExtract, payload)
 }
 
 export async function topicExtractDocuments(payload: AdminTopicExtractPayload = {}) {
-  return post<AdminTopicExtractResponse>('/api/v1/admin/documents/topic-extract', payload)
+  return post<AdminTopicExtractResponse>(endpoints.admin.documentsTopicExtract, payload)
 }
 
 export async function rawImportDocuments(payload: RawImportPayload) {
-  return post<RawImportResult>('/api/v1/admin/documents/raw-import', payload)
+  return post<RawImportResult>(endpoints.admin.documentsRawImport, payload)
 }
 
 export async function exportGraph(docIds: number[] | string) {
   const value = Array.isArray(docIds) ? docIds.join(',') : String(docIds || '')
-  return get<GraphExportResponse>(`/api/v1/admin/export-graph?doc_ids=${encodeURIComponent(value)}`)
+  return get<GraphExportResponse>(`${endpoints.admin.exportGraph}?doc_ids=${encodeURIComponent(value)}`)
 }
 
 export async function cleanupGovernance(retentionDays: number) {
-  return post<Record<string, unknown>>('/api/v1/governance/cleanup', { retention_days: retentionDays })
+  return post<Record<string, unknown>>(endpoints.governance.cleanup, { retention_days: retentionDays })
 }
 
 export async function syncAggregator(asyncMode = true) {
-  return post<Record<string, unknown>>('/api/v1/governance/aggregator/sync', { async_mode: asyncMode })
+  return post<Record<string, unknown>>(endpoints.governance.aggregatorSync, { async_mode: asyncMode })
 }
 
 export type GraphKind = 'policy' | 'social' | 'market' | 'market_deep_entities' | 'company' | 'product' | 'operation'
 
 export async function getGraphConfig() {
-  return get<GraphConfigResponse>('/api/v1/project-customization/graph-config')
+  return get<GraphConfigResponse>(endpoints.graph.config)
 }
 
 export async function getPolicyGraph(params: {
@@ -576,7 +630,7 @@ export async function getPolicyGraph(params: {
   if (params.state) query.set('state', params.state)
   if (params.policy_type) query.set('policy_type', params.policy_type)
   query.set('limit', String(params.limit || 100))
-  return get<GraphResponse>(`/api/v1/admin/policy-graph?${query.toString()}`)
+  return get<GraphResponse>(`${endpoints.admin.policyGraph}?${query.toString()}`)
 }
 
 export async function getSocialGraph(params: {
@@ -592,7 +646,7 @@ export async function getSocialGraph(params: {
   if (params.platform) query.set('platform', params.platform)
   if (params.topic) query.set('topic', params.topic)
   query.set('limit', String(params.limit || 100))
-  return get<GraphResponse>(`/api/v1/admin/content-graph?${query.toString()}`)
+  return get<GraphResponse>(`${endpoints.admin.contentGraph}?${query.toString()}`)
 }
 
 export async function getMarketGraph(params: {
@@ -612,9 +666,9 @@ export async function getMarketGraph(params: {
   if (params.view) query.set('view', params.view)
   if (params.topic_scope) query.set('topic_scope', params.topic_scope)
   query.set('limit', String(params.limit || 100))
-  return get<GraphResponse>(`/api/v1/admin/market-graph?${query.toString()}`)
+  return get<GraphResponse>(`${endpoints.admin.marketGraph}?${query.toString()}`)
 }
 
 export async function submitGraphStructuredSearchTasks(payload: GraphStructuredSearchRequest) {
-  return post<GraphStructuredSearchResponse>('/api/v1/ingest/graph/structured-search', payload)
+  return post<GraphStructuredSearchResponse>(endpoints.ingest.graphStructuredSearch, payload)
 }

@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import OperationalError, DatabaseError
 import logging
 
+from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import MarketStat
 
@@ -74,11 +75,11 @@ def market_stats(
                     for stat in rows
                 ]
 
-            return {
+            return ok({
                 "state": state,
                 "period": period,
                 "series": series,
-            }
+            })
     except (OperationalError, DatabaseError) as e:
         logger.exception("数据库连接失败")
         raise HTTPException(
@@ -103,7 +104,7 @@ def market_games(state: str = Query(...)):
         with SessionLocal() as session:
             rows = session.query(MarketStat.game).filter(MarketStat.state == state).distinct().all()
             games = [r[0] for r in rows if r[0]]
-            return {"state": state, "games": games}
+            return ok({"state": state, "games": games})
     except (OperationalError, DatabaseError) as e:
         logger.exception("数据库连接失败")
         raise HTTPException(
@@ -119,5 +120,4 @@ def market_games(state: str = Query(...)):
                 detail="数据库服务不可用，请检查数据库服务是否已启动。"
             )
         raise HTTPException(status_code=500, detail=f"获取游戏列表失败: {error_msg}")
-
 

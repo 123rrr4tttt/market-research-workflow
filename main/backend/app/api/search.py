@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from ..contracts.responses import ok
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
 from ..services.search.hybrid import hybrid_search
@@ -20,14 +21,16 @@ def search(
     """Placeholder: 混合检索统一接口（MVP 后续接 ES/pgvector）。"""
     try:
         results = hybrid_search(q, state, top_k, rank)
-        return {
-            "query": q,
-            "state": state,
-            "modality": modality,
-            "rank": rank,
-            "top_k": top_k,
-            "results": results,
-        }
+        return ok(
+            {
+                "query": q,
+                "state": state,
+                "modality": modality,
+                "rank": rank,
+                "top_k": top_k,
+                "results": results,
+            }
+        )
     except Exception as e:
         logger.exception("搜索失败")
         error_msg = str(e)
@@ -43,5 +46,4 @@ def search(
 def init_search_indices():
     """Create ES indices if not present (idempotent)."""
     es = get_es_client()
-    return ensure_indices(es)
-
+    return ok(ensure_indices(es))

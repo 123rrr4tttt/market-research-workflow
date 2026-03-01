@@ -10,6 +10,7 @@ import {
   runSourceLibrary,
   syncSourceLibrary,
 } from '../lib/api'
+import { isApiClientError } from '../lib/api/client'
 import { queryKeys } from '../lib/queryKeys'
 
 type IngestActionFn = () => Promise<unknown>
@@ -19,6 +20,24 @@ type SourceLibraryRunPayload = {
   handler_key?: string | null
   async_mode: boolean
   override_params: Record<string, unknown>
+}
+
+function getTraceId(meta: unknown): string {
+  if (!meta || typeof meta !== 'object') return ''
+  const traceId = (meta as { trace_id?: unknown; traceId?: unknown }).trace_id ?? (meta as { traceId?: unknown }).traceId
+  return typeof traceId === 'string' && traceId.trim() ? traceId.trim() : ''
+}
+
+function formatActionError(error: unknown) {
+  if (isApiClientError(error)) {
+    const details: string[] = []
+    if (error.code) details.push(`代码: ${error.code}`)
+    const traceId = getTraceId(error.meta)
+    if (traceId) details.push(`追踪: ${traceId}`)
+    return details.length ? `${error.message}（${details.join('，')}）` : error.message
+  }
+  if (error instanceof Error && error.message) return error.message
+  return '未知错误'
 }
 
 export function useIngestActions(projectKey: string) {
@@ -49,7 +68,7 @@ export function useIngestActions(projectKey: string) {
 
       return result
     } catch (error) {
-      const message = `${name} 失败: ${error instanceof Error ? error.message : '未知错误'}`
+      const message = `${name} 失败: ${formatActionError(error)}`
       setActionMessage(message)
       return null
     } finally {

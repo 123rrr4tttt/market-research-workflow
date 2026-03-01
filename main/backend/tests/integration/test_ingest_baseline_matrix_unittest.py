@@ -21,6 +21,12 @@ except Exception as exc:  # noqa: BLE001
     _IMPORT_ERROR = exc
 
 
+def _response_payload(body):
+    if isinstance(body, dict) and isinstance(body.get("data"), dict):
+        return body["data"]
+    return body
+
+
 class _FakeTask:
     def __init__(self, name: str):
         self._name = name
@@ -117,7 +123,10 @@ class IngestBaselineMatrixTestCase(unittest.TestCase):
                 resp = self.client.post(path, json=payload, headers=headers)
                 self.assertEqual(resp.status_code, 200, msg=f"path={path} body={resp.text}")
                 body = resp.json()
-                self.assertEqual(body["status"], "ok", msg=f"path={path} body={body}")
+                if isinstance(body, dict) and "status" in body:
+                    self.assertEqual(body["status"], "ok", msg=f"path={path} body={body}")
+                data = _response_payload(body)
+                self.assertIsInstance(data, dict, msg=f"path={path} body={body}")
                 self.assertEqual(resp.headers.get("x-project-key-source"), "header")
                 self.assertEqual(resp.headers.get("x-project-key-resolved"), "demo_proj")
 

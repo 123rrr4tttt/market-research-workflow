@@ -21,6 +21,17 @@ VITE_API_PROXY_TARGET=http://localhost:8000 npm run dev
 
 默认会将 `/api/*` 代理到 `VITE_API_PROXY_TARGET`（未设置时为 `http://localhost:8000`）。
 
+## 1.1) E2E 测试（Playwright）
+
+```bash
+npx playwright install
+npm run test:e2e
+# 可视化模式
+npm run test:e2e:headed
+```
+
+测试会自动拉起本地前端（`http://127.0.0.1:4173`）并执行 `tests/e2e/` 下用例。
+
 ## 2) Docker 运行
 
 ```bash

@@ -7,6 +7,7 @@ Last updated: 2026-03-01
 - [main/](main/): canonical backend-core merged documentation entry
 - [main/index.md](main/index.md)
 - [main/MERGED_BACKEND_CORE.md](main/MERGED_BACKEND_CORE.md)
+- [main/TEST_AUTOMATION_STANDARDIZATION.md](main/TEST_AUTOMATION_STANDARDIZATION.md): test automation boundary, gaps, and completion checklist
 
 ## Archived Category Directories
 

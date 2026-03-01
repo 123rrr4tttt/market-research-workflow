@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import Topic
 
@@ -30,7 +31,7 @@ def list_topics(enabled: Optional[bool] = Query(default=None)) -> dict:
         if enabled is not None:
             stmt = stmt.where(Topic.enabled == enabled)
         rows = session.execute(stmt).scalars().all()
-        return {
+        return ok({
             "items": [
                 {
                     "id": row.id,
@@ -44,7 +45,7 @@ def list_topics(enabled: Optional[bool] = Query(default=None)) -> dict:
                 }
                 for row in rows
             ]
-        }
+        })
 
 
 @router.post("")
@@ -68,7 +69,7 @@ def create_topic(payload: TopicPayload) -> dict:
         session.add(row)
         session.commit()
         session.refresh(row)
-        return {"id": row.id}
+        return ok({"id": row.id})
 
 
 @router.put("/{topic_id}")
@@ -92,7 +93,7 @@ def update_topic(topic_id: int, payload: TopicPayload) -> dict:
         row.enabled = payload.enabled
         row.description = payload.description
         session.commit()
-        return {"updated": topic_id}
+        return ok({"updated": topic_id})
 
 
 @router.delete("/{topic_id}")
@@ -103,4 +104,4 @@ def delete_topic(topic_id: int) -> dict:
             raise HTTPException(status_code=404, detail="topic not found")
         session.delete(row)
         session.commit()
-        return {"deleted": topic_id}
+        return ok({"deleted": topic_id})

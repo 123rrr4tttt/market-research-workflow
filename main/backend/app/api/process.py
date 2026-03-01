@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, func
 
 from ..celery_app import celery_app
+from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
 from ..services.projects import bind_project
@@ -43,7 +44,7 @@ def list_tasks(
     status_filter: Optional[str] = None,
     limit: int = 100,
     project_key: Optional[str] = None,
-) -> TaskListResponse:
+) -> dict[str, Any]:
     """获取Celery任务列表"""
     try:
         from ..services.collect_runtime import infer_display_meta_from_celery_task, extract_display_meta_from_params
@@ -182,9 +183,11 @@ def list_tasks(
             'workers': len(set(list(active_tasks.keys()) + list(registered_tasks.keys()))),
         }
 
-        return TaskListResponse(
-            tasks=tasks,
-            stats=stats
+        return ok(
+            {
+                "tasks": tasks,
+                "stats": stats,
+            }
         )
 
     except Exception as e:
@@ -193,7 +196,7 @@ def list_tasks(
 
 
 @router.get("/stats")
-def get_task_stats() -> dict:
+def get_task_stats() -> dict[str, Any]:
     """获取任务统计信息"""
     try:
         inspect = celery_app.control.inspect()
@@ -219,15 +222,17 @@ def get_task_stats() -> dict:
         # 获取worker信息
         workers = list(set(list(active_tasks.keys()) + list(registered_tasks.keys())))
         
-        return {
-            'active_tasks': active_count,
-            'scheduled_tasks': scheduled_count,
-            'reserved_tasks': reserved_count,
-            'total_running': active_count + scheduled_count + reserved_count,
-            'registered_task_types': len(registered_task_names),
-            'workers': len(workers),
-            'worker_names': workers,
-        }
+        return ok(
+            {
+                'active_tasks': active_count,
+                'scheduled_tasks': scheduled_count,
+                'reserved_tasks': reserved_count,
+                'total_running': active_count + scheduled_count + reserved_count,
+                'registered_task_types': len(registered_task_names),
+                'workers': len(workers),
+                'worker_names': workers,
+            }
+        )
 
     except Exception as e:
         logger.exception("获取任务统计信息失败")
@@ -240,7 +245,7 @@ def get_task_history(
     status: Optional[str] = Query(None, description="任务状态过滤: completed, failed, running"),
     job_type: Optional[str] = Query(None, description="任务类型过滤"),
     project_key: Optional[str] = Query(None, description="项目标识（用于查询对应项目 schema 的任务历史）"),
-) -> dict:
+) -> dict[str, Any]:
     """获取任务历史记录"""
     try:
         from ..services.collect_runtime import extract_display_meta_from_params
@@ -301,12 +306,14 @@ def get_task_history(
                 for row in session.execute(status_query).all():
                     status_stats[row.status] = row.count
 
-                return {
-                    "history": history,
-                    "total": total,
-                    "status_stats": status_stats,
-                    "project_key": project_key,
-                }
+                return ok(
+                    {
+                        "history": history,
+                        "total": total,
+                        "status_stats": status_stats,
+                        "project_key": project_key,
+                    }
+                )
 
     except Exception as e:
         logger.exception("获取任务历史记录失败")
@@ -314,7 +321,7 @@ def get_task_history(
 
 
 @router.post("/{task_id}/cancel")
-def cancel_task(task_id: str, terminate: bool = False) -> dict:
+def cancel_task(task_id: str, terminate: bool = False) -> dict[str, Any]:
     """取消指定任务"""
     try:
         # 撤销任务
@@ -322,11 +329,13 @@ def cancel_task(task_id: str, terminate: bool = False) -> dict:
         
         action = "强制终止" if terminate else "取消"
         
-        return {
-            "success": True,
-            "message": f"任务 {task_id} 已{action}",
-            "task_id": task_id
-        }
+        return ok(
+            {
+                "success": True,
+                "message": f"任务 {task_id} 已{action}",
+                "task_id": task_id,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"取消任务 {task_id} 失败")
@@ -334,7 +343,7 @@ def cancel_task(task_id: str, terminate: bool = False) -> dict:
 
 
 @router.get("/{task_id}")
-def get_task_info(task_id: str) -> dict:
+def get_task_info(task_id: str) -> dict[str, Any]:
     """获取任务详细信息"""
     try:
         result = celery_app.AsyncResult(task_id)
@@ -356,7 +365,7 @@ def get_task_info(task_id: str) -> dict:
         except:
             task_info["name"] = "unknown"
         
-        return task_info
+        return ok(task_info)
 
     except Exception as e:
         logger.exception(f"获取任务信息失败: {task_id}")
@@ -406,7 +415,7 @@ def _extract_context_lines(lines: list[str], task_id: str, context: int = 20) ->
 
 
 @router.get("/{task_id}/logs")
-def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -> dict:
+def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -> dict[str, Any]:
     """获取指定任务的运行日志（按task_id过滤，默认返回最后200行）。
 
     在Docker部署下，日志文件默认位于 /var/log/celery/worker.log，
@@ -443,13 +452,15 @@ def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -
             used_lines = plain_tail_lines
             filtered = False
 
-        return {
-            "task_id": task_id,
-            "tail": tail,
-            "filtered": filtered,
-            "text": "\n".join(used_lines),
-            "log_file": log_file,
-        }
+        return ok(
+            {
+                "task_id": task_id,
+                "tail": tail,
+                "filtered": filtered,
+                "text": "\n".join(used_lines),
+                "log_file": log_file,
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:

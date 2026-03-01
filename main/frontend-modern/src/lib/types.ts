@@ -72,12 +72,82 @@ export type AutoCreateProjectResult = {
 
 export type EnvSettings = Record<string, string>
 
+export type SourceLibraryScope = 'effective' | 'shared' | 'project'
+
 export type SourceLibraryItem = {
+  id?: number
   item_key: string
   name?: string
-  description?: string
-  tags?: string[]
+  channel_key?: string
+  description?: string | null
   params?: Record<string, unknown>
+  tags?: string[]
+  schedule?: string | null
+  extends_item_key?: string | null
+  enabled?: boolean
+  extra?: Record<string, unknown>
+  project_key?: string | null
+  scope?: SourceLibraryScope
+}
+
+export type SourceLibraryChannel = {
+  channel_key: string
+  name?: string
+  provider?: string
+  kind?: string
+  description?: string | null
+  enabled?: boolean
+  params_schema?: Record<string, unknown>
+  extra?: Record<string, unknown>
+}
+
+export type SourceLibraryItemsGroupedResponse = {
+  by_handler?: Record<string, SourceLibraryItem[]>
+  scope?: SourceLibraryScope
+  project_key?: string | null
+}
+
+export type SourceLibraryItemUpsertPayload = {
+  item_key: string
+  name: string
+  channel_key: string
+  description?: string
+  params?: Record<string, unknown>
+  tags?: string[]
+  schedule?: string
+  extends_item_key?: string
+  enabled?: boolean
+  extra?: Record<string, unknown>
+}
+
+export type SourceLibraryItemRefreshPayload = {
+  incremental?: boolean
+  max_site_entries?: number
+}
+
+export type SourceLibraryHandlerSyncPayload = {
+  handlers?: string[]
+  incremental?: boolean
+  max_site_entries?: number
+}
+
+export type SourceLibraryHandlerSyncResult = {
+  handler_key?: string
+  item_key?: string
+  expected_entry_type?: string
+  incremental?: boolean
+  domains?: string[]
+  site_entry_tags?: string[]
+  site_entries_before?: number
+  site_entries_after?: number
+  added?: number
+}
+
+export type SourceLibraryHandlerSyncResponse = {
+  ok?: boolean
+  project_key?: string
+  handler_count?: number
+  results?: SourceLibraryHandlerSyncResult[]
 }
 
 export type SiteEntryGroupedResponse = {
@@ -507,7 +577,10 @@ export type SourceLibraryItemPayload = {
   description?: string
   params?: Record<string, unknown>
   tags?: string[]
+  schedule?: string
+  extends_item_key?: string
   enabled?: boolean
+  extra?: Record<string, unknown>
   project_key?: string
 }
 

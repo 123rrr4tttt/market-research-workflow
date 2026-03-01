@@ -9,8 +9,8 @@ MENU_CONFIG = {
         {"key": "market", "label": "市场可视化", "path": "market-data-visualization.html", "order": 40, "visible": True},
         {"key": "policy", "label": "政策仪表盘", "path": "policy-dashboard.html", "order": 50, "visible": True},
         {"key": "social", "label": "社媒可视化", "path": "social-media-visualization.html", "order": 60, "visible": True},
-        {"key": "policy_graph", "label": "政策图谱", "path": "policy-graph.html", "order": 70, "visible": True},
-        {"key": "social_graph", "label": "社媒图谱", "path": "social-media-graph.html", "order": 80, "visible": True},
+        {"key": "policy_graph", "label": "政策图谱", "path": "graph.html?type=policy", "order": 70, "visible": True},
+        {"key": "social_graph", "label": "社媒图谱", "path": "graph.html?type=social", "order": 80, "visible": True},
         {"key": "source_library", "label": "信息资源库管理", "path": "resource-pool-management.html#source-library", "order": 90, "visible": True},
         {"key": "llm", "label": "LLM 配置", "path": "settings.html#llm-config", "order": 100, "visible": True},
     ]

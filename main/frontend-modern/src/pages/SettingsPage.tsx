@@ -8,6 +8,7 @@ import {
   updateEnvSettings,
   updateProjectLlmTemplate,
 } from '../lib/api'
+import { isApiClientError } from '../lib/api/client'
 import type { EnvSettings, LlmServiceConfigItem, LlmTemplateUpdatePayload } from '../lib/types'
 
 export type SettingsPageProps = {
@@ -97,6 +98,24 @@ function toNullableInt(value: string) {
   return Math.trunc(numeric)
 }
 
+function getTraceId(meta: unknown): string {
+  if (!meta || typeof meta !== 'object') return ''
+  const traceId = (meta as { trace_id?: unknown; traceId?: unknown }).trace_id ?? (meta as { traceId?: unknown }).traceId
+  return typeof traceId === 'string' && traceId.trim() ? traceId.trim() : ''
+}
+
+function formatActionError(error: unknown) {
+  if (isApiClientError(error)) {
+    const details: string[] = []
+    if (error.code) details.push(`代码: ${error.code}`)
+    const traceId = getTraceId(error.meta)
+    if (traceId) details.push(`追踪: ${traceId}`)
+    return details.length ? `${error.message}（${details.join('，')}）` : error.message
+  }
+  if (error instanceof Error && error.message) return error.message
+  return '未知错误'
+}
+
 export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageProps) {
   const queryClient = useQueryClient()
   const [envDraft, setEnvDraft] = useState<EnvSettings | null>(null)
@@ -141,7 +160,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
       await queryClient.invalidateQueries({ queryKey: ['env-settings'] })
     },
     onError: (error) => {
-      setSaveMessage(`环境配置更新失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      setSaveMessage(`环境配置更新失败: ${formatActionError(error)}`)
     },
   })
 
@@ -169,7 +188,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
       await queryClient.invalidateQueries({ queryKey: ['project-llm-templates', projectKey] })
     },
     onError: (error) => {
-      setTemplateMessage(`模板保存失败：${error instanceof Error ? error.message : '未知错误'}`)
+      setTemplateMessage(`模板保存失败：${formatActionError(error)}`)
     },
     onSettled: () => {
       setSavingService(null)
@@ -194,7 +213,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
       await queryClient.invalidateQueries({ queryKey: ['project-llm-templates', projectKey] })
     },
     onError: (error) => {
-      setCopyMessage(`复制失败：${error instanceof Error ? error.message : '未知错误'}`)
+      setCopyMessage(`复制失败：${formatActionError(error)}`)
     },
   })
 

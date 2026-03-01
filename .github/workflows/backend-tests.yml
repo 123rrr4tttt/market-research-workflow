@@ -7,14 +7,38 @@ on:
   schedule:
     - cron: "0 9 * * *"
   workflow_dispatch:
+    inputs:
+      test_profile:
+        description: "Docker compose test profile"
+        required: false
+        default: "test"
+        type: string
 
 concurrency:
   group: backend-tests-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  standards-check:
+    name: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run API layer standards guardrails
+        run: |
+          python main/backend/scripts/check_api_layer_imports.py
+
   unit-check:
     name: unit-check
+    needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -40,10 +64,11 @@ jobs:
       - name: Run pytest (unit)
         working-directory: main/backend
         run: |
-          pytest -m unit -q
+          pytest -m "unit and not external" -q
 
   integration-check:
     name: integration-check
+    needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -69,11 +94,85 @@ jobs:
       - name: Run pytest (integration)
         working-directory: main/backend
         run: |
-          pytest -m integration -q
+          pytest -m "integration and not external" -q
+
+  schema-guard-check:
+    name: schema-guard-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Run project schema guard in docker compose
+        run: |
+          docker compose -f main/ops/docker-compose.yml up -d db es redis
+          docker compose -f main/ops/docker-compose.yml run --rm backend-test tests/integration/test_project_schema_guard_unittest.py -q
+
+      - name: Collect docker compose diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          docker compose -f main/ops/docker-compose.yml ps -a > artifacts/schema-guard-compose-ps.txt
+          docker compose -f main/ops/docker-compose.yml logs --no-color > artifacts/schema-guard-compose-logs.txt
+
+      - name: Upload docker compose diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-guard-compose-diagnostics
+          path: artifacts/
+          if-no-files-found: warn
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose -f main/ops/docker-compose.yml down -v
+
+  coverage-check:
+    name: coverage-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest pytest-cov
+
+      - name: Run pytest coverage gate (core path)
+        working-directory: main/backend
+        env:
+          CORE_COVERAGE_PATHS: app/api/search.py,app/contracts/api.py,app/contracts/responses.py,app/contracts/tasks.py,app/contracts/errors.py
+        run: |
+          pytest -m "(unit or integration) and not external" --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml -q
+          python scripts/check_coverage_thresholds.py --coverage-file coverage.xml --core-paths "${CORE_COVERAGE_PATHS}" --core-threshold 100 --other-threshold 20
 
   contract-check:
     if: github.event_name != 'pull_request'
     name: contract-check
+    needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -99,11 +198,12 @@ jobs:
       - name: Run pytest (contract)
         working-directory: main/backend
         run: |
-          pytest -m contract -q
+          pytest -m "contract and not external" -q
 
   e2e-check:
     if: github.event_name != 'pull_request'
     name: e2e-check
+    needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -129,10 +229,11 @@ jobs:
       - name: Run pytest (e2e)
         working-directory: main/backend
         run: |
-          pytest -m e2e -q
+          pytest -m "e2e and not external" -q
 
   docker-check:
     name: docker-check
+    needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -145,7 +246,7 @@ jobs:
 
       - name: Run backend tests in docker compose
         run: |
-          docker compose -f main/ops/docker-compose.yml --profile test up --build --abort-on-container-exit --exit-code-from backend-test backend-test
+          docker compose -f main/ops/docker-compose.yml --profile "${{ github.event.inputs.test_profile || 'test' }}" up --build --abort-on-container-exit --exit-code-from backend-test backend-test
 
       - name: Collect docker compose diagnostics on failure
         if: failure()

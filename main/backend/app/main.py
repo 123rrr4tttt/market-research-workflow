@@ -2,14 +2,18 @@ import logging
 import os
 import time
 import uuid
+import json
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
+from .contracts.errors import ErrorCode, map_exception_to_error, map_status_to_error_code
+from .contracts.responses import ApiMetaModel, fail, ok
 from .settings.config import settings
 from .models.base import engine
 from .services.search.es_client import get_es_client
@@ -29,6 +33,110 @@ app = FastAPI(title="Market Intel API", version="0.1.0-rc.1")
 _ACTIVE_PROJECT_CACHE_KEY: str | None = None
 _ACTIVE_PROJECT_CACHE_TS: float = 0.0
 _REQUEST_LOGGER = logging.getLogger("app.request")
+_ERROR_LOGGER = logging.getLogger("app.error")
+_API_PREFIX = "/api/v1/"
+_API_CONTRACT_EXEMPT_PATHS = {"/api/v1/health", "/api/v1/health/deep"}
+
+
+def _is_contract_api_path(path: str) -> bool:
+    return path.startswith(_API_PREFIX) and path not in _API_CONTRACT_EXEMPT_PATHS
+
+
+def _build_error_payload(
+    request: Request,
+    code: ErrorCode,
+    message: str,
+    *,
+    details: dict | None = None,
+) -> dict:
+    project_key = (
+        (request.headers.get("X-Project-Key") or "").strip()
+        or (request.query_params.get("project_key") or "").strip()
+        or None
+    )
+    request_id = (request.headers.get("X-Request-Id") or "").strip() or None
+    meta = ApiMetaModel(trace_id=request_id, project_key=project_key)
+    return fail(code, message, details=details, meta=meta)
+
+
+def _with_legacy_detail_alias(payload: dict) -> dict:
+    """Transitional compatibility for callers still reading body.detail.error."""
+    if "detail" in payload:
+        return payload
+    error_obj = payload.get("error")
+    if not isinstance(error_obj, dict):
+        return payload
+    cloned = dict(payload)
+    cloned["detail"] = {"error": error_obj, "message": error_obj.get("message")}
+    return cloned
+
+
+def _extract_http_exception_content(request: Request, exc: HTTPException) -> tuple[dict, ErrorCode]:
+    detail = exc.detail
+    if isinstance(detail, dict):
+        if {"status", "data", "error", "meta"}.issubset(detail.keys()):
+            error_obj = detail.get("error")
+            if isinstance(error_obj, dict):
+                code_text = str(error_obj.get("code") or "")
+                for candidate in ErrorCode:
+                    if candidate.value == code_text:
+                        return _with_legacy_detail_alias(detail), candidate
+            code = map_status_to_error_code(exc.status_code)
+            return _with_legacy_detail_alias(detail), code
+        message = str(detail.get("message") or detail.get("detail") or "Request failed")
+        code = map_status_to_error_code(exc.status_code)
+        payload = _build_error_payload(request, code, message, details=detail)
+        return _with_legacy_detail_alias(payload), code
+    code = map_status_to_error_code(exc.status_code)
+    message = str(detail) if detail else "Request failed"
+    payload = _build_error_payload(request, code, message)
+    return _with_legacy_detail_alias(payload), code
+
+
+def _is_already_envelope(payload: object) -> bool:
+    return (
+        isinstance(payload, dict)
+        and {"status", "data", "error", "meta"}.issubset(payload.keys())
+    )
+
+
+def _maybe_wrap_success_json_response(
+    request: Request,
+    response: Response,
+    *,
+    request_id: str,
+    project_key: str,
+) -> Response:
+    if not _is_contract_api_path(request.url.path):
+        return response
+    if response.status_code < 200 or response.status_code >= 300:
+        return response
+
+    content_type = (response.headers.get("content-type") or "").lower()
+    if "application/json" not in content_type:
+        return response
+
+    body = getattr(response, "body", None)
+    if not body:
+        return response
+
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except Exception:
+        return response
+
+    if _is_already_envelope(payload):
+        return response
+
+    meta = ApiMetaModel(trace_id=request_id, project_key=project_key)
+    wrapped = ok(payload, meta=meta)
+    wrapped_response = JSONResponse(status_code=response.status_code, content=wrapped)
+    for k, v in response.headers.items():
+        lk = k.lower()
+        if lk in {"content-length", "content-type"}:
+            continue
+        wrapped_response.headers[k] = v
+    return wrapped_response
 
 def _get_active_project_key_fallback() -> str | None:
     global _ACTIVE_PROJECT_CACHE_KEY, _ACTIVE_PROJECT_CACHE_TS
@@ -111,6 +219,12 @@ async def metrics_middleware(request: Request, call_next):
     start = time.perf_counter()
     with bind_project(project_key):
         response: Response = await call_next(request)
+    response = _maybe_wrap_success_json_response(
+        request,
+        response,
+        request_id=request_id,
+        project_key=project_key,
+    )
     elapsed = time.perf_counter() - start
     endpoint = request.url.path
     response.headers["X-Request-Id"] = request_id
@@ -127,8 +241,9 @@ async def metrics_middleware(request: Request, call_next):
             project_key,
             request_id,
         )
+    error_code = (response.headers.get("X-Error-Code") or "").strip() or "-"
     _REQUEST_LOGGER.info(
-        "request path=%s method=%s status=%s latency=%.4f request_id=%s project_key=%s project_key_source=%s",
+        "request path=%s method=%s status=%s latency=%.4f request_id=%s project_key=%s project_key_source=%s error_code=%s",
         endpoint,
         request.method,
         response.status_code,
@@ -136,8 +251,35 @@ async def metrics_middleware(request: Request, call_next):
         request_id,
         project_key,
         project_key_source,
+        error_code,
     )
     return response
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    if not _is_contract_api_path(request.url.path):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    payload, code = _extract_http_exception_content(request, exc)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=payload,
+        headers={"X-Error-Code": code.value},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    _ERROR_LOGGER.exception("unhandled_exception path=%s", request.url.path)
+    if not _is_contract_api_path(request.url.path):
+        return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+    code, message, details = map_exception_to_error(exc)
+    payload = _with_legacy_detail_alias(_build_error_payload(request, code, message, details=details))
+    return JSONResponse(
+        status_code=500,
+        content=payload,
+        headers={"X-Error-Code": code.value},
+    )
 
 
 @app.get("/api/v1/health")

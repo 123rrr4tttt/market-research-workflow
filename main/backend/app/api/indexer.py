@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from ..contracts.responses import ok
 from ..services.indexer.policy import index_policy_documents
 from ..settings.config import settings
 
@@ -23,6 +24,5 @@ def reindex_policy(payload: ReindexPolicyRequest):
         document_ids=payload.document_ids,
         state=(payload.state.upper() if payload.state else None),
     )
-    return result
-
+    return ok(result)
 

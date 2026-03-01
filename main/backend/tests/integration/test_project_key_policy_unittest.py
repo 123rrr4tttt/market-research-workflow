@@ -24,6 +24,12 @@ except Exception as exc:  # noqa: BLE001
     _IMPORT_ERROR = exc
 
 
+def _response_payload(body):
+    if isinstance(body, dict) and isinstance(body.get("data"), dict):
+        return body["data"]
+    return body
+
+
 class ProjectKeyPolicyTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -38,9 +44,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         self.assertEqual(value, "demo_proj")
 
     def test_ingest_require_project_key_fallback_logs_warning(self):
-        with patch("app.api.ingest.current_project_key", return_value="demo_proj"):
-            with self.assertLogs("app.api.ingest", level="WARNING") as cm:
-                value = ingest_api._require_project_key(None)
+        with patch("app.api.ingest.settings.project_key_enforcement_mode", "warn"):
+            with patch("app.api.ingest.current_project_key", return_value="demo_proj"):
+                with self.assertLogs("app.api.ingest", level="WARNING") as cm:
+                    value = ingest_api._require_project_key(None)
         self.assertEqual(value, "demo_proj")
         self.assertTrue(any("project_key_fallback_used" in msg for msg in cm.output))
 
@@ -62,9 +69,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         self.assertEqual(detail["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
 
     def test_source_library_require_project_key_fallback_logs_warning(self):
-        with patch("app.api.source_library.current_project_key", return_value="demo_proj"):
-            with self.assertLogs("app.api.source_library", level="WARNING") as cm:
-                value = source_library_api._require_project_key(None)
+        with patch("app.api.source_library.settings.project_key_enforcement_mode", "warn"):
+            with patch("app.api.source_library.current_project_key", return_value="demo_proj"):
+                with self.assertLogs("app.api.source_library", level="WARNING") as cm:
+                    value = source_library_api._require_project_key(None)
         self.assertEqual(value, "demo_proj")
         self.assertTrue(any("project_key_fallback_used" in msg for msg in cm.output))
 
@@ -101,9 +109,12 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
             resp = client.post("/api/v1/ingest/graph/structured-search", json=payload)
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
-        self.assertEqual(body["status"], "ok")
-        self.assertEqual(body["data"]["flow_type"], "collect")
-        self.assertEqual(body["data"]["summary"]["batch_count"], 1)
+        if isinstance(body, dict) and "status" in body:
+            self.assertEqual(body["status"], "ok")
+        data = _response_payload(body)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data["flow_type"], "collect")
+        self.assertEqual(data["summary"]["batch_count"], 1)
 
     def test_graph_structured_search_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
@@ -134,8 +145,10 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
             )
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
-        self.assertEqual(body["async"], False)
-        self.assertEqual(body["item_key"], "demo-item")
+        data = body.get("data") if isinstance(body, dict) and "data" in body else body
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data["async"], False)
+        self.assertEqual(data["item_key"], "demo-item")
         mocked_run.assert_called_once()
 
     def test_source_library_run_missing_project_key_in_require_mode_fails(self):

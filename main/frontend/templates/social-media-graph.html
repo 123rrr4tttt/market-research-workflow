@@ -671,6 +671,30 @@
         });
       }
 
+      function normalizeGraphResponse(payload) {
+        const envelopeData = payload && typeof payload === 'object' ? payload.data : null;
+        const candidate = envelopeData && typeof envelopeData === 'object' ? envelopeData : payload;
+        if (!candidate || typeof candidate !== 'object') {
+          return { nodes: [], edges: [] };
+        }
+        return {
+          nodes: Array.isArray(candidate.nodes) ? candidate.nodes : [],
+          edges: Array.isArray(candidate.edges) ? candidate.edges : []
+        };
+      }
+
+      function extractGraphError(payload, statusCode) {
+        const fallback = `HTTP ${statusCode}`;
+        if (!payload || typeof payload !== 'object') return fallback;
+        if (typeof payload.error === 'string' && payload.error.trim()) return payload.error;
+        if (typeof payload.message === 'string' && payload.message.trim()) return payload.message;
+        if (typeof payload.detail === 'string' && payload.detail.trim()) return payload.detail;
+        if (payload.error && typeof payload.error === 'object' && typeof payload.error.message === 'string') {
+          return payload.error.message;
+        }
+        return fallback;
+      }
+
       // 加载图谱数据
       async function loadGraph() {
         const start = document.getElementById('filter-start').value;
@@ -697,25 +721,23 @@
           if (topic) params.append('topic', topic);
           params.append('limit', '100');
           const response = await fetch(`/api/v1/admin/content-graph?${params}`);
-          
+          let rawPayload = null;
+          try {
+            rawPayload = await response.json();
+          } catch (error) {
+            rawPayload = null;
+          }
+
           let graphData;
           if (!response.ok) {
-            // 尝试解析错误响应
-            try {
-              const errorData = await response.json();
-              // 如果错误响应中包含nodes和edges字段，仍然使用它
-              if (errorData.nodes !== undefined && errorData.edges !== undefined) {
-                graphData = { nodes: errorData.nodes || [], edges: errorData.edges || [] };
-              } else {
-                throw new Error(errorData.error || `HTTP ${response.status}`);
-              }
-            } catch (e) {
-              // 如果无法解析，使用空数据
-              console.warn('API返回错误，使用空数据:', e);
-              graphData = { nodes: [], edges: [] };
+            const fallbackGraph = normalizeGraphResponse(rawPayload);
+            if (fallbackGraph.nodes.length > 0 || fallbackGraph.edges.length > 0) {
+              graphData = fallbackGraph;
+            } else {
+              throw new Error(extractGraphError(rawPayload, response.status));
             }
           } else {
-            graphData = await response.json();
+            graphData = normalizeGraphResponse(rawPayload);
           }
           
           console.log('API返回的数据:', graphData);
@@ -1539,4 +1561,3 @@
     </script>
   </body>
 </html>
-

@@ -8,6 +8,7 @@ from sqlalchemy.exc import OperationalError, DatabaseError
 from datetime import datetime, date, timedelta
 import logging
 
+from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import (
     Document,
@@ -50,12 +51,12 @@ def get_global_stats():
             )
         ).first()
         if not rows:
-            return {"documents_total": 0, "metrics_total": 0, "prices_total": 0}
-        return {
+            return ok({"documents_total": 0, "metrics_total": 0, "prices_total": 0})
+        return ok({
             "documents_total": int(rows.documents_total or 0),
             "metrics_total": int(rows.metrics_total or 0),
             "prices_total": int(rows.prices_total or 0),
-        }
+        })
 
 
 @router.get("/stats")
@@ -126,7 +127,7 @@ def get_dashboard_stats():
             ).scalar() or 0
             extraction_rate = (doc_with_extracted / doc_total * 100) if doc_total > 0 else 0
             
-            return {
+            return ok({
                 "documents": {
                     "total": doc_total,
                     "recent_today": doc_recent_today,
@@ -151,7 +152,7 @@ def get_dashboard_stats():
                     "completed": task_completed,
                     "failed": task_failed,
                 },
-            }
+            })
     except (OperationalError, DatabaseError) as e:
         logger.exception("数据库连接失败")
         raise HTTPException(
@@ -295,12 +296,12 @@ def get_market_trends(
             for row in game_dist
         ]
         
-        return {
+        return ok({
             "series": series,
             "state_distribution": state_distribution,
             "game_distribution": game_distribution,
             "period": period,
-        }
+        })
 
 
 @router.get("/document-analysis")
@@ -403,13 +404,13 @@ def get_document_analysis(
             for row in extraction_dist
         ]
         
-        return {
+        return ok({
             "type_distribution": type_distribution,
             "growth_trend": growth_trend,
             "state_distribution": state_distribution,
             "source_contribution": source_contribution,
             "extraction_by_type": extraction_by_type,
-        }
+        })
 
 
 @router.get("/sentiment-analysis")
@@ -549,13 +550,13 @@ def get_sentiment_analysis(
             for keyword, count in keyword_ranking
         ]
         
-        return {
+        return ok({
             "sentiment_distribution": sentiment_counts,
             "platform_distribution": platform_distribution,
             "sentiment_trend": trend_series,
             "keyword_ranking": keyword_ranking_list,
             "total_documents": len(docs),
-        }
+        })
 
 
 @router.get("/sentiment-sources")
@@ -644,7 +645,7 @@ def get_sentiment_sources(
                 "summary": doc.summary or "",
             })
         
-        return {
+        return ok({
             "sources": sources,
             "total": len(filtered_docs),
             "filters": {
@@ -653,7 +654,7 @@ def get_sentiment_sources(
                 "start_date": start_date,
                 "end_date": end_date,
             }
-        }
+        })
 
 
 @router.get("/task-monitoring")
@@ -712,10 +713,10 @@ def get_task_monitoring(
                 "error": task.error,
             })
         
-        return {
+        return ok({
             "recent_tasks": recent_tasks,
             "type_distribution": type_distribution,
-        }
+        })
 
 
 @router.get("/search-analytics")
@@ -755,10 +756,10 @@ def get_search_analytics(limit: int = Query(default=50, ge=1, le=500)):
             for row in trend_data
         ]
         
-        return {
+        return ok({
             "popular_topics": popular_topics[:20],  # 返回TOP 20
             "search_trend": search_trend,
-        }
+        })
 
 
 @router.get("/commodity-trends")
@@ -827,14 +828,14 @@ def get_commodity_trends(
             ).group_by(MarketMetricPoint.metric_key)
         ).all()
 
-        return {
+        return ok({
             "series": series,
             "metric_distribution": [
                 {"metric_key": row.metric_key, "count": row.count}
                 for row in metric_distribution
             ],
             "period": period,
-        }
+        })
 
 
 @router.get("/ecom-price-trends")
@@ -885,7 +886,7 @@ def get_ecom_price_trends(
             .group_by(Product.id, Product.name)
         ).all()
 
-        return {
+        return ok({
             "series": series,
             "product_distribution": [
                 {
@@ -896,5 +897,4 @@ def get_ecom_price_trends(
                 }
                 for row in product_distribution
             ],
-        }
-
+        })

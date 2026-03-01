@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from ..contracts import ErrorCode, error_response
+from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import SourceLibraryItem
 from ..services.projects import bind_project, current_project_key
@@ -100,7 +101,7 @@ def list_channels(
         items = list_effective_channels(scope=scope, project_key=project_key)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"items": items, "scope": scope, "project_key": project_key}
+    return ok({"items": items, "scope": scope, "project_key": project_key})
 
 
 @router.get("/items")
@@ -112,7 +113,7 @@ def list_items(
         items = list_effective_items(scope=scope, project_key=project_key)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"items": items, "scope": scope, "project_key": project_key}
+    return ok({"items": items, "scope": scope, "project_key": project_key})
 
 
 @router.get("/items/by_symbol")
@@ -125,7 +126,7 @@ def list_items_by_symbol_api(
         grouped = list_items_by_symbol(scope=scope, project_key=project_key)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"by_symbol": grouped, "scope": scope, "project_key": project_key}
+    return ok({"by_symbol": grouped, "scope": scope, "project_key": project_key})
 
 
 @router.get("/channels/grouped")
@@ -138,7 +139,7 @@ def list_channels_grouped_api(
         grouped = list_channels_grouped_by_provider(scope=scope, project_key=project_key)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"by_provider": grouped, "scope": scope, "project_key": project_key}
+    return ok({"by_provider": grouped, "scope": scope, "project_key": project_key})
 
 
 @router.get("/items/grouped")
@@ -155,7 +156,7 @@ def list_items_grouped_api(
                 grouped.setdefault(hk, []).append(it)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"by_handler": grouped, "scope": scope, "project_key": project_key}
+    return ok({"by_handler": grouped, "scope": scope, "project_key": project_key})
 
 
 def _resource_handler_keys_for_item(item: dict, *, project_key: str | None) -> list[str]:
@@ -370,7 +371,7 @@ def upsert_project_item(payload: SourceLibraryItemUpsertPayload, project_key: st
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return {"item_key": payload.item_key, "project_key": project_key, "ok": True}
+    return ok({"item_key": payload.item_key, "project_key": project_key, "ok": True})
 
 
 @router.post("/items/{item_key}/refresh")
@@ -398,7 +399,7 @@ def refresh_item(item_key: str, payload: RefreshItemPayload) -> dict:
                     project_key=project_key,
                 )
                 session.commit()
-                return {"ok": True, "project_key": project_key, **result}
+                return ok({"ok": True, "project_key": project_key, **result})
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -496,12 +497,14 @@ def sync_handler_clusters(payload: SyncHandlerClustersPayload) -> dict:
                     )
                 session.commit()
 
-        return {
-            "ok": True,
-            "project_key": project_key,
-            "handler_count": len(processed),
-            "results": processed,
-        }
+        return ok(
+            {
+                "ok": True,
+                "project_key": project_key,
+                "handler_count": len(processed),
+                "results": processed,
+            }
+        )
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -518,14 +521,14 @@ def run_item(item_key: str, payload: RunItemPayload) -> dict:
                 project_key,
                 payload.override_params or {},
             )
-            return {"task_id": task.id, "async": True, "item_key": item_key}
+            return ok({"task_id": task.id, "async": True, "item_key": item_key})
 
         result = run_item_by_key(
             item_key=item_key,
             project_key=project_key,
             override_params=payload.override_params or {},
         )
-        return {"async": False, **result}
+        return ok({"async": False, **result})
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -538,6 +541,6 @@ def sync_shared_from_files(project_key: str | None = None) -> dict:
         resolved_project_key = _require_project_key(project_key)
         with bind_project(resolved_project_key):
             result = sync_shared_library_from_files()
-            return {"ok": True, "project_key": resolved_project_key, **result}
+            return ok({"ok": True, "project_key": resolved_project_key, **result})
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc

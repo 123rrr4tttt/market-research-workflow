@@ -279,8 +279,47 @@ cd main/backend
 
 CI 门禁（`.github/workflows/backend-tests.yml`）：
 
-- `pull_request`：`unit-check + integration-check + docker-check`
-- `main` 分支 `push` / `schedule` / `workflow_dispatch`：`unit-check + integration-check + contract-check + e2e-check + docker-check`
+- `pull_request`：`standards-check + unit-check + integration-check + schema-guard-check(非阻塞) + coverage-check(非阻塞) + docker-check`
+- `main` 分支 `push` / `schedule` / `workflow_dispatch`：`standards-check + unit-check + integration-check + schema-guard-check + coverage-check + contract-check + e2e-check + docker-check`
+
+### 9.1 自动化测试标准化执行
+
+统一脚本入口（仓库根目录执行）：
+
+```bash
+./scripts/test-standardize.sh unit
+./scripts/test-standardize.sh integration
+./scripts/test-standardize.sh schema-guard
+./scripts/test-standardize.sh core-business
+./scripts/test-standardize.sh coverage
+./scripts/test-standardize.sh ci-pr
+TEST_PROFILE=test ./scripts/test-standardize.sh docker
+```
+
+Profile 说明：
+
+- 可用 profile：`unit|integration|schema-guard|contract|e2e|core-business|coverage|all|ci-pr|ci-main|docker`
+- 本地 pytest profile 默认排除 `external`（避免外部依赖波动）
+- `docker` profile 默认 `TEST_PROFILE=test`（对应 `main/ops/docker-compose.yml` 中的 `backend-test` 服务）
+- CI `workflow_dispatch` 可通过 `test_profile` 输入覆盖，未传时回退为 `test`
+- `core-business` profile：运行 `tests/core_business` 的关键业务集合（`unit/integration/contract/e2e` marker 并集，排除 `external`）
+- `schema-guard` profile：运行 `tests/integration/test_project_schema_guard_unittest.py`，逐个校验所有项目的 `/api/v1/dashboard/stats` 可用性；失败会直接输出具体 `project_key`
+- 覆盖率门禁默认策略：核心模块 `100%`、其他模块 `20%`（由 `main/backend/scripts/check_coverage_thresholds.py` 执行）
+- 核心模块列表默认：`app/api/search.py,app/contracts/api.py,app/contracts/responses.py,app/contracts/tasks.py,app/contracts/errors.py`，可通过 `CORE_COVERAGE_PATHS` 调整
+
+执行策略（两档）：
+
+- `PR` 档（快速反馈）：`standards-check + unit-check + integration-check + schema-guard-check(非阻塞) + coverage-check(非阻塞) + docker-check`
+- `main` 档（全量门禁）：`standards-check + unit-check + integration-check + schema-guard-check + coverage-check + contract-check + e2e-check + docker-check`
+
+并行执行建议（与现有脚本/CI 一致）：
+
+- CI 侧已并行：`standards-check` 完成后，其余 job 可并行调度；`contract-check/e2e-check` 仅在非 PR 事件执行。
+- 本地可通过标准入口透传 pytest 参数启用并行（需安装 `pytest-xdist`）：
+  - `./scripts/test-standardize.sh unit -n auto`
+  - `./scripts/test-standardize.sh integration -n auto`
+  - `./scripts/test-standardize.sh core-business -n auto`
+- 排查 CI 失败或对齐门禁时，建议使用默认串行命令（不传 `-n auto`），保持与 CI 执行路径一致。
 
 当前 `e2e` 冒烟已覆盖：
 
@@ -359,7 +398,7 @@ cd main/ops
 
 - 后端测试分层：`unit / integration / contract / e2e`
 - `pytest` 严格 marker：`--strict-markers`
-- CI 并行门禁：`unit-check`、`integration-check`、`contract-check`、`e2e-check`、`docker-check`
+- CI 并行门禁：`standards-check` 预检后并行执行 `unit-check`、`integration-check`、`coverage-check`、`docker-check`（其中 `contract-check`、`e2e-check` 仅非 PR 触发）
 
 详见：
 

@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 
-from ..contracts import success_response
+from ..contracts.responses import ok
 from ..models.base import SessionLocal, engine
 from ..models.base import Base
 from ..models.entities import (
@@ -364,19 +364,21 @@ def list_projects() -> dict:
     with bind_schema("public"):
         with SessionLocal() as session:
             rows = session.execute(select(Project).order_by(Project.id.asc())).scalars().all()
-            return {
-                "items": [
-                    {
-                        "id": row.id,
-                        "project_key": row.project_key,
-                        "name": row.name,
-                        "schema_name": row.schema_name,
-                        "enabled": row.enabled,
-                        "is_active": row.is_active,
-                    }
-                    for row in rows
-                ]
-            }
+            return ok(
+                {
+                    "items": [
+                        {
+                            "id": row.id,
+                            "project_key": row.project_key,
+                            "name": row.name,
+                            "schema_name": row.schema_name,
+                            "enabled": row.enabled,
+                            "is_active": row.is_active,
+                        }
+                        for row in rows
+                    ]
+                }
+            )
 
 
 @router.post("")
@@ -408,14 +410,15 @@ def create_project(payload: CreateProjectPayload) -> dict:
     # Initialize tenant tables in target schema (best-effort for optional pgvector).
     _create_tenant_tables_best_effort(schema_name)
 
-    return {"id": row.id, "schema_name": schema_name}
+    return ok({"id": row.id, "schema_name": schema_name})
 
 
 @router.post("/inject-initial")
 def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
-    source_key = _normalize_project_key(payload.source_project_key)
-    if not source_key:
+    source_project_key_raw = (payload.source_project_key or "").strip()
+    if not source_project_key_raw:
         raise HTTPException(status_code=400, detail="source_project_key is required")
+    source_key = _normalize_project_key(source_project_key_raw)
     target_key = _normalize_project_key(payload.project_key or f"{source_key}_{int(__import__('time').time())}")
     if target_key in ("public", "default"):
         raise HTTPException(status_code=409, detail="project_key is reserved")
@@ -517,14 +520,16 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
                     p.is_active = p.project_key == target_key
                 session.commit()
 
-    return {
-        "project_key": target_key,
-        "name": target_name,
-        "schema_name": target_schema,
-        "source_project_key": source_key,
-        "activated": bool(payload.activate),
-        "copied_counts": copied_counts,
-    }
+    return ok(
+        {
+            "project_key": target_key,
+            "name": target_name,
+            "schema_name": target_schema,
+            "source_project_key": source_key,
+            "activated": bool(payload.activate),
+            "copied_counts": copied_counts,
+        }
+    )
 
 
 @router.post("/auto-create")
@@ -548,6 +553,7 @@ def auto_create_project(payload: AutoCreateProjectPayload) -> dict:
                 activate=payload.activate,
             )
         )
+        created = (created.get("data") if isinstance(created, dict) else None) or {}
         created_mode = "inject_initial"
     else:
         created = create_project(
@@ -557,6 +563,7 @@ def auto_create_project(payload: AutoCreateProjectPayload) -> dict:
                 enabled=True,
             )
         )
+        created = (created.get("data") if isinstance(created, dict) else None) or {}
         if payload.activate:
             activate_project(target_key)
         created = {
@@ -569,7 +576,7 @@ def auto_create_project(payload: AutoCreateProjectPayload) -> dict:
         created_mode = "create_empty"
 
     llm_applied = _apply_llm_configs_to_project(target_key, payload.llm_configs)
-    return success_response(
+    return ok(
         {
             **created,
             "created_mode": created_mode,
@@ -620,9 +627,14 @@ def update_project(project_key: str, payload: UpdateProjectPayload) -> dict:
                     if fallback is not None:
                         fallback.is_active = True
                         session.commit()
-                        return {"project_key": normalized_key, "fallback_active_project_key": fallback.project_key}
+                        return ok(
+                            {
+                                "project_key": normalized_key,
+                                "fallback_active_project_key": fallback.project_key,
+                            }
+                        )
 
-    return {"project_key": normalized_key}
+    return ok({"project_key": normalized_key})
 
 
 @router.post("/{project_key}/archive")
@@ -657,7 +669,7 @@ def archive_project(project_key: str) -> dict:
 
             session.commit()
 
-    return {"project_key": normalized_key, "archived": True}
+    return ok({"project_key": normalized_key, "archived": True})
 
 
 @router.post("/{project_key}/restore")
@@ -672,7 +684,7 @@ def restore_project(project_key: str) -> dict:
                 raise HTTPException(status_code=404, detail="project not found")
             project.enabled = True
             session.commit()
-    return {"project_key": normalized_key, "archived": False}
+    return ok({"project_key": normalized_key, "archived": False})
 
 
 @router.post("/{project_key}/activate")
@@ -693,7 +705,7 @@ def activate_project(project_key: str) -> dict:
                 row.is_active = row.project_key == normalized_key
             session.commit()
 
-    return {"active_project_key": normalized_key}
+    return ok({"active_project_key": normalized_key})
 
 
 @router.delete("/{project_key}")
@@ -731,7 +743,7 @@ def delete_project(project_key: str, hard: bool = Query(default=False)) -> dict:
                     if fallback is not None:
                         fallback.is_active = True
                 session.commit()
-                return {"project_key": normalized_key, "deleted": False, "archived": True}
+                return ok({"project_key": normalized_key, "deleted": False, "archived": True})
 
             # Hard delete: remove control-plane row and drop schema
             if was_active:
@@ -757,4 +769,4 @@ def delete_project(project_key: str, hard: bool = Query(default=False)) -> dict:
         if schema_name:
             conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
 
-    return {"project_key": normalized_key, "deleted": True, "hard": True}
+    return ok({"project_key": normalized_key, "deleted": True, "hard": True})
