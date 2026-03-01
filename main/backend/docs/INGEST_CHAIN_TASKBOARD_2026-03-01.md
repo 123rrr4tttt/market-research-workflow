@@ -36,6 +36,10 @@ evidence: `python -m unittest discover -s main/backend/tests -p '*_unittest.py'`
 status: done
 evidence: `tests/test_ingest_baseline_matrix_unittest.py`
 
+8. Add frontend-modern heterogeneous entry baseline tests
+status: done
+evidence: `tests/test_frontend_modern_entry_baseline_unittest.py`
+
 ## Follow-ups
 1. Enable `project_key_enforcement_mode=require` after client rollout.
 2. Repair `project_demo_proj.etl_job_runs` sequence/PK state (current market ingest may fail with duplicate PK).

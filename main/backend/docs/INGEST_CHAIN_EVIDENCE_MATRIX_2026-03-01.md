@@ -72,11 +72,27 @@
 - Outcome:
   - All matrix cases pass; confirms baseline completeness of core ingest entrypoints.
 
+## Frontend-Modern Heterogeneous Entry Baseline
+- File: `main/backend/tests/test_frontend_modern_entry_baseline_unittest.py`
+- Source of truth:
+  - `main/frontend-modern/src/pages/IngestPage.tsx`
+  - `main/frontend-modern/src/pages/GraphPage.tsx`
+  - `main/frontend-modern/src/lib/api.ts`
+- Covered heterogeneous entries:
+  - suggest keywords (`/api/v1/discovery/generate-keywords`)
+  - source-library sync/run
+  - policy / policy-regulation / market / social / commodity / ecom
+  - graph structured-search (`collect` + `source_collect`)
+- Assertions:
+  - explicit `project_key` path succeeds for each entry
+  - strict mode missing-key rejection for ingest entries
+  - OpenAPI route inventory includes all expected modern entry routes
+
 ## Test Execution Result
 - Command:
   - `main/backend/.venv311/bin/python -m unittest discover -s main/backend/tests -p '*_unittest.py'`
 - Result:
-  - `Ran 36 tests ... OK`
+  - `Ran 39 tests ... OK`
 
 ## Live DB Isolation Verification (demo_proj vs iso_proj)
 - Purpose:
