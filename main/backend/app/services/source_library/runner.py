@@ -128,6 +128,7 @@ def _run_via_crawler_provider_registry(
     project_key: str | None,
     provider_type: str,
 ) -> Dict[str, Any]:
+    from .. import crawlers as _crawlers  # noqa: F401 - trigger builtin crawler provider registration
     from ..crawlers.base import CrawlerDispatchRequest
     from ..crawlers.registry import get_provider
 

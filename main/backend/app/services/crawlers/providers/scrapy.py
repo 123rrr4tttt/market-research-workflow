@@ -4,15 +4,14 @@ import os
 
 from ..base import CrawlerDispatchRequest, CrawlerDispatchResult
 from ..scrapyd_client import ScrapydClient
+from ..scrapyd_runtime import ensure_scrapyd_ready
 
 
 class ScrapyCrawlerProvider:
     provider_type = "scrapy"
 
     def __init__(self, *, base_url: str | None = None, timeout: float | None = None) -> None:
-        configured_base_url = base_url or os.getenv("SCRAPYD_BASE_URL")
-        if not configured_base_url:
-            raise ValueError("SCRAPYD_BASE_URL is required for scrapy crawler provider")
+        configured_base_url = ensure_scrapyd_ready(base_url=base_url or os.getenv("SCRAPYD_BASE_URL"))
         self.client = ScrapydClient(
             base_url=configured_base_url,
             timeout=float(timeout if timeout is not None else os.getenv("SCRAPYD_TIMEOUT", 10.0)),

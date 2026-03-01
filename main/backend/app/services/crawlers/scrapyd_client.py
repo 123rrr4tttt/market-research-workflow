@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
@@ -14,8 +15,13 @@ class ScrapydClient:
         self.timeout = float(timeout)
 
     def _post(self, path: str, data: Any) -> dict[str, Any]:
+        payload = data
+        headers: dict[str, str] | None = None
+        if isinstance(data, list):
+            payload = urlencode(data, doseq=True)
+            headers = {"Content-Type": "application/x-www-form-urlencoded"}
         with httpx.Client(timeout=self.timeout) as client:
-            resp = client.post(f"{self.base_url}{path}", data=data)
+            resp = client.post(f"{self.base_url}{path}", data=payload, headers=headers)
             resp.raise_for_status()
             body = resp.json()
             return body if isinstance(body, dict) else {"status": "error", "body": body}

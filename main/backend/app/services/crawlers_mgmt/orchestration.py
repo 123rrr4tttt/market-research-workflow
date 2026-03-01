@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 from sqlalchemy import select
 
+from ..crawlers.scrapyd_runtime import ensure_scrapyd_ready
 from ...models.base import SessionLocal
 from ...models.entities import IngestChannel, SourceLibraryItem
 from ..projects import bind_project
@@ -52,9 +53,7 @@ def _normalize_allowlist(execution_policy: dict[str, Any], *, project_key: str, 
 
 
 def _resolve_scrapyd_endpoint(base_url: str | None) -> tuple[str, float]:
-    configured = str(base_url or os.getenv("SCRAPYD_BASE_URL") or "").strip()
-    if not configured:
-        raise ValueError("SCRAPYD_BASE_URL is required for crawler deploy/rollback orchestration")
+    configured = ensure_scrapyd_ready(base_url=base_url or os.getenv("SCRAPYD_BASE_URL"))
     timeout = float(os.getenv("SCRAPYD_TIMEOUT", "15.0"))
     return configured.rstrip("/"), timeout
 
@@ -325,4 +324,3 @@ def apply_source_library_native_rollback(
         "channel_found": row_exists,
         "item_updated": item_updated,
     }
-

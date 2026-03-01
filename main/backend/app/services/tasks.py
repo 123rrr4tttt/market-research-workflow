@@ -63,6 +63,7 @@ def _map_control_status(status: str | None, default: str = "running") -> str:
 
 
 def _load_crawlers_bridge_api():
+    from . import crawlers as _crawlers  # noqa: F401 - ensure builtin providers are registered
     try:
         module = import_module(".crawlers.bridge", package=__package__)
     except Exception:
