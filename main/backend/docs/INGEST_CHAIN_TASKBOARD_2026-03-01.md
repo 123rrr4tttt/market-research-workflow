@@ -32,6 +32,10 @@ evidence: `tests/test_project_key_policy_unittest.py` includes:
 status: done
 evidence: `python -m unittest discover -s main/backend/tests -p '*_unittest.py'`
 
+7. Add ingest baseline matrix tests for all core ingest modes
+status: done
+evidence: `tests/test_ingest_baseline_matrix_unittest.py`
+
 ## Follow-ups
 1. Enable `project_key_enforcement_mode=require` after client rollout.
 2. Repair `project_demo_proj.etl_job_runs` sequence/PK state (current market ingest may fail with duplicate PK).

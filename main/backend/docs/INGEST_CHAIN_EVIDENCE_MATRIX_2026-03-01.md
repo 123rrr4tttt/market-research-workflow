@@ -61,11 +61,22 @@
     - `/api/v1/ingest/graph/structured-search` explicit key success + strict mode failure
     - `/api/v1/source_library/items/{item_key}/run` explicit key success + strict mode failure
 
+## Ingest Baseline Matrix Tests (core modes)
+- File: `main/backend/tests/test_ingest_baseline_matrix_unittest.py`
+- Coverage:
+  - Route inventory assertions (OpenAPI contains core ingest paths)
+  - Strict mode (`project_key_enforcement_mode=require`) missing-key failures for:
+    - `policy`, `market`, `source-library/run`, `social/sentiment`, `graph/structured-search`,
+      `policy/regulation`, `commodity/metrics`, `ecom/prices`
+  - Explicit key success cases for the same set, with async mode and task dispatch mocks
+- Outcome:
+  - All matrix cases pass; confirms baseline completeness of core ingest entrypoints.
+
 ## Test Execution Result
 - Command:
   - `main/backend/.venv311/bin/python -m unittest discover -s main/backend/tests -p '*_unittest.py'`
 - Result:
-  - `Ran 33 tests ... OK`
+  - `Ran 36 tests ... OK`
 
 ## Live DB Isolation Verification (demo_proj vs iso_proj)
 - Purpose:
