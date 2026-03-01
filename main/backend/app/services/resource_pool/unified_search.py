@@ -230,6 +230,7 @@ def _filter_urls_by_terms_with_fallback(
     terms: list[str],
     *,
     fallback_limit: int = 30,
+    allow_fallback: bool = True,
 ) -> tuple[list[str], bool]:
     """
     First try strict URL-term match; if nothing matches, fall back to top URLs.
@@ -240,6 +241,8 @@ def _filter_urls_by_terms_with_fallback(
         return filtered, False
     if not terms:
         return urls, False
+    if not allow_fallback:
+        return [], True
     return urls[: max(1, int(fallback_limit))], True
 
 
@@ -279,6 +282,7 @@ def unified_search_by_item(
     auto_ingest: bool = False,
     ingest_limit: int = 10,
     enable_extraction: bool = True,
+    allow_term_fallback: bool = True,
 ) -> UnifiedSearchResult:
     terms = _as_terms(query_terms)
     item_key = (item_key or "").strip()
@@ -308,6 +312,7 @@ def unified_search_by_item(
         auto_ingest=auto_ingest,
         ingest_limit=ingest_limit,
         enable_extraction=enable_extraction,
+        allow_term_fallback=allow_term_fallback,
     )
 
 
@@ -324,6 +329,7 @@ def unified_search_by_item_payload(
     auto_ingest: bool = False,
     ingest_limit: int = 10,
     enable_extraction: bool = True,
+    allow_term_fallback: bool = True,
 ) -> UnifiedSearchResult:
     terms = _as_terms(query_terms)
     item_key = str(item.get("item_key") or "").strip()
@@ -391,19 +397,41 @@ def unified_search_by_item_payload(
             if etype == "rss":
                 xml_text, _ = fetch_html(base_url, timeout=probe_timeout, retries=1)
                 urls = _extract_urls_from_rss_xml(xml_text)
-                picked, used_fallback = _filter_urls_by_terms_with_fallback(urls, terms)
+                picked, used_fallback = _filter_urls_by_terms_with_fallback(
+                    urls,
+                    terms,
+                    allow_fallback=allow_term_fallback,
+                )
                 if used_fallback:
                     local_errors.append(
-                        {"site_url": base_url, "error": "url_term_filter_empty_fallback_used"}
+                        {
+                            "site_url": base_url,
+                            "error": (
+                                "url_term_filter_empty_fallback_used"
+                                if allow_term_fallback
+                                else "url_term_filter_empty_no_fallback"
+                            ),
+                        }
                     )
                 for u in picked:
                     _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "rss"})
             elif etype == "sitemap":
                 urls = _collect_sitemap_urls(sitemap_url=base_url, timeout=probe_timeout)
-                picked, used_fallback = _filter_urls_by_terms_with_fallback(urls, terms)
+                picked, used_fallback = _filter_urls_by_terms_with_fallback(
+                    urls,
+                    terms,
+                    allow_fallback=allow_term_fallback,
+                )
                 if used_fallback:
                     local_errors.append(
-                        {"site_url": base_url, "error": "url_term_filter_empty_fallback_used"}
+                        {
+                            "site_url": base_url,
+                            "error": (
+                                "url_term_filter_empty_fallback_used"
+                                if allow_term_fallback
+                                else "url_term_filter_empty_no_fallback"
+                            ),
+                        }
                     )
                 for u in picked:
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
@@ -416,10 +444,21 @@ def unified_search_by_item_payload(
                 url = tpl.replace("{{q}}", joined_q).replace("{{page}}", "1")
                 html, _ = fetch_html(url, timeout=probe_timeout, retries=1)
                 urls = _extract_urls_from_html(html, base_url=url)
-                picked, used_fallback = _filter_urls_by_terms_with_fallback(urls, terms)
+                picked, used_fallback = _filter_urls_by_terms_with_fallback(
+                    urls,
+                    terms,
+                    allow_fallback=allow_term_fallback,
+                )
                 if used_fallback:
                     local_errors.append(
-                        {"site_url": base_url, "error": "url_term_filter_empty_fallback_used"}
+                        {
+                            "site_url": base_url,
+                            "error": (
+                                "url_term_filter_empty_fallback_used"
+                                if allow_term_fallback
+                                else "url_term_filter_empty_no_fallback"
+                            ),
+                        }
                     )
                 for u in picked:
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
