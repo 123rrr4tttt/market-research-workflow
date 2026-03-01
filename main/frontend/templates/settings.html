@@ -52,6 +52,20 @@
       </section>
 
       <section class="card" style="margin-bottom: 12px;">
+        <h2 class="section-title"><i data-lucide="gauge"></i> 并发配置</h2>
+        <div class="grid-2">
+          <div class="card">
+            <label>EXTRACTION_MAX_PARALLEL</label>
+            <input id="EXTRACTION_MAX_PARALLEL" type="number" min="1" step="1" placeholder="默认 8" />
+          </div>
+          <div class="card">
+            <label>TOPIC_WORKFLOW_MAX_PARALLEL</label>
+            <input id="TOPIC_WORKFLOW_MAX_PARALLEL" type="number" min="1" step="1" placeholder="默认 8" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="margin-bottom: 12px;">
         <h2 class="section-title"><i data-lucide="search"></i> 搜索配置</h2>
         <div class="grid-2">
           <div class="card"><label>GOOGLE_SEARCH_API_KEY</label><input id="GOOGLE_SEARCH_API_KEY" type="password" /></div>
@@ -89,6 +103,7 @@
         "DATABASE_URL", "ES_URL", "REDIS_URL", "LLM_PROVIDER",
         "OPENAI_API_KEY", "OPENAI_API_BASE", "AZURE_API_KEY", "AZURE_API_BASE",
         "AZURE_API_VERSION", "AZURE_CHAT_DEPLOYMENT", "AZURE_EMBEDDING_DEPLOYMENT", "OLLAMA_BASE_URL",
+        "EXTRACTION_MAX_PARALLEL", "TOPIC_WORKFLOW_MAX_PARALLEL",
         "SERPAPI_KEY", "SERPSTACK_KEY", "GOOGLE_SEARCH_API_KEY", "GOOGLE_SEARCH_CSE_ID"
       ];
 

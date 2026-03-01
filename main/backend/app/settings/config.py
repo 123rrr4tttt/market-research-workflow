@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     azure_embedding_deployment: Optional[str] = Field(default=None)
 
     ollama_base_url: Optional[str] = Field(default="http://localhost:11434")
+    extraction_max_parallel: int = Field(default=8)
+    topic_workflow_max_parallel: int = Field(default=8)
 
     # External APIs
     legiscan_api_key: Optional[str] = Field(default=None)

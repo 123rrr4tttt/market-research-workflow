@@ -24,11 +24,11 @@ class ExtractionApplicationService:
     def _resolve_parallel_workers(total_tasks: int) -> int:
         if total_tasks <= 1:
             return 1
-        cap_raw = str(os.getenv("EXTRACTION_MAX_PARALLEL", "6")).strip()
+        cap_raw = str(os.getenv("EXTRACTION_MAX_PARALLEL", "8")).strip()
         try:
             cap = max(1, int(cap_raw))
         except Exception:
-            cap = 6
+            cap = 8
         return max(1, min(total_tasks, cap))
 
     def extract_policy(self, text: str) -> Optional[dict[str, Any]]:

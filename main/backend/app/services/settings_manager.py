@@ -24,6 +24,8 @@ ENV_KEY_MAPPING = {
     "AZURE_CHAT_DEPLOYMENT": "azure_chat_deployment",
     "AZURE_EMBEDDING_DEPLOYMENT": "azure_embedding_deployment",
     "OLLAMA_BASE_URL": "ollama_base_url",
+    "EXTRACTION_MAX_PARALLEL": "extraction_max_parallel",
+    "TOPIC_WORKFLOW_MAX_PARALLEL": "topic_workflow_max_parallel",
     "SERPAPI_KEY": "serpapi_key",
     "SERPSTACK_KEY": "serpstack_key",
     "SERPER_API_KEY": "serper_api_key",
@@ -71,5 +73,4 @@ def update_env_settings(updates: Dict[str, str | None]) -> Dict[str, str | None]
 
     reload_settings()
     return load_env_settings()
-
 

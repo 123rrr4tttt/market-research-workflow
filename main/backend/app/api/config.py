@@ -34,6 +34,8 @@ class EnvSettingsPayload(BaseModel):
     AZURE_CHAT_DEPLOYMENT: str | None = None
     AZURE_EMBEDDING_DEPLOYMENT: str | None = None
     OLLAMA_BASE_URL: str | None = None
+    EXTRACTION_MAX_PARALLEL: str | None = None
+    TOPIC_WORKFLOW_MAX_PARALLEL: str | None = None
     LEGISCAN_API_KEY: str | None = None
     NEWS_API_KEY: str | None = None
     SERPAPI_KEY: str | None = None
@@ -67,5 +69,4 @@ def update_env(payload: EnvSettingsPayload):
 def reload_env_settings():
     reload_settings()
     return success_response({"status": "reloaded"})
-
 
