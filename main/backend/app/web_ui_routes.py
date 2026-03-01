@@ -18,9 +18,22 @@ def register_ui_routes(
     template_dir: Path,
     usa_map_path: Path,
 ) -> None:
+    def _modern_frontend_base() -> str:
+        explicit = str(os.getenv("MODERN_FRONTEND_URL") or "").strip().rstrip("/")
+        if explicit:
+            return explicit
+        enable_default = str(os.getenv("ENABLE_DEFAULT_MODERN_FRONTEND", "1")).strip().lower()
+        if enable_default in {"0", "false", "no", "off"}:
+            return ""
+        host = str(os.getenv("MODERN_FRONTEND_HOST") or "127.0.0.1").strip()
+        port = str(os.getenv("MODERN_FRONTEND_PORT") or "5173").strip()
+        if not host or not port:
+            return ""
+        return f"http://{host}:{port}"
+
     def _modern_frontend_redirect(request: Request) -> RedirectResponse | None:
         """Redirect shell entry routes to modern frontend when enabled."""
-        base = str(os.getenv("MODERN_FRONTEND_URL") or "").strip().rstrip("/")
+        base = _modern_frontend_base()
         if not base:
             return None
         query = dict(request.query_params)
@@ -64,7 +77,7 @@ def register_ui_routes(
         return rebuilt
 
     def _modern_frontend_redirect_with_hash(target: str, request: Request) -> RedirectResponse | None:
-        base = str(os.getenv("MODERN_FRONTEND_URL") or "").strip().rstrip("/")
+        base = _modern_frontend_base()
         if not base:
             return None
         modern_target = _build_legacy_target(target, request)
@@ -82,6 +95,8 @@ def register_ui_routes(
     @app.get("/", response_class=RedirectResponse)
     def index(request: Request):
         """Root redirects to app shell"""
+        if _should_use_legacy(request):
+            return RedirectResponse(url="/app.html?legacy=1", status_code=302)
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
@@ -90,6 +105,8 @@ def register_ui_routes(
     @app.get("/index.html", response_class=RedirectResponse)
     def index_html(request: Request):
         """Legacy index redirects to app shell"""
+        if _should_use_legacy(request):
+            return RedirectResponse(url="/app.html?legacy=1", status_code=302)
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
@@ -161,6 +178,8 @@ def register_ui_routes(
     @app.get("/app.html", response_class=HTMLResponse)
     def app_page(request: Request):
         """主应用页面（带侧边栏）"""
+        if _should_use_legacy(request):
+            return templates.TemplateResponse("app.html", {"request": request})
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
@@ -169,6 +188,8 @@ def register_ui_routes(
     @app.get("/app", response_class=HTMLResponse)
     def app_redirect(request: Request):
         """重定向 /app 到 /app.html"""
+        if _should_use_legacy(request):
+            return RedirectResponse(url="/app.html?legacy=1", status_code=301)
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern

@@ -39,8 +39,30 @@ cp main/backend/.env.example main/backend/.env
 ### 2.4 常用运维命令（首选）
 
 ```bash
+# 启动/停止/重启
+./scripts/docker-deploy.sh start
 ./scripts/docker-deploy.sh stop
 ./scripts/docker-deploy.sh restart
+
+# 预检查 / 状态 / 日志 / 健康检查
+./scripts/docker-deploy.sh preflight
+./scripts/docker-deploy.sh status
+./scripts/docker-deploy.sh logs -f backend
+./scripts/docker-deploy.sh health
+```
+
+参数能力（统一透传给底层脚本）：
+- `--non-interactive`：非交互模式，适合 CI/自动化
+- `--force`：强制执行清理/重启流程（不删除数据卷）
+- `--profile <name>`：按 compose profile 启动（例如 `modern-ui`）
+- `services...`：按服务维度查看状态/日志（例如 `status backend redis`、`logs -f celery-worker`）
+
+示例：
+
+```bash
+./scripts/docker-deploy.sh start --non-interactive --force --profile modern-ui
+./scripts/docker-deploy.sh status backend redis
+./scripts/docker-deploy.sh logs -f celery-worker
 ```
 
 ### 2.5 常用访问地址
@@ -52,16 +74,20 @@ cp main/backend/.env.example main/backend/.env
 
 本地（非 Docker）模式仅用于开发调试，生产与联调默认按 Docker 链路执行。
 
-### 2.6 平台封装脚本（每个平台一个入口）
+### 2.6 脚本收敛（主入口 2 个）
 
-说明：平台脚本的 `start` / `stop` / `restart` 会统一转发到 `./scripts/docker-deploy.sh` 对应命令。
+当前统一为两个主入口：
+- Docker 链路：`./scripts/docker-deploy.sh`
+- 纯本地链路：`./scripts/local-deploy.sh`
 
-统一子命令：
-- `start`：Docker 启动全服务
-- `stop`：Docker 停止全服务
-- `restart`：Docker 重启全服务
-- `local-start`：本地后端启动（依赖 `main/backend/start-local.sh`）
-- `local-stop`：本地后端停止（依赖 `main/backend/stop-local.sh`）
+平台脚本（`platform-macos/linux/windows`）现在只代理纯本地链路，不再混用 Docker 子命令。
+
+`local-deploy.sh` 子命令：
+- `start`：纯本地启动（后端 + modern 前端）
+- `stop`：纯本地停止
+- `restart`：纯本地重启
+- `status`：本地端口状态检查（8000/5173）
+- `health`：检查本地后端健康接口
 
 macOS：
 
@@ -69,9 +95,19 @@ macOS：
 ./scripts/platform-macos.sh start
 ./scripts/platform-macos.sh stop
 ./scripts/platform-macos.sh restart
+./scripts/platform-macos.sh status
+./scripts/platform-macos.sh health
 ./scripts/platform-macos.sh local-start
 ./scripts/platform-macos.sh local-stop
 ```
+
+macOS `local-start` 说明（当前默认）：
+- 一键启动本机后端 + modern 前端（`127.0.0.1:8000` / `127.0.0.1:5173`）
+- 默认纯本机依赖，不自动拉起 Docker `db/es/redis`
+- 会自动检查并尝试启动本机 PostgreSQL（Homebrew service）
+- 会自动创建后端虚拟环境 `.venv311` 并按 `requirements.txt` 安装/更新依赖
+- 当前本机库建议使用：`market_intel_local`（见 `main/backend/.env` 的 `DATABASE_URL`）
+- 若要改用 Docker 依赖：`cd main/backend && ./start-local.sh --with-docker-deps`
 
 Linux：
 
@@ -79,6 +115,8 @@ Linux：
 ./scripts/platform-linux.sh start
 ./scripts/platform-linux.sh stop
 ./scripts/platform-linux.sh restart
+./scripts/platform-linux.sh status
+./scripts/platform-linux.sh health
 ./scripts/platform-linux.sh local-start
 ./scripts/platform-linux.sh local-stop
 ```
@@ -89,6 +127,8 @@ Windows（PowerShell，自动尝试 Git Bash/WSL）：
 .\scripts\platform-windows.ps1 start
 .\scripts\platform-windows.ps1 stop
 .\scripts\platform-windows.ps1 restart
+.\scripts\platform-windows.ps1 status
+.\scripts\platform-windows.ps1 health
 .\scripts\platform-windows.ps1 local-start
 .\scripts\platform-windows.ps1 local-stop
 ```
@@ -113,7 +153,7 @@ Windows（PowerShell，自动尝试 Git Bash/WSL）：
 
 ## 4. 前端入口与迁移关系
 
-- 默认情况下，若配置了 `MODERN_FRONTEND_URL`，访问 `/`、`/app`、`/app.html` 会重定向到新版前端。
+- 默认情况下，访问 `/`、`/app`、`/app.html` 会重定向到新版前端（优先使用 `MODERN_FRONTEND_URL`；未配置时默认 `http://127.0.0.1:5173`）。
 - 旧版页面可通过 `?legacy=1` 回退访问。
 - 本地开发新版前端：
 

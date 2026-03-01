@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -27,6 +28,32 @@ from .keyword_library import (
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
 _EXTRACTION_APP = ExtractionApplicationService()
+
+
+def _fallback_sentiment_payload(*, title: str | None, summary: str | None, text: str | None) -> dict:
+    """Fallback schema to keep downstream structured fields stable when LLM extraction returns empty."""
+    merged = " ".join([str(title or ""), str(summary or ""), str(text or "")]).strip()
+    tokens = re.findall(r"[\w\u4e00-\u9fff]{2,}", merged.lower())
+    stop = {
+        "the", "and", "for", "that", "with", "this", "from", "have", "about", "your", "you",
+        "into", "what", "when", "where", "which", "while", "been", "they", "them", "their",
+    }
+    phrases: list[str] = []
+    for tok in tokens:
+        if tok in stop:
+            continue
+        if tok not in phrases:
+            phrases.append(tok)
+        if len(phrases) >= 5:
+            break
+    return {
+        "sentiment_tags": [],
+        "sentiment_orientation": "neutral",
+        "key_phrases": phrases,
+        "emotion_words": [],
+        "topic": (phrases[0] if phrases else ""),
+        "fallback": True,
+    }
 
 
 def collect_user_social_sentiment(
@@ -64,6 +91,9 @@ def collect_user_social_sentiment(
         links: List[str] = []
         fetched_posts = 0
         pending_inserts = 0
+        extraction_ok = 0
+        extraction_empty = 0
+        extraction_fallback = 0
         
         with SessionLocal() as session:
             # 处理Reddit平台
@@ -191,9 +221,29 @@ def collect_user_social_sentiment(
                     }
                     
                     if enable_extraction:
-                        enriched = _EXTRACTION_APP.extract_structured_enriched(post.text or "", include_sentiment=True)
+                        extraction_text = "\n\n".join(
+                            [
+                                f"Title: {post.title or ''}",
+                                f"Summary: {post.summary or ''}",
+                                f"Body: {post.text or ''}",
+                            ]
+                        ).strip()
+                        try:
+                            enriched = _EXTRACTION_APP.extract_structured_enriched(extraction_text, include_sentiment=True)
+                        except Exception as extraction_exc:  # noqa: BLE001
+                            logger.warning("social extraction failed for uri=%s err=%s", link, extraction_exc)
+                            enriched = None
                         if enriched:
                             extracted_data.update(enriched)
+                            extraction_ok += 1
+                        else:
+                            extraction_empty += 1
+                            extracted_data["sentiment"] = _fallback_sentiment_payload(
+                                title=post.title,
+                                summary=post.summary,
+                                text=post.text,
+                            )
+                            extraction_fallback += 1
                     
                     document = Document(
                         source_id=source_id,
@@ -233,6 +283,12 @@ def collect_user_social_sentiment(
             "skipped": skipped,
             "links": links,
             "doc_type": normalized_doc_type,
+            "extraction_stats": {
+                "enabled": bool(enable_extraction),
+                "ok": extraction_ok,
+                "empty": extraction_empty,
+                "fallback": extraction_fallback,
+            },
         }
         logger.info(f"Social sentiment collection completed: inserted={inserted}, skipped={skipped}, links_count={len(links)}")
         complete_job(job_id, result=result)

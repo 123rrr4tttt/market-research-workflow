@@ -374,6 +374,37 @@ def _tail_file(path: str, max_lines: int) -> list[str]:
         return []
 
 
+def _merge_ranges(ranges: list[tuple[int, int]], total: int) -> list[tuple[int, int]]:
+    """合并并裁剪行号范围。"""
+    if not ranges:
+        return []
+    normalized = sorted((max(0, s), min(total, e)) for s, e in ranges if s < e)
+    if not normalized:
+        return []
+    merged: list[tuple[int, int]] = [normalized[0]]
+    for start, end in normalized[1:]:
+        prev_start, prev_end = merged[-1]
+        if start <= prev_end:
+            merged[-1] = (prev_start, max(prev_end, end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def _extract_context_lines(lines: list[str], task_id: str, context: int = 20) -> list[str]:
+    """提取包含 task_id 的命中行及其上下文，减少误过滤导致的“日志不更新”问题。"""
+    if not lines:
+        return []
+    hit_indexes = [idx for idx, line in enumerate(lines) if task_id in line]
+    if not hit_indexes:
+        return []
+    ranges = _merge_ranges([(idx - context, idx + context + 1) for idx in hit_indexes], total=len(lines))
+    out: list[str] = []
+    for start, end in ranges:
+        out.extend(lines[start:end])
+    return [line.rstrip("\n") for line in out]
+
+
 @router.get("/{task_id}/logs")
 def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -> dict:
     """获取指定任务的运行日志（按task_id过滤，默认返回最后200行）。
@@ -389,13 +420,27 @@ def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -
         # 为了更大概率匹配到 task_id，先读取较多行再裁剪
         candidate_lines = _tail_file(log_file, max_lines=min(max(2000, tail * 10), 20000))
 
-        # 先按 task_id 过滤；若无匹配，则退化为直接尾部日志
-        filtered_lines = [line.rstrip("\n") for line in candidate_lines if task_id in line]
-        if filtered_lines:
-            used_lines = filtered_lines[-tail:]
+        # 优先返回 task_id 命中行及其上下文；若无匹配则退化为尾部日志。
+        contextual_lines = _extract_context_lines(candidate_lines, task_id, context=20)
+        plain_tail_lines = [line.rstrip("\n") for line in candidate_lines[-tail:]]
+        if contextual_lines:
+            # 对进行中的任务，拼接最新尾部日志，确保页面能持续看到增量变化。
+            state = str(celery_app.AsyncResult(task_id).status or "").upper()
+            if state in {"PENDING", "STARTED", "RETRY"}:
+                merged_lines = (contextual_lines + plain_tail_lines)[-tail:]
+                seen = set()
+                used_lines = []
+                for line in merged_lines:
+                    if line in seen:
+                        continue
+                    seen.add(line)
+                    used_lines.append(line)
+                used_lines = used_lines[-tail:]
+            else:
+                used_lines = contextual_lines[-tail:]
             filtered = True
         else:
-            used_lines = [line.rstrip("\n") for line in candidate_lines[-tail:]]
+            used_lines = plain_tail_lines
             filtered = False
 
         return {

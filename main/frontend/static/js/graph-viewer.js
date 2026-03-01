@@ -117,6 +117,7 @@
       if (filterValues.state) params.append('state', filterValues.state);
       if (filterValues.game) params.append('game', filterValues.game);
       if (type === 'market_deep_entities' || type === 'company' || type === 'product' || type === 'operation') params.append('view', 'market_deep_entities');
+      if (type === 'company' || type === 'product' || type === 'operation') params.append('topic_scope', type);
     }
     return params;
   }

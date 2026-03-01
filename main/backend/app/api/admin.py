@@ -13,7 +13,7 @@ import logging
 
 from ..models.base import SessionLocal
 from ..models.entities import Document, Source, MarketStat, SearchHistory
-from ..services.graph.doc_types import resolve_graph_doc_types
+from ..services.graph.doc_types import resolve_graph_doc_types, resolve_graph_topic_scope_entities
 from ..services.extraction.extract import extract_policy_info, extract_market_info, extract_entities_relations
 from ..services.extraction.application import ExtractionApplicationService
 from ..services.extraction.topic_workflow import (
@@ -516,6 +516,72 @@ def _augment_market_graph_with_topic_structured(graph, documents: list[Document]
                 subj_node = _ensure_node(rel_subj_type, subj_id, {"text": subj, "entity_type": rel.get("subject_type")})
                 obj_node = _ensure_node(rel_obj_type, obj_id, {"text": obj, "entity_type": rel.get("object_type")})
                 graph.edges.append(GraphEdge(type="TOPIC_RELATION", from_node=subj_node, to_node=obj_node, properties={"predicate": pred}))
+
+
+def _prune_market_graph_by_topic_scope(graph, topic_scope: str | None, topic_scope_entities: dict[str, list[str]] | None):
+    from app.services.graph.models import Graph
+
+    normalized_scope = str(topic_scope or "").strip().lower()
+    if not normalized_scope:
+        return graph
+
+    mapping = topic_scope_entities if isinstance(topic_scope_entities, dict) else {}
+    scope_types = {str(item or "").strip() for item in (mapping.get(normalized_scope) or []) if str(item or "").strip()}
+    if not scope_types:
+        return graph
+
+    if not graph.nodes:
+        return Graph(schema_version=graph.schema_version)
+
+    adjacency: dict[str, set[str]] = {}
+    for edge in graph.edges:
+        from_key = f"{edge.from_node.type}:{edge.from_node.id}"
+        to_key = f"{edge.to_node.type}:{edge.to_node.id}"
+        if from_key not in graph.nodes or to_key not in graph.nodes:
+            continue
+        adjacency.setdefault(from_key, set()).add(to_key)
+        adjacency.setdefault(to_key, set()).add(from_key)
+
+    # Keep only connected components that contain both:
+    # 1) topic-scope entities (Company*/Product*/Operation*)
+    # 2) market roots (MarketData)
+    unvisited = set(graph.nodes.keys())
+    kept_node_keys: set[str] = set()
+    while unvisited:
+        start = unvisited.pop()
+        component = {start}
+        stack = [start]
+        has_scope = graph.nodes[start].type in scope_types
+        has_market_root = graph.nodes[start].type == "MarketData"
+        while stack:
+            current = stack.pop()
+            for neighbor in adjacency.get(current, set()):
+                if neighbor in component:
+                    continue
+                component.add(neighbor)
+                if neighbor in unvisited:
+                    unvisited.remove(neighbor)
+                node_type = graph.nodes.get(neighbor).type if graph.nodes.get(neighbor) else ""
+                if node_type in scope_types:
+                    has_scope = True
+                if node_type == "MarketData":
+                    has_market_root = True
+                stack.append(neighbor)
+        if has_scope and has_market_root:
+            kept_node_keys.update(component)
+
+    pruned = Graph(schema_version=graph.schema_version)
+    for node_key in kept_node_keys:
+        node = graph.nodes.get(node_key)
+        if node is not None:
+            pruned.nodes[node_key] = node
+
+    for edge in graph.edges:
+        from_key = f"{edge.from_node.type}:{edge.from_node.id}"
+        to_key = f"{edge.to_node.type}:{edge.to_node.id}"
+        if from_key in kept_node_keys and to_key in kept_node_keys:
+            pruned.edges.append(edge)
+    return pruned
 
 
 @router.get("/stats")
@@ -1649,7 +1715,7 @@ def get_content_graph(
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
     platform: Optional[str] = Query(None, description="平台名称，如 reddit, twitter"),
     topic: Optional[str] = Query(None, description="主题过滤"),
-    limit: int = Query(default=100, ge=1, le=500, description="限制文档数量"),
+    limit: int = Query(default=100, ge=1, le=2000, description="限制文档数量"),
 ):
     """根据条件获取内容图谱数据"""
     from fastapi.responses import JSONResponse
@@ -1790,8 +1856,9 @@ def get_market_graph(
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
     state: Optional[str] = Query(None, description="州代码过滤，如 CA"),
     game: Optional[str] = Query(None, description="游戏类型过滤"),
+    topic_scope: Optional[Literal["company", "product", "operation"]] = Query(None, description="专题范围(company/product/operation)"),
     view: Optional[str] = Query(None, description="视图模式，如 market_deep_entities"),
-    limit: int = Query(default=100, ge=1, le=500, description="限制数据数量"),
+    limit: int = Query(default=100, ge=1, le=2000, description="限制数据数量"),
 ):
     """根据条件获取市场数据图谱（从Document表中查询doc_type='market'的文档）"""
     from fastapi.responses import JSONResponse
@@ -1920,6 +1987,12 @@ def get_market_graph(
                         _augment_market_graph_with_topic_structured(graph, documents)
                     except Exception as e:
                         logger.warning(f"扩展专题图谱节点失败: {e}")
+                if topic_scope:
+                    graph = _prune_market_graph_by_topic_scope(
+                        graph,
+                        topic_scope=topic_scope,
+                        topic_scope_entities=resolve_graph_topic_scope_entities(project_key),
+                    )
 
                 try:
                     json_data = export_to_json(graph)
@@ -1952,7 +2025,7 @@ def get_policy_graph(
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
     state: Optional[str] = Query(None, description="州代码过滤，如 CA"),
     policy_type: Optional[str] = Query(None, description="政策类型过滤，如 regulation"),
-    limit: int = Query(default=100, ge=1, le=500, description="限制政策数量"),
+    limit: int = Query(default=100, ge=1, le=2000, description="限制政策数量"),
 ):
     """根据条件获取政策数据图谱"""
     from fastapi.responses import JSONResponse

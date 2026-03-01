@@ -740,47 +740,6 @@
         return v;
       }
 
-      function filterTopicSpecializedGraph(data, type) {
-        if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) return data;
-        const topicTypePrefixes = type === 'company'
-          ? ['Company']
-          : (type === 'product' ? ['Product'] : ['Operation']);
-        const isTopicType = (nodeType) => {
-          const t = String(nodeType || '');
-          return topicTypePrefixes.some(prefix => t === `${prefix}Entity` || t.startsWith(prefix));
-        };
-        const topicKeys = new Set();
-        const marketKeys = new Set();
-        const keepEdges = [];
-
-        const keyOf = (n) => `${n.type}:${n.id}`;
-        const nodeMap = new Map((data.nodes || []).map(n => [keyOf(n), n]));
-        for (const edge of (data.edges || [])) {
-          const fromKey = edge?.from ? `${edge.from.type}:${edge.from.id}` : '';
-          const toKey = edge?.to ? `${edge.to.type}:${edge.to.id}` : '';
-          const fromType = edge?.from?.type;
-          const toType = edge?.to?.type;
-          const connectsTopic = isTopicType(fromType) || isTopicType(toType);
-          if (!connectsTopic) continue;
-          keepEdges.push(edge);
-          if (isTopicType(fromType)) topicKeys.add(fromKey);
-          if (isTopicType(toType)) topicKeys.add(toKey);
-          if (fromType === 'MarketData') marketKeys.add(fromKey);
-          if (toType === 'MarketData') marketKeys.add(toKey);
-          if (fromType === 'TopicTag') topicKeys.add(fromKey);
-          if (toType === 'TopicTag') topicKeys.add(toKey);
-        }
-
-        const keepKeys = new Set([...topicKeys, ...marketKeys]);
-        const nodes = (data.nodes || []).filter(n => keepKeys.has(keyOf(n)));
-        const edges = (data.edges || []).filter(e => {
-          const fromKey = e?.from ? `${e.from.type}:${e.from.id}` : '';
-          const toKey = e?.to ? `${e.to.type}:${e.to.id}` : '';
-          return keepKeys.has(fromKey) && keepKeys.has(toKey);
-        });
-        return { ...data, nodes, edges };
-      }
-
       function renderExtraFilters() {
         const el = document.getElementById('filter-extra');
         if (el) el.innerHTML = EXTRA_FILTERS[graphType]?.() || '';
@@ -1520,9 +1479,7 @@
           const params = GV.buildParams(graphType, getFilterValues());
           const apiPath = GV.API_PATHS[graphType];
           const data = await window.MarketApp.fetchJSON(`${apiPath}?${params.toString()}`, { cache: 'no-store' });
-          const preparedData = (graphType === 'company' || graphType === 'product' || graphType === 'operation')
-            ? filterTopicSpecializedGraph(data, graphType)
-            : data;
+          const preparedData = data;
           latestGraphData = preparedData;
           const nodes = preparedData.nodes || [];
           const edges = preparedData.edges || [];

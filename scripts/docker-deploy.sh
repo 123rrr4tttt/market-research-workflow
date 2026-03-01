@@ -8,14 +8,14 @@ OPS_DIR="${ROOT_DIR}/main/ops"
 
 usage() {
   cat <<USAGE
-Usage: $(basename "$0") {start|stop|restart|status|logs|health|preflight}
+Usage: $(basename "$0") {start|stop|restart|status|logs|health|preflight} [extra args...]
 
 Commands:
-  start      Start docker services (preferred)
-  stop       Stop docker services
-  restart    Restart docker services
+  start      Start docker services (preferred, extra args are forwarded)
+  stop       Stop docker services (extra args are forwarded)
+  restart    Restart docker services (extra args are forwarded)
   status     Show compose service status
-  logs       Tail backend logs
+  logs       Tail backend logs (extra args override default backend target)
   health     Check API health endpoints
   preflight  Validate required commands/files and docker availability
 USAGE
@@ -90,34 +90,39 @@ preflight() {
   return 0
 }
 
-if [[ $# -ne 1 ]]; then
+if [[ $# -lt 1 ]]; then
   usage
   exit 1
 fi
 
 cmd="$1"
+shift
 case "$cmd" in
   start)
     require_ops_dir
-    exec "${OPS_DIR}/start-all.sh"
+    exec "${OPS_DIR}/start-all.sh" "$@"
     ;;
   stop)
     require_ops_dir
-    exec "${OPS_DIR}/stop-all.sh"
+    exec "${OPS_DIR}/stop-all.sh" "$@"
     ;;
   restart)
     require_ops_dir
-    exec "${OPS_DIR}/restart.sh"
+    exec "${OPS_DIR}/restart.sh" "$@"
     ;;
   status)
     require_ops_dir
     cd "${OPS_DIR}"
-    compose ps
+    compose ps "$@"
     ;;
   logs)
     require_ops_dir
     cd "${OPS_DIR}"
-    compose logs -f backend
+    if [[ $# -gt 0 ]]; then
+      compose logs "$@"
+    else
+      compose logs -f backend
+    fi
     ;;
   health)
     curl -fsS http://localhost:8000/api/v1/health

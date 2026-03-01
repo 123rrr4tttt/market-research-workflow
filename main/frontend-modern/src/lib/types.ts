@@ -39,6 +39,37 @@ export type ProjectItem = {
   is_active?: boolean
 }
 
+export type AutoCreateProjectPayload = {
+  project_name: string
+  project_key?: string | null
+  template_project_key?: string
+  activate?: boolean
+  copy_initial_data?: boolean
+  llm_configs?: Array<{
+    service_name: string
+    user_prompt_template?: string
+    description?: string
+    system_prompt?: string
+    model?: string
+    temperature?: number
+    max_tokens?: number
+    top_p?: number
+    presence_penalty?: number
+    frequency_penalty?: number
+    enabled?: boolean
+  }>
+}
+
+export type AutoCreateProjectResult = {
+  project_key: string
+  name?: string
+  schema_name?: string
+  activated?: boolean
+  template_project_key?: string
+  created_mode?: 'inject_initial' | 'create_empty'
+  llm_configs_applied?: number
+}
+
 export type EnvSettings = Record<string, string>
 
 export type SourceLibraryItem = {
@@ -106,6 +137,7 @@ export type ProcessHistoryResponse = {
     task_name?: string | null
     job_type?: string
     status?: string
+    params?: Record<string, unknown>
     started_at?: string
     finished_at?: string
     duration_seconds?: number | null
@@ -781,6 +813,7 @@ export type GraphNodeRef = {
 export type GraphNodeItem = {
   id: string | number
   type: string
+  entry_id?: string | number
   title?: string
   name?: string
   text?: string
@@ -806,7 +839,67 @@ export type GraphConfigResponse = {
   graph_type_labels?: Record<string, string>
   graph_node_types?: Record<string, string[]>
   graph_node_labels?: Record<string, string>
+  graph_topic_scope_entities?: Record<string, string[]>
   graph_field_labels?: Record<string, string>
   graph_edge_types?: Record<string, string[]>
   graph_relation_labels?: Record<string, string>
+}
+
+export type GraphStructuredSelectedNode = {
+  type: string
+  id: string
+  entry_id: string
+  label: string
+  topic_focus?: 'company' | 'product' | 'operation' | 'general'
+}
+
+export type GraphStructuredSelectedEdge = {
+  source_entry_id?: string
+  target_entry_id?: string
+  relation?: string
+  label?: string
+}
+
+export type GraphStructuredDashboardParams = {
+  language: string
+  provider: string
+  max_items: number
+  start_offset: number | null
+  days_back: number | null
+  enable_extraction: boolean
+  async_mode: boolean
+  platforms: string[]
+  enable_subreddit_discovery: boolean
+  base_subreddits: string[] | null
+  source_item_keys?: string[]
+  project_key?: string | null
+}
+
+export type GraphStructuredSearchRequest = {
+  selected_nodes: GraphStructuredSelectedNode[]
+  selected_edges?: GraphStructuredSelectedEdge[]
+  dashboard: GraphStructuredDashboardParams
+  llm_assist: boolean
+  flow_type: 'collect' | 'source_collect'
+  intent_mode: 'keyword' | 'keyword_llm'
+}
+
+export type GraphStructuredSearchBatch = {
+  batch_name?: string
+  task_id?: string
+  type?: string
+  [key: string]: unknown
+}
+
+export type GraphStructuredSearchResponse = {
+  flow_type?: string
+  intent_mode?: string
+  batches?: GraphStructuredSearchBatch[]
+  summary?: {
+    accepted?: number
+    queued?: number
+    failed?: number
+    [key: string]: unknown
+  }
+  [key: string]: unknown
 }

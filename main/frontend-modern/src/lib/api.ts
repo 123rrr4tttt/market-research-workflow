@@ -26,6 +26,8 @@ import type {
   AdminDocumentListResponse,
   AdminReExtractPayload,
   AdminStats,
+  AutoCreateProjectPayload,
+  AutoCreateProjectResult,
   AdminTopicExtractPayload,
   AdminTopicExtractResponse,
   DashboardStats,
@@ -34,6 +36,8 @@ import type {
   DocumentItem,
   GraphExportResponse,
   GraphConfigResponse,
+  GraphStructuredSearchRequest,
+  GraphStructuredSearchResponse,
   GraphResponse,
   IngestJobRow,
   LlmProjectTemplatesResponse,
@@ -95,6 +99,10 @@ export async function activateProject(projectKey: string) {
 
 export async function createProject(payload: { project_key: string; name: string; enabled?: boolean }) {
   return createProjectRecord(payload)
+}
+
+export async function autoCreateProject(payload: AutoCreateProjectPayload) {
+  return post<AutoCreateProjectResult>('/api/v1/projects/auto-create', payload)
 }
 
 export async function updateProject(projectKey: string, payload: { name?: string; enabled?: boolean }) {
@@ -593,6 +601,7 @@ export async function getMarketGraph(params: {
   state?: string
   game?: string
   view?: 'market_deep_entities'
+  topic_scope?: 'company' | 'product' | 'operation'
   limit?: number
 }) {
   const query = new URLSearchParams()
@@ -601,6 +610,11 @@ export async function getMarketGraph(params: {
   if (params.state) query.set('state', params.state)
   if (params.game) query.set('game', params.game)
   if (params.view) query.set('view', params.view)
+  if (params.topic_scope) query.set('topic_scope', params.topic_scope)
   query.set('limit', String(params.limit || 100))
   return get<GraphResponse>(`/api/v1/admin/market-graph?${query.toString()}`)
+}
+
+export async function submitGraphStructuredSearchTasks(payload: GraphStructuredSearchRequest) {
+  return post<GraphStructuredSearchResponse>('/api/v1/ingest/graph/structured-search', payload)
 }

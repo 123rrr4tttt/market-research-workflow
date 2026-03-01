@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, CopyPlus, Edit3, HardDriveDownload, RefreshCw, Trash2 } from 'lucide-react'
-import { activateProject, archiveProject, createProject, deleteProject, listProjects, restoreProject, setProjectKey, updateProject } from '../lib/api'
+import { activateProject, archiveProject, autoCreateProject, createProject, deleteProject, listProjects, restoreProject, setProjectKey, updateProject } from '../lib/api'
 
 type ProjectsPageProps = {
   projectKey: string
@@ -12,7 +12,20 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
   const queryClient = useQueryClient()
   const [newProjectKey, setNewProjectKey] = useState('')
   const [newProjectName, setNewProjectName] = useState('')
+  const [templateProjectKey, setTemplateProjectKey] = useState('demo_proj')
+  const [llmServiceName, setLlmServiceName] = useState('keyword_generation')
+  const [llmPromptTemplate, setLlmPromptTemplate] = useState('')
   const [editingProject, setEditingProject] = useState<{ key: string; name: string } | null>(null)
+  const llmServiceOptions = [
+    'prompt_factory',
+    'keyword_generation',
+    'social_keyword_generation',
+    'policy_extraction',
+    'market_info_extraction',
+    'entities_relations_extraction',
+    'site_entry_classification',
+    'document_classification',
+  ]
 
   const projects = useQuery({ queryKey: ['projects'], queryFn: listProjects })
 
@@ -39,6 +52,34 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
     },
   })
 
+  const autoCreateMutation = useMutation({
+    mutationFn: async () =>
+      autoCreateProject({
+        project_name: newProjectName.trim(),
+        project_key: newProjectKey.trim() || null,
+        template_project_key: templateProjectKey,
+        activate: true,
+        copy_initial_data: true,
+        llm_configs: llmPromptTemplate.trim()
+          ? [
+              {
+                service_name: llmServiceName.trim() || 'keyword_generation',
+                user_prompt_template: llmPromptTemplate.trim(),
+                enabled: true,
+              },
+            ]
+          : [],
+      }),
+    onSuccess: async (data) => {
+      setNewProjectKey('')
+      setNewProjectName('')
+      setLlmPromptTemplate('')
+      const next = data?.project_key ? setProjectKey(data.project_key) : null
+      if (next) onProjectChange(next)
+      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+
   return (
     <div className="content-stack">
       <section className="panel">
@@ -49,6 +90,38 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
           <div className="inline-actions">
             <button disabled={actionMutation.isPending || !newProjectKey.trim() || !newProjectName.trim()} onClick={() => actionMutation.mutate({ kind: 'create' })}><CopyPlus size={14} />创建</button>
           </div>
+        </div>
+        <div className="form-grid cols-3" style={{ marginTop: 12 }}>
+          <label>
+            <span>模板项目</span>
+            <select value={templateProjectKey} onChange={(e) => setTemplateProjectKey(e.target.value)}>
+              <option value="demo_proj">demo_proj</option>
+              <option value="online_lottery">online_lottery</option>
+              <option value="business_survey">business_survey</option>
+            </select>
+          </label>
+          <label>
+            <span>LLM 服务名</span>
+            <select value={llmServiceName} onChange={(e) => setLlmServiceName(e.target.value)}>
+              {llmServiceOptions.map((service) => (
+                <option key={service} value={service}>{service}</option>
+              ))}
+            </select>
+          </label>
+          <div className="inline-actions">
+            <button
+              disabled={autoCreateMutation.isPending || !newProjectName.trim()}
+              onClick={() => autoCreateMutation.mutate()}
+            >
+              <CopyPlus size={14} />模板+提示词自动创建
+            </button>
+          </div>
+        </div>
+        <div className="form-grid cols-1" style={{ marginTop: 12 }}>
+          <label>
+            <span>LLM user_prompt_template（可选）</span>
+            <textarea value={llmPromptTemplate} onChange={(e) => setLlmPromptTemplate(e.target.value)} placeholder="填写后会写入新项目的 llm_service_configs" />
+          </label>
         </div>
       </section>
 
