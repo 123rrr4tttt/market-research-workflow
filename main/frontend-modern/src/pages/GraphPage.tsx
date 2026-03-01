@@ -10,6 +10,9 @@ import type {
   SourceLibraryItem,
 } from '../lib/types'
 import { GRAPH_COLOR_THEMES, assignLegendColors, type PaletteKey } from '../lib/graph-colors'
+import { applyRenderer2D, RENDERER_2D_CAPABILITIES } from './graph/renderers/renderer2dEcharts'
+import { applyRendererProjection3D, RENDERER_PROJECTION_3D_CAPABILITIES, type Projection3DPhysicsState } from './graph/renderers/renderer3dProjection'
+import type { RenderMode, RenderNode } from './graph/renderers/types'
 
 type Variant = 'graphMarket' | 'graphPolicy' | 'graphSocial' | 'graphCompany' | 'graphProduct' | 'graphOperation' | 'graphDeep'
 
@@ -190,6 +193,8 @@ type EdgeLineType = 'solid' | 'dashed' | 'dotted'
 type EdgeLegendItem = {
   key: string
   tier: EdgeLegendTier
+  shapeKind: EdgeShapeKind
+  strokeKind: EdgeStrokeKind
   lineType: EdgeLineType
   label: string
   count: number
@@ -200,6 +205,45 @@ const EDGE_TIER_LABEL: Record<EdgeLegendTier, string> = {
   class: '关系大类',
   pred: '关系谓词',
   type: '边类型',
+}
+
+type EdgeShapeKind = 'influence' | 'hierarchy' | 'flow' | 'association' | 'temporal' | 'directed'
+
+type EdgeSymbolName = 'none' | 'arrow' | 'circle' | 'diamond' | 'triangle'
+type EdgeStrokeKind = 'straight' | 'curved' | 'wavy' | 'double'
+
+const EDGE_PROFILE_BY_SHAPE: Record<EdgeShapeKind, {
+  strokeKind: EdgeStrokeKind
+  symbol: [EdgeSymbolName, EdgeSymbolName]
+  symbolSize: [number, number]
+}> = {
+  influence: { strokeKind: 'straight', symbol: ['none', 'arrow'], symbolSize: [0, 8] },
+  hierarchy: { strokeKind: 'double', symbol: ['none', 'diamond'], symbolSize: [0, 9] },
+  flow: { strokeKind: 'curved', symbol: ['circle', 'arrow'], symbolSize: [4, 8] },
+  association: { strokeKind: 'wavy', symbol: ['circle', 'circle'], symbolSize: [4, 4] },
+  temporal: { strokeKind: 'curved', symbol: ['none', 'triangle'], symbolSize: [0, 8] },
+  directed: { strokeKind: 'straight', symbol: ['none', 'arrow'], symbolSize: [0, 7] },
+}
+
+const EDGE_LINE_TYPE_BY_STROKE: Record<EdgeStrokeKind, EdgeLineType> = {
+  straight: 'solid',
+  curved: 'solid',
+  wavy: 'dashed',
+  double: 'solid',
+}
+
+const EDGE_CURVENESS_BY_STROKE: Record<EdgeStrokeKind, number> = {
+  straight: 0,
+  curved: 0.2,
+  wavy: 0.34,
+  double: 0.06,
+}
+
+const EDGE_STROKE_LABEL: Record<EdgeStrokeKind, string> = {
+  straight: '直线',
+  curved: '曲线',
+  wavy: '波浪线',
+  double: '双线',
 }
 
 const RELATION_CLASS_LABEL: Record<string, string> = {
@@ -221,26 +265,46 @@ const RELATION_CLASS_LABEL: Record<string, string> = {
   other: '其他关系',
 }
 
-const EDGE_LINE_TYPE_BY_TIER: Record<EdgeLegendTier, EdgeLineType> = {
-  class: 'solid',
-  pred: 'dashed',
-  type: 'dotted',
-}
-
 const EDGE_WIDTH_BY_TIER: Record<EdgeLegendTier, number> = {
   class: 1.8,
   pred: 1.4,
   type: 1.2,
 }
 
-const EDGE_ALPHA_BY_TIER: Record<EdgeLegendTier, number> = {
-  class: 0.72,
-  pred: 0.58,
-  type: 0.5,
-}
-
 function normalizeEdgeToken(value: unknown) {
   return String(value || '').trim()
+}
+
+function edgeSemanticTokens(edge: GraphEdgeItem) {
+  return [
+    normalizeEdgeToken(edge.relation_class).toLowerCase(),
+    normalizeEdgeToken(edge.predicate).toLowerCase(),
+    normalizeEdgeToken(edge.type).toLowerCase(),
+  ].filter(Boolean)
+}
+
+function matchEdgeToken(tokens: string[], patterns: string[]) {
+  return tokens.some((token) => patterns.some((pattern) => token.includes(pattern)))
+}
+
+function edgeShapeKind(edge: GraphEdgeItem): EdgeShapeKind {
+  const tokens = edgeSemanticTokens(edge)
+  if (matchEdgeToken(tokens, ['taxonomy', 'category', 'classify', 'compose', 'composition', 'part', 'belong', 'include'])) {
+    return 'hierarchy'
+  }
+  if (matchEdgeToken(tokens, ['supply', 'distribution', 'channel', 'pipeline', 'flow', 'route'])) {
+    return 'flow'
+  }
+  if (matchEdgeToken(tokens, ['impact', 'influ', 'cause', 'drive', 'effect', 'lift', 'drop'])) {
+    return 'influence'
+  }
+  if (matchEdgeToken(tokens, ['competition', 'collab', 'partner', 'depend', 'relation', 'associate', 'peer'])) {
+    return 'association'
+  }
+  if (matchEdgeToken(tokens, ['event', 'period', 'time', 'timeline', 'phase', 'season', 'date'])) {
+    return 'temporal'
+  }
+  return 'directed'
 }
 
 function edgeLegendTier(edge: GraphEdgeItem): EdgeLegendTier {
@@ -328,6 +392,57 @@ function clampControlPanelWidth(value: number, viewportWidth: number) {
   const viewportBound = Math.max(CONTROL_PANEL_MIN_WIDTH, viewportWidth - 28)
   const maxAllowed = Math.min(CONTROL_PANEL_MAX_WIDTH, viewportBound)
   return Math.max(CONTROL_PANEL_MIN_WIDTH, Math.min(maxAllowed, Math.round(value)))
+}
+
+type QuaternionLike = { x: number; y: number; z: number; w: number }
+
+function normalizeQuat(q: QuaternionLike): QuaternionLike {
+  const len = Math.sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w) || 1
+  return { x: q.x / len, y: q.y / len, z: q.z / len, w: q.w / len }
+}
+
+function quatMul(a: QuaternionLike, b: QuaternionLike): QuaternionLike {
+  return normalizeQuat({
+    w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+    x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+    y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+    z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+  })
+}
+
+function quatFromAxisAngle(ax: number, ay: number, az: number, angle: number): QuaternionLike {
+  const norm = Math.sqrt(ax * ax + ay * ay + az * az) || 1
+  const half = angle / 2
+  const s = Math.sin(half) / norm
+  return normalizeQuat({
+    x: ax * s,
+    y: ay * s,
+    z: az * s,
+    w: Math.cos(half),
+  })
+}
+
+function quatFromEulerDeg(xDeg: number, yDeg: number, zDeg: number): QuaternionLike {
+  const qx = quatFromAxisAngle(1, 0, 0, (xDeg * Math.PI) / 180)
+  const qy = quatFromAxisAngle(0, 1, 0, (yDeg * Math.PI) / 180)
+  const qz = quatFromAxisAngle(0, 0, 1, (zDeg * Math.PI) / 180)
+  return quatMul(qz, quatMul(qy, qx))
+}
+
+function rotateVecByQuat(v: { x: number; y: number; z: number }, q: QuaternionLike) {
+  const nq = normalizeQuat(q)
+  const qx = nq.x
+  const qy = nq.y
+  const qz = nq.z
+  const qw = nq.w
+  const tx = 2 * (qy * v.z - qz * v.y)
+  const ty = 2 * (qz * v.x - qx * v.z)
+  const tz = 2 * (qx * v.y - qy * v.x)
+  return {
+    x: v.x + qw * tx + (qy * tz - qz * ty),
+    y: v.y + qw * ty + (qz * tx - qx * tz),
+    z: v.z + qw * tz + (qx * ty - qy * tx),
+  }
 }
 
 function cardFields(node: GraphNodeItem) {
@@ -603,7 +718,6 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const echartsLibRef = useRef<typeof import('echarts/core') | null>(null)
   const nodeLookupRef = useRef<Record<string, GraphNodeItem>>({})
   const nodePositionRef = useRef<Record<string, { x?: number; y?: number }>>({})
-  const renderFrameRef = useRef<number | null>(null)
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -617,12 +731,16 @@ export default function GraphPage({ projectKey, variant }: Props) {
     repulsion: 180,
     nodeScale: 100,
     nodeAlpha: 72,
+    edgeWidth: 100,
+    edgeAlpha: 100,
     showLabel: true,
   })
   const [visualApplied, setVisualApplied] = useState({
     repulsion: 180,
     nodeScale: 100,
     nodeAlpha: 72,
+    edgeWidth: 100,
+    edgeAlpha: 100,
     showLabel: true,
   })
   const [hiddenTypes, setHiddenTypes] = useState<Record<string, boolean>>({})
@@ -647,9 +765,16 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [paletteKey, setPaletteKey] = useState<PaletteKey>('bcp_unified')
   const [colorRotate, setColorRotate] = useState(58)
   const [absoluteContrast, setAbsoluteContrast] = useState(62)
+  const [renderMode, setRenderMode] = useState<RenderMode>('2d')
+  const [projectionRotateX, setProjectionRotateX] = useState(12)
+  const [projectionRotateY, setProjectionRotateY] = useState(18)
+  const [projectionRotateZ, setProjectionRotateZ] = useState(0)
+  const [projection3DRepulsionPercent, setProjection3DRepulsionPercent] = useState(100)
+  const [physicsFrame, setPhysicsFrame] = useState(0)
   const [controlPanelWidth, setControlPanelWidth] = useState(430)
-  const [controlSectionOpen, setControlSectionOpen] = useState<Record<'view' | 'color' | 'filter', boolean>>({
+  const [controlSectionOpen, setControlSectionOpen] = useState<Record<'view' | 'projection' | 'color' | 'filter', boolean>>({
     view: true,
+    projection: true,
     color: true,
     filter: true,
   })
@@ -691,12 +816,21 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const clickTimerRef = useRef<number | null>(null)
   const lastClickRef = useRef<{ key: string; ts: number } | null>(null)
   const selectionEnabledRef = useRef(false)
+  const autoFocusEnabledRef = useRef(true)
   const adjacencyConnectedMapRef = useRef<Map<string, Set<string>>>(new Map())
   const dragFocusNodeKeyRef = useRef<string | null>(null)
+  const projectionPhysicsRef = useRef<Projection3DPhysicsState>({ positions: {}, velocities: {} })
+  const projectionInteractionQuatRef = useRef<QuaternionLike>({ x: 0, y: 0, z: 0, w: 1 })
+  const projectionAngularVelRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const projectionDragStateRef = useRef<{ active: boolean; x: number; y: number }>({ active: false, x: 0, y: 0 })
 
   useEffect(() => {
     selectionEnabledRef.current = selectionEnabled
   }, [selectionEnabled])
+
+  useEffect(() => {
+    autoFocusEnabledRef.current = autoFocusEnabled
+  }, [autoFocusEnabled])
 
   useEffect(() => {
     // Avoid carrying hidden type masks across graph variants.
@@ -708,6 +842,10 @@ export default function GraphPage({ projectKey, variant }: Props) {
     setRadiationSelectionByCenter({})
     setSelectionPinned(false)
     setHoverNodeKey(null)
+    projectionPhysicsRef.current = { positions: {}, velocities: {} }
+    projectionInteractionQuatRef.current = { x: 0, y: 0, z: 0, w: 1 }
+    projectionAngularVelRef.current = { x: 0, y: 0 }
+    projectionDragStateRef.current = { active: false, x: 0, y: 0 }
   }, [graphKind])
 
   const graphConfig = useQuery({
@@ -874,11 +1012,15 @@ export default function GraphPage({ projectKey, variant }: Props) {
     const colorByKey = assignLegendColors(sortedKeys, paletteKey, 'edge', colorDistribution)
     const items = Array.from(counters.entries()).map(([key, info]) => {
       const tier = edgeLegendTier(info.sample)
+      const shapeKind = edgeShapeKind(info.sample)
+      const strokeKind = EDGE_PROFILE_BY_SHAPE[shapeKind].strokeKind
       return {
         key,
         tier,
-        lineType: EDGE_LINE_TYPE_BY_TIER[tier],
-        label: edgeLegendLabel(info.sample, labels),
+        shapeKind,
+        strokeKind,
+        lineType: EDGE_LINE_TYPE_BY_STROKE[strokeKind],
+        label: `${edgeLegendLabel(info.sample, labels)} · ${EDGE_STROKE_LABEL[strokeKind]}`,
         count: info.count,
         color: colorByKey[key] || '#7dd3fc',
       } satisfies EdgeLegendItem
@@ -905,6 +1047,15 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const visibleEdges = useMemo(() => {
     return topology.visibleEdges.filter((edge) => !hiddenEdgeKinds[edgeLegendKey(edge)])
   }, [topology.visibleEdges, hiddenEdgeKinds])
+
+  const edgeBadgeScale = useMemo(() => {
+    return Math.max(0.6, Math.min(1.8, visualApplied.edgeWidth / 100))
+  }, [visualApplied.edgeWidth])
+
+  const activeRendererCapabilities = useMemo(
+    () => (renderMode === 'projection3d' ? RENDERER_PROJECTION_3D_CAPABILITIES : RENDERER_2D_CAPABILITIES),
+    [renderMode],
+  )
 
   const connectedNodeMap = useMemo(() => {
     return new Map(topology.connectedNodes.map((node) => [nodeKey(node), node]))
@@ -1192,6 +1343,113 @@ export default function GraphPage({ projectKey, variant }: Props) {
     }
   }, [selectedNode, topology.connectedNodeKeys, topology.connectedEdges, topology.edgeResolvedKeyMap, connectedNodeMap])
 
+  const selectedNodeKey = useMemo(() => {
+    if (!selectedNode) return null
+    const key = nodeKey(selectedNode)
+    return topology.connectedNodeKeys.has(key) ? key : null
+  }, [selectedNode, topology.connectedNodeKeys])
+
+  useEffect(() => {
+    if (!autoFocusEnabled) {
+      setHoverNodeKey(null)
+      return
+    }
+    if (!hoverNodeKey && selectedNodeKey) {
+      setHoverNodeKey(selectedNodeKey)
+    }
+  }, [autoFocusEnabled, hoverNodeKey, selectedNodeKey])
+
+  useEffect(() => {
+    if (renderMode !== 'projection3d' || !chartReady) return
+    let rafId = 0
+    const tick = () => {
+      const av = projectionAngularVelRef.current
+      if (Math.abs(av.x) > 1e-5 || Math.abs(av.y) > 1e-5) {
+        const curr = projectionInteractionQuatRef.current
+        const right = rotateVecByQuat({ x: 1, y: 0, z: 0 }, curr)
+        const qYaw = quatFromAxisAngle(0, 1, 0, av.y)
+        const qPitch = quatFromAxisAngle(right.x, right.y, right.z, av.x)
+        projectionInteractionQuatRef.current = quatMul(qPitch, quatMul(qYaw, curr))
+        av.x *= 0.92
+        av.y *= 0.92
+      }
+      setPhysicsFrame((prev) => (prev >= 1000000 ? 0 : prev + 1))
+      rafId = window.requestAnimationFrame(tick)
+    }
+    rafId = window.requestAnimationFrame(tick)
+    return () => window.cancelAnimationFrame(rafId)
+  }, [renderMode, chartReady])
+
+  useEffect(() => {
+    if (!chartReady || renderMode !== 'projection3d') return
+    const chart = chartInstRef.current
+    if (!chart) return
+    const zr = chart.getZr()
+    const onMouseDown = (evt: unknown) => {
+      const e = evt as { offsetX?: number; offsetY?: number; event?: MouseEvent }
+      if ((e.event?.button ?? 0) !== 0) return
+      projectionDragStateRef.current = {
+        active: true,
+        x: e.offsetX ?? 0,
+        y: e.offsetY ?? 0,
+      }
+    }
+    const onMouseMove = (evt: unknown) => {
+      const drag = projectionDragStateRef.current
+      if (!drag.active) return
+      const e = evt as { offsetX?: number; offsetY?: number }
+      const x = e.offsetX ?? drag.x
+      const y = e.offsetY ?? drag.y
+      const dx = x - drag.x
+      const dy = y - drag.y
+      drag.x = x
+      drag.y = y
+      const yaw = dx * 0.0045
+      const pitch = -dy * 0.0045
+      const curr = projectionInteractionQuatRef.current
+      const right = rotateVecByQuat({ x: 1, y: 0, z: 0 }, curr)
+      const qYaw = quatFromAxisAngle(0, 1, 0, yaw)
+      const qPitch = quatFromAxisAngle(right.x, right.y, right.z, pitch)
+      projectionInteractionQuatRef.current = quatMul(qPitch, quatMul(qYaw, curr))
+      projectionAngularVelRef.current.x = projectionAngularVelRef.current.x * 0.35 + pitch * 0.65
+      projectionAngularVelRef.current.y = projectionAngularVelRef.current.y * 0.35 + yaw * 0.65
+      setPhysicsFrame((prev) => (prev >= 1000000 ? 0 : prev + 1))
+    }
+    const onMouseUp = () => {
+      projectionDragStateRef.current.active = false
+    }
+    zr.on('mousedown', onMouseDown)
+    zr.on('mousemove', onMouseMove)
+    zr.on('mouseup', onMouseUp)
+    zr.on('globalout', onMouseUp)
+    return () => {
+      zr.off('mousedown', onMouseDown)
+      zr.off('mousemove', onMouseMove)
+      zr.off('mouseup', onMouseUp)
+      zr.off('globalout', onMouseUp)
+      projectionDragStateRef.current.active = false
+    }
+  }, [chartReady, renderMode])
+
+  useEffect(() => {
+    // Reset accumulated roam transform when switching render modes,
+    // otherwise projection mode may look off-center from previous pan/zoom state.
+    chartInstRef.current?.clear()
+    projectionDragStateRef.current.active = false
+    if (renderMode !== 'projection3d') {
+      projectionAngularVelRef.current = { x: 0, y: 0 }
+    }
+  }, [renderMode])
+
+  useEffect(() => {
+    if (renderMode !== 'projection3d') return
+    const basisQuat = quatFromAxisAngle(1, 0, 0, -Math.PI / 2)
+    const sliderQuat = quatFromEulerDeg(projectionRotateX, projectionRotateY, projectionRotateZ)
+    projectionInteractionQuatRef.current = quatMul(sliderQuat, basisQuat)
+    projectionAngularVelRef.current = { x: 0, y: 0 }
+    setPhysicsFrame((prev) => (prev >= 1000000 ? 0 : prev + 1))
+  }, [renderMode, graphKind, projectionRotateX, projectionRotateY, projectionRotateZ])
+
   const nodeAllElements = useMemo(() => buildNodeElements(selectedNode), [selectedNode])
   const nodeElementGroups = useMemo(() => {
     const grouped = new Map<string, NodeElementItem[]>()
@@ -1382,6 +1640,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           return
         })
         chartInstRef.current.on('mouseover', (params) => {
+          if (!autoFocusEnabledRef.current) return
           if (params.dataType !== 'node') return
           const mouseEvent = (params as { event?: { event?: MouseEvent } }).event?.event
           if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) > 0) {
@@ -1399,6 +1658,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           setHoverNodeKey(nodeId)
         })
         chartInstRef.current.on('mousedown', (params) => {
+          if (!autoFocusEnabledRef.current) return
           if (params.dataType !== 'node') return
           const nodeId = params.data && typeof params.data === 'object' && 'id' in params.data
             ? String(params.data.id || '')
@@ -1408,6 +1668,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           setHoverNodeKey(nodeId)
         })
         chartInstRef.current.on('mouseup', (params) => {
+          if (!autoFocusEnabledRef.current) return
           if (dragFocusNodeKeyRef.current == null) return
           dragFocusNodeKeyRef.current = null
           if (params.dataType === 'node') {
@@ -1420,6 +1681,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           setHoverNodeKey(null)
         })
         chartInstRef.current.on('mouseout', (params) => {
+          if (!autoFocusEnabledRef.current) return
           const mouseEvent = (params as { event?: { event?: MouseEvent } }).event?.event
           if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) === 0) {
             dragFocusNodeKeyRef.current = null
@@ -1430,6 +1692,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           }
         })
         chartInstRef.current.on('mousemove', (params) => {
+          if (!autoFocusEnabledRef.current) return
           const mouseEvent = (params as { event?: { event?: MouseEvent } }).event?.event
           if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) === 0) {
             dragFocusNodeKeyRef.current = null
@@ -1443,6 +1706,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           }
         })
         chartInstRef.current.on('globalout', () => {
+          if (!autoFocusEnabledRef.current) return
           dragFocusNodeKeyRef.current = null
           setHoverNodeKey(null)
         })
@@ -1463,10 +1727,6 @@ export default function GraphPage({ projectKey, variant }: Props) {
         chartInstRef.current = null
       }
       dragFocusNodeKeyRef.current = null
-      if (renderFrameRef.current !== null) {
-        window.cancelAnimationFrame(renderFrameRef.current)
-        renderFrameRef.current = null
-      }
     }
   }, [variant])
 
@@ -1476,14 +1736,14 @@ export default function GraphPage({ projectKey, variant }: Props) {
     if (!chart) return
     const { nodes, visibleNodes, degreeMap, minDeg, rangeDeg } = topology
     nodeLookupRef.current = Object.fromEntries(nodes.map((n) => [nodeKey(n), n]))
-    const prevPos = { ...nodePositionRef.current }
+    const prevPos2D = { ...nodePositionRef.current }
     try {
       const current = chart.getOption() as { series?: Array<{ data?: Array<{ id?: string; x?: number; y?: number }> }> }
       const currentData = current?.series?.[0]?.data || []
       currentData.forEach((item) => {
         const id = String(item?.id || '')
         if (!id) return
-        prevPos[id] = { x: item.x, y: item.y }
+        prevPos2D[id] = { x: item.x, y: item.y }
       })
     } catch {
       // keep previous cached positions
@@ -1491,7 +1751,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
     const shouldShowNodeLabel = visualApplied.showLabel && visibleNodes.length <= 220
     const shouldShowEdgeLabel = false
     const autoFocusSet = new Set<string>()
-    const focusCenterKey = autoFocusEnabled ? hoverNodeKey : null
+    const focusCenterKey = autoFocusEnabled ? (hoverNodeKey || selectedNodeKey) : null
     if (focusCenterKey) {
       collectFocusNodeKeys(focusCenterKey, adjacencyConnectedMap).forEach((item) => autoFocusSet.add(item))
     }
@@ -1509,17 +1769,19 @@ export default function GraphPage({ projectKey, variant }: Props) {
       const dimByFocus = enablePinnedOnlyDim ? dimByPinnedOnly : dimByAutoFocus
       const nodeColor = nodeTypeColor[node.type] || '#7dd3fc'
       const { r, g, b } = hexToRgb(nodeColor)
+      const nodeAlphaT = Math.max(0, Math.min(1, visualApplied.nodeAlpha / 100))
+      const nodeFillAlpha = selected ? Math.min(1, nodeAlphaT + 0.08) : nodeAlphaT
       return {
         id: key,
         name: nodeName(node),
         value: { id: node.id, type: node.type, name: nodeName(node) },
         symbol: SYMBOLS[node.type] || 'circle',
-        x: prevPos[key]?.x,
-        y: prevPos[key]?.y,
+        x: prevPos2D[key]?.x,
+        y: prevPos2D[key]?.y,
         symbolSize: dimByFocus ? Math.max(10, Math.round(size * 0.88)) : size,
         itemStyle: {
           opacity: dimByFocus ? 0.12 : 1,
-          color: `rgba(${r}, ${g}, ${b}, ${dimByFocus ? 0.08 : (selected ? 0.95 : visualApplied.nodeAlpha / 100)})`,
+          color: `rgba(${r}, ${g}, ${b}, ${dimByFocus ? 0.08 : nodeFillAlpha})`,
           borderColor: selected ? '#facc15' : `rgba(${r}, ${g}, ${b}, ${dimByFocus ? 0.2 : 0.95})`,
           borderWidth: selected ? 1.6 : 1,
           shadowBlur: 0,
@@ -1537,9 +1799,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
       }
     })
 
-    const seriesEdges = visibleEdges.map((edge) => {
+    const seriesEdges = visibleEdges.flatMap((edge) => {
       const resolved = topology.edgeResolvedKeyMap.get(edge)
-      if (!resolved) return null
+      if (!resolved) return []
       const fromKey = resolved.fromKey
       const toKey = resolved.toKey
       const fromSelected = selectedNodeKeys.has(fromKey)
@@ -1551,19 +1813,36 @@ export default function GraphPage({ projectKey, variant }: Props) {
       const dimByFocus = enablePinnedOnlyDim ? dimByPinnedOnly : dimByAutoFocus
       const style = edgeLegendItemByKey.get(edgeLegendKey(edge))
       const tier = style?.tier || 'type'
+      const shapeKind = style?.shapeKind || edgeShapeKind(edge)
+      const profile = EDGE_PROFILE_BY_SHAPE[shapeKind]
+      const strokeKind = style?.strokeKind || profile.strokeKind
       const edgeColor = style?.color || '#7dd3fc'
       const { r, g, b } = hexToRgb(edgeColor)
-      return {
+      const edgeAlphaT = Math.max(0, Math.min(1, visualApplied.edgeAlpha / 100))
+      const widthFactor = Math.max(0, Math.min(2.4, visualApplied.edgeWidth / 100))
+      const symbolScale = Math.max(0, Math.min(2.2, widthFactor))
+      const scaledSymbolSize: [number, number] = [
+        Math.max(0, profile.symbolSize[0] * symbolScale),
+        Math.max(0, profile.symbolSize[1] * symbolScale),
+      ]
+      const hideEdgeSymbol = scaledSymbolSize[1] < 2
+      const baseCurveness = edge.type === 'POLICY_RELATION' ? 0.18 : EDGE_CURVENESS_BY_STROKE[strokeKind]
+      const resolvedEdgeAlpha = edgeAlphaT
+      const baseColor = dimByFocus
+        ? 'rgba(125, 211, 252, 0.04)'
+        : `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, resolvedEdgeAlpha))})`
+      const baseWidth = dimByFocus ? 0.7 : Math.max(0, EDGE_WIDTH_BY_TIER[tier] * widthFactor)
+      const baseLine = {
         source: fromKey,
         target: toKey,
         value: edge,
+        symbol: hideEdgeSymbol ? (['none', 'none'] as [EdgeSymbolName, EdgeSymbolName]) : profile.symbol,
+        symbolSize: hideEdgeSymbol ? ([0, 0] as [number, number]) : scaledSymbolSize,
         lineStyle: {
-          color: dimByFocus
-            ? 'rgba(125, 211, 252, 0.04)'
-            : `rgba(${r}, ${g}, ${b}, ${EDGE_ALPHA_BY_TIER[tier]})`,
-          width: dimByFocus ? 0.7 : EDGE_WIDTH_BY_TIER[tier],
-          type: style?.lineType || 'dotted',
-          curveness: edge.type === 'POLICY_RELATION' ? 0.18 : 0,
+          color: baseColor,
+          width: baseWidth,
+          type: style?.lineType || EDGE_LINE_TYPE_BY_STROKE[strokeKind],
+          curveness: baseCurveness,
         },
         label: {
           show: !dimByFocus && shouldShowEdgeLabel && Boolean(edge.predicate),
@@ -1571,13 +1850,61 @@ export default function GraphPage({ projectKey, variant }: Props) {
           color: 'rgba(147, 197, 253, 0.8)',
         },
       }
-    }).filter((item): item is NonNullable<typeof item> => Boolean(item))
+      if (strokeKind !== 'double') return [baseLine]
+      // 双线近似：同源同目标叠加两条微偏移曲线。
+      return [
+        {
+          ...baseLine,
+          lineStyle: {
+            ...baseLine.lineStyle,
+            width: Math.max(0, baseWidth - 0.35),
+            curveness: baseCurveness + 0.06,
+          },
+        },
+        {
+          ...baseLine,
+          lineStyle: {
+            ...baseLine.lineStyle,
+            width: Math.max(0, baseWidth - 0.35),
+            curveness: -Math.abs(baseCurveness + 0.06),
+          },
+          symbol: ['none', 'none'] as [EdgeSymbolName, EdgeSymbolName],
+          symbolSize: [0, 0] as [number, number],
+        },
+      ]
+    })
+
+    const rendererResult = renderMode === 'projection3d'
+      ? (() => {
+        const result3d = applyRendererProjection3D(
+          seriesNodes as RenderNode[],
+          visibleEdges
+            .map((edge) => {
+              const resolved = topology.edgeResolvedKeyMap.get(edge)
+              if (!resolved) return null
+              return { from: resolved.fromKey, to: resolved.toKey }
+            })
+            .filter((x): x is { from: string; to: string } => Boolean(x)),
+          projectionPhysicsRef.current,
+          {
+            rotateXDeg: 0,
+            rotateYDeg: 0,
+            rotateZDeg: 0,
+            repulsionPercent: projection3DRepulsionPercent * 2,
+            interactionQuat: projectionInteractionQuatRef.current,
+          },
+        )
+        projectionPhysicsRef.current = result3d.physics
+        return result3d.render
+      })()
+      : applyRenderer2D(seriesNodes as RenderNode[])
 
     const option = {
         backgroundColor: '#030712',
         animationThreshold: 1000,
         hoverLayerThreshold: 1500,
         tooltip: {
+          triggerOn: 'click',
           backgroundColor: 'rgba(2,6,23,0.92)',
           borderColor: '#334155',
           textStyle: { color: '#e2e8f0' },
@@ -1591,7 +1918,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
               const classToken = String(edge.relation_class || '').trim().toLowerCase()
               const classLabel = classToken ? (RELATION_CLASS_LABEL[classToken] || classToken) : ''
               const predicate = String(edge.predicate || '').trim()
-              return `关系: ${edge.type || 'REL'}${classLabel ? `<br/>大类: ${classLabel}` : ''}${predicate ? `<br/>谓词: ${predicate}` : ''}`
+              const shapeKind = edgeShapeKind(edge)
+              const strokeKind = EDGE_PROFILE_BY_SHAPE[shapeKind].strokeKind
+              return `关系: ${edge.type || 'REL'}${classLabel ? `<br/>大类: ${classLabel}` : ''}${predicate ? `<br/>谓词: ${predicate}` : ''}<br/>线型: ${EDGE_STROKE_LABEL[strokeKind]}`
             }
             return ''
           },
@@ -1599,16 +1928,20 @@ export default function GraphPage({ projectKey, variant }: Props) {
         series: [
           {
             type: 'graph',
-            layout: 'force',
-            roam: true,
-            draggable: true,
+            layout: rendererResult.series.layout,
+            // Lock projection mode to viewport center; keep roam/drag only in 2D.
+            roam: renderMode === 'projection3d' ? false : true,
+            draggable: renderMode !== 'projection3d',
+            center: renderMode === 'projection3d' ? ['50%', '50%'] : undefined,
+            zoom: renderMode === 'projection3d' ? 1 : undefined,
+            hoverAnimation: false,
             left: 0,
             right: 0,
             top: 0,
             bottom: 0,
-            animation: true,
-            animationDurationUpdate: 90,
-            animationEasingUpdate: 'linear',
+            animation: rendererResult.series.animation,
+            animationDurationUpdate: rendererResult.series.animationDurationUpdate,
+            animationEasingUpdate: rendererResult.series.animationEasingUpdate,
             progressive: 0,
             progressiveThreshold: 800,
             force: {
@@ -1618,7 +1951,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
               friction: 0.16,
               layoutAnimation: true,
             },
-            data: seriesNodes,
+            data: rendererResult.nodes,
             links: seriesEdges,
             labelLayout: { hideOverlap: true },
             lineStyle: { opacity: 0.85 },
@@ -1634,10 +1967,12 @@ export default function GraphPage({ projectKey, variant }: Props) {
       option,
       { lazyUpdate: false },
     )
-    nodePositionRef.current = Object.fromEntries(
-      seriesNodes.map((item) => [String(item.id), { x: item.x, y: item.y }]),
-    )
-  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode])
+    if (rendererResult.cacheNodePositions) {
+      nodePositionRef.current = Object.fromEntries(
+        rendererResult.nodes.map((item) => [String(item.id), { x: item.x as number | undefined, y: item.y as number | undefined }]),
+      )
+    }
+  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, projectionRotateX, projectionRotateY, projectionRotateZ, projection3DRepulsionPercent, physicsFrame])
 
   const onControlResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (isCompactViewport) return
@@ -1695,6 +2030,14 @@ export default function GraphPage({ projectKey, variant }: Props) {
               </button>
               <button
                 type="button"
+                className={`gv2-select-mode-btn ${renderMode === 'projection3d' ? '' : 'is-off'}`.trim()}
+                onClick={() => setRenderMode((prev) => (prev === '2d' ? 'projection3d' : '2d'))}
+                title="轻量3D模型模式（中心锁定，非相机视角）"
+              >
+                {renderMode === 'projection3d' ? '回到2D' : '3D模式'}
+              </button>
+              <button
+                type="button"
                 className={`gv2-select-mode-btn ${selectionPinned ? '' : 'is-off'}`.trim()}
                 onClick={() => setSelectionPinned((v) => !v)}
                 disabled={!selectedNodeKeys.size}
@@ -1742,44 +2085,45 @@ export default function GraphPage({ projectKey, variant }: Props) {
                 {controlSectionOpen.view ? (
                   <div className="gv2-control-section-body">
                     <label className="gv2-control-chip">
-                      节点斥力
+                      2D节点斥力
                       <input
                         type="range"
                         min={0}
-                        max={720}
-                        step={10}
-                        value={visualDraft.repulsion}
+                        max={200}
+                        step={1}
+                        value={Math.round(visualDraft.repulsion / 7.2)}
+                        disabled={!activeRendererCapabilities.supportsForceControl}
                         onChange={(e) => {
-                          const repulsion = Number(e.target.value)
+                          const repulsion = Math.round(Number(e.target.value) * 7.2)
                           setVisualDraft((prev) => ({ ...prev, repulsion }))
                           setVisualApplied((prev) => ({ ...prev, repulsion }))
                         }}
                       />
-                      <span>{visualDraft.repulsion}</span>
+                      <span>{Math.round(visualDraft.repulsion / 7.2)}%</span>
                     </label>
                     <label className="gv2-control-chip">
                       节点尺寸
                       <input
                         type="range"
                         min={0}
-                        max={180}
-                        step={5}
-                        value={visualDraft.nodeScale}
+                        max={200}
+                        step={1}
+                        value={Math.round(visualDraft.nodeScale / 1.8)}
                         onChange={(e) => {
-                          const nodeScale = Number(e.target.value)
+                          const nodeScale = Math.round(Number(e.target.value) * 1.8)
                           setVisualDraft((prev) => ({ ...prev, nodeScale }))
                           setVisualApplied((prev) => ({ ...prev, nodeScale }))
                         }}
                       />
-                      <span>{visualDraft.nodeScale}%</span>
+                      <span>{Math.round(visualDraft.nodeScale / 1.8)}%</span>
                     </label>
                     <label className="gv2-control-chip">
                       节点透明
                       <input
                         type="range"
-                        min={20}
-                        max={95}
-                        step={5}
+                        min={0}
+                        max={100}
+                        step={1}
                         value={visualDraft.nodeAlpha}
                         onChange={(e) => {
                           const nodeAlpha = Number(e.target.value)
@@ -1788,6 +2132,38 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         }}
                       />
                       <span>{visualDraft.nodeAlpha}%</span>
+                    </label>
+                    <label className="gv2-control-chip">
+                      边粗细
+                      <input
+                        type="range"
+                        min={0}
+                        max={200}
+                        step={1}
+                        value={visualDraft.edgeWidth}
+                        onChange={(e) => {
+                          const edgeWidth = Number(e.target.value)
+                          setVisualDraft((prev) => ({ ...prev, edgeWidth }))
+                          setVisualApplied((prev) => ({ ...prev, edgeWidth }))
+                        }}
+                      />
+                      <span>{visualDraft.edgeWidth}%</span>
+                    </label>
+                    <label className="gv2-control-chip">
+                      边透明
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={visualDraft.edgeAlpha}
+                        onChange={(e) => {
+                          const edgeAlpha = Number(e.target.value)
+                          setVisualDraft((prev) => ({ ...prev, edgeAlpha }))
+                          setVisualApplied((prev) => ({ ...prev, edgeAlpha }))
+                        }}
+                      />
+                      <span>{visualDraft.edgeAlpha}%</span>
                     </label>
                     <label className="gv2-control-chip gv2-checkbox">
                       <input
@@ -1818,6 +2194,71 @@ export default function GraphPage({ projectKey, variant }: Props) {
                   </div>
                 ) : null}
               </section>
+
+              {activeRendererCapabilities.supportsProjectionControls ? (
+                <section className={`gv2-control-section ${controlSectionOpen.projection ? '' : 'is-collapsed'}`}>
+                  <button
+                    type="button"
+                    className="gv2-control-section-head"
+                    onClick={() => setControlSectionOpen((prev) => ({ ...prev, projection: !prev.projection }))}
+                  >
+                    <strong>3D模型参数</strong>
+                    <span>{controlSectionOpen.projection ? '收起' : '展开'}</span>
+                  </button>
+                  {controlSectionOpen.projection ? (
+                    <div className="gv2-control-section-body">
+                      <label className="gv2-control-chip">
+                        模型旋转X
+                        <input
+                          type="range"
+                          min={-80}
+                          max={80}
+                          step={0.2}
+                          value={projectionRotateX}
+                          onChange={(e) => setProjectionRotateX(Number(e.target.value))}
+                        />
+                        <span>{projectionRotateX}deg</span>
+                      </label>
+                      <label className="gv2-control-chip">
+                        模型旋转Y
+                        <input
+                          type="range"
+                          min={-180}
+                          max={180}
+                          step={0.2}
+                          value={projectionRotateY}
+                          onChange={(e) => setProjectionRotateY(Number(e.target.value))}
+                        />
+                        <span>{projectionRotateY}deg</span>
+                      </label>
+                      <label className="gv2-control-chip">
+                        模型旋转Z
+                        <input
+                          type="range"
+                          min={-180}
+                          max={180}
+                          step={0.2}
+                          value={projectionRotateZ}
+                          onChange={(e) => setProjectionRotateZ(Number(e.target.value))}
+                        />
+                        <span>{projectionRotateZ}deg</span>
+                      </label>
+                      <label className="gv2-control-chip">
+                        3D节点斥力
+                        <input
+                          type="range"
+                          min={0}
+                          max={200}
+                          step={1}
+                          value={projection3DRepulsionPercent}
+                          onChange={(e) => setProjection3DRepulsionPercent(Number(e.target.value))}
+                        />
+                        <span>{projection3DRepulsionPercent}%</span>
+                      </label>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
 
               <section className={`gv2-control-section ${controlSectionOpen.color ? '' : 'is-collapsed'}`}>
                 <button
@@ -1923,7 +2364,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         max={GRAPH_LIMIT_MAX}
                         step={1}
                         value={limit}
-                        onChange={(e) => setLimit(clampGraphLimit(Number(e.target.value)))}
+                        onChange={(e) => {
+                          setLimit(clampGraphLimit(Number(e.target.value)))
+                        }}
                       />
                       <span>{limit}</span>
                     </label>
@@ -2057,7 +2500,12 @@ export default function GraphPage({ projectKey, variant }: Props) {
                             })
                           }}
                         >
-                          <span className={`gv2-edge-line-badge is-${sample.lineType}`} style={{ '--edge-color': sample.color } as CSSProperties}><i /></span>
+                          <span
+                            className={`gv2-edge-line-badge is-${sample.lineType} is-stroke-${sample.strokeKind}`}
+                            style={{ '--edge-color': sample.color, '--edge-badge-scale': edgeBadgeScale } as CSSProperties}
+                          >
+                            <i />
+                          </span>
                           <span className="gv2-legend-node-label">{EDGE_TIER_LABEL[tier]}</span>
                         </button>
                       )
@@ -2074,7 +2522,12 @@ export default function GraphPage({ projectKey, variant }: Props) {
                             className={`gv2-type gv2-type--edge ${hidden ? 'is-hidden' : ''}`}
                             onClick={() => setHiddenEdgeKinds((prev) => ({ ...prev, [item.key]: !prev[item.key] }))}
                           >
-                            <span className={`gv2-edge-line-badge is-${item.lineType}`} style={{ '--edge-color': item.color } as CSSProperties}><i /></span>
+                            <span
+                              className={`gv2-edge-line-badge is-${item.lineType} is-stroke-${item.strokeKind}`}
+                              style={{ '--edge-color': item.color, '--edge-badge-scale': edgeBadgeScale } as CSSProperties}
+                            >
+                              <i />
+                            </span>
                             <span>{item.label}</span>
                             <small>{item.count}</small>
                           </button>
