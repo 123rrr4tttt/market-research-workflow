@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Settings2 } from 'lucide-react'
 import {
@@ -37,6 +37,9 @@ const ENV_KEYS = [
   'AZURE_SEARCH_ENDPOINT',
   'AZURE_SEARCH_KEY',
 ] as const
+
+const EMPTY_ENV_SETTINGS: EnvSettings = {}
+const EMPTY_TEMPLATE_DRAFTS: Record<string, ProjectLlmTemplateDraft> = {}
 
 function formatDate(value?: string | null) {
   if (!value) return '-'
@@ -99,9 +102,18 @@ function toNullableInt(value: string) {
 
 export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageProps) {
   const queryClient = useQueryClient()
-  const [envDraft, setEnvDraft] = useState<EnvSettings>({})
+  const [envDraftState, setEnvDraftState] = useState<{ revision: number; draft: EnvSettings }>({
+    revision: 0,
+    draft: {},
+  })
   const [saveMessage, setSaveMessage] = useState('')
-  const [templateDrafts, setTemplateDrafts] = useState<Record<string, ProjectLlmTemplateDraft>>({})
+  const [templateDraftState, setTemplateDraftState] = useState<{
+    revision: number
+    drafts: Record<string, ProjectLlmTemplateDraft>
+  }>({
+    revision: 0,
+    drafts: {},
+  })
   const [templateMessage, setTemplateMessage] = useState('')
   const [copySourceProjectKey, setCopySourceProjectKey] = useState('')
   const [copyOverwrite, setCopyOverwrite] = useState(false)
@@ -121,26 +133,23 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
     enabled: Boolean(projectKey),
   })
 
-  useEffect(() => {
-    if (envSettings.data) setEnvDraft(envSettings.data)
-  }, [envSettings.data])
-
   const templateItems = useMemo(
     () => (llmTemplates.data?.items || []) as ProjectLlmTemplateItem[],
     [llmTemplates.data?.items],
   )
 
-  useEffect(() => {
-    if (!templateItems.length) {
-      setTemplateDrafts({})
-      return
-    }
-    const nextDrafts: Record<string, ProjectLlmTemplateDraft> = {}
-    for (const item of templateItems) {
-      nextDrafts[item.service_name] = toDraft(item)
-    }
-    setTemplateDrafts(nextDrafts)
-  }, [templateItems])
+  const envRevision = envSettings.dataUpdatedAt
+  const envDraft = useMemo(
+    () => (envDraftState.revision === envRevision ? envDraftState.draft : envSettings.data || EMPTY_ENV_SETTINGS),
+    [envDraftState.draft, envDraftState.revision, envRevision, envSettings.data],
+  )
+
+  const templateRevision = llmTemplates.dataUpdatedAt
+  const templateDrafts = useMemo(
+    () =>
+      templateDraftState.revision === templateRevision ? templateDraftState.drafts : EMPTY_TEMPLATE_DRAFTS,
+    [templateDraftState.drafts, templateDraftState.revision, templateRevision],
+  )
 
   const envSaveMutation = useMutation({
     mutationFn: async () => {
@@ -244,7 +253,15 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
               <span>{key}</span>
               <input
                 value={envDraft[key] || ''}
-                onChange={(e) => setEnvDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                onChange={(e) =>
+                  setEnvDraftState((prev) => {
+                    const baseDraft = prev.revision === envRevision ? prev.draft : envSettings.data || {}
+                    return {
+                      revision: envRevision,
+                      draft: { ...baseDraft, [key]: e.target.value },
+                    }
+                  })
+                }
                 placeholder={`输入 ${key}`}
               />
             </label>
@@ -339,10 +356,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                               <input
                                 value={draft.model}
                                 onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, model: e.target.value },
-                                  }))
+                                  setTemplateDraftState((prev) => {
+                                    const baseDrafts = prev.revision === templateRevision ? prev.drafts : {}
+                                    return {
+                                      revision: templateRevision,
+                                      drafts: {
+                                        ...baseDrafts,
+                                        [row.service_name]: { ...draft, model: e.target.value },
+                                      },
+                                    }
+                                  })
                                 }
                               />
                             </label>
@@ -351,10 +374,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                               <input
                                 value={draft.temperature}
                                 onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, temperature: e.target.value },
-                                  }))
+                                  setTemplateDraftState((prev) => {
+                                    const baseDrafts = prev.revision === templateRevision ? prev.drafts : {}
+                                    return {
+                                      revision: templateRevision,
+                                      drafts: {
+                                        ...baseDrafts,
+                                        [row.service_name]: { ...draft, temperature: e.target.value },
+                                      },
+                                    }
+                                  })
                                 }
                               />
                             </label>
@@ -363,10 +392,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                               <input
                                 value={draft.top_p}
                                 onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, top_p: e.target.value },
-                                  }))
+                                  setTemplateDraftState((prev) => {
+                                    const baseDrafts = prev.revision === templateRevision ? prev.drafts : {}
+                                    return {
+                                      revision: templateRevision,
+                                      drafts: {
+                                        ...baseDrafts,
+                                        [row.service_name]: { ...draft, top_p: e.target.value },
+                                      },
+                                    }
+                                  })
                                 }
                               />
                             </label>
@@ -375,10 +410,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                               <input
                                 value={draft.presence_penalty}
                                 onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, presence_penalty: e.target.value },
-                                  }))
+                                  setTemplateDraftState((prev) => {
+                                    const baseDrafts = prev.revision === templateRevision ? prev.drafts : {}
+                                    return {
+                                      revision: templateRevision,
+                                      drafts: {
+                                        ...baseDrafts,
+                                        [row.service_name]: { ...draft, presence_penalty: e.target.value },
+                                      },
+                                    }
+                                  })
                                 }
                               />
                             </label>
@@ -387,10 +428,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                               <input
                                 value={draft.frequency_penalty}
                                 onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, frequency_penalty: e.target.value },
-                                  }))
+                                  setTemplateDraftState((prev) => {
+                                    const baseDrafts = prev.revision === templateRevision ? prev.drafts : {}
+                                    return {
+                                      revision: templateRevision,
+                                      drafts: {
+                                        ...baseDrafts,
+                                        [row.service_name]: { ...draft, frequency_penalty: e.target.value },
+                                      },
+                                    }
+                                  })
                                 }
                               />
                             </label>
@@ -399,10 +446,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                               <input
                                 value={draft.max_tokens}
                                 onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, max_tokens: e.target.value },
-                                  }))
+                                  setTemplateDraftState((prev) => {
+                                    const baseDrafts = prev.revision === templateRevision ? prev.drafts : {}
+                                    return {
+                                      revision: templateRevision,
+                                      drafts: {
+                                        ...baseDrafts,
+                                        [row.service_name]: { ...draft, max_tokens: e.target.value },
+                                      },
+                                    }
+                                  })
                                 }
                               />
                             </label>
@@ -411,10 +464,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                                 type="checkbox"
                                 checked={draft.enabled}
                                 onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, enabled: e.target.checked },
-                                  }))
+                                  setTemplateDraftState((prev) => {
+                                    const baseDrafts = prev.revision === templateRevision ? prev.drafts : {}
+                                    return {
+                                      revision: templateRevision,
+                                      drafts: {
+                                        ...baseDrafts,
+                                        [row.service_name]: { ...draft, enabled: e.target.checked },
+                                      },
+                                    }
+                                  })
                                 }
                               />
                               <span>enabled</span>
@@ -426,10 +485,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                               <textarea
                                 value={draft.system_prompt}
                                 onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, system_prompt: e.target.value },
-                                  }))
+                                  setTemplateDraftState((prev) => {
+                                    const baseDrafts = prev.revision === templateRevision ? prev.drafts : {}
+                                    return {
+                                      revision: templateRevision,
+                                      drafts: {
+                                        ...baseDrafts,
+                                        [row.service_name]: { ...draft, system_prompt: e.target.value },
+                                      },
+                                    }
+                                  })
                                 }
                                 rows={5}
                               />
@@ -439,10 +504,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                               <textarea
                                 value={draft.user_prompt_template}
                                 onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, user_prompt_template: e.target.value },
-                                  }))
+                                  setTemplateDraftState((prev) => {
+                                    const baseDrafts = prev.revision === templateRevision ? prev.drafts : {}
+                                    return {
+                                      revision: templateRevision,
+                                      drafts: {
+                                        ...baseDrafts,
+                                        [row.service_name]: { ...draft, user_prompt_template: e.target.value },
+                                      },
+                                    }
+                                  })
                                 }
                                 rows={5}
                               />

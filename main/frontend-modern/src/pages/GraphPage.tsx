@@ -391,7 +391,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [showOverlay, setShowOverlay] = useState(true)
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
   const [paletteKey, setPaletteKey] = useState<PaletteKey>('tol_bright')
-  const [relationGroupOpen, setRelationGroupOpen] = useState<Record<string, boolean>>({})
+  const [relationGroupOpenDraft, setRelationGroupOpenDraft] = useState<Record<string, boolean>>({})
   const [expandedNeighborType, setExpandedNeighborType] = useState<string | null>(null)
   const [expandedPredicate, setExpandedPredicate] = useState<string | null>(null)
   const [expandedElementLabel, setExpandedElementLabel] = useState<string | null>(null)
@@ -674,22 +674,12 @@ export default function GraphPage({ projectKey, variant }: Props) {
       .map(([relation, items]) => ({ relation, items }))
       .sort((a, b) => b.items.length - a.items.length)
   }, [selectedNodeContext])
+  const relationGroupOpen = useMemo(() => {
+    if (!relationGroups.length) return relationGroupOpenDraft
+    if (Object.keys(relationGroupOpenDraft).length) return relationGroupOpenDraft
+    return { [relationGroups[0].relation]: true }
+  }, [relationGroups, relationGroupOpenDraft])
   const allRelationGroupsOpen = relationGroups.length > 0 && relationGroups.every((group) => relationGroupOpen[group.relation])
-
-  useEffect(() => {
-    setRelationGroupOpen({})
-    setExpandedNeighborType(null)
-    setExpandedPredicate(null)
-    setExpandedElementLabel(null)
-  }, [selectedNode])
-
-  useEffect(() => {
-    if (!relationGroups.length) return
-    setRelationGroupOpen((prev) => {
-      if (Object.keys(prev).length) return prev
-      return { [relationGroups[0].relation]: true }
-    })
-  }, [relationGroups])
 
   useEffect(() => {
     const onResize = () => chartInstRef.current?.resize()
@@ -735,6 +725,10 @@ export default function GraphPage({ projectKey, variant }: Props) {
           const node = nodeLookupRef.current[nodeId]
           if (node) {
             setSelectedNode(node)
+            setRelationGroupOpenDraft({})
+            setExpandedNeighborType(null)
+            setExpandedPredicate(null)
+            setExpandedElementLabel(null)
             const chartWidth = chartInstRef.current?.getWidth() || 900
             const chartHeight = chartInstRef.current?.getHeight() || 640
             const preferredWidth = Math.min(380, Math.max(280, chartWidth * 0.32))
@@ -1100,7 +1094,19 @@ export default function GraphPage({ projectKey, variant }: Props) {
                     <strong>{nodeName(selectedNode)}</strong>
                     <small>{String(selectedNode.type || '-')}</small>
                   </div>
-                  <button type="button" onClick={() => setSelectedNode(null)} aria-label="关闭">×</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedNode(null)
+                      setRelationGroupOpenDraft({})
+                      setExpandedNeighborType(null)
+                      setExpandedPredicate(null)
+                      setExpandedElementLabel(null)
+                    }}
+                    aria-label="关闭"
+                  >
+                    ×
+                  </button>
                 </div>
                 <div className="gv2-node-card-body">
                   <div className="gv2-node-grid">
@@ -1225,7 +1231,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
                               <button
                                 type="button"
                                 className="gv2-rel-group-head"
-                                onClick={() => setRelationGroupOpen((prev) => ({ ...prev, [group.relation]: !prev[group.relation] }))}
+                                onClick={() => setRelationGroupOpenDraft((prev) => ({ ...prev, [group.relation]: !prev[group.relation] }))}
                               >
                                 <span className="gv2-rel-group-title">{group.relation}</span>
                                 <span className="gv2-rel-group-meta">{group.items.length} 条</span>
@@ -1253,7 +1259,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         <button
                           type="button"
                           className="gv2-node-toggle"
-                          onClick={() => setRelationGroupOpen(
+                          onClick={() => setRelationGroupOpenDraft(
                             allRelationGroupsOpen
                               ? {}
                               : Object.fromEntries(relationGroups.map((group) => [group.relation, true])),

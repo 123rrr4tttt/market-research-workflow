@@ -1,7 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Database, RefreshCw, XCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { cancelTask, getProcessStats, getProcessTaskDetail, getProcessTaskLogs, listProcessHistory, listProcessTasks } from '../lib/api'
+import { useProcessData } from '../hooks/useProcessData'
 import type { ProcessTaskItem } from '../lib/types'
 
 export type ProcessPageProps = {
@@ -48,78 +47,29 @@ function getTaskSourceKind(task?: ProcessTaskItem, fallback?: string | null) {
 }
 
 export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProps) {
-  const queryClient = useQueryClient()
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
   const [refreshIntervalSec, setRefreshIntervalSec] = useState(8)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
 
-  const refreshIntervalMs = autoRefreshEnabled ? Math.max(3, refreshIntervalSec) * 1000 : false
-
-  const processStats = useQuery({
-    queryKey: ['process-stats', projectKey],
-    queryFn: getProcessStats,
-    enabled: Boolean(projectKey),
-    refetchInterval: refreshIntervalMs,
-    refetchIntervalInBackground: true,
+  const {
+    processStats,
+    processList,
+    processHistory,
+    taskDetail,
+    taskLogs,
+    cancelMutation,
+    cancelTasks,
+    refreshAll,
+    refreshSelectedTask,
+    refreshHistory,
+    isRefreshing,
+  } = useProcessData({
+    projectKey,
+    selectedTaskId,
+    autoRefreshEnabled,
+    refreshIntervalSec,
   })
-
-  const processList = useQuery({
-    queryKey: ['process-list', projectKey],
-    queryFn: () => listProcessTasks(40),
-    enabled: Boolean(projectKey),
-    refetchInterval: refreshIntervalMs,
-    refetchIntervalInBackground: true,
-  })
-
-  const processHistory = useQuery({
-    queryKey: ['process-history', projectKey],
-    queryFn: () => listProcessHistory(50),
-    enabled: Boolean(projectKey),
-    refetchInterval: refreshIntervalMs,
-    refetchIntervalInBackground: true,
-  })
-
-  const taskDetail = useQuery({
-    queryKey: ['process-task-detail', projectKey, selectedTaskId],
-    queryFn: () => getProcessTaskDetail(String(selectedTaskId)),
-    enabled: Boolean(projectKey && selectedTaskId),
-    refetchInterval: refreshIntervalMs,
-    refetchIntervalInBackground: true,
-  })
-
-  const taskLogs = useQuery({
-    queryKey: ['process-task-logs', projectKey, selectedTaskId],
-    queryFn: () => getProcessTaskLogs(String(selectedTaskId), 200),
-    enabled: Boolean(projectKey && selectedTaskId),
-    refetchInterval: refreshIntervalMs,
-    refetchIntervalInBackground: true,
-  })
-
-  const cancelMutation = useMutation({
-    mutationFn: (taskId: string) => cancelTask(taskId, false),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['process-stats', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['process-list', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['process-history', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['process-task-detail', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['process-task-logs', projectKey] }),
-      ])
-    },
-  })
-
-  const refreshAll = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['process-stats', projectKey] }),
-      queryClient.invalidateQueries({ queryKey: ['process-list', projectKey] }),
-      queryClient.invalidateQueries({ queryKey: ['process-history', projectKey] }),
-      queryClient.invalidateQueries({ queryKey: ['process-task-detail', projectKey] }),
-      queryClient.invalidateQueries({ queryKey: ['process-task-logs', projectKey] }),
-    ])
-  }
-
-  const isRefreshing = processStats.isFetching || processList.isFetching || processHistory.isFetching || taskDetail.isFetching || taskLogs.isFetching
   const selectedTask = useMemo(
     () => (processList.data?.tasks || []).find((task) => task.task_id === selectedTaskId),
     [processList.data?.tasks, selectedTaskId],
@@ -144,15 +94,8 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
 
   const cancelSelectedTasks = async () => {
     if (!cancellableSelectedTaskIds.length) return
-    for (const taskId of cancellableSelectedTaskIds) {
-      try {
-        await cancelTask(taskId, false)
-      } catch {
-        // continue cancelling remaining tasks
-      }
-    }
+    await cancelTasks(cancellableSelectedTaskIds)
     clearSelectedTasks()
-    await refreshAll()
   }
 
   return (
@@ -307,8 +250,7 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
             <div className="inline-actions">
               <button
                 onClick={() => {
-                  void queryClient.invalidateQueries({ queryKey: ['process-task-detail', projectKey, selectedTaskId] })
-                  void queryClient.invalidateQueries({ queryKey: ['process-task-logs', projectKey, selectedTaskId] })
+                  void refreshSelectedTask(selectedTaskId)
                 }}
                 disabled={taskDetail.isFetching || taskLogs.isFetching}
               >
@@ -380,7 +322,7 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
         <div className="panel-header">
           <h2>任务历史</h2>
           <div className="inline-actions">
-            <button onClick={() => queryClient.invalidateQueries({ queryKey: ['process-history', projectKey] })} disabled={processHistory.isFetching}>
+            <button onClick={() => void refreshHistory()} disabled={processHistory.isFetching}>
               <RefreshCw size={14} />
               {processHistory.isFetching ? '刷新中...' : '刷新'}
             </button>

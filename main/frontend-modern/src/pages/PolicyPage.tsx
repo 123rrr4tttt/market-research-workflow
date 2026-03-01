@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Database, RefreshCw } from 'lucide-react'
 import { getPolicyDetail, getPolicyStats, listPolicies } from '../lib/api'
@@ -28,11 +28,7 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
 
   const [policyStateFilter, setPolicyStateFilter] = useState('')
   const [policyPage, setPolicyPage] = useState(1)
-  const [selectedPolicyId, setSelectedPolicyId] = useState<number | null>(null)
-
-  useEffect(() => {
-    setPolicyPage(1)
-  }, [policyStateFilter])
+  const [selectedPolicyIdState, setSelectedPolicyIdState] = useState<number | null>(null)
 
   const policyStats = useQuery({
     queryKey: ['policy-stats', projectKey],
@@ -46,17 +42,14 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
     enabled: Boolean(projectKey),
   })
 
-  useEffect(() => {
+  const selectedPolicyId = useMemo(() => {
     const items = policyList.data || []
-    if (!items.length) {
-      setSelectedPolicyId(null)
-      return
+    if (!items.length) return null
+    if (selectedPolicyIdState != null && items.some((item) => item.id === selectedPolicyIdState)) {
+      return selectedPolicyIdState
     }
-
-    if (selectedPolicyId == null || !items.some((item) => item.id === selectedPolicyId)) {
-      setSelectedPolicyId(items[0].id)
-    }
-  }, [policyList.data, selectedPolicyId])
+    return items[0].id
+  }, [policyList.data, selectedPolicyIdState])
 
   const policyDetail = useQuery({
     queryKey: ['policy-detail', projectKey, selectedPolicyId],
@@ -139,7 +132,14 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
           <div className="form-grid cols-2" style={{ marginBottom: 12 }}>
             <label>
               <span>省份筛选</span>
-              <select value={policyStateFilter} onChange={(e) => setPolicyStateFilter(e.target.value)}>
+              <select
+                value={policyStateFilter}
+                onChange={(e) => {
+                  setPolicyStateFilter(e.target.value)
+                  setPolicyPage(1)
+                  setSelectedPolicyIdState(null)
+                }}
+              >
                 <option value="">全部</option>
                 {stateOptions.map((state) => (
                   <option key={state} value={state}>
@@ -149,11 +149,24 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
               </select>
             </label>
             <div className="inline-actions" style={{ alignItems: 'end' }}>
-              <button disabled={policyPage <= 1} onClick={() => setPolicyPage((p) => Math.max(1, p - 1))}>
+              <button
+                disabled={policyPage <= 1}
+                onClick={() => {
+                  setPolicyPage((p) => Math.max(1, p - 1))
+                  setSelectedPolicyIdState(null)
+                }}
+              >
                 上一页
               </button>
               <span className="chip">第 {policyPage} 页</span>
-              <button onClick={() => setPolicyPage((p) => p + 1)}>下一页</button>
+              <button
+                onClick={() => {
+                  setPolicyPage((p) => p + 1)
+                  setSelectedPolicyIdState(null)
+                }}
+              >
+                下一页
+              </button>
             </div>
           </div>
 
@@ -172,7 +185,7 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
                 {(policyList.data || []).map((item) => (
                   <tr
                     key={item.id}
-                    onClick={() => setSelectedPolicyId(item.id)}
+                    onClick={() => setSelectedPolicyIdState(item.id)}
                     style={{ cursor: 'pointer', background: selectedPolicyId === item.id ? 'rgba(59, 130, 246, 0.1)' : undefined }}
                   >
                     <td>{item.id}</td>

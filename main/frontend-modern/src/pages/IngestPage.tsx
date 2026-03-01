@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
   Bot,
@@ -16,18 +16,12 @@ import {
 } from 'lucide-react'
 import {
   generateKeywords,
-  ingestCommodity,
-  ingestEcom,
-  ingestMarket,
-  ingestPolicy,
-  ingestPolicyRegulation,
-  ingestSocial,
   listIngestHistory,
   listSiteEntryGrouped,
   listSourceItems,
-  runSourceLibrary,
-  syncSourceLibrary,
 } from '../lib/api'
+import { useIngestActions } from '../hooks/useIngestActions'
+import { queryKeys } from '../lib/queryKeys'
 import type { IngestFormState, IngestJobRow, SourceLibraryItem } from '../lib/types'
 
 const defaultForm: IngestFormState = {
@@ -110,16 +104,26 @@ type IngestPageProps = {
 }
 
 export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPageProps) {
-  const queryClient = useQueryClient()
   const [form, setForm] = useState<IngestFormState>(defaultForm)
-  const [actionPending, setActionPending] = useState(false)
-  const [actionMessage, setActionMessage] = useState('等待操作')
+  const {
+    actionPending,
+    actionMessage,
+    runAction,
+    syncSourceLibrary,
+    runSourceLibrary,
+    ingestPolicy,
+    ingestPolicyRegulation,
+    ingestMarket,
+    ingestSocial,
+    ingestCommodity,
+    ingestEcom,
+  } = useIngestActions(projectKey)
 
   const sourceItems = useQuery({ queryKey: ['source-items', projectKey], queryFn: listSourceItems })
   const handlerGrouped = useQuery({ queryKey: ['site-entry-grouped', projectKey], queryFn: listSiteEntryGrouped })
-  const history = useQuery({ queryKey: ['ingest-history', projectKey], queryFn: () => listIngestHistory(12) })
+  const history = useQuery({ queryKey: [...queryKeys.ingest.history(12), projectKey], queryFn: () => listIngestHistory(12) })
 
-  const sourceItemList = sourceItems.data || []
+  const sourceItemList = useMemo(() => sourceItems.data || [], [sourceItems.data])
   const selectedSourceItem = useMemo(
     () => sourceItemList.find((item) => item.item_key === form.sourceItemKey) || null,
     [sourceItemList, form.sourceItemKey],
@@ -129,33 +133,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     () => Object.keys(handlerGrouped.data?.by_entry_type || {}).sort(),
     [handlerGrouped.data],
   )
-
-  const runAction = async (name: string, fn: () => Promise<unknown>) => {
-    setActionPending(true)
-    setActionMessage(`${name} 执行中...`)
-    try {
-      const result = await fn()
-      const taskId =
-        result &&
-        typeof result === 'object' &&
-        'task_id' in result &&
-        typeof (result as { task_id?: unknown }).task_id === 'string'
-          ? (result as { task_id?: string }).task_id
-          : null
-
-      setActionMessage(taskId ? `${name} 已提交，任务 ID: ${taskId}` : `${name} 执行完成`)
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['source-items', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['site-entry-grouped', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['ingest-history', projectKey] }),
-      ])
-    } catch (error) {
-      setActionMessage(`${name} 失败: ${error instanceof Error ? error.message : '未知错误'}`)
-    } finally {
-      setActionPending(false)
-    }
-  }
 
   const getLanguageValue = () => {
     const langs = Array.from(new Set(form.languages))
@@ -454,20 +431,18 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
         </label>
 
         <div className="inline-actions">
-          <button disabled={actionPending} onClick={() => runAction('同步来源库', syncSourceLibrary)}>
+          <button disabled={actionPending} onClick={() => void syncSourceLibrary()}>
             <RefreshCw size={15} />同步来源库
           </button>
           <button
             disabled={actionPending || (!form.sourceItemKey && !form.sourceHandlerKey)}
             onClick={() =>
-              runAction('运行来源库', () =>
-                runSourceLibrary({
-                  item_key: form.sourceItemKey || null,
-                  handler_key: form.sourceHandlerKey || null,
-                  async_mode: form.asyncMode,
-                  override_params: buildOverrideParams(),
-                }),
-              )
+              void runSourceLibrary({
+                item_key: form.sourceItemKey || null,
+                handler_key: form.sourceHandlerKey || null,
+                async_mode: form.asyncMode,
+                override_params: buildOverrideParams(),
+              })
             }
           >
             <Play size={15} />运行
@@ -512,35 +487,33 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
         <div className="action-grid">
           <button
             disabled={actionPending || !form.policyState.trim()}
-            onClick={() => runAction('政策采集', () => ingestPolicy({ state: form.policyState.trim(), async_mode: form.asyncMode, source_hint: null }))}
+            onClick={() => void ingestPolicy({ state: form.policyState.trim(), async_mode: form.asyncMode, source_hint: null })}
           >
             <Bot size={16} />政策采集
           </button>
-          <button disabled={actionPending} onClick={() => runAction('政策法规采集', () => ingestPolicyRegulation(buildCommonPayload()))}>
+          <button disabled={actionPending} onClick={() => void ingestPolicyRegulation(buildCommonPayload())}>
             <Radar size={16} />政策法规
           </button>
-          <button disabled={actionPending} onClick={() => runAction('市场采集', () => ingestMarket(buildCommonPayload()))}>
+          <button disabled={actionPending} onClick={() => void ingestMarket(buildCommonPayload())}>
             <Activity size={16} />市场采集
           </button>
           <button
             disabled={actionPending}
             onClick={() =>
-              runAction('舆情采集', () =>
-                ingestSocial({
-                  ...buildCommonPayload(),
-                  platforms: [form.socialPlatform],
-                  base_subreddits: splitTerms(form.baseSubreddits),
-                  enable_subreddit_discovery: form.enableSubredditDiscovery,
-                }),
-              )
+              void ingestSocial({
+                ...buildCommonPayload(),
+                platforms: [form.socialPlatform],
+                base_subreddits: splitTerms(form.baseSubreddits),
+                enable_subreddit_discovery: form.enableSubredditDiscovery,
+              })
             }
           >
             <Globe size={16} />舆情采集
           </button>
-          <button disabled={actionPending} onClick={() => runAction('商品采集', () => ingestCommodity({ limit: form.commodityLimit, async_mode: form.asyncMode }))}>
+          <button disabled={actionPending} onClick={() => void ingestCommodity({ limit: form.commodityLimit, async_mode: form.asyncMode })}>
             <Boxes size={16} />商品采集
           </button>
-          <button disabled={actionPending} onClick={() => runAction('电商采集', () => ingestEcom({ limit: form.ecomLimit, async_mode: form.asyncMode }))}>
+          <button disabled={actionPending} onClick={() => void ingestEcom({ limit: form.ecomLimit, async_mode: form.asyncMode })}>
             <Database size={16} />电商采集
           </button>
         </div>
@@ -554,7 +527,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
       <section className="panel">
         <div className="panel-header">
           <h2>最近任务状态</h2>
-          <button onClick={() => queryClient.invalidateQueries({ queryKey: ['ingest-history', projectKey] })}>
+          <button onClick={() => void history.refetch()}>
             <RefreshCw size={14} />刷新
           </button>
         </div>
