@@ -72,6 +72,79 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         self.assertEqual(resp.headers.get("x-project-key-source"), "header")
         self.assertEqual(resp.headers.get("x-project-key-resolved"), "demo_proj")
 
+    def test_graph_structured_search_explicit_project_key_success(self):
+        client = TestClient(backend_app)
+        payload = {
+            "selected_nodes": [
+                {"type": "market", "entry_id": "n-1", "label": "ACME"}
+            ],
+            "dashboard": {
+                "project_key": "demo_proj",
+                "async_mode": False,
+            },
+            "flow_type": "collect",
+        }
+        fake_batch = {
+            "batch_id": "collect:n-1:market_company:b1",
+            "batch_name": "collect:n-1:market_company:b1",
+            "type": "market",
+            "topic_focus": "company",
+            "query_terms": ["ACME"],
+            "async_mode": False,
+            "result": {"inserted": 1, "updated": 0, "skipped": 0},
+        }
+        with patch("app.api.ingest._run_market_batch", return_value=fake_batch):
+            resp = client.post("/api/v1/ingest/graph/structured-search", json=payload)
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["data"]["flow_type"], "collect")
+        self.assertEqual(body["data"]["summary"]["batch_count"], 1)
+
+    def test_graph_structured_search_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        payload = {
+            "selected_nodes": [
+                {"type": "market", "entry_id": "n-1", "label": "ACME"}
+            ],
+            "dashboard": {
+                "async_mode": False,
+            },
+            "flow_type": "collect",
+        }
+        with patch("app.api.ingest.settings.project_key_enforcement_mode", "require"):
+            resp = client.post("/api/v1/ingest/graph/structured-search", json=payload)
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_source_library_run_explicit_project_key_success(self):
+        client = TestClient(backend_app)
+        with patch(
+            "app.api.source_library.run_item_by_key",
+            return_value={"item_key": "demo-item", "ok": True, "saved": 1},
+        ) as mocked_run:
+            resp = client.post(
+                "/api/v1/source_library/items/demo-item/run",
+                json={"project_key": "demo_proj", "async_mode": False, "override_params": {}},
+            )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["async"], False)
+        self.assertEqual(body["item_key"], "demo-item")
+        mocked_run.assert_called_once()
+
+    def test_source_library_run_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+            resp = client.post(
+                "/api/v1/source_library/items/demo-item/run",
+                json={"async_mode": False, "override_params": {}},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -22,11 +22,16 @@ evidence: `settings.project_key_enforcement_mode` (`warn|require`)
 status: done
 evidence: `tests/test_project_key_policy_unittest.py`
 
-5. Run backend test suite
+5. Add API-level tests for structured-search and source-library run
+status: done
+evidence: `tests/test_project_key_policy_unittest.py` includes:
+- `/api/v1/ingest/graph/structured-search` explicit key success + require-mode missing key failure
+- `/api/v1/source_library/items/{item_key}/run` explicit key success + require-mode missing key failure
+
+6. Run backend test suite
 status: done
 evidence: `python -m unittest discover -s main/backend/tests -p '*_unittest.py'`
 
 ## Follow-ups
 1. Enable `project_key_enforcement_mode=require` after client rollout.
-2. Add API-level tests for `/api/v1/ingest/graph/structured-search` and `/api/v1/source_library/items/{item_key}/run` with explicit and missing project keys.
-3. Add DB-backed integration checks for schema isolation (`project_demo_proj` vs `project_online_lottery`).
+2. Add DB-backed integration checks for schema isolation (`project_demo_proj` vs `project_online_lottery`).

@@ -57,9 +57,12 @@
   - Ingest strict mode rejection test
   - Source-library fallback warning test
   - Middleware project-context header test
+  - API contract-like route tests:
+    - `/api/v1/ingest/graph/structured-search` explicit key success + strict mode failure
+    - `/api/v1/source_library/items/{item_key}/run` explicit key success + strict mode failure
 
 ## Test Execution Result
 - Command:
   - `main/backend/.venv311/bin/python -m unittest discover -s main/backend/tests -p '*_unittest.py'`
 - Result:
-  - `Ran 29 tests ... OK`
+  - `Ran 33 tests ... OK`
