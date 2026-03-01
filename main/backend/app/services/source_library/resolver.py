@@ -519,7 +519,12 @@ def run_item_with_url_routing(
 
         try:
             with (bind_project(project_key) if project_key else nullcontext()):
-                result = run_channel(channel=channel, params=per_url_params, project_key=project_key)
+                result = run_channel(
+                    channel=channel,
+                    params=per_url_params,
+                    project_key=project_key,
+                    item_key=str(item.get("item_key") or "").strip() or None,
+                )
             inserted_total += result.get("inserted", 0)
             skipped_total += result.get("skipped", 0)
             by_url.append({"url": url_str, "channel_key": channel_key, "error": None, "result": result})
@@ -602,7 +607,12 @@ def run_item_payload(
     params = _deep_merge(channel.get("default_params") or {}, params)
 
     with (bind_project(project_key) if project_key else nullcontext()):
-        result = run_channel(channel=channel, params=params, project_key=project_key)
+        result = run_channel(
+            channel=channel,
+            params=params,
+            project_key=project_key,
+            item_key=item_key,
+        )
 
     return {
         "item_key": item_key,

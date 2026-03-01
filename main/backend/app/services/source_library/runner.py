@@ -38,6 +38,89 @@ def validate_params(params: Dict[str, Any], param_schema: Dict[str, Any]) -> Non
         raise ValueError(f"missing required params: {missing}")
 
 
+def _iter_string_values(value: Any) -> list[str]:
+    if isinstance(value, str):
+        raw_values = [value]
+    elif isinstance(value, (list, tuple, set)):
+        raw_values = [str(v) for v in value if v is not None]
+    else:
+        return []
+    return [v.strip() for v in raw_values if str(v).strip()]
+
+
+def _normalize_identity(value: str | None) -> str:
+    return str(value or "").strip().lower()
+
+
+def _extract_gray_rollout_allowlist(execution_policy: Dict[str, Any]) -> tuple[bool, set[str], set[str]]:
+    def _collect_values(
+        container: Dict[str, Any],
+        *,
+        names: tuple[str, ...],
+    ) -> tuple[bool, set[str]]:
+        configured = False
+        values: set[str] = set()
+        for name in names:
+            if name in container:
+                configured = True
+                for raw in _iter_string_values(container.get(name)):
+                    values.add(_normalize_identity(raw))
+        return configured, values
+
+    rollout_nodes: list[Dict[str, Any]] = []
+    if isinstance(execution_policy, dict):
+        rollout_nodes.append(execution_policy)
+        for key in ("gray_release", "gray_rollout", "rollout", "crawler_gray_release", "crawler_rollout"):
+            value = execution_policy.get(key)
+            if isinstance(value, dict):
+                rollout_nodes.append(value)
+
+    project_keys: set[str] = set()
+    item_keys: set[str] = set()
+    configured = False
+
+    project_fields = ("projects", "project_keys", "project_key_allowlist", "allow_projects")
+    item_fields = ("items", "item_keys", "item_key_allowlist", "allow_items")
+
+    for node in rollout_nodes:
+        node_configured, node_projects = _collect_values(node, names=project_fields)
+        configured = configured or node_configured
+        project_keys.update(node_projects)
+
+        node_configured, node_items = _collect_values(node, names=item_fields)
+        configured = configured or node_configured
+        item_keys.update(node_items)
+
+        allowlist = node.get("allowlist")
+        if isinstance(allowlist, dict):
+            configured = True
+            _, nested_projects = _collect_values(allowlist, names=project_fields)
+            _, nested_items = _collect_values(allowlist, names=item_fields)
+            project_keys.update(nested_projects)
+            item_keys.update(nested_items)
+
+    return configured, project_keys, item_keys
+
+
+def _is_crawler_rollout_allowed(
+    *,
+    execution_policy: Dict[str, Any],
+    project_key: str | None,
+    item_key: str | None,
+) -> bool:
+    configured, project_allowlist, item_allowlist = _extract_gray_rollout_allowlist(execution_policy)
+    if not configured:
+        # Backward-compatible default: no rollout policy means keep crawler path.
+        return True
+
+    if "*" in project_allowlist or "*" in item_allowlist:
+        return True
+
+    normalized_project = _normalize_identity(project_key)
+    normalized_item = _normalize_identity(item_key)
+    return (normalized_project in project_allowlist) or (normalized_item in item_allowlist)
+
+
 def _run_via_crawler_provider_registry(
     *,
     channel: Dict[str, Any],
@@ -106,6 +189,7 @@ def run_channel(
     channel: Dict[str, Any],
     params: Dict[str, Any],
     project_key: str | None = None,
+    item_key: str | None = None,
 ) -> Dict[str, Any]:
     _ensure_handlers_registered()
     credential_refs = channel.get("credential_refs") or []
@@ -120,12 +204,20 @@ def run_channel(
 
     provider_type = str(channel.get("provider_type") or "native").strip().lower()
     if provider_type in _CRAWLER_PROVIDER_TYPES:
-        return _run_via_crawler_provider_registry(
-            channel=channel,
-            params=params,
+        execution_policy = channel.get("execution_policy")
+        if not isinstance(execution_policy, dict):
+            execution_policy = {}
+        if _is_crawler_rollout_allowed(
+            execution_policy=execution_policy,
             project_key=project_key,
-            provider_type=provider_type,
-        )
+            item_key=item_key,
+        ):
+            return _run_via_crawler_provider_registry(
+                channel=channel,
+                params=params,
+                project_key=project_key,
+                provider_type=provider_type,
+            )
 
     provider = str(channel.get("provider", "")).strip().lower()
     kind = str(channel.get("kind", "")).strip().lower()
