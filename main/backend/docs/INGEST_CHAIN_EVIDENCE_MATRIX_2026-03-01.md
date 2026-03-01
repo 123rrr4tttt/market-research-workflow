@@ -66,3 +66,35 @@
   - `main/backend/.venv311/bin/python -m unittest discover -s main/backend/tests -p '*_unittest.py'`
 - Result:
   - `Ran 33 tests ... OK`
+
+## Live DB Isolation Verification (demo_proj vs iso_proj)
+- Purpose:
+  - Verify per-project write isolation with real HTTP requests and DB checks.
+- Steps:
+  - Create project `iso_proj` via `POST /api/v1/projects`.
+  - Call `POST /api/v1/source_library/items?project_key=<key>` for:
+    - `demo_proj` with `item_key=iso_check_demo_proj_1772358317`
+    - `iso_proj` with `item_key=iso_check_iso_proj_1772358317`
+  - Query DB:
+    - `project_demo_proj.source_library_items`
+    - `project_iso_proj.source_library_items`
+- Observed results:
+  - Count delta:
+    - `demo_proj`: `+1`
+    - `iso_proj`: `+1`
+  - Cross-check:
+    - `project_demo_proj` contains only `iso_check_demo_proj_1772358317`
+    - `project_iso_proj` contains only `iso_check_iso_proj_1772358317`
+  - Conclusion:
+    - No cross-project pollution observed on this write path.
+
+## Live Ingest Market Attempt (diagnostic note)
+- Endpoint:
+  - `POST /api/v1/ingest/market`
+- Result:
+  - `iso_proj`: request succeeded (`200`) but returned zero links, no document insert.
+  - `demo_proj`: request failed (`500`) due existing DB sequence/state issue:
+    - `etl_job_runs` primary key conflict (`duplicate key value violates unique constraint etl_job_runs_pkey`).
+- Implication:
+  - Ingest path request/route context is reachable and project headers resolve correctly.
+  - `demo_proj` needs DB sequence repair before using it as stable ingest-write evidence.

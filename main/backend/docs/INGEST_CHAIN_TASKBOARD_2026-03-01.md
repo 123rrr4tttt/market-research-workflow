@@ -34,4 +34,5 @@ evidence: `python -m unittest discover -s main/backend/tests -p '*_unittest.py'`
 
 ## Follow-ups
 1. Enable `project_key_enforcement_mode=require` after client rollout.
-2. Add DB-backed integration checks for schema isolation (`project_demo_proj` vs `project_online_lottery`).
+2. Repair `project_demo_proj.etl_job_runs` sequence/PK state (current market ingest may fail with duplicate PK).
+3. Add DB-backed integration checks for document/source ingest writes after sequence repair.
