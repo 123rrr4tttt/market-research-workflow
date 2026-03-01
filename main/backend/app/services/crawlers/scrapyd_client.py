@@ -27,6 +27,13 @@ class ScrapydClient:
             body = resp.json()
             return body if isinstance(body, dict) else {"status": "error", "body": body}
 
+    def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        with httpx.Client(timeout=self.timeout) as client:
+            resp = client.get(f"{self.base_url}{path}", params=params or {})
+            resp.raise_for_status()
+            body = resp.json()
+            return body if isinstance(body, dict) else {"status": "error", "body": body}
+
     def schedule_spider(
         self,
         *,
@@ -59,7 +66,7 @@ class ScrapydClient:
         return self._post("/schedule.json", payload)
 
     def list_jobs(self, *, project: str) -> dict[str, Any]:
-        return self._post("/listjobs.json", {"project": project})
+        return self._get("/listjobs.json", {"project": project})
 
     def cancel_job(self, *, project: str, job_id: str) -> dict[str, Any]:
         return self._post("/cancel.json", {"project": project, "job": job_id})

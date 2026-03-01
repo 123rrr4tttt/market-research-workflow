@@ -131,6 +131,7 @@ def _run_via_crawler_provider_registry(
     from .. import crawlers as _crawlers  # noqa: F401 - trigger builtin crawler provider registration
     from ..crawlers.base import CrawlerDispatchRequest
     from ..crawlers.registry import get_provider
+    from ..crawlers.scrapyd_result_ingest import ingest_scrapyd_job_output
 
     provider = get_provider(provider_type)
     if provider is None:
@@ -171,10 +172,43 @@ def _run_via_crawler_provider_registry(
     ok_status = {"ok", "queued", "scheduled", "running", "accepted"}
     status = str(dispatch.provider_status or "").strip().lower()
     errors: list[str] = [] if status in ok_status else [f"crawler provider status: {status or 'unknown'}"]
+    inserted = 0
+    updated = 0
+    skipped = 0
+    output_ingest: dict[str, Any] | None = None
+    if (
+        provider_type == "scrapy"
+        and project_key
+        and dispatch.provider_job_id
+        and bool(params.get("auto_ingest_crawler_output", True))
+        and status in ok_status
+    ):
+        try:
+            output_ingest = ingest_scrapyd_job_output(
+                project_key=str(project_key),
+                scrapy_project=project,
+                job_id=str(dispatch.provider_job_id),
+                base_url=str(params.get("scrapyd_base_url") or "") or None,
+                wait_timeout_seconds=float(params.get("crawler_ingest_wait_timeout_seconds") or 8.0),
+                poll_interval_seconds=float(params.get("crawler_ingest_poll_interval_seconds") or 0.8),
+                source_name=str(params.get("crawler_output_source_name") or "") or None,
+                doc_type=str(params.get("crawler_output_doc_type") or "news"),
+                enable_extraction=bool(params.get("crawler_output_enable_extraction", False)),
+                max_items=int(params.get("crawler_output_max_items") or 100),
+            )
+            if isinstance(output_ingest, dict):
+                import_result = output_ingest.get("import_result")
+                if isinstance(import_result, dict):
+                    inserted = int(import_result.get("inserted") or 0)
+                    updated = int(import_result.get("updated") or 0)
+                    skipped = int(import_result.get("skipped") or 0)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"crawler output ingest failed: {exc}")
+
     return {
-        "inserted": 0,
-        "updated": 0,
-        "skipped": 0,
+        "inserted": inserted,
+        "updated": updated,
+        "skipped": skipped,
         "errors": errors,
         "provider_job_id": dispatch.provider_job_id,
         "provider_type": dispatch.provider_type,
@@ -182,6 +216,7 @@ def _run_via_crawler_provider_registry(
         "attempt_count": dispatch.attempt_count,
         "execution_policy": execution_policy,
         "provider_config": provider_config,
+        "output_ingest": output_ingest,
     }
 
 
