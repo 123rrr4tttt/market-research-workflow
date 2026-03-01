@@ -817,6 +817,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const lastClickRef = useRef<{ key: string; ts: number } | null>(null)
   const selectionEnabledRef = useRef(false)
   const autoFocusEnabledRef = useRef(true)
+  const renderModeRef = useRef<RenderMode>('2d')
   const adjacencyConnectedMapRef = useRef<Map<string, Set<string>>>(new Map())
   const dragFocusNodeKeyRef = useRef<string | null>(null)
   const projectionPhysicsRef = useRef<Projection3DPhysicsState>({ positions: {}, velocities: {} })
@@ -831,6 +832,10 @@ export default function GraphPage({ projectKey, variant }: Props) {
   useEffect(() => {
     autoFocusEnabledRef.current = autoFocusEnabled
   }, [autoFocusEnabled])
+
+  useEffect(() => {
+    renderModeRef.current = renderMode
+  }, [renderMode])
 
   useEffect(() => {
     // Avoid carrying hidden type masks across graph variants.
@@ -1641,6 +1646,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         })
         chartInstRef.current.on('mouseover', (params) => {
           if (!autoFocusEnabledRef.current) return
+          if (renderModeRef.current !== 'projection3d') return
           if (params.dataType !== 'node') return
           const mouseEvent = (params as { event?: { event?: MouseEvent } }).event?.event
           if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) > 0) {
@@ -1659,6 +1665,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         })
         chartInstRef.current.on('mousedown', (params) => {
           if (!autoFocusEnabledRef.current) return
+          if (renderModeRef.current !== 'projection3d') return
           if (params.dataType !== 'node') return
           const nodeId = params.data && typeof params.data === 'object' && 'id' in params.data
             ? String(params.data.id || '')
@@ -1669,6 +1676,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         })
         chartInstRef.current.on('mouseup', (params) => {
           if (!autoFocusEnabledRef.current) return
+          if (renderModeRef.current !== 'projection3d') return
           if (dragFocusNodeKeyRef.current == null) return
           dragFocusNodeKeyRef.current = null
           if (params.dataType === 'node') {
@@ -1682,6 +1690,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         })
         chartInstRef.current.on('mouseout', (params) => {
           if (!autoFocusEnabledRef.current) return
+          if (renderModeRef.current !== 'projection3d') return
           const mouseEvent = (params as { event?: { event?: MouseEvent } }).event?.event
           if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) === 0) {
             dragFocusNodeKeyRef.current = null
@@ -1693,6 +1702,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         })
         chartInstRef.current.on('mousemove', (params) => {
           if (!autoFocusEnabledRef.current) return
+          if (renderModeRef.current !== 'projection3d') return
           const mouseEvent = (params as { event?: { event?: MouseEvent } }).event?.event
           if (dragFocusNodeKeyRef.current && (mouseEvent?.buttons ?? 0) === 0) {
             dragFocusNodeKeyRef.current = null
@@ -1707,6 +1717,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         })
         chartInstRef.current.on('globalout', () => {
           if (!autoFocusEnabledRef.current) return
+          if (renderModeRef.current !== 'projection3d') return
           dragFocusNodeKeyRef.current = null
           setHoverNodeKey(null)
         })
@@ -1751,7 +1762,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
     const shouldShowNodeLabel = visualApplied.showLabel && visibleNodes.length <= 220
     const shouldShowEdgeLabel = false
     const autoFocusSet = new Set<string>()
-    const focusCenterKey = autoFocusEnabled ? (hoverNodeKey || selectedNodeKey) : null
+    const focusCenterKey = autoFocusEnabled
+      ? ((renderMode === 'projection3d' ? hoverNodeKey : null) || selectedNodeKey)
+      : null
     if (focusCenterKey) {
       collectFocusNodeKeys(focusCenterKey, adjacencyConnectedMap).forEach((item) => autoFocusSet.add(item))
     }
