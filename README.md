@@ -1,7 +1,7 @@
 # 市场情报（market-intel）项目说明
 
-> 最后更新：2026-03-01  
-> 当前版本：`v0.9-rc2.0`（预发布，团队联调）
+> 最后更新：2026-03-02  
+> 当前版本：`v0.1-rc2.0`（预发布，开发版）
 
 本仓库实现一体化信息工作流：多来源采集 -> 结构化处理 -> 索引检索 -> 可视化与运维管理。  
 适用于政策、市场、新闻、社媒等主题的数据采集与分析。
@@ -371,6 +371,8 @@ cd main/ops
 ## 12. 文档导航
 
 - 开发重要索引（第一入口）：`development/latest-dev-docs/README.md`
+- 开发文档合并总览：`development/latest-dev-docs/MERGED_OVERVIEW.md`
+- 开发计划索引：`development/latest-dev-docs/development-plans/INDEX.md`
 - 快速启动：`main/QUICKSTART.md`
 - Docker 运维：`main/ops/README.md`
 - 后端说明：`main/backend/README.md`
@@ -383,11 +385,20 @@ cd main/ops
 - 前端迁移契约：`main/backend/docs/FRONTEND_MODERNIZATION_API_MAP_2026-02-27.md`
 - 后端测试分层说明：`main/backend/tests/README.md`
 - 迭代计划：`plans/status-8x-2026-02-27.md`
-- 版本说明：`RELEASE_NOTES_pre-release-0.9-rc2.0.md`
+- 版本说明：`RELEASE_NOTES_pre-release-0.1-rc2.0.md`
+
+### 12.1 本轮开发文档增量（来自 `development/latest-dev-docs`）
+
+- 单 URL 优先采集分配方案：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md`
+- Source Time Window + Smart Timestamp：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/01_source-time-window-smart-timestamp-plan-2026-03-02.md`
+- 执行拆解（时间窗与名词密度解耦）：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md`
+- 图谱节点 A→B 标准化：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md`
+- 全局向量化通用基础：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md`
+- 标准化 ingest workflow 打包：`development/latest-dev-docs/backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md`
 
 ## 13. 8.x 进一步开发规划（状态同步）
 
-以下状态同步自预发布说明第 8 节，并结合当前仓库落地情况更新（截至 `2026-03-01`）：
+以下状态同步自预发布说明，并结合当前仓库落地情况更新（截至 `2026-03-02`）：
 
 | 路线 | 当前状态 | 说明 / 下一步 |
 |---|---|---|
@@ -408,7 +419,7 @@ cd main/ops
 
 详见：
 
-- 版本说明：`RELEASE_NOTES_pre-release-0.9-rc2.0.md`
+- 版本说明：`RELEASE_NOTES_pre-release-0.1-rc2.0.md`
 - 迭代计划：`plans/status-8x-2026-02-27.md`
 
 ## 14. 当前已知风险（供联调参考）

@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BACKEND_DIR="${ROOT_DIR}/main/backend"
 OPS_DIR="${ROOT_DIR}/main/ops"
+FRONTEND_DIR="${ROOT_DIR}/main/frontend-modern"
 ENV_FILE="${BACKEND_DIR}/.env"
 ENV_EXAMPLE_FILE="${BACKEND_DIR}/.env.example"
 
@@ -20,6 +21,8 @@ Profiles:
   contract    Run contract tests
   e2e         Run e2e tests
   core-business Run core business suite (tests/core_business)
+  external-smoke Run external chain smoke checks in docker compose
+  frontend-e2e Run frontend Playwright e2e suite
   coverage    Run split coverage gate (core=100%, other=20%)
   all         Run unit + integration + contract + e2e
   ci-pr       Run CI PR suite (unit + integration)
@@ -92,6 +95,30 @@ run_docker_tests() {
   )
 }
 
+run_external_smoke() {
+  (
+    cd "${OPS_DIR}"
+    cleanup() {
+      compose down -v || true
+    }
+    trap cleanup EXIT
+    compose up -d db es redis
+    compose run --rm backend python -m scripts.test_resource_library_e2e
+    compose run --rm backend python -m scripts.test_search_to_document_chain
+  )
+}
+
+run_frontend_e2e() {
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "[test-standardize] Missing npm for frontend-e2e profile" >&2
+    return 127
+  fi
+  (
+    cd "${FRONTEND_DIR}"
+    npm run test:e2e -- "$@"
+  )
+}
+
 resolve_python_exec() {
   local backend_venv="${BACKEND_DIR}/.venv311/bin/python"
   if [[ -x "${backend_venv}" ]]; then
@@ -145,6 +172,13 @@ case "${profile}" in
   core-business)
     prepare_env
     run_pytest_marker "(unit or integration or contract or e2e) and not external" tests/core_business -q "$@"
+    ;;
+  external-smoke)
+    prepare_env
+    run_external_smoke "$@"
+    ;;
+  frontend-e2e)
+    run_frontend_e2e "$@"
     ;;
   coverage)
     prepare_env

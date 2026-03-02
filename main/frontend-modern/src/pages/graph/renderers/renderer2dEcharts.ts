@@ -10,8 +10,8 @@ export function applyRenderer2D(nodes: RenderNode[]): RenderApplyResult {
     nodes,
     series: {
       layout: 'force',
-      animation: true,
-      animationDurationUpdate: 90,
+      animation: false,
+      animationDurationUpdate: 0,
       animationEasingUpdate: 'linear',
     },
     cacheNodePositions: true,

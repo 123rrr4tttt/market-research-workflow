@@ -1,0 +1,38 @@
+{
+  "summary": {
+    "run_at": "2026-03-01T21:11:56",
+    "project_key": "demo_proj",
+    "strict_mode": false,
+    "strict_gate": true,
+    "url_count": 1,
+    "success_count": 0,
+    "degraded_count": 1,
+    "failed_count": 0,
+    "inserted_valid_total": 0
+  },
+  "results": [
+    {
+      "index": 1,
+      "url": "https://arxiv.org/abs/1706.03762",
+      "status": "degraded_success",
+      "inserted": 0,
+      "inserted_valid": 0,
+      "skipped": 1,
+      "quality_score": 100.0,
+      "structured_extraction_status": "ok",
+      "rejection_breakdown": {},
+      "pre_fetch_reason": null,
+      "pre_write_reason": null,
+      "document_ids": [
+        236
+      ],
+      "primary_doc": {
+        "id": 236,
+        "title": "[1706.03762] Attention Is All You Need",
+        "uri": "https://arxiv.org/abs/1706.03762",
+        "content_len": 5810,
+        "content_head": "Skip to main content       We gratefully acknowledge support from the Simons Foundation, member institutions , and all contributors.  Donate        >  cs  > arXiv:1706.03762         Help | Advanced Search      All fields  Title  Author  Abstract  Comments  Jou"
+      }
+    }
+  ]
+}

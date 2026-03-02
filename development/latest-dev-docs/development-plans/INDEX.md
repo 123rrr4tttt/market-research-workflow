@@ -16,6 +16,7 @@
 - [CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md](./CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md)
 - [CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md](./CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
 - [CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md](./CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md)
+- [CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md](./CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
 
 ## Archives
 - `A_ARCHITECTURE/`

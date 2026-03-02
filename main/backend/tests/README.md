@@ -66,6 +66,8 @@ Use the standardized test entrypoint from repo root:
 ./scripts/test-standardize.sh contract
 ./scripts/test-standardize.sh e2e
 ./scripts/test-standardize.sh core-business
+./scripts/test-standardize.sh external-smoke
+./scripts/test-standardize.sh frontend-e2e
 ./scripts/test-standardize.sh coverage
 ./scripts/test-standardize.sh ci-pr
 TEST_PROFILE=test ./scripts/test-standardize.sh docker
@@ -73,7 +75,7 @@ TEST_PROFILE=test ./scripts/test-standardize.sh docker
 
 Profile policy:
 
-- Supported profiles: `unit|integration|schema-guard|contract|e2e|core-business|coverage|all|ci-pr|ci-main|docker`.
+- Supported profiles: `unit|integration|schema-guard|contract|e2e|core-business|external-smoke|frontend-e2e|coverage|all|ci-pr|ci-main|docker`.
 - Local pytest profiles exclude `external` by default.
 - Core business profile command:
   - `pytest -m "(unit or integration or contract or e2e) and not external" tests/core_business -q`
@@ -93,11 +95,31 @@ Profile policy:
 - For docker profile, `TEST_PROFILE` defaults to `test` (maps to `backend-test` service).
 - In CI `workflow_dispatch`, `test_profile` can override the profile; fallback remains `test`.
 - `core-business` is currently a standardized local/engineering entrypoint and is not a standalone CI job in `.github/workflows/backend-tests.yml`.
+- `external-smoke` runs two backend external-chain checks in docker compose:
+  - `python -m scripts.test_resource_library_e2e`
+  - `python -m scripts.test_search_to_document_chain`
+- `frontend-e2e` runs Playwright suite in `main/frontend-modern` via `npm run test:e2e`.
 
 Tier policy:
 
 - `PR` tier (fast feedback): `standards-check + unit-check + integration-check + schema-guard-check(non-blocking) + coverage-check(non-blocking) + docker-check`.
 - `main` tier (full gate): `standards-check + unit-check + integration-check + schema-guard-check + coverage-check + contract-check + e2e-check + docker-check`.
+
+## Manual Checks Archive (Not CI Gates)
+
+The following scripts are kept as manual checks and are not part of default CI gate jobs:
+
+- `main/backend/scripts/test_azure_search_index.py`
+- `main/backend/scripts/test_serper_demo.py`
+- `main/backend/scripts/test_scraper_html.py`
+- `main/backend/scripts/test_scraper_info.py`
+- `main/backend/scripts/test_history_adapters.py`
+- `main/backend/scripts/test_nitter.py`
+- `main/backend/scripts/test_nitter_standalone.py`
+- `main/backend/scripts/test_twitter_api.py`
+- `main/backend/scripts/test_twitter_api_standalone.py`
+
+Reason: these scripts rely on unstable third-party dependencies, credentials, or exploratory debugging scenarios, so they are intentionally excluded from blocking gates.
 
 ## Parallel Execution Guidance
 

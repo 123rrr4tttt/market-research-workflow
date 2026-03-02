@@ -14,10 +14,14 @@ Backend tests use marker layering from `main/backend/pytest.ini`:
 
 Standardized entrypoint is `scripts/test-standardize.sh` with profiles:
 
-- `unit|integration|schema-guard|contract|e2e|core-business|coverage|all|ci-pr|ci-main|docker`.
+- `unit|integration|schema-guard|contract|e2e|core-business|external-smoke|frontend-e2e|coverage|all|ci-pr|ci-main|docker`.
 - `core-business` runs `tests/core_business` with marker union `(unit or integration or contract or e2e) and not external`.
 - `schema-guard` runs `tests/integration/test_project_schema_guard_unittest.py` and validates `/api/v1/dashboard/stats` for every project from `/api/v1/projects`; failure output includes exact `project_key`.
 - `coverage` runs `(unit or integration) and not external`, then enforces split thresholds via `main/backend/scripts/check_coverage_thresholds.py`.
+- `external-smoke` runs two external chain smoke checks in docker compose:
+  - `python -m scripts.test_resource_library_e2e`
+  - `python -m scripts.test_search_to_document_chain`
+- `frontend-e2e` runs Playwright suite in `main/frontend-modern` via `npm run test:e2e`.
 
 ## 2. CI Gate Alignment
 
@@ -64,6 +68,20 @@ This policy is executed both:
 
 ## 5. Current Limitations
 
-1. Frontend user-journey E2E is not part of default backend automation scope.
+1. Frontend E2E is available via standardized profile (`frontend-e2e`) but is not a default blocking CI gate.
 2. Backend `e2e` currently focuses on smoke paths, not full scenario matrix.
 3. External dependency determinism is still incomplete for some third-party integrations.
+
+## 6. Manual Checks (Archived but Retained)
+
+The following scripts are retained as manual checks and are intentionally excluded from blocking CI gates:
+
+- `main/backend/scripts/test_azure_search_index.py`
+- `main/backend/scripts/test_serper_demo.py`
+- `main/backend/scripts/test_scraper_html.py`
+- `main/backend/scripts/test_scraper_info.py`
+- `main/backend/scripts/test_history_adapters.py`
+- `main/backend/scripts/test_nitter.py`
+- `main/backend/scripts/test_nitter_standalone.py`
+- `main/backend/scripts/test_twitter_api.py`
+- `main/backend/scripts/test_twitter_api_standalone.py`

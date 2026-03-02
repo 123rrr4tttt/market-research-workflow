@@ -1401,12 +1401,21 @@ button {
   overflow: auto;
 }
 
-.gv2-floating-controls.is-left-3d {
-  left: 14px;
-  right: auto;
+.gv2-floating-controls.is-collapsed {
+  display: none;
 }
 
-.gv2-floating-controls.is-collapsed {
+.gv2-floating-projection-left {
+  position: absolute;
+  z-index: 5;
+  left: 14px;
+  bottom: 14px;
+  width: min(430px, calc(100% - 28px));
+  max-height: min(44vh, 420px);
+  overflow: auto;
+}
+
+.gv2-floating-projection-left.is-collapsed {
   display: none;
 }
 
@@ -1419,12 +1428,6 @@ button {
   width: clamp(14px, 2.2vw, 22px);
   cursor: col-resize;
   z-index: 8;
-}
-
-.gv2-floating-controls.is-left-3d .gv2-floating-controls-resizer {
-  left: auto;
-  right: 0;
-  transform: translateX(50%);
 }
 
 .gv2-floating-controls-resizer::after {
@@ -1519,6 +1522,16 @@ button {
 .main-area.is-dark .gv2-overlay-top .gv2-select-mode-btn:disabled {
   opacity: 1;
   cursor: not-allowed;
+}
+
+.gv2-drag-captured {
+  font-size: 11px;
+  color: #fde68a;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  background: rgba(120, 53, 15, 0.3);
+  border-radius: 999px;
+  padding: 3px 8px;
+  animation: gv2CapturedPop 0.9s ease-out;
 }
 
 .gv2-inline-control {
@@ -1833,6 +1846,21 @@ button {
   height: 22px;
   line-height: 1;
   padding: 0;
+}
+
+@keyframes gv2CapturedPop {
+  0% {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.95);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-1px) scale(1.02);
+  }
 }
 
 .gv2-node-card-body {
@@ -2389,9 +2417,11 @@ button {
     max-height: 52vh;
   }
 
-  .gv2-floating-controls.is-left-3d {
+  .gv2-floating-projection-left {
     left: 10px;
-    right: auto;
+    bottom: 10px;
+    width: min(96%, 420px);
+    max-height: 40vh;
   }
 
   .gv2-floating-controls-resizer {
