@@ -13,5 +13,5 @@
 - [C_INGEST/](./C_INGEST/)
 - [D_TEST/](./D_TEST/)
 - [E_OPS/](./E_OPS/)
-- [F_PLAN/](./F_PLAN/)：包含 `graph-3d-dev-notes-20260301.md`
+- [F_PLAN/](./F_PLAN/)：包含 `graph-3d-dev-notes-20260301.md`、`graph-3d-controls-left-and-2d-gravity-2026-03-02.md`
 - [G_REVIEW/](./G_REVIEW/)

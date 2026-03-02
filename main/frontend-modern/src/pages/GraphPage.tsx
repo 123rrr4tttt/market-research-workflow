@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { EChartsType } from 'echarts/core'
+import * as THREE from 'three'
 import { getGraphConfig, getMarketGraph, getPolicyGraph, getSocialGraph, listSourceItems, submitGraphStructuredSearchTasks } from '../lib/api'
 import type {
   GraphEdgeItem,
@@ -441,7 +442,6 @@ const NODE_CARD_MARGIN = 14
 const NODE_CARD_POINTER_OFFSET = 10
 const GRAPH_SELECT_DEBUG = true
 const GRAPH_SELECT_DEEP_DEBUG = false
-const DOUBLE_CLICK_WINDOW_MS = 420
 const GRAPH_LIMIT_MIN = 1
 const GRAPH_LIMIT_MAX = 2000
 const GRAPH_LIMIT_DEFAULT = 100
@@ -647,6 +647,46 @@ function parseCommaSeparated(value: string) {
     .filter(Boolean)
 }
 
+type ForceNodeLike = {
+  x?: number
+  y?: number
+  z?: number
+  vx?: number
+  vy?: number
+  vz?: number
+}
+
+function createGlobalMutualAttractionForce(strength: number) {
+  let nodes: ForceNodeLike[] = []
+  const force = (alpha: number) => {
+    if (!nodes.length || strength <= 0) return
+    let cx = 0
+    let cy = 0
+    let cz = 0
+    const count = nodes.length
+    for (let i = 0; i < count; i += 1) {
+      const n = nodes[i]
+      cx += Number(n.x || 0)
+      cy += Number(n.y || 0)
+      cz += Number(n.z || 0)
+    }
+    cx /= count
+    cy /= count
+    cz /= count
+    const k = strength * alpha
+    for (let i = 0; i < count; i += 1) {
+      const n = nodes[i]
+      n.vx = Number(n.vx || 0) + (cx - Number(n.x || 0)) * k
+      n.vy = Number(n.vy || 0) + (cy - Number(n.y || 0)) * k
+      n.vz = Number(n.vz || 0) + (cz - Number(n.z || 0)) * k
+    }
+  }
+  ;(force as { initialize?: (next: ForceNodeLike[]) => void }).initialize = (next: ForceNodeLike[]) => {
+    nodes = Array.isArray(next) ? next : []
+  }
+  return force as unknown
+}
+
 const SPECIAL_PREFIX_BY_KIND: Partial<Record<GraphKind, string>> = {
   company: 'Company',
   product: 'Product',
@@ -776,6 +816,7 @@ function computeVisibleSubgraph(
 export default function GraphPage({ projectKey, variant }: Props) {
   const graphKind = TYPE_TO_KIND[variant]
   const chartRef = useRef<HTMLDivElement | null>(null)
+  const forceChartRef = useRef<HTMLDivElement | null>(null)
   const fullscreenWrapRef = useRef<HTMLDivElement | null>(null)
   const controlPanelRef = useRef<HTMLDivElement | null>(null)
   const controlResizeRightRef = useRef<number | null>(null)
@@ -794,6 +835,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [limit, setLimit] = useState(GRAPH_LIMIT_DEFAULT)
   const [visualDraft, setVisualDraft] = useState({
     repulsion: 180,
+    gravityPercent: 100,
     nodeScale: 100,
     nodeAlpha: 72,
     edgeWidth: 100,
@@ -802,6 +844,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   })
   const [visualApplied, setVisualApplied] = useState({
     repulsion: 180,
+    gravityPercent: 100,
     nodeScale: 100,
     nodeAlpha: 72,
     edgeWidth: 100,
@@ -832,12 +875,13 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [colorRotate, setColorRotate] = useState(58)
   const [absoluteContrast, setAbsoluteContrast] = useState(62)
   const [renderMode, setRenderMode] = useState<RenderMode>('2d')
-  const [projectionEngine, setProjectionEngine] = useState<ProjectionEngine>('legacy')
+  const [projectionEngine, setProjectionEngine] = useState<ProjectionEngine>('force3d')
   const [projectionRotateX, setProjectionRotateX] = useState(12)
   const [projectionRotateY, setProjectionRotateY] = useState(18)
   const [projectionRotateZ, setProjectionRotateZ] = useState(0)
   const [projectionZoomPercent, setProjectionZoomPercent] = useState(100)
   const [projection3DRepulsionPercent, setProjection3DRepulsionPercent] = useState(100)
+  const [projection3DAttractionPercent, setProjection3DAttractionPercent] = useState(120)
   const [physicsFrame, setPhysicsFrame] = useState(0)
   const [forceViewport, setForceViewport] = useState({ width: 1280, height: 720 })
   const [ForceGraph3DComp, setForceGraph3DComp] = useState<any>(null)
@@ -858,7 +902,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [manualSelectedNodeKeys, setManualSelectedNodeKeys] = useState<Set<string>>(new Set())
   const [radiationSelectionByCenter, setRadiationSelectionByCenter] = useState<Record<string, boolean>>({})
   const [selectionPinned, setSelectionPinned] = useState(false)
-  const [autoFocusEnabled, setAutoFocusEnabled] = useState(true)
+  const [autoFocusEnabled, setAutoFocusEnabled] = useState(false)
   const [hoverNodeKey, setHoverNodeKey] = useState<string | null>(null)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [submittingMap, setSubmittingMap] = useState<Record<'collect' | 'source_collect', boolean>>({
@@ -884,14 +928,14 @@ export default function GraphPage({ projectKey, variant }: Props) {
     sourceItemKeys: [] as string[],
   })
   const [sourceItemKeyword, setSourceItemKeyword] = useState('')
-  const clickTimerRef = useRef<number | null>(null)
-  const lastClickRef = useRef<{ key: string; ts: number } | null>(null)
   const selectionEnabledRef = useRef(false)
   const autoFocusEnabledRef = useRef(true)
   const adjacencyConnectedMapRef = useRef<Map<string, Set<string>>>(new Map())
   const dragFocusNodeKeyRef = useRef<string | null>(null)
+  const nodeCardDragRef = useRef<{ active: boolean; offsetX: number; offsetY: number }>({ active: false, offsetX: 0, offsetY: 0 })
   const projectionPhysicsRef = useRef<Projection3DPhysicsState>({ positions: {}, velocities: {} })
   const forceGraphRef = useRef<any>(undefined)
+  const forceNodeObjectCacheRef = useRef<Map<string, any>>(new Map())
   const projectionInteractionQuatRef = useRef<QuaternionLike>({ x: 0, y: 0, z: 0, w: 1 })
   const projectionAngularVelRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const projectionDragStateRef = useRef<{ active: boolean; x: number; y: number }>({ active: false, x: 0, y: 0 })
@@ -1069,6 +1113,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [graphData.data, hiddenTypes, graphKind])
 
   const symbolDebug = useMemo(() => {
+    if (!showSymbolDebug) {
+      return { total: 0, unique: 0, forcedCircle: 0, items: [] as Array<{ raw: string; normalized: string; rawSymbol: string; graphSymbol: BuiltinGraphSymbol; count: number }> }
+    }
     const rows = new Map<string, { raw: string; normalized: string; rawSymbol: string; graphSymbol: BuiltinGraphSymbol; count: number }>()
     topology.visibleNodes.forEach((node) => {
       const raw = String(node.type || '').trim() || '-'
@@ -1091,7 +1138,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
       forcedCircle,
       items: items.slice(0, 14),
     }
-  }, [topology.visibleNodes])
+  }, [topology.visibleNodes, showSymbolDebug])
 
   const edgeLegendItems = useMemo(() => {
     const labels = graphConfig.data?.graph_relation_labels
@@ -1451,39 +1498,89 @@ export default function GraphPage({ projectKey, variant }: Props) {
     return topology.connectedNodeKeys.has(key) ? key : null
   }, [selectedNode, topology.connectedNodeKeys])
 
+  const selectionFocusSet3D = useMemo(() => {
+    const set = new Set<string>()
+    const centerKey = autoFocusEnabled ? (hoverNodeKey || selectedNodeKey) : null
+    if (!centerKey) return set
+    collectFocusNodeKeys(centerKey, adjacencyConnectedMap).forEach((item) => set.add(item))
+    return set
+  }, [autoFocusEnabled, hoverNodeKey, selectedNodeKey, adjacencyConnectedMap])
+
   const forceGraphData = useMemo(() => {
+    if (renderMode !== 'projection3d') return { nodes: [] as Array<{ id: string; key: string; name: string; rawNode: GraphNodeItem; degree: number }>, links: [] as Array<{ source: string; target: string }> }
     const nodes = topology.visibleNodes.map((node) => {
       const key = nodeKey(node)
       const deg = topology.degreeMap.get(key) || 0
-      const normalizedType = normalizeNodeType(node.type)
-      const nodeColor = nodeTypeColor[normalizedType] || '#7dd3fc'
-      const size = Math.round((18 + ((deg - topology.minDeg) / topology.rangeDeg) * 28) * (visualApplied.nodeScale / 100))
-      const alpha = Math.max(0.12, Math.min(1, visualApplied.nodeAlpha / 100))
       return {
         id: key,
         key,
         name: nodeName(node),
         rawNode: node,
-        color: nodeColor,
-        val: Math.max(2, size / 6.5),
-        opacity: alpha,
+        degree: deg,
       }
     })
     const links = visibleEdges
       .map((edge) => {
         const resolved = topology.edgeResolvedKeyMap.get(edge)
         if (!resolved) return null
-        const style = edgeLegendItemByKey.get(edgeLegendKey(edge))
         return {
           source: resolved.fromKey,
           target: resolved.toKey,
-          color: style?.color || '#7dd3fc',
-          width: Math.max(0.5, (EDGE_WIDTH_BY_TIER[style?.tier || 'type'] || 1.2) * (visualApplied.edgeWidth / 100)),
         }
       })
-      .filter((item): item is { source: string; target: string; color: string; width: number } => Boolean(item))
+      .filter((item): item is { source: string; target: string } => Boolean(item))
     return { nodes, links }
-  }, [topology.visibleNodes, topology.degreeMap, topology.minDeg, topology.rangeDeg, topology.edgeResolvedKeyMap, visibleEdges, edgeLegendItemByKey, nodeTypeColor, visualApplied.nodeScale, visualApplied.nodeAlpha, visualApplied.edgeWidth])
+  }, [renderMode, topology.visibleNodes, topology.degreeMap, topology.edgeResolvedKeyMap, visibleEdges])
+
+  const forceNodeStyleById = useMemo(() => {
+    if (renderMode !== 'projection3d') return new Map<string, { color: string; val: number; opacity: number }>()
+    const map = new Map<string, { color: string; val: number; opacity: number }>()
+    const enablePinnedOnlyDim = selectionPinned && selectedNodeKeys.size > 0
+    const enableAutoFocusDim = autoFocusEnabled && selectionFocusSet3D.size > 0
+    forceGraphData.nodes.forEach((node) => {
+      const rawNode = (node as { rawNode?: GraphNodeItem }).rawNode
+      const normalizedType = normalizeNodeType(rawNode?.type || '')
+      const nodeColor = nodeTypeColor[normalizedType] || '#7dd3fc'
+      const deg = Number((node as { degree?: number }).degree || 0)
+      const key = String((node as { id?: string }).id || '')
+      const selected = selectedNodeKeys.has(key)
+      const dimByPinnedOnly = enablePinnedOnlyDim && !selected
+      const dimByAutoFocus = enableAutoFocusDim && !selectionFocusSet3D.has(key)
+      const dimmed = enablePinnedOnlyDim ? dimByPinnedOnly : dimByAutoFocus
+      const size = Math.round((18 + ((deg - topology.minDeg) / topology.rangeDeg) * 28) * (visualApplied.nodeScale / 100))
+      map.set(key, {
+        color: nodeColor,
+        val: Math.max(2, (selected ? size * 1.08 : (dimmed ? size * 0.9 : size)) / 6.5),
+        opacity: dimmed
+          ? 0.08
+          : Math.max(0.14, Math.min(1, (selected ? visualApplied.nodeAlpha + 8 : visualApplied.nodeAlpha) / 100)),
+      })
+    })
+    return map
+  }, [renderMode, forceGraphData.nodes, nodeTypeColor, topology.minDeg, topology.rangeDeg, visualApplied.nodeScale, visualApplied.nodeAlpha, selectionPinned, selectedNodeKeys, autoFocusEnabled, selectionFocusSet3D])
+
+  const forceLinkStyleByKey = useMemo(() => {
+    if (renderMode !== 'projection3d') return new Map<string, { color: string; width: number }>()
+    const map = new Map<string, { color: string; width: number }>()
+    visibleEdges.forEach((edge) => {
+      const resolved = topology.edgeResolvedKeyMap.get(edge)
+      if (!resolved) return
+      const style = edgeLegendItemByKey.get(edgeLegendKey(edge))
+      map.set(
+        `${resolved.fromKey}>${resolved.toKey}`,
+        {
+          color: style?.color || '#7dd3fc',
+          width: Math.max(0.5, (EDGE_WIDTH_BY_TIER[style?.tier || 'type'] || 1.2) * (visualApplied.edgeWidth / 100)),
+        },
+      )
+    })
+    return map
+  }, [renderMode, visibleEdges, topology.edgeResolvedKeyMap, edgeLegendItemByKey, visualApplied.edgeWidth])
+
+  useEffect(() => {
+    if (renderMode !== 'projection3d') return
+    forceNodeObjectCacheRef.current.clear()
+  }, [renderMode, forceGraphData.nodes, visualApplied.nodeAlpha, visualApplied.nodeScale, nodeTypeColor, selectedNodeKeys])
 
   useEffect(() => {
     if (!autoFocusEnabled) {
@@ -1515,29 +1612,84 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [useForceGraph3D, ForceGraph3DComp])
 
   useEffect(() => {
-    if (!useForceGraph3D) return
+    try {
+      if (useForceGraph3D) {
+        forceGraphRef.current?.resumeAnimation?.()
+      } else {
+        forceGraphRef.current?.pauseAnimation?.()
+      }
+    } catch {
+      // noop
+    }
+  }, [useForceGraph3D])
+
+  useEffect(() => {
+    if (renderMode !== 'projection3d') return
+    const el = fullscreenWrapRef.current
+    if (!el) return
     const updateViewport = () => {
-      const el = chartRef.current
-      if (!el) return
-      setForceViewport({
-        width: Math.max(320, Math.round(el.clientWidth || 0)),
-        height: Math.max(320, Math.round(el.clientHeight || 0)),
-      })
+      const width = Math.round(el.clientWidth || 0)
+      const height = Math.round(el.clientHeight || 0)
+      if (width <= 0 || height <= 0) return
+      setForceViewport((prev) => (
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height }
+      ))
     }
     updateViewport()
+    const observer = new ResizeObserver(() => updateViewport())
+    observer.observe(el)
     window.addEventListener('resize', updateViewport)
-    return () => window.removeEventListener('resize', updateViewport)
-  }, [useForceGraph3D, isFullscreen])
+    let raf = 0
+    if (useForceGraph3D) {
+      const loop = () => {
+        updateViewport()
+        raf = window.requestAnimationFrame(loop)
+      }
+      raf = window.requestAnimationFrame(loop)
+    }
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf)
+      observer.disconnect()
+      window.removeEventListener('resize', updateViewport)
+    }
+  }, [renderMode, useForceGraph3D, isFullscreen])
+
+  useEffect(() => {
+    if (!useForceGraph3D) return
+    const api = forceGraphRef.current
+    if (!api) return
+    try {
+      api.width?.(forceViewport.width)
+      api.height?.(forceViewport.height)
+    } catch {
+      // noop
+    }
+  }, [useForceGraph3D, forceViewport.width, forceViewport.height])
 
   useEffect(() => {
     if (!useForceGraph3D) return
     const api = forceGraphRef.current
     if (!api) return
     const chargeForce = api.d3Force('charge') as { strength?: (v?: number) => unknown } | null
+    const linkForce = api.d3Force('link') as {
+      strength?: (v?: number | ((link: unknown) => number)) => unknown
+      distance?: (v?: number | ((link: unknown) => number)) => unknown
+      iterations?: (v?: number) => unknown
+    } | null
     const repulsion = Math.max(20, Math.round(projection3DRepulsionPercent * 2.2))
+    const attractionRatio = Math.max(0.2, Math.min(6, projection3DAttractionPercent / 100))
+    const globalMutualAttraction = createGlobalMutualAttractionForce(
+      Math.max(0, Math.min(0.08, 0.0065 * attractionRatio)),
+    )
     chargeForce?.strength?.(-repulsion)
+    linkForce?.strength?.(0.08)
+    linkForce?.distance?.(70)
+    linkForce?.iterations?.(2)
+    api.d3Force('globalMutualAttraction', globalMutualAttraction)
     api.d3ReheatSimulation()
-  }, [useForceGraph3D, projection3DRepulsionPercent, forceGraphData.links.length, forceGraphData.nodes.length])
+  }, [useForceGraph3D, projection3DRepulsionPercent, projection3DAttractionPercent])
 
   useEffect(() => {
     if (!useForceGraph3D) return
@@ -1709,11 +1861,6 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [isFullscreen, chartReady])
 
   useEffect(() => {
-    if (clickTimerRef.current !== null) {
-      window.clearTimeout(clickTimerRef.current)
-      clickTimerRef.current = null
-    }
-    lastClickRef.current = null
     setHoverNodeKey(null)
     setRadiationSelectionByCenter({})
   }, [variant])
@@ -1774,66 +1921,55 @@ export default function GraphPage({ projectKey, variant }: Props) {
           const key = nodeKey(node)
           syncNodeCardFromParams(params as { event?: { event?: MouseEvent } }, node)
           if (!selectionEnabledRef.current) return
-          const now = Date.now()
-          const last = lastClickRef.current
-          const isDouble = Boolean(last && last.key === key && now - last.ts <= DOUBLE_CLICK_WINDOW_MS)
-          lastClickRef.current = { key, ts: now }
           if (GRAPH_SELECT_DEBUG) {
             console.info('[graph-select] click', {
               nodeKey: key,
-              isDouble,
-              hasTimer: clickTimerRef.current !== null,
+              isDouble: false,
             })
           }
-          if (isDouble) {
-            if (clickTimerRef.current !== null) {
-              window.clearTimeout(clickTimerRef.current)
-              clickTimerRef.current = null
-            }
-            if (GRAPH_SELECT_DEBUG) console.info('[graph-select] dispatch-double', { nodeKey: key })
-            const radiationSet = collectFocusNodeKeys(key, adjacencyConnectedMapRef.current)
-            const neighbors = Array.from(radiationSet).filter((item) => item !== key)
-            if (GRAPH_SELECT_DEEP_DEBUG) {
-              const incident = (topology.connectedEdges || []).reduce((acc, edge) => {
-                const resolved = topology.edgeResolvedKeyMap.get(edge)
-                if (!resolved) return acc
-                if (resolved.fromKey === key || resolved.toKey === key) {
-                  acc.push({
-                    from: resolved.fromKey,
-                    to: resolved.toKey,
-                    type: edge.type,
-                    predicate: edge.predicate,
-                  })
-                }
-                return acc
-              }, [] as Array<{ from: string; to: string; type?: string; predicate?: string }>)
-              console.info('[graph-select] double-neighbor-debug', {
-                key,
-                neighborCount: neighbors.length,
-                neighbors,
-                incidentCount: incident.length,
-                incident,
-              })
-            }
-            if (GRAPH_SELECT_DEBUG) console.info('[graph-select] double-toggle-neighbors', { key, neighborCount: neighbors.length, neighbors })
-            setRadiationSelectionByCenter((prev) => {
-              const nextOn = !prev[key]
-              return { ...prev, [key]: nextOn }
+          if (GRAPH_SELECT_DEBUG) console.info('[graph-select] dispatch-single', { nodeKey: key })
+          setManualSelectedNodeKeys((prev) => {
+            const next = new Set(prev)
+            if (next.has(key)) next.delete(key)
+            else next.add(key)
+            return next
+          })
+        })
+        chartInstRef.current.on('dblclick', (params) => {
+          if (!selectionEnabledRef.current) return
+          if (params.dataType !== 'node') return
+          const nodeId = params.data && typeof params.data === 'object' && 'id' in params.data
+            ? String(params.data.id || '')
+            : ''
+          const node = nodeLookupRef.current[nodeId]
+          if (!node) return
+          const key = nodeKey(node)
+          const radiationSet = collectFocusNodeKeys(key, adjacencyConnectedMapRef.current)
+          const neighbors = Array.from(radiationSet).filter((item) => item !== key)
+          if (GRAPH_SELECT_DEEP_DEBUG) {
+            const incident = (topology.connectedEdges || []).reduce((acc, edge) => {
+              const resolved = topology.edgeResolvedKeyMap.get(edge)
+              if (!resolved) return acc
+              if (resolved.fromKey === key || resolved.toKey === key) {
+                acc.push({
+                  from: resolved.fromKey,
+                  to: resolved.toKey,
+                  type: edge.type,
+                  predicate: edge.predicate,
+                })
+              }
+              return acc
+            }, [] as Array<{ from: string; to: string; type?: string; predicate?: string }>)
+            console.info('[graph-select] double-neighbor-debug', {
+              key,
+              neighborCount: neighbors.length,
+              neighbors,
+              incidentCount: incident.length,
+              incident,
             })
-            return
           }
-          if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current)
-          clickTimerRef.current = window.setTimeout(() => {
-            if (GRAPH_SELECT_DEBUG) console.info('[graph-select] dispatch-single', { nodeKey: key })
-            setManualSelectedNodeKeys((prev) => {
-              const next = new Set(prev)
-              if (next.has(key)) next.delete(key)
-              else next.add(key)
-              return next
-            })
-            clickTimerRef.current = null
-          }, DOUBLE_CLICK_WINDOW_MS)
-          return
+          if (GRAPH_SELECT_DEBUG) console.info('[graph-select] double-toggle-neighbors', { key, neighborCount: neighbors.length, neighbors })
+          setRadiationSelectionByCenter((prev) => ({ ...prev, [key]: !prev[key] }))
         })
         chartInstRef.current.on('mouseover', (params) => {
           if (!autoFocusEnabledRef.current) return
@@ -1913,11 +2049,6 @@ export default function GraphPage({ projectKey, variant }: Props) {
     void ensureChart()
     return () => {
       canceled = true
-      if (clickTimerRef.current !== null) {
-        window.clearTimeout(clickTimerRef.current)
-        clickTimerRef.current = null
-      }
-      lastClickRef.current = null
       if (chartInstRef.current) {
         chartInstRef.current.dispose()
         chartInstRef.current = null
@@ -2139,7 +2270,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         ? {
           repulsion: visualApplied.repulsion,
           edgeLength: [55, 180],
-          gravity: 0.1,
+          gravity: Math.max(0, Math.min(0.6, 0.1 * (visualApplied.gravityPercent / 100))),
           friction: 0.16,
           layoutAnimation: true,
         }
@@ -2185,14 +2316,21 @@ export default function GraphPage({ projectKey, variant }: Props) {
 
     chart.setOption(
       option,
-      { lazyUpdate: false },
+      { lazyUpdate: true },
     )
     if (rendererResult.cacheNodePositions) {
-      nodePositionRef.current = Object.fromEntries(
-        rendererResult.nodes.map((item) => [String(item.id), { x: item.x as number | undefined, y: item.y as number | undefined }]),
-      )
+      const mergedPositions = { ...nodePositionRef.current }
+      rendererResult.nodes.forEach((item) => {
+        const id = String(item.id || '')
+        if (!id) return
+        mergedPositions[id] = {
+          x: item.x as number | undefined,
+          y: item.y as number | undefined,
+        }
+      })
+      nodePositionRef.current = mergedPositions
     }
-  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, projectionRotateX, projectionRotateY, projectionRotateZ, projectionZoomPercent, projection3DRepulsionPercent, physicsFrame, useLegacyProjection3D, useForceGraph3D])
+  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNodeKey, renderMode, projectionRotateX, projectionRotateY, projectionRotateZ, projectionZoomPercent, projection3DRepulsionPercent, physicsFrame, useLegacyProjection3D, useForceGraph3D])
 
   const onControlResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (isCompactViewport) return
@@ -2220,6 +2358,62 @@ export default function GraphPage({ projectKey, variant }: Props) {
     document.addEventListener('mouseup', onEnd)
   }
 
+  const onNodeCardDragStart = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    const target = event.target as HTMLElement | null
+    if (target?.closest('button')) return
+    const wrap = fullscreenWrapRef.current || chartRef.current
+    if (!wrap) return
+    const rect = wrap.getBoundingClientRect()
+    const maxWidth = Math.max(220, rect.width - NODE_CARD_MARGIN * 2)
+    const width = Math.min(NODE_CARD_WIDTH, maxWidth)
+    const current = nodeCardAnchor || {
+      left: NODE_CARD_MARGIN,
+      top: NODE_CARD_MARGIN,
+      width,
+    }
+    nodeCardDragRef.current = {
+      active: true,
+      offsetX: event.clientX - current.left - rect.left,
+      offsetY: event.clientY - current.top - rect.top,
+    }
+
+    const onMove = (moveEvent: MouseEvent) => {
+      if (!nodeCardDragRef.current.active) return
+      const maxLeft = Math.max(NODE_CARD_MARGIN, rect.width - width - NODE_CARD_MARGIN)
+      const maxTop = Math.max(NODE_CARD_MARGIN, rect.height - NODE_CARD_MARGIN * 4)
+      const nextLeft = moveEvent.clientX - rect.left - nodeCardDragRef.current.offsetX
+      const nextTop = moveEvent.clientY - rect.top - nodeCardDragRef.current.offsetY
+      setNodeCardAnchor({
+        left: Math.min(maxLeft, Math.max(NODE_CARD_MARGIN, nextLeft)),
+        top: Math.min(maxTop, Math.max(NODE_CARD_MARGIN, nextTop)),
+        width,
+      })
+    }
+
+    const onEnd = () => {
+      nodeCardDragRef.current.active = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onEnd)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'grabbing'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onEnd)
+  }
+
+  const nodeCardStyle = useMemo(() => {
+    if (!nodeCardAnchor) return undefined
+    return {
+      left: Math.round(nodeCardAnchor.left),
+      top: Math.round(nodeCardAnchor.top),
+      width: nodeCardAnchor.width,
+    }
+  }, [nodeCardAnchor])
+
   return (
     <div className="content-stack gv2-root">
       <section className="panel gv2-main">
@@ -2231,82 +2425,158 @@ export default function GraphPage({ projectKey, variant }: Props) {
                 加载失败：{graphData.error instanceof Error ? graphData.error.message : '请求异常'}
               </div>
             ) : null}
-            <div ref={chartRef} className={`gv2-chart ${useForceGraph3D ? 'gv2-chart--force3d' : ''}`}>
-              {useForceGraph3D && ForceGraph3DComp ? (
+            <div
+              ref={chartRef}
+              className="gv2-chart"
+              style={useForceGraph3D ? { display: 'none' } : undefined}
+            />
+            {renderMode === 'projection3d' && ForceGraph3DComp ? (
+              <div
+                ref={forceChartRef}
+                className="gv2-chart gv2-chart--force3d"
+                style={useForceGraph3D ? undefined : { display: 'none' }}
+              >
                 <ForceGraph3DComp
-                  ref={forceGraphRef}
-                  width={forceViewport.width}
-                  height={forceViewport.height}
-                  graphData={forceGraphData}
-                  backgroundColor="#030712"
-                  nodeVal={(node) => Number((node as { val?: number }).val || 1)}
-                  nodeColor={(node) => String((node as { color?: string }).color || '#7dd3fc')}
-                  nodeOpacity={Math.max(0.2, Math.min(1, visualApplied.nodeAlpha / 100))}
-                  linkColor={(link) => String((link as { color?: string }).color || '#7dd3fc')}
-                  linkWidth={(link) => Number((link as { width?: number }).width || 1)}
-                  linkOpacity={Math.max(0.06, Math.min(1, visualApplied.edgeAlpha / 100))}
-                  onNodeHover={(node) => {
-                    if (!autoFocusEnabled) return
-                    setHoverNodeKey(node ? String((node as { key?: string }).key || '') : null)
-                  }}
-                  onNodeClick={(node, event) => {
-                    const nodeData = node as { key?: string; rawNode?: GraphNodeItem }
-                    const key = String(nodeData.key || '')
-                    const rawNode = nodeData.rawNode
-                    if (!key || !rawNode) return
-                    const mouseEvent = event as MouseEvent | undefined
-                    const wrap = fullscreenWrapRef.current || chartRef.current
-                    if (wrap && mouseEvent) {
-                      const rect = wrap.getBoundingClientRect()
-                      const maxWidth = Math.max(220, rect.width - NODE_CARD_MARGIN * 2)
-                      const width = Math.min(NODE_CARD_WIDTH, maxWidth)
-                      const targetLeft = mouseEvent.clientX - rect.left + NODE_CARD_POINTER_OFFSET
-                      const targetTop = mouseEvent.clientY - rect.top + NODE_CARD_POINTER_OFFSET
-                      const maxLeft = Math.max(NODE_CARD_MARGIN, rect.width - width - NODE_CARD_MARGIN)
-                      const maxTop = Math.max(NODE_CARD_MARGIN, rect.height - NODE_CARD_MARGIN * 4)
-                      setNodeCardAnchor({
-                        left: Math.min(maxLeft, Math.max(NODE_CARD_MARGIN, targetLeft)),
-                        top: Math.min(maxTop, Math.max(NODE_CARD_MARGIN, targetTop)),
-                        width,
+                    ref={forceGraphRef}
+                    width={forceViewport.width}
+                    height={forceViewport.height}
+                    graphData={forceGraphData}
+                    backgroundColor="#030712"
+                    showNavInfo={false}
+                    nodeVal={(node: unknown) => {
+                      const id = String((node as { id?: string }).id || '')
+                      return Number(forceNodeStyleById.get(id)?.val || 1)
+                    }}
+                    nodeColor={(node: unknown) => {
+                      const id = String((node as { id?: string }).id || '')
+                      return String(forceNodeStyleById.get(id)?.color || '#7dd3fc')
+                    }}
+                    nodeOpacity={Math.max(0.2, Math.min(1, visualApplied.nodeAlpha / 100))}
+                    nodeThreeObject={(node: unknown) => {
+                      const n = node as { id?: string; rawNode?: GraphNodeItem }
+                      const id = String(n.id || '')
+                      const rawSymbol = resolveNodeSymbol(n.rawNode?.type || '')
+                      const graphSymbol = toGraphSymbol(rawSymbol)
+                      const style = forceNodeStyleById.get(id)
+                      const size = Math.max(1.8, Number(style?.val || 1))
+                      const color = String(style?.color || '#7dd3fc')
+                      const opacity = Math.max(0.16, Math.min(1, Number(style?.opacity || 0.8)))
+                      const selected = selectedNodeKeys.has(id)
+                      const cacheKey = `${id}|${rawSymbol}|${Math.round(size * 100)}|${color}|${Math.round(opacity * 100)}|${selected ? 1 : 0}`
+                      const cached = forceNodeObjectCacheRef.current.get(cacheKey)
+                      if (cached) return cached
+                      const isEmpty = rawSymbol.startsWith('empty')
+                      const material = new THREE.MeshLambertMaterial({
+                        color,
+                        transparent: true,
+                        opacity: isEmpty ? Math.min(0.92, opacity) : opacity,
+                        wireframe: isEmpty,
+                        emissive: selected ? new THREE.Color('#facc15') : new THREE.Color('#000000'),
+                        emissiveIntensity: selected ? 0.28 : 0,
                       })
-                    }
-                    setSelectedNode(rawNode)
-                    if (!selectionEnabled) return
-                    const now = Date.now()
-                    const last = lastClickRef.current
-                    const isDouble = Boolean(last && last.key === key && now - last.ts <= DOUBLE_CLICK_WINDOW_MS)
-                    lastClickRef.current = { key, ts: now }
-                    if (isDouble) {
-                      if (clickTimerRef.current !== null) {
-                        window.clearTimeout(clickTimerRef.current)
-                        clickTimerRef.current = null
+                      let object: any
+                      if (graphSymbol === 'rect' || graphSymbol === 'roundRect') {
+                        object = new THREE.Mesh(new THREE.BoxGeometry(size * 2.2, size * 1.35, size * 1.35), material)
+                      } else if (graphSymbol === 'diamond') {
+                        object = new THREE.Mesh(new THREE.OctahedronGeometry(size * 1.28), material)
+                      } else if (graphSymbol === 'triangle') {
+                        object = new THREE.Mesh(new THREE.ConeGeometry(size * 1.2, size * 2.3, 3), material)
+                      } else if (graphSymbol === 'pin') {
+                        const g = new THREE.Group()
+                        const head = new THREE.Mesh(new THREE.SphereGeometry(size * 0.86, 14, 14), material)
+                        const tail = new THREE.Mesh(new THREE.ConeGeometry(size * 0.6, size * 1.65, 8), material)
+                        tail.position.set(0, -size * 1.16, 0)
+                        g.add(head)
+                        g.add(tail)
+                        object = g
+                      } else if (graphSymbol === 'arrow') {
+                        const g = new THREE.Group()
+                        const body = new THREE.Mesh(new THREE.CylinderGeometry(size * 0.2, size * 0.2, size * 1.7, 10), material)
+                        const head = new THREE.Mesh(new THREE.ConeGeometry(size * 0.45, size * 0.95, 12), material)
+                        body.rotation.z = Math.PI / 2
+                        head.rotation.z = -Math.PI / 2
+                        body.position.set(0, 0, 0)
+                        head.position.set(size * 1.12, 0, 0)
+                        g.add(body)
+                        g.add(head)
+                        object = g
+                      } else {
+                        object = new THREE.Mesh(new THREE.SphereGeometry(size * 1.03, 14, 14), material)
                       }
-                      setRadiationSelectionByCenter((prev) => ({ ...prev, [key]: !prev[key] }))
-                      return
-                    }
-                    if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current)
-                    clickTimerRef.current = window.setTimeout(() => {
+                      forceNodeObjectCacheRef.current.set(cacheKey, object)
+                      return object
+                    }}
+                    linkColor={(link: unknown) => {
+                      const l = link as { source?: string | { id?: string }; target?: string | { id?: string } }
+                      const source = typeof l.source === 'string' ? l.source : String(l.source?.id || '')
+                      const target = typeof l.target === 'string' ? l.target : String(l.target?.id || '')
+                      return String(forceLinkStyleByKey.get(`${source}>${target}`)?.color || '#7dd3fc')
+                    }}
+                    linkWidth={(link: unknown) => {
+                      const l = link as { source?: string | { id?: string }; target?: string | { id?: string } }
+                      const source = typeof l.source === 'string' ? l.source : String(l.source?.id || '')
+                      const target = typeof l.target === 'string' ? l.target : String(l.target?.id || '')
+                      return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.width || 1)
+                    }}
+                    linkOpacity={Math.max(0.06, Math.min(1, visualApplied.edgeAlpha / 100))}
+                    onNodeHover={(node: unknown) => {
+                      if (!autoFocusEnabled) return
+                      setHoverNodeKey(node ? String((node as { key?: string }).key || '') : null)
+                    }}
+                    onNodeClick={(node: unknown, event: unknown) => {
+                      const nodeData = node as { key?: string; rawNode?: GraphNodeItem }
+                      const key = String(nodeData.key || '')
+                      const rawNode = nodeData.rawNode
+                      if (!key || !rawNode) return
+                      const mouseEvent = event as MouseEvent | undefined
+                      const wrap = fullscreenWrapRef.current || forceChartRef.current || chartRef.current
+                      if (wrap && mouseEvent) {
+                        const rect = wrap.getBoundingClientRect()
+                        const maxWidth = Math.max(220, rect.width - NODE_CARD_MARGIN * 2)
+                        const width = Math.min(NODE_CARD_WIDTH, maxWidth)
+                        const targetLeft = mouseEvent.clientX - rect.left + NODE_CARD_POINTER_OFFSET
+                        const targetTop = mouseEvent.clientY - rect.top + NODE_CARD_POINTER_OFFSET
+                        const maxLeft = Math.max(NODE_CARD_MARGIN, rect.width - width - NODE_CARD_MARGIN)
+                        const maxTop = Math.max(NODE_CARD_MARGIN, rect.height - NODE_CARD_MARGIN * 4)
+                        setNodeCardAnchor({
+                          left: Math.min(maxLeft, Math.max(NODE_CARD_MARGIN, targetLeft)),
+                          top: Math.min(maxTop, Math.max(NODE_CARD_MARGIN, targetTop)),
+                          width,
+                        })
+                      }
+                      setSelectedNode(rawNode)
+                      if (!selectionEnabled) return
+                      if ((mouseEvent?.detail || 1) >= 2) {
+                        setRadiationSelectionByCenter((prev) => ({ ...prev, [key]: !prev[key] }))
+                        return
+                      }
                       setManualSelectedNodeKeys((prev) => {
                         const next = new Set(prev)
                         if (next.has(key)) next.delete(key)
                         else next.add(key)
                         return next
                       })
-                      clickTimerRef.current = null
-                    }, DOUBLE_CLICK_WINDOW_MS)
-                  }}
-                  onBackgroundClick={() => {
-                    if (autoFocusEnabled) setHoverNodeKey(null)
-                  }}
-                />
-              ) : null}
-              {useForceGraph3D && !ForceGraph3DComp ? (
-                <div className="gv2-loading">3D引擎加载中...</div>
-              ) : null}
-              {useForceGraph3D && forceGraphLoadError ? (
-                <div className="gv2-loading gv2-loading-error">3D引擎加载失败：{forceGraphLoadError}</div>
-              ) : null}
-            </div>
+                    }}
+                    onNodeRightClick={(node: unknown, event: unknown) => {
+                      const mouseEvent = event as MouseEvent | undefined
+                      mouseEvent?.preventDefault?.()
+                      if (!selectionEnabled) return
+                      const key = String((node as { key?: string }).key || '')
+                      if (!key) return
+                      setRadiationSelectionByCenter((prev) => ({ ...prev, [key]: !prev[key] }))
+                    }}
+                    onBackgroundClick={() => {
+                      if (autoFocusEnabled) setHoverNodeKey(null)
+                    }}
+                  />
+              </div>
+            ) : null}
+            {useForceGraph3D && !ForceGraph3DComp ? (
+              <div className="gv2-loading">3D引擎加载中...</div>
+            ) : null}
+            {useForceGraph3D && forceGraphLoadError ? (
+              <div className="gv2-loading gv2-loading-error">3D引擎加载失败：{forceGraphLoadError}</div>
+            ) : null}
             <div className="gv2-overlay-top">
               <button
                 type="button"
@@ -2372,7 +2642,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
 
             <div
               ref={controlPanelRef}
-              className={`gv2-floating-controls ${showOverlay ? '' : 'is-collapsed'}`}
+              className={`gv2-floating-controls ${renderMode === 'projection3d' ? 'is-left-3d' : ''} ${showOverlay ? '' : 'is-collapsed'}`.trim()}
               style={isCompactViewport ? undefined : { width: `${controlPanelWidth}px` }}
             >
               <div className="gv2-floating-controls-resizer" onMouseDown={onControlResizeStart} />
@@ -2403,6 +2673,23 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         }}
                       />
                       <span>{Math.round(visualDraft.repulsion / 7.2)}%</span>
+                    </label>
+                    <label className="gv2-control-chip">
+                      2D全局引力
+                      <input
+                        type="range"
+                        min={0}
+                        max={300}
+                        step={1}
+                        value={visualDraft.gravityPercent}
+                        disabled={!activeRendererCapabilities.supportsForceControl}
+                        onChange={(e) => {
+                          const gravityPercent = Number(e.target.value)
+                          setVisualDraft((prev) => ({ ...prev, gravityPercent }))
+                          setVisualApplied((prev) => ({ ...prev, gravityPercent }))
+                        }}
+                      />
+                      <span>{visualDraft.gravityPercent}%</span>
                     </label>
                     <label className="gv2-control-chip">
                       节点尺寸
@@ -2573,7 +2860,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         </>
                       ) : (
                         <div className="gv2-control-chip">
-                          <span>force-graph 使用鼠标拖拽旋转视角</span>
+                          <span>force-graph 左拖旋转；选择模式下右键节点切换一跳邻域</span>
                         </div>
                       )}
                       <label className="gv2-control-chip">
@@ -2581,13 +2868,27 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         <input
                           type="range"
                           min={0}
-                          max={200}
+                          max={400}
                           step={1}
                           value={projection3DRepulsionPercent}
                           onChange={(e) => setProjection3DRepulsionPercent(Number(e.target.value))}
                         />
                         <span>{projection3DRepulsionPercent}%</span>
                       </label>
+                      {useForceGraph3D ? (
+                        <label className="gv2-control-chip">
+                          3D全局互引
+                          <input
+                            type="range"
+                            min={40}
+                            max={600}
+                            step={1}
+                            value={projection3DAttractionPercent}
+                            onChange={(e) => setProjection3DAttractionPercent(Number(e.target.value))}
+                          />
+                          <span>{projection3DAttractionPercent}%</span>
+                        </label>
+                      ) : null}
                     </div>
                   ) : null}
                 </section>
@@ -2782,7 +3083,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         })
                       }}
                     >
-                      <NodeLegendShape nodeType={types[0]} color={groupColor} />
+                      {renderMode === '2d' ? (
+                        <span className="dot" style={{ background: groupColor }} />
+                      ) : (
+                        <NodeLegendShape nodeType={types[0]} color={groupColor} />
+                      )}
                       <span className="gv2-legend-node-label">{GROUP_LABEL[group] || group}</span>
                     </button>
                   )
@@ -2799,7 +3104,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         className={`gv2-type ${hidden ? 'is-hidden' : ''}`}
                         onClick={() => setHiddenTypes((prev) => ({ ...prev, [type]: !prev[type] }))}
                       >
-                        <NodeLegendShape nodeType={type} color={nodeTypeColor[type] || '#7dd3fc'} />
+                        {renderMode === '2d' ? (
+                          <span className="dot" style={{ background: nodeTypeColor[type] || '#7dd3fc' }} />
+                        ) : (
+                          <NodeLegendShape nodeType={type} color={nodeTypeColor[type] || '#7dd3fc'} />
+                        )}
                         <span>{nodeTypeLabel(type, graphConfig.data?.graph_node_labels)}</span>
                       </button>
                     )
@@ -2881,7 +3190,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
                   <div className="gv2-legend-debug-list">
                     {symbolDebug.items.map((item) => (
                       <div key={`${item.raw}-${item.normalized}-${item.rawSymbol}-${item.graphSymbol}`} className="gv2-legend-debug-row">
-                        <NodeLegendShape nodeType={item.normalized} color="#7dd3fc" />
+                        {renderMode === '2d'
+                          ? <span className="dot" style={{ background: '#7dd3fc' }} />
+                          : <NodeLegendShape nodeType={item.normalized} color="#7dd3fc" />}
                         <code>{item.raw}</code>
                         <span>→</span>
                         <code>{item.normalized}</code>
@@ -3013,31 +3324,31 @@ export default function GraphPage({ projectKey, variant }: Props) {
               </div>
             ) : null}
 
-            {selectedNode ? (
-              <article
-                className="gv2-node-card"
-                style={nodeCardAnchor ? { left: nodeCardAnchor.left, top: nodeCardAnchor.top, width: nodeCardAnchor.width } : undefined}
-              >
-                <div className="gv2-node-card-head">
-                  <div>
-                    <strong>{nodeName(selectedNode)}</strong>
-                    <small>{String(selectedNode.type || '-')}</small>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRelationGroupOpen({})
-                      setExpandedNeighborType(null)
-                      setExpandedPredicate(null)
-                      setExpandedElementLabel(null)
-                      setSelectedNode(null)
-                    }}
-                    aria-label="关闭"
-                  >
-                    ×
-                  </button>
+          {selectedNode ? (
+            <article
+              className="gv2-node-card"
+              style={nodeCardStyle}
+            >
+              <div className="gv2-node-card-head" onMouseDown={onNodeCardDragStart}>
+                <div>
+                  <strong>{nodeName(selectedNode)}</strong>
+                  <small>{String(selectedNode.type || '-')}</small>
                 </div>
-                <div className="gv2-node-card-body">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRelationGroupOpen({})
+                    setExpandedNeighborType(null)
+                    setExpandedPredicate(null)
+                    setExpandedElementLabel(null)
+                    setSelectedNode(null)
+                  }}
+                  aria-label="关闭"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="gv2-node-card-body">
                   <div className="gv2-node-grid">
                     {cardFields(selectedNode).map(([k, v]) => (
                       <div key={`${k}-${v}`} className="gv2-node-grid-item">
@@ -3224,8 +3535,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
                   ) : null}
                   {selectedNode.text ? <pre>{String(selectedNode.text).slice(0, 220)}</pre> : null}
                 </div>
-              </article>
-            ) : null}
+            </article>
+          ) : null}
           </div>
           <div className="gv2-macro-stats">
             <div className="gv2-macro-stat"><span>图谱</span><strong>{TYPE_LABEL[variant]}</strong></div>
