@@ -1,0 +1,5 @@
+# One file path per line.
+# Lines starting with # are ignored.
+
+main/backend/app/api/crawler.py
+main/backend/app/services/crawlers_mgmt/service.py

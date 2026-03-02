@@ -6,6 +6,7 @@ import {
   ingestMarket,
   ingestPolicy,
   ingestPolicyRegulation,
+  ingestSingleUrl,
   ingestSocial,
   runSourceLibrary,
   syncSourceLibrary,
@@ -32,6 +33,12 @@ function formatActionError(error: unknown) {
   if (isApiClientError(error)) {
     const details: string[] = []
     if (error.code) details.push(`代码: ${error.code}`)
+    const reason = typeof error.details?.reason === 'string' ? error.details.reason : ''
+    if (reason.trim()) details.push(`原因: ${reason.trim()}`)
+    const degradation = error.details?.degradation_flags
+    if (Array.isArray(degradation) && degradation.length) {
+      details.push(`降级: ${degradation.map((v) => String(v || '').trim()).filter(Boolean).join('/')}`)
+    }
     const traceId = getTraceId(error.meta)
     if (traceId) details.push(`追踪: ${traceId}`)
     return details.length ? `${error.message}（${details.join('，')}）` : error.message
@@ -58,7 +65,35 @@ export function useIngestActions(projectKey: string) {
           ? (result as { task_id?: string }).task_id
           : null
 
-      setActionMessage(taskId ? `${name} 已提交，任务 ID: ${taskId}` : `${name} 执行完成`)
+      const resultStatus =
+        result &&
+        typeof result === 'object' &&
+        'status' in result &&
+        typeof (result as { status?: unknown }).status === 'string'
+          ? String((result as { status?: string }).status)
+          : ''
+      const rejectedCount =
+        result &&
+        typeof result === 'object' &&
+        'rejected_count' in result &&
+        Number.isFinite(Number((result as { rejected_count?: unknown }).rejected_count))
+          ? Number((result as { rejected_count?: unknown }).rejected_count)
+          : null
+      const degradationRaw =
+        result && typeof result === 'object' ? (result as { degradation_flags?: unknown }).degradation_flags : undefined
+      const degradationFlags =
+        Array.isArray(degradationRaw) ? degradationRaw.map((v) => String(v || '').trim()).filter(Boolean) : []
+
+      if (taskId) {
+        setActionMessage(`${name} 已提交，任务 ID: ${taskId}`)
+      } else if (resultStatus) {
+        const extras: string[] = [`状态: ${resultStatus}`]
+        if (rejectedCount != null) extras.push(`拒绝: ${rejectedCount}`)
+        if (degradationFlags.length) extras.push(`降级: ${degradationFlags.slice(0, 2).join('/')}`)
+        setActionMessage(`${name} 执行完成（${extras.join('，')}）`)
+      } else {
+        setActionMessage(`${name} 执行完成`)
+      }
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['source-items', projectKey] }),
@@ -86,6 +121,7 @@ export function useIngestActions(projectKey: string) {
       runAction('政策采集', () => ingestPolicy(payload)),
     ingestPolicyRegulation: (payload: Record<string, unknown>) => runAction('政策法规采集', () => ingestPolicyRegulation(payload)),
     ingestMarket: (payload: Record<string, unknown>) => runAction('市场采集', () => ingestMarket(payload)),
+    ingestSingleUrl: (payload: Parameters<typeof ingestSingleUrl>[0]) => runAction('单 URL 采集', () => ingestSingleUrl(payload)),
     ingestSocial: (payload: Record<string, unknown>) => runAction('舆情采集', () => ingestSocial(payload)),
     ingestCommodity: (payload: { limit: number; async_mode: boolean }) => runAction('商品采集', () => ingestCommodity(payload)),
     ingestEcom: (payload: { limit: number; async_mode: boolean }) => runAction('电商采集', () => ingestEcom(payload)),

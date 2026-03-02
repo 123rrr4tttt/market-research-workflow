@@ -25,6 +25,7 @@ class _TrackedTasks:
     def __init__(self) -> None:
         self.task_ingest_policy = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="policy-task-1")))
         self.task_ingest_market = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-1")))
+        self.task_ingest_single_url = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1")))
         self.task_run_source_library_item = SimpleNamespace(
             delay=Mock(return_value=SimpleNamespace(id="source-library-task-1"))
         )
@@ -170,6 +171,133 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "demo_proj",
             {"k": "v"},
         )
+
+    def test_url_single_async_task_contract_compat_with_task_result_status(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "url": "https://example.com/post/42",
+            "query_terms": ["market"],
+            "strict_mode": True,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+
+        data = _response_payload(body)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data.get("task_id"), "single-url-task-1")
+        self.assertEqual(data.get("status"), "queued")
+        self.assertTrue(data.get("async"))
+        self.assertEqual(
+            data.get("params"),
+            {
+                "url": "https://example.com/post/42",
+                "query_terms": ["market"],
+                "strict_mode": True,
+            },
+        )
+        task_result_status = data.get("task_result_status")
+        if task_result_status is not None:
+            self.assertEqual(task_result_status, data.get("status"))
+
+        tasks.task_ingest_single_url.delay.assert_called_once_with(
+            "https://example.com/post/42",
+            ["market"],
+            True,
+            "demo_proj",
+        )
+
+    def test_url_single_async_includes_light_filter_search_options_when_overridden(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "url": "https://example.com/post/43",
+            "query_terms": ["market"],
+            "strict_mode": False,
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "light_filter_enabled": False,
+            "light_filter_min_score": 55,
+            "light_filter_reject_static_assets": False,
+            "light_filter_reject_search_noise_domain": False,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+
+        data = _response_payload(body)
+        self.assertIsInstance(data, dict)
+        params = data.get("params") or {}
+        self.assertEqual(params.get("url"), "https://example.com/post/43")
+        self.assertEqual(params.get("strict_mode"), False)
+        self.assertIsInstance(params.get("search_options"), dict)
+        self.assertEqual(params["search_options"].get("light_filter_enabled"), False)
+        self.assertEqual(params["search_options"].get("light_filter_min_score"), 55)
+        self.assertEqual(params["search_options"].get("light_filter_reject_static_assets"), False)
+        self.assertEqual(params["search_options"].get("light_filter_reject_search_noise_domain"), False)
+
+        effective_payload = data.get("effective_payload") or {}
+        self.assertEqual(effective_payload.get("light_filter_enabled"), False)
+        self.assertEqual(effective_payload.get("light_filter_min_score"), 55)
+        self.assertEqual(effective_payload.get("light_filter_reject_static_assets"), False)
+        self.assertEqual(effective_payload.get("light_filter_reject_search_noise_domain"), False)
+
+        tasks.task_ingest_single_url.delay.assert_called_once_with(
+            "https://example.com/post/43",
+            ["market"],
+            False,
+            "demo_proj",
+            {
+                "search_expand": True,
+                "search_expand_limit": 3,
+                "search_provider": "auto",
+                "search_fallback_provider": "ddg_html",
+                "fallback_on_insufficient": True,
+                "allow_search_summary_write": False,
+                "min_results_required": 6,
+                "target_candidates": 6,
+                "decode_redirect_wrappers": True,
+                "filter_low_value_candidates": True,
+                "light_filter_enabled": False,
+                "light_filter_min_score": 55,
+                "light_filter_reject_static_assets": False,
+                "light_filter_reject_search_noise_domain": False,
+            },
+        )
+
+    def test_url_single_sync_response_contains_effective_payload_with_light_filter_fields(self):
+        payload = {
+            "url": "https://example.com/post/44",
+            "query_terms": ["market"],
+            "strict_mode": False,
+            "project_key": "demo_proj",
+            "async_mode": False,
+            "light_filter_min_score": 42,
+        }
+
+        with patch("app.services.ingest.single_url.ingest_single_url", return_value={"status": "degraded_success", "inserted": 0}):
+            resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+        data = _response_payload(body)
+        self.assertEqual(data.get("status"), "degraded_success")
+        effective_payload = data.get("effective_payload") or {}
+        self.assertEqual(effective_payload.get("url"), "https://example.com/post/44")
+        self.assertEqual(effective_payload.get("light_filter_enabled"), True)
+        self.assertEqual(effective_payload.get("light_filter_min_score"), 42)
+        self.assertEqual(effective_payload.get("light_filter_reject_static_assets"), True)
+        self.assertEqual(effective_payload.get("light_filter_reject_search_noise_domain"), True)
 
 
 if __name__ == "__main__":

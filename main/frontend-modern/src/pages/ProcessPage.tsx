@@ -76,6 +76,91 @@ function buildResultSummary(input: {
   return parts.length ? parts.join(' | ') : '-'
 }
 
+function normalizeBreakdown(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const out: Record<string, number> = {}
+  Object.entries(value as Record<string, unknown>).forEach(([key, raw]) => {
+    const n = Number(raw)
+    if (key && Number.isFinite(n) && n > 0) out[key] = n
+  })
+  return out
+}
+
+function topRejectionReason(breakdown: Record<string, number>): string {
+  const entries = Object.entries(breakdown)
+  if (!entries.length) return '-'
+  const [reason, count] = entries.sort((a, b) => b[1] - a[1])[0]
+  return `${reason} (${count})`
+}
+
+function buildRejectionView(input: {
+  display_meta?: Record<string, unknown> | null
+  params?: Record<string, unknown> | null
+  result?: unknown
+  progress?: Record<string, unknown> | null
+}) {
+  const dm = (input.display_meta || {}) as Record<string, unknown>
+  const params = (input.params || {}) as Record<string, unknown>
+  const progress = (input.progress || {}) as Record<string, unknown>
+  const result = (input.result && typeof input.result === 'object' ? input.result : {}) as Record<string, unknown>
+  const insertedValid = toFiniteNumber(firstDefined(dm.inserted_valid, params.inserted_valid, result.inserted_valid, progress.inserted_valid))
+  const rejectedCount = toFiniteNumber(firstDefined(dm.rejected_count, params.rejected_count, result.rejected_count, progress.rejected_count))
+  const breakdown = normalizeBreakdown(
+    firstDefined(dm.rejection_breakdown, params.rejection_breakdown, result.rejection_breakdown, progress.rejection_breakdown),
+  )
+  return {
+    insertedValid,
+    rejectedCount,
+    rejectionBreakdown: breakdown,
+    topReason: topRejectionReason(breakdown),
+  }
+}
+
+function buildLightFilterView(input: {
+  display_meta?: Record<string, unknown> | null
+  params?: Record<string, unknown> | null
+  result?: unknown
+  progress?: Record<string, unknown> | null
+}) {
+  const dm = (input.display_meta || {}) as Record<string, unknown>
+  const params = (input.params || {}) as Record<string, unknown>
+  const progress = (input.progress || {}) as Record<string, unknown>
+  const result = (input.result && typeof input.result === 'object' ? input.result : {}) as Record<string, unknown>
+  const nested = (result.light_filter && typeof result.light_filter === 'object' ? result.light_filter : {}) as Record<string, unknown>
+  const decision = String(
+    firstDefined(
+      nested.filter_decision,
+      result.filter_decision,
+      dm.filter_decision,
+      params.filter_decision,
+      progress.filter_decision,
+      '-',
+    ) || '-',
+  )
+  const reason = String(
+    firstDefined(
+      nested.filter_reason_code,
+      result.filter_reason_code,
+      dm.filter_reason_code,
+      params.filter_reason_code,
+      progress.filter_reason_code,
+      '-',
+    ) || '-',
+  )
+  const score = toFiniteNumber(
+    firstDefined(nested.filter_score, result.filter_score, dm.filter_score, params.filter_score, progress.filter_score),
+  )
+  const keepRaw = firstDefined(
+    nested.keep_for_vectorization,
+    result.keep_for_vectorization,
+    dm.keep_for_vectorization,
+    params.keep_for_vectorization,
+    progress.keep_for_vectorization,
+  )
+  const keep = typeof keepRaw === 'boolean' ? (keepRaw ? 'yes' : 'no') : '-'
+  return { decision, reason, score, keep }
+}
+
 function getTaskSourceKind(task?: ProcessTaskItem, fallback?: string | null) {
   if (task?.source) return task.source
   if (fallback) return fallback
@@ -132,6 +217,28 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
         result: taskDetail.data?.result,
       })
     : buildResultSummary({
+        display_meta: (selectedHistoryTask?.display_meta || null) as Record<string, unknown> | null,
+        params: (selectedHistoryTask?.params || null) as Record<string, unknown> | null,
+      })
+  const selectedRejectionView = selectedCurrent
+    ? buildRejectionView({
+        display_meta: (taskDetail.data?.display_meta || selectedTask?.display_meta || null) as Record<string, unknown> | null,
+        params: (taskDetail.data?.kwargs || selectedTask?.kwargs || null) as Record<string, unknown> | null,
+        progress: (taskDetail.data?.progress || selectedTask?.progress || null) as Record<string, unknown> | null,
+        result: taskDetail.data?.result,
+      })
+    : buildRejectionView({
+        display_meta: (selectedHistoryTask?.display_meta || null) as Record<string, unknown> | null,
+        params: (selectedHistoryTask?.params || null) as Record<string, unknown> | null,
+      })
+  const selectedLightFilterView = selectedCurrent
+    ? buildLightFilterView({
+        display_meta: (taskDetail.data?.display_meta || selectedTask?.display_meta || null) as Record<string, unknown> | null,
+        params: (taskDetail.data?.kwargs || selectedTask?.kwargs || null) as Record<string, unknown> | null,
+        progress: (taskDetail.data?.progress || selectedTask?.progress || null) as Record<string, unknown> | null,
+        result: taskDetail.data?.result,
+      })
+    : buildLightFilterView({
         display_meta: (selectedHistoryTask?.display_meta || null) as Record<string, unknown> | null,
         params: (selectedHistoryTask?.params || null) as Record<string, unknown> | null,
       })
@@ -367,6 +474,38 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
               {selectedResultSummary}
             </div>
             <div>
+              <strong>有效入库：</strong>
+              {selectedRejectionView.insertedValid ?? '-'}
+              {' | '}
+              <strong>剔除：</strong>
+              {selectedRejectionView.rejectedCount ?? '-'}
+            </div>
+            <div>
+              <strong>主要剔除原因：</strong>
+              {selectedRejectionView.topReason}
+            </div>
+            <div>
+              <strong>轻过滤：</strong>
+              {selectedLightFilterView.decision}
+              {' | '}
+              <strong>原因：</strong>
+              {selectedLightFilterView.reason}
+              {' | '}
+              <strong>分数：</strong>
+              {selectedLightFilterView.score ?? '-'}
+              {' | '}
+              <strong>向量化保留：</strong>
+              {selectedLightFilterView.keep}
+            </div>
+            <div>
+              <strong>剔除明细</strong>
+              <pre style={detailPreStyle}>
+                {Object.keys(selectedRejectionView.rejectionBreakdown).length
+                  ? stringifyBlock(selectedRejectionView.rejectionBreakdown)
+                  : '-'}
+              </pre>
+            </div>
+            <div>
               <strong>Worker：</strong>
               {selectedCurrent ? (taskDetail.data?.worker || selectedTask?.worker || '-') : (selectedHistoryTask?.worker || '-')}
             </div>
@@ -476,36 +615,48 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
                 <th>结束</th>
                 <th>耗时(秒)</th>
                 <th>结果</th>
+                <th>有效入库</th>
+                <th>剔除</th>
+                <th>主要剔除原因</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              {(processHistory.data?.history || []).map((row) => (
-                <tr key={row.id}>
-                  <td>{row.id}</td>
-                  <td>{row.job_type || '-'}</td>
-                  <td>
-                    <span className={statusClass(row.status)}>{row.status || '-'}</span>
-                  </td>
-                  <td>{formatDate(row.started_at)}</td>
-                  <td>{formatDate(row.finished_at)}</td>
-                  <td>{row.duration_seconds != null ? row.duration_seconds.toFixed(1) : '-'}</td>
-                  <td>{buildResultSummary({ display_meta: row.display_meta as Record<string, unknown> | null, params: row.params || null })}</td>
-                  <td>
-                    <button
-                      onClick={() => {
-                        setSelectedTaskId(null)
-                        setSelectedHistoryId((prev) => (prev === Number(row.id) ? null : Number(row.id)))
-                      }}
-                    >
-                      {selectedHistoryId === Number(row.id) ? '收起' : '详情'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {(processHistory.data?.history || []).map((row) => {
+                const rowRejectionView = buildRejectionView({
+                  display_meta: row.display_meta as Record<string, unknown> | null,
+                  params: row.params || null,
+                })
+                return (
+                  <tr key={row.id}>
+                    <td>{row.id}</td>
+                    <td>{row.job_type || '-'}</td>
+                    <td>
+                      <span className={statusClass(row.status)}>{row.status || '-'}</span>
+                    </td>
+                    <td>{formatDate(row.started_at)}</td>
+                    <td>{formatDate(row.finished_at)}</td>
+                    <td>{row.duration_seconds != null ? row.duration_seconds.toFixed(1) : '-'}</td>
+                    <td>{buildResultSummary({ display_meta: row.display_meta as Record<string, unknown> | null, params: row.params || null })}</td>
+                    <td>{rowRejectionView.insertedValid ?? '-'}</td>
+                    <td>{rowRejectionView.rejectedCount ?? '-'}</td>
+                    <td>{rowRejectionView.topReason}</td>
+                    <td>
+                      <button
+                        onClick={() => {
+                          setSelectedTaskId(null)
+                          setSelectedHistoryId((prev) => (prev === Number(row.id) ? null : Number(row.id)))
+                        }}
+                      >
+                        {selectedHistoryId === Number(row.id) ? '收起' : '详情'}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
               {!processHistory.data?.history?.length ? (
                 <tr>
-                  <td colSpan={8} className="empty-cell">
+                  <td colSpan={11} className="empty-cell">
                     暂无历史数据
                   </td>
                 </tr>

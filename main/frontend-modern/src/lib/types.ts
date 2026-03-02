@@ -240,6 +240,12 @@ export type IngestJobRow = {
   updated_at?: string
   started_at?: string
   finished_at?: string
+  rejected_count?: number | null
+  rejection_breakdown?: Record<string, number> | null
+  degradation_flags?: string[] | null
+  quality_score?: number | null
+  error?: string | null
+  params?: Record<string, unknown> | null
 }
 
 export type ProcessTaskItem = {
@@ -291,6 +297,9 @@ export type ProcessHistoryResponse = {
     source?: string | null
     worker?: string | null
     display_meta?: ProcessTaskMeta | null
+    inserted_valid?: number | null
+    rejected_count?: number | null
+    rejection_breakdown?: Record<string, number> | null
   }>
   total?: number
   status_stats?: Record<string, number>
@@ -338,6 +347,22 @@ export type IngestFormState = {
   sourceItemKey: string
   sourceHandlerKey: string
   policyState: string
+  singleUrl: string
+  singleUrlStrictMode: boolean
+  singleUrlSearchExpand: boolean
+  singleUrlSearchExpandLimit: number
+  singleUrlSearchProvider: 'auto' | 'google' | 'ddg_html'
+  singleUrlSearchFallbackProvider: 'ddg_html'
+  singleUrlFallbackOnInsufficient: boolean
+  singleUrlAllowSearchSummaryWrite: boolean
+  singleUrlMinResultsRequired: number
+  singleUrlTargetCandidates: number
+  singleUrlDecodeRedirectWrappers: boolean
+  singleUrlFilterLowValueCandidates: boolean
+  singleUrlLightFilterEnabled: boolean
+  singleUrlLightFilterMinScore: number
+  singleUrlLightFilterRejectStaticAssets: boolean
+  singleUrlLightFilterRejectSearchNoiseDomain: boolean
 }
 
 export type RouteToken =
@@ -430,6 +455,9 @@ export type ProcessTaskDetail = {
   args?: unknown[]
   kwargs?: Record<string, unknown>
   display_meta?: ProcessTaskMeta | null
+  inserted_valid?: number | null
+  rejected_count?: number | null
+  rejection_breakdown?: Record<string, number> | null
 }
 
 export type ResourcePoolUrlItem = {

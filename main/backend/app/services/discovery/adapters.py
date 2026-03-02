@@ -30,7 +30,7 @@ class DefaultDiscoveryAdapter:
         *,
         project_key: str | None = None,
         job_type: str | None = None,
-    ) -> dict[str, int]:
+    ) -> dict[str, Any]:
         return store_results(
             results,
             project_key=project_key,

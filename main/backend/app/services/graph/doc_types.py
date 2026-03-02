@@ -18,7 +18,32 @@ DEFAULT_GRAPH_TYPE_LABELS: dict[str, str] = {
 
 DEFAULT_GRAPH_NODE_TYPES: dict[str, list[str]] = {
     "social": ["Post", "Keyword", "Entity", "Topic", "SentimentTag", "User", "Subreddit"],
-    "market": ["MarketData", "State", "Segment", "Entity"],
+    "market": [
+        "MarketData",
+        "State",
+        "Segment",
+        "Entity",
+        "TopicTag",
+        "CompanyEntity",
+        "CompanyBrand",
+        "CompanyUnit",
+        "CompanyPartner",
+        "CompanyChannel",
+        "ProductEntity",
+        "ProductModel",
+        "ProductCategory",
+        "ProductBrand",
+        "ProductComponent",
+        "ProductScenario",
+        "OperationEntity",
+        "OperationPlatform",
+        "OperationStore",
+        "OperationChannel",
+        "OperationMetric",
+        "OperationStrategy",
+        "OperationRegion",
+        "OperationPeriod",
+    ],
     "policy": ["Policy", "State", "PolicyType", "KeyPoint", "Entity"],
 }
 
@@ -86,6 +111,11 @@ DEFAULT_GRAPH_TOPIC_SCOPE_ENTITIES: dict[str, list[str]] = {
     "operation": ["OperationEntity", "OperationPlatform", "OperationStore", "OperationChannel", "OperationMetric", "OperationStrategy", "OperationRegion", "OperationPeriod"],
 }
 
+# Ensemble node universe (A phase): all standardized node types across graph domains.
+DEFAULT_GRAPH_NODE_ENSEMBLE: list[str] = sorted(
+    {node_type for values in DEFAULT_GRAPH_NODE_TYPES.values() for node_type in values}
+)
+
 
 def resolve_graph_doc_types(project_key: str | None = None) -> dict[str, list[str]]:
     customization = get_project_customization(project_key)
@@ -132,6 +162,52 @@ def resolve_graph_node_types(project_key: str | None = None) -> dict[str, list[s
         values = _normalize_string_list(configured)
         resolved[category] = values or list(defaults)
     return resolved
+
+
+def resolve_graph_node_ensemble(project_key: str | None = None) -> list[str]:
+    """Resolve full node universe for ensemble-first graph standardization."""
+    node_types = resolve_graph_node_types(project_key)
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for category in ("social", "market", "policy"):
+        for node_type in node_types.get(category, []):
+            key = str(node_type or "").strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            ordered.append(key)
+    # Preserve known default ordering and still include project-specific extensions.
+    for node_type in DEFAULT_GRAPH_NODE_ENSEMBLE:
+        if node_type not in seen:
+            seen.add(node_type)
+            ordered.append(node_type)
+    return ordered
+
+
+def resolve_graph_node_combo(
+    graph_kind: str,
+    project_key: str | None = None,
+) -> list[str]:
+    """Resolve per-graph node combination from ensemble universe.
+
+    This keeps graph-specific projection deterministic and standardized.
+    """
+    kind = str(graph_kind or "").strip().lower()
+    node_types = resolve_graph_node_types(project_key)
+    combo = node_types.get(kind, [])
+    if not combo:
+        return []
+    ensemble = set(resolve_graph_node_ensemble(project_key))
+    # Preserve combo order while enforcing membership in ensemble.
+    out: list[str] = []
+    seen: set[str] = set()
+    for node_type in combo:
+        key = str(node_type or "").strip()
+        if not key or key in seen or key not in ensemble:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
 
 
 def resolve_graph_edge_types(project_key: str | None = None) -> dict[str, list[str]]:

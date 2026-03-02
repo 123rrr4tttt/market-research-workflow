@@ -451,6 +451,32 @@ export async function ingestMarket(payload: Record<string, unknown>) {
   return post<Record<string, unknown>>(endpoints.ingest.market, payload)
 }
 
+export type IngestSingleUrlPayload = {
+  url: string
+  query_terms?: string[] | null
+  strict_mode?: boolean
+  search_expand?: boolean
+  search_expand_limit?: number
+  search_provider?: 'auto' | 'google' | 'ddg_html' | string | null
+  search_fallback_provider?: 'ddg_html' | string | null
+  fallback_on_insufficient?: boolean
+  allow_search_summary_write?: boolean
+  min_results_required?: number | null
+  target_candidates?: number | null
+  decode_redirect_wrappers?: boolean
+  filter_low_value_candidates?: boolean
+  light_filter_enabled?: boolean
+  light_filter_min_score?: number
+  light_filter_reject_static_assets?: boolean
+  light_filter_reject_search_noise_domain?: boolean
+  project_key?: string | null
+  async_mode?: boolean
+}
+
+export async function ingestSingleUrl(payload: IngestSingleUrlPayload) {
+  return post<Record<string, unknown>>(endpoints.ingest.urlSingle, payload)
+}
+
 export async function ingestSocial(payload: Record<string, unknown>) {
   return post<Record<string, unknown>>(endpoints.ingest.socialSentiment, payload)
 }

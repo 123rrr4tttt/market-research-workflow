@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -28,32 +27,6 @@ from .keyword_library import (
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
 _EXTRACTION_APP = ExtractionApplicationService()
-
-
-def _fallback_sentiment_payload(*, title: str | None, summary: str | None, text: str | None) -> dict:
-    """Fallback schema to keep downstream structured fields stable when LLM extraction returns empty."""
-    merged = " ".join([str(title or ""), str(summary or ""), str(text or "")]).strip()
-    tokens = re.findall(r"[\w\u4e00-\u9fff]{2,}", merged.lower())
-    stop = {
-        "the", "and", "for", "that", "with", "this", "from", "have", "about", "your", "you",
-        "into", "what", "when", "where", "which", "while", "been", "they", "them", "their",
-    }
-    phrases: list[str] = []
-    for tok in tokens:
-        if tok in stop:
-            continue
-        if tok not in phrases:
-            phrases.append(tok)
-        if len(phrases) >= 5:
-            break
-    return {
-        "sentiment_tags": [],
-        "sentiment_orientation": "neutral",
-        "key_phrases": phrases,
-        "emotion_words": [],
-        "topic": (phrases[0] if phrases else ""),
-        "fallback": True,
-    }
 
 
 def collect_user_social_sentiment(
@@ -235,14 +208,12 @@ def collect_user_social_sentiment(
                             enriched = None
                         if enriched:
                             extracted_data.update(enriched)
+                            extracted_data["extraction_status"] = "ok"
                             extraction_ok += 1
                         else:
                             extraction_empty += 1
-                            extracted_data["sentiment"] = _fallback_sentiment_payload(
-                                title=post.title,
-                                summary=post.summary,
-                                text=post.text,
-                            )
+                            extracted_data["extraction_status"] = "failed"
+                            extracted_data["extraction_reason"] = "empty_structured_output"
                             extraction_fallback += 1
                     
                     document = Document(

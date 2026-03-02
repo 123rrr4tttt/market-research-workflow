@@ -69,7 +69,11 @@ def test_process_list_stats_history_consistency_semantics(
             id=101,
             job_type="policy_ingest",
             status="running",
-            params={"state": "CA"},
+            params={
+                "state": "CA",
+                "rejected_count": 2,
+                "rejection_breakdown": {"content_shell_signature": 2},
+            },
             started_at=now - timedelta(minutes=10),
             finished_at=None,
             error=None,
@@ -78,7 +82,12 @@ def test_process_list_stats_history_consistency_semantics(
             id=102,
             job_type="market_ingest",
             status="running",
-            params={"market": "us"},
+            params={
+                "market": "us",
+                "inserted_valid": 3,
+                "rejected_count": 1,
+                "rejection_breakdown": {"url_policy_low_value_endpoint": 1},
+            },
             started_at=now - timedelta(minutes=5),
             finished_at=None,
             error=None,
@@ -185,3 +194,12 @@ def test_process_list_stats_history_consistency_semantics(
     assert history_data["status_stats"]["running"] == list_active
     assert set(history_data["status_stats"].keys()) == {"running", "completed", "failed"}
     assert history_data["total"] == sum(history_data["status_stats"].values())
+
+    # Optional quality fields are exposed with stable types.
+    for row in history_data["history"]:
+        assert "inserted_valid" in row
+        assert "rejected_count" in row
+        assert "rejection_breakdown" in row
+        assert row["inserted_valid"] is None or isinstance(row["inserted_valid"], int)
+        assert isinstance(row["rejected_count"], int)
+        assert isinstance(row["rejection_breakdown"], dict)

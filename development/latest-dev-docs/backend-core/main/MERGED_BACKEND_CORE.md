@@ -1,6 +1,8 @@
 # Backend Core Merged Draft
 
 > Scope: consolidated from `README.md`, `README.local.md`, `API接口文档.md`, `tests/README.md`.
+>
+> Latest workflow package: `STANDARD_INGEST_WORKFLOWS_2026-03-02.md`
 
 ## 1. 运行（Run）
 

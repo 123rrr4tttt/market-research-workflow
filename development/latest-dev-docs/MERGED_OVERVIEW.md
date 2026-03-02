@@ -1,6 +1,6 @@
 # 合并文档总览
 
-Updated: 2026-03-01 PST
+Updated: 2026-03-02 PST
 
 ## 目录级合并结果
 
@@ -17,3 +17,15 @@ Updated: 2026-03-01 PST
 1. 先读本文件和各目录 `INDEX.md`，再进入合并主文档。
 2. 校对文档用于识别过时项，不直接替代原始来源文档。
 3. 若要提交发布版，优先更新 `SYNC_STATUS.md` 的检查时间。
+
+## 最近新增
+
+- `development-plans/CURRENT_DEV`：
+  - [01_single-url-first-ingest-allocation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)
+  - [01_source-time-window-smart-timestamp-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/01_source-time-window-smart-timestamp-plan-2026-03-02.md)
+  - [02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md)
+  - [03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md)
+  - [01_graph-node-standardization-a-then-b-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
+  - [01_global-vectorization-general-foundation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md)
+- `backend-core/main`：
+  - [STANDARD_INGEST_WORKFLOWS_2026-03-02.md](./backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md)

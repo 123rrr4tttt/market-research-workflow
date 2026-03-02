@@ -8,6 +8,7 @@ import {
   Database,
   Globe,
   LoaderCircle,
+  Link2,
   Play,
   Radar,
   RefreshCw,
@@ -20,6 +21,7 @@ import {
   listSiteEntryGrouped,
   listSourceItems,
 } from '../lib/api'
+import type { IngestSingleUrlPayload } from '../lib/api'
 import { useIngestActions } from '../hooks/useIngestActions'
 import { queryKeys } from '../lib/queryKeys'
 import type { IngestFormState, IngestJobRow, SourceLibraryItem } from '../lib/types'
@@ -42,6 +44,22 @@ const defaultForm: IngestFormState = {
   sourceItemKey: '',
   sourceHandlerKey: '',
   policyState: '',
+  singleUrl: '',
+  singleUrlStrictMode: false,
+  singleUrlSearchExpand: true,
+  singleUrlSearchExpandLimit: 3,
+  singleUrlSearchProvider: 'auto',
+  singleUrlSearchFallbackProvider: 'ddg_html',
+  singleUrlFallbackOnInsufficient: true,
+  singleUrlAllowSearchSummaryWrite: false,
+  singleUrlMinResultsRequired: 6,
+  singleUrlTargetCandidates: 6,
+  singleUrlDecodeRedirectWrappers: true,
+  singleUrlFilterLowValueCandidates: true,
+  singleUrlLightFilterEnabled: true,
+  singleUrlLightFilterMinScore: 30,
+  singleUrlLightFilterRejectStaticAssets: true,
+  singleUrlLightFilterRejectSearchNoiseDomain: true,
 }
 
 function splitTerms(raw: string) {
@@ -75,6 +93,23 @@ function rowStartAt(row: IngestJobRow) {
 
 function rowEndAt(row: IngestJobRow) {
   return row.finished_at || row.updated_at
+}
+
+function rowRejectionCount(row: IngestJobRow) {
+  if (typeof row.rejected_count === 'number') return row.rejected_count
+  const params = row.params && typeof row.params === 'object' ? row.params : null
+  const value = params && 'rejected_count' in params ? Number((params as Record<string, unknown>).rejected_count) : Number.NaN
+  return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
+}
+
+function rowDegradationFlags(row: IngestJobRow) {
+  if (Array.isArray(row.degradation_flags)) {
+    return row.degradation_flags.map((v) => String(v || '').trim()).filter(Boolean)
+  }
+  const params = row.params && typeof row.params === 'object' ? row.params : null
+  const value = params && 'degradation_flags' in params ? (params as Record<string, unknown>).degradation_flags : null
+  if (!Array.isArray(value)) return []
+  return value.map((v) => String(v || '').trim()).filter(Boolean)
 }
 
 function statusClass(status?: string) {
@@ -114,6 +149,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     ingestPolicy,
     ingestPolicyRegulation,
     ingestMarket,
+    ingestSingleUrl,
     ingestSocial,
     ingestCommodity,
     ingestEcom,
@@ -198,6 +234,32 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     if (subreddits.length) payload.base_subreddits = subreddits
 
     return payload
+  }
+
+  const buildSingleUrlPayload = (): IngestSingleUrlPayload => {
+    const url = String(form.singleUrl || '').trim()
+    if (!url) throw new Error('请先输入 URL')
+    const queryTerms = splitTerms(form.queryTerms)
+    return {
+      url,
+      query_terms: queryTerms.length ? queryTerms : null,
+      strict_mode: form.singleUrlStrictMode,
+      search_expand: form.singleUrlSearchExpand,
+      search_expand_limit: form.singleUrlSearchExpandLimit,
+      search_provider: form.singleUrlSearchProvider,
+      search_fallback_provider: form.singleUrlSearchFallbackProvider,
+      fallback_on_insufficient: form.singleUrlFallbackOnInsufficient,
+      allow_search_summary_write: form.singleUrlAllowSearchSummaryWrite,
+      min_results_required: form.singleUrlMinResultsRequired,
+      target_candidates: form.singleUrlTargetCandidates,
+      decode_redirect_wrappers: form.singleUrlDecodeRedirectWrappers,
+      filter_low_value_candidates: form.singleUrlFilterLowValueCandidates,
+      light_filter_enabled: form.singleUrlLightFilterEnabled,
+      light_filter_min_score: form.singleUrlLightFilterMinScore,
+      light_filter_reject_static_assets: form.singleUrlLightFilterRejectStaticAssets,
+      light_filter_reject_search_noise_domain: form.singleUrlLightFilterRejectSearchNoiseDomain,
+      async_mode: form.asyncMode,
+    }
   }
 
   const onSourceItemChange = (itemKey: string) => {
@@ -453,6 +515,200 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
       <section className="panel">
         <div className="panel-header">
           <h2>
+            <Link2 size={15} />单 URL 入库
+          </h2>
+          <span className="chip">single_url</span>
+        </div>
+
+        <div className="form-grid cols-2">
+          <label>
+            <span>目标 URL</span>
+            <input
+              value={form.singleUrl}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrl: e.target.value }))}
+              placeholder="https://example.com/article"
+            />
+          </label>
+          <label>
+            <span>搜索展开上限</span>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={form.singleUrlSearchExpandLimit}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  singleUrlSearchExpandLimit: Math.max(1, Math.min(20, Number.parseInt(e.target.value || '3', 10) || 3)),
+                }))
+              }
+            />
+          </label>
+        </div>
+
+        <div className="form-grid cols-4">
+          <label>
+            <span>搜索提供方</span>
+            <select
+              value={form.singleUrlSearchProvider}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  singleUrlSearchProvider: e.target.value as IngestFormState['singleUrlSearchProvider'],
+                }))
+              }
+            >
+              <option value="auto">auto</option>
+              <option value="google">google</option>
+              <option value="ddg_html">ddg_html</option>
+            </select>
+          </label>
+          <label>
+            <span>兜底提供方</span>
+            <select
+              value={form.singleUrlSearchFallbackProvider}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  singleUrlSearchFallbackProvider: e.target.value as IngestFormState['singleUrlSearchFallbackProvider'],
+                }))
+              }
+            >
+              <option value="ddg_html">ddg_html</option>
+            </select>
+          </label>
+          <label>
+            <span>最少结果数</span>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={form.singleUrlMinResultsRequired}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  singleUrlMinResultsRequired: Math.max(1, Math.min(20, Number.parseInt(e.target.value || '6', 10) || 6)),
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>目标候选数</span>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={form.singleUrlTargetCandidates}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  singleUrlTargetCandidates: Math.max(1, Math.min(20, Number.parseInt(e.target.value || '6', 10) || 6)),
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>轻过滤阈值(0-100)</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={form.singleUrlLightFilterMinScore}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  singleUrlLightFilterMinScore: Math.max(0, Math.min(100, Number.parseInt(e.target.value || '30', 10) || 30)),
+                }))
+              }
+            />
+          </label>
+        </div>
+
+        <div className="toggles">
+          <label>
+            <input
+              type="checkbox"
+              checked={form.singleUrlStrictMode}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrlStrictMode: e.target.checked }))}
+            />
+            严格模式
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.singleUrlSearchExpand}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrlSearchExpand: e.target.checked }))}
+            />
+            搜索展开
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.singleUrlFallbackOnInsufficient}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrlFallbackOnInsufficient: e.target.checked }))}
+            />
+            结果不足兜底
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.singleUrlAllowSearchSummaryWrite}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrlAllowSearchSummaryWrite: e.target.checked }))}
+            />
+            允许写入搜索摘要
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.singleUrlDecodeRedirectWrappers}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrlDecodeRedirectWrappers: e.target.checked }))}
+            />
+            解包重定向链接
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.singleUrlFilterLowValueCandidates}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrlFilterLowValueCandidates: e.target.checked }))}
+            />
+            过滤低价值候选
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.singleUrlLightFilterEnabled}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrlLightFilterEnabled: e.target.checked }))}
+            />
+            启用轻过滤
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.singleUrlLightFilterRejectStaticAssets}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrlLightFilterRejectStaticAssets: e.target.checked }))}
+            />
+            轻过滤拒绝静态资源
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={form.singleUrlLightFilterRejectSearchNoiseDomain}
+              onChange={(e) => setForm((p) => ({ ...p, singleUrlLightFilterRejectSearchNoiseDomain: e.target.checked }))}
+            />
+            轻过滤拒绝噪音域
+          </label>
+        </div>
+
+        <div className="inline-actions">
+          <button disabled={actionPending || !form.singleUrl.trim()} onClick={() => void ingestSingleUrl(buildSingleUrlPayload())}>
+            <Play size={15} />执行单 URL 入库
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>
             <Cable size={15} />采集执行
           </h2>
         </div>
@@ -538,6 +794,8 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
               <tr>
                 <th>任务</th>
                 <th>状态</th>
+                <th>拒绝数</th>
+                <th>降级标记</th>
                 <th>开始时间</th>
                 <th>结束时间</th>
               </tr>
@@ -549,13 +807,15 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
                   <td>
                     <span className={statusClass(row.status)}>{row.status || '-'}</span>
                   </td>
+                  <td>{rowRejectionCount(row)}</td>
+                  <td>{rowDegradationFlags(row).slice(0, 2).join(', ') || '-'}</td>
                   <td>{formatDate(rowStartAt(row))}</td>
                   <td>{formatDate(rowEndAt(row))}</td>
                 </tr>
               ))}
               {!history.data?.length && (
                 <tr>
-                  <td colSpan={4} className="empty-cell">
+                  <td colSpan={6} className="empty-cell">
                     暂无任务记录
                   </td>
                 </tr>

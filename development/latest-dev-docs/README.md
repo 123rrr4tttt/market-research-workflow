@@ -16,3 +16,18 @@
 - [backend-docs](./backend-docs/INDEX.md)
 - [ops-frontend](./ops-frontend/INDEX.md)
 - [development-plans](./development-plans/INDEX.md)
+
+## 最新补充
+
+- `development-plans/CURRENT_DEV` 新增单 URL 优先方案：
+  - [01_single-url-first-ingest-allocation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)
+- `development-plans/CURRENT_DEV` 新增源时间窗与智能时间戳方案：
+  - [01_source-time-window-smart-timestamp-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/01_source-time-window-smart-timestamp-plan-2026-03-02.md)
+  - [02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md)
+  - [03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md)
+- `development-plans/CURRENT_DEV` 新增图谱节点 A→B 标准化方案：
+  - [01_graph-node-standardization-a-then-b-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
+- `development-plans/CURRENT_DEV` 新增全局向量化通用基础方案：
+  - [01_global-vectorization-general-foundation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md)
+- `backend-core/main` 新增标准工作流打包文档：
+  - [STANDARD_INGEST_WORKFLOWS_2026-03-02.md](./backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md)

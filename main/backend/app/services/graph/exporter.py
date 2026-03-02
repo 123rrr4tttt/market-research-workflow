@@ -7,6 +7,7 @@ from typing import Dict, List, Any, Optional
 from collections import Counter
 
 from .models import Graph, GraphNode, GraphEdge
+from .mapping import GRAPH_INTERFACE_VERSION, map_edge_for_interface, map_node_for_interface
 
 logger = logging.getLogger(__name__)
 
@@ -33,33 +34,11 @@ def export_to_json(graph: Graph) -> Dict[str, Any]:
         ]
     }
     """
-    nodes_list = []
-    for node_key, node in graph.nodes.items():
-        node_dict = {
-            "type": node.type,
-            "id": node.id,
-            **node.properties
-        }
-        nodes_list.append(node_dict)
-    
-    edges_list = []
-    for edge in graph.edges:
-        edge_dict = {
-            "type": edge.type,
-            "from": {
-                "type": edge.from_node.type,
-                "id": edge.from_node.id
-            },
-            "to": {
-                "type": edge.to_node.type,
-                "id": edge.to_node.id
-            },
-            **edge.properties
-        }
-        edges_list.append(edge_dict)
-    
+    nodes_list = [map_node_for_interface(node) for node in graph.nodes.values()]
+    edges_list = [map_edge_for_interface(edge) for edge in graph.edges]
+    schema_version = str(graph.schema_version or "").strip() or GRAPH_INTERFACE_VERSION
     return {
-        "graph_schema_version": graph.schema_version,
+        "graph_schema_version": schema_version,
         "nodes": nodes_list,
         "edges": edges_list
     }
@@ -167,4 +146,3 @@ def export_to_json_file(graph: Graph, output_path: str, validate: bool = True) -
     if validate:
         return validation_result
     return {}
-

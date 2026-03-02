@@ -22,6 +22,70 @@ router = APIRouter(prefix="/process", tags=["process"])
 _DB_JOB_PREFIX = "db-job-"
 
 
+def _as_dict(value: Any) -> Dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _coerce_int(value: Any) -> int | None:
+    try:
+        iv = int(value)
+    except Exception:
+        return None
+    return iv if iv >= 0 else None
+
+
+def _extract_quality_fields(*payloads: Any) -> Dict[str, Any]:
+    data = [_as_dict(p) for p in payloads]
+    inserted_valid: int | None = None
+    rejected_count: int | None = None
+    rejection_breakdown: Dict[str, int] = {}
+    degradation_flags: list[str] = []
+    quality_score: float | None = None
+
+    for item in data:
+        if inserted_valid is None:
+            inserted_valid = _coerce_int(item.get("inserted_valid"))
+        if rejected_count is None:
+            rejected_count = _coerce_int(item.get("rejected_count"))
+        rb = item.get("rejection_breakdown")
+        if isinstance(rb, dict):
+            for k, v in rb.items():
+                key = str(k or "").strip()
+                val = _coerce_int(v)
+                if not key or val is None:
+                    continue
+                rejection_breakdown[key] = rejection_breakdown.get(key, 0) + val
+        flags = item.get("degradation_flags")
+        if isinstance(flags, list):
+            for flag in flags:
+                name = str(flag or "").strip()
+                if name and name not in degradation_flags:
+                    degradation_flags.append(name)
+        if quality_score is None:
+            try:
+                qv = float(item.get("quality_score"))
+            except Exception:
+                qv = None
+            if qv is not None and qv >= 0:
+                quality_score = qv
+
+    if rejected_count is None and rejection_breakdown:
+        rejected_count = sum(rejection_breakdown.values())
+    if rejected_count is None:
+        rejected_count = 0
+
+    out: Dict[str, Any] = {
+        "rejected_count": rejected_count,
+        "rejection_breakdown": rejection_breakdown,
+        "degradation_flags": degradation_flags,
+    }
+    if inserted_valid is not None:
+        out["inserted_valid"] = inserted_valid
+    if quality_score is not None:
+        out["quality_score"] = quality_score
+    return out
+
+
 class TaskInfo(BaseModel):
     """任务信息模型"""
     task_id: str
@@ -274,17 +338,28 @@ def get_task_history(
                         duration = (job.finished_at - job.started_at).total_seconds()
                     elif job.started_at:
                         duration = (datetime.now(job.started_at.tzinfo) - job.started_at).total_seconds()
+                    params = dict(job.params or {})
+                    quality_fields = _extract_quality_fields(
+                        params,
+                        params.get("result"),
+                        params.get("progress"),
+                    )
 
                     history.append({
                         "id": job.id,
                         "job_type": job.job_type,
                         "status": job.status,
-                        "params": job.params or {},
-                        "display_meta": extract_display_meta_from_params(job.params or {}),
+                        "params": params,
+                        "display_meta": extract_display_meta_from_params(params),
                         "started_at": job.started_at.isoformat() if job.started_at else None,
                         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
                         "duration_seconds": duration,
                         "error": job.error,
+                        "inserted_valid": quality_fields.get("inserted_valid"),
+                        "rejected_count": quality_fields.get("rejected_count"),
+                        "rejection_breakdown": quality_fields.get("rejection_breakdown") or {},
+                        "degradation_flags": quality_fields.get("degradation_flags") or [],
+                        "quality_score": quality_fields.get("quality_score"),
                     })
             
             # 获取统计信息
@@ -364,9 +439,10 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
     status_raw = str(job.status or "running").strip().lower()
     ready = status_raw in {"completed", "failed", "cancelled", "canceled"}
     is_external = bool(str(job.external_provider or "").strip())
+    params_payload = dict(job.params or {})
     result_payload = None
     if ready:
-        result_payload = dict(job.params or {})
+        result_payload = dict(params_payload)
         if is_external:
             result_payload.setdefault(
                 "external_log_hint",
@@ -374,13 +450,14 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
             )
     progress_payload = None
     if not ready:
-        progress_payload = dict(job.params or {})
+        progress_payload = dict(params_payload)
         if is_external:
             progress_payload.setdefault("external_provider", job.external_provider)
             progress_payload.setdefault("external_job_id", job.external_job_id)
+    quality_fields = _extract_quality_fields(params_payload, result_payload, progress_payload)
     return {
         "task_id": task_id,
-        "name": str((job.params or {}).get("job_type_full") or job.job_type or "db_job"),
+        "name": str(params_payload.get("job_type_full") or job.job_type or "db_job"),
         "status": str(job.status or "running").upper(),
         "ready": ready,
         "successful": ready and status_raw == "completed",
@@ -394,6 +471,11 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
         "external_job_id": job.external_job_id,
         "retry_count": job.retry_count,
         "source": "db",
+        "inserted_valid": quality_fields.get("inserted_valid"),
+        "rejected_count": quality_fields.get("rejected_count"),
+        "rejection_breakdown": quality_fields.get("rejection_breakdown") or {},
+        "degradation_flags": quality_fields.get("degradation_flags") or [],
+        "quality_score": quality_fields.get("quality_score"),
     }
 
 
@@ -417,6 +499,16 @@ def get_task_info(task_id: str) -> dict[str, Any]:
             "progress": result.info if not result.ready() and isinstance(getattr(result, "info", None), dict) else None,
             "traceback": result.traceback if result.failed() else None,
         }
+        quality_fields = _extract_quality_fields(task_info.get("result"), task_info.get("progress"))
+        task_info.update(
+            {
+                "inserted_valid": quality_fields.get("inserted_valid"),
+                "rejected_count": quality_fields.get("rejected_count"),
+                "rejection_breakdown": quality_fields.get("rejection_breakdown") or {},
+                "degradation_flags": quality_fields.get("degradation_flags") or [],
+                "quality_score": quality_fields.get("quality_score"),
+            }
+        )
         
         # 尝试获取任务名称
         try:

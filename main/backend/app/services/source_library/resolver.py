@@ -33,6 +33,21 @@ def _as_dict(value: Any) -> dict:
     return {}
 
 
+def _as_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    s = str(value or "").strip().lower()
+    if s in {"1", "true", "yes", "on"}:
+        return True
+    if s in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
     merged = dict(base)
     for key, value in override.items():
@@ -535,7 +550,11 @@ def run_item_with_url_routing(
     errors: List[str] = []
     query_terms = params.get("query_terms") or params.get("keywords") or params.get("search_keywords") or params.get("base_keywords") or params.get("topic_keywords")
     has_query_terms = isinstance(query_terms, list) and any(str(x or "").strip() for x in query_terms)
-    prefer_crawler_first = bool(params.get("prefer_crawler_first", True))
+    item_key = str(item.get("item_key") or "").strip().lower()
+    item_channel_key = str(item.get("channel_key") or "").strip().lower()
+    default_force_single_url_flow = item_channel_key == "url_pool" or item_key.startswith("url_pool.")
+    force_single_url_flow = _as_bool(params.get("force_single_url_flow"), default_force_single_url_flow)
+    prefer_crawler_first = _as_bool(params.get("prefer_crawler_first"), True) and not force_single_url_flow
     preferred_crawler_channel_key: str | None = None
     if prefer_crawler_first:
         item_channel_key = str(item.get("channel_key") or "").strip()
@@ -554,11 +573,14 @@ def run_item_with_url_routing(
             by_url.append({"url": url_str or str(url), "channel_key": None, "error": "invalid url", "result": None})
             continue
 
-        channel_key = preferred_crawler_channel_key or resolve_channel_for_url(
-            url_str,
-            project_key,
-            has_query_terms=has_query_terms,
-        )
+        if force_single_url_flow:
+            channel_key = "url_pool"
+        else:
+            channel_key = preferred_crawler_channel_key or resolve_channel_for_url(
+                url_str,
+                project_key,
+                has_query_terms=has_query_terms,
+            )
         channel = channel_map.get(channel_key)
         if channel is None:
             channel = channel_map.get("url_pool")
@@ -641,6 +663,17 @@ def run_item_payload(
             params = _deep_merge(params, config["payload"])
     if override_params:
         params = _deep_merge(params, override_params)
+
+    # Temporary freeze for legacy url_pool fixed URL-list flow.
+    # Default behavior for url_pool items is to bypass static params.urls unless explicitly re-enabled.
+    item_key_lower = str(item.get("item_key") or "").strip().lower()
+    item_channel_key_lower = str(item.get("channel_key") or "").strip().lower()
+    if item_channel_key_lower == "url_pool" or item_key_lower.startswith("url_pool."):
+        allow_legacy_url_list = _as_bool(params.get("enable_legacy_url_list"), False)
+        if not allow_legacy_url_list and isinstance(params.get("urls"), list):
+            params = dict(params)
+            params.pop("urls", None)
+            params["legacy_url_list_frozen"] = True
 
     # URL-routing branch: params.urls present -> resolve channel per URL
     urls = params.get("urls")

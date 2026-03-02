@@ -73,6 +73,7 @@ export const endpoints = {
   },
   ingest: {
     history: `${API_BASE}/ingest/history`,
+    urlSingle: `${API_BASE}/ingest/url/single`,
     policy: `${API_BASE}/ingest/policy`,
     policyRegulation: `${API_BASE}/ingest/policy/regulation`,
     market: `${API_BASE}/ingest/market`,

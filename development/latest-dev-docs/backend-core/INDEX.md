@@ -1,12 +1,13 @@
 # backend-core Documentation Index
 
-Last updated: 2026-03-01
+Last updated: 2026-03-02
 
 ## Main Entry
 
 - [main/](main/): canonical backend-core merged documentation entry
 - [main/index.md](main/index.md)
 - [main/MERGED_BACKEND_CORE.md](main/MERGED_BACKEND_CORE.md)
+- [main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md](main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md): 当前标准采集工作流打包文档（entry/解析/回退/入库/状态口径）
 - [main/TEST_AUTOMATION_STANDARDIZATION.md](main/TEST_AUTOMATION_STANDARDIZATION.md): test automation boundary, gaps, and completion checklist
 
 ## Archived Category Directories

@@ -63,6 +63,73 @@ def _project_key_from_request(request: Request) -> str:
     return settings.active_project_key or "default"
 
 
+def _empty_graph_response():
+    """Return a successful empty graph payload to keep frontend contract stable."""
+    from app.services.graph.exporter import export_to_json
+    from app.services.graph.models import Graph
+
+    return success_response(export_to_json(Graph()))
+
+
+def _finalize_graph_response(
+    graph,
+    *,
+    graph_kind: Literal["social", "market", "policy"],
+    project_key: str,
+    documents: Optional[list[Document]] = None,
+    market_deep_view: bool = False,
+    topic_scope: Optional[Literal["company", "product", "operation"]] = None,
+):
+    """Standardized graph endpoint tail pipeline.
+
+    Unified flow:
+    1) optional market deep augmentation
+    2) ensemble-based node projection by graph kind
+    3) export with stable fallback to empty graph
+    """
+    from app.services.graph.doc_types import resolve_graph_node_combo, resolve_graph_topic_scope_entities
+    from app.services.graph.exporter import export_to_json
+    from app.services.graph.projection import project_graph_by_node_types
+
+    if graph_kind == "market" and market_deep_view:
+        try:
+            _augment_market_graph_with_topic_structured(
+                graph,
+                documents or [],
+                topic_scope=topic_scope,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("扩展专题图谱节点失败: %s", exc)
+
+    combo = list(resolve_graph_node_combo(graph_kind, project_key))
+    if graph_kind == "market" and market_deep_view:
+        deep_types: list[str] = ["TopicTag"]
+        topic_scope_entities = resolve_graph_topic_scope_entities(project_key)
+        if topic_scope:
+            deep_types.extend(topic_scope_entities.get(str(topic_scope), []))
+        else:
+            for scope in ("company", "product", "operation"):
+                deep_types.extend(topic_scope_entities.get(scope, []))
+        # Keep order and deduplicate.
+        seen: set[str] = set()
+        merged_combo: list[str] = []
+        for node_type in [*combo, *deep_types]:
+            key = str(node_type or "").strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            merged_combo.append(key)
+        combo = merged_combo
+
+    graph = project_graph_by_node_types(graph, combo)
+
+    try:
+        return success_response(export_to_json(graph))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("导出图谱JSON失败 kind=%s err=%s", graph_kind, exc, exc_info=True)
+        return _empty_graph_response()
+
+
 class DocumentListRequest(BaseModel):
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
@@ -1651,8 +1718,8 @@ def get_content_graph(
     """根据条件获取内容图谱数据"""
     from app.services.graph.adapters import normalize_document
     from app.services.graph.builder import build_graph, build_topic_subgraph
-    from app.services.graph.exporter import export_to_json
     from app.services.graph.models import Graph
+    from app.services.graph.exporter import export_to_json
     project_key = _project_key_from_request(request)
     try:
         with bind_project(project_key):
@@ -1755,32 +1822,15 @@ def get_content_graph(
                         json_data = export_to_json(empty_graph)
                         return success_response(json_data)
 
-                try:
-                    json_data = export_to_json(graph)
-                    return success_response(json_data)
-                except Exception as e:
-                    logger.error(f"导出JSON失败: {e}", exc_info=True)
-                    empty_graph = Graph()
-                    json_data = export_to_json(empty_graph)
-                    return success_response(json_data)
+                return _finalize_graph_response(
+                    graph,
+                    graph_kind="social",
+                    project_key=project_key,
+                )
             
     except Exception as e:
         logger.error(f"获取内容图谱失败: {e}", exc_info=True)
-        # 返回空图谱而不是错误，这样前端可以正常显示
-        try:
-            empty_graph = Graph()
-            json_data = export_to_json(empty_graph)
-            return success_response(json_data)
-        except Exception as e2:
-            logger.error(f"创建空图谱失败: {e2}", exc_info=True)
-            return JSONResponse(
-                status_code=500,
-                content=error_response(
-                    ErrorCode.INTERNAL_ERROR,
-                    f"获取失败: {str(e)}",
-                    details={"nodes": [], "edges": []},
-                ),
-            )
+        return _empty_graph_response()
 
 
 @router.get("/market-graph")
@@ -1797,8 +1847,8 @@ def get_market_graph(
     """根据条件获取市场数据图谱（从Document表中查询doc_type='market'的文档）"""
     from app.services.graph.adapters.market import MarketAdapter
     from app.services.graph.builder import build_market_graph
-    from app.services.graph.exporter import export_to_json
     from app.services.graph.models import Graph
+    from app.services.graph.exporter import export_to_json
     from datetime import datetime
     project_key = _project_key_from_request(request)
     deep_view = str(view or "").strip().lower() == "market_deep_entities" or bool(topic_scope)
@@ -1932,38 +1982,18 @@ def get_market_graph(
                     json_data = export_to_json(empty_graph)
                     return success_response(json_data)
 
-                if deep_view:
-                    try:
-                        _augment_market_graph_with_topic_structured(graph, documents, topic_scope=topic_scope)
-                    except Exception as e:
-                        logger.warning(f"扩展专题图谱节点失败: {e}")
-
-                try:
-                    json_data = export_to_json(graph)
-                    return success_response(json_data)
-                except Exception as e:
-                    logger.error(f"导出JSON失败: {e}", exc_info=True)
-                    empty_graph = Graph()
-                    json_data = export_to_json(empty_graph)
-                    return success_response(json_data)
+                return _finalize_graph_response(
+                    graph,
+                    graph_kind="market",
+                    project_key=project_key,
+                    documents=documents,
+                    market_deep_view=deep_view,
+                    topic_scope=topic_scope,
+                )
 
     except Exception as e:
         logger.error(f"获取市场数据图谱失败: {e}", exc_info=True)
-        # 返回空图谱而不是错误，这样前端可以正常显示
-        try:
-            empty_graph = Graph()
-            json_data = export_to_json(empty_graph)
-            return success_response(json_data)
-        except Exception as e2:
-            logger.error(f"创建空图谱失败: {e2}", exc_info=True)
-            return JSONResponse(
-                status_code=500,
-                content=error_response(
-                    ErrorCode.INTERNAL_ERROR,
-                    f"获取失败: {str(e)}",
-                    details={"nodes": [], "edges": []},
-                ),
-            )
+        return _empty_graph_response()
 
 
 @router.get("/policy-graph")
@@ -1978,8 +2008,8 @@ def get_policy_graph(
     """根据条件获取政策数据图谱"""
     from app.services.graph.adapters.policy import PolicyAdapter
     from app.services.graph.builder import build_policy_graph
-    from app.services.graph.exporter import export_to_json
     from app.services.graph.models import Graph
+    from app.services.graph.exporter import export_to_json
     project_key = _project_key_from_request(request)
     def _parse_date(value: Optional[str]) -> Optional[date]:
         if not value:
@@ -2107,31 +2137,15 @@ def get_policy_graph(
                     json_data = export_to_json(empty_graph)
                     return success_response(json_data)
 
-                try:
-                    json_data = export_to_json(graph)
-                    return success_response(json_data)
-                except Exception as exc:  # noqa: BLE001
-                    logger.error("导出政策图谱失败: %s", exc, exc_info=True)
-                    empty_graph = Graph()
-                    json_data = export_to_json(empty_graph)
-                    return success_response(json_data)
+                return _finalize_graph_response(
+                    graph,
+                    graph_kind="policy",
+                    project_key=project_key,
+                )
 
     except Exception as exc:  # noqa: BLE001
         logger.error("获取政策图谱失败: %s", exc, exc_info=True)
-        try:
-            empty_graph = Graph()
-            json_data = export_to_json(empty_graph)
-            return success_response(json_data)
-        except Exception as exc2:  # noqa: BLE001
-            logger.error("创建空政策图谱失败: %s", exc2, exc_info=True)
-            return JSONResponse(
-                status_code=500,
-                content=error_response(
-                    ErrorCode.INTERNAL_ERROR,
-                    f"获取失败: {str(exc)}",
-                    details={"nodes": [], "edges": []},
-                ),
-            )
+        return _empty_graph_response()
 
 
 @router.get("/search-history")

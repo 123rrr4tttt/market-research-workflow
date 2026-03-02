@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     celery_max_memory_per_child: int = Field(default=500000)
     celery_queues: str = Field(default="celery")
     graph_structured_async_dispatch_workers: int = Field(default=4)
+    ingest_enable_strict_gate: bool = Field(default=False)
+    ingest_low_value_domains: str = Field(default="news.google.com,x.com,actiontoaction.ai")
+    ingest_low_value_path_keywords: str = Field(default="/search,/login,/home,/showcase,/topics/,/stargazers,/sitemap")
+    ingest_shell_signatures: str = Field(default="window.wiz_progre,var bodyCacheable = true,self.__next_f,errorContainer")
+    ingest_min_semantic_len: int = Field(default=500)
 
     # LLM providers
     llm_provider: str = Field(default="openai")  # openai | azure | ollama

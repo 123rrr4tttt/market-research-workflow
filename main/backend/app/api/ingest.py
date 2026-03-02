@@ -221,6 +221,28 @@ class MarketIngestRequest(BaseModel):
     topic_focus: str | None = Field(default=None, description="专题焦点 company/product/operation（可选）")
 
 
+class SingleUrlIngestRequest(BaseModel):
+    url: str = Field(..., min_length=1, description="单个网页 URL")
+    query_terms: list[str] | None = Field(default=None, description="可选查询词（用于增强提取）")
+    strict_mode: bool = Field(default=False, description="是否启用严格模式")
+    search_expand: bool = Field(default=True, description="搜索页是否展开抓取结果链接")
+    search_expand_limit: int = Field(default=3, ge=1, le=20, description="搜索页展开抓取的URL上限")
+    search_provider: str | None = Field(default="auto", description="搜索页来源提供方，auto/google/ddg_html")
+    search_fallback_provider: str | None = Field(default="ddg_html", description="搜索结果不足时的兜底提供方，如 ddg_html")
+    fallback_on_insufficient: bool = Field(default=True, description="搜索结果不足时是否启用兜底搜索")
+    allow_search_summary_write: bool = Field(default=False, description="当不展开搜索结果时是否允许将搜索摘要写入文档")
+    min_results_required: int = Field(default=6, ge=1, le=20, description="判定搜索页有效结果数的阈值")
+    target_candidates: int = Field(default=6, ge=1, le=20, description="搜索页目标候选数")
+    decode_redirect_wrappers: bool = Field(default=True, description="是否解包搜索重定向链接")
+    filter_low_value_candidates: bool = Field(default=True, description="是否过滤低价值候选链接")
+    light_filter_enabled: bool = Field(default=True, description="是否启用轻度过滤(Stage F)")
+    light_filter_min_score: int = Field(default=30, ge=0, le=100, description="轻度过滤最低通过分数")
+    light_filter_reject_static_assets: bool = Field(default=True, description="轻度过滤是否拒绝静态资源URL")
+    light_filter_reject_search_noise_domain: bool = Field(default=True, description="轻度过滤是否拒绝搜索噪音域名")
+    project_key: str | None = Field(default=None, description="项目标识")
+    async_mode: bool = Field(default=False, description="是否走 Celery 异步任务")
+
+
 class CaliforniaReportRequest(BaseModel):
     limit: int = Field(default=3, ge=1, le=20, description="要保存的 PDF 报告数量上限")
 
@@ -297,6 +319,106 @@ def ingest_market(payload: MarketIngestRequest):
                 raw["topic_hints"] = topic_meta.get("topic_hints") or []
                 raw["topic_search_keywords"] = topic_meta.get("topic_search_keywords") or []
             return success_response(raw)
+    except Exception as exc:  # noqa: BLE001
+        return _error_500(exc)
+
+
+@router.post("/url/single")
+def ingest_url_single(payload: SingleUrlIngestRequest):
+    project_key = _require_project_key(payload.project_key)
+    normalized_url = str(payload.url or "").strip()
+    if not normalized_url:
+        raise HTTPException(
+            status_code=400,
+            detail=error_response(ErrorCode.INVALID_INPUT, "url is required and cannot be empty."),
+        )
+
+    effective_payload: dict[str, Any] = {
+        "url": normalized_url,
+        "query_terms": payload.query_terms,
+        "strict_mode": payload.strict_mode,
+        "search_expand": bool(payload.search_expand),
+        "search_expand_limit": int(payload.search_expand_limit),
+        "search_provider": payload.search_provider,
+        "search_fallback_provider": payload.search_fallback_provider,
+        "fallback_on_insufficient": bool(payload.fallback_on_insufficient),
+        "allow_search_summary_write": bool(payload.allow_search_summary_write),
+        "min_results_required": int(payload.min_results_required),
+        "target_candidates": int(payload.target_candidates),
+        "decode_redirect_wrappers": bool(payload.decode_redirect_wrappers),
+        "filter_low_value_candidates": bool(payload.filter_low_value_candidates),
+        "light_filter_enabled": bool(payload.light_filter_enabled),
+        "light_filter_min_score": int(payload.light_filter_min_score),
+        "light_filter_reject_static_assets": bool(payload.light_filter_reject_static_assets),
+        "light_filter_reject_search_noise_domain": bool(payload.light_filter_reject_search_noise_domain),
+        "async_mode": bool(payload.async_mode),
+    }
+
+    search_options: dict[str, Any] | None = None
+    if (
+        not bool(payload.search_expand)
+        or int(payload.search_expand_limit) != 3
+        or str(payload.search_provider or "auto").strip().lower() != "auto"
+        or str(payload.search_fallback_provider or "ddg_html").strip().lower() != "ddg_html"
+        or not bool(payload.fallback_on_insufficient)
+        or bool(payload.allow_search_summary_write)
+        or int(payload.min_results_required) != 6
+        or int(payload.target_candidates) != 6
+        or not bool(payload.decode_redirect_wrappers)
+        or not bool(payload.filter_low_value_candidates)
+        or not bool(payload.light_filter_enabled)
+        or int(payload.light_filter_min_score) != 30
+        or not bool(payload.light_filter_reject_static_assets)
+        or not bool(payload.light_filter_reject_search_noise_domain)
+    ):
+        search_options = dict(effective_payload)
+        search_options.pop("url", None)
+        search_options.pop("query_terms", None)
+        search_options.pop("strict_mode", None)
+        search_options.pop("async_mode", None)
+
+    if payload.async_mode:
+        if isinstance(search_options, dict):
+            task = _tasks_module().task_ingest_single_url.delay(
+                normalized_url,
+                payload.query_terms,
+                payload.strict_mode,
+                project_key,
+                search_options,
+            )
+        else:
+            task = _tasks_module().task_ingest_single_url.delay(
+                normalized_url,
+                payload.query_terms,
+                payload.strict_mode,
+                project_key,
+            )
+        task_payload = task_result_response(
+            task_id=task.id,
+            async_mode=True,
+            params={
+                "url": normalized_url,
+                "query_terms": payload.query_terms,
+                "strict_mode": payload.strict_mode,
+                **({"search_options": search_options} if isinstance(search_options, dict) else {}),
+            },
+        )
+        task_payload["effective_payload"] = effective_payload
+        return success_response(task_payload)
+
+    try:
+        with bind_project(project_key):
+            from ..services.ingest.single_url import ingest_single_url
+
+            result = ingest_single_url(
+                url=normalized_url,
+                query_terms=payload.query_terms,
+                strict_mode=payload.strict_mode,
+                search_options=search_options,
+            )
+            if isinstance(result, dict):
+                result.setdefault("effective_payload", effective_payload)
+            return success_response(result)
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 

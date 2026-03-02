@@ -56,3 +56,5 @@ prefix_rule(pattern=["/bin/zsh", "-lc", "curl -sS -m 8 'http://127.0.0.1:8000/ap
 prefix_rule(pattern=["/bin/zsh", "-lc", "cd /Users/wangyiliang/projects/信息收集工作流/main/frontend-modern && nohup npm run dev -- --host 127.0.0.1 --port 5173 >/tmp/frontend-modern-dev.log 2>&1 & sleep 3 && lsof -iTCP:5173 -sTCP:LISTEN -n -P && curl -sS -m 5 http://127.0.0.1:5173/ | head -n 5"], decision="allow")
 prefix_rule(pattern=["git", "add", "main/backend/app/api/ingest.py", "main/backend/app/settings/config.py", "main/backend/start-local.sh", "main/backend/.env.example", "main/backend/README.local.md"], decision="allow")
 prefix_rule(pattern=["git", "push", "origin", "main"], decision="allow")
+prefix_rule(pattern=["bash", "./codex_settings/scripts/swarm_file_bootstrap.sh"], decision="allow")
+prefix_rule(pattern=["bash", "./codex_settings/scripts/swarm.sh"], decision="allow")

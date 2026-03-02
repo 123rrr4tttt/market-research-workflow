@@ -11,7 +11,11 @@ import type {
 } from '../lib/types'
 import { GRAPH_COLOR_THEMES, assignLegendColors, type PaletteKey } from '../lib/graph-colors'
 import { applyRenderer2D, RENDERER_2D_CAPABILITIES } from './graph/renderers/renderer2dEcharts'
-import { applyRendererProjection3D, RENDERER_PROJECTION_3D_CAPABILITIES, type Projection3DPhysicsState } from './graph/renderers/renderer3dProjection'
+import {
+  applyRendererProjection3D,
+  RENDERER_PROJECTION_3D_CAPABILITIES,
+  type Projection3DPhysicsState,
+} from './graph/renderers/renderer3dProjection'
 import type { RenderMode, RenderNode } from './graph/renderers/types'
 
 type Variant = 'graphMarket' | 'graphPolicy' | 'graphSocial' | 'graphCompany' | 'graphProduct' | 'graphOperation' | 'graphDeep'
@@ -22,6 +26,7 @@ type Props = {
 }
 
 type GraphKind = 'policy' | 'social' | 'market' | 'market_deep_entities' | 'company' | 'product' | 'operation'
+type ProjectionEngine = 'legacy' | 'force3d'
 
 let echartsCorePromise: Promise<typeof import('echarts/core')> | null = null
 
@@ -96,6 +101,66 @@ const SYMBOLS: Record<string, string> = {
   TopicTag: 'arrow',
 }
 
+type BuiltinGraphSymbol = 'circle' | 'rect' | 'roundRect' | 'triangle' | 'diamond' | 'pin' | 'arrow'
+const SYMBOL_TYPE_BY_COMPACT: Record<string, string> = Object.fromEntries(
+  Object.keys(SYMBOLS).map((key) => [key.toLowerCase().replace(/[\s_-]+/g, ''), key]),
+)
+
+function resolveNodeSymbol(rawType: string) {
+  const normalized = normalizeNodeType(rawType)
+  return String(SYMBOLS[normalized] || SYMBOLS[rawType] || 'circle')
+}
+
+function toGraphSymbol(symbol: string): BuiltinGraphSymbol {
+  const key = String(symbol || '').trim()
+  if (key === 'emptyCircle') return 'circle'
+  if (key === 'emptyRect') return 'rect'
+  if (key === 'emptyRoundRect') return 'roundRect'
+  if (key === 'emptyDiamond') return 'diamond'
+  if (key === 'emptyTriangle') return 'triangle'
+  if (key === 'emptyPin') return 'pin'
+  if (key === 'rect' || key === 'roundRect' || key === 'triangle' || key === 'diamond' || key === 'pin' || key === 'arrow') return key
+  return 'circle'
+}
+
+function NodeLegendShape({ nodeType, color }: { nodeType: string; color: string }) {
+  const rawSymbol = resolveNodeSymbol(nodeType)
+  const stroke = color
+  const fill = rawSymbol.startsWith('empty') ? 'none' : color
+  const common = { strokeWidth: 1.5, strokeLinejoin: 'round' as const }
+  const icon = (() => {
+    if (rawSymbol === 'rect' || rawSymbol === 'emptyRect') {
+      return <rect x="4.6" y="4.6" width="10.8" height="10.8" fill={fill} stroke={stroke} {...common} />
+    }
+    if (rawSymbol === 'roundRect' || rawSymbol === 'emptyRoundRect') {
+      return <rect x="4.2" y="5" width="11.6" height="10" rx="2.4" fill={fill} stroke={stroke} {...common} />
+    }
+    if (rawSymbol === 'diamond' || rawSymbol === 'emptyDiamond') {
+      return <polygon points="10,3.8 16.2,10 10,16.2 3.8,10" fill={fill} stroke={stroke} {...common} />
+    }
+    if (rawSymbol === 'triangle' || rawSymbol === 'emptyTriangle') {
+      return <polygon points="10,3.8 16.2,15.8 3.8,15.8" fill={fill} stroke={stroke} {...common} />
+    }
+    if (rawSymbol === 'pin' || rawSymbol === 'emptyPin') {
+      return (
+        <>
+          <circle cx="10" cy="8.1" r="3.4" fill={fill} stroke={stroke} {...common} />
+          <polygon points="10,17 6.8,11.6 13.2,11.6" fill={fill} stroke={stroke} {...common} />
+        </>
+      )
+    }
+    if (rawSymbol === 'arrow') {
+      return <polygon points="4,6 15.6,10 4,14.2 7.3,10" fill={color} stroke={stroke} {...common} />
+    }
+    return <circle cx="10" cy="10" r="5.2" fill={fill} stroke={stroke} {...common} />
+  })()
+  return (
+    <span className="gv2-node-shape-badge" data-symbol={rawSymbol}>
+      <svg viewBox="0 0 20 20" aria-hidden="true">{icon}</svg>
+    </span>
+  )
+}
+
 function normalizeNodeType(rawType: unknown) {
   const raw = String(rawType || '').trim()
   if (!raw) return raw
@@ -120,7 +185,7 @@ function normalizeNodeType(rawType: unknown) {
     prodct: 'ProductEntity',
     proudct: 'ProductEntity',
   }
-  return aliasMap[compact] || raw
+  return aliasMap[compact] || SYMBOL_TYPE_BY_COMPACT[compact] || raw
 }
 
 function hashText(input: string) {
@@ -760,17 +825,23 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isCompactViewport, setIsCompactViewport] = useState(false)
   const [showOverlay, setShowOverlay] = useState(true)
+  const [showSymbolDebug, setShowSymbolDebug] = useState(true)
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
   const [expandedEdgeGroup, setExpandedEdgeGroup] = useState<EdgeLegendTier | null>(null)
   const [paletteKey, setPaletteKey] = useState<PaletteKey>('bcp_unified')
   const [colorRotate, setColorRotate] = useState(58)
   const [absoluteContrast, setAbsoluteContrast] = useState(62)
   const [renderMode, setRenderMode] = useState<RenderMode>('2d')
+  const [projectionEngine, setProjectionEngine] = useState<ProjectionEngine>('legacy')
   const [projectionRotateX, setProjectionRotateX] = useState(12)
   const [projectionRotateY, setProjectionRotateY] = useState(18)
   const [projectionRotateZ, setProjectionRotateZ] = useState(0)
+  const [projectionZoomPercent, setProjectionZoomPercent] = useState(100)
   const [projection3DRepulsionPercent, setProjection3DRepulsionPercent] = useState(100)
   const [physicsFrame, setPhysicsFrame] = useState(0)
+  const [forceViewport, setForceViewport] = useState({ width: 1280, height: 720 })
+  const [ForceGraph3DComp, setForceGraph3DComp] = useState<any>(null)
+  const [forceGraphLoadError, setForceGraphLoadError] = useState<string | null>(null)
   const [controlPanelWidth, setControlPanelWidth] = useState(430)
   const [controlSectionOpen, setControlSectionOpen] = useState<Record<'view' | 'projection' | 'color' | 'filter', boolean>>({
     view: true,
@@ -820,6 +891,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const adjacencyConnectedMapRef = useRef<Map<string, Set<string>>>(new Map())
   const dragFocusNodeKeyRef = useRef<string | null>(null)
   const projectionPhysicsRef = useRef<Projection3DPhysicsState>({ positions: {}, velocities: {} })
+  const forceGraphRef = useRef<any>(undefined)
   const projectionInteractionQuatRef = useRef<QuaternionLike>({ x: 0, y: 0, z: 0, w: 1 })
   const projectionAngularVelRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const projectionDragStateRef = useRef<{ active: boolean; x: number; y: number }>({ active: false, x: 0, y: 0 })
@@ -932,8 +1004,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
       ? 'market'
       : graphKind
     const fromCfg = Array.isArray(cfg[cfgKey]) ? cfg[cfgKey] : []
-    fromCfg.forEach((t) => set.add(String(t)))
-    ;(graphData.data?.nodes || []).forEach((n) => set.add(String(n.type)))
+    fromCfg.forEach((t) => set.add(normalizeNodeType(t)))
+    ;(graphData.data?.nodes || []).forEach((n) => set.add(normalizeNodeType(n.type)))
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'))
   }, [graphData.data?.nodes, graphConfig.data?.graph_node_types, graphKind])
 
@@ -996,6 +1068,31 @@ export default function GraphPage({ projectKey, variant }: Props) {
     }
   }, [graphData.data, hiddenTypes, graphKind])
 
+  const symbolDebug = useMemo(() => {
+    const rows = new Map<string, { raw: string; normalized: string; rawSymbol: string; graphSymbol: BuiltinGraphSymbol; count: number }>()
+    topology.visibleNodes.forEach((node) => {
+      const raw = String(node.type || '').trim() || '-'
+      const normalized = normalizeNodeType(node.type)
+      const rawSymbol = resolveNodeSymbol(normalized)
+      const graphSymbol = toGraphSymbol(rawSymbol)
+      const key = `${raw}__${normalized}__${rawSymbol}__${graphSymbol}`
+      const prev = rows.get(key)
+      if (prev) {
+        prev.count += 1
+      } else {
+        rows.set(key, { raw, normalized, rawSymbol, graphSymbol, count: 1 })
+      }
+    })
+    const items = Array.from(rows.values()).sort((a, b) => b.count - a.count || a.raw.localeCompare(b.raw, 'zh-CN'))
+    const forcedCircle = items.filter((item) => item.graphSymbol === 'circle' && item.rawSymbol !== 'circle').reduce((acc, item) => acc + item.count, 0)
+    return {
+      total: topology.visibleNodes.length,
+      unique: items.length,
+      forcedCircle,
+      items: items.slice(0, 14),
+    }
+  }, [topology.visibleNodes])
+
   const edgeLegendItems = useMemo(() => {
     const labels = graphConfig.data?.graph_relation_labels
     const counters = new Map<string, { sample: GraphEdgeItem; count: number }>()
@@ -1052,8 +1149,13 @@ export default function GraphPage({ projectKey, variant }: Props) {
     return Math.max(0.6, Math.min(1.8, visualApplied.edgeWidth / 100))
   }, [visualApplied.edgeWidth])
 
+  const useForceGraph3D = renderMode === 'projection3d' && projectionEngine === 'force3d'
+  const useLegacyProjection3D = renderMode === 'projection3d' && projectionEngine === 'legacy'
+
   const activeRendererCapabilities = useMemo(
-    () => (renderMode === 'projection3d' ? RENDERER_PROJECTION_3D_CAPABILITIES : RENDERER_2D_CAPABILITIES),
+    () => (renderMode === 'projection3d'
+      ? RENDERER_PROJECTION_3D_CAPABILITIES
+      : RENDERER_2D_CAPABILITIES),
     [renderMode],
   )
 
@@ -1349,6 +1451,40 @@ export default function GraphPage({ projectKey, variant }: Props) {
     return topology.connectedNodeKeys.has(key) ? key : null
   }, [selectedNode, topology.connectedNodeKeys])
 
+  const forceGraphData = useMemo(() => {
+    const nodes = topology.visibleNodes.map((node) => {
+      const key = nodeKey(node)
+      const deg = topology.degreeMap.get(key) || 0
+      const normalizedType = normalizeNodeType(node.type)
+      const nodeColor = nodeTypeColor[normalizedType] || '#7dd3fc'
+      const size = Math.round((18 + ((deg - topology.minDeg) / topology.rangeDeg) * 28) * (visualApplied.nodeScale / 100))
+      const alpha = Math.max(0.12, Math.min(1, visualApplied.nodeAlpha / 100))
+      return {
+        id: key,
+        key,
+        name: nodeName(node),
+        rawNode: node,
+        color: nodeColor,
+        val: Math.max(2, size / 6.5),
+        opacity: alpha,
+      }
+    })
+    const links = visibleEdges
+      .map((edge) => {
+        const resolved = topology.edgeResolvedKeyMap.get(edge)
+        if (!resolved) return null
+        const style = edgeLegendItemByKey.get(edgeLegendKey(edge))
+        return {
+          source: resolved.fromKey,
+          target: resolved.toKey,
+          color: style?.color || '#7dd3fc',
+          width: Math.max(0.5, (EDGE_WIDTH_BY_TIER[style?.tier || 'type'] || 1.2) * (visualApplied.edgeWidth / 100)),
+        }
+      })
+      .filter((item): item is { source: string; target: string; color: string; width: number } => Boolean(item))
+    return { nodes, links }
+  }, [topology.visibleNodes, topology.degreeMap, topology.minDeg, topology.rangeDeg, topology.edgeResolvedKeyMap, visibleEdges, edgeLegendItemByKey, nodeTypeColor, visualApplied.nodeScale, visualApplied.nodeAlpha, visualApplied.edgeWidth])
+
   useEffect(() => {
     if (!autoFocusEnabled) {
       setHoverNodeKey(null)
@@ -1360,7 +1496,59 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [autoFocusEnabled, hoverNodeKey, selectedNodeKey])
 
   useEffect(() => {
-    if (renderMode !== 'projection3d' || !chartReady) return
+    if (!useForceGraph3D) return
+    if (ForceGraph3DComp) return
+    let canceled = false
+    setForceGraphLoadError(null)
+    void import('react-force-graph-3d')
+      .then((mod) => {
+        if (canceled) return
+        setForceGraph3DComp(() => mod.default)
+      })
+      .catch((error: unknown) => {
+        if (canceled) return
+        setForceGraphLoadError(error instanceof Error ? error.message : '加载失败')
+      })
+    return () => {
+      canceled = true
+    }
+  }, [useForceGraph3D, ForceGraph3DComp])
+
+  useEffect(() => {
+    if (!useForceGraph3D) return
+    const updateViewport = () => {
+      const el = chartRef.current
+      if (!el) return
+      setForceViewport({
+        width: Math.max(320, Math.round(el.clientWidth || 0)),
+        height: Math.max(320, Math.round(el.clientHeight || 0)),
+      })
+    }
+    updateViewport()
+    window.addEventListener('resize', updateViewport)
+    return () => window.removeEventListener('resize', updateViewport)
+  }, [useForceGraph3D, isFullscreen])
+
+  useEffect(() => {
+    if (!useForceGraph3D) return
+    const api = forceGraphRef.current
+    if (!api) return
+    const chargeForce = api.d3Force('charge') as { strength?: (v?: number) => unknown } | null
+    const repulsion = Math.max(20, Math.round(projection3DRepulsionPercent * 2.2))
+    chargeForce?.strength?.(-repulsion)
+    api.d3ReheatSimulation()
+  }, [useForceGraph3D, projection3DRepulsionPercent, forceGraphData.links.length, forceGraphData.nodes.length])
+
+  useEffect(() => {
+    if (!useForceGraph3D) return
+    const api = forceGraphRef.current
+    if (!api) return
+    const baseZ = 580 / Math.max(0.35, projectionZoomPercent / 100)
+    api.cameraPosition({ z: Math.max(220, baseZ) }, { x: 0, y: 0, z: 0 }, 240)
+  }, [useForceGraph3D, projectionZoomPercent])
+
+  useEffect(() => {
+    if (!useLegacyProjection3D || !chartReady) return
     let rafId = 0
     const tick = () => {
       const av = projectionAngularVelRef.current
@@ -1378,10 +1566,10 @@ export default function GraphPage({ projectKey, variant }: Props) {
     }
     rafId = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(rafId)
-  }, [renderMode, chartReady])
+  }, [useLegacyProjection3D, chartReady])
 
   useEffect(() => {
-    if (!chartReady || renderMode !== 'projection3d') return
+    if (!chartReady || !useLegacyProjection3D) return
     const chart = chartInstRef.current
     if (!chart) return
     const zr = chart.getZr()
@@ -1429,26 +1617,26 @@ export default function GraphPage({ projectKey, variant }: Props) {
       zr.off('globalout', onMouseUp)
       projectionDragStateRef.current.active = false
     }
-  }, [chartReady, renderMode])
+  }, [chartReady, useLegacyProjection3D])
 
   useEffect(() => {
     // Reset accumulated roam transform when switching render modes,
     // otherwise projection mode may look off-center from previous pan/zoom state.
     chartInstRef.current?.clear()
     projectionDragStateRef.current.active = false
-    if (renderMode !== 'projection3d') {
+    if (!useLegacyProjection3D) {
       projectionAngularVelRef.current = { x: 0, y: 0 }
     }
-  }, [renderMode])
+  }, [useLegacyProjection3D])
 
   useEffect(() => {
-    if (renderMode !== 'projection3d') return
+    if (!useLegacyProjection3D) return
     const basisQuat = quatFromAxisAngle(1, 0, 0, -Math.PI / 2)
     const sliderQuat = quatFromEulerDeg(projectionRotateX, projectionRotateY, projectionRotateZ)
     projectionInteractionQuatRef.current = quatMul(sliderQuat, basisQuat)
     projectionAngularVelRef.current = { x: 0, y: 0 }
     setPhysicsFrame((prev) => (prev >= 1000000 ? 0 : prev + 1))
-  }, [renderMode, graphKind, projectionRotateX, projectionRotateY, projectionRotateZ])
+  }, [useLegacyProjection3D, graphKind, projectionRotateX, projectionRotateY, projectionRotateZ])
 
   const nodeAllElements = useMemo(() => buildNodeElements(selectedNode), [selectedNode])
   const nodeElementGroups = useMemo(() => {
@@ -1511,7 +1699,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!chartReady) return
+    if (!chartReady || useForceGraph3D) return
     const chart = chartInstRef.current
     if (!chart) return
     const raf = window.requestAnimationFrame(() => {
@@ -1531,6 +1719,14 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [variant])
 
   useEffect(() => {
+    if (useForceGraph3D) {
+      if (chartInstRef.current) {
+        chartInstRef.current.dispose()
+        chartInstRef.current = null
+      }
+      setChartReady(false)
+      return
+    }
     if (!chartRef.current) return
     let canceled = false
     const ensureChart = async () => {
@@ -1728,7 +1924,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
       }
       dragFocusNodeKeyRef.current = null
     }
-  }, [variant])
+  }, [variant, useForceGraph3D])
 
   useEffect(() => {
     if (!chartReady) return
@@ -1777,6 +1973,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
 
     const seriesNodes = visibleNodes.map((node) => {
       const key = nodeKey(node)
+      const normalizedType = normalizeNodeType(node.type)
+      const rawSymbol = resolveNodeSymbol(normalizedType)
       const deg = degreeMap.get(key) || 0
       const size = Math.round((18 + ((deg - minDeg) / rangeDeg) * 28) * (visualApplied.nodeScale / 100))
       const show = shouldShowNodeLabel && size >= 24
@@ -1784,28 +1982,29 @@ export default function GraphPage({ projectKey, variant }: Props) {
       const dimByPinnedOnly = enablePinnedOnlyDim && !selected
       const dimByAutoFocus = enableAutoFocusDim && !autoFocusSet.has(key)
       const dimByFocus = enablePinnedOnlyDim ? dimByPinnedOnly : dimByAutoFocus
-      const nodeColor = nodeTypeColor[node.type] || '#7dd3fc'
+      const effectiveDimByFocus = dimByFocus
+      const nodeColor = nodeTypeColor[normalizedType] || '#7dd3fc'
       const { r, g, b } = hexToRgb(nodeColor)
       const nodeAlphaT = Math.max(0, Math.min(1, visualApplied.nodeAlpha / 100))
       const nodeFillAlpha = selected ? Math.min(1, nodeAlphaT + 0.08) : nodeAlphaT
       return {
         id: key,
         name: nodeName(node),
-        value: { id: node.id, type: node.type, name: nodeName(node) },
-        symbol: SYMBOLS[node.type] || 'circle',
+        value: { id: node.id, type: normalizedType, name: nodeName(node) },
+        symbol: toGraphSymbol(rawSymbol),
         x: prevPos2D[key]?.x,
         y: prevPos2D[key]?.y,
-        symbolSize: dimByFocus ? Math.max(10, Math.round(size * 0.88)) : size,
+        symbolSize: effectiveDimByFocus ? Math.max(10, Math.round(size * 0.88)) : size,
         itemStyle: {
-          opacity: dimByFocus ? 0.12 : 1,
-          color: `rgba(${r}, ${g}, ${b}, ${dimByFocus ? 0.08 : nodeFillAlpha})`,
-          borderColor: selected ? '#facc15' : `rgba(${r}, ${g}, ${b}, ${dimByFocus ? 0.2 : 0.95})`,
+          opacity: effectiveDimByFocus ? 0.12 : 1,
+          color: `rgba(${r}, ${g}, ${b}, ${effectiveDimByFocus ? 0.08 : (rawSymbol.startsWith('empty') ? 0.06 : nodeFillAlpha)})`,
+          borderColor: selected ? '#facc15' : `rgba(${r}, ${g}, ${b}, ${effectiveDimByFocus ? 0.2 : 0.95})`,
           borderWidth: selected ? 1.6 : 1,
           shadowBlur: 0,
           shadowColor: selected ? 'rgba(250, 204, 21, 0.45)' : 'transparent',
         },
         label: {
-          show: show && !dimByFocus,
+          show: show && !effectiveDimByFocus,
           color: '#dbeafe',
           fontSize: 11,
           formatter: () => {
@@ -1891,30 +2090,69 @@ export default function GraphPage({ projectKey, variant }: Props) {
       ]
     })
 
-    const rendererResult = renderMode === 'projection3d'
+    const rendererResult = useLegacyProjection3D
       ? (() => {
-        const result3d = applyRendererProjection3D(
+        const projectionEdges = visibleEdges
+          .map((edge) => {
+            const resolved = topology.edgeResolvedKeyMap.get(edge)
+            if (!resolved) return null
+            return { from: resolved.fromKey, to: resolved.toKey }
+          })
+          .filter((item): item is { from: string; to: string } => Boolean(item))
+        const applied = applyRendererProjection3D(
           seriesNodes as RenderNode[],
-          visibleEdges
-            .map((edge) => {
-              const resolved = topology.edgeResolvedKeyMap.get(edge)
-              if (!resolved) return null
-              return { from: resolved.fromKey, to: resolved.toKey }
-            })
-            .filter((x): x is { from: string; to: string } => Boolean(x)),
+          projectionEdges,
           projectionPhysicsRef.current,
           {
-            rotateXDeg: 0,
-            rotateYDeg: 0,
-            rotateZDeg: 0,
-            repulsionPercent: projection3DRepulsionPercent * 2,
+            rotateXDeg: projectionRotateX,
+            rotateYDeg: projectionRotateY,
+            rotateZDeg: projectionRotateZ,
+            repulsionPercent: projection3DRepulsionPercent,
             interactionQuat: projectionInteractionQuatRef.current,
           },
         )
-        projectionPhysicsRef.current = result3d.physics
-        return result3d.render
+        projectionPhysicsRef.current = applied.physics
+        return applied.render
       })()
       : applyRenderer2D(seriesNodes as RenderNode[])
+
+    const seriesOption = {
+      type: 'graph',
+      layout: rendererResult.series.layout,
+      roam: true,
+      draggable: true,
+      center: currentCenter,
+      zoom: useLegacyProjection3D
+        ? Math.max(0.25, Math.min(4.5, projectionZoomPercent / 100))
+        : currentZoom,
+      hoverAnimation: false,
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+      animation: rendererResult.series.animation,
+      animationDurationUpdate: rendererResult.series.animationDurationUpdate,
+      animationEasingUpdate: rendererResult.series.animationEasingUpdate,
+      progressive: 0,
+      progressiveThreshold: 800,
+      force: rendererResult.series.layout === 'force'
+        ? {
+          repulsion: visualApplied.repulsion,
+          edgeLength: [55, 180],
+          gravity: 0.1,
+          friction: 0.16,
+          layoutAnimation: true,
+        }
+        : undefined,
+      data: rendererResult.nodes,
+      links: seriesEdges,
+      labelLayout: { hideOverlap: true },
+      lineStyle: { opacity: 0.85 },
+      emphasis: {
+        focus: 'none',
+        scale: false,
+      },
+    }
 
     const option = {
         backgroundColor: '#030712',
@@ -1942,42 +2180,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
             return ''
           },
         },
-        series: [
-          {
-            type: 'graph',
-            layout: rendererResult.series.layout,
-            // Lock projection mode to viewport center; keep roam/drag only in 2D.
-            roam: renderMode === 'projection3d' ? false : true,
-            draggable: renderMode !== 'projection3d',
-            center: renderMode === 'projection3d' ? ['50%', '50%'] : currentCenter,
-            zoom: renderMode === 'projection3d' ? 1 : currentZoom,
-            hoverAnimation: false,
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            animation: rendererResult.series.animation,
-            animationDurationUpdate: rendererResult.series.animationDurationUpdate,
-            animationEasingUpdate: rendererResult.series.animationEasingUpdate,
-            progressive: 0,
-            progressiveThreshold: 800,
-            force: {
-              repulsion: visualApplied.repulsion,
-              edgeLength: [55, 180],
-              gravity: 0.1,
-              friction: 0.16,
-              layoutAnimation: true,
-            },
-            data: rendererResult.nodes,
-            links: seriesEdges,
-            labelLayout: { hideOverlap: true },
-            lineStyle: { opacity: 0.85 },
-            emphasis: {
-              focus: 'none',
-              scale: false,
-            },
-          },
-        ],
+        series: [seriesOption],
       }
 
     chart.setOption(
@@ -1989,7 +2192,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         rendererResult.nodes.map((item) => [String(item.id), { x: item.x as number | undefined, y: item.y as number | undefined }]),
       )
     }
-  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, projectionRotateX, projectionRotateY, projectionRotateZ, projection3DRepulsionPercent, physicsFrame])
+  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, projectionRotateX, projectionRotateY, projectionRotateZ, projectionZoomPercent, projection3DRepulsionPercent, physicsFrame, useLegacyProjection3D, useForceGraph3D])
 
   const onControlResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (isCompactViewport) return
@@ -2028,7 +2231,82 @@ export default function GraphPage({ projectKey, variant }: Props) {
                 加载失败：{graphData.error instanceof Error ? graphData.error.message : '请求异常'}
               </div>
             ) : null}
-            <div ref={chartRef} className="gv2-chart" />
+            <div ref={chartRef} className={`gv2-chart ${useForceGraph3D ? 'gv2-chart--force3d' : ''}`}>
+              {useForceGraph3D && ForceGraph3DComp ? (
+                <ForceGraph3DComp
+                  ref={forceGraphRef}
+                  width={forceViewport.width}
+                  height={forceViewport.height}
+                  graphData={forceGraphData}
+                  backgroundColor="#030712"
+                  nodeVal={(node) => Number((node as { val?: number }).val || 1)}
+                  nodeColor={(node) => String((node as { color?: string }).color || '#7dd3fc')}
+                  nodeOpacity={Math.max(0.2, Math.min(1, visualApplied.nodeAlpha / 100))}
+                  linkColor={(link) => String((link as { color?: string }).color || '#7dd3fc')}
+                  linkWidth={(link) => Number((link as { width?: number }).width || 1)}
+                  linkOpacity={Math.max(0.06, Math.min(1, visualApplied.edgeAlpha / 100))}
+                  onNodeHover={(node) => {
+                    if (!autoFocusEnabled) return
+                    setHoverNodeKey(node ? String((node as { key?: string }).key || '') : null)
+                  }}
+                  onNodeClick={(node, event) => {
+                    const nodeData = node as { key?: string; rawNode?: GraphNodeItem }
+                    const key = String(nodeData.key || '')
+                    const rawNode = nodeData.rawNode
+                    if (!key || !rawNode) return
+                    const mouseEvent = event as MouseEvent | undefined
+                    const wrap = fullscreenWrapRef.current || chartRef.current
+                    if (wrap && mouseEvent) {
+                      const rect = wrap.getBoundingClientRect()
+                      const maxWidth = Math.max(220, rect.width - NODE_CARD_MARGIN * 2)
+                      const width = Math.min(NODE_CARD_WIDTH, maxWidth)
+                      const targetLeft = mouseEvent.clientX - rect.left + NODE_CARD_POINTER_OFFSET
+                      const targetTop = mouseEvent.clientY - rect.top + NODE_CARD_POINTER_OFFSET
+                      const maxLeft = Math.max(NODE_CARD_MARGIN, rect.width - width - NODE_CARD_MARGIN)
+                      const maxTop = Math.max(NODE_CARD_MARGIN, rect.height - NODE_CARD_MARGIN * 4)
+                      setNodeCardAnchor({
+                        left: Math.min(maxLeft, Math.max(NODE_CARD_MARGIN, targetLeft)),
+                        top: Math.min(maxTop, Math.max(NODE_CARD_MARGIN, targetTop)),
+                        width,
+                      })
+                    }
+                    setSelectedNode(rawNode)
+                    if (!selectionEnabled) return
+                    const now = Date.now()
+                    const last = lastClickRef.current
+                    const isDouble = Boolean(last && last.key === key && now - last.ts <= DOUBLE_CLICK_WINDOW_MS)
+                    lastClickRef.current = { key, ts: now }
+                    if (isDouble) {
+                      if (clickTimerRef.current !== null) {
+                        window.clearTimeout(clickTimerRef.current)
+                        clickTimerRef.current = null
+                      }
+                      setRadiationSelectionByCenter((prev) => ({ ...prev, [key]: !prev[key] }))
+                      return
+                    }
+                    if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current)
+                    clickTimerRef.current = window.setTimeout(() => {
+                      setManualSelectedNodeKeys((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(key)) next.delete(key)
+                        else next.add(key)
+                        return next
+                      })
+                      clickTimerRef.current = null
+                    }, DOUBLE_CLICK_WINDOW_MS)
+                  }}
+                  onBackgroundClick={() => {
+                    if (autoFocusEnabled) setHoverNodeKey(null)
+                  }}
+                />
+              ) : null}
+              {useForceGraph3D && !ForceGraph3DComp ? (
+                <div className="gv2-loading">3D引擎加载中...</div>
+              ) : null}
+              {useForceGraph3D && forceGraphLoadError ? (
+                <div className="gv2-loading gv2-loading-error">3D引擎加载失败：{forceGraphLoadError}</div>
+              ) : null}
+            </div>
             <div className="gv2-overlay-top">
               <button
                 type="button"
@@ -2052,6 +2330,14 @@ export default function GraphPage({ projectKey, variant }: Props) {
                 title="轻量3D模型模式（中心锁定，非相机视角）"
               >
                 {renderMode === 'projection3d' ? '回到2D' : '3D模式'}
+              </button>
+              <button
+                type="button"
+                className={`gv2-select-mode-btn ${showSymbolDebug ? '' : 'is-off'}`.trim()}
+                onClick={() => setShowSymbolDebug((v) => !v)}
+                title="显示节点类型到GL符号的映射调试信息"
+              >
+                符号调试
               </button>
               <button
                 type="button"
@@ -2225,41 +2511,71 @@ export default function GraphPage({ projectKey, variant }: Props) {
                   {controlSectionOpen.projection ? (
                     <div className="gv2-control-section-body">
                       <label className="gv2-control-chip">
-                        模型旋转X
-                        <input
-                          type="range"
-                          min={-80}
-                          max={80}
-                          step={0.2}
-                          value={projectionRotateX}
-                          onChange={(e) => setProjectionRotateX(Number(e.target.value))}
-                        />
-                        <span>{projectionRotateX}deg</span>
+                        3D引擎
+                        <select
+                          value={projectionEngine}
+                          onChange={(e) => setProjectionEngine(e.target.value as ProjectionEngine)}
+                        >
+                          <option value="legacy">legacy-projection</option>
+                          <option value="force3d">react-force-graph-3d</option>
+                        </select>
                       </label>
                       <label className="gv2-control-chip">
-                        模型旋转Y
+                        3D缩放
                         <input
                           type="range"
-                          min={-180}
-                          max={180}
-                          step={0.2}
-                          value={projectionRotateY}
-                          onChange={(e) => setProjectionRotateY(Number(e.target.value))}
+                          min={20}
+                          max={300}
+                          step={1}
+                          value={projectionZoomPercent}
+                          onChange={(e) => setProjectionZoomPercent(Number(e.target.value))}
                         />
-                        <span>{projectionRotateY}deg</span>
+                        <span>{projectionZoomPercent}%</span>
                       </label>
-                      <label className="gv2-control-chip">
-                        模型旋转Z
-                        <input
-                          type="range"
-                          min={-180}
-                          max={180}
-                          step={0.2}
-                          value={projectionRotateZ}
-                          onChange={(e) => setProjectionRotateZ(Number(e.target.value))}
-                        />
-                        <span>{projectionRotateZ}deg</span>
-                      </label>
+                      {useLegacyProjection3D ? (
+                        <>
+                          <label className="gv2-control-chip">
+                            X轴旋转
+                            <input
+                              type="range"
+                              min={-180}
+                              max={180}
+                              step={1}
+                              value={projectionRotateX}
+                              onChange={(e) => setProjectionRotateX(Number(e.target.value))}
+                            />
+                            <span>{projectionRotateX}°</span>
+                          </label>
+                          <label className="gv2-control-chip">
+                            Y轴旋转
+                            <input
+                              type="range"
+                              min={-180}
+                              max={180}
+                              step={1}
+                              value={projectionRotateY}
+                              onChange={(e) => setProjectionRotateY(Number(e.target.value))}
+                            />
+                            <span>{projectionRotateY}°</span>
+                          </label>
+                          <label className="gv2-control-chip">
+                            Z轴旋转
+                            <input
+                              type="range"
+                              min={-180}
+                              max={180}
+                              step={1}
+                              value={projectionRotateZ}
+                              onChange={(e) => setProjectionRotateZ(Number(e.target.value))}
+                            />
+                            <span>{projectionRotateZ}°</span>
+                          </label>
+                        </>
+                      ) : (
+                        <div className="gv2-control-chip">
+                          <span>force-graph 使用鼠标拖拽旋转视角</span>
+                        </div>
+                      )}
                       <label className="gv2-control-chip">
                         3D节点斥力
                         <input
@@ -2466,7 +2782,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         })
                       }}
                     >
-                      <span className="dot" style={{ background: groupColor }} />
+                      <NodeLegendShape nodeType={types[0]} color={groupColor} />
                       <span className="gv2-legend-node-label">{GROUP_LABEL[group] || group}</span>
                     </button>
                   )
@@ -2483,7 +2799,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         className={`gv2-type ${hidden ? 'is-hidden' : ''}`}
                         onClick={() => setHiddenTypes((prev) => ({ ...prev, [type]: !prev[type] }))}
                       >
-                        <span className="dot" style={{ background: nodeTypeColor[type] || '#7dd3fc' }} />
+                        <NodeLegendShape nodeType={type} color={nodeTypeColor[type] || '#7dd3fc'} />
                         <span>{nodeTypeLabel(type, graphConfig.data?.graph_node_labels)}</span>
                       </button>
                     )
@@ -2552,6 +2868,29 @@ export default function GraphPage({ projectKey, variant }: Props) {
                       })}
                     </div>
                   ) : null}
+                </div>
+              ) : null}
+              {showSymbolDebug ? (
+                <div className="gv2-legend-debug">
+                  <div className="gv2-legend-section-title">符号调试</div>
+                  <div className="gv2-legend-debug-meta">
+                    <span>可见节点 {symbolDebug.total}</span>
+                    <span>类型映射 {symbolDebug.unique}</span>
+                    <span>回退circle {symbolDebug.forcedCircle}</span>
+                  </div>
+                  <div className="gv2-legend-debug-list">
+                    {symbolDebug.items.map((item) => (
+                      <div key={`${item.raw}-${item.normalized}-${item.rawSymbol}-${item.graphSymbol}`} className="gv2-legend-debug-row">
+                        <NodeLegendShape nodeType={item.normalized} color="#7dd3fc" />
+                        <code>{item.raw}</code>
+                        <span>→</span>
+                        <code>{item.normalized}</code>
+                        <span>→</span>
+                        <code>{item.graphSymbol}</code>
+                        <small>{item.count}</small>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
             </div>

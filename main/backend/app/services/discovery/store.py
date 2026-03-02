@@ -17,6 +17,7 @@ from ..indexer.policy import index_policy_documents
 from ...models.base import SessionLocal
 from ...models.entities import Source, Document
 from ..extraction.extract import extract_policy_info, extract_market_info, extract_entities_relations
+from ..ingest.meaningful_gate import content_quality_check, normalize_content_for_ingest, url_policy_check
 
 
 logger = logging.getLogger(__name__)
@@ -80,20 +81,38 @@ def _fetch_content(url: str) -> tuple[str | None, BeautifulSoup | None, dict | N
         if not text or len(text) < 100:
             text = _extract_text_from_soup(soup, _ARTICLE_FALLBACK_SELECTORS)
         if not text:
-            # Last resort: full body text (may include nav/footer noise)
-            body = soup.find("body")
-            if body:
-                text = body.get_text("\n", strip=True)
-        if not text:
             text = soup.get_text("\n", strip=True)
 
         if not text or len(text.strip()) < 50:
             return None, soup, response_headers if response_headers else None
-        text = text.replace("\x00", "")
-        return text[:20000], soup, response_headers if response_headers else None
+        text = normalize_content_for_ingest(text, max_chars=20000)
+        return text or None, soup, response_headers if response_headers else None
     except Exception as exc:  # noqa: BLE001
         logger.warning("discovery.store fetch content failed url=%s err=%s", url, exc)
         return None, None, None
+
+
+def _discovery_gate_check(
+    *,
+    url: str,
+    content: str | None,
+    doc_type: str | None,
+    extracted_data: dict | None = None,
+) -> tuple[bool, str, dict]:
+    gate_cfg = {"enable_strict_gate": True}
+    url_gate = url_policy_check(url, config=gate_cfg)
+    if url_gate.blocked:
+        return False, str(url_gate.reason), {"url_gate": url_gate.to_dict()}
+    content_gate = content_quality_check(
+        uri=url,
+        content=str(content or ""),
+        doc_type=doc_type or "external",
+        extraction_status={"extraction_enabled": bool(extracted_data)},
+        config=gate_cfg,
+    )
+    if content_gate.blocked:
+        return False, str(content_gate.reason), {"content_gate": content_gate.to_dict()}
+    return True, "ok", {"url_gate": url_gate.to_dict(), "content_gate": content_gate.to_dict()}
 
 
 def fetch_content_from_url(url: str) -> str | None:
@@ -696,15 +715,26 @@ def store_results(
     *,
     project_key: str | None = None,
     job_type: str | None = None,
-) -> Dict[str, int]:
+) -> Dict[str, int | bool | dict]:
     inserted = 0
+    inserted_valid = 0
     updated = 0
     skipped = 0
+    rejected_count = 0
+    rejection_breakdown: dict[str, int] = {}
     policy_to_index: List[int] = []
 
     with SessionLocal() as session:
         if not _store_tables_available(session):
-            return {"inserted": 0, "updated": 0, "skipped": len(results), "store_available": False}
+            return {
+                "inserted": 0,
+                "inserted_valid": 0,
+                "updated": 0,
+                "skipped": len(results),
+                "rejected_count": 0,
+                "rejection_breakdown": {},
+                "store_available": False,
+            }
         for item in results:
             try:
                 link = _normalize_url((item.get("link") or "").strip())
@@ -746,6 +776,17 @@ def store_results(
                     if not (doc.content and len(doc.content.strip()) >= 50):
                         content_fetched, soup_for_date, headers_for_date = _fetch_content(link)
                         if content_fetched and len(content_fetched.strip()) >= 50:
+                            content_ok, reject_reason, _ = _discovery_gate_check(
+                                url=link,
+                                content=content_fetched,
+                                doc_type=doc.doc_type or "external",
+                                extracted_data=(doc.extracted_data if isinstance(doc.extracted_data, dict) else None),
+                            )
+                            if not content_ok:
+                                rejection_breakdown[reject_reason] = int(rejection_breakdown.get(reject_reason, 0)) + 1
+                                rejected_count += 1
+                                skipped += 1
+                                continue
                             doc.content = content_fetched[:20000]
                             content_for_date = content_fetched
                             changed = True
@@ -818,6 +859,23 @@ def store_results(
                 publish_date = _extract_publish_date(link, soup, content, extracted_data, http_headers)
                 if publish_date:
                     logger.info("discovery.store extracted publish_date=%s for url=%s", publish_date, link)
+
+                content_ok, reject_reason, gate_diagnostics = _discovery_gate_check(
+                    url=link,
+                    content=content,
+                    doc_type=kind,
+                    extracted_data=extracted_data if isinstance(extracted_data, dict) else None,
+                )
+                if not content_ok:
+                    rejection_breakdown[reject_reason] = int(rejection_breakdown.get(reject_reason, 0)) + 1
+                    rejected_count += 1
+                    skipped += 1
+                    logger.info("discovery.store rejected url=%s reason=%s", link, reject_reason)
+                    continue
+                if isinstance(extracted_data, dict):
+                    extracted_data.setdefault("_meaningful_gate", gate_diagnostics)
+                else:
+                    extracted_data = {"_meaningful_gate": gate_diagnostics}
                 
                 doc = Document(
                     source_id=source_id,
@@ -834,6 +892,7 @@ def store_results(
                 )
                 session.add(doc)
                 inserted += 1
+                inserted_valid += 1
                 if kind == "policy":
                     session.flush()
                     policy_to_index.append(doc.id)
@@ -850,4 +909,12 @@ def store_results(
         except Exception as exc:  # noqa: BLE001
             logger.warning("discovery.store index failed ids=%s err=%s", policy_to_index, exc)
 
-    return {"inserted": inserted, "updated": updated, "skipped": skipped, "store_available": True}
+    return {
+        "inserted": inserted,
+        "inserted_valid": inserted_valid,
+        "updated": updated,
+        "skipped": skipped,
+        "rejected_count": rejected_count,
+        "rejection_breakdown": rejection_breakdown,
+        "store_available": True,
+    }

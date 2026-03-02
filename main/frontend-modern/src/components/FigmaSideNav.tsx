@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType } from 'react'
+import { useState, type ComponentType } from 'react'
 import {
   AreaChart,
   Brain,
@@ -155,55 +155,47 @@ export default function FigmaSideNav({ mode, onModeChange, theme = 'dark' }: Pro
     Object.fromEntries(groups.map((group) => [group.title, true])),
   )
 
-  const groupByMode = useMemo(() => {
-    const pairs = groups.flatMap((group) => group.items.map((item) => [item.key, group.title] as const))
-    return Object.fromEntries(pairs) as Record<NavMode, string>
-  }, [])
-
-  useEffect(() => {
-    const currentGroup = groupByMode[mode]
-    if (!currentGroup) return
-    setExpandedByGroup((prev) => {
-      if (prev[currentGroup]) return prev
-      return { ...prev, [currentGroup]: true }
-    })
-  }, [groupByMode, mode])
-
   return (
     <aside className={`figma-side-nav is-${theme}`} data-node-id="1186:27288">
       <div className="figma-side-nav__group">
-        {groups.map((group) => (
-          <section key={group.title} className="figma-side-nav__section">
-            <button
-              type="button"
-              className="figma-side-nav__title"
-              onClick={() => {
-                setExpandedByGroup((prev) => ({ ...prev, [group.title]: !prev[group.title] }))
-              }}
-            >
-              <span>{group.title}</span>
-              <ChevronDown
-                size={14}
-                className={`figma-side-nav__title-chevron ${expandedByGroup[group.title] ? 'is-open' : ''}`}
-              />
-            </button>
-            {expandedByGroup[group.title] ? group.items.map((item) => {
-              const Icon = iconByLabel[item.label] || ShoppingCart
-              const active = mode === item.key
-              return (
-                <button
-                  type="button"
-                  key={item.key}
-                  className={`figma-side-nav__item ${active ? 'is-active' : ''}`}
-                  onClick={() => onModeChange(item.key)}
-                >
-                  <Icon size={15} className="figma-side-nav__icon" />
-                  <span className="figma-side-nav__label">{item.label}</span>
-                </button>
-              )
-            }) : null}
-          </section>
-        ))}
+        {groups.map((group) => {
+          const expanded = expandedByGroup[group.title] || group.items.some((item) => item.key === mode)
+          return (
+            <section key={group.title} className="figma-side-nav__section">
+              <button
+                type="button"
+                className="figma-side-nav__title"
+                onClick={() => {
+                  setExpandedByGroup((prev) => {
+                    const currentlyExpanded = prev[group.title] || group.items.some((item) => item.key === mode)
+                    return { ...prev, [group.title]: !currentlyExpanded }
+                  })
+                }}
+              >
+                <span>{group.title}</span>
+                <ChevronDown
+                  size={14}
+                  className={`figma-side-nav__title-chevron ${expanded ? 'is-open' : ''}`}
+                />
+              </button>
+              {expanded ? group.items.map((item) => {
+                const Icon = iconByLabel[item.label] || ShoppingCart
+                const active = mode === item.key
+                return (
+                  <button
+                    type="button"
+                    key={item.key}
+                    className={`figma-side-nav__item ${active ? 'is-active' : ''}`}
+                    onClick={() => onModeChange(item.key)}
+                  >
+                    <Icon size={15} className="figma-side-nav__icon" />
+                    <span className="figma-side-nav__label">{item.label}</span>
+                  </button>
+                )
+              }) : null}
+            </section>
+          )
+        })}
       </div>
       <button type="button" className="figma-side-nav__fold" aria-label="sidebar hint">
         <Wrench size={14} />

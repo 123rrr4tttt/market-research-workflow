@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bot, CircleDashed, Clock3, GitBranch, Play, RefreshCw } from 'lucide-react'
 import {
@@ -96,24 +96,29 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     enabled: Boolean(projectKey),
   })
 
+  const sortedProjects = useMemo(
+    () => [...(crawlerProjects.data || [])].sort((a, b) => String(a.project_key).localeCompare(String(b.project_key))),
+    [crawlerProjects.data],
+  )
+  const effectiveSelectedCrawlerProjectKey = useMemo(() => {
+    if (!sortedProjects.length) return ''
+    if (selectedCrawlerProjectKey && sortedProjects.some((item) => item.project_key === selectedCrawlerProjectKey)) {
+      return selectedCrawlerProjectKey
+    }
+    return sortedProjects[0].project_key
+  }, [selectedCrawlerProjectKey, sortedProjects])
+
   const crawlerDetail = useQuery({
-    queryKey: ['crawler-manage', 'project-detail', projectKey, selectedCrawlerProjectKey],
-    queryFn: () => getCrawlerProjectDetail(selectedCrawlerProjectKey),
-    enabled: Boolean(projectKey && selectedCrawlerProjectKey),
+    queryKey: ['crawler-manage', 'project-detail', projectKey, effectiveSelectedCrawlerProjectKey],
+    queryFn: () => getCrawlerProjectDetail(effectiveSelectedCrawlerProjectKey),
+    enabled: Boolean(projectKey && effectiveSelectedCrawlerProjectKey),
   })
 
   const deployRuns = useQuery({
-    queryKey: ['crawler-manage', 'deploy-runs', projectKey, selectedCrawlerProjectKey],
-    queryFn: () => listCrawlerDeployRuns({ crawlerProjectKey: selectedCrawlerProjectKey, limit: 100 }),
-    enabled: Boolean(projectKey && selectedCrawlerProjectKey),
+    queryKey: ['crawler-manage', 'deploy-runs', projectKey, effectiveSelectedCrawlerProjectKey],
+    queryFn: () => listCrawlerDeployRuns({ crawlerProjectKey: effectiveSelectedCrawlerProjectKey, limit: 100 }),
+    enabled: Boolean(projectKey && effectiveSelectedCrawlerProjectKey),
   })
-
-  useEffect(() => {
-    const items = crawlerProjects.data || []
-    if (!items.length) return
-    if (selectedCrawlerProjectKey && items.some((item) => item.project_key === selectedCrawlerProjectKey)) return
-    setSelectedCrawlerProjectKey(items[0].project_key)
-  }, [crawlerProjects.data, selectedCrawlerProjectKey])
 
   const importMutation = useMutation({
     mutationFn: async () => {
@@ -146,8 +151,8 @@ export default function CrawlerManagePage({ projectKey }: Props) {
 
   const deployMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedCrawlerProjectKey) throw new Error('请先选择爬虫项目')
-      return deployCrawlerProject(selectedCrawlerProjectKey, {
+      if (!effectiveSelectedCrawlerProjectKey) throw new Error('请先选择爬虫项目')
+      return deployCrawlerProject(effectiveSelectedCrawlerProjectKey, {
         requested_version: deployVersion.trim() || null,
         planner_mode: plannerMode,
         async_mode: true,
@@ -156,8 +161,8 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     onSuccess: async (run) => {
       setMessage(`部署已提交: ${summarizeRun(run) || '已创建 deploy run'}`)
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'project-detail', projectKey, selectedCrawlerProjectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'deploy-runs', projectKey, selectedCrawlerProjectKey] }),
+        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'project-detail', projectKey, effectiveSelectedCrawlerProjectKey] }),
+        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'deploy-runs', projectKey, effectiveSelectedCrawlerProjectKey] }),
       ])
     },
     onError: (error) => {
@@ -167,8 +172,8 @@ export default function CrawlerManagePage({ projectKey }: Props) {
 
   const rollbackMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedCrawlerProjectKey) throw new Error('请先选择爬虫项目')
-      return rollbackCrawlerProject(selectedCrawlerProjectKey, {
+      if (!effectiveSelectedCrawlerProjectKey) throw new Error('请先选择爬虫项目')
+      return rollbackCrawlerProject(effectiveSelectedCrawlerProjectKey, {
         to_version: rollbackVersion.trim() || null,
         planner_mode: plannerMode,
         async_mode: true,
@@ -177,19 +182,14 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     onSuccess: async (run) => {
       setMessage(`回滚已提交: ${summarizeRun(run) || '已创建 rollback run'}`)
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'project-detail', projectKey, selectedCrawlerProjectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'deploy-runs', projectKey, selectedCrawlerProjectKey] }),
+        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'project-detail', projectKey, effectiveSelectedCrawlerProjectKey] }),
+        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'deploy-runs', projectKey, effectiveSelectedCrawlerProjectKey] }),
       ])
     },
     onError: (error) => {
       setMessage(`回滚失败: ${error instanceof Error ? error.message : '未知错误'}`)
     },
   })
-
-  const sortedProjects = useMemo(
-    () => [...(crawlerProjects.data || [])].sort((a, b) => String(a.project_key).localeCompare(String(b.project_key))),
-    [crawlerProjects.data],
-  )
 
   const saveDraft = () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft))
@@ -279,7 +279,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
           <label>
             <span>Selected Project</span>
             <select
-              value={selectedCrawlerProjectKey}
+              value={effectiveSelectedCrawlerProjectKey}
               onChange={(e) => setSelectedCrawlerProjectKey(e.target.value)}
             >
               <option value="">请选择</option>
@@ -317,17 +317,17 @@ export default function CrawlerManagePage({ projectKey }: Props) {
           </label>
           <button
             onClick={() => deployMutation.mutate()}
-            disabled={submitting || !selectedCrawlerProjectKey}
+            disabled={submitting || !effectiveSelectedCrawlerProjectKey}
           >
             <Play size={14} />提交部署
           </button>
           <button
             onClick={() => rollbackMutation.mutate()}
-            disabled={submitting || !selectedCrawlerProjectKey}
+            disabled={submitting || !effectiveSelectedCrawlerProjectKey}
           >
             <CircleDashed size={14} />提交回滚
           </button>
-          <button onClick={() => { void crawlerDetail.refetch(); void deployRuns.refetch() }} disabled={!selectedCrawlerProjectKey}>
+          <button onClick={() => { void crawlerDetail.refetch(); void deployRuns.refetch() }} disabled={!effectiveSelectedCrawlerProjectKey}>
             <RefreshCw size={14} />刷新详情
           </button>
         </div>

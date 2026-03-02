@@ -1352,6 +1352,15 @@ button {
   min-height: 520px;
 }
 
+.gv2-chart--force3d {
+  position: relative;
+  overflow: hidden;
+}
+
+.gv2-chart--force3d canvas {
+  display: block;
+}
+
 .gv2-loading {
   position: absolute;
   top: 10px;
@@ -1594,6 +1603,22 @@ button {
   color: var(--gv2-text-soft);
 }
 
+.gv2-node-shape-badge {
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 4px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(8, 15, 28, 0.72);
+}
+
+.gv2-node-shape-badge svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
 .gv2-legend-node.is-active {
   border-color: var(--gv2-accent);
   box-shadow: 0 0 0 1px var(--gv2-glow);
@@ -1611,6 +1636,49 @@ button {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--gv2-text-soft);
+}
+
+.gv2-legend-debug {
+  border-top: 1px solid rgba(69, 94, 129, 0.45);
+  padding-top: 6px;
+  display: grid;
+  gap: 6px;
+}
+
+.gv2-legend-debug-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: var(--gv2-text-soft);
+}
+
+.gv2-legend-debug-list {
+  display: grid;
+  gap: 4px;
+}
+
+.gv2-legend-debug-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--gv2-text-soft);
+}
+
+.gv2-legend-debug-row code {
+  background: rgba(8, 15, 28, 0.62);
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  padding: 1px 4px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gv2-legend-debug-row small {
+  color: var(--gv2-accent-soft);
 }
 
 .gv2-edge-legend-node {

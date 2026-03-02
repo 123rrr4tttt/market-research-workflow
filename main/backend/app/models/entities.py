@@ -132,6 +132,42 @@ class SearchHistory(BigIDMixin, Base):
     )
 
 
+class KeywordHistory(BigIDMixin, Base):
+    __tablename__ = "keyword_history"
+    __table_args__ = (UniqueConstraint("keyword", name="uq_keyword_history_keyword"),)
+
+    keyword = Column(String(255), nullable=False, unique=True)
+    normalized_keyword = Column(String(255), nullable=False)
+    search_count = Column(Integer, nullable=False, server_default="0")
+    hit_count = Column(Integer, nullable=False, server_default="0")
+    inserted_count = Column(Integer, nullable=False, server_default="0")
+    rejected_count = Column(Integer, nullable=False, server_default="0")
+    last_status = Column(String(32), nullable=True)
+    last_source = Column(String(64), nullable=True)
+    last_source_domain = Column(String(255), nullable=True)
+    last_filter_decision = Column(String(32), nullable=True)
+    first_seen_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    last_seen_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    extra = Column(JSONB, nullable=True)
+
+
+class KeywordPrior(BigIDMixin, Base):
+    __tablename__ = "keyword_priors"
+    __table_args__ = (UniqueConstraint("keyword", name="uq_keyword_priors_keyword"),)
+
+    keyword = Column(String(255), nullable=False, unique=True)
+    normalized_keyword = Column(String(255), nullable=False)
+    prior_score = Column(Numeric(6, 4), nullable=False, server_default="0.5000")
+    confidence = Column(Numeric(6, 4), nullable=False, server_default="0.5000")
+    source = Column(String(64), nullable=False, server_default="manual")
+    enabled = Column(Boolean, nullable=False, server_default=expression.true())
+    tags = Column(JSONB, nullable=True)
+    notes = Column(Text, nullable=True)
+    extra = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
 class LlmServiceConfig(BigIDMixin, Base):
     __tablename__ = "llm_service_configs"
     __table_args__ = (UniqueConstraint("service_name", name="uq_llm_service_config_service_name"),)

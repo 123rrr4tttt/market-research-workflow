@@ -173,6 +173,26 @@ def task_ingest_market(
 
 
 @celery_app.task
+def task_ingest_single_url(
+    url: str,
+    query_terms: list[str] | None = None,
+    strict_mode: bool = False,
+    project_key: str | None = None,
+    search_options: dict | None = None,
+) -> dict:
+    from .ingest.single_url import ingest_single_url
+
+    ctx = bind_project(project_key) if project_key else nullcontext()
+    with ctx:
+        return ingest_single_url(
+            url=url,
+            query_terms=query_terms,
+            strict_mode=strict_mode,
+            search_options=search_options,
+        )
+
+
+@celery_app.task
 def task_index_policy(document_ids: list[int], project_key: str | None = None) -> dict:
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:

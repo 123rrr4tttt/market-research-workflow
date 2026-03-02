@@ -15,5 +15,5 @@ class DiscoverySearchPort(Protocol):
 
 
 class DiscoveryStorePort(Protocol):
-    def store(self, results: list[dict[str, Any]]) -> dict[str, int]:
+    def store(self, results: list[dict[str, Any]]) -> dict[str, Any]:
         ...
