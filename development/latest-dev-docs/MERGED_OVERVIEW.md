@@ -21,18 +21,22 @@ Updated: 2026-03-03 PST
 ## 最近新增
 
 - `development-plans/CURRENT_DEV`：
-  - [01_platformization-first-vectorization-gm-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/01_platformization-first-vectorization-gm-2026-03-03.md)
-  - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/02_atomic-zero-regression-tasklist-2026-03-03.md)
-  - [03_ingest-platformization-to-cleanup-optimization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md)
-  - [04_adjusted-graph-node-phase-b-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/04_adjusted-graph-node-phase-b-plan-2026-03-03.md)
-  - [05_graph-node-standardization-overall-completion-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/05_graph-node-standardization-overall-completion-2026-03-03.md)
+  - [01_platformization-first-vectorization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/01_platformization-first-vectorization-2026-03-03.md)
+  - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/02_atomic-zero-regression-tasklist-2026-03-03.md)
+  - [03_ingest-platformization-to-cleanup-optimization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md)
+  - [04_adjusted-graph-node-phase-b-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/04_adjusted-graph-node-phase-b-plan-2026-03-03.md)
+  - [05_graph-node-standardization-overall-completion-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/05_graph-node-standardization-overall-completion-2026-03-03.md)
+  - [06_backend-db-standardization-vectorization-closure-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/06_backend-db-standardization-vectorization-closure-2026-03-03.md)
     - 增补：`single_url` 分层为入口/编排/结构化/入库路由四层；结构化模块从单链路中解耦，供 `single_url + url_pool + raw_import + social + market_web` 统一复用。
+    - 口径同步：主路径统一为“数据库图真源主路径（graph_db / db-primary）”；兼容期继续接受历史配置字面量 `b_primary`。
   - [01_single-url-first-ingest-allocation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)
   - [01_source-time-window-smart-timestamp-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/01_source-time-window-smart-timestamp-plan-2026-03-02.md)
   - [02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md)
   - [03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md)
   - [01_graph-node-standardization-a-then-b-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
-  - [01_global-vectorization-general-foundation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md)
+  - [01_global-vectorization-general-foundation-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-03.md)
+  - [02_atomic-vectorization-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/02_atomic-vectorization-tasklist-2026-03-03.md)
+  - [03_vectorization-atomic-execution-report-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/03_vectorization-atomic-execution-report-2026-03-03.md)
   - [01_graph-3d-force-engine-parallel-migration-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
 - `backend-core/main`：
   - [STANDARD_INGEST_WORKFLOWS_2026-03-02.md](./backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md)

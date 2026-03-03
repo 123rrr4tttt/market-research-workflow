@@ -17,14 +17,21 @@
 - [ops-frontend](./ops-frontend/INDEX.md)
 - [development-plans](./development-plans/INDEX.md)
 
+## 命名日期规则
+
+- 开发文档的“目录日期”和“文件名日期”必须与文档实际更新日期一致（格式 `YYYY-MM-DD`）。
+- 当更新日期变化时，必须同步更新目录名、文件名与索引引用（至少包含 `README.md`、`MERGED_OVERVIEW.md`、子目录 `INDEX.md`）。
+
 ## 最新补充
 
-- `development-plans/CURRENT_DEV` 新增“先平台化、后向量化”改造 GM：
-  - [01_platformization-first-vectorization-gm-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/01_platformization-first-vectorization-gm-2026-03-03.md)
-  - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/02_atomic-zero-regression-tasklist-2026-03-03.md)
-  - [03_ingest-platformization-to-cleanup-optimization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md)
-  - [04_adjusted-graph-node-phase-b-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/04_adjusted-graph-node-phase-b-plan-2026-03-03.md)
-  - [05_graph-node-standardization-overall-completion-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/05_graph-node-standardization-overall-completion-2026-03-03.md)
+- `development-plans/CURRENT_DEV` 新增“先平台化、后向量化”改造：
+  - [01_platformization-first-vectorization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/01_platformization-first-vectorization-2026-03-03.md)
+  - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/02_atomic-zero-regression-tasklist-2026-03-03.md)
+  - [03_ingest-platformization-to-cleanup-optimization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md)
+  - [04_adjusted-graph-node-phase-b-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/04_adjusted-graph-node-phase-b-plan-2026-03-03.md)
+  - [05_graph-node-standardization-overall-completion-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/05_graph-node-standardization-overall-completion-2026-03-03.md)
+  - [06_backend-db-standardization-vectorization-closure-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/06_backend-db-standardization-vectorization-closure-2026-03-03.md)
+    - 口径同步：主路径统一为“数据库图真源主路径（graph_db / db-primary）”；兼容期继续接受历史配置字面量 `b_primary`。
 - `development-plans/CURRENT_DEV` 新增单 URL 优先方案：
   - [01_single-url-first-ingest-allocation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)
 - `development-plans/CURRENT_DEV` 新增源时间窗与智能时间戳方案：
@@ -34,7 +41,9 @@
 - `development-plans/CURRENT_DEV` 新增图谱节点 A→B 标准化方案：
   - [01_graph-node-standardization-a-then-b-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
 - `development-plans/CURRENT_DEV` 新增全局向量化通用基础方案：
-  - [01_global-vectorization-general-foundation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md)
+  - [01_global-vectorization-general-foundation-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-03.md)
+  - [02_atomic-vectorization-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/02_atomic-vectorization-tasklist-2026-03-03.md)
+  - [03_vectorization-atomic-execution-report-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/03_vectorization-atomic-execution-report-2026-03-03.md)
 - `development-plans/CURRENT_DEV` 新增图谱 3D 引擎并行迁移方案：
   - [01_graph-3d-force-engine-parallel-migration-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
 - `backend-core/main` 新增标准工作流打包文档：
