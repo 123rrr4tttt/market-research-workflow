@@ -16,6 +16,7 @@ from ...models.entities import Document, Source
 from .doc_type_mapper import normalize_doc_type
 from ..llm.extraction import extract_market_info
 from ..extraction.application import ExtractionApplicationService
+from .structured_extraction import extract_structured_enriched_safe
 from .adapters.http_utils import fetch_html
 from .url_pool import _extract_text_from_html
 
@@ -103,8 +104,18 @@ def collect_market_info(
                 }
                 if enable_extraction:
                     text_to_extract = "\n\n".join([x for x in [title.strip(), snippet.strip(), (content or "").strip()] if x])
-                    enriched = _EXTRACTION_APP.extract_structured_enriched(text_to_extract, include_market=True)
-                    if enriched:
+                    extraction_result = extract_structured_enriched_safe(
+                        extraction_app=_EXTRACTION_APP,
+                        payload=text_to_extract,
+                        include_market=True,
+                        include_policy=False,
+                        include_sentiment=False,
+                        include_company=True,
+                        include_product=True,
+                        include_operation=True,
+                    )
+                    if extraction_result.data:
+                        enriched = dict(extraction_result.data)
                         market_raw = enriched.get("market")
                         if isinstance(market_raw, dict):
                             try:
@@ -117,6 +128,7 @@ def collect_market_info(
                             except Exception as e:
                                 logger.warning("collect_market_info: market normalization failed: %s", e)
                         extracted_data.update(enriched)
+                        extracted_data["extraction_status"] = "ok"
                     elif (market_info := extract_market_info(text_to_extract)):
                         try:
                             market_norm, market_quality = normalize_market_payload(
@@ -125,8 +137,15 @@ def collect_market_info(
                             )
                             market_norm["numeric_quality"] = market_quality
                             extracted_data["market"] = market_norm
+                            extracted_data["extraction_status"] = "fallback"
+                            extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
                         except Exception as e:
                             logger.warning("collect_market_info: market normalization fallback failed: %s", e)
+                    else:
+                        extracted_data["extraction_status"] = "failed"
+                        extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
+                    if extraction_result.error:
+                        extracted_data["extraction_error"] = extraction_result.error
 
                 document = Document(
                     source_id=source_id,

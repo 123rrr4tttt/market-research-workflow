@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     celery_max_memory_per_child: int = Field(default=500000)
     celery_queues: str = Field(default="celery")
     graph_structured_async_dispatch_workers: int = Field(default=4)
+    graph_node_projection_write_mode: str = Field(default="shadow")  # off | shadow | on
+    graph_node_projection_read_mode: str = Field(default="a_only")  # a_only | b_canary | b_primary
+    graph_node_projection_canary_projects: str = Field(default="demo_proj")
     ingest_enable_strict_gate: bool = Field(default=False)
     ingest_low_value_domains: str = Field(default="news.google.com,x.com,actiontoaction.ai")
     ingest_low_value_path_keywords: str = Field(default="/search,/login,/home,/showcase,/topics/,/stargazers,/sitemap")

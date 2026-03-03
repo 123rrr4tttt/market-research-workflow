@@ -5,6 +5,7 @@ import logging
 from contextlib import nullcontext
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+import json
 from fastapi import APIRouter, HTTPException, Query
 import os
 from collections import deque
@@ -20,6 +21,25 @@ from ..services.projects import bind_project
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/process", tags=["process"])
 _DB_JOB_PREFIX = "db-job-"
+_DEBUG_LOG_PATH = "/Users/wangyiliang/market-research-workflow/.cursor/debug-14c8b9.log"
+_DEBUG_SESSION_ID = "14c8b9"
+
+
+def _debug_log(*, run_id: str, hypothesis_id: str, location: str, message: str, data: dict[str, Any] | None = None) -> None:
+    try:
+        payload = {
+            "sessionId": _DEBUG_SESSION_ID,
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data or {},
+            "timestamp": int(datetime.now().timestamp() * 1000),
+        }
+        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload) + "\n")
+    except Exception:
+        pass
 
 
 def _as_dict(value: Any) -> Dict[str, Any]:
@@ -32,6 +52,70 @@ def _coerce_int(value: Any) -> int | None:
     except Exception:
         return None
     return iv if iv >= 0 else None
+
+
+def _as_non_empty_str(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _extract_handler_used(*payloads: Any) -> str | None:
+    for payload in payloads:
+        item = _as_dict(payload)
+        direct = _as_non_empty_str(item.get("handler_used"))
+        if direct:
+            return direct
+        alloc = _as_dict(item.get("handler_allocation"))
+        nested = _as_non_empty_str(alloc.get("handler_used"))
+        if nested:
+            return nested
+    return None
+
+
+def _extract_skip_reason(*payloads: Any) -> str | None:
+    candidates: list[str] = []
+    for payload in payloads:
+        item = _as_dict(payload)
+        direct = _as_non_empty_str(item.get("skip_reason"))
+        if direct:
+            return direct
+        for key in ("page_gate", "pre_write_content_gate", "pre_fetch_url_gate", "provenance_gate"):
+            nested = _as_dict(item.get(key))
+            reason = _as_non_empty_str(nested.get("reason"))
+            if reason:
+                return reason
+        rb = item.get("rejection_breakdown")
+        if isinstance(rb, dict):
+            for k, v in rb.items():
+                name = _as_non_empty_str(k)
+                count = _coerce_int(v)
+                if name and count and count > 0:
+                    candidates.append(name)
+    if not candidates:
+        return None
+    # Deterministic fallback when only rejection breakdown is available.
+    counts: Dict[str, int] = {}
+    for name in candidates:
+        counts[name] = counts.get(name, 0) + 1
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+
+
+def _extract_error_code(*payloads: Any, status: Any = None, error: Any = None) -> str | None:
+    for payload in payloads:
+        item = _as_dict(payload)
+        direct = _as_non_empty_str(item.get("error_code"))
+        if direct:
+            return direct
+        nested_error = _as_dict(item.get("error"))
+        nested_code = _as_non_empty_str(nested_error.get("code"))
+        if nested_code:
+            return nested_code
+    status_text = str(status or "").strip().lower()
+    if status_text == "failed" or _as_non_empty_str(error):
+        return "TASK_FAILED"
+    if status_text in {"completed", "success"}:
+        return "OK"
+    return None
 
 
 def _extract_quality_fields(*payloads: Any) -> Dict[str, Any]:
@@ -112,6 +196,16 @@ def list_tasks(
 ) -> dict[str, Any]:
     """获取Celery任务列表"""
     try:
+        run_id = f"list_tasks:{int(datetime.now().timestamp() * 1000)}"
+        # region agent log
+        _debug_log(
+            run_id=run_id,
+            hypothesis_id="H1",
+            location="api/process.py:list_tasks:entry",
+            message="list_tasks entry",
+            data={"status_filter": status_filter, "limit": limit, "project_key": project_key},
+        )
+        # endregion
         from ..services.collect_runtime import infer_display_meta_from_celery_task, extract_display_meta_from_params
         inspect = celery_app.control.inspect()
         tasks = []
@@ -124,6 +218,20 @@ def list_tasks(
         reserved_tasks = inspect.reserved() or {}
         # 获取已注册任务（用于统计）
         registered_tasks = inspect.registered() or {}
+        # region agent log
+        _debug_log(
+            run_id=run_id,
+            hypothesis_id="H2",
+            location="api/process.py:list_tasks:inspect",
+            message="inspect snapshot",
+            data={
+                "active_workers": len(active_tasks),
+                "scheduled_workers": len(scheduled_tasks),
+                "reserved_workers": len(reserved_tasks),
+                "registered_workers": len(registered_tasks),
+            },
+        )
+        # endregion
         
         total_tasks = 0
         active_count = 0
@@ -206,6 +314,15 @@ def list_tasks(
                         .limit(max(1, min(limit, 300)))
                     )
                     running_jobs = session.execute(q).scalars().all()
+            # region agent log
+            _debug_log(
+                run_id=run_id,
+                hypothesis_id="H3",
+                location="api/process.py:list_tasks:db_running_jobs",
+                message="db running jobs loaded",
+                data={"project_key": project_key, "running_jobs": len(running_jobs)},
+            )
+            # endregion
             existing_ids = {str(t.task_id) for t in tasks}
             for job in running_jobs:
                 pseudo_id = f"db-job-{job.id}"
@@ -256,6 +373,15 @@ def list_tasks(
         )
 
     except Exception as e:
+        # region agent log
+        _debug_log(
+            run_id=f"list_tasks:error:{int(datetime.now().timestamp() * 1000)}",
+            hypothesis_id="H4",
+            location="api/process.py:list_tasks:exception",
+            message="list_tasks exception",
+            data={"error_type": type(e).__name__, "error": str(e)},
+        )
+        # endregion
         logger.exception("获取任务列表失败")
         raise HTTPException(status_code=500, detail=f"获取任务列表失败: {str(e)}")
 
@@ -344,6 +470,15 @@ def get_task_history(
                         params.get("result"),
                         params.get("progress"),
                     )
+                    handler_used = _extract_handler_used(params, params.get("result"), params.get("progress"))
+                    skip_reason = _extract_skip_reason(params, params.get("result"), params.get("progress"))
+                    error_code = _extract_error_code(
+                        params,
+                        params.get("result"),
+                        params.get("progress"),
+                        status=job.status,
+                        error=job.error,
+                    )
 
                     history.append({
                         "id": job.id,
@@ -360,6 +495,9 @@ def get_task_history(
                         "rejection_breakdown": quality_fields.get("rejection_breakdown") or {},
                         "degradation_flags": quality_fields.get("degradation_flags") or [],
                         "quality_score": quality_fields.get("quality_score"),
+                        "error_code": error_code,
+                        "handler_used": handler_used,
+                        "skip_reason": skip_reason,
                     })
             
             # 获取统计信息
@@ -455,6 +593,15 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
             progress_payload.setdefault("external_provider", job.external_provider)
             progress_payload.setdefault("external_job_id", job.external_job_id)
     quality_fields = _extract_quality_fields(params_payload, result_payload, progress_payload)
+    handler_used = _extract_handler_used(params_payload, result_payload, progress_payload)
+    skip_reason = _extract_skip_reason(params_payload, result_payload, progress_payload)
+    error_code = _extract_error_code(
+        params_payload,
+        result_payload,
+        progress_payload,
+        status=job.status,
+        error=job.error,
+    )
     return {
         "task_id": task_id,
         "name": str(params_payload.get("job_type_full") or job.job_type or "db_job"),
@@ -476,6 +623,9 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
         "rejection_breakdown": quality_fields.get("rejection_breakdown") or {},
         "degradation_flags": quality_fields.get("degradation_flags") or [],
         "quality_score": quality_fields.get("quality_score"),
+        "error_code": error_code,
+        "handler_used": handler_used,
+        "skip_reason": skip_reason,
     }
 
 
@@ -500,6 +650,14 @@ def get_task_info(task_id: str) -> dict[str, Any]:
             "traceback": result.traceback if result.failed() else None,
         }
         quality_fields = _extract_quality_fields(task_info.get("result"), task_info.get("progress"))
+        handler_used = _extract_handler_used(task_info.get("result"), task_info.get("progress"))
+        skip_reason = _extract_skip_reason(task_info.get("result"), task_info.get("progress"))
+        error_code = _extract_error_code(
+            task_info.get("result"),
+            task_info.get("progress"),
+            status=task_info.get("status"),
+            error=task_info.get("traceback"),
+        )
         task_info.update(
             {
                 "inserted_valid": quality_fields.get("inserted_valid"),
@@ -507,6 +665,9 @@ def get_task_info(task_id: str) -> dict[str, Any]:
                 "rejection_breakdown": quality_fields.get("rejection_breakdown") or {},
                 "degradation_flags": quality_fields.get("degradation_flags") or [],
                 "quality_score": quality_fields.get("quality_score"),
+                "error_code": error_code,
+                "handler_used": handler_used,
+                "skip_reason": skip_reason,
             }
         )
         
@@ -573,6 +734,16 @@ def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -
     可通过环境变量 CELERY_LOG_FILE 覆盖。
     """
     try:
+        run_id = f"task_logs:{int(datetime.now().timestamp() * 1000)}"
+        # region agent log
+        _debug_log(
+            run_id=run_id,
+            hypothesis_id="H6",
+            location="api/process.py:get_task_logs:entry",
+            message="task_logs entry",
+            data={"task_id": task_id, "tail": tail},
+        )
+        # endregion
         db_job = _resolve_db_job(task_id)
         if db_job is not None:
             is_external = bool(str(db_job.external_provider or "").strip())
@@ -606,7 +777,32 @@ def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -
 
         log_file = os.getenv("CELERY_LOG_FILE") or "/var/log/celery/worker.log"
         if not os.path.exists(log_file):
-            raise HTTPException(status_code=404, detail="日志文件不存在或未挂载")
+            # region agent log
+            _debug_log(
+                run_id=run_id,
+                hypothesis_id="H6",
+                location="api/process.py:get_task_logs:missing_log_file",
+                message="celery log file not found",
+                data={"task_id": task_id, "log_file": log_file},
+            )
+            # endregion
+            state = str(celery_app.AsyncResult(task_id).status or "").upper() or "UNKNOWN"
+            summary_lines = [
+                f"task_id={task_id}",
+                f"status={state}",
+                f"log_file={log_file}",
+                "logs=Celery worker log file is unavailable in current runtime; configure CELERY_LOG_FILE or check centralized logging.",
+            ]
+            return ok(
+                {
+                    "task_id": task_id,
+                    "tail": tail,
+                    "filtered": False,
+                    "text": "\n".join(summary_lines[-tail:]),
+                    "log_file": log_file,
+                    "source": "unavailable",
+                }
+            )
 
         # 为了更大概率匹配到 task_id，先读取较多行再裁剪
         candidate_lines = _tail_file(log_file, max_lines=min(max(2000, tail * 10), 20000))
@@ -633,6 +829,22 @@ def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -
         else:
             used_lines = plain_tail_lines
             filtered = False
+        # region agent log
+        _debug_log(
+            run_id=f"task_logs:{int(datetime.now().timestamp() * 1000)}",
+            hypothesis_id="H5",
+            location="api/process.py:get_task_logs:filter",
+            message="task log selection",
+            data={
+                "task_id": task_id,
+                "tail": tail,
+                "filtered": filtered,
+                "candidate_lines": len(candidate_lines),
+                "contextual_lines": len(contextual_lines),
+                "returned_lines": len(used_lines),
+            },
+        )
+        # endregion
 
         return ok(
             {

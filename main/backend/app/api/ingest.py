@@ -181,8 +181,8 @@ def post_ingest_config_endpoint(body: IngestConfigUpsertPayload):
             payload=body.payload,
         )
         return success_response(data)
-    except Exception as exc:  # noqa: BLE001
-        return _error_500(exc)
+    except Exception:
+        raise
 
 
 @router.post("/policy")
@@ -201,8 +201,8 @@ def ingest_policy(payload: PolicyIngestRequest):
         with bind_project(project_key):
             from ..services.ingest.policy import ingest_policy_documents
             return success_response(ingest_policy_documents(payload.state, payload.source_hint))
-    except Exception as exc:  # noqa: BLE001
-        return _error_500(exc)
+    except Exception:
+        raise
 
 
 class MarketIngestRequest(BaseModel):
@@ -497,6 +497,10 @@ class SourceLibraryRunPayload(BaseModel):
     project_key: str | None = Field(default=None)
     async_mode: bool = Field(default=False)
     override_params: dict = Field(default_factory=dict)
+    items: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="统一批量 item 入口；每个元素使用 item_key/handler_key 结构。",
+    )
 
 
 class SourceLibrarySyncPayload(BaseModel):
@@ -561,49 +565,115 @@ def _ensure_handler_cluster_item(*, project_key: str, handler_key: str) -> tuple
     return item_key, len(site_entries)
 
 
-@router.post("/source-library/run")
-def ingest_source_library_run(payload: SourceLibraryRunPayload):
-    """Run a source library item (collection task). Entry point for ingest flow."""
-    project_key = _require_project_key(payload.project_key)
-    item_key = str(payload.item_key or "").strip()
-    handler_key = str(payload.handler_key or "").strip()
-    if not item_key and not handler_key:
+def _run_single_source_library_entry(
+    *,
+    project_key: str,
+    item_key: str,
+    handler_key: str,
+    async_mode: bool,
+    override_params: dict | None,
+) -> dict[str, Any]:
+    resolved_item_key = str(item_key or "").strip()
+    resolved_handler_key = str(handler_key or "").strip()
+    mode_count = int(bool(resolved_item_key)) + int(bool(resolved_handler_key))
+    if mode_count == 0:
         raise HTTPException(status_code=400, detail="item_key or handler_key is required.")
-    if item_key and handler_key:
+    if mode_count > 1:
         raise HTTPException(status_code=400, detail="item_key and handler_key are mutually exclusive.")
 
-    if handler_key:
-        try:
-            item_key, site_entry_count = _ensure_handler_cluster_item(project_key=project_key, handler_key=handler_key)
-            payload.override_params = dict(payload.override_params or {})
-            payload.override_params.setdefault("_handler_key", handler_key)
-            payload.override_params.setdefault("_handler_site_entry_count", site_entry_count)
-        except HTTPException:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            return _error_500(exc)
-
-    if payload.async_mode:
-        task = _tasks_module().task_run_source_library_item.delay(
-            item_key,
-            project_key,
-            payload.override_params or {},
+    final_override_params = dict(override_params or {})
+    if resolved_handler_key:
+        resolved_item_key, site_entry_count = _ensure_handler_cluster_item(
+            project_key=project_key,
+            handler_key=resolved_handler_key,
         )
-        return success_response(
-            task_result_response(
+        final_override_params.setdefault("_handler_key", resolved_handler_key)
+        final_override_params.setdefault("_handler_site_entry_count", site_entry_count)
+
+    if async_mode:
+        task = _tasks_module().task_run_source_library_item.delay(
+            resolved_item_key,
+            project_key,
+            final_override_params,
+        )
+        return {
+            "mode": "source_library_item",
+            "result": task_result_response(
                 task_id=task.id,
                 async_mode=True,
-                params={"item_key": item_key},
+                params={"item_key": resolved_item_key},
+            ),
+        }
+
+    from ..services.collect_runtime import run_source_library_item_compat
+
+    result = run_source_library_item_compat(
+        item_key=resolved_item_key,
+        project_key=project_key,
+        override_params=final_override_params,
+    )
+    return {"mode": "source_library_item", "result": result}
+
+
+@router.post("/source-library/run")
+def ingest_source_library_run(payload: SourceLibraryRunPayload):
+    """Run source-library item(s) with unified item-style batch support."""
+    project_key = _require_project_key(payload.project_key)
+    if payload.items:
+        if payload.item_key or payload.handler_key:
+            raise HTTPException(
+                status_code=400,
+                detail="When items is provided, top-level item_key/handler_key must be empty.",
             )
-        )
+        entries = []
+        for item in payload.items:
+            if not isinstance(item, dict):
+                raise HTTPException(status_code=400, detail="items must be an array of objects.")
+            entries.append(item)
+    else:
+        entries = [
+            {
+                "item_key": payload.item_key,
+                "handler_key": payload.handler_key,
+                "async_mode": payload.async_mode,
+                "override_params": payload.override_params,
+            }
+        ]
+
     try:
-        from ..services.collect_runtime import run_source_library_item_compat
-        result = run_source_library_item_compat(
-            item_key=item_key,
-            project_key=project_key,
-            override_params=payload.override_params or {},
+        results: list[dict[str, Any]] = []
+        for idx, entry in enumerate(entries):
+            item_result = _run_single_source_library_entry(
+                project_key=project_key,
+                item_key=str(entry.get("item_key") or "").strip(),
+                handler_key=str(entry.get("handler_key") or "").strip(),
+                async_mode=bool(entry.get("async_mode", payload.async_mode)),
+                override_params=entry.get("override_params")
+                if isinstance(entry.get("override_params"), dict)
+                else payload.override_params,
+            )
+            results.append({"index": idx, **item_result})
+
+        if len(results) == 1:
+            return success_response(results[0]["result"])
+
+        queued = 0
+        for item in results:
+            result_payload = item.get("result") if isinstance(item, dict) else None
+            if isinstance(result_payload, dict) and result_payload.get("task_id"):
+                queued += 1
+            if isinstance(result_payload, dict) and isinstance(result_payload.get("tasks"), list):
+                queued += len(result_payload.get("tasks") or [])
+        return success_response(
+            {
+                "batch": True,
+                "count": len(results),
+                "queued": queued,
+                "items": results,
+            }
         )
-        return success_response(result)
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 

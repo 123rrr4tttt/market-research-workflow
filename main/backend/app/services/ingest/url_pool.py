@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 from contextlib import nullcontext
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qsl, quote_plus, urlencode, urlparse, urlunparse
 
 from ...models.base import SessionLocal
@@ -274,6 +275,101 @@ def _extract_doc_ids_from_ingest_result(result: Dict[str, Any]) -> List[int]:
     return doc_ids
 
 
+def _merge_rejection_breakdown(
+    merged: Dict[str, int],
+    incoming: Any,
+) -> None:
+    if not isinstance(incoming, dict):
+        return
+    for key, value in incoming.items():
+        reason = str(key or "").strip()
+        if not reason:
+            continue
+        try:
+            count = int(value or 0)
+        except Exception:
+            count = 0
+        if count <= 0:
+            continue
+        merged[reason] = int(merged.get(reason) or 0) + count
+
+
+def _as_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return int(default)
+
+
+def _as_bool(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+    return bool(default)
+
+
+def _resolve_dispatch_mode(extra_params: Optional[Dict[str, Any]]) -> str:
+    if not isinstance(extra_params, dict):
+        return "sync"
+    if bool(extra_params.get("single_url_async")):
+        return "celery_async"
+    raw = str(extra_params.get("single_url_dispatch_mode") or "").strip().lower()
+    if raw in {"celery_async", "async", "queue"}:
+        return "celery_async"
+    if raw in {"thread", "threads", "parallel"}:
+        return "thread"
+    return "sync"
+
+
+def _resolve_single_url_strict_mode(extra_params: Optional[Dict[str, Any]]) -> bool:
+    if not isinstance(extra_params, dict):
+        return False
+    if "single_url_strict_mode" in extra_params:
+        return _as_bool(extra_params.get("single_url_strict_mode"), False)
+    if "strict_mode" in extra_params:
+        return _as_bool(extra_params.get("strict_mode"), False)
+    return False
+
+
+def _resolve_parallel_workers(
+    *,
+    extra_params: Optional[Dict[str, Any]],
+    target_count: int,
+) -> int:
+    default_workers = 1
+    if not isinstance(extra_params, dict):
+        return default_workers
+    raw = extra_params.get("single_url_parallel_workers", extra_params.get("parallel_workers", default_workers))
+    workers = max(1, _as_int(raw, default_workers))
+    workers = min(32, workers)
+    if target_count > 0:
+        workers = min(workers, target_count)
+    return max(1, workers)
+
+
+def _resolve_parallel_batch_size(
+    *,
+    extra_params: Optional[Dict[str, Any]],
+    parallel_workers: int,
+) -> int:
+    default_size = max(16, parallel_workers * 4)
+    if not isinstance(extra_params, dict):
+        return default_size
+    raw = extra_params.get("single_url_parallel_batch_size", default_size)
+    return max(1, _as_int(raw, default_size))
+
+
+def _batch_slice(items: List[Any], size: int) -> List[List[Any]]:
+    if size <= 0:
+        return [items]
+    return [items[i : i + size] for i in range(0, len(items), size)]
+
+
 def _annotate_url_pool_context(
     *,
     doc_ids: List[int],
@@ -344,94 +440,158 @@ def collect_urls_from_list(
     try:
         from ..projects import bind_project
         from .single_url import ingest_single_url
+        from ..tasks import task_ingest_single_url
 
         inserted = 0
+        inserted_valid = 0
         skipped = 0
+        rejected_count = 0
+        rejection_breakdown: Dict[str, int] = {}
         skipped_exists = 0
         skipped_fetch_error = 0
         details: List[Dict[str, Any]] = []
         errors: List[Dict[str, Any]] = []
         targets = _build_site_first_targets(urls)
         seen_runtime_urls: set[str] = set()
+        dispatch_mode = _resolve_dispatch_mode(extra_params)
+        strict_mode = _resolve_single_url_strict_mode(extra_params)
+        runtime_targets: List[Tuple[str, Dict[str, Any]]] = []
+        for target in targets:
+            target_url = _resolve_target_url(target, normalized_terms)
+            if target_url in seen_runtime_urls:
+                continue
+            seen_runtime_urls.add(target_url)
+            runtime_targets.append((target_url, target))
 
-        ctx = bind_project(project_key) if project_key else nullcontext()
-        with ctx:
-            for target in targets:
-                target_url = _resolve_target_url(target, normalized_terms)
-                if target_url in seen_runtime_urls:
-                    continue
-                seen_runtime_urls.add(target_url)
-                try:
-                    search_options = _search_options_for_target(target_url, normalized_terms)
-                    item_result = ingest_single_url(
+        parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
+        parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
+        queued = 0
+        queued_tasks: List[Dict[str, Any]] = []
+
+        def _run_single_target(target_url: str) -> Dict[str, Any]:
+            try:
+                search_options = _search_options_for_target(target_url, normalized_terms)
+                ctx_local = bind_project(project_key) if project_key else nullcontext()
+                with ctx_local:
+                    return ingest_single_url(
                         url=target_url,
                         query_terms=normalized_terms,
-                        strict_mode=False,
+                        strict_mode=strict_mode,
                         search_options=search_options,
                     )
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("url_pool single_url dispatch failed for %s: %s", target_url[:80], exc)
-                    item_result = {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("url_pool single_url dispatch failed for %s: %s", target_url[:80], exc)
+                return {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
 
-                inserted += int(item_result.get("inserted") or 0)
-                item_skipped = int(item_result.get("skipped") or 0)
-                skipped += item_skipped
-                degradation_flags = list(item_result.get("degradation_flags") or [])
-                if "document_already_exists" in degradation_flags:
-                    skipped_exists += 1
-                if "fetch_failed" in degradation_flags:
-                    skipped_fetch_error += 1
-                if str(item_result.get("status") or "").strip().lower() == "failed" and len(errors) < _DEBUG_MAX_ERRORS:
-                    errors.append({"url": target_url, "error": str(item_result.get("error") or "single_url_failed")})
+        def _collect_item_result(target_url: str, target: Dict[str, Any], item_result: Dict[str, Any]) -> None:
+            nonlocal inserted, inserted_valid, skipped, rejected_count, skipped_exists, skipped_fetch_error
+            inserted += int(item_result.get("inserted") or 0)
+            inserted_valid += int(item_result.get("inserted_valid") or 0)
+            item_skipped = int(item_result.get("skipped") or 0)
+            skipped += item_skipped
+            rejected_count += int(item_result.get("rejected_count") or 0)
+            _merge_rejection_breakdown(rejection_breakdown, item_result.get("rejection_breakdown"))
+            degradation_flags = list(item_result.get("degradation_flags") or [])
+            if "document_already_exists" in degradation_flags:
+                skipped_exists += 1
+            if "fetch_failed" in degradation_flags:
+                skipped_fetch_error += 1
+            if str(item_result.get("status") or "").strip().lower() == "failed" and len(errors) < _DEBUG_MAX_ERRORS:
+                errors.append({"url": target_url, "error": str(item_result.get("error") or "single_url_failed")})
 
-                context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
-                _annotate_url_pool_context(
-                    doc_ids=context_doc_ids,
-                    context={
-                        "mode": "list",
-                        "project_key": project_key,
-                        "entry_type": target.get("entry_type"),
-                        "site_seed": bool(target.get("is_site_seed")),
-                        "domain": target.get("domain"),
-                        "source_url": target.get("from_url"),
-                    },
+            context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
+            _annotate_url_pool_context(
+                doc_ids=context_doc_ids,
+                context={
+                    "mode": "list",
+                    "project_key": project_key,
+                    "entry_type": target.get("entry_type"),
+                    "site_seed": bool(target.get("is_site_seed")),
+                    "domain": target.get("domain"),
+                    "source_url": target.get("from_url"),
+                },
+            )
+
+            if len(details) < _DEBUG_MAX_URLS:
+                details.append(
+                    _detail(
+                        target_url,
+                        action="inserted" if int(item_result.get("inserted") or 0) > 0 else "processed",
+                        status=item_result.get("status"),
+                        document_id=item_result.get("document_id"),
+                        quality_score=item_result.get("quality_score"),
+                        degradation_flags=degradation_flags,
+                        entry_type=target.get("entry_type"),
+                        site_seed=bool(target.get("is_site_seed")),
+                        handler=item_result.get("handler_allocation", {}).get("handler_used")
+                        if isinstance(item_result.get("handler_allocation"), dict)
+                        else None,
+                        matched_channel_key=item_result.get("handler_allocation", {}).get("matched_channel_key")
+                        if isinstance(item_result.get("handler_allocation"), dict)
+                        else None,
+                    )
                 )
 
-                if len(details) < _DEBUG_MAX_URLS:
-                    details.append(
+        if dispatch_mode == "celery_async":
+            for target_url, target in runtime_targets:
+                search_options = _search_options_for_target(target_url, normalized_terms)
+                async_result = task_ingest_single_url.delay(
+                    target_url,
+                    normalized_terms,
+                    strict_mode,
+                    project_key,
+                    search_options,
+                )
+                queued += 1
+                if len(queued_tasks) < _DEBUG_MAX_URLS:
+                    queued_tasks.append(
                         _detail(
                             target_url,
-                            action="inserted" if int(item_result.get("inserted") or 0) > 0 else "processed",
-                            status=item_result.get("status"),
-                            document_id=item_result.get("document_id"),
-                            quality_score=item_result.get("quality_score"),
-                            degradation_flags=degradation_flags,
+                            action="queued",
+                            task_id=getattr(async_result, "id", None),
                             entry_type=target.get("entry_type"),
                             site_seed=bool(target.get("is_site_seed")),
-                            handler=item_result.get("handler_allocation", {}).get("handler_used")
-                            if isinstance(item_result.get("handler_allocation"), dict)
-                            else None,
-                            matched_channel_key=item_result.get("handler_allocation", {}).get("matched_channel_key")
-                            if isinstance(item_result.get("handler_allocation"), dict)
-                            else None,
                         )
                     )
+        else:
+            for batch in _batch_slice(runtime_targets, parallel_batch_size):
+                if parallel_workers <= 1 or len(batch) <= 1:
+                    for target_url, target in batch:
+                        item_result = _run_single_target(target_url)
+                        _collect_item_result(target_url, target, item_result)
+                    continue
+                with ThreadPoolExecutor(max_workers=min(parallel_workers, len(batch))) as executor:
+                    future_to_target = {executor.submit(_run_single_target, tu): (tu, t) for tu, t in batch}
+                    for future in as_completed(future_to_target):
+                        tu, t = future_to_target[future]
+                        item_result = future.result()
+                        _collect_item_result(tu, t, item_result)
 
         result: Dict[str, Any] = {
             "inserted": inserted,
+            "inserted_valid": inserted_valid,
             "skipped": skipped,
+            "rejected_count": rejected_count,
+            "rejection_breakdown": rejection_breakdown,
             "urls": len(urls),
             "skipped_exists": skipped_exists,
             "skipped_fetch_error": skipped_fetch_error,
+            "queued": queued,
+            "single_write_workflow": "single_url_async" if dispatch_mode == "celery_async" else "single_url",
             "debug": {
                 "mode": "list",
+                "dispatch_mode": dispatch_mode,
+                "strict_mode": bool(strict_mode),
+                "parallel_workers": parallel_workers,
+                "parallel_batch_size": parallel_batch_size,
                 "raw_url_count": raw_count,
                 "normalized_url_count": normalized_count,
                 "filtered_out": max(0, raw_count - normalized_count),
                 "site_seed_count": len([x for x in targets if bool(x.get("is_site_seed"))]),
                 "target_count": len(targets),
-                "url_details": details,
-                "url_details_truncated": len(targets) > len(details),
+                "target_deduped_count": len(runtime_targets),
+                "url_details": queued_tasks if dispatch_mode == "celery_async" else details,
+                "url_details_truncated": len(runtime_targets) > len(queued_tasks if dispatch_mode == "celery_async" else details),
                 "errors": errors,
             },
         }
@@ -490,6 +650,7 @@ def collect_urls_from_pool(
     job_id = start_job("url_pool_fetch", job_params)
     try:
         from .single_url import ingest_single_url
+        from ..tasks import task_ingest_single_url
 
         items, total = list_urls(
             scope=scope,
@@ -502,7 +663,10 @@ def collect_urls_from_pool(
         item_by_url = {x.get("url"): x for x in items if isinstance(x, dict) and x.get("url")}
         urls = [x.get("url") for x in items if x.get("url")]
         inserted = 0
+        inserted_valid = 0
         skipped = 0
+        rejected_count = 0
+        rejection_breakdown: Dict[str, int] = {}
         skipped_invalid_url = 0
         skipped_exists = 0
         skipped_fetch_error = 0
@@ -526,110 +690,173 @@ def collect_urls_from_pool(
                 continue
             pool_item_by_target[tu] = item_by_url.get(tu) or {}
         seen_runtime_urls: set[str] = set()
-
-        ctx = bind_project(project_key) if project_key else nullcontext()
-        with ctx:
-            for target in targets:
-                target_url = _resolve_target_url(target, normalized_terms)
-                if target_url in seen_runtime_urls:
-                    continue
-                seen_runtime_urls.add(target_url)
-                pool_item = pool_item_by_target.get(str(target.get("url") or "")) or {}
-                if not target_url or not str(target_url).strip().startswith(("http://", "https://")):
-                    skipped += 1
-                    skipped_invalid_url += 1
-                    if len(details) < _DEBUG_MAX_URLS:
-                        details.append(
-                            _detail(
-                                str(target_url or ""),
-                                action="skip_invalid_url",
-                                entry_type=target.get("entry_type"),
-                                site_seed=bool(target.get("is_site_seed")),
-                                pool_scope=pool_item.get("scope"),
-                                pool_source=pool_item.get("source"),
-                                pool_domain=pool_item.get("domain"),
-                                pool_source_ref=pool_item.get("source_ref"),
-                            )
-                        )
-                    continue
-
-                try:
-                    search_options = _search_options_for_target(target_url, normalized_terms)
-                    item_result = ingest_single_url(
-                        url=target_url,
-                        query_terms=normalized_terms,
-                        strict_mode=False,
-                        search_options=search_options,
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("url_pool single_url dispatch failed for %s: %s", str(target_url)[:80], exc)
-                    item_result = {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
-
-                inserted += int(item_result.get("inserted") or 0)
-                item_skipped = int(item_result.get("skipped") or 0)
-                skipped += item_skipped
-                degradation_flags = list(item_result.get("degradation_flags") or [])
-                if "document_already_exists" in degradation_flags:
-                    skipped_exists += 1
-                if "fetch_failed" in degradation_flags:
-                    skipped_fetch_error += 1
-                if str(item_result.get("status") or "").strip().lower() == "failed" and len(errors) < _DEBUG_MAX_ERRORS:
-                    errors.append({"url": target_url, "error": str(item_result.get("error") or "single_url_failed")})
-
-                context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
-                _annotate_url_pool_context(
-                    doc_ids=context_doc_ids,
-                    context={
-                        "mode": "pool",
-                        "project_key": project_key,
-                        "entry_type": target.get("entry_type"),
-                        "site_seed": bool(target.get("is_site_seed")),
-                        "scope": pool_item.get("scope"),
-                        "source": pool_item.get("source"),
-                        "domain": pool_item.get("domain") or target.get("domain"),
-                        "source_ref": pool_item.get("source_ref"),
-                    },
-                )
-
+        dispatch_mode = _resolve_dispatch_mode(extra_params)
+        strict_mode = _resolve_single_url_strict_mode(extra_params)
+        runtime_targets: List[Tuple[str, Dict[str, Any], Dict[str, Any]]] = []
+        for target in targets:
+            target_url = _resolve_target_url(target, normalized_terms)
+            if target_url in seen_runtime_urls:
+                continue
+            seen_runtime_urls.add(target_url)
+            pool_item = pool_item_by_target.get(str(target.get("url") or "")) or {}
+            if not target_url or not str(target_url).strip().startswith(("http://", "https://")):
+                skipped += 1
+                skipped_invalid_url += 1
                 if len(details) < _DEBUG_MAX_URLS:
                     details.append(
                         _detail(
-                            target_url,
-                            action="inserted" if int(item_result.get("inserted") or 0) > 0 else "processed",
-                            status=item_result.get("status"),
-                            document_id=item_result.get("document_id"),
-                            quality_score=item_result.get("quality_score"),
-                            degradation_flags=degradation_flags,
+                            str(target_url or ""),
+                            action="skip_invalid_url",
                             entry_type=target.get("entry_type"),
                             site_seed=bool(target.get("is_site_seed")),
-                            handler=item_result.get("handler_allocation", {}).get("handler_used")
-                            if isinstance(item_result.get("handler_allocation"), dict)
-                            else None,
-                            matched_channel_key=item_result.get("handler_allocation", {}).get("matched_channel_key")
-                            if isinstance(item_result.get("handler_allocation"), dict)
-                            else None,
                             pool_scope=pool_item.get("scope"),
                             pool_source=pool_item.get("source"),
                             pool_domain=pool_item.get("domain"),
                             pool_source_ref=pool_item.get("source_ref"),
                         )
                     )
+                continue
+            runtime_targets.append((target_url, target, pool_item))
+
+        parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
+        parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
+        queued = 0
+        queued_tasks: List[Dict[str, Any]] = []
+
+        def _run_single_target(target_url: str) -> Dict[str, Any]:
+            try:
+                search_options = _search_options_for_target(target_url, normalized_terms)
+                ctx_local = bind_project(project_key) if project_key else nullcontext()
+                with ctx_local:
+                    return ingest_single_url(
+                        url=target_url,
+                        query_terms=normalized_terms,
+                        strict_mode=strict_mode,
+                        search_options=search_options,
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("url_pool single_url dispatch failed for %s: %s", str(target_url)[:80], exc)
+                return {"status": "failed", "inserted": 0, "skipped": 1, "error": _safe_exc(exc)}
+
+        def _collect_item_result(target_url: str, target: Dict[str, Any], pool_item: Dict[str, Any], item_result: Dict[str, Any]) -> None:
+            nonlocal inserted, inserted_valid, skipped, rejected_count, skipped_exists, skipped_fetch_error
+            inserted += int(item_result.get("inserted") or 0)
+            inserted_valid += int(item_result.get("inserted_valid") or 0)
+            item_skipped = int(item_result.get("skipped") or 0)
+            skipped += item_skipped
+            rejected_count += int(item_result.get("rejected_count") or 0)
+            _merge_rejection_breakdown(rejection_breakdown, item_result.get("rejection_breakdown"))
+            degradation_flags = list(item_result.get("degradation_flags") or [])
+            if "document_already_exists" in degradation_flags:
+                skipped_exists += 1
+            if "fetch_failed" in degradation_flags:
+                skipped_fetch_error += 1
+            if str(item_result.get("status") or "").strip().lower() == "failed" and len(errors) < _DEBUG_MAX_ERRORS:
+                errors.append({"url": target_url, "error": str(item_result.get("error") or "single_url_failed")})
+
+            context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
+            _annotate_url_pool_context(
+                doc_ids=context_doc_ids,
+                context={
+                    "mode": "pool",
+                    "project_key": project_key,
+                    "entry_type": target.get("entry_type"),
+                    "site_seed": bool(target.get("is_site_seed")),
+                    "scope": pool_item.get("scope"),
+                    "source": pool_item.get("source"),
+                    "domain": pool_item.get("domain") or target.get("domain"),
+                    "source_ref": pool_item.get("source_ref"),
+                },
+            )
+
+            if len(details) < _DEBUG_MAX_URLS:
+                details.append(
+                    _detail(
+                        target_url,
+                        action="inserted" if int(item_result.get("inserted") or 0) > 0 else "processed",
+                        status=item_result.get("status"),
+                        document_id=item_result.get("document_id"),
+                        quality_score=item_result.get("quality_score"),
+                        degradation_flags=degradation_flags,
+                        entry_type=target.get("entry_type"),
+                        site_seed=bool(target.get("is_site_seed")),
+                        handler=item_result.get("handler_allocation", {}).get("handler_used")
+                        if isinstance(item_result.get("handler_allocation"), dict)
+                        else None,
+                        matched_channel_key=item_result.get("handler_allocation", {}).get("matched_channel_key")
+                        if isinstance(item_result.get("handler_allocation"), dict)
+                        else None,
+                        pool_scope=pool_item.get("scope"),
+                        pool_source=pool_item.get("source"),
+                        pool_domain=pool_item.get("domain"),
+                        pool_source_ref=pool_item.get("source_ref"),
+                    )
+                )
+
+        if dispatch_mode == "celery_async":
+            for target_url, target, pool_item in runtime_targets:
+                search_options = _search_options_for_target(target_url, normalized_terms)
+                async_result = task_ingest_single_url.delay(
+                    target_url,
+                    normalized_terms,
+                    strict_mode,
+                    project_key,
+                    search_options,
+                )
+                queued += 1
+                if len(queued_tasks) < _DEBUG_MAX_URLS:
+                    queued_tasks.append(
+                        _detail(
+                            target_url,
+                            action="queued",
+                            task_id=getattr(async_result, "id", None),
+                            entry_type=target.get("entry_type"),
+                            site_seed=bool(target.get("is_site_seed")),
+                            pool_scope=pool_item.get("scope"),
+                            pool_source=pool_item.get("source"),
+                            pool_domain=pool_item.get("domain"),
+                            pool_source_ref=pool_item.get("source_ref"),
+                        )
+                    )
+        else:
+            for batch in _batch_slice(runtime_targets, parallel_batch_size):
+                if parallel_workers <= 1 or len(batch) <= 1:
+                    for target_url, target, pool_item in batch:
+                        item_result = _run_single_target(target_url)
+                        _collect_item_result(target_url, target, pool_item, item_result)
+                    continue
+                with ThreadPoolExecutor(max_workers=min(parallel_workers, len(batch))) as executor:
+                    future_to_target = {executor.submit(_run_single_target, tu): (tu, t, p) for tu, t, p in batch}
+                    for future in as_completed(future_to_target):
+                        tu, t, p = future_to_target[future]
+                        item_result = future.result()
+                        _collect_item_result(tu, t, p, item_result)
 
         result: Dict[str, Any] = {
             "inserted": inserted,
+            "inserted_valid": inserted_valid,
             "skipped": skipped,
+            "rejected_count": rejected_count,
+            "rejection_breakdown": rejection_breakdown,
             "urls": len(urls),
             "pool_total": int(total or 0),
             "pool_returned": len(items),
             "skipped_invalid_url": skipped_invalid_url,
             "skipped_exists": skipped_exists,
             "skipped_fetch_error": skipped_fetch_error,
+            "queued": queued,
+            "single_write_workflow": "single_url_async" if dispatch_mode == "celery_async" else "single_url",
             "debug": {
                 "mode": "pool",
+                "dispatch_mode": dispatch_mode,
+                "strict_mode": bool(strict_mode),
+                "parallel_workers": parallel_workers,
+                "parallel_batch_size": parallel_batch_size,
                 "pool_total": int(total or 0),
                 "pool_returned": len(items),
                 "site_seed_count": len([x for x in targets if bool(x.get("is_site_seed"))]),
                 "target_count": len(targets),
+                "target_deduped_count": len(runtime_targets),
                 "pool_items_sample": [
                     {
                         "id": x.get("id"),
@@ -641,8 +868,8 @@ def collect_urls_from_pool(
                     }
                     for x in (items[:_DEBUG_MAX_POOL_ITEMS] if items else [])
                 ],
-                "url_details": details,
-                "url_details_truncated": len(targets) > len(details),
+                "url_details": queued_tasks if dispatch_mode == "celery_async" else details,
+                "url_details_truncated": len(runtime_targets) > len(queued_tasks if dispatch_mode == "celery_async" else details),
                 "errors": errors,
             },
         }

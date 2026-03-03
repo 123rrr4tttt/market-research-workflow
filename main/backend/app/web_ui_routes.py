@@ -42,10 +42,20 @@ def register_ui_routes(
             target = f"{target}?{urlencode(query)}"
         return RedirectResponse(url=target, status_code=302)
 
-    def _should_use_legacy(request: Request) -> bool:
-        # Keep an emergency fallback path when explicitly requested.
-        legacy = request.query_params.get("legacy")
-        return str(legacy).lower() in {"1", "true", "yes", "on", "legacy"}
+    def _legacy_archived_response() -> HTMLResponse:
+        return HTMLResponse(
+            content=(
+                "<!doctype html><html><head><meta charset='utf-8'/>"
+                "<meta name='viewport' content='width=device-width, initial-scale=1'/>"
+                "<title>Legacy Archived</title></head>"
+                "<body style='font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; padding:24px;'>"
+                "<h2>Legacy UI 已封存</h2>"
+                "<p>当前实例不再提供 legacy 页面渲染，请使用 modern 前端入口。</p>"
+                "<p><a href='/'>进入 modern 前端</a></p>"
+                "</body></html>"
+            ),
+            status_code=410,
+        )
 
     def _build_legacy_target(target: str, request: Request) -> str:
         base = target.strip()
@@ -85,32 +95,27 @@ def register_ui_routes(
         return RedirectResponse(url=f"{base}/#{quote(encoded)}", status_code=302)
 
     def _render_or_forward(request: Request, template_name: str, *, route_target: str):
-        if _should_use_legacy(request):
-            return templates.TemplateResponse(template_name, {"request": request})
+        _ = template_name
         modern = _modern_frontend_redirect_with_hash(route_target, request)
         if modern is not None:
             return modern
-        return templates.TemplateResponse(template_name, {"request": request})
+        return _legacy_archived_response()
 
     @app.get("/", response_class=RedirectResponse)
     def index(request: Request):
         """Root redirects to app shell"""
-        if _should_use_legacy(request):
-            return RedirectResponse(url="/app.html?legacy=1", status_code=302)
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
-        return RedirectResponse(url="/app.html", status_code=302)
+        return _legacy_archived_response()
 
     @app.get("/index.html", response_class=RedirectResponse)
     def index_html(request: Request):
         """Legacy index redirects to app shell"""
-        if _should_use_legacy(request):
-            return RedirectResponse(url="/app.html?legacy=1", status_code=302)
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
-        return RedirectResponse(url="/app.html", status_code=302)
+        return _legacy_archived_response()
 
     @app.get("/ingest.html", response_class=HTMLResponse)
     def ingest_page(request: Request):
@@ -178,22 +183,18 @@ def register_ui_routes(
     @app.get("/app.html", response_class=HTMLResponse)
     def app_page(request: Request):
         """主应用页面（带侧边栏）"""
-        if _should_use_legacy(request):
-            return templates.TemplateResponse("app.html", {"request": request})
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
-        return templates.TemplateResponse("app.html", {"request": request})
+        return _legacy_archived_response()
 
     @app.get("/app", response_class=HTMLResponse)
     def app_redirect(request: Request):
         """重定向 /app 到 /app.html"""
-        if _should_use_legacy(request):
-            return RedirectResponse(url="/app.html?legacy=1", status_code=301)
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
-        return RedirectResponse(url="/app.html", status_code=301)
+        return _legacy_archived_response()
 
     @app.get("/data-dashboard.html", response_class=HTMLResponse)
     def data_dashboard_page(request: Request):
@@ -298,35 +299,29 @@ def register_ui_routes(
     def policy_graph_page(request: Request):
         """Redirect to unified graph page"""
         legacy_target = _build_legacy_target("/graph.html?type=policy", request)
-        if _should_use_legacy(request):
-            return RedirectResponse(url=legacy_target, status_code=302)
         modern = _modern_frontend_redirect_with_hash("graph.html?type=policy", request)
         if modern is not None:
             return modern
-        return RedirectResponse(url=legacy_target, status_code=302)
+        return _render_or_forward(request=request, template_name="graph.html", route_target=legacy_target)
 
     @app.get("/social-media-graph.html", response_class=RedirectResponse)
     def social_media_graph_page(request: Request):
         """Redirect to unified graph page"""
         legacy_target = _build_legacy_target("/graph.html?type=social", request)
-        if _should_use_legacy(request):
-            return RedirectResponse(url=legacy_target, status_code=302)
         modern = _modern_frontend_redirect_with_hash("graph.html?type=social", request)
         if modern is not None:
             return modern
-        return RedirectResponse(url=legacy_target, status_code=302)
+        return _render_or_forward(request=request, template_name="graph.html", route_target=legacy_target)
 
     @app.get("/market-graph.html", response_class=RedirectResponse)
     @app.get("/market-data-graph.html", response_class=RedirectResponse)
     def market_graph_page(request: Request):
         """Redirect to unified graph page"""
         legacy_target = _build_legacy_target("/graph.html?type=market", request)
-        if _should_use_legacy(request):
-            return RedirectResponse(url=legacy_target, status_code=302)
         modern = _modern_frontend_redirect_with_hash("graph.html?type=market", request)
         if modern is not None:
             return modern
-        return RedirectResponse(url=legacy_target, status_code=302)
+        return _render_or_forward(request=request, template_name="graph.html", route_target=legacy_target)
 
     @app.get("/project-management.html", response_class=HTMLResponse)
     def project_management_page(request: Request):

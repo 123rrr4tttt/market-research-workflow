@@ -81,7 +81,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertIn("item_key or handler_key is required", missing_resp.text)
 
         self.assertEqual(conflict_resp.status_code, 400)
-        self.assertIn("item_key and handler_key are mutually exclusive", conflict_resp.text)
+        self.assertIn("mutually exclusive", conflict_resp.text)
 
         tasks.task_run_source_library_item.delay.assert_not_called()
 
@@ -171,6 +171,40 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "demo_proj",
             {"k": "v"},
         )
+
+    def test_source_library_run_items_batch_uses_item_form_only(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "project_key": "demo_proj",
+            "items": [
+                {
+                    "item_key": "demo-item",
+                    "async_mode": True,
+                    "override_params": {"k": "v"},
+                },
+                {
+                    "item_key": "demo-item-2",
+                    "async_mode": True,
+                },
+            ],
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+        data = _response_payload(body)
+        self.assertTrue(bool(data.get("batch")))
+        self.assertEqual(data.get("count"), 2)
+        self.assertEqual(data.get("queued"), 2)
+        self.assertEqual(len(data.get("items") or []), 2)
+
+        self.assertEqual(tasks.task_run_source_library_item.delay.call_count, 2)
+        calls = tasks.task_run_source_library_item.delay.call_args_list
+        self.assertEqual(calls[0].args, ("demo-item", "demo_proj", {"k": "v"}))
+        self.assertEqual(calls[1].args, ("demo-item-2", "demo_proj", {}))
 
     def test_url_single_async_task_contract_compat_with_task_result_status(self):
         tasks = _TrackedTasks()

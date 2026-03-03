@@ -12,6 +12,8 @@ from ...models.base import SessionLocal
 from ...models.entities import Document, Source
 from ..extraction.application import ExtractionApplicationService
 from ..job_logger import complete_job, fail_job, start_job
+from .adapters.http_utils import fetch_html, make_html_parser
+from .structured_extraction import build_structured_summary
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,9 @@ def _normalize_uri_list(item: dict[str, Any], infer_from_text: bool) -> list[str
     seen: set[str] = set()
     urls: list[str] = []
     candidates: list[str] = []
+    url = item.get("url")
+    if url:
+        candidates.append(str(url))
     uri = item.get("uri")
     if uri:
         candidates.append(str(uri))
@@ -78,6 +83,50 @@ def _normalize_uri_list(item: dict[str, Any], infer_from_text: bool) -> list[str
         seen.add(normalized)
         urls.append(normalized)
     return urls
+
+
+def _extract_text_from_html(html: str) -> str:
+    try:
+        parser = make_html_parser(html)
+        for selector in ("article", "main article", "[role='main'] article", "main"):
+            node = parser.css_first(selector)
+            if node is None:
+                continue
+            text = str(node.text(separator="\n", strip=True) or "").strip()
+            if len(text) >= 120:
+                return text[:50000]
+        body = parser.body
+        if body:
+            text = str(body.text(separator="\n", strip=True) or "").strip()
+            return text[:50000]
+    except Exception:
+        return ""
+    return ""
+
+
+def _extract_title_from_html(html: str) -> str:
+    try:
+        parser = make_html_parser(html)
+        node = parser.css_first("title")
+        if node is None:
+            return ""
+        return str(node.text(strip=True) or "").strip()
+    except Exception:
+        return ""
+
+
+def _merge_raw_and_url_text(raw_text: str, url_text: str) -> str:
+    left = str(raw_text or "").strip()
+    right = str(url_text or "").strip()
+    if not left:
+        return right
+    if not right:
+        return left
+    if right in left:
+        return left
+    if left in right:
+        return right
+    return f"{left}\n\n[URL_CONTENT]\n{right}"
 
 
 def _chunk_text_for_extraction(text: str, chunk_size: int, overlap: int, max_chunks: int) -> tuple[list[str], bool]:
@@ -199,32 +248,6 @@ def _resolve_extraction_flags(extraction_mode: str, doc_type: str) -> dict[str, 
     }
 
 
-def _build_structured_summary(
-    extracted_data: dict[str, Any],
-    *,
-    extraction_enabled: bool,
-    chunks_used: int,
-    extraction_mode: str,
-) -> dict[str, Any]:
-    er = extracted_data.get("entities_relations")
-    entities = er.get("entities") if isinstance(er, dict) else []
-    relations = er.get("relations") if isinstance(er, dict) else []
-    summary = {
-        "extraction_enabled": bool(extraction_enabled),
-        "extraction_mode": extraction_mode,
-        "chunks_used": int(chunks_used),
-        "entity_count": len(entities) if isinstance(entities, list) else 0,
-        "relation_count": len(relations) if isinstance(relations, list) else 0,
-        "has_policy": isinstance(extracted_data.get("policy"), dict),
-        "has_market": isinstance(extracted_data.get("market"), dict),
-        "has_sentiment": isinstance(extracted_data.get("sentiment"), dict),
-        "has_company": isinstance(extracted_data.get("company_structured"), dict),
-        "has_product": isinstance(extracted_data.get("product_structured"), dict),
-        "has_operation": isinstance(extracted_data.get("operation_structured"), dict),
-    }
-    return summary
-
-
 def _derive_publish_date_from_extracted(extracted_data: dict[str, Any]) -> date | None:
     policy = extracted_data.get("policy")
     if isinstance(policy, dict):
@@ -253,6 +276,10 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
     chunk_size = int(payload.get("chunk_size") or 2800)
     chunk_overlap = int(payload.get("chunk_overlap") or 200)
     max_chunks = int(payload.get("max_chunks") or 8)
+    fetch_url_when_text_empty = bool(payload.get("fetch_url_when_text_empty", True))
+    fetch_url_also_when_text_present = bool(payload.get("fetch_url_also_when_text_present", True))
+    url_fetch_timeout = float(payload.get("url_fetch_timeout") or 8.0)
+    url_to_market = bool(payload.get("url_to_market", True))
     items = payload.get("items") or []
     if not isinstance(items, list):
         items = []
@@ -263,6 +290,9 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
             "project_key": project_key,
             "source_name": source_name,
             "items_total": len(items),
+            "fetch_url_when_text_empty": fetch_url_when_text_empty,
+            "fetch_url_also_when_text_present": fetch_url_also_when_text_present,
+            "url_to_market": url_to_market,
         },
     )
 
@@ -284,22 +314,58 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                 item = raw_item if isinstance(raw_item, dict) else {}
                 try:
                     text = str(item.get("text") or "").strip()
-                    if not text:
-                        skipped += 1
-                        continue
-
                     uri_list = _normalize_uri_list(item, infer_from_links)
                     uri = uri_list[0] if uri_list else None
+                    fetched_from_url = False
+                    fetched_url_error = None
+                    fetched_url_status = None
+                    fetched_title = ""
+                    should_fetch_url = bool(
+                        uri
+                        and (
+                            (not text and fetch_url_when_text_empty)
+                            or (bool(text) and fetch_url_also_when_text_present)
+                        )
+                    )
+                    if should_fetch_url:
+                        try:
+                            html, response = fetch_html(uri, timeout=float(url_fetch_timeout), retries=1)
+                            fetched_url_status = int(getattr(response, "status_code", 0) or 0)
+                            fetched_text = _extract_text_from_html(html)
+                            if fetched_text:
+                                fetched_from_url = True
+                                fetched_title = _extract_title_from_html(html)
+                                text = _merge_raw_and_url_text(text, fetched_text)
+                        except Exception as exc:  # noqa: BLE001
+                            fetched_url_error = str(exc)
+                    if not text:
+                        skipped += 1
+                        item_results.append(
+                            {
+                                "index": idx,
+                                "status": "skipped_empty_text",
+                                "uri": uri,
+                                "fetch_url_attempted": bool(should_fetch_url),
+                                "fetch_url_error": fetched_url_error,
+                            }
+                        )
+                        continue
+
                     title = str(item.get("title") or "").strip() or None
                     if not title:
                         first_line = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
                         title = first_line[:240] if first_line else None
+                    if not title and fetched_title:
+                        title = fetched_title[:240]
                     summary = str(item.get("summary") or "").strip() or None
                     if not summary:
                         summary = text[:400] if len(text) > 400 else None
 
                     text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-                    doc_type = _normalize_doc_type_for_raw(item.get("doc_type"), default_doc_type)
+                    item_doc_type = item.get("doc_type")
+                    doc_type = _normalize_doc_type_for_raw(item_doc_type, default_doc_type)
+                    if fetched_from_url and url_to_market and not str(item_doc_type or "").strip():
+                        doc_type = "market_info"
                     publish_date_value = _normalize_iso_date(item.get("publish_date"))
 
                     existing = None
@@ -353,6 +419,9 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                     raw_meta = {
                         "uris": uri_list,
                         "uri_count": len(uri_list),
+                        "fetched_from_url": fetched_from_url,
+                        "fetch_url_status": fetched_url_status,
+                        "fetch_url_error": fetched_url_error,
                         "chunk_count": len(chunks),
                         "chunk_size": int(chunk_size),
                         "chunk_overlap": int(chunk_overlap),
@@ -387,7 +456,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                                 if derived:
                                     doc.publish_date = derived
 
-                    extracted_base["_structured_summary"] = _build_structured_summary(
+                    extracted_base["_structured_summary"] = build_structured_summary(
                         extracted_base,
                         extraction_enabled=enable_extraction,
                         chunks_used=len(chunks),
@@ -402,6 +471,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                             "status": "ok",
                             "uri": doc.uri,
                             "uris": uri_list,
+                            "fetched_from_url": fetched_from_url,
                             "doc_type": doc.doc_type,
                         }
                     )

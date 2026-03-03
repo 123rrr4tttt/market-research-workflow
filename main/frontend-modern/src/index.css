@@ -505,6 +505,10 @@ button, select, input, textarea { font-family: inherit; }
   flex-wrap: wrap;
 }
 
+.app-status-bar__chips [role='button'] {
+  cursor: pointer;
+}
+
 .app-status-bar .status-line {
   margin: 0;
 }
@@ -792,6 +796,19 @@ tbody tr:last-child td { border-bottom: 0; }
 .chip-ok { color: var(--ok); background: rgba(220, 252, 231, 0.86); }
 .chip-warn { color: var(--warn); background: rgba(254, 243, 199, 0.88); }
 .chip-danger { color: var(--danger); background: rgba(254, 226, 226, 0.9); }
+
+.app-settings-guide {
+  margin: 10px 0 14px;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  background: rgba(30, 58, 138, 0.16);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.app-settings-guide strong {
+  display: block;
+  margin-bottom: 4px;
+}
 
 .empty-cell { text-align: center; color: var(--text-soft); }
 
@@ -1848,6 +1865,41 @@ button {
   padding: 0;
 }
 
+.gv2-card-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  border: 1px solid var(--gv2-line);
+  background: rgba(4, 9, 18, 0.7);
+}
+
+.gv2-node-card-head .gv2-card-tab {
+  width: auto;
+  min-width: 76px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--gv2-text-soft);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gv2-node-card-head .gv2-card-tab:hover {
+  border-color: color-mix(in srgb, var(--gv2-accent) 42%, var(--gv2-line));
+  color: #e8f4ff;
+  background: rgba(15, 27, 43, 0.78);
+}
+
+.gv2-node-card-head .gv2-card-tab.is-active {
+  border-color: color-mix(in srgb, var(--gv2-accent) 58%, var(--gv2-line-strong));
+  background: linear-gradient(180deg, rgba(34, 73, 109, 0.9) 0%, rgba(18, 49, 79, 0.92) 100%);
+  color: #eaf6ff;
+  box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.2);
+}
+
 @keyframes gv2CapturedPop {
   0% {
     opacity: 0;
@@ -1921,6 +1973,18 @@ button {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--chip-color, var(--gv2-accent-soft)) 32%, transparent);
 }
 
+.main-area.is-dark .gv2-node-chip--element {
+  border-color: color-mix(in srgb, var(--chip-color, var(--gv2-accent-soft)) 56%, #4b5563);
+}
+
+.main-area.is-dark .gv2-node-chip--element:hover {
+  border-color: color-mix(in srgb, var(--chip-color, var(--gv2-accent-soft)) 66%, #64748b);
+}
+
+.main-area.is-dark .gv2-node-chip--element.is-active {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--chip-color, var(--gv2-accent-soft)) 45%, transparent);
+}
+
 .gv2-node-expand-list {
   display: flex;
   flex-wrap: wrap;
@@ -1936,6 +2000,10 @@ button {
   color: #dbeafe;
   padding: 3px 7px;
   font-size: 11px;
+}
+
+.main-area.is-dark .gv2-node-expand-item--element {
+  border-color: color-mix(in srgb, var(--item-color, var(--gv2-accent-soft)) 54%, #4b5563);
 }
 
 .gv2-node-expand-list i {

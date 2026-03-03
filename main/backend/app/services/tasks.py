@@ -657,6 +657,27 @@ def task_crawler_deploy_version(
     metadata: dict[str, Any] | None = None,
     job_id: int | None = None,
 ) -> dict[str, Any]:
+    return _execute_crawler_deploy_version(
+        project=project,
+        version=version,
+        egg_file_path=egg_file_path,
+        egg_content_b64=egg_content_b64,
+        base_url=base_url,
+        metadata=metadata,
+        job_id=job_id,
+    )
+
+
+def _execute_crawler_deploy_version(
+    *,
+    project: str,
+    version: str,
+    egg_file_path: str | None = None,
+    egg_content_b64: str | None = None,
+    base_url: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    job_id: int | None = None,
+) -> dict[str, Any]:
     from .crawlers_mgmt import deploy_scrapy_project_version
     from .job_logger import fail_job, update_job_tracking
 
@@ -684,6 +705,43 @@ def task_crawler_deploy_version(
 
 @celery_app.task
 def task_register_source_library_scrapy_binding(
+    project_key: str,
+    channel_key: str,
+    item_key: str,
+    spider: str,
+    scrapy_project: str,
+    channel_name: str | None = None,
+    item_name: str | None = None,
+    description: str | None = None,
+    arguments: dict[str, Any] | None = None,
+    settings: dict[str, Any] | None = None,
+    item_params_patch: dict[str, Any] | None = None,
+    channel_extra_patch: dict[str, Any] | None = None,
+    item_extra_patch: dict[str, Any] | None = None,
+    enabled: bool = True,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    return _execute_register_source_library_scrapy_binding(
+        project_key=project_key,
+        channel_key=channel_key,
+        item_key=item_key,
+        spider=spider,
+        scrapy_project=scrapy_project,
+        channel_name=channel_name,
+        item_name=item_name,
+        description=description,
+        arguments=arguments,
+        settings=settings,
+        item_params_patch=item_params_patch,
+        channel_extra_patch=channel_extra_patch,
+        item_extra_patch=item_extra_patch,
+        enabled=enabled,
+        job_id=job_id,
+    )
+
+
+def _execute_register_source_library_scrapy_binding(
+    *,
     project_key: str,
     channel_key: str,
     item_key: str,
@@ -760,7 +818,7 @@ def task_orchestrate_crawler_deploy(
 
     try:
         if egg_file_path or egg_content_b64:
-            deploy_result = task_crawler_deploy_version.run(
+            deploy_result = _execute_crawler_deploy_version(
                 project=scrapy_project,
                 version=version,
                 egg_file_path=egg_file_path,
@@ -777,7 +835,7 @@ def task_orchestrate_crawler_deploy(
                 "version": version,
                 "raw": {"reason": "egg artifact not provided; registration-only mode"},
             }
-        register_result = task_register_source_library_scrapy_binding.run(
+        register_result = _execute_register_source_library_scrapy_binding(
             project_key=project_key,
             channel_key=channel_key,
             item_key=item_key,
@@ -822,6 +880,21 @@ def task_crawler_rollback_version(
     base_url: str | None = None,
     job_id: int | None = None,
 ) -> dict[str, Any]:
+    return _execute_crawler_rollback_version(
+        project=project,
+        version=version,
+        base_url=base_url,
+        job_id=job_id,
+    )
+
+
+def _execute_crawler_rollback_version(
+    *,
+    project: str,
+    version: str,
+    base_url: str | None = None,
+    job_id: int | None = None,
+) -> dict[str, Any]:
     from .crawlers_mgmt import rollback_scrapy_project_version
     from .job_logger import fail_job, update_job_tracking
 
@@ -846,6 +919,23 @@ def task_crawler_rollback_version(
 
 @celery_app.task
 def task_disable_source_library_channel_provider_native(
+    project_key: str,
+    channel_key: str,
+    item_key: str | None = None,
+    keep_item_enabled: bool = True,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    return _execute_disable_source_library_channel_provider_native(
+        project_key=project_key,
+        channel_key=channel_key,
+        item_key=item_key,
+        keep_item_enabled=keep_item_enabled,
+        job_id=job_id,
+    )
+
+
+def _execute_disable_source_library_channel_provider_native(
+    *,
     project_key: str,
     channel_key: str,
     item_key: str | None = None,
@@ -892,7 +982,7 @@ def task_orchestrate_crawler_rollback(
     try:
         rollback_result: dict[str, Any] | None = None
         if version:
-            rollback_result = task_crawler_rollback_version.run(
+            rollback_result = _execute_crawler_rollback_version(
                 project=scrapy_project,
                 version=version,
                 base_url=base_url,
@@ -901,7 +991,7 @@ def task_orchestrate_crawler_rollback(
 
         native_result: dict[str, Any] | None = None
         if disable_provider_type_to_native:
-            native_result = task_disable_source_library_channel_provider_native.run(
+            native_result = _execute_disable_source_library_channel_provider_native(
                 project_key=project_key,
                 channel_key=channel_key,
                 item_key=item_key,

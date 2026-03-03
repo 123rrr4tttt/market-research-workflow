@@ -65,6 +65,9 @@ class _FakeSession:
     def execute(self, _query):  # noqa: ANN001
         return _FakeResult(self._docs)
 
+    def commit(self):
+        return None
+
     def __enter__(self):
         return self
 
@@ -318,7 +321,40 @@ class AdminGraphStandardizationIntegrationTestCase(unittest.TestCase):
                 self.assertIn(from_key, node_index, msg=f"path={path} missing from={from_key}")
                 self.assertIn(to_key, node_index, msg=f"path={path} missing to={to_key}")
 
+    def test_admin_graph_shadow_write_calls_writer(self):
+        with patch("app.settings.config.settings.graph_node_projection_write_mode", "shadow"), patch(
+            "app.settings.config.settings.graph_node_projection_read_mode", "a_only"
+        ), patch("app.services.graph.persistence.graph_node_writer.GraphNodeWriter.persist_graph_nodes") as persist_mock:
+            persist_mock.return_value = SimpleNamespace(
+                attempted=1, inserted_or_updated=1, aliases_written=1, edges_written=1, skipped=0
+            )
+            resp = self._call("/api/v1/admin/content-graph?limit=20")
+            self.assertEqual(resp.status_code, 200, msg=resp.text)
+            self._assert_contract(resp.json())
+            self.assertTrue(persist_mock.called)
+
+    def test_admin_graph_b_canary_reads_projection_nodes(self):
+        canary_graph = Graph(
+            nodes={"Post:canary-1": GraphNode(type="Post", id="canary-1", properties={"label": "canary"})},
+            edges=[],
+            schema_version="v1",
+        )
+        with patch("app.settings.config.settings.graph_node_projection_write_mode", "off"), patch(
+            "app.settings.config.settings.graph_node_projection_read_mode", "b_canary"
+        ), patch(
+            "app.settings.config.settings.graph_node_projection_canary_projects", "demo_proj"
+        ), patch(
+            "app.services.graph.persistence.graph_node_reader.GraphNodeReader.load_graph",
+            return_value=canary_graph,
+        ):
+            resp = self._call("/api/v1/admin/content-graph?limit=20")
+            self.assertEqual(resp.status_code, 200, msg=resp.text)
+            body = resp.json()
+            self._assert_contract(body)
+            node_ids = {str(n.get("id")) for n in body["data"]["nodes"]}
+            self.assertIn("canary-1", node_ids)
+            self.assertEqual(len(body["data"]["edges"]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
-

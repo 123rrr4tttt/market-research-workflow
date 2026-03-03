@@ -17,6 +17,7 @@ from .url_pool import _extract_text_from_html
 from ..llm.extraction import extract_structured_sentiment, extract_policy_info
 from ..extraction.application import ExtractionApplicationService
 from ..keyword_generation import generate_social_keywords
+from .structured_extraction import extract_structured_enriched_safe
 from .doc_type_mapper import normalize_doc_type
 from .keyword_library import (
     store_keywords as store_social_keywords,
@@ -201,19 +202,26 @@ def collect_user_social_sentiment(
                                 f"Body: {post.text or ''}",
                             ]
                         ).strip()
-                        try:
-                            enriched = _EXTRACTION_APP.extract_structured_enriched(extraction_text, include_sentiment=True)
-                        except Exception as extraction_exc:  # noqa: BLE001
-                            logger.warning("social extraction failed for uri=%s err=%s", link, extraction_exc)
-                            enriched = None
-                        if enriched:
-                            extracted_data.update(enriched)
+                        extraction_result = extract_structured_enriched_safe(
+                            extraction_app=_EXTRACTION_APP,
+                            payload=extraction_text,
+                            include_market=False,
+                            include_policy=False,
+                            include_sentiment=True,
+                            include_company=True,
+                            include_product=True,
+                            include_operation=True,
+                        )
+                        if extraction_result.data:
+                            extracted_data.update(extraction_result.data)
                             extracted_data["extraction_status"] = "ok"
                             extraction_ok += 1
                         else:
                             extraction_empty += 1
                             extracted_data["extraction_status"] = "failed"
-                            extracted_data["extraction_reason"] = "empty_structured_output"
+                            extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
+                            if extraction_result.error:
+                                extracted_data["extraction_error"] = extraction_result.error
                             extraction_fallback += 1
                     
                     document = Document(
@@ -357,11 +365,28 @@ def collect_policy_and_regulation(
                 }
                 if enable_extraction:
                     text_to_extract = "\n\n".join([x for x in [title.strip(), snippet.strip(), (content or "").strip()] if x])
-                    enriched = _EXTRACTION_APP.extract_structured_enriched(text_to_extract, include_policy=True)
-                    if enriched:
-                        extracted_data.update(enriched)
+                    extraction_result = extract_structured_enriched_safe(
+                        extraction_app=_EXTRACTION_APP,
+                        payload=text_to_extract,
+                        include_market=False,
+                        include_policy=True,
+                        include_sentiment=False,
+                        include_company=True,
+                        include_product=True,
+                        include_operation=True,
+                    )
+                    if extraction_result.data:
+                        extracted_data.update(extraction_result.data)
+                        extracted_data["extraction_status"] = "ok"
                     elif (policy_info := extract_policy_info(text_to_extract)):
                         extracted_data["policy"] = policy_info
+                        extracted_data["extraction_status"] = "fallback"
+                        extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
+                    else:
+                        extracted_data["extraction_status"] = "failed"
+                        extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
+                    if extraction_result.error:
+                        extracted_data["extraction_error"] = extraction_result.error
 
                 document = Document(
                     source_id=source_id,

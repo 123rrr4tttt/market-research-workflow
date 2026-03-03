@@ -87,6 +87,7 @@ def test_process_list_stats_history_consistency_semantics(
                 "inserted_valid": 3,
                 "rejected_count": 1,
                 "rejection_breakdown": {"url_policy_low_value_endpoint": 1},
+                "handler_allocation": {"handler_used": "crawler_pool"},
             },
             started_at=now - timedelta(minutes=5),
             finished_at=None,
@@ -200,6 +201,16 @@ def test_process_list_stats_history_consistency_semantics(
         assert "inserted_valid" in row
         assert "rejected_count" in row
         assert "rejection_breakdown" in row
+        assert "error_code" in row
+        assert "handler_used" in row
+        assert "skip_reason" in row
         assert row["inserted_valid"] is None or isinstance(row["inserted_valid"], int)
         assert isinstance(row["rejected_count"], int)
         assert isinstance(row["rejection_breakdown"], dict)
+        assert row["error_code"] is None or isinstance(row["error_code"], str)
+        assert row["handler_used"] is None or isinstance(row["handler_used"], str)
+        assert row["skip_reason"] is None or isinstance(row["skip_reason"], str)
+
+    running_row = next(item for item in history_data["history"] if item["id"] == 102)
+    assert running_row["handler_used"] == "crawler_pool"
+    assert running_row["skip_reason"] == "url_policy_low_value_endpoint"

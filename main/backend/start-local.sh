@@ -26,6 +26,12 @@ CELERY_PREFETCH_MULTIPLIER="${CELERY_PREFETCH_MULTIPLIER:-2}"
 CELERY_MAX_TASKS_PER_CHILD="${CELERY_MAX_TASKS_PER_CHILD:-100}"
 CELERY_MAX_MEMORY_PER_CHILD="${CELERY_MAX_MEMORY_PER_CHILD:-500000}"
 CELERY_QUEUES="${CELERY_QUEUES:-celery}"
+CELERY_WORKER_NODENAME="${CELERY_WORKER_NODENAME:-}"
+if [[ "$OSTYPE" == darwin* ]]; then
+    CELERY_POOL="${CELERY_POOL:-solo}"
+else
+    CELERY_POOL="${CELERY_POOL:-prefork}"
+fi
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
 REDIS_HOST="${REDIS_HOST:-localhost}"
@@ -579,7 +585,13 @@ ensure_local_worker_running() {
 
     echo ""
     echo "🧵 启动本机 Celery worker..."
+    local worker_nodename="$CELERY_WORKER_NODENAME"
+    if [ -z "$worker_nodename" ]; then
+        worker_nodename="celery-local-$(date +%s)@%h"
+    fi
     nohup "${VENV_DIR}/bin/celery" -A app.celery_app worker \
+        --hostname="${worker_nodename}" \
+        --pool="${CELERY_POOL}" \
         --loglevel="${CELERY_LOG_LEVEL}" \
         --concurrency="${CELERY_CONCURRENCY}" \
         --prefetch-multiplier="${CELERY_PREFETCH_MULTIPLIER}" \

@@ -301,6 +301,8 @@ def unified_search_by_item(
     pool_scope: str = "project",
     pool_source: str = "unified_search",
     probe_timeout: float = 10.0,
+    sitemap_max_depth: int = 2,
+    sitemap_max_sitemaps: int = 50,
     auto_ingest: bool = False,
     ingest_limit: int = 10,
     enable_extraction: bool = True,
@@ -331,6 +333,8 @@ def unified_search_by_item(
         pool_scope=pool_scope,
         pool_source=pool_source,
         probe_timeout=probe_timeout,
+        sitemap_max_depth=sitemap_max_depth,
+        sitemap_max_sitemaps=sitemap_max_sitemaps,
         auto_ingest=auto_ingest,
         ingest_limit=ingest_limit,
         enable_extraction=enable_extraction,
@@ -348,6 +352,8 @@ def unified_search_by_item_payload(
     pool_scope: str = "project",
     pool_source: str = "unified_search",
     probe_timeout: float = 10.0,
+    sitemap_max_depth: int = 2,
+    sitemap_max_sitemaps: int = 50,
     auto_ingest: bool = False,
     ingest_limit: int = 10,
     enable_extraction: bool = True,
@@ -438,7 +444,12 @@ def unified_search_by_item_payload(
                 for u in picked:
                     _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "rss"})
             elif etype == "sitemap":
-                urls = _collect_sitemap_urls(sitemap_url=base_url, timeout=probe_timeout)
+                urls = _collect_sitemap_urls(
+                    sitemap_url=base_url,
+                    timeout=probe_timeout,
+                    max_depth=max(0, int(sitemap_max_depth)),
+                    max_sitemaps=max(1, int(sitemap_max_sitemaps)),
+                )
                 picked, used_fallback = _filter_urls_by_terms_with_fallback(
                     urls,
                     terms,

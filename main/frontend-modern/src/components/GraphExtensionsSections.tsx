@@ -143,7 +143,7 @@ export default function GraphExtensionsSections({
                 <button
                   key={group.label}
                   type="button"
-                  className={`gv2-node-chip ${expandedElementLabel === group.label ? 'is-active' : ''}`}
+                  className={`gv2-node-chip gv2-node-chip--element ${expandedElementLabel === group.label ? 'is-active' : ''}`}
                   style={{ '--chip-color': color } as CSSProperties}
                   onClick={() => setExpandedElementLabel((prev) => (prev === group.label ? null : group.label))}
                 >
@@ -155,7 +155,11 @@ export default function GraphExtensionsSections({
           {expandedElementLabel ? (
             <div className="gv2-node-expand-list">
               {(nodeElementGroups.find((group) => group.label === expandedElementLabel)?.items || []).map((item) => (
-                <span key={item.id}>
+                <span
+                  key={item.id}
+                  className="gv2-node-expand-item gv2-node-expand-item--element"
+                  style={{ '--item-color': elementColorForLabel?.(item.label || expandedElementLabel) || '#7dd3fc' } as CSSProperties}
+                >
                   <i style={{ background: elementColorForLabel?.(item.label || expandedElementLabel) || '#7dd3fc' }} />
                   {item.value}
                 </span>

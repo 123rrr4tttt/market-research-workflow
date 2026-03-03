@@ -76,6 +76,7 @@ def _finalize_graph_response(
     *,
     graph_kind: Literal["social", "market", "policy"],
     project_key: str,
+    session=None,
     documents: Optional[list[Document]] = None,
     market_deep_view: bool = False,
     topic_scope: Optional[Literal["company", "product", "operation"]] = None,
@@ -87,9 +88,20 @@ def _finalize_graph_response(
     2) ensemble-based node projection by graph kind
     3) export with stable fallback to empty graph
     """
+    from app.services.graph.compat import compare_graphs
     from app.services.graph.doc_types import resolve_graph_node_combo, resolve_graph_topic_scope_entities
     from app.services.graph.exporter import export_to_json
+    from app.services.graph.persistence import GraphNodeReader, GraphNodeWriter
     from app.services.graph.projection import project_graph_by_node_types
+    from app.settings.config import settings
+
+    def _canary_projects() -> set[str]:
+        raw = str(getattr(settings, "graph_node_projection_canary_projects", "") or "")
+        return {x.strip() for x in raw.split(",") if x.strip()}
+
+    read_mode = str(getattr(settings, "graph_node_projection_read_mode", "a_only") or "a_only").strip().lower()
+    write_mode = str(getattr(settings, "graph_node_projection_write_mode", "shadow") or "shadow").strip().lower()
+    use_b_read = read_mode == "b_primary" or (read_mode == "b_canary" and project_key in _canary_projects())
 
     if graph_kind == "market" and market_deep_view:
         try:
@@ -121,7 +133,44 @@ def _finalize_graph_response(
             merged_combo.append(key)
         combo = merged_combo
 
-    graph = project_graph_by_node_types(graph, combo)
+    a_graph = project_graph_by_node_types(graph, combo)
+    graph = a_graph
+
+    if write_mode in {"shadow", "on"} and session is not None:
+        try:
+            summary = GraphNodeWriter(session, schema_version=str(getattr(a_graph, "schema_version", "v1"))).persist_graph_nodes(a_graph)
+            session.commit()
+            logger.info(
+                "graph_b_write project=%s kind=%s mode=%s attempted=%s written=%s aliases=%s edges=%s skipped=%s",
+                project_key,
+                graph_kind,
+                write_mode,
+                summary.attempted,
+                summary.inserted_or_updated,
+                summary.aliases_written,
+                summary.edges_written,
+                summary.skipped,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("graph_b_write_failed project=%s kind=%s mode=%s err=%s", project_key, graph_kind, write_mode, exc)
+
+    if use_b_read and session is not None:
+        try:
+            b_graph = GraphNodeReader(session).load_graph(limit=10000)
+            if b_graph.nodes:
+                b_graph = project_graph_by_node_types(b_graph, combo)
+                diff = compare_graphs(a_graph, b_graph)
+                logger.info(
+                    "graph_b_read_enabled project=%s kind=%s node_count_diff=%s edge_count_diff=%s type_overlap=%.4f",
+                    project_key,
+                    graph_kind,
+                    diff.node_count_diff,
+                    diff.edge_count_diff,
+                    diff.node_type_overlap_ratio,
+                )
+                graph = b_graph
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("graph_b_read_fallback_to_a project=%s kind=%s err=%s", project_key, graph_kind, exc)
 
     try:
         return success_response(export_to_json(graph))
@@ -209,9 +258,10 @@ class TopicExtractRequest(BaseModel):
 
 class RawImportItem(BaseModel):
     title: Optional[str] = None
+    url: Optional[str] = None
     uri: Optional[str] = None
     uris: Optional[List[str]] = None
-    text: str = Field(..., min_length=1, description="粘贴文本/文件文本内容")
+    text: Optional[str] = Field(default=None, description="粘贴文本/文件文本内容；可留空并用 url/uri 自动抓取")
     summary: Optional[str] = None
     doc_type: Optional[str] = None
     publish_date: Optional[str] = None
@@ -230,6 +280,10 @@ class RawImportRequest(BaseModel):
     chunk_size: int = Field(default=2800, ge=500, le=8000, description="大文本分片长度（字符）")
     chunk_overlap: int = Field(default=200, ge=0, le=1000, description="分片重叠长度（字符）")
     max_chunks: int = Field(default=8, ge=1, le=50, description="单条文本最多分片数")
+    fetch_url_when_text_empty: bool = Field(default=True, description="text 为空时是否尝试抓取 url/uri 正文")
+    fetch_url_also_when_text_present: bool = Field(default=True, description="text 不为空时是否仍抓取 url/uri 正文并合并")
+    url_fetch_timeout: float = Field(default=8.0, ge=1.0, le=30.0, description="URL 抓取超时时间（秒）")
+    url_to_market: bool = Field(default=True, description="URL 抓取成功且未显式指定 doc_type 时，按 market_info 入库")
     async_mode: bool = Field(default=False, description="是否走 Celery 异步任务")
 
 
@@ -1826,6 +1880,7 @@ def get_content_graph(
                     graph,
                     graph_kind="social",
                     project_key=project_key,
+                    session=session,
                 )
             
     except Exception as e:
@@ -1986,6 +2041,7 @@ def get_market_graph(
                     graph,
                     graph_kind="market",
                     project_key=project_key,
+                    session=session,
                     documents=documents,
                     market_deep_view=deep_view,
                     topic_scope=topic_scope,
@@ -2141,6 +2197,7 @@ def get_policy_graph(
                     graph,
                     graph_kind="policy",
                     project_key=project_key,
+                    session=session,
                 )
 
     except Exception as exc:  # noqa: BLE001

@@ -1,7 +1,8 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import FigmaSideNav, { type NavMode } from '../../components/FigmaSideNav'
 import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKey, injectInitialProject, listProjects } from '../../lib/api'
+import { getLocalJson, setLocalJson } from '../../lib/localStore'
 import { queryKeys } from '../../lib/queryKeys'
 import { defaultNavMode, hashByMode, parseLegacyHashToMode } from '../navigation'
 
@@ -20,13 +21,26 @@ const SettingsPage = lazy(() => import('../../pages/SettingsPage'))
 const WorkflowPage = lazy(() => import('../../pages/WorkflowPage'))
 
 type FigmaTheme = 'light' | 'dark' | 'brand'
+type StatusIntentMode = 'sysSettings' | 'sysLlm' | 'sysCrawler' | 'sysBackend'
+type StatusIntentGuide = 'llm' | 'search' | 'news' | 'db' | 'es'
+type StatusNavIntent = {
+  mode: StatusIntentMode
+  focusField?: string
+  guide?: StatusIntentGuide
+  ts: number
+}
+
+const SHELL_PREFS_KEY = 'app_shell_prefs_v1'
+const STATUS_NAV_INTENT_KEY = 'app_status_nav_intent_v1'
 
 export default function AppShell() {
+  const shellPrefs = getLocalJson<{ lastMode?: NavMode; pendingProjectKey?: string }>(SHELL_PREFS_KEY, {})
+  const defaultMode = parseLegacyHashToMode(window.location.hash) || shellPrefs.lastMode || defaultNavMode
   const queryClient = useQueryClient()
-  const [viewMode, setViewMode] = useState<NavMode>(() => parseLegacyHashToMode(window.location.hash) || defaultNavMode)
+  const [viewMode, setViewMode] = useState<NavMode>(defaultMode)
   const [figmaTheme] = useState<FigmaTheme>('dark')
   const [projectKey, setProjectKeyState] = useState(getProjectKey())
-  const [pendingProjectKey, setPendingProjectKey] = useState(projectKey)
+  const [pendingProjectKey, setPendingProjectKey] = useState(() => shellPrefs.pendingProjectKey || projectKey)
   const [switchMessage, setSwitchMessage] = useState('')
 
   const health = useQuery({ queryKey: queryKeys.health.all, queryFn: getHealth })
@@ -128,6 +142,33 @@ export default function AppShell() {
     return 'chip chip-danger'
   }
 
+  const openIntentPage = ({
+    mode,
+    focusField,
+    guide,
+  }: {
+    mode: StatusIntentMode
+    focusField?: string
+    guide?: StatusIntentGuide
+  }) => {
+    setLocalJson<StatusNavIntent>(STATUS_NAV_INTENT_KEY, {
+      mode,
+      focusField,
+      guide,
+      ts: Date.now(),
+    })
+    handleModeChange(mode)
+  }
+
+  const onChipKeyDown = (
+    event: KeyboardEvent<HTMLSpanElement>,
+    action: () => void,
+  ) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    action()
+  }
+
   const modernContent = (() => {
     if (viewMode === 'overviewTasks') return <ProcessPage projectKey={projectKey} />
     if (viewMode === 'flowProcessing') return <ProcessPage projectKey={projectKey} variant="processing" />
@@ -179,9 +220,14 @@ export default function AppShell() {
 
   const handleModeChange = (mode: NavMode) => {
     setViewMode(mode)
+    setLocalJson(SHELL_PREFS_KEY, { lastMode: mode, pendingProjectKey })
     const nextHash = hashByMode[mode]
     if (nextHash && window.location.hash !== nextHash) window.location.hash = nextHash
   }
+
+  useEffect(() => {
+    setLocalJson(SHELL_PREFS_KEY, { lastMode: viewMode, pendingProjectKey })
+  }, [viewMode, pendingProjectKey])
 
   return (
     <div className="layout-root">
@@ -232,15 +278,96 @@ export default function AppShell() {
           {switchMessage ? <span className="status-line app-status-bar__message">{switchMessage}</span> : null}
         </div>
         <div className="app-status-bar__chips">
-          <span className={statusChipClass(health.data?.status)}>API {health.data?.status || 'loading'}</span>
-          <span className={statusChipClass(deepHealth.data?.database)}>DB {deepHealth.data?.database || 'loading'}</span>
-          <span className={statusChipClass(deepHealth.data?.elasticsearch)}>ES {deepHealth.data?.elasticsearch || 'loading'}</span>
-          <span className={llmKeyReady ? 'chip chip-ok' : 'chip chip-danger'}>LLM key {llmKeyReady ? 'ready' : 'missing'}</span>
-          <span className={searchKeyReady ? 'chip chip-ok' : 'chip chip-warn'}>Search key {searchKeyReady ? 'ready' : 'missing'}</span>
-          <span className={newsKeyReady ? 'chip chip-ok' : 'chip chip-warn'}>News key {newsKeyReady ? 'ready' : 'missing'}</span>
-          <span className={dbConfigReady ? 'chip chip-ok' : 'chip chip-warn'}>DB url {dbConfigReady ? 'ready' : 'missing'}</span>
-          <span className="chip chip-warn">LLM {health.data?.provider || '-'}</span>
-          <span className="chip chip-warn">ENV {health.data?.env || '-'}</span>
+          <span
+            className={statusChipClass(health.data?.status)}
+            role="button"
+            tabIndex={0}
+            onClick={() => openIntentPage({ mode: 'sysBackend' })}
+            onKeyDown={(event) => onChipKeyDown(event, () => openIntentPage({ mode: 'sysBackend' }))}
+            title="查看后端健康与错误状态"
+          >
+            API {health.data?.status || 'loading'}
+          </span>
+          <span
+            className={statusChipClass(deepHealth.data?.database)}
+            role="button"
+            tabIndex={0}
+            onClick={() => openIntentPage({ mode: 'sysSettings', focusField: 'DATABASE_URL', guide: 'db' })}
+            onKeyDown={(event) => onChipKeyDown(event, () => openIntentPage({ mode: 'sysSettings', focusField: 'DATABASE_URL', guide: 'db' }))}
+            title="跳转数据库连接配置"
+          >
+            DB {deepHealth.data?.database || 'loading'}
+          </span>
+          <span
+            className={statusChipClass(deepHealth.data?.elasticsearch)}
+            role="button"
+            tabIndex={0}
+            onClick={() => openIntentPage({ mode: 'sysSettings', focusField: 'ES_URL', guide: 'es' })}
+            onKeyDown={(event) => onChipKeyDown(event, () => openIntentPage({ mode: 'sysSettings', focusField: 'ES_URL', guide: 'es' }))}
+            title="跳转 Elasticsearch 配置"
+          >
+            ES {deepHealth.data?.elasticsearch || 'loading'}
+          </span>
+          <span
+            className={llmKeyReady ? 'chip chip-ok' : 'chip chip-danger'}
+            role="button"
+            tabIndex={0}
+            onClick={() => openIntentPage({ mode: 'sysLlm', focusField: 'OPENAI_API_KEY', guide: 'llm' })}
+            onKeyDown={(event) => onChipKeyDown(event, () => openIntentPage({ mode: 'sysLlm', focusField: 'OPENAI_API_KEY', guide: 'llm' }))}
+            title="跳转 LLM Key 设置与指引"
+          >
+            LLM key {llmKeyReady ? 'ready' : 'missing'}
+          </span>
+          <span
+            className={searchKeyReady ? 'chip chip-ok' : 'chip chip-warn'}
+            role="button"
+            tabIndex={0}
+            onClick={() => openIntentPage({ mode: 'sysSettings', focusField: 'SERPAPI_KEY', guide: 'search' })}
+            onKeyDown={(event) => onChipKeyDown(event, () => openIntentPage({ mode: 'sysSettings', focusField: 'SERPAPI_KEY', guide: 'search' }))}
+            title="跳转搜索 API Key 设置与安装指引"
+          >
+            Search key {searchKeyReady ? 'ready' : 'missing'}
+          </span>
+          <span
+            className={newsKeyReady ? 'chip chip-ok' : 'chip chip-warn'}
+            role="button"
+            tabIndex={0}
+            onClick={() => openIntentPage({ mode: 'sysSettings', focusField: 'NEWS_API_KEY', guide: 'news' })}
+            onKeyDown={(event) => onChipKeyDown(event, () => openIntentPage({ mode: 'sysSettings', focusField: 'NEWS_API_KEY', guide: 'news' }))}
+            title="跳转新闻 API Key 设置与安装指引"
+          >
+            News key {newsKeyReady ? 'ready' : 'missing'}
+          </span>
+          <span
+            className={dbConfigReady ? 'chip chip-ok' : 'chip chip-warn'}
+            role="button"
+            tabIndex={0}
+            onClick={() => openIntentPage({ mode: 'sysSettings', focusField: 'DATABASE_URL', guide: 'db' })}
+            onKeyDown={(event) => onChipKeyDown(event, () => openIntentPage({ mode: 'sysSettings', focusField: 'DATABASE_URL', guide: 'db' }))}
+            title="跳转数据库 URL 设置"
+          >
+            DB url {dbConfigReady ? 'ready' : 'missing'}
+          </span>
+          <span
+            className="chip chip-warn"
+            role="button"
+            tabIndex={0}
+            onClick={() => openIntentPage({ mode: 'sysLlm', focusField: 'LLM_PROVIDER', guide: 'llm' })}
+            onKeyDown={(event) => onChipKeyDown(event, () => openIntentPage({ mode: 'sysLlm', focusField: 'LLM_PROVIDER', guide: 'llm' }))}
+            title="跳转 LLM 提供商配置"
+          >
+            LLM {health.data?.provider || '-'}
+          </span>
+          <span
+            className="chip chip-warn"
+            role="button"
+            tabIndex={0}
+            onClick={() => openIntentPage({ mode: 'sysSettings' })}
+            onKeyDown={(event) => onChipKeyDown(event, () => openIntentPage({ mode: 'sysSettings' }))}
+            title="跳转系统设置页"
+          >
+            ENV {health.data?.env || '-'}
+          </span>
         </div>
       </section>
 

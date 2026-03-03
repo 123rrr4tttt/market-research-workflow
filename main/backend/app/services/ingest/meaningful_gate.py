@@ -47,6 +47,55 @@ _LINE_NOISE_MARKERS = (
     "self.__next_f",
     "var bodycacheable",
 )
+_NAV_NOISE_WORDS = {
+    "home",
+    "news",
+    "sport",
+    "sports",
+    "business",
+    "tech",
+    "technology",
+    "science",
+    "video",
+    "videos",
+    "live",
+    "menu",
+    "search",
+    "about",
+    "contact",
+    "help",
+    "account",
+    "login",
+    "log",
+    "signin",
+    "sign",
+    "register",
+    "subscribe",
+    "privacy",
+    "policy",
+    "terms",
+    "cookie",
+    "cookies",
+    "settings",
+    "首页",
+    "新闻",
+    "体育",
+    "科技",
+    "视频",
+    "菜单",
+    "搜索",
+    "关于",
+    "联系",
+    "登录",
+    "注册",
+    "隐私",
+    "条款",
+    "设置",
+}
+_NOISE_LINE_PATTERNS = (
+    re.compile(r"^\s*(privacy|terms|cookie|all rights reserved)\b", re.IGNORECASE),
+    re.compile(r"^\s*(sign in|log in|register|subscribe)\b", re.IGNORECASE),
+)
 _JS_TEMPLATE_MARKERS = (
     "__dopostback",
     "__eventtarget",
@@ -67,6 +116,7 @@ _RSS_FEED_SHELL_MARKERS = (
     "feed",
 )
 _MOJIBAKE_MARKERS = ("Ã", "Â", "�", "â€”", "â€œ", "â€", "è", "æ", "é©¾", "å·", "ç")
+_REASON_CODE_RE = re.compile(r"[^a-z0-9_]+")
 
 
 def _parse_config_list(raw: Any, defaults: tuple[str, ...]) -> list[str]:
@@ -90,20 +140,38 @@ def _parse_config_list(raw: Any, defaults: tuple[str, ...]) -> list[str]:
     return values or list(defaults)
 
 
+def normalize_reason_code(reason: Any, *, default: str = "unknown_rejection_reason") -> str:
+    raw = str(reason or "").strip().lower()
+    if not raw:
+        return default
+    normalized = _REASON_CODE_RE.sub("_", raw)
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
+    return normalized or default
+
+
 def _resolve_gate_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     cfg = dict(config or {})
+    try:
+        settings_map = settings.model_dump()
+    except Exception:
+        settings_map = {}
+    strict_gate_default = bool(settings_map.get("ingest_enable_strict_gate", False))
+    low_value_domains_default = settings_map.get("ingest_low_value_domains", ",".join(_DEFAULT_LOW_VALUE_DOMAINS))
+    low_value_paths_default = settings_map.get("ingest_low_value_path_keywords", ",".join(_DEFAULT_LOW_VALUE_PATH_KEYWORDS))
+    shell_signatures_default = settings_map.get("ingest_shell_signatures", ",".join(_DEFAULT_SHELL_SIGNATURES))
+    min_semantic_len_default = int(settings_map.get("ingest_min_semantic_len", 500))
     return {
-        "enable_strict_gate": bool(cfg.get("enable_strict_gate", bool(settings.ingest_enable_strict_gate))),
+        "enable_strict_gate": bool(cfg.get("enable_strict_gate", strict_gate_default)),
         "low_value_domains": [
-            x.lower() for x in _parse_config_list(cfg.get("low_value_domains", settings.ingest_low_value_domains), _DEFAULT_LOW_VALUE_DOMAINS)
+            x.lower() for x in _parse_config_list(cfg.get("low_value_domains", low_value_domains_default), _DEFAULT_LOW_VALUE_DOMAINS)
         ],
         "low_value_path_keywords": [
-            x.lower() for x in _parse_config_list(cfg.get("low_value_path_keywords", settings.ingest_low_value_path_keywords), _DEFAULT_LOW_VALUE_PATH_KEYWORDS)
+            x.lower() for x in _parse_config_list(cfg.get("low_value_path_keywords", low_value_paths_default), _DEFAULT_LOW_VALUE_PATH_KEYWORDS)
         ],
         "shell_signatures": [
-            x.lower() for x in _parse_config_list(cfg.get("shell_signatures", settings.ingest_shell_signatures), _DEFAULT_SHELL_SIGNATURES)
+            x.lower() for x in _parse_config_list(cfg.get("shell_signatures", shell_signatures_default), _DEFAULT_SHELL_SIGNATURES)
         ],
-        "min_semantic_len": int(cfg.get("min_semantic_len", int(settings.ingest_min_semantic_len))),
+        "min_semantic_len": int(cfg.get("min_semantic_len", min_semantic_len_default)),
     }
 
 
@@ -153,12 +221,36 @@ def normalize_content_for_ingest(content: str, *, max_chars: int = 50000) -> str
     if len(raw_lines) <= 1:
         raw_lines = [line.strip() for line in re.split(r"(?<=[.!?])\s+", text) if line and line.strip()]
     kept: list[str] = []
-    for line in raw_lines:
+    seen_kept: set[str] = set()
+
+    def _is_noise_line(line: str) -> bool:
         lower = line.lower()
         if any(marker in lower for marker in _LINE_NOISE_MARKERS):
+            return True
+        if any(p.search(line) for p in _NOISE_LINE_PATTERNS):
+            return True
+        script_hits = sum(1 for marker in _JS_TEMPLATE_MARKERS if marker in lower)
+        if script_hits >= 2 and len(line) < 240:
+            return True
+        tokens = re.findall(r"[a-zA-Z\u4e00-\u9fff]+", lower)
+        if len(tokens) >= 4:
+            nav_hits = sum(1 for t in tokens if t in _NAV_NOISE_WORDS)
+            if nav_hits / float(len(tokens)) >= 0.6 and len(tokens) <= 24:
+                return True
+        sep_hits = line.count("|") + line.count("›") + line.count("»") + line.count("•")
+        if sep_hits >= 3 and len(tokens) <= 24:
+            return True
+        return False
+
+    for line in raw_lines:
+        if _is_noise_line(line):
             continue
         if len(line) < 3:
             continue
+        key = line.strip().lower()
+        if key in seen_kept:
+            continue
+        seen_kept.add(key)
         kept.append(line)
     normalized = "\n".join(kept).strip()
     if not normalized:

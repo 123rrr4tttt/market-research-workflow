@@ -19,6 +19,12 @@
 
 ## 最新补充
 
+- `development-plans/CURRENT_DEV` 新增“先平台化、后向量化”改造 GM：
+  - [01_platformization-first-vectorization-gm-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/01_platformization-first-vectorization-gm-2026-03-03.md)
+  - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/02_atomic-zero-regression-tasklist-2026-03-03.md)
+  - [03_ingest-platformization-to-cleanup-optimization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md)
+  - [04_adjusted-graph-node-phase-b-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/04_adjusted-graph-node-phase-b-plan-2026-03-03.md)
+  - [05_graph-node-standardization-overall-completion-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/05_graph-node-standardization-overall-completion-2026-03-03.md)
 - `development-plans/CURRENT_DEV` 新增单 URL 优先方案：
   - [01_single-url-first-ingest-allocation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)
 - `development-plans/CURRENT_DEV` 新增源时间窗与智能时间戳方案：

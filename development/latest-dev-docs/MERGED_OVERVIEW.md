@@ -1,6 +1,6 @@
 # 合并文档总览
 
-Updated: 2026-03-02 PST
+Updated: 2026-03-03 PST
 
 ## 目录级合并结果
 
@@ -21,6 +21,12 @@ Updated: 2026-03-02 PST
 ## 最近新增
 
 - `development-plans/CURRENT_DEV`：
+  - [01_platformization-first-vectorization-gm-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/01_platformization-first-vectorization-gm-2026-03-03.md)
+  - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/02_atomic-zero-regression-tasklist-2026-03-03.md)
+  - [03_ingest-platformization-to-cleanup-optimization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md)
+  - [04_adjusted-graph-node-phase-b-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/04_adjusted-graph-node-phase-b-plan-2026-03-03.md)
+  - [05_graph-node-standardization-overall-completion-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/05_graph-node-standardization-overall-completion-2026-03-03.md)
+    - 增补：`single_url` 分层为入口/编排/结构化/入库路由四层；结构化模块从单链路中解耦，供 `single_url + url_pool + raw_import + social + market_web` 统一复用。
   - [01_single-url-first-ingest-allocation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)
   - [01_source-time-window-smart-timestamp-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/01_source-time-window-smart-timestamp-plan-2026-03-02.md)
   - [02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md)

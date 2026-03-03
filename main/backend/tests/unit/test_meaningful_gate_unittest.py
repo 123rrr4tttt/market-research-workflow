@@ -11,7 +11,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 try:
-    from app.services.ingest.meaningful_gate import content_quality_check, normalize_content_for_ingest, url_policy_check
+    from app.services.ingest.meaningful_gate import (
+        content_quality_check,
+        normalize_content_for_ingest,
+        normalize_reason_code,
+        url_policy_check,
+    )
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -96,6 +101,19 @@ class MeaningfulGateUnitTestCase(unittest.TestCase):
         self.assertNotIn("Skip to content", normalized)
         self.assertNotIn("Accessibility Help", normalized)
 
+    def test_normalize_content_for_ingest_removes_nav_shell_lines_and_keeps_body(self):
+        raw = (
+            "Home | News | Sport | Business | Technology | Sign in | Register\n"
+            "Privacy Policy | Terms of Use | Cookie Settings\n"
+            "Embodied AI device shipments increased 37 percent year over year in 2025.\n"
+            "The company focused on one high-frequency workflow and improved retention.\n"
+        )
+        normalized = normalize_content_for_ingest(raw, max_chars=2000)
+        self.assertIn("Embodied AI device shipments increased", normalized)
+        self.assertIn("high-frequency workflow", normalized)
+        self.assertNotIn("Home | News | Sport", normalized)
+        self.assertNotIn("Privacy Policy", normalized)
+
     def test_content_quality_rejects_link_farm_like(self):
         links = " ".join([f"https://example.com/{idx}" for idx in range(30)])
         decision = content_quality_check(
@@ -167,6 +185,10 @@ class MeaningfulGateUnitTestCase(unittest.TestCase):
         self.assertTrue(decision.accepted)
         self.assertFalse(decision.blocked)
         self.assertEqual(decision.reason, "disabled")
+
+    def test_normalize_reason_code_generates_stable_snake_case(self):
+        self.assertEqual(normalize_reason_code("Low Value/Page"), "low_value_page")
+        self.assertEqual(normalize_reason_code(""), "unknown_rejection_reason")
 
 
 if __name__ == "__main__":

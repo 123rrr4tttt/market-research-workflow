@@ -64,7 +64,12 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
             id=7,
             status="running",
             job_type="source_library_run",
-            params={"item_key": "handler.cluster.rss", "project_key": "demo_proj"},
+            params={
+                "item_key": "handler.cluster.rss",
+                "project_key": "demo_proj",
+                "handler_allocation": {"handler_used": "crawler_pool"},
+                "rejection_breakdown": {"url_policy_low_value_endpoint": 1},
+            },
             started_at=datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc),
             error=None,
             external_provider="scrapyd",
@@ -85,6 +90,9 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
         self.assertEqual(info["external_job_id"], "spider-job-77")
         self.assertEqual(info["progress"]["external_provider"], "scrapyd")
         self.assertEqual(info["progress"]["external_job_id"], "spider-job-77")
+        self.assertEqual(info["handler_used"], "crawler_pool")
+        self.assertEqual(info["skip_reason"], "url_policy_low_value_endpoint")
+        self.assertIsNone(info["error_code"])
 
         self.assertEqual(logs_resp["status"], "ok")
         logs = logs_resp["data"]

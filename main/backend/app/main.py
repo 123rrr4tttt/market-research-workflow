@@ -322,11 +322,7 @@ def metrics():
 register_ui_routes(app, templates=templates, template_dir=TEMPLATE_DIR, usa_map_path=USA_MAP_PATH)
 
 
-# Mount API routers (placeholders; will be populated as modules are implemented)
-try:
-    from .api import router as api_router  # type: ignore
+# Mount API routers.
+from .api import router as api_router  # type: ignore
 
-    app.include_router(api_router, prefix="/api/v1")
-except Exception:
-    # Safe to skip during initial bootstrapping when modules are empty
-    pass
+app.include_router(api_router, prefix="/api/v1")

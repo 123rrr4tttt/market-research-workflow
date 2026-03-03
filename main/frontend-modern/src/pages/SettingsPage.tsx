@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Settings2 } from 'lucide-react'
 import {
@@ -8,13 +8,35 @@ import {
   updateEnvSettings,
   updateProjectLlmTemplate,
 } from '../lib/api'
+import { hashByMode } from '../app/navigation'
 import { isApiClientError } from '../lib/api/client'
+import { getLocalJson, removeLocal, setLocalJson } from '../lib/localStore'
 import type { EnvSettings, LlmServiceConfigItem, LlmTemplateUpdatePayload } from '../lib/types'
 
 export type SettingsPageProps = {
   projectKey: string
   variant?: 'settings' | 'llm'
 }
+
+type StatusIntentMode = 'sysSettings' | 'sysLlm' | 'sysCrawler' | 'sysBackend'
+type StatusIntentGuide = 'llm' | 'search' | 'news' | 'db' | 'es'
+type StatusNavIntent = {
+  mode: StatusIntentMode
+  focusField?: string
+  guide?: StatusIntentGuide
+  ts: number
+}
+
+type SettingsDraftCache = {
+  envDraft: EnvSettings | null
+  templateDrafts: Record<string, ProjectLlmTemplateDraft>
+  copySourceProjectKey: string
+  copyOverwrite: boolean
+  expandedService: string | null
+}
+
+const STATUS_NAV_INTENT_KEY = 'app_status_nav_intent_v1'
+const SETTINGS_DRAFT_PREFIX = 'settings_page_draft_v1'
 
 const ENV_KEYS = [
   'DATABASE_URL',
@@ -127,6 +149,9 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
   const [copyMessage, setCopyMessage] = useState('')
   const [expandedService, setExpandedService] = useState<string | null>(null)
   const [savingService, setSavingService] = useState<string | null>(null)
+  const [guideType, setGuideType] = useState<StatusIntentGuide | null>(null)
+  const [focusField, setFocusField] = useState('')
+  const draftStorageKey = useMemo(() => `${SETTINGS_DRAFT_PREFIX}:${projectKey}:${variant}`, [projectKey, variant])
 
   const envSettings = useQuery({
     queryKey: ['env-settings'],
@@ -218,6 +243,62 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
   })
 
   const hasAnyEnvValue = Object.values(effectiveEnvDraft).some((value) => String(value || '').trim().length > 0)
+  const envSnippet = useMemo(() => {
+    if (guideType === 'llm') {
+      return ['LLM_PROVIDER=openai', 'OPENAI_API_KEY=your_openai_key', 'OPENAI_API_BASE='].join('\n')
+    }
+    if (guideType === 'search') {
+      return ['SERPAPI_KEY=your_serpapi_key', 'GOOGLE_SEARCH_API_KEY=', 'GOOGLE_SEARCH_CSE_ID=', 'SERPSTACK_KEY='].join('\n')
+    }
+    if (guideType === 'news') {
+      return ['NEWS_API_KEY=your_news_api_key'].join('\n')
+    }
+    if (guideType === 'db') {
+      return ['DATABASE_URL=postgresql://user:password@host:5432/dbname'].join('\n')
+    }
+    if (guideType === 'es') {
+      return ['ES_URL=http://localhost:9200'].join('\n')
+    }
+    return ''
+  }, [guideType])
+
+  useEffect(() => {
+    const cached = getLocalJson<SettingsDraftCache | null>(draftStorageKey, null)
+    if (!cached) return
+    setEnvDraft(cached.envDraft ?? null)
+    setTemplateDrafts(cached.templateDrafts || {})
+    setCopySourceProjectKey(cached.copySourceProjectKey || '')
+    setCopyOverwrite(Boolean(cached.copyOverwrite))
+    setExpandedService(cached.expandedService || null)
+  }, [draftStorageKey])
+
+  useEffect(() => {
+    setLocalJson<SettingsDraftCache>(draftStorageKey, {
+      envDraft,
+      templateDrafts,
+      copySourceProjectKey,
+      copyOverwrite,
+      expandedService,
+    })
+  }, [draftStorageKey, envDraft, templateDrafts, copySourceProjectKey, copyOverwrite, expandedService])
+
+  useEffect(() => {
+    const intent = getLocalJson<StatusNavIntent | null>(STATUS_NAV_INTENT_KEY, null)
+    if (!intent) return
+    const expectedMode: StatusIntentMode = variant === 'llm' ? 'sysLlm' : 'sysSettings'
+    if (intent.mode !== expectedMode) return
+    removeLocal(STATUS_NAV_INTENT_KEY)
+    const nextField = String(intent.focusField || '').trim()
+    setGuideType(intent.guide || null)
+    setFocusField(nextField)
+    if (!nextField) return
+    window.setTimeout(() => {
+      const target = document.querySelector<HTMLElement>(`[data-env-key="${nextField}"] input`)
+      if (!target) return
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target.focus()
+    }, 80)
+  }, [variant, envSettings.data])
 
   return (
     <div className="content-stack">
@@ -245,10 +326,45 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
             </button>
           </div>
         </div>
+        {guideType ? (
+          <div className="app-settings-guide">
+            <strong>安装/配置指引</strong>
+            <p className="status-line">
+              {guideType === 'llm' ? '请配置 LLM provider 与 API Key（OpenAI 或 Azure 至少一组）。'
+                : guideType === 'search' ? '请至少配置一组搜索能力 Key（推荐先配 SERPAPI_KEY）。'
+                  : guideType === 'news' ? '请配置 NEWS_API_KEY 后再执行新闻拉取。'
+                    : guideType === 'db' ? '请配置 DATABASE_URL，确保后端可连接数据库。'
+                      : '请配置 ES_URL，确保检索索引可用。'}
+            </p>
+            {focusField ? <p className="status-line">已自动定位字段：`{focusField}`</p> : null}
+            <div className="inline-actions" style={{ flexWrap: 'wrap' }}>
+              {envSnippet ? (
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(envSnippet)
+                      setSaveMessage('示例配置已复制到剪贴板，可直接粘贴到对应字段。')
+                    } catch {
+                      setSaveMessage('复制失败，请手动复制页面中的示例字段。')
+                    }
+                  }}
+                >
+                  复制示例配置
+                </button>
+              ) : null}
+              {(guideType === 'search' || guideType === 'news') ? (
+                <button onClick={() => { window.location.hash = hashByMode.sysCrawler }}>
+                  前往爬虫管理（安装/接入）
+                </button>
+              ) : null}
+              <button onClick={() => setGuideType(null)}>关闭指引</button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="form-grid cols-2">
           {ENV_KEYS.map((key) => (
-            <label key={key}>
+            <label key={key} data-env-key={key}>
               <span>{key}</span>
               <input
                 value={effectiveEnvDraft[key] || ''}

@@ -1,6 +1,6 @@
 # Development Plans Index
 
-更新时间：2026-03-02（PST）
+更新时间：2026-03-03（PST）
 范围：`development/latest-dev-docs/development-plans`
 
 ## Main Entry
@@ -17,6 +17,11 @@
 - [CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md](./CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
 - [CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md](./CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md)
 - [CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md](./CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
+- [CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/01_platformization-first-vectorization-gm-2026-03-03.md](./CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/01_platformization-first-vectorization-gm-2026-03-03.md)
+- [CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/02_atomic-zero-regression-tasklist-2026-03-03.md](./CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/02_atomic-zero-regression-tasklist-2026-03-03.md)
+- [CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md](./CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md)
+- [CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/04_adjusted-graph-node-phase-b-plan-2026-03-03.md](./CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/04_adjusted-graph-node-phase-b-plan-2026-03-03.md)
+- [CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/05_graph-node-standardization-overall-completion-2026-03-03.md](./CURRENT_DEV/2026-03-03-platformization-first-vectorization-gm/05_graph-node-standardization-overall-completion-2026-03-03.md)
 
 ## Archives
 - `A_ARCHITECTURE/`

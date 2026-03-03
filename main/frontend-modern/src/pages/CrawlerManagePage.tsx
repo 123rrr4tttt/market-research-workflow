@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bot, CircleDashed, Clock3, GitBranch, Play, RefreshCw } from 'lucide-react'
 import {
@@ -9,6 +9,7 @@ import {
   listCrawlerProjects,
   rollbackCrawlerProject,
 } from '../lib/api'
+import { getLocalJson, setLocalJson } from '../lib/localStore'
 import type { CrawlerDeployRunItem, CrawlerProjectItem } from '../lib/types'
 
 type Props = {
@@ -25,42 +26,23 @@ type Draft = {
   enableNow: boolean
 }
 
-const STORAGE_KEY = 'crawler_manage_draft_v1'
+type CrawlerManageStateCache = {
+  draft: Draft
+  selectedCrawlerProjectKey: string
+  deployVersion: string
+  rollbackVersion: string
+  plannerMode: 'heuristic' | 'manual'
+}
 
-function loadDraft(): Draft {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) {
-      return {
-        crawlerProjectKey: '',
-        name: '',
-        repoUrl: '',
-        branch: 'main',
-        providerHint: 'auto',
-        description: '',
-        enableNow: true,
-      }
-    }
-    const parsed = JSON.parse(raw) as Partial<Draft>
-    return {
-      crawlerProjectKey: String(parsed.crawlerProjectKey || ''),
-      name: String(parsed.name || ''),
-      repoUrl: String(parsed.repoUrl || ''),
-      branch: String(parsed.branch || 'main'),
-      providerHint: parsed.providerHint === 'scrapy' || parsed.providerHint === 'crawlee' ? parsed.providerHint : 'auto',
-      description: String(parsed.description || ''),
-      enableNow: parsed.enableNow !== false,
-    }
-  } catch {
-    return {
-      crawlerProjectKey: '',
-      name: '',
-      repoUrl: '',
-      branch: 'main',
-      providerHint: 'auto',
-      description: '',
-      enableNow: true,
-    }
+function defaultDraft(): Draft {
+  return {
+    crawlerProjectKey: '',
+    name: '',
+    repoUrl: '',
+    branch: 'main',
+    providerHint: 'auto',
+    description: '',
+    enableNow: true,
   }
 }
 
@@ -82,13 +64,24 @@ function summarizeRun(run?: Partial<CrawlerDeployRunItem> | null) {
 }
 
 export default function CrawlerManagePage({ projectKey }: Props) {
+  const storageKey = `crawler_manage_state_v2:${projectKey}`
+  const cached = getLocalJson<CrawlerManageStateCache | null>(storageKey, null)
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState<Draft>(() => loadDraft())
+  const [draft, setDraft] = useState<Draft>(() => cached?.draft || defaultDraft())
   const [message, setMessage] = useState('')
-  const [selectedCrawlerProjectKey, setSelectedCrawlerProjectKey] = useState('')
-  const [deployVersion, setDeployVersion] = useState('')
-  const [rollbackVersion, setRollbackVersion] = useState('')
-  const [plannerMode, setPlannerMode] = useState<'heuristic' | 'manual'>('heuristic')
+  const [selectedCrawlerProjectKey, setSelectedCrawlerProjectKey] = useState(cached?.selectedCrawlerProjectKey || '')
+  const [deployVersion, setDeployVersion] = useState(cached?.deployVersion || '')
+  const [rollbackVersion, setRollbackVersion] = useState(cached?.rollbackVersion || '')
+  const [plannerMode, setPlannerMode] = useState<'heuristic' | 'manual'>(cached?.plannerMode || 'heuristic')
+
+  useEffect(() => {
+    const next = getLocalJson<CrawlerManageStateCache | null>(`crawler_manage_state_v2:${projectKey}`, null)
+    setDraft(next?.draft || defaultDraft())
+    setSelectedCrawlerProjectKey(next?.selectedCrawlerProjectKey || '')
+    setDeployVersion(next?.deployVersion || '')
+    setRollbackVersion(next?.rollbackVersion || '')
+    setPlannerMode(next?.plannerMode || 'heuristic')
+  }, [projectKey])
 
   const crawlerProjects = useQuery({
     queryKey: ['crawler-manage', 'projects', projectKey],
@@ -191,10 +184,15 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     },
   })
 
-  const saveDraft = () => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft))
-    setMessage('已保存接入草稿。')
-  }
+  useEffect(() => {
+    setLocalJson<CrawlerManageStateCache>(storageKey, {
+      draft,
+      selectedCrawlerProjectKey,
+      deployVersion,
+      rollbackVersion,
+      plannerMode,
+    })
+  }, [storageKey, draft, selectedCrawlerProjectKey, deployVersion, rollbackVersion, plannerMode])
 
   const submitting = importMutation.isPending || deployMutation.isPending || rollbackMutation.isPending
   const detail = (crawlerDetail.data || null) as CrawlerProjectItem | null
@@ -271,7 +269,14 @@ export default function CrawlerManagePage({ projectKey }: Props) {
             />
             导入后立即启用
           </label>
-          <button onClick={saveDraft} disabled={submitting}><GitBranch size={14} />保存草稿</button>
+          <button
+            onClick={() => setMessage('草稿已自动本地保存。')}
+            disabled={submitting}
+            title="当前页面变更会自动保存到本地，无需手动保存"
+          >
+            <GitBranch size={14} />
+            草稿自动保存
+          </button>
           <button onClick={() => importMutation.mutate()} disabled={submitting}><Play size={14} />导入爬虫项目</button>
           <button onClick={() => crawlerProjects.refetch()}><RefreshCw size={14} />刷新列表</button>
         </div>

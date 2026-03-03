@@ -127,7 +127,7 @@ function toGraphSymbol(symbol: string): BuiltinGraphSymbol {
 function NodeLegendShape({ nodeType, color }: { nodeType: string; color: string }) {
   const rawSymbol = resolveNodeSymbol(nodeType)
   const stroke = color
-  const fill = rawSymbol.startsWith('empty') ? 'none' : color
+  const fill = rawSymbol.startsWith('empty') ? '#ffffff' : color
   const common = { strokeWidth: 1.5, strokeLinejoin: 'round' as const }
   const icon = (() => {
     if (rawSymbol === 'rect' || rawSymbol === 'emptyRect') {
@@ -457,6 +457,99 @@ function clampControlPanelWidth(value: number, viewportWidth: number) {
   const viewportBound = Math.max(CONTROL_PANEL_MIN_WIDTH, viewportWidth - 28)
   const maxAllowed = Math.min(CONTROL_PANEL_MAX_WIDTH, viewportBound)
   return Math.max(CONTROL_PANEL_MIN_WIDTH, Math.min(maxAllowed, Math.round(value)))
+}
+
+function computeNodeVisualSize(value: number, minValue: number, rangeValue: number, nodeScale: number, nodeContrast: number) {
+  const norm = Math.max(0, Math.min(1, (value - minValue) / Math.max(1e-12, rangeValue)))
+  // Use sqrt to align perceived circle area with numeric magnitude.
+  const perceptualNorm = Math.sqrt(norm)
+  const scaleT = Math.max(0.4, Math.min(2.2, nodeScale / 100))
+  const contrastT = Math.max(0.4, Math.min(2.2, nodeContrast / 100))
+  // Higher contrast slider => larger exponent => low-score nodes shrink more.
+  const contrastExponent = Math.max(0.9, Math.min(2.2, 0.5 + contrastT * 0.9))
+  const minPx = 10 + scaleT * 4
+  const maxPx = 22 + scaleT * 30
+  const size = minPx + (maxPx - minPx) * Math.pow(perceptualNorm, contrastExponent)
+  return Math.max(8, Math.round(size))
+}
+
+function computePageRank(
+  nodeKeys: string[],
+  directedEdges: Array<{ fromKey: string; toKey: string; weight: number }>,
+  damping = 0.85,
+  maxIter = 60,
+  tol = 1e-7,
+) {
+  const rank = new Map<string, number>()
+  const n = nodeKeys.length
+  if (n === 0) return rank
+  const init = 1 / n
+  nodeKeys.forEach((key) => rank.set(key, init))
+
+  const incoming = new Map<string, Array<{ fromKey: string; weight: number }>>()
+  const outWeight = new Map<string, number>()
+  directedEdges.forEach(({ fromKey, toKey, weight }) => {
+    if (!rank.has(fromKey) || !rank.has(toKey)) return
+    const w = Number.isFinite(weight) && weight > 0 ? weight : 1
+    const out = (outWeight.get(fromKey) || 0) + w
+    outWeight.set(fromKey, out)
+    const bucket = incoming.get(toKey) || []
+    bucket.push({ fromKey, weight: w })
+    incoming.set(toKey, bucket)
+  })
+
+  for (let i = 0; i < maxIter; i += 1) {
+    let danglingMass = 0
+    nodeKeys.forEach((key) => {
+      if ((outWeight.get(key) || 0) <= 0) danglingMass += rank.get(key) || 0
+    })
+    const base = (1 - damping) / n + (damping * danglingMass) / n
+    const next = new Map<string, number>()
+    let delta = 0
+    nodeKeys.forEach((toKey) => {
+      let score = base
+      const fromList = incoming.get(toKey) || []
+      fromList.forEach(({ fromKey, weight }) => {
+        const out = outWeight.get(fromKey) || 0
+        if (out > 0) score += damping * ((rank.get(fromKey) || 0) * weight / out)
+      })
+      next.set(toKey, score)
+      delta += Math.abs(score - (rank.get(toKey) || 0))
+    })
+    rank.clear()
+    next.forEach((value, key) => rank.set(key, value))
+    if (delta <= tol) break
+  }
+
+  const total = Array.from(rank.values()).reduce((acc, value) => acc + value, 0)
+  if (total > 0) {
+    rank.forEach((value, key) => rank.set(key, value / total))
+  }
+  return rank
+}
+
+function percentile(values: number[], p: number) {
+  if (!values.length) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const t = Math.max(0, Math.min(1, p))
+  const idx = t * (sorted.length - 1)
+  const lo = Math.floor(idx)
+  const hi = Math.ceil(idx)
+  if (lo === hi) return sorted[lo]
+  const w = idx - lo
+  return sorted[lo] * (1 - w) + sorted[hi] * w
+}
+
+function normalizeMapValues(input: Map<string, number>) {
+  const values = Array.from(input.values())
+  const min = values.length ? Math.min(...values) : 0
+  const max = values.length ? Math.max(...values) : 1
+  const range = Math.max(max - min, 1e-12)
+  const out = new Map<string, number>()
+  input.forEach((value, key) => {
+    out.set(key, Math.max(0, Math.min(1, (value - min) / range)))
+  })
+  return out
 }
 
 type QuaternionLike = { x: number; y: number; z: number; w: number }
@@ -837,6 +930,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
     repulsion: 180,
     gravityPercent: 100,
     nodeScale: 100,
+    nodeContrast: 100,
     nodeAlpha: 72,
     edgeWidth: 100,
     edgeAlpha: 100,
@@ -846,6 +940,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
     repulsion: 180,
     gravityPercent: 100,
     nodeScale: 100,
+    nodeContrast: 100,
     nodeAlpha: 72,
     edgeWidth: 100,
     edgeAlpha: 100,
@@ -1117,16 +1212,57 @@ export default function GraphPage({ projectKey, variant }: Props) {
     )
 
     const degreeMap = new Map<string, number>()
+    const connectedDegreeMap = new Map<string, number>()
+    const directedEdges: Array<{ fromKey: string; toKey: string; weight: number }> = []
+    connectedEdges.forEach((edge) => {
+      const resolved = edgeResolvedKeyMap.get(edge)
+      if (!resolved) return
+      connectedDegreeMap.set(resolved.fromKey, (connectedDegreeMap.get(resolved.fromKey) || 0) + 1)
+      connectedDegreeMap.set(resolved.toKey, (connectedDegreeMap.get(resolved.toKey) || 0) + 1)
+      const rawWeight = edge?.weight ?? (edge?.properties as { weight?: unknown } | undefined)?.weight
+      const weight = Number.isFinite(Number(rawWeight)) && Number(rawWeight) > 0 ? Number(rawWeight) : 1
+      directedEdges.push({ fromKey: resolved.fromKey, toKey: resolved.toKey, weight })
+    })
+    connectedNodes.forEach((node) => {
+      const key = nodeKey(node)
+      if (!connectedDegreeMap.has(key)) connectedDegreeMap.set(key, 0)
+    })
     visibleEdges.forEach((edge) => {
       const resolved = edgeResolvedKeyMap.get(edge)
       if (!resolved) return
       degreeMap.set(resolved.fromKey, (degreeMap.get(resolved.fromKey) || 0) + 1)
       degreeMap.set(resolved.toKey, (degreeMap.get(resolved.toKey) || 0) + 1)
     })
-    const degrees = Array.from(degreeMap.values())
-    const minDeg = degrees.length ? Math.min(...degrees) : 0
-    const maxDeg = degrees.length ? Math.max(...degrees) : 1
-    const rangeDeg = Math.max(maxDeg - minDeg, 1)
+    visibleNodes.forEach((node) => {
+      const key = nodeKey(node)
+      if (!degreeMap.has(key)) degreeMap.set(key, 0)
+    })
+    // Global centrality: blend forward/reverse PageRank with degree strength.
+    const connectedKeys = Array.from(connectedNodeKeys)
+    const prForward = normalizeMapValues(computePageRank(connectedKeys, directedEdges))
+    const prReverse = normalizeMapValues(
+      computePageRank(
+        connectedKeys,
+        directedEdges.map(({ fromKey, toKey, weight }) => ({ fromKey: toKey, toKey: fromKey, weight })),
+      ),
+    )
+    const maxConnectedDegree = Math.max(1, ...Array.from(connectedDegreeMap.values()))
+    const blendedGlobalScore = new Map<string, number>()
+    connectedKeys.forEach((key) => {
+      const degreeNorm = (connectedDegreeMap.get(key) || 0) / maxConnectedDegree
+      const score = 0.52 * (prForward.get(key) || 0) + 0.28 * (prReverse.get(key) || 0) + 0.2 * degreeNorm
+      blendedGlobalScore.set(key, score)
+    })
+    const scoreMap = new Map<string, number>()
+    visibleNodes.forEach((node) => {
+      const key = nodeKey(node)
+      scoreMap.set(key, blendedGlobalScore.get(key) || 0)
+    })
+    const scores = Array.from(scoreMap.values())
+    const q10 = percentile(scores, 0.1)
+    const q95 = percentile(scores, 0.95)
+    const minScore = q10
+    const rangeScore = Math.max(q95 - q10, 1e-12)
     return {
       nodes,
       connectedNodes,
@@ -1135,8 +1271,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
       visibleNodes,
       visibleEdges,
       degreeMap,
-      minDeg,
-      rangeDeg,
+      scoreMap,
+      minScore,
+      rangeScore,
       visibleNodeKeys,
       edgeResolvedKeyMap,
       rawNodeCount: visibleNodes.length,
@@ -1550,16 +1687,16 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [autoFocusEnabled, hoverNodeKey, selectedNodeKey, adjacencyConnectedMap])
 
   const forceGraphData = useMemo(() => {
-    if (renderMode !== 'projection3d') return { nodes: [] as Array<{ id: string; key: string; name: string; rawNode: GraphNodeItem; degree: number }>, links: [] as Array<{ source: string; target: string }> }
+    if (renderMode !== 'projection3d') return { nodes: [] as Array<{ id: string; key: string; name: string; rawNode: GraphNodeItem; score: number }>, links: [] as Array<{ source: string; target: string }> }
     const nodes = topology.visibleNodes.map((node) => {
       const key = nodeKey(node)
-      const deg = topology.degreeMap.get(key) || 0
+      const score = topology.scoreMap.get(key) || 0
       return {
         id: key,
         key,
         name: nodeName(node),
         rawNode: node,
-        degree: deg,
+        score,
       }
     })
     const links = visibleEdges
@@ -1573,7 +1710,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
       })
       .filter((item): item is { source: string; target: string } => Boolean(item))
     return { nodes, links }
-  }, [renderMode, topology.visibleNodes, topology.degreeMap, topology.edgeResolvedKeyMap, visibleEdges])
+  }, [renderMode, topology.visibleNodes, topology.scoreMap, topology.edgeResolvedKeyMap, visibleEdges])
 
   const forceNodeStyleById = useMemo(() => {
     if (renderMode !== 'projection3d') return new Map<string, { color: string; val: number; opacity: number }>()
@@ -1584,13 +1721,13 @@ export default function GraphPage({ projectKey, variant }: Props) {
       const rawNode = (node as { rawNode?: GraphNodeItem }).rawNode
       const normalizedType = normalizeNodeType(rawNode?.type || '')
       const nodeColor = nodeTypeColor[normalizedType] || '#7dd3fc'
-      const deg = Number((node as { degree?: number }).degree || 0)
+      const score = Number((node as { score?: number }).score || 0)
       const key = String((node as { id?: string }).id || '')
       const selected = selectedNodeKeys.has(key)
       const dimByPinnedOnly = enablePinnedOnlyDim && !selected
       const dimByAutoFocus = enableAutoFocusDim && !selectionFocusSet3D.has(key)
       const dimmed = enablePinnedOnlyDim ? dimByPinnedOnly : dimByAutoFocus
-      const size = Math.round((18 + ((deg - topology.minDeg) / topology.rangeDeg) * 28) * (visualApplied.nodeScale / 100))
+      const size = computeNodeVisualSize(score, topology.minScore, topology.rangeScore, visualApplied.nodeScale, visualApplied.nodeContrast)
       map.set(key, {
         color: nodeColor,
         val: Math.max(2, (selected ? size * 1.08 : (dimmed ? size * 0.9 : size)) / 6.5),
@@ -1600,7 +1737,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
       })
     })
     return map
-  }, [renderMode, forceGraphData.nodes, nodeTypeColor, topology.minDeg, topology.rangeDeg, visualApplied.nodeScale, visualApplied.nodeAlpha, selectionPinned, selectedNodeKeys, autoFocusEnabled, selectionFocusSet3D])
+  }, [renderMode, forceGraphData.nodes, nodeTypeColor, topology.minScore, topology.rangeScore, visualApplied.nodeScale, visualApplied.nodeContrast, visualApplied.nodeAlpha, selectionPinned, selectedNodeKeys, autoFocusEnabled, selectionFocusSet3D])
 
   const forceLinkStyleByKey = useMemo(() => {
     if (renderMode !== 'projection3d') return new Map<string, { color: string; width: number; opacity: number }>()
@@ -1638,7 +1775,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   useEffect(() => {
     if (renderMode !== 'projection3d') return
     forceNodeObjectCacheRef.current.clear()
-  }, [renderMode, forceGraphData.nodes, visualApplied.nodeAlpha, visualApplied.nodeScale, nodeTypeColor, selectedNodeKeys])
+  }, [renderMode, forceGraphData.nodes, visualApplied.nodeAlpha, visualApplied.nodeScale, visualApplied.nodeContrast, nodeTypeColor, selectedNodeKeys])
 
   useEffect(() => {
     if (!autoFocusEnabled) {
@@ -2317,7 +2454,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
     if (!chartReady) return
     const chart = chartInstRef.current
     if (!chart) return
-    const { nodes, visibleNodes, degreeMap, minDeg, rangeDeg } = topology
+    const { nodes, visibleNodes, scoreMap, minScore, rangeScore } = topology
     nodeLookupRef.current = Object.fromEntries(nodes.map((n) => [nodeKey(n), n]))
     const prevPos2D = { ...nodePositionRef.current }
     let currentCenter: [string | number, string | number] | undefined
@@ -2362,8 +2499,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
       const key = nodeKey(node)
       const normalizedType = normalizeNodeType(node.type)
       const rawSymbol = resolveNodeSymbol(normalizedType)
-      const deg = degreeMap.get(key) || 0
-      const size = Math.round((18 + ((deg - minDeg) / rangeDeg) * 28) * (visualApplied.nodeScale / 100))
+      const score = scoreMap.get(key) || 0
+      const size = computeNodeVisualSize(score, minScore, rangeScore, visualApplied.nodeScale, visualApplied.nodeContrast)
       const show = shouldShowNodeLabel && size >= 24
       const selected = selectedNodeKeys.has(key)
       const dimByPinnedOnly = enablePinnedOnlyDim && !selected
@@ -2384,7 +2521,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
         symbolSize: effectiveDimByFocus ? Math.max(10, Math.round(size * 0.88)) : size,
         itemStyle: {
           opacity: effectiveDimByFocus ? 0.12 : 1,
-          color: `rgba(${r}, ${g}, ${b}, ${effectiveDimByFocus ? 0.08 : (rawSymbol.startsWith('empty') ? 0.06 : nodeFillAlpha)})`,
+          color: rawSymbol.startsWith('empty')
+            ? `rgba(255, 255, 255, ${effectiveDimByFocus ? 0.08 : 0.95})`
+            : `rgba(${r}, ${g}, ${b}, ${effectiveDimByFocus ? 0.08 : nodeFillAlpha})`,
           borderColor: selected ? '#facc15' : `rgba(${r}, ${g}, ${b}, ${effectiveDimByFocus ? 0.2 : 0.95})`,
           borderWidth: selected ? 1.6 : 1,
           shadowBlur: 0,
@@ -3108,17 +3247,33 @@ export default function GraphPage({ projectKey, variant }: Props) {
                       节点尺寸
                       <input
                         type="range"
-                        min={0}
-                        max={200}
+                        min={40}
+                        max={220}
                         step={1}
-                        value={Math.round(visualDraft.nodeScale / 1.8)}
+                        value={visualDraft.nodeScale}
                         onChange={(e) => {
-                          const nodeScale = Math.round(Number(e.target.value) * 1.8)
+                          const nodeScale = Number(e.target.value)
                           setVisualDraft((prev) => ({ ...prev, nodeScale }))
                           setVisualApplied((prev) => ({ ...prev, nodeScale }))
                         }}
                       />
-                      <span>{Math.round(visualDraft.nodeScale / 1.8)}%</span>
+                      <span>{visualDraft.nodeScale}%</span>
+                    </label>
+                    <label className="gv2-control-chip">
+                      差异增强
+                      <input
+                        type="range"
+                        min={40}
+                        max={220}
+                        step={1}
+                        value={visualDraft.nodeContrast}
+                        onChange={(e) => {
+                          const nodeContrast = Number(e.target.value)
+                          setVisualDraft((prev) => ({ ...prev, nodeContrast }))
+                          setVisualApplied((prev) => ({ ...prev, nodeContrast }))
+                        }}
+                      />
+                      <span>{visualDraft.nodeContrast}%</span>
                     </label>
                     <label className="gv2-control-chip">
                       节点透明

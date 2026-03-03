@@ -587,3 +587,58 @@ class CrawlerDeployRun(BigIDMixin, Base):
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class GraphNodeRecord(BigIDMixin, Base):
+    """Projected graph node facts stored in tenant schema."""
+
+    __tablename__ = "graph_nodes"
+    __table_args__ = (
+        UniqueConstraint("node_type", "canonical_id", name="uq_graph_nodes_type_canonical"),
+    )
+
+    node_type = Column(String(64), nullable=False)
+    canonical_id = Column(String(255), nullable=False)
+    display_name = Column(Text, nullable=True)
+    properties = Column(JSONB, nullable=True)
+    source_doc_id = Column(BigInteger, nullable=True)
+    node_schema_version = Column(String(32), nullable=False, server_default="v1")
+    quality_flags = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class GraphNodeAliasRecord(BigIDMixin, Base):
+    """Alias mapping to canonical graph nodes."""
+
+    __tablename__ = "graph_node_aliases"
+    __table_args__ = (
+        UniqueConstraint("alias_norm", "alias_type", name="uq_graph_node_aliases_norm_type"),
+    )
+
+    node_id = Column(BigInteger, ForeignKey("graph_nodes.id", ondelete="CASCADE"), nullable=False)
+    alias_text = Column(Text, nullable=False)
+    alias_norm = Column(Text, nullable=False)
+    alias_type = Column(String(32), nullable=False, server_default="display")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class GraphEdgeRecord(BigIDMixin, Base):
+    """Projected graph edge facts stored in tenant schema."""
+
+    __tablename__ = "graph_edges"
+    __table_args__ = (
+        UniqueConstraint("edge_type", "from_node_id", "to_node_id", name="uq_graph_edges_type_from_to"),
+    )
+
+    edge_type = Column(String(64), nullable=False)
+    from_node_id = Column(BigInteger, ForeignKey("graph_nodes.id", ondelete="CASCADE"), nullable=False)
+    to_node_id = Column(BigInteger, ForeignKey("graph_nodes.id", ondelete="CASCADE"), nullable=False)
+    properties = Column(JSONB, nullable=True)
+    edge_schema_version = Column(String(32), nullable=False, server_default="v1")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )

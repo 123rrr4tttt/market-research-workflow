@@ -89,6 +89,10 @@ def fail_job(
         job.status = "failed"
         job.finished_at = datetime.utcnow()
         job.error = error[:2000]
+        params = dict(job.params or {})
+        # Keep a stable machine-readable fallback for process observability.
+        params.setdefault("error_code", "TASK_FAILED")
+        job.params = params
         if external_job_id is not None:
             job.external_job_id = external_job_id
         if external_provider is not None:
@@ -156,4 +160,3 @@ def list_jobs(limit: int = 20) -> List[dict[str, Any]]:
                 }
             )
         return result
-

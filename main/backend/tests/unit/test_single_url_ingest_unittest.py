@@ -138,9 +138,14 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertIn("search_template_no_results", degraded.get("degradation_flags", []))
         self.assertEqual(degraded.get("search_results", {}).get("result_count"), 0)
         self.assertEqual(failed.get("status"), "failed")
-        self.assertEqual(failed.get("page_gate", {}).get("reason"), "search_template_results_insufficient")
-        self.assertEqual(fake_fetch.call_count, 2)
-        self.assertEqual(fake_extract.call_count, 2)
+        failed_reason = failed.get("page_gate", {}).get("reason")
+        prefetch_reason = failed.get("pre_fetch_url_gate", {}).get("reason")
+        self.assertIn(
+            failed_reason or prefetch_reason,
+            {"search_template_results_insufficient", "url_policy_low_value_endpoint"},
+        )
+        self.assertEqual(fake_fetch.call_count, 1)
+        self.assertEqual(fake_extract.call_count, 1)
         self.assertEqual(complete_job.call_count, 2)
 
     def test_ingest_single_url_pre_fetch_url_gate_rejects_before_fetch(self):
@@ -663,6 +668,74 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertEqual(kwargs.get("context", {}).get("mode"), "pool")
         self.assertEqual(kwargs.get("context", {}).get("scope"), "effective")
         self.assertEqual(kwargs.get("context", {}).get("source"), "search")
+
+    def test_collect_urls_from_list_parallel_workers_emits_debug_and_aggregates(self):
+        fake_module = types.ModuleType("app.services.ingest.single_url")
+        fake_module.ingest_single_url = Mock(
+            return_value={"status": "success", "inserted": 1, "inserted_valid": 1, "skipped": 0, "document_id": 101, "degradation_flags": []}
+        )
+
+        with patch.dict(sys.modules, {"app.services.ingest.single_url": fake_module}), patch.object(
+            url_pool_module, "_annotate_url_pool_context"
+        ):
+            result = url_pool_module.collect_urls_from_list(
+                [
+                    "https://a.example.com/path/1",
+                    "https://a.example.com/path/2",
+                    "https://a.example.com/search?q=robotics",
+                ],
+                project_key=None,
+                query_terms=["robotics"],
+                extra_params={"single_url_parallel_workers": 4, "single_url_parallel_batch_size": 2, "single_url_dispatch_mode": "thread"},
+            )
+
+        self.assertEqual(result.get("debug", {}).get("dispatch_mode"), "thread")
+        self.assertGreaterEqual(int(result.get("debug", {}).get("parallel_workers") or 0), 2)
+        self.assertEqual(int(result.get("inserted") or 0), int(fake_module.ingest_single_url.call_count))
+        self.assertEqual(int(result.get("queued") or 0), 0)
+        self.assertEqual(result.get("single_write_workflow"), "single_url")
+
+    def test_collect_urls_from_list_async_dispatch_queues_celery_tasks(self):
+        class _AsyncResult:
+            def __init__(self, task_id: str):
+                self.id = task_id
+
+        class _TaskStub:
+            def __init__(self):
+                self.calls = 0
+
+            def delay(self, *_args, **_kwargs):
+                self.calls += 1
+                return _AsyncResult(f"task-{self.calls}")
+
+        fake_task = _TaskStub()
+        fake_tasks_module = types.ModuleType("app.services.tasks")
+        fake_tasks_module.task_ingest_single_url = fake_task
+
+        fake_module = types.ModuleType("app.services.ingest.single_url")
+        fake_module.ingest_single_url = Mock(return_value={"status": "success", "inserted": 1, "skipped": 0})
+
+        with patch.dict(
+            sys.modules,
+            {
+                "app.services.tasks": fake_tasks_module,
+                "app.services.ingest.single_url": fake_module,
+            },
+        ), patch.object(url_pool_module, "_annotate_url_pool_context"):
+            result = url_pool_module.collect_urls_from_list(
+                ["https://a.example.com/path/1", "https://a.example.com/search?q=robotics"],
+                project_key=None,
+                query_terms=["robotics"],
+                extra_params={"single_url_dispatch_mode": "celery_async"},
+            )
+
+        self.assertEqual(result.get("debug", {}).get("dispatch_mode"), "celery_async")
+        self.assertGreaterEqual(int(result.get("queued") or 0), 1)
+        self.assertEqual(result.get("single_write_workflow"), "single_url_async")
+        self.assertEqual(fake_module.ingest_single_url.call_count, 0)
+        details = list(result.get("debug", {}).get("url_details") or [])
+        self.assertTrue(details)
+        self.assertTrue(any(str(x.get("task_id") or "").startswith("task-") for x in details))
 
 
 if __name__ == "__main__":

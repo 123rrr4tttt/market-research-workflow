@@ -19,7 +19,16 @@ from .light_filter import (
     evaluate_light_filter,
     normalize_light_filter_options,
 )
-from .meaningful_gate import content_quality_check, normalize_content_for_ingest, url_policy_check
+from .structured_extraction import (
+    build_structured_summary,
+    extract_structured_enriched_safe,
+)
+from .meaningful_gate import (
+    content_quality_check,
+    normalize_content_for_ingest,
+    normalize_reason_code,
+    url_policy_check,
+)
 from .url_pool import _extract_text_from_html
 
 logger = logging.getLogger(__name__)
@@ -590,6 +599,12 @@ def _provenance_dirty_decision(
     return False, "ok", {"domain": domain, "path": path}
 
 
+def _gate_override_config(strict_mode: bool) -> dict[str, Any] | None:
+    if bool(strict_mode):
+        return {"enable_strict_gate": True}
+    return None
+
+
 def _validate_crawler_output_docs(doc_ids: list[int], *, require_structured_signal: bool = False) -> dict[str, Any]:
     if not doc_ids:
         return {"passed_ids": [], "failed_ids": [], "reasons": {"missing_doc_ids": 1}}
@@ -990,6 +1005,51 @@ def _get_or_create_source(session, name: str, kind: str, base_url: str | None) -
     return source
 
 
+def _persist_single_url_document(
+    *,
+    normalized_url: str,
+    title: str,
+    content: str,
+    capability: dict[str, Any],
+    structured_status: str,
+    structured_reason: str | None,
+    quality_score: float,
+    extracted_data: dict[str, Any],
+    degradation_flags: list[str],
+    light_filter_payload: dict[str, Any],
+    response: Any,
+) -> tuple[int, int, int, str]:
+    normalized_doc_type = normalize_doc_type(_DEFAULT_DOC_TYPE)
+    summary = (content or "")[:800] or None
+    with SessionLocal() as session:
+        source = _get_or_create_source(session, _SOURCE_NAME, _SOURCE_KIND, capability.get("domain"))
+        existed = session.query(Document).filter(Document.uri == normalized_url).first()
+        if existed:
+            degradation_flags.append("document_already_exists")
+            return int(existed.id), 0, 1, normalized_doc_type
+
+        extracted_data["structured_extraction_status"] = structured_status
+        if structured_reason:
+            extracted_data["structured_extraction_reason"] = structured_reason
+        extracted_data["quality_score"] = quality_score
+        extracted_data["degradation_flags"] = list(dict.fromkeys(degradation_flags))
+        extracted_data["capability_profile"] = capability
+        extracted_data["http_status"] = int(getattr(response, "status_code", 0) or 0)
+        extracted_data["light_filter"] = dict(light_filter_payload)
+        doc = Document(
+            source_id=source.id,
+            doc_type=normalized_doc_type,
+            title=title,
+            summary=summary,
+            content=(content or "")[:_MAX_CONTENT_CHARS] or None,
+            uri=normalized_url,
+            extracted_data=extracted_data,
+        )
+        session.add(doc)
+        session.commit()
+        return int(doc.id), 1, 0, normalized_doc_type
+
+
 def ingest_single_url(
     *,
     url: str,
@@ -1067,10 +1127,10 @@ def ingest_single_url(
             finalize_job(job_id, status="failed", result=result)
             return result
 
-        pre_fetch_gate = url_policy_check(normalized_url)
+        pre_fetch_gate = url_policy_check(normalized_url, config=_gate_override_config(strict_mode))
         if pre_fetch_gate.blocked:
             result_status = "failed" if strict_mode else "degraded_success"
-            reason = str(pre_fetch_gate.reason or "url_policy_blocked")
+            reason = normalize_reason_code(pre_fetch_gate.reason, default="url_policy_blocked")
             gate_flags = list(dict.fromkeys([reason, f"url_gate_rejected:{reason}"]))
             result = {
                 "status": result_status,
@@ -1233,7 +1293,10 @@ def ingest_single_url(
             search_noise_host_markers=_SEARCH_NOISE_HOST_MARKERS,
         )
         if str(light_filter_payload.get("filter_decision") or "") == "reject":
-            light_reason = str(light_filter_payload.get("filter_reason_code") or "light_filter_rejected")
+            light_reason = normalize_reason_code(
+                light_filter_payload.get("filter_reason_code"),
+                default="light_filter_rejected",
+            )
             status = "failed" if strict_mode else "degraded_success"
             gate_flags = list(dict.fromkeys([*degradation_flags, light_reason, f"light_filter_rejected:{light_reason}"]))
             result = {
@@ -1358,7 +1421,7 @@ def ingest_single_url(
                         child_result = ingest_single_url(
                             url=child_url,
                             query_terms=normalized_terms,
-                            strict_mode=False,
+                            strict_mode=bool(strict_mode),
                             search_options=child_search_options,
                             track_keyword_history=False,
                         )
@@ -1526,6 +1589,10 @@ def ingest_single_url(
                 domain_specific_metadata=None,
             )
             if provenance_blocked_early:
+                provenance_reason_early = normalize_reason_code(
+                    provenance_reason_early,
+                    default="provenance_rejected",
+                )
                 degradation_flags.append(str(provenance_reason_early))
                 degradation_flags.append(f"provenance_gate_rejected:{provenance_reason_early}")
                 status = "failed" if strict_mode else "degraded_success"
@@ -1552,7 +1619,7 @@ def ingest_single_url(
                     "structured_extraction_status": "failed",
                     "quality_score": 0.0,
                     "rejected_count": 1,
-                    "rejection_breakdown": {str(provenance_reason_early): 1},
+                "rejection_breakdown": {str(provenance_reason_early): 1},
                     "degradation_flags": list(dict.fromkeys(degradation_flags)),
                 }
                 apply_light_filter_fields(result, light_filter_payload)
@@ -1579,7 +1646,9 @@ def ingest_single_url(
                 "structured_extraction_status": "failed",
                 "quality_score": 0.0,
                 "rejected_count": 1,
-                "rejection_breakdown": {str(low_value_reason or "low_value_page"): 1},
+                "rejection_breakdown": {
+                    normalize_reason_code(low_value_reason, default="low_value_page"): 1
+                },
                 "degradation_flags": list(dict.fromkeys(degradation_flags)),
             }
             apply_light_filter_fields(result, light_filter_payload)
@@ -1605,6 +1674,10 @@ def ingest_single_url(
             domain_specific_metadata=domain_specific_metadata,
         )
         if provenance_blocked:
+            provenance_reason = normalize_reason_code(
+                provenance_reason,
+                default="provenance_rejected",
+            )
             degradation_flags.append(str(provenance_reason))
             degradation_flags.append(f"provenance_gate_rejected:{provenance_reason}")
             status = "failed" if strict_mode else "degraded_success"
@@ -1653,29 +1726,33 @@ def ingest_single_url(
             }
             if isinstance(search_auto_config, dict) and search_auto_config:
                 extracted_data["search_auto_config"] = dict(search_auto_config)
-        structured_status = "failed"
-        structured_reason = None
-        try:
-            payload = "\n\n".join([x for x in [title, content] if x])
-            enriched = _EXTRACTION_APP.extract_structured_enriched(
-                payload,
-                include_market=True,
-                include_policy=True,
-                include_sentiment=True,
-                include_company=True,
-                include_product=True,
-                include_operation=True,
-            )
-            if isinstance(enriched, dict) and enriched:
-                extracted_data.update(enriched)
-                structured_status = "ok"
-            else:
-                structured_reason = "empty_structured_output"
-                degradation_flags.append("structured_extraction_empty")
-        except Exception as ex:  # noqa: BLE001
-            structured_reason = "extractor_exception"
-            extracted_data["structured_extraction_error"] = _safe_exc(ex)
+        payload = "\n\n".join([x for x in [title, content] if x])
+        structured_result = extract_structured_enriched_safe(
+            extraction_app=_EXTRACTION_APP,
+            payload=payload,
+            include_market=True,
+            include_policy=True,
+            include_sentiment=True,
+            include_company=True,
+            include_product=True,
+            include_operation=True,
+        )
+        structured_status = str(structured_result.status or "failed")
+        structured_reason = structured_result.reason
+        if structured_result.data:
+            extracted_data.update(structured_result.data)
+        if structured_result.error:
+            extracted_data["structured_extraction_error"] = str(structured_result.error)
+        if structured_reason == "empty_structured_output":
+            degradation_flags.append("structured_extraction_empty")
+        elif structured_reason == "extractor_exception":
             degradation_flags.append("structured_extraction_exception")
+        extracted_data["_structured_summary"] = build_structured_summary(
+            extracted_data,
+            extraction_enabled=structured_status == "ok",
+            chunks_used=1,
+            extraction_mode="single_url",
+        )
 
         quality_score = _build_quality_score(
             content_chars=len(content or ""),
@@ -1687,9 +1764,10 @@ def ingest_single_url(
             content=content or "",
             doc_type=normalize_doc_type(_DEFAULT_DOC_TYPE),
             extraction_status={"extraction_enabled": structured_status == "ok"},
+            config=_gate_override_config(strict_mode),
         )
         if pre_write_gate.blocked:
-            reason = str(pre_write_gate.reason or "content_gate_rejected")
+            reason = normalize_reason_code(pre_write_gate.reason, default="content_gate_rejected")
             result_status = "failed" if strict_mode else "degraded_success"
             gate_flags = list(dict.fromkeys([*degradation_flags, reason, f"content_gate_rejected:{reason}"]))
             result = {
@@ -1750,40 +1828,19 @@ def ingest_single_url(
             finalize_job(job_id, status="failed", result=result)
             return result
 
-        normalized_doc_type = normalize_doc_type(_DEFAULT_DOC_TYPE)
-        summary = (content or "")[:800] or None
-
-        with SessionLocal() as session:
-            source = _get_or_create_source(session, _SOURCE_NAME, _SOURCE_KIND, capability.get("domain"))
-            existed = session.query(Document).filter(Document.uri == normalized_url).first()
-            if existed:
-                degradation_flags.append("document_already_exists")
-                doc_id = existed.id
-                inserted = 0
-                skipped = 1
-            else:
-                extracted_data["structured_extraction_status"] = structured_status
-                if structured_reason:
-                    extracted_data["structured_extraction_reason"] = structured_reason
-                extracted_data["quality_score"] = quality_score
-                extracted_data["degradation_flags"] = list(dict.fromkeys(degradation_flags))
-                extracted_data["capability_profile"] = capability
-                extracted_data["http_status"] = int(getattr(response, "status_code", 0) or 0)
-                extracted_data["light_filter"] = dict(light_filter_payload)
-                doc = Document(
-                    source_id=source.id,
-                    doc_type=normalized_doc_type,
-                    title=title,
-                    summary=summary,
-                    content=(content or "")[:_MAX_CONTENT_CHARS] or None,
-                    uri=normalized_url,
-                    extracted_data=extracted_data,
-                )
-                session.add(doc)
-                session.commit()
-                doc_id = doc.id
-                inserted = 1
-                skipped = 0
+        doc_id, inserted, skipped, normalized_doc_type = _persist_single_url_document(
+            normalized_url=normalized_url,
+            title=title,
+            content=content or "",
+            capability=capability,
+            structured_status=structured_status,
+            structured_reason=structured_reason,
+            quality_score=quality_score,
+            extracted_data=extracted_data,
+            degradation_flags=degradation_flags,
+            light_filter_payload=light_filter_payload,
+            response=response,
+        )
 
         final_flags = list(dict.fromkeys(degradation_flags))
         if structured_status != "ok" and "structured_extraction_failed" not in final_flags:

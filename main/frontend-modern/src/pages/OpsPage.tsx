@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Trash2 } from 'lucide-react'
-import Gv2NodeCard from '../components/Gv2NodeCard'
+import GraphNodeCard from '../components/graph-kit/GraphNodeCard'
 import GraphBusinessCardSections from '../components/GraphBusinessCardSections'
 import GraphExtensionsSections from '../components/GraphExtensionsSections'
 import type { DocumentItem } from '../lib/types'
@@ -26,6 +26,17 @@ type OpsPageProps = {
 }
 
 type OpsCardTab = 'business' | 'graph_ext'
+
+const OPS_CARD_PALETTE = [
+  '#7dd3fc', // brand cyan
+  '#93c5fd', // blue-300
+  '#67e8f9', // cyan-300
+  '#a5b4fc', // indigo-300
+  '#86efac', // green-300
+  '#c4b5fd', // violet-300
+  '#5eead4', // teal-300
+  '#bae6fd', // sky-200
+]
 
 function formatDate(value?: string | null) {
   if (!value) return '-'
@@ -70,6 +81,23 @@ function normalizeScalar(value: unknown) {
 
 function normalizeObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function hashText(value: string) {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
+
+function opsChipColorForIndex(index: number) {
+  return OPS_CARD_PALETTE[index % OPS_CARD_PALETTE.length]
+}
+
+function opsElementColorForLabel(label: string) {
+  return OPS_CARD_PALETTE[hashText(label || 'element') % OPS_CARD_PALETTE.length]
 }
 
 function buildOpsGraphExtension(doc: DocumentItem | undefined, activeDocId: number | null) {
@@ -495,7 +523,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
       </section>
 
       {activeDocCardId ? (
-        <Gv2NodeCard
+        <GraphNodeCard
           title={activeDocDetail.data?.title || `文档 ${activeDocCardId}`}
           subtitle={activeDocDetail.data?.doc_type || '-'}
           style={{
@@ -594,11 +622,13 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     })),
                   }))}
                   nodeTypeColor={{ Relation: '#c4b5fd' }}
+                  chipColorForIndex={opsChipColorForIndex}
+                  elementColorForLabel={opsElementColorForLabel}
                 />
               ) : null}
             </>
           )}
-        </Gv2NodeCard>
+        </GraphNodeCard>
       ) : null}
     </div>
   )
