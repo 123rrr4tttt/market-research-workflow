@@ -30,6 +30,20 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = Field(default_factory=_get_default_database_url)
+    db_pool_size: int = Field(default=10)
+    db_pool_max_overflow: int = Field(default=5)
+    db_pool_timeout_seconds: int = Field(default=5)
+    db_pool_recycle_seconds: int = Field(default=3600)
+    db_pool_pre_ping: bool = Field(default=True)
+    db_pool_echo: bool = Field(default=False)
+    db_connect_timeout_seconds: int = Field(default=2)
+    db_statement_timeout_ms: int = Field(default=30000)
+    db_lock_timeout_ms: int = Field(default=5000)
+    db_idle_in_transaction_timeout_ms: int = Field(default=120000)
+    db_transaction_isolation_level: str = Field(default="read committed")
+    db_transaction_retry_attempts: int = Field(default=2)
+    db_transaction_retry_base_backoff_ms: int = Field(default=120)
+    db_transaction_retry_max_backoff_ms: int = Field(default=1500)
     # Neutral default project key for local bootstrap.
     active_project_key: str = Field(default="default")
     project_key_enforcement_mode: str = Field(default="warn")  # warn | require

@@ -12,5 +12,6 @@
 - [`C_INGEST/`](./C_INGEST/)
 - [`D_TEST/`](./D_TEST/)
 - [`E_OPS/`](./E_OPS/)
+- [`E_OPS/INDEX.md`](./E_OPS/INDEX.md)
 - [`F_PLAN/`](./F_PLAN/)
 - [`G_REVIEW/`](./G_REVIEW/)

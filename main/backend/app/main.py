@@ -15,7 +15,7 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 from .contracts.errors import ErrorCode, map_exception_to_error, map_status_to_error_code
 from .contracts.responses import ApiMetaModel, fail, ok
 from .settings.config import settings
-from .models.base import engine
+from .models.base import engine, get_db_pool_status
 from .services.search.es_client import get_es_client
 from .services.projects import bind_project
 from .startup_hooks import register_startup_hooks
@@ -294,26 +294,38 @@ def health_check() -> dict:
 
 @app.get("/api/v1/health/deep")
 def deep_health_check() -> dict:
-    """Deep health check: DB and Elasticsearch connectivity."""
+    """Deep health check: DB + pool + Elasticsearch connectivity and simple latency probes."""
     checks: dict[str, str] = {}
+    details: dict[str, object] = {}
+
     # DB check
+    db_start = time.perf_counter()
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         checks["database"] = "ok"
+        details["database_latency_ms"] = round((time.perf_counter() - db_start) * 1000, 2)
     except Exception as e:  # noqa: BLE001 - report raw for observability at MVP
         checks["database"] = f"error: {type(e).__name__}"
 
+    # DB pool status
+    try:
+        details["database_pool"] = get_db_pool_status()
+    except Exception as e:  # noqa: BLE001
+        checks["database_pool"] = f"error: {type(e).__name__}"
+
     # ES check
+    es_start = time.perf_counter()
     try:
         es = get_es_client()
         ok = es.ping()
         checks["elasticsearch"] = "ok" if ok else "error: ping failed"
+        details["elasticsearch_latency_ms"] = round((time.perf_counter() - es_start) * 1000, 2)
     except Exception as e:  # noqa: BLE001
         checks["elasticsearch"] = f"error: {type(e).__name__}"
 
     status = "ok" if all(v == "ok" for v in checks.values()) else "degraded"
-    return {"status": status, **checks}
+    return {"status": status, **checks, "details": details}
 
 
 @app.get("/metrics")
