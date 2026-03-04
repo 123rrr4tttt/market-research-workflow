@@ -389,6 +389,16 @@ jobs:
           print("[gateplus-required-check] PASS")
           PY
 
+      - name: Deep health integration non-skip gate
+        working-directory: main/backend
+        run: |
+          out=$(pytest tests/integration/test_deep_health_db_degraded_unittest.py -q -rs)
+          echo "$out"
+          if echo "$out" | grep -q "SKIPPED"; then
+            echo "[E-LINE][FAIL] deep health integration test was skipped"
+            exit 1
+          fi
+
   schema-guard-check:
     name: schema-guard-check
     needs: standards-check
