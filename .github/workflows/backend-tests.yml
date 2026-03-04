@@ -123,7 +123,15 @@ jobs:
 
       - name: Run llm report must-check minset
         run: |
-          python main/backend/scripts/check_llm_report_must_minset.py
+          python main/backend/scripts/check_llm_report_must_minset.py --artifact-dir artifacts/llm-report-must-check
+
+      - name: Upload llm report must-check artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-report-must-check-evidence
+          path: artifacts/llm-report-must-check/
+          if-no-files-found: error
 
   integration-check:
     name: integration-check
