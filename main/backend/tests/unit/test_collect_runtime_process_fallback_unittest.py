@@ -101,6 +101,27 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
         self.assertIn("external_provider=scrapyd", logs["text"])
         self.assertIn("External provider task is DB-tracked", logs["text"])
 
+    def test_process_skip_reason_prefers_legacy_gate_fields_even_with_gate_plus(self):
+        payload = {
+            "pre_fetch_url_gate": {"reason": "url_policy_low_value_endpoint", "blocked": True},
+            "pre_write_content_gate": {"reason": "content_semantic_too_short", "blocked": False},
+            "gate_plus": {
+                "blocked": True,
+                "blocked_stage": "pre_fetch_url_gate",
+                "blocked_reason": "url_policy_low_value_endpoint",
+                "checks": [
+                    {"stage": "pre_fetch_url_gate", "reason": "url_policy_low_value_endpoint", "blocked": True},
+                    {"stage": "pre_write_content_gate", "reason": "content_semantic_too_short", "blocked": False},
+                ],
+            },
+        }
+
+        reason = process_api._extract_skip_reason(payload)
+
+        # Backward compatibility: downstream consumers still relying on legacy keys
+        # should get the same reason resolution after gate_plus fields are added.
+        self.assertEqual(reason, "url_policy_low_value_endpoint")
+
 
 if __name__ == "__main__":
     unittest.main()

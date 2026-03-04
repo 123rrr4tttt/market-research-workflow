@@ -79,7 +79,7 @@ def _extract_skip_reason(*payloads: Any) -> str | None:
         direct = _as_non_empty_str(item.get("skip_reason"))
         if direct:
             return direct
-        for key in ("page_gate", "pre_write_content_gate", "pre_fetch_url_gate", "provenance_gate"):
+        for key in ("page_gate", "pre_fetch_url_gate", "pre_write_content_gate", "provenance_gate"):
             nested = _as_dict(item.get(key))
             reason = _as_non_empty_str(nested.get("reason"))
             if reason:
