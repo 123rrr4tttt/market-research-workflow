@@ -50,6 +50,20 @@ jobs:
           chmod +x scripts/verify/verify_r81_a.sh
           ./scripts/verify/verify_r81_a.sh
 
+  r81-b-min-verify-check:
+    name: r81-b-min-verify-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run R8.1 B minimal verifier
+        run: |
+          chmod +x scripts/verify_r81_b.sh
+          ./scripts/verify_r81_b.sh
+
   unit-check:
     name: unit-check
     needs: standards-check
@@ -244,6 +258,8 @@ jobs:
 
       - name: Run GatePlus CI guard
         working-directory: main/backend
+        env:
+          GATEPLUS_COMPAT_LEVEL: BACKWARD
         run: |
           chmod +x scripts/gateplus_ci_guard.sh
           GATEPLUS_ARTIFACT_DIR=.artifacts/gateplus ./scripts/gateplus_ci_guard.sh
@@ -275,12 +291,14 @@ jobs:
           else:
               data = json.loads(summary_path.read_text(encoding="utf-8"))
               counts = data.get("counts", {})
+              compatibility = data.get("compatibility", {})
               diagnostics = data.get("failure_diagnostics", {})
               lines.extend(
                   [
                       f"- status: `{data.get('status', 'unknown')}`",
                       f"- pytest_exit: `{data.get('pytest_exit', 'n/a')}`",
                       f"- summary_line: `{data.get('summary_line', '').strip()}`",
+                      f"- compatibility: level={compatibility.get('level', 'n/a')} source={compatibility.get('source', 'n/a')} enforced={compatibility.get('enforced', False)}",
                       f"- counts: pass={counts.get('passed', 0)} skip={counts.get('skipped', 0)} fail={counts.get('failed', 0)} warnings={counts.get('warnings', 0)}",
                       f"- root_cause_code: `{diagnostics.get('root_cause_code', 'none')}`",
                   ]
@@ -317,6 +335,59 @@ jobs:
             main/backend/.artifacts/gateplus/junit.xml
             main/backend/.artifacts/gateplus/summary.json
           if-no-files-found: warn
+
+  gateplus-required-check:
+    name: gateplus-required-check
+    if: always()
+    needs:
+      - standards-check
+      - gateplus-guard-check
+      - r81-b-min-verify-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Evaluate required checks convergence
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          needs = json.loads(os.environ.get("NEEDS_JSON", "{}"))
+          required = ("standards-check", "gateplus-guard-check", "r81-b-min-verify-check")
+          failed = []
+          lines = ["## GatePlus Required Check Convergence", ""]
+
+          for job in required:
+              result = (needs.get(job) or {}).get("result", "missing")
+              lines.append(f"- {job}: `{result}`")
+              if result != "success":
+                  failed.append((job, result))
+
+          lines.append("")
+          if failed:
+              lines.append("### Actionable hints")
+              lines.append("- Open failed job logs and fix root cause before merge.")
+              lines.append("- Keep branch protection required check pinned to `gateplus-required-check`.")
+          else:
+              lines.append("- convergence_status: `pass`")
+
+          summary_target = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_target:
+              with open(summary_target, "a", encoding="utf-8") as fp:
+                  fp.write("\n".join(lines) + "\n")
+              print(f"[gateplus-required-check] wrote summary: {summary_target}")
+
+          if failed:
+              detail = ", ".join(f"{job}={result}" for job, result in failed)
+              print(f"[gateplus-required-check] FAIL: {detail}", file=sys.stderr)
+              sys.exit(1)
+
+          print("[gateplus-required-check] PASS")
+          PY
 
   schema-guard-check:
     name: schema-guard-check
