@@ -199,7 +199,7 @@ class MeaningfulGateUnitTestCase(unittest.TestCase):
         snapshot = build_gateplus_snapshot(url_gate=url_gate)
         self.assertTrue(snapshot["blocked"])
         self.assertEqual(snapshot["blocked_stage"], "pre_fetch_url_gate")
-        self.assertEqual(snapshot["blocked_reason"], "url_policy_low_value_endpoint")
+        self.assertEqual(snapshot["blocked_reason"], "domain_blocked")
 
     def test_gate_decision_to_dict_contains_reason_code(self):
         decision = content_quality_check(
