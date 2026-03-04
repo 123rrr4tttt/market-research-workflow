@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from sqlalchemy import select
+from sqlalchemy.exc import ProgrammingError
 
 from ..models.base import SessionLocal, run_with_session_retry
 from ..models.entities import EtlJobRun
@@ -151,7 +152,15 @@ def list_jobs(limit: int = 20) -> List[dict[str, Any]]:
             .order_by(EtlJobRun.started_at.desc().nullslast())
             .limit(limit)
         )
-        rows = session.execute(stmt).all()
+        try:
+            rows = session.execute(stmt).all()
+        except ProgrammingError as exc:
+            # Cold/local environments may not have ETL history table yet.
+            # Gracefully degrade to empty history instead of surfacing 5xx.
+            msg = str(exc).lower()
+            if "does not exist" in msg and "etl_job_runs" in msg:
+                return []
+            raise
         result: List[dict[str, Any]] = []
         for (job,) in rows:
             result.append(

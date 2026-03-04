@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from sqlalchemy import select
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from ...models.entities import LlmServiceConfig
@@ -11,11 +12,24 @@ from ...models.entities import LlmServiceConfig
 class LlmConfigService:
     def list_configs(self, db: Session) -> list[LlmServiceConfig]:
         stmt = select(LlmServiceConfig).order_by(LlmServiceConfig.service_name)
-        return db.execute(stmt).scalars().all()
+        try:
+            return db.execute(stmt).scalars().all()
+        except ProgrammingError as exc:
+            # In cold/local environments the table may not be initialized yet.
+            msg = str(exc).lower()
+            if "does not exist" in msg and "llm_service_configs" in msg:
+                return []
+            raise
 
     def get_config(self, db: Session, service_name: str) -> Optional[LlmServiceConfig]:
         stmt = select(LlmServiceConfig).where(LlmServiceConfig.service_name == service_name)
-        return db.execute(stmt).scalar_one_or_none()
+        try:
+            return db.execute(stmt).scalar_one_or_none()
+        except ProgrammingError as exc:
+            msg = str(exc).lower()
+            if "does not exist" in msg and "llm_service_configs" in msg:
+                return None
+            raise
 
     def create_config(self, db: Session, payload: dict[str, Any]) -> LlmServiceConfig:
         db_config = LlmServiceConfig(**payload)
