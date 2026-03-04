@@ -14,4 +14,6 @@ Generated: 2026-03-01 07:26:27 PST
 | [../D_SOURCE/status-8x-2026-02-27.md](../D_SOURCE/status-8x-2026-02-27.md) | 2026-03-01T06:42:29-08:00 | 14d853a | ✅ tracked | status-8x-2026-02-27.md |
 | [../D_SOURCE/ingest-chain-evidence-matrix-2026-03-01.md](../D_SOURCE/ingest-chain-evidence-matrix-2026-03-01.md) | UNCOMMITTED | - | 🟡 local-only | ingest-chain-evidence-matrix-2026-03-01.md |
 | [./README.md](./README.md) | 2026-03-01T07:04:19-08:00 | ae18cb0 | ✅ tracked | README.md |
+| [./llm-report-best-practices-2026-03-03.md](./llm-report-best-practices-2026-03-03.md) | UNCOMMITTED | - | 🟡 local-only | llm-report-best-practices-2026-03-03.md |
+| [./version-F-atomic-taskboard-2026-03-03.md](./version-F-atomic-taskboard-2026-03-03.md) | UNCOMMITTED | - | 🟡 local-only | version-F-atomic-taskboard-2026-03-03.md |
 | [../D_SOURCE/RELEASE_NOTES_pre-release-0.9-rc2.0.md](../D_SOURCE/RELEASE_NOTES_pre-release-0.9-rc2.0.md) | 2026-03-01T06:42:29-08:00 | 14d853a | ✅ tracked | RELEASE_NOTES_pre-release-0.9-rc2.0.md |
