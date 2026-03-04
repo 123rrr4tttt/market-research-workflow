@@ -2,16 +2,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import re
 from typing import Any
 
 
-GATE_VERSION = "r2.1"
+GATE_VERSION = "r2.3"
+REPORT_TEMPLATE_VERSION = "v1.1"
 MIN_SECTION_COUNT_HARD = 3
 MIN_CITATION_COVERAGE_HARD = 0.8
 MIN_SOURCE_COUNT_HARD = 1
 MIN_UNIQUE_CITATIONS_HARD = 1
 MIN_EVIDENCE_COVERAGE_SOFT = 0.6
 SHORT_SECTION_LEN_SOFT = 20
+MAX_SECTION_TITLE_LEN = 120
+MAX_SECTION_TITLE_COUNT = 12
+_PLACEHOLDER_SIGNATURES = ("本节由模板生成", "后续流程补充")
 
 
 DEFAULT_SECTION_TITLES = [
@@ -34,6 +39,7 @@ class ReportSection:
 class StructuredReport:
     topic: str
     generated_at: str
+    template_version: str
     sections: list[ReportSection]
     sources: list[dict[str, Any]]
 
@@ -41,6 +47,7 @@ class StructuredReport:
         return {
             "topic": self.topic,
             "generated_at": self.generated_at,
+            "template_version": self.template_version,
             "sections": [
                 {
                     "title": section.title,
@@ -55,8 +62,15 @@ class StructuredReport:
 
 def _normalize_sources(raw_sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
     for i, source in enumerate(raw_sources, start=1):
-        sid = str(source.get("id") or f"S{i}")
+        sid = str(source.get("id") or f"S{i}").strip() or f"S{i}"
+        sid_base = sid
+        suffix = 1
+        while sid in seen_ids:
+            suffix += 1
+            sid = f"{sid_base}_{suffix}"
+        seen_ids.add(sid)
         normalized.append(
             {
                 "id": sid,
@@ -71,6 +85,38 @@ def _normalize_sources(raw_sources: list[dict[str, Any]]) -> list[dict[str, Any]
     return normalized
 
 
+def _normalize_section_titles(section_titles: list[str] | None) -> list[str]:
+    titles = section_titles or DEFAULT_SECTION_TITLES
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw_title in titles[:MAX_SECTION_TITLE_COUNT]:
+        title = re.sub(r"\s+", " ", str(raw_title or "").strip())
+        if not title:
+            continue
+        if len(title) > MAX_SECTION_TITLE_LEN:
+            title = title[:MAX_SECTION_TITLE_LEN].strip()
+        dedupe_key = title.casefold()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        normalized.append(title)
+    return normalized or DEFAULT_SECTION_TITLES
+
+
+def _build_section_content(topic: str, title: str, sources: list[dict[str, Any]]) -> str:
+    evidence_fragments: list[str] = []
+    for source in sources[:3]:
+        source_title = str(source.get("title") or "").strip()
+        evidence = str(source.get("evidence") or "").strip()
+        fragment = evidence or f"来源《{source_title or source.get('id', 'unknown')}》提供了相关事实线索"
+        evidence_fragments.append(fragment)
+    summary = "；".join(evidence_fragments) if evidence_fragments else "当前暂无可用来源证据"
+    return (
+        f"围绕“{topic}”的“{title}”维度，基于现有来源证据形成初步判断：{summary}。"
+        "建议在后续迭代中补充量化指标与时间序列对比。"
+    )
+
+
 def build_structured_report(
     topic: str,
     sources: list[dict[str, Any]],
@@ -82,23 +128,21 @@ def build_structured_report(
 
     normalized_sources = _normalize_sources(sources)
     source_ids = [s["id"] for s in normalized_sources]
-    section_titles = section_titles or DEFAULT_SECTION_TITLES
+    normalized_section_titles = _normalize_section_titles(section_titles)
 
     sections = [
         ReportSection(
             title=title,
-            content=(
-                f"围绕主题“{cleaned_topic}”，本节由模板生成。"
-                f"请在后续流程补充事实推理、数据图表与关键结论。"
-            ),
+            content=_build_section_content(cleaned_topic, title, normalized_sources),
             citations=source_ids[: min(3, len(source_ids))],
         )
-        for title in section_titles
+        for title in normalized_section_titles
     ]
 
     return StructuredReport(
         topic=cleaned_topic,
         generated_at=datetime.now(timezone.utc).isoformat(),
+        template_version=REPORT_TEMPLATE_VERSION,
         sections=sections,
         sources=normalized_sources,
     )
@@ -121,6 +165,8 @@ def validate_report_structure(report: StructuredReport) -> dict[str, Any]:
 
     source_ids = {str(source.get("id") or "").strip() for source in report.sources}
     source_ids.discard("")
+    if len(source_ids) != len(report.sources):
+        errors.append("source_id_duplicate")
     sources_missing_evidence: list[str] = []
 
     for idx, source in enumerate(report.sources, start=1):
@@ -150,6 +196,8 @@ def validate_report_structure(report: StructuredReport) -> dict[str, Any]:
             errors.append(f"section_{idx}_title_empty")
         else:
             normalized_titles.append(title)
+            if len(title) > MAX_SECTION_TITLE_LEN:
+                errors.append(f"section_{idx}_title_too_long")
         if not content:
             errors.append(f"section_{idx}_content_empty")
         if len(content) < 20:
@@ -194,6 +242,7 @@ def validate_report_structure(report: StructuredReport) -> dict[str, Any]:
 
 
 def evaluate_report_gate(report: StructuredReport) -> dict[str, Any]:
+    gate_started_at = datetime.now(timezone.utc)
     total_sections = len(report.sections)
     cited_sections = sum(1 for section in report.sections if section.citations)
     citation_coverage = (cited_sections / total_sections) if total_sections else 0.0
@@ -222,6 +271,11 @@ def evaluate_report_gate(report: StructuredReport) -> dict[str, Any]:
         for section in report.sections
         if len(str(section.content or "").strip()) < SHORT_SECTION_LEN_SOFT
     )
+    placeholder_section_count = sum(
+        1
+        for section in report.sections
+        if any(signature in str(section.content or "") for signature in _PLACEHOLDER_SIGNATURES)
+    )
 
     hard_failures: list[str] = []
     soft_failures: list[str] = []
@@ -239,6 +293,8 @@ def evaluate_report_gate(report: StructuredReport) -> dict[str, Any]:
     if len(unique_citations) < MIN_UNIQUE_CITATIONS_HARD:
         hard_failures.append(f"unique_citations_below_min:{MIN_UNIQUE_CITATIONS_HARD}")
         missing_items.append("citations")
+    if placeholder_section_count > 0:
+        hard_failures.append("placeholder_content_detected")
 
     if evidence_coverage < MIN_EVIDENCE_COVERAGE_SOFT:
         soft_failures.append(
@@ -267,6 +323,8 @@ def evaluate_report_gate(report: StructuredReport) -> dict[str, Any]:
         1.0 - (0.25 * len(hard_failures)) - (0.08 * len(soft_failures)),
     )
 
+    gate_finished_at = datetime.now(timezone.utc)
+
     return {
         "gate_version": GATE_VERSION,
         "citation_coverage": round(citation_coverage, 4),
@@ -294,32 +352,51 @@ def evaluate_report_gate(report: StructuredReport) -> dict[str, Any]:
             "sections_without_citations": sections_without_citations,
             "sources_missing_evidence": sources_missing_evidence,
             "short_section_count": short_section_count,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "placeholder_section_count": placeholder_section_count,
+            "report_generated_at": str(report.generated_at or ""),
+            "gate_started_at": gate_started_at.isoformat(),
+            "gate_finished_at": gate_finished_at.isoformat(),
+            "gate_duration_ms": round((gate_finished_at - gate_started_at).total_seconds() * 1000, 3),
         },
     }
 
 
+def _escape_markdown_text(value: str) -> str:
+    escaped = str(value or "")
+    escaped = escaped.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    escaped = escaped.replace("\\", "\\\\")
+    for token in ["`", "*", "_", "{", "}", "[", "]", "(", ")", "#", "+", "-", ".", "!"]:
+        escaped = escaped.replace(token, f"\\{token}")
+    return escaped
+
+
 def render_markdown(report: StructuredReport) -> str:
     lines: list[str] = [
-        f"# 研究报告：{report.topic}",
+        f"# 研究报告：{_escape_markdown_text(report.topic)}",
         "",
         f"- 生成时间: {report.generated_at}",
+        f"- 模板版本: {report.template_version}",
         f"- 来源数量: {len(report.sources)}",
         "",
     ]
 
     for section in report.sections:
-        lines.append(f"## {section.title}")
-        lines.append(section.content)
+        lines.append(f"## {_escape_markdown_text(section.title)}")
+        lines.append(_escape_markdown_text(section.content))
         if section.citations:
             lines.append("")
-            lines.append("引用: " + ", ".join(f"[{cid}]" for cid in section.citations))
+            lines.append(
+                "引用: " + ", ".join(f"\\[{_escape_markdown_text(str(cid))}\\]" for cid in section.citations)
+            )
         lines.append("")
 
     lines.append("## Sources")
     for source in report.sources:
         lines.append(
-            f"- [{source['id']}] {source['title']} | {source['publisher']} | {source['url']}"
+            f"- [{_escape_markdown_text(str(source['id']))}] "
+            f"{_escape_markdown_text(str(source['title']))} | "
+            f"{_escape_markdown_text(str(source['publisher']))} | "
+            f"{_escape_markdown_text(str(source['url']))}"
         )
 
     return "\n".join(lines).strip() + "\n"

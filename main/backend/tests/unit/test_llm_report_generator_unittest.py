@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import unittest
 
+import pytest
+
 from app.services.llm_report_generator import (
     ReportSection,
     StructuredReport,
@@ -10,6 +12,8 @@ from app.services.llm_report_generator import (
     render_markdown,
     validate_report_structure,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class LlmReportGeneratorUnitTest(unittest.TestCase):
@@ -48,6 +52,7 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
         report = StructuredReport(
             topic="Robotics Market",
             generated_at="2026-03-03T00:00:00+00:00",
+            template_version="v1.1",
             sections=[
                 ReportSection(
                     title="执行摘要",
@@ -85,6 +90,7 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
         report = StructuredReport(
             topic="test",
             generated_at="2026-03-04T00:00:00Z",
+            template_version="v1.1",
             sections=[
                 ReportSection(title="A", content="too short", citations=["S1"]),
                 ReportSection(title="A", content="still short", citations=["S1"]),
@@ -100,6 +106,7 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
         report = StructuredReport(
             topic="test",
             generated_at="2026-03-04T00:00:00Z",
+            template_version="v1.1",
             sections=[
                 ReportSection(
                     title="A",
@@ -134,6 +141,7 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
         report = StructuredReport(
             topic="test",
             generated_at="2026-03-04T00:00:00Z",
+            template_version="v1.1",
             sections=[
                 ReportSection(
                     title="A",
@@ -172,13 +180,63 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
         self.assertIn("soft_failures", gate)
         self.assertIn("missing_items", gate)
         self.assertIn("observability", gate)
-        self.assertIn("generated_at", gate["observability"])
+        self.assertIn("gate_started_at", gate["observability"])
+        self.assertIn("gate_finished_at", gate["observability"])
+        self.assertIn("gate_duration_ms", gate["observability"])
         self.assertIn("citation_coverage_min_hard", gate["rules"])
+
+    def test_quality_gate_must_minset_baseline(self):
+        pass_report = build_structured_report(
+            topic="北美在线彩票增长",
+            sources=[
+                {
+                    "id": "S1",
+                    "title": "Source 1",
+                    "url": "https://example.com/1",
+                    "publisher": "Example",
+                    "evidence": "evidence",
+                }
+            ],
+        )
+        pass_gate = evaluate_report_gate(pass_report)
+        self.assertEqual(pass_gate["decision"], "pass")
+
+        warn_report = StructuredReport(
+            topic="warn-case",
+            generated_at="2026-03-04T00:00:00Z",
+            template_version="v1.1",
+            sections=[
+                ReportSection(title="A", content="这是长度足够的内容，用于触发软门禁。", citations=["S1"]),
+                ReportSection(title="B", content="这是长度足够的内容，用于触发软门禁。", citations=["S2"]),
+                ReportSection(title="C", content="这是长度足够的内容，用于触发软门禁。", citations=["S3"]),
+            ],
+            sources=[
+                {"id": "S1", "title": "t1", "url": "https://example.com/1", "publisher": "p", "evidence": "ok"},
+                {"id": "S2", "title": "t2", "url": "https://example.com/2", "publisher": "p", "evidence": ""},
+                {"id": "S3", "title": "t3", "url": "https://example.com/3", "publisher": "p", "evidence": ""},
+            ],
+        )
+        warn_gate = evaluate_report_gate(warn_report)
+        self.assertEqual(warn_gate["decision"], "warn")
+
+        fail_report = StructuredReport(
+            topic="fail-case",
+            generated_at="2026-03-04T00:00:00Z",
+            template_version="v1.1",
+            sections=[
+                ReportSection(title="A", content="这是长度足够的内容。", citations=["S1"]),
+                ReportSection(title="B", content="这是长度足够的内容。", citations=["S1"]),
+            ],
+            sources=[{"id": "S1", "title": "t1", "url": "https://example.com/1", "publisher": "p", "evidence": "ok"}],
+        )
+        fail_gate = evaluate_report_gate(fail_report)
+        self.assertEqual(fail_gate["decision"], "fail")
 
     def test_validate_report_structure_rejects_source_without_url(self):
         report = StructuredReport(
             topic="test",
             generated_at="2026-03-04T00:00:00Z",
+            template_version="v1.1",
             sections=[
                 ReportSection(
                     title="A",
@@ -201,6 +259,65 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
         validation = validate_report_structure(report)
         self.assertFalse(validation["pass"])
         self.assertIn("source_1_url_empty", validation["errors"])
+
+    def test_markdown_renderer_escapes_user_controlled_tokens(self):
+        report = StructuredReport(
+            topic="#topic [x] <img src=x onerror=alert(1)>",
+            generated_at="2026-03-04T00:00:00Z",
+            template_version="v1.1",
+            sections=[
+                ReportSection(
+                    title="sec*1",
+                    content="payload [link](javascript:alert(1)) <script>alert(1)</script>",
+                    citations=["S1"],
+                )
+            ],
+            sources=[
+                {
+                    "id": "S1",
+                    "title": "src](1)",
+                    "url": "https://example.com/a(b)",
+                    "publisher": "p#1",
+                    "evidence": "ok",
+                }
+            ],
+        )
+        markdown = render_markdown(report)
+        self.assertIn("# 研究报告：\\#topic \\[x\\] &lt;img src=x onerror=alert\\(1\\)&gt;", markdown)
+        self.assertIn("payload \\[link\\]\\(javascript:alert\\(1\\)\\)", markdown)
+        self.assertIn("&lt;script&gt;alert\\(1\\)&lt;/script&gt;", markdown)
+        self.assertIn("引用: \\[S1\\]", markdown)
+
+    def test_validate_report_structure_rejects_duplicate_source_ids(self):
+        report = StructuredReport(
+            topic="duplicate-source-id",
+            generated_at="2026-03-04T00:00:00Z",
+            template_version="v1.1",
+            sections=[
+                ReportSection(
+                    title="A",
+                    content="这是长度足够的内容，用于结构校验。",
+                    citations=["S1"],
+                ),
+                ReportSection(
+                    title="B",
+                    content="这是长度足够的内容，用于结构校验。",
+                    citations=["S1"],
+                ),
+                ReportSection(
+                    title="C",
+                    content="这是长度足够的内容，用于结构校验。",
+                    citations=["S1"],
+                ),
+            ],
+            sources=[
+                {"id": "S1", "title": "t1", "url": "https://example.com/1", "publisher": "p", "evidence": "ok"},
+                {"id": "S1", "title": "t2", "url": "https://example.com/2", "publisher": "p", "evidence": "ok"},
+            ],
+        )
+        validation = validate_report_structure(report)
+        self.assertFalse(validation["pass"])
+        self.assertIn("source_id_duplicate", validation["errors"])
 
 
 if __name__ == "__main__":
