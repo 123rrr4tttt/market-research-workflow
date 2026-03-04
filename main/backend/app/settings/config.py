@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     db_pool_recycle_seconds: int = Field(default=3600)
     db_pool_pre_ping: bool = Field(default=True)
     db_pool_echo: bool = Field(default=False)
+    deep_health_pool_gate_enabled: bool = Field(default=True)
+    deep_health_pool_exhaustion_ratio: float = Field(default=1.0)
     db_connect_timeout_seconds: int = Field(default=2)
     db_statement_timeout_ms: int = Field(default=30000)
     db_lock_timeout_ms: int = Field(default=5000)

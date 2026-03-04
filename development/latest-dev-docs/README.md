@@ -58,5 +58,7 @@
   - [01_graph-3d-force-engine-parallel-migration-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
 - `backend-core/main` 新增标准工作流打包文档：
   - [STANDARD_INGEST_WORKFLOWS_2026-03-02.md](./backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md)
+- `backend-docs/E_OPS` 新增 E-DB R5 执行记录（参考包代理映射 + deep health 连接池门禁）：
+  - [E_DB_R5_REFERENCE_POOL_PROXY_AND_POOL_GATE_2026-03-04.md](./backend-docs/E_OPS/E_DB_R5_REFERENCE_POOL_PROXY_AND_POOL_GATE_2026-03-04.md)
 - `ops-frontend/F_PLAN` 新增图谱 3D 控制面板左移与 2D 全局引力记录：
   - [graph-3d-controls-left-and-2d-gravity-2026-03-02.md](./ops-frontend/F_PLAN/graph-3d-controls-left-and-2d-gravity-2026-03-02.md)

@@ -310,7 +310,26 @@ def deep_health_check() -> dict:
 
     # DB pool status
     try:
-        details["database_pool"] = get_db_pool_status()
+        pool_status = get_db_pool_status()
+        details["database_pool"] = pool_status
+        checks["database_pool"] = "ok"
+        size = int(pool_status.get("size", 0))
+        checkedout = int(pool_status.get("checkedout", 0))
+        max_overflow = max(0, int(settings.db_pool_max_overflow))
+        pool_limit = size + max_overflow
+        gate_enabled = bool(settings.deep_health_pool_gate_enabled)
+        exhaustion_ratio = float(settings.deep_health_pool_exhaustion_ratio)
+        exhaustion_ratio = min(max(exhaustion_ratio, 0.1), 1.0)
+        exhaustion_threshold = max(1, int(pool_limit * exhaustion_ratio)) if pool_limit > 0 else 0
+        if gate_enabled and pool_limit > 0 and checkedout >= exhaustion_threshold:
+            checks["database_pool"] = "error: pool_exhausted"
+            details["database_pool_gate"] = {
+                "pool_limit": pool_limit,
+                "checkedout": checkedout,
+                "max_overflow": max_overflow,
+                "exhaustion_ratio": exhaustion_ratio,
+                "exhaustion_threshold": exhaustion_threshold,
+            }
     except Exception as e:  # noqa: BLE001
         checks["database_pool"] = f"error: {type(e).__name__}"
 
