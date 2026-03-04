@@ -54,6 +54,25 @@ class _StaticContextFilter(logging.Filter):
             record.deploy_color = self._deploy_color
         return True
 
+# Ensure every log record has the static fields, including third-party loggers.
+_BASE_RECORD_FACTORY = logging.getLogRecordFactory()
+
+
+def _record_factory(*args, **kwargs):
+    record = _BASE_RECORD_FACTORY(*args, **kwargs)
+    if not hasattr(record, "service"):
+        record.service = _SERVICE_NAME
+    if not hasattr(record, "env"):
+        record.env = getattr(settings, "env", "dev")
+    if not hasattr(record, "version"):
+        record.version = _SERVICE_VERSION
+    if not hasattr(record, "deploy_color"):
+        record.deploy_color = _DEPLOY_COLOR
+    return record
+
+
+logging.setLogRecordFactory(_record_factory)
+
 # Base configuration
 logging.basicConfig(
     level=logging.INFO,
@@ -65,7 +84,6 @@ logging.basicConfig(
 )
 
 # Add context filter on root so all child loggers inherit it
-from .settings.config import settings  # noqa: E402  (after basicConfig)
 logging.getLogger().addFilter(
     _StaticContextFilter(
         service=_SERVICE_NAME,
@@ -318,6 +336,7 @@ async def metrics_middleware(request: Request, call_next):
         duration_ms,
         error_code,
     )
+    return response
 
 
 @app.exception_handler(HTTPException)
