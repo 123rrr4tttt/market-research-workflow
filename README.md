@@ -1,10 +1,16 @@
 # 市场情报（market-intel）项目说明
 
-> 最后更新：2026-03-02  
-> 当前版本：`v0.1-rc2.0`（预发布，开发版）
+> 最后更新：2026-03-03  
+> 当前版本状态：`pre-release final`（预发布最后版本）
 
 本仓库实现一体化信息工作流：多来源采集 -> 结构化处理 -> 索引检索 -> 可视化与运维管理。  
 适用于政策、市场、新闻、社媒等主题的数据采集与分析。
+
+## 0. 版本口径（pre-release final）
+
+- 版本状态：当前 README 统一采用 `pre-release final` 口径；此前 `rc2.0` 表述仅作为历史文件命名与追溯依据，不再作为当前状态描述。
+- 发布建议：可作为预发布最终候选进入联调与灰度；正式发布前建议至少执行一次 `preflight + ci-main 档测试 + Docker 冒烟`。
+- 验证结论：截至 `2026-03-03`，现有测试分层与 CI 门禁链路可支撑预发布收口，核心启动/健康检查/检索链路具备可验证性。
 
 ## 1. 项目总览
 
@@ -385,7 +391,7 @@ cd main/ops
 - 前端迁移契约：`main/backend/docs/FRONTEND_MODERNIZATION_API_MAP_2026-02-27.md`
 - 后端测试分层说明：`main/backend/tests/README.md`
 - 迭代计划：`plans/status-8x-2026-02-27.md`
-- 版本说明：`RELEASE_NOTES_pre-release-0.1-rc2.0.md`
+- 版本说明（历史文件名，当前口径为 pre-release final）：`RELEASE_NOTES_pre-release-0.1-rc2.0.md`
 
 ### 12.1 本轮开发文档增量（来自 `development/latest-dev-docs`）
 
@@ -398,7 +404,7 @@ cd main/ops
 
 ## 13. 8.x 进一步开发规划（状态同步）
 
-以下状态同步自预发布说明，并结合当前仓库落地情况更新（截至 `2026-03-02`）：
+以下状态同步自预发布阶段说明，并结合当前仓库落地情况更新（截至 `2026-03-03`）：
 
 | 路线 | 当前状态 | 说明 / 下一步 |
 |---|---|---|
@@ -419,7 +425,7 @@ cd main/ops
 
 详见：
 
-- 版本说明：`RELEASE_NOTES_pre-release-0.1-rc2.0.md`
+- 版本说明（历史文件名，当前口径为 pre-release final）：`RELEASE_NOTES_pre-release-0.1-rc2.0.md`
 - 迭代计划：`plans/status-8x-2026-02-27.md`
 
 ## 14. 当前已知风险（供联调参考）

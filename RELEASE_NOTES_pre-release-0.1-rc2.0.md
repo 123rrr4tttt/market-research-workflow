@@ -1,81 +1,67 @@
-# 预发布说明：v0.1-rc2.0（2026-03-02）
+# 预发布说明：v0.1-rc2.0（pre-release final）
 
-- 版本类型：`预发布（Pre-release）`
+- 文档日期：`2026-03-03`
 - 版本名称：`v0.1-rc2.0`
-- 适用场景：开发联调、端到端流程验证、发布前回归
+- 版本定位：`Pre-release Final（预发布最后版本）`
+- 适用范围：发布封口确认、上线前最终回归、豁免项登记
 
-## 摘要
+## 版本定义
 
-本版本聚焦“单 URL 优先采集 + 有意义内容门禁 + 图谱标准化输出 + 前后端联动补齐”。目标是将采集、处理、图谱、运维页面打通为可验证的开发版本闭环。
+本版本定义为 `pre-release final`，作为正式发布前的最后一个预发布版本。
 
-## 本次重点更新
+判定口径如下：
 
-### 1) Ingest 链路增强（单 URL 优先）
+- 主干能力（ingest/process/graph/ops）已完成本轮封口，功能范围不再继续扩张。
+- 非阻断问题仅允许以“已知问题 + 明确豁免”形式保留，不进入新需求。
+- 后续仅接受发布阻断级修复（blocking fixes）。
 
-- 新增单 URL 采集相关能力，完善 ingest 入口分流与处理流程。
-- 引入轻量过滤、脏数据复核与有意义内容门禁，降低低价值文档入库概率。
-- URL 池策略与来源解析逻辑同步调整，提升可控性与可解释性。
+## 变更摘要
 
-### 2) 图谱能力升级（标准化与投影）
+本轮封口聚焦“可发布性确认”而非新增大功能，主要完成以下工作：
 
-- 新增图谱映射与投影模块，统一节点展示语义与导出接口口径。
-- 图谱导出器与文档类型映射更新，支持更稳定的结构化输出。
-- 管理接口补充图谱标准化相关能力，便于批量治理与回放验证。
+- 完成预发布范围内能力收敛，统一当前版本对外口径为 `pre-release final`。
+- 完成非 Docker 全链路验证并沉淀结果，作为发布判定依据。
+- 对遗留失败项进行逐条归因，形成“阻断 / 非阻断”分类与豁免记录。
+- 明确发布门禁：仅阻断级问题影响发布，其余问题进入后续修复队列。
 
-### 3) 后端 API 与任务编排补齐
+## 验证结果
 
-- `admin / ingest / process / projects` 等接口扩展，覆盖新链路运行与运营场景。
-- 任务服务与启动钩子更新，保证新能力在主流程中可调度、可观测。
-- discovery/store 与 source library resolver 协同增强，减少链路分叉行为差异。
+验证基线：`非 Docker 全链路`。
 
-### 4) 前端联动更新（modern）
+- 后端：`all passed`（全部通过）。
+- 前端 E2E：`6/7 passed`。
+- 失败项：图谱可视化相关 `1` 条失败。
 
-- `Ingest / Graph / Ops / Process / CrawlerManage` 页面适配新接口与新状态。
-- 新增图谱节点卡片与扩展展示组件，提升图谱调试与运营可读性。
-- API types/endpoints 与交互 hooks 同步更新，降低前后端契约偏差。
+结论：
 
-### 5) 测试与质量保障
+- 该图谱可视化失败项已完成定位与复核。
+- 当前失败不影响核心业务闭环与发布关键路径，已确认为 `non-blocking`。
 
-- 新增与扩展单元、集成、核心业务测试，覆盖 meaningful gate、single URL、graph projection 等关键模块。
-- 增加前端 e2e 用例（single URL ingest 方向），补齐主链路自动化检查。
-- 标准化测试入口 `scripts/test-standardize.sh` 新增：
-  - `external-smoke`（后端外部链路冒烟，docker compose）
-  - `frontend-e2e`（前端 Playwright 回归）
-- 本版本建议在合并前执行分层测试与关键页面冒烟。
+## 已知问题与豁免
 
-### 6) development 文档同步（2026-03-02）
+已知问题（本轮保留）：
 
-本次预发布说明与 `development/latest-dev-docs` 已对齐，重点纳入以下开发计划：
+- 图谱可视化 E2E 存在 `1` 条失败用例（前端 E2E 总体 `6/7`）。
 
-- 单 URL 优先采集分配方案（`CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan`）
-- Source Time Window + Smart Timestamp 三段方案（`CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan`）
-- 图谱节点 A→B 标准化方案（`CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan`）
-- 全局向量化通用基础方案（`CURRENT_DEV/2026-03-03-global-vectorization-general-foundation`）
-- 标准化 ingest workflows 文档（`backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md`）
+豁免口径：
 
-文档入口建议：
+- 豁免类别：`测试豁免（非阻断）`。
+- 豁免依据：失败项不影响后端主链路正确性，不影响核心流程可用性，不构成发布阻断。
+- 豁免条件：
+  - 问题已被明确记录且可复现。
+  - 问题已归入后续修复计划并持续跟踪。
+  - 不得扩大豁免范围到其他未评估失败项。
 
-- `development/latest-dev-docs/README.md`
-- `development/latest-dev-docs/MERGED_OVERVIEW.md`
-- `development/latest-dev-docs/development-plans/INDEX.md`
+## 发布判定
 
-## 兼容性与注意事项
+发布建议：`允许进入下一阶段（Go with exemption）`。
 
-- 本版本为开发预发布，优先保证“闭环可验证”，不承诺长期稳定 API 形态。
-- 个别实验性脚本与运行产物不纳入发布内容，发布时应保持工作区清洁。
-- 若与旧文档口径冲突，以本说明与当前代码行为为准。
+判定依据：
 
-## 推荐回归清单（v0.1-rc2.0）
+- 后端全量验证通过。
+- 前端 E2E 仅剩 1 条已确认非阻断失败。
+- 豁免项口径清晰，风险可控，满足 pre-release final 的封口标准。
 
-1. 单 URL 采集任务从提交到落库是否可完整跑通。
-2. meaningless/dirty 内容是否被门禁策略正确拦截或标记。
-3. 图谱页面是否可稳定展示新投影结果与节点信息卡片。
-4. process/ops 页面是否能正确呈现新任务状态与统计信息。
-5. 后端分层测试与前端关键 e2e 是否通过。
+结论：
 
-## 说明
-
-- 本说明对应当前开发版本快照，不等同正式发布公告。
-- 历史版本说明保留：
-  - `RELEASE_NOTES_pre-release-0.md`
-  - `RELEASE_NOTES_pre-release-0.9-rc2.0.md`
+`v0.1-rc2.0` 作为 `pre-release final` 可用于正式发布前最后窗口。

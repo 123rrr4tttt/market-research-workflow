@@ -2,6 +2,13 @@
 
 Updated: 2026-03-03 PST
 
+## 状态（Pre-release Final）
+
+- 状态标记：`预发布最后版本（Pre-release Final）`
+- 口径：`CURRENT_DEV` 已清空；当前与后续封口结论统一以 `CLOSED_DEV` 为主。
+- Full closure report（快速入口）：
+  - [01_full-closure-report-2026-03-03.md](./development-plans/CLOSED_DEV/2026-03-03-full-closure-report/01_full-closure-report-2026-03-03.md)
+
 ## 目录级合并结果
 
 | 目录 | 合并主文档 | 校对文档 | 说明 |
@@ -17,7 +24,8 @@ Updated: 2026-03-03 PST
 1. 先读本文件和各目录 `INDEX.md`，再进入合并主文档。
 2. 校对文档用于识别过时项，不直接替代原始来源文档。
 3. 若要提交发布版，优先更新 `SYNC_STATUS.md` 的检查时间。
-4. 若要查看“开发条线盘点 + 封口归档 + 未落地目标”，优先阅读 [development-plans/main/DEVELOPMENT_STREAMS_CLOSURE_AND_GAPS_2026-03-03.md](./development-plans/main/DEVELOPMENT_STREAMS_CLOSURE_AND_GAPS_2026-03-03.md)。
+4. 若要查看最终封口结论，优先阅读 [01_full-closure-report-2026-03-03.md](./development-plans/CLOSED_DEV/2026-03-03-full-closure-report/01_full-closure-report-2026-03-03.md)。
+5. 若要查看“开发条线盘点 + 封口归档 + 未落地目标”，阅读 [development-plans/main/DEVELOPMENT_STREAMS_CLOSURE_AND_GAPS_2026-03-03.md](./development-plans/main/DEVELOPMENT_STREAMS_CLOSURE_AND_GAPS_2026-03-03.md)。
 
 ## 最近新增
 
@@ -46,7 +54,7 @@ Updated: 2026-03-03 PST
   - [CV01_CV02_CLOSURE_EVIDENCE_TEMPLATE_AND_MIGRATION_PREREQ_2026-03-03.md](./development-plans/main/CV01_CV02_CLOSURE_EVIDENCE_TEMPLATE_AND_MIGRATION_PREREQ_2026-03-03.md)
   - [CV02_BATCH_MIGRATION_QUEUE_2026-03-03.md](./development-plans/main/CV02_BATCH_MIGRATION_QUEUE_2026-03-03.md)
   - [CV02_IP03_BIP05_BLOCKED_CLOSURE_STRATEGY_2026-03-03.md](./development-plans/main/CV02_IP03_BIP05_BLOCKED_CLOSURE_STRATEGY_2026-03-03.md)
-- `development-plans/CURRENT_DEV`（状态更新）：
+- `development-plans/CURRENT_DEV`（已清空，后续以 `CLOSED_DEV` 为主）：
   - [CURRENT_DEV/README.md](./development-plans/CURRENT_DEV/README.md)
   - [2026-03-03-currentdev-unfinished-closure-taskboard.md](./development-plans/CLOSED_DEV/2026-03-03-currentdev-unfinished-closure-taskboard.md)
   - [2026-03-03-currentdev-unfinished-closure-summary.md](./development-plans/CLOSED_DEV/2026-03-03-currentdev-unfinished-closure-summary.md)

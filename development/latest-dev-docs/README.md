@@ -3,11 +3,19 @@
 > 本目录为按当前仓库状态同步后的开发文档快照与合并结果。
 > 本目录是本项目开发文档的第一入口（重要索引）。
 
+## 状态（Pre-release Final）
+
+- 状态标记：`预发布最后版本（Pre-release Final）`
+- 口径：`CURRENT_DEV` 已清空；当前与后续封口结论统一以 `CLOSED_DEV` 为主。
+- Full closure report（快速入口）：
+  - [01_full-closure-report-2026-03-03.md](./development-plans/CLOSED_DEV/2026-03-03-full-closure-report/01_full-closure-report-2026-03-03.md)
+
 ## 快速入口
 
 - [合并总览](./MERGED_OVERVIEW.md)
 - [同步状态](./SYNC_STATUS.md)
 - [来源台账](./index.md)
+- [Full closure report（封口总报告）](./development-plans/CLOSED_DEV/2026-03-03-full-closure-report/01_full-closure-report-2026-03-03.md)
 - [开发条线/封口归档/未落地目标审计](./development-plans/main/DEVELOPMENT_STREAMS_CLOSURE_AND_GAPS_2026-03-03.md)
 
 ## 分目录入口
@@ -55,7 +63,7 @@
   - [CV01_CV02_CLOSURE_EVIDENCE_TEMPLATE_AND_MIGRATION_PREREQ_2026-03-03.md](./development-plans/main/CV01_CV02_CLOSURE_EVIDENCE_TEMPLATE_AND_MIGRATION_PREREQ_2026-03-03.md)
   - [CV02_BATCH_MIGRATION_QUEUE_2026-03-03.md](./development-plans/main/CV02_BATCH_MIGRATION_QUEUE_2026-03-03.md)
   - [CV02_IP03_BIP05_BLOCKED_CLOSURE_STRATEGY_2026-03-03.md](./development-plans/main/CV02_IP03_BIP05_BLOCKED_CLOSURE_STRATEGY_2026-03-03.md)
-- `development-plans/CURRENT_DEV` 已清空（全部迁移封口）：
+- `development-plans/CURRENT_DEV` 已清空（后续以 `CLOSED_DEV` 为主）：
   - [CURRENT_DEV/README.md](./development-plans/CURRENT_DEV/README.md)
   - [2026-03-03-currentdev-unfinished-closure-taskboard.md](./development-plans/CLOSED_DEV/2026-03-03-currentdev-unfinished-closure-taskboard.md)
   - [2026-03-03-currentdev-unfinished-closure-summary.md](./development-plans/CLOSED_DEV/2026-03-03-currentdev-unfinished-closure-summary.md)
