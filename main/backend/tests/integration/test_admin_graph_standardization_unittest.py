@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -226,11 +227,38 @@ class AdminGraphStandardizationIntegrationTestCase(unittest.TestCase):
         assert isinstance(data["nodes"], list)
         assert isinstance(data["edges"], list)
 
-    def _call(self, path: str):
+    def _mock_graph_db_graph_for_path(self, path: str) -> Graph:
+        if "/content-graph" in path:
+            return _social_graph()
+        if "/policy-graph" in path:
+            return _policy_graph()
+        if "/market-graph" in path:
+            graph = _market_graph()
+            parsed = parse_qs(urlparse(path).query)
+            view = (parsed.get("view") or [None])[0]
+            topic_scope = (parsed.get("topic_scope") or [None])[0]
+            if view == "market_deep_entities" or topic_scope:
+                self._fake_augment(graph, [], topic_scope=topic_scope)
+            return graph
+        return Graph()
+
+    def _call(self, path: str, *, graph_db_graph: Graph | None = None, graph_db_read_error: Exception | None = None):
         patches = self._patch_common()
         with patch("app.api.admin._augment_market_graph_with_topic_structured", side_effect=self._fake_augment):
             with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patches[8]:
-                return self.client.get(path, headers=self.headers)
+                if graph_db_read_error is not None:
+                    with patch(
+                        "app.services.graph.persistence.graph_node_reader.GraphNodeReader.load_graph",
+                        side_effect=graph_db_read_error,
+                    ):
+                        return self.client.get(path, headers=self.headers)
+                with patch(
+                    "app.services.graph.persistence.graph_node_reader.GraphNodeReader.load_graph",
+                    return_value=(
+                        graph_db_graph if graph_db_graph is not None else self._mock_graph_db_graph_for_path(path)
+                    ),
+                ):
+                    return self.client.get(path, headers=self.headers)
 
     def test_admin_graph_endpoints_response_contract_stable(self):
         for path in (
@@ -321,39 +349,60 @@ class AdminGraphStandardizationIntegrationTestCase(unittest.TestCase):
                 self.assertIn(from_key, node_index, msg=f"path={path} missing from={from_key}")
                 self.assertIn(to_key, node_index, msg=f"path={path} missing to={to_key}")
 
-    def test_admin_graph_shadow_write_calls_writer(self):
-        with patch("app.settings.config.settings.graph_node_projection_write_mode", "shadow"), patch(
-            "app.settings.config.settings.graph_node_projection_read_mode", "a_only"
+    def test_admin_graph_endpoint_is_read_only_no_graph_db_write(self):
+        with patch("app.settings.config.settings.graph_db_write_mode", "on"), patch(
+            "app.settings.config.settings.graph_db_read_mode", "db_primary"
         ), patch("app.services.graph.persistence.graph_node_writer.GraphNodeWriter.persist_graph_nodes") as persist_mock:
-            persist_mock.return_value = SimpleNamespace(
-                attempted=1, inserted_or_updated=1, aliases_written=1, edges_written=1, skipped=0
-            )
             resp = self._call("/api/v1/admin/content-graph?limit=20")
             self.assertEqual(resp.status_code, 200, msg=resp.text)
             self._assert_contract(resp.json())
-            self.assertTrue(persist_mock.called)
+            self.assertFalse(persist_mock.called)
 
-    def test_admin_graph_b_canary_reads_projection_nodes(self):
+    def test_admin_graph_forced_db_primary_reads_graph_db_nodes(self):
         canary_graph = Graph(
             nodes={"Post:canary-1": GraphNode(type="Post", id="canary-1", properties={"label": "canary"})},
             edges=[],
             schema_version="v1",
         )
-        with patch("app.settings.config.settings.graph_node_projection_write_mode", "off"), patch(
-            "app.settings.config.settings.graph_node_projection_read_mode", "b_canary"
-        ), patch(
-            "app.settings.config.settings.graph_node_projection_canary_projects", "demo_proj"
-        ), patch(
-            "app.services.graph.persistence.graph_node_reader.GraphNodeReader.load_graph",
-            return_value=canary_graph,
+        with patch("app.settings.config.settings.graph_db_write_mode", "off"), patch(
+            "app.settings.config.settings.graph_db_read_mode", "db_primary"
         ):
-            resp = self._call("/api/v1/admin/content-graph?limit=20")
+            resp = self._call("/api/v1/admin/content-graph?limit=20", graph_db_graph=canary_graph)
             self.assertEqual(resp.status_code, 200, msg=resp.text)
             body = resp.json()
             self._assert_contract(body)
             node_ids = {str(n.get("id")) for n in body["data"]["nodes"]}
             self.assertIn("canary-1", node_ids)
             self.assertEqual(len(body["data"]["edges"]), 0)
+
+    def test_admin_graph_db_primary_read_error_returns_empty_graph_not_a_fallback(self):
+        with patch("app.settings.config.settings.graph_db_write_mode", "off"), patch(
+            "app.settings.config.settings.graph_db_read_mode", "db_primary"
+        ):
+            resp = self._call(
+                "/api/v1/admin/content-graph?limit=20",
+                graph_db_read_error=RuntimeError("graph_db read failed"),
+            )
+            body = resp.json()
+            self.assertEqual(resp.status_code, 200, msg=resp.text)
+            self._assert_contract(body)
+            node_ids = {str(n.get("id")) for n in body.get("data", {}).get("nodes", [])}
+            self.assertFalse("1" in node_ids, msg=f"unexpected A-fallback node under db-primary read error: {body}")
+            self.assertEqual(len(body.get("data", {}).get("nodes", [])), 0)
+            self.assertEqual(len(body.get("data", {}).get("edges", [])), 0)
+
+    def test_admin_graph_db_primary_empty_graph_does_not_backfill_a_nodes(self):
+        empty_graph = Graph(nodes={}, edges=[], schema_version="v1")
+        with patch("app.settings.config.settings.graph_db_write_mode", "off"), patch(
+            "app.settings.config.settings.graph_db_read_mode", "db_primary"
+        ):
+            resp = self._call("/api/v1/admin/content-graph?limit=20", graph_db_graph=empty_graph)
+            body = resp.json()
+            if resp.status_code == 200 and body.get("status") == "ok":
+                node_ids = {str(n.get("id")) for n in body.get("data", {}).get("nodes", [])}
+                self.assertFalse("1" in node_ids, msg=f"unexpected A backfill when graph_db is empty: {body}")
+            else:
+                self.assertNotEqual(resp.status_code, 200, msg=f"unexpected status for db-primary empty graph: {body}")
 
 
 if __name__ == "__main__":

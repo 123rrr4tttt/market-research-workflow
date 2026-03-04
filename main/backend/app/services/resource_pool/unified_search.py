@@ -25,6 +25,7 @@ class UnifiedSearchResult:
     written: dict[str, int] | None
     ingest_result: dict[str, Any] | None
     errors: list[dict[str, str]]
+    stats: dict[str, int]
 
 
 def _as_terms(raw: Any) -> list[str]:
@@ -307,6 +308,7 @@ def unified_search_by_item(
     ingest_limit: int = 10,
     enable_extraction: bool = True,
     allow_term_fallback: bool = True,
+    allow_entry_type_fallback: bool = True,
 ) -> UnifiedSearchResult:
     terms = _as_terms(query_terms)
     item_key = (item_key or "").strip()
@@ -339,6 +341,7 @@ def unified_search_by_item(
         ingest_limit=ingest_limit,
         enable_extraction=enable_extraction,
         allow_term_fallback=allow_term_fallback,
+        allow_entry_type_fallback=allow_entry_type_fallback,
     )
 
 
@@ -358,6 +361,7 @@ def unified_search_by_item_payload(
     ingest_limit: int = 10,
     enable_extraction: bool = True,
     allow_term_fallback: bool = True,
+    allow_entry_type_fallback: bool = True,
 ) -> UnifiedSearchResult:
     terms = _as_terms(query_terms)
     item_key = str(item.get("item_key") or "").strip()
@@ -385,6 +389,16 @@ def unified_search_by_item_payload(
     candidates: list[str] = []
     candidate_refs: dict[str, dict[str, Any]] = {}
     errors: list[dict[str, str]] = []
+    stats = {
+        "entry_type_mismatch": 0,
+        "entry_type_mismatch_fallback_used": 0,
+        "term_filter_empty_fallback_used": 0,
+        "term_filter_empty_no_fallback": 0,
+        "domain_mismatch_drop": 0,
+        "low_value_drop": 0,
+        "pre_low_value_candidates": 0,
+        "post_low_value_candidates": 0,
+    }
 
     def _push(u: str, *, ref: dict[str, Any]) -> None:
         if u and u not in candidates:
@@ -396,6 +410,13 @@ def unified_search_by_item_payload(
     def _process_site_entry(su: str) -> dict[str, Any]:
         local_errors: list[dict[str, str]] = []
         local_candidates: list[tuple[str, dict[str, Any]]] = []
+        local_stats = {
+            "entry_type_mismatch": 0,
+            "entry_type_mismatch_fallback_used": 0,
+            "term_filter_empty_fallback_used": 0,
+            "term_filter_empty_no_fallback": 0,
+            "domain_mismatch_drop": 0,
+        }
         try:
             entry = get_site_entry_by_url(scope="effective", project_key=project_key, site_url=su) or {
                 "site_url": su,
@@ -406,13 +427,16 @@ def unified_search_by_item_payload(
             }
             etype = str(entry.get("entry_type") or "domain_root").strip().lower()
             if expected_entry_type and etype != expected_entry_type:
+                local_stats["entry_type_mismatch"] += 1
                 local_errors.append(
                     {
                         "site_url": su,
                         "error": f"entry_type mismatch: expected={expected_entry_type}, actual={etype}",
                     }
                 )
-                return {"entry": entry, "candidates": local_candidates, "errors": local_errors}
+                if not allow_entry_type_fallback:
+                    return {"entry": entry, "candidates": local_candidates, "errors": local_errors, "stats": local_stats}
+                local_stats["entry_type_mismatch_fallback_used"] += 1
 
             base_url = str(entry.get("site_url") or su)
             template = entry.get("template")
@@ -431,6 +455,10 @@ def unified_search_by_item_payload(
                     allow_fallback=allow_term_fallback,
                 )
                 if used_fallback:
+                    if allow_term_fallback:
+                        local_stats["term_filter_empty_fallback_used"] += 1
+                    else:
+                        local_stats["term_filter_empty_no_fallback"] += 1
                     local_errors.append(
                         {
                             "site_url": base_url,
@@ -456,6 +484,10 @@ def unified_search_by_item_payload(
                     allow_fallback=allow_term_fallback,
                 )
                 if used_fallback:
+                    if allow_term_fallback:
+                        local_stats["term_filter_empty_fallback_used"] += 1
+                    else:
+                        local_stats["term_filter_empty_no_fallback"] += 1
                     local_errors.append(
                         {
                             "site_url": base_url,
@@ -468,6 +500,7 @@ def unified_search_by_item_payload(
                     )
                 for u in picked:
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
+                        local_stats["domain_mismatch_drop"] += 1
                         continue
                     _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "sitemap"})
             elif etype == "search_template":
@@ -483,6 +516,10 @@ def unified_search_by_item_payload(
                     allow_fallback=allow_term_fallback,
                 )
                 if used_fallback:
+                    if allow_term_fallback:
+                        local_stats["term_filter_empty_fallback_used"] += 1
+                    else:
+                        local_stats["term_filter_empty_no_fallback"] += 1
                     local_errors.append(
                         {
                             "site_url": base_url,
@@ -495,14 +532,15 @@ def unified_search_by_item_payload(
                     )
                 for u in picked:
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
+                        local_stats["domain_mismatch_drop"] += 1
                         continue
                     _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "search_template"})
-            return {"entry": entry, "candidates": local_candidates, "errors": local_errors}
+            return {"entry": entry, "candidates": local_candidates, "errors": local_errors, "stats": local_stats}
         except HttpFetchError as exc:
             local_errors.append({"site_url": su, "error": str(exc)})
         except Exception as exc:  # noqa: BLE001
             local_errors.append({"site_url": su, "error": str(exc)})
-        return {"entry": None, "candidates": local_candidates, "errors": local_errors}
+        return {"entry": None, "candidates": local_candidates, "errors": local_errors, "stats": local_stats}
 
     max_workers = max(1, min(8, len(site_entry_urls)))
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
@@ -515,12 +553,32 @@ def unified_search_by_item_payload(
             for e in res.get("errors") or []:
                 if isinstance(e, dict):
                     errors.append(e)
+            local_stats = res.get("stats") or {}
+            if isinstance(local_stats, dict):
+                for key in (
+                    "entry_type_mismatch",
+                    "entry_type_mismatch_fallback_used",
+                    "term_filter_empty_fallback_used",
+                    "term_filter_empty_no_fallback",
+                    "domain_mismatch_drop",
+                ):
+                    stats[key] += int(local_stats.get(key) or 0)
             for u, ref in (res.get("candidates") or []):
                 _push(u, ref=ref)
 
     candidates = candidates[:max_candidates]
+    stats["pre_low_value_candidates"] = len(candidates)
     # For fallback-retrieved links, drop low-value navigation/legal/account pages.
-    candidates = [u for u in candidates if not _is_low_value_candidate_url(u)]
+    filtered_candidates: list[str] = []
+    low_value_drop = 0
+    for u in candidates:
+        if _is_low_value_candidate_url(u):
+            low_value_drop += 1
+            continue
+        filtered_candidates.append(u)
+    candidates = filtered_candidates
+    stats["low_value_drop"] = low_value_drop
+    stats["post_low_value_candidates"] = len(candidates)
 
     written: dict[str, int] | None = None
     if write_to_pool and candidates:
@@ -568,4 +626,5 @@ def unified_search_by_item_payload(
         written=written,
         ingest_result=ingest_result,
         errors=errors,
+        stats=stats,
     )

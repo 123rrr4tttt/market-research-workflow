@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import logging
 import re
 from typing import Any
@@ -23,6 +25,7 @@ from .structured_extraction import (
     build_structured_summary,
     extract_structured_enriched_safe,
 )
+from .timestamp_resolver import resolve_document_temporal_fields
 from .meaningful_gate import (
     content_quality_check,
     normalize_content_for_ingest,
@@ -150,6 +153,21 @@ _GITHUB_INTERMEDIATE_PAGE_TYPES = {
 }
 _MOJIBAKE_MARKERS = ("Ã", "Â", "�", "â€”", "â€œ", "â€", "è", "æ", "é©¾")
 _SCRIPT_SHELL_MARKERS = ("window.", "document.", "sourcemappingurl", "addeventlistener(", "var ", "function(")
+_PIPELINE_STAGES = ("classify", "fetch", "parse", "gate", "persist")
+
+
+@dataclass
+class _SingleUrlPipelineState:
+    current: str = "classify"
+    history: list[str] = field(default_factory=lambda: ["classify"])
+
+    def enter(self, stage: str) -> None:
+        normalized = str(stage or "").strip().lower()
+        if normalized not in _PIPELINE_STAGES:
+            return
+        self.current = normalized
+        if not self.history or self.history[-1] != normalized:
+            self.history.append(normalized)
 
 
 def _safe_exc(exc: Exception) -> str:
@@ -157,6 +175,35 @@ def _safe_exc(exc: Exception) -> str:
     if exc.__class__.__name__ in msg:
         return msg
     return f"{exc.__class__.__name__}: {msg}"
+
+
+def _response_redirect_chain(response: Any) -> list[str]:
+    redirects: list[str] = []
+    for h in list(getattr(response, "history", []) or []):
+        u = str(getattr(h, "url", "") or "").strip()
+        if u and u not in redirects:
+            redirects.append(u)
+    final_url = str(getattr(response, "url", "") or "").strip()
+    if final_url and final_url not in redirects:
+        redirects.append(final_url)
+    return redirects
+
+
+def _derive_blocked_signal(degradation_flags: list[str]) -> str | None:
+    for raw in list(degradation_flags or []):
+        flag = str(raw or "").strip()
+        if not flag:
+            continue
+        for prefix in (
+            "url_gate_rejected:",
+            "content_gate_rejected:",
+            "provenance_gate_rejected:",
+            "light_filter_rejected:",
+        ):
+            if flag.startswith(prefix):
+                reason = flag[len(prefix) :].strip()
+                return reason or None
+    return None
 
 
 def _normalized_terms(query_terms: list[str] | None) -> list[str]:
@@ -1017,16 +1064,58 @@ def _persist_single_url_document(
     extracted_data: dict[str, Any],
     degradation_flags: list[str],
     light_filter_payload: dict[str, Any],
+    handler_used: str,
     response: Any,
-) -> tuple[int, int, int, str]:
+) -> tuple[int, int, int, str, dict[str, Any]]:
     normalized_doc_type = normalize_doc_type(_DEFAULT_DOC_TYPE)
     summary = (content or "")[:800] or None
+    source_domain = _domain_of_url(normalized_url) or None
+    ingest_time = datetime.now(timezone.utc)
+    temporal_fields = resolve_document_temporal_fields(
+        source_domain=source_domain,
+        metadata={
+            "http_headers": dict(getattr(response, "headers", {}) or {}),
+            "extracted_data": extracted_data,
+            "title": title,
+        },
+        content_excerpt=content or "",
+        ingested_at=ingest_time,
+    )
+    extracted_data["time_parse_version"] = str(temporal_fields.get("time_parse_version") or "st_v1")
+    extracted_data["time_provenance"] = str(temporal_fields.get("time_provenance") or "fallback_ingested_at")
+    extracted_data["time_confidence"] = float(temporal_fields.get("time_confidence") or 0.0)
+    extracted_data["effective_time"] = (
+        temporal_fields["effective_time"].isoformat()
+        if temporal_fields.get("effective_time") is not None
+        else None
+    )
+    extracted_data["source_time"] = (
+        temporal_fields["source_time"].isoformat()
+        if temporal_fields.get("source_time") is not None
+        else None
+    )
     with SessionLocal() as session:
         source = _get_or_create_source(session, _SOURCE_NAME, _SOURCE_KIND, capability.get("domain"))
         existed = session.query(Document).filter(Document.uri == normalized_url).first()
         if existed:
             degradation_flags.append("document_already_exists")
-            return int(existed.id), 0, 1, normalized_doc_type
+            return (
+                int(existed.id),
+                0,
+                1,
+                normalized_doc_type,
+                {
+                    "source_domain": existed.source_domain or source_domain,
+                    "source_time": existed.source_time.isoformat() if existed.source_time else None,
+                    "ingested_at": existed.created_at.isoformat() if existed.created_at else ingest_time.isoformat(),
+                    "effective_time": existed.effective_time.isoformat()
+                    if existed.effective_time
+                    else ingest_time.isoformat(),
+                    "time_confidence": float(existed.time_confidence or 0.0),
+                    "time_provenance": existed.time_provenance or "fallback_ingested_at",
+                    "time_parse_version": extracted_data.get("time_parse_version"),
+                },
+            )
 
         extracted_data["structured_extraction_status"] = structured_status
         if structured_reason:
@@ -1035,6 +1124,10 @@ def _persist_single_url_document(
         extracted_data["degradation_flags"] = list(dict.fromkeys(degradation_flags))
         extracted_data["capability_profile"] = capability
         extracted_data["http_status"] = int(getattr(response, "status_code", 0) or 0)
+        extracted_data["status_code"] = int(getattr(response, "status_code", 0) or 0)
+        extracted_data["redirects"] = _response_redirect_chain(response)
+        extracted_data["blocked_signal"] = _derive_blocked_signal(degradation_flags)
+        extracted_data["render_used"] = str(handler_used or "native_http")
         extracted_data["light_filter"] = dict(light_filter_payload)
         doc = Document(
             source_id=source.id,
@@ -1044,10 +1137,33 @@ def _persist_single_url_document(
             content=(content or "")[:_MAX_CONTENT_CHARS] or None,
             uri=normalized_url,
             extracted_data=extracted_data,
+            source_domain=temporal_fields.get("source_domain"),
+            source_time=temporal_fields.get("source_time"),
+            effective_time=temporal_fields.get("effective_time"),
+            time_confidence=temporal_fields.get("time_confidence"),
+            time_provenance=temporal_fields.get("time_provenance"),
+            created_at=ingest_time,
+            updated_at=ingest_time,
         )
         session.add(doc)
         session.commit()
-        return int(doc.id), 1, 0, normalized_doc_type
+        return (
+            int(doc.id),
+            1,
+            0,
+            normalized_doc_type,
+            {
+                "source_domain": temporal_fields.get("source_domain"),
+                "source_time": temporal_fields["source_time"].isoformat()
+                if temporal_fields.get("source_time")
+                else None,
+                "ingested_at": temporal_fields["ingested_at"].isoformat(),
+                "effective_time": temporal_fields["effective_time"].isoformat(),
+                "time_confidence": float(temporal_fields.get("time_confidence") or 0.0),
+                "time_provenance": str(temporal_fields.get("time_provenance") or "fallback_ingested_at"),
+                "time_parse_version": str(temporal_fields.get("time_parse_version") or "st_v1"),
+            },
+        )
 
 
 def ingest_single_url(
@@ -1059,10 +1175,13 @@ def ingest_single_url(
     track_keyword_history: bool = True,
 ) -> dict[str, Any]:
     """Fetch one URL, run extraction, and return canonical single-url ingest result."""
+    pipeline_state = _SingleUrlPipelineState()
     normalized_url = _normalize_url(url)
     normalized_terms = _normalized_terms(query_terms)
     normalized_search_options = _normalize_search_options(search_options)
     light_filter_payload = build_light_filter_not_run()
+    ingest_started_at = datetime.now(timezone.utc)
+    default_source_domain = _domain_of_url(normalized_url) or None
     job_id = start_job(
         "single_url",
         {
@@ -1073,6 +1192,22 @@ def ingest_single_url(
         },
     )
     keyword_source_domain = _domain_of_url(normalized_url) or None
+
+    def _ensure_temporal_contract_fields(result: dict[str, Any]) -> dict[str, Any]:
+        result.setdefault("source_domain", default_source_domain)
+        result.setdefault("source_time", None)
+        result.setdefault("ingested_at", ingest_started_at.isoformat())
+        result.setdefault("effective_time", ingest_started_at.isoformat())
+        result.setdefault("time_confidence", 0.0)
+        result.setdefault("time_provenance", "fallback_ingested_at")
+        result.setdefault("time_parse_version", "st_v1")
+        return result
+
+    def _ensure_pipeline_fields(result: dict[str, Any]) -> dict[str, Any]:
+        result.setdefault("pipeline_stage", pipeline_state.current)
+        result.setdefault("pipeline_stages", list(pipeline_state.history))
+        return result
+
     def _record_keyword_history_for_result(result: dict[str, Any] | None) -> None:
         if not track_keyword_history or not normalized_terms or not isinstance(result, dict):
             return
@@ -1103,10 +1238,28 @@ def ingest_single_url(
             logger.warning("record keyword history failed url=%s err=%s", normalized_url, _safe_exc(history_exc))
 
     def finalize_job(job_id_value: int, *, status: str, result: dict[str, Any]) -> None:
+        _ensure_temporal_contract_fields(result)
+        _ensure_pipeline_fields(result)
+        _normalize_extraction_status_fields(result)
         _record_keyword_history_for_result(result)
         complete_job(job_id_value, status=status, result=result)
 
+    def _normalize_extraction_status_fields(result: dict[str, Any]) -> dict[str, Any]:
+        structured_status = str(result.get("structured_extraction_status") or "").strip().lower()
+        business_status = str(result.get("status") or "").strip().lower()
+        if structured_status in {"ok", "success"}:
+            extraction_status = "success"
+        elif business_status == "failed":
+            extraction_status = "failed"
+        else:
+            extraction_status = "degraded"
+        result["extraction_status"] = extraction_status
+        if not structured_status:
+            result["structured_extraction_status"] = "ok" if extraction_status == "success" else "failed"
+        return result
+
     try:
+        pipeline_state.enter("classify")
         if not _is_valid_http_url(normalized_url):
             result = {
                 "status": "failed",
@@ -1236,6 +1389,7 @@ def ingest_single_url(
                 return None
 
         try:
+            pipeline_state.enter("fetch")
             html, response = fetch_html(normalized_url, timeout=20.0, retries=2)
         except Exception as fetch_exc:  # noqa: BLE001
             crawler_fallback_result = _try_crawler_pool(fallback_reason="native_fetch_failed")
@@ -1263,6 +1417,7 @@ def ingest_single_url(
             finalize_job(job_id, status="failed", result=result)
             return result
 
+        pipeline_state.enter("parse")
         raw_content = _extract_text_from_html(html)
         content = _preprocess_content_for_quality(
             url=normalized_url,
@@ -1581,6 +1736,7 @@ def ingest_single_url(
         else:
             page_type, is_low_value, low_value_reason = _classify_page_type(normalized_url, html, content)
 
+        pipeline_state.enter("gate")
         if is_low_value:
             provenance_blocked_early, provenance_reason_early, provenance_diag_early = _provenance_dirty_decision(
                 url=normalized_url,
@@ -1828,7 +1984,8 @@ def ingest_single_url(
             finalize_job(job_id, status="failed", result=result)
             return result
 
-        doc_id, inserted, skipped, normalized_doc_type = _persist_single_url_document(
+        pipeline_state.enter("persist")
+        doc_id, inserted, skipped, normalized_doc_type, temporal_fields = _persist_single_url_document(
             normalized_url=normalized_url,
             title=title,
             content=content or "",
@@ -1839,6 +1996,7 @@ def ingest_single_url(
             extracted_data=extracted_data,
             degradation_flags=degradation_flags,
             light_filter_payload=light_filter_payload,
+            handler_used=str(allocation.get("handler_used") or "native_http"),
             response=response,
         )
 
@@ -1867,7 +2025,12 @@ def ingest_single_url(
             "rejected_count": 0,
             "rejection_breakdown": {},
             "degradation_flags": final_flags,
+            "status_code": int(getattr(response, "status_code", 0) or 0),
+            "redirects": _response_redirect_chain(response),
+            "blocked_signal": _derive_blocked_signal(final_flags),
+            "render_used": str(allocation.get("handler_used") or "native_http"),
         }
+        result.update(temporal_fields)
         if structured_reason:
             result["structured_extraction_reason"] = structured_reason
         apply_light_filter_fields(result, light_filter_payload)
@@ -1893,6 +2056,9 @@ def ingest_single_url(
             "degradation_flags": ["unexpected_exception"],
             "error": _safe_exc(exc),
         }
+        _ensure_temporal_contract_fields(result)
+        _ensure_pipeline_fields(result)
         apply_light_filter_fields(result, light_filter_payload)
+        _normalize_extraction_status_fields(result)
         _record_keyword_history_for_result(result)
         return result

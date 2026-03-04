@@ -19,7 +19,7 @@ def _lottery_stats_handler(channel: Dict[str, Any], params: Dict[str, Any], proj
     )
 
 
-@dataclass(slots=True)
+@dataclass
 class OnlineLotteryCustomization(ProjectCustomization):
     project_key: str = "online_lottery"
 

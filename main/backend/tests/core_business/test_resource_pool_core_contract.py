@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -192,3 +193,82 @@ def test_list_site_entries_maps_unexpected_error_to_internal_error(
     assert body["status"] == "error"
     assert body["error"]["code"] == "INTERNAL_ERROR"
     assert "boom" in body["error"]["message"]
+
+
+def test_unified_search_returns_envelope_and_passes_payload(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def _fake_unified_search_by_item(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        return SimpleNamespace(
+            item_key="demo-item",
+            query_terms=["robotics", "supply chain"],
+            site_entries_used=[{"site_url": "https://example.com/search", "entry_type": "search_template"}],
+            candidates=["https://example.com/news/1"],
+            written={"urls_new": 1, "urls_skipped": 0},
+            ingest_result={"inserted": 1, "updated": 0, "skipped": 0, "inserted_valid": 1},
+            errors=[],
+            stats={"low_value_drop": 0},
+        )
+
+    monkeypatch.setattr(resource_pool_api, "unified_search_by_item", _fake_unified_search_by_item)
+
+    resp = client.post(
+        "/api/v1/resource_pool/unified-search",
+        json={
+            "project_key": "demo_proj",
+            "item_key": "demo-item",
+            "query_terms": ["robotics", "supply chain"],
+            "max_candidates": 120,
+            "probe_timeout": 8.5,
+            "write_to_pool": True,
+            "pool_scope": "project",
+            "auto_ingest": True,
+            "ingest_limit": 6,
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    data = body["data"]
+    assert data["item_key"] == "demo-item"
+    assert data["candidates"] == ["https://example.com/news/1"]
+    assert data["written"] == {"urls_new": 1, "urls_skipped": 0}
+    assert data["ingest_result"]["inserted_valid"] == 1
+    assert data["stats"]["low_value_drop"] == 0
+    assert captured == {
+        "project_key": "demo_proj",
+        "item_key": "demo-item",
+        "query_terms": ["robotics", "supply chain"],
+        "max_candidates": 120,
+        "write_to_pool": True,
+        "pool_scope": "project",
+        "probe_timeout": 8.5,
+        "auto_ingest": True,
+        "ingest_limit": 6,
+    }
+
+
+def test_unified_search_maps_value_error_to_invalid_input(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _raise_value_error(**_: Any) -> Any:
+        raise ValueError("source item not found: demo-item")
+
+    monkeypatch.setattr(resource_pool_api, "unified_search_by_item", _raise_value_error)
+
+    resp = client.post(
+        "/api/v1/resource_pool/unified-search",
+        json={"project_key": "demo_proj", "item_key": "demo-item"},
+    )
+
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == "INVALID_INPUT"
+    assert "source item not found" in body["error"]["message"]

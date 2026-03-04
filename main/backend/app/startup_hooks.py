@@ -180,14 +180,39 @@ def register_startup_hooks(app: FastAPI) -> None:
                 rows = conn.execute(
                     text("SELECT project_key, schema_name FROM public.projects WHERE enabled = true")
                 ).fetchall()
-                for _project_key, schema_name in rows:
-                    if not schema_name:
-                        continue
-                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-                    conn.execute(text(f'SET search_path TO "{schema_name}"'))
-                    Base.metadata.create_all(bind=conn, tables=tenant_tables, checkfirst=True)
         except Exception as exc:  # noqa: BLE001
-            logging.getLogger("app").warning("failed to ensure project schemas ready: %s", exc)
+            logging.getLogger("app").warning("failed to list enabled projects for schema bootstrap: %s", exc)
+            return
+
+        for project_key, schema_name in rows:
+            if not schema_name:
+                continue
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
+                for table in tenant_tables:
+                    with engine.begin() as conn:
+                        conn.execute(text(f'SET search_path TO "{schema_name}"'))
+                        try:
+                            table.create(bind=conn, checkfirst=True)
+                        except Exception as exc:  # noqa: BLE001
+                            table_name = getattr(table, "name", "")
+                            message = str(exc).lower()
+                            if table_name == "embeddings" and "vector" in message and "does not exist" in message:
+                                logging.getLogger("app").warning(
+                                    "skip embeddings table for schema=%s because pgvector extension is unavailable: %s",
+                                    schema_name,
+                                    exc,
+                                )
+                                continue
+                            raise
+            except Exception as exc:  # noqa: BLE001
+                logging.getLogger("app").warning(
+                    "failed to ensure project schema ready project_key=%s schema=%s: %s",
+                    project_key,
+                    schema_name,
+                    exc,
+                )
 
     @app.on_event("startup")
     def _sync_llm_prompts_from_files() -> None:

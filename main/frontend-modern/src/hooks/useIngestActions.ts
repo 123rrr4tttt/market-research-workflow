@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
+  getProjectKey,
   ingestCommodity,
   ingestEcom,
   ingestMarket,
@@ -11,7 +12,7 @@ import {
   runSourceLibrary,
   syncSourceLibrary,
 } from '../lib/api'
-import { isApiClientError } from '../lib/api/client'
+import { isApiClientError, normalizeProjectKey } from '../lib/api/client'
 import { queryKeys } from '../lib/queryKeys'
 
 type IngestActionFn = () => Promise<unknown>
@@ -19,8 +20,26 @@ type IngestActionFn = () => Promise<unknown>
 type SourceLibraryRunPayload = {
   item_key?: string | null
   handler_key?: string | null
+  project_key?: string | null
+  schema_name?: string | null
   async_mode: boolean
   override_params: Record<string, unknown>
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return null
+  return num
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((v) => String(v || '').trim()).filter(Boolean)
 }
 
 function getTraceId(meta: unknown): string {
@@ -57,38 +76,28 @@ export function useIngestActions(projectKey: string) {
     setActionMessage(`${name} 执行中...`)
     try {
       const result = await fn()
-      const taskId =
-        result &&
-        typeof result === 'object' &&
-        'task_id' in result &&
-        typeof (result as { task_id?: unknown }).task_id === 'string'
-          ? (result as { task_id?: string }).task_id
-          : null
-
-      const resultStatus =
-        result &&
-        typeof result === 'object' &&
-        'status' in result &&
-        typeof (result as { status?: unknown }).status === 'string'
-          ? String((result as { status?: string }).status)
-          : ''
-      const rejectedCount =
-        result &&
-        typeof result === 'object' &&
-        'rejected_count' in result &&
-        Number.isFinite(Number((result as { rejected_count?: unknown }).rejected_count))
-          ? Number((result as { rejected_count?: unknown }).rejected_count)
-          : null
-      const degradationRaw =
-        result && typeof result === 'object' ? (result as { degradation_flags?: unknown }).degradation_flags : undefined
-      const degradationFlags =
-        Array.isArray(degradationRaw) ? degradationRaw.map((v) => String(v || '').trim()).filter(Boolean) : []
+      const resultObj = toRecord(result)
+      const taskId = typeof resultObj?.task_id === 'string' ? resultObj.task_id : null
+      const resultStatus = typeof resultObj?.status === 'string' ? resultObj.status : ''
+      const rejectedCount = toFiniteNumber(resultObj?.rejected_count)
+      const insertedValid = toFiniteNumber(resultObj?.inserted_valid)
+      const inserted = toFiniteNumber(resultObj?.inserted)
+      const skipped = toFiniteNumber(resultObj?.skipped)
+      const extractionStatus = typeof resultObj?.extraction_status === 'string' ? resultObj.extraction_status : ''
+      const degradationFlags = toStringArray(resultObj?.degradation_flags)
+      const docIdRaw = resultObj?.doc_id ?? resultObj?.document_id
+      const docId = (typeof docIdRaw === 'string' || typeof docIdRaw === 'number') ? String(docIdRaw) : ''
 
       if (taskId) {
         setActionMessage(`${name} 已提交，任务 ID: ${taskId}`)
       } else if (resultStatus) {
         const extras: string[] = [`状态: ${resultStatus}`]
+        if (extractionStatus) extras.push(`提取: ${extractionStatus}`)
+        if (insertedValid != null) extras.push(`有效写入: ${insertedValid}`)
+        if (inserted != null) extras.push(`写入: ${inserted}`)
+        if (skipped != null) extras.push(`跳过: ${skipped}`)
         if (rejectedCount != null) extras.push(`拒绝: ${rejectedCount}`)
+        if (docId) extras.push(`文档: ${docId}`)
         if (degradationFlags.length) extras.push(`降级: ${degradationFlags.slice(0, 2).join('/')}`)
         setActionMessage(`${name} 执行完成（${extras.join('，')}）`)
       } else {
@@ -116,7 +125,21 @@ export function useIngestActions(projectKey: string) {
     actionMessage,
     runAction,
     syncSourceLibrary: () => runAction('同步来源库', syncSourceLibrary),
-    runSourceLibrary: (payload: SourceLibraryRunPayload) => runAction('运行来源库', () => runSourceLibrary(payload)),
+    runSourceLibrary: (payload: SourceLibraryRunPayload) =>
+      runAction('运行来源库', () => {
+        const activeProjectKey = getProjectKey()
+        if (
+          activeProjectKey &&
+          projectKey &&
+          normalizeProjectKey(activeProjectKey) !== normalizeProjectKey(projectKey)
+        ) {
+          throw new Error('project_key 不一致：当前激活项目与页面项目不匹配，请先切换项目。')
+        }
+        return runSourceLibrary({
+          ...payload,
+          project_key: payload.project_key ?? projectKey ?? activeProjectKey ?? null,
+        })
+      }),
     ingestPolicy: (payload: { state: string; source_hint?: string | null; async_mode: boolean }) =>
       runAction('政策采集', () => ingestPolicy(payload)),
     ingestPolicyRegulation: (payload: Record<string, unknown>) => runAction('政策法规采集', () => ingestPolicyRegulation(payload)),

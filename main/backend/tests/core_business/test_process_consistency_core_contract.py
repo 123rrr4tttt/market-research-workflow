@@ -69,10 +69,13 @@ def test_process_list_stats_history_consistency_semantics(
             id=101,
             job_type="policy_ingest",
             status="running",
+            external_provider=None,
+            external_job_id=None,
+            retry_count=0,
             params={
                 "state": "CA",
                 "rejected_count": 2,
-                "rejection_breakdown": {"content_shell_signature": 2},
+                "rejection_breakdown": {"Content Shell Signature": 2},
             },
             started_at=now - timedelta(minutes=10),
             finished_at=None,
@@ -82,11 +85,14 @@ def test_process_list_stats_history_consistency_semantics(
             id=102,
             job_type="market_ingest",
             status="running",
+            external_provider="crawler_pool",
+            external_job_id="cp-102",
+            retry_count=1,
             params={
                 "market": "us",
                 "inserted_valid": 3,
                 "rejected_count": 1,
-                "rejection_breakdown": {"url_policy_low_value_endpoint": 1},
+                "rejection_breakdown": {"URL Policy/Low Value Endpoint": 1},
                 "handler_allocation": {"handler_used": "crawler_pool"},
             },
             started_at=now - timedelta(minutes=5),
@@ -97,6 +103,9 @@ def test_process_list_stats_history_consistency_semantics(
             id=103,
             job_type="policy_ingest",
             status="completed",
+            external_provider=None,
+            external_job_id=None,
+            retry_count=0,
             params={"state": "NY"},
             started_at=now - timedelta(hours=2),
             finished_at=now - timedelta(hours=1, minutes=30),
@@ -106,6 +115,9 @@ def test_process_list_stats_history_consistency_semantics(
             id=104,
             job_type="source_sync",
             status="failed",
+            external_provider="external_etl",
+            external_job_id="etl-104",
+            retry_count=2,
             params={"source": "manual"},
             started_at=now - timedelta(hours=1),
             finished_at=now - timedelta(minutes=50),
@@ -204,13 +216,74 @@ def test_process_list_stats_history_consistency_semantics(
         assert "error_code" in row
         assert "handler_used" in row
         assert "skip_reason" in row
+        assert "external_provider" in row
+        assert "external_job_id" in row
+        assert "retry_count" in row
         assert row["inserted_valid"] is None or isinstance(row["inserted_valid"], int)
         assert isinstance(row["rejected_count"], int)
         assert isinstance(row["rejection_breakdown"], dict)
         assert row["error_code"] is None or isinstance(row["error_code"], str)
         assert row["handler_used"] is None or isinstance(row["handler_used"], str)
         assert row["skip_reason"] is None or isinstance(row["skip_reason"], str)
+        assert row["external_provider"] is None or isinstance(row["external_provider"], str)
+        assert row["external_job_id"] is None or isinstance(row["external_job_id"], str)
+        assert row["retry_count"] is None or isinstance(row["retry_count"], int)
 
     running_row = next(item for item in history_data["history"] if item["id"] == 102)
     assert running_row["handler_used"] == "crawler_pool"
     assert running_row["skip_reason"] == "url_policy_low_value_endpoint"
+    assert running_row["rejection_breakdown"] == {"url_policy_low_value_endpoint": 1}
+    assert running_row["external_provider"] == "crawler_pool"
+    assert running_row["external_job_id"] == "cp-102"
+    assert running_row["retry_count"] == 1
+
+
+def test_process_history_supports_trace_id_filter(core_business_client, contract_headers: dict[str, str]) -> None:
+    now = datetime(2026, 3, 1, 12, 0, 0)
+    history_jobs = [
+        SimpleNamespace(
+            id=201,
+            job_type="source_library_run",
+            status="running",
+            external_provider=None,
+            external_job_id=None,
+            retry_count=0,
+            params={"trace_id": "trace-a", "item_key": "item-a"},
+            started_at=now - timedelta(minutes=2),
+            finished_at=None,
+            error=None,
+        ),
+        SimpleNamespace(
+            id=202,
+            job_type="source_library_run",
+            status="completed",
+            external_provider=None,
+            external_job_id=None,
+            retry_count=0,
+            params={"trace_id": "trace-b", "item_key": "item-b"},
+            started_at=now - timedelta(minutes=5),
+            finished_at=now - timedelta(minutes=1),
+            error=None,
+        ),
+    ]
+    history_status_rows = [
+        SimpleNamespace(status="running", count=1),
+        SimpleNamespace(status="completed", count=1),
+    ]
+
+    with patch(
+        "app.api.process.SessionLocal",
+        return_value=_FakeSessionLocal(_FakeHistorySession(history_jobs, history_status_rows)),
+    ):
+        resp = core_business_client.get("/api/v1/process/history?limit=50&trace_id=trace-a", headers=contract_headers)
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "ok"
+    data = body["data"]
+    assert data["trace_id"] == "trace-a"
+    assert data["total"] == 1
+    assert data["status_stats"] == {"running": 1}
+    assert len(data["history"]) == 1
+    assert data["history"][0]["id"] == 201
+    assert data["history"][0]["params"]["trace_id"] == "trace-a"

@@ -50,7 +50,7 @@
 - 单 URL 优先采集分配方案（`CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan`）
 - Source Time Window + Smart Timestamp 三段方案（`CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan`）
 - 图谱节点 A→B 标准化方案（`CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan`）
-- 全局向量化通用基础方案（`CURRENT_DEV/2026-03-02-global-vectorization-general-foundation`）
+- 全局向量化通用基础方案（`CURRENT_DEV/2026-03-03-global-vectorization-general-foundation`）
 - 标准化 ingest workflows 文档（`backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md`）
 
 文档入口建议：

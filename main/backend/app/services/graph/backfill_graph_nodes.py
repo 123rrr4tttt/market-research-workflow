@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 
 from ...models.entities import Document
 from .adapters import normalize_document
-from .builder import build_graph
+from .adapters.market import MarketAdapter
+from .adapters.policy import PolicyAdapter
+from .builder import build_graph, build_market_graph, build_policy_graph
 from .persistence import GraphNodeWriter
 
 
@@ -17,6 +19,9 @@ class BackfillResult:
     scanned_docs: int = 0
     written_nodes: int = 0
     skipped_docs: int = 0
+    social_written_nodes: int = 0
+    market_written_nodes: int = 0
+    policy_written_nodes: int = 0
     next_resume_token: Optional[int] = None
 
 
@@ -39,23 +44,61 @@ def run_graph_node_backfill(
         return result
 
     normalized_posts = []
+    normalized_market = []
+    normalized_policy = []
+    market_adapter = MarketAdapter()
+    policy_adapter = PolicyAdapter()
     for doc in docs:
         normalized = normalize_document(doc)
         if normalized is None:
             result.skipped_docs += 1
-            continue
-        normalized_posts.append(normalized)
+        else:
+            normalized_posts.append(normalized)
 
-    if not normalized_posts:
+        try:
+            market_item = market_adapter.to_normalized(doc)
+            if market_item is not None:
+                normalized_market.append(market_item)
+        except Exception:
+            pass
+
+        try:
+            policy_item = policy_adapter.to_normalized(doc)
+            if policy_item is not None:
+                normalized_policy.append(policy_item)
+        except Exception:
+            pass
+
+    if not normalized_posts and not normalized_market and not normalized_policy:
         return result
 
-    graph = build_graph(normalized_posts)
+    social_graph = build_graph(normalized_posts) if normalized_posts else None
+    market_graph = build_market_graph(normalized_market) if normalized_market else None
+    policy_graph = build_policy_graph(normalized_policy) if normalized_policy else None
+
     if dry_run:
-        result.written_nodes = len(graph.nodes)
+        result.social_written_nodes = len(social_graph.nodes) if social_graph else 0
+        result.market_written_nodes = len(market_graph.nodes) if market_graph else 0
+        result.policy_written_nodes = len(policy_graph.nodes) if policy_graph else 0
+        result.written_nodes = (
+            result.social_written_nodes
+            + result.market_written_nodes
+            + result.policy_written_nodes
+        )
         return result
 
     writer = GraphNodeWriter(session)
-    summary = writer.persist_graph_nodes(graph)
-    result.written_nodes = summary.inserted_or_updated
+    if social_graph is not None:
+        social_summary = writer.persist_graph_nodes(social_graph)
+        result.social_written_nodes = social_summary.inserted_or_updated
+        result.written_nodes += social_summary.inserted_or_updated
+    if market_graph is not None:
+        market_summary = writer.persist_graph_nodes(market_graph)
+        result.market_written_nodes = market_summary.inserted_or_updated
+        result.written_nodes += market_summary.inserted_or_updated
+    if policy_graph is not None:
+        policy_summary = writer.persist_graph_nodes(policy_graph)
+        result.policy_written_nodes = policy_summary.inserted_or_updated
+        result.written_nodes += policy_summary.inserted_or_updated
     session.commit()
     return result

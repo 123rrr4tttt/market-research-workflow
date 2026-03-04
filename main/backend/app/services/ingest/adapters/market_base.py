@@ -5,7 +5,7 @@ from datetime import date
 from typing import Any, Iterable
 
 
-@dataclass(slots=True)
+@dataclass
 class MarketRecord:
     state: str
     date: date

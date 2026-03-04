@@ -1,0 +1,74 @@
+{
+  "generated_at": "2026-03-03T22:20:43.735167+00:00",
+  "project_key": "demo_proj_compare_0303_121137",
+  "node_type": null,
+  "apply": true,
+  "total_nodes": 2693,
+  "merge_eligible_candidates": 2175,
+  "merge_groups": 1,
+  "merge_groups_by_type": {
+    "Entity": 1
+  },
+  "cache_stats": {
+    "cache_file": "/Users/wangyiliang/market-research-workflow/main/backend/tmp/bilingual_dict_cache/demo_proj_compare_0303_121137.json",
+    "cache_hits": 2693,
+    "generated": 0,
+    "llm_called": 0,
+    "llm_failed": 0
+  },
+  "merges": [
+    {
+      "group_id": 1,
+      "node_type": "Entity",
+      "source_node_ids": [
+        29,
+        315,
+        824,
+        24907
+      ],
+      "target_node_id": 824,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "humanoid AI",
+        "canonical_id": "0a581057e7a07c2fa3bd2a5d4ba4f9cd0cb8e3d7"
+      },
+      "shared_aliases": [
+        "robot",
+        "humanoid robot"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    }
+  ],
+  "apply_report": {
+    "input_merge_items": 1,
+    "applied_merge_items": 0,
+    "skipped_merge_items": 1,
+    "deleted_source_nodes": 0,
+    "inserted_edges": 0,
+    "inserted_aliases": 0,
+    "details": [
+      {
+        "idx": 1,
+        "group_id": 1,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_node_aliases_alias_norm_alias_type_key\"\nDETAIL:  Key (alias_norm, alias_type)=(humanoid robot, llm_dict) already exists.\n\n[SQL: INSERT INTO graph_node_aliases (node_id, alias_text, alias_norm, alias_type) SELECT p0::BIGINT, p1::TEXT, p2::TEXT, p3::VARCHAR FROM (VALUES (%(node_id__0)s, %(alias_text__0)s, %(alias_norm__0)s, %(alias_type__0)s, 0), (%(node_id__1)s, %(alias_text__ ... 414 characters truncated ... unter RETURNING graph_node_aliases.created_at, graph_node_aliases.id, graph_node_aliases.id AS id__1]\n[parameters: {'node_id__0': 824, 'alias_text__0': '6513fc4cd52ec977d147cfc985247c82eb2e0b6d', 'alias_norm__0': '6513fc4cd52ec977d147cfc985247c82eb2e0b6d', 'alias_type__0': 'id', 'node_id__1': 824, 'alias_text__1': '4821ec3a98053b9df5f5617cee75c18fc780bfd5', 'alias_norm__1': '4821ec3a98053b9df5f5617cee75c18fc780bfd5', 'alias_type__1': 'id', 'node_id__2': 824, 'alias_text__2': '839e7b53dbdcc7934cddfe2f863df638ea7f3f95', 'alias_norm__2': '839e7b53dbdcc7934cddfe2f863df638ea7f3f95', 'alias_type__2': 'id', 'node_id__3': 824, 'alias_text__3': '人形機器人', 'alias_norm__3': '人形機器人', 'alias_type__3': 'raw', 'node_id__4': 824, 'alias_text__4': 'robot', 'alias_norm__4': 'robot', 'alias_type__4': 'llm_dict', 'node_id__5': 824, 'alias_text__5': 'humanoid robot', 'alias_norm__5': 'humanoid robot', 'alias_type__5': 'llm_dict'}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      }
+    ],
+    "before": {
+      "total_nodes": 2693,
+      "total_edges": 5860
+    },
+    "after": {
+      "total_nodes": 2693,
+      "total_edges": 5860
+    },
+    "delta": {
+      "total_nodes": 0,
+      "total_edges": 0
+    }
+  }
+}

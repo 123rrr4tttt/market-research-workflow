@@ -393,7 +393,7 @@ cd main/ops
 - Source Time Window + Smart Timestamp：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/01_source-time-window-smart-timestamp-plan-2026-03-02.md`
 - 执行拆解（时间窗与名词密度解耦）：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md`
 - 图谱节点 A→B 标准化：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md`
-- 全局向量化通用基础：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md`
+- 全局向量化通用基础：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-03.md`
 - 标准化 ingest workflow 打包：`development/latest-dev-docs/backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md`
 
 ## 13. 8.x 进一步开发规划（状态同步）

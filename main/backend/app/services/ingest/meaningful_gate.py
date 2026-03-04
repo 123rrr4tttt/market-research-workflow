@@ -117,6 +117,7 @@ _RSS_FEED_SHELL_MARKERS = (
 )
 _MOJIBAKE_MARKERS = ("Ã", "Â", "�", "â€”", "â€œ", "â€", "è", "æ", "é©¾", "å·", "ç")
 _REASON_CODE_RE = re.compile(r"[^a-z0-9_]+")
+_GATEWAY_RULE_CONFIG_KEYS = ("gateway_rules", "ingest_gateway_rules")
 
 
 def _parse_config_list(raw: Any, defaults: tuple[str, ...]) -> list[str]:
@@ -151,28 +152,96 @@ def normalize_reason_code(reason: Any, *, default: str = "unknown_rejection_reas
 
 def _resolve_gate_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
     cfg = dict(config or {})
-    try:
-        settings_map = settings.model_dump()
-    except Exception:
-        settings_map = {}
-    strict_gate_default = bool(settings_map.get("ingest_enable_strict_gate", False))
-    low_value_domains_default = settings_map.get("ingest_low_value_domains", ",".join(_DEFAULT_LOW_VALUE_DOMAINS))
-    low_value_paths_default = settings_map.get("ingest_low_value_path_keywords", ",".join(_DEFAULT_LOW_VALUE_PATH_KEYWORDS))
-    shell_signatures_default = settings_map.get("ingest_shell_signatures", ",".join(_DEFAULT_SHELL_SIGNATURES))
-    min_semantic_len_default = int(settings_map.get("ingest_min_semantic_len", 500))
-    return {
-        "enable_strict_gate": bool(cfg.get("enable_strict_gate", strict_gate_default)),
-        "low_value_domains": [
-            x.lower() for x in _parse_config_list(cfg.get("low_value_domains", low_value_domains_default), _DEFAULT_LOW_VALUE_DOMAINS)
-        ],
-        "low_value_path_keywords": [
-            x.lower() for x in _parse_config_list(cfg.get("low_value_path_keywords", low_value_paths_default), _DEFAULT_LOW_VALUE_PATH_KEYWORDS)
-        ],
-        "shell_signatures": [
-            x.lower() for x in _parse_config_list(cfg.get("shell_signatures", shell_signatures_default), _DEFAULT_SHELL_SIGNATURES)
-        ],
-        "min_semantic_len": int(cfg.get("min_semantic_len", min_semantic_len_default)),
-    }
+    return _GATEWAY_RULE_SERVICE.resolve(config=cfg)
+
+
+class GatewayRuleService:
+    """Resolve effective gate rules from settings + ingest config + request override."""
+
+    def _settings_defaults(self) -> dict[str, Any]:
+        try:
+            settings_map = settings.model_dump()
+        except Exception:
+            settings_map = {}
+        strict_gate_default = bool(settings_map.get("ingest_enable_strict_gate", False))
+        low_value_domains_default = settings_map.get("ingest_low_value_domains", ",".join(_DEFAULT_LOW_VALUE_DOMAINS))
+        low_value_paths_default = settings_map.get("ingest_low_value_path_keywords", ",".join(_DEFAULT_LOW_VALUE_PATH_KEYWORDS))
+        shell_signatures_default = settings_map.get("ingest_shell_signatures", ",".join(_DEFAULT_SHELL_SIGNATURES))
+        min_semantic_len_default = int(settings_map.get("ingest_min_semantic_len", 500))
+        return {
+            "enable_strict_gate": strict_gate_default,
+            "low_value_domains": [
+                x.lower() for x in _parse_config_list(low_value_domains_default, _DEFAULT_LOW_VALUE_DOMAINS)
+            ],
+            "low_value_path_keywords": [
+                x.lower() for x in _parse_config_list(low_value_paths_default, _DEFAULT_LOW_VALUE_PATH_KEYWORDS)
+            ],
+            "shell_signatures": [
+                x.lower() for x in _parse_config_list(shell_signatures_default, _DEFAULT_SHELL_SIGNATURES)
+            ],
+            "min_semantic_len": min_semantic_len_default,
+        }
+
+    def _coerce_partial(self, raw: dict[str, Any] | None) -> dict[str, Any]:
+        payload = dict(raw or {})
+        out: dict[str, Any] = {}
+        if "enable_strict_gate" in payload:
+            out["enable_strict_gate"] = bool(payload.get("enable_strict_gate"))
+        if "low_value_domains" in payload:
+            out["low_value_domains"] = [x.lower() for x in _parse_config_list(payload.get("low_value_domains"), _DEFAULT_LOW_VALUE_DOMAINS)]
+        if "low_value_path_keywords" in payload:
+            out["low_value_path_keywords"] = [
+                x.lower() for x in _parse_config_list(payload.get("low_value_path_keywords"), _DEFAULT_LOW_VALUE_PATH_KEYWORDS)
+            ]
+        if "shell_signatures" in payload:
+            out["shell_signatures"] = [x.lower() for x in _parse_config_list(payload.get("shell_signatures"), _DEFAULT_SHELL_SIGNATURES)]
+        if "min_semantic_len" in payload:
+            try:
+                out["min_semantic_len"] = int(payload.get("min_semantic_len"))
+            except Exception:
+                pass
+        return out
+
+    def _load_ingest_payloads(self, project_key: str | None) -> list[dict[str, Any]]:
+        try:
+            from ..ingest_config.service import get_config as get_ingest_config
+        except Exception:
+            return []
+
+        resolved_project_key = str(project_key or "").strip()
+        if not resolved_project_key:
+            try:
+                from ..projects import current_project_key
+
+                resolved_project_key = str(current_project_key() or "").strip()
+            except Exception:
+                resolved_project_key = ""
+
+        payloads: list[dict[str, Any]] = []
+        scope_keys: list[str] = ["*"]
+        if resolved_project_key:
+            scope_keys.append(resolved_project_key)
+        for scope_key in scope_keys:
+            for config_key in _GATEWAY_RULE_CONFIG_KEYS:
+                try:
+                    cfg = get_ingest_config(scope_key, config_key)
+                except Exception:
+                    continue
+                payload = cfg.get("payload") if isinstance(cfg, dict) else None
+                if isinstance(payload, dict):
+                    payloads.append(payload)
+        return payloads
+
+    def resolve(self, *, config: dict[str, Any] | None = None, project_key: str | None = None) -> dict[str, Any]:
+        resolved = self._settings_defaults()
+        for payload in self._load_ingest_payloads(project_key):
+            resolved.update(self._coerce_partial(payload))
+        resolved.update(self._coerce_partial(config))
+        resolved["min_semantic_len"] = max(1, int(resolved.get("min_semantic_len") or 1))
+        return resolved
+
+
+_GATEWAY_RULE_SERVICE = GatewayRuleService()
 
 
 def _semantic_text_len(content: str) -> int:

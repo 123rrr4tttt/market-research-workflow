@@ -4,6 +4,7 @@ import sys
 import types
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -176,6 +177,34 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertEqual(result.get("pre_fetch_url_gate", {}).get("reason"), "url_policy_low_value_endpoint")
         self.assertEqual(fetch_html.call_count, 0)
         self.assertEqual(complete_job.call_count, 1)
+        self.assertEqual(result.get("pipeline_stage"), "classify")
+        self.assertEqual(result.get("pipeline_stages"), ["classify"])
+
+    def test_ingest_single_url_fetch_failure_keeps_pipeline_stage_trace(self):
+        fake_job_id = 452
+        allowed_gate = GateDecision(
+            accepted=True,
+            blocked=False,
+            reason="ok",
+            quality_score=100.0,
+            diagnostics={},
+        )
+        with patch.object(single_url_module, "start_job", return_value=fake_job_id), patch.object(
+            single_url_module, "complete_job"
+        ) as complete_job, patch.object(
+            single_url_module, "url_policy_check", return_value=allowed_gate
+        ), patch.object(
+            single_url_module, "fetch_html", side_effect=RuntimeError("network down")
+        ):
+            result = single_url_module.ingest_single_url(
+                url="https://example.com/news/robotics",
+                query_terms=["robotics"],
+                strict_mode=False,
+            )
+        self.assertEqual(result.get("status"), "failed")
+        self.assertEqual(result.get("pipeline_stage"), "fetch")
+        self.assertEqual(result.get("pipeline_stages"), ["classify", "fetch"])
+        self.assertEqual(complete_job.call_count, 1)
 
     def test_ingest_single_url_search_template_fallbacks_to_crawler_pool_after_simple_flow(self):
         fake_job_id = 321
@@ -310,6 +339,30 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertIn("https://example.com/posts/1", urls)
         self.assertIn("https://example.org/news/2", urls)
         self.assertEqual(int((payload.get("auto_config") or {}).get("target_candidates") or 0), 6)
+
+    def test_response_redirect_chain_contains_history_and_final_url(self):
+        response = SimpleNamespace(
+            history=[
+                SimpleNamespace(url="https://example.com/redirect-1"),
+                SimpleNamespace(url="https://example.com/redirect-2"),
+            ],
+            url="https://example.com/final",
+        )
+        chain = single_url_module._response_redirect_chain(response)
+        self.assertEqual(
+            chain,
+            [
+                "https://example.com/redirect-1",
+                "https://example.com/redirect-2",
+                "https://example.com/final",
+            ],
+        )
+
+    def test_derive_blocked_signal_from_degradation_flags(self):
+        signal = single_url_module._derive_blocked_signal(
+            ["structured_extraction_empty", "content_gate_rejected:content_js_template_shell"]
+        )
+        self.assertEqual(signal, "content_js_template_shell")
 
     def test_extract_search_results_auto_config_filters_low_value_domains(self):
         html = """
@@ -694,6 +747,58 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertEqual(int(result.get("inserted") or 0), int(fake_module.ingest_single_url.call_count))
         self.assertEqual(int(result.get("queued") or 0), 0)
         self.assertEqual(result.get("single_write_workflow"), "single_url")
+
+    def test_collect_urls_from_list_mixed_candidates_normalizes_reason_codes(self):
+        fake_module = types.ModuleType("app.services.ingest.single_url")
+        fake_module.ingest_single_url = Mock(
+            side_effect=[
+                {
+                    "status": "degraded_success",
+                    "inserted": 0,
+                    "inserted_valid": 0,
+                    "skipped": 1,
+                    "rejected_count": 1,
+                    "rejection_breakdown": {"URL Policy/Low Value Endpoint": 1},
+                    "degradation_flags": [],
+                },
+                {
+                    "status": "degraded_success",
+                    "inserted": 0,
+                    "inserted_valid": 0,
+                    "skipped": 1,
+                    "rejected_count": 1,
+                    "rejection_breakdown": {"content shell signature": 1},
+                    "degradation_flags": [],
+                },
+                {
+                    "status": "success",
+                    "inserted": 1,
+                    "inserted_valid": 1,
+                    "skipped": 0,
+                    "rejected_count": 0,
+                    "rejection_breakdown": {},
+                    "degradation_flags": [],
+                },
+            ]
+        )
+
+        with patch.dict(sys.modules, {"app.services.ingest.single_url": fake_module}), patch.object(
+            url_pool_module, "_annotate_url_pool_context"
+        ):
+            result = url_pool_module.collect_urls_from_list(
+                [
+                    "https://a.example.com/path/1",
+                    "https://a.example.com/path/2",
+                ],
+                project_key=None,
+                query_terms=["robotics"],
+                extra_params={"single_url_dispatch_mode": "sync"},
+            )
+
+        self.assertGreaterEqual(fake_module.ingest_single_url.call_count, 3)
+        self.assertEqual(result.get("rejection_breakdown"), {"url_policy_low_value_endpoint": 1, "content_shell_signature": 1})
+        self.assertEqual(int(result.get("rejected_count") or 0), 2)
+        self.assertEqual(int(result.get("inserted") or 0), 1)
 
     def test_collect_urls_from_list_async_dispatch_queues_celery_tasks(self):
         class _AsyncResult:

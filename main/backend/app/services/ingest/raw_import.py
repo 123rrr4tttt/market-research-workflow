@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import hashlib
 import logging
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import select
 
@@ -14,6 +15,7 @@ from ..extraction.application import ExtractionApplicationService
 from ..job_logger import complete_job, fail_job, start_job
 from .adapters.http_utils import fetch_html, make_html_parser
 from .structured_extraction import build_structured_summary
+from .timestamp_resolver import resolve_document_temporal_fields
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +216,16 @@ def _normalize_iso_date(value: Any) -> date | None:
             return None
 
 
+def _domain_of_uri(uri: str | None) -> str | None:
+    raw = str(uri or "").strip()
+    if not raw:
+        return None
+    try:
+        return str(urlparse(raw).netloc or "").strip().lower() or None
+    except Exception:
+        return None
+
+
 def _resolve_extraction_flags(extraction_mode: str, doc_type: str) -> dict[str, bool]:
     mode = (extraction_mode or "auto").strip().lower()
     dtype = (doc_type or "").strip().lower()
@@ -264,7 +276,7 @@ def _derive_publish_date_from_extracted(extracted_data: dict[str, Any]) -> date 
 
 def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[str, Any]:
     extraction_app = ExtractionApplicationService()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     source_name = str(payload.get("source_name") or "raw_import").strip() or "raw_import"
     source_kind = str(payload.get("source_kind") or "manual").strip() or "manual"
@@ -391,6 +403,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                             summary=summary,
                             text_hash=text_hash,
                             uri=uri,
+                            source_domain=_domain_of_uri(uri),
                             created_at=now,
                             updated_at=now,
                         )
@@ -407,6 +420,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         doc.summary = summary or doc.summary
                         doc.text_hash = text_hash
                         doc.uri = uri or doc.uri
+                        doc.source_domain = _domain_of_uri(uri) or doc.source_domain
                         doc.updated_at = now
                         updated += 1
 
@@ -461,6 +475,47 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         extraction_enabled=enable_extraction,
                         chunks_used=len(chunks),
                         extraction_mode=mode,
+                    )
+                    temporal_metadata = {
+                        "item": {
+                            "publish_date": item.get("publish_date"),
+                            "source_time": item.get("source_time"),
+                            "effective_time": item.get("effective_time"),
+                            "ingested_at": item.get("ingested_at"),
+                            "created_at": item.get("created_at"),
+                            "updated_at": item.get("updated_at"),
+                        },
+                        "extracted_data": extracted_base,
+                        "publish_date": str(doc.publish_date) if doc.publish_date else None,
+                    }
+                    temporal_fields = resolve_document_temporal_fields(
+                        source_domain=_domain_of_uri(doc.uri),
+                        metadata=temporal_metadata,
+                        content_excerpt=text[:3000],
+                        ingested_at=doc.created_at if isinstance(doc.created_at, datetime) else now,
+                    )
+                    doc.source_domain = temporal_fields.get("source_domain") or doc.source_domain
+                    doc.source_time = temporal_fields.get("source_time")
+                    doc.effective_time = temporal_fields.get("effective_time")
+                    doc.time_confidence = temporal_fields.get("time_confidence")
+                    doc.time_provenance = temporal_fields.get("time_provenance")
+                    extracted_base["time_parse_version"] = temporal_fields.get("time_parse_version")
+                    extracted_base["time_provenance"] = temporal_fields.get("time_provenance")
+                    extracted_base["time_confidence"] = temporal_fields.get("time_confidence")
+                    extracted_base["effective_time"] = (
+                        temporal_fields["effective_time"].isoformat()
+                        if temporal_fields.get("effective_time")
+                        else None
+                    )
+                    extracted_base["source_time"] = (
+                        temporal_fields["source_time"].isoformat()
+                        if temporal_fields.get("source_time")
+                        else None
+                    )
+                    extracted_base["ingested_at"] = (
+                        temporal_fields["ingested_at"].isoformat()
+                        if temporal_fields.get("ingested_at")
+                        else None
                     )
 
                     doc.extracted_data = extracted_base

@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ....models.entities import GraphEdgeRecord, GraphNodeAliasRecord, GraphNodeRecord
+from ....services.projects import current_project_key
 from ..mapping import normalize_node_id, normalize_node_properties, normalize_node_type
 from ..models import Graph
 from .graph_node_alias_resolver import GraphNodeAliasResolver
@@ -23,9 +24,10 @@ class GraphWriteSummary:
 
 
 class GraphNodeWriter:
-    def __init__(self, session: Session, *, schema_version: str = "v1"):
+    def __init__(self, session: Session, *, schema_version: str = "v1", project_key: str | None = None):
         self.session = session
         self.schema_version = schema_version or "v1"
+        self.project_key = str(project_key or current_project_key() or "default").strip() or "default"
         self.alias_resolver = GraphNodeAliasResolver()
 
     @staticmethod
@@ -46,6 +48,7 @@ class GraphNodeWriter:
 
     def _upsert_node(self, payload: dict[str, Any]) -> int | None:
         stmt = pg_insert(GraphNodeRecord.__table__).values(
+            project_key=self.project_key,
             node_type=payload["node_type"],
             canonical_id=payload["canonical_id"],
             display_name=payload.get("display_name"),
@@ -55,13 +58,14 @@ class GraphNodeWriter:
             quality_flags=payload.get("quality_flags"),
         )
         stmt = stmt.on_conflict_do_update(
-            index_elements=["node_type", "canonical_id"],
+            index_elements=["project_key", "node_type", "canonical_id"],
             set_={
                 "display_name": stmt.excluded.display_name,
                 "properties": stmt.excluded.properties,
                 "source_doc_id": stmt.excluded.source_doc_id,
                 "node_schema_version": stmt.excluded.node_schema_version,
                 "quality_flags": stmt.excluded.quality_flags,
+                "updated_at": func.now(),
             },
         ).returning(GraphNodeRecord.__table__.c.id)
 
@@ -76,13 +80,14 @@ class GraphNodeWriter:
         )
         for alias in aliases:
             stmt = pg_insert(GraphNodeAliasRecord.__table__).values(
+                project_key=self.project_key,
                 node_id=node_id,
                 alias_text=alias.alias_text,
                 alias_norm=alias.alias_norm,
                 alias_type=alias.alias_type,
             )
             # Keep alias mapping first-wins in shadow mode to avoid concurrent UPDATE deadlocks.
-            stmt = stmt.on_conflict_do_nothing(index_elements=["alias_norm", "alias_type"])
+            stmt = stmt.on_conflict_do_nothing(index_elements=["project_key", "alias_norm", "alias_type"])
             self.session.execute(stmt)
             count += 1
         return count
@@ -95,6 +100,7 @@ class GraphNodeWriter:
     def _resolve_node_record_id(self, node_type: str, canonical_id: str) -> int | None:
         row = self.session.execute(
             select(GraphNodeRecord.id).where(
+                GraphNodeRecord.project_key == self.project_key,
                 GraphNodeRecord.node_type == node_type,
                 GraphNodeRecord.canonical_id == canonical_id,
             )
@@ -131,6 +137,7 @@ class GraphNodeWriter:
         edge_rows = sorted(edge_rows, key=lambda item: (item[0], item[1], item[2]))
         for edge_type, from_node_id, to_node_id, properties in edge_rows:
             stmt = pg_insert(GraphEdgeRecord.__table__).values(
+                project_key=self.project_key,
                 edge_type=edge_type,
                 from_node_id=from_node_id,
                 to_node_id=to_node_id,
@@ -138,10 +145,11 @@ class GraphNodeWriter:
                 edge_schema_version=self.schema_version,
             )
             stmt = stmt.on_conflict_do_update(
-                index_elements=["edge_type", "from_node_id", "to_node_id"],
+                index_elements=["project_key", "edge_type", "from_node_id", "to_node_id"],
                 set_={
                     "properties": stmt.excluded.properties,
                     "edge_schema_version": stmt.excluded.edge_schema_version,
+                    "updated_at": func.now(),
                 },
             )
             self.session.execute(stmt)

@@ -62,4 +62,5 @@
   - 优先写入对应子项目 `main/` 或归档目录。
   - 同步更新该子项目 `INDEX.md`。
   - 同步更新顶层导航：`development/latest-dev-docs/README.md` 与 `development/latest-dev-docs/MERGED_OVERVIEW.md`。
+  - 若文档内容更新日期发生变化，文档所在目录名中的日期与文件名尾部日期必须同步更新为同一天（`YYYY-MM-DD`），并同步修正全仓库引用路径。
 - 禁止只在零散路径保留“唯一副本”而不进入 `development/latest-dev-docs`（避免遗漏归档与断链）。

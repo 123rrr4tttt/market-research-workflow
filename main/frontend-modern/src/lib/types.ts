@@ -240,12 +240,42 @@ export type IngestJobRow = {
   updated_at?: string
   started_at?: string
   finished_at?: string
+  url?: string | null
+  doc_id?: string | number | null
+  document_id?: string | number | null
+  extraction_status?: string | null
+  inserted?: number | null
+  inserted_valid?: number | null
+  skipped?: number | null
   rejected_count?: number | null
   rejection_breakdown?: Record<string, number> | null
   degradation_flags?: string[] | null
   quality_score?: number | null
   error?: string | null
   params?: Record<string, unknown> | null
+}
+
+export type IngestSingleUrlResult = {
+  task_id?: string
+  status?: string
+  async?: boolean
+  params?: Record<string, unknown> | null
+  effective_payload?: Record<string, unknown> | null
+  url?: string | null
+  doc_id?: string | number | null
+  document_id?: string | number | null
+  extraction_status?: 'success' | 'failed' | 'degraded' | string
+  structured_extraction_status?: string | null
+  inserted?: number | null
+  inserted_valid?: number | null
+  skipped?: number | null
+  rejected_count?: number | null
+  rejection_breakdown?: Record<string, number> | null
+  degradation_flags?: string[] | null
+  quality_score?: number | null
+  filter_reason_code?: string | null
+  light_filter?: Record<string, unknown> | null
+  error?: string | null
 }
 
 export type ProcessTaskItem = {
@@ -981,6 +1011,89 @@ export type SearchHistoryItem = {
   id: number
   topic?: string | null
   last_search_time?: string | null
+}
+
+export type SourceTimeWindowStatItem = {
+  source_domain: string
+  bucket_time: string
+  total_docs: number
+  with_source_time_docs: number
+  fallback_ingested_docs: number
+  source_time_coverage: number
+}
+
+export type SourceTimeWindowStatsResponse = {
+  version: string
+  time_window: string
+  bucket: 'day' | 'week' | 'month'
+  start_time: string
+  end_time: string
+  items: SourceTimeWindowStatItem[]
+}
+
+export type SourceNounDensityItem = {
+  source_domain: string
+  noun_group_id: string
+  bucket_time: string
+  effective_new_docs: number
+  density: number
+  norm_density: number
+  dup_ratio: number
+  baseline_density?: number
+  collection_priority_score: number
+  recommended_window_rank: number
+}
+
+export type SourceNounDensityResponse = {
+  version: string
+  time_window: string
+  bucket: 'day' | 'week' | 'month'
+  start_time: string
+  end_time: string
+  items: SourceNounDensityItem[]
+}
+
+export type CollectionWindowPriorityItem = {
+  source_domain: string
+  noun_group_id: string
+  window: string
+  density: number
+  norm_density: number
+  dup_ratio: number
+  collection_priority_score: number
+  rank: number
+}
+
+export type CollectionWindowPriorityResponse = {
+  version: string
+  prefer_low_density: boolean
+  exclude_high_dup: boolean
+  items: CollectionWindowPriorityItem[]
+}
+
+export type NounDensityDrilldownItem = {
+  id: number
+  title?: string | null
+  doc_type?: string | null
+  source_domain?: string | null
+  source_time?: string | null
+  effective_time?: string | null
+  uri?: string | null
+  noun_groups?: string[]
+}
+
+export type NounDensityDrilldownResponse = {
+  version: string
+  time_window: string
+  bucket: 'day' | 'week' | 'month'
+  start_time: string
+  end_time: string
+  source_domain?: string | null
+  noun_group_id?: string | null
+  total: number
+  page: number
+  page_size: number
+  items: NounDensityDrilldownItem[]
 }
 
 export type GraphNodeRef = {

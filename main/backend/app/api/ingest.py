@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import OperationalError, DatabaseError
 from typing import Any, Literal, Optional
@@ -10,7 +10,7 @@ from functools import lru_cache, partial
 from ..project_customization import get_project_customization
 from ..services.ingest_config import get_config as get_ingest_config, upsert_config as upsert_ingest_config
 from ..services.job_logger import list_jobs
-from ..services.projects import bind_project, current_project_key
+from ..services.projects import bind_project, current_project_key, project_schema_name
 from ..settings.config import settings
 from ..contracts import (
     ErrorCode,
@@ -272,6 +272,21 @@ class EcomPriceRequest(BaseModel):
     project_key: str | None = Field(default=None, description="项目标识")
 
 
+def _normalize_single_url_result_contract_fields(result: dict[str, Any]) -> dict[str, Any]:
+    structured_status = str(result.get("structured_extraction_status") or "").strip().lower()
+    business_status = str(result.get("status") or "").strip().lower()
+    if structured_status in {"ok", "success"}:
+        extraction_status = "success"
+    elif business_status == "failed":
+        extraction_status = "failed"
+    else:
+        extraction_status = "degraded"
+    result["extraction_status"] = extraction_status
+    if not structured_status:
+        result["structured_extraction_status"] = "ok" if extraction_status == "success" else "failed"
+    return result
+
+
 @router.post("/market")
 def ingest_market(payload: MarketIngestRequest):
     """Generic market info (web search). Project-specific fixed sources use source library."""
@@ -417,6 +432,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
                 search_options=search_options,
             )
             if isinstance(result, dict):
+                _normalize_single_url_result_contract_fields(result)
                 result.setdefault("effective_payload", effective_payload)
             return success_response(result)
     except Exception as exc:  # noqa: BLE001
@@ -495,7 +511,10 @@ class SourceLibraryRunPayload(BaseModel):
     item_key: str | None = Field(default=None, min_length=1)
     handler_key: str | None = Field(default=None, min_length=1, description="Run all items under this handler key (provider/kind)")
     project_key: str | None = Field(default=None)
+    schema_name: str | None = Field(default=None, description="Expected schema name for project/schema consistency precheck")
     async_mode: bool = Field(default=False)
+    execution_mode: Literal["apply", "dry_run"] = Field(default="apply", description="执行阶段：dry_run 仅预演不写入；apply 按候选执行写入")
+    explicit_candidate_ids: list[str] | None = Field(default=None, description="apply 阶段显式候选ID列表（通常来自 dry_run 返回的 candidate_records）")
     override_params: dict = Field(default_factory=dict)
     items: list[dict[str, Any]] | None = Field(
         default=None,
@@ -571,7 +590,10 @@ def _run_single_source_library_entry(
     item_key: str,
     handler_key: str,
     async_mode: bool,
+    execution_mode: str,
+    explicit_candidate_ids: list[str] | None,
     override_params: dict | None,
+    trace_id: str | None = None,
 ) -> dict[str, Any]:
     resolved_item_key = str(item_key or "").strip()
     resolved_handler_key = str(handler_key or "").strip()
@@ -582,6 +604,12 @@ def _run_single_source_library_entry(
         raise HTTPException(status_code=400, detail="item_key and handler_key are mutually exclusive.")
 
     final_override_params = dict(override_params or {})
+    if execution_mode:
+        final_override_params["execution_mode"] = str(execution_mode)
+    if isinstance(explicit_candidate_ids, list):
+        final_override_params["explicit_candidate_ids"] = [str(x).strip() for x in explicit_candidate_ids if str(x).strip()]
+    if trace_id:
+        final_override_params.setdefault("_trace_id", trace_id)
     if resolved_handler_key:
         resolved_item_key, site_entry_count = _ensure_handler_cluster_item(
             project_key=project_key,
@@ -601,7 +629,15 @@ def _run_single_source_library_entry(
             "result": task_result_response(
                 task_id=task.id,
                 async_mode=True,
-                params={"item_key": resolved_item_key},
+                params={
+                    "item_key": resolved_item_key,
+                    "execution_mode": str(execution_mode or "apply"),
+                    **(
+                        {"explicit_candidate_ids": [str(x).strip() for x in explicit_candidate_ids if str(x).strip()]}
+                        if isinstance(explicit_candidate_ids, list)
+                        else {}
+                    ),
+                },
             ),
         }
 
@@ -616,9 +652,27 @@ def _run_single_source_library_entry(
 
 
 @router.post("/source-library/run")
-def ingest_source_library_run(payload: SourceLibraryRunPayload):
+def ingest_source_library_run(payload: SourceLibraryRunPayload, request: Request):
     """Run source-library item(s) with unified item-style batch support."""
+    header_project_key = (request.headers.get("X-Project-Key") or "").strip()
+    body_project_key = (payload.project_key or "").strip()
+    if header_project_key and body_project_key and header_project_key != body_project_key:
+        raise HTTPException(
+            status_code=400,
+            detail="project_key in body must match X-Project-Key header for source-library run.",
+        )
     project_key = _require_project_key(payload.project_key)
+    body_schema_name = (payload.schema_name or "").strip()
+    expected_schema_name = project_schema_name(project_key)
+    if body_schema_name and body_schema_name != expected_schema_name:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "schema_name in body must match project_key resolved schema for source-library run. "
+                f"expected={expected_schema_name}, got={body_schema_name}"
+            ),
+        )
+    trace_id = (request.headers.get("X-Request-Id") or "").strip() or None
     if payload.items:
         if payload.item_key or payload.handler_key:
             raise HTTPException(
@@ -636,6 +690,8 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
                 "item_key": payload.item_key,
                 "handler_key": payload.handler_key,
                 "async_mode": payload.async_mode,
+                "execution_mode": payload.execution_mode,
+                "explicit_candidate_ids": payload.explicit_candidate_ids,
                 "override_params": payload.override_params,
             }
         ]
@@ -648,9 +704,14 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
                 item_key=str(entry.get("item_key") or "").strip(),
                 handler_key=str(entry.get("handler_key") or "").strip(),
                 async_mode=bool(entry.get("async_mode", payload.async_mode)),
+                execution_mode=str(entry.get("execution_mode") or payload.execution_mode or "apply").strip().lower(),
+                explicit_candidate_ids=entry.get("explicit_candidate_ids")
+                if isinstance(entry.get("explicit_candidate_ids"), list)
+                else payload.explicit_candidate_ids,
                 override_params=entry.get("override_params")
                 if isinstance(entry.get("override_params"), dict)
                 else payload.override_params,
+                trace_id=trace_id,
             )
             results.append({"index": idx, **item_result})
 

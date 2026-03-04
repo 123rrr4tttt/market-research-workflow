@@ -1,0 +1,366 @@
+{
+  "generated_at": "2026-03-03T22:19:49.848296+00:00",
+  "project_key": "demo_proj_compare_0303_121137",
+  "node_type": null,
+  "apply": false,
+  "total_nodes": 2715,
+  "merge_eligible_candidates": 2197,
+  "merge_groups": 16,
+  "merge_groups_by_type": {
+    "TopicTag": 4,
+    "Entity": 11,
+    "CompanyBrand": 1
+  },
+  "cache_stats": {
+    "cache_file": "/Users/wangyiliang/market-research-workflow/main/backend/tmp/bilingual_dict_cache/demo_proj_compare_0303_121137.json",
+    "cache_hits": 301,
+    "generated": 2414,
+    "llm_called": 40,
+    "llm_failed": 0
+  },
+  "merges": [
+    {
+      "group_id": 1,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        901,
+        946,
+        1244,
+        44298
+      ],
+      "target_node_id": 44298,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "open_source",
+        "canonical_id": "open_source"
+      },
+      "shared_aliases": [
+        "open source",
+        "open-source",
+        "open-source software"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 2,
+      "node_type": "Entity",
+      "source_node_ids": [
+        29,
+        315,
+        824,
+        24907
+      ],
+      "target_node_id": 824,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "humanoid AI",
+        "canonical_id": "0a581057e7a07c2fa3bd2a5d4ba4f9cd0cb8e3d7"
+      },
+      "shared_aliases": [
+        "robot",
+        "humanoid robot"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 3,
+      "node_type": "Entity",
+      "source_node_ids": [
+        800,
+        801,
+        24820
+      ],
+      "target_node_id": 800,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "self-driving cars",
+        "canonical_id": "d8dc2527176d33b2bc6afa1ce51daa8cdb9ef867"
+      },
+      "shared_aliases": [
+        "self-driving cars",
+        "autonomous vehicles",
+        "driverless cars",
+        "vehículos autónomos",
+        "voitures autonomes"
+      ],
+      "reason": "shared_aliases=5",
+      "confidence": 0.9
+    },
+    {
+      "group_id": 4,
+      "node_type": "Entity",
+      "source_node_ids": [
+        41,
+        275,
+        281
+      ],
+      "target_node_id": 275,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Artificial intelligence",
+        "canonical_id": "fe592f35af30d6213555cf38be1400575a53df32"
+      },
+      "shared_aliases": [
+        "ai",
+        "inteligencia artificial",
+        "artificial intelligence",
+        "人工智能"
+      ],
+      "reason": "shared_aliases=4",
+      "confidence": 0.8
+    },
+    {
+      "group_id": 5,
+      "node_type": "Entity",
+      "source_node_ids": [
+        456,
+        819,
+        24836
+      ],
+      "target_node_id": 819,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Unmanned Systems",
+        "canonical_id": "45c48529288a54d7f39bff4494e0580e155691b4"
+      },
+      "shared_aliases": [
+        "sistemas autónomos",
+        "unmanned aerial vehicles",
+        "drones"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 6,
+      "node_type": "Entity",
+      "source_node_ids": [
+        125,
+        207,
+        43810
+      ],
+      "target_node_id": 125,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "embodied intelligence",
+        "canonical_id": "0e22712af56cd1b8ea96a690f64e0a9581cb9885"
+      },
+      "shared_aliases": [
+        "embodied intelligence",
+        "embodied ai"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 7,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        984,
+        25694,
+        44738
+      ],
+      "target_node_id": 44738,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "humanoid_robot",
+        "canonical_id": "humanoid_robot"
+      },
+      "shared_aliases": [
+        "humanoid robot",
+        "humanoid"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 8,
+      "node_type": "Entity",
+      "source_node_ids": [
+        24883,
+        24903
+      ],
+      "target_node_id": 24903,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "政府",
+        "canonical_id": "ab2965a2ae94d34f55141ce3405da01d0ae31f33"
+      },
+      "shared_aliases": [
+        "government",
+        "gouvernement",
+        "gobierno",
+        "regierung",
+        "governo",
+        "政府"
+      ],
+      "reason": "shared_aliases=6",
+      "confidence": 1.0
+    },
+    {
+      "group_id": 9,
+      "node_type": "Entity",
+      "source_node_ids": [
+        82,
+        109
+      ],
+      "target_node_id": 109,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Multi-Agent Systems",
+        "canonical_id": "cb652e2eef7c984bd977e9925ffa0a0dbd751245"
+      },
+      "shared_aliases": [
+        "multi-agent systems",
+        "sistemas multi-agentes",
+        "systèmes multi-agents"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 10,
+      "node_type": "Entity",
+      "source_node_ids": [
+        352,
+        24803
+      ],
+      "target_node_id": 24803,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "United Nations",
+        "canonical_id": "e60cbf4f12f1157818b8e9b1b8f63277842ac0b1"
+      },
+      "shared_aliases": [
+        "united nations",
+        "onu",
+        "organización de las naciones unidas"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 11,
+      "node_type": "CompanyBrand",
+      "source_node_ids": [
+        1187,
+        45769
+      ],
+      "target_node_id": 1187,
+      "merged_node": {
+        "node_type": "CompanyBrand",
+        "display_name": "Bitcoin World",
+        "canonical_id": "company:bitcoin world"
+      },
+      "shared_aliases": [
+        "bitcoin world",
+        "bitcoinworld",
+        "company:bitcoinworld"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 12,
+      "node_type": "Entity",
+      "source_node_ids": [
+        333,
+        348
+      ],
+      "target_node_id": 333,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Tesla",
+        "canonical_id": "6c1622df3208a1d1f78bfe2d890d5d06430dd0c6"
+      },
+      "shared_aliases": [
+        "tesla",
+        "特斯拉"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 13,
+      "node_type": "Entity",
+      "source_node_ids": [
+        380,
+        390
+      ],
+      "target_node_id": 380,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Google LLC",
+        "canonical_id": "b27efbf72b605f7fa03d03028f05fdf8b97ce754"
+      },
+      "shared_aliases": [
+        "google",
+        "谷歌"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 14,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        974,
+        44758
+      ],
+      "target_node_id": 44758,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "CES2026",
+        "canonical_id": "ces2026"
+      },
+      "shared_aliases": [
+        "ces 2026",
+        "ces2026"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 15,
+      "node_type": "Entity",
+      "source_node_ids": [
+        24827,
+        24863
+      ],
+      "target_node_id": 24827,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Industrial Robotics",
+        "canonical_id": "b27c80b6ee985a9aab39c53758670285d25d956b"
+      },
+      "shared_aliases": [
+        "robots industriels",
+        "robots industriales"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 16,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        25626,
+        44315
+      ],
+      "target_node_id": 44315,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "business_model",
+        "canonical_id": "business_model"
+      },
+      "shared_aliases": [
+        "business model",
+        "businessmodel"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    }
+  ]
+}

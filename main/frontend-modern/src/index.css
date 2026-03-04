@@ -34,10 +34,11 @@ button, select, input, textarea { font-family: inherit; }
 .layout-root {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 220px 1fr;
+  --sidebar-w: 220px;
+  grid-template-columns: var(--sidebar-w) 8px 1fr;
   grid-template-areas:
-    "status status"
-    "sidebar main";
+    "status status status"
+    "sidebar sidebar-resizer main";
   gap: 20px;
   padding: 20px;
   align-content: start;
@@ -55,7 +56,8 @@ button, select, input, textarea { font-family: inherit; }
 
 .figma-side-nav {
   grid-area: sidebar;
-  width: 220px;
+  width: 100%;
+  min-width: 0;
   min-height: calc(100vh - 40px);
   background: #ffffff;
   border-right: 1px solid #e6ebf0;
@@ -64,16 +66,39 @@ button, select, input, textarea { font-family: inherit; }
   padding: 16px 8px 42px;
 }
 
+.app-shell-sidebar-resizer {
+  grid-area: sidebar-resizer;
+  width: 8px;
+  cursor: col-resize;
+  position: relative;
+}
+
+.app-shell-sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  bottom: 10px;
+  transform: translateX(-50%);
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(125, 153, 199, 0.34);
+}
+
 .figma-side-nav__group {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
+  width: 100%;
+  min-width: 0;
 }
 
 .figma-side-nav__section {
   display: grid;
   gap: 4px;
+  width: 100%;
+  min-width: 0;
 }
 
 .figma-side-nav__title {
@@ -92,6 +117,7 @@ button, select, input, textarea { font-family: inherit; }
   font-weight: 700;
   cursor: pointer;
   text-align: left;
+  min-width: 0;
 }
 
 .figma-side-nav__title-chevron {
@@ -117,6 +143,7 @@ button, select, input, textarea { font-family: inherit; }
   text-align: left;
   font-size: 14px;
   line-height: 22px;
+  min-width: 0;
 }
 
 .figma-side-nav__item.is-active {
@@ -871,7 +898,8 @@ tbody tr:last-child td { border-bottom: 0; }
     padding: 14px;
   }
   .sidebar,
-  .figma-side-nav { display: none; }
+  .figma-side-nav,
+  .app-shell-sidebar-resizer { display: none; }
   .panel.two-col,
   .kpi-grid,
   .action-grid,
@@ -1416,6 +1444,7 @@ button {
   width: min(430px, calc(100% - 28px));
   max-height: calc(100% - 120px);
   overflow: auto;
+  overflow-x: hidden;
 }
 
 .gv2-floating-controls.is-collapsed {
@@ -1430,33 +1459,48 @@ button {
   width: min(430px, calc(100% - 28px));
   max-height: min(44vh, 420px);
   overflow: auto;
+  overflow-x: hidden;
 }
 
 .gv2-floating-projection-left.is-collapsed {
   display: none;
 }
 
-.gv2-floating-controls-resizer {
+.gv2-floating-resizer {
   position: absolute;
-  left: 0;
-  transform: translateX(-50%);
+  z-index: 12;
+  background: transparent;
+}
+
+.gv2-floating-resizer--right {
+  position: absolute;
+  right: 0;
   top: 0;
   bottom: 0;
   width: clamp(14px, 2.2vw, 22px);
   cursor: col-resize;
-  z-index: 8;
 }
 
-.gv2-floating-controls-resizer::after {
-  content: '';
+.gv2-floating-resizer--left {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 10px;
-  bottom: 10px;
-  width: 2px;
-  border-radius: 999px;
-  background: rgba(129, 163, 208, 0.36);
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: clamp(14px, 2.2vw, 22px);
+  cursor: col-resize;
+}
+
+.gv2-floating-resizer--bottom {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(14px, 2.2vw, 22px);
+  cursor: row-resize;
+}
+
+.gv2-floating-resizer::after {
+  content: none;
+  position: absolute;
 }
 
 .gv2-control-section {
@@ -1499,15 +1543,45 @@ button {
 }
 
 .gv2-overlay-top {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  z-index: 8;
+  position: static;
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.gv2-floating-toolbar-layer {
+  position: absolute;
+  z-index: 8;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  width: auto;
+  max-height: none;
+  overflow: visible;
+  pointer-events: none !important;
+}
+
+.gv2-overlay-top * {
+  pointer-events: auto;
+}
+
+.gv2-graph-controls-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 9;
+  font-size: 11px;
+  color: rgba(191, 219, 254, 0.92);
+  background: rgba(2, 8, 18, 0.66);
+  border: 1px solid rgba(125, 211, 252, 0.26);
+  border-radius: 8px;
+  padding: 4px 8px;
+  pointer-events: none;
 }
 
 .gv2-overlay-top strong,
@@ -1580,12 +1654,22 @@ button {
   width: min(360px, calc(100% - 28px));
   max-height: calc(100% - 120px);
   overflow: auto;
+  overflow-x: hidden;
   display: grid;
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--gv2-line);
   background: rgba(4, 9, 18, 0.6);
   backdrop-filter: blur(4px);
+}
+
+.gv2-floating-controls,
+.gv2-floating-projection-left,
+.gv2-legend-float,
+.gv2-floating-controls *,
+.gv2-floating-projection-left *,
+.gv2-legend-float * {
+  pointer-events: auto !important;
 }
 
 .gv2-legend-float.is-collapsed {
@@ -2477,6 +2561,14 @@ button {
   min-height: 0;
 }
 
+.gv2-chart-wrap--fullscreen-ready.is-fullscreen .gv2-floating-toolbar-layer,
+.gv2-chart-wrap--fullscreen-ready.is-fullscreen .gv2-overlay-top,
+.gv2-chart-wrap--fullscreen-ready.is-fullscreen .gv2-floating-controls,
+.gv2-chart-wrap--fullscreen-ready.is-fullscreen .gv2-floating-projection-left,
+.gv2-chart-wrap--fullscreen-ready.is-fullscreen .gv2-legend-float {
+  z-index: 10020;
+}
+
 @media (max-width: 980px) {
   .gv2-floating-controls {
     width: min(96%, 420px);
@@ -2492,7 +2584,7 @@ button {
     max-height: 40vh;
   }
 
-  .gv2-floating-controls-resizer {
+  .gv2-floating-resizer {
     display: none;
   }
 

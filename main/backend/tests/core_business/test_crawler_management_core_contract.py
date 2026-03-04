@@ -75,12 +75,17 @@ class CrawlerManagementApiContractTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["task_id"], "crawler-deploy-task-1")
         self.assertEqual(body["data"]["status"], "queued")
         self.assertTrue(body["data"]["async"])
-        self.assertEqual(body["data"]["params"], {"item_key": "crawler.demo.item"})
+        self.assertEqual(body["data"]["params"], {"item_key": "crawler.demo.item", "execution_mode": "apply"})
 
         tasks.task_run_source_library_item.delay.assert_called_once_with(
             "crawler.demo.item",
             "demo_proj",
-            {"provider": "scrapy", "spider": "market_spider"},
+            {
+                "provider": "scrapy",
+                "spider": "market_spider",
+                "execution_mode": "apply",
+                "_trace_id": "crawler-management-contract",
+            },
         )
 
 

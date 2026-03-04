@@ -649,6 +649,7 @@ def unified_search_api(payload: UnifiedSearchPayload):
                     "written": result.written,
                     "ingest_result": result.ingest_result,
                     "errors": result.errors,
+                    "stats": getattr(result, "stats", {}) or {},
                 }
             ),
         )

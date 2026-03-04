@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
-@dataclass(slots=True)
+@dataclass
 class CrawlerDispatchRequest:
     provider: str
     project: str
@@ -16,7 +16,7 @@ class CrawlerDispatchRequest:
     job_id: str | None = None
 
 
-@dataclass(slots=True)
+@dataclass
 class CrawlerDispatchResult:
     provider_type: str
     provider_status: str

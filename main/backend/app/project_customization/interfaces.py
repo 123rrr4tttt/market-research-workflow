@@ -10,7 +10,7 @@ ChannelHandler = Callable[[Dict[str, Any], Dict[str, Any], Optional[str]], Dict[
 NewsResourceHandler = Callable[[int], Dict[str, Any]]
 
 
-@dataclass(slots=True)
+@dataclass
 class WorkflowStep:
     handler: str
     params: Dict[str, Any] = field(default_factory=dict)
@@ -18,7 +18,7 @@ class WorkflowStep:
     name: str | None = None
 
 
-@dataclass(slots=True)
+@dataclass
 class WorkflowDefinition:
     steps: list[WorkflowStep] = field(default_factory=list)
 

@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-03-03T22:20:36.350728+00:00",
+  "project_key": "demo_proj_compare_0303_121137",
+  "node_type": null,
+  "apply": false,
+  "total_nodes": 2693,
+  "merge_eligible_candidates": 2175,
+  "merge_groups": 1,
+  "merge_groups_by_type": {
+    "Entity": 1
+  },
+  "cache_stats": {
+    "cache_file": "/Users/wangyiliang/market-research-workflow/main/backend/tmp/bilingual_dict_cache/demo_proj_compare_0303_121137.json",
+    "cache_hits": 2693,
+    "generated": 0,
+    "llm_called": 0,
+    "llm_failed": 0
+  },
+  "merges": [
+    {
+      "group_id": 1,
+      "node_type": "Entity",
+      "source_node_ids": [
+        29,
+        315,
+        824,
+        24907
+      ],
+      "target_node_id": 824,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "humanoid AI",
+        "canonical_id": "0a581057e7a07c2fa3bd2a5d4ba4f9cd0cb8e3d7"
+      },
+      "shared_aliases": [
+        "robot",
+        "humanoid robot"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    }
+  ]
+}

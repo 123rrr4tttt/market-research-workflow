@@ -7,7 +7,7 @@ from ...project_customization.interfaces import ChannelHandler, ProjectCustomiza
 from .mappings import FIELD_MAPPING, LLM_MAPPING, MENU_CONFIG, WORKFLOW_MAPPING
 
 
-@dataclass(slots=True)
+@dataclass
 class DemoProjCustomization(ProjectCustomization):
     project_key: str = "demo_proj"
 

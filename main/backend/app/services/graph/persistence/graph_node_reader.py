@@ -4,16 +4,21 @@ from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from ....models.entities import GraphEdgeRecord, GraphNodeRecord
+from ....services.projects import current_project_key
 from ..models import Graph, GraphEdge, GraphNode
 
 
 class GraphNodeReader:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, *, project_key: str | None = None):
         self.session = session
+        self.project_key = str(project_key or current_project_key() or "default").strip() or "default"
 
     def load_graph(self, *, limit: int = 5000) -> Graph:
         rows = self.session.execute(
-            select(GraphNodeRecord).order_by(GraphNodeRecord.updated_at.desc()).limit(limit)
+            select(GraphNodeRecord)
+            .where(GraphNodeRecord.project_key == self.project_key)
+            .order_by(GraphNodeRecord.updated_at.desc())
+            .limit(limit)
         ).scalars().all()
         graph = Graph(schema_version="v1")
         nodes_by_row_id: dict[int, GraphNode] = {}
@@ -33,6 +38,7 @@ class GraphNodeReader:
         node_ids = list(nodes_by_row_id.keys())
         edge_rows = self.session.execute(
             select(GraphEdgeRecord).where(
+                GraphEdgeRecord.project_key == self.project_key,
                 or_(GraphEdgeRecord.from_node_id.in_(node_ids), GraphEdgeRecord.to_node_id.in_(node_ids))
             )
         ).scalars().all()

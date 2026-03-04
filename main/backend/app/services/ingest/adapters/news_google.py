@@ -16,7 +16,7 @@ from .http_utils import fetch_html, make_html_parser
 logger = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
+@dataclass
 class GoogleNewsItem:
     """Google News新闻项数据结构"""
     title: str

@@ -2,6 +2,10 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 import os
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def _get_default_database_url() -> str:
@@ -48,9 +52,17 @@ class Settings(BaseSettings):
     celery_max_memory_per_child: int = Field(default=500000)
     celery_queues: str = Field(default="celery")
     graph_structured_async_dispatch_workers: int = Field(default=4)
-    graph_node_projection_write_mode: str = Field(default="shadow")  # off | shadow | on
-    graph_node_projection_read_mode: str = Field(default="a_only")  # a_only | b_canary | b_primary
+    graph_node_merge_policy_default: str = Field(default="default")
+    graph_node_merge_policy_selector_json: str = Field(default="{}")
+    graph_node_merge_policy_selector_db_enabled: bool = Field(default=True)
+    graph_db_write_mode: Optional[str] = Field(default=None)  # off | shadow | on
+    graph_db_read_mode: Optional[str] = Field(default=None)  # db_primary
+    graph_db_schema_version: Optional[str] = Field(default=None)
+    # Deprecated: kept for compatibility during migration to graph_db_*.
+    graph_node_projection_write_mode: str = Field(default="on")  # off | shadow | on
+    graph_node_projection_read_mode: str = Field(default="b_primary")  # b_primary
     graph_node_projection_canary_projects: str = Field(default="demo_proj")
+    graph_node_projection_schema_version: Optional[str] = Field(default=None)
     ingest_enable_strict_gate: bool = Field(default=False)
     ingest_low_value_domains: str = Field(default="news.google.com,x.com,actiontoaction.ai")
     ingest_low_value_path_keywords: str = Field(default="/search,/login,/home,/showcase,/topics/,/stargazers,/sitemap")
@@ -101,6 +113,43 @@ class Settings(BaseSettings):
     embedding_dim: int = Field(default=3072)
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    def model_post_init(self, __context) -> None:
+        fields_set = set(getattr(self, "__pydantic_fields_set__", set()))
+        old_field_used = False
+
+        if "graph_db_write_mode" not in fields_set and "graph_node_projection_write_mode" in fields_set:
+            self.graph_db_write_mode = self.graph_node_projection_write_mode
+            old_field_used = True
+        if "graph_db_read_mode" not in fields_set and "graph_node_projection_read_mode" in fields_set:
+            self.graph_db_read_mode = self.graph_node_projection_read_mode
+            old_field_used = True
+        if "graph_db_schema_version" not in fields_set and "graph_node_projection_schema_version" in fields_set:
+            self.graph_db_schema_version = self.graph_node_projection_schema_version
+            old_field_used = True
+
+        if self.graph_db_write_mode is None:
+            self.graph_db_write_mode = "on"
+        if self.graph_db_read_mode is None:
+            self.graph_db_read_mode = "db_primary"
+        normalized_read_mode = str(self.graph_db_read_mode).strip().lower()
+        if normalized_read_mode in {"b_primary", "db_read", "primary"}:
+            normalized_read_mode = "db_primary"
+        self.graph_db_read_mode = normalized_read_mode
+        if self.graph_db_schema_version is None:
+            self.graph_db_schema_version = "v1"
+
+        # Keep deprecated fields mirrored for legacy readers.
+        self.graph_node_projection_write_mode = self.graph_db_write_mode
+        self.graph_node_projection_read_mode = (
+            "b_primary" if self.graph_db_read_mode == "db_primary" else self.graph_db_read_mode
+        )
+        self.graph_node_projection_schema_version = self.graph_db_schema_version
+
+        if old_field_used:
+            logger.warning(
+                "Deprecated graph_node_projection_* setting detected; please migrate to graph_db_* (read/write/schema_version)."
+            )
 
 
 settings = Settings()

@@ -38,6 +38,13 @@ class IngestResponseContractTestCase(unittest.TestCase):
             "degradation_flags": ["content_gate_rejected:content_gate_rejected"],
             "document_id": None,
             "quality_score": 0.0,
+            "source_domain": "example.com",
+            "source_time": None,
+            "ingested_at": "2026-03-03T10:00:00+00:00",
+            "effective_time": "2026-03-03T10:00:00+00:00",
+            "time_confidence": 0.0,
+            "time_provenance": "fallback_ingested_at",
+            "time_parse_version": "st_v1",
         }
 
         with patch("app.services.ingest.single_url.ingest_single_url", return_value=fake_result):
@@ -59,11 +66,21 @@ class IngestResponseContractTestCase(unittest.TestCase):
 
         # frozen business result fields for platformized ingest outputs
         self.assertIn("status", data)
+        self.assertIn("extraction_status", data)
+        self.assertIn("structured_extraction_status", data)
         self.assertIn("inserted_valid", data)
         self.assertIn("rejected_count", data)
         self.assertIn("rejection_breakdown", data)
         self.assertIn("degradation_flags", data)
+        self.assertIn("source_domain", data)
+        self.assertIn("source_time", data)
+        self.assertIn("ingested_at", data)
+        self.assertIn("effective_time", data)
+        self.assertIn("time_confidence", data)
+        self.assertIn("time_provenance", data)
+        self.assertIn("time_parse_version", data)
 
+        self.assertIn(data.get("extraction_status"), {"success", "degraded", "failed"})
         self.assertIsInstance(data.get("rejection_breakdown"), dict)
         self.assertIsInstance(data.get("degradation_flags"), list)
 

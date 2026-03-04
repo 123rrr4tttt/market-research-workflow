@@ -36,6 +36,7 @@ def upgrade() -> None:
                 f'''
                 CREATE TABLE IF NOT EXISTS "{schema}"."graph_nodes" (
                   id BIGSERIAL PRIMARY KEY,
+                  project_key VARCHAR(64) NOT NULL DEFAULT 'default',
                   node_type VARCHAR(64) NOT NULL,
                   canonical_id VARCHAR(255) NOT NULL,
                   display_name TEXT NULL,
@@ -45,7 +46,7 @@ def upgrade() -> None:
                   quality_flags JSONB NULL,
                   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                  CONSTRAINT uq_graph_nodes_type_canonical UNIQUE (node_type, canonical_id)
+                  CONSTRAINT uq_graph_nodes_project_type_canonical UNIQUE (project_key, node_type, canonical_id)
                 )
                 '''
             )
@@ -55,17 +56,23 @@ def upgrade() -> None:
                 f'''
                 CREATE TABLE IF NOT EXISTS "{schema}"."graph_node_aliases" (
                   id BIGSERIAL PRIMARY KEY,
+                  project_key VARCHAR(64) NOT NULL DEFAULT 'default',
                   node_id BIGINT NOT NULL,
                   alias_text TEXT NOT NULL,
                   alias_norm TEXT NOT NULL,
                   alias_type VARCHAR(32) NOT NULL DEFAULT 'display',
                   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                  CONSTRAINT uq_graph_node_aliases_norm_type UNIQUE (alias_norm, alias_type),
+                  CONSTRAINT uq_graph_node_aliases_project_norm_type UNIQUE (project_key, alias_norm, alias_type),
                   CONSTRAINT fk_graph_node_aliases_node_id
                     FOREIGN KEY(node_id) REFERENCES "{schema}"."graph_nodes"(id)
                     ON DELETE CASCADE
                 )
                 '''
+            )
+        )
+        op.execute(
+            sa.text(
+                f'CREATE INDEX IF NOT EXISTS ix_graph_nodes_project_key ON "{schema}"."graph_nodes" (project_key)'
             )
         )
         op.execute(

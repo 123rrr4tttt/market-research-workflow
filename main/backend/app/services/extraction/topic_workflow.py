@@ -91,7 +91,7 @@ def merge_topic_structured(existing: dict[str, Any] | None, incoming: dict[str, 
     return out
 
 
-@dataclass(slots=True)
+@dataclass
 class TopicChunk:
     chunk_id: int
     text: str

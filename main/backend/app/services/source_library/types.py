@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict
 
 
-@dataclass(slots=True)
+@dataclass
 class ChannelRecord:
     channel_key: str
     name: str
@@ -23,7 +23,7 @@ class ChannelRecord:
     scope: str
 
 
-@dataclass(slots=True)
+@dataclass
 class SourceItemRecord:
     item_key: str
     name: str

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState, type KeyboardEvent } from 'react'
+import { Suspense, lazy, useEffect, useState, type CSSProperties, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import FigmaSideNav, { type NavMode } from '../../components/FigmaSideNav'
 import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKey, injectInitialProject, listProjects } from '../../lib/api'
@@ -42,6 +42,7 @@ export default function AppShell() {
   const [projectKey, setProjectKeyState] = useState(getProjectKey())
   const [pendingProjectKey, setPendingProjectKey] = useState(() => shellPrefs.pendingProjectKey || projectKey)
   const [switchMessage, setSwitchMessage] = useState('')
+  const [sidebarWidth, setSidebarWidth] = useState(220)
 
   const health = useQuery({ queryKey: queryKeys.health.all, queryFn: getHealth })
   const deepHealth = useQuery({
@@ -229,8 +230,29 @@ export default function AppShell() {
     setLocalJson(SHELL_PREFS_KEY, { lastMode: viewMode, pendingProjectKey })
   }, [viewMode, pendingProjectKey])
 
+  const onSidebarResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = sidebarWidth
+    const onMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX
+      const next = Math.max(160, Math.min(520, startWidth + delta))
+      setSidebarWidth(next)
+    }
+    const onEnd = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onEnd)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onEnd)
+  }
+
   return (
-    <div className="layout-root">
+    <div className="layout-root" style={{ '--sidebar-w': `${Math.round(sidebarWidth)}px` } as CSSProperties}>
       <section className={`panel app-status-bar app-global-status is-${figmaTheme}`}>
         <div className="app-status-bar__top">
           <span className="status-line app-status-bar__current">当前项目: {projectKey}</span>
@@ -372,6 +394,7 @@ export default function AppShell() {
       </section>
 
       <FigmaSideNav mode={viewMode} onModeChange={handleModeChange} theme={figmaTheme} />
+      <div className="app-shell-sidebar-resizer" onMouseDown={onSidebarResizeStart} />
       <main className={`main-area is-${figmaTheme}`}>
         <section className="panel app-page-title">
           <div className="panel-header">

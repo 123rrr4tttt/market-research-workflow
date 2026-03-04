@@ -27,9 +27,11 @@ class _FakeExecResult:
 class _FakeSession:
     def __init__(self):
         self.calls = 0
+        self.statements = []
 
     def execute(self, _stmt):  # noqa: ANN001
         self.calls += 1
+        self.statements.append(_stmt)
         return _FakeExecResult((1,))
 
 
@@ -43,7 +45,7 @@ class GraphPersistenceWriterUnitTestCase(unittest.TestCase):
 
     def test_writer_persists_nodes_and_aliases(self):
         session = _FakeSession()
-        writer = GraphNodeWriter(session, schema_version="v1")
+        writer = GraphNodeWriter(session, schema_version="v1", project_key="demo_proj")
         graph = Graph(
             nodes={
                 "Post:1": GraphNode(type="Post", id="1", properties={"title": "Hello"}),
@@ -60,6 +62,8 @@ class GraphPersistenceWriterUnitTestCase(unittest.TestCase):
         self.assertEqual(summary.edges_written, 0)
         self.assertEqual(summary.skipped, 0)
         self.assertGreaterEqual(session.calls, 4)
+        serialized = "\n".join(str(stmt) for stmt in session.statements)
+        self.assertIn("project_key", serialized)
 
 
 if __name__ == "__main__":

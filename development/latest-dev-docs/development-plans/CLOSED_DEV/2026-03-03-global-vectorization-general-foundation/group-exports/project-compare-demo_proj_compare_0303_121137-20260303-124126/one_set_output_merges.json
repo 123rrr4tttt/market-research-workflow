@@ -1,0 +1,453 @@
+[
+  {
+    "group_id": 65,
+    "merged_node": {
+      "display_name": "autonomous vehicles",
+      "node_type": "Entity",
+      "canonical_id": "3ef5b7fa7f7e9980296da31cb067b1f4b86c5fd7"
+    },
+    "source_node_ids": [
+      801,
+      29768
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicates/aliases for the concept of autonomous vehicles."
+  },
+  {
+    "group_id": 73,
+    "merged_node": {
+      "display_name": "humanoid robots",
+      "node_type": "Entity",
+      "canonical_id": "72126c2e81a1e1f71f1281268608392cf9811c79"
+    },
+    "source_node_ids": [
+      438,
+      29516
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate entities referring to the same concept of humanoid robots."
+  },
+  {
+    "group_id": 85,
+    "merged_node": {
+      "display_name": "人工智能",
+      "node_type": "Entity",
+      "canonical_id": "878eb76d773cdc76b118d17c0a9ad37fbbb99044"
+    },
+    "source_node_ids": [
+      29594,
+      24918
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate/alias nodes for the concept of 人工智能."
+  },
+  {
+    "group_id": 88,
+    "merged_node": {
+      "display_name": "autonomous systems",
+      "node_type": "Entity",
+      "canonical_id": "6543480b00e7f994a62c4580e75f0dfb19a03edc"
+    },
+    "source_node_ids": [
+      456,
+      29569
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate entities with the same display name."
+  },
+  {
+    "group_id": 88,
+    "merged_node": {
+      "display_name": "autonomous systems",
+      "node_type": "Entity",
+      "canonical_id": "6543480b00e7f994a62c4580e75f0dfb19a03edc"
+    },
+    "source_node_ids": [
+      29424,
+      29663
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate entities with the same display name."
+  },
+  {
+    "group_id": 105,
+    "merged_node": {
+      "display_name": "robotics",
+      "node_type": "Entity",
+      "canonical_id": "08d1f9148e4580ed94517b3f41517dc0856b6a5e"
+    },
+    "source_node_ids": [
+      460,
+      29397
+    ],
+    "confidence": 0.9,
+    "reason": "Near-duplicate entities with the same display name and related entity type."
+  },
+  {
+    "group_id": 128,
+    "merged_node": {
+      "display_name": "Generative Bionics",
+      "node_type": "Entity",
+      "canonical_id": "02523a50a465362dc45c411bae8d15f50b2b1b53"
+    },
+    "source_node_ids": [
+      213,
+      29498
+    ],
+    "confidence": 1.0,
+    "reason": "Identical display names and aliases indicating they refer to the same entity."
+  },
+  {
+    "group_id": 188,
+    "merged_node": {
+      "display_name": "supply chains",
+      "node_type": "Entity",
+      "canonical_id": "bd56d404b97a9b39986973c55b91d9ba1fb5f4e7"
+    },
+    "source_node_ids": [
+      827,
+      29399
+    ],
+    "confidence": 0.9,
+    "reason": "Both nodes represent the same concept of 'supply chains' as entities."
+  },
+  {
+    "group_id": 198,
+    "merged_node": {
+      "display_name": "policymakers",
+      "node_type": "Entity",
+      "canonical_id": "39db8afd100f7f3a884c8e4adfc8f8da53155587"
+    },
+    "source_node_ids": [
+      802,
+      29766
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate entities with the same display name 'policymakers'."
+  },
+  {
+    "group_id": 216,
+    "merged_node": {
+      "display_name": "physical AI",
+      "node_type": "Entity",
+      "canonical_id": "be9f29c65bf2fdf2b3edd12ca04b8cbe42236440"
+    },
+    "source_node_ids": [
+      427,
+      29501
+    ],
+    "confidence": 0.9,
+    "reason": "Near-duplicate entities with similar display names and aliases."
+  },
+  {
+    "group_id": 231,
+    "merged_node": {
+      "display_name": "automation",
+      "node_type": "Entity",
+      "canonical_id": "caeeb1a1424b79cc8faf863b29976cbd61312830"
+    },
+    "source_node_ids": [
+      331,
+      30635
+    ],
+    "confidence": 0.9,
+    "reason": "Both nodes represent the concept of 'automation' and are aliases of each other."
+  },
+  {
+    "group_id": 238,
+    "merged_node": {
+      "display_name": "الروبوتات شبه البشرية",
+      "node_type": "ProductCategory",
+      "canonical_id": "product:الروبوتات شبه البشرية"
+    },
+    "source_node_ids": [
+      8700,
+      31216
+    ],
+    "confidence": 1.0,
+    "reason": "Identified as near-duplicates/aliases based on display names and canonical IDs."
+  },
+  {
+    "group_id": 239,
+    "merged_node": {
+      "display_name": "الروبوتات الاستهلاكية",
+      "node_type": "ProductCategory",
+      "canonical_id": "product:الروبوتات الاستهلاكية"
+    },
+    "source_node_ids": [
+      8703,
+      31220
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate/alias nodes for the same product category."
+  },
+  {
+    "group_id": 251,
+    "merged_node": {
+      "display_name": "Anthropic",
+      "node_type": "Entity",
+      "canonical_id": "1d875df4404ca94e31ce51040d07470abf21a5ed"
+    },
+    "source_node_ids": [
+      104,
+      29402
+    ],
+    "confidence": 1.0,
+    "reason": "Both nodes represent the same entity 'Anthropic' with different canonical IDs."
+  },
+  {
+    "group_id": 262,
+    "merged_node": {
+      "display_name": "CES 2026",
+      "node_type": "TopicTag",
+      "canonical_id": "ces 2026"
+    },
+    "source_node_ids": [
+      974,
+      31571
+    ],
+    "confidence": 1.0,
+    "reason": "Aliases match for the same event."
+  },
+  {
+    "group_id": 269,
+    "merged_node": {
+      "display_name": "hardware",
+      "node_type": "Entity",
+      "canonical_id": "16ba2030039268d8f6a47f978a079404502e4d45"
+    },
+    "source_node_ids": [
+      783,
+      29669
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate/alias nodes with the same display name 'hardware'."
+  },
+  {
+    "group_id": 295,
+    "merged_node": {
+      "display_name": "谷歌Waymo",
+      "node_type": "Entity",
+      "canonical_id": "997b57295fa67ef8293865ad4b28ada2898aa456"
+    },
+    "source_node_ids": [
+      350,
+      24819
+    ],
+    "confidence": 0.0,
+    "reason": "Aliases and canonical names indicate they refer to the same entity."
+  },
+  {
+    "group_id": 306,
+    "merged_node": {
+      "display_name": "robots",
+      "node_type": "Entity",
+      "canonical_id": "f4a06eff21838ba29421ac9729ea3443e410be57"
+    },
+    "source_node_ids": [
+      276,
+      30629
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate entities with the same display name."
+  },
+  {
+    "group_id": 307,
+    "merged_node": {
+      "display_name": "具身智能",
+      "node_type": "Entity",
+      "canonical_id": "具身智能"
+    },
+    "source_node_ids": [
+      314,
+      29641,
+      29582,
+      29408,
+      440
+    ],
+    "confidence": 0.9,
+    "reason": "Multiple nodes with the same display name '具身智能' are near-duplicates or aliases."
+  },
+  {
+    "group_id": 317,
+    "merged_node": {
+      "display_name": "الروبوتات التعليمية",
+      "node_type": "ProductCategory",
+      "canonical_id": "product:الروبوتات التعليمية"
+    },
+    "source_node_ids": [
+      8701,
+      31218
+    ],
+    "confidence": 1.0,
+    "reason": "Near-duplicate/alias nodes for the same product category."
+  },
+  {
+    "group_id": 329,
+    "merged_node": {
+      "display_name": "GPT-5",
+      "node_type": "Entity",
+      "canonical_id": "b166fdc58a57ec0bc391b2d3e486876b64a6528f"
+    },
+    "source_node_ids": [
+      141,
+      84
+    ],
+    "confidence": 0.0,
+    "reason": "Aliases and display names match, indicating they refer to the same entity."
+  },
+  {
+    "group_id": 342,
+    "merged_node": {
+      "display_name": "自主系统",
+      "node_type": "Entity",
+      "canonical_id": "cb13c232957b29e9c93ce8dec767384dec5389e4"
+    },
+    "source_node_ids": [
+      442,
+      29584
+    ],
+    "confidence": 1.0,
+    "reason": "Identical display names and aliases indicate they refer to the same entity."
+  },
+  {
+    "group_id": 343,
+    "merged_node": {
+      "display_name": "中国政府",
+      "node_type": "Entity",
+      "canonical_id": "82925e7c63124ec76f07c657ab1735ef8a066e26"
+    },
+    "source_node_ids": [
+      443,
+      29588
+    ],
+    "confidence": 1.0,
+    "reason": "Both nodes represent the same entity '中国政府' with different canonical IDs."
+  },
+  {
+    "group_id": 370,
+    "merged_node": {
+      "display_name": "AMD",
+      "node_type": "Entity",
+      "canonical_id": "a37783575b45d81460685a0983eef81cf66dbe0d"
+    },
+    "source_node_ids": [
+      215,
+      29495
+    ],
+    "confidence": 0.0,
+    "reason": "Identified as aliases for the same organization."
+  },
+  {
+    "group_id": 374,
+    "merged_node": {
+      "display_name": "机器人",
+      "node_type": "Entity",
+      "canonical_id": "1a146527d10e2c9e52b7e12d0b1eccd3606de743"
+    },
+    "source_node_ids": [
+      441,
+      29578
+    ],
+    "confidence": 1.0,
+    "reason": "Near-duplicate entities with the same display name and context."
+  },
+  {
+    "group_id": 378,
+    "merged_node": {
+      "display_name": "AI",
+      "node_type": "Entity",
+      "canonical_id": "c289f5fde0658028775852fa4bb1f1d0a9d1e5d0"
+    },
+    "source_node_ids": [
+      448,
+      29624
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate entities with the same display name 'AI'."
+  },
+  {
+    "group_id": 444,
+    "merged_node": {
+      "display_name": "Bitcoin World",
+      "node_type": "CompanyBrand",
+      "canonical_id": "company:bitcoin world"
+    },
+    "source_node_ids": [
+      1187,
+      32582
+    ],
+    "confidence": 0.9,
+    "reason": "Near-duplicate/alias nodes for the same brand."
+  },
+  {
+    "group_id": 482,
+    "merged_node": {
+      "display_name": "open-source",
+      "node_type": "TopicTag",
+      "canonical_id": "open-source"
+    },
+    "source_node_ids": [
+      946,
+      31111
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate aliases for the same topic tag."
+  },
+  {
+    "group_id": 592,
+    "merged_node": {
+      "display_name": "2025年",
+      "node_type": "OperationPeriod",
+      "canonical_id": "operation:2025年"
+    },
+    "source_node_ids": [
+      25776,
+      31339
+    ],
+    "confidence": 1.0,
+    "reason": "Near-duplicate/alias nodes for the same operation period."
+  },
+  {
+    "group_id": 924,
+    "merged_node": {
+      "display_name": "Business Model",
+      "node_type": "TopicTag",
+      "canonical_id": "business model"
+    },
+    "source_node_ids": [
+      25626,
+      31128
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate/alias nodes for the same concept."
+  },
+  {
+    "group_id": 971,
+    "merged_node": {
+      "display_name": "humanoid robot",
+      "node_type": "TopicTag",
+      "canonical_id": "humanoid robot"
+    },
+    "source_node_ids": [
+      31551,
+      984
+    ],
+    "confidence": 0.9,
+    "reason": "Near-duplicate/alias nodes referring to the same concept of humanoid robots."
+  },
+  {
+    "group_id": 998,
+    "merged_node": {
+      "display_name": "التكنولوجيا",
+      "node_type": "TopicTag",
+      "canonical_id": "التكنولوجيا"
+    },
+    "source_node_ids": [
+      8709,
+      31236
+    ],
+    "confidence": 0.0,
+    "reason": "Near-duplicate/alias nodes for the same topic."
+  }
+]

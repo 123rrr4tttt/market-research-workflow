@@ -1,0 +1,349 @@
+{
+  "project_key": "demo_proj_compare_0303_121137",
+  "input_merge_items": 32,
+  "applied_merge_items": 32,
+  "skipped_merge_items": 0,
+  "deleted_source_nodes": 37,
+  "inserted_edges": 57,
+  "inserted_aliases": 0,
+  "before": {
+    "total_nodes": 2765,
+    "non_data_nodes": 2683,
+    "data_point_nodes": 82,
+    "total_edges": 6047
+  },
+  "after": {
+    "total_nodes": 2729,
+    "non_data_nodes": 2647,
+    "data_point_nodes": 82,
+    "total_edges": 5985
+  },
+  "delta": {
+    "total_nodes": -36,
+    "non_data_nodes": -36,
+    "data_point_nodes": 0,
+    "total_edges": -62
+  },
+  "details": [
+    {
+      "idx": 1,
+      "group_id": 65,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 801,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 2,
+      "group_id": 73,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 438,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 3,
+      "group_id": 85,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 24918,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 4,
+      "group_id": 88,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 456,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 5,
+      "group_id": 88,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 456,
+      "deleted_nodes": 2,
+      "inserted_edges": 1,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 6,
+      "group_id": 105,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 460,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 7,
+      "group_id": 128,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 213,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 8,
+      "group_id": 188,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 827,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 9,
+      "group_id": 198,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 802,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 10,
+      "group_id": 216,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 427,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 11,
+      "group_id": 231,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 331,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 12,
+      "group_id": 238,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 8700,
+      "deleted_nodes": 1,
+      "inserted_edges": 1,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 13,
+      "group_id": 239,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 8703,
+      "deleted_nodes": 1,
+      "inserted_edges": 1,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 14,
+      "group_id": 251,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 104,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 15,
+      "group_id": 262,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 974,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 16,
+      "group_id": 269,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 783,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 17,
+      "group_id": 295,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 350,
+      "deleted_nodes": 1,
+      "inserted_edges": 2,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 18,
+      "group_id": 306,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 276,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 19,
+      "group_id": 307,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 43810,
+      "deleted_nodes": 5,
+      "inserted_edges": 46,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 20,
+      "group_id": 317,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 8701,
+      "deleted_nodes": 1,
+      "inserted_edges": 1,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 21,
+      "group_id": 329,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 141,
+      "deleted_nodes": 1,
+      "inserted_edges": 4,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 22,
+      "group_id": 342,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 442,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 23,
+      "group_id": 343,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 443,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 24,
+      "group_id": 370,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 215,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 25,
+      "group_id": 374,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 441,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 26,
+      "group_id": 378,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 448,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 27,
+      "group_id": 444,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 1187,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 28,
+      "group_id": 482,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 946,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 29,
+      "group_id": 592,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 25776,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 30,
+      "group_id": 924,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 25626,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 31,
+      "group_id": 971,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 984,
+      "deleted_nodes": 1,
+      "inserted_edges": 0,
+      "inserted_aliases": 0
+    },
+    {
+      "idx": 32,
+      "group_id": 998,
+      "applied": true,
+      "reason": "ok",
+      "target_node_id": 8709,
+      "deleted_nodes": 1,
+      "inserted_edges": 1,
+      "inserted_aliases": 0
+    }
+  ]
+}

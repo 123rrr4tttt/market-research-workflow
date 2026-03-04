@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
 DEFAULT_REDDIT_SUBREDDIT = settings.default_reddit_subreddit
 
-@dataclass(slots=True)
+@dataclass
 class NewsItem:
     title: str
     link: str

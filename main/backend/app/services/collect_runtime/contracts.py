@@ -8,7 +8,7 @@ FLOW_SOURCE_COLLECT = "source_collect"
 ALLOWED_COLLECT_FLOWS = {FLOW_COLLECT, FLOW_SOURCE_COLLECT}
 
 
-@dataclass(slots=True)
+@dataclass
 class CollectRequest:
     flow: str = FLOW_COLLECT
     channel: str = ""
@@ -26,7 +26,7 @@ class CollectRequest:
     source_context: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass(slots=True)
+@dataclass
 class CollectResult:
     flow: str = FLOW_COLLECT
     channel: str = ""

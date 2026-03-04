@@ -5,7 +5,7 @@ from datetime import date
 from typing import Iterable
 
 
-@dataclass(slots=True)
+@dataclass
 class PolicyDocument:
     state: str
     title: str

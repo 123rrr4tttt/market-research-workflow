@@ -11,9 +11,17 @@ from datetime import datetime, date
 import hashlib
 import re
 import logging
+import numpy as np
 
 from ..models.base import SessionLocal
-from ..models.entities import Document, Source, MarketStat, SearchHistory
+from ..models.entities import (
+    Document,
+    Source,
+    MarketStat,
+    SearchHistory,
+    GraphNodeRecord,
+    GraphNodeAliasRecord,
+)
 from ..services.extraction.extract import extract_policy_info, extract_market_info, extract_entities_relations
 from ..services.extraction.application import ExtractionApplicationService
 from ..services.extraction.topic_workflow import (
@@ -30,6 +38,16 @@ from ..services.ingest.adapters.http_utils import fetch_html
 from ..services.ingest.raw_import import run_raw_import_documents
 from ..services.ingest.url_pool import _extract_text_from_html
 from ..project_customization import get_project_customization
+from ..services.llm.provider import get_embeddings
+from ..services.graph.node_merge_llm import suggest_node_merges_with_llm, is_data_point_node, is_merge_eligible_node
+from ..services.graph.node_merge_scheduler import build_disjoint_related_groups
+from ..services.aggregator import (
+    build_collection_window_priority,
+    build_drilldown_documents,
+    build_source_noun_density,
+    build_source_time_window_stats,
+)
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 logger = logging.getLogger(__name__)
@@ -81,37 +99,23 @@ def _finalize_graph_response(
     market_deep_view: bool = False,
     topic_scope: Optional[Literal["company", "product", "operation"]] = None,
 ):
-    """Standardized graph endpoint tail pipeline.
-
-    Unified flow:
-    1) optional market deep augmentation
-    2) ensemble-based node projection by graph kind
-    3) export with stable fallback to empty graph
-    """
-    from app.services.graph.compat import compare_graphs
+    """Graph endpoint tail pipeline (B-only read)."""
     from app.services.graph.doc_types import resolve_graph_node_combo, resolve_graph_topic_scope_entities
     from app.services.graph.exporter import export_to_json
-    from app.services.graph.persistence import GraphNodeReader, GraphNodeWriter
+    from app.services.graph.persistence import GraphNodeReader
     from app.services.graph.projection import project_graph_by_node_types
-    from app.settings.config import settings
+    from ..settings.config import settings
 
-    def _canary_projects() -> set[str]:
-        raw = str(getattr(settings, "graph_node_projection_canary_projects", "") or "")
-        return {x.strip() for x in raw.split(",") if x.strip()}
-
-    read_mode = str(getattr(settings, "graph_node_projection_read_mode", "a_only") or "a_only").strip().lower()
-    write_mode = str(getattr(settings, "graph_node_projection_write_mode", "shadow") or "shadow").strip().lower()
-    use_b_read = read_mode == "b_primary" or (read_mode == "b_canary" and project_key in _canary_projects())
-
-    if graph_kind == "market" and market_deep_view:
-        try:
-            _augment_market_graph_with_topic_structured(
-                graph,
-                documents or [],
-                topic_scope=topic_scope,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("扩展专题图谱节点失败: %s", exc)
+    read_mode = str(settings.graph_db_read_mode or "db_primary").strip().lower()
+    if read_mode != "db_primary":
+        logger.warning(
+            "graph_db_read_mode_forced_db_primary project=%s kind=%s configured=%s",
+            project_key,
+            graph_kind,
+            read_mode,
+        )
+        read_mode = "db_primary"
+    _ = graph
 
     combo = list(resolve_graph_node_combo(graph_kind, project_key))
     if graph_kind == "market" and market_deep_view:
@@ -133,47 +137,36 @@ def _finalize_graph_response(
             merged_combo.append(key)
         combo = merged_combo
 
-    a_graph = project_graph_by_node_types(graph, combo)
-    graph = a_graph
-
-    if write_mode in {"shadow", "on"} and session is not None:
-        try:
-            summary = GraphNodeWriter(session, schema_version=str(getattr(a_graph, "schema_version", "v1"))).persist_graph_nodes(a_graph)
-            session.commit()
-            logger.info(
-                "graph_b_write project=%s kind=%s mode=%s attempted=%s written=%s aliases=%s edges=%s skipped=%s",
-                project_key,
-                graph_kind,
-                write_mode,
-                summary.attempted,
-                summary.inserted_or_updated,
-                summary.aliases_written,
-                summary.edges_written,
-                summary.skipped,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("graph_b_write_failed project=%s kind=%s mode=%s err=%s", project_key, graph_kind, write_mode, exc)
-
-    if use_b_read and session is not None:
-        try:
-            b_graph = GraphNodeReader(session).load_graph(limit=10000)
-            if b_graph.nodes:
-                b_graph = project_graph_by_node_types(b_graph, combo)
-                diff = compare_graphs(a_graph, b_graph)
-                logger.info(
-                    "graph_b_read_enabled project=%s kind=%s node_count_diff=%s edge_count_diff=%s type_overlap=%.4f",
-                    project_key,
-                    graph_kind,
-                    diff.node_count_diff,
-                    diff.edge_count_diff,
-                    diff.node_type_overlap_ratio,
-                )
-                graph = b_graph
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("graph_b_read_fallback_to_a project=%s kind=%s err=%s", project_key, graph_kind, exc)
+    if session is None:
+        logger.error("graph_db_read_unavailable_no_session project=%s kind=%s mode=%s", project_key, graph_kind, read_mode)
+        return _empty_graph_response()
 
     try:
-        return success_response(export_to_json(graph))
+        b_graph = GraphNodeReader(session, project_key=project_key).load_graph(limit=10000)
+        if graph_kind == "market" and market_deep_view:
+            try:
+                _augment_market_graph_with_topic_structured(
+                    b_graph,
+                    documents or [],
+                    topic_scope=topic_scope,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("扩展专题图谱节点失败(db-primary): %s", exc)
+        b_graph = project_graph_by_node_types(b_graph, combo)
+        logger.info(
+            "graph_db_read_enabled project=%s kind=%s mode=%s nodes=%s edges=%s",
+            project_key,
+            graph_kind,
+            read_mode,
+            len(getattr(b_graph, "nodes", []) or []),
+            len(getattr(b_graph, "edges", []) or []),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("graph_db_read_failed project=%s kind=%s mode=%s err=%s", project_key, graph_kind, read_mode, exc, exc_info=True)
+        return _empty_graph_response()
+
+    try:
+        return success_response(export_to_json(b_graph))
     except Exception as exc:  # noqa: BLE001
         logger.error("导出图谱JSON失败 kind=%s err=%s", graph_kind, exc, exc_info=True)
         return _empty_graph_response()
@@ -218,6 +211,524 @@ class SocialDataListRequest(BaseModel):
     sentiment_orientation: Optional[str] = Field(None, pattern="^(positive|negative|neutral)$", description="情感倾向: positive, negative, neutral")
     sort_by: Optional[str] = Field(default="created_at", description="排序字段: created_at, publish_date, id")
     sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向: asc, desc")
+
+
+class GraphNodeSimilarityRequest(BaseModel):
+    query_text: Optional[str] = Field(default=None, description="查询文本，优先用于向量召回")
+    source_node_id: Optional[int] = Field(default=None, description="源节点ID；未提供 query_text 时可从该节点提取文本")
+    node_type: Optional[str] = Field(default=None, description="候选节点类型过滤")
+    top_k: int = Field(default=10, ge=1, le=100)
+    max_candidates: int = Field(default=500, ge=10, le=5000)
+    include_aliases: bool = Field(default=True, description="是否将别名拼入节点文本")
+
+
+class GraphNodeMergeSuggestRequest(BaseModel):
+    query_text: str = Field(..., description="查询上下文（建议使用 source 节点文本或用户查询）")
+    candidates: list[dict[str, Any]] = Field(default_factory=list, description="节点候选列表（通常来自 node-similarity）")
+    top_n: int = Field(default=10, ge=2, le=50, description="送入LLM的候选数量上限")
+    model: Optional[str] = Field(default=None, description="可选模型覆盖")
+
+
+class GraphNodeMergeBatchSuggestRequest(BaseModel):
+    query_text: Optional[str] = Field(default=None, description="可选查询上下文")
+    node_type: Optional[str] = Field(default=None, description="节点类型过滤（建议指定）")
+    max_candidates: int = Field(default=300, ge=50, le=5000, description="数据库候选上限")
+    max_group_size: int = Field(default=10, ge=2, le=30, description="每组最多节点数（送LLM前）")
+    max_groups: int = Field(default=20, ge=1, le=200, description="最多分组数量")
+    similarity_threshold: float = Field(default=0.78, ge=0.5, le=0.99, description="向量相似阈值")
+    fallback_similarity_threshold: Optional[float] = Field(
+        default=None,
+        ge=0.5,
+        le=0.98,
+        description="补充分组阈值（默认自动使用略低于主阈值）",
+    )
+    llm_parallelism: int = Field(default=4, ge=1, le=16, description="并行LLM请求数")
+    min_group_size_for_llm: int = Field(default=2, ge=1, le=30, description="触发LLM的最小组大小")
+    include_aliases: bool = Field(default=True, description="是否将别名拼入节点文本")
+    model: Optional[str] = Field(default=None, description="可选模型覆盖")
+
+
+class GraphNodeMergeAutoRequest(BaseModel):
+    node_type: Optional[str] = Field(default="Entity", description="固定流程默认实体节点")
+    query_text: Optional[str] = Field(default=None, description="可选查询上下文")
+    similarity_threshold: float = Field(default=0.74, ge=0.5, le=0.99, description="向量成团相似度阈值")
+    min_group_size_for_llm: int = Field(default=2, ge=1, le=30, description="触发LLM的最小组大小")
+    fallback_similarity_threshold: Optional[float] = Field(
+        default=None,
+        ge=0.5,
+        le=0.98,
+        description="补充分组阈值；默认自动低于主阈值",
+    )
+
+
+def _cosine_similarity(query_vec: np.ndarray, candidate_vec: np.ndarray) -> float:
+    qn = float(np.linalg.norm(query_vec))
+    cn = float(np.linalg.norm(candidate_vec))
+    if qn == 0.0 or cn == 0.0:
+        return 0.0
+    return float(np.dot(query_vec, candidate_vec) / (qn * cn))
+
+
+def _build_node_text(node: GraphNodeRecord, aliases: list[str], include_aliases: bool) -> str:
+    parts: list[str] = []
+    if node.display_name:
+        parts.append(str(node.display_name).strip())
+    if node.canonical_id:
+        parts.append(str(node.canonical_id).strip())
+    props = node.properties if isinstance(node.properties, dict) else {}
+    for key in ("name", "title", "label", "summary", "description"):
+        val = props.get(key)
+        if isinstance(val, str) and val.strip():
+            parts.append(val.strip())
+    if include_aliases and aliases:
+        parts.extend([a.strip() for a in aliases if isinstance(a, str) and a.strip()])
+    return " | ".join(dict.fromkeys([p for p in parts if p]))
+
+
+@router.post("/graph/node-similarity")
+def graph_node_similarity(request: Request, payload: GraphNodeSimilarityRequest):
+    """Return nearest graph nodes for merge-candidate judgment."""
+    project_key = _project_key_from_request(request)
+    query_text = (payload.query_text or "").strip()
+    source_node_id = payload.source_node_id
+
+    if not query_text and not source_node_id:
+        return JSONResponse(
+            status_code=400,
+            content=error_response(
+                ErrorCode.INVALID_INPUT,
+                "query_text or source_node_id is required.",
+            ),
+        )
+
+    try:
+        with bind_project(project_key):
+            with SessionLocal() as session:
+                source_node: GraphNodeRecord | None = None
+                if source_node_id is not None:
+                    source_node = session.get(GraphNodeRecord, int(source_node_id))
+                    if source_node is None:
+                        return JSONResponse(
+                            status_code=404,
+                            content=error_response(ErrorCode.NOT_FOUND, "source node not found"),
+                        )
+
+                candidate_stmt = select(GraphNodeRecord).order_by(
+                    nullslast(GraphNodeRecord.updated_at.desc())
+                )
+                if payload.node_type:
+                    candidate_stmt = candidate_stmt.where(GraphNodeRecord.node_type == payload.node_type)
+                candidate_rows = session.execute(candidate_stmt.limit(payload.max_candidates)).scalars().all()
+
+                if not candidate_rows:
+                    return success_response(
+                        {
+                            "project_key": project_key,
+                            "query_text": query_text,
+                            "source_node_id": source_node_id,
+                            "matches": [],
+                        }
+                    )
+
+                node_ids = [int(n.id) for n in candidate_rows]
+                alias_rows = session.execute(
+                    select(GraphNodeAliasRecord).where(GraphNodeAliasRecord.node_id.in_(node_ids))
+                ).scalars().all()
+                aliases_by_node: dict[int, list[str]] = {}
+                for row in alias_rows:
+                    aliases_by_node.setdefault(int(row.node_id), []).append(str(row.alias_text))
+
+                if not query_text and source_node is not None:
+                    source_aliases = aliases_by_node.get(int(source_node.id), [])
+                    query_text = _build_node_text(source_node, source_aliases, payload.include_aliases)
+
+                query_text = query_text.strip()
+                if not query_text:
+                    return JSONResponse(
+                        status_code=400,
+                        content=error_response(
+                            ErrorCode.INVALID_INPUT,
+                            "unable to derive query text from source node.",
+                        ),
+                    )
+
+                node_texts: list[str] = []
+                valid_nodes: list[GraphNodeRecord] = []
+                for node in candidate_rows:
+                    aliases = aliases_by_node.get(int(node.id), [])
+                    text = _build_node_text(node, aliases, payload.include_aliases)
+                    if not text:
+                        continue
+                    # Exclude self when using source_node_id.
+                    if source_node is not None and int(node.id) == int(source_node.id):
+                        continue
+                    node_texts.append(text)
+                    valid_nodes.append(node)
+
+                if not valid_nodes:
+                    return success_response(
+                        {
+                            "project_key": project_key,
+                            "query_text": query_text,
+                            "source_node_id": source_node_id,
+                            "matches": [],
+                        }
+                    )
+
+                emb = get_embeddings()
+                query_vec = np.array(emb.embed_query(query_text), dtype=float)
+                candidate_vecs = emb.embed_documents(node_texts)
+
+                scored: list[dict[str, Any]] = []
+                for node, text, vec in zip(valid_nodes, node_texts, candidate_vecs):
+                    score = _cosine_similarity(query_vec, np.array(vec, dtype=float))
+                    scored.append(
+                        {
+                            "node_id": int(node.id),
+                            "node_type": str(node.node_type),
+                            "canonical_id": str(node.canonical_id),
+                            "display_name": node.display_name,
+                            "score": score,
+                            "aliases": aliases_by_node.get(int(node.id), []),
+                            "source_doc_id": int(node.source_doc_id) if node.source_doc_id is not None else None,
+                            "node_text": text,
+                            "properties": node.properties or {},
+                        }
+                    )
+
+                scored.sort(key=lambda x: x["score"], reverse=True)
+                top_matches = scored[: payload.top_k]
+
+                return success_response(
+                    {
+                        "project_key": project_key,
+                        "query_text": query_text,
+                        "source_node_id": source_node_id,
+                        "candidate_count": len(valid_nodes),
+                        "matches": top_matches,
+                    }
+                )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("graph node similarity failed: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=error_response(ErrorCode.INTERNAL_ERROR, f"graph node similarity failed: {exc}"),
+        )
+
+
+@router.post("/graph/node-merge-suggest")
+def graph_node_merge_suggest(request: Request, payload: GraphNodeMergeSuggestRequest):
+    """Call LLM to propose merge groups from top node candidates."""
+    project_key = _project_key_from_request(request)
+    query_text = (payload.query_text or "").strip()
+    if not query_text:
+        return JSONResponse(
+            status_code=400,
+            content=error_response(ErrorCode.INVALID_INPUT, "query_text is required"),
+        )
+    if not payload.candidates:
+        return JSONResponse(
+            status_code=400,
+            content=error_response(ErrorCode.INVALID_INPUT, "candidates is required"),
+        )
+
+    # Keep only top-N and ensure they carry node_id.
+    sliced = []
+    for item in payload.candidates[: payload.top_n]:
+        if not isinstance(item, dict):
+            continue
+        if item.get("node_id") is None:
+            continue
+        sliced.append(item)
+
+    if len(sliced) < 2:
+        return success_response(
+            {
+                "project_key": project_key,
+                "query_text": query_text,
+                "top_n": payload.top_n,
+                "input_count": len(payload.candidates),
+                "llm_input_count": len(sliced),
+                "excluded_data_point_node_ids": [],
+                "excluded_non_mergeable_node_ids": [],
+                "merges": [],
+                "unmerged_node_ids": [int(x["node_id"]) for x in sliced if x.get("node_id") is not None],
+            }
+        )
+
+    excluded_data_points = [int(x["node_id"]) for x in sliced if is_data_point_node(x)]
+    excluded_non_mergeable = [int(x["node_id"]) for x in sliced if not is_merge_eligible_node(x)]
+    filtered = [x for x in sliced if is_merge_eligible_node(x)]
+
+    try:
+        result = suggest_node_merges_with_llm(
+            query_text=query_text,
+            candidates=filtered,
+            model=payload.model,
+            project_key=project_key,
+        )
+        return success_response(
+            {
+                "project_key": project_key,
+                "query_text": query_text,
+                "top_n": payload.top_n,
+                "input_count": len(payload.candidates),
+                "llm_input_count": len(filtered),
+                "excluded_data_point_node_ids": excluded_data_points,
+                "excluded_non_mergeable_node_ids": excluded_non_mergeable,
+                "merges": result.get("merges", []),
+                "unmerged_node_ids": result.get("unmerged_node_ids", []),
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("graph node merge suggest failed: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=error_response(ErrorCode.INTERNAL_ERROR, f"graph node merge suggest failed: {exc}"),
+        )
+
+
+@router.post("/graph/node-merge-batch-suggest")
+def graph_node_merge_batch_suggest(request: Request, payload: GraphNodeMergeBatchSuggestRequest):
+    """
+    Batch mode:
+    1) load candidates from DB
+    2) rank + build disjoint related groups (node1->related nodes, remove from pool, node2...)
+    3) call LLM on groups in parallel
+    """
+    project_key = _project_key_from_request(request)
+    try:
+        return success_response(
+            _run_node_merge_batch_suggest(
+                project_key=project_key,
+                node_type=payload.node_type,
+                query_text=payload.query_text,
+                max_candidates=payload.max_candidates,
+                max_group_size=payload.max_group_size,
+                max_groups=payload.max_groups,
+                similarity_threshold=payload.similarity_threshold,
+                fallback_similarity_threshold=payload.fallback_similarity_threshold,
+                llm_parallelism=payload.llm_parallelism,
+                min_group_size_for_llm=payload.min_group_size_for_llm,
+                include_aliases=payload.include_aliases,
+                model=payload.model,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("graph node merge batch suggest failed: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=error_response(ErrorCode.INTERNAL_ERROR, f"graph node merge batch suggest failed: {exc}"),
+        )
+
+
+@router.post("/graph/node-merge-auto")
+def graph_node_merge_auto(request: Request, payload: GraphNodeMergeAutoRequest):
+    """
+    Fixed workflow, no manual traversal needed:
+    - auto vector clustering
+    - disjoint grouping
+    - parallel LLM merge suggestion
+    """
+    project_key = _project_key_from_request(request)
+    try:
+        data = _run_node_merge_batch_suggest(
+            project_key=project_key,
+            node_type=payload.node_type,
+            query_text=payload.query_text,
+            max_candidates=500,
+            max_group_size=30,
+            max_groups=30,
+            similarity_threshold=float(payload.similarity_threshold),
+            fallback_similarity_threshold=payload.fallback_similarity_threshold,
+            llm_parallelism=6,
+            min_group_size_for_llm=payload.min_group_size_for_llm,
+            include_aliases=True,
+            model=None,
+        )
+        data["workflow"] = "fixed_auto"
+        return success_response(data)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("graph node merge auto failed: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=error_response(ErrorCode.INTERNAL_ERROR, f"graph node merge auto failed: {exc}"),
+        )
+
+
+def _run_node_merge_batch_suggest(
+    *,
+    project_key: str,
+    node_type: Optional[str],
+    query_text: Optional[str],
+    max_candidates: int,
+    max_group_size: int,
+    max_groups: int,
+    similarity_threshold: float,
+    fallback_similarity_threshold: Optional[float],
+    llm_parallelism: int,
+    min_group_size_for_llm: int,
+    include_aliases: bool,
+    model: Optional[str],
+) -> dict[str, Any]:
+    derived_fallback_threshold = (
+        float(fallback_similarity_threshold)
+        if fallback_similarity_threshold is not None
+        else max(0.5, min(float(similarity_threshold) - 0.02, 0.73))
+    )
+    if derived_fallback_threshold >= float(similarity_threshold):
+        derived_fallback_threshold = max(0.5, float(similarity_threshold) - 0.01)
+
+    with bind_project(project_key):
+        with SessionLocal() as session:
+            stmt = select(GraphNodeRecord).order_by(nullslast(GraphNodeRecord.updated_at.desc()))
+            if node_type:
+                stmt = stmt.where(GraphNodeRecord.node_type == node_type)
+            rows = session.execute(stmt.limit(max_candidates)).scalars().all()
+            if not rows:
+                return {
+                    "project_key": project_key,
+                    "candidate_count": 0,
+                    "group_count": 0,
+                    "groups": [],
+                    "merges": [],
+                    "unmerged_node_ids": [],
+                }
+
+            node_ids = [int(r.id) for r in rows]
+            alias_rows = session.execute(
+                select(GraphNodeAliasRecord).where(GraphNodeAliasRecord.node_id.in_(node_ids))
+            ).scalars().all()
+            aliases_by_node: dict[int, list[str]] = {}
+            for ar in alias_rows:
+                aliases_by_node.setdefault(int(ar.node_id), []).append(str(ar.alias_text))
+
+            candidates: list[dict[str, Any]] = []
+            texts: list[str] = []
+            for node in rows:
+                aliases = aliases_by_node.get(int(node.id), [])
+                node_text = _build_node_text(node, aliases, include_aliases)
+                if not node_text:
+                    continue
+                candidate = {
+                    "node_id": int(node.id),
+                    "node_type": str(node.node_type),
+                    "canonical_id": str(node.canonical_id),
+                    "display_name": node.display_name,
+                    "aliases": aliases,
+                    "properties": node.properties or {},
+                    "source_doc_id": int(node.source_doc_id) if node.source_doc_id is not None else None,
+                    "node_text": node_text,
+                }
+                if not is_merge_eligible_node(candidate):
+                    continue
+                candidates.append(candidate)
+                texts.append(node_text)
+
+            if len(candidates) < 2:
+                return {
+                    "project_key": project_key,
+                    "candidate_count": len(candidates),
+                    "group_count": 0,
+                    "groups": [],
+                    "merges": [],
+                    "unmerged_node_ids": [c["node_id"] for c in candidates],
+                }
+
+            emb = get_embeddings()
+            vecs = np.array(emb.embed_documents(texts), dtype=float)
+            group_node_ids = build_disjoint_related_groups(
+                candidates=candidates,
+                vectors=vecs,
+                similarity_threshold=float(similarity_threshold),
+                fallback_similarity_threshold=derived_fallback_threshold,
+                min_group_size=int(min_group_size_for_llm),
+                max_group_size=int(max_group_size),
+                max_groups=int(max_groups),
+            )
+
+            by_id = {int(c["node_id"]): c for c in candidates}
+            group_payloads: list[dict[str, Any]] = []
+            for gidx, ids in enumerate(group_node_ids, start=1):
+                group_candidates = [by_id[i] for i in ids if i in by_id]
+                if len(group_candidates) < min_group_size_for_llm:
+                    group_payloads.append(
+                        {
+                            "group_id": gidx,
+                            "node_ids": [int(c["node_id"]) for c in group_candidates],
+                            "llm_called": False,
+                            "merges": [],
+                            "unmerged_node_ids": [int(c["node_id"]) for c in group_candidates],
+                        }
+                    )
+                    continue
+                q = (query_text or "").strip() or str(group_candidates[0].get("node_text") or "")
+                group_payloads.append(
+                    {
+                        "group_id": gidx,
+                        "node_ids": [int(c["node_id"]) for c in group_candidates],
+                        "llm_called": True,
+                        "query_text": q,
+                        "candidates": group_candidates,
+                    }
+                )
+
+            llm_results: dict[int, dict[str, Any]] = {}
+            llm_jobs = [g for g in group_payloads if g.get("llm_called")]
+            if llm_jobs:
+                with ThreadPoolExecutor(max_workers=llm_parallelism) as ex:
+                    fut_map = {}
+                    for g in llm_jobs:
+                        fut = ex.submit(
+                            suggest_node_merges_with_llm,
+                            query_text=g["query_text"],
+                            candidates=g["candidates"],
+                            model=model,
+                            project_key=project_key,
+                            node_type=node_type,
+                        )
+                        fut_map[fut] = g["group_id"]
+                    for fut in as_completed(fut_map):
+                        gid = fut_map[fut]
+                        try:
+                            llm_results[gid] = fut.result()
+                        except Exception as exc:  # noqa: BLE001
+                            llm_results[gid] = {"merges": [], "unmerged_node_ids": [], "error": str(exc)}
+
+            groups_out: list[dict[str, Any]] = []
+            merged_out: list[dict[str, Any]] = []
+            all_unmerged: set[int] = set()
+            for g in group_payloads:
+                gid = int(g["group_id"])
+                if not g.get("llm_called"):
+                    groups_out.append(g)
+                    all_unmerged.update([int(x) for x in g.get("unmerged_node_ids", [])])
+                    continue
+                res = llm_results.get(gid, {"merges": [], "unmerged_node_ids": []})
+                groups_out.append(
+                    {
+                        "group_id": gid,
+                        "node_ids": g["node_ids"],
+                        "llm_called": True,
+                        "merges": res.get("merges", []),
+                        "unmerged_node_ids": res.get("unmerged_node_ids", []),
+                        **({"error": res["error"]} if "error" in res else {}),
+                    }
+                )
+                for m in res.get("merges", []):
+                    merged_out.append({"group_id": gid, **m})
+                all_unmerged.update([int(x) for x in res.get("unmerged_node_ids", []) if str(x).isdigit()])
+
+            return {
+                "project_key": project_key,
+                "candidate_count": len(candidates),
+                "group_count": len(groups_out),
+                "similarity_threshold": float(similarity_threshold),
+                "fallback_similarity_threshold": float(derived_fallback_threshold),
+                "groups": groups_out,
+                "merges": merged_out,
+                "unmerged_node_ids": sorted(list(all_unmerged)),
+            }
 
 
 class DeleteDocumentsRequest(BaseModel):
@@ -993,7 +1504,13 @@ def list_documents(payload: DocumentListRequest):
                 "source_id": doc.source_id,
                 "created_at": doc.created_at.isoformat() if doc.created_at else None,
                 "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+                "ingested_at": doc.created_at.isoformat() if doc.created_at else None,
                 "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
+                "source_domain": doc.source_domain,
+                "source_time": doc.source_time.isoformat() if doc.source_time else None,
+                "effective_time": doc.effective_time.isoformat() if doc.effective_time else None,
+                "time_confidence": float(doc.time_confidence) if doc.time_confidence is not None else None,
+                "time_provenance": doc.time_provenance,
                 "has_extracted_data": doc.extracted_data is not None,
             })
         
@@ -1033,6 +1550,12 @@ def get_document(doc_id: int):
             "source_id": doc.source_id,
             "created_at": doc.created_at.isoformat() if doc.created_at else None,
             "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+            "ingested_at": doc.created_at.isoformat() if doc.created_at else None,
+            "source_domain": doc.source_domain,
+            "source_time": doc.source_time.isoformat() if doc.source_time else None,
+            "effective_time": doc.effective_time.isoformat() if doc.effective_time else None,
+            "time_confidence": float(doc.time_confidence) if doc.time_confidence is not None else None,
+            "time_provenance": doc.time_provenance,
         })
 
 
@@ -2237,3 +2760,158 @@ def get_search_history(
             "page": page,
             "page_size": page_size,
         })
+
+
+def _csv_query_items(raw: Optional[str]) -> list[str]:
+    if not raw:
+        return []
+    out: list[str] = []
+    for item in str(raw).split(","):
+        token = str(item or "").strip()
+        if token:
+            out.append(token)
+    return out
+
+
+@router.get("/source-time-window-stats")
+def source_time_window_stats(
+    time_window: str = Query(default="30d"),
+    start_time: Optional[str] = Query(default=None),
+    end_time: Optional[str] = Query(default=None),
+    bucket: Literal["day", "week", "month"] = Query(default="day"),
+    source_domains: Optional[str] = Query(default=None, description="逗号分隔域名列表"),
+):
+    """按 source_domain × time_bucket 返回时间窗基础统计。"""
+    try:
+        with SessionLocal() as session:
+            data = build_source_time_window_stats(
+                session,
+                time_window=time_window,
+                start_time=start_time,
+                end_time=end_time,
+                bucket=bucket,
+                source_domains=_csv_query_items(source_domains),
+            )
+            return success_response(data)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content=error_response(ErrorCode.INVALID_INPUT, str(exc)),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("source_time_window_stats failed: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=error_response(ErrorCode.INTERNAL_ERROR, f"source_time_window_stats failed: {exc}"),
+        )
+
+
+@router.get("/source-noun-density")
+def source_noun_density(
+    time_window: str = Query(default="30d"),
+    start_time: Optional[str] = Query(default=None),
+    end_time: Optional[str] = Query(default=None),
+    bucket: Literal["day", "week", "month"] = Query(default="day"),
+    source_domains: Optional[str] = Query(default=None, description="逗号分隔域名列表"),
+    noun_group_ids: Optional[str] = Query(default=None, description="逗号分隔名词组ID列表"),
+    normalize: bool = Query(default=True),
+):
+    """按 source_domain × noun_group × time_bucket 返回密度统计。"""
+    try:
+        with SessionLocal() as session:
+            data = build_source_noun_density(
+                session,
+                time_window=time_window,
+                start_time=start_time,
+                end_time=end_time,
+                bucket=bucket,
+                source_domains=_csv_query_items(source_domains),
+                noun_group_ids=_csv_query_items(noun_group_ids),
+                normalize=bool(normalize),
+            )
+            return success_response(data)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content=error_response(ErrorCode.INVALID_INPUT, str(exc)),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("source_noun_density failed: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=error_response(ErrorCode.INTERNAL_ERROR, f"source_noun_density failed: {exc}"),
+        )
+
+
+@router.get("/collection-window-priority")
+def collection_window_priority(
+    source_domains: Optional[str] = Query(default=None, description="逗号分隔域名列表"),
+    noun_group_ids: Optional[str] = Query(default=None, description="逗号分隔名词组ID列表"),
+    candidate_windows: Optional[str] = Query(default="7d,30d,90d", description="候选时间窗，逗号分隔"),
+    prefer_low_density: bool = Query(default=True),
+    exclude_high_dup: bool = Query(default=True),
+):
+    """返回采集窗口优先级（默认低密度优先）。"""
+    try:
+        with SessionLocal() as session:
+            data = build_collection_window_priority(
+                session,
+                source_domains=_csv_query_items(source_domains),
+                noun_group_ids=_csv_query_items(noun_group_ids),
+                candidate_windows=_csv_query_items(candidate_windows),
+                prefer_low_density=bool(prefer_low_density),
+                exclude_high_dup=bool(exclude_high_dup),
+            )
+            return success_response(data)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content=error_response(ErrorCode.INVALID_INPUT, str(exc)),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("collection_window_priority failed: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=error_response(ErrorCode.INTERNAL_ERROR, f"collection_window_priority failed: {exc}"),
+        )
+
+
+@router.get("/drilldown")
+def noun_density_drilldown(
+    source_domain: Optional[str] = Query(default=None),
+    noun_group_id: Optional[str] = Query(default=None),
+    time_window: str = Query(default="30d"),
+    start_time: Optional[str] = Query(default=None),
+    end_time: Optional[str] = Query(default=None),
+    bucket: Literal["day", "week", "month"] = Query(default="day"),
+    bucket_time: Optional[str] = Query(default=None, description="指定桶时间（ISO 格式）"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=200),
+):
+    """按 source/noun/time 组合下钻文档列表。"""
+    try:
+        with SessionLocal() as session:
+            data = build_drilldown_documents(
+                session,
+                source_domain=source_domain,
+                noun_group_id=noun_group_id,
+                time_window=time_window,
+                start_time=start_time,
+                end_time=end_time,
+                bucket=bucket,
+                bucket_time=bucket_time,
+                page=page,
+                page_size=page_size,
+            )
+            return success_response(data)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content=error_response(ErrorCode.INVALID_INPUT, str(exc)),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("noun_density_drilldown failed: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=error_response(ErrorCode.INTERNAL_ERROR, f"noun_density_drilldown failed: {exc}"),
+        )

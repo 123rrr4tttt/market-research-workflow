@@ -13,7 +13,7 @@ from .http_utils import fetch_html
 logger = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
+@dataclass
 class TwitterPost:
     """Twitter/Nitter帖子数据结构"""
     title: str  # 推文内容（作为标题）

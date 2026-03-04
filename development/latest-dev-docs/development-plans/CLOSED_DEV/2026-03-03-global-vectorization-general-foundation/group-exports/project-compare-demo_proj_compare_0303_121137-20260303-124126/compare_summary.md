@@ -1,0 +1,15 @@
+# Project Compare Summary
+
+- source_project: `demo_proj`
+- new_project: `demo_proj_compare_0303_121137`
+
+| metric | source | new | delta |
+|---|---:|---:|---:|
+| candidate_count | 2242 | 2240 | -2 |
+| group_count | 1119 | 1121 | 2 |
+| llm_called_groups | 500 | 500 | 0 |
+| singleton_groups | 619 | 621 | 2 |
+| merge_count | 36 | 32 | -4 |
+| unmerged_count | 2167 | 2173 | 6 |
+| similarity_threshold | 0.74 | 0.74 | 0.0 |
+| fallback_similarity_threshold | 0.72 | 0.72 | 0.0 |

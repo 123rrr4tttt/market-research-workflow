@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 from .interfaces import ChannelHandler, NewsResourceHandler, ProjectCustomization, WorkflowDefinition
 
 
-@dataclass(slots=True)
+@dataclass
 class DefaultProjectCustomization(ProjectCustomization):
     project_key: str = "default"
 

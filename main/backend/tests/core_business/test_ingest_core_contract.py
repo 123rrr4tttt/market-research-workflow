@@ -164,12 +164,60 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(data.get("task_id"), "source-library-task-1")
         self.assertEqual(data.get("status"), "queued")
         self.assertTrue(data.get("async"))
-        self.assertEqual(data.get("params"), {"item_key": "demo-item"})
+        self.assertEqual(data.get("params"), {"item_key": "demo-item", "execution_mode": "apply"})
 
         tasks.task_run_source_library_item.delay.assert_called_once_with(
             "demo-item",
             "demo_proj",
-            {"k": "v"},
+            {"k": "v", "execution_mode": "apply"},
+        )
+
+    def test_source_library_run_async_propagates_x_request_id_into_override_params(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "override_params": {"k": "v"},
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post(
+                "/api/v1/ingest/source-library/run",
+                json=payload,
+                headers={"X-Request-Id": "trace-abc-001"},
+            )
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        tasks.task_run_source_library_item.delay.assert_called_once_with(
+            "demo-item",
+            "demo_proj",
+            {"k": "v", "execution_mode": "apply", "_trace_id": "trace-abc-001"},
+        )
+
+    def test_source_library_run_async_supports_dry_run_with_explicit_candidate_ids(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "execution_mode": "dry_run",
+            "explicit_candidate_ids": ["abc123", "def456"],
+            "override_params": {"k": "v"},
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        tasks.task_run_source_library_item.delay.assert_called_once_with(
+            "demo-item",
+            "demo_proj",
+            {
+                "k": "v",
+                "execution_mode": "dry_run",
+                "explicit_candidate_ids": ["abc123", "def456"],
+            },
         )
 
     def test_source_library_run_items_batch_uses_item_form_only(self):
@@ -203,8 +251,48 @@ class IngestCoreContractTestCase(unittest.TestCase):
 
         self.assertEqual(tasks.task_run_source_library_item.delay.call_count, 2)
         calls = tasks.task_run_source_library_item.delay.call_args_list
-        self.assertEqual(calls[0].args, ("demo-item", "demo_proj", {"k": "v"}))
-        self.assertEqual(calls[1].args, ("demo-item-2", "demo_proj", {}))
+        self.assertEqual(calls[0].args, ("demo-item", "demo_proj", {"k": "v", "execution_mode": "apply"}))
+        self.assertEqual(calls[1].args, ("demo-item-2", "demo_proj", {"execution_mode": "apply"}))
+
+    def test_source_library_run_rejects_project_key_mismatch_between_header_and_body(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post(
+                "/api/v1/ingest/source-library/run",
+                json=payload,
+                headers={"X-Project-Key": "another_proj"},
+            )
+
+        self.assertEqual(resp.status_code, 400, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "error")
+        self.assertEqual(body.get("error", {}).get("code"), "INVALID_INPUT")
+        tasks.task_run_source_library_item.delay.assert_not_called()
+
+    def test_source_library_run_rejects_schema_name_mismatch_for_project_key(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "schema_name": "tenant_wrong_proj",
+            "async_mode": True,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 400, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "error")
+        self.assertEqual(body.get("error", {}).get("code"), "INVALID_INPUT")
+        self.assertIn("schema_name", body.get("error", {}).get("message", ""))
+        tasks.task_run_source_library_item.delay.assert_not_called()
 
     def test_url_single_async_task_contract_compat_with_task_result_status(self):
         tasks = _TrackedTasks()

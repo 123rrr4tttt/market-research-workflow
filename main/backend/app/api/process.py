@@ -17,6 +17,7 @@ from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
 from ..services.projects import bind_project
+from ..services.ingest.meaningful_gate import normalize_reason_code
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/process", tags=["process"])
@@ -78,19 +79,19 @@ def _extract_skip_reason(*payloads: Any) -> str | None:
         item = _as_dict(payload)
         direct = _as_non_empty_str(item.get("skip_reason"))
         if direct:
-            return direct
+            return normalize_reason_code(direct)
         for key in ("page_gate", "pre_write_content_gate", "pre_fetch_url_gate", "provenance_gate"):
             nested = _as_dict(item.get(key))
             reason = _as_non_empty_str(nested.get("reason"))
             if reason:
-                return reason
+                return normalize_reason_code(reason)
         rb = item.get("rejection_breakdown")
         if isinstance(rb, dict):
             for k, v in rb.items():
                 name = _as_non_empty_str(k)
                 count = _coerce_int(v)
                 if name and count and count > 0:
-                    candidates.append(name)
+                    candidates.append(normalize_reason_code(name))
     if not candidates:
         return None
     # Deterministic fallback when only rejection breakdown is available.
@@ -134,7 +135,7 @@ def _extract_quality_fields(*payloads: Any) -> Dict[str, Any]:
         rb = item.get("rejection_breakdown")
         if isinstance(rb, dict):
             for k, v in rb.items():
-                key = str(k or "").strip()
+                key = normalize_reason_code(k)
                 val = _coerce_int(v)
                 if not key or val is None:
                     continue
@@ -168,6 +169,46 @@ def _extract_quality_fields(*payloads: Any) -> Dict[str, Any]:
     if quality_score is not None:
         out["quality_score"] = quality_score
     return out
+
+
+def _extract_search_observability_fields(*payloads: Any) -> Dict[str, Any]:
+    def _normalize_search_results(value: Any) -> Dict[str, Any]:
+        item = _as_dict(value)
+        if not item:
+            return {}
+        out: Dict[str, Any] = {}
+        rc = _coerce_int(item.get("result_count"))
+        if rc is not None:
+            out["result_count"] = rc
+        fb = item.get("fallback_used")
+        if isinstance(fb, bool):
+            out["fallback_used"] = fb
+        elif fb is not None:
+            out["fallback_used"] = bool(fb)
+        return out
+
+    def _normalize_search_expand(value: Any) -> Dict[str, Any]:
+        item = _as_dict(value)
+        if not item:
+            return {}
+        out: Dict[str, Any] = {}
+        enabled = item.get("enabled")
+        if isinstance(enabled, bool):
+            out["enabled"] = enabled
+        elif enabled is not None:
+            out["enabled"] = bool(enabled)
+        ec = _coerce_int(item.get("expanded_count"))
+        if ec is not None:
+            out["expanded_count"] = ec
+        return out
+
+    for payload in payloads:
+        item = _as_dict(payload)
+        sr = _normalize_search_results(item.get("search_results"))
+        se = _normalize_search_expand(item.get("search_expand"))
+        if sr or se:
+            return {"search_results": sr, "search_expand": se}
+    return {"search_results": {}, "search_expand": {}}
 
 
 class TaskInfo(BaseModel):
@@ -436,6 +477,7 @@ def get_task_history(
     status: Optional[str] = Query(None, description="任务状态过滤: completed, failed, running"),
     job_type: Optional[str] = Query(None, description="任务类型过滤"),
     project_key: Optional[str] = Query(None, description="项目标识（用于查询对应项目 schema 的任务历史）"),
+    trace_id: Optional[str] = Query(None, description="按 trace_id 过滤（EtlJobRun.params.trace_id）"),
 ) -> dict[str, Any]:
     """获取任务历史记录"""
     try:
@@ -452,64 +494,89 @@ def get_task_history(
                     query = query.where(EtlJobRun.job_type == job_type)
             
             # 按开始时间倒序排列
-                query = query.order_by(EtlJobRun.started_at.desc().nullslast()).limit(limit)
+                query = query.order_by(EtlJobRun.started_at.desc().nullslast())
             
                 jobs = session.execute(query).scalars().all()
+
+            trace_text = str(trace_id or "").strip()
+            if trace_text:
+                jobs = [job for job in jobs if str((job.params or {}).get("trace_id") or "").strip() == trace_text]
+            jobs = jobs[:limit]
             
             # 转换为字典格式
-                history = []
-                for job in jobs:
-                    duration = None
-                    if job.started_at and job.finished_at:
-                        duration = (job.finished_at - job.started_at).total_seconds()
-                    elif job.started_at:
-                        duration = (datetime.now(job.started_at.tzinfo) - job.started_at).total_seconds()
-                    params = dict(job.params or {})
-                    quality_fields = _extract_quality_fields(
-                        params,
-                        params.get("result"),
-                        params.get("progress"),
-                    )
-                    handler_used = _extract_handler_used(params, params.get("result"), params.get("progress"))
-                    skip_reason = _extract_skip_reason(params, params.get("result"), params.get("progress"))
-                    error_code = _extract_error_code(
-                        params,
-                        params.get("result"),
-                        params.get("progress"),
-                        status=job.status,
-                        error=job.error,
-                    )
+            history = []
+            for job in jobs:
+                duration = None
+                if job.started_at and job.finished_at:
+                    duration = (job.finished_at - job.started_at).total_seconds()
+                elif job.started_at:
+                    duration = (datetime.now(job.started_at.tzinfo) - job.started_at).total_seconds()
+                params = dict(job.params or {})
+                quality_fields = _extract_quality_fields(
+                    params,
+                    params.get("result"),
+                    params.get("progress"),
+                )
+                handler_used = _extract_handler_used(params, params.get("result"), params.get("progress"))
+                skip_reason = _extract_skip_reason(params, params.get("result"), params.get("progress"))
+                error_code = _extract_error_code(
+                    params,
+                    params.get("result"),
+                    params.get("progress"),
+                    status=job.status,
+                    error=job.error,
+                )
+                search_fields = _extract_search_observability_fields(
+                    params,
+                    params.get("result"),
+                    params.get("progress"),
+                )
 
-                    history.append({
-                        "id": job.id,
-                        "job_type": job.job_type,
-                        "status": job.status,
-                        "params": params,
-                        "display_meta": extract_display_meta_from_params(params),
-                        "started_at": job.started_at.isoformat() if job.started_at else None,
-                        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
-                        "duration_seconds": duration,
-                        "error": job.error,
-                        "inserted_valid": quality_fields.get("inserted_valid"),
-                        "rejected_count": quality_fields.get("rejected_count"),
-                        "rejection_breakdown": quality_fields.get("rejection_breakdown") or {},
-                        "degradation_flags": quality_fields.get("degradation_flags") or [],
-                        "quality_score": quality_fields.get("quality_score"),
-                        "error_code": error_code,
-                        "handler_used": handler_used,
-                        "skip_reason": skip_reason,
-                    })
+                history.append({
+                    "id": job.id,
+                    "job_type": job.job_type,
+                    "status": job.status,
+                    "external_provider": getattr(job, "external_provider", None),
+                    "external_job_id": getattr(job, "external_job_id", None),
+                    "retry_count": getattr(job, "retry_count", None),
+                    "params": params,
+                    "display_meta": extract_display_meta_from_params(params),
+                    "started_at": job.started_at.isoformat() if job.started_at else None,
+                    "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+                    "duration_seconds": duration,
+                    "error": job.error,
+                    "inserted_valid": quality_fields.get("inserted_valid"),
+                    "rejected_count": quality_fields.get("rejected_count"),
+                    "rejection_breakdown": quality_fields.get("rejection_breakdown") or {},
+                    "degradation_flags": quality_fields.get("degradation_flags") or [],
+                    "quality_score": quality_fields.get("quality_score"),
+                    "error_code": error_code,
+                    "handler_used": handler_used,
+                    "skip_reason": skip_reason,
+                    "search_results": search_fields.get("search_results") or {},
+                    "search_expand": search_fields.get("search_expand") or {},
+                })
             
             # 获取统计信息
+            if trace_text:
+                total = len(jobs)
+            else:
                 total_query = select(func.count(EtlJobRun.id))
                 if status:
                     total_query = total_query.where(EtlJobRun.status == status)
                 if job_type:
                     total_query = total_query.where(EtlJobRun.job_type == job_type)
                 total = session.execute(total_query).scalar() or 0
-            
+
             # 按状态统计
-                status_stats = {}
+            status_stats = {}
+            if trace_text:
+                for row in history:
+                    st = str(row.get("status") or "")
+                    if not st:
+                        continue
+                    status_stats[st] = int(status_stats.get(st) or 0) + 1
+            else:
                 status_query = select(
                     EtlJobRun.status,
                     func.count(EtlJobRun.id).label("count")
@@ -520,14 +587,15 @@ def get_task_history(
                 for row in session.execute(status_query).all():
                     status_stats[row.status] = row.count
 
-                return ok(
-                    {
-                        "history": history,
-                        "total": total,
-                        "status_stats": status_stats,
-                        "project_key": project_key,
-                    }
-                )
+            return ok(
+                {
+                    "history": history,
+                    "total": total,
+                    "status_stats": status_stats,
+                    "project_key": project_key,
+                    "trace_id": trace_text or None,
+                }
+            )
 
     except Exception as e:
         logger.exception("获取任务历史记录失败")
@@ -592,7 +660,11 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
         if is_external:
             progress_payload.setdefault("external_provider", job.external_provider)
             progress_payload.setdefault("external_job_id", job.external_job_id)
-    quality_fields = _extract_quality_fields(params_payload, result_payload, progress_payload)
+    # Avoid double counting when running jobs mirror params into progress payload.
+    if ready:
+        quality_fields = _extract_quality_fields(result_payload or params_payload)
+    else:
+        quality_fields = _extract_quality_fields(progress_payload or params_payload)
     handler_used = _extract_handler_used(params_payload, result_payload, progress_payload)
     skip_reason = _extract_skip_reason(params_payload, result_payload, progress_payload)
     error_code = _extract_error_code(
@@ -601,6 +673,11 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
         progress_payload,
         status=job.status,
         error=job.error,
+    )
+    search_fields = _extract_search_observability_fields(
+        params_payload,
+        result_payload,
+        progress_payload,
     )
     return {
         "task_id": task_id,
@@ -626,6 +703,8 @@ def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
         "error_code": error_code,
         "handler_used": handler_used,
         "skip_reason": skip_reason,
+        "search_results": search_fields.get("search_results") or {},
+        "search_expand": search_fields.get("search_expand") or {},
     }
 
 
@@ -658,6 +737,10 @@ def get_task_info(task_id: str) -> dict[str, Any]:
             status=task_info.get("status"),
             error=task_info.get("traceback"),
         )
+        search_fields = _extract_search_observability_fields(
+            task_info.get("result"),
+            task_info.get("progress"),
+        )
         task_info.update(
             {
                 "inserted_valid": quality_fields.get("inserted_valid"),
@@ -668,6 +751,8 @@ def get_task_info(task_id: str) -> dict[str, Any]:
                 "error_code": error_code,
                 "handler_used": handler_used,
                 "skip_reason": skip_reason,
+                "search_results": search_fields.get("search_results") or {},
+                "search_expand": search_fields.get("search_expand") or {},
             }
         )
         

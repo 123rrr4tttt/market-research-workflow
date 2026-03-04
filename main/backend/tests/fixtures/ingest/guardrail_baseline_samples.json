@@ -1,0 +1,60 @@
+{
+  "version": "2026-03-03",
+  "description": "IP01/MG01 baseline for ingest guardrail false-positive/false-negative checks",
+  "cases": [
+    {
+      "id": "u001_low_value_path",
+      "kind": "url_policy",
+      "url": "https://example.com/search?q=robotics",
+      "should_block": true,
+      "expected_reason": "url_policy_low_value_endpoint"
+    },
+    {
+      "id": "u002_normal_article",
+      "kind": "url_policy",
+      "url": "https://example.com/news/robotics-market-growth",
+      "should_block": false,
+      "expected_reason": "ok"
+    },
+    {
+      "id": "c001_shell_signature",
+      "kind": "content_quality",
+      "url": "https://news.google.com/articles/abc",
+      "content": "window.wiz_progre init chunk and basic shell page content only",
+      "doc_type": "url_fetch",
+      "should_block": true,
+      "expected_reason": "content_shell_signature",
+      "config": {"min_semantic_len": 60}
+    },
+    {
+      "id": "c002_meaningful_article",
+      "kind": "content_quality",
+      "url": "https://example.com/blog/deep-analysis",
+      "content": "Market structure changed across multiple states with policy updates and supplier responses. The article includes concrete figures, timelines, and regulator statements for cross-check.",
+      "doc_type": "url_fetch",
+      "should_block": false,
+      "expected_reason": "ok",
+      "config": {"min_semantic_len": 80}
+    },
+    {
+      "id": "c003_js_template_shell",
+      "kind": "content_quality",
+      "url": "https://example.com/app",
+      "content": "window.__NEXT_F var app chunk function() document. __doPostBack var bootstrap @font-face :root sourceMappingURL",
+      "doc_type": "url_fetch",
+      "should_block": true,
+      "expected_reason": "content_js_template_shell",
+      "config": {"min_semantic_len": 100}
+    },
+    {
+      "id": "c004_mixed_candidate_accept",
+      "kind": "content_quality",
+      "url": "https://example.com/report/2026-03",
+      "content": "This report compares draw-level volatility, payout concentration, and policy constraints across markets. It documents methodology, assumptions, and outlier handling details.",
+      "doc_type": "url_fetch",
+      "should_block": false,
+      "expected_reason": "ok",
+      "config": {"min_semantic_len": 90}
+    }
+  ]
+}

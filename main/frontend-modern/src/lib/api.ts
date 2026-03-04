@@ -6,6 +6,7 @@ import {
   httpGet as get,
   httpPost as post,
   httpPut as put,
+  normalizeProjectKey,
   setProjectKey,
 } from './api/client'
 import { fetchEnvSettings, saveEnvSettings } from './api/services/config'
@@ -35,6 +36,7 @@ import type {
   AdminDocumentListResponse,
   AdminReExtractPayload,
   AdminStats,
+  CollectionWindowPriorityResponse,
   AutoCreateProjectPayload,
   AutoCreateProjectResult,
   CrawlerDeployRunItem,
@@ -55,12 +57,14 @@ import type {
   GraphStructuredSearchResponse,
   GraphResponse,
   IngestJobRow,
+  IngestSingleUrlResult,
   LlmProjectTemplatesResponse,
   LlmServiceConfigItem,
   LlmTemplateCopyPayload,
   LlmTemplateCopyResponse,
   LlmTemplateUpdatePayload,
   LlmTemplateUpdateResponse,
+  NounDensityDrilldownResponse,
   PolicyDetail,
   PolicyItem,
   PolicyStats,
@@ -81,6 +85,8 @@ import type {
   ResourcePoolUpsertSiteEntryPayload,
   ResourcePoolUrlItem,
   SearchHistoryItem,
+  SourceNounDensityResponse,
+  SourceTimeWindowStatsResponse,
   SiteEntryGroupedResponse,
   SiteEntryItem,
   SourceLibraryChannel,
@@ -474,7 +480,7 @@ export type IngestSingleUrlPayload = {
 }
 
 export async function ingestSingleUrl(payload: IngestSingleUrlPayload) {
-  return post<Record<string, unknown>>(endpoints.ingest.urlSingle, payload)
+  return post<IngestSingleUrlResult>(endpoints.ingest.urlSingle, payload)
 }
 
 export async function ingestSocial(payload: Record<string, unknown>) {
@@ -496,10 +502,46 @@ export async function syncSourceLibrary() {
 export async function runSourceLibrary(payload: {
   item_key?: string | null
   handler_key?: string | null
+  project_key?: string | null
+  schema_name?: string | null
   async_mode: boolean
   override_params: Record<string, unknown>
 }) {
-  return post<Record<string, unknown>>(endpoints.ingest.sourceLibraryRun, payload)
+  const activeProjectKey = getProjectKey()
+  const payloadProjectKey = payload.project_key ?? activeProjectKey ?? null
+  const normalizedActiveProjectKey = activeProjectKey ? normalizeProjectKey(activeProjectKey) : null
+  const normalizedProjectKey = payloadProjectKey ? normalizeProjectKey(payloadProjectKey) : null
+  if (
+    normalizedActiveProjectKey &&
+    payload.project_key &&
+    normalizedActiveProjectKey !== normalizeProjectKey(payload.project_key)
+  ) {
+    throw new Error('project_key 不一致：当前激活项目与请求项目不匹配，请先切换项目后重试。')
+  }
+
+  if (!normalizedProjectKey) {
+    throw new Error('project_key 缺失：无法执行来源库任务。')
+  }
+
+  const projects = await fetchProjects()
+  const matchedProject = projects.find((item) => normalizeProjectKey(String(item.project_key || '')) === normalizedProjectKey)
+  if (!matchedProject) {
+    throw new Error(`project_key 不存在：${normalizedProjectKey}`)
+  }
+
+  const expectedSchemaName = String(matchedProject.schema_name || '').trim() || null
+  const payloadSchemaName = String(payload.schema_name || '').trim() || null
+  if (payloadSchemaName && expectedSchemaName && payloadSchemaName !== expectedSchemaName) {
+    throw new Error(
+      `schema_name 不一致：请求=${payloadSchemaName}，项目=${expectedSchemaName}。请先同步项目信息后重试。`,
+    )
+  }
+
+  return post<Record<string, unknown>>(endpoints.ingest.sourceLibraryRun, {
+    ...payload,
+    project_key: normalizedProjectKey,
+    schema_name: payloadSchemaName ?? expectedSchemaName,
+  })
 }
 
 export async function getEnvSettings() {
@@ -625,6 +667,82 @@ export async function getSearchHistory(page = 1, pageSize = 50) {
     `${endpoints.admin.searchHistory}?page=${page}&page_size=${pageSize}`,
   )
   return asList<SearchHistoryItem>(data)
+}
+
+export async function getSourceTimeWindowStats(params?: {
+  time_window?: '7d' | '30d' | '90d' | '180d'
+  start_time?: string
+  end_time?: string
+  bucket?: 'day' | 'week' | 'month'
+  source_domains?: string
+}) {
+  const query = new URLSearchParams()
+  query.set('time_window', params?.time_window || '30d')
+  query.set('bucket', params?.bucket || 'day')
+  if (params?.start_time?.trim()) query.set('start_time', params.start_time.trim())
+  if (params?.end_time?.trim()) query.set('end_time', params.end_time.trim())
+  if (params?.source_domains?.trim()) query.set('source_domains', params.source_domains.trim())
+  return get<SourceTimeWindowStatsResponse>(`${endpoints.admin.sourceTimeWindowStats}?${query.toString()}`)
+}
+
+export async function getSourceNounDensity(params?: {
+  time_window?: '7d' | '30d' | '90d' | '180d'
+  start_time?: string
+  end_time?: string
+  bucket?: 'day' | 'week' | 'month'
+  source_domains?: string
+  noun_group_ids?: string
+  normalize?: boolean
+}) {
+  const query = new URLSearchParams()
+  query.set('time_window', params?.time_window || '30d')
+  query.set('bucket', params?.bucket || 'day')
+  query.set('normalize', String(params?.normalize ?? true))
+  if (params?.start_time?.trim()) query.set('start_time', params.start_time.trim())
+  if (params?.end_time?.trim()) query.set('end_time', params.end_time.trim())
+  if (params?.source_domains?.trim()) query.set('source_domains', params.source_domains.trim())
+  if (params?.noun_group_ids?.trim()) query.set('noun_group_ids', params.noun_group_ids.trim())
+  return get<SourceNounDensityResponse>(`${endpoints.admin.sourceNounDensity}?${query.toString()}`)
+}
+
+export async function getCollectionWindowPriority(params?: {
+  source_domains?: string
+  noun_group_ids?: string
+  candidate_windows?: string
+  prefer_low_density?: boolean
+  exclude_high_dup?: boolean
+}) {
+  const query = new URLSearchParams()
+  query.set('candidate_windows', params?.candidate_windows || '7d,30d,90d')
+  query.set('prefer_low_density', String(params?.prefer_low_density ?? true))
+  query.set('exclude_high_dup', String(params?.exclude_high_dup ?? true))
+  if (params?.source_domains?.trim()) query.set('source_domains', params.source_domains.trim())
+  if (params?.noun_group_ids?.trim()) query.set('noun_group_ids', params.noun_group_ids.trim())
+  return get<CollectionWindowPriorityResponse>(`${endpoints.admin.collectionWindowPriority}?${query.toString()}`)
+}
+
+export async function getNounDensityDrilldown(params?: {
+  source_domain?: string
+  noun_group_id?: string
+  time_window?: '7d' | '30d' | '90d' | '180d'
+  start_time?: string
+  end_time?: string
+  bucket?: 'day' | 'week' | 'month'
+  bucket_time?: string
+  page?: number
+  page_size?: number
+}) {
+  const query = new URLSearchParams()
+  query.set('time_window', params?.time_window || '30d')
+  query.set('bucket', params?.bucket || 'day')
+  query.set('page', String(params?.page || 1))
+  query.set('page_size', String(params?.page_size || 20))
+  if (params?.source_domain?.trim()) query.set('source_domain', params.source_domain.trim())
+  if (params?.noun_group_id?.trim()) query.set('noun_group_id', params.noun_group_id.trim())
+  if (params?.start_time?.trim()) query.set('start_time', params.start_time.trim())
+  if (params?.end_time?.trim()) query.set('end_time', params.end_time.trim())
+  if (params?.bucket_time?.trim()) query.set('bucket_time', params.bucket_time.trim())
+  return get<NounDensityDrilldownResponse>(`${endpoints.admin.nounDensityDrilldown}?${query.toString()}`)
 }
 
 export async function listAdminDocuments(payload: AdminDocumentListPayload = {}) {

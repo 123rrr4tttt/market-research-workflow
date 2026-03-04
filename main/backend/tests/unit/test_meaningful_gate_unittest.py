@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -13,6 +14,7 @@ pytestmark = pytest.mark.unit
 try:
     from app.services.ingest.meaningful_gate import (
         content_quality_check,
+        _resolve_gate_config,
         normalize_content_for_ingest,
         normalize_reason_code,
         url_policy_check,
@@ -189,6 +191,15 @@ class MeaningfulGateUnitTestCase(unittest.TestCase):
     def test_normalize_reason_code_generates_stable_snake_case(self):
         self.assertEqual(normalize_reason_code("Low Value/Page"), "low_value_page")
         self.assertEqual(normalize_reason_code(""), "unknown_rejection_reason")
+
+    def test_gateway_rule_service_merges_defaults_ingest_config_and_request_override(self):
+        with patch("app.services.ingest.meaningful_gate._GATEWAY_RULE_SERVICE._settings_defaults", return_value={"enable_strict_gate": False, "min_semantic_len": 500}), patch(
+            "app.services.ingest.meaningful_gate._GATEWAY_RULE_SERVICE._load_ingest_payloads",
+            return_value=[{"enable_strict_gate": True, "min_semantic_len": 320}],
+        ):
+            cfg = _resolve_gate_config({"min_semantic_len": 180})
+        self.assertTrue(bool(cfg.get("enable_strict_gate")))
+        self.assertEqual(int(cfg.get("min_semantic_len") or 0), 180)
 
 
 if __name__ == "__main__":

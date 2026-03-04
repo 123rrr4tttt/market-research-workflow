@@ -35,6 +35,7 @@ def upgrade() -> None:
                 f'''
                 CREATE TABLE IF NOT EXISTS "{schema}"."graph_edges" (
                   id BIGSERIAL PRIMARY KEY,
+                  project_key VARCHAR(64) NOT NULL DEFAULT 'default',
                   edge_type VARCHAR(64) NOT NULL,
                   from_node_id BIGINT NOT NULL,
                   to_node_id BIGINT NOT NULL,
@@ -42,7 +43,7 @@ def upgrade() -> None:
                   edge_schema_version VARCHAR(32) NOT NULL DEFAULT 'v1',
                   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                  CONSTRAINT uq_graph_edges_type_from_to UNIQUE (edge_type, from_node_id, to_node_id),
+                  CONSTRAINT uq_graph_edges_project_type_from_to UNIQUE (project_key, edge_type, from_node_id, to_node_id),
                   CONSTRAINT fk_graph_edges_from_node
                     FOREIGN KEY(from_node_id) REFERENCES "{schema}"."graph_nodes"(id)
                     ON DELETE CASCADE,
@@ -51,6 +52,11 @@ def upgrade() -> None:
                     ON DELETE CASCADE
                 )
                 '''
+            )
+        )
+        op.execute(
+            sa.text(
+                f'CREATE INDEX IF NOT EXISTS ix_graph_edges_project_key ON "{schema}"."graph_edges" (project_key)'
             )
         )
         op.execute(

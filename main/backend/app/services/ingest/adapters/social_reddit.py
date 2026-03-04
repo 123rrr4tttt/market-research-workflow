@@ -17,7 +17,7 @@ from ..keyword_library import (
 logger = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
+@dataclass
 class RedditPost:
     """Reddit帖子数据结构"""
     title: str

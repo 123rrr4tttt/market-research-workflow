@@ -48,6 +48,11 @@ class Document(BigIDMixin, Base):
     title = Column(Text, nullable=True)
     status = Column(String(32), nullable=True)
     publish_date = Column(Date, nullable=True)
+    source_time = Column(DateTime(timezone=True), nullable=True)
+    effective_time = Column(DateTime(timezone=True), nullable=True)
+    time_confidence = Column(Numeric(4, 3), nullable=True)
+    time_provenance = Column(String(64), nullable=True)
+    source_domain = Column(String(255), nullable=True)
     content = Column(Text, nullable=True)
     summary = Column(Text, nullable=True)
     text_hash = Column(String(64), nullable=True, unique=True)
@@ -594,9 +599,10 @@ class GraphNodeRecord(BigIDMixin, Base):
 
     __tablename__ = "graph_nodes"
     __table_args__ = (
-        UniqueConstraint("node_type", "canonical_id", name="uq_graph_nodes_type_canonical"),
+        UniqueConstraint("project_key", "node_type", "canonical_id", name="uq_graph_nodes_project_type_canonical"),
     )
 
+    project_key = Column(String(64), nullable=False, server_default="default")
     node_type = Column(String(64), nullable=False)
     canonical_id = Column(String(255), nullable=False)
     display_name = Column(Text, nullable=True)
@@ -615,9 +621,10 @@ class GraphNodeAliasRecord(BigIDMixin, Base):
 
     __tablename__ = "graph_node_aliases"
     __table_args__ = (
-        UniqueConstraint("alias_norm", "alias_type", name="uq_graph_node_aliases_norm_type"),
+        UniqueConstraint("project_key", "alias_norm", "alias_type", name="uq_graph_node_aliases_project_norm_type"),
     )
 
+    project_key = Column(String(64), nullable=False, server_default="default")
     node_id = Column(BigInteger, ForeignKey("graph_nodes.id", ondelete="CASCADE"), nullable=False)
     alias_text = Column(Text, nullable=False)
     alias_norm = Column(Text, nullable=False)
@@ -630,9 +637,10 @@ class GraphEdgeRecord(BigIDMixin, Base):
 
     __tablename__ = "graph_edges"
     __table_args__ = (
-        UniqueConstraint("edge_type", "from_node_id", "to_node_id", name="uq_graph_edges_type_from_to"),
+        UniqueConstraint("project_key", "edge_type", "from_node_id", "to_node_id", name="uq_graph_edges_project_type_from_to"),
     )
 
+    project_key = Column(String(64), nullable=False, server_default="default")
     edge_type = Column(String(64), nullable=False)
     from_node_id = Column(BigInteger, ForeignKey("graph_nodes.id", ondelete="CASCADE"), nullable=False)
     to_node_id = Column(BigInteger, ForeignKey("graph_nodes.id", ondelete="CASCADE"), nullable=False)

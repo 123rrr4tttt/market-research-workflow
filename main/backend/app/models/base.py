@@ -30,24 +30,43 @@ def _get_connect_args():
 
 def _get_pool_config():
     """根据环境返回连接池配置"""
+    def _env_int(name: str, default: int) -> int:
+        raw = str(os.getenv(name, "")).strip()
+        if not raw:
+            return default
+        try:
+            value = int(raw)
+        except Exception:  # noqa: BLE001
+            return default
+        return value if value >= 0 else default
+
     # 本地开发环境：更小的连接池，更快的超时，避免卡住
     if "localhost" in settings.database_url or "127.0.0.1" in settings.database_url:
+        # 默认提高本地并发容量，避免统计接口与后台任务并发时频繁触发 QueuePool 超时。
+        pool_size = _env_int("DB_POOL_SIZE", 6)
+        max_overflow = _env_int("DB_POOL_MAX_OVERFLOW", 4)
+        pool_timeout = _env_int("DB_POOL_TIMEOUT", 5)
+        pool_recycle = _env_int("DB_POOL_RECYCLE", 180)
         return {
-            "pool_size": 2,  # 本地开发用小连接池
-            "max_overflow": 0,  # 不允许溢出，避免连接堆积
-            "pool_timeout": 1,  # 1秒快速超时，快速失败
+            "pool_size": pool_size,
+            "max_overflow": max_overflow,
+            "pool_timeout": pool_timeout,
             "pool_pre_ping": True,  # 连接前ping检查，快速发现失效连接
-            "pool_recycle": 180,  # 3分钟回收连接，本地开发更频繁回收
+            "pool_recycle": pool_recycle,
             "echo": False,  # 本地开发可以设为True查看SQL
             "pool_reset_on_return": "commit",  # 返回连接池时重置状态
         }
     # Docker/生产环境：更大的连接池
+    pool_size = _env_int("DB_POOL_SIZE", 10)
+    max_overflow = _env_int("DB_POOL_MAX_OVERFLOW", 5)
+    pool_timeout = _env_int("DB_POOL_TIMEOUT", 5)
+    pool_recycle = _env_int("DB_POOL_RECYCLE", 3600)
     return {
-        "pool_size": 10,
-        "max_overflow": 5,
-        "pool_timeout": 5,
+        "pool_size": pool_size,
+        "max_overflow": max_overflow,
+        "pool_timeout": pool_timeout,
         "pool_pre_ping": True,
-        "pool_recycle": 3600,
+        "pool_recycle": pool_recycle,
         "echo": False,
     }
 
@@ -96,4 +115,3 @@ def get_db():
         yield db
     finally:
         db.close()
-

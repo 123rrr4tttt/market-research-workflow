@@ -15,7 +15,7 @@ from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..resource_pool import list_urls
 from ..extraction.application import ExtractionApplicationService
-from .meaningful_gate import normalize_content_for_ingest
+from .meaningful_gate import normalize_content_for_ingest, normalize_reason_code
 from .adapters.http_utils import make_html_parser
 
 logger = logging.getLogger(__name__)
@@ -282,7 +282,7 @@ def _merge_rejection_breakdown(
     if not isinstance(incoming, dict):
         return
     for key, value in incoming.items():
-        reason = str(key or "").strip()
+        reason = normalize_reason_code(key)
         if not reason:
             continue
         try:

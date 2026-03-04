@@ -101,6 +101,53 @@ class CollectRuntimeProcessFallbackUnitTestCase(unittest.TestCase):
         self.assertIn("external_provider=scrapyd", logs["text"])
         self.assertIn("External provider task is DB-tracked", logs["text"])
 
+    def test_process_skip_reason_is_normalized_to_reason_code(self):
+        fake_job = SimpleNamespace(
+            id=8,
+            status="running",
+            job_type="source_library_run",
+            params={
+                "rejection_breakdown": {"URL Policy/Low Value Endpoint": 1},
+            },
+            started_at=datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc),
+            error=None,
+            external_provider=None,
+            external_job_id=None,
+            retry_count=0,
+        )
+
+        with patch("app.api.process._resolve_db_job", return_value=fake_job):
+            info_resp = process_api.get_task_info("db-job-8")
+
+        self.assertEqual(info_resp["status"], "ok")
+        info = info_resp["data"]
+        self.assertEqual(info["skip_reason"], "url_policy_low_value_endpoint")
+        self.assertEqual(info["rejection_breakdown"], {"url_policy_low_value_endpoint": 1})
+
+    def test_process_search_observability_fields_are_exposed(self):
+        fake_job = SimpleNamespace(
+            id=9,
+            status="running",
+            job_type="source_library_run",
+            params={
+                "search_results": {"result_count": 12, "fallback_used": 1},
+                "search_expand": {"enabled": True, "expanded_count": 3},
+            },
+            started_at=datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc),
+            error=None,
+            external_provider=None,
+            external_job_id=None,
+            retry_count=0,
+        )
+
+        with patch("app.api.process._resolve_db_job", return_value=fake_job):
+            info_resp = process_api.get_task_info("db-job-9")
+
+        self.assertEqual(info_resp["status"], "ok")
+        info = info_resp["data"]
+        self.assertEqual(info.get("search_results"), {"result_count": 12, "fallback_used": True})
+        self.assertEqual(info.get("search_expand"), {"enabled": True, "expanded_count": 3})
+
 
 if __name__ == "__main__":
     unittest.main()

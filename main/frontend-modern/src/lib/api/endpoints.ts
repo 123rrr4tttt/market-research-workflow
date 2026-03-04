@@ -114,6 +114,10 @@ export const endpoints = {
   admin: {
     stats: `${API_BASE}/admin/stats`,
     searchHistory: `${API_BASE}/admin/search-history`,
+    sourceTimeWindowStats: `${API_BASE}/admin/source-time-window-stats`,
+    sourceNounDensity: `${API_BASE}/admin/source-noun-density`,
+    collectionWindowPriority: `${API_BASE}/admin/collection-window-priority`,
+    nounDensityDrilldown: `${API_BASE}/admin/drilldown`,
     documentList: `${API_BASE}/admin/documents/list`,
     documentById: (docId: number) => `${API_BASE}/admin/documents/${docId}`,
     documentExtractedData: (docId: number) => `${API_BASE}/admin/documents/${docId}/extracted-data`,

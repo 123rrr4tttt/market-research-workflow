@@ -1,0 +1,532 @@
+{
+  "generated_at": "2026-03-03T22:20:05.069419+00:00",
+  "project_key": "demo_proj_compare_0303_121137",
+  "node_type": null,
+  "apply": true,
+  "total_nodes": 2715,
+  "merge_eligible_candidates": 2197,
+  "merge_groups": 16,
+  "merge_groups_by_type": {
+    "TopicTag": 4,
+    "Entity": 11,
+    "CompanyBrand": 1
+  },
+  "cache_stats": {
+    "cache_file": "/Users/wangyiliang/market-research-workflow/main/backend/tmp/bilingual_dict_cache/demo_proj_compare_0303_121137.json",
+    "cache_hits": 2715,
+    "generated": 0,
+    "llm_called": 0,
+    "llm_failed": 0
+  },
+  "merges": [
+    {
+      "group_id": 1,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        901,
+        946,
+        1244,
+        44298
+      ],
+      "target_node_id": 44298,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "open_source",
+        "canonical_id": "open_source"
+      },
+      "shared_aliases": [
+        "open source",
+        "open-source",
+        "open-source software"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 2,
+      "node_type": "Entity",
+      "source_node_ids": [
+        29,
+        315,
+        824,
+        24907
+      ],
+      "target_node_id": 824,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "humanoid AI",
+        "canonical_id": "0a581057e7a07c2fa3bd2a5d4ba4f9cd0cb8e3d7"
+      },
+      "shared_aliases": [
+        "robot",
+        "humanoid robot"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 3,
+      "node_type": "Entity",
+      "source_node_ids": [
+        800,
+        801,
+        24820
+      ],
+      "target_node_id": 800,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "self-driving cars",
+        "canonical_id": "d8dc2527176d33b2bc6afa1ce51daa8cdb9ef867"
+      },
+      "shared_aliases": [
+        "self-driving cars",
+        "autonomous vehicles",
+        "driverless cars",
+        "vehículos autónomos",
+        "voitures autonomes"
+      ],
+      "reason": "shared_aliases=5",
+      "confidence": 0.9
+    },
+    {
+      "group_id": 4,
+      "node_type": "Entity",
+      "source_node_ids": [
+        41,
+        275,
+        281
+      ],
+      "target_node_id": 275,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Artificial intelligence",
+        "canonical_id": "fe592f35af30d6213555cf38be1400575a53df32"
+      },
+      "shared_aliases": [
+        "ai",
+        "inteligencia artificial",
+        "artificial intelligence",
+        "人工智能"
+      ],
+      "reason": "shared_aliases=4",
+      "confidence": 0.8
+    },
+    {
+      "group_id": 5,
+      "node_type": "Entity",
+      "source_node_ids": [
+        456,
+        819,
+        24836
+      ],
+      "target_node_id": 819,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Unmanned Systems",
+        "canonical_id": "45c48529288a54d7f39bff4494e0580e155691b4"
+      },
+      "shared_aliases": [
+        "sistemas autónomos",
+        "unmanned aerial vehicles",
+        "drones"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 6,
+      "node_type": "Entity",
+      "source_node_ids": [
+        125,
+        207,
+        43810
+      ],
+      "target_node_id": 125,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "embodied intelligence",
+        "canonical_id": "0e22712af56cd1b8ea96a690f64e0a9581cb9885"
+      },
+      "shared_aliases": [
+        "embodied intelligence",
+        "embodied ai"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 7,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        984,
+        25694,
+        44738
+      ],
+      "target_node_id": 44738,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "humanoid_robot",
+        "canonical_id": "humanoid_robot"
+      },
+      "shared_aliases": [
+        "humanoid robot",
+        "humanoid"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 8,
+      "node_type": "Entity",
+      "source_node_ids": [
+        24883,
+        24903
+      ],
+      "target_node_id": 24903,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "政府",
+        "canonical_id": "ab2965a2ae94d34f55141ce3405da01d0ae31f33"
+      },
+      "shared_aliases": [
+        "government",
+        "gouvernement",
+        "gobierno",
+        "regierung",
+        "governo",
+        "政府"
+      ],
+      "reason": "shared_aliases=6",
+      "confidence": 1.0
+    },
+    {
+      "group_id": 9,
+      "node_type": "Entity",
+      "source_node_ids": [
+        82,
+        109
+      ],
+      "target_node_id": 109,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Multi-Agent Systems",
+        "canonical_id": "cb652e2eef7c984bd977e9925ffa0a0dbd751245"
+      },
+      "shared_aliases": [
+        "multi-agent systems",
+        "sistemas multi-agentes",
+        "systèmes multi-agents"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 10,
+      "node_type": "Entity",
+      "source_node_ids": [
+        352,
+        24803
+      ],
+      "target_node_id": 24803,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "United Nations",
+        "canonical_id": "e60cbf4f12f1157818b8e9b1b8f63277842ac0b1"
+      },
+      "shared_aliases": [
+        "united nations",
+        "onu",
+        "organización de las naciones unidas"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 11,
+      "node_type": "CompanyBrand",
+      "source_node_ids": [
+        1187,
+        45769
+      ],
+      "target_node_id": 1187,
+      "merged_node": {
+        "node_type": "CompanyBrand",
+        "display_name": "Bitcoin World",
+        "canonical_id": "company:bitcoin world"
+      },
+      "shared_aliases": [
+        "bitcoin world",
+        "bitcoinworld",
+        "company:bitcoinworld"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 12,
+      "node_type": "Entity",
+      "source_node_ids": [
+        333,
+        348
+      ],
+      "target_node_id": 333,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Tesla",
+        "canonical_id": "6c1622df3208a1d1f78bfe2d890d5d06430dd0c6"
+      },
+      "shared_aliases": [
+        "tesla",
+        "特斯拉"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 13,
+      "node_type": "Entity",
+      "source_node_ids": [
+        380,
+        390
+      ],
+      "target_node_id": 380,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Google LLC",
+        "canonical_id": "b27efbf72b605f7fa03d03028f05fdf8b97ce754"
+      },
+      "shared_aliases": [
+        "google",
+        "谷歌"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 14,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        974,
+        44758
+      ],
+      "target_node_id": 44758,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "CES2026",
+        "canonical_id": "ces2026"
+      },
+      "shared_aliases": [
+        "ces 2026",
+        "ces2026"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 15,
+      "node_type": "Entity",
+      "source_node_ids": [
+        24827,
+        24863
+      ],
+      "target_node_id": 24827,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Industrial Robotics",
+        "canonical_id": "b27c80b6ee985a9aab39c53758670285d25d956b"
+      },
+      "shared_aliases": [
+        "robots industriels",
+        "robots industriales"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 16,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        25626,
+        44315
+      ],
+      "target_node_id": 44315,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "business_model",
+        "canonical_id": "business_model"
+      },
+      "shared_aliases": [
+        "business model",
+        "businessmodel"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    }
+  ],
+  "apply_report": {
+    "input_merge_items": 16,
+    "applied_merge_items": 0,
+    "skipped_merge_items": 16,
+    "deleted_source_nodes": 0,
+    "inserted_edges": 0,
+    "inserted_aliases": 0,
+    "details": [
+      {
+        "idx": 1,
+        "group_id": 1,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(HAS_TOPIC_TAG, 518, 44298) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 537 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 44298, 'edge_type__0': 'HAS_TOPIC_TAG', 'edge_schema_version__0': 'v1', 'properties__0': '{}', 'from_node_id__0': 518, 'to_node_id__1': 44298, 'edge_type__1': 'HAS_TOPIC_TAG', 'edge_schema_version__1': 'v1', 'properties__1': '{}', 'from_node_id__1': 630, 'to_node_id__2': 44298, 'edge_type__2': 'HAS_TOPIC_TAG', 'edge_schema_version__2': 'v1', 'properties__2': '{}', 'from_node_id__2': 834, 'to_node_id__3': 44298, 'edge_type__3': 'HAS_TOPIC_TAG', 'edge_schema_version__3': 'v1', 'properties__3': '{}', 'from_node_id__3': 589, 'to_node_id__4': 44298, 'edge_type__4': 'HAS_TOPIC_TAG', 'edge_schema_version__4': 'v1', 'properties__4': '{}', 'from_node_id__4': 599}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 2,
+        "group_id": 2,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(POLICY_RELATION, 43810, 824) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 6771 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 824, 'edge_type__0': 'POLICY_RELATION', 'edge_schema_version__0': 'v1', 'properties__0': '{\"evidence\": \"\", \"policy_id\": \"340\", \"predicate\": \"partners_with\", \"confidence\": 0.5, \"predicate_raw\": \"partners_with\", \"relation_class\": \"collaboration\"}', 'from_node_id__0': 66, 'to_node_id__1': 824, 'edge_type__1': 'POLICY_RELATION', 'edge_schema_version__1': 'v1', 'properties__1': '{\"evidence\": \"\", \"policy_id\": \"267\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__1': 316, 'to_node_id__2': 824, 'edge_type__2': 'MENTIONS_ENTITY', 'edge_schema_version__2': 'v1', 'properties__2': '{\"entity_type\": \"technology\"}', 'from_node_id__2': 68, 'to_node_id__3': 824, 'edge_type__3': 'MENTIONS_ENTITY', 'edge_schema_version__3': 'v1', 'properties__3': '{\"entity_type\": \"\\\\u8bbe\\\\u5907\"}', 'from_node_id__3': 280, 'to_node_id__4': 824, 'edge_type__4': 'POLICY_RELATION', 'edge_schema_version__4': 'v1', 'properties__4': '{\"evidence\": \"\", \"policy_id\": \"256\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__4': 281, 'to_node_id__5': 824, 'edge_type__5': 'MENTIONS_ENTITY', 'edge_schema_version__5': 'v1', 'properties__5': '{}', 'from_node_id__5': 4876, 'to_node_id__6': 824, 'edge_type__6': 'MENTIONS_ENTITY', 'edge_schema_version__6': 'v1', 'properties__6': '{\"weight\": 1.0}', 'from_node_id__6': 692, 'to_node_id__7': 824, 'edge_type__7': 'MENTIONS_ENTITY', 'edge_schema_version__7': 'v1', 'properties__7': '{\"entity_type\": \"concept\"}', 'from_node_id__7': 302, 'to_node_id__8': 824, 'edge_type__8': 'MENTIONS_ENTITY', 'edge_schema_version__8': 'v1', 'properties__8': '{\"entity_type\": \"concept\"}', 'from_node_id__8': 296, 'to_node_id__9': 824, 'edge_type__9': 'MENTIONS_ENTITY', 'edge_schema_version__9': 'v1', 'properties__9': '{}', 'from_node_id__9': 5042 ... 195 parameters truncated ... 'to_node_id__49': 824, 'edge_type__49': 'MENTIONS_ENTITY', 'edge_schema_version__49': 'v1', 'properties__49': '{\"weight\": 1.0}', 'from_node_id__49': 711, 'to_node_id__50': 824, 'edge_type__50': 'MENTIONS_ENTITY', 'edge_schema_version__50': 'v1', 'properties__50': '{\"weight\": 1.0}', 'from_node_id__50': 747, 'to_node_id__51': 824, 'edge_type__51': 'MENTIONS_ENTITY', 'edge_schema_version__51': 'v1', 'properties__51': '{\"weight\": 1.0}', 'from_node_id__51': 822, 'to_node_id__52': 824, 'edge_type__52': 'MENTIONS_ENTITY', 'edge_schema_version__52': 'v1', 'properties__52': '{\"weight\": 1.0}', 'from_node_id__52': 558, 'to_node_id__53': 824, 'edge_type__53': 'POLICY_RELATION', 'edge_schema_version__53': 'v1', 'properties__53': '{\"evidence\": \"\", \"policy_id\": \"343\", \"predicate\": \"deploys\", \"confidence\": 0.5, \"predicate_raw\": \"deploys\", \"relation_class\": \"other\"}', 'from_node_id__53': 54, 'to_node_id__54': 824, 'edge_type__54': 'MENTIONS_ENTITY', 'edge_schema_version__54': 'v1', 'properties__54': '{\"weight\": 1.0}', 'from_node_id__54': 24906, 'to_node_id__55': 824, 'edge_type__55': 'MENTIONS_ENTITY', 'edge_schema_version__55': 'v1', 'properties__55': '{\"weight\": 1.0}', 'from_node_id__55': 24916, 'to_node_id__56': 824, 'edge_type__56': 'MENTIONS_ENTITY', 'edge_schema_version__56': 'v1', 'properties__56': '{\"weight\": 1.0}', 'from_node_id__56': 530, 'to_node_id__57': 824, 'edge_type__57': 'MENTIONS_ENTITY', 'edge_schema_version__57': 'v1', 'properties__57': '{\"weight\": 1.0}', 'from_node_id__57': 780, 'to_node_id__58': 824, 'edge_type__58': 'MENTIONS_ENTITY', 'edge_schema_version__58': 'v1', 'properties__58': '{\"weight\": 1.0}', 'from_node_id__58': 781}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 3,
+        "group_id": 3,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(MENTIONS_ENTITY, 797, 800) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 317 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 800, 'edge_type__0': 'MENTIONS_ENTITY', 'edge_schema_version__0': 'v1', 'properties__0': '{\"weight\": 1.0}', 'from_node_id__0': 24859, 'to_node_id__1': 800, 'edge_type__1': 'MENTIONS_ENTITY', 'edge_schema_version__1': 'v1', 'properties__1': '{\"weight\": 1.0}', 'from_node_id__1': 797, 'to_node_id__2': 800, 'edge_type__2': 'MENTIONS_ENTITY', 'edge_schema_version__2': 'v1', 'properties__2': '{\"weight\": 1.0}', 'from_node_id__2': 24817}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 4,
+        "group_id": 4,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(POLICY_RELATION, 456, 275) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 5611 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 275, 'edge_type__0': 'POLICY_RELATION', 'edge_schema_version__0': 'v1', 'properties__0': '{\"evidence\": \"\", \"policy_id\": \"281\", \"predicate\": \"regulates\", \"confidence\": 0.5, \"predicate_raw\": \"regulates\", \"relation_class\": \"governance\"}', 'from_node_id__0': 456, 'to_node_id__1': 275, 'edge_type__1': 'MENTIONS_ENTITY', 'edge_schema_version__1': 'v1', 'properties__1': '{\"entity_type\": \"technology\"}', 'from_node_id__1': 274, 'to_node_id__2': 275, 'edge_type__2': 'MENTIONS_ENTITY', 'edge_schema_version__2': 'v1', 'properties__2': '{\"entity_type\": \"\\\\u6280\\\\u672f\"}', 'from_node_id__2': 280, 'to_node_id__3': 275, 'edge_type__3': 'MENTIONS_ENTITY', 'edge_schema_version__3': 'v1', 'properties__3': '{\"entity_type\": \"Technology\"}', 'from_node_id__3': 392, 'to_node_id__4': 275, 'edge_type__4': 'POLICY_RELATION', 'edge_schema_version__4': 'v1', 'properties__4': '{\"evidence\": \"\", \"policy_id\": \"344\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__4': 35, 'to_node_id__5': 275, 'edge_type__5': 'POLICY_RELATION', 'edge_schema_version__5': 'v1', 'properties__5': '{\"evidence\": \"\", \"policy_id\": \"345\", \"predicate\": \"reports_on\", \"confidence\": 0.5, \"predicate_raw\": \"reports_on\", \"relation_class\": \"other\"}', 'from_node_id__5': 37, 'to_node_id__6': 51, 'edge_type__6': 'POLICY_RELATION', 'edge_schema_version__6': 'v1', 'properties__6': '{\"evidence\": \"\", \"policy_id\": \"344\", \"predicate\": \"regulates\", \"confidence\": 0.5, \"predicate_raw\": \"regulates\", \"relation_class\": \"governance\"}', 'from_node_id__6': 275, 'to_node_id__7': 275, 'edge_type__7': 'POLICY_RELATION', 'edge_schema_version__7': 'v1', 'properties__7': '{\"evidence\": \"\", \"policy_id\": \"265\", \"predicate\": \"reports_on\", \"confidence\": 0.5, \"predicate_raw\": \"reports_on\", \"relation_class\": \"other\"}', 'from_node_id__7': 329, 'to_node_id__8': 275, 'edge_type__8': 'POLICY_RELATION', 'edge_schema_version__8': 'v1', 'properties__8': '{\"evidence\": \"\", \"policy_id\": \"258\", \"predicate\": \"regulates\", \"confidence\": 0.5, \"predicate_raw\": \"regulates\", \"relation_class\": \"governance\"}', 'from_node_id__8': 352, 'to_node_id__9': 29, 'edge_type__9': 'POLICY_RELATION', 'edge_schema_version__9': 'v1', 'properties__9': '{\"evidence\": \"\", \"policy_id\": \"256\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__9': 275 ... 145 parameters truncated ... 'to_node_id__39': 275, 'edge_type__39': 'MENTIONS_ENTITY', 'edge_schema_version__39': 'v1', 'properties__39': '{\"weight\": 1.0}', 'from_node_id__39': 687, 'to_node_id__40': 275, 'edge_type__40': 'MENTIONS_ENTITY', 'edge_schema_version__40': 'v1', 'properties__40': '{\"weight\": 1.0}', 'from_node_id__40': 692, 'to_node_id__41': 275, 'edge_type__41': 'MENTIONS_ENTITY', 'edge_schema_version__41': 'v1', 'properties__41': '{\"weight\": 1.0}', 'from_node_id__41': 751, 'to_node_id__42': 275, 'edge_type__42': 'MENTIONS_ENTITY', 'edge_schema_version__42': 'v1', 'properties__42': '{\"weight\": 1.0}', 'from_node_id__42': 754, 'to_node_id__43': 275, 'edge_type__43': 'MENTIONS_ENTITY', 'edge_schema_version__43': 'v1', 'properties__43': '{\"weight\": 1.0}', 'from_node_id__43': 764, 'to_node_id__44': 275, 'edge_type__44': 'MENTIONS_ENTITY', 'edge_schema_version__44': 'v1', 'properties__44': '{\"entity_type\": \"Technology\"}', 'from_node_id__44': 371, 'to_node_id__45': 275, 'edge_type__45': 'POLICY_RELATION', 'edge_schema_version__45': 'v1', 'properties__45': '{\"evidence\": \"\", \"policy_id\": \"256\", \"predicate\": \"reports_on\", \"confidence\": 0.5, \"predicate_raw\": \"reports_on\", \"relation_class\": \"other\"}', 'from_node_id__45': 370, 'to_node_id__46': 275, 'edge_type__46': 'MENTIONS_ENTITY', 'edge_schema_version__46': 'v1', 'properties__46': '{\"weight\": 1.0}', 'from_node_id__46': 722, 'to_node_id__47': 275, 'edge_type__47': 'MENTIONS_ENTITY', 'edge_schema_version__47': 'v1', 'properties__47': '{\"weight\": 1.0}', 'from_node_id__47': 781, 'to_node_id__48': 275, 'edge_type__48': 'MENTIONS_ENTITY', 'edge_schema_version__48': 'v1', 'properties__48': '{\"weight\": 1.0}', 'from_node_id__48': 24806}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 5,
+        "group_id": 5,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(MENTIONS_ENTITY, 815, 819) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 3407 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 819, 'edge_type__0': 'MENTIONS_ENTITY', 'edge_schema_version__0': 'v1', 'properties__0': '{}', 'from_node_id__0': 4908, 'to_node_id__1': 819, 'edge_type__1': 'MENTIONS_ENTITY', 'edge_schema_version__1': 'v1', 'properties__1': '{\"entity_type\": \"technology\"}', 'from_node_id__1': 274, 'to_node_id__2': 819, 'edge_type__2': 'MENTIONS_ENTITY', 'edge_schema_version__2': 'v1', 'properties__2': '{\"entity_type\": \"technology\"}', 'from_node_id__2': 332, 'to_node_id__3': 819, 'edge_type__3': 'MENTIONS_ENTITY', 'edge_schema_version__3': 'v1', 'properties__3': '{\"entity_type\": \"technology\"}', 'from_node_id__3': 336, 'to_node_id__4': 819, 'edge_type__4': 'MENTIONS_ENTITY', 'edge_schema_version__4': 'v1', 'properties__4': '{\"entity_type\": \"Technology\"}', 'from_node_id__4': 371, 'to_node_id__5': 819, 'edge_type__5': 'MENTIONS_ENTITY', 'edge_schema_version__5': 'v1', 'properties__5': '{\"entity_type\": \"Technology\"}', 'from_node_id__5': 392, 'to_node_id__6': 819, 'edge_type__6': 'MENTIONS_ENTITY', 'edge_schema_version__6': 'v1', 'properties__6': '{}', 'from_node_id__6': 3027, 'to_node_id__7': 819, 'edge_type__7': 'MENTIONS_ENTITY', 'edge_schema_version__7': 'v1', 'properties__7': '{}', 'from_node_id__7': 3192, 'to_node_id__8': 819, 'edge_type__8': 'MENTIONS_ENTITY', 'edge_schema_version__8': 'v1', 'properties__8': '{}', 'from_node_id__8': 4987, 'to_node_id__9': 275, 'edge_type__9': 'POLICY_RELATION', 'edge_schema_version__9': 'v1', 'properties__9': '{\"evidence\": \"\", \"policy_id\": \"281\", \"predicate\": \"regulates\", \"confidence\": 0.5, \"predicate_raw\": \"regulates\", \"relation_class\": \"governance\"}', 'from_node_id__9': 819 ... 50 parameters truncated ... 'to_node_id__20': 819, 'edge_type__20': 'POLICY_RELATION', 'edge_schema_version__20': 'v1', 'properties__20': '{\"evidence\": \"\", \"policy_id\": \"281\", \"predicate\": \"deploys\", \"confidence\": 0.5, \"predicate_raw\": \"deploys\", \"relation_class\": \"other\"}', 'from_node_id__20': 276, 'to_node_id__21': 819, 'edge_type__21': 'POLICY_RELATION', 'edge_schema_version__21': 'v1', 'properties__21': '{\"evidence\": \"\", \"policy_id\": \"263\", \"predicate\": \"deploys\", \"confidence\": 0.5, \"predicate_raw\": \"deploys\", \"relation_class\": \"other\"}', 'from_node_id__21': 328, 'to_node_id__22': 819, 'edge_type__22': 'POLICY_RELATION', 'edge_schema_version__22': 'v1', 'properties__22': '{\"evidence\": \"\", \"policy_id\": \"264\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__22': 333, 'to_node_id__23': 819, 'edge_type__23': 'POLICY_RELATION', 'edge_schema_version__23': 'v1', 'properties__23': '{\"evidence\": \"\", \"policy_id\": \"253\", \"predicate\": \"partners_with\", \"confidence\": 0.5, \"predicate_raw\": \"partners_with\", \"relation_class\": \"collaboration\"}', 'from_node_id__23': 372, 'to_node_id__24': 819, 'edge_type__24': 'MENTIONS_ENTITY', 'edge_schema_version__24': 'v1', 'properties__24': '{\"weight\": 1.0}', 'from_node_id__24': 731, 'to_node_id__25': 819, 'edge_type__25': 'MENTIONS_ENTITY', 'edge_schema_version__25': 'v1', 'properties__25': '{\"weight\": 1.0}', 'from_node_id__25': 754, 'to_node_id__26': 819, 'edge_type__26': 'MENTIONS_ENTITY', 'edge_schema_version__26': 'v1', 'properties__26': '{\"weight\": 1.0}', 'from_node_id__26': 764, 'to_node_id__27': 819, 'edge_type__27': 'MENTIONS_ENTITY', 'edge_schema_version__27': 'v1', 'properties__27': '{}', 'from_node_id__27': 2974, 'to_node_id__28': 819, 'edge_type__28': 'MENTIONS_ENTITY', 'edge_schema_version__28': 'v1', 'properties__28': '{\"weight\": 1.0}', 'from_node_id__28': 24834, 'to_node_id__29': 819, 'edge_type__29': 'MENTIONS_ENTITY', 'edge_schema_version__29': 'v1', 'properties__29': '{\"weight\": 1.0}', 'from_node_id__29': 815}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 6,
+        "group_id": 6,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(MENTIONS_ENTITY, 336, 125) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 8395 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 125, 'edge_type__0': 'MENTIONS_ENTITY', 'edge_schema_version__0': 'v1', 'properties__0': '{\"entity_type\": \"technology\"}', 'from_node_id__0': 226, 'to_node_id__1': 125, 'edge_type__1': 'MENTIONS_ENTITY', 'edge_schema_version__1': 'v1', 'properties__1': '{\"entity_type\": \"concept\"}', 'from_node_id__1': 336, 'to_node_id__2': 125, 'edge_type__2': 'POLICY_RELATION', 'edge_schema_version__2': 'v1', 'properties__2': '{\"evidence\": \"\", \"policy_id\": \"332\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__2': 124, 'to_node_id__3': 125, 'edge_type__3': 'POLICY_RELATION', 'edge_schema_version__3': 'v1', 'properties__3': '{\"evidence\": \"\", \"policy_id\": \"322\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__3': 206, 'to_node_id__4': 125, 'edge_type__4': 'POLICY_RELATION', 'edge_schema_version__4': 'v1', 'properties__4': '{\"evidence\": \"\", \"policy_id\": \"319\", \"predicate\": \"reports_on\", \"confidence\": 0.5, \"predicate_raw\": \"reports_on\", \"relation_class\": \"other\"}', 'from_node_id__4': 227, 'to_node_id__5': 125, 'edge_type__5': 'POLICY_RELATION', 'edge_schema_version__5': 'v1', 'properties__5': '{\"evidence\": \"\", \"policy_id\": \"263\", \"predicate\": \"reports_on\", \"confidence\": 0.5, \"predicate_raw\": \"reports_on\", \"relation_class\": \"other\"}', 'from_node_id__5': 328, 'to_node_id__6': 29, 'edge_type__6': 'POLICY_RELATION', 'edge_schema_version__6': 'v1', 'properties__6': '{\"evidence\": \"\", \"policy_id\": \"313\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__6': 125, 'to_node_id__7': 125, 'edge_type__7': 'POLICY_RELATION', 'edge_schema_version__7': 'v1', 'properties__7': '{\"evidence\": \"\", \"policy_id\": \"313\", \"predicate\": \"regulates\", \"confidence\": 0.5, \"predicate_raw\": \"regulates\", \"relation_class\": \"governance\"}', 'from_node_id__7': 31, 'to_node_id__8': 125, 'edge_type__8': 'POLICY_RELATION', 'edge_schema_version__8': 'v1', 'properties__8': '{\"evidence\": \"\", \"policy_id\": \"340\", \"predicate\": \"regulates\", \"confidence\": 0.5, \"predicate_raw\": \"regulates\", \"relation_class\": \"governance\"}', 'from_node_id__8': 66, 'to_node_id__9': 125, 'edge_type__9': 'POLICY_RELATION', 'edge_schema_version__9': 'v1', 'properties__9': '{\"evidence\": \"\", \"policy_id\": \"339\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__9': 70 ... 265 parameters truncated ... 'to_node_id__63': 125, 'edge_type__63': 'MENTIONS_ENTITY', 'edge_schema_version__63': 'v1', 'properties__63': '{}', 'from_node_id__63': 5024, 'to_node_id__64': 125, 'edge_type__64': 'MENTIONS_ENTITY', 'edge_schema_version__64': 'v1', 'properties__64': '{}', 'from_node_id__64': 5102, 'to_node_id__65': 125, 'edge_type__65': 'MENTIONS_ENTITY', 'edge_schema_version__65': 'v1', 'properties__65': '{\"weight\": 1.0}', 'from_node_id__65': 599, 'to_node_id__66': 125, 'edge_type__66': 'MENTIONS_ENTITY', 'edge_schema_version__66': 'v1', 'properties__66': '{\"weight\": 1.0}', 'from_node_id__66': 641, 'to_node_id__67': 125, 'edge_type__67': 'MENTIONS_ENTITY', 'edge_schema_version__67': 'v1', 'properties__67': '{\"weight\": 1.0}', 'from_node_id__67': 754, 'to_node_id__68': 125, 'edge_type__68': 'MENTIONS_ENTITY', 'edge_schema_version__68': 'v1', 'properties__68': '{\"entity_type\": \"Concept\"}', 'from_node_id__68': 371, 'to_node_id__69': 125, 'edge_type__69': 'POLICY_RELATION', 'edge_schema_version__69': 'v1', 'properties__69': '{\"evidence\": \"\", \"policy_id\": \"253\", \"predicate\": \"reports_on\", \"confidence\": 0.5, \"predicate_raw\": \"reports_on\", \"relation_class\": \"other\"}', 'from_node_id__69': 372, 'to_node_id__70': 125, 'edge_type__70': 'MENTIONS_ENTITY', 'edge_schema_version__70': 'v1', 'properties__70': '{\"weight\": 1.0}', 'from_node_id__70': 24859, 'to_node_id__71': 125, 'edge_type__71': 'MENTIONS_ENTITY', 'edge_schema_version__71': 'v1', 'properties__71': '{\"weight\": 1.0}', 'from_node_id__71': 24881, 'to_node_id__72': 125, 'edge_type__72': 'MENTIONS_ENTITY', 'edge_schema_version__72': 'v1', 'properties__72': '{\"weight\": 1.0}', 'from_node_id__72': 656}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 7,
+        "group_id": 7,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(HAS_TOPIC_TAG, 619, 44738) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 317 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 44738, 'edge_type__0': 'HAS_TOPIC_TAG', 'edge_schema_version__0': 'v1', 'properties__0': '{}', 'from_node_id__0': 619, 'to_node_id__1': 44738, 'edge_type__1': 'HAS_TOPIC_TAG', 'edge_schema_version__1': 'v1', 'properties__1': '{}', 'from_node_id__1': 680, 'to_node_id__2': 44738, 'edge_type__2': 'HAS_TOPIC_TAG', 'edge_schema_version__2': 'v1', 'properties__2': '{}', 'from_node_id__2': 656}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 8,
+        "group_id": 8,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(MENTIONS_ENTITY, 24899, 24903) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 207 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 24903, 'edge_type__0': 'MENTIONS_ENTITY', 'edge_schema_version__0': 'v1', 'properties__0': '{\"weight\": 1.0}', 'from_node_id__0': 24881, 'to_node_id__1': 24903, 'edge_type__1': 'MENTIONS_ENTITY', 'edge_schema_version__1': 'v1', 'properties__1': '{\"weight\": 1.0}', 'from_node_id__1': 24899}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 9,
+        "group_id": 9,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(POLICY_RELATION, 111, 109) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 1551 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 109, 'edge_type__0': 'POLICY_RELATION', 'edge_schema_version__0': 'v1', 'properties__0': '{\"evidence\": \"\", \"policy_id\": \"337\", \"predicate\": \"deploys\", \"confidence\": 0.5, \"predicate_raw\": \"deploys\", \"relation_class\": \"other\"}', 'from_node_id__0': 81, 'to_node_id__1': 109, 'edge_type__1': 'POLICY_RELATION', 'edge_schema_version__1': 'v1', 'properties__1': '{\"evidence\": \"\", \"policy_id\": \"334\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__1': 111, 'to_node_id__2': 109, 'edge_type__2': 'MENTIONS_ENTITY', 'edge_schema_version__2': 'v1', 'properties__2': '{\"entity_type\": \"Technology\"}', 'from_node_id__2': 79, 'to_node_id__3': 109, 'edge_type__3': 'POLICY_RELATION', 'edge_schema_version__3': 'v1', 'properties__3': '{\"evidence\": \"\", \"policy_id\": \"320\", \"predicate\": \"deploys\", \"confidence\": 0.5, \"predicate_raw\": \"deploys\", \"relation_class\": \"other\"}', 'from_node_id__3': 93, 'to_node_id__4': 109, 'edge_type__4': 'MENTIONS_ENTITY', 'edge_schema_version__4': 'v1', 'properties__4': '{\"entity_type\": \"system\"}', 'from_node_id__4': 216, 'to_node_id__5': 109, 'edge_type__5': 'POLICY_RELATION', 'edge_schema_version__5': 'v1', 'properties__5': '{\"evidence\": \"\", \"policy_id\": \"320\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__5': 223, 'to_node_id__6': 109, 'edge_type__6': 'MENTIONS_ENTITY', 'edge_schema_version__6': 'v1', 'properties__6': '{}', 'from_node_id__6': 5183, 'to_node_id__7': 109, 'edge_type__7': 'POLICY_RELATION', 'edge_schema_version__7': 'v1', 'properties__7': '{\"evidence\": \"\", \"policy_id\": \"320\", \"predicate\": \"partners_with\", \"confidence\": 0.5, \"predicate_raw\": \"partners_with\", \"relation_class\": \"collaboration\"}', 'from_node_id__7': 225, 'to_node_id__8': 109, 'edge_type__8': 'MENTIONS_ENTITY', 'edge_schema_version__8': 'v1', 'properties__8': '{\"weight\": 1.0}', 'from_node_id__8': 651, 'to_node_id__9': 109, 'edge_type__9': 'MENTIONS_ENTITY', 'edge_schema_version__9': 'v1', 'properties__9': '{\"entity_type\": \"technology\"}', 'from_node_id__9': 108, 'to_node_id__10': 109, 'edge_type__10': 'MENTIONS_ENTITY', 'edge_schema_version__10': 'v1', 'properties__10': '{}', 'from_node_id__10': 5157, 'to_node_id__11': 109, 'edge_type__11': 'MENTIONS_ENTITY', 'edge_schema_version__11': 'v1', 'properties__11': '{}', 'from_node_id__11': 5225, 'to_node_id__12': 109, 'edge_type__12': 'MENTIONS_ENTITY', 'edge_schema_version__12': 'v1', 'properties__12': '{\"weight\": 1.0}', 'from_node_id__12': 565, 'to_node_id__13': 109, 'edge_type__13': 'MENTIONS_ENTITY', 'edge_schema_version__13': 'v1', 'properties__13': '{\"weight\": 1.0}', 'from_node_id__13': 583}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 10,
+        "group_id": 10,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(MENTIONS_ENTITY, 24799, 24803) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 537 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 281, 'edge_type__0': 'POLICY_RELATION', 'edge_schema_version__0': 'v1', 'properties__0': '{\"evidence\": \"\", \"policy_id\": \"258\", \"predicate\": \"regulates\", \"confidence\": 0.5, \"predicate_raw\": \"regulates\", \"relation_class\": \"governance\"}', 'from_node_id__0': 24803, 'to_node_id__1': 24803, 'edge_type__1': 'MENTIONS_ENTITY', 'edge_schema_version__1': 'v1', 'properties__1': '{\"entity_type\": \"\\\\u7ec4\\\\u7ec7\"}', 'from_node_id__1': 351, 'to_node_id__2': 24803, 'edge_type__2': 'MENTIONS_ENTITY', 'edge_schema_version__2': 'v1', 'properties__2': '{\"weight\": 1.0}', 'from_node_id__2': 24799, 'to_node_id__3': 24803, 'edge_type__3': 'MENTIONS_ENTITY', 'edge_schema_version__3': 'v1', 'properties__3': '{}', 'from_node_id__3': 5004, 'to_node_id__4': 24803, 'edge_type__4': 'MENTIONS_ENTITY', 'edge_schema_version__4': 'v1', 'properties__4': '{\"weight\": 1.0}', 'from_node_id__4': 744}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 11,
+        "group_id": 11,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(HAS_COMPANY_ENTITY, 805, 1187) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) VALUES (%(edge_type)s, %(from_node_id)s, %(to_node_id)s, %(properties)s, %(edge_schema_version)s) RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id]\n[parameters: {'edge_type': 'HAS_COMPANY_ENTITY', 'from_node_id': 805, 'to_node_id': 1187, 'properties': '{\"weight\": 1.0}', 'edge_schema_version': 'v1'}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 12,
+        "group_id": 12,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(POLICY_RELATION, 333, 276) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 1203 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 333, 'edge_type__0': 'MENTIONS_ENTITY', 'edge_schema_version__0': 'v1', 'properties__0': '{\"entity_type\": \"\\\\u516c\\\\u53f8\"}', 'from_node_id__0': 344, 'to_node_id__1': 276, 'edge_type__1': 'POLICY_RELATION', 'edge_schema_version__1': 'v1', 'properties__1': '{\"evidence\": \"\", \"policy_id\": \"264\", \"predicate\": \"deploys\", \"confidence\": 0.5, \"predicate_raw\": \"deploys\", \"relation_class\": \"other\"}', 'from_node_id__1': 333, 'to_node_id__2': 454, 'edge_type__2': 'POLICY_RELATION', 'edge_schema_version__2': 'v1', 'properties__2': '{\"evidence\": \"\", \"policy_id\": \"259\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__2': 333, 'to_node_id__3': 456, 'edge_type__3': 'POLICY_RELATION', 'edge_schema_version__3': 'v1', 'properties__3': '{\"evidence\": \"\", \"policy_id\": \"264\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__3': 333, 'to_node_id__4': 333, 'edge_type__4': 'MENTIONS_ENTITY', 'edge_schema_version__4': 'v1', 'properties__4': '{\"entity_type\": \"company\"}', 'from_node_id__4': 332, 'to_node_id__5': 333, 'edge_type__5': 'MENTIONS_ENTITY', 'edge_schema_version__5': 'v1', 'properties__5': '{}', 'from_node_id__5': 3163, 'to_node_id__6': 333, 'edge_type__6': 'MENTIONS_ENTITY', 'edge_schema_version__6': 'v1', 'properties__6': '{}', 'from_node_id__6': 3192, 'to_node_id__7': 333, 'edge_type__7': 'MENTIONS_ENTITY', 'edge_schema_version__7': 'v1', 'properties__7': '{\"weight\": 1.0}', 'from_node_id__7': 738, 'to_node_id__8': 333, 'edge_type__8': 'MENTIONS_ENTITY', 'edge_schema_version__8': 'v1', 'properties__8': '{\"weight\": 1.0}', 'from_node_id__8': 822, 'to_node_id__9': 333, 'edge_type__9': 'MENTIONS_ENTITY', 'edge_schema_version__9': 'v1', 'properties__9': '{\"weight\": 1.0}', 'from_node_id__9': 727, 'to_node_id__10': 333, 'edge_type__10': 'MENTIONS_ENTITY', 'edge_schema_version__10': 'v1', 'properties__10': '{\"weight\": 1.0}', 'from_node_id__10': 24817}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 13,
+        "group_id": 13,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(MENTIONS_ENTITY, 373, 380) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 1319 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 456, 'edge_type__0': 'POLICY_RELATION', 'edge_schema_version__0': 'v1', 'properties__0': '{\"evidence\": \"\", \"policy_id\": \"251\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__0': 380, 'to_node_id__1': 380, 'edge_type__1': 'MENTIONS_ENTITY', 'edge_schema_version__1': 'v1', 'properties__1': '{\"entity_type\": \"Organization\"}', 'from_node_id__1': 373, 'to_node_id__2': 380, 'edge_type__2': 'MENTIONS_ENTITY', 'edge_schema_version__2': 'v1', 'properties__2': '{\"entity_type\": \"\\\\u516c\\\\u53f8\"}', 'from_node_id__2': 389, 'to_node_id__3': 381, 'edge_type__3': 'POLICY_RELATION', 'edge_schema_version__3': 'v1', 'properties__3': '{\"evidence\": \"\", \"policy_id\": \"252\", \"predicate\": \"regulates\", \"confidence\": 0.5, \"predicate_raw\": \"regulates\", \"relation_class\": \"governance\"}', 'from_node_id__3': 380, 'to_node_id__4': 382, 'edge_type__4': 'POLICY_RELATION', 'edge_schema_version__4': 'v1', 'properties__4': '{\"evidence\": \"\", \"policy_id\": \"252\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__4': 380, 'to_node_id__5': 29, 'edge_type__5': 'POLICY_RELATION', 'edge_schema_version__5': 'v1', 'properties__5': '{\"evidence\": \"\", \"policy_id\": \"250\", \"predicate\": \"deploys\", \"confidence\": 0.5, \"predicate_raw\": \"deploys\", \"relation_class\": \"other\"}', 'from_node_id__5': 380, 'to_node_id__6': 43810, 'edge_type__6': 'POLICY_RELATION', 'edge_schema_version__6': 'v1', 'properties__6': '{\"evidence\": \"\", \"policy_id\": \"250\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'from_node_id__6': 380, 'to_node_id__7': 31, 'edge_type__7': 'POLICY_RELATION', 'edge_schema_version__7': 'v1', 'properties__7': '{\"evidence\": \"\", \"policy_id\": \"250\", \"predicate\": \"partners_with\", \"confidence\": 0.5, \"predicate_raw\": \"partners_with\", \"relation_class\": \"collaboration\"}', 'from_node_id__7': 380, 'to_node_id__8': 380, 'edge_type__8': 'MENTIONS_ENTITY', 'edge_schema_version__8': 'v1', 'properties__8': '{}', 'from_node_id__8': 3128, 'to_node_id__9': 380, 'edge_type__9': 'MENTIONS_ENTITY', 'edge_schema_version__9': 'v1', 'properties__9': '{}', 'from_node_id__9': 3139, 'to_node_id__10': 380, 'edge_type__10': 'MENTIONS_ENTITY', 'edge_schema_version__10': 'v1', 'properties__10': '{\"weight\": 1.0}', 'from_node_id__10': 756, 'to_node_id__11': 380, 'edge_type__11': 'MENTIONS_ENTITY', 'edge_schema_version__11': 'v1', 'properties__11': '{\"weight\": 1.0}', 'from_node_id__11': 761}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 14,
+        "group_id": 14,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(HAS_TOPIC_TAG, 625, 44758) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 427 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 44758, 'edge_type__0': 'HAS_TOPIC_TAG', 'edge_schema_version__0': 'v1', 'properties__0': '{}', 'from_node_id__0': 625, 'to_node_id__1': 44758, 'edge_type__1': 'HAS_TOPIC_TAG', 'edge_schema_version__1': 'v1', 'properties__1': '{}', 'from_node_id__1': 680, 'to_node_id__2': 44758, 'edge_type__2': 'HAS_TOPIC_TAG', 'edge_schema_version__2': 'v1', 'properties__2': '{}', 'from_node_id__2': 647, 'to_node_id__3': 44758, 'edge_type__3': 'HAS_TOPIC_TAG', 'edge_schema_version__3': 'v1', 'properties__3': '{}', 'from_node_id__3': 616}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 15,
+        "group_id": 15,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(MENTIONS_ENTITY, 24823, 24827) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 207 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 24827, 'edge_type__0': 'MENTIONS_ENTITY', 'edge_schema_version__0': 'v1', 'properties__0': '{\"weight\": 1.0}', 'from_node_id__0': 24859, 'to_node_id__1': 24827, 'edge_type__1': 'MENTIONS_ENTITY', 'edge_schema_version__1': 'v1', 'properties__1': '{\"weight\": 1.0}', 'from_node_id__1': 24823}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 16,
+        "group_id": 16,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(HAS_TOPIC_TAG, 583, 44315) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 757 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'to_node_id__0': 44315, 'edge_type__0': 'HAS_TOPIC_TAG', 'edge_schema_version__0': 'v1', 'properties__0': '{}', 'from_node_id__0': 583, 'to_node_id__1': 44315, 'edge_type__1': 'HAS_TOPIC_TAG', 'edge_schema_version__1': 'v1', 'properties__1': '{}', 'from_node_id__1': 524, 'to_node_id__2': 44315, 'edge_type__2': 'HAS_TOPIC_TAG', 'edge_schema_version__2': 'v1', 'properties__2': '{}', 'from_node_id__2': 558, 'to_node_id__3': 44315, 'edge_type__3': 'HAS_TOPIC_TAG', 'edge_schema_version__3': 'v1', 'properties__3': '{}', 'from_node_id__3': 722, 'to_node_id__4': 44315, 'edge_type__4': 'HAS_TOPIC_TAG', 'edge_schema_version__4': 'v1', 'properties__4': '{}', 'from_node_id__4': 822, 'to_node_id__5': 44315, 'edge_type__5': 'HAS_TOPIC_TAG', 'edge_schema_version__5': 'v1', 'properties__5': '{}', 'from_node_id__5': 660, 'to_node_id__6': 44315, 'edge_type__6': 'HAS_TOPIC_TAG', 'edge_schema_version__6': 'v1', 'properties__6': '{}', 'from_node_id__6': 781}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      }
+    ],
+    "before": {
+      "total_nodes": 2715,
+      "total_edges": 5878
+    },
+    "after": {
+      "total_nodes": 2715,
+      "total_edges": 5878
+    },
+    "delta": {
+      "total_nodes": 0,
+      "total_edges": 0
+    }
+  }
+}

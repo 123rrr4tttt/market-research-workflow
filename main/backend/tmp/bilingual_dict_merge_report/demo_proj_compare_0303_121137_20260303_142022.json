@@ -1,0 +1,547 @@
+{
+  "generated_at": "2026-03-03T22:20:22.420256+00:00",
+  "project_key": "demo_proj_compare_0303_121137",
+  "node_type": null,
+  "apply": true,
+  "total_nodes": 2715,
+  "merge_eligible_candidates": 2197,
+  "merge_groups": 16,
+  "merge_groups_by_type": {
+    "TopicTag": 4,
+    "Entity": 11,
+    "CompanyBrand": 1
+  },
+  "cache_stats": {
+    "cache_file": "/Users/wangyiliang/market-research-workflow/main/backend/tmp/bilingual_dict_cache/demo_proj_compare_0303_121137.json",
+    "cache_hits": 2715,
+    "generated": 0,
+    "llm_called": 0,
+    "llm_failed": 0
+  },
+  "merges": [
+    {
+      "group_id": 1,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        901,
+        946,
+        1244,
+        44298
+      ],
+      "target_node_id": 44298,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "open_source",
+        "canonical_id": "open_source"
+      },
+      "shared_aliases": [
+        "open source",
+        "open-source",
+        "open-source software"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 2,
+      "node_type": "Entity",
+      "source_node_ids": [
+        29,
+        315,
+        824,
+        24907
+      ],
+      "target_node_id": 824,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "humanoid AI",
+        "canonical_id": "0a581057e7a07c2fa3bd2a5d4ba4f9cd0cb8e3d7"
+      },
+      "shared_aliases": [
+        "robot",
+        "humanoid robot"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 3,
+      "node_type": "Entity",
+      "source_node_ids": [
+        800,
+        801,
+        24820
+      ],
+      "target_node_id": 800,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "self-driving cars",
+        "canonical_id": "d8dc2527176d33b2bc6afa1ce51daa8cdb9ef867"
+      },
+      "shared_aliases": [
+        "self-driving cars",
+        "autonomous vehicles",
+        "driverless cars",
+        "vehículos autónomos",
+        "voitures autonomes"
+      ],
+      "reason": "shared_aliases=5",
+      "confidence": 0.9
+    },
+    {
+      "group_id": 4,
+      "node_type": "Entity",
+      "source_node_ids": [
+        41,
+        275,
+        281
+      ],
+      "target_node_id": 275,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Artificial intelligence",
+        "canonical_id": "fe592f35af30d6213555cf38be1400575a53df32"
+      },
+      "shared_aliases": [
+        "ai",
+        "inteligencia artificial",
+        "artificial intelligence",
+        "人工智能"
+      ],
+      "reason": "shared_aliases=4",
+      "confidence": 0.8
+    },
+    {
+      "group_id": 5,
+      "node_type": "Entity",
+      "source_node_ids": [
+        456,
+        819,
+        24836
+      ],
+      "target_node_id": 819,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Unmanned Systems",
+        "canonical_id": "45c48529288a54d7f39bff4494e0580e155691b4"
+      },
+      "shared_aliases": [
+        "sistemas autónomos",
+        "unmanned aerial vehicles",
+        "drones"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 6,
+      "node_type": "Entity",
+      "source_node_ids": [
+        125,
+        207,
+        43810
+      ],
+      "target_node_id": 125,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "embodied intelligence",
+        "canonical_id": "0e22712af56cd1b8ea96a690f64e0a9581cb9885"
+      },
+      "shared_aliases": [
+        "embodied intelligence",
+        "embodied ai"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 7,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        984,
+        25694,
+        44738
+      ],
+      "target_node_id": 44738,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "humanoid_robot",
+        "canonical_id": "humanoid_robot"
+      },
+      "shared_aliases": [
+        "humanoid robot",
+        "humanoid"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 8,
+      "node_type": "Entity",
+      "source_node_ids": [
+        24883,
+        24903
+      ],
+      "target_node_id": 24903,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "政府",
+        "canonical_id": "ab2965a2ae94d34f55141ce3405da01d0ae31f33"
+      },
+      "shared_aliases": [
+        "government",
+        "gouvernement",
+        "gobierno",
+        "regierung",
+        "governo",
+        "政府"
+      ],
+      "reason": "shared_aliases=6",
+      "confidence": 1.0
+    },
+    {
+      "group_id": 9,
+      "node_type": "Entity",
+      "source_node_ids": [
+        82,
+        109
+      ],
+      "target_node_id": 109,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Multi-Agent Systems",
+        "canonical_id": "cb652e2eef7c984bd977e9925ffa0a0dbd751245"
+      },
+      "shared_aliases": [
+        "multi-agent systems",
+        "sistemas multi-agentes",
+        "systèmes multi-agents"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 10,
+      "node_type": "Entity",
+      "source_node_ids": [
+        352,
+        24803
+      ],
+      "target_node_id": 24803,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "United Nations",
+        "canonical_id": "e60cbf4f12f1157818b8e9b1b8f63277842ac0b1"
+      },
+      "shared_aliases": [
+        "united nations",
+        "onu",
+        "organización de las naciones unidas"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 11,
+      "node_type": "CompanyBrand",
+      "source_node_ids": [
+        1187,
+        45769
+      ],
+      "target_node_id": 1187,
+      "merged_node": {
+        "node_type": "CompanyBrand",
+        "display_name": "Bitcoin World",
+        "canonical_id": "company:bitcoin world"
+      },
+      "shared_aliases": [
+        "bitcoin world",
+        "bitcoinworld",
+        "company:bitcoinworld"
+      ],
+      "reason": "shared_aliases=3",
+      "confidence": 0.7000000000000001
+    },
+    {
+      "group_id": 12,
+      "node_type": "Entity",
+      "source_node_ids": [
+        333,
+        348
+      ],
+      "target_node_id": 333,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Tesla",
+        "canonical_id": "6c1622df3208a1d1f78bfe2d890d5d06430dd0c6"
+      },
+      "shared_aliases": [
+        "tesla",
+        "特斯拉"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 13,
+      "node_type": "Entity",
+      "source_node_ids": [
+        380,
+        390
+      ],
+      "target_node_id": 380,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Google LLC",
+        "canonical_id": "b27efbf72b605f7fa03d03028f05fdf8b97ce754"
+      },
+      "shared_aliases": [
+        "google",
+        "谷歌"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 14,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        974,
+        44758
+      ],
+      "target_node_id": 44758,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "CES2026",
+        "canonical_id": "ces2026"
+      },
+      "shared_aliases": [
+        "ces 2026",
+        "ces2026"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 15,
+      "node_type": "Entity",
+      "source_node_ids": [
+        24827,
+        24863
+      ],
+      "target_node_id": 24827,
+      "merged_node": {
+        "node_type": "Entity",
+        "display_name": "Industrial Robotics",
+        "canonical_id": "b27c80b6ee985a9aab39c53758670285d25d956b"
+      },
+      "shared_aliases": [
+        "robots industriels",
+        "robots industriales"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    },
+    {
+      "group_id": 16,
+      "node_type": "TopicTag",
+      "source_node_ids": [
+        25626,
+        44315
+      ],
+      "target_node_id": 44315,
+      "merged_node": {
+        "node_type": "TopicTag",
+        "display_name": "business_model",
+        "canonical_id": "business_model"
+      },
+      "shared_aliases": [
+        "business model",
+        "businessmodel"
+      ],
+      "reason": "shared_aliases=2",
+      "confidence": 0.6000000000000001
+    }
+  ],
+  "apply_report": {
+    "input_merge_items": 16,
+    "applied_merge_items": 15,
+    "skipped_merge_items": 1,
+    "deleted_source_nodes": 22,
+    "inserted_edges": 155,
+    "inserted_aliases": 78,
+    "details": [
+      {
+        "idx": 1,
+        "group_id": 1,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 44298,
+        "deleted_nodes": 3,
+        "inserted_edges": 4,
+        "inserted_aliases": 9
+      },
+      {
+        "idx": 2,
+        "group_id": 2,
+        "applied": false,
+        "reason": "exception:(psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint \"graph_edges_edge_type_from_node_id_to_node_id_key\"\nDETAIL:  Key (edge_type, from_node_id, to_node_id)=(POLICY_RELATION, 43810, 824) already exists.\n\n[SQL: INSERT INTO graph_edges (edge_type, from_node_id, to_node_id, properties, edge_schema_version) SELECT p0::VARCHAR, p1::BIGINT, p2::BIGINT, p3::JSONB, p4::VARCHAR FROM (VALUES (%(edge_type__0)s, %(from_node_id__0)s, %(to_node_id__0)s, %(properties__0) ... 6655 characters truncated ... er RETURNING graph_edges.created_at, graph_edges.updated_at, graph_edges.id, graph_edges.id AS id__1]\n[parameters: {'edge_schema_version__0': 'v1', 'to_node_id__0': 824, 'properties__0': '{\"evidence\": \"\", \"policy_id\": \"340\", \"predicate\": \"partners_with\", \"confidence\": 0.5, \"predicate_raw\": \"partners_with\", \"relation_class\": \"collaboration\"}', 'edge_type__0': 'POLICY_RELATION', 'from_node_id__0': 66, 'edge_schema_version__1': 'v1', 'to_node_id__1': 824, 'properties__1': '{\"evidence\": \"\", \"policy_id\": \"267\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'edge_type__1': 'POLICY_RELATION', 'from_node_id__1': 316, 'edge_schema_version__2': 'v1', 'to_node_id__2': 824, 'properties__2': '{\"entity_type\": \"technology\"}', 'edge_type__2': 'MENTIONS_ENTITY', 'from_node_id__2': 68, 'edge_schema_version__3': 'v1', 'to_node_id__3': 824, 'properties__3': '{\"entity_type\": \"\\\\u8bbe\\\\u5907\"}', 'edge_type__3': 'MENTIONS_ENTITY', 'from_node_id__3': 280, 'edge_schema_version__4': 'v1', 'to_node_id__4': 824, 'properties__4': '{\"evidence\": \"\", \"policy_id\": \"256\", \"predicate\": \"develops\", \"confidence\": 0.5, \"predicate_raw\": \"develops\", \"relation_class\": \"other\"}', 'edge_type__4': 'POLICY_RELATION', 'from_node_id__4': 281, 'edge_schema_version__5': 'v1', 'to_node_id__5': 824, 'properties__5': '{}', 'edge_type__5': 'MENTIONS_ENTITY', 'from_node_id__5': 4876, 'edge_schema_version__6': 'v1', 'to_node_id__6': 824, 'properties__6': '{\"weight\": 1.0}', 'edge_type__6': 'MENTIONS_ENTITY', 'from_node_id__6': 692, 'edge_schema_version__7': 'v1', 'to_node_id__7': 824, 'properties__7': '{\"entity_type\": \"concept\"}', 'edge_type__7': 'MENTIONS_ENTITY', 'from_node_id__7': 302, 'edge_schema_version__8': 'v1', 'to_node_id__8': 824, 'properties__8': '{\"entity_type\": \"concept\"}', 'edge_type__8': 'MENTIONS_ENTITY', 'from_node_id__8': 296, 'edge_schema_version__9': 'v1', 'to_node_id__9': 824, 'properties__9': '{}', 'edge_type__9': 'MENTIONS_ENTITY', 'from_node_id__9': 5042 ... 190 parameters truncated ... 'edge_schema_version__48': 'v1', 'to_node_id__48': 824, 'properties__48': '{}', 'edge_type__48': 'MENTIONS_ENTITY', 'from_node_id__48': 5102, 'edge_schema_version__49': 'v1', 'to_node_id__49': 824, 'properties__49': '{\"weight\": 1.0}', 'edge_type__49': 'MENTIONS_ENTITY', 'from_node_id__49': 711, 'edge_schema_version__50': 'v1', 'to_node_id__50': 824, 'properties__50': '{\"weight\": 1.0}', 'edge_type__50': 'MENTIONS_ENTITY', 'from_node_id__50': 747, 'edge_schema_version__51': 'v1', 'to_node_id__51': 824, 'properties__51': '{\"weight\": 1.0}', 'edge_type__51': 'MENTIONS_ENTITY', 'from_node_id__51': 558, 'edge_schema_version__52': 'v1', 'to_node_id__52': 824, 'properties__52': '{\"evidence\": \"\", \"policy_id\": \"343\", \"predicate\": \"deploys\", \"confidence\": 0.5, \"predicate_raw\": \"deploys\", \"relation_class\": \"other\"}', 'edge_type__52': 'POLICY_RELATION', 'from_node_id__52': 54, 'edge_schema_version__53': 'v1', 'to_node_id__53': 824, 'properties__53': '{\"weight\": 1.0}', 'edge_type__53': 'MENTIONS_ENTITY', 'from_node_id__53': 24906, 'edge_schema_version__54': 'v1', 'to_node_id__54': 824, 'properties__54': '{\"weight\": 1.0}', 'edge_type__54': 'MENTIONS_ENTITY', 'from_node_id__54': 24916, 'edge_schema_version__55': 'v1', 'to_node_id__55': 824, 'properties__55': '{\"weight\": 1.0}', 'edge_type__55': 'MENTIONS_ENTITY', 'from_node_id__55': 530, 'edge_schema_version__56': 'v1', 'to_node_id__56': 824, 'properties__56': '{\"weight\": 1.0}', 'edge_type__56': 'MENTIONS_ENTITY', 'from_node_id__56': 780, 'edge_schema_version__57': 'v1', 'to_node_id__57': 824, 'properties__57': '{\"weight\": 1.0}', 'edge_type__57': 'MENTIONS_ENTITY', 'from_node_id__57': 781}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj)",
+        "deleted_nodes": 0,
+        "inserted_edges": 0,
+        "inserted_aliases": 0
+      },
+      {
+        "idx": 3,
+        "group_id": 3,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 800,
+        "deleted_nodes": 2,
+        "inserted_edges": 2,
+        "inserted_aliases": 9
+      },
+      {
+        "idx": 4,
+        "group_id": 4,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 275,
+        "deleted_nodes": 2,
+        "inserted_edges": 42,
+        "inserted_aliases": 6
+      },
+      {
+        "idx": 5,
+        "group_id": 5,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 819,
+        "deleted_nodes": 2,
+        "inserted_edges": 29,
+        "inserted_aliases": 7
+      },
+      {
+        "idx": 6,
+        "group_id": 6,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 125,
+        "deleted_nodes": 2,
+        "inserted_edges": 51,
+        "inserted_aliases": 4
+      },
+      {
+        "idx": 7,
+        "group_id": 7,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 44738,
+        "deleted_nodes": 2,
+        "inserted_edges": 2,
+        "inserted_aliases": 4
+      },
+      {
+        "idx": 8,
+        "group_id": 8,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 24903,
+        "deleted_nodes": 1,
+        "inserted_edges": 1,
+        "inserted_aliases": 8
+      },
+      {
+        "idx": 9,
+        "group_id": 9,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 109,
+        "deleted_nodes": 1,
+        "inserted_edges": 4,
+        "inserted_aliases": 5
+      },
+      {
+        "idx": 10,
+        "group_id": 10,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 24803,
+        "deleted_nodes": 1,
+        "inserted_edges": 4,
+        "inserted_aliases": 5
+      },
+      {
+        "idx": 11,
+        "group_id": 11,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 1187,
+        "deleted_nodes": 1,
+        "inserted_edges": 0,
+        "inserted_aliases": 3
+      },
+      {
+        "idx": 12,
+        "group_id": 12,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 333,
+        "deleted_nodes": 1,
+        "inserted_edges": 4,
+        "inserted_aliases": 4
+      },
+      {
+        "idx": 13,
+        "group_id": 13,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 380,
+        "deleted_nodes": 1,
+        "inserted_edges": 7,
+        "inserted_aliases": 3
+      },
+      {
+        "idx": 14,
+        "group_id": 14,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 44758,
+        "deleted_nodes": 1,
+        "inserted_edges": 2,
+        "inserted_aliases": 4
+      },
+      {
+        "idx": 15,
+        "group_id": 15,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 24827,
+        "deleted_nodes": 1,
+        "inserted_edges": 1,
+        "inserted_aliases": 3
+      },
+      {
+        "idx": 16,
+        "group_id": 16,
+        "applied": true,
+        "reason": "ok",
+        "target_node_id": 44315,
+        "deleted_nodes": 1,
+        "inserted_edges": 2,
+        "inserted_aliases": 4
+      }
+    ],
+    "before": {
+      "total_nodes": 2715,
+      "total_edges": 5878
+    },
+    "after": {
+      "total_nodes": 2693,
+      "total_edges": 5860
+    },
+    "delta": {
+      "total_nodes": -22,
+      "total_edges": -18
+    }
+  }
+}
