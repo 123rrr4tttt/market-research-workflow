@@ -65,7 +65,7 @@ cd main/backend
 ## 5) 回滚点 commit
 
 - 里程碑 commit #1（代码+测试）：`37efbef`
-- 里程碑 commit #2（文档+索引）：`c68b537`
+- 里程碑 commit #2（文档+索引）：`845ad30`
 
 ## 6) 剩余风险与下一轮建议
 
