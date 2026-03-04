@@ -28,6 +28,7 @@ Updated: 2026-03-04 PST
   - [08_B-line-round7-plan-and-atomic-task-table.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/08_B-line-round7-plan-and-atomic-task-table.md)
   - [09_B-line-round7-closure.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md)
   - [10_B-line-round3-r3-must-minimal-implementation.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md)
+  - [2026-03-04-r41-openclaw-autodispatch/README.md](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/README.md)
   - [01_task_doc.md](./development-plans/CURRENT_DEV/2026-03-03-version-D-doc-normalization/01_task_doc.md)
   - [02_dev_doc.md](./development-plans/CURRENT_DEV/2026-03-03-version-D-doc-normalization/02_dev_doc.md)
   - [01_repo-mapping-and-minimal-implementation.md](./development-plans/CURRENT_DEV/2026-03-04-cd-r3-d-security-minimal/01_repo-mapping-and-minimal-implementation.md)

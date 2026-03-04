@@ -1,6 +1,7 @@
 # CURRENT_DEV Main Index
 
 - Version C: [Atomic Plan](./2026-03-03-version-C-atomic-plan/01_atomic-task-table-and-sequence.md)
+- R41 Latest Bundle: [OpenClaw Autodispatch Migration](./2026-03-04-r41-openclaw-autodispatch/README.md)
 - Version A: [Atomic Plan](./2026-03-03-version-A-atomic-plan/01_atomic-task-table-and-sequence.md)
 - Version B: [Atomic Plan](./2026-03-03-version-B-atomic-plan/01_atomic-task-table-and-sequence.md)
   - Round4 StreamPlus Plan: [04_B-line-round4-streamplus-plan-and-atomic-task-table.md](./2026-03-03-version-B-atomic-plan/04_B-line-round4-streamplus-plan-and-atomic-task-table.md)

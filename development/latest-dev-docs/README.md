@@ -34,6 +34,8 @@
   - [09_B-line-round7-closure.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md)
 - `development-plans/CURRENT_DEV` 新增 Version B Round3 R3（Must 最小实现 + 验证）：
   - [10_B-line-round3-r3-must-minimal-implementation.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md)
+- `development-plans/CURRENT_DEV` 新增 R41 迁移包（来自 openclaw）：
+  - [2026-03-04-r41-openclaw-autodispatch/README.md](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/README.md)
 - `development-plans/CURRENT_DEV` 新增 Version D 与 D 线增量文档：
   - [01_task_doc.md](./development-plans/CURRENT_DEV/2026-03-03-version-D-doc-normalization/01_task_doc.md)
   - [02_dev_doc.md](./development-plans/CURRENT_DEV/2026-03-03-version-D-doc-normalization/02_dev_doc.md)

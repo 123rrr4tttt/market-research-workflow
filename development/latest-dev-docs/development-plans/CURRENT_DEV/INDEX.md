@@ -1,5 +1,6 @@
 # CURRENT_DEV Index
 
+- [2026-03-04 R41 OpenClaw Autodispatch Migration Bundle](./2026-03-04-r41-openclaw-autodispatch/README.md)
 - [2026-03-04 SA3-R3-F LLM Report Must Minset](./2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md)
 - [2026-03-03 Version C Atomic Plan](./2026-03-03-version-C-atomic-plan/)
 - [2026-03-04 R3 Must Minimal Implementation](./2026-03-04-r3-must-minimal-implementation/)
