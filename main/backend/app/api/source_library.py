@@ -23,6 +23,7 @@ from ..services.source_library import (
     sync_shared_library_from_files,
 )
 from ..services.tasks import task_run_source_library_item
+from ..services.streamplus.contracts import SOURCE_ITEM_CAPABILITY_DEFAULT
 from ..settings.config import settings
 
 ScopeType = Literal["shared", "project", "effective"]
@@ -61,6 +62,18 @@ class SyncHandlerClustersPayload(BaseModel):
     handlers: list[str] | None = None
     incremental: bool = True
     max_site_entries: int = Field(default=500, ge=1, le=5000)
+
+
+def _normalize_source_item_capability(extra: dict[str, Any] | None) -> dict[str, Any]:
+    out = dict(extra or {})
+    capability = out.get("capability") if isinstance(out.get("capability"), dict) else {}
+    merged = dict(SOURCE_ITEM_CAPABILITY_DEFAULT)
+    merged.update(capability)
+    merged["supports_incremental"] = bool(merged.get("supports_incremental", True))
+    merged["supports_backfill"] = bool(merged.get("supports_backfill", False))
+    merged["rate_limit_class"] = str(merged.get("rate_limit_class") or "normal").strip().lower()
+    out["capability"] = merged
+    return out
 
 
 def _require_project_key(project_key: str | None) -> str:
@@ -344,9 +357,10 @@ def _refresh_handler_item_site_entries(*, row: SourceLibraryItem, project_key: s
 def upsert_project_item(payload: SourceLibraryItemUpsertPayload, project_key: str) -> dict:
     try:
         norm_params, _ = _normalize_item_site_entries(payload.params or {})
+        normalized_extra = _normalize_source_item_capability(payload.extra or {})
         _validate_handler_item_constraints(
             params=norm_params,
-            extra=payload.extra or {},
+            extra=normalized_extra,
             project_key=project_key,
         )
         with bind_project(project_key):
@@ -366,7 +380,7 @@ def upsert_project_item(payload: SourceLibraryItemUpsertPayload, project_key: st
                 row.schedule = payload.schedule
                 row.extends_item_key = payload.extends_item_key
                 row.enabled = payload.enabled
-                row.extra = payload.extra
+                row.extra = normalized_extra
                 session.commit()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc

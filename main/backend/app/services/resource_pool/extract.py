@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ...models.base import SessionLocal
 from ...models.entities import Document, EtlJobRun, ResourcePoolUrl, SharedResourcePoolUrl
 from ..projects import bind_project, bind_schema
-from .url_utils import domain_from_url, extract_urls_from_json, extract_urls_from_text, normalize_url
+from .url_utils import canonicalize_url, domain_from_url, extract_urls_from_json, extract_urls_from_text, normalize_url
 
 
 def _append_urls(
@@ -269,11 +269,15 @@ def extract_from_tasks(
 
     seen: set[str] = set()
     deduped: list[tuple[str, dict]] = []
+    dedupe_hit_reason: dict[str, int] = {}
     for u, ref in url_refs:
-        norm = normalize_url(u)
-        if norm and norm not in seen:
+        norm, reason = canonicalize_url(u)
+        if not norm:
+            continue
+        dedupe_hit_reason[reason] = int(dedupe_hit_reason.get(reason, 0)) + 1
+        if norm not in seen:
             seen.add(norm)
-            deduped.append((u, ref))
+            deduped.append((norm, ref))
 
     if scope == "shared":
         with bind_schema("public"):
@@ -292,4 +296,5 @@ def extract_from_tasks(
         "urls_new": new,
         "urls_duplicate": dup,
         "scope": scope,
+        "dedupe_hit_reason": dedupe_hit_reason,
     }

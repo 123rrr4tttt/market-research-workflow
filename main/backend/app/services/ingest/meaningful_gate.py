@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from ...settings.config import settings
+from .gate_reason_codes import normalize_reason_code
 
 
 @dataclass(frozen=True)
@@ -116,7 +117,6 @@ _RSS_FEED_SHELL_MARKERS = (
     "feed",
 )
 _MOJIBAKE_MARKERS = ("Ã", "Â", "�", "â€”", "â€œ", "â€", "è", "æ", "é©¾", "å·", "ç")
-_REASON_CODE_RE = re.compile(r"[^a-z0-9_]+")
 
 
 def _parse_config_list(raw: Any, defaults: tuple[str, ...]) -> list[str]:
@@ -138,15 +138,6 @@ def _parse_config_list(raw: Any, defaults: tuple[str, ...]) -> list[str]:
             pass
     values = [x.strip() for x in text.split(",") if x.strip()]
     return values or list(defaults)
-
-
-def normalize_reason_code(reason: Any, *, default: str = "unknown_rejection_reason") -> str:
-    raw = str(reason or "").strip().lower()
-    if not raw:
-        return default
-    normalized = _REASON_CODE_RE.sub("_", raw)
-    normalized = re.sub(r"_+", "_", normalized).strip("_")
-    return normalized or default
 
 
 def _resolve_gate_config(config: dict[str, Any] | None = None) -> dict[str, Any]:

@@ -11,6 +11,7 @@ from ..extraction.application import ExtractionApplicationService
 from ..job_logger import complete_job, fail_job, start_job
 from ..keyword_memory import record_keyword_history
 from ..projects import current_project_key
+from ..streamplus.contracts import canonicalize_url
 from .adapters.http_utils import fetch_html, make_html_parser
 from .doc_type_mapper import normalize_doc_type
 from .light_filter import (
@@ -23,10 +24,10 @@ from .structured_extraction import (
     build_structured_summary,
     extract_structured_enriched_safe,
 )
+from .gate_reason_codes import normalize_reason_code, reason_category
 from .meaningful_gate import (
     content_quality_check,
     normalize_content_for_ingest,
-    normalize_reason_code,
     url_policy_check,
 )
 from .url_pool import _extract_text_from_html
@@ -166,7 +167,8 @@ def _normalized_terms(query_terms: list[str] | None) -> list[str]:
 
 
 def _normalize_url(url: str) -> str:
-    return str(url or "").strip()
+    normalized = canonicalize_url(str(url or ""))
+    return normalized or str(url or "").strip()
 
 
 def _as_bool(value: Any, default: bool) -> bool:
@@ -1102,7 +1104,32 @@ def ingest_single_url(
         except Exception as history_exc:  # noqa: BLE001
             logger.warning("record keyword history failed url=%s err=%s", normalized_url, _safe_exc(history_exc))
 
+    def _primary_reason_code(payload: dict[str, Any]) -> str:
+        rb = payload.get("rejection_breakdown")
+        if isinstance(rb, dict) and rb:
+            top = sorted(rb.items(), key=lambda x: int(x[1] or 0), reverse=True)[0][0]
+            return normalize_reason_code(top, default="ok")
+        if isinstance(payload.get("pre_fetch_url_gate"), dict):
+            return normalize_reason_code(payload["pre_fetch_url_gate"].get("reason"), default="ok")
+        if isinstance(payload.get("pre_write_content_gate"), dict):
+            return normalize_reason_code(payload["pre_write_content_gate"].get("reason"), default="ok")
+        return "ok"
+
+    def _apply_stage_contract(job_id_value: int, payload: dict[str, Any]) -> dict[str, Any]:
+        reason_code = _primary_reason_code(payload)
+        payload["reason_code"] = reason_code
+        payload["reason_category"] = reason_category(reason_code)
+        payload["stage_context"] = {
+            "run_id": int(job_id_value),
+            "source_item_id": payload.get("source_item_id"),
+            "resource_url_id": payload.get("resource_url_id"),
+            "reason_code": reason_code,
+            "degradation_flags": list(payload.get("degradation_flags") or []),
+        }
+        return payload
+
     def finalize_job(job_id_value: int, *, status: str, result: dict[str, Any]) -> None:
+        _apply_stage_contract(job_id_value, result)
         _record_keyword_history_for_result(result)
         complete_job(job_id_value, status=status, result=result)
 
