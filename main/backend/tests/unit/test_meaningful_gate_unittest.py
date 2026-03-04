@@ -12,6 +12,7 @@ pytestmark = pytest.mark.unit
 
 try:
     from app.services.ingest.meaningful_gate import (
+        build_gateplus_snapshot,
         content_quality_check,
         normalize_content_for_ingest,
         normalize_reason_code,
@@ -189,6 +190,27 @@ class MeaningfulGateUnitTestCase(unittest.TestCase):
     def test_normalize_reason_code_generates_stable_snake_case(self):
         self.assertEqual(normalize_reason_code("Low Value/Page"), "low_value_page")
         self.assertEqual(normalize_reason_code(""), "unknown_rejection_reason")
+
+    def test_gateplus_snapshot_exposes_blocked_stage(self):
+        url_gate = url_policy_check(
+            "https://www.google.com/search?q=robotics",
+            config={"enable_strict_gate": True},
+        )
+        snapshot = build_gateplus_snapshot(url_gate=url_gate)
+        self.assertTrue(snapshot["blocked"])
+        self.assertEqual(snapshot["blocked_stage"], "pre_fetch_url_gate")
+        self.assertEqual(snapshot["blocked_reason"], "url_policy_low_value_endpoint")
+
+    def test_gate_decision_to_dict_contains_reason_code(self):
+        decision = content_quality_check(
+            "https://example.com/post",
+            "short text",
+            "url_fetch",
+            config={"enable_strict_gate": True, "min_semantic_len": 120},
+        )
+        payload = decision.to_dict()
+        self.assertIn("reason_code", payload)
+        self.assertEqual(payload["reason_code"], "content_semantic_too_short")
 
 
 if __name__ == "__main__":
