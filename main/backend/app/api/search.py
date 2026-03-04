@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ..contracts.responses import ok
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
-from ..services.search.hybrid import hybrid_search
+from ..services.search.hybrid import hybrid_search, get_last_used_backends
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,23 @@ def search(
     """Placeholder: 混合检索统一接口（MVP 后续接 ES/pgvector）。"""
     try:
         results = hybrid_search(q, state, top_k, rank)
+        # Diagnostics about fallback/backends (contract-safe: added under data)
+        fallback_order = [
+            "opensearch_lexical",
+            "qdrant_vector",
+            "pgvector_fallback",
+        ]
+        used_backends = []
+        for b in get_last_used_backends():
+            if b == "opensearch":
+                used_backends.append("opensearch_lexical")
+            elif b == "qdrant":
+                used_backends.append("qdrant_vector")
+            elif b == "pgvector":
+                used_backends.append("pgvector_fallback")
+            else:
+                used_backends.append(b)
+
         return ok(
             {
                 "query": q,
@@ -29,6 +46,8 @@ def search(
                 "rank": rank,
                 "top_k": top_k,
                 "results": results,
+                "search_fallback_order": fallback_order,
+                "search_backends_used": used_backends,
             }
         )
     except Exception as e:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
+import os
 from typing import Iterable, List, Sequence
 from urllib.parse import urlparse
 
@@ -33,6 +35,8 @@ _REQUIRED_VECTOR_FIELDS = (
     "effective_time",
     "keep_for_vectorization",
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -160,6 +164,9 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
             _delete_existing_es_docs(es, {chunk.document.id for chunk in chunks})
 
             es_actions = []
+            # Collect Qdrant points opportunistically (id, vector, payload)
+            qdrant_points: list[tuple[int, list[float], dict]] = []
+            qdrant_collection = os.environ.get("QDRANT_COLLECTION", "policy_chunks")
             for chunk, vector in zip(chunks, vectors):
                 vector_contract = _build_vector_contract_payload(chunk.document, chunk.text)
                 _validate_vector_contract_payload(vector_contract)
@@ -204,6 +211,32 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
                     }
                 )
 
+                # Prepare Qdrant payload/point (optional)
+                try:
+                    payload = {
+                        "project_key": vector_contract["project_key"],
+                        "object_type": vector_contract["object_type"],
+                        "object_id": vector_contract["object_id"],
+                        "vector_version": vector_contract["vector_version"],
+                        "document_id": chunk.document.id,
+                        "chunk_index": chunk.chunk_index,
+                        "state": chunk.document.state,
+                        "status": chunk.document.status,
+                        "publish_date": chunk.document.publish_date.isoformat()
+                        if chunk.document.publish_date
+                        else None,
+                        "title": chunk.document.title,
+                        "language": vector_contract["language"],
+                        "source_domain": vector_contract["source_domain"],
+                        "effective_time": vector_contract["effective_time"],
+                        "summary": chunk.document.summary,
+                        "text": chunk.text,
+                    }
+                    qdrant_points.append((int(embedding_row.id), list(vector), payload))
+                except Exception as _:
+                    # Collecting payload should never break indexing
+                    pass
+
             session.commit()
         except Exception as exc:  # noqa: BLE001
             session.rollback()
@@ -215,6 +248,19 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
 
         result = {"indexed": len(es_actions), "documents": len({chunk.document.id for chunk in chunks})}
         complete_job(job_id, result=result)
+        # Optional Qdrant upsert (best-effort, out of main transaction)
+        try:
+            client = _get_qdrant_client()
+            if client is not None and _ensure_qdrant_collection(client, qdrant_collection, settings.embedding_dim):
+                from qdrant_client.models import PointStruct  # type: ignore
+                points = [PointStruct(id=pid, vector=vec, payload=pl) for pid, vec, pl in qdrant_points]
+                if points:
+                    client.upsert(collection_name=qdrant_collection, points=points, wait=False)
+                    logger.info("Qdrant upsert completed: %d points", len(points))
+            else:
+                logger.info("Qdrant not configured, skip upsert")
+        except Exception as qx:  # noqa: BLE001
+            logger.warning("Qdrant upsert skipped due to error: %s", qx)
         return result
 
 
@@ -227,3 +273,42 @@ def _delete_existing_es_docs(es: Elasticsearch, document_ids: Iterable[int]) -> 
             refresh=True,
         )
 
+
+def _get_qdrant_client() -> object | None:
+    """Create qdrant client if environment/config present, else None.
+
+    Import inside function to avoid hard dependency at import time.
+    """
+    url = os.environ.get("QDRANT_URL")
+    host = os.environ.get("QDRANT_HOST")
+    port = os.environ.get("QDRANT_PORT")
+    try:
+        from qdrant_client import QdrantClient  # type: ignore
+    except Exception:
+        logger.info("qdrant-client not installed, skip Qdrant integration")
+        return None
+    try:
+        if url:
+            return QdrantClient(url=url)
+        if host and port:
+            return QdrantClient(host=host, port=int(port))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Qdrant client init failed: %s", exc)
+        return None
+    return None
+
+
+def _ensure_qdrant_collection(client: object, collection_name: str, dim: int) -> bool:
+    try:
+        client.get_collection(collection_name)
+        return True
+    except Exception:
+        try:
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config={"size": dim, "distance": "Cosine"},
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Create Qdrant collection failed: %s", exc)
+            return False

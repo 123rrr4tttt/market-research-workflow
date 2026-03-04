@@ -33,11 +33,18 @@ ENV_KEY_MAPPING = {
     "GOOGLE_SEARCH_CSE_ID": "google_search_cse_id",
     "AZURE_SEARCH_ENDPOINT": "azure_search_endpoint",
     "AZURE_SEARCH_KEY": "azure_search_key",
+    # External data providers
+    "LEGISCAN_API_KEY": "legiscan_api_key",
+    "NEWS_API_KEY": "news_api_key",
     "TWITTER_API_KEY": "twitter_api_key",
     "TWITTER_API_SECRET": "twitter_api_secret",
     "TWITTER_BEARER_TOKEN": "twitter_bearer_token",
     "TWITTER_ACCESS_TOKEN": "twitter_access_token",
     "TWITTER_ACCESS_TOKEN_SECRET": "twitter_access_token_secret",
+    # Tenant/config boundaries
+    "ACTIVE_PROJECT_KEY": "active_project_key",
+    "PROJECT_KEY_ENFORCEMENT_MODE": "project_key_enforcement_mode",
+    "PROJECT_SCHEMA_PREFIX": "project_schema_prefix",
 }
 
 
@@ -73,4 +80,3 @@ def update_env_settings(updates: Dict[str, str | None]) -> Dict[str, str | None]
 
     reload_settings()
     return load_env_settings()
-

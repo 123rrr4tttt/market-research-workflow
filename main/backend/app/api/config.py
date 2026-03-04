@@ -18,6 +18,10 @@ def get_config():
         "llm_provider": settings.llm_provider,
         "embedding_model": settings.embedding_model,
         "es_url": settings.es_url,
+        # Expose tenant/config boundaries for observability (safe subset)
+        "active_project_key": settings.active_project_key,
+        "project_key_enforcement_mode": settings.project_key_enforcement_mode,
+        "project_schema_prefix": settings.project_schema_prefix,
     })
 
 
@@ -40,10 +44,21 @@ class EnvSettingsPayload(BaseModel):
     NEWS_API_KEY: str | None = None
     SERPAPI_KEY: str | None = None
     SERPSTACK_KEY: str | None = None
+    SERPER_API_KEY: str | None = None
     GOOGLE_SEARCH_API_KEY: str | None = None
     GOOGLE_SEARCH_CSE_ID: str | None = None
     AZURE_SEARCH_ENDPOINT: str | None = None
     AZURE_SEARCH_KEY: str | None = None
+    # Multi-tenant / config boundaries (optional, additive)
+    ACTIVE_PROJECT_KEY: str | None = None
+    PROJECT_KEY_ENFORCEMENT_MODE: str | None = None
+    PROJECT_SCHEMA_PREFIX: str | None = None
+    # Twitter/X API credentials
+    TWITTER_API_KEY: str | None = None
+    TWITTER_API_SECRET: str | None = None
+    TWITTER_BEARER_TOKEN: str | None = None
+    TWITTER_ACCESS_TOKEN: str | None = None
+    TWITTER_ACCESS_TOKEN_SECRET: str | None = None
 
 
 @router.get("/env")
@@ -69,4 +84,3 @@ def update_env(payload: EnvSettingsPayload):
 def reload_env_settings():
     reload_settings()
     return success_response({"status": "reloaded"})
-

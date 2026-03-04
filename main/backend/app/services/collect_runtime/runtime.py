@@ -22,15 +22,72 @@ _ADAPTERS = {
 
 _AUTO_BATCH_CHANNELS = {"search.market", "search.policy"}
 
+# Environment-driven workflow boundary switch.
+# - INGEST_WORKFLOW_ADAPTER: off|legacy -> legacy path (default)
+# - INGEST_WORKFLOW_ADAPTER: on|workflow|canary -> use WorkflowRoutingAdapter boundary
+# Read env directly (no settings dependency) and keep return types unchanged.
+def _resolve_workflow_mode() -> str:
+    # Local import for unit-safety and to avoid global side effects.
+    import os  # unit-safe import
+
+    raw = str(os.environ.get("INGEST_WORKFLOW_ADAPTER", "off") or "off").strip().lower()
+    if raw in {"on", "workflow", "canary"}:
+        return "workflow"
+    # Treat anything else as legacy for safe rollback.
+    return "legacy"
+
+
+class WorkflowRoutingAdapter:
+    """Adapter boundary for workflow-based routing.
+
+    Thin indirection that preserves existing adapter return semantics while
+    allowing future orchestration (Temporal/Dagster/etc.) behind an env switch.
+    """
+
+    def run(self, request: CollectRequest) -> CollectResult:
+        adapter = _ADAPTERS.get(request.channel)
+        if adapter is None:
+            raise ValueError(f"unsupported collect channel: {request.channel}")
+        # Delegate to existing channel adapter. Keep result types and display_meta.
+        return adapter.run(request)
+
 
 def run_collect(request: CollectRequest) -> CollectResult:
-    batched = _maybe_run_auto_batched(request)
-    if batched is not None:
-        return batched
-    adapter = _ADAPTERS.get(request.channel)
-    if adapter is None:
-        raise ValueError(f"unsupported collect channel: {request.channel}")
-    return adapter.run(request)
+    """Runtime entry.
+
+    Routes to legacy adapter path or the workflow boundary based on
+    INGEST_WORKFLOW_ADAPTER. Defaults to legacy for safe rollback.
+    Auto-batch behavior and display_meta building are preserved.
+    """
+    mode = _resolve_workflow_mode()
+
+    if mode == "legacy":
+        # Legacy path (default): existing auto-batch + direct adapter dispatch.
+        batched = _maybe_run_auto_batched(request)
+        if batched is not None:
+            return batched
+        return _run_collect_no_batch(request)
+
+    # Workflow boundary path: reuse the same batching rules, but delegate each
+    # execution to WorkflowRoutingAdapter. Return types remain CollectResult.
+    wr = WorkflowRoutingAdapter()
+    if _should_auto_batch(request):
+        term_batches = _split_query_terms(request.query_terms)
+        if len(term_batches) > 1:
+            per_batch_limit = max(10, int(ceil(max(1, int(request.limit or 20)) / len(term_batches))))
+            batch_results: list[tuple[list[str], CollectResult]] = []
+            for terms in term_batches:
+                sub = replace(
+                    request,
+                    query_terms=terms,
+                    limit=per_batch_limit,
+                    source_context={**(request.source_context or {}), "auto_batched_child": True},
+                )
+                batch_results.append((terms, wr.run(sub)))
+            return _merge_collect_results(request, batch_results)
+
+    # No auto-batch; single-run through workflow boundary.
+    return wr.run(request)
 
 
 def _should_auto_batch(request: CollectRequest) -> bool:
