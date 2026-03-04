@@ -10,3 +10,6 @@
   - Round7 Plan: [08_B-line-round7-plan-and-atomic-task-table.md](./2026-03-03-version-B-atomic-plan/08_B-line-round7-plan-and-atomic-task-table.md)
   - Round7 Closure: [09_B-line-round7-closure.md](./2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md)
   - Round3 R3 Must Minimal Implementation: [10_B-line-round3-r3-must-minimal-implementation.md](./2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md)
+- Version D: [Doc Normalization Task](./2026-03-03-version-D-doc-normalization/01_task_doc.md)
+- Version E: [Doc Normalization Task](./2026-03-03-version-E-doc-normalization/01_task_doc.md)
+- Version F: [Doc Normalization Task](./2026-03-03-version-F-doc-normalization/01_task_doc.md)
