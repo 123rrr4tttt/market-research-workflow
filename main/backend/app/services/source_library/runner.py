@@ -205,7 +205,9 @@ def _run_via_crawler_provider_registry(
         except Exception as exc:  # noqa: BLE001
             errors.append(f"crawler output ingest failed: {exc}")
 
+    overall_status = "accepted" if status in ok_status else "failed"
     return {
+        "status": overall_status,
         "inserted": inserted,
         "updated": updated,
         "skipped": skipped,
@@ -280,6 +282,9 @@ def run_channel(
             params = {**params, "keywords": keywords}
         if not isinstance(keywords, list) or not keywords:
             raise ValueError("google_news requires params.keywords list")
+    # Execute native/provider-specific handler and return as-is to keep full backward compatibility.
+    # Any status unification for connectors should happen in higher-level adapters to avoid
+    # changing existing handler return contracts expected by tests and downstream logic.
     return handler(params, project_key)
 
 

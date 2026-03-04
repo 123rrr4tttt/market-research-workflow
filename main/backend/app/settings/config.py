@@ -76,9 +76,14 @@ class Settings(BaseSettings):
     llm_report_gate_mode: str = Field(default="strict")  # off | warn | strict
 
     # LLM providers
-    llm_provider: str = Field(default="openai")  # openai | azure | ollama
+    # Allowed values now include: openai | azure | ollama | litellm | local
+    llm_provider: str = Field(default="openai")
     openai_api_key: Optional[str] = Field(default=None)
     openai_api_base: Optional[str] = Field(default=None)
+
+    # LiteLLM (OpenAI-compatible proxy) settings
+    litellm_api_key: Optional[str] = Field(default=None)
+    litellm_api_base: Optional[str] = Field(default=None)
 
     azure_api_key: Optional[str] = Field(default=None)
     azure_api_base: Optional[str] = Field(default=None)
@@ -89,6 +94,9 @@ class Settings(BaseSettings):
     ollama_base_url: Optional[str] = Field(default="http://localhost:11434")
     extraction_max_parallel: int = Field(default=8)
     topic_workflow_max_parallel: int = Field(default=8)
+
+    # Local emergency fallback (non-production)
+    local_llm_enabled: bool = Field(default=True)
 
     # External APIs
     legiscan_api_key: Optional[str] = Field(default=None)
