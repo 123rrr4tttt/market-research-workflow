@@ -28,7 +28,7 @@
 - gate mapping:
   - M1: provenance missing-field fail-fast (exit 37) with D-line-only blocking isolation
   - M2: input/retrieval/output three-stage report output `llm-safety-gate-report.json`
-- rollback_ref: `TBD_AFTER_D_COMMIT^`
+- rollback_ref: `db6f1fa^`
 - failure isolation: only D-line publish chain is impacted.
 
 ## unified verification
