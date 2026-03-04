@@ -217,12 +217,112 @@ jobs:
           path: main/backend/artifacts/
           if-no-files-found: warn
 
+  gateplus-guard-check:
+    name: gateplus-guard-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run GatePlus CI guard
+        working-directory: main/backend
+        run: |
+          chmod +x scripts/gateplus_ci_guard.sh
+          GATEPLUS_ARTIFACT_DIR=.artifacts/gateplus ./scripts/gateplus_ci_guard.sh
+
+      - name: Render GatePlus diagnostics to job summary
+        if: always()
+        working-directory: main/backend
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          summary_path = Path(".artifacts/gateplus/summary.json")
+          target = os.environ.get("GITHUB_STEP_SUMMARY")
+          if not target:
+              print("[gateplus-guard] GITHUB_STEP_SUMMARY is not available.")
+              raise SystemExit(0)
+
+          lines = ["## GatePlus Guard Diagnostics", ""]
+          if not summary_path.exists():
+              lines.extend(
+                  [
+                      "- status: missing-summary",
+                      "- hint: summary.json not found; check guard step logs.",
+                      "",
+                  ]
+              )
+          else:
+              data = json.loads(summary_path.read_text(encoding="utf-8"))
+              counts = data.get("counts", {})
+              diagnostics = data.get("failure_diagnostics", {})
+              lines.extend(
+                  [
+                      f"- status: `{data.get('status', 'unknown')}`",
+                      f"- pytest_exit: `{data.get('pytest_exit', 'n/a')}`",
+                      f"- summary_line: `{data.get('summary_line', '').strip()}`",
+                      f"- counts: pass={counts.get('passed', 0)} skip={counts.get('skipped', 0)} fail={counts.get('failed', 0)} warnings={counts.get('warnings', 0)}",
+                      f"- root_cause_code: `{diagnostics.get('root_cause_code', 'none')}`",
+                  ]
+              )
+
+              reasons = diagnostics.get("failure_reasons") or []
+              hints = diagnostics.get("actionable_hints") or []
+              failed_tests = diagnostics.get("failed_tests") or []
+
+              if reasons:
+                  lines.extend(["", "### Failure reasons"])
+                  lines.extend([f"- {item}" for item in reasons[:5]])
+              if hints:
+                  lines.extend(["", "### Actionable hints"])
+                  lines.extend([f"- {item}" for item in hints[:5]])
+              if failed_tests:
+                  lines.extend(["", "### Failed tests"])
+                  for item in failed_tests[:10]:
+                      nodeid = item.get("nodeid", "unknown")
+                      msg = item.get("message", "")
+                      lines.append(f"- `{nodeid}`: {msg}")
+
+          with open(target, "a", encoding="utf-8") as fp:
+              fp.write("\n".join(lines) + "\n")
+          print(f"[gateplus-guard] wrote job summary: {target}")
+          PY
+
+      - name: Upload GatePlus artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateplus-guard-artifacts
+          path: |
+            main/backend/.artifacts/gateplus/junit.xml
+            main/backend/.artifacts/gateplus/summary.json
+          if-no-files-found: warn
+
   schema-guard-check:
     name: schema-guard-check
     needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: ${{ github.event_name == 'pull_request' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -261,7 +361,6 @@ jobs:
     needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: ${{ github.event_name == 'pull_request' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -289,6 +388,42 @@ jobs:
         run: |
           pytest -m "(unit or integration) and not external" --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml -q
           python scripts/check_coverage_thresholds.py --coverage-file coverage.xml --core-paths "${CORE_COVERAGE_PATHS}" --core-threshold 100 --other-threshold 20
+
+  security-check:
+    name: security-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt bandit pip-audit
+
+      - name: Run SAST (Bandit)
+        run: |
+          bandit -q -r main/backend/app -x main/backend/tests
+
+      - name: Run dependency vulnerability scan (pip-audit)
+        run: |
+          pip-audit -r main/backend/requirements.txt --strict
+
+      - name: Run secret scanning (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   contract-check:
     if: github.event_name != 'pull_request'

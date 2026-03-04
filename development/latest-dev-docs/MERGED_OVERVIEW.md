@@ -22,6 +22,12 @@ Updated: 2026-03-04 PST
 
 - `development-plans/CURRENT_DEV`：
   - [01_r3-must-minimal-implementation-and-verification-2026-03-04.md](./development-plans/CURRENT_DEV/2026-03-04-r3-must-minimal-implementation/01_r3-must-minimal-implementation-and-verification-2026-03-04.md)
+  - [04_B-line-round4-streamplus-plan-and-atomic-task-table.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/04_B-line-round4-streamplus-plan-and-atomic-task-table.md)
+  - [05_B-line-round4-streamplus-closure.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/05_B-line-round4-streamplus-closure.md)
+- `development-plans/CURRENT_DEV`：
+  - [08_B-line-round7-plan-and-atomic-task-table.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/08_B-line-round7-plan-and-atomic-task-table.md)
+  - [09_B-line-round7-closure.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md)
+  - [10_B-line-round3-r3-must-minimal-implementation.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md)
   - [01_platformization-first-vectorization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/01_platformization-first-vectorization-2026-03-03.md)
   - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/02_atomic-zero-regression-tasklist-2026-03-03.md)
   - [03_ingest-platformization-to-cleanup-optimization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md)

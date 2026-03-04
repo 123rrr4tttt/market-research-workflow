@@ -40,8 +40,9 @@ CORE_COVERAGE_PATHS="app/api/search.py,app/contracts/api.py,app/contracts/respon
   - `standards-check`
   - `unit-check`
   - `integration-check`
-  - `schema-guard-check` (non-blocking, `continue-on-error: true`)
-  - `coverage-check` (non-blocking, `continue-on-error: true`)
+  - `schema-guard-check` (blocking)
+  - `coverage-check` (blocking)
+  - `security-check` (blocking: `bandit + pip-audit + gitleaks`)
   - `docker-check`
 - `push` to `main`, `schedule`, `workflow_dispatch`:
   - `standards-check`
@@ -49,11 +50,12 @@ CORE_COVERAGE_PATHS="app/api/search.py,app/contracts/api.py,app/contracts/respon
   - `integration-check`
   - `schema-guard-check` (blocking)
   - `coverage-check` (blocking, `core=100%` and `other=20%`)
+  - `security-check` (blocking: `bandit + pip-audit + gitleaks`)
   - `contract-check`
   - `e2e-check`
   - `docker-check`
 
-This keeps PR feedback fast while preserving full layered validation on mainline.
+This enforces layered quality/security gates on both PR and mainline.
 
 ## 自动化测试标准化执行
 
@@ -102,8 +104,9 @@ Profile policy:
 
 Tier policy:
 
-- `PR` tier (fast feedback): `standards-check + unit-check + integration-check + schema-guard-check(non-blocking) + coverage-check(non-blocking) + docker-check`.
-- `main` tier (full gate): `standards-check + unit-check + integration-check + schema-guard-check + coverage-check + contract-check + e2e-check + docker-check`.
+- `PR` tier (required gate): `standards-check + unit-check + integration-check + schema-guard-check + coverage-check + security-check + docker-check`.
+- `main` tier (full gate): `standards-check + unit-check + integration-check + schema-guard-check + coverage-check + security-check + contract-check + e2e-check + docker-check`.
+- Current policy: PR and mainline both block on `schema-guard-check + coverage-check + security-check`.
 
 ## Manual Checks Archive (Not CI Gates)
 

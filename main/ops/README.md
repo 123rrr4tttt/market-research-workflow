@@ -63,6 +63,14 @@ cd "$PROJECT_DIR/ops"
 ./scripts/docker-deploy.sh rollback --no-restart
 ```
 
+回滚路径演练（默认执行 preflight + 停启 + 健康检查 + 清理）：
+
+```bash
+./scripts/docker-deploy.sh rollback-drill
+./scripts/docker-deploy.sh rollback-drill --profile scrapyd
+./scripts/docker-deploy.sh rollback-drill --dry-run
+```
+
 ### 停止所有服务
 
 ```bash

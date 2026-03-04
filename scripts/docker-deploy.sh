@@ -8,7 +8,7 @@ OPS_DIR="${ROOT_DIR}/main/ops"
 
 usage() {
   cat <<USAGE
-Usage: $(basename "$0") {start|stop|restart|status|logs|health|preflight|checkpoint|rollback|rollback-list} [extra args...]
+Usage: $(basename "$0") {start|stop|restart|status|logs|health|preflight|checkpoint|rollback|rollback-list|rollback-drill} [extra args...]
 
 Commands:
   start      Start docker services (preferred, extra args are forwarded)
@@ -21,6 +21,7 @@ Commands:
   checkpoint Create rollback checkpoint (compose/env + git head)
   rollback   Roll back to checkpoint (default latest, supports --no-restart)
   rollback-list  List rollback checkpoints
+  rollback-drill  Rehearse stop/start rollback path (supports: --profile <name> --dry-run --skip-preflight)
 USAGE
 }
 
@@ -152,6 +153,66 @@ preflight() {
   return 0
 }
 
+rollback_drill() {
+  local dry_run=false
+  local skip_preflight=false
+  local profile_args=()
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --profile)
+        if [[ $# -lt 2 ]]; then
+          echo "❌ --profile requires a value"
+          return 2
+        fi
+        profile_args+=(--profile "$2")
+        shift 2
+        ;;
+      --dry-run)
+        dry_run=true
+        shift
+        ;;
+      --skip-preflight)
+        skip_preflight=true
+        shift
+        ;;
+      *)
+        echo "❌ Unknown rollback-drill arg: $1"
+        return 2
+        ;;
+    esac
+  done
+
+  require_ops_dir
+
+  if [[ "$dry_run" == true ]]; then
+    local profile_suffix=""
+    if (( ${#profile_args[@]} > 0 )); then
+      profile_suffix=" ${profile_args[*]}"
+    fi
+    echo "🔁 rollback-drill dry-run"
+    echo "   step1: ./scripts/docker-deploy.sh preflight${profile_suffix}"
+    echo "   step2: ./scripts/docker-deploy.sh stop${profile_suffix}"
+    echo "   step3: ./scripts/docker-deploy.sh start${profile_suffix}"
+    echo "   step4: ./scripts/docker-deploy.sh health"
+    echo "   step5: ./scripts/docker-deploy.sh stop${profile_suffix}"
+    return 0
+  fi
+
+  if [[ "$skip_preflight" != true ]]; then
+    preflight "${profile_args[@]}"
+  fi
+
+  "${OPS_DIR}/stop-all.sh" "${profile_args[@]}"
+  "${OPS_DIR}/start-all.sh" --non-interactive "${profile_args[@]}"
+
+  curl -fsS http://localhost:8000/api/v1/health >/dev/null
+  curl -fsS http://localhost:8000/api/v1/health/deep >/dev/null
+
+  "${OPS_DIR}/stop-all.sh" "${profile_args[@]}"
+  echo "✅ rollback-drill completed"
+}
+
 if [[ $# -lt 1 ]]; then
   usage
   exit 1
@@ -206,6 +267,8 @@ case "$cmd" in
   rollback-list)
     require_ops_dir
     exec "${OPS_DIR}/rollback.sh" list "$@"
+  rollback-drill)
+    rollback_drill "$@"
     ;;
   *)
     usage
