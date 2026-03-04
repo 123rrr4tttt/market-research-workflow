@@ -112,7 +112,7 @@ jobs:
 
       - name: Run project schema guard in docker compose
         run: |
-          docker compose -f main/ops/docker-compose.yml up -d db es redis
+          docker compose -f main/ops/docker-compose.yml up -d --wait --wait-timeout 120 db es redis
           docker compose -f main/ops/docker-compose.yml run --rm backend-test tests/integration/test_project_schema_guard_unittest.py -q
 
       - name: Collect docker compose diagnostics on failure
