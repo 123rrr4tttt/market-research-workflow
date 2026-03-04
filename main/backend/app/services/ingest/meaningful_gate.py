@@ -19,10 +19,12 @@ class GateDecision:
     diagnostics: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
+        reason_code = normalize_reason_code(self.reason, default="unknown_rejection_reason")
         return {
             "accepted": self.accepted,
             "blocked": self.blocked,
             "reason": self.reason,
+            "reason_code": reason_code,
             "quality_score": self.quality_score,
             "diagnostics": dict(self.diagnostics),
         }
@@ -445,3 +447,42 @@ def content_quality_check(
         quality_score=round(score, 2),
         diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len, "min_semantic_len": min_len},
     )
+
+
+def build_gateplus_snapshot(
+    *,
+    url_gate: GateDecision | None = None,
+    content_gate: GateDecision | None = None,
+    provenance_gate: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+
+    if url_gate is not None:
+        checks.append({"stage": "pre_fetch_url_gate", **url_gate.to_dict()})
+    if content_gate is not None:
+        checks.append({"stage": "pre_write_content_gate", **content_gate.to_dict()})
+
+    if isinstance(provenance_gate, dict) and provenance_gate:
+        blocked = bool(provenance_gate.get("blocked"))
+        reason = str(provenance_gate.get("reason") or ("ok" if not blocked else "provenance_rejected"))
+        checks.append(
+            {
+                "stage": "provenance_gate",
+                "accepted": not blocked,
+                "blocked": blocked,
+                "reason": reason,
+                "reason_code": normalize_reason_code(reason, default="provenance_rejected"),
+                "quality_score": 0.0 if blocked else 100.0,
+                "diagnostics": dict(provenance_gate.get("diagnostics") or {}),
+            }
+        )
+
+    blocked_stage = next((c["stage"] for c in checks if c.get("blocked")), None)
+    blocked_reason = next((str(c.get("reason_code") or "") for c in checks if c.get("blocked")), "")
+
+    return {
+        "checks": checks,
+        "blocked": bool(blocked_stage),
+        "blocked_stage": blocked_stage,
+        "blocked_reason": blocked_reason or None,
+    }

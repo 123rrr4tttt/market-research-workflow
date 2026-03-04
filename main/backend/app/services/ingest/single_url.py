@@ -26,6 +26,7 @@ from .structured_extraction import (
 )
 from .gate_reason_codes import normalize_reason_code, reason_category
 from .meaningful_gate import (
+    build_gateplus_snapshot,
     content_quality_check,
     normalize_content_for_ingest,
     url_policy_check,
@@ -1172,6 +1173,7 @@ def ingest_single_url(
                 "rejected_count": 1,
                 "rejection_breakdown": {reason: 1},
                 "pre_fetch_url_gate": pre_fetch_gate.to_dict(),
+                "gate_plus": build_gateplus_snapshot(url_gate=pre_fetch_gate),
                 "degradation_flags": gate_flags,
             }
             apply_light_filter_fields(result, light_filter_payload)
@@ -1643,6 +1645,14 @@ def ingest_single_url(
                         "reason": provenance_reason_early,
                         "diagnostics": provenance_diag_early,
                     },
+                    "gate_plus": build_gateplus_snapshot(
+                        url_gate=pre_fetch_gate,
+                        provenance_gate={
+                            "blocked": True,
+                            "reason": provenance_reason_early,
+                            "diagnostics": provenance_diag_early,
+                        },
+                    ),
                     "structured_extraction_status": "failed",
                     "quality_score": 0.0,
                     "rejected_count": 1,
@@ -1728,6 +1738,14 @@ def ingest_single_url(
                     "reason": provenance_reason,
                     "diagnostics": provenance_diag,
                 },
+                "gate_plus": build_gateplus_snapshot(
+                    url_gate=pre_fetch_gate,
+                    provenance_gate={
+                        "blocked": True,
+                        "reason": provenance_reason,
+                        "diagnostics": provenance_diag,
+                    },
+                ),
                 "structured_extraction_status": "failed",
                 "quality_score": 0.0,
                 "rejected_count": 1,
@@ -1813,6 +1831,10 @@ def ingest_single_url(
                     "reason": None,
                 },
                 "pre_write_content_gate": pre_write_gate.to_dict(),
+                "gate_plus": build_gateplus_snapshot(
+                    url_gate=pre_fetch_gate,
+                    content_gate=pre_write_gate,
+                ),
                 "structured_extraction_status": structured_status,
                 "quality_score": float(pre_write_gate.quality_score),
                 "rejected_count": 1,
@@ -1889,6 +1911,10 @@ def ingest_single_url(
                 "is_low_value": False,
                 "reason": None,
             },
+            "gate_plus": build_gateplus_snapshot(
+                url_gate=pre_fetch_gate,
+                content_gate=pre_write_gate,
+            ),
             "structured_extraction_status": structured_status,
             "quality_score": quality_score,
             "rejected_count": 0,
