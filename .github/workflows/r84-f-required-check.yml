@@ -1,0 +1,60 @@
+name: r84-f-required-check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: r84-f-required-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  r8_4_f_required_check:
+    name: r8_4_f_required_check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run llm report must-check gate
+        run: |
+          python main/backend/scripts/check_llm_report_must_minset.py --artifact-dir artifacts/llm-report-must-check
+
+      - name: Assert quality gate decision is pass
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary = Path('artifacts/llm-report-must-check/summary.json')
+          payload = json.loads(summary.read_text(encoding='utf-8'))
+          if payload.get('decision') != 'pass':
+              raise SystemExit('llm report must-check decision != pass')
+          print('llm report must-check decision=pass')
+          PY
+
+      - name: Upload llm report must-check artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r84-f-llm-report-must-check
+          path: artifacts/llm-report-must-check/
+          if-no-files-found: warn
