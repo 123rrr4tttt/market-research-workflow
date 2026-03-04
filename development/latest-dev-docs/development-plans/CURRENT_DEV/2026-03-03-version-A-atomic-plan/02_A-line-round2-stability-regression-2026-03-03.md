@@ -71,7 +71,7 @@ python3 -m pytest -q tests/unit/test_single_url_ingest_unittest.py tests/unit/te
 
 ## 5) 回滚点 commit
 
-- 本轮回滚点：`b6d5077`
+- 本轮回滚点：`35b89b8`
 
 ## 6) 剩余风险与下一轮建议
 
