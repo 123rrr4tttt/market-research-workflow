@@ -3,6 +3,11 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
+try:
+    from sqlalchemy.exc import DatabaseError, DBAPIError, OperationalError, TimeoutError as SATimeoutError
+except Exception:  # noqa: BLE001
+    DatabaseError = DBAPIError = OperationalError = SATimeoutError = tuple()  # type: ignore[assignment]
+
 
 class ErrorCode(str, Enum):
     INVALID_INPUT = "INVALID_INPUT"
@@ -34,6 +39,14 @@ def map_status_to_error_code(status_code: int) -> ErrorCode:
 def map_exception_to_error(exc: Exception) -> tuple[ErrorCode, str, dict[str, Any] | None]:
     msg = str(exc) or exc.__class__.__name__
     lower = msg.lower()
+    if isinstance(exc, OperationalError):
+        return ErrorCode.UPSTREAM_ERROR, msg, {"exception_type": exc.__class__.__name__, "category": "database", "retriable": True}
+    if isinstance(exc, SATimeoutError):
+        return ErrorCode.UPSTREAM_ERROR, msg, {"exception_type": exc.__class__.__name__, "category": "database", "retriable": True}
+    if isinstance(exc, DatabaseError):
+        return ErrorCode.UPSTREAM_ERROR, msg, {"exception_type": exc.__class__.__name__, "category": "database", "retriable": False}
+    if isinstance(exc, DBAPIError):
+        return ErrorCode.UPSTREAM_ERROR, msg, {"exception_type": exc.__class__.__name__, "category": "database", "retriable": False}
     if "not found" in lower or "不存在" in msg:
         return ErrorCode.NOT_FOUND, msg, None
     if "rate limit" in lower or "429" in lower or "限流" in msg:

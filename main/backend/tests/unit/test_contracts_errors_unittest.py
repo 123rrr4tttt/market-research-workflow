@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -73,6 +74,16 @@ class ContractsErrorsUnitTestCase(unittest.TestCase):
         self.assertEqual(code, ErrorCode.INTERNAL_ERROR)
         self.assertEqual(msg, "Exception")
         self.assertEqual(details, {"exception_type": "Exception"})
+
+    def test_map_exception_to_error_operational_error_returns_database_metadata(self):
+        exc = OperationalError("SELECT 1", {}, Exception("connection timeout"))
+        code, msg, details = map_exception_to_error(exc)
+        self.assertEqual(code, ErrorCode.UPSTREAM_ERROR)
+        self.assertIn("connection timeout", msg)
+        self.assertEqual(
+            details,
+            {"exception_type": "OperationalError", "category": "database", "retriable": True},
+        )
 
 
 if __name__ == "__main__":

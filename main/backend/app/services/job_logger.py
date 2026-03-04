@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 from sqlalchemy import select
 
-from ..models.base import SessionLocal
+from ..models.base import SessionLocal, run_with_session_retry
 from ..models.entities import EtlJobRun
 
 
@@ -31,7 +31,8 @@ def start_job(
     payload = dict(params or {})
     if stored_job_type != job_type:
         payload.setdefault("job_type_full", job_type)
-    with SessionLocal() as session:
+
+    def _op(session) -> int:
         job = EtlJobRun(
             job_type=stored_job_type,
             params=payload,
@@ -42,8 +43,10 @@ def start_job(
             started_at=datetime.utcnow(),
         )
         session.add(job)
-        session.commit()
+        session.flush()
         return job.id
+
+    return run_with_session_retry(_op, log_context={"operation": "start_job", "job_type": stored_job_type})
 
 
 def complete_job(
@@ -55,7 +58,8 @@ def complete_job(
     external_provider: str | None = None,
     retry_count: int | None = None,
 ) -> None:
-    with SessionLocal() as session:
+
+    def _op(session) -> None:
         job = session.get(EtlJobRun, job_id)
         if not job:
             return
@@ -71,7 +75,8 @@ def complete_job(
             params = dict(job.params or {})
             params.update(result)
             job.params = params
-        session.commit()
+
+    run_with_session_retry(_op, log_context={"operation": "complete_job", "job_id": job_id})
 
 
 def fail_job(
@@ -82,7 +87,8 @@ def fail_job(
     external_provider: str | None = None,
     retry_count: int | None = None,
 ) -> None:
-    with SessionLocal() as session:
+
+    def _op(session) -> None:
         job = session.get(EtlJobRun, job_id)
         if not job:
             return
@@ -99,7 +105,8 @@ def fail_job(
             job.external_provider = external_provider
         if retry_count is not None:
             job.retry_count = retry_count
-        session.commit()
+
+    run_with_session_retry(_op, log_context={"operation": "fail_job", "job_id": job_id})
 
 
 def update_job_tracking(
@@ -112,7 +119,8 @@ def update_job_tracking(
     result: Dict[str, Any] | None = None,
     error: str | None = None,
 ) -> None:
-    with SessionLocal() as session:
+
+    def _op(session) -> None:
         job = session.get(EtlJobRun, job_id)
         if not job:
             return
@@ -132,7 +140,8 @@ def update_job_tracking(
             job.params = params
         if error is not None:
             job.error = error[:2000]
-        session.commit()
+
+    run_with_session_retry(_op, log_context={"operation": "update_job_tracking", "job_id": job_id})
 
 
 def list_jobs(limit: int = 20) -> List[dict[str, Any]]:
