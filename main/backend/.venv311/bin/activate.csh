@@ -31,7 +31,7 @@ alias deactivate 'test $?_OLD_VIRTUAL_PATH != 0 && setenv PATH "$_OLD_VIRTUAL_PA
 # Unset irrelevant variables.
 deactivate nondestructive
 
-setenv VIRTUAL_ENV '/Users/wangyiliang/market-research-workflow/main/backend/.venv311'
+setenv VIRTUAL_ENV '/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/.venv311'
 
 set _OLD_VIRTUAL_PATH="$PATH:q"
 setenv PATH "$VIRTUAL_ENV:q/bin:$PATH:q"

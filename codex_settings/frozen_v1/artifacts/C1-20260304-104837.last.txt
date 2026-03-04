@@ -1,0 +1,43 @@
+结果
+- 原子任务1（目标/输入/输出/验收）
+  - 目标: 在不改变外部 API 的前提下，为 ingest runtime 增加“工作流适配器边界”，并提供可回滚开关（默认走旧路径）。
+  - 输入: 现有 collect_runtime 运行时（`runtime.py`）、适配器集合、`CollectRequest/CollectResult` 协议。
+  - 输出: `run_collect()` 内部通过环境变量 `INGEST_WORKFLOW_ADAPTER` 选择 legacy 或 workflow 边界；workflow 路径使用轻薄的 `WorkflowRoutingAdapter` 代理到既有 channel 适配器；保留 auto-batch 合并与 `display_meta` 构建逻辑。
+  - 验收: Python 编译通过；API 行为不变；默认值/未知值均回退 legacy；可一键回滚。
+- 原子任务2（目标/输入/输出/验收）
+  - 目标: 复核 API 与 Celery 任务对 `run_collect` 的依赖，确保响应契约不变且开关透明。
+  - 输入: `main/backend/app/api/ingest.py`, `main/backend/app/services/tasks.py`。
+  - 输出: 结论报告：两处仅消费 `CollectResult.meta["raw"]`（缺失时回退到计数字段），与本次变更无耦合；async/sync 分支与 envelope 保持不变。
+  - 验收: 无需改动 API/任务代码即可满足兼容与回滚要求。
+- 原子任务3（目标/输入/输出/验收）
+  - 目标: 执行最小校验（编译+定向测试）。
+  - 输入: 修改后的文件。
+  - 输出: `py_compile` 通过；`pytest` 环境缺失，记录跳过。
+  - 验收: 编译零错误；测试命令按接受标准带 `|| true` 不阻塞。
+
+改动文件
+- main/backend/app/services/collect_runtime/runtime.py: 实现工作流适配器边界与环境开关
+  - 新增 `_resolve_workflow_mode()`：读取 `INGEST_WORKFLOW_ADAPTER`，取值 on|workflow|canary → workflow；off|legacy|其他 → legacy（默认）。
+  - 新增 `WorkflowRoutingAdapter`：保持 `CollectAdapter.run()` 语义不变，当前仅代理到既有 `_ADAPTERS`（为后续编排留出边界）。
+  - 重构 `run_collect()`：按模式分流；legacy 路径调用原 `_maybe_run_auto_batched()` + `_run_collect_no_batch()`；workflow 路径复用同一分批/合并逻辑但通过 `WorkflowRoutingAdapter` 执行，返回仍为 `CollectResult`。
+
+验证状态
+- 编译
+  - 命令: python -m py_compile main/backend/app/api/ingest.py main/backend/app/services/collect_runtime/runtime.py main/backend/app/services/tasks.py
+  - 结果: 通过
+- 定向测试
+  - 命令: cd main/backend && pytest -q tests/unit -k "ingest or task or collect_runtime" || true
+  - 结果: 本环境无 pytest，已按接受标准记录为跳过（不阻塞）
+- API 契约检查（并行 reviewer 子任务结论）
+  - `api/ingest.py` 与 `services/tasks.py` 仅依赖 `CollectResult.meta["raw"]` 或回退计数字段；本次修改不改变响应 schema；auto-batch 增强字段（既有行为）保持不变。
+
+风险
+- 客户端若对 `meta["raw"]` 做了严格字段白名单解析，auto-batch 时的附加字段（如 `batch_results/auto_batched`）在大查询或阈值触发下可能呈现（既有行为，非新增），需在客户端保持容忍度。
+- 环境开关位于进程环境：建议在生产以默认 `legacy` 运行，逐步在 canary 项目/任务上设置 `INGEST_WORKFLOW_ADAPTER=canary` 验证，再切换到 `workflow`。
+- 当前 workflow 边界为“等价代理”实现，后续若接入外部编排（如 Temporal/Dagster）需补充异常映射与幂等保护，但不会影响现有回滚路径。
+
+附运行与回滚说明
+- 开启新边界（仅对当前进程生效）:
+  - `export INGEST_WORKFLOW_ADAPTER=workflow`（或 `on`/`canary`）
+- 回滚至旧路径（默认即是）:
+  - `unset INGEST_WORKFLOW_ADAPTER` 或 `export INGEST_WORKFLOW_ADAPTER=legacy` 或 `off`

@@ -1,0 +1,64 @@
+结果
+- 原子任务 1（目标/输入/输出/验收）
+  - 目标：将前端硬编码的 /api/v1 路径改为集中式 endpoints 常量，严格对齐冻结的后端契约。
+  - 输入：main/frontend-modern/src/lib/api.ts 与已存在的 endpoints 常量。
+  - 输出：替换 6 处硬编码路径为 endpoints 常量，并用 URLSearchParams 规范拼接查询参数。
+  - 验收：前端可构建；接口签名不变；请求参数与旧版一致。
+- 原子任务 2（目标/输入/输出/验收）
+  - 目标：并行只读排查允许修改文件范围内是否仍存在硬编码 /api/v1 路径，避免契约漂移。
+  - 输入：SettingsPage.tsx、ProcessPage.tsx、OpsPage.tsx、lib/api/client.ts、lib/api/endpoints.ts。
+  - 输出：上述文件未发现硬编码；补充给出其他目录中相关硬编码清单供参考（不在本次允许修改范围内）。
+  - 验收：列表完整，可用于后续技改规划。
+- 原子任务 3（目标/输入/输出/验收）
+  - 目标：执行最小校验，确保改动无构建回归且页面级 strangler 行为保持。
+  - 输入：项目脚本与后端路由文件。
+  - 输出：前端 build 成功；lint 输出非阻断问题；web_ui_routes.py 语法检查通过。
+  - 验收：满足题述验收命令。
+
+改动文件
+- main/frontend-modern/src/lib/api.ts:400
+  - listIngestHistory 改为使用 endpoints.ingest.history + URLSearchParams
+- main/frontend-modern/src/lib/api.ts:405
+  - listProcessTasks 改为使用 endpoints.process.list + URLSearchParams
+- main/frontend-modern/src/lib/api.ts:413
+  - listProcessHistory 改为使用 endpoints.process.history + URLSearchParams
+- main/frontend-modern/src/lib/api.ts:417
+  - getProcessTaskDetail 改为使用 endpoints.process.task(taskId)
+- main/frontend-modern/src/lib/api.ts:421
+  - getProcessTaskLogs 改为使用 endpoints.process.logs(taskId) + URLSearchParams
+- main/frontend-modern/src/lib/api.ts:425
+  - cancelTask 改为使用 endpoints.process.cancel(taskId) + URLSearchParams
+
+验证状态
+- 前端构建
+  - 命令：cd main/frontend-modern && npm run build
+  - 结果：成功（vite 构建完成，产物已生成）
+- 前端 lint（允许非阻断）
+  - 命令：cd main/frontend-modern && npm run lint || true
+  - 结果：报告 8 个错误、1 个告警（与本次改动无关，主要为 react-hooks/purity 与 no-explicit-any）；不阻断本任务验收
+- 后端路由语法检查
+  - 命令：python3 -m py_compile main/backend/app/web_ui_routes.py
+  - 结果：通过
+- 页面级 strangler 行为
+  - web_ui_routes.py 未改动；现有根路由与 legacy 别名继续 302 定向至现代前端 hash 路由，行为保持
+
+风险
+- 非阻断 lint 问题仍存在（AppShell.tsx、CrawlerManagePage.tsx、GraphPage.tsx、SettingsPage.tsx）。虽不影响本次验收，但建议后续批量治理以提升稳定性与可维护性。
+- 其他目录存在硬编码 /api/v1（例如 main/frontend/static/js/* 与 E2E 测试），本次按“允许文件边界”未修改；若后续调整 API 版本或前缀，需同步治理以免产生契约漂移。
+- 若未来 endpoints 常量调整或 API 版本升级，需保持 endpoints.ts 为单一事实来源，避免再度出现散落硬编码。
+
+附：并行子任务回传（摘要）
+- reviewer 子代理（结果/改动文件/验证状态/风险）
+  - 结果：允许修改范围内 0 处硬编码；列出其他路径的硬编码清单
+  - 改动文件：无
+  - 验证状态：N/A（只读）
+  - 风险：其他目录若不治理，版本升级时可能发生不一致
+- worker 子代理（结果/改动文件/验证状态/风险）
+  - 结果：完成 api.ts 内 6 处替换
+  - 改动文件：main/frontend-modern/src/lib/api.ts
+  - 验证状态：通过本次构建与语法检查
+  - 风险：无功能性风险；仅调用路径集中化
+
+是否需要我继续：
+- 将 main/frontend/static/js/* 与测试中的硬编码也迁移为集中式常量或统一 helper？
+- 处理 lint 指出的 react hooks 与 any 类型问题，提交小步修复补丁？

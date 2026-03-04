@@ -1,0 +1,40 @@
+repo,html_url,title,snapshot_status
+BerriAI/litellm,https://github.com/BerriAI/litellm,"GitHub - BerriAI/litellm: Python SDK, Proxy Server (AI Gateway) to call 100+ LLM APIs in OpenAI (or native) format, with cost tracking, guardrails, loadbalancing and logging. [Bedrock, Azure, OpenAI, VertexAI, Cohere, Anthropic, Sagemaker, HuggingFace, VLLM, NVIDIA NIM]",ok
+Helicone/ai-gateway,https://github.com/Helicone/ai-gateway,"GitHub - Helicone/ai-gateway: The fastest, lightest, and easiest-to-integrate AI gateway on the market. Fully open-sourced.",ok
+Helicone/helicone,https://github.com/Helicone/helicone,"GitHub - Helicone/helicone: 🧊 Open source LLM observability platform. One line of code to monitor, evaluate, and experiment. YC W23 🍓",ok
+Kong/kong,https://github.com/Kong/kong,"GitHub - Kong/kong: 🦍 The API and AI Gateway",ok
+NVIDIA/TensorRT-LLM,https://github.com/NVIDIA/TensorRT-LLM,"GitHub - NVIDIA/TensorRT-LLM: TensorRT LLM provides users with an easy-to-use Python API to define Large Language Models (LLMs) and supports state-of-the-art optimizations to perform inference efficiently on NVIDIA GPUs. TensorRT LLM also contains components to create Python and C++ runtimes that orchestrate the inference execution in a performant way.",ok
+Portkey-AI/gateway,https://github.com/Portkey-AI/gateway,"GitHub - Portkey-AI/gateway: A blazing fast AI Gateway with integrated guardrails. Route to 200+ LLMs, 50+ AI Guardrails with 1 fast & friendly API.",ok
+abetlen/llama-cpp-python,https://github.com/abetlen/llama-cpp-python,"GitHub - abetlen/llama-cpp-python: Python bindings for llama.cpp",ok
+comet-ml/opik,https://github.com/comet-ml/opik,"GitHub - comet-ml/opik: Debug, evaluate, and monitor your LLM applications, RAG systems, and agentic workflows with comprehensive tracing, automated evaluations, and production-ready dashboards.",ok
+confident-ai/deepeval,https://github.com/confident-ai/deepeval,"GitHub - confident-ai/deepeval: The LLM Evaluation Framework",ok
+crewAIInc/crewAI,https://github.com/crewAIInc/crewAI,"GitHub - crewAIInc/crewAI: Framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.",ok
+deepset-ai/haystack,https://github.com/deepset-ai/haystack,"GitHub - deepset-ai/haystack: Open-source AI orchestration framework for building context-engineered, production-ready LLM applications. Design modular pipelines and agent workflows with explicit control over retrieval, routing, memory, and generation. Built for scalable agents, RAG, multimodal applications, semantic search, and conversational systems.",ok
+envoyproxy/envoy,https://github.com/envoyproxy/envoy,"GitHub - envoyproxy/envoy: Cloud-native high-performance edge/middle/service proxy",ok
+ggml-org/llama.cpp,https://github.com/ggml-org/llama.cpp,"GitHub - ggml-org/llama.cpp: LLM inference in C/C++",ok
+guardrails-ai/guardrails,https://github.com/guardrails-ai/guardrails,"GitHub - guardrails-ai/guardrails: Adding guardrails to large language models.",ok
+huggingface/text-generation-inference,https://github.com/huggingface/text-generation-inference,"GitHub - huggingface/text-generation-inference: Large Language Model Text Generation Inference",ok
+kserve/kserve,https://github.com/kserve/kserve,"GitHub - kserve/kserve: Standardized Distributed Generative and Predictive AI Inference Platform for Scalable, Multi-Framework Deployment on Kubernetes",ok
+langchain-ai/langgraph,https://github.com/langchain-ai/langgraph,"GitHub - langchain-ai/langgraph: Build resilient language agents as graphs.",ok
+langfuse/langfuse,https://github.com/langfuse/langfuse,"(no title parsed)",partial_failed
+microsoft/autogen,https://github.com/microsoft/autogen,"(no title parsed)",partial_failed
+microsoft/semantic-kernel,https://github.com/microsoft/semantic-kernel,"(no title parsed)",partial_failed
+milvus-io/milvus,https://github.com/milvus-io/milvus,"(no title parsed)",partial_failed
+ml-explore/mlx,https://github.com/ml-explore/mlx,"(no title parsed)",partial_failed
+ml-explore/mlx-examples,https://github.com/ml-explore/mlx-examples,"GitHub - ml-explore/mlx-examples: Examples in the MLX framework",ok
+ollama/ollama,https://github.com/ollama/ollama,"(no title parsed)",partial_failed
+openai/evals,https://github.com/openai/evals,"(no title parsed)",partial_failed
+pgvector/pgvector,https://github.com/pgvector/pgvector,"GitHub - pgvector/pgvector: Open-source vector similarity search for Postgres",ok
+promptfoo/promptfoo,https://github.com/promptfoo/promptfoo,"(no title parsed)",partial_failed
+qdrant/qdrant,https://github.com/qdrant/qdrant,"(no title parsed)",partial_failed
+qdrant/qdrant-client,https://github.com/qdrant/qdrant-client,"(no title parsed)",partial_failed
+run-llama/llama_index,https://github.com/run-llama/llama_index,"(no title parsed)",partial_failed
+sgl-project/sglang,https://github.com/sgl-project/sglang,"(no title parsed)",partial_failed
+songquanpeng/one-api,https://github.com/songquanpeng/one-api,"(no title parsed)",partial_failed
+temporalio/samples-python,https://github.com/temporalio/samples-python,"GitHub - temporalio/samples-python: Samples for working with the Temporal Python SDK",ok
+temporalio/sdk-python,https://github.com/temporalio/sdk-python,"GitHub - temporalio/sdk-python: Temporal Python SDK",ok
+triton-inference-server/server,https://github.com/triton-inference-server/server,"GitHub - triton-inference-server/server: The Triton Inference Server provides an optimized cloud and edge inferencing solution.",ok
+truera/trulens,https://github.com/truera/trulens,"GitHub - truera/trulens: Evaluation and Tracking for LLM Experiments and AI Agents",ok
+vllm-project/vllm,https://github.com/vllm-project/vllm,"GitHub - vllm-project/vllm: A high-throughput and memory-efficient inference and serving engine for LLMs",ok
+weaviate/weaviate,https://github.com/weaviate/weaviate,"GitHub - weaviate/weaviate: Weaviate is an open-source vector database that stores both objects and vectors, allowing for the combination of vector search with structured filtering with the fault tolerance and scalability of a cloud-native database​.",ok
+weaviate/weaviate-python-client,https://github.com/weaviate/weaviate-python-client,"GitHub - weaviate/weaviate-python-client: A python native client for easy interaction with a Weaviate instance.",ok

@@ -1,0 +1,62 @@
+结果
+- 并行执行
+  - 子任务A（Python 观测统一，Laplace）
+    - 目标/输入/输出/验收
+      - 目标：统一请求级日志键；为全局日志注入稳定字段；保持 Prometheus 指标兼容。
+      - 输入：`main/backend/app/main.py`、`main/backend/app/models/base.py`、`main/backend/app/services/job_logger.py`
+      - 输出：
+        - `main.py`: 新增静态观测 Filter，统一请求日志键；回落告警日志统一键。
+        - `models/base.py`: DB 事务重试日志改为 key=value 便于聚合（行为不变）。
+        - 保持 job_logger 逻辑不变（已复用统一重试日志）。
+      - 验收：`python3 -m py_compile` 通过。
+  - 子任务B（OPS 蓝绿钩子，Archimedes）
+    - 目标/输入/输出/验收
+      - 目标：为蓝绿发布补充 pre/post 钩子与标准观测环境导出，保持脚本语义不变。
+      - 输入：`main/ops/start-all.sh`、`main/ops/restart.sh`、`main/ops/rollback.sh`、`scripts/docker-deploy.sh`
+      - 输出：
+        - `start-all.sh`: 内置 `pre_start`/`post_start` 钩子与 `SERVICE_NAME/APP_VERSION/DEPLOY_COLOR/ENV` 导出；默认 no-op，可通过 `OPS_HOOK_FILE` 覆盖。
+        - `restart.sh`: 新增 `pre_restart`/`post_restart` 与观测环境导出。
+        - `rollback.sh`: 新增 `pre_rollback`/`post_rollback` 与观测环境导出（回滚前后触发）。
+        - `docker-deploy.sh`: 仅语法验证，未改语义（保持兼容）。
+      - 验收：`bash -n` 四脚本通过。
+  - 子任务C（最小验证与审阅，Gauss）
+    - 目标/输入/输出/验收
+      - 目标：门禁检查、风险记录、最小变更复核。
+      - 输入：上述改动文件
+      - 输出：通过语法门禁；记录旁观风险（见“风险”）。
+      - 验收：通过。
+
+改动文件
+- 后端
+  - `main/backend/app/main.py:32` 增加 `_StaticObsFilter` 注入固定观测字段：`service, env, version, deploy_color`；从 `settings.env` 与环境变量推断，默认 `DEPLOY_COLOR=blue`。
+  - `main/backend/app/main.py:300` 附近统一请求日志键：`request_id, project_key, http_method, http_target, http_status, duration_ms, error_code`；回落告警日志为 `event=project_key_fallback http_target=%s project_key=%s request_id=%s`。
+  - `main/backend/app/models/base.py:181`、`:190` 标准化事务重试日志：`event=db_tx_succeeded|db_tx_failed` + `attempts/retriable/exception_type/sqlstate/context`。
+- 运维
+  - `main/ops/start-all.sh:7` 起新增钩子与观测环境导出；`main/ops/start-all.sh:241` 前后调用 `pre_start`/`post_start`。
+  - `main/ops/restart.sh:7` 起新增 `pre_restart`/`post_restart` 与观测环境导出；在停止/启动流程前后调用。
+  - `main/ops/rollback.sh:11` 起新增 `pre_rollback`/`post_rollback` 与观测环境导出；回滚分支前后调用。
+  - 说明：钩子默认 no-op，可通过 `OPS_HOOK_FILE` 指向外部脚本覆盖函数。
+
+验证状态
+- Python 编译检查
+  - 命令：`python3 -m py_compile main/backend/app/main.py main/backend/app/services/job_logger.py main/backend/app/models/base.py`
+  - 结果：通过（PYCOMPILE_OK）
+- Shell 语法检查
+  - 命令：`bash -n main/ops/start-all.sh main/ops/restart.sh main/ops/rollback.sh scripts/docker-deploy.sh`
+  - 结果：通过（START_OK / RESTART_OK / ROLLBACK_OK / DEPLOY_OK）
+- 兼容性
+  - Prometheus 指标名称与标签保持原样：`market_api_requests_total{method,endpoint,status}` 与 `market_api_request_latency_seconds{endpoint}` 未更改。
+  - OPS 脚本参数与行为未改变；仅新增可选钩子与环境导出。
+
+风险
+- 日志消费方规则匹配
+  - 现对所有日志消息前置稳定键值（通过 Filter 修改消息）；若下游对日志“前缀”做了严格匹配，需同步更新匹配规则。若需完全避免修改 `msg`，可改为 formatter + `LoggerAdapter`（将是后续可选增强）。
+- 钩子影响
+  - 钩子默认 no-op；若外部钩子主动 `exit` 或返回非 0，会按预期中止流程，用于蓝绿闸门。需在钩子内明确错误处理策略。
+- 旁观问题（未在本任务允许文件内修改）
+  - `main/backend/.venv311/bin/*` 含绝对路径 shebang，跨环境/CI 不可移植，建议从版本控制剔除或还原为环境 shebang。
+  - Qdrant 相关代码在未显式配置时仍可能尝试连接、且在降级路径重复计算 embedding，建议仅在配置存在时启用并复用 embedding（不在本任务编辑范围内）。
+
+是否需要我追加：
+- 提供一个 `ops_hooks.sh` 模板（示例蓝绿切换与发布前后检查）并放入 `development/latest-dev-docs/` 以便团队复用？
+- 增加按环境的请求日志采样与降噪开关（默认关闭，保持现状），仅在 `settings` 中挂配置，不改变现有行为？

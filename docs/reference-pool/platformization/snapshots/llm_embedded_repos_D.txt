@@ -1,0 +1,30 @@
+# LLM Platformization Subdomain D Snapshot
+# Generated: 2026-03-04 (US/Pacific)
+# Scope: Agent orchestration + tool calling
+# Source: GitHub REST API /repos/{owner}/{repo}
+
+[selection_criteria]
+- focus_stack in {langgraph, crewai, autogen, haystack agents, temporal+llm patterns}
+- active_recently <= 90 days
+- open_source_license_detected
+- usable_for_project_domains in {ingest, search, report, crawler}
+
+[repos]
+1) langchain-ai/langgraph | stars=25562 | updated_at=2026-03-04T18:08:23Z | license=MIT | tags=state-graph,checkpoint,multi-agent,tool-calling | map=ingest,search,crawler | url=https://github.com/langchain-ai/langgraph
+2) crewAIInc/crewAI | stars=45116 | updated_at=2026-03-04T17:57:47Z | license=MIT | tags=role-agent,crew,task-delegation,tool-use | map=report,crawler | url=https://github.com/crewAIInc/crewAI
+3) microsoft/autogen | stars=55159 | updated_at=2026-03-04T18:16:38Z | license=CC-BY-4.0 | tags=multi-agent,conversation,tool-proxy,human-in-loop | map=report,search,ingest | url=https://github.com/microsoft/autogen
+4) deepset-ai/haystack | stars=24389 | updated_at=2026-03-04T15:30:28Z | license=Apache-2.0 | tags=pipeline,agent,rag,retrieval,router | map=search,report | url=https://github.com/deepset-ai/haystack
+5) temporalio/sdk-python | stars=978 | updated_at=2026-03-03T14:47:34Z | license=MIT | tags=durable-workflow,retry,timeout,activity | map=ingest,crawler,report | url=https://github.com/temporalio/sdk-python
+6) temporalio/samples-python | stars=306 | updated_at=2026-03-04T16:37:00Z | license=MIT | tags=workflow-patterns,compensation,long-running-jobs | map=ingest,crawler | url=https://github.com/temporalio/samples-python
+7) run-llama/llama_index | stars=47363 | updated_at=2026-03-04T17:02:17Z | license=MIT | tags=document-agent,rag,retriever,query-engine | map=search,report | url=https://github.com/run-llama/llama_index
+8) microsoft/semantic-kernel | stars=27353 | updated_at=2026-03-04T17:16:18Z | license=MIT | tags=plugin,function-calling,planner,memory | map=ingest,report,search | url=https://github.com/microsoft/semantic-kernel
+
+[project_agentization_mapping]
+- ingest: planner->source_selector->fetcher->extractor->validator->upserter ; recommended_stack=LangGraph+TemporalSDK
+- search: query_rewriter->retrievers_parallel->ranker->evidence_guard ; recommended_stack=Haystack+LlamaIndex+LangGraph
+- report: outline_planner->section_writer->fact_checker->risk_reviewer->assembler ; recommended_stack=CrewAI+AutoGen
+- crawler: import_analyzer->deploy_planner->runtime_operator->rollback_guard ; recommended_stack=TemporalPatterns+LangGraph
+
+[notes]
+- metadata captured directly from GitHub API at generation time.
+- final adoption should run shadow tests against current Celery/ingest and hybrid search baseline.

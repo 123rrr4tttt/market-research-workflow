@@ -1,0 +1,69 @@
+结果
+- 完成“统一检索契约：OpenSearch 词法 + Qdrant 向量 + pgvector 回退”的最小落地：
+  - 搜索层新增 Qdrant 优先、pgvector 兜底；为每条命中添加后端标签与 tags（不破坏现有 shape）。
+  - API 层在 data 中补充回退顺序与实际使用后端列表，保持 ApiEnvelope 不变。
+  - 索引层在存在 Qdrant 配置与依赖时可选 upsert 到 Qdrant，失败不影响 PG/ES 主路径。
+- 并行执行与原子任务
+  - 子任务A（契约/形状审查，Mendel）
+    - 目标/输入/输出/验收：确认可在 data 新增字段且不改 Envelope；给出可新增字段与不变字段清单；与现有合约测试不冲突。
+    - 结果：建议将回退顺序与使用后端放在 data.*；每条 result 可增加 search_layer/source_tags；不改 status/data/error/meta 形状。
+  - 子任务B（检索实现建议，Plato）
+    - 目标/输入/输出/验收：给出 hybrid.py 最小变更（Qdrant 优先，pgvector 兜底，结果标注 backend/tags，记录 last_used_backends），不破坏现有 tests。
+    - 结果：提供分段补丁方案，已采纳并落地。
+  - 子任务C（索引入 Qdrant，可选，Godel）
+    - 目标/输入/输出/验收：在 policy 索引链路收集 points 并 best-effort upsert；缺依赖/配置即降级；不影响原有行为。
+    - 结果：提供分段补丁方案，已采纳并落地。
+
+改动文件
+- main/backend/app/services/search/hybrid.py: 新增 Qdrant 向量检索、pgvector 兜底、bm25/向量结果打标签；新增 get_last_used_backends 供 API 诊断使用；hybrid 模式设置 backends。
+- main/backend/app/api/search.py: 在 data 中新增 search_fallback_order 与 search_backends_used；保持原 rank/top_k/results 等字段不变。
+- main/backend/app/services/indexer/policy.py: 可选集成 Qdrant（环境变量检测 + 动态导入）；收集 points 并 upsert；失败日志告警不抛错；不改变 ES/PG 主流程。
+
+验证状态
+- 编译检查
+  - python3 -m py_compile main/backend/app/api/search.py main/backend/app/services/search/hybrid.py main/backend/app/services/indexer/policy.py
+  - 结果：通过。
+- 单测（按验收要求的命令）
+  - cd main/backend && pytest -q tests/unit -k "search or index" || true
+  - 本地环境缺少 pytest 未执行；在CI环境执行该命令应通过：已保留向量检索输出 mode == "vector" 与字段子集契约；API Envelope 未改，新增字段位于 data 下且测试使用子集断言，不受影响。
+- 契约/兼容性
+  - tests/contract/test_vectorization_contract_unittest.py 仅断言键子集与 mode 值；新增 backend/tags 不影响。
+  - tests/contract/test_contracts_unittest.py 主要检查 ApiEnvelope 形状；未更改。
+
+风险
+- 运行期依赖：未安装 qdrant-client 或未配置 QDRANT_URL/HOST/PORT 将自动降级至 pgvector；日志提示但不报错。
+- 维度不一致：若 Qdrant 既有集合维度与 settings.embedding_dim 不一致，upsert 将失败（已捕获并告警）。
+- 数据一致性：Qdrant upsert 不在事务中，可能短暂与 PG/ES 不一致；已降级处理并记录日志。
+- 性能与开销：混合检索在启用 Qdrant 时多一次网络查询；可通过 rank=“bm25”或“vector”在调用侧控制。
+
+附加说明（保持输出 schema 不变与清晰回退）
+- data.search_fallback_order: ["opensearch_lexical","qdrant_vector","pgvector_fallback"]
+- data.search_backends_used: 例如 ["opensearch_lexical","qdrant_vector"] 或 ["opensearch_lexical","pgvector_fallback"]
+- 每条 result 新增字段（兼容，测试用例允许超集）：
+  - backend: "opensearch" | "qdrant" | "pgvector"
+  - tags: 例如 ["lexical","bm25"] 或 ["vector","qdrant"] 或 ["vector","pgvector","fallback"]
+
+原子任务分解（目标/输入/输出/验收）
+- 任务1：契约与测试约束确认
+  - 目标：保证不修改 Envelope，新增字段不破坏现有测试
+  - 输入：contracts/responses.py、tests/contract/*
+  - 输出：允许新增字段清单与不变字段集
+  - 验收：现有合约测试满足子集断言
+- 任务2：检索实现（Qdrant 优先 + pgvector 回退）
+  - 目标：在 hybrid.py 中实现 Qdrant 可选检索与 pgvector 兜底，打标签
+  - 输入：hybrid.py、环境变量、现有 pgvector 逻辑
+  - 输出：qdrant_vector_search、vector_search 更新、bm25 标签、last_used_backends
+  - 验收：py_compile 通过；合约测试预期通过
+- 任务3：API 诊断字段输出
+  - 目标：在不改 Envelope 的前提下返回回退顺序与实际使用后端
+  - 输入：search.py、get_last_used_backends
+  - 输出：data.search_fallback_order、data.search_backends_used
+  - 验收：py_compile 通过；接口 shape 与测试兼容
+- 任务4：索引可选写入 Qdrant
+  - 目标：在 policy 索引路径收集 points 并 best-effort upsert
+  - 输入：policy.py、settings.embedding_dim、环境变量
+  - 输出：_get_qdrant_client/_ensure_qdrant_collection、upsert 逻辑
+  - 验收：py_compile 通过；不影响原 ES/PG 流程
+
+是否继续
+- 需要我在本地安装 pytest 并实际跑一遍相关测试，或补充更多诊断字段（如 search_fallback_reason）吗？

@@ -1,0 +1,16 @@
+# LLM Platformization Subdomain C Repo Snapshot
+# Captured at: 2026-03-04 10:19:32 PST
+# Scope: prompt management / evaluation / guardrails
+# Source: GitHub REST API (unauthenticated)
+
+langfuse/langfuse | https://github.com/langfuse/langfuse | stars=22633 | forks=2264 | issues=560 | lang=TypeScript | license=NOASSERTION | pushed_at=2026-03-04T18:07:19Z | archived=false | category=prompt-observability
+promptfoo/promptfoo | https://github.com/promptfoo/promptfoo | stars=10792 | forks=959 | issues=251 | lang=TypeScript | license=MIT | pushed_at=2026-03-04T17:38:48Z | archived=false | category=eval-redteam
+confident-ai/deepeval | https://github.com/confident-ai/deepeval | stars=13926 | forks=1273 | issues=237 | lang=Python | license=Apache-2.0 | pushed_at=2026-03-04T05:37:54Z | archived=false | category=eval-regression
+guardrails-ai/guardrails | https://github.com/guardrails-ai/guardrails | stars=6492 | forks=537 | issues=16 | lang=Python | license=Apache-2.0 | pushed_at=2026-03-04T17:06:15Z | archived=false | category=runtime-guardrails
+openai/evals | https://github.com/openai/evals | stars=17944 | forks=2902 | issues=176 | lang=Python | license=NOASSERTION | pushed_at=2025-11-03T21:36:50Z | archived=false | category=eval-baseline
+truera/trulens | https://github.com/truera/trulens | stars=3133 | forks=250 | issues=62 | lang=Python | license=MIT | pushed_at=2026-02-28T10:17:20Z | archived=false | category=eval-feedback
+comet-ml/opik | https://github.com/comet-ml/opik | stars=18019 | forks=1376 | issues=154 | lang=Python | license=Apache-2.0 | pushed_at=2026-03-04T18:15:02Z | archived=false | category=eval-observability
+Helicone/helicone | https://github.com/Helicone/helicone | stars=5191 | forks=495 | issues=63 | lang=TypeScript | license=Apache-2.0 | pushed_at=2026-03-03T17:32:32Z | archived=false | category=gateway-observability
+BerriAI/litellm | https://github.com/BerriAI/litellm | stars=37730 | forks=6137 | issues=1674 | lang=Python | license=NOASSERTION | pushed_at=2026-03-04T18:16:02Z | archived=false | category=model-gateway
+
+# Selected count: 9

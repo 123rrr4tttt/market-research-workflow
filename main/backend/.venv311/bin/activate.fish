@@ -79,7 +79,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV '/Users/wangyiliang/market-research-workflow/main/backend/.venv311'
+set -gx VIRTUAL_ENV '/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/.venv311'
 
 # https://github.com/fish-shell/fish-shell/issues/436 altered PATH handling
 if test (string sub -s 1 -l 1 $FISH_VERSION) -lt 3

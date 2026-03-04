@@ -1,0 +1,73 @@
+结果
+- 完成 C3 目标的最小加固，不改变对现有运行的默认行为（默认 warn）。已并行拆分为3个原子任务并用子代理协作完成。
+- 新增显式、可审计的租户上下文与 schema 绑定校验；暴露关键多租户配置到 /config 并支持 .env 映射更新。
+- 通过 py_compile 合法性检查；目标测试命令因环境无 pytest，已按验收脚本的 “|| true” 容错执行。
+
+原子任务 1：上下文强制与审计（context.py）
+- 目标: 当缺失 project_key 或传入非法值时，可显式审计；在 require 模式下阻断。
+- 输入: settings.project_key_enforcement_mode（warn|require），传入的 project_key。
+- 输出:
+  - current_project_key(): 无上下文时在 warn 记录警告并回退到 settings.active_project_key；在 require 抛出 RuntimeError。
+  - bind_project(): 拒绝将 project_key 绑定为 'public'；warn 记日志并回退，require 直接抛出 ValueError。
+  - 结构化 warning 日志，便于审计。
+- 验收: python3 -m py_compile main/backend/app/services/projects/context.py 通过。
+
+原子任务 2：schema 白名单与前缀安全（context.py）
+- 目标: 防止通过 bind_schema 绑定到非租户/非 public 的非法 schema；规避 schema 前缀注入。
+- 输入: schema_name，settings.project_schema_prefix。
+- 输出:
+  - 新增 _is_allowed_schema() 白名单：仅允许 "public" 或 settings.project_schema_prefix + 规范化 project_key。
+  - bind_schema(): 非法 schema 在 warn 记录日志并归一化到安全 schema；在 require 抛出 ValueError。
+  - project_schema_name(): 对前缀与全名做 PG 标识符安全化与长度截断（<=63），异常路径记录 warning。
+- 验收: python3 -m py_compile main/backend/app/services/projects/context.py 通过。
+
+原子任务 3：配置边界可观测与 .env 兼容（config API 与 settings_manager）
+- 目标: 前端/运维可直接观察并在线变更关键多租户参数；保持向后兼容。
+- 输入: Settings 字段与 .env。
+- 输出:
+  - GET /config 现在包含 active_project_key、project_key_enforcement_mode、project_schema_prefix（安全子集）。
+  - /config/env 支持新键：ACTIVE_PROJECT_KEY、PROJECT_KEY_ENFORCEMENT_MODE、PROJECT_SCHEMA_PREFIX，并在 GET /config/env 可见。
+  - EnvSettingsPayload 支持上述三个可选字段以允许 POST /config/env 更新。
+- 验收: python3 -m py_compile main/backend/app/api/config.py main/backend/app/services/settings_manager.py 通过。
+
+改动文件
+- main/backend/app/services/projects/context.py: 增强 current_project_key/bind_project/bind_schema；新增安全化与白名单逻辑；增加日志。
+- main/backend/app/api/config.py: GET /config 返回多租户关键只读字段；EnvSettingsPayload 支持新 env 键。
+- main/backend/app/services/settings_manager.py: ENV_KEY_MAPPING 新增 ACTIVE_PROJECT_KEY、PROJECT_KEY_ENFORCEMENT_MODE、PROJECT_SCHEMA_PREFIX。
+
+验证状态
+- 合同/语法检查:
+  - python3 -m py_compile main/backend/app/services/projects/context.py main/backend/app/api/projects.py main/backend/app/api/config.py main/backend/app/services/settings_manager.py 全部通过。
+- 目标单测命令（环境无 pytest，按验收容错执行）:
+  - cd main/backend && pytest -q tests/unit -k "project_key or config or context" || true 已执行（pytest: command not found，非阻断）。
+- 运行期观测建议:
+  - 启动后检查日志中关于 “project key missing; fallback …” 与 “disallowed schema binding …” 的告警是否出现异常频率。
+  - 验证 /api/v1/config 数据段包含 active_project_key、project_key_enforcement_mode、project_schema_prefix。
+  - 验证 /api/v1/config/env 出现新键，尝试 POST /api/v1/config/env 更新 ACTIVE_PROJECT_KEY 后 /config 可见变更。
+
+风险
+- 行为变化（默认 warn 下为审计增强，低风险）：
+  - 缺失 project_key 将产生 warning 日志；不存在功能性阻断。
+  - 传入 bind_schema 的非常规 schema 将被记录告警并归一化；极少数依赖“任意 schema”的隐蔽路径如存在会被纠正为安全 schema。
+- 破坏性风险（仅在 require 下）：
+  - 未携带 project_key 的调用会被 RuntimeError 阻断；绑定 'public' 的 bind_project 会被 ValueError 阻断。建议灰度从 warn → require 。
+- 运维风险：
+  - 运行时更新 PROJECT_SCHEMA_PREFIX 可能与既有 schema 命名不一致，建议仅在初始化/非生产环境调整。
+  - 代码库中仍存在直接 SET search_path 的路径（不经过 bind_schema），本次未改动。这些路径需要后续排查以形成完整防线。
+
+附加说明（如何启用严格模式）
+- 在 .env 或 /config/env 设置：PROJECT_KEY_ENFORCEMENT_MODE=require
+- 可选：ACTIVE_PROJECT_KEY=demo_proj（默认租户回退值）
+- 校验命令（本地）：
+  - curl -s http://localhost:8000/api/v1/config
+  - curl -s http://localhost:8000/api/v1/config/env
+  - curl -X POST http://localhost:8000/api/v1/config/env -H 'Content-Type: application/json' -d '{"PROJECT_KEY_ENFORCEMENT_MODE":"require"}'
+  - curl -X POST http://localhost:8000/api/v1/config/reload
+
+子代理并行执行摘要
+- explorer（Locke）— 提出 context.py 三点最小改动：缺省上下文解析策略、bind_project 防御与日志、bind_schema 标识符白名单。
+- reviewer（Tesla）— 评估 bind_schema 白名单对现有调用影响极小（当前几乎都为 "public"），建议按 warn→require 分阶段；提示仍需排查直接 SET search_path 的路径。
+- worker（Bacon）— 给出 /config 返回字段与 ENV_KEY_MAPPING 的具体增量，以及可选的 EnvSettingsPayload 更新与验证步骤。
+
+如需，我可以继续：
+- 扫描并收敛直接 SET search_path 的代码路径，补充最小包裹或约束（保持 Frozen v1）。

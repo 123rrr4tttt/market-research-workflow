@@ -1,0 +1,59 @@
+**结果**
+- 原子任务清单（并行执行）
+  - C01 合同与响应包冻结
+    - 目标：审阅并冻结 `contracts/api.py|responses.py|errors.py` 外部接口，避免破坏性变更
+    - 输入：上述三个文件
+    - 输出：冻结结论与是否需要修正
+    - 验收：`py_compile` 通过；无字段变更；无 TODO/TBD
+  - C02 配置接口与 ENV 映射对齐
+    - 目标：对齐 `/config/env` 的 `EnvSettingsPayload` 与 `ENV_KEY_MAPPING`，消除“不支持的字段”
+    - 输入：`main/backend/app/api/config.py` 与 `main/backend/app/services/settings_manager.py`
+    - 输出：差异清单与最小修复
+    - 验收：两侧键集一致；`py_compile` 通过；无 TODO/TBD
+  - C03 项目上下文冻结
+    - 目标：确认 `services/projects/context.py` 与 `settings.config` 的默认与规范化逻辑符合 Frozen v1
+    - 输入：`context.py` 与 `settings/config.py`
+    - 输出：一致性结论
+    - 验收：`py_compile` 通过；函数签名不变；无 TODO/TBD
+
+- 并行子代理执行结果
+  - C01（Poincare/explorer）：审阅通过，建议不改动；当前契约可视为已冻结。
+  - C02（Aquinas/reviewer）：发现键集合不一致并给出最小修复方案；已按方案实施并验证键集合完全一致。
+  - C03（Zeno/explorer）：上下文与默认行为满足 Frozen v1，建议不改动。
+
+- 实施改动（仅 C02）
+  - 增补 `ENV_KEY_MAPPING`：`LEGISCAN_API_KEY`、`NEWS_API_KEY`
+  - 增补 `EnvSettingsPayload`：`SERPER_API_KEY` 与 Twitter 凭据 5 项（`TWITTER_*`）
+
+**改动文件**
+- main/backend/app/services/settings_manager.py:1
+  - 在 `ENV_KEY_MAPPING` 中新增键映射：
+    - `LEGISCAN_API_KEY -> legiscan_api_key`
+    - `NEWS_API_KEY -> news_api_key`
+- main/backend/app/api/config.py:1
+  - `EnvSettingsPayload` 新增字段：
+    - `SERPER_API_KEY`
+    - `TWITTER_API_KEY`
+    - `TWITTER_API_SECRET`
+    - `TWITTER_BEARER_TOKEN`
+    - `TWITTER_ACCESS_TOKEN`
+    - `TWITTER_ACCESS_TOKEN_SECRET`
+
+**验证状态**
+- 原子任务最小检查
+  - C01：静态审阅完成；随最终验收一并编译校验
+  - C02：已执行集合一致性校验脚本（equal=True）
+  - C03：静态审阅完成；随最终验收一并编译校验
+- 项目验收命令
+  - 编译校验：通过
+    - `python3 -m py_compile main/backend/app/contracts/*.py main/backend/app/settings/config.py main/backend/app/services/settings_manager.py main/backend/app/services/projects/context.py main/backend/app/api/config.py`
+  - TODO/TBD 扫描：无命中
+    - `rg -n "TODO|TBD" main/backend/app/contracts main/backend/app/settings/config.py main/backend/app/services/settings_manager.py main/backend/app/services/projects/context.py main/backend/app/api/config.py`
+- 合同/接口不变性
+  - C01：未改动字段或签名
+  - C03：未改动字段或签名
+  - C02：仅新增可选字段与映射，向后兼容
+
+**风险**
+- 低：`/config/env` 允许更新的字段集合扩大（新增可选项）。行为与既有字段一致，仅写入 `.env` 与进程环境，不影响运行路径。
+- 建议：若前端有字段白名单校验，同步更新以避免误报。

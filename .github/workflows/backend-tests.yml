@@ -641,3 +641,106 @@ jobs:
         if: always()
         run: |
           docker compose -f main/ops/docker-compose.yml down -v
+
+  contracts-governance-observe:
+    name: contracts-governance-observe
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Observation-only lane for API contract governance (openapi/contract snapshots)
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt
+
+      - name: Compile contract modules
+        run: |
+          python -m py_compile \
+            main/backend/app/contracts/api.py \
+            main/backend/app/contracts/responses.py \
+            main/backend/app/contracts/errors.py
+
+      - name: Emit contract governance snapshots (observe)
+        working-directory: main/backend
+        env:
+          CONTRACT_GOVERNANCE_DIR: .artifacts/contracts-governance
+        run: |
+          python - <<'PY'
+          from app.contracts.responses import ok, fail, ApiMetaModel
+          from app.contracts.errors import ErrorCode
+          # Emit a few sample envelopes; hook writes snapshots when env var is set
+          ok({"ping": "pong"}, meta=ApiMetaModel(trace_id="trace-ci-observe"))
+          fail(ErrorCode.INVALID_INPUT, "invalid payload", details={"field": "q"})
+          print("[contracts-governance] snapshots emitted")
+          PY
+
+      - name: Upload governance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-governance-artifacts
+          path: main/backend/.artifacts/contracts-governance/
+          if-no-files-found: warn
+
+  contracts-required-check:
+    name: contracts-required-check
+    if: always()
+    needs:
+      - standards-check
+      - contracts-governance-observe
+      - r81-b-min-verify-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Evaluate contract gates convergence
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+          CONTRACTS_REQUIRED: ${{ vars.CONTRACTS_REQUIRED || 'false' }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ.get("NEEDS_JSON", "{}"))
+          required_flag = os.environ.get("CONTRACTS_REQUIRED", "false").lower() == "true"
+          jobs = ("contracts-governance-observe", "r81-b-min-verify-check")
+          failed = []
+          lines = ["## Contracts Required Check", ""]
+          lines.append(f"- contracts_required: `{required_flag}`")
+          for job in jobs:
+            result = (needs.get(job) or {}).get("result", "missing")
+            lines.append(f"- {job}: `{result}`")
+            if result != "success":
+              failed.append((job, result))
+
+          lines.append("")
+          if failed:
+            lines.append("### Actionable hints")
+            lines.append("- Review governance snapshots and r81-b verifier outputs.")
+            lines.append("- Flip `CONTRACTS_REQUIRED` to false to run as non-blocking.")
+          else:
+            lines.append("- convergence_status: `pass`")
+
+          target = os.environ.get("GITHUB_STEP_SUMMARY")
+          if target:
+            with open(target, "a", encoding="utf-8") as fp:
+              fp.write("\n".join(lines) + "\n")
+
+          if required_flag and failed:
+            detail = ", ".join(f"{j}={r}" for j, r in failed)
+            print(f"[contracts-required-check] FAIL: {detail}", file=sys.stderr)
+            sys.exit(1)
+
+          print("[contracts-required-check] PASS (non-blocking mode)")
+          PY

@@ -1,0 +1,48 @@
+# LLM Embedded Platformization - Subdomain B (Gateway/Proxy)
+# Snapshot date: 2026-03-04 (US/Pacific)
+# Scope: route / quota / circuit-breaker / model-switch / cost-observability
+
+[1] BerriAI/litellm
+- Repo: https://github.com/BerriAI/litellm
+- Fit: Unified LLM proxy + model router + budget/rate-limit + fallback + spend tracking
+- Capability: route=Y quota=Y circuit=Y switch=Y cost_obs=Y
+
+[2] Kong/kong (AI Gateway)
+- Repo: https://github.com/Kong/kong
+- Docs: https://docs.konghq.com/hub/kong-inc/ai-proxy-advanced/
+- Fit: Enterprise edge gateway with AI-specific routing/guardrails; combine with Kong rate-limit and upstream health checks
+- Capability: route=Y quota=Y circuit=Partial switch=Y cost_obs=Partial
+
+[3] Portkey-AI/gateway
+- Repo: https://github.com/Portkey-AI/gateway
+- Docs: https://portkey.ai/docs/guides/use-cases/ai-gateway
+- Fit: Open-source AI gateway for condition/latency/cost routing, virtual keys/budgets, automatic fallback
+- Capability: route=Y quota=Y circuit=Y switch=Y cost_obs=Y
+
+[4] Helicone/helicone
+- Repo: https://github.com/Helicone/helicone
+- Fit: OSS observability platform with AI gateway mode, strong token/cost/latency/error analytics
+- Capability: route=Partial quota=Partial circuit=Partial switch=Y cost_obs=Y
+
+[5] Helicone/ai-gateway
+- Repo: https://github.com/Helicone/ai-gateway
+- Fit: Lightweight open AI gateway, can pair with Helicone core observability
+- Capability: route=Y quota=Partial circuit=Partial switch=Y cost_obs=Y
+
+[6] songquanpeng/one-api
+- Repo: https://github.com/songquanpeng/one-api
+- Fit: OpenRouter self-host alternative; channel/model mapping, token quota/groups, retry, usage accounting
+- Capability: route=Y quota=Y circuit=Y switch=Y cost_obs=Y
+
+[7] envoyproxy/envoy (ext_proc)
+- Repo: https://github.com/envoyproxy/envoy
+- Docs(ext_proc): https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/ext_proc_filter
+- Docs(circuit breakers): https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking
+- Docs(local rate limit): https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/local_rate_limit_filter
+- Fit: High-performance data plane; external processor can enforce custom LLM policies
+- Capability: route=Y quota=Y circuit=Y switch=Partial cost_obs=Custom
+
+---
+Project mapping hint (existing mechanism):
+- Current project has llm service config + project llm mapping, but no first-class gateway policy objects.
+- Suggested policy keys to add (config layer): gateway.route / gateway.fallback_chain / gateway.quota / gateway.circuit / gateway.cost_tags.

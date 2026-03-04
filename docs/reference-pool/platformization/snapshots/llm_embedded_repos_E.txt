@@ -1,0 +1,114 @@
+# LLM Embedded Platformization Repo Snapshot (Domain E)
+# Captured: 2026-03-04 (US/Pacific)
+# Scope: LlamaIndex / Haystack / Qdrant / Weaviate / Milvus / pgvector patterns
+
+[selection_rules]
+- must_be_open_source: true
+- focus_pattern: rag_or_vector_retrieval_or_embedding_ecosystem
+- integration_value_for_project: search/indexer/resource_pool IO mapping
+- activity_signal: updated recently on GitHub (snapshot day)
+
+[repos]
+1) run-llama/llama_index
+- url: https://github.com/run-llama/llama_index
+- stars: 47363
+- updated_at: 2026-03-04T17:02:17Z
+- license: MIT
+- role: RAG orchestration framework
+- extracted_pattern: connector-based ingest + retriever/query-engine modularization
+- io_fit:
+  - resource_pool -> data connectors / document loaders
+  - indexer -> index build + embedding pipeline abstraction
+  - search -> retriever + reranker orchestration entry
+
+2) deepset-ai/haystack
+- url: https://github.com/deepset-ai/haystack
+- stars: 24389
+- updated_at: 2026-03-04T15:30:28Z
+- license: Apache-2.0
+- role: production RAG pipeline framework
+- extracted_pattern: explicit pipeline DAG + component contracts (retriever/ranker/router)
+- io_fit:
+  - resource_pool -> pipeline source nodes
+  - indexer -> indexing pipelines with deterministic stages
+  - search -> online query DAG with traceable component outputs
+
+3) qdrant/qdrant
+- url: https://github.com/qdrant/qdrant
+- stars: 29274
+- updated_at: 2026-03-04T17:26:18Z
+- license: Apache-2.0
+- role: vector database engine
+- extracted_pattern: payload filtering + dense/sparse hybrid search in one engine
+- io_fit:
+  - indexer -> collection upsert with metadata payload
+  - search -> ANN + filter query adapter
+
+4) qdrant/qdrant-client
+- url: https://github.com/qdrant/qdrant-client
+- stars: 1233
+- updated_at: 2026-03-04T14:53:33Z
+- license: Apache-2.0
+- role: Python client/SDK for qdrant
+- extracted_pattern: batch upsert + local mode + embedding workflow helper
+- io_fit:
+  - indexer -> python-side write path implementation
+  - search -> query request construction and response parsing
+
+5) weaviate/weaviate
+- url: https://github.com/weaviate/weaviate
+- stars: 15725
+- updated_at: 2026-03-04T16:41:34Z
+- license: BSD-3-Clause
+- role: vector database with object schema
+- extracted_pattern: object+vector unified model, hybrid retrieval, multi-tenant features
+- io_fit:
+  - indexer -> class/collection schema-aware ingest
+  - search -> semantic + keyword hybrid adapter
+
+6) weaviate/weaviate-python-client
+- url: https://github.com/weaviate/weaviate-python-client
+- stars: 213
+- updated_at: 2026-03-04T14:48:21Z
+- license: BSD-3-Clause
+- role: Python client for weaviate
+- extracted_pattern: collection/query builder APIs and filter expression composition
+- io_fit:
+  - indexer -> collection insert/update implementation
+  - search -> filtered vector query mapping
+
+7) milvus-io/milvus
+- url: https://github.com/milvus-io/milvus
+- stars: 43127
+- updated_at: 2026-03-04T17:52:28Z
+- license: Apache-2.0
+- role: distributed vector database
+- extracted_pattern: multiple ANN index types (HNSW/IVF/FLAT) + scale-out architecture
+- io_fit:
+  - indexer -> high-throughput bulk insert/index build
+  - search -> large-scale low-latency vector search backend option
+
+8) pgvector/pgvector
+- url: https://github.com/pgvector/pgvector
+- stars: 20078
+- updated_at: 2026-03-04T16:29:59Z
+- license: not_declared_in_repo_api
+- role: postgres vector extension
+- extracted_pattern: vector + relational join + ACID in one datastore
+- io_fit:
+  - resource_pool/indexer -> transactional write with business metadata
+  - search -> current baseline vector reader with low migration cost
+
+[recommended_adapter_order]
+1. pgvector (baseline, lowest migration risk)
+2. qdrant (hybrid and filter capability uplift)
+3. milvus (scale-out path for high-volume tenants)
+4. weaviate (object schema + hybrid retrieval use cases)
+
+[minimal_contracts]
+- indexer_write_contract:
+  {chunk_id, project_key, text, dense_vector, sparse_vector?, metadata}
+- search_read_contract:
+  {query, project_key, filters, top_k, rank_strategy}
+- response_contract:
+  {status, data.results[], meta.engine, meta.trace_id}
