@@ -10,6 +10,7 @@ from ..services.job_logger import complete_job, fail_job, start_job
 from ..services.llm_report_generator import (
     build_structured_report,
     evaluate_report_gate,
+    export_quality_gate_metrics,
     render_markdown,
 )
 from ..settings.config import settings
@@ -64,7 +65,7 @@ def _resolve_gate_mode(raw_mode: str | None) -> tuple[str, str, bool]:
 
 
 @router.post("/generate")
-def generate_llm_report(payload: GenerateReportRequest, request: Request | None = None) -> dict[str, Any]:
+def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dict[str, Any]:
     if not settings.llm_report_enabled:
         raise HTTPException(status_code=503, detail="llm report is temporarily disabled by config")
 
@@ -95,16 +96,10 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request | None 
         )
         markdown = render_markdown(report)
         gate = evaluate_report_gate(report)
+        quality_gate_metrics = export_quality_gate_metrics(gate)
 
         gate_result = {
-            "decision": gate["decision"],
-            "gate_version": gate["gate_version"],
-            "pass": gate["pass"],
-            "hard_failure_count": len(gate["hard_failures"]),
-            "soft_failure_count": len(gate["soft_failures"]),
-            "citation_coverage": gate["citation_coverage"],
-            "evidence_coverage": gate["evidence_coverage"],
-            "source_count": gate["source_count"],
+            **quality_gate_metrics,
             "trace_id": trace_id,
             "gate_mode": gate_mode,
             "gate_mode_raw": gate_mode_raw,
@@ -131,6 +126,7 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request | None 
                 detail={
                     "message": "quality gate blocked report generation in strict mode",
                     "quality_gate": gate,
+                    "quality_gate_metrics": quality_gate_metrics,
                     "observability": {
                         "job_id": job_id,
                         "trace_id": trace_id,
@@ -146,6 +142,7 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request | None 
                 "report": report.to_dict(),
                 "markdown": markdown,
                 "quality_gate": gate,
+                "quality_gate_metrics": quality_gate_metrics,
                 "observability": {
                     "job_id": job_id,
                     "trace_id": trace_id,

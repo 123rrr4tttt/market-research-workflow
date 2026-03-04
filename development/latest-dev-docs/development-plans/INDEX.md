@@ -29,6 +29,7 @@
 - [CURRENT_DEV/2026-03-03-version-B-atomic-plan/04_B-line-round4-streamplus-plan-and-atomic-task-table.md](./CURRENT_DEV/2026-03-03-version-B-atomic-plan/04_B-line-round4-streamplus-plan-and-atomic-task-table.md)
 - [CURRENT_DEV/2026-03-03-version-B-atomic-plan/05_B-line-round4-streamplus-closure.md](./CURRENT_DEV/2026-03-03-version-B-atomic-plan/05_B-line-round4-streamplus-closure.md)
 - [CURRENT_DEV/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md](./CURRENT_DEV/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md)
+- [CURRENT_DEV/2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md](./CURRENT_DEV/2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md)
 
 ## Archives
 - `A_ARCHITECTURE/`

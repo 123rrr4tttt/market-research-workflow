@@ -96,6 +96,35 @@ jobs:
         run: |
           pytest -m "unit and not external and not flaky" -q
 
+  llm-report-must-check:
+    name: llm-report-must-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run llm report must-check minset
+        run: |
+          python main/backend/scripts/check_llm_report_must_minset.py
+
   integration-check:
     name: integration-check
     needs: standards-check

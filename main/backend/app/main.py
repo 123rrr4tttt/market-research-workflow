@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, REGISTRY, generate_latest, CONTENT_TYPE_LATEST
 
 from .contracts.errors import ErrorCode, map_exception_to_error, map_status_to_error_code
 from .contracts.responses import ApiMetaModel, fail, ok
@@ -200,12 +200,26 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 register_startup_hooks(app)
 
-REQUEST_COUNT = Counter(
+def _get_or_create_counter(name: str, documentation: str, labelnames: list[str]) -> Counter:
+    existing = REGISTRY._names_to_collectors.get(name)
+    if existing is not None:
+        return existing  # type: ignore[return-value]
+    return Counter(name, documentation, labelnames)
+
+
+def _get_or_create_histogram(name: str, documentation: str, labelnames: list[str]) -> Histogram:
+    existing = REGISTRY._names_to_collectors.get(name)
+    if existing is not None:
+        return existing  # type: ignore[return-value]
+    return Histogram(name, documentation, labelnames)
+
+
+REQUEST_COUNT = _get_or_create_counter(
     "market_api_requests_total",
     "API request count",
     ["method", "endpoint", "status"],
 )
-REQUEST_LATENCY = Histogram(
+REQUEST_LATENCY = _get_or_create_histogram(
     "market_api_request_latency_seconds",
     "API request latency",
     ["endpoint"],

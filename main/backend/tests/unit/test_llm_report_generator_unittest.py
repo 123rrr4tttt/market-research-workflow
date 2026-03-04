@@ -9,6 +9,7 @@ from app.services.llm_report_generator import (
     StructuredReport,
     build_structured_report,
     evaluate_report_gate,
+    export_quality_gate_metrics,
     render_markdown,
     validate_report_structure,
 )
@@ -184,6 +185,30 @@ class LlmReportGeneratorUnitTest(unittest.TestCase):
         self.assertIn("gate_finished_at", gate["observability"])
         self.assertIn("gate_duration_ms", gate["observability"])
         self.assertIn("citation_coverage_min_hard", gate["rules"])
+
+    def test_quality_gate_metrics_export_contains_stable_keys(self):
+        report = build_structured_report(
+            topic="北美在线彩票增长",
+            sources=[
+                {
+                    "id": "S1",
+                    "title": "Source 1",
+                    "url": "https://example.com/1",
+                    "publisher": "Example",
+                    "evidence": "evidence",
+                }
+            ],
+        )
+        gate = evaluate_report_gate(report)
+        metrics = export_quality_gate_metrics(gate)
+        self.assertIn("decision", metrics)
+        self.assertIn("pass", metrics)
+        self.assertIn("citation_coverage", metrics)
+        self.assertIn("source_count", metrics)
+        self.assertIn("unique_citations", metrics)
+        self.assertIn("rules_count", metrics)
+        self.assertIn("gate_duration_ms", metrics)
+        self.assertEqual(metrics["source_count"], 1)
 
     def test_quality_gate_must_minset_baseline(self):
         pass_report = build_structured_report(

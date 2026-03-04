@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     ingest_low_value_path_keywords: str = Field(default="/search,/login,/home,/showcase,/topics/,/stargazers,/sitemap")
     ingest_shell_signatures: str = Field(default="window.wiz_progre,var bodyCacheable = true,self.__next_f,errorContainer")
     ingest_min_semantic_len: int = Field(default=500)
+    llm_report_enabled: bool = Field(default=True)
+    llm_report_gate_mode: str = Field(default="strict")  # off | warn | strict
 
     # LLM providers
     llm_provider: str = Field(default="openai")  # openai | azure | ollama

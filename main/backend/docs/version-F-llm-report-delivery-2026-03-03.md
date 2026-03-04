@@ -10,11 +10,31 @@
   - `build_structured_report(...)`
   - `render_markdown(...)`
   - `evaluate_report_gate(...)`
+  - `validate_report_structure(...)`
 - `app/api/llm_report.py`
   - `POST /api/v1/llm-report/generate`
 - `app/api/__init__.py`
   - 注册 `llm_report_router`
 - `tests/unit/test_llm_report_generator_unittest.py`
+- `tests/unit/test_llm_report_api_unittest.py`
+- `scripts/check_llm_report_must_minset.py`
+
+### 本轮增强（R4-F 补齐）
+
+- 报告质量门禁：
+  - 增加 `placeholder_content_detected` 硬失败判定，防止模板占位文本误通过。
+  - 增加 `source_id_duplicate` 结构校验错误，强化引用可追溯唯一性。
+- 模板稳定性：
+  - 增加 `template_version` 并写入 JSON 与 Markdown。
+  - 对 `section_titles` 做去空白、去重、长度截断与数量限制。
+- 异常处理：
+  - `start_job(...)` 纳入 `try`，避免前置异常造成作业状态丢失。
+  - 未预期异常统一返回 `500 + LLM_REPORT_INTERNAL_ERROR`。
+- 可观测性：
+  - 增加 `gate_started_at/gate_finished_at/gate_duration_ms`。
+  - 作业完成结果持久化完整 gate 关键字段（hard/soft/missing/rules/observability）。
+- 安全：
+  - Markdown 渲染对用户可控字段进行转义，降低注入/格式污染风险。
 
 ## 运行示例
 
@@ -47,10 +67,33 @@
 
 ```bash
 cd main/backend
-PYTHONPATH=. python3 -m unittest tests.unit.test_llm_report_generator_unittest
+PYTHONPATH=. python3 -m pytest -q tests/unit/test_llm_report_generator_unittest.py tests/unit/test_llm_report_api_unittest.py
+PYTHONPATH=. python3 scripts/check_llm_report_must_minset.py
+PYTHONPATH=. python3 -m compileall -q app/services/llm_report_generator.py app/api/llm_report.py app/api/__init__.py app/settings/config.py
+PYTHONPATH=. python3 - <<'PY'
+from app.services.llm_report_generator import build_structured_report, evaluate_report_gate, render_markdown
+
+report = build_structured_report(
+    topic='北美在线彩票增长',
+    sources=[{'id':'S1','title':'Example','url':'https://example.com','publisher':'Org','evidence':'evidence'}],
+)
+gate = evaluate_report_gate(report)
+md = render_markdown(report)
+print(report.topic, len(report.sections), len(report.sources), report.template_version)
+print(gate['decision'], gate['pass'], gate['hard_failures'], gate['soft_failures'])
+print(md.splitlines()[0])
+PY
 ```
 
-结果：`Ran 2 tests ... OK`
+结果：
+
+- `pytest`: `11 passed, 9 skipped`
+- `check_llm_report_must_minset.py`: `11 passed, 9 skipped`
+- `compileall`: 退出码 `0`
+- dry-run 输出：
+  - `北美在线彩票增长 5 1 v1.1`
+  - `pass True [] []`
+  - `# 研究报告：北美在线彩票增长`
 
 ## 差异化声明（去重清单 + 独特点）
 

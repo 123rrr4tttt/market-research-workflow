@@ -47,8 +47,11 @@ class LlmReportApiUnitTest(unittest.TestCase):
             self.assertEqual(resp["status"], "ok")
             self.assertIn("report", resp["data"])
             self.assertIn("quality_gate", resp["data"])
+            self.assertIn("quality_gate_metrics", resp["data"])
             self.assertIn("decision", resp["data"]["quality_gate"])
+            self.assertIn("decision", resp["data"]["quality_gate_metrics"])
             self.assertEqual(resp["data"]["observability"]["job_id"], 101)
+            self.assertIn("quality_gate_metrics", mocked_complete.call_args.kwargs["result"])
             mocked_start.assert_called_once()
             mocked_complete.assert_called_once()
 

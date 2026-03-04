@@ -34,6 +34,8 @@
   - [09_B-line-round7-closure.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md)
 - `development-plans/CURRENT_DEV` 新增 Version B Round3 R3（Must 最小实现 + 验证）：
   - [10_B-line-round3-r3-must-minimal-implementation.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md)
+- `development-plans/CURRENT_DEV` 新增 SA3-R3-F（llm-report 数据AI线）最小制度化落地记录：
+  - [01_sa3-r3-f-implementation-2026-03-04.md](./development-plans/CURRENT_DEV/2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md)
 - `development-plans/CURRENT_DEV` 新增“先平台化、后向量化”改造：
   - [01_platformization-first-vectorization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/01_platformization-first-vectorization-2026-03-03.md)
   - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/02_atomic-zero-regression-tasklist-2026-03-03.md)

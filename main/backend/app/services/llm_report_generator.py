@@ -361,6 +361,27 @@ def evaluate_report_gate(report: StructuredReport) -> dict[str, Any]:
     }
 
 
+def export_quality_gate_metrics(gate: dict[str, Any]) -> dict[str, Any]:
+    hard_failures = gate.get("hard_failures") if isinstance(gate.get("hard_failures"), list) else []
+    soft_failures = gate.get("soft_failures") if isinstance(gate.get("soft_failures"), list) else []
+    unique_citations = gate.get("unique_citations") if isinstance(gate.get("unique_citations"), list) else []
+    rules = gate.get("rules") if isinstance(gate.get("rules"), dict) else {}
+    observability = gate.get("observability") if isinstance(gate.get("observability"), dict) else {}
+    return {
+        "gate_version": str(gate.get("gate_version") or ""),
+        "decision": str(gate.get("decision") or "fail"),
+        "pass": bool(gate.get("pass", False)),
+        "hard_failure_count": len(hard_failures),
+        "soft_failure_count": len(soft_failures),
+        "citation_coverage": float(gate.get("citation_coverage") or 0.0),
+        "evidence_coverage": float(gate.get("evidence_coverage") or 0.0),
+        "source_count": int(gate.get("source_count") or 0),
+        "unique_citations": len(unique_citations),
+        "rules_count": len(rules),
+        "gate_duration_ms": float(observability.get("gate_duration_ms") or 0.0),
+    }
+
+
 def _escape_markdown_text(value: str) -> str:
     escaped = str(value or "")
     escaped = escaped.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
