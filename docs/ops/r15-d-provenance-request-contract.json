@@ -1,0 +1,19 @@
+{
+  "name": "rag_provenance_request_strict",
+  "version": "v2",
+  "owner": "ai-safety@market-research-workflow",
+  "request_schema": {
+    "source_id": "string",
+    "retrieval_time": "datetime",
+    "chunk_hash": "sha256",
+    "model_version": "string",
+    "citation_id": "string"
+  },
+  "validation_rules": [
+    "source_id required and non-empty",
+    "retrieval_time must be UTC ISO8601",
+    "chunk_hash must be stable digest string",
+    "model_version required and non-empty",
+    "citation_id required and non-empty"
+  ]
+}
