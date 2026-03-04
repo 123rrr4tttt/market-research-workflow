@@ -22,6 +22,7 @@ from .resource_pool import router as resource_pool_router
 from .crawler import router as crawler_router
 from .keywords import router as keywords_router
 from .llm_report import router as llm_report_router
+from .workflow_graph import router as workflow_graph_router
 
 
 router = APIRouter()
@@ -47,3 +48,4 @@ router.include_router(resource_pool_router)
 router.include_router(crawler_router)
 router.include_router(keywords_router)
 router.include_router(llm_report_router)
+router.include_router(workflow_graph_router)

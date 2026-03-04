@@ -60,7 +60,7 @@ checks = [
 ]
 
 failed = []
-for method, path, payload in checks:
+def request(method, path, payload=None):
     req = urllib.request.Request(base_url + path, method=method)
     data = None
     if payload is not None:
@@ -69,13 +69,70 @@ for method, path, payload in checks:
     try:
         with urllib.request.urlopen(req, data=data, timeout=60) as resp:
             code = resp.status
+            body = json.loads(resp.read().decode('utf-8') or '{}')
     except urllib.error.HTTPError as e:
         code = e.code
+        try:
+            body = json.loads(e.read().decode('utf-8') or '{}')
+        except Exception:  # noqa: BLE001
+            body = {}
     except Exception as e:  # noqa: BLE001
         code = f'ERR:{e.__class__.__name__}'
+        body = {}
+    return code, body
+
+for method, path, payload in checks:
+    code, _ = request(method, path, payload)
     print(f'{method} {path} -> {code}')
     if code != 200:
         failed.append((method, path, code))
+
+# workflow-graph compile -> run -> status -> events -> compiled
+workflow_dsl = {
+    "dsl": {
+        "version": "1.0",
+        "options": {"strict": True},
+        "nodes": [
+            {"node_id": "n1", "node_type": "vector_search", "params": {"query": "market research", "top_k": 2}},
+            {"node_id": "n2", "node_type": "llm_call", "params": {"prompt": "summarize the search result"}},
+            {"node_id": "n3", "node_type": "join"},
+        ],
+        "edges": [
+            {"from": "n1", "to": "n2"},
+            {"from": "n2", "to": "n3"},
+        ],
+    }
+}
+code, body = request("POST", "/api/v1/workflow-graph/compile", workflow_dsl)
+print(f'POST /api/v1/workflow-graph/compile -> {code}')
+if code != 200:
+    failed.append(("POST", "/api/v1/workflow-graph/compile", code))
+graph_id = (((body or {}).get("data") or {}).get("graph_id") or "")
+if not graph_id:
+    failed.append(("POST", "/api/v1/workflow-graph/compile", "missing_graph_id"))
+
+code, body = request("POST", "/api/v1/workflow-graph/run", {"graph_id": graph_id, "input": {"query": "market research"}})
+print(f'POST /api/v1/workflow-graph/run -> {code}')
+if code != 200:
+    failed.append(("POST", "/api/v1/workflow-graph/run", code))
+run_id = (((body or {}).get("data") or {}).get("run_id") or "")
+if not run_id:
+    failed.append(("POST", "/api/v1/workflow-graph/run", "missing_run_id"))
+
+code, _ = request("GET", f"/api/v1/workflow-graph/runs/{run_id}")
+print(f'GET /api/v1/workflow-graph/runs/{{run_id}} -> {code}')
+if code != 200:
+    failed.append(("GET", "/api/v1/workflow-graph/runs/{run_id}", code))
+
+code, _ = request("GET", f"/api/v1/workflow-graph/runs/{run_id}/events")
+print(f'GET /api/v1/workflow-graph/runs/{{run_id}}/events -> {code}')
+if code != 200:
+    failed.append(("GET", "/api/v1/workflow-graph/runs/{run_id}/events", code))
+
+code, _ = request("GET", f"/api/v1/workflow-graph/compiled/{graph_id}")
+print(f'GET /api/v1/workflow-graph/compiled/{{graph_id}} -> {code}')
+if code != 200:
+    failed.append(("GET", "/api/v1/workflow-graph/compiled/{graph_id}", code))
 
 if failed:
     print('SMOKE_FAIL', failed)
