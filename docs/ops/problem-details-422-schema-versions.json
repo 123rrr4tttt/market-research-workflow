@@ -1,0 +1,46 @@
+{
+  "line": "C",
+  "round": "R13",
+  "task_id": "C-R13-M1",
+  "spec": "RFC9457 Problem Details",
+  "status_code": 422,
+  "version_field": "error.details.problem_details.schema_version",
+  "v_current": {
+    "schema_version": "v1",
+    "state": "active",
+    "required_fields": [
+      "type",
+      "title",
+      "status",
+      "detail",
+      "instance"
+    ]
+  },
+  "v_next": {
+    "schema_version": "v2",
+    "state": "candidate",
+    "required_fields": [
+      "type",
+      "title",
+      "status",
+      "detail",
+      "instance",
+      "trace_id",
+      "error_code"
+    ]
+  },
+  "coexistence_strategy": {
+    "mode": "v_current_v_next_coexist",
+    "emit_default": "v1",
+    "accept_versions": [
+      "v1",
+      "v2"
+    ],
+    "read_compatibility": "dual-read",
+    "write_compatibility": "emit-v_current",
+    "warning_gate_only": true,
+    "blocking_enabled": false
+  },
+  "migration_window_days": 14,
+  "failure_isolation": "C-line only"
+}

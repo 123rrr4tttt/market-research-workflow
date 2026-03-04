@@ -1,0 +1,32 @@
+{
+  "line": "C",
+  "round": "R15",
+  "task_id": "C-R15-M2",
+  "spec": "OTel metric schema drift stability-level check",
+  "generated_at": "2026-03-04T11:24:00Z",
+  "services": [
+    {
+      "name": "api-gateway",
+      "tier": "core",
+      "metrics": [
+        {"name": "http.server.duration", "schema": "1.26.0", "stability_level": "stable"},
+        {"name": "http.server.active_requests", "schema": "1.26.0", "stability_level": "stable"}
+      ]
+    },
+    {
+      "name": "retrieval-service",
+      "tier": "core",
+      "metrics": [
+        {"name": "rag.retrieval.hit_rate", "schema": "0.4.0", "stability_level": "experimental"},
+        {"name": "rag.retrieval.latency", "schema": "1.26.0", "stability_level": "stable"}
+      ]
+    },
+    {
+      "name": "reporting-worker",
+      "tier": "non_core",
+      "metrics": [
+        {"name": "llm.report.render.duration", "schema": "0.3.0", "stability_level": "experimental"}
+      ]
+    }
+  ]
+}
