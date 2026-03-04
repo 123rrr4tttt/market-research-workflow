@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -20,6 +21,10 @@ else:
 
 
 class LlmReportApiUnitTest(unittest.TestCase):
+    @staticmethod
+    def _mock_request(trace_id: str = "unit-test-trace"):
+        return SimpleNamespace(headers={"X-Request-Id": trace_id})
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -43,7 +48,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
             patch.object(llm_report_api, "start_job", return_value=101) as mocked_start,
             patch.object(llm_report_api, "complete_job") as mocked_complete,
         ):
-            resp = llm_report_api.generate_llm_report(payload)
+            resp = llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(resp["status"], "ok")
             self.assertIn("report", resp["data"])
             self.assertIn("quality_gate", resp["data"])
@@ -51,7 +56,8 @@ class LlmReportApiUnitTest(unittest.TestCase):
             self.assertIn("decision", resp["data"]["quality_gate"])
             self.assertIn("decision", resp["data"]["quality_gate_metrics"])
             self.assertEqual(resp["data"]["observability"]["job_id"], 101)
-            self.assertIn("quality_gate_metrics", mocked_complete.call_args.kwargs["result"])
+            self.assertIn("decision", mocked_complete.call_args.kwargs["result"])
+            self.assertIn("gate_version", mocked_complete.call_args.kwargs["result"])
             mocked_start.assert_called_once()
             mocked_complete.assert_called_once()
 
@@ -81,7 +87,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "strict"),
         ):
             with self.assertRaises(HTTPException) as exc_ctx:
-                llm_report_api.generate_llm_report(payload)
+                llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(exc_ctx.exception.status_code, 422)
             self.assertIn("quality gate blocked report generation", str(exc_ctx.exception.detail))
             self.assertEqual(exc_ctx.exception.detail["observability"]["job_id"], 102)
@@ -95,7 +101,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
             patch.object(llm_report_api.settings, "llm_report_enabled", True),
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "warn"),
         ):
-            resp = llm_report_api.generate_llm_report(payload)
+            resp = llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(resp["status"], "ok")
             self.assertEqual(resp["data"]["quality_gate"]["decision"], "fail")
             mocked_complete.assert_called_once()
@@ -109,7 +115,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "invalid-mode"),
         ):
             with self.assertRaises(HTTPException) as exc_ctx:
-                llm_report_api.generate_llm_report(payload)
+                llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(exc_ctx.exception.status_code, 422)
             self.assertEqual(mocked_complete.call_args.kwargs["result"]["gate_mode"], "strict")
             self.assertTrue(mocked_complete.call_args.kwargs["result"]["gate_mode_fallback"])
@@ -122,7 +128,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
             patch.object(llm_report_api.settings, "llm_report_enabled", True),
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "off"),
         ):
-            resp = llm_report_api.generate_llm_report(payload)
+            resp = llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(resp["status"], "ok")
             self.assertEqual(resp["data"]["quality_gate"]["decision"], "fail")
             self.assertEqual(resp["data"]["observability"]["gate_mode"], "off")
@@ -142,7 +148,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "warn"),
         ):
             with self.assertRaises(HTTPException) as exc_ctx:
-                llm_report_api.generate_llm_report(payload)
+                llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(exc_ctx.exception.status_code, 500)
             self.assertIn("LLM_REPORT_INTERNAL_ERROR", str(exc_ctx.exception.detail))
             mocked_fail.assert_called_once()
@@ -154,7 +160,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
             patch.object(llm_report_api, "start_job") as mocked_start,
         ):
             with self.assertRaises(HTTPException) as exc_ctx:
-                llm_report_api.generate_llm_report(payload)
+                llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(exc_ctx.exception.status_code, 503)
             mocked_start.assert_not_called()
 
