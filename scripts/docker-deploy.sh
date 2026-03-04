@@ -8,7 +8,7 @@ OPS_DIR="${ROOT_DIR}/main/ops"
 
 usage() {
   cat <<USAGE
-Usage: $(basename "$0") {start|stop|restart|status|logs|health|preflight} [extra args...]
+Usage: $(basename "$0") {start|stop|restart|status|logs|health|preflight|checkpoint|rollback|rollback-list} [extra args...]
 
 Commands:
   start      Start docker services (preferred, extra args are forwarded)
@@ -18,6 +18,9 @@ Commands:
   logs       Tail backend logs (extra args override default backend target)
   health     Check API health endpoints
   preflight  Validate commands/files/docker/ports (supports: --profile <name>)
+  checkpoint Create rollback checkpoint (compose/env + git head)
+  rollback   Roll back to checkpoint (default latest, supports --no-restart)
+  rollback-list  List rollback checkpoints
 USAGE
 }
 
@@ -191,6 +194,18 @@ case "$cmd" in
     ;;
   preflight)
     preflight "$@"
+    ;;
+  checkpoint)
+    require_ops_dir
+    exec "${OPS_DIR}/rollback.sh" snapshot "$@"
+    ;;
+  rollback)
+    require_ops_dir
+    exec "${OPS_DIR}/rollback.sh" rollback "$@"
+    ;;
+  rollback-list)
+    require_ops_dir
+    exec "${OPS_DIR}/rollback.sh" list "$@"
     ;;
   *)
     usage

@@ -24,6 +24,8 @@
 
 ## 最新补充
 
+- `development-plans/CURRENT_DEV` 新增 R3 Must 最小实现与验证：
+  - [01_r3-must-minimal-implementation-and-verification-2026-03-04.md](./development-plans/CURRENT_DEV/2026-03-04-r3-must-minimal-implementation/01_r3-must-minimal-implementation-and-verification-2026-03-04.md)
 - `development-plans/CURRENT_DEV` 新增“先平台化、后向量化”改造：
   - [01_platformization-first-vectorization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/01_platformization-first-vectorization-2026-03-03.md)
   - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/02_atomic-zero-regression-tasklist-2026-03-03.md)

@@ -1,6 +1,6 @@
 # Development Plans Index
 
-更新时间：2026-03-03（PST）
+更新时间：2026-03-04（PST）
 范围：`development/latest-dev-docs/development-plans`
 
 ## Main Entry
@@ -25,6 +25,7 @@
 - [CURRENT_DEV/2026-03-03-platformization-first-vectorization/04_adjusted-graph-node-phase-b-plan-2026-03-03.md](./CURRENT_DEV/2026-03-03-platformization-first-vectorization/04_adjusted-graph-node-phase-b-plan-2026-03-03.md)
 - [CURRENT_DEV/2026-03-03-platformization-first-vectorization/05_graph-node-standardization-overall-completion-2026-03-03.md](./CURRENT_DEV/2026-03-03-platformization-first-vectorization/05_graph-node-standardization-overall-completion-2026-03-03.md)
 - [CURRENT_DEV/2026-03-03-platformization-first-vectorization/06_backend-db-standardization-vectorization-closure-2026-03-03.md](./CURRENT_DEV/2026-03-03-platformization-first-vectorization/06_backend-db-standardization-vectorization-closure-2026-03-03.md)
+- [CURRENT_DEV/2026-03-04-r3-must-minimal-implementation/01_r3-must-minimal-implementation-and-verification-2026-03-04.md](./CURRENT_DEV/2026-03-04-r3-must-minimal-implementation/01_r3-must-minimal-implementation-and-verification-2026-03-04.md)
 
 ## Archives
 - `A_ARCHITECTURE/`

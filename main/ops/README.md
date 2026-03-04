@@ -10,7 +10,7 @@
 - `./start-all.sh`
 - `./stop-all.sh`
 - `./restart.sh`
-- 仓库根目录 `./scripts/docker-deploy.sh start|stop|restart|status|logs|health|preflight`
+- 仓库根目录 `./scripts/docker-deploy.sh start|stop|restart|status|logs|health|preflight|checkpoint|rollback|rollback-list`
 
 `docker compose` / `docker-compose` 可用于排障与临时操作，但日常启动与停机建议走统一脚本入口。
 
@@ -42,6 +42,25 @@ cd "$PROJECT_DIR/ops"
 ```bash
 ./scripts/docker-deploy.sh preflight
 ./scripts/docker-deploy.sh preflight --profile scrapyd
+```
+
+发布前建议先创建回滚检查点：
+
+```bash
+./scripts/docker-deploy.sh checkpoint
+./scripts/docker-deploy.sh rollback-list
+```
+
+回滚到最新检查点（一键恢复 compose/env 并重启）：
+
+```bash
+./scripts/docker-deploy.sh rollback
+```
+
+回滚但暂不重启（用于人工确认）：
+
+```bash
+./scripts/docker-deploy.sh rollback --no-restart
 ```
 
 ### 停止所有服务
