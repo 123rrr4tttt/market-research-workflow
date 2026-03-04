@@ -6,6 +6,7 @@ Included:
 - implementation records (AB/CD/EF + interface consistency)
 - orchestration entry (`line-autodispatch-2026-03-04-scout-r41.md`)
 - reference pool batch (`2026-03-04-scout-r41`)
+- extracted version interface contract (`R41_INTERFACE_CONTRACT.md`)
 
 Source:
 - `/Users/wangyiliang/Desktop/openclaw`
