@@ -100,7 +100,14 @@ def main() -> int:
         return 2
 
     core_paths = [p.strip() for p in args.core_paths.split(",") if p.strip()]
-    core, other = accumulate(coverage_file, core_paths)
+    try:
+        core, other = accumulate(coverage_file, core_paths)
+    except ET.ParseError as exc:
+        print(
+            f"[coverage-thresholds] invalid coverage xml ({coverage_file}): {exc}",
+            file=sys.stderr,
+        )
+        return 2
 
     print("[coverage-thresholds] policy")
     print(f"  core paths      : {', '.join(core_paths)}")
