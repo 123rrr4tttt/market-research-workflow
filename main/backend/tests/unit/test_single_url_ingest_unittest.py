@@ -554,7 +554,40 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertEqual(result.get("filter_reason_code"), "static_asset_url")
         self.assertFalse(bool(result.get("keep_for_vectorization")))
         self.assertIn("light_filter_rejected:static_asset_url", list(result.get("degradation_flags") or []))
+        self.assertEqual(result.get("reason_code"), "static_asset_url")
+        self.assertEqual(result.get("reason_category"), "technical")
+        self.assertEqual((result.get("stage_context") or {}).get("run_id"), fake_job_id)
+        self.assertEqual((result.get("stage_context") or {}).get("reason_code"), "static_asset_url")
         self.assertEqual(complete_job.call_count, 1)
+
+    def test_ingest_single_url_pre_fetch_gate_exposes_stage_contract_fields(self):
+        fake_job_id = 990
+        fake_decision = GateDecision(
+            accepted=False,
+            blocked=True,
+            reason="url_policy_low_value_endpoint",
+            quality_score=0.0,
+            diagnostics={"matched_path_keyword": "/search"},
+        )
+        with patch.object(single_url_module, "start_job", return_value=fake_job_id), patch.object(
+            single_url_module, "complete_job"
+        ), patch.object(single_url_module, "url_policy_check", return_value=fake_decision), patch.object(
+            single_url_module, "fetch_html"
+        ) as fetch_html:
+            result = single_url_module.ingest_single_url(
+                url="https://example.com/search?q=robotics",
+                query_terms=["robotics"],
+                strict_mode=False,
+            )
+
+        self.assertEqual(result.get("status"), "degraded_success")
+        self.assertEqual(result.get("reason_code"), "domain_blocked")
+        self.assertEqual(result.get("reason_category"), "policy")
+        stage_context = result.get("stage_context") or {}
+        self.assertEqual(stage_context.get("run_id"), fake_job_id)
+        self.assertEqual(stage_context.get("reason_code"), "domain_blocked")
+        self.assertIn("url_gate_rejected:url_policy_low_value_endpoint", list(stage_context.get("degradation_flags") or []))
+        self.assertEqual(fetch_html.call_count, 0)
 
     def test_ingest_single_url_light_filter_disabled_allows_pipeline_to_continue(self):
         fake_job_id = 902
