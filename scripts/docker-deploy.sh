@@ -6,6 +6,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OPS_DIR="${ROOT_DIR}/main/ops"
 
+# Standard observability environment
+setup_observability_env() {
+  local repo_root
+  repo_root="${ROOT_DIR}"
+  : "${SERVICE_NAME:=$(basename "${repo_root}")}"
+  if [[ -z "${APP_VERSION:-}" ]]; then
+    if git -C "${repo_root}" rev-parse --git-dir >/dev/null 2>&1; then
+      APP_VERSION="$(git -C "${repo_root}" describe --tags --always --dirty 2>/dev/null || git -C "${repo_root}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    else
+      APP_VERSION="unknown"
+    fi
+  fi
+  : "${DEPLOY_COLOR:=blue}"
+  : "${ENV:=dev}"
+  export SERVICE_NAME APP_VERSION DEPLOY_COLOR ENV
+  echo "🔧 Observability env => SERVICE_NAME=${SERVICE_NAME} APP_VERSION=${APP_VERSION} DEPLOY_COLOR=${DEPLOY_COLOR} ENV=${ENV}"
+}
+
 usage() {
   cat <<USAGE
 Usage: $(basename "$0") {start|stop|restart|status|logs|health|preflight|checkpoint|rollback|rollback-list|rollback-drill} [extra args...]
@@ -220,6 +238,8 @@ fi
 
 cmd="$1"
 shift
+# Export and log observability env
+setup_observability_env
 case "$cmd" in
   start)
     require_ops_dir

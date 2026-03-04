@@ -4,6 +4,37 @@
 
 set -e
 
+# --- Standard observability env + optional rollout hooks ---
+# These are no-op by default and can be overridden by sourcing a hook file
+# pointed to by OPS_HOOK_FILE.
+
+# Default hooks (external file may override by redefining)
+pre_start() { :; }
+post_start() { :; }
+
+# Load external hooks if provided
+if [ -n "${OPS_HOOK_FILE:-}" ] && [ -f "${OPS_HOOK_FILE}" ]; then
+    # shellcheck disable=SC1090
+    . "${OPS_HOOK_FILE}"
+fi
+
+setup_observability_env() {
+    local repo_root
+    repo_root="$(cd "${SCRIPT_DIR}/../.." 2>/dev/null && pwd)"
+    : "${SERVICE_NAME:=$(basename "${repo_root}")}"
+    if [ -z "${APP_VERSION:-}" ]; then
+        if git -C "${repo_root}" rev-parse --git-dir >/dev/null 2>&1; then
+            APP_VERSION="$(git -C "${repo_root}" describe --tags --always --dirty 2>/dev/null || git -C "${repo_root}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+        else
+            APP_VERSION="unknown"
+        fi
+    fi
+    : "${DEPLOY_COLOR:=blue}"
+    : "${ENV:=dev}"
+    export SERVICE_NAME APP_VERSION DEPLOY_COLOR ENV
+    echo "🔧 Observability env => SERVICE_NAME=${SERVICE_NAME} APP_VERSION=${APP_VERSION} DEPLOY_COLOR=${DEPLOY_COLOR} ENV=${ENV}"
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -143,6 +174,9 @@ echo "  ✅ PostgreSQL, Elasticsearch, Redis, Backend API, Celery Worker"
 echo "  ℹ️ 可选服务: Scrapyd（需 --profile scrapyd）"
 echo ""
 
+# Export and log observability env for this run
+setup_observability_env
+
 # 检查 Docker 是否运行
 if ! docker info >/dev/null 2>&1; then
     echo "❌ Docker 未运行，正在尝试启动 Docker Desktop..."
@@ -203,6 +237,8 @@ fi
 # 启动主服务
 echo "📦 启动主服务..."
 echo "   包括: PostgreSQL, Elasticsearch, Redis, Backend API, Celery Worker"
+# Pre-start hook (may be overridden via OPS_HOOK_FILE)
+pre_start
 if [ ${#SERVICE_ARGS[@]} -gt 0 ]; then
     compose up -d "${SERVICE_ARGS[@]}"
 else
@@ -294,6 +330,9 @@ fi
 
 echo "✅ 所有服务启动完成！"
 echo ""
+# Post-start hook (may be overridden via OPS_HOOK_FILE)
+post_start
+
 echo "📝 常用命令:"
 echo "   查看所有日志: cd ops && docker compose logs -f"
 echo "   查看后端日志: cd ops && docker compose logs -f backend"

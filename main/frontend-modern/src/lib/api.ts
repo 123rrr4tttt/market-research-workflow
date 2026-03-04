@@ -397,12 +397,14 @@ export async function listSiteEntryGrouped() {
 }
 
 export async function listIngestHistory(limit = 8) {
-  const data = await get<IngestJobRow[] | { items?: IngestJobRow[] }>(`/api/v1/ingest/history?limit=${limit}`)
+  const query = new URLSearchParams({ limit: String(limit) })
+  const data = await get<IngestJobRow[] | { items?: IngestJobRow[] }>(`${endpoints.ingest.history}?${query.toString()}`)
   return asList<IngestJobRow>(data)
 }
 
 export async function listProcessTasks(limit = 50) {
-  return get<ProcessTaskList>(`/api/v1/process/list?limit=${limit}`)
+  const query = new URLSearchParams({ limit: String(limit) })
+  return get<ProcessTaskList>(`${endpoints.process.list}?${query.toString()}`)
 }
 
 export async function getProcessStats() {
@@ -410,19 +412,22 @@ export async function getProcessStats() {
 }
 
 export async function listProcessHistory(limit = 50) {
-  return get<ProcessHistoryResponse>(`/api/v1/process/history?limit=${limit}`)
+  const query = new URLSearchParams({ limit: String(limit) })
+  return get<ProcessHistoryResponse>(`${endpoints.process.history}?${query.toString()}`)
 }
 
 export async function getProcessTaskDetail(taskId: string) {
-  return get<ProcessTaskDetail>(`/api/v1/process/${encodeURIComponent(taskId)}`)
+  return get<ProcessTaskDetail>(endpoints.process.task(taskId))
 }
 
 export async function getProcessTaskLogs(taskId: string, tail = 200) {
-  return get<ProcessTaskLogsResponse>(`/api/v1/process/${encodeURIComponent(taskId)}/logs?tail=${tail}`)
+  const query = new URLSearchParams({ tail: String(tail) })
+  return get<ProcessTaskLogsResponse>(`${endpoints.process.logs(taskId)}?${query.toString()}`)
 }
 
 export async function cancelTask(taskId: string, terminate = false) {
-  return post(`/api/v1/process/${encodeURIComponent(taskId)}/cancel?terminate=${terminate ? 'true' : 'false'}`, null)
+  const query = new URLSearchParams({ terminate: terminate ? 'true' : 'false' })
+  return post(`${endpoints.process.cancel(taskId)}?${query.toString()}`, null)
 }
 
 export async function generateKeywords(payload: {

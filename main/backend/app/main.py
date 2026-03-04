@@ -21,13 +21,62 @@ from .services.projects import bind_project
 from .startup_hooks import register_startup_hooks
 from .web_ui_routes import register_ui_routes
 
-# Create FastAPI app
+############################
+# Logging configuration
+############################
+
+# Stable service metadata for observability
+_SERVICE_NAME = os.getenv("SERVICE_NAME", "market-intel-api")
+_SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0-rc.1")
+_DEPLOY_COLOR = os.getenv("DEPLOY_COLOR", os.getenv("COLOR", "blue"))
+
+class _StaticContextFilter(logging.Filter):
+    """Inject stable fields into all log records.
+
+    Ensures formatting never breaks even for third‑party loggers.
+    """
+
+    def __init__(self, service: str, env_value: str, version: str, deploy_color: str) -> None:
+        super().__init__()
+        self._service = service
+        self._env_value = env_value
+        self._version = version
+        self._deploy_color = deploy_color
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401
+        if not hasattr(record, "service"):
+            record.service = self._service
+        if not hasattr(record, "env"):
+            record.env = self._env_value
+        if not hasattr(record, "version"):
+            record.version = self._version
+        if not hasattr(record, "deploy_color"):
+            record.deploy_color = self._deploy_color
+        return True
+
+# Base configuration
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    format=(
+        "%(asctime)s %(levelname)s %(name)s "
+        "service=%(service)s env=%(env)s version=%(version)s deploy_color=%(deploy_color)s "
+        "%(message)s"
+    ),
 )
 
-app = FastAPI(title="Market Intel API", version="0.1.0-rc.1")
+# Add context filter on root so all child loggers inherit it
+from .settings.config import settings  # noqa: E402  (after basicConfig)
+logging.getLogger().addFilter(
+    _StaticContextFilter(
+        service=_SERVICE_NAME,
+        env_value=getattr(settings, "env", "dev"),
+        version=_SERVICE_VERSION,
+        deploy_color=_DEPLOY_COLOR,
+    )
+)
+
+# Create FastAPI app
+app = FastAPI(title="Market Intel API", version=_SERVICE_VERSION)
 
 # Cache active project for fallback routing
 _ACTIVE_PROJECT_CACHE_KEY: str | None = None
@@ -250,24 +299,25 @@ async def metrics_middleware(request: Request, call_next):
     REQUEST_LATENCY.labels(endpoint).observe(elapsed)
     if project_key_is_fallback:
         _REQUEST_LOGGER.warning(
-            "project_key_fallback_used path=%s resolved_project_key=%s request_id=%s",
+            "event=project_key_fallback http_target=%s project_key=%s request_id=%s",
             endpoint,
             project_key,
             request_id,
         )
     error_code = (response.headers.get("X-Error-Code") or "").strip() or "-"
+    duration_ms = int(round(elapsed * 1000))
+    http_target = endpoint  # path only to avoid leaking query secrets
+    # Standardized request log keys
     _REQUEST_LOGGER.info(
-        "request path=%s method=%s status=%s latency=%.4f request_id=%s project_key=%s project_key_source=%s error_code=%s",
-        endpoint,
-        request.method,
-        response.status_code,
-        elapsed,
+        "request request_id=%s project_key=%s http_method=%s http_target=%s http_status=%s duration_ms=%d error_code=%s",
         request_id,
         project_key,
-        project_key_source,
+        request.method,
+        http_target,
+        response.status_code,
+        duration_ms,
         error_code,
     )
-    return response
 
 
 @app.exception_handler(HTTPException)

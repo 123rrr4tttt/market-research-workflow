@@ -7,6 +7,32 @@ BACKUP_ROOT="${ROLLBACK_SNAPSHOT_DIR:-${SCRIPT_DIR}/.rollback_snapshots}"
 COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.yml"
 ENV_FILE="${SCRIPT_DIR}/../backend/.env"
 
+# --- Standard observability env + optional rollout hooks ---
+pre_rollback() { :; }
+post_rollback() { :; }
+
+if [[ -n "${OPS_HOOK_FILE:-}" && -f "${OPS_HOOK_FILE}" ]]; then
+  # shellcheck disable=SC1090
+  . "${OPS_HOOK_FILE}"
+fi
+
+setup_observability_env() {
+  local repo_root
+  repo_root="$(cd "${SCRIPT_DIR}/../.." 2>/dev/null && pwd)"
+  : "${SERVICE_NAME:=$(basename "${repo_root}")}"
+  if [[ -z "${APP_VERSION:-}" ]]; then
+    if git -C "${repo_root}" rev-parse --git-dir >/dev/null 2>&1; then
+      APP_VERSION="$(git -C "${repo_root}" describe --tags --always --dirty 2>/dev/null || git -C "${repo_root}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    else
+      APP_VERSION="unknown"
+    fi
+  fi
+  : "${DEPLOY_COLOR:=blue}"
+  : "${ENV:=dev}"
+  export SERVICE_NAME APP_VERSION DEPLOY_COLOR ENV
+  echo "🔧 Observability env => SERVICE_NAME=${SERVICE_NAME} APP_VERSION=${APP_VERSION} DEPLOY_COLOR=${DEPLOY_COLOR} ENV=${ENV}"
+}
+
 usage() {
   cat <<USAGE
 Usage: $(basename "$0") {snapshot|rollback|list} [snapshot_id] [--no-restart]
@@ -97,6 +123,9 @@ fi
 cmd="$1"
 shift
 
+# Export and log observability env
+setup_observability_env
+
 case "${cmd}" in
   snapshot)
     create_snapshot
@@ -120,9 +149,13 @@ case "${cmd}" in
       esac
     done
     if [[ "${no_restart}" == "true" ]]; then
+      pre_rollback
       rollback_snapshot "${snapshot_id}" "false"
+      post_rollback
     else
+      pre_rollback
       rollback_snapshot "${snapshot_id}" "true"
+      post_rollback
     fi
     ;;
   *)

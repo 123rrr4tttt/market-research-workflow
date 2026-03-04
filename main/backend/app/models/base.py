@@ -178,7 +178,7 @@ def run_with_session_retry(
                 result = operation(session)
                 session.commit()
                 if attempt > 1:
-                    logger.info("db transaction succeeded after retry: attempts=%s context=%s", attempt, context)
+                    logger.info("event=db_tx_succeeded after_retry=true attempts=%s context=%s", attempt, context)
                 return result
             except Exception as exc:  # noqa: BLE001
                 last_exc = exc
@@ -187,7 +187,7 @@ def run_with_session_retry(
                 should_retry = bool(error_details["retriable"] and attempt < attempts)
                 log_fn = logger.warning if should_retry else logger.error
                 log_fn(
-                    "db transaction failed: attempt=%s/%s retriable=%s type=%s sqlstate=%s context=%s",
+                    "event=db_tx_failed attempt=%s/%s retriable=%s exception_type=%s sqlstate=%s context=%s",
                     attempt,
                     attempts,
                     error_details["retriable"],
