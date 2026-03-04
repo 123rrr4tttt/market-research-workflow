@@ -1,0 +1,8 @@
+{
+  "branch": "main",
+  "required_checks": [
+    "backend-tests",
+    "r9_ef_required_check"
+  ],
+  "note": "R9 E/F next-batch hard gate baseline"
+}

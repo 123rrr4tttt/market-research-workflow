@@ -1,0 +1,8 @@
+{
+  "asset_id": "dataset.market_event_flow",
+  "owner": "data-platform@market-research-workflow",
+  "lineage_system": "datahub",
+  "lineage_ref": "urn:li:dataset:(urn:li:dataPlatform:postgres,market_event_flow,PROD)",
+  "upstreams": ["raw.social_events", "raw.news_events"],
+  "downstreams": ["analytics.dashboard_topic_trend", "ai.features.topic_rank"]
+}
