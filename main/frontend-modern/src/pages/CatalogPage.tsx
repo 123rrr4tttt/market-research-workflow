@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CopyPlus, Trash2 } from 'lucide-react'
 import { createProduct, createTopic, deleteProduct, deleteTopic, listProducts, listTopics } from '../lib/api'
+import { queryKeys } from '../lib/queryKeys'
 
 type CatalogPageProps = {
   projectKey: string
@@ -22,21 +23,21 @@ export default function CatalogPage({ projectKey, variant = 'catalog' }: Catalog
   const [productName, setProductName] = useState('')
   const [productCategory, setProductCategory] = useState('')
 
-  const topics = useQuery({ queryKey: ['topics', projectKey], queryFn: listTopics, enabled: Boolean(projectKey) })
-  const products = useQuery({ queryKey: ['products', projectKey], queryFn: listProducts, enabled: Boolean(projectKey) })
+  const topics = useQuery({ queryKey: queryKeys.catalog.topics(projectKey), queryFn: listTopics, enabled: Boolean(projectKey) })
+  const products = useQuery({ queryKey: queryKeys.catalog.products(projectKey), queryFn: listProducts, enabled: Boolean(projectKey) })
 
   const createTopicMutation = useMutation({
     mutationFn: () => createTopic({ topic_name: topicName.trim(), domains: [], languages: ['zh', 'en'], keywords_seed: splitTerms(topicKeywords), subreddits: [], enabled: true }),
     onSuccess: async () => {
       setTopicName('')
       setTopicKeywords('')
-      await queryClient.invalidateQueries({ queryKey: ['topics', projectKey] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.catalog.topics(projectKey) })
     },
   })
 
   const deleteTopicMutation = useMutation({
     mutationFn: (id: number) => deleteTopic(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['topics', projectKey] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.catalog.topics(projectKey) }),
   })
 
   const createProductMutation = useMutation({
@@ -44,13 +45,13 @@ export default function CatalogPage({ projectKey, variant = 'catalog' }: Catalog
     onSuccess: async () => {
       setProductName('')
       setProductCategory('')
-      await queryClient.invalidateQueries({ queryKey: ['products', projectKey] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.catalog.products(projectKey) })
     },
   })
 
   const deleteProductMutation = useMutation({
     mutationFn: (id: number) => deleteProduct(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', projectKey] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.catalog.products(projectKey) }),
   })
 
   return (

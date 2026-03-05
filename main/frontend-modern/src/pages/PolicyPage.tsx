@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Database, RefreshCw } from 'lucide-react'
 import { getPolicyDetail, getPolicyStats, listPolicies } from '../lib/api'
+import { queryKeys } from '../lib/queryKeys'
 
 export type PolicyPageProps = {
   projectKey: string
@@ -31,13 +32,13 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
   const [selectedPolicyId, setSelectedPolicyId] = useState<number | null>(null)
 
   const policyStats = useQuery({
-    queryKey: ['policy-stats', projectKey],
+    queryKey: queryKeys.policy.stats(projectKey),
     queryFn: getPolicyStats,
     enabled: Boolean(projectKey),
   })
 
   const policyList = useQuery({
-    queryKey: ['policy-list', projectKey, policyStateFilter, policyPage],
+    queryKey: queryKeys.policy.list(projectKey, policyStateFilter, policyPage),
     queryFn: () => listPolicies(policyStateFilter, policyPage, 12),
     enabled: Boolean(projectKey),
   })
@@ -50,7 +51,7 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
   }, [policyList.data, selectedPolicyId])
 
   const policyDetail = useQuery({
-    queryKey: ['policy-detail', projectKey, effectiveSelectedPolicyId],
+    queryKey: queryKeys.policy.detail(projectKey, effectiveSelectedPolicyId),
     queryFn: () => getPolicyDetail(Number(effectiveSelectedPolicyId)),
     enabled: Boolean(projectKey) && effectiveSelectedPolicyId != null,
   })
@@ -74,9 +75,9 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
 
   const refreshAll = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['policy-stats', projectKey] }),
-      queryClient.invalidateQueries({ queryKey: ['policy-list', projectKey] }),
-      queryClient.invalidateQueries({ queryKey: ['policy-detail', projectKey] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.policy.stats(projectKey) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.policy.listBase(projectKey) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.policy.detailBase(projectKey) }),
     ])
   }
 

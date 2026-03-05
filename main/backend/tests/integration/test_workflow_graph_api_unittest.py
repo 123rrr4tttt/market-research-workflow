@@ -65,6 +65,20 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["items"][0]["event"], "started")
+        self.assertEqual(body["data"]["contract_version"], "workflow_graph.v2")
+
+    def test_replay_run_success(self):
+        with patch(
+            "app.api.workflow_graph._invoke_replay_run",
+            return_value={"run_id": "r-1", "status": "succeeded", "node_statuses": {"n1": "succeeded"}},
+        ):
+            response = self.client.get("/api/v1/workflow-graph/runs/r-1/replay", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["data"]["run_id"], "r-1")
+        self.assertEqual(body["data"]["nodes"]["n1"], "succeeded")
 
     def test_get_compiled_success(self):
         with patch("app.api.workflow_graph._invoke_get_compiled", return_value={"graph_id": "g-1", "version": 1}):

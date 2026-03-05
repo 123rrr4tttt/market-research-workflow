@@ -40,3 +40,4 @@
 - `F_PLAN/`
 - `G_REVIEW/`（review 文档位置保持不变）
 - `CURRENT_DEV/`（当前开发任务分解）
+- [CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md](./CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md)

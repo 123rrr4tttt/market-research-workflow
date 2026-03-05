@@ -96,9 +96,9 @@ export function useIngestActions(projectKey: string) {
       }
 
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['source-items', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['site-entry-grouped', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: [...queryKeys.ingest.history(12), projectKey] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.items(projectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.siteEntryGrouped(projectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.ingest.historyByProject(projectKey, 12) }),
       ])
 
       return result

@@ -21,6 +21,20 @@ class _FailExecutor(BaseNodeExecutor):
         raise RuntimeError("boom")
 
 
+class _EchoVectorExecutor(BaseNodeExecutor):
+    node_type = "vector_search"
+
+    def execute(self, node, context):  # type: ignore[override]
+        return {"query": context.inputs.get("query"), "text": context.inputs.get("query")}
+
+
+class _EchoLlmExecutor(BaseNodeExecutor):
+    node_type = "llm_call"
+
+    def execute(self, node, context):  # type: ignore[override]
+        return {"text": context.inputs.get("prompt")}
+
+
 class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
     def test_store_keeps_runs_events_results(self):
         store = InMemoryRunStore()
@@ -100,6 +114,74 @@ class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
 
         self.assertTrue(result["degraded"])
         self.assertIn("[fallback-llm]", result["text"])
+
+    def test_runtime_resolves_expression_and_node_output_with_io_trace(self):
+        runtime = WorkflowGraphRuntime(executors=[_EchoVectorExecutor(), _EchoLlmExecutor()])
+        workflow = {
+            "workflow_id": "wf-expr",
+            "topo_order": ["n1", "n2"],
+            "nodes": {
+                "n1": {
+                    "id": "n1",
+                    "node_type": "vector_search",
+                    "params": {
+                        "input_vars": [
+                            {"name": "query", "source": "expression", "expr": "={{$input.query}}", "required": True},
+                        ],
+                    },
+                },
+                "n2": {
+                    "id": "n2",
+                    "node_type": "llm_call",
+                    "depends_on": ["n1"],
+                    "params": {
+                        "input_vars": [
+                            {
+                                "name": "prompt",
+                                "source": "node_output",
+                                "from_node": "n1",
+                                "from_key": "text",
+                                "required": True,
+                            }
+                        ],
+                    },
+                },
+            },
+        }
+
+        out = runtime.run(workflow, inputs={"query": "hello io"}, run_id="run-expr")
+
+        self.assertEqual(out["run"]["status"], "succeeded")
+        self.assertEqual(out["results"]["n1"]["query"], "hello io")
+        self.assertEqual(out["results"]["n2"]["text"], "hello io")
+        self.assertIn("io_trace", out["results"]["n1"])
+        self.assertIn("query", out["results"]["n1"]["io_trace"])
+        self.assertEqual(out["results"]["n1"]["io_trace"]["query"]["source"], "expression")
+        self.assertIn("data", out["results"]["n2"])
+        self.assertIn("meta", out["results"]["n2"])
+        self.assertIsNone(out["results"]["n2"]["error"])
+
+    def test_runtime_fails_when_prompt_template_missing_required_inputs(self):
+        runtime = WorkflowGraphRuntime()
+        workflow = {
+            "workflow_id": "wf-missing-prompt-var",
+            "topo_order": ["n1"],
+            "nodes": {
+                "n1": {
+                    "id": "n1",
+                    "node_type": "llm_call",
+                    "params": {
+                        "prompt_template": "Answer: {query} / {context}",
+                        "input_vars": [{"name": "query", "source": "input", "required": True}],
+                    },
+                },
+            },
+        }
+        out = runtime.run(workflow, inputs={"query": "x"}, run_id="run-missing-prompt-var")
+        self.assertEqual(out["run"]["status"], "failed")
+        fail_events = [item for item in out.get("events", []) if item.get("type") == "node.failed"]
+        self.assertTrue(fail_events)
+        self.assertIn("prompt_template_missing_inputs:context", str(fail_events[-1].get("payload", {}).get("error", "")))
 
 
 if __name__ == "__main__":

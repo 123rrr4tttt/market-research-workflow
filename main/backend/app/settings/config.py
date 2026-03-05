@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     ingest_min_semantic_len: int = Field(default=500)
     llm_report_enabled: bool = Field(default=True)
     llm_report_gate_mode: str = Field(default="strict")  # off | warn | strict
+    workflow_graph_db_store_enabled: bool = Field(default=True)
 
     # LLM providers
     # Allowed values now include: openai | azure | ollama | litellm | local

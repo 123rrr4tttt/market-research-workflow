@@ -155,9 +155,9 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     ingestEcom,
   } = useIngestActions(projectKey)
 
-  const sourceItems = useQuery({ queryKey: ['source-items', projectKey], queryFn: listSourceItems })
-  const handlerGrouped = useQuery({ queryKey: ['site-entry-grouped', projectKey], queryFn: listSiteEntryGrouped })
-  const history = useQuery({ queryKey: [...queryKeys.ingest.history(12), projectKey], queryFn: () => listIngestHistory(12) })
+  const sourceItems = useQuery({ queryKey: queryKeys.sourceLibrary.items(projectKey), queryFn: listSourceItems })
+  const handlerGrouped = useQuery({ queryKey: queryKeys.sourceLibrary.siteEntryGrouped(projectKey), queryFn: listSiteEntryGrouped })
+  const history = useQuery({ queryKey: queryKeys.ingest.historyByProject(projectKey, 12), queryFn: () => listIngestHistory(12) })
 
   const sourceItemList = useMemo(() => sourceItems.data || [], [sourceItems.data])
   const selectedSourceItem = useMemo(

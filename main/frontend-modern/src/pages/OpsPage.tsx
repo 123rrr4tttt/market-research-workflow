@@ -4,6 +4,7 @@ import { RefreshCw, Trash2 } from 'lucide-react'
 import GraphNodeCard from '../components/graph-kit/GraphNodeCard'
 import GraphBusinessCardSections from '../components/GraphBusinessCardSections'
 import GraphExtensionsSections from '../components/GraphExtensionsSections'
+import { queryKeys } from '../lib/queryKeys'
 import type { DocumentItem } from '../lib/types'
 import {
   bulkUpdateDocumentExtractedData,
@@ -204,10 +205,10 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const [extractMode, setExtractMode] = useState<'replace' | 'merge'>('merge')
   const [extractJsonText, setExtractJsonText] = useState('{}')
 
-  const adminStats = useQuery({ queryKey: ['admin-stats', projectKey], queryFn: getAdminStats, enabled: Boolean(projectKey) })
-  const searchHistory = useQuery({ queryKey: ['search-history', projectKey], queryFn: () => getSearchHistory(1, 30), enabled: Boolean(projectKey) })
+  const adminStats = useQuery({ queryKey: queryKeys.admin.stats(projectKey), queryFn: getAdminStats, enabled: Boolean(projectKey) })
+  const searchHistory = useQuery({ queryKey: queryKeys.admin.searchHistory(projectKey), queryFn: () => getSearchHistory(1, 30), enabled: Boolean(projectKey) })
   const adminDocuments = useQuery({
-    queryKey: ['admin-documents', projectKey, docPage, docTypeFilter, docStateFilter, docSearch],
+    queryKey: queryKeys.admin.documents(projectKey, docPage, docTypeFilter, docStateFilter, docSearch),
     queryFn: () =>
       listAdminDocuments({
         page: docPage,
@@ -219,7 +220,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
     enabled: Boolean(projectKey),
   })
   const activeDocDetail = useQuery({
-    queryKey: ['admin-document-detail', projectKey, activeDocCardId],
+    queryKey: queryKeys.admin.documentDetail(projectKey, activeDocCardId),
     queryFn: () => getAdminDocument(Number(activeDocCardId)),
     enabled: Boolean(projectKey && activeDocCardId),
   })
@@ -262,13 +263,13 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
       const taskId = typeof (result as { task_id?: unknown })?.task_id === 'string' ? String((result as { task_id?: string }).task_id) : ''
       setStatusText(taskId ? `${name} 已提交，任务 ID: ${taskId}` : `${name} 完成`)
       if (options?.refreshStats !== false) {
-        await queryClient.invalidateQueries({ queryKey: ['admin-stats', projectKey] })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats(projectKey) })
       }
       if (options?.refreshSearchHistory !== false) {
-        await queryClient.invalidateQueries({ queryKey: ['search-history', projectKey] })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.admin.searchHistory(projectKey) })
       }
       if (options?.refreshDocuments !== false) {
-        await queryClient.invalidateQueries({ queryKey: ['admin-documents', projectKey] })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.admin.documentsBase(projectKey) })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : '未知错误'
@@ -366,7 +367,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             <RefreshCw size={14} />{activeAction === '图谱导出' ? '执行中...' : '图谱导出'}
           </button>
           <button disabled={pending} onClick={() => runAction('聚合库同步', () => syncAggregator(true))}><RefreshCw size={14} />{activeAction === '聚合库同步' ? '执行中...' : '同步 Aggregator'}</button>
-          <button onClick={() => { queryClient.invalidateQueries({ queryKey: ['admin-stats', projectKey] }); queryClient.invalidateQueries({ queryKey: ['search-history', projectKey] }); }}><RefreshCw size={14} />刷新</button>
+          <button onClick={() => { queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats(projectKey) }); queryClient.invalidateQueries({ queryKey: queryKeys.admin.searchHistory(projectKey) }); }}><RefreshCw size={14} />刷新</button>
         </div>
         <p className="status-line">{statusText}</p>
         {!!errorText && <p className="status-line">{errorText}</p>}
@@ -376,7 +377,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         <div className="panel-header">
           <h2>文档治理</h2>
           <div className="inline-actions">
-            <button onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-documents', projectKey] })} disabled={adminDocuments.isFetching}>
+            <button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.admin.documentsBase(projectKey) })} disabled={adminDocuments.isFetching}>
               <RefreshCw size={14} />
               {adminDocuments.isFetching ? '刷新中...' : '刷新文档'}
             </button>
@@ -565,7 +566,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               <button
                 type="button"
                 onClick={() => {
-                  void queryClient.invalidateQueries({ queryKey: ['admin-document-detail', projectKey, activeDocCardId] })
+                  void queryClient.invalidateQueries({ queryKey: queryKeys.admin.documentDetail(projectKey, activeDocCardId) })
                 }}
                 title="刷新"
               >

@@ -18,6 +18,7 @@ import {
   upsertSourceLibraryItem,
   upsertSiteEntry,
 } from '../lib/api'
+import { queryKeys } from '../lib/queryKeys'
 import type {
   ResourcePoolRecommendationItem,
   ResourcePoolRecommendationResponse,
@@ -132,25 +133,25 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
   }, [domainFilter, sourceFilter, entryTypeFilter])
 
   const sourceItems = useQuery({
-    queryKey: ['source-items', projectKey, sourceScope],
+    queryKey: queryKeys.sourceLibrary.items(projectKey, sourceScope),
     queryFn: () => listSourceLibraryItemsWithScope(sourceScope),
     enabled: Boolean(projectKey),
   })
 
   const sourceItemsGrouped = useQuery({
-    queryKey: ['source-items-grouped', projectKey, sourceScope],
+    queryKey: queryKeys.sourceLibrary.itemsGrouped(projectKey, sourceScope),
     queryFn: () => listSourceLibraryItemsGrouped(sourceScope),
     enabled: Boolean(projectKey),
   })
 
   const sourceChannels = useQuery({
-    queryKey: ['source-channels', projectKey, sourceScope],
+    queryKey: queryKeys.sourceLibrary.channels(projectKey, sourceScope),
     queryFn: () => listSourceLibraryChannels(sourceScope),
     enabled: Boolean(projectKey),
   })
 
   const resourceUrls = useQuery({
-    queryKey: ['resource-urls', projectKey, domainFilter, sourceFilter, resourceUrlPage],
+    queryKey: queryKeys.resource.urls(projectKey, domainFilter, sourceFilter, resourceUrlPage),
     queryFn: () =>
       listResourcePoolUrlsWithFilters({
         page: resourceUrlPage,
@@ -162,7 +163,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
   })
 
   const siteEntries = useQuery({
-    queryKey: ['site-entries', projectKey, domainFilter, entryTypeFilter, resourceSitePage],
+    queryKey: queryKeys.resource.siteEntries(projectKey, domainFilter, entryTypeFilter, resourceSitePage),
     queryFn: () =>
       listSiteEntriesWithFilters({
         page: resourceSitePage,
@@ -185,7 +186,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     onSuccess: async () => {
       setNewSiteUrl('')
       setActionMessage('新增入口成功')
-      await queryClient.invalidateQueries({ queryKey: ['site-entries', projectKey] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.resource.siteEntriesBase(projectKey) })
     },
     onError: (error) => {
       setActionMessage(`新增入口失败: ${error instanceof Error ? error.message : '未知错误'}`)
@@ -219,10 +220,10 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
       setActionMessage(details ? `${name} 完成: ${details}` : `${name} 执行完成`)
 
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['resource-urls', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['site-entries', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['source-items', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['source-items-grouped', projectKey] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.resource.urlsBase(projectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.resource.siteEntriesBase(projectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.itemsBase(projectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.itemsGroupedBase(projectKey) }),
       ])
     } catch (error) {
       const message = error instanceof Error ? error.message : '未知错误'
@@ -385,7 +386,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
         }
       }
       setActionMessage(`绑定完成: inserted/updated=${success} | errors=${failed}`)
-      await queryClient.invalidateQueries({ queryKey: ['site-entries', projectKey] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.resource.siteEntriesBase(projectKey) })
     } catch (error) {
       setActionError(`一键绑定失败: ${error instanceof Error ? error.message : '未知错误'}`)
     } finally {
@@ -435,11 +436,11 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
           <div className="inline-actions">
             <button
               onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ['resource-urls', projectKey] })
-                queryClient.invalidateQueries({ queryKey: ['site-entries', projectKey] })
-                queryClient.invalidateQueries({ queryKey: ['source-items', projectKey] })
-                queryClient.invalidateQueries({ queryKey: ['source-items-grouped', projectKey] })
-                queryClient.invalidateQueries({ queryKey: ['source-channels', projectKey] })
+                queryClient.invalidateQueries({ queryKey: queryKeys.resource.urlsBase(projectKey) })
+                queryClient.invalidateQueries({ queryKey: queryKeys.resource.siteEntriesBase(projectKey) })
+                queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.itemsBase(projectKey) })
+                queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.itemsGroupedBase(projectKey) })
+                queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.channelsBase(projectKey) })
               }}
             >
               <RefreshCw size={14} />刷新列表
@@ -507,9 +508,9 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             </label>
             <button
               onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ['source-items', projectKey] })
-                queryClient.invalidateQueries({ queryKey: ['source-items-grouped', projectKey] })
-                queryClient.invalidateQueries({ queryKey: ['source-channels', projectKey] })
+                queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.itemsBase(projectKey) })
+                queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.itemsGroupedBase(projectKey) })
+                queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.channelsBase(projectKey) })
               }}
             >
               <RefreshCw size={14} />刷新 items

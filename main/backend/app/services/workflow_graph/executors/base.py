@@ -11,6 +11,7 @@ class NodeExecutionContext:
     node_id: str
     workflow: dict[str, Any]
     inputs: dict[str, Any] = field(default_factory=dict)
+    input_trace: dict[str, Any] = field(default_factory=dict)
     results: dict[str, Any] = field(default_factory=dict)
     upstream_results: dict[str, Any] = field(default_factory=dict)
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, RefreshCw, Save, Trash2 } from 'lucide-react'
 import { deleteWorkflowTemplate, getProcessTaskDetail, getProcessTaskLogs, getWorkflowTemplate, listWorkflows, runWorkflow, upsertWorkflowTemplate } from '../lib/api'
+import { queryKeys } from '../lib/queryKeys'
 import type { WorkflowTemplatePayload } from '../lib/types'
 
 type WorkflowPageProps = {
@@ -23,26 +24,26 @@ export default function WorkflowPage({ projectKey, variant = 'workflow' }: Workf
   const [runHistory, setRunHistory] = useState<Array<{ taskId: string; workflowName: string; createdAt: string }>>([])
   const [selectedRunTaskId, setSelectedRunTaskId] = useState<string | null>(null)
 
-  const workflows = useQuery({ queryKey: ['workflows', projectKey], queryFn: listWorkflows, enabled: Boolean(projectKey) })
+  const workflows = useQuery({ queryKey: queryKeys.workflow.all(projectKey), queryFn: listWorkflows, enabled: Boolean(projectKey) })
 
   useEffect(() => {
     if (!workflowName && workflows.data?.length) setWorkflowName(workflows.data[0])
   }, [workflowName, workflows.data])
 
   const workflowTemplate = useQuery({
-    queryKey: ['workflow-template', projectKey, workflowName],
+    queryKey: queryKeys.workflow.template(projectKey, workflowName),
     queryFn: () => getWorkflowTemplate(workflowName),
     enabled: Boolean(projectKey) && Boolean(workflowName),
   })
   const selectedRunDetail = useQuery({
-    queryKey: ['workflow-run-detail', projectKey, selectedRunTaskId],
+    queryKey: queryKeys.workflow.runDetail(projectKey, selectedRunTaskId),
     queryFn: () => getProcessTaskDetail(String(selectedRunTaskId)),
     enabled: Boolean(projectKey && selectedRunTaskId),
     refetchInterval: 8000,
     refetchIntervalInBackground: true,
   })
   const selectedRunLogs = useQuery({
-    queryKey: ['workflow-run-logs', projectKey, selectedRunTaskId],
+    queryKey: queryKeys.workflow.runLogs(projectKey, selectedRunTaskId),
     queryFn: () => getProcessTaskLogs(String(selectedRunTaskId), 200),
     enabled: Boolean(projectKey && selectedRunTaskId),
     refetchInterval: 8000,
@@ -150,8 +151,8 @@ export default function WorkflowPage({ projectKey, variant = 'workflow' }: Workf
     try {
       await upsertWorkflowTemplate(workflowName, payload)
       setStatusText('模板已保存')
-      await queryClient.invalidateQueries({ queryKey: ['workflow-template', projectKey, workflowName] })
-      await queryClient.invalidateQueries({ queryKey: ['workflows', projectKey] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.template(projectKey, workflowName) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all(projectKey) })
     } catch (error) {
       setStatusText(`保存失败: ${error instanceof Error ? error.message : '未知错误'}`)
     } finally {
@@ -167,8 +168,8 @@ export default function WorkflowPage({ projectKey, variant = 'workflow' }: Workf
     try {
       await deleteWorkflowTemplate(workflowName, projectKey)
       setStatusText('模板已删除')
-      await queryClient.invalidateQueries({ queryKey: ['workflow-template', projectKey, workflowName] })
-      await queryClient.invalidateQueries({ queryKey: ['workflows', projectKey] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.template(projectKey, workflowName) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all(projectKey) })
     } catch (error) {
       setStatusText(`删除失败: ${error instanceof Error ? error.message : '未知错误'}`)
     } finally {
@@ -188,7 +189,7 @@ export default function WorkflowPage({ projectKey, variant = 'workflow' }: Workf
         <div className="panel-header">
           <h2>工作流运行</h2>
           <div className="inline-actions">
-            <button onClick={() => queryClient.invalidateQueries({ queryKey: ['workflows', projectKey] })}>
+            <button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all(projectKey) })}>
               <RefreshCw size={14} />刷新
             </button>
           </div>
@@ -224,8 +225,8 @@ export default function WorkflowPage({ projectKey, variant = 'workflow' }: Workf
               disabled={!selectedRunTaskId}
               onClick={() => {
                 if (!selectedRunTaskId) return
-                void queryClient.invalidateQueries({ queryKey: ['workflow-run-detail', projectKey, selectedRunTaskId] })
-                void queryClient.invalidateQueries({ queryKey: ['workflow-run-logs', projectKey, selectedRunTaskId] })
+                void queryClient.invalidateQueries({ queryKey: queryKeys.workflow.runDetail(projectKey, selectedRunTaskId) })
+                void queryClient.invalidateQueries({ queryKey: queryKeys.workflow.runLogs(projectKey, selectedRunTaskId) })
               }}
             >
               <RefreshCw size={14} />刷新详情
@@ -286,7 +287,7 @@ export default function WorkflowPage({ projectKey, variant = 'workflow' }: Workf
         <div className="panel-header">
           <h2>模板编辑</h2>
           <div className="inline-actions">
-            <button onClick={() => queryClient.invalidateQueries({ queryKey: ['workflow-template', projectKey, workflowName] })}>
+            <button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.workflow.template(projectKey, workflowName) })}>
               <RefreshCw size={14} />刷新
             </button>
           </div>

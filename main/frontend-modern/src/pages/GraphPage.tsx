@@ -10,6 +10,7 @@ import type {
   GraphStructuredSearchResponse,
   SourceLibraryItem,
 } from '../lib/types'
+import { queryKeys } from '../lib/queryKeys'
 import { GRAPH_COLOR_THEMES, assignLegendColors, type PaletteKey } from '../lib/graph-colors'
 import { applyRenderer2D, RENDERER_2D_CAPABILITIES } from './graph/renderers/renderer2dEcharts'
 import {
@@ -20,6 +21,7 @@ import {
 import { getOrCreateForceNodeObject, linkEnds, pruneForceNodeObjectCache } from './graph/renderers/force3dObjects'
 import { useForceGraph3DLoader } from './graph/hooks/useForceGraph3DLoader'
 import { useForceGraphViewport } from './graph/hooks/useForceGraphViewport'
+import { useGraphVisualState } from './graph/hooks/useGraphVisualState'
 import type { RenderMode, RenderNode } from './graph/renderers/types'
 
 type Variant = 'graphMarket' | 'graphPolicy' | 'graphSocial' | 'graphCompany' | 'graphProduct' | 'graphOperation' | 'graphDeep'
@@ -1041,28 +1043,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [topic, setTopic] = useState('')
   const [game, setGame] = useState('')
   const [limit, setLimit] = useState(GRAPH_LIMIT_DEFAULT)
-  const [visualDraft, setVisualDraft] = useState({
-    repulsion: 180,
-    gravityPercent: 100,
-    nodeScale: 100,
-    nodeContrastCentral: 0,
-    nodeContrastNeighbor: 0,
-    nodeAlpha: 72,
-    edgeWidth: 100,
-    edgeAlpha: 100,
-    showLabel: true,
-  })
-  const [visualApplied, setVisualApplied] = useState({
-    repulsion: 180,
-    gravityPercent: 100,
-    nodeScale: 100,
-    nodeContrastCentral: 0,
-    nodeContrastNeighbor: 0,
-    nodeAlpha: 72,
-    edgeWidth: 100,
-    edgeAlpha: 100,
-    showLabel: true,
-  })
+  const { visualDraft, visualApplied, updateVisual } = useGraphVisualState()
   const [hiddenTypes, setHiddenTypes] = useState<Record<string, boolean>>({})
   const [appliedFilters, setAppliedFilters] = useState<FilterState>({
     startDate: '',
@@ -1287,7 +1268,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   }, [graphKind])
 
   const graphConfig = useQuery({
-    queryKey: ['graph-config', projectKey],
+    queryKey: queryKeys.graph.config(projectKey),
     queryFn: getGraphConfig,
     enabled: Boolean(projectKey),
   })
@@ -1295,8 +1276,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const effectiveLimit = clampGraphLimit(appliedFilters.limit)
 
   const graphData = useQuery({
-    queryKey: [
-      'graph',
+    queryKey: queryKeys.graph.data(
       projectKey,
       graphKind,
       appliedFilters.startDate,
@@ -1307,7 +1287,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
       appliedFilters.topic,
       appliedFilters.game,
       effectiveLimit,
-    ],
+    ),
     queryFn: async () => {
       if (graphKind === 'policy') {
         return getPolicyGraph({
@@ -1345,7 +1325,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   })
 
   const sourceItemsQuery = useQuery({
-    queryKey: ['source-library-items', projectKey],
+    queryKey: queryKeys.sourceLibrary.itemsForGraph(projectKey),
     queryFn: listSourceItems,
     enabled: Boolean(projectKey) && taskModalOpen,
   })
@@ -1599,7 +1579,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const useLegacyProjection3D = renderMode === 'projection3d' && projectionEngine === 'legacy'
   const { component: ForceGraph3DComp, error: forceGraphLoadError, retry: retryForceGraph3D } = useForceGraph3DLoader(useForceGraph3D)
   const forceViewport = useForceGraphViewport(renderMode === 'projection3d', fullscreenWrapRef)
-  const synced3DRepulsionPercent = Math.max(0, Math.min(400, Math.round(visualApplied.repulsion / 1.8)))
+  const synced3DRepulsionPercent = Math.max(0, Math.min(400, visualApplied.repulsion / 1.8))
   const synced3DGravity = Math.max(0, Math.min(0.6, 0.1 * (visualApplied.gravityPercent / 100)))
   const showForceGraphCanvas = renderMode === 'projection3d' && useForceGraph3D && Boolean(ForceGraph3DComp) && !forceGraphLoadError
 
@@ -2205,7 +2185,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         distance?: (v?: number | ((link: unknown) => number)) => unknown
         iterations?: (v?: number) => unknown
       } | null
-      const repulsion = Math.max(20, Math.round(synced3DRepulsionPercent * 2.2))
+      const repulsion = Math.max(20, synced3DRepulsionPercent * 2.2)
       forceGlobalGravityStrengthRef.current = synced3DGravity
       if (!forceGlobalGravityForceRef.current) {
         let nodes: Array<Record<string, unknown>> = []
@@ -3862,15 +3842,14 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         type="range"
                         min={0}
                         max={200}
-                        step={1}
-                        value={Math.round(visualDraft.repulsion / 7.2)}
+                        step={0.1}
+                        value={visualDraft.repulsion / 7.2}
                         onChange={(e) => {
-                          const repulsion = Math.round(Number(e.target.value) * 7.2)
-                          setVisualDraft((prev) => ({ ...prev, repulsion }))
-                          setVisualApplied((prev) => ({ ...prev, repulsion }))
+                          const repulsion = Number(e.target.value) * 7.2
+                          updateVisual('repulsion', repulsion)
                         }}
                       />
-                      <span>{Math.round(visualDraft.repulsion / 7.2)}%</span>
+                      <span>{(visualDraft.repulsion / 7.2).toFixed(1)}%</span>
                     </label>
                     <label className="gv2-control-chip">
                       引力
@@ -3878,12 +3857,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         type="range"
                         min={0}
                         max={300}
-                        step={1}
+                        step={0.5}
                         value={visualDraft.gravityPercent}
                         onChange={(e) => {
                           const gravityPercent = Number(e.target.value)
-                          setVisualDraft((prev) => ({ ...prev, gravityPercent }))
-                          setVisualApplied((prev) => ({ ...prev, gravityPercent }))
+                          updateVisual('gravityPercent', gravityPercent)
                         }}
                       />
                       <span>{visualDraft.gravityPercent}%</span>
@@ -3894,12 +3872,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         type="range"
                         min={NODE_SIZE_SLIDER_MIN}
                         max={NODE_SIZE_SLIDER_MAX}
-                        step={1}
+                        step={0.5}
                         value={visualDraft.nodeScale}
                         onChange={(e) => {
                           const nodeScale = Number(e.target.value)
-                          setVisualDraft((prev) => ({ ...prev, nodeScale }))
-                          setVisualApplied((prev) => ({ ...prev, nodeScale }))
+                          updateVisual('nodeScale', nodeScale)
                         }}
                       />
                       <span>{visualDraft.nodeScale}% · 3D {computeForce3DSizeCompensationX(visualDraft.nodeScale).toFixed(1)}x</span>
@@ -3910,12 +3887,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         type="range"
                         min={NODE_CONTRAST_SLIDER_MIN}
                         max={NODE_CONTRAST_SLIDER_MAX}
-                        step={1}
+                        step={0.5}
                         value={visualDraft.nodeContrastCentral}
                         onChange={(e) => {
                           const nodeContrastCentral = Number(e.target.value)
-                          setVisualDraft((prev) => ({ ...prev, nodeContrastCentral }))
-                          setVisualApplied((prev) => ({ ...prev, nodeContrastCentral }))
+                          updateVisual('nodeContrastCentral', nodeContrastCentral)
                         }}
                       />
                       <span>{visualDraft.nodeContrastCentral}%</span>
@@ -3926,12 +3902,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         type="range"
                         min={NODE_CONTRAST_SLIDER_MIN}
                         max={NODE_CONTRAST_SLIDER_MAX}
-                        step={1}
+                        step={0.5}
                         value={visualDraft.nodeContrastNeighbor}
                         onChange={(e) => {
                           const nodeContrastNeighbor = Number(e.target.value)
-                          setVisualDraft((prev) => ({ ...prev, nodeContrastNeighbor }))
-                          setVisualApplied((prev) => ({ ...prev, nodeContrastNeighbor }))
+                          updateVisual('nodeContrastNeighbor', nodeContrastNeighbor)
                         }}
                       />
                       <span>{visualDraft.nodeContrastNeighbor}%</span>
@@ -3942,12 +3917,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         type="range"
                         min={0}
                         max={100}
-                        step={1}
+                        step={0.5}
                         value={visualDraft.nodeAlpha}
                         onChange={(e) => {
                           const nodeAlpha = Number(e.target.value)
-                          setVisualDraft((prev) => ({ ...prev, nodeAlpha }))
-                          setVisualApplied((prev) => ({ ...prev, nodeAlpha }))
+                          updateVisual('nodeAlpha', nodeAlpha)
                         }}
                       />
                       <span>{visualDraft.nodeAlpha}%</span>
@@ -3958,12 +3932,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         type="range"
                         min={0}
                         max={200}
-                        step={1}
+                        step={0.5}
                         value={visualDraft.edgeWidth}
                         onChange={(e) => {
                           const edgeWidth = Number(e.target.value)
-                          setVisualDraft((prev) => ({ ...prev, edgeWidth }))
-                          setVisualApplied((prev) => ({ ...prev, edgeWidth }))
+                          updateVisual('edgeWidth', edgeWidth)
                         }}
                       />
                       <span>{visualDraft.edgeWidth}%</span>
@@ -3974,12 +3947,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         type="range"
                         min={0}
                         max={100}
-                        step={1}
+                        step={0.5}
                         value={visualDraft.edgeAlpha}
                         onChange={(e) => {
                           const edgeAlpha = Number(e.target.value)
-                          setVisualDraft((prev) => ({ ...prev, edgeAlpha }))
-                          setVisualApplied((prev) => ({ ...prev, edgeAlpha }))
+                          updateVisual('edgeAlpha', edgeAlpha)
                         }}
                       />
                       <span>{visualDraft.edgeAlpha}%</span>
@@ -3990,8 +3962,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         checked={visualDraft.showLabel}
                         onChange={(e) => {
                           const checked = e.target.checked
-                          setVisualDraft((prev) => ({ ...prev, showLabel: checked }))
-                          setVisualApplied((prev) => ({ ...prev, showLabel: checked }))
+                          updateVisual('showLabel', checked)
                         }}
                       />
                       显示标签

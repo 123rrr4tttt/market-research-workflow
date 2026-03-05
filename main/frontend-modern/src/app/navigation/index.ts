@@ -25,6 +25,7 @@ export const hashByMode: Record<NavMode, string> = {
   flowAnalysis: '#dashboard.html#analysis',
   flowBoard: '#dashboard.html#board',
   flowWorkflow: '#workflow-designer.html',
+  flowLlmNodeDesign: '#workflow-designer.html?mode=llm-node-design',
   sysProjects: '#project-management.html',
   sysCrawler: '#crawler-management.html',
   sysResource: '#resource-pool-management.html',
@@ -98,7 +99,11 @@ export function parseLegacyHashToMode(rawHash: string): NavMode | null {
   if (path.includes('social-media-visualization.html')) return 'dataSocial'
   if (path.includes('policy-visualization.html')) return 'dataPolicy'
   if (path.includes('raw-data-processing.html') || path.includes('raw-data.html')) return 'flowRawData'
-  if (path.includes('workflow-designer.html')) return 'flowWorkflow'
+  if (path.includes('workflow-designer.html')) {
+    const mode = (query.get('mode') || '').toLowerCase()
+    if (mode === 'llm-node-design' || mode === 'llm-node' || mode === 'llm') return 'flowLlmNodeDesign'
+    return 'flowWorkflow'
+  }
   if (path.includes('project-management.html')) return 'sysProjects'
   if (path.includes('crawler-management.html')) return 'sysCrawler'
   if (path.includes('resource-pool-management.html')) return 'sysResource'

@@ -50,6 +50,7 @@ export type NavMode =
   | 'flowAnalysis'
   | 'flowBoard'
   | 'flowWorkflow'
+  | 'flowLlmNodeDesign'
   | 'sysProjects'
   | 'sysCrawler'
   | 'sysResource'
@@ -104,6 +105,7 @@ const groups: Array<{ title: string; items: Array<{ key: NavMode; label: string 
       { key: 'flowAnalysis', label: '分析' },
       { key: 'flowBoard', label: '看板' },
       { key: 'flowWorkflow', label: '工作流模板' },
+      { key: 'flowLlmNodeDesign', label: 'LLM 节点设计' },
     ],
   },
   {
@@ -142,6 +144,7 @@ const iconByLabel: Record<string, ComponentType<{ size?: number; className?: str
   分析: Brain,
   看板: TrendingUp,
   工作流模板: TrendingUp,
+  'LLM 节点设计': Brain,
   项目管理: Folders,
   爬虫管理: Radar,
   信息资源库管理: DatabaseZap,

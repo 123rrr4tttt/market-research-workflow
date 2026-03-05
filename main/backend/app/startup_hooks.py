@@ -32,6 +32,8 @@ from .models.entities import (
     Source,
     SourceLibraryItem,
     Topic,
+    WorkflowGraphEvent,
+    WorkflowGraphRun,
 )
 
 
@@ -209,6 +211,8 @@ def register_startup_hooks(app: FastAPI) -> None:
             SharedResourcePoolUrl.__table__,
             SharedResourcePoolSiteEntry.__table__,
             ResourcePoolCaptureConfig.__table__,
+            WorkflowGraphRun.__table__,
+            WorkflowGraphEvent.__table__,
         ]
         try:
             with engine.begin() as conn:

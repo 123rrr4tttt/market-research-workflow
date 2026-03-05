@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
+    "@xyflow/react": "^12.9.3",
     "axios": "^1.13.5",
     "echarts": "^5.6.0",
     "lucide-react": "^0.575.0",
@@ -26,6 +27,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",

@@ -58,3 +58,5 @@ Updated: 2026-03-04 PST
   - [E_DB_R5_REFERENCE_POOL_PROXY_AND_POOL_GATE_2026-03-04.md](./backend-docs/E_OPS/E_DB_R5_REFERENCE_POOL_PROXY_AND_POOL_GATE_2026-03-04.md)
 - `ops-frontend/F_PLAN`：
   - [graph-3d-controls-left-and-2d-gravity-2026-03-02.md](./ops-frontend/F_PLAN/graph-3d-controls-left-and-2d-gravity-2026-03-02.md)
+- `development-plans/CURRENT_DEV`：
+  - [01_oss-code-harvest-and-io-taskplan-2026-03-05.md](./development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md)

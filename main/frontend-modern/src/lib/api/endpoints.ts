@@ -104,6 +104,14 @@ export const endpoints = {
     run: (workflowName: string) =>
       `${API_BASE}/project-customization/workflows/${encodeURIComponent(workflowName)}/run`,
   },
+  workflowGraph: {
+    compile: `${API_BASE}/workflow-graph/compile`,
+    run: `${API_BASE}/workflow-graph/run`,
+    runById: (runId: string) => `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}`,
+    runEvents: (runId: string) => `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}/events`,
+    runReplay: (runId: string) => `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}/replay`,
+    compiledById: (graphId: string) => `${API_BASE}/workflow-graph/compiled/${encodeURIComponent(graphId)}`,
+  },
   llm: {
     root: `${API_BASE}/llm-config`,
     project: (projectKey: string) => `${API_BASE}/llm-config/projects/${encodeURIComponent(projectKey)}`,

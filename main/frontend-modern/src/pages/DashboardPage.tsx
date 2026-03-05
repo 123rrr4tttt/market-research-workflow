@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getDashboardStats } from '../lib/api'
+import { queryKeys } from '../lib/queryKeys'
 
 type DashboardPageProps = {
   projectKey: string
@@ -17,7 +18,7 @@ function formatNumber(value: number | undefined) {
 export default function DashboardPage({ projectKey, variant = 'dashboard' }: DashboardPageProps) {
   const queryClient = useQueryClient()
   const dashboardStats = useQuery({
-    queryKey: ['dashboard-stats', projectKey],
+    queryKey: queryKeys.dashboard.stats(projectKey),
     queryFn: getDashboardStats,
     enabled: Boolean(projectKey),
   })
@@ -72,7 +73,7 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
       <section className="panel">
         <div className="inline-actions">
           <button
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['dashboard-stats', projectKey] })}
+            onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats(projectKey) })}
             disabled={dashboardStats.isFetching}
           >
             {dashboardStats.isFetching ? '刷新中...' : '刷新'}

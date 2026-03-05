@@ -10,6 +10,7 @@ import {
   rollbackCrawlerProject,
 } from '../lib/api'
 import { getLocalJson, setLocalJson } from '../lib/localStore'
+import { queryKeys } from '../lib/queryKeys'
 import type { CrawlerDeployRunItem, CrawlerProjectItem } from '../lib/types'
 
 type Props = {
@@ -84,7 +85,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
   }, [projectKey])
 
   const crawlerProjects = useQuery({
-    queryKey: ['crawler-manage', 'projects', projectKey],
+    queryKey: queryKeys.crawler.projects(projectKey),
     queryFn: () => listCrawlerProjects(),
     enabled: Boolean(projectKey),
   })
@@ -102,13 +103,13 @@ export default function CrawlerManagePage({ projectKey }: Props) {
   }, [selectedCrawlerProjectKey, sortedProjects])
 
   const crawlerDetail = useQuery({
-    queryKey: ['crawler-manage', 'project-detail', projectKey, effectiveSelectedCrawlerProjectKey],
+    queryKey: queryKeys.crawler.projectDetail(projectKey, effectiveSelectedCrawlerProjectKey),
     queryFn: () => getCrawlerProjectDetail(effectiveSelectedCrawlerProjectKey),
     enabled: Boolean(projectKey && effectiveSelectedCrawlerProjectKey),
   })
 
   const deployRuns = useQuery({
-    queryKey: ['crawler-manage', 'deploy-runs', projectKey, effectiveSelectedCrawlerProjectKey],
+    queryKey: queryKeys.crawler.deployRuns(projectKey, effectiveSelectedCrawlerProjectKey),
     queryFn: () => listCrawlerDeployRuns({ crawlerProjectKey: effectiveSelectedCrawlerProjectKey, limit: 100 }),
     enabled: Boolean(projectKey && effectiveSelectedCrawlerProjectKey),
   })
@@ -132,9 +133,9 @@ export default function CrawlerManagePage({ projectKey }: Props) {
       if (nextKey) setSelectedCrawlerProjectKey(nextKey)
       setMessage(nextKey ? `导入成功: ${nextKey}` : '导入成功')
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'projects', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'project-detail', projectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'deploy-runs', projectKey] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.crawler.projects(projectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.crawler.projectDetailBase(projectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.crawler.deployRunsBase(projectKey) }),
       ])
     },
     onError: (error) => {
@@ -154,8 +155,8 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     onSuccess: async (run) => {
       setMessage(`部署已提交: ${summarizeRun(run) || '已创建 deploy run'}`)
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'project-detail', projectKey, effectiveSelectedCrawlerProjectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'deploy-runs', projectKey, effectiveSelectedCrawlerProjectKey] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.crawler.projectDetail(projectKey, effectiveSelectedCrawlerProjectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.crawler.deployRuns(projectKey, effectiveSelectedCrawlerProjectKey) }),
       ])
     },
     onError: (error) => {
@@ -175,8 +176,8 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     onSuccess: async (run) => {
       setMessage(`回滚已提交: ${summarizeRun(run) || '已创建 rollback run'}`)
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'project-detail', projectKey, effectiveSelectedCrawlerProjectKey] }),
-        queryClient.invalidateQueries({ queryKey: ['crawler-manage', 'deploy-runs', projectKey, effectiveSelectedCrawlerProjectKey] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.crawler.projectDetail(projectKey, effectiveSelectedCrawlerProjectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.crawler.deployRuns(projectKey, effectiveSelectedCrawlerProjectKey) }),
       ])
     },
     onError: (error) => {

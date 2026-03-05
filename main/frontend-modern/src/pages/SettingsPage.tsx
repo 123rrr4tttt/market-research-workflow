@@ -11,6 +11,7 @@ import {
 import { hashByMode } from '../app/navigation'
 import { isApiClientError } from '../lib/api/client'
 import { getLocalJson, removeLocal, setLocalJson } from '../lib/localStore'
+import { queryKeys } from '../lib/queryKeys'
 import type { EnvSettings, LlmServiceConfigItem, LlmTemplateUpdatePayload } from '../lib/types'
 
 export type SettingsPageProps = {
@@ -154,13 +155,13 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
   const draftStorageKey = useMemo(() => `${SETTINGS_DRAFT_PREFIX}:${projectKey}:${variant}`, [projectKey, variant])
 
   const envSettings = useQuery({
-    queryKey: ['env-settings'],
+    queryKey: queryKeys.settings.env(),
     queryFn: getEnvSettings,
     enabled: Boolean(projectKey),
   })
 
   const llmTemplates = useQuery({
-    queryKey: ['project-llm-templates', projectKey],
+    queryKey: queryKeys.settings.projectLlmTemplates(projectKey),
     queryFn: () => listProjectLlmTemplates(projectKey),
     enabled: Boolean(projectKey),
   })
@@ -182,7 +183,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
     onSuccess: async () => {
       setSaveMessage('环境配置已更新')
       setEnvDraft(null)
-      await queryClient.invalidateQueries({ queryKey: ['env-settings'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.settings.env() })
     },
     onError: (error) => {
       setSaveMessage(`环境配置更新失败: ${formatActionError(error)}`)
@@ -210,7 +211,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
     },
     onSuccess: async (_data, variables) => {
       setTemplateMessage(`模板已保存：${variables.serviceName}`)
-      await queryClient.invalidateQueries({ queryKey: ['project-llm-templates', projectKey] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.settings.projectLlmTemplates(projectKey) })
     },
     onError: (error) => {
       setTemplateMessage(`模板保存失败：${formatActionError(error)}`)
@@ -235,7 +236,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
     },
     onSuccess: async (data) => {
       setCopyMessage(`复制完成：copied=${data.copied ?? 0}, skipped=${data.skipped ?? 0}`)
-      await queryClient.invalidateQueries({ queryKey: ['project-llm-templates', projectKey] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.settings.projectLlmTemplates(projectKey) })
     },
     onError: (error) => {
       setCopyMessage(`复制失败：${formatActionError(error)}`)
@@ -317,7 +318,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
             <button
               onClick={() => {
                 setEnvDraft(null)
-                queryClient.invalidateQueries({ queryKey: ['env-settings'] })
+                queryClient.invalidateQueries({ queryKey: queryKeys.settings.env() })
               }}
               disabled={envSettings.isFetching}
             >
@@ -396,7 +397,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
           <h2>项目级 LLM 模板</h2>
           <div className="inline-actions">
             <button
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['project-llm-templates', projectKey] })}
+              onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.settings.projectLlmTemplates(projectKey) })}
               disabled={llmTemplates.isFetching}
             >
               <RefreshCw size={14} />

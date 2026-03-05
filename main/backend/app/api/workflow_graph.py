@@ -69,15 +69,73 @@ def _invoke_get_run_events(run_id: str) -> Any:
     return _call_first(runtime, ("get_run_events", "list_run_events", "events"), run_id)
 
 
+def _invoke_replay_run(run_id: str) -> Any:
+    _, runtime = _load_workflow_graph_services()
+    return _call_first(runtime, ("replay_run", "replay"), run_id)
+
+
 def _invoke_get_compiled(graph_id: str) -> Any:
     compiler, _ = _load_workflow_graph_services()
     return _call_first(compiler, ("get_compiled", "get_graph", "fetch_compiled"), graph_id)
 
 
+def _ok_workflow_graph(payload: dict[str, Any]) -> dict[str, Any]:
+    return success_response(payload, meta={"deprecated": "workflow_graph.contract.v2"})
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _normalize_compile(value: Any) -> dict[str, Any]:
+    data = _as_dict(value)
+    return {
+        "graph_id": data.get("graph_id"),
+        "version": data.get("version"),
+        "checksum": data.get("checksum"),
+        "topo_order": data.get("topo_order") or [],
+        "warnings": data.get("warnings") or [],
+        "contract_version": "workflow_graph.v2",
+    }
+
+
+def _normalize_run(value: Any) -> dict[str, Any]:
+    data = _as_dict(value)
+    node_statuses = data.get("node_statuses") if isinstance(data.get("node_statuses"), dict) else {}
+    return {
+        "run_id": data.get("run_id"),
+        "status": data.get("status"),
+        "node_statuses": node_statuses,
+        "nodes": node_statuses,
+        "contract_version": "workflow_graph.v2",
+    }
+
+
+def _normalize_run_detail(value: Any) -> dict[str, Any]:
+    data = _as_dict(value)
+    node_statuses = data.get("node_statuses") if isinstance(data.get("node_statuses"), dict) else {}
+    return {
+        **data,
+        "node_statuses": node_statuses,
+        "nodes": node_statuses,
+        "contract_version": "workflow_graph.v2",
+    }
+
+
+def _normalize_run_events(value: Any) -> dict[str, Any]:
+    data = _as_dict(value)
+    items = data.get("items") if isinstance(data.get("items"), list) else []
+    return {
+        "items": items,
+        "total": len(items),
+        "contract_version": "workflow_graph.v2",
+    }
+
+
 @router.post("/compile", response_model=None)
 def compile_workflow_graph(payload: dict[str, Any]) -> Any:
     try:
-        return success_response(_invoke_compile(payload))
+        return _ok_workflow_graph(_normalize_compile(_invoke_compile(payload)))
     except KeyError as exc:
         return _error_json(ErrorCode.NOT_FOUND, str(exc) or "compiled graph not found")
     except Exception as exc:  # noqa: BLE001
@@ -88,7 +146,7 @@ def compile_workflow_graph(payload: dict[str, Any]) -> Any:
 @router.post("/run", response_model=None)
 def run_workflow_graph(payload: dict[str, Any]) -> Any:
     try:
-        return success_response(_invoke_run(payload))
+        return _ok_workflow_graph(_normalize_run(_invoke_run(payload)))
     except KeyError as exc:
         return _error_json(ErrorCode.NOT_FOUND, str(exc) or "run not found")
     except Exception as exc:  # noqa: BLE001
@@ -99,7 +157,7 @@ def run_workflow_graph(payload: dict[str, Any]) -> Any:
 @router.get("/runs/{run_id}", response_model=None)
 def get_workflow_graph_run(run_id: str) -> Any:
     try:
-        return success_response(_invoke_get_run(run_id))
+        return _ok_workflow_graph(_normalize_run_detail(_invoke_get_run(run_id)))
     except KeyError as exc:
         return _error_json(ErrorCode.NOT_FOUND, str(exc) or "run not found")
     except Exception as exc:  # noqa: BLE001
@@ -110,7 +168,7 @@ def get_workflow_graph_run(run_id: str) -> Any:
 @router.get("/runs/{run_id}/events", response_model=None)
 def get_workflow_graph_run_events(run_id: str) -> Any:
     try:
-        return success_response(_invoke_get_run_events(run_id))
+        return _ok_workflow_graph(_normalize_run_events(_invoke_get_run_events(run_id)))
     except KeyError as exc:
         return _error_json(ErrorCode.NOT_FOUND, str(exc) or "run not found")
     except Exception as exc:  # noqa: BLE001
@@ -121,9 +179,20 @@ def get_workflow_graph_run_events(run_id: str) -> Any:
 @router.get("/compiled/{graph_id}", response_model=None)
 def get_workflow_graph_compiled(graph_id: str) -> Any:
     try:
-        return success_response(_invoke_get_compiled(graph_id))
+        return _ok_workflow_graph(_normalize_compile(_invoke_get_compiled(graph_id)))
     except KeyError as exc:
         return _error_json(ErrorCode.NOT_FOUND, str(exc) or "compiled graph not found")
+    except Exception as exc:  # noqa: BLE001
+        code, message, details = map_exception_to_error(exc)
+        return _error_json(code, message, details)
+
+
+@router.get("/runs/{run_id}/replay", response_model=None)
+def replay_workflow_graph_run(run_id: str) -> Any:
+    try:
+        return _ok_workflow_graph(_normalize_run_detail(_invoke_replay_run(run_id)))
+    except KeyError as exc:
+        return _error_json(ErrorCode.NOT_FOUND, str(exc) or "run not found")
     except Exception as exc:  # noqa: BLE001
         code, message, details = map_exception_to_error(exc)
         return _error_json(code, message, details)

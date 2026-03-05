@@ -19,6 +19,7 @@ const ResourcePage = lazy(() => import('../../pages/ResourcePage'))
 const RawDataPage = lazy(() => import('../../pages/RawDataPage'))
 const SettingsPage = lazy(() => import('../../pages/SettingsPage'))
 const WorkflowPage = lazy(() => import('../../pages/WorkflowPage'))
+const LlmDesignerPage = lazy(() => import('../../pages/LlmDesignerPage'))
 
 type FigmaTheme = 'light' | 'dark' | 'brand'
 type StatusIntentMode = 'sysSettings' | 'sysLlm' | 'sysCrawler' | 'sysBackend'
@@ -119,6 +120,7 @@ export default function AppShell() {
     flowAnalysis: '分析',
     flowBoard: '看板',
     flowWorkflow: '工作流模板',
+    flowLlmNodeDesign: 'LLM 节点设计',
     sysProjects: '项目管理',
     sysCrawler: '爬虫管理',
     sysResource: '信息资源库管理',
@@ -155,7 +157,7 @@ export default function AppShell() {
       mode,
       focusField,
       guide,
-      ts: Date.now(),
+      ts: 0,
     })
     handleModeChange(mode)
   }
@@ -187,6 +189,7 @@ export default function AppShell() {
     if (viewMode === 'dataPolicy') return <PolicyPage projectKey={projectKey} variant="policy" />
     if (viewMode === 'dataCatalog') return <CatalogPage projectKey={projectKey} variant="catalog" />
     if (viewMode === 'flowWorkflow') return <WorkflowPage projectKey={projectKey} variant="workflow" />
+    if (viewMode === 'flowLlmNodeDesign') return <LlmDesignerPage projectKey={projectKey} />
     if (viewMode === 'graphMarket') return <GraphPage projectKey={projectKey} variant="graphMarket" />
     if (viewMode === 'graphPolicy') return <GraphPage projectKey={projectKey} variant="graphPolicy" />
     if (viewMode === 'graphSocial') return <GraphPage projectKey={projectKey} variant="graphSocial" />

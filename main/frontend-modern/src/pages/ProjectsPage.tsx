@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, CopyPlus, Edit3, HardDriveDownload, RefreshCw, Trash2 } from 'lucide-react'
 import { activateProject, archiveProject, autoCreateProject, createProject, deleteProject, listProjects, restoreProject, setProjectKey, updateProject } from '../lib/api'
+import { queryKeys } from '../lib/queryKeys'
 
 type ProjectsPageProps = {
   projectKey: string
@@ -27,7 +28,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
     'document_classification',
   ]
 
-  const projects = useQuery({ queryKey: ['projects'], queryFn: listProjects })
+  const projects = useQuery({ queryKey: queryKeys.projects.all(), queryFn: listProjects })
 
   const actionMutation = useMutation({
     mutationFn: async (payload: { kind: 'create' | 'archive' | 'restore' | 'delete' | 'update' | 'activate'; key?: string; name?: string }) => {
@@ -48,7 +49,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
       setNewProjectKey('')
       setNewProjectName('')
       setEditingProject(null)
-      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })
     },
   })
 
@@ -76,7 +77,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
       setLlmPromptTemplate('')
       const next = data?.project_key ? setProjectKey(data.project_key) : null
       if (next) onProjectChange(next)
-      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })
     },
   })
 
@@ -126,7 +127,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
       </section>
 
       <section className="panel">
-        <div className="panel-header"><h2><HardDriveDownload size={15} />项目列表</h2><button onClick={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}><RefreshCw size={14} />刷新</button></div>
+        <div className="panel-header"><h2><HardDriveDownload size={15} />项目列表</h2><button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })}><RefreshCw size={14} />刷新</button></div>
         <div className="table-wrap">
           <table>
             <thead><tr><th>project_key</th><th>name</th><th>schema</th><th>enabled</th><th>active</th><th>操作</th></tr></thead>

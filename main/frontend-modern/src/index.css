@@ -2530,3 +2530,299 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.llm-designer-page {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  min-height: calc(100vh - 140px);
+  align-content: start;
+}
+
+.llm-designer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.llm-designer-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.llm-designer-header p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.llm-designer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  padding: 12px;
+  border: 1px solid rgba(118, 145, 188, 0.3);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(243, 249, 255, 0.84));
+  box-shadow: 0 10px 24px rgba(23, 39, 77, 0.12);
+}
+
+.llm-designer-field {
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.llm-designer-field span {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.llm-designer-field input {
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.llm-designer-toolbar button,
+.llm-designer-json-actions button {
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.llm-designer-toolbar button:disabled,
+.llm-designer-json-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.llm-designer-canvas {
+  position: relative;
+  height: min(62vh, 700px);
+  min-height: 420px;
+  border: 1px solid rgba(118, 145, 188, 0.34);
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(251, 254, 255, 0.95), rgba(238, 245, 255, 0.88)),
+    radial-gradient(900px 420px at 90% -24%, rgba(176, 225, 255, 0.22), transparent 70%);
+  box-shadow: 0 14px 36px rgba(20, 37, 67, 0.16);
+}
+
+.llm-designer-json {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(118, 145, 188, 0.3);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 249, 255, 0.86));
+  box-shadow: 0 10px 24px rgba(23, 39, 77, 0.1);
+}
+
+.llm-designer-json label {
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.llm-designer-json textarea {
+  width: 100%;
+  min-height: 170px;
+  max-height: 42vh;
+  resize: vertical;
+  border: 1px solid rgba(118, 145, 188, 0.4);
+  border-radius: 12px;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: rgba(250, 253, 255, 0.96);
+  color: #0f172a;
+}
+
+.llm-designer-json-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.llm-designer-status {
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.llm-node-card {
+  position: absolute;
+  z-index: 24;
+  width: min(420px, calc(100% - 16px));
+  border: 1px solid rgba(92, 123, 173, 0.38);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(14, 26, 48, 0.24);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(243, 249, 255, 0.95));
+  transform-origin: top left;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.llm-node-card__drag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: move;
+  padding: 10px 12px;
+  margin: 0;
+  border-bottom: 1px solid rgba(118, 145, 188, 0.32);
+  background: linear-gradient(180deg, rgba(231, 244, 255, 0.94), rgba(220, 238, 255, 0.92));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.llm-node-card .inline-actions {
+  margin: 0;
+  padding: 10px 12px 8px;
+  border-bottom: 1px dashed rgba(122, 143, 178, 0.34);
+}
+
+.llm-node-card__body {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 10px 12px 18px;
+}
+
+.llm-node-template-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.llm-node-template-card {
+  height: auto;
+  min-height: 70px;
+  border-radius: 10px;
+  border: 1px solid rgba(126, 151, 193, 0.42);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(242, 248, 255, 0.84));
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  text-align: left;
+  padding: 8px 10px;
+  box-shadow: 0 4px 12px rgba(23, 39, 77, 0.08);
+}
+
+.llm-node-template-card strong {
+  font-size: 13px;
+  color: #1e355f;
+}
+
+.llm-node-template-card span {
+  font-size: 12px;
+  color: #627aa4;
+}
+
+.llm-node-template-card.is-active {
+  border-color: rgba(37, 101, 235, 0.65);
+  background: linear-gradient(180deg, rgba(220, 236, 255, 0.84), rgba(203, 227, 255, 0.76));
+  box-shadow: 0 0 0 1px rgba(37, 101, 235, 0.2), 0 8px 20px rgba(38, 92, 206, 0.16);
+}
+
+.llm-io-section {
+  border: 1px solid rgba(126, 151, 193, 0.35);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(248, 251, 255, 0.8);
+}
+
+.llm-io-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.llm-io-list {
+  display: grid;
+  gap: 6px;
+}
+
+.llm-io-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 0.9fr 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.llm-io-row input,
+.llm-io-row select {
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(126, 151, 193, 0.42);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.llm-io-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.llm-node-card__resize {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(168, 198, 245, 0.85), rgba(78, 126, 205, 0.95));
+  border: 1px solid rgba(63, 101, 170, 0.7);
+  box-shadow: 0 4px 10px rgba(23, 39, 77, 0.26);
+}
+
+.llm-node-card__resize::before {
+  content: '';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid rgba(255, 255, 255, 0.92);
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.92);
+}
+
+@media (max-width: 900px) {
+  .llm-designer-page {
+    min-height: auto;
+    padding: 12px;
+  }
+
+  .llm-designer-canvas {
+    height: 58vh;
+    min-height: 360px;
+  }
+
+  .llm-node-card {
+    width: calc(100% - 12px);
+  }
+
+  .llm-node-template-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .llm-io-row {
+    grid-template-columns: 1fr;
+  }
+}

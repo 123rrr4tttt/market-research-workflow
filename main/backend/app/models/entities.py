@@ -642,3 +642,41 @@ class GraphEdgeRecord(BigIDMixin, Base):
     updated_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class WorkflowGraphRun(BigIDMixin, Base):
+    """Workflow graph run snapshot persisted in public schema."""
+
+    __tablename__ = "workflow_graph_runs"
+    __table_args__ = (
+        UniqueConstraint("run_id", name="uq_workflow_graph_runs_run_id"),
+        {"schema": "public"},
+    )
+
+    run_id = Column(String(64), nullable=False, unique=True)
+    workflow_id = Column(String(128), nullable=True)
+    status = Column(String(16), nullable=False, server_default="queued")
+    node_statuses = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    metadata_json = Column("metadata", JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    results = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class WorkflowGraphEvent(BigIDMixin, Base):
+    """Workflow graph append-only events persisted in public schema."""
+
+    __tablename__ = "workflow_graph_events"
+    __table_args__ = (
+        UniqueConstraint("run_id", "seq", name="uq_workflow_graph_events_run_seq"),
+        {"schema": "public"},
+    )
+
+    run_id = Column(String(64), nullable=False, index=True)
+    seq = Column(Integer, nullable=False)
+    event_type = Column(String(64), nullable=False)
+    node_id = Column(String(128), nullable=True)
+    payload = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    ts = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

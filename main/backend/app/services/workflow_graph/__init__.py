@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from .compiler import compile_workflow_graph
 from .runtime import WorkflowGraphRuntime
+from .store import build_run_store
 
 
 class WorkflowGraphCompilerService:
@@ -81,7 +82,7 @@ class WorkflowGraphRuntimeService:
     """Runtime facade that executes compiled workflow graphs."""
 
     def __init__(self) -> None:
-        self._engine = WorkflowGraphRuntime()
+        self._engine = WorkflowGraphRuntime(store=build_run_store())
 
     def run(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         graph_id = str(payload.get("graph_id") or "").strip()
@@ -112,6 +113,33 @@ class WorkflowGraphRuntimeService:
 
     def get_run_events(self, run_id: str) -> dict[str, Any]:
         return {"items": self._engine.store.get_events(str(run_id))}
+
+    def replay_run(self, run_id: str) -> dict[str, Any]:
+        events = list(self._engine.store.get_events(str(run_id)))
+        node_statuses: dict[str, str] = {}
+        run_status = "queued"
+        for event in events:
+            event_type = str(event.get("type") or "")
+            node_id = str(event.get("node_id") or "").strip()
+            if event_type == "run.running":
+                run_status = "running"
+            elif event_type == "run.succeeded":
+                run_status = "succeeded"
+            elif event_type == "run.failed":
+                run_status = "failed"
+            elif event_type == "node.running" and node_id:
+                node_statuses[node_id] = "running"
+            elif event_type == "node.succeeded" and node_id:
+                node_statuses[node_id] = "succeeded"
+            elif event_type == "node.failed" and node_id:
+                node_statuses[node_id] = "failed"
+        return {
+            "run_id": str(run_id),
+            "status": run_status,
+            "node_statuses": node_statuses,
+            "events_count": len(events),
+            "replay_mode": "events_only",
+        }
 
 
 compiler = WorkflowGraphCompilerService()
