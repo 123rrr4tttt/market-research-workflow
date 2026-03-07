@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Network,
   Package,
+  Plus,
   Puzzle,
   Radar,
   Settings2,
@@ -42,6 +43,7 @@ export type NavMode =
   | 'graphProduct'
   | 'graphOperation'
   | 'graphDeep'
+  | 'graphBuilder'
   | 'flowIngest'
   | 'flowSpecialized'
   | 'flowProcessing'
@@ -49,7 +51,7 @@ export type NavMode =
   | 'flowExtract'
   | 'flowAnalysis'
   | 'flowBoard'
-  | 'flowWorkflow'
+  | 'flowWriting'
   | 'flowLlmNodeDesign'
   | 'sysProjects'
   | 'sysCrawler'
@@ -104,7 +106,7 @@ const groups: Array<{ title: string; items: Array<{ key: NavMode; label: string 
       { key: 'flowExtract', label: '提取' },
       { key: 'flowAnalysis', label: '分析' },
       { key: 'flowBoard', label: '看板' },
-      { key: 'flowWorkflow', label: '工作流模板' },
+      { key: 'flowWriting', label: '写作工作台' },
       { key: 'flowLlmNodeDesign', label: 'LLM 节点设计' },
     ],
   },
@@ -143,7 +145,7 @@ const iconByLabel: Record<string, ComponentType<{ size?: number; className?: str
   提取: Puzzle,
   分析: Brain,
   看板: TrendingUp,
-  工作流模板: TrendingUp,
+  写作工作台: FileInput,
   'LLM 节点设计': Brain,
   项目管理: Folders,
   爬虫管理: Radar,
@@ -165,22 +167,35 @@ export default function FigmaSideNav({ mode, onModeChange, theme = 'dark' }: Pro
           const expanded = expandedByGroup[group.title] || group.items.some((item) => item.key === mode)
           return (
             <section key={group.title} className="figma-side-nav__section">
-              <button
-                type="button"
-                className="figma-side-nav__title"
-                onClick={() => {
-                  setExpandedByGroup((prev) => {
-                    const currentlyExpanded = prev[group.title] || group.items.some((item) => item.key === mode)
-                    return { ...prev, [group.title]: !currentlyExpanded }
-                  })
-                }}
-              >
-                <span>{group.title}</span>
-                <ChevronDown
-                  size={14}
-                  className={`figma-side-nav__title-chevron ${expanded ? 'is-open' : ''}`}
-                />
-              </button>
+              <div className="figma-side-nav__title-row">
+                <button
+                  type="button"
+                  className="figma-side-nav__title"
+                  onClick={() => {
+                    setExpandedByGroup((prev) => {
+                      const currentlyExpanded = prev[group.title] || group.items.some((item) => item.key === mode)
+                      return { ...prev, [group.title]: !currentlyExpanded }
+                    })
+                  }}
+                >
+                  <span>{group.title}</span>
+                  <ChevronDown
+                    size={14}
+                    className={`figma-side-nav__title-chevron ${expanded ? 'is-open' : ''}`}
+                  />
+                </button>
+                {group.title === '图谱' ? (
+                  <button
+                    type="button"
+                    className={`figma-side-nav__title-plus ${mode === 'graphBuilder' ? 'is-active' : ''}`.trim()}
+                    onClick={() => onModeChange('graphBuilder')}
+                    title="新建图谱"
+                    aria-label="新建图谱"
+                  >
+                    <Plus size={14} />
+                  </button>
+                ) : null}
+              </div>
               {expanded ? group.items.map((item) => {
                 const Icon = iconByLabel[item.label] || ShoppingCart
                 const active = mode === item.key

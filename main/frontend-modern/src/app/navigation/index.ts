@@ -17,6 +17,7 @@ export const hashByMode: Record<NavMode, string> = {
   graphProduct: '#graph.html?type=product',
   graphOperation: '#graph.html?type=operation',
   graphDeep: '#graph.html?type=market_deep_entities',
+  graphBuilder: '#graph-template-new.html',
   flowIngest: '#ingest.html',
   flowSpecialized: '#ingest.html?mode=specialized',
   flowProcessing: '#process-management.html?view=processing',
@@ -24,8 +25,8 @@ export const hashByMode: Record<NavMode, string> = {
   flowExtract: '#admin.html#extracted',
   flowAnalysis: '#dashboard.html#analysis',
   flowBoard: '#dashboard.html#board',
-  flowWorkflow: '#workflow-designer.html',
-  flowLlmNodeDesign: '#workflow-designer.html?mode=llm-node-design',
+  flowWriting: '#writing-workbench.html',
+  flowLlmNodeDesign: '#llm-designer.html',
   sysProjects: '#project-management.html',
   sysCrawler: '#crawler-management.html',
   sysResource: '#resource-pool-management.html',
@@ -95,15 +96,19 @@ export function parseLegacyHashToMode(rawHash: string): NavMode | null {
     return 'graphMarket'
   }
 
+  if (path.includes('graph-template-new.html') || path.includes('graph-builder.html')) return 'graphBuilder'
+
   if (path.includes('market-data-visualization.html')) return 'dataMarket'
   if (path.includes('social-media-visualization.html')) return 'dataSocial'
   if (path.includes('policy-visualization.html')) return 'dataPolicy'
+  if (path.includes('writing-workbench.html') || path.includes('writing.html')) return 'flowWriting'
   if (path.includes('raw-data-processing.html') || path.includes('raw-data.html')) return 'flowRawData'
   if (path.includes('workflow-designer.html')) {
     const mode = (query.get('mode') || '').toLowerCase()
     if (mode === 'llm-node-design' || mode === 'llm-node' || mode === 'llm') return 'flowLlmNodeDesign'
-    return 'flowWorkflow'
+    return null
   }
+  if (path.includes('llm-designer.html')) return 'flowLlmNodeDesign'
   if (path.includes('project-management.html')) return 'sysProjects'
   if (path.includes('crawler-management.html')) return 'sysCrawler'
   if (path.includes('resource-pool-management.html')) return 'sysResource'

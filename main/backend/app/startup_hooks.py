@@ -35,6 +35,7 @@ from .models.entities import (
     WorkflowGraphEvent,
     WorkflowGraphRun,
 )
+from .models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 
 
 def register_startup_hooks(app: FastAPI) -> None:
@@ -176,6 +177,9 @@ def register_startup_hooks(app: FastAPI) -> None:
             PriceObservation.__table__,
             ResourcePoolUrl.__table__,
             ResourcePoolSiteEntry.__table__,
+            WritingDocument.__table__,
+            WritingDocumentDraft.__table__,
+            WritingDocumentCitation.__table__,
         ]
         try:
             with engine.begin() as conn:

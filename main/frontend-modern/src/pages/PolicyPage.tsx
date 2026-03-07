@@ -1,12 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Database, RefreshCw } from 'lucide-react'
-import { getPolicyDetail, getPolicyStats, listPolicies } from '../lib/api'
+import { getPolicyDetail, getPolicyStats, getPromptTimeDensityPriority, listPolicies } from '../lib/api'
 import { queryKeys } from '../lib/queryKeys'
 
 export type PolicyPageProps = {
   projectKey: string
   variant?: 'policy' | 'policyGraph'
+}
+
+type PromptDensityRow = {
+  rank?: number | string | null
+  source_domain?: string | null
+  prompt_group_id?: string | null
+  window?: string | null
+  norm_density?: number | string | null
+  dup_ratio?: number | string | null
 }
 
 function formatDate(value?: string | null) {
@@ -30,6 +39,8 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
   const [policyStateFilter, setPolicyStateFilter] = useState('')
   const [policyPage, setPolicyPage] = useState(1)
   const [selectedPolicyId, setSelectedPolicyId] = useState<number | null>(null)
+  const [densityPromptGroupId, setDensityPromptGroupId] = useState('')
+  const [densityTimeWindow, setDensityTimeWindow] = useState('30d')
 
   const policyStats = useQuery({
     queryKey: queryKeys.policy.stats(projectKey),
@@ -55,6 +66,32 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
     queryFn: () => getPolicyDetail(Number(effectiveSelectedPolicyId)),
     enabled: Boolean(projectKey) && effectiveSelectedPolicyId != null,
   })
+
+  const normalizedDensityTimeWindow = useMemo(() => {
+    const raw = String(densityTimeWindow || '').trim().toLowerCase()
+    return /^\d+d$/.test(raw) ? raw : '30d'
+  }, [densityTimeWindow])
+
+  const promptDensityPriority = useQuery({
+    queryKey: queryKeys.stats.promptTimeDensityPriority(
+      projectKey,
+      normalizedDensityTimeWindow,
+      densityPromptGroupId.trim(),
+      true,
+    ),
+    queryFn: () =>
+      getPromptTimeDensityPriority({
+        candidate_windows: [normalizedDensityTimeWindow],
+        prompt_group_ids: densityPromptGroupId.trim() ? [densityPromptGroupId.trim()] : [],
+        prefer_low_density: true,
+        exclude_high_dup: true,
+      }),
+    enabled: Boolean(projectKey),
+  })
+  const promptDensityRows = useMemo(
+    () => (((promptDensityPriority.data as { items?: PromptDensityRow[] } | undefined)?.items) || []).slice(0, 5),
+    [promptDensityPriority.data],
+  )
 
   const stateOptions = useMemo(() => {
     const items = policyStats.data?.state_distribution || []
@@ -111,6 +148,63 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
           <strong>{policyStats.data?.status_distribution?.length || 0}</strong>
           <small>status_distribution</small>
         </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>提示词空间 × 时间窗密度（Top 5 Priority）</h2>
+        </div>
+        <div className="form-grid cols-2" style={{ marginBottom: 12 }}>
+          <label>
+            <span>prompt_group_id</span>
+            <input
+              value={densityPromptGroupId}
+              placeholder="如：pg-ai（留空=全部）"
+              onChange={(e) => setDensityPromptGroupId(e.target.value)}
+            />
+          </label>
+          <label>
+            <span>time_window</span>
+            <input
+              value={densityTimeWindow}
+              placeholder="如：7d / 30d / 90d"
+              onChange={(e) => setDensityTimeWindow(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Domain</th>
+                <th>Prompt Group</th>
+                <th>Window</th>
+                <th>Norm Density</th>
+                <th>Dup Ratio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {promptDensityRows.map((item) => (
+                <tr key={`${item.rank}-${item.source_domain}-${item.prompt_group_id}-${item.window}`}>
+                  <td>{item.rank}</td>
+                  <td>{item.source_domain}</td>
+                  <td>{item.prompt_group_id}</td>
+                  <td>{item.window}</td>
+                  <td>{Number(item.norm_density || 0).toFixed(4)}</td>
+                  <td>{Number(item.dup_ratio || 0).toFixed(4)}</td>
+                </tr>
+              ))}
+              {!promptDensityRows.length ? (
+                <tr>
+                  <td colSpan={6} className="empty-cell">
+                    暂无密度优先级数据
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="panel two-col">

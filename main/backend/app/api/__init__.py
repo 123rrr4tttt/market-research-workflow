@@ -23,6 +23,8 @@ from .crawler import router as crawler_router
 from .keywords import router as keywords_router
 from .llm_report import router as llm_report_router
 from .workflow_graph import router as workflow_graph_router
+from .stats import router as stats_router
+from .writing import router as writing_router
 
 
 router = APIRouter()
@@ -49,3 +51,5 @@ router.include_router(crawler_router)
 router.include_router(keywords_router)
 router.include_router(llm_report_router)
 router.include_router(workflow_graph_router)
+router.include_router(stats_router)
+router.include_router(writing_router)

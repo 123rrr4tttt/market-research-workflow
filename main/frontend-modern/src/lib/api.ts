@@ -92,7 +92,11 @@ export {
   upsertSourceLibraryItem,
 } from './api/domains/resource-source'
 export {
+  activateWorkflowGraphTemplateVersion,
   compileWorkflowGraph,
+  createWorkflowGraphTemplate,
+  createWorkflowGraphTemplateVersion,
+  deleteWorkflowGraphTemplate,
   deleteWorkflowTemplate,
   exportGraph,
   getCompiledWorkflowGraph,
@@ -100,18 +104,26 @@ export {
   getMarketGraph,
   getPolicyGraph,
   getSocialGraph,
+  getWorkflowGraphTemplate,
+  getWorkflowGraphTemplateVersion,
+  normalizeGraphQueryParams,
   getWorkflowGraphRun,
   getWorkflowGraphRunEvents,
+  listWorkflowGraphTemplates,
+  listWorkflowGraphTemplateVersions,
   replayWorkflowGraphRun,
   getWorkflowTemplate,
   listWorkflows,
   runWorkflow,
   runWorkflowGraph,
   submitGraphStructuredSearchTasks,
+  updateWorkflowGraphTemplate,
   upsertWorkflowTemplate,
 } from './api/domains/graph-workflow'
 export type {
   GraphKind,
+  GraphQueryParams,
+  NormalizedGraphQueryParams,
   WorkflowGraphCompilePayload,
   WorkflowGraphCompileResponse,
   WorkflowGraphRunDetailResponse,
@@ -119,6 +131,63 @@ export type {
   WorkflowGraphRunPayload,
   WorkflowGraphRunResponse,
 } from './api/domains/graph-workflow'
+export type {
+  WorkflowGraphTemplateItem,
+  WorkflowGraphTemplateListResponse,
+  WorkflowGraphTemplateMutationResponse,
+  WorkflowGraphTemplatePayload,
+  WorkflowGraphTemplateUpdatePayload,
+  WorkflowGraphTemplateVersionItem,
+  WorkflowGraphTemplateVersionListResponse,
+  WorkflowGraphTemplateVersionMutationResponse,
+  WorkflowGraphTemplateVersionPayload,
+} from './types'
+export {
+  autosaveWritingDraft,
+  createWritingDocument,
+  exportWritingMarkdown,
+  getWritingCardDetail,
+  getWritingDocument,
+  getWritingKeywordCards,
+  getWritingLlmActionDetail,
+  getWritingSuggest,
+  listWritingCitations,
+  listWritingDocuments,
+  listWritingLlmActionHistory,
+  listWritingTemplates,
+  previewWritingKeywordCard,
+  runWritingLlmAction,
+  updateWritingDocument,
+  upsertWritingCitations,
+  validateWritingTemplate,
+} from './api/domains/writing'
+export type {
+  AutosaveWritingDraftPayload,
+  CreateWritingDocumentPayload,
+  UpdateWritingDocumentPayload,
+  ValidateWritingTemplatePayload,
+  WritingCardDetailParams,
+  WritingCitation,
+  WritingDocument,
+  WritingDraft,
+  WritingKeywordCard,
+  WritingKeywordCardDetail,
+  WritingKeywordCardListResponse,
+  WritingKeywordCardPreview,
+  WritingKeywordCardPreviewRequest,
+  WritingKeywordCardRequest,
+  WritingKeywordCardSource,
+  WritingLlmActionHistoryItem,
+  WritingLlmActionId,
+  WritingLlmActionPayload,
+  WritingLlmActionResponse,
+  WritingSuggestItem,
+  WritingSuggestMode,
+  WritingSuggestParams,
+  WritingSuggestResponse,
+  WritingTemplate,
+  WritingTemplateValidation,
+} from './api/domains/writing'
 
 export async function autoCreateProject(payload: AutoCreateProjectPayload) {
   return post<AutoCreateProjectResult>(endpoints.projects.autoCreate, payload)
@@ -312,6 +381,46 @@ export async function deleteProduct(productId: number) {
 
 export async function getPolicyStats() {
   return get<PolicyStats>(endpoints.policies.stats)
+}
+
+export async function getPromptTimeDensity(params: {
+  time_window?: string
+  start?: string
+  end?: string
+  bucket?: 'day' | 'week' | 'month'
+  prompt_group_ids?: string[]
+  source_domains?: string[]
+  normalize?: boolean
+}) {
+  const query = new URLSearchParams()
+  if (params.time_window) query.set('time_window', params.time_window)
+  if (params.start) query.set('start', params.start)
+  if (params.end) query.set('end', params.end)
+  if (params.bucket) query.set('bucket', params.bucket)
+  if (typeof params.normalize === 'boolean') query.set('normalize', String(params.normalize))
+  ;(params.prompt_group_ids || []).forEach((v) => v && query.append('prompt_group_ids', v))
+  ;(params.source_domains || []).forEach((v) => v && query.append('source_domains', v))
+  const url = query.toString() ? `${endpoints.stats.promptTimeDensity}?${query.toString()}` : endpoints.stats.promptTimeDensity
+  return get<Record<string, unknown>>(url)
+}
+
+export async function getPromptTimeDensityPriority(params: {
+  end?: string
+  candidate_windows?: string[]
+  prompt_group_ids?: string[]
+  source_domains?: string[]
+  prefer_low_density?: boolean
+  exclude_high_dup?: boolean
+}) {
+  const query = new URLSearchParams()
+  if (params.end) query.set('end', params.end)
+  ;(params.candidate_windows || []).forEach((v) => v && query.append('candidate_windows', v))
+  ;(params.prompt_group_ids || []).forEach((v) => v && query.append('prompt_group_ids', v))
+  ;(params.source_domains || []).forEach((v) => v && query.append('source_domains', v))
+  if (typeof params.prefer_low_density === 'boolean') query.set('prefer_low_density', String(params.prefer_low_density))
+  if (typeof params.exclude_high_dup === 'boolean') query.set('exclude_high_dup', String(params.exclude_high_dup))
+  const url = query.toString() ? `${endpoints.stats.promptTimeDensityPriority}?${query.toString()}` : endpoints.stats.promptTimeDensityPriority
+  return get<Record<string, unknown>>(url)
 }
 
 export async function listPolicies(state = '', page = 1, pageSize = 20) {

@@ -10,6 +10,10 @@ export const endpoints = {
   dashboard: {
     stats: `${API_BASE}/dashboard/stats`,
   },
+  stats: {
+    promptTimeDensity: `${API_BASE}/stats/prompt-time-density`,
+    promptTimeDensityPriority: `${API_BASE}/stats/prompt-time-density/priority`,
+  },
   projects: {
     root: `${API_BASE}/projects`,
     byKey: (projectKey: string) => `${API_BASE}/projects/${encodeURIComponent(projectKey)}`,
@@ -111,6 +115,14 @@ export const endpoints = {
     runEvents: (runId: string) => `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}/events`,
     runReplay: (runId: string) => `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}/replay`,
     compiledById: (graphId: string) => `${API_BASE}/workflow-graph/compiled/${encodeURIComponent(graphId)}`,
+    templates: `${API_BASE}/workflow-graph/templates`,
+    templateById: (templateId: string) => `${API_BASE}/workflow-graph/templates/${encodeURIComponent(templateId)}`,
+    templateVersions: (templateId: string) =>
+      `${API_BASE}/workflow-graph/templates/${encodeURIComponent(templateId)}/versions`,
+    templateVersionById: (templateId: string, versionId: string) =>
+      `${API_BASE}/workflow-graph/templates/${encodeURIComponent(templateId)}/versions/${encodeURIComponent(versionId)}`,
+    templateVersionActivate: (templateId: string, versionId: string) =>
+      `${API_BASE}/workflow-graph/templates/${encodeURIComponent(templateId)}/versions/${encodeURIComponent(versionId)}/activate`,
   },
   llm: {
     root: `${API_BASE}/llm-config`,
@@ -118,6 +130,22 @@ export const endpoints = {
     projectService: (projectKey: string, serviceName: string) =>
       `${API_BASE}/llm-config/projects/${encodeURIComponent(projectKey)}/${encodeURIComponent(serviceName)}`,
     copyFrom: (projectKey: string) => `${API_BASE}/llm-config/projects/${encodeURIComponent(projectKey)}/copy-from`,
+  },
+  writing: {
+    documents: `${API_BASE}/writing/documents`,
+    documentById: (docId: number) => `${API_BASE}/writing/documents/${encodeURIComponent(String(docId))}`,
+    documentDraft: (docId: number) => `${API_BASE}/writing/documents/${encodeURIComponent(String(docId))}/draft`,
+    documentCitations: (docId: number) => `${API_BASE}/writing/documents/${encodeURIComponent(String(docId))}/citations`,
+    templates: `${API_BASE}/writing/templates`,
+    templateValidate: `${API_BASE}/writing/templates/validate`,
+    keywordCards: `${API_BASE}/writing/keyword-cards`,
+    keywordCardPreview: `${API_BASE}/writing/keyword-cards/preview`,
+    cardById: (cardId: string) => `${API_BASE}/writing/cards/${encodeURIComponent(cardId)}`,
+    suggest: `${API_BASE}/writing/suggest`,
+    llmActions: `${API_BASE}/writing/llm-actions`,
+    llmActionHistory: `${API_BASE}/writing/llm-actions/history`,
+    llmActionById: (jobId: number) => `${API_BASE}/writing/llm-actions/${encodeURIComponent(String(jobId))}`,
+    exportMarkdown: `${API_BASE}/writing/export/markdown`,
   },
   admin: {
     stats: `${API_BASE}/admin/stats`,

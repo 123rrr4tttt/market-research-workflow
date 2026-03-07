@@ -18,9 +18,7 @@ const GraphPage = lazy(() => import('../../pages/GraphPage'))
 const ResourcePage = lazy(() => import('../../pages/ResourcePage'))
 const RawDataPage = lazy(() => import('../../pages/RawDataPage'))
 const SettingsPage = lazy(() => import('../../pages/SettingsPage'))
-const WorkflowPage = lazy(() => import('../../pages/WorkflowPage'))
-const LlmDesignerPage = lazy(() => import('../../pages/LlmDesignerPage'))
-
+const WritingWorkbenchPage = lazy(() => import('../../pages/WritingWorkbenchPage'))
 type FigmaTheme = 'light' | 'dark' | 'brand'
 type StatusIntentMode = 'sysSettings' | 'sysLlm' | 'sysCrawler' | 'sysBackend'
 type StatusIntentGuide = 'llm' | 'search' | 'news' | 'db' | 'es'
@@ -112,6 +110,7 @@ export default function AppShell() {
     graphProduct: '商品图谱',
     graphOperation: '电商/经营图谱',
     graphDeep: '市场实体加细图',
+    graphBuilder: '新建图谱',
     flowIngest: '采集',
     flowSpecialized: '特化采集',
     flowProcessing: '数据处理',
@@ -119,7 +118,7 @@ export default function AppShell() {
     flowExtract: '提取',
     flowAnalysis: '分析',
     flowBoard: '看板',
-    flowWorkflow: '工作流模板',
+    flowWriting: '写作工作台',
     flowLlmNodeDesign: 'LLM 节点设计',
     sysProjects: '项目管理',
     sysCrawler: '爬虫管理',
@@ -129,6 +128,7 @@ export default function AppShell() {
     sysLlm: 'LLM 配置',
   }
   const pageTitle = titleMap[viewMode] || viewMode
+  const isLlmDesignerMode = viewMode === 'flowLlmNodeDesign'
 
   const keyReady = (key: string) => Boolean(String(envSettings.data?.[key] || '').trim())
   const llmKeyReady = keyReady('OPENAI_API_KEY') || keyReady('AZURE_API_KEY')
@@ -186,10 +186,12 @@ export default function AppShell() {
     if (viewMode === 'flowIngest') return <IngestPage projectKey={projectKey} variant="ingest" />
     if (viewMode === 'flowSpecialized') return <IngestPage projectKey={projectKey} variant="specialized" />
     if (viewMode === 'flowRawData') return <RawDataPage projectKey={projectKey} variant="rawData" />
+    if (viewMode === 'flowWriting') return <WritingWorkbenchPage projectKey={projectKey} />
     if (viewMode === 'dataPolicy') return <PolicyPage projectKey={projectKey} variant="policy" />
     if (viewMode === 'dataCatalog') return <CatalogPage projectKey={projectKey} variant="catalog" />
-    if (viewMode === 'flowWorkflow') return <WorkflowPage projectKey={projectKey} variant="workflow" />
-    if (viewMode === 'flowLlmNodeDesign') return <LlmDesignerPage projectKey={projectKey} />
+    if (viewMode === 'flowLlmNodeDesign') {
+      return null
+    }
     if (viewMode === 'graphMarket') return <GraphPage projectKey={projectKey} variant="graphMarket" />
     if (viewMode === 'graphPolicy') return <GraphPage projectKey={projectKey} variant="graphPolicy" />
     if (viewMode === 'graphSocial') return <GraphPage projectKey={projectKey} variant="graphSocial" />
@@ -197,6 +199,7 @@ export default function AppShell() {
     if (viewMode === 'graphProduct') return <GraphPage projectKey={projectKey} variant="graphProduct" />
     if (viewMode === 'graphOperation') return <GraphPage projectKey={projectKey} variant="graphOperation" />
     if (viewMode === 'graphDeep') return <GraphPage projectKey={projectKey} variant="graphDeep" />
+    if (viewMode === 'graphBuilder') return <GraphPage projectKey={projectKey} variant="graphMarket" templateBuilder />
     if (viewMode === 'sysProjects') return <ProjectsPage projectKey={projectKey} onProjectChange={setProjectKeyState} />
     if (viewMode === 'sysCrawler') return <CrawlerManagePage projectKey={projectKey} />
     if (viewMode === 'sysResource') return <ResourcePage projectKey={projectKey} variant="resource" />
@@ -222,6 +225,15 @@ export default function AppShell() {
   }, [projectKey])
 
   const handleModeChange = (mode: NavMode) => {
+    if (mode === 'flowLlmNodeDesign') {
+      const nextHash = hashByMode.flowLlmNodeDesign
+      const basePath = String(import.meta.env.BASE_URL || '/').trim() || '/'
+      const nextUrl = new URL(basePath.startsWith('/') ? basePath : `/${basePath}`, window.location.origin)
+      nextUrl.hash = nextHash
+      const opened = window.open(nextUrl.toString(), '_blank', 'noopener,noreferrer')
+      if (!opened) window.location.assign(nextUrl.toString())
+      return
+    }
     setViewMode(mode)
     setLocalJson(SHELL_PREFS_KEY, { lastMode: mode, pendingProjectKey })
     const nextHash = hashByMode[mode]
@@ -233,7 +245,7 @@ export default function AppShell() {
   }, [viewMode, pendingProjectKey])
 
   return (
-    <div className="layout-root">
+    <div className={`layout-root ${isLlmDesignerMode ? 'layout-root--immersive' : ''}`}>
       <section className={`panel app-status-bar app-global-status is-${figmaTheme}`}>
         <div className="app-status-bar__top">
           <span className="status-line app-status-bar__current">当前项目: {projectKey}</span>
@@ -374,16 +386,18 @@ export default function AppShell() {
         </div>
       </section>
 
-      <FigmaSideNav mode={viewMode} onModeChange={handleModeChange} theme={figmaTheme} />
-      <main className={`main-area is-${figmaTheme}`}>
-        <section className="panel app-page-title">
-          <div className="panel-header">
-            <h2>{pageTitle}</h2>
-          </div>
-        </section>
+      {!isLlmDesignerMode ? <FigmaSideNav mode={viewMode} onModeChange={handleModeChange} theme={figmaTheme} /> : null}
+      <main className={`main-area is-${figmaTheme} ${isLlmDesignerMode ? 'main-area--immersive' : ''}`}>
+        {!isLlmDesignerMode ? (
+          <section className="panel app-page-title">
+            <div className="panel-header">
+              <h2>{pageTitle}</h2>
+            </div>
+          </section>
+        ) : null}
 
         <Suspense fallback={<section className="panel"><p className="status-line">页面加载中...</p></section>}>
-          <div className="content-stack">
+          <div className={`content-stack ${isLlmDesignerMode ? 'content-stack--immersive' : ''}`}>
             {modernContent}
           </div>
         </Suspense>

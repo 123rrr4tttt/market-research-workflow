@@ -3,28 +3,26 @@ import react from '@vitejs/plugin-react'
 
 const proxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000'
 
+function inDeps(id: string, segments: string[]) {
+  return segments.some((segment) => id.includes(segment))
+}
+
 export default defineConfig({
   plugins: [react()],
   build: {
     target: 'es2020',
+    // GraphPage's 3D engine is already route- and feature-lazy-loaded.
+    // Keep the warning threshold just above that isolated chunk to avoid noisy false positives.
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return
-          if (id.includes('/echarts/')) return 'echarts-vendor'
-          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'react-vendor'
-          if (id.includes('/@tanstack/react-query/')) return 'query-vendor'
-          if (id.includes('/lucide-react/')) return 'icons-vendor'
-          if (
-            id.includes('/react-force-graph-3d/')
-            || id.includes('/3d-force-graph/')
-            || id.includes('/three/')
-            || id.includes('/three-spritetext/')
-            || id.includes('/three-render-objects/')
-            || id.includes('/three-forcegraph/')
-            || id.includes('/d3-force-3d/')
-          ) return 'force-graph-vendor'
-          return 'vendor'
+          if (inDeps(id, ['/react/', '/react-dom/', '/scheduler/', '/use-sync-external-store/'])) return 'react-vendor'
+          if (inDeps(id, ['/echarts/', '/zrender/'])) return 'echarts-vendor'
+          if (inDeps(id, ['/@tanstack/react-query/', '/@tanstack/query-core/'])) return 'query-vendor'
+          if (inDeps(id, ['/lucide-react/'])) return 'icons-vendor'
+          return
         },
       },
     },
