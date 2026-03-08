@@ -68,7 +68,6 @@ services:
       - "8000:8000"
     volumes:
       - ../backend:/app
-      - ../frontend:/app/frontend
       # 信息源库（来源库配置）挂载，供 source_library 加载
       - ../../信息源库:/app/信息源库:ro
       # 单独挂载启动脚本，确保entrypoint可用
@@ -139,7 +138,6 @@ services:
         condition: service_started
     volumes:
       - ../backend:/app
-      - ../frontend:/app/frontend
     profiles:
       - test
 

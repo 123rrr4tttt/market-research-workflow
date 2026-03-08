@@ -287,6 +287,7 @@ case "$cmd" in
   rollback-list)
     require_ops_dir
     exec "${OPS_DIR}/rollback.sh" list "$@"
+    ;;
   rollback-drill)
     rollback_drill "$@"
     ;;
