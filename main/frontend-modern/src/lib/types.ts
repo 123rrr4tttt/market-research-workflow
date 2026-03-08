@@ -400,8 +400,8 @@ export type RouteToken =
   | 'topic-operation'
 
 export type RouteHint = {
-  mode: 'flowWorkflow' | 'flowProcessing'
-  variant?: 'workflow' | 'rawData'
+  mode: 'flowProcessing'
+  variant?: 'rawData'
 }
 
 export type TaskPayload = {
@@ -825,6 +825,85 @@ export type WorkflowTemplateMutationResponse = {
   deleted?: boolean
   config_key?: string
   config?: Record<string, unknown>
+}
+
+export type WorkflowGraphTemplateItem = {
+  template_id: string
+  name?: string | null
+  description?: string | null
+  graph_id?: string | null
+  active_version?: string | null
+  latest_version?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  meta?: Record<string, unknown> | null
+}
+
+export type WorkflowGraphTemplatePayload = {
+  template_id: string
+  name?: string | null
+  description?: string | null
+  dsl: Record<string, unknown>
+  base_version?: string | null
+  meta?: Record<string, unknown>
+}
+
+export type WorkflowGraphTemplateUpdatePayload = {
+  name?: string | null
+  description?: string | null
+  dsl?: Record<string, unknown>
+  base_version?: string | null
+  meta?: Record<string, unknown>
+}
+
+export type WorkflowGraphTemplateListResponse = {
+  items?: WorkflowGraphTemplateItem[]
+  total?: number
+}
+
+export type WorkflowGraphTemplateMutationResponse = {
+  template_id?: string
+  created?: boolean
+  updated?: boolean
+  deleted?: boolean
+  template?: WorkflowGraphTemplateItem
+}
+
+export type WorkflowGraphTemplateVersionItem = {
+  template_id?: string
+  version_id: string
+  version?: string
+  status?: string | null
+  graph_id?: string | null
+  checksum?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  created_by?: string | null
+  note?: string | null
+  base_version?: string | null
+  dsl?: Record<string, unknown> | null
+  meta?: Record<string, unknown> | null
+}
+
+export type WorkflowGraphTemplateVersionPayload = {
+  version_id?: string
+  dsl?: Record<string, unknown>
+  base_version?: string | null
+  note?: string | null
+  meta?: Record<string, unknown>
+}
+
+export type WorkflowGraphTemplateVersionListResponse = {
+  items?: WorkflowGraphTemplateVersionItem[]
+  total?: number
+}
+
+export type WorkflowGraphTemplateVersionMutationResponse = {
+  template_id?: string
+  version_id?: string
+  created?: boolean
+  activated?: boolean
+  version?: WorkflowGraphTemplateVersionItem
 }
 
 export type ResourcePoolRecommendationPayload = {

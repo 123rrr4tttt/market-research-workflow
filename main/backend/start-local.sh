@@ -12,8 +12,10 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_DIR="$(cd "$ROOT_DIR/.." && pwd)"
 FRONTEND_DIR="$ROOT_DIR/frontend-modern"
 OPS_DIR="$(cd "$SCRIPT_DIR/../ops" && pwd)"
+ES_LOCAL_SCRIPT="$REPO_DIR/scripts/start-es-local.sh"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
 FRONTEND_LOG_FILE="/tmp/frontend-modern-dev.log"
@@ -372,6 +374,51 @@ ensure_local_redis_running() {
     return 1
 }
 
+ensure_local_elasticsearch_running() {
+    local es_url="${ES_URL:-http://localhost:9200}"
+    local es_hostport="${es_url#*://}"
+    es_hostport="${es_hostport%%/*}"
+    local es_host="${es_hostport%%:*}"
+    local es_port="${es_hostport##*:}"
+
+    if [ -z "$es_host" ]; then
+        es_host="localhost"
+    fi
+    if [ -z "$es_port" ] || [ "$es_port" = "$es_hostport" ]; then
+        es_port="9200"
+    fi
+
+    case "$es_host" in
+        localhost|127.0.0.1)
+            ;;
+        *)
+            echo "ℹ️  ES_URL 指向远程地址（$es_url），跳过本机 Elasticsearch 启动"
+            return 0
+            ;;
+    esac
+
+    if command -v curl >/dev/null 2>&1 && curl -fsS "$es_url" >/dev/null 2>&1; then
+        echo "✅ Elasticsearch 已运行（${es_host}:${es_port}）"
+        return 0
+    fi
+
+    if [ ! -f "$ES_LOCAL_SCRIPT" ]; then
+        echo "⚠️  未找到本机 Elasticsearch 启动脚本：$ES_LOCAL_SCRIPT"
+        echo "💡 提示：可手动启动 Elasticsearch，或使用 --with-docker-deps"
+        return 0
+    fi
+
+    echo "🚀 尝试启动本机 Elasticsearch（${es_host}:${es_port}）..."
+    if bash "$ES_LOCAL_SCRIPT" start; then
+        echo "✅ 本机 Elasticsearch 已启动"
+        return 0
+    fi
+
+    echo "⚠️  本机 Elasticsearch 启动失败，相关全文检索功能将不可用"
+    echo "💡 提示：查看 /opt/homebrew/var/log/elasticsearch.log 或改用 --with-docker-deps"
+    return 0
+}
+
 detect_python_cmd() {
     if command -v python3.11 >/dev/null 2>&1; then
         echo "python3.11"
@@ -424,17 +471,35 @@ ensure_backend_venv() {
     fi
 }
 
-run_psql_local() {
+resolve_psql_cmd() {
     local psql_cmd=""
     if command -v psql >/dev/null 2>&1; then
         psql_cmd="psql"
+    elif [[ -x /opt/homebrew/opt/postgresql@18/bin/psql ]]; then
+        psql_cmd="/opt/homebrew/opt/postgresql@18/bin/psql"
+    elif [[ -x /opt/homebrew/opt/postgresql@17/bin/psql ]]; then
+        psql_cmd="/opt/homebrew/opt/postgresql@17/bin/psql"
+    elif [[ -x /opt/homebrew/opt/postgresql@16/bin/psql ]]; then
+        psql_cmd="/opt/homebrew/opt/postgresql@16/bin/psql"
     elif [[ -x /opt/homebrew/opt/postgresql/bin/psql ]]; then
         psql_cmd="/opt/homebrew/opt/postgresql/bin/psql"
+    elif [[ -x /usr/local/opt/postgresql@18/bin/psql ]]; then
+        psql_cmd="/usr/local/opt/postgresql@18/bin/psql"
+    elif [[ -x /usr/local/opt/postgresql@17/bin/psql ]]; then
+        psql_cmd="/usr/local/opt/postgresql@17/bin/psql"
+    elif [[ -x /usr/local/opt/postgresql@16/bin/psql ]]; then
+        psql_cmd="/usr/local/opt/postgresql@16/bin/psql"
     elif [[ -x /usr/local/opt/postgresql/bin/psql ]]; then
         psql_cmd="/usr/local/opt/postgresql/bin/psql"
     else
         return 127
     fi
+    echo "$psql_cmd"
+}
+
+run_psql_local() {
+    local psql_cmd=""
+    psql_cmd="$(resolve_psql_cmd)" || return 127
     PGPASSWORD="${PGPASSWORD:-}" "$psql_cmd" -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" -U "${DB_USER:-postgres}" -d "${DB_NAME:-postgres}" "$@" 2>/dev/null
 }
 
@@ -467,15 +532,7 @@ ensure_postgres_user_ready() {
         return 1
     fi
     local psql_cmd=""
-    if command -v psql >/dev/null 2>&1; then
-        psql_cmd="psql"
-    elif [[ -x /opt/homebrew/opt/postgresql/bin/psql ]]; then
-        psql_cmd="/opt/homebrew/opt/postgresql/bin/psql"
-    elif [[ -x /usr/local/opt/postgresql/bin/psql ]]; then
-        psql_cmd="/usr/local/opt/postgresql/bin/psql"
-    else
-        return 127
-    fi
+    psql_cmd="$(resolve_psql_cmd)" || return 127
     if PGPASSWORD="" "$psql_cmd" -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" -U "$current_user" -d "${DB_NAME:-postgres}" -c "SELECT 1" >/dev/null 2>&1; then
         echo "📦 检测到 Homebrew PostgreSQL 无 postgres 用户，尝试创建..."
         if PGPASSWORD="" "$psql_cmd" -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" -U "$current_user" -d "${DB_NAME:-postgres}" -c "DO \$\$ BEGIN CREATE USER postgres WITH PASSWORD 'postgres' SUPERUSER; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;" 2>/dev/null; then
@@ -665,6 +722,7 @@ else
     ensure_local_postgres_running || exit 1
     ensure_postgres_user_ready || exit 1
     ensure_local_redis_running || exit 1
+    ensure_local_elasticsearch_running || true
     ensure_pgvector_available || true
 fi
 

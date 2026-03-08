@@ -7,6 +7,7 @@ from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.exc import OperationalError, DatabaseError
 from datetime import datetime, date, timedelta
 import logging
+import re
 
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
@@ -24,6 +25,7 @@ from ..services.graph.doc_types import resolve_graph_doc_types
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def _decimal_to_float(value):
@@ -31,6 +33,37 @@ def _decimal_to_float(value):
     if value is None:
         return None
     return float(value)
+
+
+def _parse_ymd_date_param(value: Optional[str], *, field: str) -> Optional[date]:
+    if value is None:
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    if not _DATE_RE.match(raw):
+        raise HTTPException(status_code=422, detail=f"{field} must be YYYY-MM-DD")
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"{field} must be a valid YYYY-MM-DD date") from exc
+
+
+def _parse_iso8601_datetime_param(value: Optional[str], *, field: str) -> Optional[datetime]:
+    if value is None:
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    if raw.endswith("Z"):
+        raw = f"{raw[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"{field} must be ISO8601 datetime") from exc
+    if "T" not in raw and " " not in raw:
+        raise HTTPException(status_code=422, detail=f"{field} must be ISO8601 datetime")
+    return parsed
 
 
 @router.get("/global/stats")
@@ -179,6 +212,9 @@ def get_market_trends(
     period: str = Query("daily", pattern="^(daily|monthly)$", description="聚合周期"),
 ):
     """获取市场趋势数据"""
+    start = _parse_ymd_date_param(start_date, field="start_date")
+    end = _parse_ymd_date_param(end_date, field="end_date")
+
     with SessionLocal() as session:
         query = select(MarketStat)
         
@@ -187,18 +223,10 @@ def get_market_trends(
             conditions.append(MarketStat.state == state.upper())
         if game:
             conditions.append(MarketStat.game.ilike(f"%{game}%"))
-        if start_date:
-            try:
-                start = datetime.fromisoformat(start_date).date()
-                conditions.append(MarketStat.date >= start)
-            except Exception:
-                pass
-        if end_date:
-            try:
-                end = datetime.fromisoformat(end_date).date()
-                conditions.append(MarketStat.date <= end)
-            except Exception:
-                pass
+        if start:
+            conditions.append(MarketStat.date >= start)
+        if end:
+            conditions.append(MarketStat.date <= end)
         
         if conditions:
             query = query.where(and_(*conditions))
@@ -310,20 +338,15 @@ def get_document_analysis(
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
 ):
     """获取文档分析数据"""
+    start = _parse_ymd_date_param(start_date, field="start_date")
+    end = _parse_ymd_date_param(end_date, field="end_date")
+
     with SessionLocal() as session:
         conditions = []
-        if start_date:
-            try:
-                start = datetime.fromisoformat(start_date).date()
-                conditions.append(func.date(Document.created_at) >= start)
-            except Exception:
-                pass
-        if end_date:
-            try:
-                end = datetime.fromisoformat(end_date).date()
-                conditions.append(func.date(Document.created_at) <= end)
-            except Exception:
-                pass
+        if start:
+            conditions.append(func.date(Document.created_at) >= start)
+        if end:
+            conditions.append(func.date(Document.created_at) <= end)
         
         # 文档类型分布
         type_query = select(
@@ -419,6 +442,9 @@ def get_sentiment_analysis(
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
 ):
     """获取社交媒体情感分析数据"""
+    start = _parse_ymd_date_param(start_date, field="start_date")
+    end = _parse_ymd_date_param(end_date, field="end_date")
+
     graph_doc_types = resolve_graph_doc_types()
     social_doc_types = graph_doc_types.get("social") or ["social_sentiment", "social_feed"]
     with SessionLocal() as session:
@@ -427,30 +453,22 @@ def get_sentiment_analysis(
             Document.extracted_data.isnot(None),
         ]
         
-        if start_date:
-            try:
-                start = datetime.fromisoformat(start_date).date()
-                # 使用发布时间过滤，如果没有发布时间则使用创建时间
-                conditions.append(
-                    or_(
-                        Document.publish_date >= start,
-                        and_(Document.publish_date.is_(None), func.date(Document.created_at) >= start)
-                    )
+        if start:
+            # 使用发布时间过滤，如果没有发布时间则使用创建时间
+            conditions.append(
+                or_(
+                    Document.publish_date >= start,
+                    and_(Document.publish_date.is_(None), func.date(Document.created_at) >= start)
                 )
-            except Exception:
-                pass
-        if end_date:
-            try:
-                end = datetime.fromisoformat(end_date).date()
-                # 使用发布时间过滤，如果没有发布时间则使用创建时间
-                conditions.append(
-                    or_(
-                        Document.publish_date <= end,
-                        and_(Document.publish_date.is_(None), func.date(Document.created_at) <= end)
-                    )
+            )
+        if end:
+            # 使用发布时间过滤，如果没有发布时间则使用创建时间
+            conditions.append(
+                or_(
+                    Document.publish_date <= end,
+                    and_(Document.publish_date.is_(None), func.date(Document.created_at) <= end)
                 )
-            except Exception:
-                pass
+            )
         
         query = select(Document).where(and_(*conditions))
         docs = session.execute(query).scalars().all()
@@ -568,6 +586,9 @@ def get_sentiment_sources(
     limit: int = Query(default=50, ge=1, le=200, description="返回数量限制"),
 ):
     """根据筛选条件获取数据源列表"""
+    start = _parse_ymd_date_param(start_date, field="start_date")
+    end = _parse_ymd_date_param(end_date, field="end_date")
+
     graph_doc_types = resolve_graph_doc_types()
     social_doc_types = graph_doc_types.get("social") or ["social_sentiment", "social_feed"]
     with SessionLocal() as session:
@@ -576,30 +597,22 @@ def get_sentiment_sources(
             Document.extracted_data.isnot(None),
         ]
         
-        if start_date:
-            try:
-                start = datetime.fromisoformat(start_date).date()
-                # 使用发布时间过滤，如果没有发布时间则使用创建时间
-                conditions.append(
-                    or_(
-                        Document.publish_date >= start,
-                        and_(Document.publish_date.is_(None), func.date(Document.created_at) >= start)
-                    )
+        if start:
+            # 使用发布时间过滤，如果没有发布时间则使用创建时间
+            conditions.append(
+                or_(
+                    Document.publish_date >= start,
+                    and_(Document.publish_date.is_(None), func.date(Document.created_at) >= start)
                 )
-            except Exception:
-                pass
-        if end_date:
-            try:
-                end = datetime.fromisoformat(end_date).date()
-                # 使用发布时间过滤，如果没有发布时间则使用创建时间
-                conditions.append(
-                    or_(
-                        Document.publish_date <= end,
-                        and_(Document.publish_date.is_(None), func.date(Document.created_at) <= end)
-                    )
+            )
+        if end:
+            # 使用发布时间过滤，如果没有发布时间则使用创建时间
+            conditions.append(
+                or_(
+                    Document.publish_date <= end,
+                    and_(Document.publish_date.is_(None), func.date(Document.created_at) <= end)
                 )
-            except Exception:
-                pass
+            )
         
         query = select(Document).where(and_(*conditions))
         docs = session.execute(query).scalars().all()
@@ -769,20 +782,17 @@ def get_commodity_trends(
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
     period: str = Query("daily", pattern="^(daily|monthly)$"),
 ):
+    start = _parse_ymd_date_param(start_date, field="start_date")
+    end = _parse_ymd_date_param(end_date, field="end_date")
+
     with SessionLocal() as session:
         query = select(MarketMetricPoint)
         if metric_key:
             query = query.where(MarketMetricPoint.metric_key == metric_key)
-        if start_date:
-            try:
-                query = query.where(MarketMetricPoint.date >= datetime.fromisoformat(start_date).date())
-            except Exception:
-                pass
-        if end_date:
-            try:
-                query = query.where(MarketMetricPoint.date <= datetime.fromisoformat(end_date).date())
-            except Exception:
-                pass
+        if start:
+            query = query.where(MarketMetricPoint.date >= start)
+        if end:
+            query = query.where(MarketMetricPoint.date <= end)
 
         if period == "monthly":
             rows = session.execute(
@@ -844,6 +854,9 @@ def get_ecom_price_trends(
     start_date: Optional[str] = Query(None, description="开始时间 ISO8601"),
     end_date: Optional[str] = Query(None, description="结束时间 ISO8601"),
 ):
+    start_dt = _parse_iso8601_datetime_param(start_date, field="start_date")
+    end_dt = _parse_iso8601_datetime_param(end_date, field="end_date")
+
     with SessionLocal() as session:
         query = (
             select(PriceObservation, Product)
@@ -851,16 +864,10 @@ def get_ecom_price_trends(
         )
         if product_id:
             query = query.where(PriceObservation.product_id == product_id)
-        if start_date:
-            try:
-                query = query.where(PriceObservation.captured_at >= datetime.fromisoformat(start_date))
-            except Exception:
-                pass
-        if end_date:
-            try:
-                query = query.where(PriceObservation.captured_at <= datetime.fromisoformat(end_date))
-            except Exception:
-                pass
+        if start_dt:
+            query = query.where(PriceObservation.captured_at >= start_dt)
+        if end_dt:
+            query = query.where(PriceObservation.captured_at <= end_dt)
 
         rows = session.execute(query.order_by(PriceObservation.captured_at.asc())).all()
         series = [

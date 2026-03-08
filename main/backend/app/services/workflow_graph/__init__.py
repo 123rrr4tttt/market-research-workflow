@@ -8,6 +8,7 @@ from uuid import uuid4
 from .compiler import compile_workflow_graph
 from .runtime import WorkflowGraphRuntime
 from .store import build_run_store
+from .templates import WorkflowGraphTemplateService
 
 
 class WorkflowGraphCompilerService:
@@ -16,14 +17,27 @@ class WorkflowGraphCompilerService:
     def __init__(self) -> None:
         self._compiled: dict[str, dict[str, Any]] = {}
         self._lock = RLock()
+        self._templates = WorkflowGraphTemplateService()
 
     def compile(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        dsl_payload = payload.get("dsl") if isinstance(payload, Mapping) else payload
+        if not isinstance(payload, Mapping):
+            raise ValueError("compile payload must be a mapping")
+        dsl_payload = payload.get("dsl")
+        template_id = str(payload.get("template_id") or "").strip()
+        requested_version_id = str(payload.get("version_id") or "").strip() or None
+        resolved_version_id: str | None = None
+        if template_id:
+            dsl_payload, resolved_version_id = self._templates.resolve_version_dsl(
+                template_id=template_id,
+                version_id=requested_version_id,
+            )
+        elif not isinstance(dsl_payload, Mapping):
+            dsl_payload = payload
         if not isinstance(dsl_payload, Mapping):
             raise ValueError("dsl payload must be a mapping")
 
         compiled = compile_workflow_graph(dsl_payload)
-        raw_graph_id = payload.get("graph_id") if isinstance(payload, Mapping) else None
+        raw_graph_id = payload.get("graph_id")
         graph_id = str(raw_graph_id).strip() if raw_graph_id is not None else ""
         if not graph_id or graph_id.lower() == "none":
             graph_id = uuid4().hex
@@ -62,13 +76,17 @@ class WorkflowGraphCompilerService:
         }
         with self._lock:
             self._compiled[graph_id] = compiled_record
-        return {
+        response = {
             "graph_id": graph_id,
             "version": compiled.version,
             "checksum": compiled.checksum,
             "topo_order": list(compiled.topo_order),
             "warnings": [],
         }
+        if template_id:
+            response["template_id"] = template_id
+            response["version_id"] = resolved_version_id
+        return response
 
     def get_compiled(self, graph_id: str) -> dict[str, Any]:
         with self._lock:
@@ -76,6 +94,38 @@ class WorkflowGraphCompilerService:
         if row is None:
             raise KeyError(f"compiled graph not found: {graph_id}")
         return row
+
+    def list_templates(self) -> dict[str, Any]:
+        return self._templates.list_templates()
+
+    def create_template(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        return self._templates.create_template(payload)
+
+    def get_template(self, template_id: str) -> dict[str, Any]:
+        return self._templates.get_template(template_id)
+
+    def patch_template(self, template_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        return self._templates.patch_template(template_id, payload)
+
+    def delete_template(self, template_id: str, payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        return self._templates.delete_template(template_id, payload)
+
+    def list_template_versions(self, template_id: str) -> dict[str, Any]:
+        return self._templates.list_versions(template_id)
+
+    def create_template_version(self, template_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        return self._templates.create_version(template_id, payload)
+
+    def get_template_version(self, template_id: str, version_id: str) -> dict[str, Any]:
+        return self._templates.get_version(template_id, version_id)
+
+    def activate_template_version(
+        self,
+        template_id: str,
+        version_id: str,
+        payload: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._templates.activate_version(template_id, version_id, payload)
 
 
 class WorkflowGraphRuntimeService:

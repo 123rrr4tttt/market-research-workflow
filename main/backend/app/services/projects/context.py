@@ -39,11 +39,22 @@ def _sanitize_identifier(raw: str, *, fallback: str) -> str:
     return s[:63]
 
 
+def _sanitize_schema_prefix(raw: str | None, *, fallback: str = "project_") -> str:
+    s = (raw or fallback).strip().lower()
+    s = re.sub(r"[^a-z0-9_]+", "_", s)
+    s = re.sub(r"_+", "_", s)
+    if not s or not re.match(r"^[a-z_].*", s):
+        s = fallback
+    if not s.endswith("_"):
+        s = f"{s}_"
+    return s[:63]
+
+
 def _is_allowed_schema(schema_name: str) -> bool:
     schema = (schema_name or "").strip()
     if schema == "public":
         return True
-    prefix = _sanitize_identifier(settings.project_schema_prefix or "project_", fallback="project_")
+    prefix = _sanitize_schema_prefix(settings.project_schema_prefix or "project_")
     if not schema.startswith(prefix):
         return False
     suffix = schema[len(prefix) :]
@@ -57,7 +68,7 @@ def project_schema_name(project_key: str) -> str:
     # Aggregation should be handled explicitly via aggregator schema/endpoints.
     if normalized == "public":
         return "public"
-    safe_prefix = _sanitize_identifier(settings.project_schema_prefix or "project_", fallback="project_")
+    safe_prefix = _sanitize_schema_prefix(settings.project_schema_prefix or "project_")
     full = f"{safe_prefix}{normalized}"
     if not _PG_IDENT_RE.match(full):
         # As a last resort, compress invalid characters and trim to 63 chars.
@@ -124,7 +135,7 @@ def bind_schema(schema_name: str):
         # In warn mode, normalize to closest safe schema when possible
         if schema_name and schema_name != "public":
             # try to extract suffix and rebuild
-            prefix = _sanitize_identifier(settings.project_schema_prefix or "project_", fallback="project_")
+            prefix = _sanitize_schema_prefix(settings.project_schema_prefix or "project_")
             suffix = schema_name[len(prefix) :] if schema_name.startswith(prefix) else schema_name
             schema_name = f"{prefix}{_normalize_project_key(suffix)}"
     token_schema = _SCHEMA_VAR.set(schema_name)

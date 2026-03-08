@@ -1,17 +1,18 @@
-import type { WritingKeywordCard, WritingKeywordCardDetail, WritingKeywordCardPreview, WritingSuggestItem } from '../../lib/api'
+import type { DragEvent } from 'react'
+import type { WritingKeywordCard, WritingSuggestItem } from '../../lib/api'
+import { toDraggedCardPayload, writeDraggedCard } from './dragPayload'
 
 export type KeywordInsightSidebarProps = {
   cards: WritingKeywordCard[]
-  preview?: WritingKeywordCardPreview | null
-  detail?: WritingKeywordCardDetail | null
   suggestItems?: WritingSuggestItem[]
   selectionText?: string
   selectedCardId?: string | null
   loading?: boolean
   error?: string | null
   onSelectCard?: (cardId: string) => void
-  onAddCitation?: (cardId: string) => void
   onUseSuggestion?: (query: string) => void
+  onDragCardStart?: (cardId: string) => void
+  onDragCardEnd?: () => void
 }
 
 function scoreLabel(score?: number | null) {
@@ -21,17 +22,21 @@ function scoreLabel(score?: number | null) {
 
 export default function KeywordInsightSidebar({
   cards,
-  preview,
-  detail,
   suggestItems = [],
   selectionText,
   selectedCardId,
   loading = false,
   error,
   onSelectCard,
-  onAddCitation,
   onUseSuggestion,
+  onDragCardStart,
+  onDragCardEnd,
 }: KeywordInsightSidebarProps) {
+  const handleDragStart = (event: DragEvent<HTMLButtonElement>, card: WritingKeywordCard) => {
+    writeDraggedCard(event.nativeEvent, toDraggedCardPayload(card))
+    onDragCardStart?.(card.card_id)
+  }
+
   return (
     <section className="panel writing-side-panel">
       <div className="panel-header">
@@ -45,53 +50,16 @@ export default function KeywordInsightSidebar({
       {selectionText ? <p className="text-muted writing-panel-subtitle">当前选区: {selectionText}</p> : null}
       {error ? <p className="status-line">{error}</p> : null}
 
-      {preview ? (
-        <article className="writing-preview-card">
-          <div className="writing-preview-card__meta">
-            <span className="chip chip-warn">{preview.source_type}</span>
-            <span className="writing-score">score {scoreLabel(preview.score)}</span>
-          </div>
-          <strong>{preview.title}</strong>
-          <p>{preview.snippet || '暂无摘要'}</p>
-          {preview.publisher ? <span className="text-muted">{preview.publisher}</span> : null}
-          <div className="writing-list-card__footer">
-            <span className="text-muted">{preview.url || 'local-preview'}</span>
-            <button type="button" className="button-secondary" onClick={() => onAddCitation?.(preview.card_id)}>
-              加入引用
-            </button>
-          </div>
-        </article>
-      ) : null}
-
-      {detail ? (
-        <article className="writing-preview-card">
-          <div className="writing-preview-card__meta">
-            <span className="chip">{detail.source_type}</span>
-            <span className="writing-score">detail</span>
-          </div>
-          <strong>{detail.title}</strong>
-          {detail.evidence ? <p>{detail.evidence}</p> : null}
-          <div className="writing-chip-wrap">
-            {detail.publisher ? <span className="chip">{detail.publisher}</span> : null}
-            {detail.published_at ? <span className="chip">{detail.published_at}</span> : null}
-            <span className="chip">provenance {Object.keys(detail.provenance || {}).length}</span>
-            <span className="chip">matches {Object.keys(detail.selection_matches || {}).length}</span>
-          </div>
-          {detail.url ? (
-            <a href={detail.url} target="_blank" rel="noreferrer" className="text-muted">
-              打开来源
-            </a>
-          ) : null}
-        </article>
-      ) : null}
-
       <div className="writing-list">
         {cards.map((card) => (
           <button
             key={card.card_id}
             type="button"
             className={`writing-list-card${selectedCardId === card.card_id ? ' is-active' : ''}`}
+            draggable
             onClick={() => onSelectCard?.(card.card_id)}
+            onDragStart={(event) => handleDragStart(event, card)}
+            onDragEnd={() => onDragCardEnd?.()}
           >
             <div className="writing-list-card__header">
               <strong>{card.title}</strong>
@@ -102,15 +70,6 @@ export default function KeywordInsightSidebar({
               <span className="text-muted">{card.publisher || '内部索引'}</span>
               <span className="writing-score">score {scoreLabel(card.score)}</span>
             </div>
-            {card.quick_actions.length ? (
-              <div className="writing-chip-wrap">
-                {card.quick_actions.map((action) => (
-                  <span key={`${card.card_id}-${action}`} className="chip">
-                    {action}
-                  </span>
-                ))}
-              </div>
-            ) : null}
           </button>
         ))}
         {!cards.length && !loading ? <div className="empty-cell">划词后在这里出现资料卡片</div> : null}

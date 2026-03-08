@@ -214,3 +214,50 @@ def test_process_list_stats_history_consistency_semantics(
     running_row = next(item for item in history_data["history"] if item["id"] == 102)
     assert running_row["handler_used"] == "crawler_pool"
     assert running_row["skip_reason"] == "url_policy_low_value_endpoint"
+
+
+def test_prompt_time_density_priority_contract_fields(core_business_client, contract_headers: dict[str, str]) -> None:
+    mocked = [
+        {
+            "source_domain": "news.example.com",
+            "prompt_group_id": "pg-ai",
+            "window": "7d",
+            "density": 0.2,
+            "norm_density": 1.1,
+            "dup_ratio": 0.1,
+            "collection_priority_score": 0.73,
+            "rank": 1,
+        }
+    ]
+    with patch("app.api.stats.query_prompt_time_density_priority", return_value=mocked):
+        resp = core_business_client.get(
+            "/api/v1/stats/prompt-time-density/priority?candidate_windows=7d&end=2026-03-01",
+            headers=contract_headers,
+        )
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "ok"
+    data = body["data"]
+    assert data["total"] == 1
+    assert isinstance(data["items"], list)
+    row = data["items"][0]
+    assert row["rank"] == 1
+    assert "collection_priority_score" in row
+    assert "norm_density" in row
+    assert "dup_ratio" in row
+
+
+def test_prompt_time_density_priority_invalid_window_returns_422(
+    core_business_client,
+    contract_headers: dict[str, str],
+) -> None:
+    resp = core_business_client.get(
+        "/api/v1/stats/prompt-time-density/priority?candidate_windows=bad-window",
+        headers=contract_headers,
+    )
+
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == "INVALID_INPUT"

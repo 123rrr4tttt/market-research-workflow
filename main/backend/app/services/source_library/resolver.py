@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from typing import Any, Dict, List
 
@@ -16,6 +17,7 @@ from ..ingest_config.service import get_config as get_ingest_config
 from ..projects import bind_project, bind_schema
 from .loader import load_project_library_files
 from .runner import run_channel
+from .types import FrontDoorExecutionProtocol
 from .url_router import resolve_channel_for_url
 
 
@@ -46,6 +48,34 @@ def _as_bool(value: Any, default: bool) -> bool:
     if s in {"0", "false", "no", "off"}:
         return False
     return default
+
+
+def _clamp_int(value: Any, default: int, *, min_value: int, max_value: int) -> int:
+    try:
+        parsed = int(value)
+    except Exception:
+        parsed = int(default)
+    return max(min_value, min(max_value, parsed))
+
+
+def _normalize_terms(value: Any) -> list[str]:
+    if isinstance(value, list):
+        out: list[str] = []
+        for x in value:
+            s = str(x or "").strip()
+            if s and s not in out:
+                out.append(s)
+        return out
+    s = str(value or "").strip()
+    return [s] if s else []
+
+
+def _split_batches(terms: list[str], chunk_size: int) -> list[list[str]]:
+    clean = _normalize_terms(terms)
+    if not clean:
+        return [[]]
+    size = max(1, int(chunk_size))
+    return [clean[i : i + size] for i in range(0, len(clean), size)]
 
 
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -127,6 +157,228 @@ def _prefer_crawler_channel_key(
         return (3, lowered)
 
     return sorted(candidates, key=_score)[0]
+
+
+def _is_retryable_crawler_runtime_error(exc: Exception) -> bool:
+    message = str(exc or "").strip().lower()
+    if not message:
+        return False
+    return (
+        "crawler provider '" in message and " is unavailable" in message
+    ) or ("unsupported crawler provider_type" in message)
+
+
+def _is_handler_cluster_item(item: Dict[str, Any] | None) -> bool:
+    extra = (item or {}).get("extra") or {}
+    if not isinstance(extra, dict):
+        return False
+    return bool(
+        extra.get("stable_handler_cluster")
+        or str(extra.get("creation_handler") or "").startswith("handler.entry_type")
+    )
+
+
+def _has_site_entries(params: Dict[str, Any] | None) -> bool:
+    if not isinstance(params, dict):
+        return False
+    raw = params.get("site_entries") or params.get("site_entry_urls")
+    return isinstance(raw, list) and any(str(x or "").strip() for x in raw)
+
+
+def _normalize_site_entries(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for entry in value:
+        site_url = str(entry or "").strip()
+        if site_url and site_url not in out:
+            out.append(site_url)
+    return out
+
+
+def _build_frontdoor_protocol(
+    *,
+    item: Dict[str, Any],
+    params: Dict[str, Any],
+    project_key: str | None,
+    candidate_urls: List[str] | None = None,
+) -> FrontDoorExecutionProtocol:
+    item_key = str(item.get("item_key") or "").strip() or "_anonymous"
+    item_channel_key = str(item.get("channel_key") or "").strip()
+    item_params = _as_dict(item.get("params"))
+    item_extra = _as_dict(item.get("extra"))
+    query_terms = _normalize_terms(
+        params.get("query_terms")
+        or params.get("keywords")
+        or params.get("search_keywords")
+        or params.get("base_keywords")
+        or params.get("topic_keywords")
+        or []
+    )
+    site_entries = _normalize_site_entries(params.get("site_entries") or params.get("site_entry_urls") or item_params.get("site_entries") or item_params.get("site_entry_urls"))
+    routed_urls = _normalize_site_entries(candidate_urls if candidate_urls is not None else params.get("urls"))
+    write_to_pool = _as_bool(params.get("write_to_pool"), True)
+    auto_ingest = _as_bool(params.get("auto_ingest"), True)
+    default_force_single_url_flow = item_channel_key.lower() == "url_pool" or item_key.lower().startswith("url_pool.")
+    force_single_url_flow = _as_bool(params.get("force_single_url_flow"), default_force_single_url_flow)
+    prefer_crawler_first = _as_bool(params.get("prefer_crawler_first"), False) and not force_single_url_flow
+    search_parallelism = _clamp_int(params.get("search_parallelism"), 3, min_value=1, max_value=8)
+    routing_parallelism = _resolve_url_routing_parallelism(
+        params,
+        len(routed_urls) if routed_urls else len(site_entries),
+    )
+    execution_mode = "single_channel"
+    route_decision = "channel_direct"
+    write_mode = "channel_direct"
+    if routed_urls:
+        execution_mode = "url_routing"
+        route_decision = "front_door_url_routing"
+        write_mode = "front_door_url_routing"
+    elif _is_handler_cluster_item(item) or site_entries:
+        execution_mode = "search_then_route"
+        route_decision = "handler_cluster_search"
+        write_mode = "front_door_url_routing"
+
+    return FrontDoorExecutionProtocol(
+        item_key=item_key,
+        item_channel_key=item_channel_key,
+        project_key=str(project_key or "").strip() or None,
+        front_door_owner="run_item_payload",
+        execution_mode=execution_mode,
+        write_mode=write_mode,
+        route_decision=route_decision,
+        query_terms=query_terms,
+        site_entries=site_entries,
+        candidate_urls=routed_urls,
+        expected_entry_type=str(item_extra.get("expected_entry_type") or item_params.get("expected_entry_type") or "").strip() or None,
+        write_to_pool=write_to_pool,
+        auto_ingest=auto_ingest,
+        ingest_limit=max(1, int(params.get("ingest_limit") or params.get("limit") or 20)),
+        force_single_url_flow=force_single_url_flow,
+        prefer_crawler_first=prefer_crawler_first,
+        search_parallelism=search_parallelism,
+        routing_parallelism=routing_parallelism,
+    )
+
+
+def _protocol_to_dict(protocol: FrontDoorExecutionProtocol) -> Dict[str, Any]:
+    return {
+        "item_key": protocol.item_key,
+        "item_channel_key": protocol.item_channel_key,
+        "project_key": protocol.project_key,
+        "front_door_owner": protocol.front_door_owner,
+        "execution_mode": protocol.execution_mode,
+        "write_mode": protocol.write_mode,
+        "route_decision": protocol.route_decision,
+        "query_terms": list(protocol.query_terms),
+        "site_entries": list(protocol.site_entries),
+        "candidate_urls": list(protocol.candidate_urls),
+        "expected_entry_type": protocol.expected_entry_type,
+        "write_to_pool": protocol.write_to_pool,
+        "auto_ingest": protocol.auto_ingest,
+        "ingest_limit": protocol.ingest_limit,
+        "force_single_url_flow": protocol.force_single_url_flow,
+        "prefer_crawler_first": protocol.prefer_crawler_first,
+        "search_parallelism": protocol.search_parallelism,
+        "routing_parallelism": protocol.routing_parallelism,
+    }
+
+
+def _resolve_url_routing_parallelism(params: Dict[str, Any], total_urls: int) -> int:
+    if total_urls <= 1:
+        return 1
+    return _clamp_int(
+        params.get("url_routing_parallelism") if params.get("url_routing_parallelism") is not None else params.get("routing_parallelism"),
+        min(4, total_urls),
+        min_value=1,
+        max_value=max(1, total_urls),
+    )
+
+
+def _run_single_routed_url(
+    *,
+    url: Any,
+    item: Dict[str, Any],
+    params: Dict[str, Any],
+    project_key: str | None,
+    channel_map: Dict[str, Dict[str, Any]],
+    has_query_terms: bool,
+    force_single_url_flow: bool,
+    preferred_crawler_channel_key: str | None,
+) -> Dict[str, Any]:
+    url_str = str(url).strip() if url else ""
+    if not url_str or not url_str.startswith(("http://", "https://")):
+        return {"url": url_str or str(url), "channel_key": None, "error": "invalid url", "result": None}
+
+    default_channel_key = "url_pool" if force_single_url_flow else resolve_channel_for_url(
+        url_str,
+        project_key,
+        has_query_terms=has_query_terms,
+    )
+    channel_key = "url_pool" if force_single_url_flow else (preferred_crawler_channel_key or default_channel_key)
+    channel = channel_map.get(channel_key)
+    if channel is None:
+        channel = channel_map.get("url_pool")
+        if channel is not None:
+            channel_key = "url_pool"
+    if channel is None:
+        return {"url": url_str, "channel_key": channel_key, "error": "channel not found", "result": None}
+    if not channel.get("enabled", True):
+        return {"url": url_str, "channel_key": channel_key, "error": "channel disabled", "result": None}
+
+    per_url_params = _deep_merge(channel.get("default_params") or {}, params)
+    per_url_params = {k: v for k, v in per_url_params.items() if k != "urls"}
+    per_url_params = _inject_url_params_for_channel(
+        channel=channel,
+        per_url_params=per_url_params,
+        url_str=url_str,
+    )
+
+    try:
+        with (bind_project(project_key) if project_key else nullcontext()):
+            result = run_channel(
+                channel=channel,
+                params=per_url_params,
+                project_key=project_key,
+                item_key=str(item.get("item_key") or "").strip() or None,
+            )
+        return {"url": url_str, "channel_key": channel_key, "error": None, "result": result}
+    except Exception as exc:
+        if (
+            preferred_crawler_channel_key
+            and channel_key == preferred_crawler_channel_key
+            and default_channel_key
+            and default_channel_key != channel_key
+            and _is_retryable_crawler_runtime_error(exc)
+        ):
+            fallback_channel = channel_map.get(default_channel_key)
+            if fallback_channel is not None and fallback_channel.get("enabled", True):
+                fallback_params = _deep_merge(fallback_channel.get("default_params") or {}, params)
+                fallback_params = {k: v for k, v in fallback_params.items() if k != "urls"}
+                fallback_params = _inject_url_params_for_channel(
+                    channel=fallback_channel,
+                    per_url_params=fallback_params,
+                    url_str=url_str,
+                )
+                try:
+                    with (bind_project(project_key) if project_key else nullcontext()):
+                        fallback_result = run_channel(
+                            channel=fallback_channel,
+                            params=fallback_params,
+                            project_key=project_key,
+                            item_key=str(item.get("item_key") or "").strip() or None,
+                        )
+                    return {
+                        "url": url_str,
+                        "channel_key": default_channel_key,
+                        "fallback_from_channel_key": channel_key,
+                        "fallback_reason": str(exc),
+                        "error": None,
+                        "result": fallback_result,
+                    }
+                except Exception:
+                    pass
+        return {"url": url_str, "channel_key": channel_key, "error": str(exc), "result": None}
 
 
 def _channel_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
@@ -356,6 +608,40 @@ _GENERIC_WEB_SEARCH_TEMPLATE_CHANNEL: Dict[str, Any] = {
     "scope": "builtin",
 }
 
+_HANDLER_CLUSTER_CHANNEL: Dict[str, Any] = {
+    "channel_key": "handler.cluster",
+    "name": "Handler Cluster",
+    "kind": "cluster",
+    "provider": "handler",
+    "provider_type": "native",
+    "provider_config": {},
+    "execution_policy": {},
+    "description": "Front-door channel for resource-pool handler clusters (search_template/rss/sitemap).",
+    "credential_refs": [],
+    "default_params": {
+        "probe_timeout": 10,
+        "pool_scope": "project",
+        "write_to_pool": True,
+        "auto_ingest": True,
+        "enable_extraction": True,
+        "allow_term_fallback": False,
+        "prefer_crawler_first": False,
+        "keyword_batch_size": 4,
+        "search_parallelism": 3,
+        "url_routing_parallelism": 4,
+        "limit": 20,
+        "max_candidates": 200,
+        "ingest_limit": 20,
+        "sitemap_max_depth": 2,
+        "sitemap_max_sitemaps": 50,
+    },
+    "param_schema": {"required": ["site_entries", "expected_entry_type"]},
+    "extends_channel_key": None,
+    "enabled": True,
+    "extra": {},
+    "scope": "builtin",
+}
+
 _OFFICIAL_ACCESS_API_CHANNEL: Dict[str, Any] = {
     "channel_key": "official_access.api",
     "name": "Official Access API",
@@ -415,6 +701,7 @@ _BUILTIN_TOOL_CHANNELS: list[dict[str, Any]] = [
     _GENERIC_WEB_RSS_CHANNEL,
     _GENERIC_WEB_SITEMAP_CHANNEL,
     _GENERIC_WEB_SEARCH_TEMPLATE_CHANNEL,
+    _HANDLER_CLUSTER_CHANNEL,
     _OFFICIAL_ACCESS_API_CHANNEL,
     _SPECIAL_WEB_JS_RENDER_CHANNEL,
     _SPECIAL_WEB_ANTI_BOT_CHANNEL,
@@ -545,16 +832,14 @@ def run_item_with_url_routing(
         raise ValueError("params.urls must be a non-empty list for URL routing")
 
     inserted_total = 0
+    updated_total = 0
     skipped_total = 0
     by_url: List[Dict[str, Any]] = []
     errors: List[str] = []
-    query_terms = params.get("query_terms") or params.get("keywords") or params.get("search_keywords") or params.get("base_keywords") or params.get("topic_keywords")
-    has_query_terms = isinstance(query_terms, list) and any(str(x or "").strip() for x in query_terms)
-    item_key = str(item.get("item_key") or "").strip().lower()
-    item_channel_key = str(item.get("channel_key") or "").strip().lower()
-    default_force_single_url_flow = item_channel_key == "url_pool" or item_key.startswith("url_pool.")
-    force_single_url_flow = _as_bool(params.get("force_single_url_flow"), default_force_single_url_flow)
-    prefer_crawler_first = _as_bool(params.get("prefer_crawler_first"), True) and not force_single_url_flow
+    protocol = _build_frontdoor_protocol(item=item, params=params, project_key=project_key)
+    has_query_terms = bool(protocol.query_terms)
+    force_single_url_flow = protocol.force_single_url_flow
+    prefer_crawler_first = protocol.prefer_crawler_first
     preferred_crawler_channel_key: str | None = None
     if prefer_crawler_first:
         item_channel_key = str(item.get("channel_key") or "").strip()
@@ -567,60 +852,291 @@ def run_item_with_url_routing(
                 project_key=project_key,
             )
 
-    for url in urls:
-        url_str = str(url).strip() if url else ""
-        if not url_str or not url_str.startswith(("http://", "https://")):
-            by_url.append({"url": url_str or str(url), "channel_key": None, "error": "invalid url", "result": None})
-            continue
-
-        if force_single_url_flow:
-            channel_key = "url_pool"
-        else:
-            channel_key = preferred_crawler_channel_key or resolve_channel_for_url(
-                url_str,
-                project_key,
+    max_workers = _resolve_url_routing_parallelism(params, len(urls))
+    if max_workers <= 1:
+        rows = [
+            _run_single_routed_url(
+                url=url,
+                item=item,
+                params=params,
+                project_key=project_key,
+                channel_map=channel_map,
                 has_query_terms=has_query_terms,
+                force_single_url_flow=force_single_url_flow,
+                preferred_crawler_channel_key=preferred_crawler_channel_key,
             )
-        channel = channel_map.get(channel_key)
-        if channel is None:
-            channel = channel_map.get("url_pool")
-            if channel is not None:
-                channel_key = "url_pool"
-        if channel is None:
-            by_url.append({"url": url_str, "channel_key": channel_key, "error": "channel not found", "result": None})
-            continue
-        if not channel.get("enabled", True):
-            by_url.append({"url": url_str, "channel_key": channel_key, "error": "channel disabled", "result": None})
-            continue
-
-        per_url_params = _deep_merge(channel.get("default_params") or {}, params)
-        per_url_params = {k: v for k, v in per_url_params.items() if k != "urls"}
-        per_url_params = _inject_url_params_for_channel(
-            channel=channel,
-            per_url_params=per_url_params,
-            url_str=url_str,
-        )
-
-        try:
-            with (bind_project(project_key) if project_key else nullcontext()):
-                result = run_channel(
-                    channel=channel,
-                    params=per_url_params,
+            for url in urls
+        ]
+    else:
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="url-routing") as executor:
+            futures = [
+                executor.submit(
+                    _run_single_routed_url,
+                    url=url,
+                    item=item,
+                    params=params,
                     project_key=project_key,
-                    item_key=str(item.get("item_key") or "").strip() or None,
+                    channel_map=channel_map,
+                    has_query_terms=has_query_terms,
+                    force_single_url_flow=force_single_url_flow,
+                    preferred_crawler_channel_key=preferred_crawler_channel_key,
                 )
-            inserted_total += result.get("inserted", 0)
-            skipped_total += result.get("skipped", 0)
-            by_url.append({"url": url_str, "channel_key": channel_key, "error": None, "result": result})
-        except Exception as exc:
-            errors.append(f"{url_str[:80]}: {exc}")
-            by_url.append({"url": url_str, "channel_key": channel_key, "error": str(exc), "result": None})
+                for url in urls
+            ]
+            rows = [future.result() for future in futures]
+
+    for row in rows:
+        result = row.get("result")
+        if isinstance(result, dict):
+            inserted_total += int(result.get("inserted") or 0)
+            updated_total += int(result.get("updated") or 0)
+            skipped_total += int(result.get("skipped") or 0)
+        else:
+            error_text = str(row.get("error") or "").strip()
+            if error_text:
+                errors.append(f"{str(row.get('url') or '')[:80]}: {error_text}")
+        by_url.append(row)
 
     return {
         "inserted": inserted_total,
+        "updated": updated_total,
         "skipped": skipped_total,
         "by_url": by_url,
         "errors": errors,
+        "middle_layer_protocol": _protocol_to_dict(protocol),
+        "url_routing_parallelism": max_workers,
+    }
+
+
+def _summarize_routed_results(routed: Dict[str, Any]) -> Dict[str, Any]:
+    inserted = int(routed.get("inserted") or 0)
+    updated = int(routed.get("updated") or 0)
+    skipped = int(routed.get("skipped") or 0)
+    errors = [str(x) for x in (routed.get("errors") or []) if str(x or "").strip()]
+    by_url = routed.get("by_url") or []
+
+    inserted_valid = 0
+    rejected_count = 0
+    rejection_breakdown: Dict[str, int] = {}
+    error_details: list[dict[str, Any]] = []
+    channels_used: list[str] = []
+
+    for row in by_url:
+        if not isinstance(row, dict):
+            continue
+        channel_key = str(row.get("channel_key") or "").strip()
+        if channel_key and channel_key not in channels_used:
+            channels_used.append(channel_key)
+        if row.get("error"):
+            error_details.append(
+                {
+                    "url": str(row.get("url") or ""),
+                    "channel_key": channel_key or None,
+                    "error": str(row.get("error") or ""),
+                }
+            )
+        result = row.get("result")
+        if not isinstance(result, dict):
+            continue
+        valid = int(result.get("inserted_valid") or 0)
+        inserted_valid += valid if valid > 0 else int(result.get("inserted") or 0)
+        rejected_count += int(result.get("rejected_count") or 0)
+        rb = result.get("rejection_breakdown")
+        if isinstance(rb, dict):
+            for key, value in rb.items():
+                reason = str(key or "").strip()
+                if not reason:
+                    continue
+                try:
+                    count = int(value or 0)
+                except Exception:
+                    count = 0
+                if count <= 0:
+                    continue
+                rejection_breakdown[reason] = int(rejection_breakdown.get(reason) or 0) + count
+
+    if inserted_valid <= 0:
+        inserted_valid = inserted
+
+    return {
+        "inserted": inserted,
+        "updated": updated,
+        "skipped": skipped,
+        "inserted_valid": inserted_valid,
+        "rejected_count": rejected_count,
+        "rejection_breakdown": rejection_breakdown,
+        "errors": errors,
+        "error_details": error_details,
+        "channels_used": channels_used,
+        "by_url": by_url,
+    }
+
+
+def _run_handler_cluster_item(
+    *,
+    item: Dict[str, Any],
+    params: Dict[str, Any],
+    project_key: str | None,
+    channel_map: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    from ..resource_pool import unified_search_by_item_payload
+
+    item_extra = (item or {}).get("extra") or {}
+    item_params = (item or {}).get("params") or {}
+    is_handler_cluster = _is_handler_cluster_item(item)
+    protocol = _build_frontdoor_protocol(item=item, params=params, project_key=project_key)
+    q = list(protocol.query_terms)
+    batch_size = int(params.get("keyword_batch_size") or 4)
+    term_batches = _split_batches(q, batch_size)
+    search_parallelism = _clamp_int(
+        params.get("search_parallelism"),
+        3,
+        min_value=1,
+        max_value=8,
+    )
+    per_keyword_limit = max(1, int(params.get("per_keyword_limit") or params.get("limit") or 5))
+    global_max_candidates = max(1, int(params.get("max_candidates") or 200))
+    sitemap_max_depth = max(0, int(params.get("sitemap_max_depth") or 2))
+    sitemap_max_sitemaps = max(1, int(params.get("sitemap_max_sitemaps") or 50))
+
+    def _run_search_batch(term_batch: list[str]):
+        batch_term_count = max(1, len(term_batch))
+        batch_max_candidates = min(global_max_candidates, per_keyword_limit * batch_term_count)
+        return unified_search_by_item_payload(
+            project_key=str(project_key or ""),
+            item=item,
+            query_terms=term_batch,
+            max_candidates=batch_max_candidates,
+            write_to_pool=bool(params.get("write_to_pool", True)),
+            pool_scope=str(params.get("pool_scope") or "project"),
+            probe_timeout=float(params.get("probe_timeout") or 10.0),
+            sitemap_max_depth=sitemap_max_depth,
+            sitemap_max_sitemaps=sitemap_max_sitemaps,
+            auto_ingest=False,
+            ingest_limit=max(1, int(params.get("ingest_limit") or params.get("limit") or 20)),
+            enable_extraction=bool(params.get("enable_extraction", True)),
+            allow_term_fallback=bool(params.get("allow_term_fallback", False)),
+        )
+
+    if len(term_batches) <= 1 or search_parallelism <= 1:
+        us_runs = [_run_search_batch(term_batch) for term_batch in term_batches]
+    else:
+        max_workers = min(search_parallelism, len(term_batches))
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="handler-search") as executor:
+            us_runs = list(executor.map(_run_search_batch, term_batches))
+
+    benign_markers = {"url_term_filter_empty_fallback_used", "url_term_filter_empty_no_fallback"}
+    merged_site_entries: list[dict[str, Any]] = []
+    seen_entry: set[str] = set()
+    merged_candidates: list[str] = []
+    seen_cand: set[str] = set()
+    merged_error_details: list[dict[str, Any]] = []
+    merged_errors: list[str] = []
+    written_urls_new = 0
+    written_urls_skipped = 0
+
+    for us in us_runs:
+        for e in (us.site_entries_used or []):
+            key = str(e.get("site_url") or e.get("id") or "")
+            if key and key not in seen_entry:
+                seen_entry.add(key)
+                merged_site_entries.append(e)
+        for u in (us.candidates or []):
+            s = str(u or "").strip()
+            if s and s not in seen_cand:
+                seen_cand.add(s)
+                merged_candidates.append(s)
+        for e in (us.errors or []):
+            if not isinstance(e, dict):
+                continue
+            merged_error_details.append(e)
+            msg = str(e.get("error") or "").strip()
+            if msg and msg not in benign_markers and msg not in merged_errors:
+                merged_errors.append(msg)
+        w = us.written or {}
+        written_urls_new += int(w.get("urls_new") or 0)
+        written_urls_skipped += int(w.get("urls_skipped") or 0)
+
+    routed_result = {
+        "inserted": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": [],
+        "by_url": [],
+    }
+    routed_summary = {
+        "inserted": 0,
+        "updated": 0,
+        "skipped": 0,
+        "inserted_valid": 0,
+        "rejected_count": 0,
+        "rejection_breakdown": {},
+        "errors": [],
+        "error_details": [],
+        "channels_used": [],
+        "by_url": [],
+    }
+    if merged_candidates:
+        routing_params = dict(params)
+        routing_params["urls"] = list(merged_candidates)
+        routing_protocol = _build_frontdoor_protocol(
+            item=item,
+            params=routing_params,
+            project_key=project_key,
+            candidate_urls=merged_candidates,
+        )
+        routed_result = run_item_with_url_routing(
+            item=item,
+            params=routing_params,
+            project_key=project_key,
+            channel_map=channel_map,
+        )
+        routed_summary = _summarize_routed_results(routed_result)
+        for detail in routed_summary["error_details"]:
+            if detail not in merged_error_details:
+                merged_error_details.append(detail)
+        for msg in routed_summary["errors"]:
+            if msg not in merged_errors:
+                merged_errors.append(msg)
+
+    return {
+        "item_key": str(item.get("item_key") or ""),
+        "channel_key": "handler.cluster" if is_handler_cluster else str(item.get("channel_key") or ""),
+        "params": params,
+        "result": {
+            "inserted": int(routed_summary["inserted"] or 0),
+            "updated": int(routed_summary["updated"] or 0),
+            "skipped": int(routed_summary["skipped"] or 0),
+            "errors": merged_errors,
+            "item_key": str(item.get("item_key") or ""),
+            "query_terms": q,
+            "per_keyword_limit": per_keyword_limit,
+            "query_term_batches": term_batches,
+            "batches_total": len(term_batches),
+            "search_parallelism": search_parallelism,
+            "site_entries_used": merged_site_entries,
+            "site_entry_count": len(merged_site_entries),
+            "candidates": merged_candidates,
+            "written": {
+                "urls_new": written_urls_new,
+                "urls_skipped": written_urls_skipped,
+            },
+            "single_write_workflow": protocol.write_mode,
+            "channels_used": routed_summary["channels_used"],
+            "middle_layer_protocol": _protocol_to_dict(routing_protocol if merged_candidates else protocol),
+            "url_routing_parallelism": int(routed_result.get("url_routing_parallelism") or protocol.routing_parallelism),
+            "ingest_result": {
+                "inserted": int(routed_summary["inserted"] or 0),
+                "updated": int(routed_summary["updated"] or 0),
+                "skipped": int(routed_summary["skipped"] or 0),
+                "inserted_valid": int(routed_summary["inserted_valid"] or 0),
+                "rejected_count": int(routed_summary["rejected_count"] or 0),
+                "rejection_breakdown": dict(routed_summary["rejection_breakdown"] or {}),
+            },
+            "routing_result": routed_result,
+            "error_details": merged_error_details,
+            "handler_key": str((item_extra or {}).get("expected_entry_type") or (item_params or {}).get("expected_entry_type") or ""),
+        },
     }
 
 
@@ -664,12 +1180,12 @@ def run_item_payload(
     if override_params:
         params = _deep_merge(params, override_params)
 
-    # Temporary freeze for legacy url_pool fixed URL-list flow.
-    # Default behavior for url_pool items is to bypass static params.urls unless explicitly re-enabled.
+    # Keep static URL-list items on the same front-door path as runtime-provided URLs.
+    # Operators can still explicitly freeze legacy fixed lists when needed.
     item_key_lower = str(item.get("item_key") or "").strip().lower()
     item_channel_key_lower = str(item.get("channel_key") or "").strip().lower()
     if item_channel_key_lower == "url_pool" or item_key_lower.startswith("url_pool."):
-        allow_legacy_url_list = _as_bool(params.get("enable_legacy_url_list"), False)
+        allow_legacy_url_list = _as_bool(params.get("enable_legacy_url_list"), True)
         if not allow_legacy_url_list and isinstance(params.get("urls"), list):
             params = dict(params)
             params.pop("urls", None)
@@ -678,18 +1194,29 @@ def run_item_payload(
     # URL-routing branch: params.urls present -> resolve channel per URL
     urls = params.get("urls")
     if isinstance(urls, list) and urls:
+        protocol = _build_frontdoor_protocol(item=item, params=params, project_key=project_key)
         result = run_item_with_url_routing(
             item=item,
             params=params,
             project_key=project_key,
             channel_map=channel_map,
         )
+        if isinstance(result, dict) and "middle_layer_protocol" not in result:
+            result["middle_layer_protocol"] = _protocol_to_dict(protocol)
         return {
             "item_key": item_key,
             "channel_key": None,
             "params": params,
             "result": result,
         }
+
+    if _is_handler_cluster_item(item) or _has_site_entries(params):
+        return _run_handler_cluster_item(
+            item=item,
+            params=params,
+            project_key=project_key,
+            channel_map=channel_map,
+        )
 
     # Single-channel branch: resolve channel by item.channel_key
     channel_key = str(item.get("channel_key") or "").strip()
@@ -700,6 +1227,9 @@ def run_item_payload(
         raise ValueError(f"channel disabled for item {item_key}: {channel_key}")
 
     params = _deep_merge(channel.get("default_params") or {}, params)
+    if channel_key == "handler.cluster":
+        params = dict(params)
+        params.setdefault("_item_key", item_key)
 
     with (bind_project(project_key) if project_key else nullcontext()):
         result = run_channel(

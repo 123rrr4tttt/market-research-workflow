@@ -1,0 +1,45 @@
+{
+  "item_key": "report1.high_value_urls",
+  "name": "Report 1 High Value URLs",
+  "channel_key": "url_pool",
+  "description": "High-value URLs extracted from /Users/wangyiliang/Desktop/报告/报告1.md.",
+  "params": {
+    "enable_legacy_url_list": true,
+    "urls": [
+      "https://www.serverman.co.uk/hardware/remarkable-2-review-2/",
+      "https://www.reddit.com/r/RemarkableTablet/comments/16trg8j/looking_for_honest_reviews_remarkable_2/",
+      "https://cybernews.com/best-tablets/remarkable-2-review/",
+      "https://www.youtube.com/watch?v=GFKma0-MJpY&vl=en",
+      "https://www.thequalityedit.com/articles/remarkable-tablet-review",
+      "https://bogdanraczynski.com/6-month-supernote-nomad-review-digital-notebook-e-reader/",
+      "https://supernote.com/pages/supernote-nomad",
+      "https://www.dcrainmaker.com/2021/11/oura-depth-review.html",
+      "https://www.androidpolice.com/oura-sells-the-benefits-of-its-subscription-as-ceramic-smart-ring-continues-to-impress/",
+      "https://www.whoop.com/us/en/thelocker/whoop-year-in-review-2025/",
+      "https://www.cosmopolitan.com/health-fitness/a64223031/whoop-4-review/",
+      "https://www.youtube.com/watch?v=AORC9yeoiRc",
+      "https://support.whoop.com/s/article/Membership-Pricing",
+      "https://www.whoop.com/us/en/membership/",
+      "https://gizmodo.com/meta-ray-ban-display-smart-glasses-review-is-this-the-future-we-really-want-2000679520",
+      "https://moorinsightsstrategy.com/research-notes/ray-ban-meta-smart-glasses-review-better-cooler-and-more-useful-than-ever/",
+      "https://www.theverge.com/news/671955/jony-ive-rabbit-r1-humane-ai-pin",
+      "https://www.laptopmag.com/ai/rabbit-r1-2024-ai-year-in-review",
+      "https://www.linkedin.com/pulse/looking-rabbit-r1s-fails-from-furps-perspective-noble-ackerson-fdqwe",
+      "https://eu.36kr.com/en/p/3380081710655237",
+      "https://mashable.com/article/humane-ai-pin-discontinued-killed",
+      "https://pylessons.com/news/humane-ai-pin-shutdown-refund-policy-tech-discontinuation",
+      "https://www.howtogeek.com/humane-ai-pin-shutdown/",
+      "https://arstechnica.com/gadgets/2025/02/truly-a-middle-finger-humane-bricking-700-ai-pins-with-limited-refunds/",
+      "https://www.slashgear.com/1794149/humane-ai-pin-shutdown-timeline-refund-details/"
+    ]
+  },
+  "tags": [
+    "report1",
+    "high_value",
+    "url_pool"
+  ],
+  "enabled": true,
+  "extra": {
+    "source_file": "/Users/wangyiliang/Desktop/报告/报告1.md"
+  }
+}

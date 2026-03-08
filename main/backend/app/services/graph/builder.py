@@ -115,18 +115,26 @@ def _calculate_tfidf(
 def _apply_time_decay(
     weight: float,
     post_date: Optional[datetime],
-    reference_date: Optional[datetime] = None
+    reference_date: Optional[datetime] = None,
+    tau_days: Optional[float] = TIME_DECAY_TAU_DAYS,
 ) -> float:
     """应用时间衰减: decay = exp(-Δt/τ)"""
-    if TIME_DECAY_TAU_DAYS is None or not post_date:
+    if tau_days is None or not post_date:
+        return weight
+
+    if tau_days <= 0:
+        logger.warning("Invalid time decay tau_days=%s (must be > 0); skip decay", tau_days)
         return weight
     
     if reference_date is None:
         reference_date = datetime.utcnow()
     
     delta_days = (reference_date - post_date).total_seconds() / 86400.0
-    tau = TIME_DECAY_TAU_DAYS
-    decay = math.exp(-delta_days / tau)
+    # 未来时间点不放大权重（仅允许衰减，不允许增益）
+    if delta_days < 0:
+        delta_days = 0.0
+
+    decay = math.exp(-delta_days / tau_days)
     
     return weight * decay
 
@@ -136,7 +144,7 @@ def build_graph(
     *,
     window: int = COOCCUR_WINDOW,
     use_tfidf: bool = USE_TFIDF,
-    tau: Optional[int] = TIME_DECAY_TAU_DAYS
+    tau: Optional[float] = TIME_DECAY_TAU_DAYS
 ) -> Graph:
     """
     构建内容图谱
@@ -151,6 +159,10 @@ def build_graph(
         构建好的图谱对象
     """
     graph = Graph()
+    effective_tau: Optional[float] = tau
+    if effective_tau is not None and effective_tau <= 0:
+        logger.warning("build_graph got non-positive tau=%s; time decay disabled", tau)
+        effective_tau = None
     
     # 统计关键词出现次数（用于TF-IDF）
     keyword_counts: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
@@ -290,7 +302,11 @@ def build_graph(
                 weight = tfidf_scores[post_id].get(keyword, 1.0)
             
             # 应用时间衰减
-            weight = _apply_time_decay(weight, post.publish_date or post.createdAt)
+            weight = _apply_time_decay(
+                weight,
+                post.publish_date or post.createdAt,
+                tau_days=effective_tau,
+            )
             
             edge = GraphEdge(
                 type="MENTIONS_KEYWORD",
@@ -373,26 +389,42 @@ def build_graph(
             )
             graph.edges.append(edge)
         
-        # Keyword -> Keyword (CO_OCCURS) - 同一帖子内的关键词共现（使用规范化关键词）
+        # Keyword -> Keyword (CO_OCCURS) - 同一帖子内关键词共现
+        # window <= 0: 整帖共现；window > 0: 仅保留距离 <= window 的关键词对
         if len(post_keywords_norm) > 1:
-            for i, kw1 in enumerate(post_keywords_norm):
-                for kw2 in post_keywords_norm[i+1:]:
-                    kw1_id = _generate_keyword_id(kw1)
-                    kw2_id = _generate_keyword_id(kw2)
-                    
-                    kw1_node = graph.nodes[f"Keyword:{kw1_id}"]
-                    kw2_node = graph.nodes[f"Keyword:{kw2_id}"]
-                    
-                    edge = GraphEdge(
-                        type="CO_OCCURS",
-                        from_node=kw1_node,
-                        to_node=kw2_node,
-                        properties={
-                            "weight": 1.0,
-                            "window": window,
-                        }
-                    )
-                    graph.edges.append(edge)
+            if window <= 0:
+                cooccur_pairs = (
+                    (i, j)
+                    for i in range(len(post_keywords_norm))
+                    for j in range(i + 1, len(post_keywords_norm))
+                )
+            else:
+                cooccur_pairs = (
+                    (i, j)
+                    for i in range(len(post_keywords_norm))
+                    for j in range(i + 1, min(i + 1 + window, len(post_keywords_norm)))
+                )
+
+            for i, j in cooccur_pairs:
+                kw1 = post_keywords_norm[i]
+                kw2 = post_keywords_norm[j]
+                kw1_id = _generate_keyword_id(kw1)
+                kw2_id = _generate_keyword_id(kw2)
+
+                kw1_node = graph.nodes[f"Keyword:{kw1_id}"]
+                kw2_node = graph.nodes[f"Keyword:{kw2_id}"]
+
+                edge = GraphEdge(
+                    type="CO_OCCURS",
+                    from_node=kw1_node,
+                    to_node=kw2_node,
+                    properties={
+                        "weight": 1.0,
+                        "window": window,
+                        "distance": j - i,
+                    }
+                )
+                graph.edges.append(edge)
     
     logger.info(f"Built graph with {len(graph.nodes)} nodes and {len(graph.edges)} edges")
     return graph
@@ -447,8 +479,15 @@ def build_topic_subgraph(
                         post_date = datetime.fromisoformat(post_date_str.replace("Z", "+00:00"))
                         if start_date <= post_date <= end_date:
                             filtered_post_ids.add(post_id)
-                    except (ValueError, TypeError):
-                        pass
+                    except (ValueError, TypeError) as exc:
+                        logger.warning(
+                            "Invalid post date for topic_subgraph post_id=%s date=%r window=(%s,%s): %s",
+                            post_id,
+                            post_date_str,
+                            start_date,
+                            end_date,
+                            exc,
+                        )
         
         related_post_ids = filtered_post_ids
     

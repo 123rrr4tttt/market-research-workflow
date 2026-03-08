@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import {
   addEdge,
   Background,
   Controls,
+  MarkerType,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
@@ -25,6 +26,13 @@ import {
 import NodeInfoCard from '../components/workflow/NodeInfoCard'
 import NodeTemplatePalette, { type NodeTemplatePaletteItem } from '../components/workflow/NodeTemplatePalette'
 import { getNodeSchema } from '../components/workflow/nodeSchemaRegistry'
+import {
+  DEFAULT_WORKFLOW_LINK_PRESET_KEY,
+  WORKFLOW_LINK_PRESET_BY_KEY,
+  WORKFLOW_LINK_PRESETS,
+  WORKFLOW_MODULE_TEMPLATES,
+} from '../components/workflow/moduleTemplateCatalog'
+import { BACKEND_TASK_CATALOG } from '../components/workflow/backendTaskCatalog'
 import '@xyflow/react/dist/style.css'
 
 type DesignerDsl = {
@@ -37,7 +45,7 @@ type DesignerDsl = {
   }
 }
 
-type NodeType = 'vector_search' | 'llm_call' | 'join'
+type NodeType = 'vector_search' | 'llm_call' | 'join' | 'filter' | 'frontend_input' | 'database_sink'
 
 type NodeTemplate = NodeTemplatePaletteItem<Record<string, unknown>> & {
   nodeType: NodeType
@@ -57,6 +65,8 @@ type NodeOutputOption = {
   outputKeys: string[]
 }
 
+type CanvasPanelKey = 'templates' | 'p2p' | 'preset' | 'runtime' | 'json' | 'results'
+
 type LlmDesignerPageProps = {
   projectKey: string
   onExportDsl?: (dsl: DesignerDsl) => void
@@ -70,6 +80,10 @@ type DesignerLinkParams = {
   runId: string
   runInputText: string
   nodeId: string
+  frontendPayload: string
+  frontendQueryKey: string
+  databaseStoreUri: string
+  databaseTable: string
 }
 
 function readDesignerLinkParams(): DesignerLinkParams {
@@ -96,6 +110,10 @@ function readDesignerLinkParams(): DesignerLinkParams {
     runId: String(query.get('run_id') || '').trim(),
     runInputText,
     nodeId: String(query.get('node') || '').trim(),
+    frontendPayload: String(query.get('frontend_payload') || query.get('input_payload') || '').trim(),
+    frontendQueryKey: String(query.get('frontend_query_key') || query.get('query_key') || '').trim(),
+    databaseStoreUri: String(query.get('database_store_uri') || query.get('db_uri') || '').trim(),
+    databaseTable: String(query.get('database_table') || '').trim(),
   }
 }
 
@@ -132,6 +150,33 @@ const NODE_TEMPLATES: NodeTemplate[] = [
     },
   },
   {
+    key: 'filter-predicate',
+    label: 'Filter (Predicate)',
+    nodeType: 'filter',
+    description: '表达式筛选策略',
+    data: {
+      label: 'Filter Predicate',
+      node_type: 'filter',
+      strategy: 'predicate',
+      predicate_expr: '={{$input.query}}',
+      predicate_mode: 'keep',
+    },
+  },
+  {
+    key: 'filter-topk',
+    label: 'Filter (TopK)',
+    nodeType: 'filter',
+    description: '评分阈值/TopK 筛选',
+    data: {
+      label: 'Filter TopK',
+      node_type: 'filter',
+      strategy: 'topk',
+      topk_k: 20,
+      topk_score_field: 'score',
+      topk_desc: true,
+    },
+  },
+  {
     key: 'join',
     label: 'Join',
     nodeType: 'join',
@@ -146,6 +191,15 @@ const NODE_TEMPLATES: NodeTemplate[] = [
     data: { label: 'Final Output', node_type: 'join', role: 'output' },
   },
 ]
+
+const SOURCE_TYPE_BY_NODE: Record<NodeType, string> = {
+  vector_search: 'retrieval',
+  llm_call: 'model',
+  join: 'aggregator',
+  filter: 'filter',
+  frontend_input: 'frontend',
+  database_sink: 'database',
+}
 
 const NODE_INFO_PROFILES: NodeInfoProfile[] = [
   {
@@ -223,6 +277,29 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
     data: { top_k: 20, source: 'default_corpus', rerank: true },
   },
   {
+    key: 'filter-predicate-keep',
+    label: 'Filter Predicate Keep',
+    nodeType: 'filter',
+    description: '表达式命中后保留',
+    data: {
+      strategy: 'predicate',
+      predicate_expr: '={{$input.query}}',
+      predicate_mode: 'keep',
+    },
+  },
+  {
+    key: 'filter-topk-desc',
+    label: 'Filter TopK Desc',
+    nodeType: 'filter',
+    description: '按分数降序取 TopK',
+    data: {
+      strategy: 'topk',
+      topk_k: 20,
+      topk_score_field: 'score',
+      topk_desc: true,
+    },
+  },
+  {
     key: 'join-concat',
     label: 'Join Concat',
     nodeType: 'join',
@@ -262,8 +339,180 @@ const baseEdges: Edge[] = [
   { id: 'e-llm-output', source: 'llm-1', target: 'output-1' },
 ]
 
+const FRONT_INPUT_NODE_ID = 'frontend-input'
+const DATABASE_NODE_ID = 'database-sink'
+const AUTO_BRIDGE_EDGE_PREFIX = 'auto-bridge-'
+const DEFAULT_FRONTEND_PAYLOAD = '{"query":""}'
+const DEFAULT_DATABASE_STORE_URI = 'sqlite:///tmp/workflow.db'
+const DEFAULT_DATABASE_TABLE = 'workflow_results'
+
+type BoundaryNodeConfig = {
+  frontendPayload?: string
+  frontendQueryKey?: string
+  databaseStoreUri?: string
+  databaseTable?: string
+}
+
+function isBoundaryNodeId(nodeId: string): boolean {
+  return nodeId === FRONT_INPUT_NODE_ID || nodeId === DATABASE_NODE_ID
+}
+
+function createBoundaryNodes(base: Node[], config?: BoundaryNodeConfig): Node[] {
+  const nodes = base.filter((node) => !isBoundaryNodeId(node.id))
+  const frontendPayload = (config?.frontendPayload || '').trim() || DEFAULT_FRONTEND_PAYLOAD
+  const frontendQueryKey = (config?.frontendQueryKey || '').trim() || 'query'
+  const databaseStoreUri = (config?.databaseStoreUri || '').trim() || DEFAULT_DATABASE_STORE_URI
+  const databaseTable = (config?.databaseTable || '').trim() || DEFAULT_DATABASE_TABLE
+  if (!nodes.length) {
+    return [
+      {
+        id: FRONT_INPUT_NODE_ID,
+        type: 'default',
+        position: { x: -280, y: 120 },
+        data: {
+          label: 'Frontend Input',
+          node_type: 'frontend_input',
+          role: 'frontend_input',
+          query_key: frontendQueryKey,
+          input_payload: frontendPayload,
+          output_vars: [{ name: frontendQueryKey || 'query', value_type: 'string', required: true }],
+        },
+        draggable: false,
+        selectable: true,
+        style: { borderColor: '#2563eb', background: '#dbeafe', color: '#1e3a8a', fontWeight: 700 },
+      },
+      {
+        id: DATABASE_NODE_ID,
+        type: 'default',
+        position: { x: 980, y: 120 },
+        data: {
+          label: 'Database Sink',
+          node_type: 'database_sink',
+          role: 'database_sink',
+          store_uri: databaseStoreUri,
+          table: databaseTable,
+          input_vars: [{ name: 'result', value_type: 'json', source: 'node_output', required: true }],
+        },
+        draggable: false,
+        selectable: true,
+        style: { borderColor: '#0f766e', background: '#ccfbf1', color: '#134e4a', fontWeight: 700 },
+      },
+    ]
+  }
+  const xs = nodes.map((item) => item.position.x)
+  const ys = nodes.map((item) => item.position.y)
+  const minX = Math.min(...xs)
+  const maxX = Math.max(...xs)
+  const centerY = ys.reduce((acc, value) => acc + value, 0) / ys.length
+  return [
+    {
+      id: FRONT_INPUT_NODE_ID,
+      type: 'default',
+      position: { x: minX - 360, y: centerY },
+      data: {
+        label: 'Frontend Input',
+        node_type: 'frontend_input',
+        role: 'frontend_input',
+        query_key: frontendQueryKey,
+        input_payload: frontendPayload,
+        output_vars: [{ name: frontendQueryKey || 'query', value_type: 'string', required: true }],
+      },
+      draggable: false,
+      selectable: true,
+      style: { borderColor: '#2563eb', background: '#dbeafe', color: '#1e3a8a', fontWeight: 700 },
+    },
+    {
+      id: DATABASE_NODE_ID,
+      type: 'default',
+      position: { x: maxX + 360, y: centerY },
+      data: {
+        label: 'Database Sink',
+        node_type: 'database_sink',
+        role: 'database_sink',
+        store_uri: databaseStoreUri,
+        table: databaseTable,
+        input_vars: [{ name: 'result', value_type: 'json', source: 'node_output', required: true }],
+      },
+      draggable: false,
+      selectable: true,
+      style: { borderColor: '#0f766e', background: '#ccfbf1', color: '#134e4a', fontWeight: 700 },
+    },
+  ]
+}
+
+function ensureBoundaryNodes(base: Node[], config?: BoundaryNodeConfig): Node[] {
+  const frontendExisting = base.find((node) => node.id === FRONT_INPUT_NODE_ID)
+  const databaseExisting = base.find((node) => node.id === DATABASE_NODE_ID)
+  const nonBoundaryNodes = base.filter((node) => !isBoundaryNodeId(node.id))
+  const [frontendDefault, databaseDefault] = createBoundaryNodes(nonBoundaryNodes, config)
+  const frontendNode = frontendExisting
+    ? { ...frontendExisting, draggable: false, selectable: true, style: frontendDefault.style }
+    : frontendDefault
+  const databaseNode = databaseExisting
+    ? { ...databaseExisting, draggable: false, selectable: true, style: databaseDefault.style }
+    : databaseDefault
+  return [...nonBoundaryNodes, frontendNode, databaseNode]
+}
+
+function buildAutoBridgeEdges(nodes: Node[], edges: Edge[]): Edge[] {
+  const dataNodes = nodes.filter((node) => !isBoundaryNodeId(node.id))
+  if (!dataNodes.length) return []
+  const edgeKeySet = new Set(edges.map((edge) => `${edge.source}::${edge.target}`))
+  const inDegree = new Map<string, number>()
+  const outDegree = new Map<string, number>()
+  for (const node of dataNodes) {
+    inDegree.set(node.id, 0)
+    outDegree.set(node.id, 0)
+  }
+  for (const edge of edges) {
+    if (!inDegree.has(edge.target) || !outDegree.has(edge.source)) continue
+    inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
+    outDegree.set(edge.source, (outDegree.get(edge.source) || 0) + 1)
+  }
+  const heads = dataNodes.filter((node) => (inDegree.get(node.id) || 0) === 0 && node.type !== 'output')
+  const tails = dataNodes.filter((node) => (outDegree.get(node.id) || 0) === 0 && node.type !== 'input')
+  const normalizedHeads = heads.length ? heads : [...dataNodes].sort((a, b) => a.position.x - b.position.x).slice(0, 1)
+  const normalizedTails = tails.length ? tails : [...dataNodes].sort((a, b) => b.position.x - a.position.x).slice(0, 1)
+
+  const bridgeEdges: Edge[] = []
+  for (const head of normalizedHeads) {
+    const key = `${FRONT_INPUT_NODE_ID}::${head.id}`
+    if (edgeKeySet.has(key)) continue
+    bridgeEdges.push({
+      id: `${AUTO_BRIDGE_EDGE_PREFIX}in-${head.id}`,
+      source: FRONT_INPUT_NODE_ID,
+      target: head.id,
+      type: 'smoothstep',
+      label: 'frontend input',
+      animated: true,
+      style: { stroke: '#2563eb', strokeDasharray: '6 5', strokeWidth: 1.8 },
+      labelStyle: { fill: '#1d4ed8', fontSize: 11, fontWeight: 600 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#2563eb' },
+    })
+  }
+  for (const tail of normalizedTails) {
+    const key = `${tail.id}::${DATABASE_NODE_ID}`
+    if (edgeKeySet.has(key)) continue
+    bridgeEdges.push({
+      id: `${AUTO_BRIDGE_EDGE_PREFIX}out-${tail.id}`,
+      source: tail.id,
+      target: DATABASE_NODE_ID,
+      type: 'smoothstep',
+      label: 'persist',
+      animated: true,
+      style: { stroke: '#0f766e', strokeDasharray: '6 5', strokeWidth: 1.8 },
+      labelStyle: { fill: '#0f766e', fontSize: 11, fontWeight: 600 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#0f766e' },
+    })
+  }
+  return bridgeEdges
+}
+
 function inferNodeType(node: Node): NodeType {
   const raw = String((node.data as { node_type?: unknown })?.node_type || node.id || '').toLowerCase()
+  if (raw.includes('frontend_input')) return 'frontend_input'
+  if (raw.includes('database_sink')) return 'database_sink'
+  if (raw.includes('filter')) return 'filter'
   if (raw.includes('llm') || raw.includes('model')) return 'llm_call'
   if (raw.includes('join') || raw.includes('merge')) return 'join'
   return 'vector_search'
@@ -300,15 +549,99 @@ function validateNodeConfigDraft(data: Record<string, unknown>): string | null {
   return null
 }
 
+function resolveNodeType(raw: unknown): NodeType {
+  const value = String(raw || '').trim().toLowerCase()
+  if (value === 'frontend_input' || value === 'frontend') return 'frontend_input'
+  if (value === 'database_sink' || value === 'database' || value === 'sink') return 'database_sink'
+  if (value === 'filter') return 'filter'
+  if (value === 'llm_call' || value === 'llm' || value === 'model') return 'llm_call'
+  if (value === 'join' || value === 'merge') return 'join'
+  return 'vector_search'
+}
+
+function pickModuleMeta(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  Object.entries(data).forEach(([key, value]) => {
+    if (key.startsWith('module_')) out[key] = value
+  })
+  return out
+}
+
+function normalizeTemplateData(template: NodeTemplate, existingData?: Record<string, unknown>): Record<string, unknown> {
+  const preservedMeta = existingData ? pickModuleMeta(existingData) : {}
+  return {
+    ...(existingData || {}),
+    ...template.data,
+    ...preservedMeta,
+    node_type: template.nodeType,
+  }
+}
+
+function createConnectedInputVars(sourceNode: Node, targetNode: Node): Array<Record<string, unknown>> {
+  const sourceData = asObject(sourceNode.data)
+  const targetData = asObject(targetNode.data)
+  const sourceOutputs = asList(sourceData.output_vars)
+  const outputKeys = (sourceOutputs.length
+    ? sourceOutputs.map((item) => asKey(item.name, 'output'))
+    : ['output'])
+  const sourceNodeType = resolveNodeType((sourceData as { node_type?: unknown }).node_type || sourceNode.id)
+  const sourceValueType = asKey(sourceData.output_type, 'string')
+  const sourceKind = SOURCE_TYPE_BY_NODE[sourceNodeType]
+
+  const nextInputs = [...asList(targetData.input_vars)]
+  for (const outputKey of outputKeys) {
+    const inputName = `${sourceNode.id}.${outputKey}`
+    const exists = nextInputs.some((item) => asKey(item.name, '') === inputName)
+    if (exists) continue
+    nextInputs.push({
+      name: inputName,
+      value_type: sourceValueType,
+      source: 'node_output',
+      source_type: sourceKind,
+      from_node: sourceNode.id,
+      from_key: outputKey,
+      from_node_type: sourceNodeType,
+      required: false,
+    })
+  }
+  return nextInputs
+}
+
 function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   const linkParams = useMemo(readDesignerLinkParams, [])
+  const boundaryConfig = useMemo<BoundaryNodeConfig>(
+    () => ({
+      frontendPayload: linkParams.frontendPayload,
+      frontendQueryKey: linkParams.frontendQueryKey,
+      databaseStoreUri: linkParams.databaseStoreUri,
+      databaseTable: linkParams.databaseTable,
+    }),
+    [linkParams.databaseStoreUri, linkParams.databaseTable, linkParams.frontendPayload, linkParams.frontendQueryKey],
+  )
+  const moduleTemplates = useMemo<NodeTemplate[]>(
+    () =>
+      WORKFLOW_MODULE_TEMPLATES.map((item) => ({
+        key: item.key,
+        label: item.label,
+        description: item.description,
+        nodeType: resolveNodeType(item.nodeType),
+        data: {
+          ...item.data,
+          module_type: item.moduleType,
+          module_key: item.key,
+          node_type: resolveNodeType(item.nodeType),
+        },
+      })),
+    [],
+  )
+  const templateCatalog = useMemo(() => [...NODE_TEMPLATES, ...moduleTemplates], [moduleTemplates])
   const resolvedTemplateKey = useMemo(() => {
     const key = linkParams.templateKey
-    if (!key) return NODE_TEMPLATES[2]?.key || 'llm-call'
-    return NODE_TEMPLATES.some((item) => item.key === key) ? key : (NODE_TEMPLATES[2]?.key || 'llm-call')
-  }, [linkParams.templateKey])
+    if (!key) return templateCatalog[2]?.key || 'llm-call'
+    return templateCatalog.some((item) => item.key === key) ? key : (templateCatalog[2]?.key || 'llm-call')
+  }, [linkParams.templateKey, templateCatalog])
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(baseNodes)
+  const [nodes, setNodes, onNodesChange] = useNodesState(ensureBoundaryNodes(baseNodes, boundaryConfig))
   const [edges, setEdges, onEdgesChange] = useEdgesState(baseEdges)
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([])
@@ -323,10 +656,24 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   const [busyAction, setBusyAction] = useState('')
   const [fromNodeId, setFromNodeId] = useState(linkParams.fromNodeId)
   const [toNodeId, setToNodeId] = useState(linkParams.toNodeId)
+  const [selectedPresetKey, setSelectedPresetKey] = useState<string>(DEFAULT_WORKFLOW_LINK_PRESET_KEY)
+  const [isNodeSidebarCollapsed, setIsNodeSidebarCollapsed] = useState(false)
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(320)
+  const [rightStackWidth, setRightStackWidth] = useState(520)
+  const [nodeSidebarQuery, setNodeSidebarQuery] = useState('')
+  const [panelCollapsed, setPanelCollapsed] = useState<Record<CanvasPanelKey, boolean>>({
+    templates: false,
+    p2p: true,
+    preset: true,
+    runtime: false,
+    json: true,
+    results: true,
+  })
 
   const [editingNodeId, setEditingNodeId] = useState(linkParams.nodeId)
   const [nodeInfoDraft, setNodeInfoDraft] = useState('{}')
   const [nodeInfoCard, setNodeInfoCard] = useState({ open: Boolean(linkParams.nodeId), x: 20, y: 20, width: 420, height: 420 })
+  const [activeResize, setActiveResize] = useState<null | { target: 'left' | 'right'; startX: number; startWidth: number }>(null)
 
   const nextIdRef = useRef(2)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -334,6 +681,8 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   const canvasRef = useRef<HTMLDivElement | null>(null)
 
   const selectedCount = selectedNodeIds.length + selectedEdgeIds.length
+  const bridgeEdges = useMemo(() => buildAutoBridgeEdges(nodes, edges), [edges, nodes])
+  const allEdges = useMemo(() => [...edges, ...bridgeEdges], [bridgeEdges, edges])
   const selectedNode = useMemo(() => {
     if (!editingNodeId) return null
     return nodes.find((item) => item.id === editingNodeId) || null
@@ -396,9 +745,57 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     setNodeInfoCard((prev) => ({ ...prev, open: false }))
   }, [editingNodeId, nodes])
 
+  useEffect(() => {
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const collapsedWidth = 56
+    const effectiveLeft = isNodeSidebarCollapsed ? collapsedWidth : leftSidebarWidth
+    const maxLeft = Math.max(240, Math.min(560, rect.width - rightStackWidth - 120))
+    const maxRight = Math.max(320, Math.min(760, rect.width - effectiveLeft - 120))
+    setLeftSidebarWidth((prev) => Math.min(maxLeft, Math.max(240, prev)))
+    setRightStackWidth((prev) => Math.min(maxRight, Math.max(320, prev)))
+  }, [isNodeSidebarCollapsed, leftSidebarWidth, rightStackWidth])
+
+  useEffect(() => {
+    if (!activeResize) return
+    const onPointerMove = (event: PointerEvent) => {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) return
+      if (activeResize.target === 'left') {
+        const delta = event.clientX - activeResize.startX
+        const nextRaw = activeResize.startWidth + delta
+        const maxLeft = Math.max(240, Math.min(560, rect.width - rightStackWidth - 120))
+        setLeftSidebarWidth(Math.min(maxLeft, Math.max(240, nextRaw)))
+        return
+      }
+      const delta = activeResize.startX - event.clientX
+      const nextRaw = activeResize.startWidth + delta
+      const effectiveLeft = isNodeSidebarCollapsed ? 56 : leftSidebarWidth
+      const maxRight = Math.max(320, Math.min(760, rect.width - effectiveLeft - 120))
+      setRightStackWidth(Math.min(maxRight, Math.max(320, nextRaw)))
+    }
+
+    const onPointerUp = () => {
+      setActiveResize(null)
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    document.body.style.cursor = activeResize.target === 'left' ? 'ew-resize' : 'col-resize'
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      document.body.style.cursor = ''
+    }
+  }, [activeResize, isNodeSidebarCollapsed, leftSidebarWidth, rightStackWidth])
+
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
       if (!connection.source || !connection.target || connection.source === connection.target) return
+      if (connection.source === DATABASE_NODE_ID || connection.target === FRONT_INPUT_NODE_ID) {
+        setStatus('Connect failed: invalid direction for boundary endpoints')
+        return
+      }
       const edgeId = `e-${connection.source ?? 'unknown'}-${connection.target ?? 'unknown'}-${Date.now()}`
       setEdges((current) => {
         const exists = current.some((edge) => edge.source === connection.source && edge.target === connection.target)
@@ -409,29 +806,8 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         const sourceNode = currentNodes.find((item) => item.id === connection.source)
         const targetNode = currentNodes.find((item) => item.id === connection.target)
         if (!sourceNode || !targetNode) return currentNodes
-
-        const sourceData = asObject(sourceNode.data)
+        const nextInputs = createConnectedInputVars(sourceNode, targetNode)
         const targetData = asObject(targetNode.data)
-        const sourceOutputs = asList(sourceData.output_vars)
-        const outputKeys = (sourceOutputs.length
-          ? sourceOutputs.map((item) => asKey(item.name, 'output'))
-          : ['output'])
-
-        const currentInputs = asList(targetData.input_vars)
-        const nextInputs = [...currentInputs]
-        for (const outputKey of outputKeys) {
-          const inputName = `${connection.source}.${outputKey}`
-          const exists = nextInputs.some((item) => asKey(item.name, '') === inputName)
-          if (exists) continue
-          nextInputs.push({
-            name: inputName,
-            value_type: 'string',
-            source: 'node_output',
-            from_node: connection.source,
-            from_key: outputKey,
-            required: false,
-          })
-        }
         return currentNodes.map((node) =>
           node.id === connection.target
             ? { ...node, data: { ...targetData, input_vars: nextInputs } }
@@ -444,35 +820,38 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   )
 
   const addTemplateNode = useCallback((templateItem?: NodeTemplatePaletteItem<Record<string, unknown>>) => {
-    const template = NODE_TEMPLATES.find((item) => item.key === (templateItem?.key || selectedTemplateKey)) || NODE_TEMPLATES[2]
+    const template = templateCatalog.find((item) => item.key === (templateItem?.key || selectedTemplateKey)) || templateCatalog[2]
     if (!template) return
     const id = `${template.key}-${nextIdRef.current}`
     nextIdRef.current += 1
     const nextNode: Node = {
       id,
       position: { x: 160 + nodes.length * 24, y: 160 + nodes.length * 18 },
-      data: { ...template.data, label: `${template.label} ${nextIdRef.current - 1}` },
+      data: { ...normalizeTemplateData(template), label: `${template.label} ${nextIdRef.current - 1}` },
     }
-    setNodes((current) => [...current, nextNode])
+    setNodes((current) => ensureBoundaryNodes([...current, nextNode], boundaryConfig))
     setStatus(`Added template node: ${template.label}`)
-  }, [nodes.length, selectedTemplateKey, setNodes])
+  }, [nodes.length, selectedTemplateKey, setNodes, templateCatalog, boundaryConfig])
 
   const applyTemplateToSelected = useCallback((templateItem?: NodeTemplatePaletteItem<Record<string, unknown>>) => {
     if (selectedNodeIds.length !== 1) {
       setStatus('Apply template failed: select exactly one node')
       return
     }
-    const template = NODE_TEMPLATES.find((item) => item.key === (templateItem?.key || selectedTemplateKey)) || NODE_TEMPLATES[2]
+    const template = templateCatalog.find((item) => item.key === (templateItem?.key || selectedTemplateKey)) || templateCatalog[2]
     if (!template) return
     const targetNodeId = selectedNodeIds[0]
+    if (isBoundaryNodeId(targetNodeId)) {
+      setStatus('Apply template failed: boundary endpoint template is fixed')
+      return
+    }
     setNodes((current) =>
       current.map((node) =>
         node.id === targetNodeId
           ? {
               ...node,
               data: {
-                ...node.data,
-                ...template.data,
+                ...normalizeTemplateData(template, asObject(node.data)),
                 label: `${template.label} ${targetNodeId}`,
               },
             }
@@ -480,7 +859,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       ),
     )
     setStatus(`Applied template ${template.label} to ${targetNodeId}`)
-  }, [selectedNodeIds, selectedTemplateKey, setNodes])
+  }, [selectedNodeIds, selectedTemplateKey, setNodes, templateCatalog])
 
   const connectPointToPoint = useCallback(() => {
     const source = fromNodeId.trim()
@@ -495,6 +874,10 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       setStatus('P2P connect failed: node not found')
       return
     }
+    if (source === DATABASE_NODE_ID || target === FRONT_INPUT_NODE_ID) {
+      setStatus('P2P connect failed: invalid direction for boundary endpoints')
+      return
+    }
     setEdges((current) => {
       const exists = current.some((edge) => edge.source === source && edge.target === target)
       if (exists) return current
@@ -504,29 +887,8 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       const sourceNode = currentNodes.find((item) => item.id === source)
       const targetNode = currentNodes.find((item) => item.id === target)
       if (!sourceNode || !targetNode) return currentNodes
-
-      const sourceData = asObject(sourceNode.data)
+      const nextInputs = createConnectedInputVars(sourceNode, targetNode)
       const targetData = asObject(targetNode.data)
-      const sourceOutputs = asList(sourceData.output_vars)
-      const outputKeys = (sourceOutputs.length
-        ? sourceOutputs.map((item) => asKey(item.name, 'output'))
-        : ['output'])
-
-      const currentInputs = asList(targetData.input_vars)
-      const nextInputs = [...currentInputs]
-      for (const outputKey of outputKeys) {
-        const inputName = `${source}.${outputKey}`
-        const exists = nextInputs.some((item) => asKey(item.name, '') === inputName)
-        if (exists) continue
-        nextInputs.push({
-          name: inputName,
-          value_type: 'string',
-          source: 'node_output',
-          from_node: source,
-          from_key: outputKey,
-          required: false,
-        })
-      }
       return currentNodes.map((node) =>
         node.id === target
           ? { ...node, data: { ...targetData, input_vars: nextInputs } }
@@ -538,7 +900,9 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
 
   const removeSelection = useCallback(() => {
     if (!selectedCount) return
-    setNodes((current) => current.filter((node) => !selectedNodeIds.includes(node.id)))
+    setNodes((current) =>
+      current.filter((node) => !selectedNodeIds.includes(node.id) || isBoundaryNodeId(node.id)),
+    )
     setEdges((current) => current.filter((edge) => !selectedEdgeIds.includes(edge.id)))
     setStatus(`Removed ${selectedCount} selected item(s)`)
   }, [selectedCount, selectedEdgeIds, selectedNodeIds, setEdges, setNodes])
@@ -547,7 +911,9 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.key === 'Delete' || event.key === 'Backspace') && (selectedNodeIds.length || selectedEdgeIds.length)) {
         event.preventDefault()
-        setNodes((current) => current.filter((node) => !selectedNodeIds.includes(node.id)))
+        setNodes((current) =>
+          current.filter((node) => !selectedNodeIds.includes(node.id) || isBoundaryNodeId(node.id)),
+        )
         setEdges((current) => current.filter((edge) => !selectedEdgeIds.includes(edge.id)))
       }
     }
@@ -556,7 +922,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   }, [selectedEdgeIds, selectedNodeIds, setEdges, setNodes])
 
   const resetGraph = useCallback(() => {
-    setNodes(baseNodes)
+    setNodes(ensureBoundaryNodes(baseNodes, boundaryConfig))
     setEdges(baseEdges)
     setSelectedNodeIds([])
     setSelectedEdgeIds([])
@@ -568,8 +934,8 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
 
   const collectDsl = useCallback((): DesignerDsl => {
     const viewport = flowRef.current?.getViewport()
-    return { version: '1.0', nodes, edges, viewport, meta: { updatedAt: new Date().toISOString() } }
-  }, [edges, nodes])
+    return { version: '1.0', nodes, edges: allEdges, viewport, meta: { updatedAt: new Date().toISOString() } }
+  }, [allEdges, nodes])
 
   const exportDsl = useCallback(() => {
     const dsl = collectDsl()
@@ -591,7 +957,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
       throw new Error('JSON must include nodes[] and edges[]')
     }
-    setNodes(parsed.nodes as Node[])
+    setNodes(ensureBoundaryNodes(parsed.nodes as Node[], boundaryConfig))
     setEdges(parsed.edges as Edge[])
     if (parsed.viewport) {
       window.requestAnimationFrame(() => {
@@ -622,7 +988,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
             node_type: inferNodeType(node),
             config: { label: String((node.data as { label?: unknown })?.label || node.id), ...((node.data || {}) as Record<string, unknown>) },
           })),
-          edges: edges.map((edge) => ({ from: edge.source, to: edge.target })),
+          edges: allEdges.map((edge) => ({ from: edge.source, to: edge.target })),
         },
       })
       const nextGraphId = String(response.graph_id || '').trim()
@@ -634,7 +1000,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     } finally {
       setBusyAction('')
     }
-  }, [graphId, nodes, edges])
+  }, [graphId, nodes, allEdges])
 
   const onRunGraph = useCallback(async () => {
     const targetGraphId = graphId.trim()
@@ -777,12 +1143,12 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     }))
   }, [])
 
-  const statsText = `Nodes ${nodes.length} · Edges ${edges.length}`
+  const statsText = `Nodes ${nodes.length} · Edges ${allEdges.length}`
 
   const addNodeAtPoint = useCallback((clientX: number, clientY: number) => {
     const instance = flowRef.current
     if (!instance) return
-    const template = NODE_TEMPLATES.find((item) => item.key === selectedTemplateKey) || NODE_TEMPLATES[2]
+    const template = templateCatalog.find((item) => item.key === selectedTemplateKey) || templateCatalog[2]
     if (!template) return
     const position = instance.screenToFlowPosition({ x: clientX, y: clientY })
     const id = `${template.key}-${nextIdRef.current}`
@@ -790,114 +1156,480 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     const nextNode: Node = {
       id,
       position,
-      data: { ...template.data, label: `${template.label} ${nextIdRef.current - 1}` },
+      data: { ...normalizeTemplateData(template), label: `${template.label} ${nextIdRef.current - 1}` },
     }
-    setNodes((current) => [...current, nextNode])
+    setNodes((current) => ensureBoundaryNodes([...current, nextNode], boundaryConfig))
     setStatus(`Added node at cursor: ${id}`)
-  }, [selectedTemplateKey, setNodes])
+  }, [selectedTemplateKey, setNodes, templateCatalog, boundaryConfig])
+
+  const generatePresetChain = useCallback(() => {
+    const preset = WORKFLOW_LINK_PRESET_BY_KEY[selectedPresetKey as keyof typeof WORKFLOW_LINK_PRESET_BY_KEY]
+    if (!preset) {
+      setStatus('Preset generation failed: choose valid preset')
+      return
+    }
+    const templateByKey = new Map(templateCatalog.map((item) => [item.key, item]))
+    const startIndex = Date.now()
+    const idMap = new Map<string, string>()
+    const nextNodes: Node[] = preset.nodes.map((presetNode, index) => {
+      const template = templateByKey.get(presetNode.templateKey)
+      if (!template) {
+        return {
+          id: `${presetNode.id}-${startIndex + index}`,
+          position: presetNode.position,
+          data: { label: `Missing template: ${presetNode.templateKey}`, node_type: 'join' },
+        }
+      }
+      const nextId = `${presetNode.id}-${startIndex + index}`
+      idMap.set(presetNode.id, nextId)
+      return {
+        id: nextId,
+        position: presetNode.position,
+        data: {
+          ...normalizeTemplateData(template, asObject(presetNode.overrides)),
+          label: `${template.label} ${index + 1}`,
+        },
+      }
+    })
+
+    const nextEdges: Edge[] = preset.edges
+      .map((edge, index) => {
+        const source = idMap.get(edge.source)
+        const target = idMap.get(edge.target)
+        if (!source || !target) return null
+        return {
+          id: `${edge.id}-${startIndex + index}`,
+          source,
+          target,
+          label: edge.label,
+          animated: true,
+        } as Edge
+      })
+      .filter((item): item is Edge => Boolean(item))
+
+    const enrichedNodes = nextNodes.map((node) => {
+      const upstream = nextEdges.filter((edge) => edge.target === node.id).map((edge) => edge.source)
+      if (!upstream.length) return node
+      const inputVars = upstream.flatMap((sourceId) => {
+        const sourceNode = nextNodes.find((item) => item.id === sourceId)
+        if (!sourceNode) return []
+        return createConnectedInputVars(sourceNode, node)
+      })
+      if (!inputVars.length) return node
+      return {
+        ...node,
+        data: {
+          ...asObject(node.data),
+          input_vars: inputVars,
+        },
+      }
+    })
+
+    setNodes(ensureBoundaryNodes(enrichedNodes, boundaryConfig))
+    setEdges(nextEdges)
+    setSelectedNodeIds([])
+    setSelectedEdgeIds([])
+    setStatus(`Generated preset chain: ${preset.label}`)
+    window.requestAnimationFrame(() => {
+      flowRef.current?.fitView({ duration: 260, padding: 0.2 })
+    })
+  }, [selectedPresetKey, setEdges, setNodes, templateCatalog, boundaryConfig])
+
+  const selectedPreset = useMemo(
+    () => WORKFLOW_LINK_PRESET_BY_KEY[selectedPresetKey as keyof typeof WORKFLOW_LINK_PRESET_BY_KEY] || null,
+    [selectedPresetKey],
+  )
+  const startLeftResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (isNodeSidebarCollapsed) return
+    event.preventDefault()
+    event.stopPropagation()
+    setActiveResize({ target: 'left', startX: event.clientX, startWidth: leftSidebarWidth })
+  }, [isNodeSidebarCollapsed, leftSidebarWidth])
+  const startRightResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setActiveResize({ target: 'right', startX: event.clientX, startWidth: rightStackWidth })
+  }, [rightStackWidth])
+  const togglePanel = useCallback((key: CanvasPanelKey) => {
+    setPanelCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
+  }, [])
+  const renderCanvasPanel = useCallback((key: CanvasPanelKey, title: string, content: ReactNode) => {
+    const collapsed = Boolean(panelCollapsed[key])
+    return (
+      <section className={`llm-canvas-panel ${collapsed ? 'is-collapsed' : ''}`}>
+        <header className="llm-canvas-panel__head">
+          <button type="button" onClick={() => togglePanel(key)}>
+            {collapsed ? '▶' : '▼'} {title}
+          </button>
+        </header>
+        {collapsed ? null : <div className="llm-canvas-panel__body">{content}</div>}
+      </section>
+    )
+  }, [panelCollapsed, togglePanel])
+  const filteredNodes = useMemo(() => {
+    const query = nodeSidebarQuery.trim().toLowerCase()
+    if (!query) return nodes
+    return nodes.filter((node) => {
+      const nodeData = asObject(node.data)
+      const label = asKey(nodeData.label, '')
+      const nodeType = asKey(nodeData.node_type, '')
+      return `${node.id} ${label} ${nodeType}`.toLowerCase().includes(query)
+    })
+  }, [nodeSidebarQuery, nodes])
+
+  const openNodeCardById = useCallback((nodeId: string) => {
+    const targetNode = nodes.find((item) => item.id === nodeId)
+    if (!targetNode) {
+      setStatus(`Node not found: ${nodeId}`)
+      return
+    }
+    const cardX = isNodeSidebarCollapsed ? 24 : leftSidebarWidth + 24
+    setEditingNodeId(nodeId)
+    setSelectedNodeIds([nodeId])
+    setNodeInfoDraft(JSON.stringify((targetNode.data || {}) as Record<string, unknown>, null, 2))
+    setNodeInfoCard((prev) => ({ ...prev, open: true, x: cardX, y: 28 }))
+    setFromNodeId((prev) => prev || nodeId)
+    setToNodeId((prev) => (prev && prev !== nodeId ? prev : ''))
+  }, [isNodeSidebarCollapsed, leftSidebarWidth, nodes])
+
+  const focusNodeById = useCallback((nodeId: string) => {
+    const targetNode = nodes.find((item) => item.id === nodeId)
+    const instance = flowRef.current
+    if (!targetNode || !instance) {
+      setStatus(`Focus failed: ${nodeId}`)
+      return
+    }
+    const zoom = Math.max(instance.getZoom(), 1)
+    void instance.setCenter(targetNode.position.x + 120, targetNode.position.y + 32, { duration: 260, zoom })
+    setStatus(`Focused node: ${nodeId}`)
+  }, [nodes])
+
+  const deleteNodeById = useCallback((nodeId: string) => {
+    if (isBoundaryNodeId(nodeId)) {
+      setStatus(`Delete blocked: ${nodeId} is a fixed endpoint`)
+      return
+    }
+    if (!nodes.some((item) => item.id === nodeId)) {
+      setStatus(`Delete failed: ${nodeId}`)
+      return
+    }
+    setNodes((current) => current.filter((node) => node.id !== nodeId))
+    setEdges((current) => current.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
+    setSelectedNodeIds((current) => current.filter((id) => id !== nodeId))
+    setSelectedEdgeIds([])
+    if (editingNodeId === nodeId) {
+      setEditingNodeId('')
+      setNodeInfoCard((prev) => ({ ...prev, open: false }))
+    }
+    setStatus(`Deleted node: ${nodeId}`)
+  }, [editingNodeId, nodes, setEdges, setNodes])
 
   return (
-    <section className="llm-designer-page panel">
+    <section className="llm-designer-page llm-designer-page--full">
       <header className="llm-designer-header">
         <h2>LLM Designer</h2>
         <p>{statsText}</p>
       </header>
 
-      <NodeTemplatePalette
-        templates={NODE_TEMPLATES}
-        selectedTemplateKey={selectedTemplateKey}
-        onSelectTemplate={(template) => setSelectedTemplateKey(template.key)}
-        onAddTemplate={addTemplateNode}
-        onApplyTemplateToSelected={applyTemplateToSelected}
-        selectedNodeCount={selectedNodeIds.length}
-        title="Node Template Palette"
-      />
-
-      <div className="form-grid cols-2">
-        <label>
-          <span>point from</span>
-          <select value={fromNodeId} onChange={(event) => setFromNodeId(event.target.value)}>
-            <option value="">Select source node</option>
-            {nodes.map((node) => (
-              <option key={node.id} value={node.id}>{node.id}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>point to</span>
-          <select value={toNodeId} onChange={(event) => setToNodeId(event.target.value)}>
-            <option value="">Select target node</option>
-            {nodes.map((node) => (
-              <option key={node.id} value={node.id}>{node.id}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="inline-actions">
-        <button type="button" onClick={connectPointToPoint}>Connect P2P</button>
-        <button type="button" onClick={removeSelection} disabled={!selectedCount}>Delete Selected</button>
-        <button type="button" onClick={resetGraph}>Reset</button>
-        <button type="button" onClick={exportDsl}>Export JSON</button>
-        <span className="status-line">Double-click canvas to add selected template; `Delete` removes selection</span>
-        <button type="button" onClick={() => fileInputRef.current?.click()}>Import File</button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,application/json"
-          hidden
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) void (async () => {
-              try {
-                const text = await file.text()
-                setJsonDraft(text)
-                importDslFromText(text)
-                setStatus(`Imported file: ${file.name}`)
-              } catch (error) {
-                setStatus(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-              }
-            })()
-            event.target.value = ''
-          }}
-        />
-      </div>
-
-      <div className="form-grid cols-3">
-        <label>
-          <span>graph_id</span>
-          <input value={graphId} onChange={(event) => setGraphId(event.target.value)} placeholder="optional when compile, required when run/query" />
-        </label>
-        <label>
-          <span>run_id</span>
-          <input value={runId} onChange={(event) => setRunId(event.target.value)} placeholder="required for run detail/events" />
-        </label>
-        <label>
-          <span>run input (JSON)</span>
-          <input value={runInputText} onChange={(event) => setRunInputText(event.target.value)} placeholder='{"query":"..."}' />
-        </label>
-      </div>
-
-      <div className="inline-actions">
-        <button type="button" onClick={onCompileGraph} disabled={Boolean(busyAction)}>{busyAction === 'compile' ? 'Compiling...' : 'Compile Graph'}</button>
-        <button type="button" onClick={onRunGraph} disabled={Boolean(busyAction)}>{busyAction === 'run' ? 'Running...' : 'Run Graph'}</button>
-        <button type="button" onClick={onGetRunDetail} disabled={Boolean(busyAction)}>{busyAction === 'run-detail' ? 'Loading...' : 'Get Run Detail'}</button>
-        <button type="button" onClick={onGetRunEvents} disabled={Boolean(busyAction)}>{busyAction === 'run-events' ? 'Loading...' : 'Get Run Events'}</button>
-        <button type="button" onClick={onGetCompiledGraph} disabled={Boolean(busyAction)}>{busyAction === 'compiled' ? 'Loading...' : 'Get Compiled Graph'}</button>
-      </div>
-
       <div
         className="llm-designer-canvas"
         ref={canvasRef}
+        style={{ position: 'relative' }}
         onDoubleClick={(event) => {
           const target = event.target as HTMLElement
           if (!target.closest('.react-flow__pane')) return
           addNodeAtPoint(event.clientX, event.clientY)
         }}
       >
+        <aside
+          className="llm-canvas-left-sidebar"
+          style={{
+            position: 'absolute',
+            left: 12,
+            top: 12,
+            bottom: 12,
+            width: isNodeSidebarCollapsed ? 56 : leftSidebarWidth,
+            zIndex: 12,
+            border: '1px solid rgba(148, 163, 184, 0.45)',
+            borderRadius: 12,
+            background: 'rgba(15, 23, 42, 0.72)',
+            backdropFilter: 'blur(4px)',
+            color: '#e2e8f0',
+            display: 'flex',
+            flexDirection: 'column',
+            transition: 'width 180ms ease',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 10px 8px' }}>
+            {!isNodeSidebarCollapsed && <strong style={{ fontSize: 13 }}>Nodes</strong>}
+            <button
+              type="button"
+              onClick={() => setIsNodeSidebarCollapsed((prev) => !prev)}
+              aria-label={isNodeSidebarCollapsed ? 'Expand node sidebar' : 'Collapse node sidebar'}
+              style={{
+                border: '1px solid rgba(148, 163, 184, 0.5)',
+                background: 'rgba(30, 41, 59, 0.86)',
+                color: '#e2e8f0',
+                borderRadius: 8,
+                padding: '4px 8px',
+                cursor: 'pointer',
+                minWidth: 30,
+              }}
+            >
+              {isNodeSidebarCollapsed ? '>' : '<'}
+            </button>
+          </div>
+
+          {!isNodeSidebarCollapsed && (
+            <>
+              <div style={{ padding: '0 10px 8px' }}>
+                <input
+                  value={nodeSidebarQuery}
+                  onChange={(event) => setNodeSidebarQuery(event.target.value)}
+                  placeholder="Search node id / label / type"
+                  style={{
+                    width: '100%',
+                    fontSize: 12,
+                    padding: '7px 8px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(148, 163, 184, 0.45)',
+                    background: 'rgba(15, 23, 42, 0.76)',
+                    color: '#f8fafc',
+                  }}
+                />
+              </div>
+              <div style={{ padding: '0 10px 6px', fontSize: 11, color: '#cbd5e1' }}>
+                {filteredNodes.length}/{nodes.length} node(s)
+              </div>
+              <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {filteredNodes.map((node) => {
+                  const nodeData = asObject(node.data)
+                  const label = asKey(nodeData.label, node.id)
+                  const isSelected = selectedNodeIds.includes(node.id)
+                  return (
+                    <article
+                      key={node.id}
+                      style={{
+                        border: isSelected ? '1px solid #60a5fa' : '1px solid rgba(148, 163, 184, 0.35)',
+                        background: isSelected ? 'rgba(37, 99, 235, 0.2)' : 'rgba(30, 41, 59, 0.58)',
+                        borderRadius: 10,
+                        padding: '8px 8px 7px',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openNodeCardById(node.id)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#f8fafc',
+                          cursor: 'pointer',
+                          padding: 0,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+                        <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 2 }}>{node.id}</div>
+                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => focusNodeById(node.id)}
+                          style={{
+                            flex: 1,
+                            border: '1px solid rgba(148, 163, 184, 0.45)',
+                            background: 'rgba(15, 23, 42, 0.8)',
+                            color: '#e2e8f0',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            padding: '4px 0',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Focus
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteNodeById(node.id)}
+                          style={{
+                            flex: 1,
+                            border: '1px solid rgba(248, 113, 113, 0.65)',
+                            background: 'rgba(127, 29, 29, 0.5)',
+                            color: '#fecaca',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            padding: '4px 0',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+                {!filteredNodes.length && (
+                  <div style={{ fontSize: 12, color: '#cbd5e1', padding: '6px 0' }}>No nodes matched.</div>
+                )}
+              </div>
+            </>
+          )}
+          {!isNodeSidebarCollapsed && (
+            <div className="llm-canvas-resize-handle llm-canvas-resize-handle--left" onPointerDown={startLeftResize} />
+          )}
+        </aside>
+
+        <div className="llm-canvas-right-stack" style={{ width: rightStackWidth }}>
+          <div className="llm-canvas-resize-handle llm-canvas-resize-handle--right" onPointerDown={startRightResize} />
+          {renderCanvasPanel('templates', '模板', (
+            <NodeTemplatePalette
+              templates={templateCatalog}
+              selectedTemplateKey={selectedTemplateKey}
+              onSelectTemplate={(template) => setSelectedTemplateKey(template.key)}
+              onAddTemplate={addTemplateNode}
+              onApplyTemplateToSelected={applyTemplateToSelected}
+              selectedNodeCount={selectedNodeIds.length}
+              title="Node Template Palette"
+            />
+          ))}
+
+          {renderCanvasPanel('p2p', '连接与画布操作', (
+            <>
+              <div className="form-grid cols-2">
+                <label>
+                  <span>point from</span>
+                  <select value={fromNodeId} onChange={(event) => setFromNodeId(event.target.value)}>
+                    <option value="">Select source node</option>
+                    {nodes.map((node) => (
+                      <option key={node.id} value={node.id}>
+                        {asKey(asObject(node.data).label, node.id)} ({node.id})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>point to</span>
+                  <select value={toNodeId} onChange={(event) => setToNodeId(event.target.value)}>
+                    <option value="">Select target node</option>
+                    {nodes.map((node) => (
+                      <option key={node.id} value={node.id}>
+                        {asKey(asObject(node.data).label, node.id)} ({node.id})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="inline-actions">
+                <button type="button" onClick={connectPointToPoint}>Connect P2P</button>
+                <button type="button" onClick={removeSelection} disabled={!selectedCount}>Delete Selected</button>
+                <button type="button" onClick={resetGraph}>Reset</button>
+                <button type="button" onClick={exportDsl}>Export JSON</button>
+                <button type="button" onClick={() => fileInputRef.current?.click()}>Import File</button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (file) void (async () => {
+                      try {
+                        const text = await file.text()
+                        setJsonDraft(text)
+                        importDslFromText(text)
+                        setStatus(`Imported file: ${file.name}`)
+                      } catch (error) {
+                        setStatus(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                      }
+                    })()
+                    event.target.value = ''
+                  }}
+                />
+              </div>
+            </>
+          ))}
+
+          {renderCanvasPanel('preset', '业务链条模板', (
+            <>
+              <div className="form-grid cols-2">
+                <label>
+                  <span>业务链条模板（下拉选择）</span>
+                  <select value={selectedPresetKey} onChange={(event) => setSelectedPresetKey(event.target.value)}>
+                    {WORKFLOW_LINK_PRESETS.map((preset) => (
+                      <option key={preset.key} value={preset.key}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>链路说明</span>
+                  <input value={selectedPreset?.description || ''} readOnly />
+                </label>
+              </div>
+              <div className="inline-actions">
+                <button type="button" onClick={generatePresetChain}>生成所选业务链条</button>
+              </div>
+            </>
+          ))}
+
+          {renderCanvasPanel('runtime', '运行与调试', (
+            <>
+              <div className="form-grid cols-3">
+                <label>
+                  <span>graph_id</span>
+                  <input value={graphId} onChange={(event) => setGraphId(event.target.value)} placeholder="optional when compile, required when run/query" />
+                </label>
+                <label>
+                  <span>run_id</span>
+                  <input value={runId} onChange={(event) => setRunId(event.target.value)} placeholder="required for run detail/events" />
+                </label>
+                <label>
+                  <span>run input (JSON)</span>
+                  <input value={runInputText} onChange={(event) => setRunInputText(event.target.value)} placeholder='{"query":"..."}' />
+                </label>
+              </div>
+              <div className="inline-actions">
+                <button type="button" onClick={onCompileGraph} disabled={Boolean(busyAction)}>{busyAction === 'compile' ? 'Compiling...' : 'Compile Graph'}</button>
+                <button type="button" onClick={onRunGraph} disabled={Boolean(busyAction)}>{busyAction === 'run' ? 'Running...' : 'Run Graph'}</button>
+                <button type="button" onClick={onGetRunDetail} disabled={Boolean(busyAction)}>{busyAction === 'run-detail' ? 'Loading...' : 'Get Run Detail'}</button>
+                <button type="button" onClick={onGetRunEvents} disabled={Boolean(busyAction)}>{busyAction === 'run-events' ? 'Loading...' : 'Get Run Events'}</button>
+                <button type="button" onClick={onGetCompiledGraph} disabled={Boolean(busyAction)}>{busyAction === 'compiled' ? 'Loading...' : 'Get Compiled Graph'}</button>
+              </div>
+              <div className="status-line">Double-click canvas to add selected template; `Delete` removes selection; status: {status}</div>
+            </>
+          ))}
+
+          {renderCanvasPanel('json', 'DSL JSON', (
+            <div className="llm-designer-json">
+              <label htmlFor="llm-designer-json-input">JSON import / export</label>
+              <textarea id="llm-designer-json-input" value={jsonDraft} onChange={(event) => setJsonDraft(event.target.value)} spellCheck={false} placeholder="Paste exported DSL JSON here..." />
+              <div className="llm-designer-json-actions">
+                <button type="button" onClick={onImportJson}>Import JSON Text</button>
+              </div>
+            </div>
+          ))}
+
+          {renderCanvasPanel('results', '运行结果', (
+            <div className="form-grid cols-2">
+              <label>
+                <span>compile response</span>
+                <textarea rows={10} value={compileResultText} onChange={(event) => setCompileResultText(event.target.value)} />
+              </label>
+              <label>
+                <span>run response / events</span>
+                <textarea rows={10} value={runResultText} onChange={(event) => setRunResultText(event.target.value)} />
+              </label>
+            </div>
+          ))}
+        </div>
+
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={allEdges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
@@ -917,7 +1649,11 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
           onSelectionChange={({ nodes: pickedNodes, edges: pickedEdges }) => {
             const pickedIds = (pickedNodes || []).map((node) => node.id)
             setSelectedNodeIds(pickedIds)
-            setSelectedEdgeIds((pickedEdges || []).map((edge) => edge.id))
+            setSelectedEdgeIds(
+              (pickedEdges || [])
+                .map((edge) => edge.id)
+                .filter((edgeId) => !edgeId.startsWith(AUTO_BRIDGE_EDGE_PREFIX)),
+            )
             if (pickedIds.length === 1) {
               setFromNodeId((prev) => prev || pickedIds[0])
               setToNodeId((prev) => (prev && prev !== pickedIds[0] ? prev : ''))
@@ -949,28 +1685,10 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
           availableNodeOutputs={availableNodeOutputs}
           availableVariables={availableVariables}
           schema={selectedNodeSchema}
+          backendTasks={BACKEND_TASK_CATALOG}
         />
       </div>
 
-      <div className="llm-designer-json">
-        <label htmlFor="llm-designer-json-input">JSON import / export</label>
-        <textarea id="llm-designer-json-input" value={jsonDraft} onChange={(event) => setJsonDraft(event.target.value)} spellCheck={false} placeholder="Paste exported DSL JSON here..." />
-        <div className="llm-designer-json-actions">
-          <button type="button" onClick={onImportJson}>Import JSON Text</button>
-          <span className="llm-designer-status">{status}</span>
-        </div>
-      </div>
-
-      <div className="form-grid cols-2">
-        <label>
-          <span>compile response</span>
-          <textarea rows={10} value={compileResultText} onChange={(event) => setCompileResultText(event.target.value)} />
-        </label>
-        <label>
-          <span>run response / events</span>
-          <textarea rows={10} value={runResultText} onChange={(event) => setRunResultText(event.target.value)} />
-        </label>
-      </div>
     </section>
   )
 }

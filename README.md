@@ -1,6 +1,6 @@
 # 市场情报（market-intel）项目说明
 
-> 最后更新：2026-03-02  
+> 最后更新：2026-03-07  
 > 当前版本：`v0.1-rc2.0`（预发布，开发版）
 
 本仓库实现一体化信息工作流：多来源采集 -> 结构化处理 -> 索引检索 -> 可视化与运维管理。  
@@ -10,9 +10,7 @@
 
 - 后端：`FastAPI + SQLAlchemy + Alembic + Celery + Redis + Elasticsearch`
 - 数据库：`PostgreSQL + pgvector`
-- 前端：
-  - `main/frontend`：旧版模板前端（Jinja/静态页面）
-  - `main/frontend-modern`：新版 React + Vite + TypeScript
+- 前端：`main/frontend-modern`（React + Vite + TypeScript，唯一活跃前端）
 - 首选运行方式：Docker（首选脚本：`./scripts/docker-deploy.sh`）
 - 多项目隔离：按 `project_<key>` schema 进行业务数据隔离
 
@@ -155,10 +153,10 @@ Windows（PowerShell，自动尝试 Git Bash/WSL）：
 - `REDIS_URL`
 - `MODERN_FRONTEND_URL`（启用新前端重定向）
 
-## 4. 前端入口与迁移关系
+## 4. 前端入口
 
-- 默认情况下，若配置了 `MODERN_FRONTEND_URL`，访问 `/`、`/app`、`/app.html` 会重定向到新版前端。
-- 旧版页面可通过 `?legacy=1` 回退访问。
+- 默认情况下，若配置了 `MODERN_FRONTEND_URL`，访问 `/`、`/app`、`/app.html` 以及历史 HTML 入口都会重定向到新版前端。
+- 未配置 `MODERN_FRONTEND_URL` 时，后端仅保留历史入口的归档提示，不再提供旧模板前端渲染。
 - 本地开发新版前端：
 
 ```bash
@@ -182,7 +180,6 @@ VITE_API_PROXY_TARGET=http://localhost:8000 npm run dev
     ├── QUICKSTART.md             # 快速启动
     ├── ops/                      # Docker 编排与运维脚本
     ├── backend/                  # FastAPI 服务、模型、迁移、测试
-    ├── frontend/                 # 旧版模板前端
     └── frontend-modern/          # 新版 React 前端
 ```
 
@@ -364,9 +361,6 @@ cd main/ops
 
 - SQL 数据包：`main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql`
 - 导入脚本：`main/backend/scripts/load_demo_proj_seed.sh`
-- 前端静态下载：
-  - `/static/demo/project_demo_proj_v0.9-rc2.0.sql`
-  - `/static/demo/load_demo_proj_seed.sh`
 
 ## 12. 文档导航
 
@@ -424,7 +418,7 @@ cd main/ops
 
 ## 14. 当前已知风险（供联调参考）
 
-- 新旧前端并行，功能存在重叠，迁移仍在进行中。
+- modern 前端是唯一活跃前端，历史 HTML 入口仅保留重定向或归档提示兼容。
 - `resource_pool` 路由存在下划线/连字符兼容写法，建议逐步统一。
 - 部分接口仍处于响应风格过渡期（Envelope 统一尚未完全收口）。
 - 异步任务依赖 Celery/Redis，排查问题需结合 worker 日志。

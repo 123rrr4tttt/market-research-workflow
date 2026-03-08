@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from datetime import date, datetime
 from typing import Iterable, Sequence
 
-from sqlalchemy import and_, select
+from sqlalchemy import Date, case, cast, func, select, String
 
 from ..models.base import SessionLocal
 from ..models.entities import Document, MarketStat
@@ -13,20 +14,48 @@ from ..project_customization import get_project_customization
 from .llm.service import summarize_policy_text
 
 
-def _parse_date(value: str | None) -> date | None:
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _parse_date(value: str | None, *, field: str) -> date | None:
     if not value:
         return None
-    return datetime.fromisoformat(value).date()
+    raw = value.strip()
+    if not raw:
+        return None
+    if not _DATE_RE.match(raw):
+        raise ValueError(f"{field} must be YYYY-MM-DD")
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise ValueError(f"{field} must be YYYY-MM-DD") from exc
+
+
+def _policy_effective_date_expr():
+    effective_raw = cast(Document.extracted_data["policy"]["effective_date"], String)
+    effective_text = func.replace(effective_raw, '"', "")
+    return case(
+        (effective_text.op("~")(r"^\d{4}-\d{2}-\d{2}"), cast(func.substr(effective_text, 1, 10), Date)),
+        else_=None,
+    )
+
+
+def _policy_time_expr():
+    return func.coalesce(_policy_effective_date_expr(), Document.publish_date, func.date(Document.created_at))
 
 
 def _load_policies(states: Sequence[str], start: date | None, end: date | None) -> list[Document]:
     with SessionLocal() as session:
-        stmt = select(Document).filter(Document.doc_type == "policy", Document.state.in_([s.upper() for s in states]))
+        policy_time = _policy_time_expr()
+        stmt = select(Document).filter(
+            Document.doc_type.in_(["policy", "policy_regulation"]),
+            Document.state.in_([s.upper() for s in states]),
+        )
         if start:
-            stmt = stmt.filter(Document.publish_date >= start)
+            stmt = stmt.filter(policy_time >= start)
         if end:
-            stmt = stmt.filter(Document.publish_date <= end)
-        stmt = stmt.order_by(Document.publish_date.desc().nullslast())
+            stmt = stmt.filter(policy_time <= end)
+        stmt = stmt.order_by(policy_time.desc().nullslast(), Document.id.desc())
         return [row[0] for row in session.execute(stmt.limit(50)).all()]
 
 
@@ -42,8 +71,8 @@ def _load_market(states: Sequence[str], start: date | None, end: date | None) ->
 
 
 def generate_html_report(states: Sequence[str], start: str | None, end: str | None) -> str:
-    start_date = _parse_date(start)
-    end_date = _parse_date(end)
+    start_date = _parse_date(start, field="start")
+    end_date = _parse_date(end, field="end")
 
     policies = _load_policies(states, start_date, end_date)
     market = _load_market(states, start_date, end_date)
@@ -102,8 +131,8 @@ def generate_html_report(states: Sequence[str], start: str | None, end: str | No
 
 
 def generate_csv_report(states: Sequence[str], start: str | None, end: str | None) -> bytes:
-    start_date = _parse_date(start)
-    end_date = _parse_date(end)
+    start_date = _parse_date(start, field="start")
+    end_date = _parse_date(end, field="end")
 
     policies = _load_policies(states, start_date, end_date)
     market = _load_market(states, start_date, end_date)
@@ -137,5 +166,3 @@ def generate_csv_report(states: Sequence[str], start: str | None, end: str | Non
         ])
 
     return buffer.getvalue().encode("utf-8")
-
-

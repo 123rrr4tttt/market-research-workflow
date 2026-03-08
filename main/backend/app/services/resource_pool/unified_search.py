@@ -4,14 +4,19 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+import re
 from typing import Any
 from urllib.parse import parse_qsl, quote_plus, urlencode, urljoin, urlsplit, urlunsplit
 import xml.etree.ElementTree as ET
 import gzip
 
 from ..ingest.adapters.http_utils import HttpFetchError, fetch_html, make_html_parser
+from .auto_classify import infer_keyword_capabilities
 from ..source_library.resolver import list_effective_items
 from .extract import append_url
+from .search_capabilities import make_search_candidate
+from .search_capabilities import normalize_match_text
+from .search_capabilities import select_search_candidates
 from .site_entries import get_site_entry_by_url
 from .url_utils import domain_from_url, normalize_url
 
@@ -67,6 +72,9 @@ _TRACKING_QUERY_KEYS = {
     "spm",
 }
 
+_ENCODED_Q_PLACEHOLDER = re.compile(r"%7B%7Bq%7D%7D", re.IGNORECASE)
+_ENCODED_PAGE_PLACEHOLDER = re.compile(r"%7B%7Bpage%7D%7D", re.IGNORECASE)
+
 
 def _normalize_candidate_url(url: str) -> str | None:
     """Normalize candidate URL for storage/display (strip fragment + tracking params)."""
@@ -87,6 +95,15 @@ def _normalize_candidate_url(url: str) -> str | None:
         return norm
 
 
+def _normalize_search_template_placeholders(template: str | None) -> str:
+    tpl = str(template or "").strip()
+    if not tpl:
+        return ""
+    tpl = _ENCODED_Q_PLACEHOLDER.sub("{{q}}", tpl)
+    tpl = _ENCODED_PAGE_PLACEHOLDER.sub("{{page}}", tpl)
+    return tpl
+
+
 def _local_name(tag: str) -> str:
     if "}" in tag:
         return tag.split("}", 1)[1]
@@ -94,19 +111,27 @@ def _local_name(tag: str) -> str:
 
 
 def _extract_urls_from_rss_xml(xml_text: str) -> list[str]:
+    return [item["url"] for item in _extract_rss_candidates_from_xml(xml_text)]
+
+
+def _extract_rss_candidates_from_xml(xml_text: str) -> list[dict[str, str]]:
     urls: list[str] = []
+    candidates: list[dict[str, str]] = []
     try:
         root = ET.fromstring(xml_text)
     except Exception:
-        return urls
+        return candidates
 
     # RSS: item/link, and guid permalink
     for item in root.findall(".//{*}item"):
+        title = str((item.findtext("{*}title") or "")).strip()
+        description = str((item.findtext("{*}description") or "")).strip()
         link = item.find("{*}link")
         if link is not None and link.text:
             norm = _normalize_candidate_url(link.text.strip())
             if norm and norm not in urls:
                 urls.append(norm)
+                candidates.append({"url": norm, "title": title, "text": description, "extra": {"title_hint": title}})
         guid = item.find("{*}guid")
         if guid is not None and guid.text:
             is_permalink = str(guid.attrib.get("isPermaLink") or "").lower() == "true"
@@ -114,9 +139,12 @@ def _extract_urls_from_rss_xml(xml_text: str) -> list[str]:
                 norm = _normalize_candidate_url(guid.text.strip())
                 if norm and norm not in urls:
                     urls.append(norm)
+                    candidates.append({"url": norm, "title": title, "text": description, "extra": {"title_hint": title}})
 
     # Atom: entry/link[@href], prefer rel=alternate
     for entry in root.findall(".//{*}entry"):
+        title = str((entry.findtext("{*}title") or "")).strip()
+        summary = str((entry.findtext("{*}summary") or entry.findtext("{*}content") or "")).strip()
         for link in entry.findall("{*}link"):
             href = (link.attrib.get("href") or "").strip()
             if not href:
@@ -130,7 +158,8 @@ def _extract_urls_from_rss_xml(xml_text: str) -> list[str]:
             norm = _normalize_candidate_url(href)
             if norm and norm not in urls:
                 urls.append(norm)
-    return urls
+                candidates.append({"url": norm, "title": title, "text": summary, "extra": {"title_hint": title}})
+    return candidates
 
 
 def _parse_sitemap_xml(xml_text: str) -> tuple[str, list[str]]:
@@ -196,6 +225,19 @@ def _collect_sitemap_urls(
     return urls
 
 
+def _build_sitemap_candidates(urls: list[str]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for url in urls:
+        norm = _normalize_candidate_url(url)
+        if not norm:
+            continue
+        path = urlsplit(norm).path or ""
+        slug = path.rstrip("/").rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        title_hint = slug.replace("-", " ").replace("_", " ")
+        out.append({"url": norm, "title": "", "text": "", "extra": {"title_hint": title_hint}})
+    return out
+
+
 def _extract_urls_from_html(html: str, *, base_url: str) -> list[str]:
     urls: list[str] = []
     try:
@@ -211,6 +253,43 @@ def _extract_urls_from_html(html: str, *, base_url: str) -> list[str]:
     except Exception:
         return urls
     return urls
+
+
+def _normalize_match_text(value: str | None) -> str:
+    return normalize_match_text(value)
+
+
+def _term_matches_texts(term: str, texts: list[str]) -> bool:
+    normalized_term = _normalize_match_text(term)
+    if not normalized_term:
+        return False
+    return any(normalized_term in _normalize_match_text(text) for text in texts if str(text or "").strip())
+
+
+def _extract_link_candidates_from_html(html: str, *, base_url: str) -> list[dict[str, str]]:
+    candidates: list[dict[str, str]] = []
+    seen_urls: set[str] = set()
+    try:
+        parser = make_html_parser(html)
+        for node in parser.css("a"):
+            href = (node.attributes.get("href") or "").strip()
+            if not href:
+                continue
+            abs_url = urljoin(base_url, href)
+            norm = _normalize_candidate_url(abs_url)
+            if not norm or norm in seen_urls:
+                continue
+            seen_urls.add(norm)
+            candidates.append(
+                {
+                    "url": norm,
+                    "text": str(node.text(separator=" ", strip=True) or "").strip(),
+                    "title": str(node.attributes.get("title") or "").strip(),
+                }
+            )
+    except Exception:
+        return candidates
+    return candidates
 
 
 def _filter_urls_by_terms(urls: list[str], terms: list[str]) -> list[str]:
@@ -244,6 +323,43 @@ def _filter_urls_by_terms_with_fallback(
     if not allow_fallback:
         return [], True
     return urls[: max(1, int(fallback_limit))], True
+
+
+def _filter_link_candidates_by_terms_with_fallback(
+    candidates: list[dict[str, str]],
+    terms: list[str],
+    *,
+    strategy: str = "search_template",
+    entry_domain: str | None = None,
+    search_url: str | None = None,
+    fallback_limit: int = 30,
+    allow_fallback: bool = True,
+) -> tuple[list[dict[str, str]], bool]:
+    scored = [
+        item
+        for item in (
+            make_search_candidate(
+                url=str(candidate.get("url") or "").strip(),
+                strategy=strategy,
+                title=str(candidate.get("title") or "").strip(),
+                text=str(candidate.get("text") or "").strip(),
+                extra=dict(candidate.get("extra") or {}),
+            )
+            for candidate in candidates
+        )
+        if item is not None
+    ]
+    decisions, used_fallback = select_search_candidates(
+        scored,
+        terms,
+        strategy=strategy,
+        entry_domain=entry_domain,
+        search_url=search_url,
+        fallback_limit=fallback_limit,
+        allow_fallback=allow_fallback,
+    )
+    by_url = {str(candidate.get("url") or "").strip(): candidate for candidate in candidates}
+    return [by_url[item.url] for item in decisions if item.url in by_url], used_fallback
 
 
 def _is_low_value_candidate_url(url: str) -> bool:
@@ -289,6 +405,37 @@ def _resolve_item_site_entries(item: dict[str, Any]) -> list[str]:
         if u:
             urls.append(u)
     return urls
+
+
+def _entry_supports_query_terms(entry: dict[str, Any], entry_type: str) -> bool:
+    capabilities = entry.get("capabilities") if isinstance(entry, dict) else None
+    if not isinstance(capabilities, dict) or not capabilities:
+        capabilities = infer_keyword_capabilities(entry_type)
+    return bool(capabilities.get("supports_query_terms"))
+
+
+def _build_search_candidates(
+    raw_candidates: list[dict[str, Any]],
+    *,
+    strategy: str,
+    source_url: str,
+    entry_domain: str,
+) -> list[Any]:
+    built = []
+    for candidate in raw_candidates:
+        metadata = dict(candidate.get("extra") or {}) if isinstance(candidate.get("extra"), dict) else {}
+        item = make_search_candidate(
+            url=str(candidate.get("url") or "").strip(),
+            strategy=strategy,
+            title=str(candidate.get("title") or "").strip(),
+            text=str(candidate.get("text") or "").strip(),
+            source_url=source_url,
+            entry_domain=entry_domain,
+            metadata=metadata,
+        )
+        if item is not None:
+            built.append(item)
+    return built
 
 
 def unified_search_by_item(
@@ -395,7 +542,7 @@ def unified_search_by_item_payload(
 
     def _process_site_entry(su: str) -> dict[str, Any]:
         local_errors: list[dict[str, str]] = []
-        local_candidates: list[tuple[str, dict[str, Any]]] = []
+        local_candidates: list[tuple[str, dict[str, Any], float]] = []
         try:
             entry = get_site_entry_by_url(scope="effective", project_key=project_key, site_url=su) or {
                 "site_url": su,
@@ -417,17 +564,27 @@ def unified_search_by_item_payload(
             base_url = str(entry.get("site_url") or su)
             template = entry.get("template")
             entry_domain = (entry.get("domain") or domain_from_url(base_url) or "").strip().lower()
+            if not _entry_supports_query_terms(entry, etype):
+                local_errors.append({"site_url": base_url, "error": f"entry_type not query-capable: {etype}"})
+                return {"entry": entry, "candidates": local_candidates, "errors": local_errors}
 
-            def _push_local(u: str, *, ref: dict[str, Any]) -> None:
+            def _push_local(u: str, *, ref: dict[str, Any], score: float = 0.0) -> None:
                 if u:
-                    local_candidates.append((u, ref))
+                    local_candidates.append((u, ref, score))
 
             if etype == "rss":
                 xml_text, _ = fetch_html(base_url, timeout=probe_timeout, retries=1)
-                urls = _extract_urls_from_rss_xml(xml_text)
-                picked, used_fallback = _filter_urls_by_terms_with_fallback(
-                    urls,
+                decisions, used_fallback = select_search_candidates(
+                    _build_search_candidates(
+                        _extract_rss_candidates_from_xml(xml_text),
+                        strategy="rss",
+                        source_url=base_url,
+                        entry_domain=entry_domain,
+                    ),
                     terms,
+                    strategy="rss",
+                    entry_domain=entry_domain,
+                    search_url=base_url,
                     allow_fallback=allow_term_fallback,
                 )
                 if used_fallback:
@@ -441,8 +598,23 @@ def unified_search_by_item_payload(
                             ),
                         }
                     )
-                for u in picked:
-                    _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "rss"})
+                for decision in decisions:
+                    u = str(decision.url or "").strip()
+                    if not u:
+                        continue
+                    _push_local(
+                        u,
+                        ref={
+                            "site_entry_url": base_url,
+                            "entry_type": etype,
+                            "entry_domain": entry_domain,
+                            "tool": "rss",
+                            "matched_by": decision.matched_by,
+                            "candidate_quality": decision.candidate_quality,
+                            "usable_for_search": decision.usable_for_search,
+                        },
+                        score=decision.score,
+                    )
             elif etype == "sitemap":
                 urls = _collect_sitemap_urls(
                     sitemap_url=base_url,
@@ -450,9 +622,17 @@ def unified_search_by_item_payload(
                     max_depth=max(0, int(sitemap_max_depth)),
                     max_sitemaps=max(1, int(sitemap_max_sitemaps)),
                 )
-                picked, used_fallback = _filter_urls_by_terms_with_fallback(
-                    urls,
+                decisions, used_fallback = select_search_candidates(
+                    _build_search_candidates(
+                        [{"url": u, "title": "", "text": ""} for u in urls],
+                        strategy="sitemap",
+                        source_url=base_url,
+                        entry_domain=entry_domain,
+                    ),
                     terms,
+                    strategy="sitemap",
+                    entry_domain=entry_domain,
+                    search_url=base_url,
                     allow_fallback=allow_term_fallback,
                 )
                 if used_fallback:
@@ -466,20 +646,42 @@ def unified_search_by_item_payload(
                             ),
                         }
                     )
-                for u in picked:
+                for decision in decisions:
+                    u = str(decision.url or "").strip()
+                    if not u:
+                        continue
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
                         continue
-                    _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "sitemap"})
+                    _push_local(
+                        u,
+                        ref={
+                            "site_entry_url": base_url,
+                            "entry_type": etype,
+                            "entry_domain": entry_domain,
+                            "tool": "sitemap",
+                            "matched_by": decision.matched_by,
+                            "candidate_quality": decision.candidate_quality,
+                            "usable_for_search": decision.usable_for_search,
+                        },
+                        score=decision.score,
+                    )
             elif etype == "search_template":
-                tpl = str(template or base_url).strip()
+                tpl = _normalize_search_template_placeholders(str(template or base_url).strip())
                 if "{{q}}" not in tpl:
                     raise ValueError("search_template requires template containing {{q}}")
                 url = tpl.replace("{{q}}", joined_q).replace("{{page}}", "1")
                 html, _ = fetch_html(url, timeout=probe_timeout, retries=1)
-                urls = _extract_urls_from_html(html, base_url=url)
-                picked, used_fallback = _filter_urls_by_terms_with_fallback(
-                    urls,
+                decisions, used_fallback = select_search_candidates(
+                    _build_search_candidates(
+                        _extract_link_candidates_from_html(html, base_url=url),
+                        strategy="search_template",
+                        source_url=url,
+                        entry_domain=entry_domain,
+                    ),
                     terms,
+                    strategy="search_template",
+                    entry_domain=entry_domain,
+                    search_url=url,
                     allow_fallback=allow_term_fallback,
                 )
                 if used_fallback:
@@ -493,10 +695,27 @@ def unified_search_by_item_payload(
                             ),
                         }
                     )
-                for u in picked:
+                for decision in decisions:
+                    u = str(decision.url or "").strip()
+                    if not u:
+                        continue
                     if entry_domain and (domain_from_url(u) or "").lower() != entry_domain:
                         continue
-                    _push_local(u, ref={"site_entry_url": base_url, "entry_type": etype, "entry_domain": entry_domain, "tool": "search_template"})
+                    _push_local(
+                        u,
+                        ref={
+                            "site_entry_url": base_url,
+                            "entry_type": etype,
+                            "entry_domain": entry_domain,
+                            "tool": "search_template",
+                            "matched_by": decision.matched_by,
+                            "candidate_quality": decision.candidate_quality,
+                            "usable_for_search": decision.usable_for_search,
+                        },
+                        score=decision.score,
+                    )
+            else:
+                local_errors.append({"site_url": base_url, "error": f"unsupported query entry_type: {etype}"})
             return {"entry": entry, "candidates": local_candidates, "errors": local_errors}
         except HttpFetchError as exc:
             local_errors.append({"site_url": su, "error": str(exc)})
@@ -505,6 +724,7 @@ def unified_search_by_item_payload(
         return {"entry": None, "candidates": local_candidates, "errors": local_errors}
 
     max_workers = max(1, min(8, len(site_entry_urls)))
+    scored_candidates: list[tuple[float, str, dict[str, Any]]] = []
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futures = [ex.submit(_process_site_entry, su) for su in site_entry_urls]
         for fut in as_completed(futures):
@@ -515,8 +735,12 @@ def unified_search_by_item_payload(
             for e in res.get("errors") or []:
                 if isinstance(e, dict):
                     errors.append(e)
-            for u, ref in (res.get("candidates") or []):
-                _push(u, ref=ref)
+            for u, ref, score in (res.get("candidates") or []):
+                scored_candidates.append((float(score or 0.0), u, ref))
+
+    scored_candidates.sort(key=lambda item: (-item[0], item[1]))
+    for _, u, ref in scored_candidates:
+        _push(u, ref=ref)
 
     candidates = candidates[:max_candidates]
     # For fallback-retrieved links, drop low-value navigation/legal/account pages.

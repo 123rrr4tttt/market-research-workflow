@@ -9,6 +9,7 @@ from .generic_web import (
     handle_generic_web_search_template,
     handle_generic_web_sitemap,
 )
+from .handler_cluster import handle_handler_cluster
 from .market import handle_market
 from .official_access import handle_official_access_api
 from .policy import handle_policy
@@ -24,6 +25,7 @@ def _register_all() -> None:
     register("policy", "policy", handle_policy)
     register("market", "market", handle_market)
     register("url_pool", "urls", handle_url_pool)
+    register("handler", "cluster", handle_handler_cluster)
     # Tool-type channels (Phase 4 compatibility layer)
     register("generic_web", "rss", handle_generic_web_rss)
     register("generic_web", "sitemap", handle_generic_web_sitemap)
@@ -39,6 +41,7 @@ __all__ = [
     "handle_generic_web_rss",
     "handle_generic_web_search_template",
     "handle_generic_web_sitemap",
+    "handle_handler_cluster",
     "handle_market",
     "handle_official_access_api",
     "handle_policy",

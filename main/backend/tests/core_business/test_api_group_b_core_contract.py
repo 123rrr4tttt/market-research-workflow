@@ -179,6 +179,37 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
 
+    def test_dashboard_market_trends_invalid_start_date_returns_422_invalid_input(self):
+        resp = self.client.get(
+            "/api/v1/dashboard/market-trends",
+            headers=self.headers,
+            params={"start_date": "2026/01/01"},
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("start_date", body["error"]["message"])
+        self.assertIn("YYYY-MM-DD", body["error"]["message"])
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_policies_list_invalid_start_date_returns_422_invalid_input(self):
+        resp = self.client.get(
+            "/api/v1/policies",
+            headers=self.headers,
+            params={"start": "2026/01/01"},
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("start", body["error"]["message"])
+        self.assertIn("YYYY-MM-DD", body["error"]["message"])
+
     def test_process_stats_success_contract(self):
         inspect = SimpleNamespace(
             active=lambda: {"w1": [{"id": "a1"}]},

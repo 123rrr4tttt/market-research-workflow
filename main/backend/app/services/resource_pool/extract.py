@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,6 +12,9 @@ from ...models.base import SessionLocal
 from ...models.entities import Document, EtlJobRun, ResourcePoolUrl, SharedResourcePoolUrl
 from ..projects import bind_project, bind_schema
 from .url_utils import canonicalize_url, domain_from_url, extract_urls_from_json, extract_urls_from_text, normalize_url
+
+
+logger = logging.getLogger(__name__)
 
 
 def _append_urls(
@@ -238,6 +242,8 @@ def extract_from_tasks(
 
     url_refs: list[tuple[str, dict]] = []
     tasks_scanned = 0
+    since_warning: str | None = None
+    since_dt, since_warning = _parse_since_filter(since)
 
     with bind_project(project_key):
         with SessionLocal() as session:
@@ -246,17 +252,13 @@ def extract_from_tasks(
                 query = query.where(EtlJobRun.id.in_(task_ids))
             if job_type:
                 query = query.where(EtlJobRun.job_type == job_type)
-            if since:
-                if isinstance(since, str):
-                    since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
-                else:
-                    since_dt = since
+            if since_dt:
                 query = query.where(EtlJobRun.started_at >= since_dt)
             query = query.order_by(EtlJobRun.started_at.desc()).limit(limit)
             rows = session.execute(query).scalars().all()
             tasks_scanned = len(rows)
 
-            for (job,) in rows:
+            for job in rows:
                 params = job.params or {}
                 ref = {"task_id": job.id, "job_type": job.job_type}
                 links = params.get("links")
@@ -290,7 +292,7 @@ def extract_from_tasks(
                 new, dup = _append_urls_batch(session, deduped, "task", "project", project_key)
                 session.commit()
 
-    return {
+    result = {
         "tasks_scanned": tasks_scanned,
         "urls_extracted": len(deduped),
         "urls_new": new,
@@ -298,3 +300,45 @@ def extract_from_tasks(
         "scope": scope,
         "dedupe_hit_reason": dedupe_hit_reason,
     }
+    if since_warning:
+        result["warning"] = since_warning
+    return result
+
+
+def _parse_since_filter(value: datetime | str | None) -> tuple[datetime | None, str | None]:
+    if value is None:
+        return None, None
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc), None
+        return value.replace(tzinfo=timezone.utc), None
+
+    text = str(value).strip()
+    if not text:
+        return None, "since was empty; ignored filter"
+
+    candidates = [text, text.replace(" ", "T")]
+    if text.endswith("Z") or text.endswith("z"):
+        candidates.append(text[:-1] + "+00:00")
+    if len(text) >= 5 and (text[-5] in ("+", "-")) and text[-3] != ":" and text[-4:].isdigit():
+        candidates.append(f"{text[:-5]}{text[-5:-3]}:{text[-2:]}")
+
+    for candidate in candidates:
+        try:
+            parsed = datetime.fromisoformat(candidate)
+            if parsed.tzinfo is not None:
+                return parsed.astimezone(timezone.utc), None
+            return parsed.replace(tzinfo=timezone.utc), None
+        except ValueError:
+            continue
+
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y"):
+        try:
+            parsed = datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+            return parsed, None
+        except ValueError:
+            continue
+
+    msg = f"invalid since value '{text}'; ignored filter"
+    logger.warning("extract_from_tasks: %s", msg)
+    return None, msg

@@ -8,14 +8,11 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 
 def register_ui_routes(
     app: FastAPI,
     *,
-    templates: Jinja2Templates,
-    template_dir: Path,
     usa_map_path: Path,
 ) -> None:
     def _modern_frontend_base() -> str:
@@ -42,22 +39,22 @@ def register_ui_routes(
             target = f"{target}?{urlencode(query)}"
         return RedirectResponse(url=target, status_code=302)
 
-    def _legacy_archived_response() -> HTMLResponse:
+    def _archived_entry_response() -> HTMLResponse:
         return HTMLResponse(
             content=(
                 "<!doctype html><html><head><meta charset='utf-8'/>"
                 "<meta name='viewport' content='width=device-width, initial-scale=1'/>"
-                "<title>Legacy Archived</title></head>"
+                "<title>Historical Entry Archived</title></head>"
                 "<body style='font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; padding:24px;'>"
-                "<h2>Legacy UI 已封存</h2>"
-                "<p>当前实例不再提供 legacy 页面渲染，请使用 modern 前端入口。</p>"
+                "<h2>历史页面入口已归档</h2>"
+                "<p>当前实例仅提供 modern 前端入口。</p>"
                 "<p><a href='/'>进入 modern 前端</a></p>"
                 "</body></html>"
             ),
             status_code=410,
         )
 
-    def _build_legacy_target(target: str, request: Request) -> str:
+    def _merge_route_target(target: str, request: Request) -> str:
         base = target.strip()
         try:
             parsed = urlsplit(base)
@@ -86,20 +83,19 @@ def register_ui_routes(
         )
         return rebuilt
 
-    def _modern_frontend_redirect_with_hash(target: str, request: Request) -> RedirectResponse | None:
+    def _modern_entry_redirect(target: str, request: Request) -> RedirectResponse | None:
         base = _modern_frontend_base()
         if not base:
             return None
-        modern_target = _build_legacy_target(target, request)
+        modern_target = _merge_route_target(target, request)
         encoded = modern_target.lstrip("/")
         return RedirectResponse(url=f"{base}/#{quote(encoded)}", status_code=302)
 
-    def _render_or_forward(request: Request, template_name: str, *, route_target: str):
-        _ = template_name
-        modern = _modern_frontend_redirect_with_hash(route_target, request)
+    def _redirect_or_archive(request: Request, *, route_target: str):
+        modern = _modern_entry_redirect(route_target, request)
         if modern is not None:
             return modern
-        return _legacy_archived_response()
+        return _archived_entry_response()
 
     @app.get("/", response_class=RedirectResponse)
     def index(request: Request):
@@ -107,7 +103,7 @@ def register_ui_routes(
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
-        return _legacy_archived_response()
+        return _archived_entry_response()
 
     @app.get("/index.html", response_class=RedirectResponse)
     def index_html(request: Request):
@@ -115,30 +111,27 @@ def register_ui_routes(
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
-        return _legacy_archived_response()
+        return _archived_entry_response()
 
     @app.get("/ingest.html", response_class=HTMLResponse)
     def ingest_page(request: Request):
         """Ingest page (采集入口) - loaded in app iframe"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="ingest.html",
             route_target="ingest.html",
         )
 
     @app.get("/settings.html", response_class=HTMLResponse)
     def settings_page(request: Request):
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="settings.html",
             route_target="settings.html",
         )
 
     @app.get("/admin.html", response_class=HTMLResponse)
     def admin_page(request: Request):
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="admin.html",
             route_target="admin.html",
         )
 
@@ -146,32 +139,27 @@ def register_ui_routes(
     def dashboard_page(request: Request):
         """数据可视化仪表盘页面"""
         try:
-            return _render_or_forward(
+            return _redirect_or_archive(
                 request=request,
-                template_name="dashboard.html",
                 route_target="dashboard.html",
             )
         except Exception as e:
             logging.getLogger("app").error(f"Failed to load dashboard.html: {e}")
-            logging.getLogger("app").error(f"Template directory: {template_dir}")
-            logging.getLogger("app").error(f"Dashboard file exists: {(template_dir / 'dashboard.html').exists()}")
             raise
 
     @app.get("/workflow-designer.html", response_class=HTMLResponse)
     def workflow_designer_page(request: Request):
         """图形化工作流编排页面（用户设计 -> 抽象层 -> 主干模块）"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="workflow-designer.html",
             route_target="workflow-designer.html",
         )
 
     @app.get("/topic-dashboard.html", response_class=HTMLResponse)
     def topic_dashboard_page(request: Request):
         """专题结果页（公司/商品/电商经营）"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="topic-dashboard.html",
             route_target="topic-dashboard.html",
         )
 
@@ -186,7 +174,7 @@ def register_ui_routes(
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
-        return _legacy_archived_response()
+        return _archived_entry_response()
 
     @app.get("/app", response_class=HTMLResponse)
     def app_redirect(request: Request):
@@ -194,23 +182,21 @@ def register_ui_routes(
         modern = _modern_frontend_redirect(request)
         if modern is not None:
             return modern
-        return _legacy_archived_response()
+        return _archived_entry_response()
 
     @app.get("/data-dashboard.html", response_class=HTMLResponse)
     def data_dashboard_page(request: Request):
         """数据仪表盘页面（市场数据与舆论数据）"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="data-dashboard.html",
             route_target="data-dashboard.html",
         )
 
     @app.get("/backend-dashboard.html", response_class=HTMLResponse)
     def backend_dashboard_page(request: Request):
         """后端数据仪表盘页面（系统监控）"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="backend-dashboard.html",
             route_target="backend-dashboard.html",
         )
 
@@ -222,18 +208,16 @@ def register_ui_routes(
     @app.get("/policy-state-detail.html", response_class=HTMLResponse)
     def policy_state_detail_page(request: Request):
         """州级政策详情页面"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="policy-state-detail.html",
             route_target="policy-state-detail.html",
         )
 
     @app.get("/policy-tracking.html", response_class=HTMLResponse)
     def policy_tracking_page(request: Request):
         """政策追踪页面"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="policy-tracking.html",
             route_target="policy-tracking.html",
         )
 
@@ -241,54 +225,44 @@ def register_ui_routes(
     def market_data_visualization_page(request: Request):
         """市场数据可视化页面"""
         try:
-            return _render_or_forward(
+            return _redirect_or_archive(
                 request=request,
-                template_name="market-data-visualization.html",
                 route_target="market-data-visualization.html",
             )
         except Exception as e:
             logging.getLogger("app").error(f"Failed to load market-data-visualization.html: {e}")
-            logging.getLogger("app").error(f"Template directory: {template_dir}")
-            logging.getLogger("app").error(f"File exists: {(template_dir / 'market-data-visualization.html').exists()}")
             raise
 
     @app.get("/social-media-visualization.html", response_class=HTMLResponse)
     def social_media_visualization_page(request: Request):
         """社交媒体数据可视化页面"""
         try:
-            return _render_or_forward(
+            return _redirect_or_archive(
                 request=request,
-                template_name="social-media-visualization.html",
                 route_target="social-media-visualization.html",
             )
         except Exception as e:
             logging.getLogger("app").error(f"Failed to load social-media-visualization.html: {e}")
-            logging.getLogger("app").error(f"Template directory: {template_dir}")
-            logging.getLogger("app").error(f"File exists: {(template_dir / 'social-media-visualization.html').exists()}")
             raise
 
     @app.get("/policy-visualization.html", response_class=HTMLResponse)
     def policy_visualization_page(request: Request):
         """政策可视化页面"""
         try:
-            return _render_or_forward(
+            return _redirect_or_archive(
                 request=request,
-                template_name="policy-visualization.html",
                 route_target="policy-visualization.html",
             )
         except Exception as e:
             logging.getLogger("app").error(f"Failed to load policy-visualization.html: {e}")
-            logging.getLogger("app").error(f"Template directory: {template_dir}")
-            logging.getLogger("app").error(f"File exists: {(template_dir / 'policy-visualization.html').exists()}")
             raise
 
     @app.get("/graph.html", response_class=HTMLResponse)
     def graph_page(request: Request):
         """Unified graph visualization page (policy/social/market)"""
         try:
-            return _render_or_forward(
+            return _redirect_or_archive(
                 request=request,
-                template_name="graph.html",
                 route_target="graph.html",
             )
         except Exception as e:
@@ -298,55 +272,52 @@ def register_ui_routes(
     @app.get("/policy-graph.html", response_class=RedirectResponse)
     def policy_graph_page(request: Request):
         """Redirect to unified graph page"""
-        legacy_target = _build_legacy_target("/graph.html?type=policy", request)
-        modern = _modern_frontend_redirect_with_hash("graph.html?type=policy", request)
+        compat_target = _merge_route_target("/graph.html?type=policy", request)
+        modern = _modern_entry_redirect("graph.html?type=policy", request)
         if modern is not None:
             return modern
-        return _render_or_forward(request=request, template_name="graph.html", route_target=legacy_target)
+        return _redirect_or_archive(request=request, route_target=compat_target)
 
     @app.get("/social-media-graph.html", response_class=RedirectResponse)
     def social_media_graph_page(request: Request):
         """Redirect to unified graph page"""
-        legacy_target = _build_legacy_target("/graph.html?type=social", request)
-        modern = _modern_frontend_redirect_with_hash("graph.html?type=social", request)
+        compat_target = _merge_route_target("/graph.html?type=social", request)
+        modern = _modern_entry_redirect("graph.html?type=social", request)
         if modern is not None:
             return modern
-        return _render_or_forward(request=request, template_name="graph.html", route_target=legacy_target)
+        return _redirect_or_archive(request=request, route_target=compat_target)
 
     @app.get("/market-graph.html", response_class=RedirectResponse)
     @app.get("/market-data-graph.html", response_class=RedirectResponse)
     def market_graph_page(request: Request):
         """Redirect to unified graph page"""
-        legacy_target = _build_legacy_target("/graph.html?type=market", request)
-        modern = _modern_frontend_redirect_with_hash("graph.html?type=market", request)
+        compat_target = _merge_route_target("/graph.html?type=market", request)
+        modern = _modern_entry_redirect("graph.html?type=market", request)
         if modern is not None:
             return modern
-        return _render_or_forward(request=request, template_name="graph.html", route_target=legacy_target)
+        return _redirect_or_archive(request=request, route_target=compat_target)
 
     @app.get("/project-management.html", response_class=HTMLResponse)
     def project_management_page(request: Request):
         """项目管理页面"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="project-management.html",
             route_target="project-management.html",
         )
 
     @app.get("/process-management.html", response_class=HTMLResponse)
     def process_management_page(request: Request):
         """进程管理页面"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="process-management.html",
             route_target="process-management.html",
         )
 
     @app.get("/raw-data-processing.html", response_class=HTMLResponse)
     def raw_data_processing_page(request: Request):
         """流程视角-数据处理页面（Raw Data直入库）"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="raw-data-processing.html",
             route_target="raw-data-processing.html",
         )
 
@@ -358,68 +329,63 @@ def register_ui_routes(
     @app.get("/resource-pool-management.html", response_class=HTMLResponse)
     def resource_pool_management_page(request: Request):
         """信息资源库管理页面"""
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="resource-pool-management.html",
             route_target="resource-pool-management.html",
         )
 
     @app.get("/dashboard")
     def dashboard_alias(request: Request):
         """兼容 dashboard 无后缀入口"""
-        modern = _modern_frontend_redirect_with_hash("dashboard.html", request)
+        modern = _modern_entry_redirect("dashboard.html", request)
         if modern is not None:
             return modern
-        return _render_or_forward(request=request, template_name="dashboard.html", route_target="dashboard.html")
+        return _redirect_or_archive(request=request, route_target="dashboard.html")
 
     @app.get("/process-management")
     def process_management_alias(request: Request):
-        modern = _modern_frontend_redirect_with_hash("process-management.html", request)
+        modern = _modern_entry_redirect("process-management.html", request)
         if modern is not None:
             return modern
-        return _render_or_forward(request=request, template_name="process-management.html", route_target="process-management.html")
+        return _redirect_or_archive(request=request, route_target="process-management.html")
 
     @app.get("/workflow-designer")
     def workflow_designer_alias(request: Request):
-        modern = _modern_frontend_redirect_with_hash("workflow-designer.html", request)
+        modern = _modern_entry_redirect("workflow-designer.html", request)
         if modern is not None:
             return modern
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="workflow-designer.html",
             route_target="workflow-designer.html",
         )
 
     @app.get("/resource-pool-management")
     def resource_pool_management_alias(request: Request):
-        modern = _modern_frontend_redirect_with_hash("resource-pool-management.html", request)
+        modern = _modern_entry_redirect("resource-pool-management.html", request)
         if modern is not None:
             return modern
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="resource-pool-management.html",
             route_target="resource-pool-management.html",
         )
 
     @app.get("/project-management")
     def project_management_alias(request: Request):
-        modern = _modern_frontend_redirect_with_hash("project-management.html", request)
+        modern = _modern_entry_redirect("project-management.html", request)
         if modern is not None:
             return modern
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="project-management.html",
             route_target="project-management.html",
         )
 
     @app.get("/raw-data-processing")
     def raw_data_processing_alias(request: Request):
-        modern = _modern_frontend_redirect_with_hash("raw-data-processing.html", request)
+        modern = _modern_entry_redirect("raw-data-processing.html", request)
         if modern is not None:
             return modern
-        return _render_or_forward(
+        return _redirect_or_archive(
             request=request,
-            template_name="raw-data-processing.html",
             route_target="raw-data-processing.html",
         )
 
@@ -429,24 +395,24 @@ def register_ui_routes(
 
     @app.get("/admin")
     def admin_alias(request: Request):
-        modern = _modern_frontend_redirect_with_hash("admin.html", request)
+        modern = _modern_entry_redirect("admin.html", request)
         if modern is not None:
             return modern
-        return _render_or_forward(request=request, template_name="admin.html", route_target="admin.html")
+        return _redirect_or_archive(request=request, route_target="admin.html")
 
     @app.get("/settings")
     def settings_alias(request: Request):
-        modern = _modern_frontend_redirect_with_hash("settings.html", request)
+        modern = _modern_entry_redirect("settings.html", request)
         if modern is not None:
             return modern
-        return _render_or_forward(request=request, template_name="settings.html", route_target="settings.html")
+        return _redirect_or_archive(request=request, route_target="settings.html")
 
     @app.get("/graph")
     def graph_alias(request: Request):
-        modern = _modern_frontend_redirect_with_hash("graph.html", request)
+        modern = _modern_entry_redirect("graph.html", request)
         if modern is not None:
             return modern
-        return _render_or_forward(request=request, template_name="graph.html", route_target="graph.html")
+        return _redirect_or_archive(request=request, route_target="graph.html")
 
 
     @app.get("/api/v1/maps/usa")

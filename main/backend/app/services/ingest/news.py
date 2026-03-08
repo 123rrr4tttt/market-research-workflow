@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, date, timezone
 from typing import Iterable, List, Optional
 
 from sqlalchemy.orm import Session
@@ -165,7 +165,7 @@ def _persist_news_items(
                 doc_type=normalized_doc_type,
                 title=item.title,
                 summary=item.summary,
-                publish_date=item.published_at.date() if item.published_at else None,
+                publish_date=_publish_date(item.published_at),
                 uri=link,
             )
             session.add(document)
@@ -248,12 +248,48 @@ def _parse_date_safe(value: str | None) -> datetime | None:
     if not value:
         return None
     text = value.strip()
-    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%S%z"):
+    iso_candidates = [
+        text,
+        text.replace("z", "Z"),
+        text.replace(" ", "T"),
+    ]
+    if text.endswith("Z") or text.endswith("z"):
+        iso_candidates.append(text[:-1] + "+00:00")
+    if text.endswith("+0000"):
+        iso_candidates.append(text[:-5] + "+00:00")
+    if len(text) >= 5 and (text[-5] in ("+", "-")) and text[-3] != ":" and text[-4:].isdigit():
+        iso_candidates.append(f"{text[:-5]}{text[-5:-3]}:{text[-2:]}")
+
+    for candidate in iso_candidates:
+        try:
+            return datetime.fromisoformat(candidate)
+        except ValueError:
+            continue
+
+    for fmt in (
+        "%Y-%m-%d",
+        "%Y/%m/%d",
+        "%m/%d/%Y",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%dT%H:%M:%S.%f%z",
+        "%Y-%m-%d %H:%M:%S%z",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%a, %d %b %Y %H:%M:%S %z",
+    ):
         try:
             return datetime.strptime(text, fmt)
         except ValueError:
             continue
     return None
+
+
+def _publish_date(value: datetime | None) -> date | None:
+    if not value:
+        return None
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).date()
+    return value.date()
 
 
 def _normalize_url(href: str, *, base_url: str) -> str:

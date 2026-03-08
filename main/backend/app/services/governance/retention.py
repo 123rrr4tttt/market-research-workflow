@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete
 
@@ -9,7 +9,7 @@ from ...models.entities import Document, MarketMetricPoint, PriceObservation, Et
 
 
 def cleanup_old_data(retention_days: int = 90) -> dict[str, int]:
-    cutoff_dt = datetime.utcnow() - timedelta(days=max(1, retention_days))
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(days=max(1, retention_days))
     cutoff_date = cutoff_dt.date()
 
     with SessionLocal() as session:

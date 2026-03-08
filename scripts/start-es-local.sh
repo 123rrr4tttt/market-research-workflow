@@ -13,6 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Use OpenJDK on ARM (brew's bundled JDK may be x86)
 export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home}"
 [[ -d "$JAVA_HOME" ]] || export JAVA_HOME="/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
+export ES_JAVA_HOME="${ES_JAVA_HOME:-$JAVA_HOME}"
+export ES_JAVA_OPTS="${ES_JAVA_OPTS:--Xms512m -Xmx512m}"
 
 ES_FORMULA="elastic/tap/elasticsearch-full"
 
@@ -38,7 +40,7 @@ start_es() {
     fi
     echo "🚀 Starting Elasticsearch (JAVA_HOME=$JAVA_HOME)..."
     brew services stop "$ES_FORMULA" 2>/dev/null || true
-    nohup env JAVA_HOME="$JAVA_HOME" /opt/homebrew/opt/elasticsearch-full/bin/elasticsearch >>/opt/homebrew/var/log/elasticsearch.log 2>&1 &
+    nohup env JAVA_HOME="$JAVA_HOME" ES_JAVA_HOME="$ES_JAVA_HOME" ES_JAVA_OPTS="$ES_JAVA_OPTS" /opt/homebrew/opt/elasticsearch-full/bin/elasticsearch >>/opt/homebrew/var/log/elasticsearch.log 2>&1 &
     echo $! > /tmp/elasticsearch-local.pid
     echo "⏳ Waiting for ES on :9200..."
     for i in {1..30}; do

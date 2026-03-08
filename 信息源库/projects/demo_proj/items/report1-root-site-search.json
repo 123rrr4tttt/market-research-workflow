@@ -1,0 +1,40 @@
+{
+  "item_key": "report1.root_site_search",
+  "name": "Report 1 Root Site Search",
+  "channel_key": "generic_web.rss",
+  "description": "Best query-capable site entries discovered from the root domains in /Users/wangyiliang/Desktop/报告/报告1.md.",
+  "params": {
+    "site_entries": [
+      "https://androidpolice.com/search?q=%7B%7Bq%7D%7D",
+      "https://arstechnica.com/search?q=%7B%7Bq%7D%7D",
+      "https://bogdanraczynski.com/rss",
+      "https://cybernews.com/search?q=%7B%7Bq%7D%7D",
+      "https://dcrainmaker.com/search?q=%7B%7Bq%7D%7D",
+      "https://eu.36kr.com/feed",
+      "https://gizmodo.com/search?q=%7B%7Bq%7D%7D",
+      "https://howtogeek.com/search?q=%7B%7Bq%7D%7D",
+      "https://laptopmag.com/search?q=%7B%7Bq%7D%7D",
+      "https://linkedin.com/search?q=%7B%7Bq%7D%7D",
+      "https://mashable.com/feed",
+      "https://moorinsightsstrategy.com/find?q=%7B%7Bq%7D%7D",
+      "https://pylessons.com/sitemap.xml",
+      "https://reddit.com/search",
+      "https://www.serverman.co.uk/?s=%7B%7Bq%7D%7D",
+      "https://slashgear.com/search?q=%7B%7Bq%7D%7D",
+      "https://supernote.com/search?q=%7B%7Bq%7D%7D",
+      "https://thequalityedit.com/search?q=%7B%7Bq%7D%7D",
+      "https://theverge.com/search?q=%7B%7Bq%7D%7D",
+      "https://youtube.com/search?q=%7B%7Bq%7D%7D"
+    ]
+  },
+  "tags": [
+    "report1",
+    "root_site",
+    "search"
+  ],
+  "enabled": true,
+  "extra": {
+    "source_file": "/Users/wangyiliang/Desktop/报告/报告1.md",
+    "generated_from": "resource_pool.site_entry_discovery"
+  }
+}

@@ -24,53 +24,43 @@
 
 ## 最新补充
 
-- `development-plans/CURRENT_DEV` 新增 R3 Must 最小实现与验证：
-  - [01_r3-must-minimal-implementation-and-verification-2026-03-04.md](./development-plans/CURRENT_DEV/2026-03-04-r3-must-minimal-implementation/01_r3-must-minimal-implementation-and-verification-2026-03-04.md)
-- `development-plans/CURRENT_DEV` 新增 Version B Round4（StreamPlus Gate Enhancement）：
-  - [04_B-line-round4-streamplus-plan-and-atomic-task-table.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/04_B-line-round4-streamplus-plan-and-atomic-task-table.md)
-  - [05_B-line-round4-streamplus-closure.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/05_B-line-round4-streamplus-closure.md)
-- `development-plans/CURRENT_DEV` 新增 Version B Round7（Failure Diagnostics）：
-  - [08_B-line-round7-plan-and-atomic-task-table.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/08_B-line-round7-plan-and-atomic-task-table.md)
-  - [09_B-line-round7-closure.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md)
-- `development-plans/CURRENT_DEV` 新增 Version B Round3 R3（Must 最小实现 + 验证）：
-  - [10_B-line-round3-r3-must-minimal-implementation.md](./development-plans/CURRENT_DEV/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md)
-- `development-plans/CURRENT_DEV` 新增 R41 迁移包（来自 openclaw）：
-  - [2026-03-04-r41-openclaw-autodispatch/README.md](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/README.md)
-- `development-plans/CURRENT_DEV` 新增 Version D 与 D 线增量文档：
-  - [01_task_doc.md](./development-plans/CURRENT_DEV/2026-03-03-version-D-doc-normalization/01_task_doc.md)
-  - [02_dev_doc.md](./development-plans/CURRENT_DEV/2026-03-03-version-D-doc-normalization/02_dev_doc.md)
-  - [01_repo-mapping-and-minimal-implementation.md](./development-plans/CURRENT_DEV/2026-03-04-cd-r3-d-security-minimal/01_repo-mapping-and-minimal-implementation.md)
-  - [01_repo-mapping-and-minimal-enforcement.md](./development-plans/CURRENT_DEV/2026-03-04-cd-r5-d-provenance-enforcement/01_repo-mapping-and-minimal-enforcement.md)
-  - [01_task_and_closing.md](./development-plans/CURRENT_DEV/2026-03-04-d-line-rag-filter-robustness/01_task_and_closing.md)
-- `development-plans/CURRENT_DEV` 新增 SA3-R3-F（llm-report 数据AI线）最小制度化落地记录：
-  - [01_sa3-r3-f-implementation-2026-03-04.md](./development-plans/CURRENT_DEV/2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md)
-- `development-plans/CURRENT_DEV` 新增“先平台化、后向量化”改造：
-  - [01_platformization-first-vectorization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/01_platformization-first-vectorization-2026-03-03.md)
-  - [02_atomic-zero-regression-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/02_atomic-zero-regression-tasklist-2026-03-03.md)
-  - [03_ingest-platformization-to-cleanup-optimization-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/03_ingest-platformization-to-cleanup-optimization-2026-03-03.md)
-  - [04_adjusted-graph-node-phase-b-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/04_adjusted-graph-node-phase-b-plan-2026-03-03.md)
-  - [05_graph-node-standardization-overall-completion-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/05_graph-node-standardization-overall-completion-2026-03-03.md)
-  - [06_backend-db-standardization-vectorization-closure-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-platformization-first-vectorization/06_backend-db-standardization-vectorization-closure-2026-03-03.md)
-    - 口径同步：主路径统一为“数据库图真源主路径（graph_db / db-primary）”；兼容期继续接受历史配置字面量 `b_primary`。
-- `development-plans/CURRENT_DEV` 新增单 URL 优先方案：
-  - [01_single-url-first-ingest-allocation-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)
-- `development-plans/CURRENT_DEV` 新增源时间窗与智能时间戳方案：
-  - [01_source-time-window-smart-timestamp-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/01_source-time-window-smart-timestamp-plan-2026-03-02.md)
-  - [02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md)
-  - [03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md)
-- `development-plans/CURRENT_DEV` 新增图谱节点 A→B 标准化方案：
-  - [01_graph-node-standardization-a-then-b-plan-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
-- `development-plans/CURRENT_DEV` 新增全局向量化通用基础方案：
-  - [01_global-vectorization-general-foundation-plan-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-03.md)
-  - [02_atomic-vectorization-tasklist-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/02_atomic-vectorization-tasklist-2026-03-03.md)
-  - [03_vectorization-atomic-execution-report-2026-03-03.md](./development-plans/CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/03_vectorization-atomic-execution-report-2026-03-03.md)
-- `development-plans/CURRENT_DEV` 新增图谱 3D 引擎并行迁移方案：
-  - [01_graph-3d-force-engine-parallel-migration-2026-03-02.md](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
-- `backend-core/main` 新增标准工作流打包文档：
-  - [STANDARD_INGEST_WORKFLOWS_2026-03-02.md](./backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md)
-- `backend-docs/E_OPS` 新增 E-DB R5 执行记录（参考包代理映射 + deep health 连接池门禁）：
-  - [E_DB_R5_REFERENCE_POOL_PROXY_AND_POOL_GATE_2026-03-04.md](./backend-docs/E_OPS/E_DB_R5_REFERENCE_POOL_PROXY_AND_POOL_GATE_2026-03-04.md)
-- `ops-frontend/F_PLAN` 新增图谱 3D 控制面板左移与 2D 全局引力记录：
-  - [graph-3d-controls-left-and-2d-gravity-2026-03-02.md](./ops-frontend/F_PLAN/graph-3d-controls-left-and-2d-gravity-2026-03-02.md)
-- `development-plans/CURRENT_DEV` 新增 OSS 代码爬取与 IO 级任务规划：
-  - [01_oss-code-harvest-and-io-taskplan-2026-03-05.md](./development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md)
+- `development-plans/CURRENT_DEV` 新增写作工作台演进主题文档：
+  - [2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
+  - [2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
+- `development-plans/CURRENT_DEV` 新增知识组织与图谱编辑主题文档：
+  - [2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)
+  - [2026-03-07-typed-knowledge-organization/02_atomic-tasklist-typed-knowledge-organization-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/02_atomic-tasklist-typed-knowledge-organization-2026-03-07.md)
+  - [2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md)
+  - [2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md)
+- `development-plans/CURRENT_DEV` 新增采集、来源、前端基础设施主题文档：
+  - [2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md)
+  - [2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md)
+  - [2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)
+  - [2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md)
+  - [2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md)
+  - [2026-03-07-frontend-i18n-theme-modularization/02_atomic-tasklist-frontend-i18n-theme-modularization-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/02_atomic-tasklist-frontend-i18n-theme-modularization-2026-03-07.md)
+- `development-plans/CURRENT_DEV` 新增模型服务平台化与 modern 基座双交互前端拓扑主题文档：
+  - [2026-03-07-llm-service-and-agent-platformization/01_llm-service-and-agent-platformization-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/01_llm-service-and-agent-platformization-plan-2026-03-07.md)
+  - [2026-03-07-llm-service-and-agent-platformization/02_atomic-tasklist-llm-service-and-agent-platformization-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/02_atomic-tasklist-llm-service-and-agent-platformization-2026-03-07.md)
+  - [2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md)
+  - [2026-03-07-dual-frontend-workbench-topology/02_atomic-tasklist-dual-frontend-workbench-topology-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/02_atomic-tasklist-dual-frontend-workbench-topology-2026-03-07.md)
+- `development-plans/CURRENT_DEV` 新增抽象规划子文件夹拆分计划：
+  - [2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md)
+- `development-plans/CURRENT_DEV` 新增抽象规划子文件夹拆分原子任务：
+  - [2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md)
+- `development-plans/CURRENT_DEV` 新增 docs 根目录重构迁移映射表：
+  - [2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
+- `development-plans/CURRENT_DEV` 新增内置写作工作台设计方案：
+  - [2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md)
+- `development-plans/CURRENT_DEV` 补充内置写作工作台原子任务清单：
+  - [2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md)
+- `development-plans/ARCHIVE_CLOSED` 已封口前侧收敛与系统中间层对齐计划：
+  - [2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/03_handler-cluster-frontdoor-middle-layer-alignment-closing-2026-03-06.md](./development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/03_handler-cluster-frontdoor-middle-layer-alignment-closing-2026-03-06.md)
+- `development-plans/CURRENT_DEV` 持续维护时间功能与统计联动修复计划：
+  - [2026-03-05-time-statistics-remediation-plan/01_time-statistics-remediation-plan-2026-03-05.md](./development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/01_time-statistics-remediation-plan-2026-03-05.md)
+- `development-plans/CURRENT_DEV` 保留 OSS 代码采集与 IO 级任务规划：
+  - [2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md](./development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md)
+- `ops-frontend/F_PLAN` 最近新增 modern API / graph 原子执行记录：
+  - [frontend-modern-api-graph-atomic-execution-2026-03-05.md](./ops-frontend/F_PLAN/frontend-modern-api-graph-atomic-execution-2026-03-05.md)
+
+更多历史新增请进入对应子目录 `INDEX.md`。

@@ -7,8 +7,6 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from prometheus_client import Counter, Histogram, REGISTRY, generate_latest, CONTENT_TYPE_LATEST
 
@@ -236,35 +234,10 @@ def _resolve_request_project_context(request: Request) -> tuple[str, str, bool]:
     fallback = _get_active_project_key_fallback() or settings.active_project_key
     return fallback, "fallback", True
 
-# 在 Docker 环境中，frontend 目录通过 volume 挂载到 /app/frontend
-# 优先使用挂载的本地 frontend 目录（对应当前独立项目的 frontend）
-# 如果不存在，则使用 backend/frontend 作为后备
-_LOCAL_FRONTEND_ROOT = Path(__file__).resolve().parent.parent.parent / "frontend"
-_BACKEND_FRONTEND_ROOT = Path(__file__).resolve().parent.parent / "frontend"
-_LOCAL_FRONTEND = _LOCAL_FRONTEND_ROOT / "templates"
-_BACKEND_FRONTEND = _BACKEND_FRONTEND_ROOT / "templates"
-
-# 在容器内，/app/frontend 对应本地的 frontend 目录
-# 统一使用与config.py相同的判断逻辑：检查DOCKER_ENV环境变量或/.dockerenv文件
-if os.getenv("DOCKER_ENV") == "true" or os.path.exists("/.dockerenv"):
-    # Docker 环境：使用挂载的本地目录
-    FRONTEND_ROOT = Path("/app/frontend")
-else:
-    # 本地环境：优先使用项目根目录的 frontend
-    if _LOCAL_FRONTEND.exists():
-        FRONTEND_ROOT = _LOCAL_FRONTEND_ROOT
-    else:
-        FRONTEND_ROOT = _BACKEND_FRONTEND_ROOT
-
-TEMPLATE_DIR = FRONTEND_ROOT / "templates"
-STATIC_DIR = FRONTEND_ROOT / "static"
-USA_MAP_PATH = STATIC_DIR / "js" / "USA.json"
-
-templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
-
-# Static files (css/js/images) for frontend templates
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# Frontend archive cleanup: backend runtime no longer depends on the legacy
+# template frontend directory. Only shared backend-owned assets remain here.
+APP_ROOT = Path(__file__).resolve().parent
+USA_MAP_PATH = APP_ROOT / "assets" / "maps" / "USA.json"
 register_startup_hooks(app)
 
 def _get_or_create_counter(name: str, documentation: str, labelnames: list[str]) -> Counter:
@@ -433,7 +406,7 @@ def deep_health_check() -> dict:
 @app.get("/metrics")
 def metrics():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
-register_ui_routes(app, templates=templates, template_dir=TEMPLATE_DIR, usa_map_path=USA_MAP_PATH)
+register_ui_routes(app, usa_map_path=USA_MAP_PATH)
 
 
 # Mount API routers.

@@ -1,0 +1,49 @@
+{
+  "project_key": "demo_proj",
+  "case_set": "all",
+  "total": 8,
+  "passed": 8,
+  "failed": 0,
+  "results": [
+    {
+      "case_id": "C1",
+      "passed": true,
+      "detail": "density status=200"
+    },
+    {
+      "case_id": "C2",
+      "passed": true,
+      "detail": "density items=2"
+    },
+    {
+      "case_id": "C3",
+      "passed": true,
+      "detail": "invalid bucket status=422"
+    },
+    {
+      "case_id": "C4",
+      "passed": true,
+      "detail": "invalid window status=422"
+    },
+    {
+      "case_id": "C5",
+      "passed": true,
+      "detail": "priority status=200"
+    },
+    {
+      "case_id": "C6",
+      "passed": true,
+      "detail": "priority items=4"
+    },
+    {
+      "case_id": "C7",
+      "passed": true,
+      "detail": "priority ranks are sorted"
+    },
+    {
+      "case_id": "C8",
+      "passed": true,
+      "detail": "invalid priority status=422"
+    }
+  ]
+}

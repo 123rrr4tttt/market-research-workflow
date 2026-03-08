@@ -39,6 +39,32 @@ from .models.writing_entities import WritingDocument, WritingDocumentCitation, W
 
 
 def register_startup_hooks(app: FastAPI) -> None:
+    logger = logging.getLogger("app")
+
+    def _is_missing_vector_type(exc: Exception) -> bool:
+        message = str(exc).lower()
+        return "vector" in message and "does not exist" in message
+
+    def _create_tenant_tables_best_effort(schema_name: str, tenant_tables: list) -> None:
+        with engine.begin() as conn:
+            conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
+
+        for table in tenant_tables:
+            with engine.begin() as conn:
+                conn.execute(text(f'SET search_path TO "{schema_name}", public'))
+                try:
+                    table.create(bind=conn, checkfirst=True)
+                except Exception as exc:  # noqa: BLE001
+                    table_name = getattr(table, "name", "")
+                    if table_name == "embeddings" and _is_missing_vector_type(exc):
+                        logger.warning(
+                            "skip embeddings table for schema=%s because vector type is unavailable in current search_path: %s",
+                            schema_name,
+                            exc,
+                        )
+                        continue
+                    raise
+
     @app.on_event("startup")
     def _ensure_bootstrap_projects() -> None:
         """
@@ -189,11 +215,9 @@ def register_startup_hooks(app: FastAPI) -> None:
                 for _project_key, schema_name in rows:
                     if not schema_name:
                         continue
-                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-                    conn.execute(text(f'SET search_path TO "{schema_name}"'))
-                    Base.metadata.create_all(bind=conn, tables=tenant_tables, checkfirst=True)
+                    _create_tenant_tables_best_effort(schema_name, tenant_tables)
         except Exception as exc:  # noqa: BLE001
-            logging.getLogger("app").warning("failed to ensure project schemas ready: %s", exc)
+            logger.warning("failed to ensure project schemas ready: %s", exc)
 
     @app.on_event("startup")
     def _sync_llm_prompts_from_files() -> None:

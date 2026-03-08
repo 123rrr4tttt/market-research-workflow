@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from sqlalchemy import select
@@ -9,6 +9,10 @@ from sqlalchemy.exc import ProgrammingError
 
 from ..models.base import SessionLocal, run_with_session_retry
 from ..models.entities import EtlJobRun
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _fit_job_type(job_type: str, max_len: int = 16) -> str:
@@ -41,7 +45,7 @@ def start_job(
             external_job_id=external_job_id,
             external_provider=external_provider,
             retry_count=retry_count,
-            started_at=datetime.utcnow(),
+            started_at=_utcnow(),
         )
         session.add(job)
         session.flush()
@@ -65,7 +69,7 @@ def complete_job(
         if not job:
             return
         job.status = status
-        job.finished_at = datetime.utcnow()
+        job.finished_at = _utcnow()
         if external_job_id is not None:
             job.external_job_id = external_job_id
         if external_provider is not None:
@@ -94,7 +98,7 @@ def fail_job(
         if not job:
             return
         job.status = "failed"
-        job.finished_at = datetime.utcnow()
+        job.finished_at = _utcnow()
         job.error = error[:2000]
         params = dict(job.params or {})
         # Keep a stable machine-readable fallback for process observability.
@@ -134,7 +138,7 @@ def update_job_tracking(
         if status is not None:
             job.status = status
             if status in {"completed", "failed", "cancelled"} and not job.finished_at:
-                job.finished_at = datetime.utcnow()
+                job.finished_at = _utcnow()
         if result:
             params = dict(job.params or {})
             params.update(result)

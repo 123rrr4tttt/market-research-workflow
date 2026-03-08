@@ -13,6 +13,7 @@ from ..services.llm_report_generator import (
     export_quality_gate_metrics,
     render_markdown,
 )
+from ..services.llm_report_source_enrichment import resolve_report_sources
 from ..settings.config import settings
 
 
@@ -64,6 +65,16 @@ def _resolve_gate_mode(raw_mode: str | None) -> tuple[str, str, bool]:
     return "strict", normalized_raw_mode, True
 
 
+def _resolve_auto_source_target_count(raw_value: int | None) -> int:
+    try:
+        value = int(raw_value or 0)
+    except Exception:  # noqa: BLE001
+        value = 0
+    if value <= 0:
+        return 6
+    return min(value, 20)
+
+
 @router.post("/generate")
 def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dict[str, Any]:
     if not settings.llm_report_enabled:
@@ -74,15 +85,32 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
         trace_id = (request.headers.get("X-Request-Id") or "").strip() or None
 
     gate_mode, gate_mode_raw, gate_mode_fallback = _resolve_gate_mode(settings.llm_report_gate_mode)
-    source_count_requested = len(payload.sources)
+    requested_sources = [item.model_dump() for item in payload.sources]
+    source_count_requested = len(requested_sources)
     job_id: int | None = None
     job_finalized = False
     try:
+        auto_source_enabled = bool(getattr(settings, "llm_report_auto_source_enabled", True))
+        auto_source_target_count = _resolve_auto_source_target_count(
+            getattr(settings, "llm_report_auto_source_target_count", 6)
+        )
+        if requested_sources or not auto_source_enabled:
+            resolved_sources = requested_sources
+        else:
+            resolved_sources = resolve_report_sources(
+                payload.topic,
+                requested_sources,
+                target_count=auto_source_target_count,
+            )
+        source_count_resolved = len(resolved_sources)
         job_id = start_job(
             _LLM_REPORT_JOB_TYPE,
             {
                 "topic": payload.topic,
                 "source_count_requested": source_count_requested,
+                "source_count_resolved": source_count_resolved,
+                "auto_source_enabled": auto_source_enabled,
+                "auto_source_target_count": auto_source_target_count,
                 "gate_mode": gate_mode,
                 "gate_mode_raw": gate_mode_raw,
                 "gate_mode_fallback": gate_mode_fallback,
@@ -91,7 +119,7 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
         )
         report = build_structured_report(
             topic=payload.topic,
-            sources=[item.model_dump() for item in payload.sources],
+            sources=resolved_sources,
             section_titles=payload.section_titles or None,
         )
         markdown = render_markdown(report)

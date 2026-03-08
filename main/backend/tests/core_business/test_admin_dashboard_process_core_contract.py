@@ -166,6 +166,22 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
 
+    def test_dashboard_ecom_price_trends_invalid_start_date_returns_422_invalid_input(self):
+        resp = self.client.get(
+            "/api/v1/dashboard/ecom-price-trends",
+            headers=self.headers,
+            params={"start_date": "2026-01-01"},
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        body = resp.json()
+        self.assertTrue({"status", "data", "error", "meta"}.issubset(body.keys()))
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("start_date", body["error"]["message"])
+        self.assertIn("ISO8601 datetime", body["error"]["message"])
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
     def test_process_stats_success_returns_envelope(self):
         inspect = SimpleNamespace(
             active=lambda: {"w1": [{"id": "a1"}]},

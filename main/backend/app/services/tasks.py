@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from importlib import import_module
 from contextlib import nullcontext
+from datetime import datetime
 from math import ceil
 from typing import Any
 
@@ -141,6 +142,41 @@ def task_ingest_policy(state: str, project_key: str | None = None) -> dict:
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         return ingest_policy_documents(state=state)
+
+
+@celery_app.task
+def task_select_prompt_time_windows(
+    project_key: str | None = None,
+    prompt_group_ids: list[str] | None = None,
+    source_domains: list[str] | None = None,
+    candidate_windows: list[str] | None = None,
+    top_k: int = 10,
+    prefer_low_density: bool = True,
+    exclude_high_dup: bool = True,
+    end: str | None = None,
+) -> dict[str, Any]:
+    from .stats import query_prompt_time_density_priority
+
+    ctx = bind_project(project_key) if project_key else nullcontext()
+    with ctx:
+        end_date = datetime.strptime(end, "%Y-%m-%d").date() if end else datetime.utcnow().date()
+        windows = candidate_windows or ["7d", "30d", "90d"]
+        rows = query_prompt_time_density_priority(
+            end=end_date,
+            candidate_windows=windows,
+            source_domains=source_domains,
+            prompt_group_ids=prompt_group_ids,
+            prefer_low_density=prefer_low_density,
+            exclude_high_dup=exclude_high_dup,
+        )
+        selected = rows[: max(1, int(top_k or 10))]
+        return {
+            "project_key": project_key,
+            "end": end_date.isoformat(),
+            "candidate_windows": windows,
+            "selected": selected,
+            "total": len(rows),
+        }
 
 
 @celery_app.task
@@ -1018,3 +1054,4 @@ def task_orchestrate_crawler_rollback(
         if job_id is not None:
             fail_job(int(job_id), str(exc), external_provider="scrapy")
         raise
+

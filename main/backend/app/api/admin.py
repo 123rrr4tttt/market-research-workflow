@@ -782,59 +782,61 @@ def _augment_market_graph_with_topic_structured(
 
 
 @router.get("/stats")
-def get_stats():
+def get_stats(request: Request):
     """获取数据库统计信息"""
-    with SessionLocal() as session:
+    project_key = _project_key_from_request(request)
+    with bind_project(project_key):
+        with SessionLocal() as session:
         # 文档统计
-        doc_total = session.execute(select(func.count(Document.id))).scalar() or 0
-        today = datetime.now().date()
-        doc_recent = session.execute(
-            select(func.count(Document.id)).where(
-                func.date(Document.created_at) == today
-            )
-        ).scalar() or 0
-        
-        # 社交平台数据统计
-        social_total = session.execute(
-            select(func.count(Document.id)).where(Document.doc_type == "social_sentiment")
-        ).scalar() or 0
-        social_recent = session.execute(
-            select(func.count(Document.id)).where(
-                and_(
-                    Document.doc_type == "social_sentiment",
+            doc_total = session.execute(select(func.count(Document.id))).scalar() or 0
+            today = datetime.now().date()
+            doc_recent = session.execute(
+                select(func.count(Document.id)).where(
                     func.date(Document.created_at) == today
                 )
-            )
-        ).scalar() or 0
+            ).scalar() or 0
+        
+        # 社交平台数据统计
+            social_total = session.execute(
+                select(func.count(Document.id)).where(Document.doc_type == "social_sentiment")
+            ).scalar() or 0
+            social_recent = session.execute(
+                select(func.count(Document.id)).where(
+                    and_(
+                        Document.doc_type == "social_sentiment",
+                        func.date(Document.created_at) == today
+                    )
+                )
+            ).scalar() or 0
         
         # 数据源统计
-        source_total = session.execute(select(func.count(Source.id))).scalar() or 0
+            source_total = session.execute(select(func.count(Source.id))).scalar() or 0
         
         # 市场数据统计
-        market_total = session.execute(select(func.count(MarketStat.id))).scalar() or 0
+            market_total = session.execute(select(func.count(MarketStat.id))).scalar() or 0
         
         # 搜索历史统计
-        history_total = session.execute(select(func.count(SearchHistory.id))).scalar() or 0
+            history_total = session.execute(select(func.count(SearchHistory.id))).scalar() or 0
         
-        return success_response({
-            "documents": {
-                "total": doc_total,
-                "recent_today": doc_recent,
-            },
-            "social_data": {
-                "total": social_total,
-                "recent_today": social_recent,
-            },
-            "sources": {
-                "total": source_total,
-            },
-            "market_stats": {
-                "total": market_total,
-            },
-            "search_history": {
-                "total": history_total,
-            },
-        })
+            return success_response({
+                "documents": {
+                    "total": doc_total,
+                    "recent_today": doc_recent,
+                },
+                "social_data": {
+                    "total": social_total,
+                    "recent_today": social_recent,
+                },
+                "sources": {
+                    "total": source_total,
+                },
+                "market_stats": {
+                    "total": market_total,
+                },
+                "search_history": {
+                    "total": history_total,
+                },
+            })
 
 
 @router.post("/documents/raw-import")
@@ -856,10 +858,12 @@ def raw_import_documents(request: Request, payload: RawImportRequest):
 
 
 @router.post("/documents/list")
-def list_documents(payload: DocumentListRequest):
+def list_documents(request: Request, payload: DocumentListRequest):
     """列出文档"""
-    with SessionLocal() as session:
-        query = select(Document)
+    project_key = _project_key_from_request(request)
+    with bind_project(project_key):
+        with SessionLocal() as session:
+            query = select(Document)
         
         # 过滤条件
         conditions = []
@@ -2207,33 +2211,36 @@ def get_policy_graph(
 
 @router.get("/search-history")
 def get_search_history(
+    request: Request,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=100, ge=1, le=1000),
 ):
     """获取搜索历史"""
-    with SessionLocal() as session:
-        total_query = select(func.count()).select_from(SearchHistory)
-        total = session.execute(total_query).scalar() or 0
+    project_key = _project_key_from_request(request)
+    with bind_project(project_key):
+        with SessionLocal() as session:
+            total_query = select(func.count()).select_from(SearchHistory)
+            total = session.execute(total_query).scalar() or 0
 
-        query = (
-            select(SearchHistory)
-            .order_by(SearchHistory.last_search_time.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
-        history = session.execute(query).scalars().all()
+            query = (
+                select(SearchHistory)
+                .order_by(SearchHistory.last_search_time.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+            history = session.execute(query).scalars().all()
 
-        items = []
-        for h in history:
-            items.append({
-                "id": h.id,
-                "topic": h.topic,
-                "last_search_time": h.last_search_time.isoformat() if h.last_search_time else None,
+            items = []
+            for h in history:
+                items.append({
+                    "id": h.id,
+                    "topic": h.topic,
+                    "last_search_time": h.last_search_time.isoformat() if h.last_search_time else None,
+                })
+
+            return success_response({
+                "items": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
             })
-
-        return success_response({
-            "items": items,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-        })

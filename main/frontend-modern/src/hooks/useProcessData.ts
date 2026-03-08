@@ -14,7 +14,7 @@ export function useProcessData({ projectKey, selectedTaskId, autoRefreshEnabled,
   const refreshIntervalMs = autoRefreshEnabled ? Math.max(3, refreshIntervalSec) * 1000 : false
 
   const processStats = useQuery({
-    queryKey: [...queryKeys.process.stats(), projectKey],
+    queryKey: queryKeys.process.statsByProject(projectKey),
     queryFn: getProcessStats,
     enabled: Boolean(projectKey),
     refetchInterval: refreshIntervalMs,
@@ -22,7 +22,7 @@ export function useProcessData({ projectKey, selectedTaskId, autoRefreshEnabled,
   })
 
   const processList = useQuery({
-    queryKey: [...queryKeys.process.list(40), projectKey],
+    queryKey: queryKeys.process.listByProject(projectKey, 40),
     queryFn: () => listProcessTasks(40),
     enabled: Boolean(projectKey),
     refetchInterval: refreshIntervalMs,
@@ -30,7 +30,7 @@ export function useProcessData({ projectKey, selectedTaskId, autoRefreshEnabled,
   })
 
   const processHistory = useQuery({
-    queryKey: [...queryKeys.process.history(50), projectKey],
+    queryKey: queryKeys.process.historyByProject(projectKey, 50),
     queryFn: () => listProcessHistory(50),
     enabled: Boolean(projectKey),
     refetchInterval: refreshIntervalMs,
@@ -38,7 +38,7 @@ export function useProcessData({ projectKey, selectedTaskId, autoRefreshEnabled,
   })
 
   const taskDetail = useQuery({
-    queryKey: selectedTaskId ? [...queryKeys.process.detail(selectedTaskId), projectKey] : [...queryKeys.process.detail(''), projectKey],
+    queryKey: queryKeys.process.detailByProject(selectedTaskId || '', projectKey),
     queryFn: () => getProcessTaskDetail(String(selectedTaskId)),
     enabled: Boolean(projectKey && selectedTaskId),
     refetchInterval: refreshIntervalMs,
@@ -46,9 +46,7 @@ export function useProcessData({ projectKey, selectedTaskId, autoRefreshEnabled,
   })
 
   const taskLogs = useQuery({
-    queryKey: selectedTaskId
-      ? [...queryKeys.process.logs(selectedTaskId, 200), projectKey]
-      : [...queryKeys.process.logs('', 200), projectKey],
+    queryKey: queryKeys.process.logsByProject(selectedTaskId || '', projectKey, 200),
     queryFn: () => getProcessTaskLogs(String(selectedTaskId), 200),
     enabled: Boolean(projectKey && selectedTaskId),
     refetchInterval: refreshIntervalMs,
@@ -57,9 +55,9 @@ export function useProcessData({ projectKey, selectedTaskId, autoRefreshEnabled,
 
   const refreshAll = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: [...queryKeys.process.stats(), projectKey] }),
-      queryClient.invalidateQueries({ queryKey: [...queryKeys.process.list(40), projectKey] }),
-      queryClient.invalidateQueries({ queryKey: [...queryKeys.process.history(50), projectKey] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.process.statsByProject(projectKey) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.process.listByProject(projectKey, 40) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.process.historyByProject(projectKey, 50) }),
       queryClient.invalidateQueries({ queryKey: [...queryKeys.process.all(), 'detail'] }),
       queryClient.invalidateQueries({ queryKey: [...queryKeys.process.all(), 'logs'] }),
     ])
@@ -68,13 +66,13 @@ export function useProcessData({ projectKey, selectedTaskId, autoRefreshEnabled,
   const refreshSelectedTask = async (taskId: string | null) => {
     if (!taskId) return
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: [...queryKeys.process.detail(taskId), projectKey] }),
-      queryClient.invalidateQueries({ queryKey: [...queryKeys.process.logs(taskId, 200), projectKey] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.process.detailByProject(taskId, projectKey) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.process.logsByProject(taskId, projectKey, 200) }),
     ])
   }
 
   const refreshHistory = async () => {
-    await queryClient.invalidateQueries({ queryKey: [...queryKeys.process.history(50), projectKey] })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.process.historyByProject(projectKey, 50) })
   }
 
   const cancelMutation = useMutation({

@@ -94,19 +94,28 @@ Output:
 
 ### Cluster A: Node Schema Platformization
 
-A1. Build node schema registry
+A
+
+1. Build node schema registry
+
 - Goal: centralized schema for each node type
 - Input: existing node templates + OSS references (Flowise/Langflow)
 - Output: `node_schema_registry` with typed fields/options/validation
 - Acceptance: frontend can render form from schema only (no hardcoded fields)
 
-A2. Schema-driven NodeInfoCard renderer
+A
+
+1. Schema-driven NodeInfoCard renderer
+
 - Goal: render controls by schema (input/select/switch/list/json)
 - Input: node schema registry
 - Output: reusable dynamic form renderer in card
 - Acceptance: llm/vector/join all editable without raw JSON mode
 
-A3. IO typed validation
+A
+
+1. IO typed validation
+
 - Goal: validate value type/source/from mapping before save
 - Input: node draft + schema
 - Output: validation errors with field path
@@ -114,19 +123,28 @@ A3. IO typed validation
 
 ### Cluster B: Variable Selector + Expression Binding
 
-B1. Add unified variable selector model
+B
+
+1. Add unified variable selector model
+
 - Goal: `node.key` / `sys.key` selector model
 - Input: graph topology + node output schemas
 - Output: selector datasource API + UI dropdown
 - Acceptance: selecting upstream node auto-populates key list
 
-B2. Add expression field and safe evaluator adapter
+B
+
+1. Add expression field and safe evaluator adapter
+
 - Goal: support `=...` expression in input bindings
 - Input: runtime context (`input/context/upstream`)
 - Output: expression evaluation adapter and fallback behavior
 - Acceptance: expression and direct binding can coexist
 
-B3. Auto-binding on edge connect
+B
+
+1. Auto-binding on edge connect
+
 - Goal: connect edge => auto create target input bindings
 - Input: source output schema + target required inputs
 - Output: deterministic auto-mapping strategy
@@ -134,19 +152,28 @@ B3. Auto-binding on edge connect
 
 ### Cluster C: LLM Template Contract
 
-C1. Create LLM profile templates
+C
+
+1. Create LLM profile templates
+
 - Goal: `analyst/summarizer/extractor/rewriter` profile packs
 - Input: current LLM node + Dify/OpenWebUI patterns
 - Output: profile registry + defaults per provider
 - Acceptance: one click applies full param template
 
-C2. Prompt template variable extraction
+C
+
+1. Prompt template variable extraction
+
 - Goal: parse prompt vars from template and map to input_vars
 - Input: `prompt_template`
 - Output: required variable list
 - Acceptance: missing required variables block run with clear error
 
-C3. Provider param normalization
+C
+
+1. Provider param normalization
+
 - Goal: normalize provider-agnostic params to provider-specific call args
 - Input: llm contract
 - Output: normalized payload (`model/temp/top_p/max_tokens/...`)
@@ -154,25 +181,37 @@ C3. Provider param normalization
 
 ### Cluster D: Runtime & Persistence
 
-D1. Runtime resolver v2
+D
+
+1. Runtime resolver v2
+
 - Goal: resolve `input_vars` from `input/context/node_output/constant/expression`
 - Input: node params + runtime state
 - Output: resolved node inputs
 - Acceptance: run output trace shows each input source resolution
 
-D2. Node execution envelope standardization
+D
+
+1. Node execution envelope standardization
+
 - Goal: consistent node result envelope (`data/error/meta/io_trace`)
 - Input: executor raw outputs
 - Output: standardized node result object
 - Acceptance: all executors return same envelope shape
 
-D3. Persistent run/node events
+D
+
+1. Persistent run/node events
+
 - Goal: move from in-memory to DB-backed run store
 - Input: run lifecycle events
 - Output: tables/repo API for run + node events + latest snapshot
 - Acceptance: process restart does not lose run history
 
-D4. Replay-ready event log
+D
+
+1. Replay-ready event log
+
 - Goal: append-only event stream for run replay/audit
 - Input: execution events
 - Output: event sequence with version and idempotency key
@@ -180,19 +219,28 @@ D4. Replay-ready event log
 
 ### Cluster E: API/Frontend Integration & Smoke
 
-E1. API contract alignment
+E
+
+1. API contract alignment
+
 - Goal: frontend compile/run/get-run/get-events aligns with new envelopes
 - Input: existing endpoints
 - Output: contract version update + compatibility adapter
 - Acceptance: no breaking changes for existing UI operations
 
-E2. End-to-end smoke workflow set
+E
+
+1. End-to-end smoke workflow set
+
 - Goal: 8 primary chains smoke tests with platformized nodes
 - Input: standard DSL fixtures
 - Output: smoke script + result report
 - Acceptance: local non-docker smoke all pass
 
-E3. Migration scripts
+E
+
+1. Migration scripts
+
 - Goal: auto-upgrade old node configs to new schema
 - Input: historical DSL/config records
 - Output: migration script + dry-run mode
@@ -230,6 +278,7 @@ E3. Migration scripts
 3. E2 minimal smoke set (llm/vector/join + one composite chain)
 
 Exit Criteria (T+2 days):
+
 - Node card no longer depends on manual JSON editing for main fields
 - Edge connect auto-parameter binding available and editable
 - LLM node has full template fields and profile one-click apply

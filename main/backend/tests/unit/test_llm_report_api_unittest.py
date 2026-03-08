@@ -83,6 +83,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
         with (
             patch.object(llm_report_api, "start_job", return_value=102),
             patch.object(llm_report_api, "complete_job") as mocked_complete,
+            patch.object(llm_report_api, "resolve_report_sources", return_value=[]),
             patch.object(llm_report_api.settings, "llm_report_enabled", True),
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "strict"),
         ):
@@ -98,6 +99,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
         with (
             patch.object(llm_report_api, "start_job", return_value=103),
             patch.object(llm_report_api, "complete_job") as mocked_complete,
+            patch.object(llm_report_api, "resolve_report_sources", return_value=[]),
             patch.object(llm_report_api.settings, "llm_report_enabled", True),
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "warn"),
         ):
@@ -111,6 +113,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
         with (
             patch.object(llm_report_api, "start_job", return_value=104),
             patch.object(llm_report_api, "complete_job") as mocked_complete,
+            patch.object(llm_report_api, "resolve_report_sources", return_value=[]),
             patch.object(llm_report_api.settings, "llm_report_enabled", True),
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "invalid-mode"),
         ):
@@ -125,6 +128,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
         with (
             patch.object(llm_report_api, "start_job", return_value=106),
             patch.object(llm_report_api, "complete_job") as mocked_complete,
+            patch.object(llm_report_api, "resolve_report_sources", return_value=[]),
             patch.object(llm_report_api.settings, "llm_report_enabled", True),
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "off"),
         ):
@@ -144,6 +148,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
             patch.object(llm_report_api, "start_job", return_value=105),
             patch.object(llm_report_api, "build_structured_report", side_effect=RuntimeError("boom")),
             patch.object(llm_report_api, "fail_job") as mocked_fail,
+            patch.object(llm_report_api, "resolve_report_sources", return_value=[]),
             patch.object(llm_report_api.settings, "llm_report_enabled", True),
             patch.object(llm_report_api.settings, "llm_report_gate_mode", "warn"),
         ):
@@ -163,6 +168,44 @@ class LlmReportApiUnitTest(unittest.TestCase):
                 llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(exc_ctx.exception.status_code, 503)
             mocked_start.assert_not_called()
+
+    def test_generate_llm_report_auto_resolves_sources_when_topic_only(self):
+        payload = llm_report_api.GenerateReportRequest(topic="topic-only", sources=[])
+        auto_sources = [
+            {
+                "id": "RAG1",
+                "title": "Auto Source",
+                "url": "https://example.com/auto",
+                "publisher": "internal_rag",
+                "evidence": "auto evidence",
+            }
+        ]
+        with (
+            patch.object(llm_report_api, "start_job", return_value=107),
+            patch.object(llm_report_api, "complete_job"),
+            patch.object(llm_report_api, "resolve_report_sources", return_value=auto_sources) as mocked_resolve,
+            patch.object(llm_report_api.settings, "llm_report_enabled", True),
+            patch.object(llm_report_api.settings, "llm_report_gate_mode", "warn"),
+        ):
+            resp = llm_report_api.generate_llm_report(payload, self._mock_request())
+            self.assertEqual(resp["status"], "ok")
+            self.assertEqual(resp["data"]["report"]["sources"][0]["id"], "RAG1")
+            mocked_resolve.assert_called_once()
+
+    def test_generate_llm_report_auto_source_disabled_keeps_empty_sources(self):
+        payload = llm_report_api.GenerateReportRequest(topic="topic-only", sources=[])
+        with (
+            patch.object(llm_report_api, "start_job", return_value=108),
+            patch.object(llm_report_api, "complete_job"),
+            patch.object(llm_report_api, "resolve_report_sources") as mocked_resolve,
+            patch.object(llm_report_api.settings, "llm_report_enabled", True),
+            patch.object(llm_report_api.settings, "llm_report_gate_mode", "warn"),
+            patch.object(llm_report_api.settings, "llm_report_auto_source_enabled", False),
+        ):
+            resp = llm_report_api.generate_llm_report(payload, self._mock_request())
+            self.assertEqual(resp["status"], "ok")
+            self.assertEqual(resp["data"]["report"]["sources"], [])
+            mocked_resolve.assert_not_called()
 
 
 if __name__ == "__main__":

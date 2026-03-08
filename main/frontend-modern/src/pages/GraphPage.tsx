@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useQuery } from '@tanstack/react-query'
 import type { EChartsType } from 'echarts/core'
 import * as THREE from 'three'
+import * as graphApi from '../lib/api'
 import { getGraphConfig, getMarketGraph, getPolicyGraph, getSocialGraph, listSourceItems, submitGraphStructuredSearchTasks } from '../lib/api'
 import type {
   GraphEdgeItem,
@@ -19,20 +20,24 @@ import {
   type Projection3DPhysicsState,
 } from './graph/renderers/renderer3dProjection'
 import { getOrCreateForceNodeObject, linkEnds, pruneForceNodeObjectCache } from './graph/renderers/force3dObjects'
+import { collectFocusNodeKeys, computeCoreNumber, computePageRank, computeVisibleSubgraph } from './graph/domain/topology'
 import { useForceGraph3DLoader } from './graph/hooks/useForceGraph3DLoader'
 import { useForceGraphViewport } from './graph/hooks/useForceGraphViewport'
 import { useGraphVisualState } from './graph/hooks/useGraphVisualState'
-import type { RenderMode, RenderNode } from './graph/renderers/types'
+import { useGraphSelectionState } from './graph/hooks/useGraphSelectionState'
+import { useGraphModeSwitch, type ProjectionEngine } from './graph/hooks/useGraphModeSwitch'
+import { useGraphDraft } from './graph/hooks/useGraphDraft'
+import type { RenderNode } from './graph/renderers/types'
 
 type Variant = 'graphMarket' | 'graphPolicy' | 'graphSocial' | 'graphCompany' | 'graphProduct' | 'graphOperation' | 'graphDeep'
 
 type Props = {
   projectKey: string
   variant: Variant
+  templateBuilder?: boolean
 }
 
 type GraphKind = 'policy' | 'social' | 'market' | 'market_deep_entities' | 'company' | 'product' | 'operation'
-type ProjectionEngine = 'legacy' | 'force3d'
 type ForceGraphApi = {
   scene?: () => THREE.Scene | undefined
   resumeAnimation?: () => void
@@ -143,11 +148,15 @@ const SYMBOLS: Record<string, string> = {
 type BuiltinGraphSymbol = 'circle' | 'rect' | 'roundRect' | 'triangle' | 'diamond' | 'pin' | 'arrow'
 const TOPIC_TAG_CONVEX_SYMBOL_PATH = 'path://M10 2.2 L12.6 6.6 L17.6 7.8 L14.2 11.4 L15 16.6 L10 14.4 L5 16.6 L5.8 11.4 L2.4 7.8 L7.4 6.6 Z'
 const FORCE_3D_GLOBAL_SIZE_GAIN = 1.32
-const FORCE_3D_SIZE_COMPENSATION_MAX_X = 16
+const FORCE_3D_SIZE_COMPENSATION_MAX_X = 8
+const NODE_BASE_SIZE_MULTIPLIER = 4
 const NODE_SIZE_SLIDER_MIN = 0
 const NODE_SIZE_SLIDER_MAX = 220
 const NODE_CONTRAST_SLIDER_MIN = 0
 const NODE_CONTRAST_SLIDER_MAX = 100
+const RANK_WEIGHT_SLIDER_MIN = 0
+const RANK_WEIGHT_SLIDER_MAX = 100
+const RANK_WEIGHT_DEFAULT = 50
 const NODE_SIZE_MIN_APPROX = 0.2
 const SYMBOL_SIZE_GAIN: Record<string, number> = {
   circle: 1.0,
@@ -165,8 +174,6 @@ const SYMBOL_SIZE_GAIN: Record<string, number> = {
   emptyPin: 1.12,
   convexStar: 0.9,
 }
-const ENGINE_SWITCH_GUARD_MS = 140
-
 function symbolSizeGain(symbol: string) {
   const key = String(symbol || '').trim()
   return SYMBOL_SIZE_GAIN[key] || 1
@@ -292,17 +299,6 @@ function distinctChipColor(index: number) {
 
 function nodeKey(node: GraphNodeItem) {
   return `${normalizeNodeType(node.type)}:${node.id}`
-}
-
-function edgeNodeKey(node: GraphEdgeItem['from'] | GraphEdgeItem['to']) {
-  return `${normalizeNodeType(node.type)}:${node.id}`
-}
-
-function collectFocusNodeKeys(centerKey: string, adjacency: Map<string, Set<string>>) {
-  const keys = new Set<string>()
-  keys.add(centerKey)
-  ;(adjacency.get(centerKey) || new Set()).forEach((neighbor) => keys.add(neighbor))
-  return keys
 }
 
 function nodeName(node: GraphNodeItem) {
@@ -512,6 +508,8 @@ type FilterState = {
   limit: number
 }
 
+type NodeRankStrategy = 'doc_body' | 'node_connectivity' | 'doc_id'
+
 type NodeCardAnchor = {
   left: number
   top: number
@@ -578,104 +576,8 @@ function computeNodeVisualSize(
   const centralEnhanced = Math.pow(centralNorm, centralContrastExponent)
   const neighborEnhanced = Math.pow(neighborNorm, neighborContrastExponent)
   const blendedContribution = Math.max(0, (centralStrength * centralEnhanced + neighborStrength * neighborEnhanced) / 2)
-  const size = minPx + (maxPx - minPx) * blendedContribution
+  const size = (minPx + (maxPx - minPx) * blendedContribution) * NODE_BASE_SIZE_MULTIPLIER
   return Math.max(NODE_SIZE_MIN_APPROX, size)
-}
-
-function computePageRank(
-  nodeKeys: string[],
-  directedEdges: Array<{ fromKey: string; toKey: string; weight: number }>,
-  damping = 0.85,
-  maxIter = 60,
-  tol = 1e-7,
-) {
-  const rank = new Map<string, number>()
-  const n = nodeKeys.length
-  if (n === 0) return rank
-  const init = 1 / n
-  nodeKeys.forEach((key) => rank.set(key, init))
-
-  const incoming = new Map<string, Array<{ fromKey: string; weight: number }>>()
-  const outWeight = new Map<string, number>()
-  directedEdges.forEach(({ fromKey, toKey, weight }) => {
-    if (!rank.has(fromKey) || !rank.has(toKey)) return
-    const w = Number.isFinite(weight) && weight > 0 ? weight : 1
-    const out = (outWeight.get(fromKey) || 0) + w
-    outWeight.set(fromKey, out)
-    const bucket = incoming.get(toKey) || []
-    bucket.push({ fromKey, weight: w })
-    incoming.set(toKey, bucket)
-  })
-
-  for (let i = 0; i < maxIter; i += 1) {
-    let danglingMass = 0
-    nodeKeys.forEach((key) => {
-      if ((outWeight.get(key) || 0) <= 0) danglingMass += rank.get(key) || 0
-    })
-    const base = (1 - damping) / n + (damping * danglingMass) / n
-    const next = new Map<string, number>()
-    let delta = 0
-    nodeKeys.forEach((toKey) => {
-      let score = base
-      const fromList = incoming.get(toKey) || []
-      fromList.forEach(({ fromKey, weight }) => {
-        const out = outWeight.get(fromKey) || 0
-        if (out > 0) score += damping * ((rank.get(fromKey) || 0) * weight / out)
-      })
-      next.set(toKey, score)
-      delta += Math.abs(score - (rank.get(toKey) || 0))
-    })
-    rank.clear()
-    next.forEach((value, key) => rank.set(key, value))
-    if (delta <= tol) break
-  }
-
-  const total = Array.from(rank.values()).reduce((acc, value) => acc + value, 0)
-  if (total > 0) {
-    rank.forEach((value, key) => rank.set(key, value / total))
-  }
-  return rank
-}
-
-function computeCoreNumber(nodeKeys: string[], adjacency: Map<string, Set<string>>) {
-  const core = new Map<string, number>()
-  if (!nodeKeys.length) return core
-  const degree = new Map<string, number>()
-  let maxDegree = 0
-  nodeKeys.forEach((key) => {
-    const d = adjacency.get(key)?.size || 0
-    degree.set(key, d)
-    if (d > maxDegree) maxDegree = d
-  })
-  const bins: Array<Set<string>> = Array.from({ length: maxDegree + 1 }, () => new Set<string>())
-  nodeKeys.forEach((key) => {
-    const d = degree.get(key) || 0
-    bins[d].add(key)
-  })
-  const removed = new Set<string>()
-  for (let k = 0; k <= maxDegree; k += 1) {
-    while (bins[k].size > 0) {
-      const v = bins[k].values().next().value as string
-      bins[k].delete(v)
-      if (removed.has(v)) continue
-      removed.add(v)
-      core.set(v, k)
-      const neighbors = adjacency.get(v)
-      if (!neighbors) continue
-      neighbors.forEach((u) => {
-        if (removed.has(u)) return
-        const du = degree.get(u) || 0
-        if (du <= k) return
-        bins[du].delete(u)
-        degree.set(u, du - 1)
-        bins[du - 1].add(u)
-      })
-    }
-  }
-  nodeKeys.forEach((key) => {
-    if (!core.has(key)) core.set(key, 0)
-  })
-  return core
 }
 
 function percentile(values: number[], p: number) {
@@ -890,133 +792,179 @@ function parseCommaSeparated(value: string) {
     .filter(Boolean)
 }
 
+function mergeGraphPayloads(payloads: Array<{ nodes?: GraphNodeItem[]; edges?: GraphEdgeItem[] }>) {
+  const nodeMap = new Map<string, GraphNodeItem>()
+  const edgeMap = new Map<string, GraphEdgeItem>()
+  payloads.forEach((payload) => {
+    ;(payload.nodes || []).forEach((node) => {
+      const key = `${String(node.type || '').trim()}:${String(node.id || '').trim()}`
+      if (!key || key === ':') return
+      if (!nodeMap.has(key)) nodeMap.set(key, node)
+    })
+    ;(payload.edges || []).forEach((edge) => {
+      const fk = `${String(edge.from?.type || '').trim()}:${String(edge.from?.id || '').trim()}`
+      const tk = `${String(edge.to?.type || '').trim()}:${String(edge.to?.id || '').trim()}`
+      if (!fk || !tk || fk === ':' || tk === ':') return
+      const rel = String(edge.type || edge.predicate || '').trim()
+      const ek = `${fk}>${tk}|${rel}`
+      if (!edgeMap.has(ek)) edgeMap.set(ek, edge)
+    })
+  })
+  return {
+    nodes: Array.from(nodeMap.values()),
+    edges: Array.from(edgeMap.values()),
+  }
+}
+
+function rankVisibleNodeKeysByPriority(params: {
+  nodes: GraphNodeItem[]
+  edges: GraphEdgeItem[]
+  edgeResolvedKeyMap: Map<GraphEdgeItem, { fromKey: string; toKey: string }>
+  centralityScoreMap: Map<string, number>
+  neighborTightnessScoreMap: Map<string, number>
+  centralWeight: number
+  neighborWeight: number
+}) {
+  const {
+    nodes,
+    edges,
+    edgeResolvedKeyMap,
+    centralityScoreMap,
+    neighborTightnessScoreMap,
+    centralWeight,
+    neighborWeight,
+  } = params
+  const keys = nodes.map((node) => nodeKey(node))
+  const keySet = new Set(keys)
+  const adjacency = new Map<string, Set<string>>()
+  keys.forEach((key) => adjacency.set(key, new Set<string>()))
+  edges.forEach((edge) => {
+    const resolved = edgeResolvedKeyMap.get(edge)
+    if (!resolved) return
+    if (!keySet.has(resolved.fromKey) || !keySet.has(resolved.toKey)) return
+    adjacency.get(resolved.fromKey)?.add(resolved.toKey)
+    adjacency.get(resolved.toKey)?.add(resolved.fromKey)
+  })
+
+  const componentSizeByKey = new Map<string, number>()
+  const visited = new Set<string>()
+  keys.forEach((seed) => {
+    if (visited.has(seed)) return
+    const queue = [seed]
+    const comp: string[] = []
+    while (queue.length) {
+      const current = queue.shift()
+      if (!current || visited.has(current)) continue
+      visited.add(current)
+      comp.push(current)
+      ;(adjacency.get(current) || new Set<string>()).forEach((next) => {
+        if (!visited.has(next)) queue.push(next)
+      })
+    }
+    const size = comp.length
+    comp.forEach((key) => componentSizeByKey.set(key, size))
+  })
+
+  const cw = Math.max(0.001, centralWeight)
+  const nw = Math.max(0.001, neighborWeight)
+  return keys
+    .slice()
+    .sort((a, b) => {
+      const compA = componentSizeByKey.get(a) || 1
+      const compB = componentSizeByKey.get(b) || 1
+      if (compA !== compB) return compB - compA
+      const scoreA = (centralityScoreMap.get(a) || 0) * cw + (neighborTightnessScoreMap.get(a) || 0) * nw
+      const scoreB = (centralityScoreMap.get(b) || 0) * cw + (neighborTightnessScoreMap.get(b) || 0) * nw
+      if (scoreA !== scoreB) return scoreB - scoreA
+      return a.localeCompare(b, 'zh-CN')
+    })
+}
+
+function rankDocumentNodeKeysById(params: {
+  nodes: GraphNodeItem[]
+  candidateKeys?: Set<string>
+}) {
+  const { nodes, candidateKeys } = params
+  const rows = nodes
+    .map((node) => ({
+      key: nodeKey(node),
+      id: String(node.id || '').trim(),
+    }))
+    .filter((item) => !candidateKeys || candidateKeys.has(item.key))
+
+  const numericLike = (value: string) => /^-?\d+(\.\d+)?$/.test(value)
+  const asNumber = (value: string) => Number(value)
+
+  return rows
+    .slice()
+    .sort((a, b) => {
+      const aNum = numericLike(a.id) ? asNumber(a.id) : NaN
+      const bNum = numericLike(b.id) ? asNumber(b.id) : NaN
+      const aHasNum = Number.isFinite(aNum)
+      const bHasNum = Number.isFinite(bNum)
+      if (aHasNum && bHasNum && aNum !== bNum) return bNum - aNum
+      if (a.id !== b.id) return b.id.localeCompare(a.id, 'zh-CN')
+      return a.key.localeCompare(b.key, 'zh-CN')
+    })
+    .map((item) => item.key)
+}
+
+type GraphTemplateRecord = {
+  key: string
+  name: string
+  activeVersion?: string | null
+}
+
+type GraphTemplateVersionRecord = {
+  key: string
+  name: string
+  activated?: boolean
+}
+
+type ApiMethod = (...args: unknown[]) => Promise<unknown> | unknown
+
+function readCandidateApiMethod(...names: string[]) {
+  const bag = graphApi as unknown as Record<string, unknown>
+  for (const name of names) {
+    const fn = bag[name]
+    if (typeof fn === 'function') {
+      return { name, fn: fn as ApiMethod }
+    }
+  }
+  return null
+}
+
+function asTemplateRecord(raw: unknown): GraphTemplateRecord | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const key = String(row.template_id || row.template_key || row.key || row.name || row.template || '').trim()
+  if (!key) return null
+  return {
+    key,
+    name: String(row.name || row.template_name || row.label || key),
+    activeVersion: String(row.active_version_id || row.active_version || row.activated_version || row.current_version || '').trim() || null,
+  }
+}
+
+function asVersionRecord(raw: unknown): GraphTemplateVersionRecord | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const key = String(row.version_id || row.version_key || row.key || row.version || row.name || '').trim()
+  if (!key) return null
+  return {
+    key,
+    name: String(row.version_name || row.name || row.label || key),
+    activated: Boolean(row.activated ?? row.active ?? row.is_active),
+  }
+}
+
 const SPECIAL_PREFIX_BY_KIND: Partial<Record<GraphKind, string>> = {
   company: 'Company',
   product: 'Product',
   operation: 'Operation',
 }
 
-type VisibleSubgraph = {
-  connectedNodes: GraphNodeItem[]
-  connectedEdges: GraphEdgeItem[]
-  connectedNodeKeys: Set<string>
-  visibleNodes: GraphNodeItem[]
-  visibleEdges: GraphEdgeItem[]
-  visibleNodeKeys: Set<string>
-  edgeResolvedKeyMap: Map<GraphEdgeItem, { fromKey: string; toKey: string }>
-}
-
-function computeVisibleSubgraph(
-  nodes: GraphNodeItem[],
-  edges: GraphEdgeItem[],
-  graphKind: GraphKind,
-  hiddenTypes: Record<string, boolean>,
-): VisibleSubgraph {
-  const variantTypes = new Set(DEFAULT_NODE_TYPES_BY_KIND[graphKind])
-  const variantNodes = nodes.filter((n) => variantTypes.has(normalizeNodeType(n.type)))
-  const variantNodeKeys = new Set(variantNodes.map(nodeKey))
-  const variantAliasToCanonicalKey = new Map<string, string>()
-  const variantIdToCanonicalKeys = new Map<string, Set<string>>()
-  const appendIdAlias = (idRaw: unknown, canonical: string) => {
-    const id = String(idRaw ?? '').trim()
-    if (!id) return
-    const bucket = variantIdToCanonicalKeys.get(id) || new Set<string>()
-    bucket.add(canonical)
-    variantIdToCanonicalKeys.set(id, bucket)
-  }
-  variantNodes.forEach((node) => {
-    const canonical = nodeKey(node)
-    appendIdAlias(node.id, canonical)
-    const entryId = node.entry_id
-    if (entryId == null || String(entryId).trim() === '') return
-    variantAliasToCanonicalKey.set(`${node.type}:${entryId}`, canonical)
-    appendIdAlias(entryId, canonical)
-  })
-  const resolveVariantRefKey = (ref: GraphEdgeItem['from'] | GraphEdgeItem['to']) => {
-    const raw = edgeNodeKey(ref)
-    if (variantNodeKeys.has(raw)) return raw
-    const alias = variantAliasToCanonicalKey.get(raw)
-    if (alias) return alias
-    const idOnly = String(ref.id ?? '').trim()
-    if (!idOnly) return null
-    const candidates = variantIdToCanonicalKeys.get(idOnly)
-    if (!candidates || candidates.size !== 1) return null
-    return Array.from(candidates)[0] || null
-  }
-
-  const edgeResolvedKeyMap = new Map<GraphEdgeItem, { fromKey: string; toKey: string }>()
-  const variantEdges = edges.filter((e) => {
-    const fromKey = resolveVariantRefKey(e.from)
-    const toKey = resolveVariantRefKey(e.to)
-    if (!fromKey || !toKey) return false
-    edgeResolvedKeyMap.set(e, { fromKey, toKey })
-    return true
-  })
-
-  let connectedNodes = variantNodes
-  let connectedEdges = variantEdges
-  let connectedNodeKeys = new Set(connectedNodes.map(nodeKey))
-  const specialPrefix = SPECIAL_PREFIX_BY_KIND[graphKind]
-  if (specialPrefix) {
-    const specialSeedKeys = variantNodes
-      .filter((node) => node.type.startsWith(specialPrefix))
-      .map((node) => nodeKey(node))
-    if (specialSeedKeys.length) {
-      const adjacency = new Map<string, Set<string>>()
-      variantEdges.forEach((edge) => {
-        const resolved = edgeResolvedKeyMap.get(edge)
-        if (!resolved) return
-        const from = resolved.fromKey
-        const to = resolved.toKey
-        if (!adjacency.has(from)) adjacency.set(from, new Set())
-        if (!adjacency.has(to)) adjacency.set(to, new Set())
-        adjacency.get(from)?.add(to)
-        adjacency.get(to)?.add(from)
-      })
-      const reachableFromSpecial = new Set<string>()
-      const queue = [...specialSeedKeys]
-      while (queue.length) {
-        const current = queue.shift()
-        if (!current || reachableFromSpecial.has(current)) continue
-        reachableFromSpecial.add(current)
-        ;(adjacency.get(current) || new Set<string>()).forEach((neighbor) => {
-          if (!reachableFromSpecial.has(neighbor)) queue.push(neighbor)
-        })
-      }
-      connectedNodes = variantNodes.filter((node) => reachableFromSpecial.has(nodeKey(node)))
-      connectedNodeKeys = new Set(connectedNodes.map(nodeKey))
-      connectedEdges = variantEdges.filter(
-        (edge) => {
-          const resolved = edgeResolvedKeyMap.get(edge)
-          if (!resolved) return false
-          return connectedNodeKeys.has(resolved.fromKey) && connectedNodeKeys.has(resolved.toKey)
-        },
-      )
-    }
-  }
-
-  const visibleNodes = connectedNodes.filter((node) => !hiddenTypes[node.type])
-  const visibleNodeKeys = new Set(visibleNodes.map(nodeKey))
-  const visibleEdges = connectedEdges.filter(
-    (edge) => {
-      const resolved = edgeResolvedKeyMap.get(edge)
-      if (!resolved) return false
-      return visibleNodeKeys.has(resolved.fromKey) && visibleNodeKeys.has(resolved.toKey)
-    },
-  )
-
-  return {
-    connectedNodes,
-    connectedEdges,
-    connectedNodeKeys,
-    visibleNodes,
-    visibleEdges,
-    visibleNodeKeys,
-    edgeResolvedKeyMap,
-  }
-}
-
-export default function GraphPage({ projectKey, variant }: Props) {
+export default function GraphPage({ projectKey, variant, templateBuilder = false }: Props) {
   const graphKind = TYPE_TO_KIND[variant]
   const chartRef = useRef<HTMLDivElement | null>(null)
   const forceChartRef = useRef<HTMLDivElement | null>(null)
@@ -1037,13 +985,14 @@ export default function GraphPage({ projectKey, variant }: Props) {
 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [filterApplyError, setFilterApplyError] = useState('')
   const [state, setState] = useState('')
   const [policyType, setPolicyType] = useState('')
   const [platform, setPlatform] = useState('')
   const [topic, setTopic] = useState('')
   const [game, setGame] = useState('')
-  const [limit, setLimit] = useState(GRAPH_LIMIT_DEFAULT)
-  const { visualDraft, visualApplied, updateVisual } = useGraphVisualState()
+  const [limit, setLimit] = useState(templateBuilder ? 50 : GRAPH_LIMIT_DEFAULT)
+  const { visualDraft, visualApplied, updateVisual, startVisualInteraction, endVisualInteraction } = useGraphVisualState()
   const [hiddenTypes, setHiddenTypes] = useState<Record<string, boolean>>({})
   const [appliedFilters, setAppliedFilters] = useState<FilterState>({
     startDate: '',
@@ -1053,7 +1002,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
     platform: '',
     topic: '',
     game: '',
-    limit: GRAPH_LIMIT_DEFAULT,
+    limit: templateBuilder ? 50 : GRAPH_LIMIT_DEFAULT,
   })
   const [selectedNode, setSelectedNode] = useState<GraphNodeItem | null>(null)
   const [nodeCardAnchor, setNodeCardAnchor] = useState<NodeCardAnchor | null>(null)
@@ -1067,8 +1016,13 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [paletteKey, setPaletteKey] = useState<PaletteKey>('bcp_unified')
   const [colorRotate, setColorRotate] = useState(58)
   const [absoluteContrast, setAbsoluteContrast] = useState(62)
-  const [renderMode, setRenderMode] = useState<RenderMode>('2d')
-  const [projectionEngine, setProjectionEngine] = useState<ProjectionEngine>('force3d')
+  const {
+    renderMode,
+    projectionEngine,
+    renderModeRef,
+    requestRenderModeChange,
+    requestProjectionEngineChange,
+  } = useGraphModeSwitch()
   const [projectionRotateX] = useState(12)
   const [projectionRotateY] = useState(18)
   const [projectionRotateZ] = useState(0)
@@ -1079,24 +1033,41 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const [projectionPanelHeight, setProjectionPanelHeight] = useState(360)
   const [legendPanelWidth, setLegendPanelWidth] = useState(360)
   const [legendPanelHeight, setLegendPanelHeight] = useState(620)
-  const [controlSectionOpen, setControlSectionOpen] = useState<Record<'view' | 'projection' | 'color' | 'filter', boolean>>({
+  const [controlSectionOpen, setControlSectionOpen] = useState<Record<'view' | 'projection' | 'color' | 'filter' | 'edit', boolean>>({
     view: true,
     projection: true,
     color: true,
     filter: true,
+    edit: true,
+  })
+  const [editMode, setEditMode] = useState(false)
+  const [graphEditStatus, setGraphEditStatus] = useState('')
+  const [newNodeType, setNewNodeType] = useState('Entity')
+  const [newNodeName, setNewNodeName] = useState('')
+  const [edgeDraft, setEdgeDraft] = useState({ sourceKey: '', targetKey: '', relation: '' })
+  const [templateItems, setTemplateItems] = useState<GraphTemplateRecord[]>([])
+  const [versionItems, setVersionItems] = useState<GraphTemplateVersionRecord[]>([])
+  const [templateNameDraft, setTemplateNameDraft] = useState('')
+  const [renameTemplateDraft, setRenameTemplateDraft] = useState('')
+  const [versionNameDraft, setVersionNameDraft] = useState('')
+  const [activeTemplateKey, setActiveTemplateKey] = useState('')
+  const [activeVersionKey, setActiveVersionKey] = useState('')
+  const [templateBusy, setTemplateBusy] = useState(false)
+  const [nodeEditDraft, setNodeEditDraft] = useState({
+    key: '',
+    id: '',
+    type: '',
+    name: '',
+    title: '',
+    x: '',
+    y: '',
+    z: '',
   })
   const [hiddenEdgeKinds, setHiddenEdgeKinds] = useState<Record<string, boolean>>({})
   const [relationGroupOpen, setRelationGroupOpen] = useState<Record<string, boolean>>({})
   const [expandedNeighborType, setExpandedNeighborType] = useState<string | null>(null)
   const [expandedPredicate, setExpandedPredicate] = useState<string | null>(null)
   const [expandedElementLabel, setExpandedElementLabel] = useState<string | null>(null)
-  const [selectionEnabled, setSelectionEnabled] = useState(false)
-  const [manualSelectedNodeKeys, setManualSelectedNodeKeys] = useState<Set<string>>(new Set())
-  const [manualDeselectedNodeKeys, setManualDeselectedNodeKeys] = useState<Set<string>>(new Set())
-  const [radiationSelectionByCenter, setRadiationSelectionByCenter] = useState<Record<string, boolean>>({})
-  const [selectionPinned, setSelectionPinned] = useState(false)
-  const [autoFocusEnabled, setAutoFocusEnabled] = useState(false)
-  const [hoverNodeKey, setHoverNodeKey] = useState<string | null>(null)
   const [nodeDragCapturedFx, setNodeDragCapturedFx] = useState(false)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [submittingMap, setSubmittingMap] = useState<Record<'collect' | 'source_collect', boolean>>({
@@ -1123,15 +1094,14 @@ export default function GraphPage({ projectKey, variant }: Props) {
   })
   const [sourceItemKeyword, setSourceItemKeyword] = useState('')
   const [forceGraphFallbackNotice, setForceGraphFallbackNotice] = useState<string | null>(null)
-  const selectionEnabledRef = useRef(false)
-  const autoFocusEnabledRef = useRef(false)
-  const renderModeRef = useRef<RenderMode>('2d')
-  const projectionEngineRef = useRef<ProjectionEngine>('force3d')
-  const renderModeSwitchTimerRef = useRef<number | null>(null)
-  const projectionEngineSwitchTimerRef = useRef<number | null>(null)
-  const lastRenderModeSwitchAtRef = useRef(0)
-  const lastProjectionEngineSwitchAtRef = useRef(0)
-  const selectedNodeKeysRef = useRef<Set<string>>(new Set())
+  const [rankingWeightCentral, setRankingWeightCentral] = useState(RANK_WEIGHT_DEFAULT)
+  const [rankingWeightNeighbor, setRankingWeightNeighbor] = useState(RANK_WEIGHT_DEFAULT)
+  const [appliedRankingWeights, setAppliedRankingWeights] = useState(() => ({
+    central: RANK_WEIGHT_DEFAULT,
+    neighbor: RANK_WEIGHT_DEFAULT,
+  }))
+  const [rankingStrategy, setRankingStrategy] = useState<NodeRankStrategy>('doc_body')
+  const [appliedRankingStrategy, setAppliedRankingStrategy] = useState<NodeRankStrategy>('doc_body')
   const adjacencyConnectedMapRef = useRef<Map<string, Set<string>>>(new Map())
   const dragFocusNodeKeyRef = useRef<string | null>(null)
   const nodeCardDragRef = useRef<{ active: boolean; offsetX: number; offsetY: number }>({ active: false, offsetX: 0, offsetY: 0 })
@@ -1157,7 +1127,6 @@ export default function GraphPage({ projectKey, variant }: Props) {
     emptyDataNodes: 0,
     emptySceneNodeObjects: 0,
   }))
-  const hoverNodeKeyRef = useRef<string | null>(null)
   const forceHoverRafRef = useRef<number | null>(null)
   const forceHoverPendingKeyRef = useRef<string | null>(null)
   const forceGraphFallbackAppliedRef = useRef(false)
@@ -1165,79 +1134,21 @@ export default function GraphPage({ projectKey, variant }: Props) {
   const projectionAngularVelRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const projectionDragStateRef = useRef<{ active: boolean; x: number; y: number }>({ active: false, x: 0, y: 0 })
   const fullscreenWantedRef = useRef(false)
+  const visualSliderInteractionHandlers = useMemo(
+    () => ({
+      onPointerDown: () => startVisualInteraction(),
+      onPointerUp: () => endVisualInteraction(),
+      onPointerCancel: () => endVisualInteraction(),
+      onBlur: () => endVisualInteraction(),
+    }),
+    [startVisualInteraction, endVisualInteraction],
+  )
 
-  useEffect(() => {
-    selectionEnabledRef.current = selectionEnabled
-    if (!selectionEnabled) {
-      nodeDragUnlockedRef.current = false
-      if (nodeDragHoldTimerRef.current != null) {
-        window.clearTimeout(nodeDragHoldTimerRef.current)
-        nodeDragHoldTimerRef.current = null
-      }
-    }
-  }, [selectionEnabled])
-
-  useEffect(() => {
-    autoFocusEnabledRef.current = autoFocusEnabled
-  }, [autoFocusEnabled])
 
   useEffect(() => {
     selectedNodeOpenRef.current = Boolean(selectedNode)
   }, [selectedNode])
 
-  useEffect(() => {
-    hoverNodeKeyRef.current = hoverNodeKey
-  }, [hoverNodeKey])
-
-  useEffect(() => {
-    renderModeRef.current = renderMode
-  }, [renderMode])
-
-  useEffect(() => {
-    projectionEngineRef.current = projectionEngine
-  }, [projectionEngine])
-
-  const requestRenderModeChange = useCallback((next: RenderMode) => {
-    if (next === renderModeRef.current) return
-    const now = Date.now()
-    const elapsed = now - lastRenderModeSwitchAtRef.current
-    if (elapsed >= ENGINE_SWITCH_GUARD_MS) {
-      lastRenderModeSwitchAtRef.current = now
-      setRenderMode(next)
-      return
-    }
-    if (renderModeSwitchTimerRef.current != null) {
-      window.clearTimeout(renderModeSwitchTimerRef.current)
-      renderModeSwitchTimerRef.current = null
-    }
-    renderModeSwitchTimerRef.current = window.setTimeout(() => {
-      renderModeSwitchTimerRef.current = null
-      if (renderModeRef.current === next) return
-      lastRenderModeSwitchAtRef.current = Date.now()
-      setRenderMode(next)
-    }, ENGINE_SWITCH_GUARD_MS - elapsed)
-  }, [])
-
-  const requestProjectionEngineChange = useCallback((next: ProjectionEngine) => {
-    if (next === projectionEngineRef.current) return
-    const now = Date.now()
-    const elapsed = now - lastProjectionEngineSwitchAtRef.current
-    if (elapsed >= ENGINE_SWITCH_GUARD_MS) {
-      lastProjectionEngineSwitchAtRef.current = now
-      setProjectionEngine(next)
-      return
-    }
-    if (projectionEngineSwitchTimerRef.current != null) {
-      window.clearTimeout(projectionEngineSwitchTimerRef.current)
-      projectionEngineSwitchTimerRef.current = null
-    }
-    projectionEngineSwitchTimerRef.current = window.setTimeout(() => {
-      projectionEngineSwitchTimerRef.current = null
-      if (projectionEngineRef.current === next) return
-      lastProjectionEngineSwitchAtRef.current = Date.now()
-      setProjectionEngine(next)
-    }, ENGINE_SWITCH_GUARD_MS - elapsed)
-  }, [])
 
   useEffect(() => {
     return () => {
@@ -1245,8 +1156,6 @@ export default function GraphPage({ projectKey, variant }: Props) {
       if (nodeDragFxTimerRef.current != null) window.clearTimeout(nodeDragFxTimerRef.current)
       if (nodeDragHoldTimerRef.current != null) window.clearTimeout(nodeDragHoldTimerRef.current)
       if (forceHoverRafRef.current != null) window.cancelAnimationFrame(forceHoverRafRef.current)
-      if (renderModeSwitchTimerRef.current != null) window.clearTimeout(renderModeSwitchTimerRef.current)
-      if (projectionEngineSwitchTimerRef.current != null) window.clearTimeout(projectionEngineSwitchTimerRef.current)
     }
   }, [])
 
@@ -1275,10 +1184,12 @@ export default function GraphPage({ projectKey, variant }: Props) {
 
   const effectiveLimit = clampGraphLimit(appliedFilters.limit)
 
+  const effectiveQueryLimit = templateBuilder ? GRAPH_LIMIT_MAX : effectiveLimit
+  const graphDataQueryKind = templateBuilder ? `${graphKind}:template_builder` : graphKind
   const graphData = useQuery({
     queryKey: queryKeys.graph.data(
       projectKey,
-      graphKind,
+      graphDataQueryKind,
       appliedFilters.startDate,
       appliedFilters.endDate,
       appliedFilters.state,
@@ -1289,13 +1200,40 @@ export default function GraphPage({ projectKey, variant }: Props) {
       effectiveLimit,
     ),
     queryFn: async () => {
+      if (templateBuilder) {
+        const [policy, social, marketDeep] = await Promise.all([
+          getPolicyGraph({
+            start_date: appliedFilters.startDate,
+            end_date: appliedFilters.endDate,
+            state: appliedFilters.state,
+            policy_type: appliedFilters.policyType,
+            limit: effectiveQueryLimit,
+          }),
+          getSocialGraph({
+            start_date: appliedFilters.startDate,
+            end_date: appliedFilters.endDate,
+            platform: appliedFilters.platform,
+            topic: appliedFilters.topic,
+            limit: effectiveQueryLimit,
+          }),
+          getMarketGraph({
+            start_date: appliedFilters.startDate,
+            end_date: appliedFilters.endDate,
+            state: appliedFilters.state,
+            game: appliedFilters.game,
+            view: 'market_deep_entities',
+            limit: effectiveQueryLimit,
+          }),
+        ])
+        return mergeGraphPayloads([policy, social, marketDeep])
+      }
       if (graphKind === 'policy') {
         return getPolicyGraph({
           start_date: appliedFilters.startDate,
           end_date: appliedFilters.endDate,
           state: appliedFilters.state,
           policy_type: appliedFilters.policyType,
-          limit: effectiveLimit,
+          limit: effectiveQueryLimit,
         })
       }
       if (graphKind === 'social') {
@@ -1304,7 +1242,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
           end_date: appliedFilters.endDate,
           platform: appliedFilters.platform,
           topic: appliedFilters.topic,
-          limit: effectiveLimit,
+          limit: effectiveQueryLimit,
         })
       }
       return getMarketGraph({
@@ -1318,7 +1256,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
         topic_scope: graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
           ? graphKind
           : undefined,
-        limit: effectiveLimit,
+        limit: effectiveQueryLimit,
       })
     },
     enabled: Boolean(projectKey),
@@ -1329,6 +1267,34 @@ export default function GraphPage({ projectKey, variant }: Props) {
     queryFn: listSourceItems,
     enabled: Boolean(projectKey) && taskModalOpen,
   })
+
+  const sourceGraphNodes = useMemo(() => graphData.data?.nodes || [], [graphData.data?.nodes])
+  const sourceGraphEdges = useMemo(() => graphData.data?.edges || [], [graphData.data?.edges])
+  const {
+    draftNodes,
+    draftEdges,
+    nodeByKey: draftNodeMap,
+    dirty: isDraftDirty,
+    resetDraft,
+    markSaved: markDraftSaved,
+    replaceDraft,
+    createNode: createDraftNode,
+    updateNodeByKey: updateDraftNodeByKey,
+    removeNodesByKeys: removeDraftNodesByKeys,
+    createEdgeByNodeKeys: createDraftEdgeByNodeKeys,
+    removeEdgeAt: removeDraftEdgeAt,
+  } = useGraphDraft({
+    sourceNodes: sourceGraphNodes,
+    sourceEdges: sourceGraphEdges,
+    getNodeKey: nodeKey,
+  })
+  const effectiveGraphData = useMemo(
+    () => ({
+      nodes: editMode ? draftNodes : sourceGraphNodes,
+      edges: editMode ? draftEdges : sourceGraphEdges,
+    }),
+    [editMode, draftNodes, draftEdges, sourceGraphNodes, sourceGraphEdges],
+  )
 
   const colorDistribution = useMemo(() => {
     const rotateT = Math.max(0, Math.min(1, colorRotate / 100))
@@ -1351,20 +1317,20 @@ export default function GraphPage({ projectKey, variant }: Props) {
       : graphKind
     const fromCfg = Array.isArray(cfg[cfgKey]) ? cfg[cfgKey] : []
     fromCfg.forEach((t) => set.add(normalizeNodeType(t)))
-    ;(graphData.data?.nodes || []).forEach((n) => set.add(normalizeNodeType(n.type)))
+    ;(effectiveGraphData.nodes || []).forEach((n) => set.add(normalizeNodeType(n.type)))
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  }, [graphData.data?.nodes, graphConfig.data?.graph_node_types, graphKind])
+  }, [effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind])
 
   const nodeTypeColor = useMemo(() => {
     return assignLegendColors(nodeTypes, paletteKey, 'node', colorDistribution)
   }, [nodeTypes, paletteKey, colorDistribution])
 
   const stats = useMemo(() => {
-    const nodes = graphData.data?.nodes || []
-    const edges = graphData.data?.edges || []
+    const nodes = effectiveGraphData.nodes || []
+    const edges = effectiveGraphData.edges || []
     const typeCount = nodeTypes.length
     return { nodes: nodes.length, edges: edges.length, typeCount }
-  }, [graphData.data?.nodes, graphData.data?.edges, nodeTypes.length])
+  }, [effectiveGraphData.nodes, effectiveGraphData.edges, nodeTypes.length])
 
   const legendGroups = useMemo(() => {
     const grouped: Record<string, string[]> = {}
@@ -1376,15 +1342,39 @@ export default function GraphPage({ projectKey, variant }: Props) {
     return Object.entries(grouped).sort(([a], [b]) => (GROUP_LABEL[a] || a).localeCompare((GROUP_LABEL[b] || b), 'zh-CN'))
   }, [nodeTypes])
 
+  const defaultNodeTypesForCompute = useMemo(() => {
+    if (!templateBuilder) return DEFAULT_NODE_TYPES_BY_KIND
+    const allTypes = Array.from(new Set((effectiveGraphData.nodes || []).map((n) => normalizeNodeType(n.type)).filter(Boolean)))
+    return {
+      ...DEFAULT_NODE_TYPES_BY_KIND,
+      [graphKind]: allTypes.length ? allTypes : DEFAULT_NODE_TYPES_BY_KIND[graphKind],
+    }
+  }, [templateBuilder, effectiveGraphData.nodes, graphKind])
+
+  const docNodeTypeSetForBuilder = useMemo(() => {
+    if (!templateBuilder) return new Set<string>()
+    const cfg = graphConfig.data?.graph_doc_types || {}
+    const rawTypes = new Set<string>()
+    Object.values(cfg).forEach((arr) => {
+      if (!Array.isArray(arr)) return
+      arr.forEach((item) => rawTypes.add(normalizeNodeType(item)))
+    })
+    ;['Post', 'Policy', 'MarketData'].forEach((item) => rawTypes.add(normalizeNodeType(item)))
+    return rawTypes
+  }, [templateBuilder, graphConfig.data?.graph_doc_types])
+
   const topology = useMemo(() => {
-    const nodes = graphData.data?.nodes || []
-    const edges = graphData.data?.edges || []
-    const { connectedNodes, connectedEdges, connectedNodeKeys, visibleNodes, visibleEdges, visibleNodeKeys, edgeResolvedKeyMap } = computeVisibleSubgraph(
+    const nodes = effectiveGraphData.nodes || []
+    const edges = effectiveGraphData.edges || []
+    const { connectedNodes, connectedEdges, connectedNodeKeys, visibleNodes, visibleEdges, visibleNodeKeys, edgeResolvedKeyMap } = computeVisibleSubgraph({
       nodes,
       edges,
       graphKind,
       hiddenTypes,
-    )
+      defaultNodeTypesByKind: defaultNodeTypesForCompute,
+      specialPrefixByKind: SPECIAL_PREFIX_BY_KIND,
+      normalizeNodeType,
+    })
 
     const degreeMap = new Map<string, number>()
     const directedEdges: Array<{ fromKey: string; toKey: string; weight: number }> = []
@@ -1469,13 +1459,68 @@ export default function GraphPage({ projectKey, variant }: Props) {
     const centralityRangeScore = sharedRangeScore
     const neighborMinScore = sharedMinScore
     const neighborRangeScore = sharedRangeScore
+    let limitedVisibleNodes = visibleNodes
+    let limitedVisibleEdges = visibleEdges
+    let limitedVisibleNodeKeys = visibleNodeKeys
+    const topN = clampGraphLimit(appliedFilters.limit)
+    if (topN > 0 && visibleNodes.length > topN) {
+      const visibleNodeByKey = new Map(visibleNodes.map((node) => [nodeKey(node), node]))
+      const ordered = rankVisibleNodeKeysByPriority({
+        nodes: visibleNodes,
+        edges: visibleEdges,
+        edgeResolvedKeyMap,
+        centralityScoreMap,
+        neighborTightnessScoreMap,
+        centralWeight: appliedRankingWeights.central / 100,
+        neighborWeight: appliedRankingWeights.neighbor / 100,
+      })
+      const orderedDocKeys = ordered.filter((key) => {
+        const node = visibleNodeByKey.get(key)
+        if (!node) return false
+        return docNodeTypeSetForBuilder.has(normalizeNodeType(node.type))
+      })
+      const orderedDocKeysById = rankDocumentNodeKeysById({
+        nodes: visibleNodes,
+        candidateKeys: new Set(orderedDocKeys),
+      })
+      const rankedPool = (() => {
+        if (appliedRankingStrategy === 'doc_body') {
+          return orderedDocKeys.length ? orderedDocKeys : ordered
+        }
+        if (appliedRankingStrategy === 'doc_id') {
+          return orderedDocKeysById.length ? orderedDocKeysById : ordered
+        }
+        return ordered
+      })()
+      const primaryKeys = rankedPool.slice(0, topN)
+      const keep = new Set(primaryKeys)
+      const adjacency = new Map<string, Set<string>>()
+      visibleEdges.forEach((edge) => {
+        const resolved = edgeResolvedKeyMap.get(edge)
+        if (!resolved) return
+        if (!adjacency.has(resolved.fromKey)) adjacency.set(resolved.fromKey, new Set<string>())
+        if (!adjacency.has(resolved.toKey)) adjacency.set(resolved.toKey, new Set<string>())
+        adjacency.get(resolved.fromKey)?.add(resolved.toKey)
+        adjacency.get(resolved.toKey)?.add(resolved.fromKey)
+      })
+      primaryKeys.forEach((seed) => {
+        ;(adjacency.get(seed) || new Set<string>()).forEach((neighbor) => keep.add(neighbor))
+      })
+      limitedVisibleNodes = visibleNodes.filter((node) => keep.has(nodeKey(node)))
+      limitedVisibleNodeKeys = new Set(limitedVisibleNodes.map((node) => nodeKey(node)))
+      limitedVisibleEdges = visibleEdges.filter((edge) => {
+        const resolved = edgeResolvedKeyMap.get(edge)
+        if (!resolved) return false
+        return limitedVisibleNodeKeys.has(resolved.fromKey) && limitedVisibleNodeKeys.has(resolved.toKey)
+      })
+    }
     return {
       nodes,
       connectedNodes,
       connectedEdges,
       connectedNodeKeys,
-      visibleNodes,
-      visibleEdges,
+      visibleNodes: limitedVisibleNodes,
+      visibleEdges: limitedVisibleEdges,
       degreeMap,
       centralityScoreMap,
       neighborTightnessScoreMap,
@@ -1484,12 +1529,22 @@ export default function GraphPage({ projectKey, variant }: Props) {
       centralityRangeScore,
       neighborMinScore,
       neighborRangeScore,
-      visibleNodeKeys,
+      visibleNodeKeys: limitedVisibleNodeKeys,
       edgeResolvedKeyMap,
-      rawNodeCount: visibleNodes.length,
-      rawEdgeCount: visibleEdges.length,
+      rawNodeCount: limitedVisibleNodes.length,
+      rawEdgeCount: limitedVisibleEdges.length,
     }
-  }, [graphData.data, hiddenTypes, graphKind])
+  }, [
+    effectiveGraphData,
+    hiddenTypes,
+    graphKind,
+    defaultNodeTypesForCompute,
+    templateBuilder,
+    appliedFilters.limit,
+    appliedRankingWeights,
+    appliedRankingStrategy,
+    docNodeTypeSetForBuilder,
+  ])
 
   const symbolDebug = useMemo(() => {
     if (!showSymbolDebug) {
@@ -1626,23 +1681,35 @@ export default function GraphPage({ projectKey, variant }: Props) {
     adjacencyConnectedMapRef.current = adjacencyConnectedMap
   }, [adjacencyConnectedMap])
 
-  const selectedNodeKeys = useMemo(() => {
-    const merged = new Set(manualSelectedNodeKeys)
-    Object.entries(radiationSelectionByCenter).forEach(([centerKey, enabled]) => {
-      if (!enabled) return
-      collectFocusNodeKeys(centerKey, adjacencyConnectedMap).forEach((item) => merged.add(item))
-    })
-    manualDeselectedNodeKeys.forEach((key) => merged.delete(key))
-    return merged
-  }, [manualSelectedNodeKeys, manualDeselectedNodeKeys, radiationSelectionByCenter, adjacencyConnectedMap])
+  const {
+    selectionEnabled,
+    setSelectionEnabled,
+    setManualSelectedNodeKeys,
+    setManualDeselectedNodeKeys,
+    setRadiationSelectionByCenter,
+    selectionPinned,
+    setSelectionPinned,
+    autoFocusEnabled,
+    setAutoFocusEnabled,
+    hoverNodeKey,
+    setHoverNodeKey,
+    selectedNodeKeys,
+    selectionEnabledRef,
+    autoFocusEnabledRef,
+    selectedNodeKeysRef,
+    hoverNodeKeyRef,
+  } = useGraphSelectionState(adjacencyConnectedMap)
 
   useEffect(() => {
-    selectedNodeKeysRef.current = selectedNodeKeys
-  }, [selectedNodeKeys])
+    if (!selectionEnabled) {
+      nodeDragUnlockedRef.current = false
+      if (nodeDragHoldTimerRef.current != null) {
+        window.clearTimeout(nodeDragHoldTimerRef.current)
+        nodeDragHoldTimerRef.current = null
+      }
+    }
+  }, [selectionEnabled])
 
-  useEffect(() => {
-    if (selectionPinned && !selectedNodeKeys.size) setSelectionPinned(false)
-  }, [selectionPinned, selectedNodeKeys])
 
   useEffect(() => {
     // Safety net: if a graph has connected nodes but all become hidden by type mask,
@@ -1715,6 +1782,123 @@ export default function GraphPage({ projectKey, variant }: Props) {
       return key.includes(keyword) || name.includes(keyword) || desc.includes(keyword) || tags.includes(keyword)
     })
   }, [sourceItemsQuery.data, sourceItemKeyword])
+
+  const selectedNodeKeyList = useMemo(() => Array.from(selectedNodeKeys), [selectedNodeKeys])
+  const editableNodeItems = useMemo(
+    () => draftNodes.map((node) => ({ key: nodeKey(node), label: `${nodeName(node)} (${node.type}:${String(node.id)})` })),
+    [draftNodes],
+  )
+  const selectedEditableNodes = useMemo(
+    () => selectedNodeKeyList.map((key) => draftNodeMap.get(key)).filter((item): item is GraphNodeItem => Boolean(item)),
+    [selectedNodeKeyList, draftNodeMap],
+  )
+  const editableEdges = useMemo(
+    () => draftEdges.map((edge, index) => ({
+      index,
+      key: `${String(edge.from?.type || '')}:${String(edge.from?.id || '')}>${String(edge.to?.type || '')}:${String(edge.to?.id || '')}:${String(edge.predicate || edge.type || '')}`,
+      label: `${String(edge.from?.type || '')}:${String(edge.from?.id || '')} -> ${String(edge.to?.type || '')}:${String(edge.to?.id || '')} (${String(edge.predicate || edge.type || 'REL')})`,
+    })),
+    [draftEdges],
+  )
+  const activeEditableNode = useMemo(() => {
+    if (!nodeEditDraft.key) return null
+    return draftNodeMap.get(nodeEditDraft.key) || null
+  }, [nodeEditDraft.key, draftNodeMap])
+
+  const callApiByCandidates = useCallback(async (methodNames: string[], ...args: unknown[]) => {
+    const candidate = readCandidateApiMethod(...methodNames)
+    if (!candidate) {
+      throw new Error(`missing_api_method:${methodNames[0] || 'unknown'}`)
+    }
+    return candidate.fn(...args)
+  }, [])
+
+  const loadTemplateList = useCallback(async () => {
+    const raw = await callApiByCandidates(
+      ['listWorkflowGraphTemplates', 'listGraphTemplates', 'listGraphDraftTemplates', 'listGraphEditTemplates', 'listWorkflows'],
+    )
+    const rows = Array.isArray(raw)
+      ? raw
+      : (raw && typeof raw === 'object' && Array.isArray((raw as { items?: unknown[] }).items)
+        ? ((raw as { items?: unknown[] }).items || [])
+        : [])
+    const parsed = rows.map(asTemplateRecord).filter((item): item is GraphTemplateRecord => Boolean(item))
+    setTemplateItems(parsed)
+    if (!activeTemplateKey && parsed[0]) setActiveTemplateKey(parsed[0].key)
+    return parsed
+  }, [callApiByCandidates, projectKey, graphKind, activeTemplateKey])
+
+  const loadVersionList = useCallback(async (templateKey: string) => {
+    if (!templateKey) {
+      setVersionItems([])
+      return []
+    }
+    const raw = await callApiByCandidates(
+      ['listWorkflowGraphTemplateVersions', 'listGraphTemplateVersions', 'listGraphDraftTemplateVersions', 'listGraphVersions'],
+      templateKey,
+    )
+    const activeVersion = raw && typeof raw === 'object'
+      ? String((raw as { active_version_id?: unknown }).active_version_id || '').trim()
+      : ''
+    const rows = Array.isArray(raw)
+      ? raw
+      : (raw && typeof raw === 'object' && Array.isArray((raw as { items?: unknown[] }).items)
+        ? ((raw as { items?: unknown[] }).items || [])
+        : [])
+    const parsed = rows
+      .map(asVersionRecord)
+      .filter((item): item is GraphTemplateVersionRecord => Boolean(item))
+      .map((item) => ({ ...item, activated: item.key === activeVersion || item.activated }))
+    setVersionItems(parsed)
+    if (activeVersion) setActiveVersionKey(activeVersion)
+    else if (!activeVersionKey && parsed[0]) setActiveVersionKey(parsed[0].key)
+    return parsed
+  }, [callApiByCandidates, activeVersionKey])
+
+  useEffect(() => {
+    if (!editMode) return
+    let canceled = false
+    const run = async () => {
+      setTemplateBusy(true)
+      try {
+        const list = await loadTemplateList()
+        const key = activeTemplateKey || list[0]?.key || ''
+        if (!canceled && key) await loadVersionList(key)
+      } catch (error) {
+        if (canceled) return
+        const message = error instanceof Error ? error.message : '模板列表加载失败'
+        setGraphEditStatus(`模板列表加载失败: ${message}`)
+      } finally {
+        if (!canceled) setTemplateBusy(false)
+      }
+    }
+    void run()
+    return () => {
+      canceled = true
+    }
+  }, [editMode, loadTemplateList, loadVersionList, activeTemplateKey])
+
+  useEffect(() => {
+    if (!editMode) return
+    const firstKey = selectedNodeKeyList[0] || ''
+    if (!firstKey) return
+    const node = draftNodeMap.get(firstKey)
+    if (!node) return
+    setNodeEditDraft({
+      key: firstKey,
+      id: String(node.id ?? ''),
+      type: String(node.type || ''),
+      name: String(node.name || ''),
+      title: String(node.title || ''),
+      x: String(node.x ?? ''),
+      y: String(node.y ?? ''),
+      z: String(node.z ?? ''),
+    })
+  }, [editMode, selectedNodeKeyList, draftNodeMap])
+
+  useEffect(() => {
+    if (templateBuilder) setEditMode(true)
+  }, [templateBuilder])
 
   const selectedExportPayload = useMemo(() => {
     const scopedTopicFocus = graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
@@ -3553,6 +3737,243 @@ export default function GraphPage({ projectKey, variant }: Props) {
     }
   }, [useForceGraph3D, logForce3DDiagnostics])
 
+  const handleCreateDraftNode = useCallback(() => {
+    const node = createDraftNode({
+      type: newNodeType.trim() || 'Entity',
+      name: newNodeName.trim() || undefined,
+      title: newNodeName.trim() || undefined,
+    })
+    const key = nodeKey(node)
+    setNodeEditDraft({
+      key,
+      id: String(node.id),
+      type: String(node.type || ''),
+      name: String(node.name || ''),
+      title: String(node.title || ''),
+      x: String(node.x ?? ''),
+      y: String(node.y ?? ''),
+      z: String(node.z ?? ''),
+    })
+    setNewNodeName('')
+    setGraphEditStatus(`已新增节点: ${key}`)
+  }, [createDraftNode, newNodeType, newNodeName])
+
+  const handleDeleteSelectedDraftNodes = useCallback(() => {
+    const result = removeDraftNodesByKeys(selectedNodeKeyList)
+    if (!result.removedNodes) {
+      setGraphEditStatus('未删除节点：当前选择为空或节点不在草稿中')
+      return
+    }
+    setManualSelectedNodeKeys(new Set())
+    setManualDeselectedNodeKeys(new Set())
+    setRadiationSelectionByCenter({})
+    setGraphEditStatus(`已删除节点 ${result.removedNodes}，关联边 ${result.removedEdges}`)
+  }, [removeDraftNodesByKeys, selectedNodeKeyList, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setRadiationSelectionByCenter])
+
+  const handleCreateDraftEdge = useCallback(() => {
+    const sourceKey = edgeDraft.sourceKey.trim()
+    const targetKey = edgeDraft.targetKey.trim()
+    if (!sourceKey || !targetKey) {
+      window.alert('请选择 source 和 target 节点')
+      return
+    }
+    const created = createDraftEdgeByNodeKeys(sourceKey, targetKey, {
+      type: edgeDraft.relation.trim() || 'REL',
+      predicate: edgeDraft.relation.trim() || undefined,
+    })
+    if (!created.ok) {
+      if (created.reason === 'already_exists') window.alert('边已存在')
+      else window.alert('创建边失败：节点不存在')
+      return
+    }
+    setGraphEditStatus(`已新增边: ${sourceKey} -> ${targetKey}`)
+  }, [edgeDraft, createDraftEdgeByNodeKeys])
+
+  const handleApplyNodeEditDraft = useCallback(() => {
+    if (!nodeEditDraft.key) return
+    const patch: Partial<GraphNodeItem> = {
+      id: nodeEditDraft.id.trim() || nodeEditDraft.id,
+      type: nodeEditDraft.type.trim() || 'Entity',
+      name: nodeEditDraft.name.trim() || undefined,
+      title: nodeEditDraft.title.trim() || undefined,
+    }
+    const numericOrUndefined = (raw: string) => {
+      const text = raw.trim()
+      if (!text) return undefined
+      const n = Number(text)
+      return Number.isFinite(n) ? n : undefined
+    }
+    patch.x = numericOrUndefined(nodeEditDraft.x)
+    patch.y = numericOrUndefined(nodeEditDraft.y)
+    patch.z = numericOrUndefined(nodeEditDraft.z)
+    const ok = updateDraftNodeByKey(nodeEditDraft.key, patch)
+    if (!ok) {
+      window.alert('节点更新失败：节点可能已被删除')
+      return
+    }
+    setGraphEditStatus(`已更新节点: ${nodeEditDraft.key}`)
+  }, [nodeEditDraft, updateDraftNodeByKey])
+
+  const handleLoadTemplateVersions = useCallback(async () => {
+    if (!activeTemplateKey) return
+    setTemplateBusy(true)
+    try {
+      await loadVersionList(activeTemplateKey)
+      setGraphEditStatus(`已加载模板版本列表: ${activeTemplateKey}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '版本列表加载失败'
+      setGraphEditStatus(`版本列表加载失败: ${message}`)
+      window.alert(`版本列表加载失败: ${message}`)
+    } finally {
+      setTemplateBusy(false)
+    }
+  }, [activeTemplateKey, loadVersionList])
+
+  const handleCreateTemplate = useCallback(async () => {
+    const name = templateNameDraft.trim()
+    if (!name) return
+    setTemplateBusy(true)
+    try {
+      const templateId = name.replace(/\s+/g, '_')
+      await callApiByCandidates(
+        ['createWorkflowGraphTemplate', 'createGraphTemplate', 'createGraphDraftTemplate', 'upsertGraphTemplate'],
+        {
+          template_id: templateId,
+          name,
+          dsl: { nodes: draftNodes, edges: draftEdges },
+        },
+      )
+      setTemplateNameDraft('')
+      setGraphEditStatus(`模板创建成功: ${name}`)
+      await loadTemplateList()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '模板创建失败'
+      setGraphEditStatus(`模板创建失败: ${message}`)
+      window.alert(`模板创建失败: ${message}`)
+    } finally {
+      setTemplateBusy(false)
+    }
+  }, [templateNameDraft, callApiByCandidates, draftNodes, draftEdges, loadTemplateList])
+
+  const handleRenameTemplate = useCallback(async () => {
+    if (!activeTemplateKey) return
+    const name = renameTemplateDraft.trim()
+    if (!name) return
+    setTemplateBusy(true)
+    try {
+      await callApiByCandidates(
+        ['updateWorkflowGraphTemplate', 'renameGraphTemplate', 'renameGraphDraftTemplate'],
+        activeTemplateKey,
+        { name },
+      )
+      setRenameTemplateDraft('')
+      setGraphEditStatus(`模板已重命名为: ${name}`)
+      await loadTemplateList()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '模板重命名失败'
+      setGraphEditStatus(`模板重命名失败: ${message}`)
+      window.alert(`模板重命名失败: ${message}`)
+    } finally {
+      setTemplateBusy(false)
+    }
+  }, [activeTemplateKey, renameTemplateDraft, callApiByCandidates, loadTemplateList])
+
+  const handleDeleteTemplate = useCallback(async () => {
+    if (!activeTemplateKey) return
+    setTemplateBusy(true)
+    try {
+      await callApiByCandidates(
+        ['deleteWorkflowGraphTemplate', 'deleteGraphTemplate', 'deleteGraphDraftTemplate', 'deleteWorkflowTemplate'],
+        activeTemplateKey,
+      )
+      setGraphEditStatus(`模板已删除: ${activeTemplateKey}`)
+      setActiveTemplateKey('')
+      setActiveVersionKey('')
+      setVersionItems([])
+      await loadTemplateList()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '模板删除失败'
+      setGraphEditStatus(`模板删除失败: ${message}`)
+      window.alert(`模板删除失败: ${message}`)
+    } finally {
+      setTemplateBusy(false)
+    }
+  }, [activeTemplateKey, callApiByCandidates, loadTemplateList])
+
+  const handleSaveVersion = useCallback(async () => {
+    if (!activeTemplateKey) {
+      window.alert('请先选择模板')
+      return
+    }
+    const versionName = versionNameDraft.trim() || `v-${new Date().toISOString()}`
+    setTemplateBusy(true)
+    try {
+      await callApiByCandidates(
+        ['createWorkflowGraphTemplateVersion', 'saveGraphTemplateVersion', 'createGraphTemplateVersion', 'saveGraphVersion'],
+        activeTemplateKey,
+        { version_id: versionName, dsl: { nodes: draftNodes, edges: draftEdges } },
+      )
+      setVersionNameDraft('')
+      setGraphEditStatus(`已保存版本: ${versionName}`)
+      await loadVersionList(activeTemplateKey)
+      markDraftSaved()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '版本保存失败'
+      setGraphEditStatus(`版本保存失败: ${message}`)
+      window.alert(`版本保存失败: ${message}`)
+    } finally {
+      setTemplateBusy(false)
+    }
+  }, [activeTemplateKey, versionNameDraft, callApiByCandidates, draftNodes, draftEdges, loadVersionList, markDraftSaved])
+
+  const handleLoadVersion = useCallback(async () => {
+    if (!activeTemplateKey || !activeVersionKey) return
+    setTemplateBusy(true)
+    try {
+      const raw = await callApiByCandidates(
+        ['getWorkflowGraphTemplateVersion', 'loadGraphTemplateVersion', 'getGraphTemplateVersion'],
+        activeTemplateKey,
+        activeVersionKey,
+      )
+      const payload = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+      const versionPayload = payload.version && typeof payload.version === 'object' ? payload.version as Record<string, unknown> : payload
+      const dslPayload = versionPayload.dsl && typeof versionPayload.dsl === 'object' ? versionPayload.dsl as Record<string, unknown> : versionPayload
+      const nextNodes = Array.isArray(dslPayload.nodes) ? dslPayload.nodes as GraphNodeItem[] : []
+      const nextEdges = Array.isArray(dslPayload.edges) ? dslPayload.edges as GraphEdgeItem[] : []
+      if (!nextNodes.length && !nextEdges.length) {
+        window.alert('加载版本成功，但返回为空')
+      }
+      replaceDraft(nextNodes, nextEdges, { markAsDirty: true })
+      setGraphEditStatus(`已加载版本: ${activeVersionKey}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '版本加载失败'
+      setGraphEditStatus(`版本加载失败: ${message}`)
+      window.alert(`版本加载失败: ${message}`)
+    } finally {
+      setTemplateBusy(false)
+    }
+  }, [activeTemplateKey, activeVersionKey, callApiByCandidates, replaceDraft])
+
+  const handleActivateVersion = useCallback(async () => {
+    if (!activeTemplateKey || !activeVersionKey) return
+    setTemplateBusy(true)
+    try {
+      await callApiByCandidates(
+        ['activateWorkflowGraphTemplateVersion', 'activateGraphTemplateVersion', 'activateGraphVersion'],
+        activeTemplateKey,
+        activeVersionKey,
+      )
+      setGraphEditStatus(`已激活版本: ${activeVersionKey}`)
+      await loadVersionList(activeTemplateKey)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '版本激活失败'
+      setGraphEditStatus(`版本激活失败: ${message}`)
+      window.alert(`版本激活失败: ${message}`)
+    } finally {
+      setTemplateBusy(false)
+    }
+  }, [activeTemplateKey, activeVersionKey, callApiByCandidates, loadVersionList])
+
   const forceGraphCanvasNode = useMemo(() => {
     if (!(renderMode === 'projection3d' && showForceGraphCanvas && ForceGraph3DComp)) return null
     return (
@@ -3737,6 +4158,16 @@ export default function GraphPage({ projectKey, variant }: Props) {
               >
                 选择模式
               </button>
+              {templateBuilder ? (
+              <button
+                type="button"
+                className={`gv2-select-mode-btn ${editMode ? '' : 'is-off'}`.trim()}
+                onClick={() => setEditMode((prev) => !prev)}
+                title="编辑模式下可本地增删改节点与边"
+              >
+                编辑模式{isDraftDirty ? ' *' : ''}
+              </button>
+              ) : null}
               <button
                 type="button"
                 className={`gv2-select-mode-btn ${autoFocusEnabled ? '' : 'is-off'}`.trim()}
@@ -3843,10 +4274,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         min={0}
                         max={200}
                         step={0.1}
+                        {...visualSliderInteractionHandlers}
                         value={visualDraft.repulsion / 7.2}
                         onChange={(e) => {
                           const repulsion = Number(e.target.value) * 7.2
-                          updateVisual('repulsion', repulsion)
+                          updateVisual('repulsion', repulsion, { mode: 'raf' })
                         }}
                       />
                       <span>{(visualDraft.repulsion / 7.2).toFixed(1)}%</span>
@@ -3858,10 +4290,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         min={0}
                         max={300}
                         step={0.5}
+                        {...visualSliderInteractionHandlers}
                         value={visualDraft.gravityPercent}
                         onChange={(e) => {
                           const gravityPercent = Number(e.target.value)
-                          updateVisual('gravityPercent', gravityPercent)
+                          updateVisual('gravityPercent', gravityPercent, { mode: 'raf' })
                         }}
                       />
                       <span>{visualDraft.gravityPercent}%</span>
@@ -3873,10 +4306,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         min={NODE_SIZE_SLIDER_MIN}
                         max={NODE_SIZE_SLIDER_MAX}
                         step={0.5}
+                        {...visualSliderInteractionHandlers}
                         value={visualDraft.nodeScale}
                         onChange={(e) => {
                           const nodeScale = Number(e.target.value)
-                          updateVisual('nodeScale', nodeScale)
+                          updateVisual('nodeScale', nodeScale, { mode: 'throttle', delayMs: 80 })
                         }}
                       />
                       <span>{visualDraft.nodeScale}% · 3D {computeForce3DSizeCompensationX(visualDraft.nodeScale).toFixed(1)}x</span>
@@ -3888,10 +4322,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         min={NODE_CONTRAST_SLIDER_MIN}
                         max={NODE_CONTRAST_SLIDER_MAX}
                         step={0.5}
+                        {...visualSliderInteractionHandlers}
                         value={visualDraft.nodeContrastCentral}
                         onChange={(e) => {
                           const nodeContrastCentral = Number(e.target.value)
-                          updateVisual('nodeContrastCentral', nodeContrastCentral)
+                          updateVisual('nodeContrastCentral', nodeContrastCentral, { mode: 'raf' })
                         }}
                       />
                       <span>{visualDraft.nodeContrastCentral}%</span>
@@ -3903,10 +4338,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         min={NODE_CONTRAST_SLIDER_MIN}
                         max={NODE_CONTRAST_SLIDER_MAX}
                         step={0.5}
+                        {...visualSliderInteractionHandlers}
                         value={visualDraft.nodeContrastNeighbor}
                         onChange={(e) => {
                           const nodeContrastNeighbor = Number(e.target.value)
-                          updateVisual('nodeContrastNeighbor', nodeContrastNeighbor)
+                          updateVisual('nodeContrastNeighbor', nodeContrastNeighbor, { mode: 'raf' })
                         }}
                       />
                       <span>{visualDraft.nodeContrastNeighbor}%</span>
@@ -3918,10 +4354,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         min={0}
                         max={100}
                         step={0.5}
+                        {...visualSliderInteractionHandlers}
                         value={visualDraft.nodeAlpha}
                         onChange={(e) => {
                           const nodeAlpha = Number(e.target.value)
-                          updateVisual('nodeAlpha', nodeAlpha)
+                          updateVisual('nodeAlpha', nodeAlpha, { mode: 'raf' })
                         }}
                       />
                       <span>{visualDraft.nodeAlpha}%</span>
@@ -3933,10 +4370,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         min={0}
                         max={200}
                         step={0.5}
+                        {...visualSliderInteractionHandlers}
                         value={visualDraft.edgeWidth}
                         onChange={(e) => {
                           const edgeWidth = Number(e.target.value)
-                          updateVisual('edgeWidth', edgeWidth)
+                          updateVisual('edgeWidth', edgeWidth, { mode: 'raf' })
                         }}
                       />
                       <span>{visualDraft.edgeWidth}%</span>
@@ -3948,10 +4386,11 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         min={0}
                         max={100}
                         step={0.5}
+                        {...visualSliderInteractionHandlers}
                         value={visualDraft.edgeAlpha}
                         onChange={(e) => {
                           const edgeAlpha = Number(e.target.value)
-                          updateVisual('edgeAlpha', edgeAlpha)
+                          updateVisual('edgeAlpha', edgeAlpha, { mode: 'raf' })
                         }}
                       />
                       <span>{visualDraft.edgeAlpha}%</span>
@@ -3962,7 +4401,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         checked={visualDraft.showLabel}
                         onChange={(e) => {
                           const checked = e.target.checked
-                          updateVisual('showLabel', checked)
+                          updateVisual('showLabel', checked, { immediate: true })
                         }}
                       />
                       显示标签
@@ -3987,6 +4426,190 @@ export default function GraphPage({ projectKey, variant }: Props) {
               </section>
 
               {!detachProjectionControls ? projectionControlSection : null}
+
+              {templateBuilder ? (
+              <section className={`gv2-control-section ${controlSectionOpen.edit ? '' : 'is-collapsed'}`}>
+                <button
+                  type="button"
+                  className="gv2-control-section-head"
+                  onClick={() => setControlSectionOpen((prev) => ({ ...prev, edit: !prev.edit }))}
+                >
+                  <strong>图谱编辑与模板</strong>
+                  <span>{controlSectionOpen.edit ? '收起' : '展开'}</span>
+                </button>
+                {controlSectionOpen.edit ? (
+                  <div className="gv2-control-section-body">
+                    <label className="gv2-control-chip gv2-checkbox">
+                      <input type="checkbox" checked={editMode} onChange={(e) => setEditMode(e.target.checked)} />
+                      Edit Mode（本地 Draft）
+                    </label>
+                    <div className="gv2-control-chip">
+                      <span>Draft: nodes={draftNodes.length} edges={draftEdges.length} {isDraftDirty ? '· dirty' : '· clean'}</span>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => {
+                          resetDraft()
+                          setGraphEditStatus('已重置为远端图谱快照')
+                        }}
+                        disabled={!isDraftDirty}
+                      >
+                        放弃本地修改
+                      </button>
+                    </div>
+                    <label className="gv2-control-chip">
+                      新节点类型
+                      <input value={newNodeType} onChange={(e) => setNewNodeType(e.target.value)} disabled={!editMode} />
+                    </label>
+                    <label className="gv2-control-chip">
+                      新节点名称
+                      <input value={newNodeName} onChange={(e) => setNewNodeName(e.target.value)} disabled={!editMode} />
+                    </label>
+                    <div className="gv2-control-chip">
+                      <button type="button" onClick={handleCreateDraftNode} disabled={!editMode}>新增节点</button>
+                      <button type="button" className="secondary" onClick={handleDeleteSelectedDraftNodes} disabled={!editMode || !selectedNodeKeyList.length}>
+                        删除选中节点（{selectedNodeKeyList.length}）
+                      </button>
+                    </div>
+                    <label className="gv2-control-chip">
+                      边 Source
+                      <select value={edgeDraft.sourceKey} onChange={(e) => setEdgeDraft((prev) => ({ ...prev, sourceKey: e.target.value }))} disabled={!editMode}>
+                        <option value="">选择 source</option>
+                        {editableNodeItems.map((item) => (
+                          <option key={item.key} value={item.key}>{item.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="gv2-control-chip">
+                      边 Target
+                      <select value={edgeDraft.targetKey} onChange={(e) => setEdgeDraft((prev) => ({ ...prev, targetKey: e.target.value }))} disabled={!editMode}>
+                        <option value="">选择 target</option>
+                        {editableNodeItems.map((item) => (
+                          <option key={item.key} value={item.key}>{item.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="gv2-control-chip">
+                      关系
+                      <input value={edgeDraft.relation} onChange={(e) => setEdgeDraft((prev) => ({ ...prev, relation: e.target.value }))} placeholder="REL / influences" disabled={!editMode} />
+                    </label>
+                    <div className="gv2-control-chip">
+                      <button type="button" onClick={handleCreateDraftEdge} disabled={!editMode}>创建边 {'source->target'}</button>
+                    </div>
+                    <label className="gv2-control-chip">
+                      节点编辑对象
+                      <select
+                        value={nodeEditDraft.key}
+                        onChange={(e) => {
+                          const key = e.target.value
+                          const node = draftNodeMap.get(key)
+                          if (!node) return
+                          setNodeEditDraft({
+                            key,
+                            id: String(node.id ?? ''),
+                            type: String(node.type || ''),
+                            name: String(node.name || ''),
+                            title: String(node.title || ''),
+                            x: String(node.x ?? ''),
+                            y: String(node.y ?? ''),
+                            z: String(node.z ?? ''),
+                          })
+                        }}
+                        disabled={!editMode}
+                      >
+                        <option value="">选择节点</option>
+                        {selectedEditableNodes.map((node) => {
+                          const key = nodeKey(node)
+                          return <option key={key} value={key}>{nodeName(node)} ({key})</option>
+                        })}
+                      </select>
+                    </label>
+                    {activeEditableNode ? (
+                      <>
+                        <label className="gv2-control-chip">id<input value={nodeEditDraft.id} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, id: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">type<input value={nodeEditDraft.type} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, type: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">name<input value={nodeEditDraft.name} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, name: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">title<input value={nodeEditDraft.title} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, title: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">x<input value={nodeEditDraft.x} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, x: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">y<input value={nodeEditDraft.y} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, y: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">z<input value={nodeEditDraft.z} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, z: e.target.value }))} disabled={!editMode} /></label>
+                        <div className="gv2-control-chip">
+                          <button type="button" onClick={handleApplyNodeEditDraft} disabled={!editMode}>应用节点字段</button>
+                        </div>
+                      </>
+                    ) : null}
+                    <label className="gv2-control-chip">
+                      模板列表
+                      <select
+                        value={activeTemplateKey}
+                        onChange={(e) => {
+                          const key = e.target.value
+                          setActiveTemplateKey(key)
+                          void loadVersionList(key)
+                        }}
+                        disabled={!editMode || templateBusy}
+                      >
+                        <option value="">选择模板</option>
+                        {templateItems.map((item) => (
+                          <option key={item.key} value={item.key}>
+                            {item.name}{item.activeVersion ? ` (active:${item.activeVersion})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="gv2-control-chip">
+                      创建模板
+                      <input value={templateNameDraft} onChange={(e) => setTemplateNameDraft(e.target.value)} placeholder="template name" disabled={!editMode || templateBusy} />
+                    </label>
+                    <div className="gv2-control-chip">
+                      <button type="button" onClick={() => void handleCreateTemplate()} disabled={!editMode || templateBusy || !templateNameDraft.trim()}>创建模板</button>
+                      <button type="button" className="secondary" onClick={() => void loadTemplateList()} disabled={!editMode || templateBusy}>刷新模板列表</button>
+                    </div>
+                    <label className="gv2-control-chip">
+                      模板重命名
+                      <input value={renameTemplateDraft} onChange={(e) => setRenameTemplateDraft(e.target.value)} placeholder="new name" disabled={!editMode || !activeTemplateKey || templateBusy} />
+                    </label>
+                    <div className="gv2-control-chip">
+                      <button type="button" onClick={() => void handleRenameTemplate()} disabled={!editMode || !activeTemplateKey || !renameTemplateDraft.trim() || templateBusy}>重命名</button>
+                      <button type="button" className="secondary" onClick={() => void handleDeleteTemplate()} disabled={!editMode || !activeTemplateKey || templateBusy}>删除模板</button>
+                    </div>
+                    <label className="gv2-control-chip">
+                      版本列表
+                      <select value={activeVersionKey} onChange={(e) => setActiveVersionKey(e.target.value)} disabled={!editMode || !activeTemplateKey || templateBusy}>
+                        <option value="">选择版本</option>
+                        {versionItems.map((item) => (
+                          <option key={item.key} value={item.key}>{item.name}{item.activated ? ' (active)' : ''}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="gv2-control-chip">
+                      <button type="button" className="secondary" onClick={() => void handleLoadTemplateVersions()} disabled={!editMode || !activeTemplateKey || templateBusy}>刷新版本</button>
+                    </div>
+                    <label className="gv2-control-chip">
+                      保存版本名
+                      <input value={versionNameDraft} onChange={(e) => setVersionNameDraft(e.target.value)} placeholder="version name" disabled={!editMode || templateBusy} />
+                    </label>
+                    <div className="gv2-control-chip">
+                      <button type="button" onClick={() => void handleSaveVersion()} disabled={!editMode || !activeTemplateKey || templateBusy}>保存版本</button>
+                      <button type="button" className="secondary" onClick={() => void handleLoadVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>加载版本</button>
+                      <button type="button" className="secondary" onClick={() => void handleActivateVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>激活版本</button>
+                    </div>
+                    <div className="status-line">
+                      {templateBusy ? '模板/版本操作中...' : (graphEditStatus || '编辑状态：就绪')}
+                    </div>
+                    <div className="gv2-control-chip">
+                      <span>草稿边数量 {editableEdges.length}</span>
+                    </div>
+                    {editableEdges.slice(0, 8).map((edge) => (
+                      <div key={edge.key} className="gv2-control-chip">
+                        <span>{edge.label}</span>
+                        <button type="button" className="secondary" onClick={() => removeDraftEdgeAt(edge.index)} disabled={!editMode}>删除</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+              ) : null}
 
               <section className={`gv2-control-section ${controlSectionOpen.color ? '' : 'is-collapsed'}`}>
                 <button
@@ -4048,11 +4671,25 @@ export default function GraphPage({ projectKey, variant }: Props) {
                   <div className="gv2-control-section-body">
                     <label className="gv2-control-chip">
                       开始日期
-                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => {
+                          setStartDate(e.target.value)
+                          if (filterApplyError) setFilterApplyError('')
+                        }}
+                      />
                     </label>
                     <label className="gv2-control-chip">
                       结束日期
-                      <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => {
+                          setEndDate(e.target.value)
+                          if (filterApplyError) setFilterApplyError('')
+                        }}
+                      />
                     </label>
                     {(graphKind === 'policy' || graphKind === 'market' || graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation') ? (
                       <label className="gv2-control-chip">
@@ -4098,12 +4735,56 @@ export default function GraphPage({ projectKey, variant }: Props) {
                       />
                       <span>{limit}</span>
                     </label>
+                    <label className="gv2-control-chip">
+                      排序策略
+                      <select value={rankingStrategy} onChange={(e) => setRankingStrategy(e.target.value as NodeRankStrategy)}>
+                        <option value="doc_body">数据本体排序</option>
+                        <option value="node_connectivity">节点关联度排序</option>
+                        <option value="doc_id">文档ID排序</option>
+                      </select>
+                    </label>
+                    <label className="gv2-control-chip">
+                      中心度权重
+                      <input
+                        type="range"
+                        min={RANK_WEIGHT_SLIDER_MIN}
+                        max={RANK_WEIGHT_SLIDER_MAX}
+                        step={1}
+                        value={rankingWeightCentral}
+                        onChange={(e) => setRankingWeightCentral(Number(e.target.value))}
+                      />
+                      <span>{rankingWeightCentral}%</span>
+                    </label>
+                    <label className="gv2-control-chip">
+                      邻域度权重
+                      <input
+                        type="range"
+                        min={RANK_WEIGHT_SLIDER_MIN}
+                        max={RANK_WEIGHT_SLIDER_MAX}
+                        step={1}
+                        value={rankingWeightNeighbor}
+                        onChange={(e) => setRankingWeightNeighbor(Number(e.target.value))}
+                      />
+                      <span>{rankingWeightNeighbor}%</span>
+                    </label>
                     <div className="gv2-control-chip">
                       <button
                         onClick={() => {
+                          const nextStartDate = String(startDate || '').trim()
+                          const nextEndDate = String(endDate || '').trim()
+                          if (nextStartDate && nextEndDate && nextStartDate > nextEndDate) {
+                            setFilterApplyError('开始日期不能晚于结束日期')
+                            return
+                          }
+                          setFilterApplyError('')
+                          setAppliedRankingWeights({
+                            central: rankingWeightCentral,
+                            neighbor: rankingWeightNeighbor,
+                          })
+                          setAppliedRankingStrategy(rankingStrategy)
                           setAppliedFilters({
-                            startDate,
-                            endDate,
+                            startDate: nextStartDate,
+                            endDate: nextEndDate,
                             state,
                             policyType,
                             platform,
@@ -4121,6 +4802,15 @@ export default function GraphPage({ projectKey, variant }: Props) {
                       <button
                         className="secondary"
                         onClick={() => {
+                          setRankingWeightCentral(RANK_WEIGHT_DEFAULT)
+                          setRankingWeightNeighbor(RANK_WEIGHT_DEFAULT)
+                          setAppliedRankingWeights({
+                            central: RANK_WEIGHT_DEFAULT,
+                            neighbor: RANK_WEIGHT_DEFAULT,
+                          })
+                          setRankingStrategy('doc_body')
+                          setAppliedRankingStrategy('doc_body')
+                          setFilterApplyError('')
                           setStartDate('')
                           setEndDate('')
                           setState('')
@@ -4128,7 +4818,8 @@ export default function GraphPage({ projectKey, variant }: Props) {
                           setPlatform('')
                           setTopic('')
                           setGame('')
-                          setLimit(GRAPH_LIMIT_DEFAULT)
+                          const resetLimit = templateBuilder ? 50 : GRAPH_LIMIT_DEFAULT
+                          setLimit(resetLimit)
                           setAppliedFilters({
                             startDate: '',
                             endDate: '',
@@ -4137,7 +4828,7 @@ export default function GraphPage({ projectKey, variant }: Props) {
                             platform: '',
                             topic: '',
                             game: '',
-                            limit: GRAPH_LIMIT_DEFAULT,
+                            limit: resetLimit,
                           })
                           setHiddenTypes({})
                           setHiddenEdgeKinds({})
@@ -4148,6 +4839,9 @@ export default function GraphPage({ projectKey, variant }: Props) {
                         重置
                       </button>
                     </div>
+                    {filterApplyError ? (
+                      <p style={{ margin: '6px 0 0', color: '#d93025', fontSize: '12px' }}>{filterApplyError}</p>
+                    ) : null}
                   </div>
                 ) : null}
               </section>

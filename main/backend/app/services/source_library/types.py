@@ -36,3 +36,25 @@ class SourceItemRecord:
     enabled: bool
     extra: Dict[str, Any]
     scope: str
+
+
+@dataclass(slots=True)
+class FrontDoorExecutionProtocol:
+    item_key: str
+    item_channel_key: str
+    project_key: str | None
+    front_door_owner: str
+    execution_mode: str
+    write_mode: str
+    route_decision: str
+    query_terms: list[str]
+    site_entries: list[str]
+    candidate_urls: list[str]
+    expected_entry_type: str | None
+    write_to_pool: bool
+    auto_ingest: bool
+    ingest_limit: int
+    force_single_url_flow: bool
+    prefer_crawler_first: bool
+    search_parallelism: int
+    routing_parallelism: int

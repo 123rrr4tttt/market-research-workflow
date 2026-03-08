@@ -130,12 +130,9 @@ def _run_via_crawler_provider_registry(
 ) -> Dict[str, Any]:
     from .. import crawlers as _crawlers  # noqa: F401 - trigger builtin crawler provider registration
     from ..crawlers.base import CrawlerDispatchRequest
-    from ..crawlers.registry import get_provider
     from ..crawlers.scrapyd_result_ingest import ingest_scrapyd_job_output
 
-    provider = get_provider(provider_type)
-    if provider is None:
-        raise ValueError(f"unsupported crawler provider_type: {provider_type}")
+    provider = _resolve_crawler_provider(provider_type, channel=channel, params=params)
 
     provider_config = channel.get("provider_config")
     if not isinstance(provider_config, dict):
@@ -218,7 +215,55 @@ def _run_via_crawler_provider_registry(
         "attempt_count": dispatch.attempt_count,
         "execution_policy": execution_policy,
         "provider_config": provider_config,
+        "runtime_channel": _build_runtime_channel_meta(channel=channel, project_key=project_key),
         "output_ingest": output_ingest,
+    }
+
+
+def _resolve_crawler_provider(provider_type: str, *, channel: Dict[str, Any], params: Dict[str, Any]):
+    from ..crawlers.registry import get_provider, register_provider
+
+    normalized = str(provider_type or "").strip().lower()
+    provider = get_provider(normalized)
+    if provider is not None:
+        return provider
+
+    if normalized == "scrapy":
+        try:
+            from ..crawlers.providers.scrapy import ScrapyCrawlerProvider
+
+            provider_config = channel.get("provider_config")
+            if not isinstance(provider_config, dict):
+                provider_config = {}
+            base_url = (
+                str(params.get("scrapyd_base_url") or "").strip()
+                or str(provider_config.get("scrapyd_base_url") or "").strip()
+                or str(provider_config.get("base_url") or "").strip()
+                or None
+            )
+            timeout_raw = params.get("scrapyd_timeout") or provider_config.get("timeout")
+            timeout = float(timeout_raw) if timeout_raw is not None else None
+            provider = ScrapyCrawlerProvider(base_url=base_url, timeout=timeout)
+            register_provider(normalized, provider)
+            return provider
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"crawler provider '{normalized}' is unavailable: {exc}") from exc
+
+    raise ValueError(f"unsupported crawler provider_type: {normalized}")
+
+
+def _build_runtime_channel_meta(*, channel: Dict[str, Any], project_key: str | None) -> Dict[str, Any]:
+    channel_key = str(channel.get("channel_key") or "").strip()
+    normalized_project = str(project_key or "").strip().lower()
+    normalized_channel = channel_key.lower()
+    is_project_runtime = bool(normalized_project and normalized_channel == f"crawler.{normalized_project}")
+    is_project_runtime = is_project_runtime or bool(
+        normalized_project and normalized_channel.startswith(f"crawler.{normalized_project}.")
+    )
+    return {
+        "channel_key": channel_key,
+        "runtime_scope": "project_config" if is_project_runtime else "shared_config",
+        "architecture_layer": "runtime_only",
     }
 
 

@@ -10,7 +10,7 @@
 | Python 3.11+ | 后端运行时 | 否 |
 | PostgreSQL | 数据库（5432） | 是，通过 Homebrew |
 | Redis | 消息队列（6379） | 是，通过 Homebrew |
-| Elasticsearch | 全文检索（9200） | 否，需 `--with-docker-deps` 或手动启动 |
+| Elasticsearch | 全文检索（9200） | 会尝试自动拉起已安装的本机 ES；也可 `--with-docker-deps` |
 | Node.js / npm | modern 前端 | 否 |
 
 > **重要**：默认会尝试自动安装 Homebrew（如缺失）；如不希望自动安装，可使用 `./start-local.sh --no-auto-install`。
@@ -97,6 +97,7 @@ docker-compose up -d db es redis
 - ✅ 启动 modern 前端开发服务（默认端口 5173）
 - ✅ 自动检测并尝试拉起本机 PostgreSQL（默认 `localhost:5432`，优先 Homebrew service）
 - ✅ 自动检测并尝试拉起本机 Redis（默认 `localhost:6379`，优先 Homebrew service）
+- ✅ 若 `ES_URL` 指向本机且 9200 未就绪，会尝试调用仓库内脚本拉起本机 Elasticsearch
 - ✅ 检查端口占用并提示处理
 - ✅ 需要时可通过 `--with-docker-deps` 启动 Docker 依赖
 - ✅ 支持低内存模式（`--low-memory` 或 `DEV_RELOAD=0`）
@@ -178,8 +179,9 @@ curl http://localhost:8000/api/v1/health/deep
 ### Elasticsearch连接失败
 
 1. 确认ES服务是否运行：`curl http://localhost:9200`
-2. 如果使用Docker：`docker ps | grep elasticsearch`
-3. 检查防火墙设置
+2. 如需手动拉起本机 ES：`bash ./scripts/start-es-local.sh start`
+3. 如果使用Docker：`docker ps | grep elasticsearch`
+4. 检查防火墙设置
 
 ### 端口冲突
 

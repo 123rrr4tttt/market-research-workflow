@@ -1,13 +1,14 @@
 """政策API接口"""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 import logging
+import re
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Path, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy import and_, cast, func, or_, select, String
+from sqlalchemy import Date, and_, case, cast, func, or_, select, String
 from sqlalchemy.exc import DatabaseError, OperationalError
 
 from ..contracts import ApiEnvelope, ErrorCode, fail, ok, ok_page
@@ -69,6 +70,35 @@ def _extract_policy_detail(doc: Document) -> dict[str, Any]:
     }
 
 
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _parse_date_param(value: Optional[str], *, field: str) -> Optional[date]:
+    if value is None:
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    if not _DATE_RE.match(raw):
+        raise ValueError(f"{field} must be YYYY-MM-DD")
+    return datetime.strptime(raw, "%Y-%m-%d").date()
+
+
+def _policy_effective_date_expr():
+    # JSONB string values may include wrapping quotes after cast (e.g. "\"2026-03-02\"").
+    # Normalize first so date matching/casting works consistently.
+    effective_raw = cast(Document.extracted_data["policy"]["effective_date"], String)
+    effective_text = func.replace(effective_raw, '"', "")
+    return case(
+        (effective_text.op("~")(r"^\d{4}-\d{2}-\d{2}"), cast(func.substr(effective_text, 1, 10), Date)),
+        else_=None,
+    )
+
+
+def _policy_time_expr():
+    return func.coalesce(_policy_effective_date_expr(), Document.publish_date, func.date(Document.created_at))
+
+
 @router.get("", response_model=PoliciesListEnvelope)
 def list_policies(
     state: Optional[str] = Query(None, description="州代码，如 CA"),
@@ -76,6 +106,8 @@ def list_policies(
     status: Optional[str] = Query(None, description="政策状态"),
     start: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD（兼容参数）"),
+    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD（兼容参数）"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     sort_by: str = Query("publish_date", description="排序字段"),
@@ -83,8 +115,18 @@ def list_policies(
 ):
     """返回政策概要列表"""
     try:
+        start_raw = start if start is not None else start_date
+        end_raw = end if end is not None else end_date
+        try:
+            start_dt = _parse_date_param(start_raw, field="start")
+            end_dt = _parse_date_param(end_raw, field="end")
+        except ValueError as exc:
+            return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
+
         with SessionLocal() as session:
             conditions = [Document.doc_type.in_(["policy", "policy_regulation"])]
+            policy_time = _policy_time_expr()
+            policy_effective = _policy_effective_date_expr()
 
             if state:
                 conditions.append(
@@ -100,29 +142,11 @@ def list_policies(
             if status:
                 conditions.append(Document.status == status)
 
-            if start:
-                try:
-                    start_date = datetime.fromisoformat(start).date()
-                    conditions.append(
-                        or_(
-                            Document.publish_date >= start_date,
-                            cast(Document.extracted_data["policy"]["effective_date"], String) >= start,
-                        )
-                    )
-                except Exception:
-                    pass
+            if start_dt:
+                conditions.append(policy_time >= start_dt)
 
-            if end:
-                try:
-                    end_date = datetime.fromisoformat(end).date()
-                    conditions.append(
-                        or_(
-                            Document.publish_date <= end_date,
-                            cast(Document.extracted_data["policy"]["effective_date"], String) <= end,
-                        )
-                    )
-                except Exception:
-                    pass
+            if end_dt:
+                conditions.append(policy_time <= end_dt)
 
             total_query = select(func.count(Document.id)).where(and_(*conditions))
             total = session.execute(total_query).scalar() or 0
@@ -132,20 +156,20 @@ def list_policies(
 
             if sort_by == "publish_date":
                 if sort_order == "desc":
-                    query = query.order_by(Document.publish_date.desc().nullslast(), Document.id.desc())
+                    query = query.order_by(policy_time.desc().nullslast(), Document.id.desc())
                 else:
-                    query = query.order_by(Document.publish_date.asc().nullslast(), Document.id.asc())
+                    query = query.order_by(policy_time.asc().nullslast(), Document.id.asc())
             elif sort_by == "effective_date":
                 if sort_order == "desc":
                     query = query.order_by(
-                        Document.publish_date.desc().nullslast(),
-                        cast(Document.extracted_data["policy"]["effective_date"], String).desc().nullslast(),
+                        policy_effective.desc().nullslast(),
+                        policy_time.desc().nullslast(),
                         Document.id.desc(),
                     )
                 else:
                     query = query.order_by(
-                        Document.publish_date.asc().nullslast(),
-                        cast(Document.extracted_data["policy"]["effective_date"], String).asc().nullslast(),
+                        policy_effective.asc().nullslast(),
+                        policy_time.asc().nullslast(),
                         Document.id.asc(),
                     )
             elif sort_by == "title":
@@ -202,35 +226,28 @@ def list_policies(
 def get_policy_stats(
     start: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD（兼容参数）"),
+    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD（兼容参数）"),
 ):
     """获取政策统计数据"""
     try:
+        start_raw = start if start is not None else start_date
+        end_raw = end if end is not None else end_date
+        try:
+            start_dt = _parse_date_param(start_raw, field="start")
+            end_dt = _parse_date_param(end_raw, field="end")
+        except ValueError as exc:
+            return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
+
         with SessionLocal() as session:
             conditions = [Document.doc_type.in_(["policy", "policy_regulation"])]
+            policy_time = _policy_time_expr()
 
-            if start:
-                try:
-                    start_date = datetime.fromisoformat(start).date()
-                    conditions.append(
-                        or_(
-                            Document.publish_date >= start_date,
-                            cast(Document.extracted_data["policy"]["effective_date"], String) >= start,
-                        )
-                    )
-                except Exception:
-                    pass
+            if start_dt:
+                conditions.append(policy_time >= start_dt)
 
-            if end:
-                try:
-                    end_date = datetime.fromisoformat(end).date()
-                    conditions.append(
-                        or_(
-                            Document.publish_date <= end_date,
-                            cast(Document.extracted_data["policy"]["effective_date"], String) <= end,
-                        )
-                    )
-                except Exception:
-                    pass
+            if end_dt:
+                conditions.append(policy_time <= end_dt)
 
             docs_query = select(Document).where(and_(*conditions))
             docs = session.execute(docs_query).scalars().all()
@@ -262,7 +279,7 @@ def get_policy_stats(
             status_distribution = [{"status": row.status or "unknown", "count": row.count} for row in status_dist]
 
             trend_query = (
-                select(func.date_trunc("month", Document.publish_date).label("month"), func.count(Document.id).label("count"))
+                select(func.date_trunc("month", policy_time).label("month"), func.count(Document.id).label("count"))
                 .where(and_(*conditions))
                 .group_by("month")
                 .order_by("month")
@@ -304,9 +321,19 @@ def get_state_policies(
     state: str = Path(..., description="州代码，如 CA"),
     start: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD（兼容参数）"),
+    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD（兼容参数）"),
 ):
     """获取指定州的政策详情和统计"""
     try:
+        start_raw = start if start is not None else start_date
+        end_raw = end if end is not None else end_date
+        try:
+            start_dt = _parse_date_param(start_raw, field="start")
+            end_dt = _parse_date_param(end_raw, field="end")
+        except ValueError as exc:
+            return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
+
         with SessionLocal() as session:
             conditions = [
                 Document.doc_type.in_(["policy", "policy_regulation"]),
@@ -315,32 +342,15 @@ def get_state_policies(
                     cast(Document.extracted_data["policy"]["state"], String) == state.upper(),
                 ),
             ]
+            policy_time = _policy_time_expr()
 
-            if start:
-                try:
-                    start_date = datetime.fromisoformat(start).date()
-                    conditions.append(
-                        or_(
-                            Document.publish_date >= start_date,
-                            cast(Document.extracted_data["policy"]["effective_date"], String) >= start,
-                        )
-                    )
-                except Exception:
-                    pass
+            if start_dt:
+                conditions.append(policy_time >= start_dt)
 
-            if end:
-                try:
-                    end_date = datetime.fromisoformat(end).date()
-                    conditions.append(
-                        or_(
-                            Document.publish_date <= end_date,
-                            cast(Document.extracted_data["policy"]["effective_date"], String) <= end,
-                        )
-                    )
-                except Exception:
-                    pass
+            if end_dt:
+                conditions.append(policy_time <= end_dt)
 
-            query = select(Document).where(and_(*conditions)).order_by(Document.publish_date.desc().nullslast())
+            query = select(Document).where(and_(*conditions)).order_by(policy_time.desc().nullslast(), Document.id.desc())
             documents = session.execute(query).scalars().all()
             policies = [_extract_policy_data(doc) for doc in documents]
 

@@ -1,26 +1,51 @@
-# CURRENT_DEV Index
+# CURRENT_DEV Index（未封口）
+
+仅保留尚未封口的开发计划。
+
+## 当前进行中
+
+- [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
+- [2026-03-07 Atomic Task List: Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
+- [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)
+- [2026-03-07 Atomic Task List: Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/02_atomic-tasklist-typed-knowledge-organization-2026-03-07.md)
+- [2026-03-07 Graph Editing and Reporting](./2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md)
+- [2026-03-07 Atomic Task List: Graph Editing and Reporting](./2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md)
+- [2026-03-07 Ingest Digestion and Long-Cycle Automation](./2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md)
+- [2026-03-07 Atomic Task List: Ingest Digestion and Long-Cycle Automation](./2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md)
+- [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)
+- [2026-03-07 Atomic Task List: Crawler Source Expansion](./2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md)
+- [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md)
+- [2026-03-07 Atomic Task List: Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/02_atomic-tasklist-frontend-i18n-theme-modularization-2026-03-07.md)
+- [2026-03-07 LLM Service and Agent Platformization](./2026-03-07-llm-service-and-agent-platformization/01_llm-service-and-agent-platformization-plan-2026-03-07.md)
+- [2026-03-07 Atomic Task List: LLM Service and Agent Platformization](./2026-03-07-llm-service-and-agent-platformization/02_atomic-tasklist-llm-service-and-agent-platformization-2026-03-07.md)
+- [2026-03-07 Modern-Based Dual-Interaction Frontend Topology](./2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md)
+- [2026-03-07 Atomic Task List: Modern-Based Dual-Interaction Frontend Topology](./2026-03-07-dual-frontend-workbench-topology/02_atomic-tasklist-dual-frontend-workbench-topology-2026-03-07.md)
+- [2026-03-07 Abstract Planning Folderization Plan](./2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md)
+- [2026-03-07 Atomic Task List: Abstract Planning Folderization](./2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md)
+- [2026-03-07 Docs Root Restructuring Mapping](./2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
+- [2026-03-07 Builtin Writing Workbench Design](./2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md)
+- [2026-03-07 Atomic Task List: Builtin Writing Workbench](./2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md)
+- [2026-03-05 Time Statistics Remediation Plan](./2026-03-05-time-statistics-remediation-plan/01_time-statistics-remediation-plan-2026-03-05.md)
+- [2026-03-05 Atomic Task List: Time Statistics Remediation](./2026-03-05-time-statistics-remediation-plan/02_atomic-tasklist-time-statistics-remediation-2026-03-05.md)
+- [2026-03-05 Prompt-Space × Time-Window Density Spec](./2026-03-05-time-statistics-remediation-plan/03_prompt-space-time-window-density-spec-2026-03-05.md)
+- [2026-03-05 Executable Plan & Orchestration (Prompt-Time Density)](./2026-03-05-time-statistics-remediation-plan/04_executable-plan-task-orchestration-prompt-time-density-2026-03-05.md)
+- [2026-03-05 Execution Status & Realcase Validation](./2026-03-05-time-statistics-remediation-plan/05_execution-status-and-realcase-validation-2026-03-05.md)
+- [2026-03-05 T11/T12 Execution Pack](./2026-03-05-time-statistics-remediation-plan/06_t11-t12-execution-pack-2026-03-05.md)
+
+- [2026-03-05 OSS Node Platform IO Plan](./2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md)
+- [2026-03-05 L1L2L3L4 Live R1](./2026-03-05-l1l2l3l4-live-r1/README.md)
 
 - [2026-03-04 R41 OpenClaw Autodispatch Migration Bundle](./2026-03-04-r41-openclaw-autodispatch/README.md)
-- [2026-03-04 SA3-R3-F LLM Report Must Minset](./2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md)
-- [2026-03-03 Version C Atomic Plan](./2026-03-03-version-C-atomic-plan/)
-- [2026-03-04 R3 Must Minimal Implementation](./2026-03-04-r3-must-minimal-implementation/)
-  - [R3 Must 最小实现与验证（2026-03-04）](./2026-03-04-r3-must-minimal-implementation/01_r3-must-minimal-implementation-and-verification-2026-03-04.md)
-- [2026-03-03 Version A Atomic Plan](./2026-03-03-version-A-atomic-plan/)
-  - [A线第2轮：稳定性与回归验证（2026-03-03）](./2026-03-03-version-A-atomic-plan/02_A-line-round2-stability-regression-2026-03-03.md)
-- [2026-03-03 Version B Atomic Plan](./2026-03-03-version-B-atomic-plan/)
-  - [B线第2轮：可验证可集成交付记录](./2026-03-03-version-B-atomic-plan/02_B-line-round2-verifiable-integrable-delivery.md)
-  - [B线第3轮阶段1：先检索再开发（兼容演进/契约测试/门禁蓝图）](./2026-03-03-version-B-atomic-plan/03_B-line-round3-stage1-research-and-gate-blueprint.md)
-  - [B线第4轮：StreamPlus 门禁增强开发文档与原子任务表](./2026-03-03-version-B-atomic-plan/04_B-line-round4-streamplus-plan-and-atomic-task-table.md)
-  - [B线第4轮封口文档（StreamPlus 门禁增强）](./2026-03-03-version-B-atomic-plan/05_B-line-round4-streamplus-closure.md)
-  - [B线第6轮：GatePlus CI Required Checks 化（计划与原子任务表）](./2026-03-03-version-B-atomic-plan/06_B-line-round6-plan-and-atomic-task-table.md)
-  - [B线第6轮封口文档（GatePlus CI Required Checks 化）](./2026-03-03-version-B-atomic-plan/07_B-line-round6-closure.md)
-  - [B线第7轮：GatePlus Failure Diagnostics 增强（计划与原子任务表）](./2026-03-03-version-B-atomic-plan/08_B-line-round7-plan-and-atomic-task-table.md)
-  - [B线第7轮封口文档（GatePlus Failure Diagnostics 增强）](./2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md)
-  - [B线第3轮 R3：Must 最小实现与验证（质量/回滚/可观测/安全）](./2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md)
-- [2026-03-03 Version D Doc Normalization](./2026-03-03-version-D-doc-normalization/)
-- [2026-03-03 Version E Doc Normalization](./2026-03-03-version-E-doc-normalization/)
-- [2026-03-03 Version F Doc Normalization](./2026-03-03-version-F-doc-normalization/)
-- [2026-03-04 D Line RAG Filter Robustness](./2026-03-04-d-line-rag-filter-robustness/01_task_and_closing.md)
-- [2026-03-04 CD R3 D Security Minimal](./2026-03-04-cd-r3-d-security-minimal/01_repo-mapping-and-minimal-implementation.md)
-- [2026-03-04 CD R5 D Provenance Enforcement](./2026-03-04-cd-r5-d-provenance-enforcement/01_repo-mapping-and-minimal-enforcement.md)
 - [2026-03-04 RAG Line Round3 Filter Robustness](./2026-03-04-rag-line-round3-filter-robustness/01_rag-filter-robustness-minimal-enhancement-2026-03-04.md)
+
+- [2026-03-01 Open Source Platform Integration](./2026-03-01-open-source-platform-integration/01_multi-agent-taskboard-open-source-platform-integration-2026-03-01.md)
+- [2026-03-02 Single URL First Ingest](./2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)
+- [2026-03-02 Source Time Window Smart Timestamp](./2026-03-02-source-time-window-smart-timestamp-plan/01_source-time-window-smart-timestamp-plan-2026-03-02.md)
+- [2026-03-02 Graph Node Standardization](./2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
+- [2026-03-02 Global Vectorization](./2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-03.md)
+- [2026-03-02 Graph 3D Force Engine](./2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
+- [2026-03-03 Platformization First Vectorization GM](./2026-03-03-platformization-first-vectorization-gm/01_platformization-first-vectorization-gm-2026-03-03.md)
+
+## 已封口归档
+
+已封口开发计划已移至 [ARCHIVE_CLOSED](../ARCHIVE_CLOSED/INDEX.md)。

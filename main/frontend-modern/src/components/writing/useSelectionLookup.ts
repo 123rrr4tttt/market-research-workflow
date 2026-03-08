@@ -80,7 +80,7 @@ export function useSelectionLookup<T>({
   }, [debounceMs, dedupeWindowMs, normalizedSelection, selectionHash, shouldLookup])
 
   return {
-    data,
+    data: shouldLookup ? data : null,
     error: shouldLookup ? error : null,
     status: shouldLookup ? status : 'idle',
     selectionHash,
