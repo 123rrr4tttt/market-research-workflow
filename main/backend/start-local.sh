@@ -61,6 +61,7 @@ NON_INTERACTIVE=0
 FORCE=0
 WITH_LOCAL_WORKER=1
 AUTO_INSTALL_DEPS=1
+KEEP_DOCKER_DEPS=0
 
 usage() {
     cat <<'EOF'
@@ -69,6 +70,7 @@ Usage: ./start-local.sh [options]
 Options:
   --low-memory          关闭自动重载，降低内存占用
   --with-docker-deps    自动启动 Docker 依赖（db/es/redis）
+  --keep-docker-deps    纯本机模式下保留 Docker 依赖（默认会自动停止，避免模式混用）
   --non-interactive     非交互模式，端口冲突时直接失败退出
   --force               强制模式，端口冲突时自动处理并继续
   --with-local-worker   同时启动本机 Celery worker（默认已开启）
@@ -89,6 +91,10 @@ while [ $# -gt 0 ]; do
             ;;
         --with-docker-deps)
             USE_DOCKER_DEPS=1
+            shift
+            ;;
+        --keep-docker-deps)
+            KEEP_DOCKER_DEPS=1
             shift
             ;;
         --non-interactive)
@@ -345,6 +351,40 @@ ensure_local_postgres_running() {
         brew services list 2>/dev/null | awk '/^postgresql(@[0-9]+)?[[:space:]]/ {print "  - "$0}'
     fi
     return 1
+}
+
+stop_conflicting_docker_deps_for_local_mode() {
+    if [ "$KEEP_DOCKER_DEPS" = "1" ]; then
+        echo "ℹ️  --keep-docker-deps 已启用：保留 Docker db/es/redis（可能导致本机/容器模式混用）"
+        return 0
+    fi
+
+    if [ ! -f "$OPS_DIR/docker-compose.yml" ]; then
+        return 0
+    fi
+    if ! docker info >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local db_running=0
+    local es_running=0
+    local redis_running=0
+    set +e
+    db_running=$(cd "$OPS_DIR" && compose ps -q db 2>/dev/null | wc -l | tr -d ' ')
+    es_running=$(cd "$OPS_DIR" && compose ps -q es 2>/dev/null | wc -l | tr -d ' ')
+    redis_running=$(cd "$OPS_DIR" && compose ps -q redis 2>/dev/null | wc -l | tr -d ' ')
+    set -e
+
+    if [ "${db_running:-0}" -eq 0 ] && [ "${es_running:-0}" -eq 0 ] && [ "${redis_running:-0}" -eq 0 ]; then
+        return 0
+    fi
+
+    echo "🔀 检测到 Docker 依赖服务正在运行（db/es/redis），为避免本机/容器模式混用，将自动停止它们。"
+    cd "$OPS_DIR"
+    compose stop db es redis >/dev/null 2>&1 || true
+    cd "$SCRIPT_DIR"
+    sleep 1
+    echo "✅ 已停止 Docker db/es/redis，切换为纯本机依赖模式"
 }
 
 ensure_local_redis_running() {
@@ -719,6 +759,7 @@ if [ "$USE_DOCKER_DEPS" = "1" ]; then
 else
     echo ""
     echo "📦 使用纯本机依赖模式（不启动 Docker db/es/redis）"
+    stop_conflicting_docker_deps_for_local_mode
     ensure_local_postgres_running || exit 1
     ensure_postgres_user_ready || exit 1
     ensure_local_redis_running || exit 1

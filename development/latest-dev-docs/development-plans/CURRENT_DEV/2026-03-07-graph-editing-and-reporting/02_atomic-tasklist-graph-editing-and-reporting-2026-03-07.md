@@ -1,40 +1,231 @@
 # Atomic Task List: Graph Editing and Reporting (2026-03-07)
 
-## 定位
+## Execution Status Snapshot
 
-本任务清单用于把图谱编辑、同步、报告联动需求整理成后续可继续细化的主题文档。
+- `A1`: pending, freeze current baseline and editable object boundary.
+- `A2-A3`: pending, minimum edit contract and sync/error contract are the first serial core.
+- `A4-A5`: pending, governance track and evidence-pack track can start only after the core contract is frozen.
+- `A6`: pending, first graph-to-writing/reporting handoff path depends on the evidence pack shape.
+- `A7`: pending, minimum validation and closure happens after `A1-A6` are aligned.
 
-## 全局规则
+## Global Serial-Parallel Rules
 
-- 先确认图谱当前基线，再补编辑闭环。
-- 编辑、同步、审计、报告消费四层要分开写清。
-- 与知识组织主题保持主次边界。
+- `L0` serial bootstrap:
+  - `A1` must complete first.
+- `L1` serial core:
+  - `A2 -> A3`
+- `L2` parallel expansion:
+  - governance track: `A4`
+  - consumer track: `A5`
+- `L3` serial merge:
+  - `A6` depends on both `A3` and `A5`
+- `L4` serial closure:
+  - `A7` runs after `A1-A6`
 
-## Task A1: Confirm Graph Baseline
+## Global Module Boundaries
 
-- 目标: 识别当前图谱已有能力与缺失能力。
-- 输出:
-  - one current-state summary
-  - one editing gap list
-- 验收:
-  - 已有能力与新增诉求区分明确
+- graph UI boundary:
+  - owns draft state, editing affordances, and local user feedback;
+  - does not define downstream report payloads.
+- graph sync boundary:
+  - owns backend-safe edit requests, validation responses, conflict responses, and revision semantics;
+  - does not redefine knowledge taxonomy.
+- graph governance boundary:
+  - owns audit, rollback, and version vocabulary for curated graph edits;
+  - does not replace template management with assumed business governance unless explicitly mapped.
+- writing/reporting boundary:
+  - consumes graph evidence packs or equivalent stable payloads;
+  - must not consume raw frontend draft objects as the canonical interface.
 
-## Task A2: Freeze Minimum Editing Contract
+## Global Minimum Validation Rules
 
-- 目标: 明确节点/关系创建、删除、修改的最小合同。
-- 验收:
-  - 至少一条编辑链路
-  - 至少一个同步反馈点
+Each task should leave behind:
 
-## Task A3: Clarify Reporting Handoff
+- one structural verification:
+  - file anchor, symbol search, or contract check;
+- one flow verification:
+  - a short step list proving where the task connects to the next boundary.
 
-- 目标: 明确图谱结果进入写作或报告生成时的中间形态。
-- 验收:
-  - 至少一个图谱到报告的最小传递路径
+## Task A1: Freeze Baseline and Editable Object Boundary
 
-## Task A4: Define Minimal Validation
+- Goal: Confirm what the repository already supports and freeze which graph object class is editable in this theme.
+- status: pending
+- depends_on: `[]`
+- blocks: `["A2","A7"]`
+- Input:
+  - `01_graph-editing-and-reporting-plan-2026-03-07.md`
+  - `main/frontend-modern/src/pages/GraphPage.tsx`
+  - `main/frontend-modern/src/pages/graph/hooks/useGraphDraft.ts`
+  - `main/backend/app/services/graph/persistence/*`
+- Output:
+  - one baseline delta summary
+  - one editable-object boundary note covering template graph, generated graph snapshot, and curated business graph
+- Acceptance:
+  - existing draft editing ability is clearly separated from still-missing business contract semantics
+  - template/version behavior is not silently treated as business governance
+- Module boundary:
+  - documentation only, no new runtime behavior
+- Minimum verification:
+  - `rg -n "editMode|graphEditStatus|saveVersion|activateVersion" main/frontend-modern/src/pages/GraphPage.tsx`
+  - `rg -n "createNode|updateNodeByKey|removeNodesByKeys|createEdgeByNodeKeys|resetDraft|markSaved" main/frontend-modern/src/pages/graph/hooks/useGraphDraft.ts`
 
-- 目标: 预留后续实现的最小验证步骤。
-- 验收:
-  - 至少一个编辑验证
-  - 至少一个图谱结果消费验证
+## Task A2: Define the Minimum Node and Edge Edit Contract
+
+- Goal: Freeze the minimum create/update/delete contract for nodes and edges.
+- status: pending
+- depends_on: `["A1"]`
+- blocks: `["A3","A4","A5"]`
+- Input:
+  - frozen editable-object boundary from `A1`
+  - frontend draft operations already exposed by `useGraphDraft.ts`
+  - backend graph persistence anchors under `main/backend/app/services/graph/persistence/`
+- Output:
+  - one node contract note
+  - one edge contract note
+  - one rule set for temporary client ids versus durable backend ids
+- Acceptance:
+  - user-editable fields are separated from derived/system-managed fields
+  - delete semantics for node-connected edges are explicit
+  - duplicate edge and missing-node cases are called out
+- Module boundary:
+  - graph edit contract only; no audit or reporting payload design here
+- Minimum verification:
+  - structural:
+    - compare draft operations with proposed contract fields
+  - flow:
+    - describe one `create node -> create edge -> delete node` path and resulting backend expectations
+
+## Task A3: Define Draft, Submit, Sync, and Error Semantics
+
+- Goal: Turn the existing draft editor into a controlled submit contract with explicit feedback categories.
+- status: pending
+- depends_on: `["A2"]`
+- blocks: `["A4","A6"]`
+- Input:
+  - edit contract from `A2`
+  - current frontend draft lifecycle in `useGraphDraft.ts`
+  - current API anchors in `main/backend/app/api/admin.py`
+- Output:
+  - one draft lifecycle note
+  - one submit response vocabulary covering success, validation failure, object missing, and version conflict
+  - one recommendation on revision or version token handling
+- Acceptance:
+  - the doc no longer treats "submit failed" as a generic toast-level outcome
+  - conflict behavior is explicit about reload, merge, or overwrite expectations
+  - success responses are distinct from save-local-only state changes
+- Module boundary:
+  - sync semantics only; downstream evidence shaping stays out of scope
+- Minimum verification:
+  - structural:
+    - confirm `admin.py` remains the current graph-adjacent API anchor
+  - flow:
+    - write one `edit -> submit -> success` path and one `edit -> submit -> conflict` path
+
+## Task A4: Define Minimum Audit, Rollback, and Version Semantics
+
+- Goal: Add the minimum governance layer required for trusted graph edits.
+- status: pending
+- depends_on: `["A3"]`
+- blocks: `["A7"]`
+- Input:
+  - sync/error contract from `A3`
+  - graph persistence anchors
+  - current template/version behavior in `GraphPage.tsx`
+- Output:
+  - one audit field list
+  - one rollback scope decision
+  - one version-semantics note describing whether template versions and curated graph versions are separate or mapped
+- Acceptance:
+  - audit covers actor, object scope, timestamp, and project/context minimums
+  - rollback scope is explicit
+  - template version operations are not assumed to equal curated graph governance without written mapping
+- Module boundary:
+  - governance only; no writing/reporting payload design here
+- Minimum verification:
+  - structural:
+    - review template/version anchors in `GraphPage.tsx`
+  - flow:
+    - describe one `submit -> audit record -> rollback target` path
+
+## Task A5: Define the Graph Evidence Pack
+
+- Goal: Define the only approved graph-shaped payload that writing/reporting may consume.
+- status: pending
+- depends_on: `["A2"]`
+- blocks: `["A6","A7"]`
+- Input:
+  - edit contract from `A2`
+  - writing/reporting anchors:
+    - `main/backend/app/contracts/schemas/writing.py`
+    - `main/backend/app/services/writing/keyword_card_service.py`
+    - `main/backend/app/api/llm_report.py`
+    - `main/backend/app/services/llm_report_source_enrichment.py`
+- Output:
+  - one graph evidence pack definition
+  - one allowed field list for downstream consumption
+  - one rule stating what raw graph UI fields must not cross the boundary
+- Acceptance:
+  - writing/reporting consumers receive evidence-oriented payloads, not raw draft objects
+  - the payload can represent selected nodes, relations, and provenance at a minimum
+  - the pack is narrow enough to stay stable when UI editing details change
+- Module boundary:
+  - consumer-facing payload only; no audit/version semantics here
+- Minimum verification:
+  - `rg -n "source_type: Literal\\[\"document\", \"resource\", \"graph\"\\]" main/backend/app/contracts/schemas/writing.py`
+  - `rg -n "source_type=.*graph|source_type == \\\"graph\\\"" main/backend/app/services/writing/keyword_card_service.py`
+
+## Task A6: Define the First Graph-to-Writing/Reporting Handoff Path
+
+- Goal: Document one minimum flow from edited graph output to a downstream writing/report consumer.
+- status: pending
+- depends_on: `["A3","A5"]`
+- blocks: `["A7"]`
+- Input:
+  - sync/error contract from `A3`
+  - graph evidence pack from `A5`
+  - `main/backend/app/api/writing.py`
+  - `main/backend/app/api/llm_report.py`
+- Output:
+  - one first-consumer path note
+  - one entry decision:
+    - graph page pushes to consumer
+    - writing/report page pulls prepared graph evidence
+    - or a narrow backend bridge prepares the handoff
+- Acceptance:
+  - the first consumer path names the handoff owner explicitly
+  - the handoff does not bypass evidence-pack shaping
+  - downstream failure modes are separated from graph submit failure modes
+- Module boundary:
+  - first consumer integration note only; does not redesign the full writing workbench
+- Minimum verification:
+  - structural:
+    - confirm `api/writing.py` and `api/llm_report.py` remain the downstream entry anchors
+  - flow:
+    - describe one `graph selection -> evidence pack -> writing/report input` path
+
+## Task A7: Close with Minimum Validation and Phase-1 Readiness
+
+- Goal: Produce the minimum validation checklist that proves the theme is implementation-ready.
+- status: pending
+- depends_on: `["A1","A2","A3","A4","A5","A6"]`
+- blocks: `[]`
+- Input:
+  - all prior task outputs
+  - updated `01` and `02` docs
+- Output:
+  - one phase-1 readiness checklist
+  - one minimum structural validation set
+  - one minimum flow validation set
+  - one explicit carry-over list for phase 2
+- Acceptance:
+  - the docs can answer, in order:
+    - what is editable
+    - what is synchronizable
+    - what is auditable
+    - what is consumable downstream
+  - at least one structural check and one flow check are present
+  - phase-2 items are explicitly excluded from phase 1
+- Module boundary:
+  - development docs only
+- Minimum verification:
+  - `git diff --check -- development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md`

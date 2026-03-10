@@ -2,6 +2,14 @@
 
 from .api import error_response, success_response
 from .errors import ErrorCode, map_exception_to_error
+from .ingest_digestion import (
+    ContentFormat,
+    DigestionDecision,
+    DigestionStage,
+    IngestInputKind,
+    IngestTimeSemantics,
+    NormalizedIngestEnvelope,
+)
 from .responses import ApiEnvelope, ApiErrorModel, ApiMetaModel, PaginationMetaModel, TaskResultData, fail, ok, ok_page
 from .tasks import task_result_response
 
@@ -9,7 +17,13 @@ __all__ = [
     "ApiEnvelope",
     "ApiErrorModel",
     "ApiMetaModel",
+    "ContentFormat",
+    "DigestionDecision",
+    "DigestionStage",
     "ErrorCode",
+    "IngestInputKind",
+    "IngestTimeSemantics",
+    "NormalizedIngestEnvelope",
     "PaginationMetaModel",
     "TaskResultData",
     "error_response",

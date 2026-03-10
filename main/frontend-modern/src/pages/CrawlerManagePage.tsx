@@ -77,11 +77,16 @@ export default function CrawlerManagePage({ projectKey }: Props) {
 
   useEffect(() => {
     const next = getLocalJson<CrawlerManageStateCache | null>(`crawler_manage_state_v2:${projectKey}`, null)
-    setDraft(next?.draft || defaultDraft())
-    setSelectedCrawlerProjectKey(next?.selectedCrawlerProjectKey || '')
-    setDeployVersion(next?.deployVersion || '')
-    setRollbackVersion(next?.rollbackVersion || '')
-    setPlannerMode(next?.plannerMode || 'heuristic')
+    const timerId = window.setTimeout(() => {
+      setDraft(next?.draft || defaultDraft())
+      setSelectedCrawlerProjectKey(next?.selectedCrawlerProjectKey || '')
+      setDeployVersion(next?.deployVersion || '')
+      setRollbackVersion(next?.rollbackVersion || '')
+      setPlannerMode(next?.plannerMode || 'heuristic')
+    }, 0)
+    return () => {
+      window.clearTimeout(timerId)
+    }
   }, [projectKey])
 
   const crawlerProjects = useQuery({

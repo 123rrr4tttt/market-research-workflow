@@ -63,6 +63,40 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertTrue(result["middle_layer_protocol"]["force_single_url_flow"])
         resolve_channel.assert_not_called()
 
+    def test_list_effective_channels_attaches_source_tiering_contract(self):
+        shared_channels = [
+            {
+                "channel_key": "crawler.demo_proj",
+                "name": "Crawler",
+                "kind": "collect",
+                "provider": "crawler",
+                "provider_type": "scrapy",
+                "provider_config": {},
+                "execution_policy": {},
+                "description": None,
+                "credential_refs": [],
+                "default_params": {},
+                "param_schema": {},
+                "extends_channel_key": None,
+                "enabled": True,
+                "extra": {},
+                "scope": "shared",
+            }
+        ]
+        with (
+            patch("app.services.source_library.resolver._load_shared_channels", return_value=shared_channels),
+            patch("app.services.source_library.resolver._load_project_channels", return_value=[]),
+        ):
+            channels = resolver.list_effective_channels(scope="effective", project_key="demo_proj")
+
+        channel = next(ch for ch in channels if ch["channel_key"] == "crawler.demo_proj")
+        self.assertEqual(channel["source_tier"], "tier_2_directed_high_value")
+        self.assertEqual(channel["onboarding_priority"], "p1_next")
+        self.assertEqual(
+            channel["extra"]["source_tiering"]["tier"],
+            "tier_2_directed_high_value",
+        )
+
     def test_force_single_url_flow_can_be_disabled_explicitly(self):
         item = {"item_key": "url_pool.default", "channel_key": "url_pool"}
         params = {
@@ -137,6 +171,105 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(result["skipped"], 0)
         self.assertEqual(used_channel_keys, ["generic_web.rss"])
         self.assertFalse(result["middle_layer_protocol"]["prefer_crawler_first"])
+        resolve_channel.assert_called_once()
+
+    def test_default_url_routing_falls_back_to_crawler_when_mechanical_has_no_results(self):
+        item = {"item_key": "report1.root_site_search", "channel_key": "handler.cluster"}
+        params = {
+            "urls": ["https://example.com/a"],
+            "prefer_crawler_first": False,
+        }
+        channel_map = {
+            "crawler.demo_proj": {
+                "channel_key": "crawler.demo_proj",
+                "enabled": True,
+                "provider_type": "scrapy",
+                "default_params": {},
+            },
+            "generic_web.rss": {
+                "channel_key": "generic_web.rss",
+                "enabled": True,
+                "provider_type": "native",
+                "default_params": {},
+            },
+        }
+
+        used_channel_keys: list[str] = []
+
+        def _fake_run_channel(*, channel, params, project_key, item_key):  # noqa: ANN001
+            channel_key = str(channel.get("channel_key"))
+            used_channel_keys.append(channel_key)
+            if channel_key == "generic_web.rss":
+                return {"inserted": 0, "updated": 0, "skipped": 1}
+            return {"inserted": 1, "updated": 0, "skipped": 0}
+
+        with (
+            patch("app.services.source_library.resolver.run_channel", side_effect=_fake_run_channel),
+            patch("app.services.source_library.resolver.resolve_channel_for_url", return_value="generic_web.rss") as resolve_channel,
+        ):
+            result = resolver.run_item_with_url_routing(
+                item=item,
+                params=params,
+                project_key="demo_proj",
+                channel_map=channel_map,
+            )
+
+        self.assertEqual(result["inserted"], 1)
+        self.assertEqual(result["updated"], 0)
+        self.assertEqual(result["skipped"], 0)
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(used_channel_keys, ["generic_web.rss", "crawler.demo_proj"])
+        self.assertEqual(result["by_url"][0]["channel_key"], "crawler.demo_proj")
+        self.assertEqual(result["by_url"][0]["fallback_from_channel_key"], "generic_web.rss")
+        self.assertEqual(result["by_url"][0]["fallback_reason"], "mechanical_no_results")
+        resolve_channel.assert_called_once()
+
+    def test_default_url_routing_can_disable_crawler_fallback_on_empty(self):
+        item = {"item_key": "report1.root_site_search", "channel_key": "handler.cluster"}
+        params = {
+            "urls": ["https://example.com/a"],
+            "prefer_crawler_first": False,
+            "force_crawler_fallback_on_empty": False,
+        }
+        channel_map = {
+            "crawler.demo_proj": {
+                "channel_key": "crawler.demo_proj",
+                "enabled": True,
+                "provider_type": "scrapy",
+                "default_params": {},
+            },
+            "generic_web.rss": {
+                "channel_key": "generic_web.rss",
+                "enabled": True,
+                "provider_type": "native",
+                "default_params": {},
+            },
+        }
+
+        used_channel_keys: list[str] = []
+
+        def _fake_run_channel(*, channel, params, project_key, item_key):  # noqa: ANN001
+            channel_key = str(channel.get("channel_key"))
+            used_channel_keys.append(channel_key)
+            return {"inserted": 0, "updated": 0, "skipped": 1}
+
+        with (
+            patch("app.services.source_library.resolver.run_channel", side_effect=_fake_run_channel),
+            patch("app.services.source_library.resolver.resolve_channel_for_url", return_value="generic_web.rss") as resolve_channel,
+        ):
+            result = resolver.run_item_with_url_routing(
+                item=item,
+                params=params,
+                project_key="demo_proj",
+                channel_map=channel_map,
+            )
+
+        self.assertEqual(result["inserted"], 0)
+        self.assertEqual(result["updated"], 0)
+        self.assertEqual(result["skipped"], 1)
+        self.assertEqual(used_channel_keys, ["generic_web.rss"])
+        self.assertEqual(result["by_url"][0]["channel_key"], "generic_web.rss")
+        self.assertNotIn("fallback_from_channel_key", result["by_url"][0])
         resolve_channel.assert_called_once()
 
     def test_prefer_crawler_first_falls_back_to_resolved_channel_when_crawler_runtime_unavailable(self):
@@ -259,6 +392,39 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         run_single.assert_not_called()
         self.assertEqual(result.get("result"), fake_result)
         self.assertEqual(result.get("params", {}).get("urls"), ["https://example.com/a"])
+
+    def test_run_item_payload_injects_channel_source_tiering_into_protocol(self):
+        item = {
+            "item_key": "handler.cluster.news",
+            "channel_key": "handler.cluster",
+            "enabled": True,
+            "params": {"urls": ["https://example.com/a"]},
+            "extra": {},
+        }
+        channels = [
+            {
+                "channel_key": "handler.cluster",
+                "enabled": True,
+                "default_params": {},
+                "source_tier": "tier_2_directed_high_value",
+                "onboarding_priority": "p1_next",
+                "extra": {
+                    "source_tiering": {
+                        "tier": "tier_2_directed_high_value",
+                        "onboarding_priority": "p1_next",
+                        "reason": "directed high-value provider path",
+                    }
+                },
+            }
+        ]
+        fake_result = {"inserted": 1, "updated": 0, "skipped": 0, "by_url": [], "errors": []}
+
+        with patch("app.services.source_library.resolver.run_item_with_url_routing", return_value=fake_result):
+            result = resolver.run_item_payload(item=item, channels=channels, project_key=None, override_params=None)
+
+        protocol = result["result"]["middle_layer_protocol"]
+        self.assertEqual(protocol["source_tier"], "tier_2_directed_high_value")
+        self.assertEqual(protocol["onboarding_priority"], "p1_next")
 
     def test_url_pool_static_url_list_can_be_frozen_explicitly(self):
         item = {

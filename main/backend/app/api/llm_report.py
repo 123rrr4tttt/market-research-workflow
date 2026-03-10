@@ -7,6 +7,15 @@ from pydantic import AnyHttpUrl, BaseModel, Field, field_validator
 
 from ..contracts.responses import ok
 from ..services.job_logger import complete_job, fail_job, start_job
+from ..services.llm.config_loader import get_llm_config
+from ..services.llm.platformization import (
+    build_trace_audit_record,
+    evaluate_agent_permission_boundary,
+    normalize_agent_role,
+    resolve_consumer_adapter_boundary,
+    resolve_request_identity,
+    resolve_routing_decision,
+)
 from ..services.llm_report_generator import (
     build_structured_report,
     evaluate_report_gate,
@@ -80,9 +89,38 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
     if not settings.llm_report_enabled:
         raise HTTPException(status_code=503, detail="llm report is temporarily disabled by config")
 
-    trace_id = None
+    header_request_id = None
+    header_project_key = None
+    header_trace_id = None
+    header_actor_id = None
     if request is not None:
-        trace_id = (request.headers.get("X-Request-Id") or "").strip() or None
+        header_request_id = (request.headers.get("X-Request-Id") or "").strip() or None
+        header_trace_id = (request.headers.get("X-Trace-Id") or "").strip() or None
+        header_project_key = (request.headers.get("X-Project-Key") or "").strip() or None
+        header_actor_id = (request.headers.get("X-Actor-Id") or "").strip() or None
+    identity = resolve_request_identity(
+        consumer="llm_report.generate",
+        trace_id=header_trace_id,
+        request_id=header_request_id,
+        project_key=header_project_key,
+        actor_id=header_actor_id,
+        trace_fallback_seed=f"llm-report:{payload.topic[:32]}",
+    )
+    boundary = resolve_consumer_adapter_boundary(identity.consumer)
+    agent_boundary = evaluate_agent_permission_boundary(
+        consumer=identity.consumer,
+        agent_role=normalize_agent_role(None, consumer=identity.consumer),
+        requested_permissions=["llm.invoke", "project.read"],
+    )
+    routing = resolve_routing_decision(
+        service_name="llm_report_generation",
+        capability="report_generation",
+        request_overrides={},
+        service_config=get_llm_config("llm_report_generation"),
+        default_provider=settings.llm_provider,
+        default_model=None,
+    )
+    trace_id = identity.trace_id
 
     gate_mode, gate_mode_raw, gate_mode_fallback = _resolve_gate_mode(settings.llm_report_gate_mode)
     requested_sources = [item.model_dump() for item in payload.sources]
@@ -115,6 +153,14 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                 "gate_mode_raw": gate_mode_raw,
                 "gate_mode_fallback": gate_mode_fallback,
                 "trace_id": trace_id,
+                "request_id": identity.request_id,
+                "project_key": identity.project_key,
+                "consumer": identity.consumer,
+                "service_name": routing.service_name,
+                "capability": routing.capability,
+                "route_kind": routing.route_kind,
+                "adapter_boundary": boundary.to_observability(),
+                "agent_boundary": agent_boundary.to_observability(),
             },
         )
         report = build_structured_report(
@@ -129,6 +175,8 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
         gate_result = {
             **quality_gate_metrics,
             "trace_id": trace_id,
+            "request_id": identity.request_id,
+            "project_key": identity.project_key,
             "gate_mode": gate_mode,
             "gate_mode_raw": gate_mode_raw,
             "gate_mode_fallback": gate_mode_fallback,
@@ -158,7 +206,20 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                     "observability": {
                         "job_id": job_id,
                         "trace_id": trace_id,
+                        "request_id": identity.request_id,
+                        "project_key": identity.project_key,
                         "gate_mode": gate_mode,
+                        "identity": identity.to_dict(),
+                        "consumer_boundary": boundary.to_observability(),
+                        "agent_boundary": agent_boundary.to_observability(),
+                        "routing": routing.to_observability(),
+                        "audit": build_trace_audit_record(
+                            identity=identity,
+                            routing=routing,
+                            status="blocked",
+                            degraded=False,
+                            error_code="QUALITY_GATE_BLOCKED",
+                        ),
                     },
                 },
             )
@@ -174,9 +235,21 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                 "observability": {
                     "job_id": job_id,
                     "trace_id": trace_id,
+                    "request_id": identity.request_id,
+                    "project_key": identity.project_key,
                     "gate_mode": gate_mode,
                     "gate_mode_raw": gate_mode_raw,
                     "gate_mode_fallback": gate_mode_fallback,
+                    "identity": identity.to_dict(),
+                    "consumer_boundary": boundary.to_observability(),
+                    "agent_boundary": agent_boundary.to_observability(),
+                    "routing": routing.to_observability(),
+                    "audit": build_trace_audit_record(
+                        identity=identity,
+                        routing=routing,
+                        status="succeeded",
+                        degraded=False,
+                    ),
                 },
             }
         )
@@ -193,6 +266,17 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                 "message": "failed to generate llm report",
                 "error_code": "LLM_REPORT_INTERNAL_ERROR",
                 "trace_id": trace_id,
+                "request_id": identity.request_id,
+                "project_key": identity.project_key,
                 "job_id": job_id,
+                "routing": routing.to_observability(),
+                "audit": build_trace_audit_record(
+                    identity=identity,
+                    routing=routing,
+                    status="failed",
+                    degraded=False,
+                    error_code="LLM_REPORT_INTERNAL_ERROR",
+                    error_detail=str(exc),
+                ),
             },
         ) from exc

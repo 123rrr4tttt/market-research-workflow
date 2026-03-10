@@ -3,6 +3,16 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from ...llm.config_loader import get_llm_config
+from ...llm.platformization import (
+    build_trace_audit_record,
+    evaluate_agent_permission_boundary,
+    normalize_agent_role,
+    resolve_consumer_adapter_boundary,
+    resolve_request_identity,
+    resolve_routing_decision,
+)
+from ....settings.config import settings
 from .base import BaseNodeExecutor, NodeExecutionContext
 
 
@@ -43,32 +53,93 @@ class LLMCallExecutor(BaseNodeExecutor):
         _assert_prompt_template_inputs(params=params, context=context)
         prompt = _build_prompt(params=params, context=context)
         normalized = _normalize_provider_params(params)
-        model = _as_str_or_none(normalized.get("model"))
-        temperature = _to_float(normalized.get("temperature"), default=0.0)
-        max_tokens = _to_int_or_none(normalized.get("max_tokens"))
-        top_p = _to_float_or_none(normalized.get("top_p"))
         prompt_class = _as_str_or_none(params.get("prompt_class"))
-        provider = _as_str_or_none(params.get("provider"))
+        service_name = _as_str_or_none(params.get("service_name")) or prompt_class or "workflow_llm_call"
+        identity = resolve_request_identity(
+            consumer="workflow_graph.llm_call",
+            trace_id=_as_str_or_none(context.inputs.get("trace_id")),
+            request_id=_as_str_or_none(context.inputs.get("request_id")),
+            project_key=_as_str_or_none(context.inputs.get("project_key")),
+            actor_id=_as_str_or_none(context.inputs.get("actor_id")),
+            trace_fallback_seed=f"{context.run_id}:{context.node_id}",
+        )
+        boundary = resolve_consumer_adapter_boundary(identity.consumer)
+        requested_permissions = _collect_requested_permissions(params=params, context=context)
+        agent_boundary = evaluate_agent_permission_boundary(
+            consumer=identity.consumer,
+            agent_role=normalize_agent_role(
+                _as_str_or_none(params.get("agent_role")) or _as_str_or_none(context.inputs.get("agent_role")),
+                consumer=identity.consumer,
+            ),
+            requested_permissions=requested_permissions,
+        )
+        routing = resolve_routing_decision(
+            service_name=service_name,
+            capability="workflow_llm_call",
+            request_overrides={
+                "provider": _as_str_or_none(normalized.get("provider")),
+                "model": _as_str_or_none(normalized.get("model")),
+                "temperature": normalized.get("temperature"),
+                "max_tokens": normalized.get("max_tokens"),
+                "top_p": normalized.get("top_p"),
+            },
+            service_config=get_llm_config(service_name),
+            default_provider=settings.llm_provider,
+            default_model=None,
+        )
+        invoke_opts = routing.invoke_options()
+        model = _as_str_or_none(invoke_opts.get("model"))
+        temperature = _to_float(invoke_opts.get("temperature"), default=0.0)
+        max_tokens = _to_int_or_none(invoke_opts.get("max_tokens"))
+        top_p = _to_float_or_none(invoke_opts.get("top_p"))
+        provider = routing.provider
 
-        try:
-            text = _invoke_llm(
-                prompt,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                extra={
-                    key: value
-                    for key, value in normalized.items()
-                    if key not in {"provider", "model", "temperature", "top_p", "max_tokens", "prompt_class", "prompt_template", "prompt", "input_vars", "output_vars"}
-                },
-            )
-            degraded = False
-            reason = None
-        except Exception as exc:  # noqa: BLE001
+        if not agent_boundary.allowed:
             degraded = True
-            reason = str(exc)
+            reason = f"agent_permission_denied:{','.join(agent_boundary.denied_reasons)}"
             text = _fallback_text(prompt, context)
+            audit = build_trace_audit_record(
+                identity=identity,
+                routing=routing,
+                status="blocked",
+                degraded=True,
+                error_code="AGENT_PERMISSION_DENIED",
+                error_detail=reason,
+            )
+        else:
+            try:
+                text = _invoke_llm(
+                    prompt,
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    top_p=top_p,
+                    extra={
+                        key: value
+                        for key, value in normalized.items()
+                        if key not in {"provider", "model", "temperature", "top_p", "max_tokens", "prompt_class", "prompt_template", "prompt", "input_vars", "output_vars"}
+                    },
+                )
+                degraded = False
+                reason = None
+                audit = build_trace_audit_record(
+                    identity=identity,
+                    routing=routing,
+                    status="succeeded",
+                    degraded=False,
+                )
+            except Exception as exc:  # noqa: BLE001
+                degraded = True
+                reason = str(exc)
+                text = _fallback_text(prompt, context)
+                audit = build_trace_audit_record(
+                    identity=identity,
+                    routing=routing,
+                    status="degraded",
+                    degraded=True,
+                    error_code="LLM_CALL_DEGRADED",
+                    error_detail=reason,
+                )
 
         return {
             "node_type": self.node_type,
@@ -82,6 +153,20 @@ class LLMCallExecutor(BaseNodeExecutor):
             "text": text,
             "degraded": degraded,
             "degraded_reason": reason,
+            "trace_id": identity.trace_id,
+            "request_id": identity.request_id,
+            "project_key": identity.project_key,
+            "service_name": routing.service_name,
+            "capability": routing.capability,
+            "route_kind": routing.route_kind,
+            "meta": {
+                "trace_id": identity.trace_id,
+                "request_id": identity.request_id,
+                "project_key": identity.project_key,
+                "llm": {"identity": identity.to_dict(), "routing": routing.to_observability(), "audit": audit},
+                "consumer_boundary": boundary.to_observability(),
+                "agent_boundary": agent_boundary.to_observability(),
+            },
         }
 
 
@@ -141,6 +226,19 @@ def _build_prompt_scope(*, context: NodeExecutionContext, params: dict[str, Any]
     for node_id, value in context.upstream_results.items():
         scope[f"upstream_{node_id}"] = value
     return scope
+
+
+def _collect_requested_permissions(*, params: dict[str, Any], context: NodeExecutionContext) -> list[str]:
+    requested: list[str] = ["llm.invoke", "project.read"]
+    if params.get("provider") or params.get("model"):
+        requested.append("provider.route_override")
+    raw_from_params = params.get("permission_scope")
+    if isinstance(raw_from_params, list):
+        requested.extend(str(item or "").strip() for item in raw_from_params)
+    raw_from_inputs = context.inputs.get("permission_scope")
+    if isinstance(raw_from_inputs, list):
+        requested.extend(str(item or "").strip() for item in raw_from_inputs)
+    return requested
 
 
 def _safe_format(template: str, scope: dict[str, Any]) -> str:

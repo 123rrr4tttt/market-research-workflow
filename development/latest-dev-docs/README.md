@@ -24,6 +24,12 @@
 
 ## 最新补充
 
+- `development-plans/CURRENT_DEV` 新增 Agent + Symbolic + Batch Search 架构专题：
+  - [2026-03-09-agent-symbolic-batch-search-architecture/README.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/README.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/01_agent-symbolic-batch-search-plan-2026-03-09.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/01_agent-symbolic-batch-search-plan-2026-03-09.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/02_atomic-tasklist-agent-symbolic-batch-search-2026-03-09.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/02_atomic-tasklist-agent-symbolic-batch-search-2026-03-09.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md)
 - `development-plans/CURRENT_DEV` 新增写作工作台演进主题文档：
   - [2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
   - [2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
@@ -54,6 +60,10 @@
   - [2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md)
 - `development-plans/CURRENT_DEV` 补充内置写作工作台原子任务清单：
   - [2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md)
+- `development-plans/CURRENT_DEV` 新增 LLM + 爬虫统一前门架构草案：
+  - [2026-03-08-llm-crawler-unified-frontdoor/01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md)
+  - [2026-03-08-llm-crawler-unified-frontdoor/02_atomic-tasklist-llm-crawler-unified-frontdoor-2026-03-08.md](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/02_atomic-tasklist-llm-crawler-unified-frontdoor-2026-03-08.md)
+  - [2026-03-08-llm-crawler-unified-frontdoor/03_a10-closure-and-validation-2026-03-08.md](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/03_a10-closure-and-validation-2026-03-08.md)
 - `development-plans/ARCHIVE_CLOSED` 已封口前侧收敛与系统中间层对齐计划：
   - [2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/03_handler-cluster-frontdoor-middle-layer-alignment-closing-2026-03-06.md](./development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/03_handler-cluster-frontdoor-middle-layer-alignment-closing-2026-03-06.md)
 - `development-plans/CURRENT_DEV` 持续维护时间功能与统计联动修复计划：

@@ -2,6 +2,11 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 import os
+from pathlib import Path
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = BACKEND_ROOT.parents[1]
+ENV_FILE_CANDIDATES = (str(BACKEND_ROOT / ".env"), str(REPO_ROOT / ".env"))
 
 
 def _get_default_database_url() -> str:
@@ -67,6 +72,8 @@ class Settings(BaseSettings):
     graph_node_projection_write_mode: str = Field(default="shadow")  # off | shadow | on
     graph_node_projection_read_mode: str = Field(default="a_only")  # a_only | b_canary | b_primary
     graph_node_projection_canary_projects: str = Field(default="demo_proj")
+    ingest_frontdoor_rollout_mode: str = Field(default="on")  # on | off | canary | passthrough
+    ingest_frontdoor_canary_projects: str = Field(default="demo_proj")
     ingest_enable_strict_gate: bool = Field(default=False)
     ingest_low_value_domains: str = Field(default="news.google.com,x.com,actiontoaction.ai")
     ingest_low_value_path_keywords: str = Field(default="/search,/login,/home,/showcase,/topics/,/stargazers,/sitemap")
@@ -129,7 +136,11 @@ class Settings(BaseSettings):
     embedding_model: str = Field(default="text-embedding-3-large")
     embedding_dim: int = Field(default=3072)
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # Prefer backend-local .env so runtime reload and settings-manager writes stay consistent.
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE_CANDIDATES,
+        extra="ignore",
+    )
 
 
 settings = Settings()

@@ -48,8 +48,13 @@ export function useGraphDraft({ sourceNodes, sourceEdges, getNodeKey }: UseGraph
     if (dirty) return
     const snap = cloneSnapshot(sourceNodes, sourceEdges)
     baseRef.current = snap
-    setDraftNodes(snap.nodes)
-    setDraftEdges(snap.edges)
+    const timerId = window.setTimeout(() => {
+      setDraftNodes(snap.nodes)
+      setDraftEdges(snap.edges)
+    }, 0)
+    return () => {
+      window.clearTimeout(timerId)
+    }
   }, [sourceNodes, sourceEdges, dirty])
 
   const nodeByKey = useMemo(() => {

@@ -8,6 +8,7 @@ from uuid import uuid4
 from app.services.ingest_config.service import get_config as get_ingest_config
 from app.services.ingest_config.service import upsert_config as upsert_ingest_config
 from app.services.projects import current_project_key
+from app.services.workflow_graph.edit_contract import parse_graph_edit_draft_contract
 
 CONFIG_KEY = "workflow_graph_templates_v1"
 CONFIG_TYPE = "workflow_graph_templates"
@@ -105,6 +106,10 @@ class WorkflowGraphTemplateService:
         dsl = payload.get("dsl")
         if not isinstance(dsl, Mapping):
             raise ValueError("dsl is required and must be a mapping")
+        graph_object_kind = str(
+            payload.get("graph_object_kind") or payload.get("object_kind") or "template_graph"
+        ).strip()
+        parse_graph_edit_draft_contract(dsl, object_kind=graph_object_kind)
         tid = str(template_id).strip()
         if not tid:
             raise ValueError("template_id is required")
@@ -118,6 +123,7 @@ class WorkflowGraphTemplateService:
             template["versions"][version_id] = {
                 "version_id": version_id,
                 "dsl": dict(dsl),
+                "graph_object_kind": graph_object_kind,
                 "created_at": now,
             }
             if not template.get("active_version_id"):
@@ -245,6 +251,7 @@ class WorkflowGraphTemplateService:
         node_count = len(nodes) if isinstance(nodes, list) else None
         return {
             "version_id": version.get("version_id"),
+            "graph_object_kind": version.get("graph_object_kind") or "template_graph",
             "created_at": version.get("created_at"),
             "node_count": node_count,
         }
@@ -253,6 +260,7 @@ class WorkflowGraphTemplateService:
     def _serialize_version_detail(version: Mapping[str, Any]) -> dict[str, Any]:
         return {
             "version_id": version.get("version_id"),
+            "graph_object_kind": version.get("graph_object_kind") or "template_graph",
             "created_at": version.get("created_at"),
             "dsl": deepcopy(version.get("dsl") or {}),
         }
@@ -303,6 +311,8 @@ def _normalize_state(payload: Any) -> dict[str, Any]:
                     versions[vid] = {
                         "version_id": vid,
                         "dsl": dict(dsl) if isinstance(dsl, Mapping) else {},
+                        "graph_object_kind": str(raw_version.get("graph_object_kind") or "template_graph").strip()
+                        or "template_graph",
                         "created_at": str(raw_version.get("created_at") or _utcnow()),
                     }
             templates[tid] = {

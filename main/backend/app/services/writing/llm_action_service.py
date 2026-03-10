@@ -4,6 +4,15 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ...contracts.schemas.writing import LlmActionHistoryItem, LlmActionRequest, LlmActionResponse
+from ...settings.config import settings
+from ..llm.platformization import (
+    build_trace_audit_record,
+    evaluate_agent_permission_boundary,
+    normalize_agent_role,
+    resolve_consumer_adapter_boundary,
+    resolve_request_identity,
+    resolve_routing_decision,
+)
 from ..job_logger import complete_job, fail_job, list_jobs, start_job
 
 _WRITING_JOB_TYPE = "wr_action"
@@ -37,7 +46,29 @@ def _build_action_result(payload: LlmActionRequest) -> tuple[str, list[str]]:
 
 
 def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
-    trace_id = payload.trace_id or payload.request_id or f"writing-{payload.action_id}"
+    identity = resolve_request_identity(
+        consumer="writing.llm_action",
+        trace_id=payload.trace_id,
+        request_id=payload.request_id,
+        project_key=payload.project_key,
+        actor_id=payload.actor_id,
+        trace_fallback_seed=f"writing-{payload.action_id}",
+    )
+    boundary = resolve_consumer_adapter_boundary(identity.consumer)
+    agent_boundary = evaluate_agent_permission_boundary(
+        consumer=identity.consumer,
+        agent_role=normalize_agent_role(payload.agent_role, consumer=identity.consumer),
+        requested_permissions=["llm.invoke", "project.read", "project.write"],
+    )
+    routing = resolve_routing_decision(
+        service_name=payload.template_key or payload.action_id,
+        capability="writing_action",
+        request_overrides={},
+        service_config=None,
+        default_provider=settings.llm_provider,
+        default_model=None,
+    )
+    trace_id = identity.trace_id
     job_id = start_job(
         _WRITING_JOB_TYPE,
         {
@@ -47,10 +78,81 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
             "template_version": payload.template_version,
             "document_id": payload.document_id,
             "trace_id": trace_id,
+            "request_id": identity.request_id,
+            "consumer": identity.consumer,
+            "service_name": routing.service_name,
+            "capability": routing.capability,
+            "route_kind": routing.route_kind,
+            "route_field_sources": dict(routing.field_sources),
+            "adapter_boundary": boundary.to_observability(),
+            "agent_boundary": agent_boundary.to_observability(),
             "requested_async": payload.async_mode,
+            "consumer_boundary_capability": boundary.capability,
+            "agent_boundary_allowed": agent_boundary.allowed,
         },
     )
     try:
+        dependency_gate = {
+            "contract_version": "writing.cross_theme_gate.e8.v1",
+            "topology": ["writing<->graph", "writing<->llm", "writing<->frontend"],
+            "llm": {
+                "consumer": identity.consumer,
+                "capability": boundary.capability,
+                "adapter_kind": boundary.adapter_kind,
+            },
+            "graph": {"mode": "optional_consume_only"},
+            "frontend": {"surface": "writing.workbench", "mode": "placement_boundary_only"},
+        }
+        if not agent_boundary.allowed:
+            status = "rejected"
+            warnings = list(agent_boundary.denied_reasons) or ["agent_boundary_rejected"]
+            result = {
+                "trace_id": trace_id,
+                "action_id": payload.action_id,
+                "template_key": payload.template_key,
+                "template_version": payload.template_version,
+                "completed_at": _utcnow_iso(),
+                "warning_count": len(warnings),
+                "request_id": identity.request_id,
+                "route_kind": routing.route_kind,
+                "agent_boundary_allowed": False,
+                "error_code": "AGENT_BOUNDARY_REJECTED",
+            }
+            complete_job(job_id, status=status, result=result)
+            return LlmActionResponse(
+                content="",
+                sources=[],
+                mode=payload.action_id,
+                warnings=warnings,
+                trace_id=trace_id,
+                job_id=job_id,
+                status=status,
+                observability={
+                    "job_id": job_id,
+                    "trace_id": trace_id,
+                    "request_id": identity.request_id,
+                    "project_key": identity.project_key,
+                    "requested_async": payload.async_mode,
+                    "gate_mode": payload.gate_mode,
+                    "template_version": payload.template_version,
+                    "identity": identity.to_dict(),
+                    "consumer_boundary": boundary.to_observability(),
+                    "agent_boundary": agent_boundary.to_observability(),
+                    "routing": routing.to_observability(),
+                    "audit": build_trace_audit_record(
+                        identity=identity,
+                        routing=routing,
+                        status=status,
+                        degraded=True,
+                    ),
+                },
+                action_boundary={
+                    "consumer_boundary": boundary.to_observability(),
+                    "agent_boundary": agent_boundary.to_observability(),
+                },
+                dependency_gate={**dependency_gate, "passed": False, "reasons": warnings},
+            )
+
         content, warnings = _build_action_result(payload)
         result = {
             "trace_id": trace_id,
@@ -59,6 +161,9 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
             "template_version": payload.template_version,
             "completed_at": _utcnow_iso(),
             "warning_count": len(warnings),
+            "request_id": identity.request_id,
+            "route_kind": routing.route_kind,
+            "agent_boundary_allowed": True,
         }
         complete_job(job_id, result=result)
         status = "queued" if payload.async_mode else "completed"
@@ -73,10 +178,27 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
             observability={
                 "job_id": job_id,
                 "trace_id": trace_id,
+                "request_id": identity.request_id,
+                "project_key": identity.project_key,
                 "requested_async": payload.async_mode,
                 "gate_mode": payload.gate_mode,
                 "template_version": payload.template_version,
+                "identity": identity.to_dict(),
+                "consumer_boundary": boundary.to_observability(),
+                "agent_boundary": agent_boundary.to_observability(),
+                "routing": routing.to_observability(),
+                "audit": build_trace_audit_record(
+                    identity=identity,
+                    routing=routing,
+                    status=status,
+                    degraded=False,
+                ),
             },
+            action_boundary={
+                "consumer_boundary": boundary.to_observability(),
+                "agent_boundary": agent_boundary.to_observability(),
+            },
+            dependency_gate={**dependency_gate, "passed": True},
         )
     except Exception as exc:  # noqa: BLE001
         fail_job(job_id, str(exc))

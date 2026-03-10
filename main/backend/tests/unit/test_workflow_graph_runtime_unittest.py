@@ -106,7 +106,11 @@ class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
 
     def test_llm_call_executor_graceful_fallback(self):
         executor = LLMCallExecutor()
-        fake_context = type("_Ctx", (), {"inputs": {}, "upstream_results": {"n1": {"v": 1}}})()
+        fake_context = type(
+            "_Ctx",
+            (),
+            {"inputs": {"request_id": "req-1"}, "upstream_results": {"n1": {"v": 1}}, "run_id": "run-1", "node_id": "n2"},
+        )()
         node = {"id": "n2", "node_type": "llm_call", "params": {"prompt": "hello"}}
 
         with patch("app.services.workflow_graph.executors.llm_call._invoke_llm", side_effect=RuntimeError("llm down")):
@@ -114,6 +118,58 @@ class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
 
         self.assertTrue(result["degraded"])
         self.assertIn("[fallback-llm]", result["text"])
+        self.assertEqual(result["trace_id"], "req-1")
+        self.assertIn("llm", result["meta"])
+        self.assertEqual(result["meta"]["llm"]["audit"]["status"], "degraded")
+
+    def test_llm_call_executor_uses_service_config_as_route_baseline(self):
+        executor = LLMCallExecutor()
+        fake_context = type(
+            "_Ctx",
+            (),
+            {"inputs": {"project_key": "demo_proj"}, "upstream_results": {}, "run_id": "run-2", "node_id": "n9"},
+        )()
+        node = {
+            "id": "n9",
+            "node_type": "llm_call",
+            "params": {"prompt": "hello", "service_name": "policy_summary"},
+        }
+
+        with (
+            patch(
+                "app.services.workflow_graph.executors.llm_call.get_llm_config",
+                return_value={"model": "cfg-model", "temperature": 0.3},
+            ),
+            patch("app.services.workflow_graph.executors.llm_call._invoke_llm", return_value="ok"),
+        ):
+            result = executor.execute(node, fake_context)  # type: ignore[arg-type]
+
+        self.assertFalse(result["degraded"])
+        self.assertEqual(result["model"], "cfg-model")
+        self.assertEqual(result["temperature"], 0.3)
+        self.assertEqual(result["route_kind"], "service_config")
+        self.assertEqual(result["meta"]["llm"]["routing"]["field_sources"]["model"], "config")
+        self.assertEqual(result["meta"]["llm"]["audit"]["status"], "succeeded")
+
+    def test_llm_call_executor_blocks_denied_agent_permission_scope(self):
+        executor = LLMCallExecutor()
+        fake_context = type(
+            "_Ctx",
+            (),
+            {"inputs": {"project_key": "demo_proj"}, "upstream_results": {}, "run_id": "run-3", "node_id": "n10"},
+        )()
+        node = {
+            "id": "n10",
+            "node_type": "llm_call",
+            "params": {"prompt": "hello", "permission_scope": ["cross_consumer.invoke"]},
+        }
+        with patch("app.services.workflow_graph.executors.llm_call._invoke_llm") as mocked_invoke:
+            result = executor.execute(node, fake_context)  # type: ignore[arg-type]
+        self.assertTrue(result["degraded"])
+        self.assertIn("agent_permission_denied", str(result["degraded_reason"]))
+        self.assertEqual(result["meta"]["llm"]["audit"]["status"], "blocked")
+        self.assertFalse(result["meta"]["agent_boundary"]["allowed"])
+        mocked_invoke.assert_not_called()
 
     def test_runtime_resolves_expression_and_node_output_with_io_trace(self):
         runtime = WorkflowGraphRuntime(executors=[_EchoVectorExecutor(), _EchoLlmExecutor()])

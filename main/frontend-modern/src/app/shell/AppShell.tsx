@@ -5,6 +5,13 @@ import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKe
 import { getLocalJson, setLocalJson } from '../../lib/localStore'
 import { queryKeys } from '../../lib/queryKeys'
 import { defaultNavMode, hashByMode, parseLegacyHashToMode } from '../navigation'
+import { translate, useAppLocale } from '../platform/i18n'
+import { getModuleDescriptor, verifyRegistryHashCompatibility } from '../platform/modules'
+import { applyThemeTokens, useAppTheme } from '../platform/theme'
+import { resolveInteractionSurface } from '../topology/contracts'
+import { resolveSurfaceSwitchTarget, updateLastModeBySurface, type SurfaceLastModeMap } from '../topology/navigationSwitching'
+import { SHARED_CONTRACT_NOTE, SURFACE_SWITCH_RULES } from '../topology/sharedPlatformContract'
+import type { InteractionSurface } from '../topology/surfaces'
 
 const CatalogPage = lazy(() => import('../../pages/CatalogPage'))
 const DashboardPage = lazy(() => import('../../pages/DashboardPage'))
@@ -19,7 +26,6 @@ const ResourcePage = lazy(() => import('../../pages/ResourcePage'))
 const RawDataPage = lazy(() => import('../../pages/RawDataPage'))
 const SettingsPage = lazy(() => import('../../pages/SettingsPage'))
 const WritingWorkbenchPage = lazy(() => import('../../pages/WritingWorkbenchPage'))
-type FigmaTheme = 'light' | 'dark' | 'brand'
 type StatusIntentMode = 'sysSettings' | 'sysLlm' | 'sysCrawler' | 'sysBackend'
 type StatusIntentGuide = 'llm' | 'search' | 'news' | 'db' | 'es'
 type StatusNavIntent = {
@@ -33,11 +39,17 @@ const SHELL_PREFS_KEY = 'app_shell_prefs_v1'
 const STATUS_NAV_INTENT_KEY = 'app_status_nav_intent_v1'
 
 export default function AppShell() {
-  const shellPrefs = getLocalJson<{ lastMode?: NavMode; pendingProjectKey?: string }>(SHELL_PREFS_KEY, {})
+  const shellPrefs = getLocalJson<{ lastMode?: NavMode; pendingProjectKey?: string; lastModeBySurface?: SurfaceLastModeMap }>(SHELL_PREFS_KEY, {})
   const defaultMode = parseLegacyHashToMode(window.location.hash) || shellPrefs.lastMode || defaultNavMode
+  const defaultSurface = resolveInteractionSurface(defaultMode)
   const queryClient = useQueryClient()
   const [viewMode, setViewMode] = useState<NavMode>(defaultMode)
-  const [figmaTheme] = useState<FigmaTheme>('dark')
+  const [activeSurface, setActiveSurface] = useState<InteractionSurface>(defaultSurface)
+  const [lastModeBySurface, setLastModeBySurface] = useState<SurfaceLastModeMap>(() =>
+    updateLastModeBySurface(shellPrefs.lastModeBySurface || {}, defaultMode),
+  )
+  const locale = useAppLocale()
+  const appTheme = useAppTheme()
   const [projectKey, setProjectKeyState] = useState(getProjectKey())
   const [pendingProjectKey, setPendingProjectKey] = useState(() => shellPrefs.pendingProjectKey || projectKey)
   const [switchMessage, setSwitchMessage] = useState('')
@@ -95,39 +107,7 @@ export default function AppShell() {
     },
   })
 
-  const titleMap: Record<string, string> = {
-    overviewTasks: '任务',
-    overviewData: '数据',
-    dataDashboard: '数据仪表盘',
-    dataMarket: '市场',
-    dataSocial: '舆情',
-    dataPolicy: '政策',
-    dataCatalog: '行业公司/商品/经营',
-    graphMarket: '市场图谱',
-    graphPolicy: '政策图谱',
-    graphSocial: '社媒图谱',
-    graphCompany: '公司图谱',
-    graphProduct: '商品图谱',
-    graphOperation: '电商/经营图谱',
-    graphDeep: '市场实体加细图',
-    graphBuilder: '新建图谱',
-    flowIngest: '采集',
-    flowSpecialized: '特化采集',
-    flowProcessing: '数据处理',
-    flowRawData: '原始数据处理',
-    flowExtract: '提取',
-    flowAnalysis: '分析',
-    flowBoard: '看板',
-    flowWriting: '写作工作台',
-    flowLlmNodeDesign: 'LLM 节点设计',
-    sysProjects: '项目管理',
-    sysCrawler: '爬虫管理',
-    sysResource: '信息资源库管理',
-    sysBackend: '后端监控',
-    sysSettings: '系统设置',
-    sysLlm: 'LLM 配置',
-  }
-  const pageTitle = titleMap[viewMode] || viewMode
+  const pageTitle = translate(locale, getModuleDescriptor(viewMode).titleKey, viewMode)
   const isLlmDesignerMode = viewMode === 'flowLlmNodeDesign'
 
   const keyReady = (key: string) => Boolean(String(envSettings.data?.[key] || '').trim())
@@ -169,6 +149,14 @@ export default function AppShell() {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
     action()
+  }
+
+  const persistShellPrefs = (mode: NavMode, pending: string, lastBySurface: SurfaceLastModeMap) => {
+    setLocalJson(SHELL_PREFS_KEY, {
+      lastMode: mode,
+      pendingProjectKey: pending,
+      lastModeBySurface: lastBySurface,
+    })
   }
 
   const modernContent = (() => {
@@ -213,6 +201,8 @@ export default function AppShell() {
     const syncModeFromHash = () => {
       const nextMode = parseLegacyHashToMode(window.location.hash) || defaultNavMode
       setViewMode((prev) => (prev === nextMode ? prev : nextMode))
+      setActiveSurface(resolveInteractionSurface(nextMode))
+      setLastModeBySurface((prev) => updateLastModeBySurface(prev, nextMode))
     }
 
     window.addEventListener('hashchange', syncModeFromHash)
@@ -224,8 +214,23 @@ export default function AppShell() {
     setPendingProjectKey(projectKey)
   }, [projectKey])
 
+  useEffect(() => {
+    const result = verifyRegistryHashCompatibility()
+    if (!result.isCompatible) {
+      console.warn('module registry hash compatibility mismatch', result.mismatchedModes)
+    }
+  }, [])
+
+  useEffect(() => {
+    applyThemeTokens(appTheme)
+  }, [appTheme])
+
   const handleModeChange = (mode: NavMode) => {
+    const nextLastModeBySurface = updateLastModeBySurface(lastModeBySurface, mode)
+    setLastModeBySurface(nextLastModeBySurface)
+    setActiveSurface(resolveInteractionSurface(mode))
     if (mode === 'flowLlmNodeDesign') {
+      persistShellPrefs(mode, pendingProjectKey, nextLastModeBySurface)
       const nextHash = hashByMode.flowLlmNodeDesign
       const basePath = String(import.meta.env.BASE_URL || '/').trim() || '/'
       const nextUrl = new URL(basePath.startsWith('/') ? basePath : `/${basePath}`, window.location.origin)
@@ -235,18 +240,28 @@ export default function AppShell() {
       return
     }
     setViewMode(mode)
-    setLocalJson(SHELL_PREFS_KEY, { lastMode: mode, pendingProjectKey })
-    const nextHash = hashByMode[mode]
+    persistShellPrefs(mode, pendingProjectKey, nextLastModeBySurface)
+    const nextHash = getModuleDescriptor(mode).hash || hashByMode[mode]
     if (nextHash && window.location.hash !== nextHash) window.location.hash = nextHash
   }
 
+  const handleSurfaceChange = (surface: InteractionSurface) => {
+    if (surface === activeSurface) return
+    const nextMode = resolveSurfaceSwitchTarget(surface, lastModeBySurface)
+    const surfaceLabel = surface === 'workbench' ? 'Workbench' : 'Management'
+    const retainNote = SURFACE_SWITCH_RULES[surface].retain.join(' / ')
+    const resetNote = SURFACE_SWITCH_RULES[surface].reset.join(' / ')
+    setSwitchMessage(`切换到 ${surfaceLabel}；保留: ${retainNote}；重置: ${resetNote}`)
+    handleModeChange(nextMode)
+  }
+
   useEffect(() => {
-    setLocalJson(SHELL_PREFS_KEY, { lastMode: viewMode, pendingProjectKey })
-  }, [viewMode, pendingProjectKey])
+    persistShellPrefs(viewMode, pendingProjectKey, lastModeBySurface)
+  }, [viewMode, pendingProjectKey, lastModeBySurface])
 
   return (
     <div className={`layout-root ${isLlmDesignerMode ? 'layout-root--immersive' : ''}`}>
-      <section className={`panel app-status-bar app-global-status is-${figmaTheme}`}>
+      <section className={`panel app-status-bar app-global-status is-${appTheme}`}>
         <div className="app-status-bar__top">
           <span className="status-line app-status-bar__current">当前项目: {projectKey}</span>
           <label className="app-status-bar__project">
@@ -386,13 +401,23 @@ export default function AppShell() {
         </div>
       </section>
 
-      {!isLlmDesignerMode ? <FigmaSideNav mode={viewMode} onModeChange={handleModeChange} theme={figmaTheme} /> : null}
-      <main className={`main-area is-${figmaTheme} ${isLlmDesignerMode ? 'main-area--immersive' : ''}`}>
+      {!isLlmDesignerMode ? (
+        <FigmaSideNav
+          mode={viewMode}
+          onModeChange={handleModeChange}
+          surface={activeSurface}
+          onSurfaceChange={handleSurfaceChange}
+          theme={appTheme}
+        />
+      ) : null}
+      <main className={`main-area is-${appTheme} ${isLlmDesignerMode ? 'main-area--immersive' : ''}`}>
         {!isLlmDesignerMode ? (
           <section className="panel app-page-title">
             <div className="panel-header">
               <h2>{pageTitle}</h2>
+              <span className="status-line app-surface-badge">{activeSurface === 'workbench' ? 'Workbench' : 'Management'}</span>
             </div>
+            <p className="status-line app-surface-note">{SHARED_CONTRACT_NOTE}</p>
           </section>
         ) : null}
 

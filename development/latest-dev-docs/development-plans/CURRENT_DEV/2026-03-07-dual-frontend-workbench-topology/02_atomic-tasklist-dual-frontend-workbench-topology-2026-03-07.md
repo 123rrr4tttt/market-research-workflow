@@ -1,108 +1,233 @@
 # Atomic Task List: Modern-Based Dual-Interaction Frontend Topology (2026-03-07)
 
-## 定位
+## Execution Status Snapshot
 
-本任务清单服务于基于 modern 技术路线的双交互前端拓扑规划。  
-这里的“双交互”表示两类前端交互面：
+- `A1`: pending, freeze terminology, scope, and non-goals before topology expansion.
+- `A2`: pending, capture the actual `frontend-modern` shell/navigation/page baseline.
+- `A3-A5`: pending, classification rubric, page placement, and shared-platform boundary are the core planning tranche.
+- `A6`: pending, navigation and context-switch rules depend on `A4-A5`.
+- `A7`: pending, phased rollout packages depend on the topology decisions being frozen.
+- `A8`: pending, close with a minimal validation matrix that future implementation tasks can reuse.
 
-- 高交互工作台前端
-- 低交互管理前端
+## Global Serial-Parallel Rules
 
-本清单不再包含任何旧前端共存、legacy 页面迁移、双前端兼容相关任务。
+- `L0` serial bootstrap: `A1` must finish first so later tasks do not drift back into legacy or dual-codebase semantics.
+- `L1` serial evidence capture: `A2` must finish before any page-placement or platform-boundary decision is treated as stable.
+- `L2` split decision layer:
+  - `A3` classification rubric
+  - `A5` shared-platform boundary
+  These can run in parallel after `A2`, because both depend on the same baseline but produce different artifacts.
+- `L3` topology synthesis:
+  - `A4` depends on `A2 + A3`
+  - `A6` depends on `A4 + A5`
+- `L4` closure:
+  - `A7` depends on `A4 + A5 + A6`
+  - `A8` depends on `A7`
 
-## 全局规则
+Future implementation conflict rule:
 
-- 先冻结判断标准，再给页面归类。
-- 先定义共享平台层，再讨论是否共用壳层或导航容器。
-- 先冻结共享契约，再决定哪些交互逻辑需要独立实现。
-- 先明确导航与切换规则，再讨论具体页面改造顺序。
-- 每个子任务都必须围绕 modern 技术路线展开，不得把旧前端当作活跃对象写入计划。
+- any later implementation task touching `main/frontend-modern/src/app/shell/AppShell.tsx`, `main/frontend-modern/src/components/FigmaSideNav.tsx`, or `main/frontend-modern/src/app/navigation/index.ts` should run serially;
+- page-local workbench container tasks may run in parallel only after the shell/navigation contract is frozen.
 
-## Task A1: Freeze Dual-Interaction Criteria
+## Global Module Boundaries
 
-- 目标：定义工作台面与管理面的判定标准。
-- 输入：
-  - 当前 modern 页面集合
-  - `AppShell`、导航和页面结构现状
-- 输出：
-  - 一份双交互判定规则
-  - 一组归类判断维度说明
-- 验收：
-  - 至少包含交互密度、上下文连续性、多面板协作、实时反馈、编辑深度五类维度
-  - 规则可以直接用于后续页面归位
+| Module | Purpose | Read boundary | Output boundary |
+| --- | --- | --- | --- |
+| `topology-scope` | freeze terminology and planning boundary | current topic docs + planning rules | dual-interaction vocabulary, scope, non-goals |
+| `baseline-inventory` | capture current modern shell and page evidence | `AppShell`, `navigation`, `FigmaSideNav`, page files | current-state inventory and observed interaction signals |
+| `classification-rubric` | define workbench vs management decision rule | baseline inventory | reusable rubric and decision notes |
+| `page-placement` | place current pages into surfaces | rubric + page evidence | placement matrix and hold/revisit notes |
+| `shared-platform-contract` | freeze shared vs surface-specific capabilities | shell, route, query, context baseline | ownership boundary list |
+| `navigation-switching` | define first-level IA and retain/reset rules | placement + shared boundary | topology-visible navigation and switching contract |
+| `phase-rollout` | convert planning into delivery order | all prior modules | phase packages and dependency notes |
+| `validation-baseline` | define minimum regression checks | all prior modules | minimal validation matrix |
 
-## Task A2: Produce Initial Page Placement
+## Task A1: Freeze Terminology and Scope
 
-- 目标：对当前主要 modern 页面做第一版拓扑归位。
-- 输入：
-  - `GraphPage`
-  - `WritingWorkbenchPage`
-  - `LlmDesignerPage`
-  - `ProjectsPage`
-  - `ResourcePage`
-  - `CrawlerManagePage`
-  - `SettingsPage`
-  - `DashboardPage`
-  - `ProcessPage`
-- 输出：
-  - 一份页面归位表
-  - 一份边界模糊页说明
-- 验收：
-  - 至少区分工作台面候选、管理面候选、待拆分候选三类
-  - 每个边界模糊页面都说明判定依据
+- 目标: Freeze the meaning of "dual-interaction frontend topology" so the topic stays modern-only and does not regress into legacy coexistence planning.
+- status: pending
+- depends_on: `[]`
+- blocks: `["A2","A3","A4","A5","A6","A7","A8"]`
+- 输入:
+  - `development/latest-dev-docs/README.md`
+  - `01_abstract-planning-folderization-plan-2026-03-07.md`
+  - `01_dual-frontend-workbench-topology-plan-2026-03-07.md`
+- 输出:
+  - one frozen terminology note
+  - one explicit scope list
+  - one explicit non-goals list
+- 验收:
+  - the topic is defined as modern-only;
+  - "dual frontend" is interpreted as two interaction surfaces, not two active codebases;
+  - legacy coexistence, migration, or compatibility strategy is explicitly excluded.
+- 最小验证:
+  - re-read the main plan and ensure the scope/non-goal sections match this task output.
+- 模块边界:
+  - reads: planning docs only
+  - writes: topology scope and vocabulary only
 
-## Task A3: Define Shared Platform Layer
+## Task A2: Capture Current Baseline Inventory
 
-- 目标：冻结双交互前端的统一共享层与可定制层边界。
-- 输入：
-  - 壳层、导航、权限、主题、i18n、数据访问现状
-- 输出：
-  - 一份共享能力清单
-  - 一份允许双交互前端分别定制的能力清单
-- 验收：
-  - 至少覆盖项目上下文、身份权限、路由深链接、主题、国际化、数据访问、全局通知
-  - 明确哪些能力不能在工作台面和管理面重复建设
-  - 明确共享契约不等于共享同一交互逻辑
+- 目标: Record the actual `frontend-modern` shell, navigation, route, and major page evidence before classifying anything.
+- status: pending
+- depends_on: `["A1"]`
+- blocks: `["A3","A4","A5"]`
+- 输入:
+  - `main/frontend-modern/src/app/shell/AppShell.tsx`
+  - `main/frontend-modern/src/app/navigation/index.ts`
+  - `main/frontend-modern/src/components/FigmaSideNav.tsx`
+  - `main/frontend-modern/src/pages/*`
+- 输出:
+  - one current-shell summary
+  - one page inventory snapshot
+  - one interaction-evidence note for high-interaction and management-heavy pages
+- 验收:
+  - inventory explicitly records the single active shell baseline;
+  - inventory includes current hash-based navigation behavior;
+  - inventory includes at least the major pages referenced by this topic.
+- 最小验证:
+  - `rg --files main/frontend-modern/src/pages`
+  - `rg -n "type NavMode|const groups|hashByMode|parseLegacyHashToMode" main/frontend-modern/src/components/FigmaSideNav.tsx main/frontend-modern/src/app/navigation/index.ts`
+- 模块边界:
+  - reads: shell/navigation/page files
+  - writes: baseline inventory only
 
-## Task A4: Define Navigation and Context Switching
+## Task A3: Freeze the Classification Rubric
 
-- 目标：明确用户如何识别并切换两类交互前端。
-- 输入：
-  - `AppShell`
-  - `FigmaSideNav`
-  - 当前路由和页面切换方式
-  - 是否拆分独立入口的可行性
-- 输出：
-  - 一份一级导航表达方案
-  - 一份上下文保留/重置规则
-- 验收：
-  - 至少说明项目上下文、筛选状态、对象选中状态在切换时如何处理
-  - 至少说明工作台前端与管理前端的入口组织方式
+- 目标: Define a reusable rule set for deciding whether a page belongs to workbench or management surface.
+- status: pending
+- depends_on: `["A2"]`
+- blocks: `["A4","A6","A7"]`
+- 输入:
+  - baseline inventory from `A2`
+  - observed page behaviors
+- 输出:
+  - one classification rubric table
+  - one rule-of-use note for ambiguous pages
+- 验收:
+  - rubric covers interaction density, context continuity, panel coordination, state coupling, and primary outcome;
+  - rubric tells future authors how to handle mixed-signal pages;
+  - rubric can be applied without relying on historical route names.
+- 最小验证:
+  - ensure every rubric dimension has both management and workbench signals.
+- 模块边界:
+  - reads: baseline inventory only
+  - writes: classification rules only
 
-## Task A5: Freeze Phased Delivery Plan
+## Task A4: Produce the Initial Page Placement Matrix
 
-- 目标：把主题落成可执行的 Phase 1 / 2 / 3 计划。
-- 输入：
-  - A1 至 A4 的结论
-- 输出：
-  - 一份分阶段交付清单
-  - 一份跨主题协作依赖表
-- 验收：
-  - Phase 1 聚焦规则和归位
-  - Phase 2 聚焦导航与切换
-  - Phase 3 聚焦实现排序和组件改造优先级
+- 目标: Classify the current major `frontend-modern` pages using the frozen rubric instead of leaving them as informal examples.
+- status: pending
+- depends_on: `["A2","A3"]`
+- blocks: `["A6","A7"]`
+- 输入:
+  - page inventory from `A2`
+  - rubric from `A3`
+- 输出:
+  - one page placement matrix
+  - one revisit list for pages that may later move surfaces
+- 验收:
+  - at minimum covers `GraphPage`, `WritingWorkbenchPage`, `LlmDesignerPage`, `ProjectsPage`, `ResourcePage`, `CrawlerManagePage`, `SettingsPage`, `DashboardPage`, and `ProcessPage`;
+  - each page has a placement result and a short reason;
+  - any "revisit later" page still gets a phase-1 placement instead of staying undefined.
+- 最小验证:
+  - `rg -n "WritingWorkbenchPage|GraphPage|LlmDesignerPage|ProjectsPage|CrawlerManagePage|ResourcePage|ProcessPage|DashboardPage|SettingsPage" main/frontend-modern/src/app/shell/AppShell.tsx`
+- 模块边界:
+  - reads: rubric + current page evidence
+  - writes: placement matrix only
 
-## Task A6: Define Minimal Validation
+## Task A5: Define the Shared Platform Contract
 
-- 目标：为后续实现阶段预留最小验证基线。
-- 输入：
-  - 拓扑规则
-  - 页面归位结果
-  - 导航与共享层方案
-- 输出：
-  - 一份最小验证清单
-- 验收：
-  - 至少包含一个工作台面页面验证样例
-  - 至少包含一个管理面页面验证样例
-  - 至少包含一个跨交互面切换验证样例
-  - 至少包含一个共享平台层复用验证样例
+- 目标: Freeze which capabilities must stay shared across both surfaces and which behaviors can be surface-specific.
+- status: pending
+- depends_on: `["A2"]`
+- blocks: `["A6","A7"]`
+- 输入:
+  - shell/navigation baseline
+  - page context behavior observed in `A2`
+- 输出:
+  - one shared-platform capability list
+  - one surface-specific ownership list
+- 验收:
+  - shared list covers project context, route/deep-link normalization, API/query conventions, theme/i18n, and global loading/error/notification behavior;
+  - surface-specific list covers container density, secondary navigation, panel layout, and immersive launch behavior;
+  - the task explicitly states that shared contract does not mean identical shell UX.
+- 最小验证:
+  - verify each shared capability maps back to a real current anchor such as shell, route parsing, query keys, or page context handling.
+- 模块边界:
+  - reads: shell/navigation/context baseline
+  - writes: ownership boundary only
+
+## Task A6: Define Navigation and Context Switching
+
+- 目标: Turn the topology into a visible user-facing model with first-level surface separation and explicit retain/reset rules.
+- status: pending
+- depends_on: `["A4","A5"]`
+- blocks: `["A7","A8"]`
+- 输入:
+  - page placement matrix from `A4`
+  - shared-platform contract from `A5`
+  - current hash/navigation baseline
+- 输出:
+  - one first-level IA proposal
+  - one retain/reset rule set for surface switching
+  - one note on immersive or standalone exceptions
+- 验收:
+  - the proposal explicitly distinguishes `Workbench` and `Management`;
+  - it states what survives a cross-surface switch, especially `projectKey`, theme, locale, and deep-link-compatible route identity;
+  - it states what resets by default, especially page-local transient selection and panel state;
+  - it records the current `flowLlmNodeDesign` standalone precedent without overclaiming a mandatory shell split.
+- 最小验证:
+  - `rg -n "flowLlmNodeDesign|window.open|hashByMode" main/frontend-modern/src/app/shell/AppShell.tsx main/frontend-modern/src/app/navigation/index.ts`
+- 模块边界:
+  - reads: placement + ownership + route baseline
+  - writes: IA and switching contract only
+
+## Task A7: Freeze the Phased Rollout and Work Packages
+
+- 目标: Convert the topology decision into an executable phase order for later implementation topics.
+- status: pending
+- depends_on: `["A4","A5","A6"]`
+- blocks: `["A8"]`
+- 输入:
+  - placement matrix
+  - shared-platform contract
+  - navigation/switching contract
+- 输出:
+  - one phase plan
+  - one dependency note for related topics such as writing, graph, and frontend modularization
+- 验收:
+  - Phase 1 freezes rules and placement;
+  - Phase 2 introduces navigation and switching visibility;
+  - Phase 3 applies the topology to page containers and work packages;
+  - the phase plan does not include legacy migration work.
+- 最小验证:
+  - re-check that the phase order in the main plan matches the dependency order in this task list.
+- 模块边界:
+  - reads: all prior topology decisions
+  - writes: rollout plan only
+
+## Task A8: Define the Minimal Validation Matrix
+
+- 目标: Leave a small but reusable validation baseline so future implementation work can verify the topology without re-deriving checks from scratch.
+- status: pending
+- depends_on: `["A7"]`
+- blocks: `[]`
+- 输入:
+  - frozen topology plan
+  - phase rollout order
+- 输出:
+  - one minimal validation matrix
+  - one structural command list
+- 验收:
+  - includes at least one workbench-page check;
+  - includes at least one management-page check;
+  - includes at least one cross-surface switching check;
+  - includes at least one shared-platform reuse check;
+  - includes at least one concrete repo command.
+- 最小验证:
+  - `rg --files main/frontend-modern/src/pages`
+  - `cd main/frontend-modern && npm run -s lint`
+- 模块边界:
+  - reads: frozen topology outputs only
+  - writes: validation matrix only

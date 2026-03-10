@@ -228,6 +228,101 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertIn("conflict", body["error"]["message"])
 
+    def test_curated_draft_submit_sync_success(self):
+        with patch(
+            "app.api.workflow_graph._invoke_save_curated_draft",
+            return_value={"graph_id": "cg-1", "sync_status": "draft_saved", "revision": 2},
+        ):
+            draft_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-1/draft",
+                json={"dsl": {"nodes": [], "edges": []}, "base_revision": 2},
+                headers=self.headers,
+            )
+        self.assertEqual(draft_resp.status_code, 200)
+        self.assertEqual(draft_resp.json()["data"]["sync_status"], "draft_saved")
+
+        with patch(
+            "app.api.workflow_graph._invoke_submit_curated_draft",
+            return_value={"graph_id": "cg-1", "submit_status": "submitted", "revision": 3, "active_version_id": "cver-3"},
+        ):
+            submit_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-1/submit",
+                json={"base_revision": 2},
+                headers=self.headers,
+            )
+        self.assertEqual(submit_resp.status_code, 200)
+        self.assertEqual(submit_resp.json()["data"]["submit_status"], "submitted")
+        self.assertEqual(submit_resp.json()["data"]["active_version_id"], "cver-3")
+
+        with patch(
+            "app.api.workflow_graph._invoke_sync_curated_graph",
+            return_value={"graph_id": "cg-1", "sync_status": "in_sync", "in_sync": True, "revision": 3},
+        ):
+            sync_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-1/sync",
+                json={"since_revision": 3},
+                headers=self.headers,
+            )
+        self.assertEqual(sync_resp.status_code, 200)
+        self.assertEqual(sync_resp.json()["data"]["sync_status"], "in_sync")
+
+    def test_curated_conflict_returns_validation_error_category(self):
+        from app.services.workflow_graph.curated_service import WorkflowGraphSyncConflictError
+
+        with patch(
+            "app.api.workflow_graph._invoke_submit_curated_draft",
+            side_effect=WorkflowGraphSyncConflictError(expected_revision=1, actual_revision=2),
+        ):
+            response = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-1/submit",
+                json={"base_revision": 1},
+                headers=self.headers,
+            )
+        self.assertEqual(response.status_code, 400)
+        body = response.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["error"]["details"]["category"], "version_conflict")
+
+    def test_curated_evidence_pack_and_handoffs_success(self):
+        pack = {
+            "contract_version": "graph_evidence_pack.v1",
+            "pack_id": "gep-1",
+            "selected_nodes": [{"node_id": "n1"}],
+            "relations": [],
+        }
+        with patch("app.api.workflow_graph._invoke_build_evidence_pack", return_value=pack):
+            pack_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-1/evidence-pack",
+                json={"selected_node_ids": ["n1"]},
+                headers=self.headers,
+            )
+        self.assertEqual(pack_resp.status_code, 200)
+        self.assertEqual(pack_resp.json()["data"]["contract_version"], "graph_evidence_pack.v1")
+
+        with patch(
+            "app.api.workflow_graph._invoke_reporting_handoff",
+            return_value={"contract_version": "graph_handoff.v1", "consumer": "llm_report.generate"},
+        ):
+            reporting_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-1/handoff/reporting",
+                json={"topic": "robotics"},
+                headers=self.headers,
+            )
+        self.assertEqual(reporting_resp.status_code, 200)
+        self.assertEqual(reporting_resp.json()["data"]["consumer"], "llm_report.generate")
+
+        with patch(
+            "app.api.workflow_graph._invoke_writing_handoff",
+            return_value={"contract_version": "graph_handoff.v1", "consumer": "writing.keyword_cards"},
+        ):
+            writing_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-1/handoff/writing",
+                json={"query": "robotics"},
+                headers=self.headers,
+            )
+        self.assertEqual(writing_resp.status_code, 200)
+        self.assertEqual(writing_resp.json()["data"]["consumer"], "writing.keyword_cards")
+
     def test_compiler_service_compile_from_template_version(self):
         from app.services.workflow_graph import WorkflowGraphCompilerService
 

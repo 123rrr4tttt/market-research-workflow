@@ -17,7 +17,7 @@ from ..ingest_config.service import get_config as get_ingest_config
 from ..projects import bind_project, bind_schema
 from .loader import load_project_library_files
 from .runner import run_channel
-from .types import FrontDoorExecutionProtocol
+from .types import FrontDoorExecutionProtocol, derive_source_tiering
 from .url_router import resolve_channel_for_url
 
 
@@ -123,6 +123,42 @@ def _inject_url_params_for_channel(
     return per_url_params
 
 
+def _extract_source_tiering_from_extra(extra: Dict[str, Any]) -> tuple[Any, Any]:
+    tier = extra.get("source_tier")
+    priority = extra.get("onboarding_priority")
+    source_tiering = extra.get("source_tiering")
+    if isinstance(source_tiering, dict):
+        if source_tiering.get("tier") is not None:
+            tier = source_tiering.get("tier")
+        if source_tiering.get("onboarding_priority") is not None:
+            priority = source_tiering.get("onboarding_priority")
+    return tier, priority
+
+
+def _attach_source_tiering(channel: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = dict(channel)
+    extra = _as_dict(normalized.get("extra"))
+    explicit_tier, explicit_priority = _extract_source_tiering_from_extra(extra)
+    tiering = derive_source_tiering(
+        provider=normalized.get("provider"),
+        provider_type=normalized.get("provider_type"),
+        explicit_tier=explicit_tier,
+        explicit_priority=explicit_priority,
+    )
+    tiering_payload = {
+        "tier": tiering.tier.value,
+        "onboarding_priority": tiering.onboarding_priority.value,
+        "reason": tiering.reason,
+    }
+    extra["source_tiering"] = tiering_payload
+    extra.setdefault("source_tier", tiering.tier.value)
+    extra.setdefault("onboarding_priority", tiering.onboarding_priority.value)
+    normalized["extra"] = extra
+    normalized["source_tier"] = tiering.tier.value
+    normalized["onboarding_priority"] = tiering.onboarding_priority.value
+    return normalized
+
+
 def _is_crawler_channel(channel: Dict[str, Any] | None) -> bool:
     if not isinstance(channel, dict):
         return False
@@ -207,6 +243,12 @@ def _build_frontdoor_protocol(
     item_channel_key = str(item.get("channel_key") or "").strip()
     item_params = _as_dict(item.get("params"))
     item_extra = _as_dict(item.get("extra"))
+    source_tier = str(item_extra.get("source_tier") or "").strip()
+    onboarding_priority = str(item_extra.get("onboarding_priority") or "").strip()
+    source_tiering = item_extra.get("source_tiering")
+    if isinstance(source_tiering, dict):
+        source_tier = str(source_tiering.get("tier") or source_tier).strip()
+        onboarding_priority = str(source_tiering.get("onboarding_priority") or onboarding_priority).strip()
     query_terms = _normalize_terms(
         params.get("query_terms")
         or params.get("keywords")
@@ -258,6 +300,8 @@ def _build_frontdoor_protocol(
         prefer_crawler_first=prefer_crawler_first,
         search_parallelism=search_parallelism,
         routing_parallelism=routing_parallelism,
+        source_tier=source_tier,
+        onboarding_priority=onboarding_priority,
     )
 
 
@@ -281,6 +325,8 @@ def _protocol_to_dict(protocol: FrontDoorExecutionProtocol) -> Dict[str, Any]:
         "prefer_crawler_first": protocol.prefer_crawler_first,
         "search_parallelism": protocol.search_parallelism,
         "routing_parallelism": protocol.routing_parallelism,
+        "source_tier": protocol.source_tier,
+        "onboarding_priority": protocol.onboarding_priority,
     }
 
 
@@ -305,6 +351,8 @@ def _run_single_routed_url(
     has_query_terms: bool,
     force_single_url_flow: bool,
     preferred_crawler_channel_key: str | None,
+    fallback_crawler_channel_key: str | None,
+    force_crawler_fallback_on_empty: bool,
 ) -> Dict[str, Any]:
     url_str = str(url).strip() if url else ""
     if not url_str or not url_str.startswith(("http://", "https://")):
@@ -342,6 +390,41 @@ def _run_single_routed_url(
                 project_key=project_key,
                 item_key=str(item.get("item_key") or "").strip() or None,
             )
+        if (
+            force_crawler_fallback_on_empty
+            and isinstance(result, dict)
+            and not _is_crawler_channel(channel)
+            and int(result.get("inserted") or 0) + int(result.get("updated") or 0) <= 0
+            and fallback_crawler_channel_key
+            and fallback_crawler_channel_key != channel_key
+        ):
+            fallback_crawler_channel = channel_map.get(fallback_crawler_channel_key)
+            if fallback_crawler_channel is not None and fallback_crawler_channel.get("enabled", True):
+                fallback_crawler_params = _deep_merge(fallback_crawler_channel.get("default_params") or {}, params)
+                fallback_crawler_params = {k: v for k, v in fallback_crawler_params.items() if k != "urls"}
+                fallback_crawler_params = _inject_url_params_for_channel(
+                    channel=fallback_crawler_channel,
+                    per_url_params=fallback_crawler_params,
+                    url_str=url_str,
+                )
+                try:
+                    with (bind_project(project_key) if project_key else nullcontext()):
+                        fallback_crawler_result = run_channel(
+                            channel=fallback_crawler_channel,
+                            params=fallback_crawler_params,
+                            project_key=project_key,
+                            item_key=str(item.get("item_key") or "").strip() or None,
+                        )
+                    return {
+                        "url": url_str,
+                        "channel_key": fallback_crawler_channel_key,
+                        "fallback_from_channel_key": channel_key,
+                        "fallback_reason": "mechanical_no_results",
+                        "error": None,
+                        "result": fallback_crawler_result,
+                    }
+                except Exception:
+                    pass
         return {"url": url_str, "channel_key": channel_key, "error": None, "result": result}
     except Exception as exc:
         if (
@@ -382,7 +465,7 @@ def _run_single_routed_url(
 
 
 def _channel_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
-    return {
+    return _attach_source_tiering({
         "channel_key": row.channel_key,
         "name": row.name,
         "kind": row.kind,
@@ -398,7 +481,7 @@ def _channel_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
         "enabled": bool(row.enabled),
         "extra": _as_dict(row.extra),
         "scope": scope,
-    }
+    })
 
 
 def _item_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
@@ -432,23 +515,25 @@ def _load_project_channels(project_key: str | None) -> List[Dict[str, Any]]:
         if not channel_key:
             continue
         file_rows.append(
-            {
-                "channel_key": channel_key,
-                "name": str(payload.get("name") or channel_key),
-                "kind": str(payload.get("kind") or "unknown"),
-                "provider": str(payload.get("provider") or "unknown"),
-                "provider_type": str(payload.get("provider_type") or "native"),
-                "provider_config": _as_dict(payload.get("provider_config")),
-                "execution_policy": _as_dict(payload.get("execution_policy")),
-                "description": payload.get("description"),
-                "credential_refs": _as_list(payload.get("credential_refs")),
-                "default_params": _as_dict(payload.get("default_params")),
-                "param_schema": _as_dict(payload.get("param_schema")),
-                "extends_channel_key": payload.get("extends_channel_key"),
-                "enabled": bool(payload.get("enabled", True)),
-                "extra": _as_dict(payload.get("extra")),
-                "scope": "project",
-            }
+            _attach_source_tiering(
+                {
+                    "channel_key": channel_key,
+                    "name": str(payload.get("name") or channel_key),
+                    "kind": str(payload.get("kind") or "unknown"),
+                    "provider": str(payload.get("provider") or "unknown"),
+                    "provider_type": str(payload.get("provider_type") or "native"),
+                    "provider_config": _as_dict(payload.get("provider_config")),
+                    "execution_policy": _as_dict(payload.get("execution_policy")),
+                    "description": payload.get("description"),
+                    "credential_refs": _as_list(payload.get("credential_refs")),
+                    "default_params": _as_dict(payload.get("default_params")),
+                    "param_schema": _as_dict(payload.get("param_schema")),
+                    "extends_channel_key": payload.get("extends_channel_key"),
+                    "enabled": bool(payload.get("enabled", True)),
+                    "extra": _as_dict(payload.get("extra")),
+                    "scope": "project",
+                }
+            )
         )
     if not project_key:
         return file_rows
@@ -720,11 +805,11 @@ def list_effective_channels(scope: str = "effective", project_key: str | None = 
             shared_keys.add(ch["channel_key"])
 
     if scope == "shared":
-        return shared_channels
+        return [_attach_source_tiering(x) for x in shared_channels]
     if scope == "project":
-        return project_channels
+        return [_attach_source_tiering(x) for x in project_channels]
 
-    return _merge_channels(shared_channels, project_channels)
+    return [_attach_source_tiering(x) for x in _merge_channels(shared_channels, project_channels)]
 
 
 _URL_POOL_DEFAULT_ITEM: Dict[str, Any] = {
@@ -840,7 +925,9 @@ def run_item_with_url_routing(
     has_query_terms = bool(protocol.query_terms)
     force_single_url_flow = protocol.force_single_url_flow
     prefer_crawler_first = protocol.prefer_crawler_first
+    force_crawler_fallback_on_empty = _as_bool(params.get("force_crawler_fallback_on_empty"), True)
     preferred_crawler_channel_key: str | None = None
+    fallback_crawler_channel_key: str | None = None
     if prefer_crawler_first:
         item_channel_key = str(item.get("channel_key") or "").strip()
         item_channel = channel_map.get(item_channel_key)
@@ -851,6 +938,11 @@ def run_item_with_url_routing(
                 channel_map=channel_map,
                 project_key=project_key,
             )
+    if force_crawler_fallback_on_empty:
+        fallback_crawler_channel_key = _prefer_crawler_channel_key(
+            channel_map=channel_map,
+            project_key=project_key,
+        )
 
     max_workers = _resolve_url_routing_parallelism(params, len(urls))
     if max_workers <= 1:
@@ -864,6 +956,8 @@ def run_item_with_url_routing(
                 has_query_terms=has_query_terms,
                 force_single_url_flow=force_single_url_flow,
                 preferred_crawler_channel_key=preferred_crawler_channel_key,
+                fallback_crawler_channel_key=fallback_crawler_channel_key,
+                force_crawler_fallback_on_empty=force_crawler_fallback_on_empty,
             )
             for url in urls
         ]
@@ -880,6 +974,8 @@ def run_item_with_url_routing(
                     has_query_terms=has_query_terms,
                     force_single_url_flow=force_single_url_flow,
                     preferred_crawler_channel_key=preferred_crawler_channel_key,
+                    fallback_crawler_channel_key=fallback_crawler_channel_key,
+                    force_crawler_fallback_on_empty=force_crawler_fallback_on_empty,
                 )
                 for url in urls
             ]
@@ -1079,6 +1175,9 @@ def _run_handler_cluster_item(
     if merged_candidates:
         routing_params = dict(params)
         routing_params["urls"] = list(merged_candidates)
+        # Handler cluster is the only clustering layer; downstream url_pool should execute only.
+        routing_params["disable_site_seed_expansion"] = True
+        routing_params["cluster_layer_separated"] = True
         routing_protocol = _build_frontdoor_protocol(
             item=item,
             params=routing_params,
@@ -1140,6 +1239,26 @@ def _run_handler_cluster_item(
     }
 
 
+def _enrich_item_with_channel_tiering(
+    *,
+    item: Dict[str, Any],
+    channel_map: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    enriched = dict(item)
+    extra = _as_dict(enriched.get("extra"))
+    channel_key = str(enriched.get("channel_key") or "").strip()
+    channel = channel_map.get(channel_key) or {}
+    if not str(extra.get("source_tier") or "").strip():
+        extra["source_tier"] = str(channel.get("source_tier") or "").strip()
+    if not str(extra.get("onboarding_priority") or "").strip():
+        extra["onboarding_priority"] = str(channel.get("onboarding_priority") or "").strip()
+    source_tiering = channel.get("extra", {}).get("source_tiering") if isinstance(channel.get("extra"), dict) else None
+    if isinstance(source_tiering, dict) and not isinstance(extra.get("source_tiering"), dict):
+        extra["source_tiering"] = dict(source_tiering)
+    enriched["extra"] = extra
+    return enriched
+
+
 def run_item_by_key(
     *,
     item_key: str,
@@ -1170,6 +1289,7 @@ def run_item_payload(
 
     channels = channels if channels is not None else list_effective_channels(scope="effective", project_key=project_key)
     channel_map = {x["channel_key"]: x for x in channels}
+    item = _enrich_item_with_channel_tiering(item=item, channel_map=channel_map)
     item_key = str(item.get("item_key") or "").strip() or "_anonymous"
     # Base params: item.params + ingest_config + override (no channel yet)
     params = dict(item.get("params") or {})

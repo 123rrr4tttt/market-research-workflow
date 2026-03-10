@@ -94,6 +94,7 @@ docker-compose up -d db es redis
 - ✅ 若检测到缺失 Homebrew，会尝试自动安装（可通过 `--no-auto-install` 关闭）
 - ✅ 自动创建 `.venv311`（若不存在）并按 `requirements.txt` 安装依赖（按哈希变更增量更新）
 - ✅ 默认纯本机模式，不自动操作 Docker 依赖服务
+- ✅ 纯本机模式会自动停止 Docker 的 `db/es/redis`（避免本机与容器依赖混用）；如需保留可传 `--keep-docker-deps`
 - ✅ 启动 modern 前端开发服务（默认端口 5173）
 - ✅ 自动检测并尝试拉起本机 PostgreSQL（默认 `localhost:5432`，优先 Homebrew service）
 - ✅ 自动检测并尝试拉起本机 Redis（默认 `localhost:6379`，优先 Homebrew service）

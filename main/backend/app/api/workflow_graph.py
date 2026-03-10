@@ -7,6 +7,7 @@ from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 
 from ..contracts import ErrorCode, error_response, map_exception_to_error, success_response
+from ..services.workflow_graph.curated_service import WorkflowGraphObjectMissingError, WorkflowGraphSyncConflictError
 
 
 router = APIRouter(prefix="/workflow-graph", tags=["workflow-graph"])
@@ -41,11 +42,19 @@ def _load_workflow_graph_services() -> tuple[Any, Any]:
     return compiler, runtime
 
 
-def _call_first(target: Any, method_names: tuple[str, ...], *args: Any) -> Any:
+def _load_workflow_graph_curated_service() -> Any:
+    module = import_module("app.services.workflow_graph")
+    curated = getattr(module, "curated", None)
+    if curated is None:
+        raise RuntimeError("services.workflow_graph must define curated")
+    return curated
+
+
+def _call_first(target: Any, method_names: tuple[str, ...], *args: Any, **kwargs: Any) -> Any:
     for name in method_names:
         method = getattr(target, name, None)
         if callable(method):
-            return method(*args)
+            return method(*args, **kwargs)
     raise AttributeError(f"no supported method found: {', '.join(method_names)}")
 
 
@@ -124,6 +133,51 @@ def _invoke_activate_template_version(template_id: str, version_id: str, payload
     return _call_first(compiler, ("activate_template_version",), template_id, version_id, payload)
 
 
+def _invoke_get_curated_graph(graph_id: str) -> Any:
+    curated = _load_workflow_graph_curated_service()
+    return _call_first(curated, ("get_graph",), graph_id)
+
+
+def _invoke_save_curated_draft(graph_id: str, payload: dict[str, Any]) -> Any:
+    curated = _load_workflow_graph_curated_service()
+    return _call_first(curated, ("save_draft",), graph_id, payload)
+
+
+def _invoke_submit_curated_draft(graph_id: str, payload: dict[str, Any]) -> Any:
+    curated = _load_workflow_graph_curated_service()
+    return _call_first(curated, ("submit_draft",), graph_id, payload)
+
+
+def _invoke_sync_curated_graph(graph_id: str, payload: dict[str, Any]) -> Any:
+    curated = _load_workflow_graph_curated_service()
+    return _call_first(curated, ("sync_graph",), graph_id, payload)
+
+
+def _invoke_rollback_curated_graph(graph_id: str, payload: dict[str, Any]) -> Any:
+    curated = _load_workflow_graph_curated_service()
+    return _call_first(curated, ("rollback",), graph_id, payload)
+
+
+def _invoke_list_curated_audits(graph_id: str, limit: int) -> Any:
+    curated = _load_workflow_graph_curated_service()
+    return _call_first(curated, ("list_audits",), graph_id, limit=limit)
+
+
+def _invoke_build_evidence_pack(graph_id: str, payload: dict[str, Any]) -> Any:
+    curated = _load_workflow_graph_curated_service()
+    return _call_first(curated, ("build_evidence_pack",), graph_id, payload)
+
+
+def _invoke_reporting_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
+    curated = _load_workflow_graph_curated_service()
+    return _call_first(curated, ("build_reporting_handoff",), graph_id, payload)
+
+
+def _invoke_writing_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
+    curated = _load_workflow_graph_curated_service()
+    return _call_first(curated, ("build_writing_handoff",), graph_id, payload)
+
+
 def _ok_workflow_graph(payload: dict[str, Any]) -> dict[str, Any]:
     return success_response(payload, meta={"deprecated": "workflow_graph.contract.v2"})
 
@@ -180,6 +234,29 @@ def _normalize_run_events(value: Any) -> dict[str, Any]:
         "total": len(items),
         "contract_version": "workflow_graph.v2",
     }
+
+
+def _workflow_sync_error_json(exc: Exception, *, fallback_message: str) -> JSONResponse:
+    if isinstance(exc, WorkflowGraphSyncConflictError):
+        return _error_json(
+            ErrorCode.INVALID_INPUT,
+            str(exc) or fallback_message,
+            details=exc.to_details(),
+        )
+    if isinstance(exc, WorkflowGraphObjectMissingError):
+        return _error_json(
+            ErrorCode.NOT_FOUND,
+            str(exc) or "graph object missing",
+            details={"category": "object_missing"},
+        )
+    if isinstance(exc, ValueError):
+        return _error_json(
+            ErrorCode.INVALID_INPUT,
+            str(exc) or fallback_message,
+            details={"category": "validation_failure"},
+        )
+    code, message, details = map_exception_to_error(exc)
+    return _error_json(code, message, details)
 
 
 @router.post("/compile", response_model=None)
@@ -377,3 +454,75 @@ def activate_workflow_graph_template_version(
     except Exception as exc:  # noqa: BLE001
         code, message, details = map_exception_to_error(exc)
         return _error_json(code, message, details)
+
+
+@router.get("/curated/{graph_id}", response_model=None)
+def get_workflow_graph_curated_state(graph_id: str) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_get_curated_graph(graph_id)))
+    except Exception as exc:  # noqa: BLE001
+        return _workflow_sync_error_json(exc, fallback_message="failed to fetch curated graph")
+
+
+@router.post("/curated/{graph_id}/draft", response_model=None)
+def save_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any]) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_save_curated_draft(graph_id, payload)))
+    except Exception as exc:  # noqa: BLE001
+        return _workflow_sync_error_json(exc, fallback_message="failed to save draft")
+
+
+@router.post("/curated/{graph_id}/submit", response_model=None)
+def submit_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_submit_curated_draft(graph_id, payload or {})))
+    except Exception as exc:  # noqa: BLE001
+        return _workflow_sync_error_json(exc, fallback_message="failed to submit draft")
+
+
+@router.post("/curated/{graph_id}/sync", response_model=None)
+def sync_workflow_graph_curated_state(graph_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_sync_curated_graph(graph_id, payload or {})))
+    except Exception as exc:  # noqa: BLE001
+        return _workflow_sync_error_json(exc, fallback_message="failed to sync graph state")
+
+
+@router.post("/curated/{graph_id}/rollback", response_model=None)
+def rollback_workflow_graph_curated_state(graph_id: str, payload: dict[str, Any]) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_rollback_curated_graph(graph_id, payload)))
+    except Exception as exc:  # noqa: BLE001
+        return _workflow_sync_error_json(exc, fallback_message="failed to rollback graph state")
+
+
+@router.get("/curated/{graph_id}/audit", response_model=None)
+def list_workflow_graph_curated_audits(graph_id: str, limit: int = 50) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_list_curated_audits(graph_id, limit)))
+    except Exception as exc:  # noqa: BLE001
+        return _workflow_sync_error_json(exc, fallback_message="failed to list audits")
+
+
+@router.post("/curated/{graph_id}/evidence-pack", response_model=None)
+def build_workflow_graph_evidence_pack(graph_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_build_evidence_pack(graph_id, payload or {})))
+    except Exception as exc:  # noqa: BLE001
+        return _workflow_sync_error_json(exc, fallback_message="failed to build evidence pack")
+
+
+@router.post("/curated/{graph_id}/handoff/reporting", response_model=None)
+def build_workflow_graph_reporting_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_reporting_handoff(graph_id, payload)))
+    except Exception as exc:  # noqa: BLE001
+        return _workflow_sync_error_json(exc, fallback_message="failed to build reporting handoff")
+
+
+@router.post("/curated/{graph_id}/handoff/writing", response_model=None)
+def build_workflow_graph_writing_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_writing_handoff(graph_id, payload)))
+    except Exception as exc:  # noqa: BLE001
+        return _workflow_sync_error_json(exc, fallback_message="failed to build writing handoff")

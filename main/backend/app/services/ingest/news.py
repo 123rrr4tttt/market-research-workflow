@@ -5,12 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime, date, timezone
 from typing import Iterable, List, Optional
 
-from sqlalchemy.orm import Session
-
 from ..job_logger import start_job, complete_job, fail_job
 from ..projects import current_project_key
-from ...models.base import SessionLocal
-from ...models.entities import Document, Source
 from .doc_type_mapper import normalize_doc_type
 from .adapters.http_utils import fetch_html, make_html_parser
 from .adapters.social_reddit import RedditAdapter, RedditPost
@@ -139,67 +135,51 @@ def _persist_news_items(
     job_type: str | None = None,
 ) -> dict:
     normalized_doc_type = normalize_doc_type(doc_type)
-    inserted = 0
-    skipped = 0
     links: List[str] = []
-    pending_inserts = 0
-
-    with SessionLocal() as session:
-        source = _get_or_create_source(session, source_name, kind, base_url)
-        source_id = source.id
-        for item in items:
-            link = item.link.strip()
-            if not link:
-                continue
-            links.append(link)
-            if job_type:
-                _maybe_append_to_resource_pool(link, job_type, {"source": source_name})
-            existed = session.query(Document).filter(Document.uri == link).one_or_none()
-            if existed:
-                skipped += 1
-                continue
-
-            document = Document(
-                source_id=source_id,
-                state=default_state,
-                doc_type=normalized_doc_type,
-                title=item.title,
-                summary=item.summary,
-                publish_date=_publish_date(item.published_at),
-                uri=link,
-            )
-            session.add(document)
-            inserted += 1
-            pending_inserts += 1
-            if pending_inserts >= BATCH_COMMIT_SIZE:
-                session.commit()
-                session.expunge_all()
-                pending_inserts = 0
-
-        if pending_inserts > 0:
-            session.commit()
+    for item in items:
+        link = item.link.strip()
+        if not link:
+            continue
+        links.append(link)
+        if job_type:
+            _maybe_append_to_resource_pool(link, job_type, {"source": source_name})
+    ingest_result = _dispatch_links_to_single_url(
+        links=links,
+        query_terms=[],
+    )
 
     return {
-        "inserted": inserted,
-        "skipped": skipped,
+        "inserted": int(ingest_result.get("inserted") or 0),
+        "inserted_valid": int(ingest_result.get("inserted_valid") or 0),
+        "skipped": int(ingest_result.get("skipped") or 0),
+        "queued": int(ingest_result.get("queued") or 0),
         "links": links,
         "doc_type": normalized_doc_type,
+        "single_write_workflow": "single_url",
+        "enforced_body_only": True,
     }
 
 
-def _get_or_create_source(session: Session, name: str, kind: str, base_url: str) -> Source:
-    source = (
-        session.query(Source)
-        .filter(Source.name == name, Source.kind == kind)
-        .first()
-    )
-    if source:
-        return source
+def _dispatch_links_to_single_url(*, links: List[str], query_terms: List[str]) -> dict:
+    if not links:
+        return {"inserted": 0, "inserted_valid": 0, "skipped": 0, "queued": 0}
+    from .url_pool import collect_urls_from_list
 
-    source = Source(name=name, kind=kind, base_url=base_url)
-    session.add(source)
-    session.flush()
-    return source
+    project_key = (current_project_key() or "").strip() or None
+    return collect_urls_from_list(
+        links,
+        project_key=project_key,
+        query_terms=list(query_terms or []),
+        extra_params={
+            "dispatch_mode": "inline",
+            "single_url_frontdoor_enabled": True,
+            "front_door_owner": "ingest.news",
+            "frontdoor_route_decision": "front_door_url_routing",
+            "frontdoor_write_mode": "front_door_url_routing",
+            "frontdoor_execution_mode": "url_routing",
+        },
+        enable_extraction=True,
+    )
 
 
 def _extract_official_news_items(
@@ -311,64 +291,35 @@ def _persist_reddit_items(
     default_state: str | None,
     job_type: str | None = None,
 ) -> dict:
-    """存储Reddit帖子数据，包含完整的结构化信息"""
+    """Store reddit links via single_url body-fetch pipeline (no URL-only docs)."""
     normalized_doc_type = normalize_doc_type(doc_type)
-    inserted = 0
-    skipped = 0
     links: List[str] = []
-    pending_inserts = 0
+    query_terms: list[str] = []
+    for post in posts:
+        link = post.link.strip()
+        if not link:
+            continue
+        links.append(link)
+        if job_type:
+            _maybe_append_to_resource_pool(link, job_type, {"subreddit": post.subreddit})
+        subreddit = str(post.subreddit or "").strip()
+        if subreddit:
+            query_terms.append(subreddit)
 
-    with SessionLocal() as session:
-        source = _get_or_create_source(session, source_name, "social", base_url)
-        source_id = source.id
-        for post in posts:
-            link = post.link.strip()
-            if not link:
-                continue
-            links.append(link)
-            if job_type:
-                _maybe_append_to_resource_pool(link, job_type, {"subreddit": post.subreddit})
-            existed = session.query(Document).filter(Document.uri == link).one_or_none()
-            if existed:
-                skipped += 1
-                continue
-
-            # 构建extracted_data，包含Reddit的完整信息
-            extracted_data = {
-                "platform": "reddit",
-                "username": post.username,
-                "subreddit": post.subreddit,
-                "likes": post.likes,
-                "comments": post.comments,
-                "text": post.text,
-            }
-
-            document = Document(
-                source_id=source_id,
-                state=default_state,
-                doc_type=normalized_doc_type,
-                title=post.title,
-                summary=post.summary,
-                publish_date=post.timestamp.date() if post.timestamp else None,
-                uri=link,
-                extracted_data=extracted_data,
-            )
-            session.add(document)
-            inserted += 1
-            pending_inserts += 1
-            if pending_inserts >= BATCH_COMMIT_SIZE:
-                session.commit()
-                session.expunge_all()
-                pending_inserts = 0
-
-        if pending_inserts > 0:
-            session.commit()
+    ingest_result = _dispatch_links_to_single_url(
+        links=links,
+        query_terms=query_terms,
+    )
 
     return {
-        "inserted": inserted,
-        "skipped": skipped,
+        "inserted": int(ingest_result.get("inserted") or 0),
+        "inserted_valid": int(ingest_result.get("inserted_valid") or 0),
+        "skipped": int(ingest_result.get("skipped") or 0),
+        "queued": int(ingest_result.get("queued") or 0),
         "links": links,
         "doc_type": normalized_doc_type,
+        "single_write_workflow": "single_url",
+        "enforced_body_only": True,
     }
 
 
@@ -447,59 +398,33 @@ def _persist_google_news_items(
     default_state: str | None,
     job_type: str | None = None,
 ) -> dict:
-    """存储Google News数据"""
+    """Store Google News links via single_url body-fetch pipeline (no URL-only docs)."""
     normalized_doc_type = normalize_doc_type(doc_type)
-    inserted = 0
-    skipped = 0
     links: List[str] = []
-    pending_inserts = 0
+    query_terms: list[str] = []
+    for item in items:
+        link = item.link.strip()
+        if not link:
+            continue
+        links.append(link)
+        if job_type:
+            _maybe_append_to_resource_pool(link, job_type, {"keyword": item.keyword})
+        kw = str(item.keyword or "").strip()
+        if kw:
+            query_terms.append(kw)
 
-    with SessionLocal() as session:
-        source = _get_or_create_source(session, source_name, "news", base_url)
-        source_id = source.id
-        for item in items:
-            link = item.link.strip()
-            if not link:
-                continue
-            links.append(link)
-            if job_type:
-                _maybe_append_to_resource_pool(link, job_type, {"keyword": item.keyword})
-            existed = session.query(Document).filter(Document.uri == link).one_or_none()
-            if existed:
-                skipped += 1
-                continue
-
-            # 构建extracted_data
-            extracted_data = {
-                "platform": "google_news",
-                "source": item.source,
-                "keyword": item.keyword,
-            }
-
-            document = Document(
-                source_id=source_id,
-                state=default_state,
-                doc_type=normalized_doc_type,
-                title=item.title,
-                summary=item.summary,
-                publish_date=item.date.date() if item.date else None,
-                uri=link,
-                extracted_data=extracted_data,
-            )
-            session.add(document)
-            inserted += 1
-            pending_inserts += 1
-            if pending_inserts >= BATCH_COMMIT_SIZE:
-                session.commit()
-                session.expunge_all()
-                pending_inserts = 0
-
-        if pending_inserts > 0:
-            session.commit()
+    ingest_result = _dispatch_links_to_single_url(
+        links=links,
+        query_terms=query_terms,
+    )
 
     return {
-        "inserted": inserted,
-        "skipped": skipped,
+        "inserted": int(ingest_result.get("inserted") or 0),
+        "inserted_valid": int(ingest_result.get("inserted_valid") or 0),
+        "skipped": int(ingest_result.get("skipped") or 0),
+        "queued": int(ingest_result.get("queued") or 0),
         "links": links,
         "doc_type": normalized_doc_type,
+        "single_write_workflow": "single_url",
+        "enforced_body_only": True,
     }

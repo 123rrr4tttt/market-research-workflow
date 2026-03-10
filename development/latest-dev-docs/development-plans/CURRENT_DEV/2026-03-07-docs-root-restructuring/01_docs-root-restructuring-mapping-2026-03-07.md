@@ -1,34 +1,115 @@
-# docs 根目录重构迁移映射表（development -> docs）
+# Docs Root Restructuring Plan and Mapping
 
-> 日期：2026-03-07
-> 范围：`development/latest-dev-docs`、`docs`
-> 状态：规划中，当前不直接移动真实文件
+> Date: 2026-03-07
+> Scope: `development/latest-dev-docs`, existing `docs/`, and repo references that currently point to the development-doc snapshot
+> Status: planning only; this document defines migration intent and sequencing, not a file-move commit
 
-## 1. 结论
+## 1. Goal
 
-不建议把顶层 `development/` 直接整体改名为 `docs/`。
+Define a safe restructuring plan for developer-facing documentation so that:
 
-建议改为：
+1. the repo stops relying on `development/latest-dev-docs` as the only long-term container for mixed planning, implementation, architecture, and governance material;
+2. future moves can be executed in batches with clear destination rules;
+3. link churn, duplicate copies, and index breakage are controlled during the transition.
 
-- `docs/` 作为唯一文档根目录
-- `development/` 短期保留为兼容入口
-- `development/latest-dev-docs` 内文档按内容性质分流到：
-  - `docs/development/`
-  - `docs/implementation/`
-  - `docs/architecture/`
-  - `docs/governance/`
+This document is intentionally limited to planning, classification rules, and migration order. It does not claim that the migration has already happened.
 
-本次先产出迁移映射，不直接移动文件。
+## 2. Current Baseline
 
-## 2. 重构原则
+The current repo state already exposes two documentation roots with different roles:
 
-1. 先按文档生命周期分类，再做路径迁移。
-2. 先迁低歧义文档，后迁混合型目录。
-3. 先补新入口与索引，再改旧引用。
-4. `development/latest-dev-docs` 至少保留 1-2 个版本周期的只读兼容入口。
-5. 第一阶段只做路径和索引调整，不重写正文语义。
+- `development/latest-dev-docs` is the current developer-doc snapshot and is explicitly described in repo guidance as the important index and first entry.
+- `docs/` already exists and already hosts stable topic areas such as `ai`, `data-catalog`, `data-contracts`, `implementation`, `ops`, `reference-pool`, and `security`.
 
-## 3. 目标结构
+Inside `development/latest-dev-docs`, the current top-level structure is already theme-oriented but semantically mixed:
+
+- `root-plans`
+- `backend-core`
+- `backend-docs`
+- `ops-frontend`
+- `development-plans`
+- `frontend-modern`
+
+Inside those trees, the same directory family appears repeatedly:
+
+- `A_ARCHITECTURE`
+- `B_API`
+- `C_INGEST`
+- `D_TEST`
+- `E_OPS`
+- `F_PLAN`
+- `G_REVIEW`
+- `main/`
+
+There is also clear path coupling in the repo today. Existing references to `development/latest-dev-docs` are present in at least these places:
+
+- root `README.md`
+- `codex_settings/AGENTS.md`
+- `scripts/docs_only_workflow.sh`
+- multiple development docs and review documents under `development/latest-dev-docs`
+
+This means the migration problem is not just “rename one folder”. The real problem is that:
+
+- `development/latest-dev-docs` is simultaneously a live entrypoint, a snapshot area, and a mixed semantic archive;
+- `docs/` already contains production-facing and reference-facing material, but not yet the full target taxonomy needed for process docs;
+- many links, scripts, and habits still assume the old root.
+
+## 3. Problem Layers
+
+### 3.1 Root Ambiguity
+
+The repo currently has both `development/latest-dev-docs` and `docs/`, but their responsibilities are not cleanly separated. Readers can reach valid documentation from both places, which makes ownership and future indexing unclear.
+
+### 3.2 Semantic Mixing
+
+Many directories mix:
+
+- planning artifacts,
+- implementation evidence,
+- architecture notes,
+- governance/review material,
+- merged snapshot documents.
+
+This is the main reason a direct folder rename would be unsafe. A large portion of the tree needs classification before relocation.
+
+### 3.3 Reference Coupling
+
+Paths to `development/latest-dev-docs` are hard-coded in documentation and scripts. Moving files before fixing these references would create broken navigation and brittle automation.
+
+### 3.4 Migration Safety
+
+Because `development/latest-dev-docs/README.md` is still the declared first entry, any migration must keep a compatibility layer until new indexes, scripts, and reader habits are stable.
+
+## 4. Scope and Non-Goals
+
+### 4.1 In Scope
+
+- define the target classification model;
+- define root-level and subdirectory-level mapping rules;
+- define a staged migration order;
+- define the minimum validation set;
+- define rollback expectations.
+
+### 4.2 Out of Scope for This Document
+
+- moving files in this task;
+- editing repo indexes in this task;
+- rewriting every mixed document into a new semantic form;
+- deciding the final information architecture for unrelated existing `docs/ai`, `docs/security`, `docs/data-catalog`, or `docs/data-contracts`.
+
+## 5. Migration Principles
+
+1. Preserve entry stability before optimizing structure.
+2. Classify by document role first, then move paths.
+3. Prefer file-level routing when directory-level semantics are mixed.
+4. Move low-ambiguity material first and mixed archives later.
+5. Keep `development/latest-dev-docs` readable as a compatibility entry until the new navigation has been proven.
+6. Do not create duplicate “authoritative copies” without an explicit deprecation path.
+7. Validate index integrity and path references after every migration batch.
+
+## 6. Recommended Target Model
+
+The repo already has a usable `docs/implementation` root. For the missing semantic buckets, the recommended destination family is:
 
 ```text
 docs/
@@ -36,200 +117,234 @@ docs/
   implementation/
   architecture/
   governance/
-  reference-pool/
 ```
 
-分类口径：
+This recommendation is intentionally narrow:
 
-- `docs/development/`：计划、草案、原子任务、设计 brief、review 过程、历史开发归档
-- `docs/implementation/`：已落地流程、接口文档、运行手册、测试基线、验收记录
-- `docs/architecture/`：系统结构、长期约束、主线演进方向、架构决策
-- `docs/governance/`：发布口径、治理策略、review 结论、可靠性与运维基线
+- keep existing unrelated roots such as `docs/ai`, `docs/ops`, `docs/security`, `docs/data-catalog`, and `docs/data-contracts` unchanged in this migration;
+- add the missing roots only to absorb material currently trapped in `development/latest-dev-docs`;
+- treat `docs/implementation` as an existing stable destination, not a new invention.
 
-## 4. 一级目录迁移映射
+Role definitions:
 
-| 现路径 | 目录定位 | 目标落点 | 备注 |
+- `docs/development/`: active plans, execution boards, design briefs, atomic tasklists, stage-specific reviews, historical development archives.
+- `docs/implementation/`: adopted workflows, stable API/interface notes, test baselines, runbooks, accepted delivery evidence.
+- `docs/architecture/`: system structure, long-lived constraints, cross-cutting design decisions, target-state topology.
+- `docs/governance/`: release policy, review conclusions, reliability baselines, operational governance rules.
+
+## 7. Mapping Rules
+
+### 7.1 Root-Level Mapping
+
+| Current path | Current role | Recommended destination | Notes |
 |---|---|---|---|
-| `development/latest-dev-docs/development-plans` | 开发计划与执行闭环主目录 | 以 `docs/development` 为主，部分分流到 `implementation` / `architecture` / `governance` | 不能整包平移 |
-| `development/latest-dev-docs/root-plans` | 顶层计划域，混合计划、证据、治理 | 拆分到四类目录 | 需保留强索引 |
-| `development/latest-dev-docs/backend-core` | 开发记录 + 稳定实现说明混合 | 以 `docs/implementation` 为主 | `A_ARCHITECTURE` / `E_OPS` 单独分流 |
-| `development/latest-dev-docs/backend-docs` | 后端快照与阶段性执行记录 | 以 `docs/implementation` 为主 | 少量计划/评审留在 `development` |
-| `development/latest-dev-docs/ops-frontend` | 前端交付 + 运维 + 计划评审混合 | `implementation` + `development` 双落点 | `main/` 需要二次判断 |
-| `development/latest-dev-docs/frontend-modern` | 设计输入 / 原型参考 | 先放 `docs/development` | 暂不进 `implementation` |
+| `development/latest-dev-docs/development-plans` | active planning and execution closure | primarily `docs/development/development-plans` | split out architecture / implementation / governance files when semantics are explicit |
+| `development/latest-dev-docs/root-plans` | top-level planning, evidence, and review mix | file-level split across all four roots | do not move as one package |
+| `development/latest-dev-docs/backend-core` | implementation notes mixed with architecture and review | primarily `docs/implementation/backend-core` | route `A_ARCHITECTURE` and governance-like ops baselines separately |
+| `development/latest-dev-docs/backend-docs` | backend delivery docs mixed with stage artifacts | primarily `docs/implementation/backend-docs` | keep planning/review artifacts in `docs/development` or `docs/governance` |
+| `development/latest-dev-docs/ops-frontend` | frontend implementation, plan, review, and ops mix | split between `docs/implementation`, `docs/development`, `docs/architecture`, `docs/governance` | `main/` requires file-level review |
+| `development/latest-dev-docs/frontend-modern` | design-input and prototype-style material | `docs/development/frontend-modern` by default | only promote to implementation if the repo later treats it as stable product guidance |
 
-## 5. 子目录级映射规则
+### 7.2 Shared Subdirectory Rules
 
-### 5.1 通用规则
+These rules apply across subprojects unless the folder content is obviously mixed at file level:
 
-按目录语义优先分流，若单目录内混合明显，则按文件级别分流。
-
-默认规则：
-
-| 子目录 | 默认目标 |
+| Subdirectory | Default destination |
 |---|---|
 | `A_ARCHITECTURE` | `docs/architecture/...` |
-| `B_API` | 多数进 `docs/implementation/...`，偏路线/规划的文件留 `docs/development/...` |
-| `C_INGEST` | 已实施/证据类进 `docs/implementation/...` |
-| `D_TEST` | 测试基线进 `docs/implementation/...`，过程性验证留 `docs/development/...` |
-| `E_OPS` | 运行手册进 `docs/implementation/...`，治理/可靠性基线进 `docs/governance/...` |
+| `B_API` | usually `docs/implementation/...`; keep planning-style API design notes in `docs/development/...` |
+| `C_INGEST` | `docs/implementation/...` when it records an adopted flow; otherwise `docs/development/...` |
+| `D_TEST` | `docs/implementation/...` for stable test baselines; `docs/development/...` for task-stage validation notes |
+| `E_OPS` | `docs/implementation/...` for runbooks; `docs/governance/...` for reliability or policy baselines |
 | `F_PLAN` | `docs/development/...` |
-| `G_REVIEW` | `docs/development/...` 或 `docs/governance/...`，默认先留 development |
-| `main/` | 按正文语义判断，不能一刀切 |
+| `G_REVIEW` | `docs/governance/...` when it closes with policy or release judgment; otherwise `docs/development/...` |
+| `main/` | classify per file, never move blindly as a whole directory |
 
-### 5.2 `development-plans`
+### 7.3 Project-Specific Routing Notes
 
-建议映射：
+#### `development-plans`
 
-- 保留到 `docs/development/development-plans/`
-  - `main/`
-  - `CURRENT_DEV/`
-  - `INDEX.md`
-  - `CURRENT_DEV/INDEX.md`
-  - `ARCHIVE_CLOSED/INDEX.md`
-- 迁到 `docs/architecture/development-plans/`
-  - `A_ARCHITECTURE/`
-  - `F_PLAN/` 中长期主线演进文档
-- 迁到 `docs/implementation/development-plans/`
-  - `C_INGEST/`
-  - `D_TEST/`
-  - `E_OPS/`
-  - `ARCHIVE_CLOSED/` 中含验收命令、改动清单、最小实现集的文档
-- 迁到 `docs/governance/development-plans/`
-  - `G_REVIEW/`
+- keep `CURRENT_DEV/` under the development-classified branch during the early migration;
+- treat `ARCHIVE_CLOSED/` as mixed material that needs per-directory or per-file classification, not wholesale relocation;
+- move `A_ARCHITECTURE`, explicit long-horizon design docs, and stable target-state papers toward `docs/architecture` once their scope is confirmed.
 
-### 5.3 `root-plans`
+#### `root-plans`
 
-建议映射：
+- assume heavy mixing by default;
+- preserve strong indexing because many documents point into this tree indirectly;
+- avoid bulk moves until a reference audit is complete.
 
-- `docs/development/root-plans/`
-  - `main/MERGED_PLAN.md`
-  - `F_PLAN/`
-  - 状态跟踪类快照
-- `docs/architecture/root-plans/`
-  - `A_ARCHITECTURE/`
-  - `B_API/` 中偏标准化方向的文档
-- `docs/implementation/root-plans/`
-  - `C_INGEST/`
-  - `D_TEST/`
-  - 已落地证据矩阵、任务板
-- `docs/governance/root-plans/`
-  - `G_REVIEW/`
-  - release / pre-release 口径文档
+#### `backend-core`
 
-### 5.4 `backend-core`
+- use `docs/implementation/backend-core` as the primary landing zone;
+- route architecture notes to `docs/architecture/backend-core`;
+- route governance-like operational baselines to `docs/governance/backend-core`.
 
-建议映射：
+#### `backend-docs`
 
-- `docs/implementation/backend-core/`
-  - `main/MERGED_BACKEND_CORE.md`
-  - `main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md`
-  - `main/TEST_AUTOMATION_STANDARDIZATION.md`
-  - `main/TEST_SCENARIO_MATRIX.md`
-  - `B_API/API接口文档.md`
-- `docs/architecture/backend-core/`
-  - `A_ARCHITECTURE/`
-- `docs/development/backend-core/`
-  - `C_INGEST/INGEST_CHAIN_*`
-  - `F_PLAN/`
-  - `G_REVIEW/`
-  - `B_API/API_ROUTE_INVENTORY_2026-02-27.backend-core.md`
-- `docs/governance/backend-core/`
-  - `E_OPS/OBSERVABILITY_RELIABILITY_BASELINE_2026-03-04.md`
+- treat `main/`, most `B_API`, most `C_INGEST`, and most accepted test/ops material as implementation-leaning;
+- keep stage-bound planning or review notes outside the implementation branch.
 
-### 5.5 `backend-docs`
+#### `ops-frontend`
 
-建议映射：
+- assume `main/` is mixed and needs file-level triage;
+- move plan/review artifacts later than architecture and stable implementation docs, because this tree tends to blend multiple lifecycles.
 
-- `docs/implementation/backend-docs/`
-  - `main/`
-  - `B_API/`
-  - `C_INGEST/`
-  - 大部分 `D_TEST/`
-  - 大部分 `E_OPS/`
-- `docs/architecture/backend-docs/`
-  - `A_ARCHITECTURE/`
-- `docs/development/backend-docs/`
-  - `F_PLAN/`
-  - `G_REVIEW/`
-  - 明显属于阶段性任务板、证据矩阵、merge 计划的文档
+#### `frontend-modern`
 
-### 5.6 `ops-frontend`
+- keep it in a development-oriented bucket first;
+- promote only the subset that becomes stable reference material.
 
-建议映射：
+## 8. Proposed Migration Phases
 
-- `docs/development/ops-frontend/`
-  - `F_PLAN/`
-  - `D_TEST/`
-  - `G_REVIEW/`
-- `docs/implementation/ops-frontend/`
-  - `E_OPS/`
-  - `B_API/`
-  - `C_INGEST/`
-  - `main/` 中偏运行/API 对齐的文档
-- `docs/architecture/ops-frontend/`
-  - `A_ARCHITECTURE/`
+### Phase 0: Decision Freeze
 
-### 5.7 `frontend-modern`
+Objective:
 
-建议映射：
+- confirm that the migration is a semantic reclassification project, not a simple rename;
+- confirm the target root family and the compatibility requirement.
 
-- `docs/development/frontend-modern/main/LLM_DESIGNER_UI_REPLICA_BRIEF.md`
+Outputs:
 
-后续只有当该类文档被提升为长期实施标准时，再迁到 `docs/implementation/frontend/`。
+- one frozen destination taxonomy;
+- one no-surprises rule for `development/latest-dev-docs` compatibility;
+- one reviewed list of high-coupling references.
 
-## 6. 第一批低歧义迁移集合
+Exit criteria:
 
-第一批只动低歧义内容：
+- the team agrees that `development/latest-dev-docs` remains readable during transition;
+- the destination family is documented before any path move starts.
+
+### Phase 1: Low-Ambiguity Inventory and Target Prep
+
+Objective:
+
+- identify which directories or files can move with minimal semantic debate;
+- prepare missing destination roots under `docs/`.
+
+Recommended first-pass candidates:
 
 1. `development-plans/CURRENT_DEV/`
-2. `frontend-modern/main/LLM_DESIGNER_UI_REPLICA_BRIEF.md`
-3. 各目录下的 `A_ARCHITECTURE/`
-4. 各目录下明显的 `F_PLAN/`
-5. 各目录下明显的运行手册型 `E_OPS/`
+2. explicit `A_ARCHITECTURE/` trees
+3. explicit `F_PLAN/` trees
+4. obviously stable runbook-style `E_OPS/` documents
 
-暂缓迁移：
+Serial vs parallel:
 
-1. 所有 `main/` 下混合型合并文档
-2. `ARCHIVE_CLOSED/` 中混合“历史讨论 + 落地证据”的目录
-3. `ops-frontend` 的 `main/`
-4. `backend-docs` 中兼具规范与快照属性的文档
+- serial: create destination taxonomy and naming rules;
+- parallel: inventory low-ambiguity source files by subtree.
 
-## 7. 路径与引用改造范围
+### Phase 2: First Migration Batch
 
-当前仓内已有较多旧路径引用，迁移时至少同步处理：
+Objective:
 
-- `README.md`
-- `codex_settings/AGENTS.md`
+- move only low-ambiguity material to the approved destinations;
+- leave mixed `main/` and mixed archive trees in place.
+
+Expected result:
+
+- the new root starts carrying real material;
+- the old root still works as the entrypoint;
+- broken-link risk is bounded to a smaller file set.
+
+### Phase 3: Compatibility and Reference Repair
+
+Objective:
+
+- update high-value navigation and automation surfaces after the first batch is in place.
+
+Minimum repair surface:
+
+- root `README.md`
 - `development/latest-dev-docs/README.md`
 - `development/latest-dev-docs/MERGED_OVERVIEW.md`
-- `development/latest-dev-docs/development-plans/INDEX.md`
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md`
+- relevant `INDEX.md` files
+- `codex_settings/AGENTS.md`
 - `scripts/docs_only_workflow.sh`
-- `docs/reference-pool/*` 中引用 `development/latest-dev-docs` 的说明
 
-## 8. 执行顺序
+### Phase 4: Mixed Trees and Archive Split
 
-1. 新建 `docs/development` / `docs/implementation` / `docs/architecture` / `docs/governance`
-2. 先迁第一批低歧义集合
-3. 为旧路径增加过渡说明或只读兼容入口
-4. 批量修正索引与硬编码路径
-5. 对混合目录做第二轮文件级分流
-6. 链接校验通过后，再评估是否移除旧入口
+Objective:
 
-## 9. 最小验证步骤
+- classify `main/` directories and mixed archive content at file level;
+- avoid carrying semantic ambiguity into the new root.
 
-1. `rg -n "development/latest-dev-docs|docs/development|docs/implementation|docs/architecture|docs/governance" README.md codex_settings scripts docs`
-2. 逐个检查以下入口是否仍可导航：
-   - `development/latest-dev-docs/README.md`
-   - `development/latest-dev-docs/MERGED_OVERVIEW.md`
-   - `development/latest-dev-docs/development-plans/INDEX.md`
-   - `development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md`
-3. 对迁移批次做一次相对链接抽样检查
+Rule:
 
-## 10. 当前决定
+- when a directory contains both planning history and accepted implementation evidence, split the files instead of copying the whole directory unchanged.
 
-当前先确认架构方向：
+### Phase 5: Closure and Legacy De-emphasis
 
-- `docs/` 是唯一文档根目录
-- `development/` 不是最终归宿，只是过渡入口
-- 重构核心不是目录改名，而是文档语义重分类
+Objective:
+
+- make the new root the normal reading path;
+- reduce `development/latest-dev-docs` to compatibility or archival status only after repeated validation.
+
+Closure condition:
+
+- core repo indexes, scripts, and current reading flows no longer rely on the old root as the sole canonical path.
+
+## 9. Minimum Validation
+
+This plan should only be considered execution-ready if all of the following minimum checks are attached to the migration batch:
+
+### 9.1 Structural Validation
+
+- verify target directories exist before moving content;
+- verify moved files still have one clear authoritative location;
+- verify no required source directory becomes orphaned without a replacement entrypoint.
+
+### 9.2 Reference Validation
+
+Run at least one repo-wide path scan covering the old and new roots, for example:
+
+```bash
+rg -n "development/latest-dev-docs|docs/development|docs/implementation|docs/architecture|docs/governance" \
+  README.md codex_settings scripts docs development/latest-dev-docs
+```
+
+### 9.3 Navigation Validation
+
+At minimum, manually verify that the following entrypoints still guide a reader to the correct content after each migration batch:
+
+1. `development/latest-dev-docs/README.md`
+2. `development/latest-dev-docs/MERGED_OVERVIEW.md`
+3. `development/latest-dev-docs/development-plans/INDEX.md`
+4. `development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md`
+
+### 9.4 Process Validation
+
+- sample-check relative links from at least one moved directory;
+- confirm scripts that reference the old root either still work or are explicitly updated in the same batch;
+- confirm the migration notes explain which paths are authoritative and which are compatibility paths.
+
+## 10. Risks and Rollback
+
+### 10.1 Main Risks
+
+- broken links in repo indexes and shell scripts;
+- accidental duplication where both old and new paths look canonical;
+- over-broad directory moves that hide semantic differences inside `main/` or archives;
+- early removal of the old entrypoint while team habits and tooling still depend on it.
+
+### 10.2 Rollback Policy
+
+If a migration batch fails navigation or reference validation:
+
+1. stop after the current batch and do not continue to mixed directories;
+2. restore the previous authoritative path for the affected batch;
+3. keep any new destination directories only if they are empty or clearly marked as not yet active;
+4. record which references failed so the next attempt starts with link repair, not another move.
+
+### 10.3 Safe Rollback Boundary
+
+The safest rollback unit is one migration batch, not the entire docs tree. Each batch should be reversible without rewriting unrelated documentation.
+
+## 11. Current Decision
+
+The recommended direction is:
+
+- do not treat this work as a simple `development/` to `docs/` rename;
+- treat it as semantic reclassification plus staged path migration;
+- keep `development/latest-dev-docs` as a compatibility entry until the new root proves stable;
+- move low-ambiguity material first, then handle mixed `main/` and archive trees with file-level review.

@@ -6,6 +6,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from .compiler import compile_workflow_graph
+from .curated_service import WorkflowGraphCuratedService
 from .runtime import WorkflowGraphRuntime
 from .store import build_run_store
 from .templates import WorkflowGraphTemplateService
@@ -194,10 +195,13 @@ class WorkflowGraphRuntimeService:
 
 compiler = WorkflowGraphCompilerService()
 runtime = WorkflowGraphRuntimeService()
+curated = WorkflowGraphCuratedService()
 
 __all__ = [
     "compiler",
     "runtime",
+    "curated",
     "WorkflowGraphCompilerService",
     "WorkflowGraphRuntimeService",
+    "WorkflowGraphCuratedService",
 ]

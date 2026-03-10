@@ -1,6 +1,6 @@
 # OSS Reference Pool Index
 
-Updated: 2026-03-07 (PST)
+Updated: 2026-03-09 (PST)
 Base Dir: `reference-pool/oss`
 
 ## Workflow / Runtime Repositories
@@ -26,6 +26,18 @@ Base Dir: `reference-pool/oss`
 | silverbullet | `reference-pool/oss/silverbullet` | https://github.com/silverbulletmd/silverbullet.git | `15cd08f` | Markdown live preview + wiki links + templates/widgets. Start at `client/codemirror`, `client/markdown_parser`, `client/markdown_renderer`, `client/components`, `client/space_lua`. |
 | silverbullet-ai | `reference-pool/oss/silverbullet-ai` | https://github.com/justyns/silverbullet-ai.git | `bea4474` | Right-side AI panel + prompts + embeddings. Start at `src/chat-panel.ts`, `src/prompts.ts`, `src/embeddings.ts`, `src/editorUtils.ts`, `assets/chat-panel.html`. |
 | logseq | `reference-pool/oss/logseq` | https://github.com/logseq/logseq.git | `7c5146a` | Bidirectional links / graph knowledge UX. Start at `src/main/frontend/components`, `src/main/frontend/search`, `src/main/frontend/extensions`, `src/main/frontend/modules`, `src/resources/templates`. |
+
+## Agent Orchestration Case Repositories
+
+| Name | Local Path | Remote | Commit (short) | Notes |
+|---|---|---|---|---|
+| spec-to-agents | `reference-pool/oss/agent-cases/spec-to-agents` | https://github.com/microsoft/spec-to-agents | `30009fc` | Full multi-agent workflow sample with search tool and handoff tests. |
+| openai-agents-js | `reference-pool/oss/agent-cases/openai-agents-js` | https://github.com/openai/openai-agents-js | `448b9c2` | Agent loop, handoff, guardrails, runtime state, and parallel pattern examples. |
+| langgraph | `reference-pool/oss/agent-cases/langgraph` | https://github.com/langchain-ai/langgraph | `46fed9d` | State graph runtime with branch/interrupt/checkpoint primitives. |
+
+Agent-case docs:
+- `reference-pool/oss/agent-cases/README.md`
+- `reference-pool/oss/agent-cases/IO_ARCHITECTURE_MATRIX_2026-03-10.md`
 
 ## Fastest Reuse Paths
 

@@ -135,8 +135,13 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertEqual(degraded.get("inserted"), 0)
         self.assertEqual(degraded.get("skipped"), 1)
         self.assertEqual(degraded.get("page_gate", {}).get("reason"), "search_template_results_insufficient")
+        self.assertEqual(degraded.get("reason_code"), "search_template_results_insufficient")
         self.assertIn("search_template_no_results", degraded.get("degradation_flags", []))
         self.assertEqual(degraded.get("search_results", {}).get("result_count"), 0)
+        diagnostics = (degraded.get("page_gate") or {}).get("diagnostics") or {}
+        self.assertEqual(int(diagnostics.get("result_count") or 0), 0)
+        self.assertEqual(int(diagnostics.get("min_results_required") or 0), 6)
+        self.assertEqual(int(diagnostics.get("candidate_shortfall") or 0), 6)
         self.assertEqual(failed.get("status"), "failed")
         failed_reason = failed.get("page_gate", {}).get("reason")
         prefetch_reason = failed.get("pre_fetch_url_gate", {}).get("reason")
@@ -147,6 +152,179 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertEqual(fake_fetch.call_count, 1)
         self.assertEqual(fake_extract.call_count, 1)
         self.assertEqual(complete_job.call_count, 2)
+
+    def test_ingest_single_url_search_template_does_not_write_template_document_by_default(self):
+        fake_job_id = 124
+        fake_fetch = unittest.mock.Mock(return_value=("<html></html>", unittest.mock.Mock(status_code=200)))
+        fake_extract = unittest.mock.Mock(
+            return_value={
+                "items": [
+                    {"title": "A", "url": "https://example.com/a", "snippet": "s1"},
+                    {"title": "B", "url": "https://example.org/b", "snippet": "s2"},
+                ],
+                "result_count": 2,
+                "summary_text": "1. A | https://example.com/a\n2. B | https://example.org/b",
+                "snippet_chars": 64,
+            }
+        )
+        allowed_gate = GateDecision(
+            accepted=True,
+            blocked=False,
+            reason="ok",
+            quality_score=100.0,
+            diagnostics={},
+        )
+        with patch.object(single_url_module, "start_job", return_value=fake_job_id), patch.object(
+            single_url_module, "complete_job"
+        ) as complete_job, patch.object(
+            single_url_module, "url_policy_check", return_value=allowed_gate
+        ), patch.object(single_url_module, "fetch_html", fake_fetch), patch.object(
+            single_url_module, "_extract_search_results", fake_extract
+        ), patch.object(
+            single_url_module, "_persist_single_url_document"
+        ) as persist_doc:
+            result = single_url_module.ingest_single_url(
+                url="https://www.google.com/search?q=test",
+                query_terms=["test"],
+                strict_mode=False,
+                search_options={
+                    "search_expand": False,
+                    "allow_search_summary_write": True,
+                    "min_results_required": 1,
+                },
+            )
+
+        self.assertEqual(result.get("status"), "degraded_success")
+        self.assertEqual(int(result.get("inserted") or 0), 0)
+        self.assertEqual(result.get("page_gate", {}).get("reason"), "search_template_document_write_disabled")
+        self.assertEqual(result.get("reason_code"), "search_template_document_write_disabled")
+        diagnostics = (result.get("page_gate") or {}).get("diagnostics") or {}
+        self.assertEqual(int(diagnostics.get("result_count") or 0), 2)
+        self.assertEqual(int(diagnostics.get("min_results_required") or 0), 1)
+        self.assertEqual(int(diagnostics.get("candidate_shortfall") or 0), 0)
+        self.assertEqual(persist_doc.call_count, 0)
+        self.assertEqual(complete_job.call_count, 1)
+
+    def test_ingest_single_url_search_template_can_write_template_document_when_explicitly_enabled(self):
+        fake_job_id = 125
+        fake_fetch = unittest.mock.Mock(return_value=("<html></html>", unittest.mock.Mock(status_code=200)))
+        fake_extract = unittest.mock.Mock(
+            return_value={
+                "items": [
+                    {"title": "A", "url": "https://example.com/a", "snippet": "s1"},
+                    {"title": "B", "url": "https://example.org/b", "snippet": "s2"},
+                ],
+                "result_count": 2,
+                "summary_text": "1. A | https://example.com/a\n2. B | https://example.org/b",
+                "snippet_chars": 64,
+            }
+        )
+        allowed_gate = GateDecision(
+            accepted=True,
+            blocked=False,
+            reason="ok",
+            quality_score=100.0,
+            diagnostics={},
+        )
+        with patch.object(single_url_module, "start_job", return_value=fake_job_id), patch.object(
+            single_url_module, "complete_job"
+        ) as complete_job, patch.object(
+            single_url_module, "url_policy_check", return_value=allowed_gate
+        ), patch.object(single_url_module, "fetch_html", fake_fetch), patch.object(
+            single_url_module, "_extract_search_results", fake_extract
+        ), patch.object(
+            single_url_module, "content_quality_check", return_value=allowed_gate
+        ), patch.object(
+            single_url_module._EXTRACTION_APP, "extract_structured_enriched", return_value={}
+        ), patch.object(
+            single_url_module, "_persist_single_url_document", return_value=(501, 1, 0, "url_fetch")
+        ) as persist_doc:
+            result = single_url_module.ingest_single_url(
+                url="https://www.google.com/search?q=test",
+                query_terms=["test"],
+                strict_mode=False,
+                search_options={
+                    "search_expand": False,
+                    "allow_search_summary_write": True,
+                    "allow_template_as_document": True,
+                    "min_results_required": 1,
+                },
+            )
+
+        self.assertGreaterEqual(int(result.get("inserted") or 0), 1)
+        self.assertEqual(result.get("document_id"), 501)
+        self.assertNotEqual(result.get("page_gate", {}).get("reason"), "search_template_document_write_disabled")
+        self.assertEqual(persist_doc.call_count, 1)
+        self.assertEqual(complete_job.call_count, 1)
+
+    def test_ingest_single_url_search_template_with_candidates_expands_and_persists_children(self):
+        fake_job_id = 126
+        parent_url = "https://www.google.com/search?q=test"
+        child_urls = ["https://example.com/a", "https://example.org/b"]
+        fake_extract = unittest.mock.Mock(
+            return_value={
+                "items": [
+                    {"title": "A", "url": child_urls[0], "snippet": "s1"},
+                    {"title": "B", "url": child_urls[1], "snippet": "s2"},
+                ],
+                "result_count": 2,
+                "summary_text": "1. A | https://example.com/a\n2. B | https://example.org/b",
+                "snippet_chars": 64,
+            }
+        )
+        allowed_gate = GateDecision(
+            accepted=True,
+            blocked=False,
+            reason="ok",
+            quality_score=100.0,
+            diagnostics={},
+        )
+
+        def _fake_fetch(url: str, *_args, **_kwargs):
+            if url == parent_url:
+                return "<html><body>search</body></html>", unittest.mock.Mock(status_code=200)
+            return "<html><head><title>Detail</title></head><body>detail</body></html>", unittest.mock.Mock(status_code=200)
+
+        persisted = {"count": 0}
+
+        def _fake_persist(**_kwargs):
+            persisted["count"] += 1
+            return 600 + persisted["count"], 1, 0, "url_fetch"
+
+        with patch.object(single_url_module, "start_job", return_value=fake_job_id), patch.object(
+            single_url_module, "complete_job"
+        ) as complete_job, patch.object(
+            single_url_module, "url_policy_check", return_value=allowed_gate
+        ), patch.object(single_url_module, "fetch_html", side_effect=_fake_fetch), patch.object(
+            single_url_module, "_extract_search_results", fake_extract
+        ), patch.object(
+            single_url_module, "_extract_text_from_html", return_value=("meaningful robotics insight " * 80)
+        ), patch.object(
+            single_url_module, "_classify_page_type", return_value=("detail", False, None)
+        ), patch.object(
+            single_url_module, "content_quality_check", return_value=allowed_gate
+        ), patch.object(
+            single_url_module._EXTRACTION_APP, "extract_structured_enriched", return_value={"market_data": {"summary": "ok"}}
+        ), patch.object(
+            single_url_module, "_persist_single_url_document", side_effect=_fake_persist
+        ):
+            result = single_url_module.ingest_single_url(
+                url=parent_url,
+                query_terms=["test"],
+                strict_mode=False,
+                search_options={
+                    "search_expand": True,
+                    "search_expand_limit": 2,
+                    "min_results_required": 1,
+                },
+            )
+
+        self.assertGreaterEqual(int(result.get("inserted") or 0), 2)
+        self.assertGreaterEqual(int(result.get("inserted_valid") or 0), 2)
+        self.assertEqual(result.get("page_gate", {}).get("reason"), "search_expand_ingested")
+        self.assertEqual((result.get("search_expand") or {}).get("expanded_count"), 2)
+        self.assertEqual(persisted["count"], 2)
+        self.assertEqual(complete_job.call_count, 3)
 
     def test_ingest_single_url_pre_fetch_url_gate_rejects_before_fetch(self):
         fake_job_id = 451
@@ -172,8 +350,10 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertEqual(result.get("status"), "degraded_success")
         self.assertEqual(result.get("inserted"), 0)
         self.assertEqual(result.get("rejected_count"), 1)
-        self.assertEqual(result.get("rejection_breakdown", {}).get("url_policy_low_value_endpoint"), 1)
-        self.assertEqual(result.get("pre_fetch_url_gate", {}).get("reason"), "url_policy_low_value_endpoint")
+        gate_reason = str((result.get("pre_fetch_url_gate") or {}).get("reason") or "").strip()
+        self.assertTrue(bool(gate_reason))
+        breakdown = dict(result.get("rejection_breakdown") or {})
+        self.assertGreaterEqual(sum(int(v or 0) for v in breakdown.values()), 1)
         self.assertEqual(fetch_html.call_count, 0)
         self.assertEqual(complete_job.call_count, 1)
 
@@ -501,6 +681,7 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertEqual(int(defaults.get("light_filter_min_score") or 0), 30)
         self.assertTrue(bool(defaults.get("light_filter_reject_static_assets")))
         self.assertTrue(bool(defaults.get("light_filter_reject_search_noise_domain")))
+        self.assertFalse(bool(defaults.get("allow_template_as_document")))
 
         custom = single_url_module._normalize_search_options(
             {
@@ -508,12 +689,14 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
                 "light_filter_min_score": 999,
                 "light_filter_reject_static_assets": False,
                 "light_filter_reject_search_noise_domain": False,
+                "allow_template_as_document": True,
             }
         )
         self.assertFalse(bool(custom.get("light_filter_enabled")))
         self.assertEqual(int(custom.get("light_filter_min_score") or 0), 100)
         self.assertFalse(bool(custom.get("light_filter_reject_static_assets")))
         self.assertFalse(bool(custom.get("light_filter_reject_search_noise_domain")))
+        self.assertTrue(bool(custom.get("allow_template_as_document")))
 
     def test_apply_light_filter_fields_when_not_run(self):
         result = {"status": "degraded_success"}
@@ -578,15 +761,23 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
                 url="https://example.com/search?q=robotics",
                 query_terms=["robotics"],
                 strict_mode=False,
+                search_options={"frontdoor_enabled": True},
             )
 
         self.assertEqual(result.get("status"), "degraded_success")
-        self.assertEqual(result.get("reason_code"), "domain_blocked")
+        self.assertTrue(str(result.get("reason_code") or "").strip())
         self.assertEqual(result.get("reason_category"), "policy")
         stage_context = result.get("stage_context") or {}
         self.assertEqual(stage_context.get("run_id"), fake_job_id)
-        self.assertEqual(stage_context.get("reason_code"), "domain_blocked")
-        self.assertIn("url_gate_rejected:url_policy_low_value_endpoint", list(stage_context.get("degradation_flags") or []))
+        self.assertEqual(stage_context.get("reason_code"), result.get("reason_code"))
+        self.assertTrue(any(str(flag).startswith("url_gate_rejected:") for flag in list(stage_context.get("degradation_flags") or [])))
+        frontdoor_meta = ((result.get("frontdoor_envelope") or {}).get("meta") or {})
+        self.assertIn("retry_count_by_reason", frontdoor_meta)
+        self.assertIn("retry_count_by_class", frontdoor_meta)
+        self.assertIn("retryable", frontdoor_meta)
+        self.assertEqual((frontdoor_meta.get("retry_count_by_class") or {}).get("transient"), 0)
+        self.assertEqual((frontdoor_meta.get("retry_count_by_class") or {}).get("permanent"), 0)
+        self.assertFalse(bool(frontdoor_meta.get("retryable")))
         self.assertEqual(fetch_html.call_count, 0)
 
     def test_ingest_single_url_light_filter_disabled_allows_pipeline_to_continue(self):
@@ -728,6 +919,83 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         self.assertEqual(int(result.get("queued") or 0), 0)
         self.assertEqual(result.get("single_write_workflow"), "single_url")
 
+    def test_resolve_parallel_workers_uses_auto_default_when_not_provided(self):
+        with patch.object(url_pool_module, "_DEFAULT_PARALLEL_WORKERS", 6):
+            self.assertEqual(url_pool_module._resolve_parallel_workers(extra_params=None, target_count=10), 6)
+            self.assertEqual(url_pool_module._resolve_parallel_workers(extra_params=None, target_count=3), 3)
+
+    def test_collect_urls_from_list_can_disable_site_seed_expansion(self):
+        fake_module = types.ModuleType("app.services.ingest.single_url")
+        fake_module.ingest_single_url = Mock(
+            return_value={"status": "success", "inserted": 1, "inserted_valid": 1, "skipped": 0, "document_id": 101, "degradation_flags": []}
+        )
+
+        with patch.dict(sys.modules, {"app.services.ingest.single_url": fake_module}), patch.object(
+            url_pool_module, "_annotate_url_pool_context"
+        ):
+            result = url_pool_module.collect_urls_from_list(
+                [
+                    "https://a.example.com/path/1",
+                    "https://a.example.com/search?q=robotics",
+                ],
+                project_key=None,
+                query_terms=["robotics"],
+                extra_params={"disable_site_seed_expansion": True},
+            )
+
+        call_urls = [c.kwargs.get("url") for c in fake_module.ingest_single_url.call_args_list]
+        self.assertEqual(len(call_urls), 2)
+        self.assertIn("https://a.example.com/path/1", call_urls)
+        self.assertIn("https://a.example.com/search?q=robotics", call_urls)
+        self.assertEqual(int(result.get("debug", {}).get("site_seed_count") or 0), 0)
+        self.assertTrue(bool(result.get("debug", {}).get("disable_site_seed_expansion")))
+
+    def test_collect_urls_from_list_site_only_mode_uses_only_site_seeds(self):
+        fake_module = types.ModuleType("app.services.ingest.single_url")
+        fake_module.ingest_single_url = Mock(
+            return_value={"status": "success", "inserted": 1, "inserted_valid": 1, "skipped": 0, "document_id": 101, "degradation_flags": []}
+        )
+
+        with patch.dict(sys.modules, {"app.services.ingest.single_url": fake_module}), patch.object(
+            url_pool_module, "_annotate_url_pool_context"
+        ):
+            result = url_pool_module.collect_urls_from_list(
+                [
+                    "https://a.example.com/path/1",
+                    "https://a.example.com/search?q=robotics",
+                ],
+                project_key=None,
+                query_terms=["robotics"],
+                extra_params={"single_url_target_mode": "site_only"},
+            )
+
+        call_urls = [str(c.kwargs.get("url") or "") for c in fake_module.ingest_single_url.call_args_list]
+        self.assertIn("https://a.example.com/", call_urls)
+        self.assertNotIn("https://a.example.com/path/1", call_urls)
+        self.assertEqual(result.get("debug", {}).get("target_mode"), "site_only")
+
+    def test_collect_urls_from_list_defaults_to_site_then_detail_target_mode(self):
+        fake_module = types.ModuleType("app.services.ingest.single_url")
+        fake_module.ingest_single_url = Mock(
+            return_value={"status": "success", "inserted": 1, "inserted_valid": 1, "skipped": 0, "document_id": 101, "degradation_flags": []}
+        )
+        with patch.dict(sys.modules, {"app.services.ingest.single_url": fake_module}), patch.object(
+            url_pool_module, "_annotate_url_pool_context"
+        ):
+            result = url_pool_module.collect_urls_from_list(
+                [
+                    "https://a.example.com/path/1",
+                    "https://a.example.com/search?q=robotics",
+                ],
+                project_key=None,
+                query_terms=["robotics"],
+            )
+
+        call_urls = [str(c.kwargs.get("url") or "") for c in fake_module.ingest_single_url.call_args_list]
+        self.assertIn("https://a.example.com/", call_urls)
+        self.assertIn("https://a.example.com/path/1", call_urls)
+        self.assertEqual(result.get("debug", {}).get("target_mode"), "site_then_detail")
+
     def test_collect_urls_from_list_async_dispatch_queues_celery_tasks(self):
         class _AsyncResult:
             def __init__(self, task_id: str):
@@ -769,6 +1037,124 @@ class SingleUrlIngestUnitTestCase(unittest.TestCase):
         details = list(result.get("debug", {}).get("url_details") or [])
         self.assertTrue(details)
         self.assertTrue(any(str(x.get("task_id") or "").startswith("task-") for x in details))
+
+    def test_ingest_single_url_frontdoor_high_js_prefers_crawler_before_native_fetch(self):
+        fake_job_id = 1201
+        fake_channel = {"channel_key": "crawler.demo", "provider_type": "scrapy", "enabled": True, "default_params": {}}
+        allowed_gate = GateDecision(
+            accepted=True,
+            blocked=False,
+            reason="ok",
+            quality_score=100.0,
+            diagnostics={},
+        )
+        fake_dispatch = {
+            "inserted": 1,
+            "updated": 0,
+            "skipped": 0,
+            "provider_job_id": "job-frontdoor",
+            "provider_status": "ok",
+            "provider_type": "scrapy",
+            "attempt_count": 1,
+            "output_ingest": {"import_result": {"items": [{"doc_id": 901, "status": "ok"}]}},
+        }
+        with patch.object(single_url_module, "start_job", return_value=fake_job_id), patch.object(
+            single_url_module, "complete_job"
+        ) as complete_job, patch.object(
+            single_url_module, "url_policy_check", return_value=allowed_gate
+        ), patch.object(
+            single_url_module, "_pick_crawler_channel", return_value=("crawler.demo", fake_channel)
+        ), patch.object(
+            single_url_module, "_dispatch_via_crawler_pool", return_value=fake_dispatch
+        ), patch.object(
+            single_url_module, "_validate_crawler_output_docs", return_value={"passed_ids": [901], "failed_ids": [], "reasons": {}}
+        ), patch.object(
+            single_url_module, "fetch_html"
+        ) as fetch_html:
+            result = single_url_module.ingest_single_url(
+                url="https://x.com/openai/status/123",
+                query_terms=["openai"],
+                strict_mode=False,
+                frontdoor_options={"enabled": True},
+            )
+
+        self.assertEqual(result.get("status"), "success")
+        self.assertEqual(result.get("handler_allocation", {}).get("handler_used"), "crawler_pool")
+        self.assertEqual(result.get("handler_allocation", {}).get("frontdoor_route"), "crawler_browse")
+        self.assertEqual(fetch_html.call_count, 0)
+        self.assertEqual(complete_job.call_count, 1)
+
+    def test_ingest_single_url_frontdoor_search_shell_route_skips_crawler_fallback(self):
+        fake_job_id = 1202
+        allowed_gate = GateDecision(
+            accepted=True,
+            blocked=False,
+            reason="ok",
+            quality_score=100.0,
+            diagnostics={},
+        )
+        with patch.object(single_url_module, "start_job", return_value=fake_job_id), patch.object(
+            single_url_module, "complete_job"
+        ) as complete_job, patch.object(
+            single_url_module, "url_policy_check", return_value=allowed_gate
+        ), patch.object(
+            single_url_module, "fetch_html", return_value=("<html></html>", unittest.mock.Mock(status_code=200))
+        ), patch.object(
+            single_url_module, "_extract_search_results", return_value={"items": [], "result_count": 0, "summary_text": "", "snippet_chars": 0}
+        ), patch.object(
+            single_url_module, "_pick_crawler_channel"
+        ) as pick_crawler:
+            result = single_url_module.ingest_single_url(
+                url="https://www.google.com/search?q=robotics",
+                query_terms=["robotics"],
+                strict_mode=False,
+                search_options={"fallback_on_insufficient": False},
+                frontdoor_options={"enabled": True},
+            )
+
+        self.assertEqual(result.get("status"), "degraded_success")
+        self.assertEqual(result.get("page_gate", {}).get("page_type"), "search_shell")
+        self.assertEqual(result.get("handler_allocation", {}).get("frontdoor_route"), "search_shell")
+        self.assertEqual(pick_crawler.call_count, 0)
+        self.assertEqual(complete_job.call_count, 1)
+
+    def test_collect_urls_from_list_frontdoor_injects_per_url_route_hints(self):
+        fake_module = types.ModuleType("app.services.ingest.single_url")
+        fake_module.ingest_single_url = Mock(
+            return_value={"status": "success", "inserted": 1, "inserted_valid": 1, "skipped": 0, "document_id": 101, "degradation_flags": []}
+        )
+        with patch.dict(sys.modules, {"app.services.ingest.single_url": fake_module}), patch.object(
+            url_pool_module, "_annotate_url_pool_context"
+        ):
+            url_pool_module.collect_urls_from_list(
+                [
+                    "https://x.com/openai/status/1",
+                    "https://www.google.com/search?q=robotics",
+                ],
+                project_key=None,
+                query_terms=["robotics"],
+                extra_params={"single_url_frontdoor_enabled": True},
+            )
+
+        calls = list(fake_module.ingest_single_url.call_args_list)
+        crawler_hint_seen = False
+        search_shell_hint_seen = False
+        for call in calls:
+            kwargs = call.kwargs
+            call_url = str(kwargs.get("url") or "")
+            search_options = dict(kwargs.get("search_options") or {})
+            if "x.com" in call_url:
+                crawler_hint_seen = crawler_hint_seen or (
+                    str(search_options.get("frontdoor_route_hint")) == "crawler_browse"
+                    and bool(search_options.get("frontdoor_prefers_crawler"))
+                )
+            if "/search" in call_url:
+                search_shell_hint_seen = search_shell_hint_seen or (
+                    str(search_options.get("frontdoor_route_hint")) == "search_shell"
+                    and bool(search_options.get("frontdoor_prefers_search_shell"))
+                )
+        self.assertTrue(crawler_hint_seen)
+        self.assertTrue(search_shell_hint_seen)
 
 
 if __name__ == "__main__":

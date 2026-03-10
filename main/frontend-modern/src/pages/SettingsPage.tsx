@@ -13,6 +13,8 @@ import { isApiClientError } from '../lib/api/client'
 import { getLocalJson, removeLocal, setLocalJson } from '../lib/localStore'
 import { queryKeys } from '../lib/queryKeys'
 import type { EnvSettings, LlmServiceConfigItem, LlmTemplateUpdatePayload } from '../lib/types'
+import { APP_THEMES, isAppTheme, setAppTheme, useAppTheme, type AppTheme } from '../app/platform/theme'
+import { APP_LOCALES, setAppLocale, translate, useAppLocale } from '../app/platform/i18n'
 
 export type SettingsPageProps = {
   projectKey: string
@@ -141,6 +143,8 @@ function formatActionError(error: unknown) {
 
 export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageProps) {
   const queryClient = useQueryClient()
+  const locale = useAppLocale()
+  const appTheme = useAppTheme()
   const [envDraft, setEnvDraft] = useState<EnvSettings | null>(null)
   const [saveMessage, setSaveMessage] = useState('')
   const [templateDrafts, setTemplateDrafts] = useState<Record<string, ProjectLlmTemplateDraft>>({})
@@ -266,11 +270,16 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
   useEffect(() => {
     const cached = getLocalJson<SettingsDraftCache | null>(draftStorageKey, null)
     if (!cached) return
-    setEnvDraft(cached.envDraft ?? null)
-    setTemplateDrafts(cached.templateDrafts || {})
-    setCopySourceProjectKey(cached.copySourceProjectKey || '')
-    setCopyOverwrite(Boolean(cached.copyOverwrite))
-    setExpandedService(cached.expandedService || null)
+    const timerId = window.setTimeout(() => {
+      setEnvDraft(cached.envDraft ?? null)
+      setTemplateDrafts(cached.templateDrafts || {})
+      setCopySourceProjectKey(cached.copySourceProjectKey || '')
+      setCopyOverwrite(Boolean(cached.copyOverwrite))
+      setExpandedService(cached.expandedService || null)
+    }, 0)
+    return () => {
+      window.clearTimeout(timerId)
+    }
   }, [draftStorageKey])
 
   useEffect(() => {
@@ -290,22 +299,71 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
     if (intent.mode !== expectedMode) return
     removeLocal(STATUS_NAV_INTENT_KEY)
     const nextField = String(intent.focusField || '').trim()
-    setGuideType(intent.guide || null)
-    setFocusField(nextField)
-    if (!nextField) return
-    window.setTimeout(() => {
-      const target = document.querySelector<HTMLElement>(`[data-env-key="${nextField}"] input`)
-      if (!target) return
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      target.focus()
-    }, 80)
+    const stateTimerId = window.setTimeout(() => {
+      setGuideType(intent.guide || null)
+      setFocusField(nextField)
+      if (!nextField) return
+      window.setTimeout(() => {
+        const target = document.querySelector<HTMLElement>(`[data-env-key="${nextField}"] input`)
+        if (!target) return
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        target.focus()
+      }, 80)
+    }, 0)
+    return () => {
+      window.clearTimeout(stateTimerId)
+    }
   }, [variant, envSettings.data])
+
+  const themeLabelByValue: Record<AppTheme, string> = {
+    light: translate(locale, 'settings.theme.light', 'Light'),
+    dark: translate(locale, 'settings.theme.dark', 'Dark'),
+    brand: translate(locale, 'settings.theme.brand', 'Brand'),
+  }
+  const localeLabelByValue = {
+    'zh-CN': translate(locale, 'settings.locale.zh-CN', 'Simplified Chinese'),
+    'en-US': translate(locale, 'settings.locale.en-US', 'English'),
+  } as const
 
   return (
     <div className="content-stack">
       <section className="panel">
         <div className="panel-header">
           <h2>{variant === 'llm' ? 'LLM 配置视图' : '系统设置视图'}</h2>
+        </div>
+        <div className="inline-actions" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span>{translate(locale, 'settings.locale.label', 'UI Language')}</span>
+            <select
+              value={locale}
+              onChange={(event) => {
+                setAppLocale(event.target.value as (typeof APP_LOCALES)[number])
+              }}
+            >
+              {APP_LOCALES.map((nextLocale) => (
+                <option key={nextLocale} value={nextLocale}>
+                  {localeLabelByValue[nextLocale]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span>{translate(locale, 'settings.theme.label', 'Theme')}</span>
+            <select
+              value={appTheme}
+              onChange={(event) => {
+                const next = event.target.value
+                if (!isAppTheme(next)) return
+                setAppTheme(next)
+              }}
+            >
+              {APP_THEMES.map((theme) => (
+                <option key={theme} value={theme}>
+                  {themeLabelByValue[theme]}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </section>
       <section className="panel">

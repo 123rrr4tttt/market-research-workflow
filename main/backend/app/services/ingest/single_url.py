@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from typing import Any
-from urllib.parse import parse_qs, quote_plus, unquote, urljoin, urlparse
+from urllib.parse import parse_qs, quote_plus, urljoin, urlparse
 
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
@@ -25,13 +25,18 @@ from .structured_extraction import (
     extract_structured_enriched_safe,
 )
 from .gate_reason_codes import normalize_reason_code, reason_category
+from .metrics_payload import attach_metrics_payload, build_metrics_payload_for_result
+from .frontdoor_orchestrator import FrontDoorOrchestrator, FrontDoorOrchestratorConfig
+from .frontdoor_rollout import is_ingest_frontdoor_enabled
 from .meaningful_gate import (
     build_gateplus_snapshot,
     content_quality_check,
     normalize_content_for_ingest,
     url_policy_check,
 )
+from .retry_policy import build_retry_observability
 from .url_pool import _extract_text_from_html
+from .url_unwrap import unwrap_url
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +47,6 @@ _MAX_CONTENT_CHARS = 50000
 _QUALITY_SUCCESS_THRESHOLD = 70.0
 _CRAWLER_PROVIDER_TYPES = {"scrapy", "crawlee", "meltano"}
 _SEARCH_AUTO_TARGET_CANDIDATES = 6
-_SEARCH_REDIRECT_QUERY_KEYS = ("q", "url", "target", "redirect", "dest", "destination", "uddg", "u", "r")
 _SEARCH_NOISE_HOST_MARKERS = (
     "googleusercontent.com",
     "gstatic.com",
@@ -169,7 +173,11 @@ def _normalized_terms(query_terms: list[str] | None) -> list[str]:
 
 def _normalize_url(url: str) -> str:
     normalized = canonicalize_url(str(url or ""))
-    return normalized or str(url or "").strip()
+    candidate = normalized or str(url or "").strip()
+    if not candidate:
+        return candidate
+    unwrapped = unwrap_url(candidate, enable_network_redirect=True)
+    return str(unwrapped.url or candidate)
 
 
 def _as_bool(value: Any, default: bool) -> bool:
@@ -214,9 +222,267 @@ def _normalize_search_options(search_options: dict[str, Any] | None) -> dict[str
         "target_candidates": target_candidates,
         "min_results_required": min_results_required,
         "prefer_domain_diversity": _as_bool(raw.get("prefer_domain_diversity"), True),
+        "allow_template_as_document": _as_bool(raw.get("allow_template_as_document"), False),
     }
     out.update(normalize_light_filter_options(raw))
     return out
+
+
+def _resolve_frontdoor_options(
+    *,
+    frontdoor_options: dict[str, Any] | None,
+    search_options: dict[str, Any] | None,
+    project_key: str | None,
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    if isinstance(search_options, dict):
+        merged.update(
+            {
+                "frontdoor_enabled": search_options.get("frontdoor_enabled"),
+                "use_frontdoor": search_options.get("use_frontdoor"),
+                "route_decision": search_options.get("frontdoor_route_decision"),
+                "write_mode": search_options.get("frontdoor_write_mode"),
+                "front_door_owner": search_options.get("front_door_owner"),
+                "execution_mode": search_options.get("frontdoor_execution_mode"),
+                "route_hint": search_options.get("frontdoor_route_hint"),
+                "prefer_crawler": search_options.get("frontdoor_prefers_crawler"),
+                "prefer_search_shell": search_options.get("frontdoor_prefers_search_shell"),
+            }
+        )
+    if isinstance(frontdoor_options, dict):
+        merged.update(frontdoor_options)
+
+    requested_enabled = _as_bool(
+        merged.get("enabled", merged.get("frontdoor_enabled", merged.get("use_frontdoor", False))),
+        False,
+    )
+    enabled = is_ingest_frontdoor_enabled(requested_enabled=requested_enabled, project_key=project_key)
+    if not enabled:
+        return {"enabled": False}
+
+    route_decision = str(merged.get("route_decision") or "front_door_url_routing").strip() or "front_door_url_routing"
+    write_mode = str(merged.get("write_mode") or route_decision).strip() or route_decision
+    execution_mode = str(merged.get("execution_mode") or "url_routing").strip() or "url_routing"
+    front_door_owner = str(merged.get("front_door_owner") or "single_url_ingest").strip() or "single_url_ingest"
+    route_hint = str(merged.get("route_hint") or "").strip().lower()
+    if route_hint not in {"crawler_browse", "search_shell"}:
+        route_hint = ""
+    prefer_crawler = _as_bool(merged.get("prefer_crawler"), route_hint == "crawler_browse")
+    prefer_search_shell = _as_bool(merged.get("prefer_search_shell"), route_hint == "search_shell")
+    return {
+        "enabled": True,
+        "route_decision": route_decision,
+        "write_mode": write_mode,
+        "execution_mode": execution_mode,
+        "front_door_owner": front_door_owner,
+        "route_hint": route_hint or None,
+        "prefer_crawler": bool(prefer_crawler),
+        "prefer_search_shell": bool(prefer_search_shell),
+    }
+
+
+def _resolve_frontdoor_route(*, url: str, capability: dict[str, Any], frontdoor_context: dict[str, Any]) -> tuple[str, str]:
+    if not bool(frontdoor_context.get("enabled")):
+        return "default", "disabled"
+    hint = str(frontdoor_context.get("route_hint") or "").strip().lower()
+    if hint in {"crawler_browse", "search_shell"}:
+        return hint, "hint"
+    if str(capability.get("entry_type") or "") == "search_template":
+        return "search_shell", "auto"
+    if str(capability.get("render_mode") or "") == "js" or _is_force_crawler_domain(url):
+        return "crawler_browse", "auto"
+    return "default", "auto"
+
+
+def _build_frontdoor_stage_diagnostics(result: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(result or {})
+    rejection_breakdown = dict(payload.get("rejection_breakdown") or {})
+    pre_fetch_gate = payload.get("pre_fetch_url_gate")
+    pre_write_gate = payload.get("pre_write_content_gate")
+    provenance_gate = payload.get("provenance_gate")
+    page_gate = payload.get("page_gate")
+
+    def _unwrap_stage(context: dict[str, Any]) -> dict[str, Any]:
+        stage_payload = dict(context.get("payload") or {})
+        if "invalid_url" in dict(stage_payload.get("rejection_breakdown") or {}):
+            return {
+                "diagnostics": {
+                    "stage.unwrap.status": "failed",
+                    "stage.unwrap.reason": "invalid_url",
+                }
+            }
+        return {"diagnostics": {"stage.unwrap.status": "ok"}}
+
+    def _gate_stage(context: dict[str, Any]) -> dict[str, Any]:
+        stage_payload = dict(context.get("payload") or {})
+        gate_reason = "ok"
+        pre_fetch = stage_payload.get("pre_fetch_url_gate")
+        pre_write = stage_payload.get("pre_write_content_gate")
+        provenance = stage_payload.get("provenance_gate")
+        page = stage_payload.get("page_gate")
+        if isinstance(pre_fetch, dict) and bool(pre_fetch.get("blocked")):
+            gate_reason = normalize_reason_code(pre_fetch.get("reason"), default="url_policy_blocked")
+        elif isinstance(pre_write, dict) and bool(pre_write.get("blocked")):
+            gate_reason = normalize_reason_code(pre_write.get("reason"), default="content_gate_rejected")
+        elif isinstance(provenance, dict) and bool(provenance.get("blocked")):
+            gate_reason = normalize_reason_code(provenance.get("reason"), default="provenance_rejected")
+        elif isinstance(page, dict) and bool(page.get("is_low_value")):
+            gate_reason = normalize_reason_code(page.get("reason"), default="low_value_page")
+        elif str(stage_payload.get("filter_decision") or "").strip().lower() == "reject":
+            gate_reason = normalize_reason_code(stage_payload.get("filter_reason_code"), default="light_filter_rejected")
+        diagnostics = {"stage.gate.status": "ok" if gate_reason == "ok" else "failed"}
+        if gate_reason != "ok":
+            diagnostics["stage.gate.reason"] = gate_reason
+        return {"diagnostics": diagnostics}
+
+    def _fetch_stage(context: dict[str, Any]) -> dict[str, Any]:
+        stage_payload = dict(context.get("payload") or {})
+        stage_rejections = dict(stage_payload.get("rejection_breakdown") or {})
+        if "fetch_failed" in stage_rejections:
+            return {
+                "diagnostics": {
+                    "stage.fetch.status": "failed",
+                    "stage.fetch.reason": "fetch_failed",
+                }
+            }
+        allocation = stage_payload.get("handler_allocation")
+        if isinstance(allocation, dict) and allocation:
+            return {"diagnostics": {"stage.fetch.status": "ok"}}
+        return {"diagnostics": {"stage.fetch.status": "skipped"}}
+
+    def _extract_stage(context: dict[str, Any]) -> dict[str, Any]:
+        stage_payload = dict(context.get("payload") or {})
+        extract_status = str(stage_payload.get("structured_extraction_status") or "").strip().lower()
+        if extract_status == "ok":
+            return {"diagnostics": {"stage.extract.status": "ok"}}
+        if extract_status:
+            reason = str(stage_payload.get("structured_extraction_reason") or "structured_extraction_failed")
+            return {
+                "diagnostics": {
+                    "stage.extract.status": "failed",
+                    "stage.extract.reason": reason,
+                }
+            }
+        return {"diagnostics": {"stage.extract.status": "skipped"}}
+
+    def _quality_stage(context: dict[str, Any]) -> dict[str, Any]:
+        stage_payload = dict(context.get("payload") or {})
+        stage_rejections = dict(stage_payload.get("rejection_breakdown") or {})
+        quality_score = float(stage_payload.get("quality_score") or 0.0)
+        if "strict_mode_quality_gate" in stage_rejections:
+            return {
+                "diagnostics": {
+                    "stage.quality.status": "failed",
+                    "stage.quality.reason": "strict_mode_quality_gate",
+                    "stage.quality.score": quality_score,
+                }
+            }
+        if isinstance(stage_payload.get("pre_write_content_gate"), dict) and bool(
+            stage_payload["pre_write_content_gate"].get("blocked")
+        ):
+            return {
+                "diagnostics": {
+                    "stage.quality.status": "failed",
+                    "stage.quality.reason": normalize_reason_code(
+                        stage_payload["pre_write_content_gate"].get("reason"),
+                        default="content_gate_rejected",
+                    ),
+                    "stage.quality.score": quality_score,
+                }
+            }
+        quality_status = "ok" if quality_score >= _QUALITY_SUCCESS_THRESHOLD else "degraded"
+        return {
+            "diagnostics": {
+                "stage.quality.status": quality_status,
+                "stage.quality.score": quality_score,
+            }
+        }
+
+    def _persist_stage(context: dict[str, Any]) -> dict[str, Any]:
+        stage_payload = dict(context.get("payload") or {})
+        inserted = int(stage_payload.get("inserted") or 0)
+        skipped = int(stage_payload.get("skipped") or 0)
+        document_id = stage_payload.get("document_id")
+        if inserted > 0 or document_id:
+            return {"diagnostics": {"stage.persist.status": "ok"}}
+        if skipped > 0:
+            return {"diagnostics": {"stage.persist.status": "skipped"}}
+        if str(stage_payload.get("status") or "").strip().lower() == "failed":
+            return {"diagnostics": {"stage.persist.status": "failed"}}
+        return {"diagnostics": {"stage.persist.status": "skipped"}}
+
+    orchestrator = FrontDoorOrchestrator(config=FrontDoorOrchestratorConfig(stop_on_failed=False))
+    orchestrated = orchestrator.run(
+        payload=payload,
+        stage_handlers={
+            "unwrap": _unwrap_stage,
+            "gate": _gate_stage,
+            "fetch": _fetch_stage,
+            "extract": _extract_stage,
+            "quality": _quality_stage,
+            "persist": _persist_stage,
+        },
+    )
+    diagnostics = dict(orchestrated.get("diagnostics") or {})
+    diagnostics["frontdoor.result_status"] = str(payload.get("status") or "")
+    diagnostics["frontdoor.reason_code"] = str(payload.get("reason_code") or "ok")
+    diagnostics["frontdoor.rejection_count"] = int(payload.get("rejected_count") or 0)
+    if isinstance(pre_fetch_gate, dict) and bool(pre_fetch_gate.get("blocked")):
+        diagnostics["frontdoor.gate.pre_fetch_blocked"] = True
+    if isinstance(pre_write_gate, dict) and bool(pre_write_gate.get("blocked")):
+        diagnostics["frontdoor.gate.pre_write_blocked"] = True
+    if isinstance(provenance_gate, dict) and bool(provenance_gate.get("blocked")):
+        diagnostics["frontdoor.gate.provenance_blocked"] = True
+    if isinstance(page_gate, dict) and bool(page_gate.get("is_low_value")):
+        diagnostics["frontdoor.gate.low_value_page"] = str(page_gate.get("page_type") or "unknown")
+    if rejection_breakdown:
+        diagnostics["frontdoor.rejection_breakdown"] = dict(rejection_breakdown)
+    return diagnostics
+
+
+def _build_frontdoor_envelope(result: dict[str, Any], frontdoor_context: dict[str, Any]) -> dict[str, Any]:
+    status_value = str(result.get("status") or "").strip().lower()
+    is_ok = status_value in {"success", "degraded_success"}
+    reason_code = str(result.get("reason_code") or "ok")
+    diagnostics = _build_frontdoor_stage_diagnostics(result)
+    retry_observability = build_retry_observability(result)
+    diagnostics["frontdoor.retry_count_by_reason"] = dict(retry_observability.get("retry_count_by_reason") or {})
+    diagnostics["frontdoor.retry_count_by_class"] = dict(retry_observability.get("retry_count_by_class") or {})
+    diagnostics["frontdoor.retryable"] = bool(retry_observability.get("retryable"))
+    error_payload = None
+    if not is_ok:
+        error_payload = {
+            "code": reason_code if reason_code != "ok" else "frontdoor_ingest_failed",
+            "message": str(result.get("error") or reason_code or "frontdoor_ingest_failed"),
+        }
+    return {
+        "status": "ok" if is_ok else "error",
+        "data": {
+            "url": result.get("url"),
+            "document_id": result.get("document_id"),
+            "inserted": int(result.get("inserted") or 0),
+            "inserted_valid": int(result.get("inserted_valid") or 0),
+            "skipped": int(result.get("skipped") or 0),
+            "quality_score": float(result.get("quality_score") or 0.0),
+            "rejected_count": int(result.get("rejected_count") or 0),
+            "rejection_breakdown": dict(result.get("rejection_breakdown") or {}),
+        },
+        "error": error_payload,
+        "meta": {
+            "owner": frontdoor_context.get("front_door_owner"),
+            "execution_mode": frontdoor_context.get("execution_mode"),
+            "write_mode": frontdoor_context.get("write_mode"),
+            "route_decision": frontdoor_context.get("route_decision"),
+            "route": frontdoor_context.get("route"),
+            "route_source": frontdoor_context.get("route_source"),
+            "reason_code": reason_code,
+            "reason_category": result.get("reason_category"),
+            "retry_count_by_reason": dict(retry_observability.get("retry_count_by_reason") or {}),
+            "retry_count_by_class": dict(retry_observability.get("retry_count_by_class") or {}),
+            "retryable": bool(retry_observability.get("retryable")),
+            "diagnostics": diagnostics,
+        },
+    }
 
 
 # Backward-compatible aliases for unit tests and staged migration.
@@ -691,33 +957,14 @@ def _is_low_value_search_candidate(url: str, *, source_domain: str = "") -> bool
     return False
 
 
-def _unwrap_search_redirect_url(url: str) -> str:
-    current = str(url or "").strip()
-    for _ in range(2):
-        parsed = urlparse(current)
-        query = parse_qs(parsed.query or "")
-        candidate = None
-        for key in _SEARCH_REDIRECT_QUERY_KEYS:
-            value = (query.get(key) or [None])[0]
-            if value:
-                candidate = str(value).strip()
-                break
-        if not candidate:
-            break
-        decoded = unquote(candidate).strip()
-        if not decoded or decoded == current:
-            break
-        current = decoded
-    return current
-
-
 def _normalize_search_result_link(base_url: str, href: str, *, auto_config: dict[str, Any] | None = None) -> str | None:
     raw = str(href or "").strip()
     if not raw or raw.startswith("#") or raw.lower().startswith("javascript:"):
         return None
     abs_url = urljoin(base_url, raw)
     if bool((auto_config or {}).get("decode_redirect_wrappers", True)):
-        abs_url = _unwrap_search_redirect_url(abs_url)
+        unwrapped = unwrap_url(abs_url, enable_network_redirect=False, max_steps=2)
+        abs_url = str(unwrapped.url or abs_url)
     parsed = urlparse(str(abs_url or "").strip())
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return None
@@ -1059,11 +1306,18 @@ def ingest_single_url(
     query_terms: list[str] | None = None,
     strict_mode: bool = False,
     search_options: dict[str, Any] | None = None,
+    frontdoor_options: dict[str, Any] | None = None,
     track_keyword_history: bool = True,
 ) -> dict[str, Any]:
     """Fetch one URL, run extraction, and return canonical single-url ingest result."""
     normalized_url = _normalize_url(url)
     normalized_terms = _normalized_terms(query_terms)
+    project_key = str(current_project_key() or "").strip() or None
+    frontdoor_context = _resolve_frontdoor_options(
+        frontdoor_options=frontdoor_options,
+        search_options=search_options,
+        project_key=project_key,
+    )
     normalized_search_options = _normalize_search_options(search_options)
     light_filter_payload = build_light_filter_not_run()
     job_id = start_job(
@@ -1073,6 +1327,7 @@ def ingest_single_url(
             "query_terms": normalized_terms,
             "strict_mode": bool(strict_mode),
             "search_options": normalized_search_options,
+            "frontdoor": frontdoor_context,
         },
     )
     keyword_source_domain = _domain_of_url(normalized_url) or None
@@ -1131,6 +1386,10 @@ def ingest_single_url(
 
     def finalize_job(job_id_value: int, *, status: str, result: dict[str, Any]) -> None:
         _apply_stage_contract(job_id_value, result)
+        metrics_payload = build_metrics_payload_for_result(result, fallback_adapter="single_url")
+        attach_metrics_payload(result, metrics_payload)
+        if bool(frontdoor_context.get("enabled")):
+            result["frontdoor_envelope"] = _build_frontdoor_envelope(result, frontdoor_context)
         _record_keyword_history_for_result(result)
         complete_job(job_id_value, status=status, result=result)
 
@@ -1182,12 +1441,25 @@ def ingest_single_url(
 
         capability = _profile_url_capabilities(normalized_url)
         allocation, degradation_flags = _allocate_fetch_tier(capability)
-        project_key = str(current_project_key() or "").strip() or None
+        frontdoor_route, frontdoor_route_source = _resolve_frontdoor_route(
+            url=normalized_url,
+            capability=capability,
+            frontdoor_context=frontdoor_context,
+        )
+        if bool(frontdoor_context.get("enabled")):
+            frontdoor_context["route"] = frontdoor_route
+            frontdoor_context["route_source"] = frontdoor_route_source
+            allocation["frontdoor_route"] = frontdoor_route
+            allocation["frontdoor_route_source"] = frontdoor_route_source
         should_try_crawler_pool = bool(
             capability.get("entry_type") in {"search_template", "official_api"}
             or str(capability.get("anti_bot_risk") or "").lower() == "high"
             or _is_force_crawler_domain(normalized_url)
         )
+        if bool(frontdoor_context.get("enabled")) and (
+            bool(frontdoor_context.get("prefer_crawler")) or frontdoor_route == "crawler_browse"
+        ):
+            should_try_crawler_pool = True
 
         def _try_crawler_pool(*, fallback_reason: str) -> dict[str, Any] | None:
             if not should_try_crawler_pool:
@@ -1263,6 +1535,14 @@ def ingest_single_url(
                 degradation_flags.append("crawler_pool_dispatch_failed")
                 allocation["crawler_dispatch_error"] = _safe_exc(ex)
                 return None
+
+        if bool(frontdoor_context.get("enabled")) and (
+            bool(frontdoor_context.get("prefer_crawler")) or frontdoor_route == "crawler_browse"
+        ):
+            crawler_priority_result = _try_crawler_pool(fallback_reason="frontdoor_crawler_browse_priority")
+            if crawler_priority_result is not None:
+                finalize_job(job_id, status="completed", result=crawler_priority_result)
+                return crawler_priority_result
 
         try:
             html, response = fetch_html(normalized_url, timeout=20.0, retries=2)
@@ -1424,7 +1704,8 @@ def ingest_single_url(
                 search_results_payload["fallback_used"] = True
 
             min_results_required = int(search_auto_config.get("min_results_required") or 3)
-            if int(search_results_payload.get("result_count") or 0) >= min_results_required:
+            result_count = int(search_results_payload.get("result_count") or 0)
+            if result_count >= min_results_required:
                 if bool(normalized_search_options.get("search_expand")):
                     max_expand = int(normalized_search_options.get("search_expand_limit") or target_candidates)
                     child_urls = _select_search_expand_urls(
@@ -1565,6 +1846,52 @@ def ingest_single_url(
                         result=result,
                     )
                     return result
+                if not bool(normalized_search_options.get("allow_template_as_document", False)):
+                    result_status = "failed" if strict_mode else "degraded_success"
+                    diagnostics = {
+                        "result_count": result_count,
+                        "min_results_required": min_results_required,
+                        "candidate_shortfall": max(0, min_results_required - result_count),
+                    }
+                    result = {
+                        "status": result_status,
+                        "inserted": 0,
+                        "inserted_valid": 0,
+                        "skipped": 1,
+                        "url": normalized_url,
+                        "document_id": None,
+                        "doc_type": normalize_doc_type(_DEFAULT_DOC_TYPE),
+                        "capability_profile": capability,
+                        "handler_allocation": allocation,
+                        "page_gate": {
+                            "page_type": "search_results",
+                            "is_low_value": True,
+                            "reason": "search_template_document_write_disabled",
+                            "diagnostics": diagnostics,
+                        },
+                        "search_results": {
+                            "result_count": result_count,
+                            "items": list(search_results_payload.get("items") or [])[:10],
+                            "auto_config": dict(search_auto_config or {}),
+                            "fallback_used": bool(search_results_payload.get("fallback_used")),
+                            "fallback_provider": search_results_payload.get("fallback_provider"),
+                            "diagnostics": diagnostics,
+                        },
+                        "structured_extraction_status": "failed",
+                        "quality_score": 0.0,
+                        "rejected_count": 1,
+                        "rejection_breakdown": {"search_template_document_write_disabled": 1},
+                        "degradation_flags": list(
+                            dict.fromkeys([*degradation_flags, "search_template_document_write_disabled"])
+                        ),
+                    }
+                    apply_light_filter_fields(result, light_filter_payload)
+                    finalize_job(
+                        job_id,
+                        status="completed" if result_status != "failed" else "failed",
+                        result=result,
+                    )
+                    return result
 
                 page_type, is_low_value, low_value_reason = ("search_results", False, None)
                 search_summary = str(search_results_payload.get("summary_text") or "").strip()
@@ -1572,12 +1899,21 @@ def ingest_single_url(
                     content = normalize_content_for_ingest(search_summary, max_chars=_MAX_CONTENT_CHARS)
                     title = f"Search Results - {capability.get('domain') or normalized_url}"
             else:
-                crawler_fallback_result = _try_crawler_pool(fallback_reason="search_template_results_insufficient")
-                if crawler_fallback_result is not None:
-                    finalize_job(job_id, status="completed", result=crawler_fallback_result)
-                    return crawler_fallback_result
+                if not (
+                    bool(frontdoor_context.get("enabled"))
+                    and (bool(frontdoor_context.get("prefer_search_shell")) or frontdoor_route == "search_shell")
+                ):
+                    crawler_fallback_result = _try_crawler_pool(fallback_reason="search_template_results_insufficient")
+                    if crawler_fallback_result is not None:
+                        finalize_job(job_id, status="completed", result=crawler_fallback_result)
+                        return crawler_fallback_result
                 degradation_flags.append("search_template_no_results")
                 status = "failed" if strict_mode else "degraded_success"
+                diagnostics = {
+                    "result_count": result_count,
+                    "min_results_required": min_results_required,
+                    "candidate_shortfall": max(0, min_results_required - result_count),
+                }
                 result = {
                     "status": status,
                     "inserted": 0,
@@ -1592,11 +1928,13 @@ def ingest_single_url(
                         "page_type": "search_shell",
                         "is_low_value": True,
                         "reason": "search_template_results_insufficient",
+                        "diagnostics": diagnostics,
                     },
                     "search_results": {
-                        "result_count": int(search_results_payload.get("result_count") or 0),
+                        "result_count": result_count,
                         "items": list(search_results_payload.get("items") or [])[:10],
                         "auto_config": dict(search_auto_config or {}),
+                        "diagnostics": diagnostics,
                     },
                     "structured_extraction_status": "failed",
                     "quality_score": 0.0,
@@ -1947,5 +2285,10 @@ def ingest_single_url(
             "error": _safe_exc(exc),
         }
         apply_light_filter_fields(result, light_filter_payload)
+        _apply_stage_contract(job_id, result)
+        metrics_payload = build_metrics_payload_for_result(result, fallback_adapter="single_url")
+        attach_metrics_payload(result, metrics_payload)
+        if bool(frontdoor_context.get("enabled")):
+            result["frontdoor_envelope"] = _build_frontdoor_envelope(result, frontdoor_context)
         _record_keyword_history_for_result(result)
         return result

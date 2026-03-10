@@ -27,6 +27,11 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react'
+import { translate, useAppLocale } from '../app/platform/i18n'
+import { getModulesByGroup, MODULE_NAV_GROUP_KEYS } from '../app/platform/modules'
+import type { ModuleDescriptor, ModuleNavGroupKey } from '../app/platform/modules'
+import { resolveInteractionSurface } from '../app/topology/contracts'
+import type { InteractionSurface } from '../app/topology/surfaces'
 
 export type NavMode =
   | 'overviewTasks'
@@ -63,151 +68,126 @@ export type NavMode =
 type Props = {
   mode: NavMode
   onModeChange: (mode: NavMode) => void
+  surface: InteractionSurface
+  onSurfaceChange: (surface: InteractionSurface) => void
   theme?: 'light' | 'dark' | 'brand'
 }
 
-const groups: Array<{ title: string; items: Array<{ key: NavMode; label: string }> }> = [
-  {
-    title: '总览',
-    items: [
-      { key: 'overviewTasks', label: '任务' },
-      { key: 'overviewData', label: '数据' },
-    ],
-  },
-  {
-    title: '数据侧面',
-    items: [
-      { key: 'dataDashboard', label: '数据仪表盘' },
-      { key: 'dataMarket', label: '市场' },
-      { key: 'dataSocial', label: '舆情' },
-      { key: 'dataPolicy', label: '政策' },
-      { key: 'dataCatalog', label: '行业公司/商品/经营' },
-    ],
-  },
-  {
-    title: '图谱',
-    items: [
-      { key: 'graphMarket', label: '市场图谱' },
-      { key: 'graphPolicy', label: '政策图谱' },
-      { key: 'graphSocial', label: '社媒图谱' },
-      { key: 'graphCompany', label: '公司图谱' },
-      { key: 'graphProduct', label: '商品图谱' },
-      { key: 'graphOperation', label: '电商/经营图谱' },
-      { key: 'graphDeep', label: '市场实体加细图' },
-    ],
-  },
-  {
-    title: '流程视角',
-    items: [
-      { key: 'flowIngest', label: '采集' },
-      { key: 'flowSpecialized', label: '特化采集' },
-      { key: 'flowProcessing', label: '数据处理' },
-      { key: 'flowRawData', label: '原始数据处理' },
-      { key: 'flowExtract', label: '提取' },
-      { key: 'flowAnalysis', label: '分析' },
-      { key: 'flowBoard', label: '看板' },
-      { key: 'flowWriting', label: '写作工作台' },
-      { key: 'flowLlmNodeDesign', label: 'LLM 节点设计' },
-    ],
-  },
-  {
-    title: '系统管理',
-    items: [
-      { key: 'sysProjects', label: '项目管理' },
-      { key: 'sysCrawler', label: '爬虫管理' },
-      { key: 'sysResource', label: '信息资源库管理' },
-      { key: 'sysBackend', label: '后端监控' },
-      { key: 'sysSettings', label: '系统设置' },
-      { key: 'sysLlm', label: 'LLM 配置' },
-    ],
-  },
-]
-
-const iconByLabel: Record<string, ComponentType<{ size?: number; className?: string }>> = {
-  任务: Zap,
-  数据: Database,
-  数据仪表盘: AreaChart,
-  市场: LineChart,
-  舆情: MessageSquare,
-  政策: Landmark,
-  '行业公司/商品/经营': Factory,
-  市场图谱: Network,
-  政策图谱: Network,
-  社媒图谱: Network,
-  公司图谱: Building2,
-  商品图谱: Package,
-  '电商/经营图谱': ShoppingBag,
-  市场实体加细图: TrendingUp,
-  采集: Download,
-  特化采集: Sparkles,
-  数据处理: FileInput,
-  原始数据处理: Database,
-  提取: Puzzle,
-  分析: Brain,
-  看板: TrendingUp,
-  写作工作台: FileInput,
-  'LLM 节点设计': Brain,
-  项目管理: Folders,
-  爬虫管理: Radar,
-  信息资源库管理: DatabaseZap,
-  后端监控: Layers,
-  系统设置: Settings2,
-  'LLM 配置': Wrench,
+const iconByMode: Record<NavMode, ComponentType<{ size?: number; className?: string }>> = {
+  overviewTasks: Zap,
+  overviewData: Database,
+  dataDashboard: AreaChart,
+  dataMarket: LineChart,
+  dataSocial: MessageSquare,
+  dataPolicy: Landmark,
+  dataCatalog: Factory,
+  graphMarket: Network,
+  graphPolicy: Network,
+  graphSocial: Network,
+  graphCompany: Building2,
+  graphProduct: Package,
+  graphOperation: ShoppingBag,
+  graphDeep: TrendingUp,
+  graphBuilder: Network,
+  flowIngest: Download,
+  flowSpecialized: Sparkles,
+  flowProcessing: FileInput,
+  flowRawData: Database,
+  flowExtract: Puzzle,
+  flowAnalysis: Brain,
+  flowBoard: TrendingUp,
+  flowWriting: FileInput,
+  flowLlmNodeDesign: Brain,
+  sysProjects: Folders,
+  sysCrawler: Radar,
+  sysResource: DatabaseZap,
+  sysBackend: Layers,
+  sysSettings: Settings2,
+  sysLlm: Wrench,
 }
 
-export default function FigmaSideNav({ mode, onModeChange, theme = 'dark' }: Props) {
-  const [expandedByGroup, setExpandedByGroup] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(groups.map((group) => [group.title, true])),
+export default function FigmaSideNav({ mode, onModeChange, surface, onSurfaceChange, theme = 'dark' }: Props) {
+  const locale = useAppLocale()
+  const [expandedByGroup, setExpandedByGroup] = useState<Record<ModuleNavGroupKey, boolean>>(() =>
+    Object.fromEntries(MODULE_NAV_GROUP_KEYS.map((groupKey) => [groupKey, true])) as Record<ModuleNavGroupKey, boolean>,
   )
+  const visibleGroups: Array<{ groupKey: ModuleNavGroupKey; items: ModuleDescriptor[] }> = MODULE_NAV_GROUP_KEYS
+    .map((group) => ({
+      groupKey: group,
+      items: getModulesByGroup(group).filter((item) => resolveInteractionSurface(item.mode) === surface),
+    }))
+    .filter((group) => group.items.length > 0)
 
   return (
-    <aside className={`figma-side-nav is-${theme}`} data-node-id="1186:27288">
+    <aside className={`figma-side-nav is-${theme}`} data-node-id="1186:27288" data-surface={surface}>
+      <div className="figma-side-nav__surface-switch" role="tablist" aria-label="interaction surface switch">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={surface === 'management'}
+          className={`figma-side-nav__surface-btn ${surface === 'management' ? 'is-active' : ''}`.trim()}
+          onClick={() => onSurfaceChange('management')}
+        >
+          Management
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={surface === 'workbench'}
+          className={`figma-side-nav__surface-btn ${surface === 'workbench' ? 'is-active' : ''}`.trim()}
+          onClick={() => onSurfaceChange('workbench')}
+        >
+          Workbench
+        </button>
+      </div>
       <div className="figma-side-nav__group">
-        {groups.map((group) => {
-          const expanded = expandedByGroup[group.title] || group.items.some((item) => item.key === mode)
+        {visibleGroups.map((group) => {
+          const expanded = expandedByGroup[group.groupKey] || group.items.some((item) => item.mode === mode)
           return (
-            <section key={group.title} className="figma-side-nav__section">
+            <section key={group.groupKey} className="figma-side-nav__section">
               <div className="figma-side-nav__title-row">
                 <button
                   type="button"
                   className="figma-side-nav__title"
                   onClick={() => {
                     setExpandedByGroup((prev) => {
-                      const currentlyExpanded = prev[group.title] || group.items.some((item) => item.key === mode)
-                      return { ...prev, [group.title]: !currentlyExpanded }
+                      const currentlyExpanded = prev[group.groupKey] || group.items.some((item) => item.mode === mode)
+                      return { ...prev, [group.groupKey]: !currentlyExpanded }
                     })
                   }}
                 >
-                  <span>{group.title}</span>
+                  <span>{translate(locale, group.groupKey, group.groupKey)}</span>
                   <ChevronDown
                     size={14}
                     className={`figma-side-nav__title-chevron ${expanded ? 'is-open' : ''}`}
                   />
                 </button>
-                {group.title === '图谱' ? (
+                {group.groupKey === 'navigation.group.graph' && group.items.some((item) => item.mode === 'graphBuilder') ? (
                   <button
                     type="button"
                     className={`figma-side-nav__title-plus ${mode === 'graphBuilder' ? 'is-active' : ''}`.trim()}
                     onClick={() => onModeChange('graphBuilder')}
-                    title="新建图谱"
-                    aria-label="新建图谱"
+                    title={translate(locale, 'navigation.action.createGraph', 'Create Graph')}
+                    aria-label={translate(locale, 'navigation.action.createGraph', 'Create Graph')}
                   >
                     <Plus size={14} />
                   </button>
                 ) : null}
               </div>
               {expanded ? group.items.map((item) => {
-                const Icon = iconByLabel[item.label] || ShoppingCart
-                const active = mode === item.key
+                const Icon = iconByMode[item.mode] || ShoppingCart
+                const active = mode === item.mode
                 return (
                   <button
                     type="button"
-                    key={item.key}
+                    key={item.mode}
                     className={`figma-side-nav__item ${active ? 'is-active' : ''}`}
-                    onClick={() => onModeChange(item.key)}
+                    onClick={() => onModeChange(item.mode)}
                   >
                     <Icon size={15} className="figma-side-nav__icon" />
-                    <span className="figma-side-nav__label">{item.label}</span>
+                    <span className="figma-side-nav__label">
+                      {translate(locale, item.navLabelKey, item.mode)}
+                    </span>
                   </button>
                 )
               }) : null}

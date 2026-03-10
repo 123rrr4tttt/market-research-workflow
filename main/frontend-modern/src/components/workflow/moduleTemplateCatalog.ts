@@ -9,27 +9,24 @@ export type WorkflowModuleType =
   | 'output'
   | 'report'
 
-const MODULE_TEMPLATE_KEYS = [
-  'ingest-query',
-  'ingest-market-news',
-  'ingest-social-posts',
-  'ingest-policy-docs',
-  'ingest-ecom-signals',
-  'vector-retrieve-fast',
-  'vector-retrieve-deep',
-  'llm-analyze',
-  'llm-extract',
-  'llm-summarize',
-  'llm-risk-score',
-  'filter-predicate',
-  'filter-topk',
-  'join-concat',
-  'join-json',
-  'report-weekly',
-  'output-final',
-] as const
-
-export type WorkflowModuleTemplateKey = typeof MODULE_TEMPLATE_KEYS[number]
+export type WorkflowModuleTemplateKey =
+  | 'ingest-query'
+  | 'ingest-market-news'
+  | 'ingest-social-posts'
+  | 'ingest-policy-docs'
+  | 'ingest-ecom-signals'
+  | 'vector-retrieve-fast'
+  | 'vector-retrieve-deep'
+  | 'llm-analyze'
+  | 'llm-extract'
+  | 'llm-summarize'
+  | 'llm-risk-score'
+  | 'filter-predicate'
+  | 'filter-topk'
+  | 'join-concat'
+  | 'join-json'
+  | 'report-weekly'
+  | 'output-final'
 
 export type WorkflowModuleTemplate = {
   key: WorkflowModuleTemplateKey
@@ -54,23 +51,20 @@ export type WorkflowPresetEdge = {
   label?: string
 }
 
-const PRESET_KEYS = [
-  'collect-market-news-basic',
-  'collect-policy-basic',
-  'collect-social-basic',
-  'collect-ecom-basic',
-  'collect-multi-source-fusion',
-  'biz-market-rag',
-  'biz-social-sentiment',
-  'biz-policy-watch',
-  'biz-ecom-price-signal',
-  'biz-competitor-intel',
-  'biz-weekly-report',
-  'biz-risk-alert',
-  'biz-full-funnel',
-] as const
-
-export type WorkflowLinkPresetKey = typeof PRESET_KEYS[number]
+export type WorkflowLinkPresetKey =
+  | 'collect-market-news-basic'
+  | 'collect-policy-basic'
+  | 'collect-social-basic'
+  | 'collect-ecom-basic'
+  | 'collect-multi-source-fusion'
+  | 'biz-market-rag'
+  | 'biz-social-sentiment'
+  | 'biz-policy-watch'
+  | 'biz-ecom-price-signal'
+  | 'biz-competitor-intel'
+  | 'biz-weekly-report'
+  | 'biz-risk-alert'
+  | 'biz-full-funnel'
 
 export type WorkflowLinkPreset = {
   key: WorkflowLinkPresetKey

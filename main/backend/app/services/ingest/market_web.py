@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..job_logger import start_job, complete_job, fail_job
 from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
+from ..projects import current_project_key
 from ..search.web import search_sources
 from ..extraction.numeric import normalize_market_payload
 from ...models.base import SessionLocal
@@ -18,6 +19,7 @@ from ..llm.extraction import extract_market_info
 from ..extraction.application import ExtractionApplicationService
 from .structured_extraction import extract_structured_enriched_safe
 from .adapters.http_utils import fetch_html
+from .url_pool import collect_urls_from_list
 from .url_pool import _extract_text_from_html
 
 logger = logging.getLogger(__name__)
@@ -69,6 +71,7 @@ def collect_market_info(
         inserted = 0
         skipped = 0
         links: List[str] = []
+        routed_for_body_fetch: List[str] = []
         pending_inserts = 0
 
         with SessionLocal() as session:
@@ -97,6 +100,9 @@ def collect_market_info(
                         content = text
                 except Exception:
                     content = None
+                if not str(content or "").strip():
+                    routed_for_body_fetch.append(link)
+                    continue
 
                 extracted_data = {
                     "platform": item.get("source") or provider,
@@ -169,11 +175,39 @@ def collect_market_info(
             if pending_inserts > 0:
                 session.commit()
 
+        routed_result = {
+            "inserted": 0,
+            "inserted_valid": 0,
+            "skipped": 0,
+            "queued": 0,
+        }
+        if routed_for_body_fetch:
+            routed_result = collect_urls_from_list(
+                routed_for_body_fetch,
+                project_key=(current_project_key() or "").strip() or None,
+                query_terms=list(keywords or []),
+                extra_params={
+                    "dispatch_mode": "inline",
+                    "single_url_frontdoor_enabled": True,
+                    "front_door_owner": "ingest.market_web",
+                    "frontdoor_route_decision": "front_door_url_routing",
+                    "frontdoor_write_mode": "front_door_url_routing",
+                    "frontdoor_execution_mode": "url_routing",
+                },
+                enable_extraction=enable_extraction,
+            )
+            inserted += int(routed_result.get("inserted") or 0)
+            skipped += int(routed_result.get("skipped") or 0)
+
         result = {
             "inserted": inserted,
+            "inserted_valid": inserted,
             "skipped": skipped,
             "links": links,
             "doc_type": normalized_doc_type,
+            "body_fetch_routed_urls": len(routed_for_body_fetch),
+            "body_fetch_inserted": int(routed_result.get("inserted") or 0),
+            "body_fetch_skipped": int(routed_result.get("skipped") or 0),
         }
         result["display_meta"] = build_display_meta(
             CollectRequest(

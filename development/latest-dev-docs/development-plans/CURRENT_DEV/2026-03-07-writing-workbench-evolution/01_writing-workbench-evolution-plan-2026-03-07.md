@@ -1,283 +1,383 @@
 # Writing Workbench Evolution Plan (2026-03-07)
 
-> 日期：2026-03-07
-> 范围：写作主工作区、资料卡联动、模板编辑、图谱辅助、多格式导出、写作型 LLM 动作
-> 状态：主题主计划文档，用于后续高质量细化与实现分发
+> Date: 2026-03-07
+> Scope: evolution plan for the existing writing workbench after the builtin workbench MVP baseline
+> Status: planning document; intended to guide the next implementation split, not to restate implementation facts that are not visible in repo
 
-## 1. 背景
+## 1. Objective
 
-仓库已经有一版相对完整的“内置写作工作台设计”文档，但当前抽象规划提出的新增要求，已经不再是“补一个编辑器页面”这么简单，而是要求写作工作台成为整个平台的核心消费端之一。
+This document is a follow-up to `2026-03-07-builtin-writing-workbench-design`, not a duplicate of it.
 
-新增要求主要体现在：
+The builtin design document answered "what a writing workbench should contain." This evolution document answers a narrower and more important question: how the already-started writing domain should be converged into a stable primary workflow for research writing.
 
-- 侧边资料辅助不只是搜索补充，而是要和选中文本、参考资料、图谱节点形成联动链路。
-- LLM 不只负责生成报告，还要服务于续写、改写、摘要、引用整理和中间产物生产。
-- 模板不只是静态起稿器，而要支持后续编辑、变量替换、工作流化复用。
-- 导出能力不再只停留在 Markdown 内部保存，而要为 `docx` / `latex` 等格式扩展预留路径。
+The target of this round is to make the workbench operationally coherent:
 
-因此，本主题是“builtin writing workbench”的后续演进计划，不是重复造一份平行文档。
+1. Freeze one primary writing loop that can remain stable while adjacent features evolve.
+2. Clarify the responsibility split among document editing, evidence cards, graph context, templates, and LLM actions.
+3. Keep Markdown as the canonical internal format while staging richer export requirements instead of letting them distort the core flow.
+4. Define an execution order that matches the current repo reality, where the writing page and writing API already exist.
 
-## 2. 当前基线
+## 2. Current Baseline
 
-### 2.1 已有文档基线
+### 2.1 Upstream document baseline
 
-- 现有写作工作台设计主文档：
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md`
-- 对应原子任务文档：
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md`
+The immediate upstream references are:
 
-### 2.2 已有代码基线
+- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md`
+- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md`
 
-- 写作文档与版本能力：
-  - `main/backend/app/services/writing/document_service.py`
-  - 已有文档头、版本、ETag、autosave、冲突检测雏形。
-- 写作引用与资料卡能力：
-  - `main/backend/app/services/writing/citation_service.py`
-  - `main/backend/app/services/writing/keyword_card_service.py`
-- 模板与 LLM 动作能力：
-  - `main/backend/app/services/writing/template_service.py`
-  - `main/backend/app/services/writing/llm_action_service.py`
-  - `main/backend/app/services/writing/search_suggest_service.py`
-- 前端已有相关页面但尚未完全收束为单一写作主路径：
-  - `main/frontend-modern/src/pages/ResourcePage.tsx`
-  - `main/frontend-modern/src/pages/OpsPage.tsx`
-  - `main/frontend-modern/src/app/shell/AppShell.tsx`
+Those documents are still the baseline for the MVP shape: Markdown editing, preview, keyword cards, templates, and writing-oriented LLM actions.
 
-### 2.3 当前不足
+This document should therefore focus on delta and convergence, not on re-proposing the same MVP from zero.
 
-- 现有能力是“写作域服务已起步 + 单独设计文档已存在”，但用户主工作流还没有冻结。
-- 资料卡、模板、LLM 动作、图谱辅助之间仍缺统一角色划分。
-- 导出能力与模板演化能力尚未纳入明确阶段规划。
+### 2.2 Visible repo baseline
 
-## 3. 核心问题定义
+The repo already contains a concrete writing-domain surface.
 
-本主题不是“还想加哪些写作功能”，而是要回答三个更本质的问题：
+Frontend surface already exists:
 
-1. 写作工作台的主工作流到底是什么，哪些交互是核心，哪些只是增强项。
-2. 写作工作台如何消费图谱、资料、LLM，而不是被这些能力反向绑架成一个拼装界面。
-3. 哪些能力必须第一阶段就成立，才能让它成为真正的研究工作台入口。
+- `main/frontend-modern/src/pages/WritingWorkbenchPage.tsx`
+- `main/frontend-modern/src/components/writing/MarkdownEditor.tsx`
+- `main/frontend-modern/src/components/writing/MarkdownPreview.tsx`
+- `main/frontend-modern/src/components/writing/KeywordInsightSidebar.tsx`
+- `main/frontend-modern/src/components/writing/WritingInsightCard.tsx`
+- `main/frontend-modern/src/components/writing/TemplateLibraryPanel.tsx`
+- `main/frontend-modern/src/components/writing/LlmAssistantPanel.tsx`
+- `main/frontend-modern/src/components/writing/CitationBasket.tsx`
+- `main/frontend-modern/src/components/writing/useSelectionLookup.ts`
 
-如果这三个问题不先回答，后续子任务会不断往写作页里堆功能，最后得到一个复杂但不稳定的“大杂烩面板”。
+Backend contract and services already exist:
 
-## 4. 目标
+- `main/backend/app/api/writing.py`
+- `main/backend/app/contracts/schemas/writing.py`
+- `main/backend/app/services/writing/document_service.py`
+- `main/backend/app/services/writing/citation_service.py`
+- `main/backend/app/services/writing/keyword_card_service.py`
+- `main/backend/app/services/writing/template_service.py`
+- `main/backend/app/services/writing/llm_action_service.py`
+- `main/backend/app/services/writing/search_suggest_service.py`
 
-本主题当前阶段应达成以下目标：
+Capabilities already visible from those modules:
 
-1. 冻结写作主链的最小闭环。
-2. 明确资料卡、图谱小窗、模板变量、LLM 动作的分工关系。
-3. 明确第一阶段必须落地的高价值能力与后续扩展项。
-4. 为多格式导出与模板演化预留稳定边界，而不是立即写死实现。
+- document listing, create, read, patch, autosave, and version-conflict handling
+- keyword-card search, preview, and detail fetch
+- citation upsert/list flows
+- template listing and validation
+- LLM action dispatch, history, and detail lookup
+- Markdown export with citation rebuild
 
-## 5. 范围
+### 2.3 Baseline gaps
 
-本主题纳入范围：
+The main problem is no longer "the writing domain does not exist." The real gap is that the existing surface is broad, but its main workflow is still under-defined.
 
-- 写作主工作区与右侧辅助区的协同模型。
-- 文本选区、参考资料、关键词资料卡、图谱节点之间的联动方式。
-- 写作型 LLM 动作：
-  - 续写
-  - 改写
-  - 摘要
-  - 证据压缩
-  - 中间产物生成
-- 模板编辑、模板变量、模板复用规则。
-- 导出能力的阶段规划与边界定义。
+Current gaps that matter for the next round:
 
-## 6. 具体需求清单
+- The primary user flow is not explicitly frozen. The page already combines editing, preview, templates, insights, citations, and LLM actions, but the authoritative order of use is not documented.
+- Graph participation is implied by source types such as `graph`, but graph context is not yet positioned as an explicit, bounded writing-side interaction model.
+- Template support exists, but the boundary between template-as-starter, template-as-variable-system, and template-as-workflow is still blurred.
+- Markdown export exists, but non-Markdown export remains only a requirement direction and must not be treated as if it were already designed.
+- The current page concentrates a large amount of state orchestration in `WritingWorkbenchPage.tsx`, which increases the risk of mixing future evolution topics into one component without a stable module split.
 
-这一节对应母文档“各主题需求清单与阶段计划”的强制要求，不能省略为抽象能力标题。
+## 3. Requirement Clarification
 
-### 6.1 写作主链需求
+### 3.1 Primary users and scenarios
 
-- 必须支持“选区 -> 资料卡/图谱上下文 -> LLM 动作 -> 回写文档”的完整链路。
-- 必须支持从空白文档和模板起稿两种入口。
-- 必须支持在文档级和选区级分别触发动作，不能只支持整篇文档。
-- 必须支持动作结果回写后继续编辑，而不是一次性替换整个正文。
+The target users are analysts and research operators who need one place to turn evidence into narrative output.
 
-### 6.2 上下文与辅助需求
+The high-value scenarios are:
 
-- 必须明确资料卡、图谱小窗、模板变量、LLM 动作的职责边界。
-- 必须明确资料卡与图谱上下文谁负责“提供证据”，谁负责“提供结构关系”。
-- 必须支持用户显式选择上下文对象，而不是完全自动拼接。
-- 必须支持最小的可追踪上下文信息，至少能知道当前动作用了哪些资料或对象。
+1. Open or create a document and keep writing without leaving the workbench.
+2. Select text, pull evidence cards, inspect provenance, and turn the selection into cited material.
+3. Run LLM actions on a selection or section without handing control of the whole document to the model.
+4. Start from a template, but continue editing as a normal Markdown document instead of being trapped in a template-only flow.
+5. Export the current document in a reproducible way after citations have been reconciled into the output.
 
-### 6.3 中间产物与复用需求
+### 3.2 What must be true in this round
 
-- 必须明确写作中间产物如何保存、插入、追踪和复用。
-- 中间产物至少要区分：
-  - 临时生成片段
-  - 可插回正文的段落结果
-  - 可独立保留的阶段性报告或分析草稿
-- 中间产物不能只存在于聊天结果区，必须能回到文档体系或引用体系中。
+This round should clarify the product contract, not simply add more UI.
 
-### 6.4 模板体系需求
+Required outcomes:
 
-- 必须明确模板体系至少包含：模板定义、变量替换、模板编辑。
-- 必须区分“模板只是起稿骨架”与“模板驱动写作工作流”两种层次。
-- 必须明确模板变量与资料卡/图谱/LLM 动作的关系，而不是把变量当成静态占位符。
+- The workbench must have one explicit primary loop:
+  - open or create document
+  - edit Markdown
+  - select text or place cursor in a target section
+  - fetch supporting context
+  - run a writing action
+  - insert or reconcile the result back into the document
+- Evidence context and graph context must not be merged into one vague "assistant" concept.
+- Template usage must remain subordinate to document editing, not become a parallel authoring system.
+- Export planning must preserve Markdown as the canonical internal source.
 
-### 6.5 输出与导出需求
+### 3.3 Constraints and assumptions
 
-- 必须给出多格式导出的阶段化策略，而不是只写“后续支持 docx/latex”。
-- 必须明确平台内 canonical source 仍是什么格式。
-- 必须明确导出能力是核心主链的一部分，还是主链完成后的输出适配层。
+The following constraints are already visible or strongly implied by repo structure and should be treated as working assumptions:
 
-## 7. 非目标
+- `project_key` scoping is part of the writing contract and must remain explicit.
+- Markdown remains the canonical source inside the platform.
+- LLM actions must preserve auditability through request or trace identifiers instead of becoming opaque local-only UI actions.
+- Citation handling is part of the core writing loop, not an optional post-processing step.
+- Graph context should be explicitly attached or requested; it should not silently hijack every writing interaction.
 
-- 不在本主题中完整设计多模型平台。
-- 不在本主题中承担图谱底层结构方案。
-- 不在本主题中直接完成 modern 前端内双交互拓扑拆分。
-- 不在首版计划中锁死所有导出格式实现方式。
+## 4. Scope and Non-Goals
 
-## 8. 关键能力拆解
+### 4.1 In scope for this evolution theme
 
-### 8.1 写作主链
+This theme should define and stage the following:
 
-必须至少冻结一条稳定主链：
+- the primary writing loop and its entry points
+- the boundary between selection context, keyword cards, citations, and graph-backed context
+- the role of templates after the MVP baseline
+- the role of intermediate writing artifacts generated by LLM actions
+- the export staging strategy after Markdown export
+- the recommended split for future frontend and backend evolution work
 
-1. 打开文档或从模板起稿。
-2. 编辑正文或选中局部文本。
-3. 调取相关资料卡或图谱上下文。
-4. 触发 LLM 动作生成或改写内容。
-5. 将结果以可追踪方式写回文档。
+### 4.2 Non-goals for this round
 
-这条链路是第一阶段成败标准，优先级高于任何附加功能。
+This document should not turn into a catch-all design for adjacent domains.
 
-### 8.2 资料卡与图谱辅助
+Not in scope:
 
-资料卡与图谱小窗的目标是增强判断与引用效率，而不是替代写作主工作区。
+- redesigning graph storage or graph editing architecture
+- replacing the writing API with a generalized agent orchestration layer
+- committing to a full `docx` or `latex` implementation in this round
+- defining a universal workflow engine for all report-production tasks
+- rewriting the whole modern frontend topology inside this plan
 
-需要明确：
+## 5. Recommended Layering
 
-- 资料卡负责什么。
-- 图谱小窗负责什么。
-- 两者是否共享同一上下文入口。
-- 哪些动作必须支持“可插入、可撤销、可追踪”。
+The writing workbench should evolve as five explicit layers.
 
-### 8.3 模板演化能力
+### 5.1 Layer A: Core Document Loop
 
-模板当前不能只被定义为“文档骨架”。
+Responsibility:
 
-后续应区分三层：
+- document open/create
+- Markdown edit/preview
+- save/autosave/version conflict handling
+- insertion point management for generated results
 
-- 起稿模板
-- 变量模板
-- 工作流模板
+Primary repo boundary:
 
-本主题第一阶段只需把边界和演进顺序写清，不要求一次性全部落地。
+- `WritingWorkbenchPage.tsx`
+- `MarkdownEditor.tsx`
+- `MarkdownPreview.tsx`
+- `document_service.py`
+- document endpoints in `api/writing.py`
 
-### 8.4 导出能力
+This is the only layer that is always on.
 
-导出能力真实存在，但不能抢占主链优先级。
+### 5.2 Layer B: Evidence and Context Layer
 
-建议第一阶段只定义：
+Responsibility:
 
-- 内部 canonical source 仍为 Markdown
-- 导出能力通过适配层扩展
-- `docx` / `latex` 是后续目标，不是当前主线阻塞项
+- selection lookup
+- keyword-card retrieval
+- citation basket management
+- provenance preview and evidence inspection
 
-## 9. 分阶段计划
+Primary repo boundary:
 
-### Phase 1: Freeze Core Writing Flow
+- `useSelectionLookup.ts`
+- `KeywordInsightSidebar.tsx`
+- `WritingInsightCard.tsx`
+- `CitationBasket.tsx`
+- `keyword_card_service.py`
+- `citation_service.py`
 
-本阶段只做“主链冻结”和“对象职责冻结”，重点不是扩功能，而是把核心路径定义清楚。
+This layer provides evidence objects for writing. It should not decide how the final prose is generated.
 
-必须完成：
+### 5.3 Layer C: Graph Context Adapter
 
-- 冻结最小写作主链。
-- 冻结资料卡/图谱小窗/模板变量/LLM 动作的职责分工。
-- 明确文档级、选区级动作边界。
-- 明确结果如何回写文档并保留最小追踪信息。
+Responsibility:
 
-本阶段产出应足以回答：
+- expose graph-derived context as an optional writing-side input
+- map graph objects into the same context-selection contract used by evidence retrieval
 
-- 用户如何开始写。
-- 用户如何在写作中调资料和图谱。
-- 用户如何把生成结果重新纳入文档。
+Primary repo boundary:
 
-### Phase 2: Add Template Editing, Variable System, and Intermediate Artifact Reuse
+- writing-side consumers in the workbench
+- graph-facing providers from the graph domain
 
-本阶段在主链已经稳定的前提下，扩展“模板能力”和“中间产物复用”。
+This layer must remain optional in the primary loop. Graph context is a structured context source, not the dominant surface of the page.
 
-必须完成：
+### 5.4 Layer D: Templates and Intermediate Artifacts
 
-- 模板定义、变量替换、模板编辑的边界冻结。
-- 中间产物的保存、插入、追踪、复用机制明确。
-- 模板变量与上下文对象的关系明确。
+Responsibility:
 
-本阶段重点不是继续扩大动作种类，而是让模板和中间产物真正进入工作流。
+- template starter selection
+- variable interpretation and validation
+- distinction between raw document body, generated snippets, reusable draft fragments, and template definitions
 
-### Phase 3: Add Multi-Format Export and Deeper Workflow Collaboration
+Primary repo boundary:
 
-本阶段处理更深的输出协同和工作流协同。
+- `TemplateLibraryPanel.tsx`
+- `template_service.py`
+- LLM-generated result handling in the writing page
 
-必须完成：
+This layer should stay downstream of the core document loop. Templates help start and shape writing; they should not replace document ownership.
 
-- `docx` / `latex` 等多格式导出路径的阶段化落地。
-- 写作工作台与图谱、知识组织、报告流之间更深的协同方式。
-- 明确哪些输出是平台内持续对象，哪些是面向外部交付的导出物。
+### 5.5 Layer E: Export and Interop
 
-本阶段前提是：
+Responsibility:
 
-- Phase 1 主链稳定；
-- Phase 2 模板与中间产物模型已经可用；
-- 否则导出与协同会放大前两阶段未收敛的问题。
+- preserve Markdown as canonical source
+- convert the canonical source into external delivery formats through adapters
+- keep export behavior decoupled from core editing state
 
-## 10. 依赖与边界
+Primary repo boundary:
 
-- 依赖 `graph-editing-and-reporting`
-  - 提供图谱结果的消费形态和图谱小窗可调能力。
-- 依赖 `llm-service-and-agent-platformization`
-  - 提供写作型动作的统一模型能力入口和 trace 机制。
-- 依赖 `dual-frontend-workbench-topology`
-  - 决定写作工作台在整体前端结构中的位置。
+- export entrypoints in `WritingWorkbenchPage.tsx`
+- `/writing/export/markdown` in `api/writing.py`
 
-本主题边界：
+This layer should remain an adapter layer. Export needs to consume a stable document model instead of forcing the document model to mirror every output format.
 
-- 它是消费端主工作流主题，不是模型平台主题。
-- 它是内容生产主题，不是知识组织主主题。
-- 它应定义消费形态和交互主链，而不是吞掉所有上游能力设计。
+## 6. Implementation Order
 
-## 11. 第一阶段建议
+The recommended order is intentionally conservative because the repo already has a live workbench surface.
 
-建议第一阶段只做四件事：
+### Step 1: Freeze baseline and delta
 
-1. 冻结最小写作主链。
-2. 冻结资料卡/图谱小窗/LLM 动作的职责分工。
-3. 明确模板变量与模板编辑能力的第一阶段边界。
-4. 给导出能力写清阶段规划，但不让其阻塞主工作流。
+Before adding more behavior, explicitly map:
 
-第一阶段不应继续扩张为“全能文档中心”。
+- what the builtin writing workbench documents already defined
+- what the current repo has already implemented
+- what this evolution theme is actually adding or clarifying
 
-更具体地说，第一阶段不应提前承诺：
+Without that delta map, future changes will either duplicate the builtin plan or skip over already-shipped work.
 
-- 完整工作流模板体系
-- 所有格式导出
-- 所有图谱联动形态
-- 泛化 agent 编排
+### Step 2: Freeze the primary writing loop
 
-## 12. 风险与待确认问题
+The next mandatory step is to define the authoritative flow for:
 
-- 当前 writing 域服务已经出现雏形，但前端主路径尚未完全统一，容易形成“后端比前端更成熟”的错位。
-- 图谱辅助如果没有明确入口，容易把写作页变成图谱页的附属 UI。
-- 模板能力如果同时承载结构、变量、工作流三层，会让第一阶段过重。
-- 导出需求真实存在，但若优先级判断错误，会分散主链建设资源。
+- document lifecycle
+- selection-driven context lookup
+- citation insertion
+- LLM action invocation
+- write-back behavior
 
-待确认问题：
+This step should decide what the "happy path" is before any deeper graph, template, or export evolution is expanded.
 
-- 写作主链中的“资料卡”是否就是 keyword card 的延展，还是需要更强的引用对象模型。
-- 文档、资料卡、图谱节点之间的共享上下文，是否需要统一 selection/session contract。
-- 写作型 LLM 动作是否要与 `llm_action_service` 当前 contract 完全对齐，还是先做一层 facade。
+### Step 3: Freeze bounded context roles
 
-## 13. 最小验证
+Once the primary loop is fixed, the next job is to assign responsibilities:
 
-- 至少定义一条完整写作主链，并标出前后端依赖点。
-- 至少定义一个“选区 -> 资料卡/图谱 -> LLM 动作 -> 回写文档”的可验证流程。
-- 至少定义一个模板变量或模板编辑的边界案例。
-- 至少定义一个导出能力的阶段验证口径，证明它不阻塞主链。
+- evidence cards provide supporting material
+- citations represent user-accepted source references
+- graph context provides structured relation hints
+- templates provide starting structure
+- LLM actions transform or extend text
 
-进一步要求：
+This prevents new capability work from collapsing into one mixed assistant surface.
 
-- Phase 1 至少应有一条主链验证口径。
-- Phase 2 至少应有一条模板变量或中间产物复用验证口径。
-- Phase 3 至少应有一条导出或跨工作流协同验证口径。
+### Step 4: Stage templates, intermediate artifacts, and export adapters
+
+After the context roles are clear:
+
+- template evolution can be staged without redefining document ownership
+- intermediate artifact handling can be defined without overloading LLM history
+- export can be extended as an adapter concern instead of a core authoring concern
+
+### Step 5: Refactor along stable boundaries
+
+Only after the above decisions are frozen should future implementation work split the page and service boundaries more aggressively.
+
+The likely candidate is to reduce orchestration pressure in `WritingWorkbenchPage.tsx` by moving stable domains into narrower modules rather than adding new feature branches directly into the page.
+
+## 7. Serial and Parallel Relations
+
+The execution relationship should stay simple.
+
+### 7.1 Serial prerequisites
+
+These items must remain serial:
+
+1. Baseline and delta freeze
+2. Primary writing loop freeze
+3. Final integration and regression gate definition
+
+Reason:
+
+- every later choice depends on a stable definition of the main loop
+- export, graph, and template decisions become noisy if the core loop is still moving
+
+### 7.2 Parallelizable work after the core loop is frozen
+
+Once the primary loop is frozen, the following can progress in parallel:
+
+- evidence-context vs graph-context boundary definition
+- template and intermediate-artifact staging
+- export adapter staging
+- LLM action contract tightening
+
+These are parallelizable because they consume the same core loop but do not need to redefine it.
+
+### 7.3 Cross-theme dependencies
+
+This theme depends on adjacent themes, but only at the boundary level:
+
+- `graph-editing-and-reporting` should define what graph-side context can be attached into writing.
+- `llm-service-and-agent-platformization` should define stable action and trace behavior.
+- `dual-frontend-workbench-topology` should define where the workbench sits in the broader frontend topology.
+
+The writing-workbench theme should consume those outputs. It should not absorb the full design responsibility of those themes.
+
+## 8. Minimal Validation
+
+The minimum validation set should cover both structure and flow.
+
+### 8.1 Structural validation
+
+At least one validation pass should confirm that each stage of the primary loop maps to a concrete repo module.
+
+Suggested structural checks:
+
+- verify the workbench surface is still rooted in `main/frontend-modern/src/pages/WritingWorkbenchPage.tsx`
+- verify writing endpoints remain centralized in `main/backend/app/api/writing.py`
+- verify writing contracts remain centralized in `main/backend/app/contracts/schemas/writing.py`
+
+### 8.2 Flow validation
+
+At least one end-to-end flow should be traceable without inventing extra systems:
+
+1. open or create a document
+2. edit Markdown
+3. autosave or save
+4. select text and fetch keyword cards
+5. inspect a card and add a citation
+6. run an LLM action on the current selection or body
+7. write the result back into the document
+
+If any of those steps require cross-domain behavior, the exact dependency should be named instead of being hidden in UI language.
+
+### 8.3 Template and export validation
+
+At least one validation step should prove that template and export are staged correctly:
+
+- template validation must remain possible without converting the workbench into a template-only editor
+- Markdown export must remain aligned with the canonical document body plus citation rebuild
+- non-Markdown export must remain explicitly staged as a later adapter concern
+
+### 8.4 Boundary validation
+
+At least one validation step should confirm that graph context stays bounded:
+
+- graph is attachable context, not a mandatory prerequisite for normal writing
+- the no-graph path remains complete for the primary writing loop
+
+## 9. Risks and Open Questions
+
+### 9.1 Main risks
+
+- The writing domain is already broad enough that adding graph, richer templates, and more export targets without freezing the main loop will produce another monolithic surface.
+- The current workbench page already carries editor, template, citation, insight, and LLM orchestration in one place; unchecked evolution will keep increasing coupling in `WritingWorkbenchPage.tsx`.
+- If graph context is not bounded early, the writing page may degrade into a graph-adjacent inspection shell instead of staying a writing surface.
+- If templates are allowed to represent starter, variable system, and workflow engine simultaneously in the same phase, the product contract will become too ambiguous to implement cleanly.
+- If non-Markdown export is treated as first-class before the internal document contract is frozen, export requirements will distort authoring behavior.
+
+### 9.2 Open questions that should be resolved explicitly
+
+- Is a keyword card sufficient as the default evidence object, or is a stronger "accepted evidence" object needed once graph context participates?
+- Should selection, evidence lookup, graph attach, and LLM action share one session contract, or should graph attachment remain a separate optional context envelope?
+- Should intermediate LLM outputs be stored as part of document revision flow, as reusable artifacts, or only as action history until explicitly accepted?
+- How far should template variables be allowed to bind into evidence or graph context in phase 2, without turning template rendering into a hidden workflow engine?

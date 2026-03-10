@@ -14,6 +14,7 @@ from ..ingest.adapters.http_utils import HttpFetchError, fetch_html, make_html_p
 from .auto_classify import infer_keyword_capabilities
 from ..source_library.resolver import list_effective_items
 from .extract import append_url
+from .resolver import list_urls
 from .search_capabilities import make_search_candidate
 from .search_capabilities import normalize_match_text
 from .search_capabilities import select_search_candidates
@@ -30,6 +31,40 @@ class UnifiedSearchResult:
     written: dict[str, int] | None
     ingest_result: dict[str, Any] | None
     errors: list[dict[str, str]]
+
+
+def _collect_history_pool_urls(
+    *,
+    scope: str,
+    project_key: str,
+    source: str,
+    limit: int = 3000,
+) -> set[str]:
+    if not source:
+        return set()
+    out: set[str] = set()
+    page = 1
+    page_size = 100
+    while len(out) < max(1, int(limit)):
+        items, total = list_urls(
+            scope=scope,
+            project_key=project_key,
+            source=source,
+            page=page,
+            page_size=page_size,
+        )
+        if not items:
+            break
+        for item in items:
+            url = str((item or {}).get("url") or "").strip()
+            if url:
+                out.add(url)
+            if len(out) >= limit:
+                break
+        if page * page_size >= int(total or 0):
+            break
+        page += 1
+    return out
 
 
 def _as_terms(raw: Any) -> list[str]:
@@ -414,6 +449,13 @@ def _entry_supports_query_terms(entry: dict[str, Any], entry_type: str) -> bool:
     return bool(capabilities.get("supports_query_terms"))
 
 
+def _entry_keyword_mode(entry: dict[str, Any], entry_type: str) -> str:
+    capabilities = entry.get("capabilities") if isinstance(entry, dict) else None
+    if not isinstance(capabilities, dict) or not capabilities:
+        capabilities = infer_keyword_capabilities(entry_type)
+    return str(capabilities.get("keyword_mode") or "none").strip().lower()
+
+
 def _build_search_candidates(
     raw_candidates: list[dict[str, Any]],
     *,
@@ -532,6 +574,7 @@ def unified_search_by_item_payload(
     candidates: list[str] = []
     candidate_refs: dict[str, dict[str, Any]] = {}
     errors: list[dict[str, str]] = []
+    history_pool_urls: set[str] = set()
 
     def _push(u: str, *, ref: dict[str, Any]) -> None:
         if u and u not in candidates:
@@ -565,8 +608,12 @@ def unified_search_by_item_payload(
             template = entry.get("template")
             entry_domain = (entry.get("domain") or domain_from_url(base_url) or "").strip().lower()
             if not _entry_supports_query_terms(entry, etype):
-                local_errors.append({"site_url": base_url, "error": f"entry_type not query-capable: {etype}"})
-                return {"entry": entry, "candidates": local_candidates, "errors": local_errors}
+                return {"entry": None, "candidates": local_candidates, "errors": local_errors}
+            # Only keep sources that can accept keyword parameters directly.
+            # e.g. search_template(q={{q}}). Filter-style sources (rss/sitemap) are excluded
+            # from keyword candidate pool to avoid semantic confusion.
+            if _entry_keyword_mode(entry, etype) != "search":
+                return {"entry": None, "candidates": local_candidates, "errors": local_errors}
 
             def _push_local(u: str, *, ref: dict[str, Any], score: float = 0.0) -> None:
                 if u:
@@ -747,6 +794,16 @@ def unified_search_by_item_payload(
     candidates = [u for u in candidates if not _is_low_value_candidate_url(u)]
 
     written: dict[str, int] | None = None
+    if auto_ingest:
+        try:
+            history_pool_urls = _collect_history_pool_urls(
+                scope=pool_scope,
+                project_key=project_key,
+                source=pool_source,
+            )
+        except Exception:
+            history_pool_urls = set()
+
     if write_to_pool and candidates:
         new_count = 0
         skipped = 0
@@ -768,18 +825,28 @@ def unified_search_by_item_payload(
     ingest_result: dict[str, Any] | None = None
     if auto_ingest and (written or candidates):
         try:
-            from ..ingest.url_pool import collect_urls_from_pool
+            from ..ingest.url_pool import collect_urls_from_list
             from ..projects import bind_project
 
+            ingest_candidates = [u for u in candidates if u not in history_pool_urls]
+            ingest_candidates = ingest_candidates[: max(1, min(int(ingest_limit), len(ingest_candidates)))]
             with bind_project(project_key):
-                ir = collect_urls_from_pool(
-                    scope=pool_scope,
+                # Auto-ingest should consume current-run candidates directly, instead of
+                # pulling historical URLs from shared unified_search pool.
+                ir = collect_urls_from_list(
+                    ingest_candidates,
                     project_key=project_key,
-                    source_filter=pool_source,
-                    limit=min(ingest_limit, 50),
                     query_terms=terms,
                     enable_extraction=bool(enable_extraction),
+                    extra_params={"single_url_target_mode": "detail_only"},
                 )
+            debug = ir.get("debug")
+            if not isinstance(debug, dict):
+                debug = {}
+                ir["debug"] = debug
+            debug["history_pool_filter_applied"] = True
+            debug["history_pool_size"] = len(history_pool_urls)
+            debug["ingest_candidates_count"] = len(ingest_candidates)
             ingest_result = ir
         except Exception as exc:  # noqa: BLE001
             errors.append({"phase": "auto_ingest", "error": str(exc)})

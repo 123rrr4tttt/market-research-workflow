@@ -1,431 +1,421 @@
 # Modern-Based Dual-Interaction Frontend Topology Plan (2026-03-07)
 
 > 日期：2026-03-07
-> 范围：基于 `main/frontend-modern` 当前能力推进的双交互前端拓扑、工作台化分层、共享平台层与前端边界
-> 状态：主题主计划文档，用于冻结 modern-era 双交互前端结构的需求、约束和阶段计划
+> 范围：`main/frontend-modern` 内的 dual-interaction topology planning
+> 状态：planning document, used to freeze scope, baseline, topology recommendation, and delivery order
 
-## 1. 背景与决策
+## 1. Goal
 
-本主题原先按“双前端”思路组织，但当前项目状态已经发生实质变化：
+This topic exists to define a modern-only frontend topology that separates:
 
-- 旧前端已弃用，不再作为活跃前端参与规划。
-- `main/frontend-modern` 是当前唯一活跃基座，但不再被预设为未来所有交互面必须共享同一壳层。
-- 之后所有“前台 / 后台”“双交互”“工作台 / 管理台”的讨论，都只围绕 modern 技术路线展开，与 legacy 无关。
+1. high-interaction workbench surfaces;
+2. lower-interaction management surfaces; and
+3. the shared platform layer they must still reuse.
 
-因此，本主题不再讨论新旧前端共存、legacy 页面迁移节奏、双前端兼容策略。  
-本主题现在要解决的问题是：
+This is not a legacy coexistence plan. The practical outcome of this document is a clear answer to four questions:
 
-- 如何基于 modern 技术栈，建立高交互工作台前端与低交互管理前端的双交互拓扑。
-- 如何让写作、图谱、分析、流程设计等高交互能力，与项目、资源、抓取、系统配置等低交互能力，既能相对独立演进，又能通过共享平台层协作。
-- 如何明确共享的是平台层契约，而不是强制复用当前 `AppShell` 的同一交互逻辑。
-- 如何定义它们共享什么、隔离什么、如何切换、如何保证用户心智清晰。
+- which current pages behave like workbenches vs management screens;
+- which capabilities must stay shared across both surfaces;
+- how navigation and context switching should work;
+- in what order the topology should be introduced without overcommitting to a premature shell split.
 
-## 2. 当前基线
+## 2. Current Baseline
 
-### 2.1 当前基座已经存在
+### 2.1 Active frontend baseline
 
-当前 modern 前端已经具备统一壳层和导航骨架：
+The current active UI code is concentrated in `main/frontend-modern`.
+
+Observed anchor files:
 
 - `main/frontend-modern/src/app/shell/AppShell.tsx`
 - `main/frontend-modern/src/app/navigation/index.ts`
 - `main/frontend-modern/src/components/FigmaSideNav.tsx`
 
-这说明当前仓库可以把 modern 前端当作起点和锚点，但不意味着高交互前端和低交互前端必须长期锁死在同一个壳层实现中。
+Practical implication:
 
-### 2.2 高交互工作台候选已经存在
+- the project already has one active modern shell;
+- there is no second active frontend application root under `main/` that can be treated as an already-existing peer frontend;
+- therefore, "dual frontend" must currently be interpreted as topology and interaction-surface planning, not as a claim that two production frontend apps already exist.
 
-当前代码中已经存在明显偏高交互的页面和模块：
+### 2.2 Current navigation model
 
-- `main/frontend-modern/src/pages/GraphPage.tsx`
+The current shell already exposes a stable `NavMode -> hash` mapping and a single side navigation tree.
+
+Observed characteristics from the current implementation:
+
+- navigation is grouped by function buckets such as overview, data, graph, flow, and system;
+- grouping is not yet based on interaction surface;
+- `parseLegacyHashToMode(...)` normalizes several historical hashes into the current modern modes;
+- `flowLlmNodeDesign` is already treated specially and opens as a separate tab/window, which is a useful precedent for immersive workbench handling.
+
+This means the repo already has:
+
+- one shell;
+- one navigation contract;
+- one deep-link normalization layer.
+
+What it does not yet have is an explicit workbench-vs-management topology contract.
+
+### 2.3 Observed page shapes
+
+The current page inventory already shows two clearly different interaction patterns.
+
+Workbench-heavy pages already exist:
+
 - `main/frontend-modern/src/pages/WritingWorkbenchPage.tsx`
+  - imports dedicated writing components such as `MarkdownEditor`, `MarkdownPreview`, `KeywordInsightSidebar`, `LlmAssistantPanel`, and `TemplateLibraryPanel`;
+  - keeps long-lived editing state, panel state, and citation state;
+  - clearly behaves like an immersive workspace.
+- `main/frontend-modern/src/pages/GraphPage.tsx`
+  - imports graph renderers, graph hooks, topology helpers, and visual state modules;
+  - supports multi-mode visualization and editing-oriented graph interaction;
+  - clearly behaves like a high-interaction canvas.
 - `main/frontend-modern/src/pages/LlmDesignerPage.tsx`
-- `main/frontend-modern/src/components/writing/*`
+  - is already routed through a special standalone opening path from `AppShell`;
+  - should be treated as a workbench-oriented designer surface unless future evidence proves otherwise.
 
-这些对象具备以下特征：
-
-- 需要持续保留上下文
-- 编辑行为密集
-- 多面板或多区域协作明显
-- 用户在单页停留时间更长
-
-这类页面更适合作为“工作台面”来组织，而不是继续当作普通业务页并列陈列。
-
-### 2.3 低交互管理面也已经存在
-
-当前 modern 前端内也已有更偏管理面的页面：
+Management-heavy pages also already exist:
 
 - `main/frontend-modern/src/pages/ProjectsPage.tsx`
-- `main/frontend-modern/src/pages/ResourcePage.tsx`
 - `main/frontend-modern/src/pages/CrawlerManagePage.tsx`
 - `main/frontend-modern/src/pages/SettingsPage.tsx`
+- `main/frontend-modern/src/pages/ResourcePage.tsx`
+  - list, filter, form, recommendation, sync, and save actions dominate the interaction;
+  - the page currently behaves more like an operations console than a long-lived workbench.
+- `main/frontend-modern/src/pages/ProcessPage.tsx`
+  - task list, status refresh, detail panels, and cancellation actions dominate the interaction;
+  - the page is transactional and status-oriented.
+- `main/frontend-modern/src/pages/DashboardPage.tsx`
+  - KPI cards, tables, and refresh are the main behaviors;
+  - the page is overview-oriented, not workbench-oriented.
 
-这类页面通常更符合以下模式：
+### 2.4 Baseline gaps
 
-- 以列表、表单、筛选、配置为主
-- 强调完成单次事务，而不是长时间沉浸式工作
-- 对布局稳定性、可定位性、信息清晰度要求更高
+The current baseline is usable, but the topology is still implicit.
 
-因此，当前真实问题不是“要不要继续兼容 legacy”，而是“如何把已经存在的两类交互形态发展成可相对独立的双交互前端拓扑”。
+Current gaps:
 
-## 3. 核心问题定义
+- workbench pages and management pages sit inside one navigation hierarchy without a frozen interaction model;
+- page placement rules are not written down, so new pages can drift between categories;
+- shared platform capabilities vs surface-specific container behavior are not separated clearly;
+- context retention rules are not documented;
+- the project has immersive pages, but not a documented definition of when they should stay inside the common shell vs when they deserve a more specialized container.
 
-### 3.1 现在有页面集合，但没有拓扑层定义
+## 3. Requirement Clarification
 
-当前页面更多是按历史功能出现，而不是按交互模式、用户任务和上下文密度来组织。结果是：
+### 3.1 What "dual-interaction frontend" means in this topic
 
-- 工作台型页面和管理型页面处于同一层级
-- 导航对“为什么这些页面应该并列”解释不足
-- 用户需要自己理解页面之间的工作方式差异
+For this topic, dual-interaction frontend means:
 
-### 3.2 高交互与低交互的判定规则未冻结
+- one modern technology baseline;
+- two interaction surfaces with different UX density and context behavior;
+- one shared platform layer underneath;
+- optional future shell/container divergence, but not a required split on day one.
 
-如果不先定义判断规则，后续页面新增时仍会反复争论归类。  
-本主题必须先给出规则，再给页面归位。
+It does not mean:
 
-### 3.3 共享层与专属层边界不清
+- reactivating a legacy frontend;
+- reintroducing a dual-codebase migration plan;
+- committing up front to two separately deployed frontend apps.
 
-高交互前端与低交互前端势必要共享一部分基础设施，但不应共享所有布局和行为细节。  
-如果边界不清，容易出现两种坏结果：
+### 3.2 Primary user situations this topology must support
 
-- 要么所有页面都被迫适应工作台式高密度交互
-- 要么高交互页面被后台式结构压平，无法形成真正工作台体验
+This topology must cover at least two stable user situations:
 
-### 3.4 “双交互”缺少产品化表达
+1. immersive work sessions
+   - writing, graph editing, workflow design, deep analysis;
+   - long-lived context, multi-panel coordination, object-level focus, higher information density.
+2. operational management sessions
+   - project setup, crawler control, resource maintenance, settings, process tracking;
+   - shorter transactional actions, clearer lists/forms, stronger predictability.
 
-如果不把“双交互”转成明确的信息架构和导航表达，它就会停留在概念层。  
-需要回答的不是“要不要双交互”，而是：
+### 3.3 Decisions that must be frozen in this round
 
-- 用户如何看出这是两种面向不同任务的交互形态
-- 它们在导航、布局、上下文保持、切换路径上如何体现差异
+This round must freeze:
 
-## 4. 主题目标
+- the classification rubric;
+- the initial placement of current major pages;
+- the shared platform layer;
+- the navigation and context-switch rules;
+- the phased rollout order.
 
-本主题第一轮计划要达成四个目标：
+This round must not pretend to freeze:
 
-1. 把本主题正式从“旧新前端共存语境”改写为“基于 modern 的双交互前端拓扑规划”。
-2. 定义高交互工作台面与低交互管理面的判定标准。
-3. 给出现有 modern 页面在该拓扑中的初步归位原则。
-4. 给出相对独立前端边界下的共享能力、导航分层和分阶段落地路径。
+- final visual design;
+- final workbench shell implementation;
+- page-internal business requirements for writing, graph, or ingest domains.
 
-## 5. 明确需求清单
+## 4. Scope and Non-Goals
 
-本主题必须显式覆盖以下需求，后续子 agent 不得省略：
+### 4.1 In scope
 
-### 5.1 需求一：定义双交互的判断标准
+- a modern-only definition of workbench surfaces vs management surfaces;
+- a page placement matrix for current major `frontend-modern` pages;
+- the shared platform contract both surfaces must reuse;
+- navigation and context-switch rules between the two surfaces;
+- a phased implementation order that other topic folders can reference.
 
-必须明确一套可复用的判断规则，用于识别页面应归入工作台面还是管理面。  
-至少包含以下维度：
+### 4.2 Out of scope
 
-- 交互密度
-- 上下文连续性要求
-- 多面板协作程度
-- 实时反馈与状态联动强度
-- 编辑深度与停留时长
+- legacy frontend migration strategy;
+- a separate deployment architecture for multiple frontend apps;
+- detailed feature design for writing, graph, ingest, or crawler domains;
+- final UI comps or CSS specifications;
+- backend API redesign unrelated to topology boundaries.
 
-### 5.2 需求二：定义双交互前端的一级结构
+## 5. Recommended Topology
 
-必须明确如何表达两种交互面，且不预设二者必须共用同一壳层。  
-至少要回答：
+### 5.1 Layered model
 
-- 高交互前端与低交互前端是否共用同一壳层、同一路由容器或仅共享平台层
-- 导航是否需要前置区分“工作台”与“管理”
-- 页面切换时项目上下文是否保留
-- 工作台面是否允许更高信息密度和更复杂布局
-- 高低交互前端是否可以采用不同的交互逻辑、导航模型和页面容器
+The recommended model is a three-layer topology.
 
-### 5.3 需求三：给出现有页面的初步归位
+#### Layer A: Shared platform layer
 
-必须对当前主要页面给出第一版归类判断，而不是只谈抽象原则。  
-至少覆盖以下页面：
+This layer must remain unified:
 
-- `GraphPage`
-- `WritingWorkbenchPage`
-- `LlmDesignerPage`
-- `ProjectsPage`
-- `ResourcePage`
-- `CrawlerManagePage`
-- `SettingsPage`
-- `DashboardPage`
-- `ProcessPage`
+- active project context and project switching;
+- auth, permission, and user/session assumptions;
+- route normalization and deep-link conventions;
+- API client, query key families, cache policy, and error envelope expectations;
+- theme and i18n foundations;
+- global notification, loading, and failure conventions.
 
-对于边界模糊页面，必须说明它属于：
+#### Layer B: Management surface
 
-- 工作台面
-- 管理面
-- 混合视图候选，后续需拆分
+This surface should optimize for:
 
-### 5.4 需求四：定义共享平台层
+- predictable navigation;
+- stable page layout;
+- list/filter/form workflows;
+- short transactional actions;
+- lower cognitive switching cost.
 
-必须写清双交互前端之间哪些能力为全局共享，哪些能力允许在工作台面与管理面分别定制。  
-至少覆盖：
-
-- 项目上下文
-- 身份与权限
-- 路由与深链接
-- 搜索
-- 主题与国际化
-- 数据访问层
-- 全局通知与错误处理
-
-### 5.5 需求五：定义双交互下的导航与切换规则
-
-必须说明用户如何从一个交互面切换到另一个交互面，以及切换时保留什么、重置什么。  
-至少要回答：
-
-- 一级导航如何表达两类区域
-- 页面间切换是否保留项目、筛选、对象选择
-- 工作台内深度上下文与管理面轻量事务之间如何隔离
-
-### 5.6 需求六：定义阶段性落地路径
-
-必须给出 phased plan，但 phased plan 只能围绕 modern 前端展开。  
-不得再包含以下内容：
-
-- 旧前端继续活跃共存
-- legacy 页面兼容策略
-- 双前端灰度切流
-- 新旧模板入口过渡
-
-## 6. 范围
-
-本主题当前纳入范围：
-
-- 基于 modern 技术栈的双交互前端分层
-- 高交互工作台前端 / 低交互管理前端的信息架构
-- 工作台与管理面的共享平台层定义
-- 双交互导航表达和切换规则
-- 现有 modern 页面在该拓扑中的初步归位
-
-### 6.1 第一阶段优先范围
-
-第一阶段只冻结以下五件事：
-
-1. 双交互判断标准
-2. 一级结构和导航表达
-3. 页面初步归位表
-4. 共享平台层边界
-5. 分阶段落地路径
-
-## 7. 非目标
-
-本主题当前不纳入：
-
-- 具体页面视觉稿
-- 单个工作台的完整功能设计
-- 图谱、写作、流程等主题内部能力细节
-- 旧前端留档策略
-- 后端 API 设计重构
-
-## 8. 现代前端双交互拓扑模型
-
-### 8.1 拓扑原则
-
-基于 modern 的双交互前端拓扑建议采用以下模型：
-
-- 两类一级交互域：工作台前端、管理前端
-- 一套共享平台层：权限、主题、i18n、数据访问、搜索、通知、项目上下文契约
-- 各自可定制的前端容器：工作台可高密度、多面板；管理前端可稳定、表单化、列表化
-- 是否共用 `AppShell`、路由容器或导航组件，属于实现层决策，不在首版计划中预先锁死
-- 不要求高低交互前端保持与当前 modern 前端完全一致的交互逻辑
-
-### 8.2 工作台面定义
-
-工作台面适合承载：
-
-- 写作
-- 图谱编辑与分析
-- 流程设计
-- 深度研究与报告生成
-- 需要持续上下文的协同式任务
-
-工作台前端的产品特征应包括：
-
-- 更强的对象上下文保持
-- 更深的局部状态持久
-- 更高的信息密度
-- 支持多区域并行工作
-
-### 8.3 管理面定义
-
-管理面适合承载：
-
-- 项目列表与项目配置
-- 资源整理与检索
-- 抓取任务和采集配置
-- 系统设置
-- 审批、状态查看、运营性管理动作
-
-管理前端的产品特征应包括：
-
-- 强可预测导航
-- 列表与详情清晰分离
-- 事务型操作明确
-- 低学习成本
-
-### 8.4 边界模糊页面处理原则
-
-对边界模糊页面，不强行按历史名称归类，而按用户主任务判断：
-
-- 如果用户主要在页面内“持续编辑、对比、联动、生成”，优先归入工作台面。
-- 如果用户主要在页面内“检索、配置、提交、查看状态”，优先归入管理面。
-- 如果两者都强，则先标记为混合页候选，并在后续主题中决定是否拆为工作台视图与管理视图。
-
-## 9. 页面初步归位建议
-
-### 9.1 工作台面候选
-
-- `GraphPage`
-- `WritingWorkbenchPage`
-- `LlmDesignerPage`
-- 以分析、报告生成、流程编排为主的后续工作台页面
-
-### 9.2 管理面候选
+Typical examples today:
 
 - `ProjectsPage`
 - `CrawlerManagePage`
-- `SettingsPage`
-- 以资源编目、配置、状态查看、规则管理为主的页面
-
-### 9.3 待进一步判定页面
-
 - `ResourcePage`
-- `DashboardPage`
+- `SettingsPage`
 - `ProcessPage`
+- `DashboardPage`
 
-对这些页面，后续子 agent 至少要补充：
+#### Layer C: Workbench surface
 
-- 主任务是什么
-- 典型停留时长如何
-- 是否依赖多面板协作
-- 是否需要拆成工作台视图和管理视图
+This surface should optimize for:
 
-## 10. 共享平台层边界
+- longer-lived object context;
+- multi-panel or canvas-based interaction;
+- higher information density;
+- faster iteration inside one page;
+- optional immersive or standalone container behavior where justified.
 
-以下能力应作为 modern 前端统一共享层处理：
+Typical examples today:
 
-- 认证、授权、租户/项目上下文
-- 路由与深链接规范
-- API client、query key、缓存策略
-- 全局搜索入口
-- 主题系统
-- 国际化资源和 locale 切换
-- 全局消息、错误、空态、加载态规范
+- `WritingWorkbenchPage`
+- `GraphPage`
+- `LlmDesignerPage`
 
-以下能力允许在双交互域内分别定制：
+### 5.2 Classification rubric
 
-- 页面容器密度
-- 边栏结构和二级导航方式
-- 局部工作流状态
-- 面板布局与对象详情呈现
-- 快捷操作与工具条
+Pages should be classified using the rubric below.
 
-## 11. 阶段计划
+| Dimension | Management signal | Workbench signal |
+| --- | --- | --- |
+| Interaction density | list/form/filter actions dominate | continuous editing or canvas actions dominate |
+| Context continuity | page can be revisited briefly with little warm-up | user must stay in-context for long sessions |
+| Panel coordination | one main content area is sufficient | multiple synchronized panels or tool regions are needed |
+| State coupling | local transient state is light | page-local state is deep and affects multiple subareas |
+| Primary outcome | configure, submit, inspect, monitor | create, edit, compare, design, synthesize |
 
-### Phase 1: Freeze Rules and Topology
+Rule of use:
 
-这一阶段只做结构冻结，不做大规模实现迁移。
+- classify by dominant user task, not by historical route name;
+- if a page has strong signals on both sides, keep it in the lower-risk surface for phase 1 and record the reason;
+- only promote a page to workbench when immersive context is a first-order requirement, not just a nice-to-have.
 
-必须产出：
+### 5.3 Initial page placement matrix
 
-- 双交互判断标准
-- 一级信息架构草案
-- 现有 modern 页面初步归位表
-- 共享平台层与可定制层边界
+The first-pass placement for the current major pages should be:
 
-这一阶段至少要回答：
+| Page | Surface | Reason |
+| --- | --- | --- |
+| `WritingWorkbenchPage` | workbench | editing-heavy, multi-panel, long-lived context |
+| `GraphPage` | workbench | canvas interaction, graph state, analysis/editing focus |
+| `LlmDesignerPage` | workbench | designer workflow and existing standalone launch precedent |
+| `ProjectsPage` | management | project setup and administrative task flow dominate |
+| `CrawlerManagePage` | management | operations/configuration workflow dominates |
+| `SettingsPage` | management | configuration-first and predictable layout preferred |
+| `ResourcePage` | management-primary | current implementation is list/filter/form heavy; revisit only if a dedicated research asset workbench emerges |
+| `DashboardPage` | management | read-mostly overview and KPI inspection |
+| `ProcessPage` | management | queue/status/detail monitoring is transactional and operational |
+| `OpsPage` | management | overview/admin behavior fits the management side |
+| `IngestPage` | management-primary | ingestion operations and execution control dominate phase-1 behavior |
+| `RawDataPage` | management-primary | processing workflow exists, but the current user task is still operational handling rather than immersive design |
 
-- 为什么 `GraphPage`、`WritingWorkbenchPage`、`LlmDesignerPage` 明显偏工作台
-- 为什么 `ProjectsPage`、`CrawlerManagePage`、`SettingsPage` 明显偏管理面
-- `ResourcePage`、`DashboardPage`、`ProcessPage` 是否应拆分
+Pages that may deserve later re-evaluation:
 
-### Phase 2: Freeze Navigation and Context Switching
+- `ResourcePage`: only if it grows a research-side evidence exploration mode;
+- `IngestPage` / `RawDataPage`: only if they gain design-canvas or multi-stage orchestration behavior;
+- `ProcessPage`: only if it evolves from monitoring into workflow design.
 
-这一阶段补齐用户如何理解和切换两类交互面。
+### 5.4 Navigation expression
 
-必须产出：
+Recommended phase-1 information architecture:
 
-- 一级导航表达方案
-- 工作台面与管理面的切换路径
-- 页面切换时保留与重置的上下文规则
-- 共用或拆分容器的差异策略
+- keep one shared modern codebase and one platform layer;
+- introduce an explicit first-level distinction between `Workbench` and `Management`;
+- keep existing route hashes working during the first transition;
+- avoid a hard shell split until placement, context rules, and shared contracts are stable.
 
-这一阶段至少要回答：
+Recommended navigation behavior:
 
-- `AppShell` 是否继续作为高低交互面共同根壳层，还是只作为其中一侧起点
-- `FigmaSideNav` 是否需要升级为“工作台 / 管理”两级表达
-- 项目上下文、全局筛选、对象选中状态在切换时如何处理
+- `Workbench`
+  - graph
+  - writing
+  - llm designer
+- `Management`
+  - projects
+  - crawler
+  - resource
+  - process
+  - dashboard
+  - settings
 
-### Phase 3: Support Implementation Sequencing
+This recommendation does not require replacing the current shell immediately. It freezes the user-facing topology first, then allows shell/container changes afterward.
 
-这一阶段才进入面向实现的落地排序。
+### 5.5 Context retention and switching rules
 
-必须产出：
+When switching between the two surfaces, the following rules should apply.
 
-- 优先落地的工作台面页面集合
-- 优先收敛的管理面页面集合
-- 双交互布局组件的最小实现清单
-- 与其他主题协作的交付接口
+Retain across surfaces:
 
-这一阶段至少要回答：
+- active `projectKey`;
+- authenticated identity and permission state;
+- theme and locale;
+- deep-link-compatible route identity when explicitly encoded in URL/hash;
+- global notifications and error semantics.
 
-- 哪些页面先进入工作台容器改造
-- 哪些页面先保持管理面稳定
-- 哪些共享层能力必须先落地，才能支撑后续分化
+Reset or narrow by default across surfaces:
 
-## 12. 与其他主题的边界
+- page-local selection state;
+- temporary editor state that is not persisted by the page itself;
+- transient comparison objects;
+- panel open/close state unless the destination surface defines a compatible persistence rule.
 
-### 12.1 与 `frontend-i18n-theme-modularization` 的边界
+Important design constraint:
 
-- 本主题定义基于 modern 的双交互前端整体拓扑与共享层边界。
-- `frontend-i18n-theme-modularization` 负责主题、国际化、模块边界的实现策略。
+- shared platform contract does not imply identical shell behavior;
+- a workbench page may stay inside the common shell, open in a more immersive container, or launch standalone if the interaction demands it;
+- the current `flowLlmNodeDesign` special handling is evidence that immersive exceptions are already acceptable.
 
-### 12.2 与 `writing-workbench-evolution` 的边界
+### 5.6 Shared vs surface-specific ownership
 
-- 本主题决定写作工作台在整体拓扑中的位置。
-- `writing-workbench-evolution` 负责写作工作台本身的业务能力细化。
+Shared ownership:
 
-### 12.3 与 `graph-editing-and-reporting` 的边界
+- project activation and project-aware query scoping;
+- route parsing and deep-link normalization;
+- API client and query/cache conventions;
+- theme/i18n primitives;
+- global loading/error/notification conventions.
 
-- 本主题决定图谱相关能力是否归入工作台面。
-- `graph-editing-and-reporting` 负责图谱编辑、报告联动等具体能力设计。
+Surface-specific ownership:
 
-## 13. 子 Agent 写作要求
+- side navigation grouping and second-level navigation expression;
+- panel layout density;
+- page-local draft persistence and local object focus behavior;
+- toolbars, side inspectors, and split-view behavior;
+- immersive window or standalone launch logic where justified.
 
-后续子 agent 若接手补写该主题，只允许在以下方向上扩展：
+## 6. Implementation Order
 
-- 补全 modern 页面归位表
-- 补全导航与切换规则
-- 补全共享层与可定制层边界
-- 补全 Phase 1 / 2 / 3 的产出定义
+### Phase 1: Freeze topology and placement
 
-后续子 agent 不得再引入以下内容：
+Deliverables:
 
-- 旧前端作为活跃端继续规划
-- 双前端并存策略
-- legacy 页面映射表
-- 模板页面向 modern 页面迁移的执行方案
+- one approved classification rubric;
+- one page placement matrix for current modern pages;
+- one shared-platform vs surface-specific boundary list;
+- one explicit statement that this topic is modern-only.
 
-## 14. 风险与待确认问题
+Purpose:
 
-### 14.1 风险
+- remove ambiguity before shell or route changes begin.
 
-- 如果判断标准不清，后续页面归属会持续漂移。
-- 如果共享层边界不清，工作台面与管理面会重复建设基础设施。
-- 如果导航表达不到位，用户无法理解为什么平台存在两种密度和两种工作方式。
+### Phase 2: Introduce navigation and switching contract
 
-### 14.2 待确认问题
+Deliverables:
 
-- `ResourcePage` 是继续作为管理面资源页，还是拆出工作台式资源分析视图。
-- `DashboardPage` 是工作台首页、管理面概览页，还是双视图入口。
-- `ProcessPage` 是否更接近流程设计工作台，而不是普通后台页。
-- 工作台面是否需要单独的次级容器、工具条和对象侧栏规范。
+- first-level `Workbench` / `Management` navigation expression;
+- documented retain/reset behavior when crossing surfaces;
+- explicit guidance on when a page stays in the common shell vs uses an immersive container.
 
-## 15. 最小验证
+Purpose:
 
-本主题完成后，至少应满足以下验证标准：
+- make the topology visible to users without forcing a premature large refactor.
 
-- 文档中不再把旧前端视为活跃规划对象。
-- 文档中明确写清 legacy 不再参与活跃规划，双交互拓扑基于 modern 技术路线展开。
-- 文档中至少给出一版工作台面 / 管理面的页面归位建议。
-- 文档中至少给出一版共享平台层边界。
-- 文档中 Phase 1 / 2 / 3 都围绕 modern 技术路线下的双交互拓扑展开。
+### Phase 3: Apply the topology to page containers
+
+Deliverables:
+
+- workbench-priority container upgrades for writing, graph, and llm designer;
+- management-priority stabilization for project, crawler, resource, process, dashboard, and settings pages;
+- a migration checklist for pages that may later change category.
+
+Purpose:
+
+- turn the topology into implementation work packages while keeping page placement stable.
+
+## 7. Serial and Parallel Relations
+
+Serial dependencies:
+
+1. freeze terminology and scope;
+2. freeze the baseline inventory;
+3. freeze classification rules;
+4. freeze page placement;
+5. freeze shared-platform ownership;
+6. freeze navigation and context-switch rules;
+7. freeze phased rollout and validation.
+
+Parallelizable work after the baseline inventory is stable:
+
+- page classification criteria can be refined in parallel with shared-platform boundary drafting;
+- navigation expression can be drafted in parallel with phased rollout planning once placement and shared ownership are frozen;
+- later page-level implementation packages can proceed in parallel only after the topology contract is stable.
+
+Future implementation conflict rule:
+
+- any work that changes `AppShell.tsx`, `FigmaSideNav.tsx`, or `navigation/index.ts` should be serialized by task ID;
+- page-local container changes for `WritingWorkbenchPage`, `GraphPage`, and `LlmDesignerPage` can run in parallel only if they do not rewrite the same shell/navigation files.
+
+## 8. Minimal Validation
+
+Structural validation for this plan:
+
+1. Confirm the baseline page inventory still matches the repo:
+   - `rg --files main/frontend-modern/src/pages`
+2. Confirm the navigation contract is still anchored in one modern shell:
+   - `rg -n "type NavMode|const groups|hashByMode|parseLegacyHashToMode" main/frontend-modern/src/components/FigmaSideNav.tsx main/frontend-modern/src/app/navigation/index.ts`
+3. Confirm the shell still mounts the pages referenced in this plan:
+   - `rg -n "WritingWorkbenchPage|GraphPage|LlmDesignerPage|ProjectsPage|CrawlerManagePage|ResourcePage|ProcessPage|DashboardPage|SettingsPage" main/frontend-modern/src/app/shell/AppShell.tsx`
+
+Process validation for future implementation:
+
+1. pick one workbench page and verify it keeps project context while changing page-local state;
+2. pick one management page and verify it remains usable with predictable list/form flow;
+3. verify cross-surface switching preserves `projectKey` but does not leak page-local transient state;
+4. run `cd main/frontend-modern && npm run -s lint` after any topology-related code change.
+
+## 9. Risks and Open Questions
+
+Current risks:
+
+- if placement rules stay vague, future pages will keep mixing workbench and management behaviors in the same hierarchy;
+- if shared platform ownership is not frozen, each surface may rebuild its own project context, route parsing, or query conventions;
+- if navigation shows no first-level distinction, users will not understand why some pages feel immersive and others feel transactional.
+
+Open questions intentionally left for follow-up work, not for this document to overclaim:
+
+- whether `ResourcePage` should later grow a separate research-oriented workbench mode;
+- whether `IngestPage` or `ProcessPage` should remain management-only after workflow design capabilities expand;
+- whether the workbench surface eventually deserves a distinct container family while still reusing the same platform layer.

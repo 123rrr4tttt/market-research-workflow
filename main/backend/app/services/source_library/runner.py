@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 from ...project_customization import get_project_customization
 from .handler_registry import get
+from .types import default_source_layer_boundary, derive_source_tiering
 
 _REGISTERED = False
 _CRAWLER_PROVIDER_TYPES = {"scrapy", "crawlee", "meltano"}
@@ -256,6 +257,19 @@ def _build_runtime_channel_meta(*, channel: Dict[str, Any], project_key: str | N
     channel_key = str(channel.get("channel_key") or "").strip()
     normalized_project = str(project_key or "").strip().lower()
     normalized_channel = channel_key.lower()
+    provider_type = str(channel.get("provider_type") or "").strip().lower()
+    extra = channel.get("extra")
+    explicit_tier = extra.get("source_tier") if isinstance(extra, dict) else None
+    explicit_priority = extra.get("onboarding_priority") if isinstance(extra, dict) else None
+    tiering = derive_source_tiering(
+        provider=channel.get("provider"),
+        provider_type=provider_type,
+        explicit_tier=explicit_tier,
+        explicit_priority=explicit_priority,
+    )
+    layer_boundary = default_source_layer_boundary(
+        has_provider_dispatch=provider_type in _CRAWLER_PROVIDER_TYPES,
+    )
     is_project_runtime = bool(normalized_project and normalized_channel == f"crawler.{normalized_project}")
     is_project_runtime = is_project_runtime or bool(
         normalized_project and normalized_channel.startswith(f"crawler.{normalized_project}.")
@@ -264,6 +278,20 @@ def _build_runtime_channel_meta(*, channel: Dict[str, Any], project_key: str | N
         "channel_key": channel_key,
         "runtime_scope": "project_config" if is_project_runtime else "shared_config",
         "architecture_layer": "runtime_only",
+        "source_tiering": {
+            "tier": tiering.tier.value,
+            "onboarding_priority": tiering.onboarding_priority.value,
+            "reason": tiering.reason,
+        },
+        "layer_boundary": {
+            "source_catalog": layer_boundary.source_catalog.value,
+            "normalized_execution": layer_boundary.normalized_execution.value,
+            "provider_dispatch": (
+                layer_boundary.provider_dispatch.value if layer_boundary.provider_dispatch is not None else None
+            ),
+            "discovery": layer_boundary.discovery.value,
+            "downstream_handoff": layer_boundary.downstream_handoff.value,
+        },
     }
 
 

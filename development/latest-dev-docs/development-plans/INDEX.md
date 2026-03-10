@@ -1,6 +1,6 @@
 # Development Plans Index
 
-更新时间：2026-03-07（PST）
+更新时间：2026-03-09（PST）
 范围：`development/latest-dev-docs/development-plans`
 
 ## Main Entry
@@ -51,6 +51,12 @@
 - [CURRENT_DEV/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md](./CURRENT_DEV/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md)
 - [CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md](./CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md)
 - [CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md](./CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md)
+- [CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md](./CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md)
+- [CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/02_atomic-tasklist-llm-crawler-unified-frontdoor-2026-03-08.md](./CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/02_atomic-tasklist-llm-crawler-unified-frontdoor-2026-03-08.md)
+- [CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/03_a10-closure-and-validation-2026-03-08.md](./CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/03_a10-closure-and-validation-2026-03-08.md)
+- [CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/README.md](./CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/README.md)
+- [CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/01_agent-symbolic-batch-search-plan-2026-03-09.md](./CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/01_agent-symbolic-batch-search-plan-2026-03-09.md)
+- [CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/02_atomic-tasklist-agent-symbolic-batch-search-2026-03-09.md](./CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/02_atomic-tasklist-agent-symbolic-batch-search-2026-03-09.md)
 
 ## Archives
 - `A_ARCHITECTURE/`

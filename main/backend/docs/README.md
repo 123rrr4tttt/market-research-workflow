@@ -61,6 +61,7 @@
 | [RESOURCE_POOL_EXTRACTION_API.md](RESOURCE_POOL_EXTRACTION_API.md) | 资源池提取模块接口设计（文档提取 + 任务捕获） |
 | [RESOURCE_LIBRARY_DEFINITION.md](RESOURCE_LIBRARY_DEFINITION.md) | 信息资源库定义（item、channel、来源采集） |
 | [RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md](RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md) | 信息资源库功能实现计划 |
+| [implementation/A9_INGEST_METRICS_PAYLOAD_CONTRACT.md](implementation/A9_INGEST_METRICS_PAYLOAD_CONTRACT.md) | A9 可观测指标载荷契约（single_url/url_pool） |
 | [政策可视化数据校验与实时性说明.md](政策可视化数据校验与实时性说明.md) | 统计一致性与热力图实时性 |
 
 ---

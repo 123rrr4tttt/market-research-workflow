@@ -158,6 +158,14 @@ class SourceLibraryRunnerGrayRolloutUnitTestCase(unittest.TestCase):
         self.assertEqual(result["provider_status"], "queued")
         self.assertEqual(result["runtime_channel"]["runtime_scope"], "project_config")
         self.assertEqual(result["runtime_channel"]["architecture_layer"], "runtime_only")
+        self.assertEqual(
+            result["runtime_channel"]["source_tiering"]["tier"],
+            "tier_2_directed_high_value",
+        )
+        self.assertEqual(
+            result["runtime_channel"]["layer_boundary"]["provider_dispatch"],
+            "crawlers/providers",
+        )
         register_provider.assert_called_once()
         scrapy_provider.assert_called_once_with(base_url="http://params.scrapyd", timeout=12.0)
 

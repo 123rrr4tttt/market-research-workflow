@@ -1,299 +1,317 @@
-# Frontend I18N Theme Modularization Plan (2026-03-07)
+# Frontend I18N, Theme, and Modularization Plan (2026-03-07)
 
-> 日期：2026-03-07
-> 范围：`main/frontend-modern` 的国际化、主题系统、模块化装配
-> 状态：主题主计划文档
-> 前提：当前活跃基座是 `main/frontend-modern`
+> Date: 2026-03-07
+> Scope: `main/frontend-modern`
+> Status: planning document for frontend infrastructure, not direct code implementation
+> Constraint: keep the plan aligned with the current `main/frontend-modern` entrypoints instead of inventing a second frontend shell
 
-## 1. 背景
+## 1. Objective
 
-抽象规划提出的“前端中英文切换 + 主题切换 + 模块化管理”，本质上不是视觉修补，而是 modern 前端进入工作台化阶段前必须先补齐的基础设施。
+This topic is the infrastructure layer for the modern frontend, not a one-off page polish pass.
 
-如果这层继续缺位，后续各页面会重复出现同一类问题：
+The first implementation wave should make three cross-cutting capabilities explicit and reusable:
 
-- 文案继续散落在组件内部，无法统一切换语言。
-- 主题能力停留在局部样式和硬编码 class，无法形成全局设计 token。
-- 页面接入方式继续依赖壳层里手写分支，模块扩展成本高。
-- “双交互”能力只能靠页面各自实现，无法沉淀为可被高交互前端与低交互前端共同消费的平台层。
+1. UI i18n for shell-level and shared frontend text.
+2. Theme state plus a stable token boundary for shared UI surfaces.
+3. Module registration so navigation, page mounting, and mode visibility are no longer maintained through scattered hardcoded branches.
 
-因此，本主题的目标不是做一轮界面翻新，而是把 modern 前端的基础设施层定义清楚，并为后续复杂页面统一供给能力。
+The intended outcome is that later workbench pages and management pages can plug into one shared contract instead of each feature rebuilding its own shell behavior.
 
-## 2. 当前基线
+## 2. Verified Current Baseline
 
-### 2.1 壳层与导航基线
+### 2.1 Active frontend surface
 
-当前 modern 前端已经具备统一壳层与集中导航入口：
+The active frontend base for this topic is `main/frontend-modern`.
+
+The current shell path is already centralized:
 
 - `main/frontend-modern/src/app/shell/AppShell.tsx`
 - `main/frontend-modern/src/app/navigation/index.ts`
 - `main/frontend-modern/src/components/FigmaSideNav.tsx`
+- `main/frontend-modern/src/pages/SettingsPage.tsx`
+- `main/frontend-modern/src/index.css`
 
-这说明现阶段最合理的切入点不是单页改造，而是围绕壳层、导航、设置页和共享状态机制建立基础设施。
+This is the correct implementation seam for i18n, theme, and module registration work. The topic should not be framed as isolated page-by-page cleanup.
 
-### 2.2 已有能力与直接问题
+### 2.2 Reusable mechanisms already present
 
-从现有代码可以明确看到：
+Several reusable patterns already exist in the current repo:
 
-- `AppShell.tsx` 已经统一管理 `viewMode`、项目切换、健康状态和主内容装配。
-- `FigmaSideNav.tsx` 已经承载导航分组和模式切换，但标签大量是中文硬编码。
-- `AppShell.tsx` 中 `figmaTheme` 目前固定为 `dark`，说明主题样式有基础，但没有真正的用户可切换主题状态。
-- `index.css` 已经存在 `light / dark / brand` 相关 class 片段，说明视觉分支已经出现，但尚未收敛为稳定 token 体系。
-- `SettingsPage.tsx` 已经存在，可以作为语言和主题设置的用户入口。
-- `navigation/index.ts` 仍以模式到 hash 的映射来驱动壳层切换，说明模块装配当前仍偏手工。
+- `AppShell.tsx` already holds shell state such as `viewMode`, current project, shell-level health display, and lazy page mounting.
+- `app/navigation/index.ts` already maps `NavMode` to hash routes and provides legacy-hash parsing. That makes route normalization a shared concern rather than a page-local concern.
+- `FigmaSideNav.tsx` already defines grouped navigation and mode switching. It is the main candidate for shell-level label extraction.
+- `lib/localStore.ts` already provides safe local storage helpers and is already used by `AppShell.tsx` and `SettingsPage.tsx`.
+- `SettingsPage.tsx` already acts as a configuration surface and already persists local draft state, so it is a credible home for language/theme preferences.
+- The modern frontend already contains both management-style pages and heavier interaction pages such as `GraphPage.tsx`, `WritingWorkbenchPage.tsx`, and `LlmDesignerPage.tsx`. That is enough evidence to plan around shared infrastructure for more than one interaction shape.
 
-### 2.3 现状缺口
+### 2.3 Verified gaps
 
-当前仓库中，这一主题至少存在以下缺口：
+The current baseline still has clear infrastructure gaps:
 
-- 没有统一的 UI 文案资源组织方式。
-- 没有单一语言状态源，也没有稳定的语言持久化规则。
-- 没有真正的平台级主题状态管理。
-- 没有清晰的设计 token 分层规则。
-- 没有页面模块注册与装配的统一模型。
-- “双交互”仍停留在多个视图模式并列存在，缺少统一的共享基础设施说明。
+- No shared frontend i18n provider, locale catalog, or translation accessor was found in `main/frontend-modern/src`.
+- `FigmaSideNav.tsx` stores navigation group titles and item labels inline in Chinese.
+- `AppShell.tsx` stores page titles inline in Chinese through `titleMap`.
+- `AppShell.tsx` defines `figmaTheme` state but currently fixes it to `'dark'`, so there is no user-facing theme switching path yet.
+- Theme styling is still expressed as component-specific CSS variants such as `.figma-top-nav.is-dark`, `.figma-top-nav.is-brand`, `.figma-side-nav.is-dark`, and `.figma-side-nav.is-brand`, rather than a documented token contract consumed across the app.
+- Page mounting still depends on a long `if` chain inside `AppShell.tsx`, while navigation metadata is also duplicated in `FigmaSideNav.tsx` and route mapping in `app/navigation/index.ts`.
 
-## 3. 核心问题定义
+## 3. Requirement Clarification
 
-### 3.1 国际化问题不是“翻译几个按钮”
+### 3.1 Target users and owners
 
-本主题里的 i18n 不是补几处中英文文案，而是要明确 modern 前端哪些文本属于：
+This topic primarily serves:
 
-- 壳层级 UI 文案
-- 导航与模式标签
-- 设置与表单标签
-- 通用状态与反馈文案
-- 页面局部业务文案
+- frontend engineers adding or modifying `main/frontend-modern` pages;
+- feature owners who need shell-level language/theme behavior without re-implementing it;
+- future workbench topics that need stronger interaction patterns but still depend on the same shell contract.
 
-如果不先冻结边界，后续只会持续出现硬编码和局部翻译。
+### 3.2 Problem statement
 
-### 3.2 主题问题不是“加个深浅色开关”
+The core problem is not translation quality or color polish by itself.
 
-当前现代前端已经有 `dark / brand / light` 的样式痕迹，但主题状态仍未平台化。真正需要解决的是：
+The actual problem is that shell text, theme behavior, and module wiring are currently encoded in separate hardcoded locations. Without a shared contract:
 
-- 谁持有当前主题状态
-- 主题如何跨页面保持一致
-- 哪些视觉属性进入 token 层
-- 页面局部扩展如何不破坏全局主题体系
+- UI labels will continue to drift into component-local hardcoded strings;
+- theme behavior will remain a mix of fixed state and CSS variants without clear ownership;
+- every new mode will require touching multiple places by hand;
+- workbench pages and standard admin pages will diverge in infrastructure even when they should share platform rules.
 
-### 3.3 模块化管理问题不是“目录拆分”
+### 3.3 In-scope for the first wave
 
-这个主题里的模块化管理，指的是 modern 前端内页面能力如何被壳层识别、装配、显示和控制，而不是简单的文件分目录。
+The first wave should freeze and then implement only the minimum platform layer:
 
-至少要回答：
+- shell-level locale state and locale persistence;
+- shell/shared message catalog organization;
+- theme enum, theme persistence, and shared token boundary;
+- module registration metadata for navigation, page title, visibility, and hash mapping;
+- settings entrypoints for language and theme preferences;
+- onboarding rules for both standard pages and high-interaction pages.
 
-- 页面模式如何注册
-- 导航项如何从注册信息生成
-- 哪些模块属于全局能力，哪些属于工作台能力
-- “双交互”模式如何在共享平台层之上组织
+### 3.4 Non-goals
 
-## 4. 目标
+This topic does not try to complete any of the following in the same wave:
 
-本主题第一轮文档要为 `main/frontend-modern` 冻结以下目标：
+- full translation of all business content across every page;
+- backend-driven content localization or LLM language strategy;
+- a full visual redesign of every existing page;
+- replacement of all shell rendering logic in one step;
+- a forced decision that every future interaction shape must share the exact same shell layout.
 
-1. 定义 UI 国际化的最小覆盖范围和统一资源组织方式。
-2. 定义主题状态、主题 token 和主题作用域的最低边界。
-3. 定义 modern 前端内模块注册、导航装配和模式可见性的基础规则。
-4. 定义“基于 modern 的双交互前端”所依赖的共享基础设施前提。
-5. 为后续具体页面和工作台主题提供统一接入方式，而不是继续让各主题自行搭基础设施。
+## 4. Recommended Architecture
 
-## 5. 明确需求清单
+### 4.1 Localization layer
 
-### 5.1 I18N 需求
+Recommended direction: introduce a shell-owned locale contract first, then let pages consume that contract.
 
-- 必须把 `AppShell`、`FigmaSideNav`、顶部导航、设置页、通用状态栏列为第一阶段强制覆盖对象。
-- 必须定义统一文案资源结构，至少明确壳层文案、导航文案、设置文案、通用反馈文案的存放位置。
-- 必须定义语言状态单一来源，避免页面局部各自维护语言状态。
-- 必须定义语言持久化机制，至少明确刷新后和切换视图模式后语言是否保留。
-- 必须要求新增页面和共享组件不再直接提交中英文硬编码作为默认方案。
-- 必须区分 UI 国际化与业务内容双语化，本主题只负责前端 UI 展示层与前端配置层。
+The first wave should define:
 
-### 5.2 Theme 需求
+- one locale enum for UI display, initially scoped to `zh-CN` and `en-US` or an equivalent two-locale pair;
+- one shell-level locale state source;
+- one persistence rule using the existing local storage helper pattern;
+- one translation access path for shell/shared text;
+- one message catalog split that keeps shell text separate from domain-page text.
 
-- 必须把当前 `light / dark / brand` 的样式分支收敛到统一主题对象，而不是继续靠页面 class 临时扩展。
-- 必须定义主题状态归属，建议由共享状态层统一持有；当前可由壳层承载，后续也可抽离给相对独立的双交互前端共同消费。
-- 必须定义主题持久化规则，至少覆盖刷新后恢复和跨视图模式一致性。
-- 必须定义最小 token 分层，至少包含颜色、边框、背景、文本、强调态、面板层级和交互反馈。
-- 必须允许工作台页面在不破坏全局 token 的前提下做局部扩展。
-- 必须把设置页列为主题切换的用户入口，而不是只保留开发态默认值。
+Recommended catalog partition for the first wave:
 
-### 5.3 模块化管理需求
+1. `shell`
+   - app shell, page titles, common status text, generic buttons
+2. `navigation`
+   - group titles, nav item labels, route-facing mode names
+3. `settings`
+   - language/theme controls and related helper text
+4. `shared`
+   - reusable empty/loading/error text for common components
 
-- 必须定义 modern 前端的模块主对象，至少包括导航模式、页面入口、共享布局能力和页面级配置。
-- 必须定义模块注册与装配入口，避免壳层长期依赖持续膨胀的手写 `if` 分支。
-- 必须定义模块可见性规则，明确哪些模块全局常驻，哪些模块按模式或工作台类型显示。
-- 必须明确导航分组与页面模式之间的映射关系，避免同一个能力散落在多个地方重复定义。
-- 必须定义共享基础设施接入标准，让后续页面能够接入语言、主题和模块元数据，而不是各自再造一套。
+This document intentionally does not lock the repo to a specific third-party i18n runtime. The repo currently has no established frontend i18n stack, so the first decision should optimize for low-friction adoption in `main/frontend-modern`.
 
-### 5.4 基于 Modern 的双交互前端需求
+### 4.2 Theme layer
 
-- 必须明确 `legacy` 已退出规划范围，但高交互前端与低交互前端不必被锁死在同一壳层中。
-- 必须定义“双交互”在本主题中的含义：基于 modern 技术栈支持高交互工作台前端和标准管理/看板前端两类体验，并通过共享平台层接入统一基础设施。
-- 必须定义这两类交互在语言、主题、导航和模块注册上的共享项与允许差异项。
-- 必须避免把基础设施主题写成某个单页工作台的专属方案，本主题服务整个 modern 前端。
+Recommended direction: keep theme ownership at shell scope first, but document a token contract instead of expanding ad hoc variant CSS.
 
-## 6. 范围
+The first wave should freeze:
 
-### 6.1 纳入范围
+- a stable theme enum;
+- one theme state source;
+- one persistence rule that survives refresh and mode switches;
+- a minimum shared token contract for shell surfaces;
+- rules for page-local extensions that do not redefine global shell semantics.
 
-- `AppShell` 驱动的壳层级状态管理
-- 侧边导航、顶部导航、设置页、通用状态区的国际化与主题能力
-- modern 前端共享 token、主题状态、主题持久化
-- 页面模式注册、导航装配、模块可见性规则
-- 服务双交互前端的基础设施边界
+Minimum token groups for the first wave:
 
-### 6.2 第一阶段优先范围
+- background
+- surface
+- border
+- text
+- muted text
+- accent
+- status or emphasis
+- interactive hover/focus/active
 
-第一阶段只优先冻结五类内容：
+The important design decision is not the exact token names; it is the boundary. Shared shell surfaces should consume shared tokens, while page-local workbench styling may extend them without forking the global contract.
 
-1. 壳层级语言状态与文案资源结构
-2. 壳层级主题状态与 token 边界
-3. 导航与页面模式的注册模型
-4. 设置页作为语言/主题控制入口的接入方案
-5. 双交互场景下共享规则与允许扩展点
+### 4.3 Module registration layer
 
-## 7. 非目标
+Recommended direction: introduce module metadata as the shared source for navigation, page title, and visibility rules.
 
-本主题当前不负责：
+The minimum module registration object should be able to describe:
 
-- 单个页面的完整 UI 重构
-- 全站所有业务文案一次性双语化
-- 具体工作台的业务交互方案设计
-- 后端内容翻译、LLM 多语言生成或业务数据语言策略
-- 整体信息架构重命名工程
+- `mode`
+- `title_key`
+- `nav_group_key`
+- `hash`
+- page loader or page component binding
+- visibility flags
+- interaction profile such as `standard` or `workbench`
 
-## 8. 初步方案设计
+This layer is needed because current behavior is split across:
 
-### 8.1 I18N 基础设施层
+- `hashByMode` in `app/navigation/index.ts`
+- grouped navigation metadata in `FigmaSideNav.tsx`
+- page title mapping in `AppShell.tsx`
+- the page rendering `if` chain in `AppShell.tsx`
 
-建议采用“壳层集中持有 + 页面按需消费”的模式：
+The first wave does not have to eliminate every branch immediately, but it should establish one registration contract that later refactors can converge toward.
 
-- 壳层持有当前语言状态。
-- 共享组件只通过统一文案访问方式取值。
-- 页面模块只消费文案 key，不直接决定全局语言机制。
-- 设置页提供显式语言切换入口。
+### 4.4 Dual-interaction boundary
 
-第一阶段可先按三层组织文案：
+For this topic, “dual interaction” should mean:
 
-1. shell：壳层、导航、状态栏、通用按钮
-2. settings：设置页与系统配置界面
-3. page-domain：具体业务页面按领域拆分
+- standard admin/dashboard flows and high-interaction workbench flows share language, theme, and module metadata contracts;
+- they may still diverge in layout density, local controls, or workbench-specific interaction shells.
 
-### 8.2 Theme 基础设施层
+This topic should therefore define shared infrastructure, not force all pages into one identical presentation model.
 
-建议采用“壳层主题状态 + token 驱动样式”的方式：
+## 5. Implementation Order
 
-- 壳层统一维护当前主题。
-- 导航、主内容区、通用容器统一消费主题 token。
-- 页面允许在 token 上扩展局部语义变量，但不允许重新定义全局色彩体系。
-- 设置页负责用户可见的主题切换。
+### 5.1 Stage 0: Freeze baseline and contracts
 
-第一阶段至少要冻结：
+First freeze the current baseline and contract boundaries:
 
-- 主题枚举值
-- 主题状态读取与写入位置
-- token 命名边界
-- 全局容器、导航、卡片、表单、状态组件的共用 token 规则
+- inventory shell-visible strings;
+- inventory current theme surfaces and variant classes;
+- inventory all current `NavMode` definitions and where they are duplicated;
+- confirm which state is already persisted through local storage.
 
-### 8.3 模块化装配层
+This step is serial. Without it, later tasks will keep re-deriving different assumptions.
 
-建议把当前“壳层手写模式分支”逐步抽象为模块注册模型，至少先定义：
+### 5.2 Stage 1: Introduce shell-level i18n and theme contracts
 
-- mode key
-- 页面标题
-- 导航分组
-- 页面入口组件
-- 是否属于工作台型交互
-- 是否暴露在默认导航
+Once the baseline is frozen, define:
 
-这样后续新增模式时，先注册元数据，再由壳层和导航消费，而不是继续同时修改多处硬编码。
+- locale state and persistence;
+- theme state and persistence;
+- message catalog partition;
+- minimum theme token groups.
 
-### 8.4 双交互共享层
+This stage should be implemented before migrating page-level consumers, because otherwise multiple pages will invent incompatible access patterns.
 
-本主题只处理双交互前端共享的平台基础设施，不直接决定两类前端是否共用壳层。建议先冻结：
+### 5.3 Stage 2: Introduce module registration metadata
 
-- 标准管理/看板流与高交互工作台遵守同一语言契约
-- 两类交互共用同一主题状态契约与 token 基线
-- 两类交互共用同一模块元数据/能力注册契约
-- 工作台允许扩展局部布局与局部视觉语义，但不能脱离壳层基础设施
+After locale/theme contracts exist, define module registration metadata so shell text and navigation can consume translation keys and module descriptors from a common source.
 
-## 9. 阶段计划
+This is the point where route metadata, page titles, navigation groups, and visibility rules should stop drifting independently.
 
-### Phase 1：冻结基础对象与接入点
+### 5.4 Stage 3: Migrate shell entrypoints
 
-目标是把对象定义清楚，而不是先做全站铺开。
+Then migrate the highest-value shell surfaces first:
 
-必须完成：
+- `AppShell.tsx` page titles and shell messages;
+- `FigmaSideNav.tsx` group titles and item labels;
+- settings entrypoints for theme and locale controls.
 
-- 确认壳层级 i18n 第一阶段覆盖面
-- 明确文案资源组织方式
-- 明确语言状态来源与持久化方式
-- 明确主题状态来源、主题枚举和 token 最小边界
-- 明确导航模式与页面模块的注册对象
-- 明确设置页语言/主题入口的接入要求
-- 明确双交互共享规则
+This is the minimum user-visible slice that proves the infrastructure is real.
 
-### Phase 2：在 modern 前端内完成首轮接入
+### 5.5 Stage 4: Onboard representative pages
 
-目标是把规则落到真实入口，而不是继续停留在抽象层。
+After shell entrypoints are stable, onboard representative pages from both interaction shapes:
 
-重点包括：
+- one standard page path;
+- one high-interaction page path.
 
-- 壳层、侧边导航、顶部导航接入统一文案访问方式
-- 设置页接入语言和主题控制
-- 壳层不再固定写死主题默认值
-- 关键共享组件改为消费 token 而不是局部硬编码
-- 新增或重构一批模块元数据定义，减少壳层手写装配
+The purpose is to verify that the infrastructure works across both simple and dense pages before larger-scale migration.
 
-### Phase 3：支撑工作台与复杂页面扩展
+## 6. Serial and Parallel Relationships
 
-目标是让基础设施真正服务后续高交互建设。
+### 6.1 Serial dependencies
 
-重点包括：
+The following order should remain serial:
 
-- 写作工作台、图谱页面等高交互页面接入统一主题与语言机制
-- 按交互类型细化模块显示与导航策略
-- 允许局部扩展 token，但保持全局一致性
-- 建立前端基础设施变更的最小回归检查规则
+1. Baseline freeze
+2. Locale/theme contract freeze
+3. Module registration contract freeze
+4. Shell migration
+5. Representative page onboarding
+6. Regression closure
 
-## 10. 依赖与边界
+This order matters because module registration should consume translation/theme conventions, not invent them independently.
 
-### 10.1 与工作台主题的边界
+### 6.2 Safe parallel slices
 
-- 本主题负责定义共享基础设施。
-- 工作台主题负责定义某个业务工作台如何消费这些基础设施。
+Once Stage 0 is complete, some work can proceed in parallel:
 
-### 10.2 与交互拓扑主题的边界
+- locale catalog partition and translation accessor design;
+- theme token grouping and persistence design;
+- module descriptor shape and visibility-rule design.
 
-- 本主题负责语言、主题、模块注册的共享规则。
-- 交互拓扑主题负责说明在 modern 前端内部，不同交互形态如何布局与协同。
+After those contracts are frozen, the following can also run in parallel:
 
-### 10.3 与后端配置主题的边界
+- shell text migration in `AppShell.tsx`;
+- navigation label migration in `FigmaSideNav.tsx`;
+- settings integration for locale/theme controls.
 
-- 本主题可以定义设置入口与前端状态持久化规则。
-- 具体哪些配置来自后端、哪些来自本地存储，需要由相关配置主题继续细化。
+### 6.3 File-conflict hotspots
 
-## 11. 风险与待确认问题
+The likely conflict hotspots are:
 
-### 11.1 风险
+- `main/frontend-modern/src/app/shell/AppShell.tsx`
+- `main/frontend-modern/src/app/navigation/index.ts`
+- `main/frontend-modern/src/components/FigmaSideNav.tsx`
+- `main/frontend-modern/src/pages/SettingsPage.tsx`
+- `main/frontend-modern/src/index.css`
 
-- 如果先做页面局部翻译而没有壳层统一语言状态，后续会出现语言状态碎片化。
-- 如果主题只改局部 class 而不冻结 token 边界，后续工作台页面会持续分叉样式语义。
-- 如果模块注册模型不先落地，壳层分支会继续膨胀，后续维护成本会快速上升。
-- 如果“双交互”边界不先写清，后续容易把基础设施方案写成某个单页的局部实现。
+Any implementation plan that assigns multiple contributors to this topic should treat those files as serial merge points.
 
-### 11.2 待确认问题
+## 7. Minimal Validation
 
-- 语言状态是否需要与用户设置或项目设置同步。
-- brand 主题在当前阶段是否作为正式主题，还是仅保留实验态。
-- 模块可见性是否需要支持按项目、角色或环境开关控制。
-- 设置页是直接提供全局语言/主题切换，还是先只作为配置入口。
+### 7.1 Structural validation
 
-## 12. 最小验证
+At minimum, later implementation must verify:
 
-本主题后续实现时，至少应满足以下验证点：
+- a shell-visible string can be switched through the shared locale path;
+- a theme switch changes shell surfaces through shared token usage rather than one-off class edits;
+- one new or existing module can be represented through module metadata without adding yet another disconnected label map.
 
-- 切换语言后，壳层、侧边导航、顶部导航、设置页核心文案同步变化。
-- 切换视图模式后，语言状态不丢失。
-- 切换主题后，导航区、主内容区、通用面板和表单样式保持一致且状态可持久化。
-- 新增一个页面模式时，能够通过模块注册信息接入导航与壳层，而不是只靠新增手写分支。
-- 高交互页面接入基础设施后，不破坏现有壳层状态与主题一致性。
+### 7.2 Flow validation
+
+At minimum, later implementation must verify:
+
+1. change language in the settings entrypoint;
+2. refresh the page and confirm shell labels remain in the selected locale;
+3. switch between at least two navigation modes and confirm locale/theme state remains stable;
+4. open one standard page and one high-interaction page and confirm both still render under the same shell contract.
+
+### 7.3 Minimum command-level check
+
+If code changes are made for this topic, the minimum verification pack should include:
+
+```bash
+cd main/frontend-modern && npm run -s lint
+```
+
+If a lightweight frontend smoke script exists later, it should be added on top of lint rather than replacing the structural checks above.
+
+## 8. Risks and Open Questions
+
+### 8.1 Main risks
+
+- If locale state is introduced without first extracting shell strings, the app will end up with mixed translated and hardcoded shell surfaces.
+- If theme work only adds toggles without a token boundary, workbench pages will fork visual semantics immediately.
+- If module registration is postponed too long, every new mode will keep expanding hardcoded maps and `if` chains.
+- If high-interaction pages are ignored during onboarding, the resulting infrastructure may fit dashboards but fail on workbench-style screens.
+
+### 8.2 Open questions to settle before implementation
+
+- Should the first-wave locale preference remain frontend-local only, or later sync with project-level/user-level settings?
+- Is `brand` a supported end-user theme in the first wave, or only an internal styling branch that should remain non-default?
+- Do module visibility rules eventually need project-based or role-based gating, or is mode-level visibility enough for the first wave?
+- Should page title generation be fully registration-driven immediately, or staged through a compatibility layer while the current `if` rendering chain remains in place?

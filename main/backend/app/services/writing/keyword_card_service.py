@@ -168,7 +168,62 @@ def _cards_from_source_library(project_key: str, query: str, limit: int) -> list
     return cards
 
 
-def dedupe_and_score(cards: list[tuple[KeywordCardItem, dict[str, Any]]], query: str, project_key: str) -> KeywordCardListResponse:
+def _extract_graph_context(payload: KeywordCardRequest) -> dict[str, Any]:
+    if isinstance(payload.context, dict):
+        nested = payload.context.get("graph_context")
+        if isinstance(nested, dict):
+            return nested
+    if getattr(payload, "context", None) is not None and isinstance(payload.context.graph_context, dict):
+        return payload.context.graph_context
+    return payload.graph_context if isinstance(payload.graph_context, dict) else {}
+
+
+def _cards_from_graph_context(payload: KeywordCardRequest, limit: int) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
+    graph_context = _extract_graph_context(payload)
+    selected_nodes = graph_context.get("selected_nodes") if isinstance(graph_context.get("selected_nodes"), list) else []
+    if not selected_nodes:
+        return []
+    normalized_query = normalize_and_rewrite_query(payload.query)
+    cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
+    for node in selected_nodes:
+        if not isinstance(node, dict):
+            continue
+        node_id = str(node.get("node_id") or "").strip()
+        title = str(node.get("title") or node.get("label") or node_id or "Graph Node").strip()
+        evidence = str(node.get("summary") or node.get("evidence") or "").strip()
+        source_uri = str(node.get("source_uri") or node.get("uri") or "").strip() or None
+        publisher = f"graph:{str(node.get('node_type') or 'node').strip() or 'node'}"
+        card = _build_card(
+            source_type="graph",
+            title=title,
+            snippet=evidence,
+            url=source_uri,
+            score=0.74,
+            publisher=publisher,
+            published_at=None,
+            evidence=evidence or f"Graph node {node_id or title} selected by curated workflow graph.",
+            normalized_query=normalized_query,
+            extra={
+                "graph_node_id": node_id or None,
+                "context_boundary": "graph_context",
+                "graph_contract_version": graph_context.get("contract_version"),
+                "graph_revision": graph_context.get("revision"),
+            },
+        )
+        cards.append((card, node))
+        if len(cards) >= limit:
+            break
+    return cards
+
+
+def dedupe_and_score(
+    cards: list[tuple[KeywordCardItem, dict[str, Any]]],
+    query: str,
+    project_key: str,
+    *,
+    graph_context_attached: bool = False,
+    accepted_citation_count: int = 0,
+) -> KeywordCardListResponse:
     normalized_query = normalize_and_rewrite_query(query)
     selection_hash = _selection_hash(project_key, query)
     if selection_hash in _SELECTION_CACHE:
@@ -200,6 +255,32 @@ def dedupe_and_score(cards: list[tuple[KeywordCardItem, dict[str, Any]]], query:
         },
         dedupe_count=max(0, len(cards) - len(deduped)),
         score_snapshot=score_snapshot,
+        context_boundary={
+            "contract_version": "writing.context_boundary.e3.v1",
+            "selection_context_attached": bool(normalized_query),
+            "evidence_context_count": len(deduped),
+            "accepted_citation_context_count": max(0, int(accepted_citation_count or 0)),
+            "graph_context_attached": graph_context_attached,
+            "graph_context_optional": True,
+            "graph_boundary_rule": "consume_graph_context_adapter_only",
+        },
+        dependency_gate={
+            "contract_version": "writing.cross_theme_gate.e8.v1",
+            "passed": True,
+            "topology": ["writing<->graph", "writing<->llm", "writing<->frontend"],
+            "graph": {
+                "mode": "optional_consume_only",
+                "attached": graph_context_attached,
+            },
+            "llm": {
+                "mode": "consume_only",
+                "consumer": "writing.llm_action",
+            },
+            "frontend": {
+                "mode": "placement_boundary_only",
+                "surface": "writing.workbench",
+            },
+        },
         cache_hit=False,
         cache_ttl_ms=_CACHE_TTL_MS,
     )
@@ -210,10 +291,31 @@ def dedupe_and_score(cards: list[tuple[KeywordCardItem, dict[str, Any]]], query:
 def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
     query = payload.query.strip()
     cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
-    cards.extend(_cards_from_hybrid(query, payload.limit))
-    cards.extend(_cards_from_sources(query, payload.limit))
-    cards.extend(_cards_from_source_library(payload.project_key, query, payload.limit))
-    return dedupe_and_score(cards[: payload.limit * 3], query, payload.project_key)
+    requested_sources = set(payload.sources or [])
+    graph_context = _extract_graph_context(payload)
+    graph_context_attached = bool(graph_context.get("selected_nodes")) if isinstance(graph_context, dict) else False
+    accepted_citation_count = 0
+    if payload.context is not None and isinstance(payload.context.accepted_citation_context, dict):
+        citation_items = payload.context.accepted_citation_context.get("citations")
+        if isinstance(citation_items, list):
+            accepted_citation_count = len(citation_items)
+    if graph_context_attached and (not requested_sources or "graph" in requested_sources):
+        cards.extend(_cards_from_graph_context(payload, payload.limit))
+    if not requested_sources or "document" in requested_sources:
+        cards.extend(_cards_from_hybrid(query, payload.limit))
+    if not requested_sources or bool({"resource", "graph"} & requested_sources):
+        cards.extend(_cards_from_sources(query, payload.limit))
+    if not requested_sources or "resource" in requested_sources:
+        cards.extend(_cards_from_source_library(payload.project_key, query, payload.limit))
+    if requested_sources:
+        cards = [(item, raw) for item, raw in cards if item.source_type in requested_sources]
+    return dedupe_and_score(
+        cards[: payload.limit * 3],
+        query,
+        payload.project_key,
+        graph_context_attached=graph_context_attached,
+        accepted_citation_count=accepted_citation_count,
+    )
 
 
 def get_card_preview(payload: KeywordCardPreviewRequest) -> KeywordCardPreviewResponse:

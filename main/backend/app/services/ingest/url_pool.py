@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
+import os
 from contextlib import nullcontext
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import parse_qsl, quote_plus, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from ...models.base import SessionLocal
 from ...models.entities import Document
@@ -15,8 +16,18 @@ from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..resource_pool import list_urls
 from ..extraction.application import ExtractionApplicationService
+from .frontdoor_rollout import is_ingest_frontdoor_enabled
+from .metrics_payload import (
+    attach_metrics_payload,
+    build_metrics_payload_from_summary,
+    new_metrics_summary,
+    record_metrics_observation,
+)
+from .gate_reason_codes import normalize_reason_code
 from .meaningful_gate import normalize_content_for_ingest
 from .adapters.http_utils import make_html_parser
+from .source_search_contract import build_query_url_from_contract, normalize_source_search_contract
+from .url_unwrap import unwrap_url
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +38,42 @@ _DEFAULT_LIMIT = 50
 _DEBUG_MAX_URLS = 200
 _DEBUG_MAX_POOL_ITEMS = 50
 _DEBUG_MAX_ERRORS = 50
+_TEMPLATE_HEALTH_TOP_N = 5
 _EXTRACTION_APP = ExtractionApplicationService()
 _ENTRY_QUERY_KEYS = {"q", "query", "keyword", "keywords", "search", "s", "term"}
+_HIGH_JS_DOMAINS = {
+    "x.com",
+    "twitter.com",
+    "instagram.com",
+    "facebook.com",
+    "linkedin.com",
+    "tiktok.com",
+}
+
+
+def _resolve_default_parallel_workers() -> int:
+    raw = os.getenv("URL_POOL_DEFAULT_PARALLEL_WORKERS", "").strip()
+    if raw:
+        try:
+            return max(1, min(32, int(raw)))
+        except Exception:
+            pass
+    cpu = os.cpu_count() or 4
+    return max(1, min(12, int(cpu)))
+
+
+_DEFAULT_PARALLEL_WORKERS = _resolve_default_parallel_workers()
+_SOURCE_SEARCH_CONTRACT_FIELDS = {
+    "param_key",
+    "encoding",
+    "lang",
+    "region",
+    "page",
+    "page_size",
+    "sort",
+    "min_results_required",
+    "max_candidates",
+}
 
 
 def _safe_exc(exc: Exception) -> str:
@@ -98,26 +143,104 @@ def _normalize_terms(value: Any) -> List[str]:
     return []
 
 
-def _search_options_for_target(target_url: str, query_terms: List[str]) -> Dict[str, Any] | None:
+def _resolve_source_search_contract_for_target(
+    *,
+    target_url: str,
+    target: Dict[str, Any] | None,
+    extra_params: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if isinstance(target, dict) and isinstance(target.get("source_search_contract"), dict):
+        return dict(target.get("source_search_contract") or {})
+    if not isinstance(extra_params, dict):
+        return None
+
+    direct = extra_params.get("source_search_contract")
+    if isinstance(direct, dict):
+        return dict(direct)
+
+    mapped = extra_params.get("source_search_contracts")
+    if isinstance(mapped, dict):
+        key_exact = str(target_url or "").strip()
+        key_norm = _normalize_url_no_fragment(key_exact)
+        domain_key = _domain_key(key_exact)
+        for key in (key_exact, key_norm, domain_key):
+            if key and isinstance(mapped.get(key), dict):
+                return dict(mapped.get(key) or {})
+
+    top_level: Dict[str, Any] = {}
+    for field in _SOURCE_SEARCH_CONTRACT_FIELDS:
+        if field in extra_params:
+            top_level[field] = extra_params.get(field)
+    return top_level or None
+
+
+def _search_options_for_target(
+    target_url: str,
+    query_terms: List[str],
+    *,
+    target: Dict[str, Any] | None = None,
+    extra_params: Dict[str, Any] | None = None,
+) -> Dict[str, Any] | None:
     parsed = urlparse(str(target_url or ""))
     path = str(parsed.path or "").lower()
     query_pairs = parse_qsl(parsed.query or "", keep_blank_values=True)
     query_keys = {str(k or "").strip().lower() for k, _ in query_pairs if str(k or "").strip()}
     is_search_like = bool("/search" in path or bool(query_keys & _ENTRY_QUERY_KEYS))
-    if not is_search_like:
+    raw_contract = _resolve_source_search_contract_for_target(
+        target_url=target_url,
+        target=target,
+        extra_params=extra_params,
+    )
+    contract = normalize_source_search_contract(target_url, raw_contract)
+    if not is_search_like and contract is None:
         return None
     limit = 1 if query_terms else 0
+    max_candidates = int((contract or {}).get("max_candidates") or 6)
+    min_results_required = int((contract or {}).get("min_results_required") or 6)
     return {
         "search_expand": bool(limit > 0),
         "search_expand_limit": max(1, limit) if limit > 0 else 1,
         "search_provider": "auto",
         "search_fallback_provider": "ddg_html",
         "fallback_on_insufficient": True,
-        "target_candidates": 6,
-        "min_results_required": 6,
+        "target_candidates": max(1, max_candidates),
+        "max_candidates": max(1, max_candidates),
+        "min_results_required": max(1, min_results_required),
         "decode_redirect_wrappers": True,
         "filter_low_value_candidates": True,
+        "source_search_contract": contract,
     }
+
+
+def _frontdoor_route_hint_for_url(url: str) -> str:
+    parsed = urlparse(str(url or ""))
+    domain = str(parsed.netloc or "").strip().lower()
+    if domain.startswith("www."):
+        domain = domain[4:]
+    path = str(parsed.path or "").lower()
+    query_pairs = parse_qsl(parsed.query or "", keep_blank_values=True)
+    query_keys = {str(k or "").strip().lower() for k, _ in query_pairs if str(k or "").strip()}
+    if "/search" in path or bool(query_keys & _ENTRY_QUERY_KEYS):
+        return "search_shell"
+    if any(domain.endswith(d) for d in _HIGH_JS_DOMAINS):
+        return "crawler_browse"
+    return "default"
+
+
+def _apply_frontdoor_target_hint(
+    *,
+    search_options: Dict[str, Any] | None,
+    frontdoor_options: Dict[str, Any],
+    target_url: str,
+) -> Dict[str, Any] | None:
+    out: Dict[str, Any] = dict(search_options or {})
+    if not bool((frontdoor_options or {}).get("enabled")):
+        return out or search_options
+    route_hint = _frontdoor_route_hint_for_url(target_url)
+    out["frontdoor_route_hint"] = route_hint
+    out["frontdoor_prefers_crawler"] = bool(route_hint == "crawler_browse")
+    out["frontdoor_prefers_search_shell"] = bool(route_hint == "search_shell")
+    return out
 
 
 def _extract_text_from_html(html: str) -> str:
@@ -242,17 +365,116 @@ def _build_site_first_targets(urls: List[str]) -> List[Dict[str, Any]]:
     return targets
 
 
-def _resolve_target_url(target: Dict[str, Any], query_terms: List[str]) -> str:
+def _build_detail_only_targets(urls: List[str]) -> List[Dict[str, Any]]:
+    targets: List[Dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in urls:
+        u = _normalize_url_no_fragment(raw)
+        if not u or u in seen:
+            continue
+        seen.add(u)
+        targets.append({"url": u, "entry_type": "detail", "domain": _domain_key(u), "from_url": u, "is_site_seed": False})
+    return targets
+
+
+def _build_site_only_targets(urls: List[str]) -> List[Dict[str, Any]]:
+    return [x for x in _build_site_first_targets(urls) if bool(x.get("is_site_seed"))]
+
+
+def _build_site_then_detail_targets(
+    urls: List[str],
+    *,
+    per_domain_limit: int,
+) -> List[Dict[str, Any]]:
+    seeds = _build_site_only_targets(urls)
+    details = _build_detail_only_targets(urls)
+    if not details:
+        return seeds
+
+    per_domain_limit = max(1, int(per_domain_limit))
+    out = list(seeds)
+    domain_counts: Dict[str, int] = {}
+    for detail in details:
+        domain = str(detail.get("domain") or "").strip().lower()
+        if not domain:
+            continue
+        used = int(domain_counts.get(domain) or 0)
+        if used >= per_domain_limit:
+            continue
+        domain_counts[domain] = used + 1
+        out.append(detail)
+    return out
+
+
+def _resolve_target_mode(extra_params: Optional[Dict[str, Any]]) -> str:
+    default_mode = str(os.getenv("URL_POOL_DEFAULT_TARGET_MODE", "site_then_detail") or "site_then_detail").strip().lower()
+    if default_mode not in {"site_only", "detail_only", "site_first", "site_then_detail"}:
+        default_mode = "site_then_detail"
+    if not isinstance(extra_params, dict):
+        return default_mode
+    raw = str(
+        extra_params.get(
+            "single_url_target_mode",
+            extra_params.get("target_mode", extra_params.get("url_target_mode", default_mode)),
+        )
+        or ""
+    ).strip().lower()
+    if raw in {"site_only", "site_seed_only", "seed_only"}:
+        return "site_only"
+    if raw in {"site_then_detail", "site_seed_then_detail", "site_2hop"}:
+        return "site_then_detail"
+    if raw in {"detail_only", "url_only"}:
+        return "detail_only"
+    return "site_first"
+
+
+def _resolve_disable_site_seed_expansion(extra_params: Optional[Dict[str, Any]]) -> bool:
+    if not isinstance(extra_params, dict):
+        return False
+    return _as_bool(
+        extra_params.get(
+            "disable_site_seed_expansion",
+            extra_params.get("cluster_layer_separated", False),
+        ),
+        False,
+    )
+
+
+def _resolve_runtime_targets(urls: List[str], *, extra_params: Optional[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], str]:
+    if _resolve_disable_site_seed_expansion(extra_params):
+        return _build_detail_only_targets(urls), "detail_only"
+    target_mode = _resolve_target_mode(extra_params)
+    if target_mode == "site_only":
+        return _build_site_only_targets(urls), "site_only"
+    if target_mode == "site_then_detail":
+        per_domain = 2
+        if isinstance(extra_params, dict):
+            per_domain = _as_int(extra_params.get("site_second_hop_per_domain"), per_domain)
+        return _build_site_then_detail_targets(urls, per_domain_limit=per_domain), "site_then_detail"
+    if target_mode == "detail_only":
+        return _build_detail_only_targets(urls), "detail_only"
+    return _build_site_first_targets(urls), "site_first"
+
+
+def _resolve_target_url(
+    target: Dict[str, Any],
+    query_terms: List[str],
+    *,
+    extra_params: Dict[str, Any] | None = None,
+) -> str:
     raw = str(target.get("url") or "").strip()
     if not raw:
         return raw
-    if "{{q}}" not in raw:
+    raw_contract = _resolve_source_search_contract_for_target(
+        target_url=raw,
+        target=target,
+        extra_params=extra_params,
+    )
+    if "{{q}}" not in raw and raw_contract is None:
         return raw
-    first_term = ""
-    if isinstance(query_terms, list) and query_terms:
-        first_term = str(query_terms[0] or "").strip()
-    encoded = quote_plus(first_term) if first_term else ""
-    return raw.replace("{{q}}", encoded)
+    resolved = build_query_url_from_contract(raw, query_terms, raw_contract)
+    unwrapped = unwrap_url(resolved, enable_network_redirect=True)
+    return str(unwrapped.url or resolved)
 
 
 def _extract_doc_ids_from_ingest_result(result: Dict[str, Any]) -> List[int]:
@@ -292,6 +514,174 @@ def _merge_rejection_breakdown(
         if count <= 0:
             continue
         merged[reason] = int(merged.get(reason) or 0) + count
+
+
+def _new_source_template_health_summary() -> Dict[str, Any]:
+    return {"groups": {}}
+
+
+def _normalize_url_rollup_key(url: str) -> str:
+    raw = str(url or "").strip()
+    if not raw:
+        return ""
+    try:
+        parsed = urlparse(raw)
+    except Exception:
+        return raw
+    scheme = str(parsed.scheme or "").lower()
+    netloc = str(parsed.netloc or "").lower()
+    path = str(parsed.path or "")
+    return urlunparse((scheme, netloc, path, "", "", ""))
+
+
+def _source_template_rollup_key(target: Dict[str, Any]) -> str:
+    template_key = str(target.get("template_key") or "").strip()
+    if template_key:
+        return f"template_key:{template_key}"
+    source_url = _normalize_url_rollup_key(str(target.get("from_url") or ""))
+    if source_url:
+        return f"source_url:{source_url}"
+    target_url = _normalize_url_rollup_key(str(target.get("url") or ""))
+    if target_url:
+        return f"target_url:{target_url}"
+    return ""
+
+
+def _source_template_reason_code(item_result: Dict[str, Any]) -> str:
+    reason = normalize_reason_code(item_result.get("reason_code"), default="ok")
+    if reason and reason != "ok":
+        return reason
+    breakdown = item_result.get("rejection_breakdown")
+    if isinstance(breakdown, dict) and breakdown:
+        top_reason = sorted(
+            (
+                (normalize_reason_code(key, default="unknown_rejection_reason"), _as_int(value, 0))
+                for key, value in breakdown.items()
+            ),
+            key=lambda pair: pair[1],
+            reverse=True,
+        )[0][0]
+        return normalize_reason_code(top_reason, default="ok")
+    return "ok"
+
+
+def _is_source_template_target(target: Dict[str, Any], item_result: Dict[str, Any]) -> bool:
+    if str(target.get("entry_type") or "").strip().lower() == "search_template":
+        return True
+    capability_profile = item_result.get("capability_profile")
+    if isinstance(capability_profile, dict):
+        return str(capability_profile.get("entry_type") or "").strip().lower() == "search_template"
+    return False
+
+
+def _record_source_template_health_observation(
+    summary: Dict[str, Any],
+    *,
+    target: Dict[str, Any],
+    item_result: Dict[str, Any],
+) -> None:
+    if not isinstance(summary, dict) or not isinstance(target, dict) or not isinstance(item_result, dict):
+        return
+    if not _is_source_template_target(target, item_result):
+        return
+    group_key = _source_template_rollup_key(target)
+    if not group_key:
+        return
+
+    groups = summary.get("groups")
+    if not isinstance(groups, dict):
+        groups = {}
+        summary["groups"] = groups
+    bucket = groups.get(group_key)
+    if not isinstance(bucket, dict):
+        bucket = {"success": False, "body_inserted": False, "empty_body": False, "reason_counts": {}}
+        groups[group_key] = bucket
+
+    status = str(item_result.get("status") or "").strip().lower()
+    inserted = _as_int(item_result.get("inserted"), 0)
+    inserted_valid = _as_int(item_result.get("inserted_valid"), 0)
+    body_inserted = inserted_valid > 0 or inserted > 0
+    success = bool(status in {"success", "degraded_success"} or body_inserted)
+    if success:
+        bucket["success"] = True
+    if body_inserted:
+        bucket["body_inserted"] = True
+
+    reason_code = _source_template_reason_code(item_result)
+    reason_counts = bucket.get("reason_counts")
+    if not isinstance(reason_counts, dict):
+        reason_counts = {}
+        bucket["reason_counts"] = reason_counts
+    if reason_code and reason_code != "ok":
+        # Per-template health should not over-count repeated same reason inside one template bucket.
+        reason_counts[reason_code] = 1
+    if reason_code in {"content_empty", "fetch_failed", "search_template_results_insufficient"}:
+        bucket["empty_body"] = True
+
+
+def _build_source_template_health_payload(
+    summary: Dict[str, Any] | None,
+    *,
+    top_n: int = _TEMPLATE_HEALTH_TOP_N,
+) -> Dict[str, Any]:
+    groups = {}
+    if isinstance(summary, dict) and isinstance(summary.get("groups"), dict):
+        groups = dict(summary.get("groups") or {})
+    total = max(0, len(groups))
+    denominator = float(total) if total > 0 else 1.0
+    top_limit = max(1, _as_int(top_n, _TEMPLATE_HEALTH_TOP_N))
+
+    success_count = 0
+    body_inserted_count = 0
+    empty_body_count = 0
+    rejection_counts: Dict[str, int] = {}
+    for bucket in groups.values():
+        if not isinstance(bucket, dict):
+            continue
+        if bool(bucket.get("success")):
+            success_count += 1
+        if bool(bucket.get("body_inserted")):
+            body_inserted_count += 1
+        if bool(bucket.get("empty_body")):
+            empty_body_count += 1
+        reason_counts = bucket.get("reason_counts")
+        if isinstance(reason_counts, dict):
+            for reason, count in reason_counts.items():
+                normalized = normalize_reason_code(reason, default="unknown_rejection_reason")
+                rejection_counts[normalized] = _as_int(rejection_counts.get(normalized), 0) + _as_int(count, 0)
+
+    top_rejections = sorted(rejection_counts.items(), key=lambda pair: pair[1], reverse=True)[:top_limit]
+    return {
+        "sample_size": total,
+        "template_success_rate": round(float(success_count) / denominator, 6) if total > 0 else 0.0,
+        "template_body_insert_rate": round(float(body_inserted_count) / denominator, 6) if total > 0 else 0.0,
+        "template_empty_body_rate": round(float(empty_body_count) / denominator, 6) if total > 0 else 0.0,
+        "template_rejection_top_n": [
+            {
+                "reason_code": reason,
+                "count": count,
+                "rate": round(float(count) / denominator, 6) if total > 0 else 0.0,
+            }
+            for reason, count in top_rejections
+        ],
+    }
+
+
+def _attach_source_template_health(
+    result: Dict[str, Any],
+    payload: Dict[str, Any],
+) -> None:
+    meta = result.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+        result["meta"] = meta
+    meta["source_template_health"] = payload
+
+    debug = result.get("debug")
+    if not isinstance(debug, dict):
+        debug = {}
+        result["debug"] = debug
+    debug["source_template_health"] = payload
 
 
 def _as_int(value: Any, default: int) -> int:
@@ -336,14 +726,57 @@ def _resolve_single_url_strict_mode(extra_params: Optional[Dict[str, Any]]) -> b
     return False
 
 
+def _resolve_frontdoor_options(
+    extra_params: Optional[Dict[str, Any]],
+    *,
+    project_key: str | None,
+) -> Dict[str, Any]:
+    if not isinstance(extra_params, dict):
+        return {"enabled": False}
+    requested_enabled = _as_bool(
+        extra_params.get(
+            "single_url_frontdoor_enabled",
+            extra_params.get("frontdoor_enabled", extra_params.get("use_frontdoor", False)),
+        ),
+        False,
+    )
+    enabled = is_ingest_frontdoor_enabled(requested_enabled=requested_enabled, project_key=project_key)
+    if not enabled:
+        return {"enabled": False}
+    return {
+        "enabled": True,
+        "front_door_owner": str(extra_params.get("front_door_owner") or "url_pool").strip() or "url_pool",
+        "route_decision": str(extra_params.get("frontdoor_route_decision") or "front_door_url_routing").strip()
+        or "front_door_url_routing",
+        "write_mode": str(extra_params.get("frontdoor_write_mode") or "front_door_url_routing").strip()
+        or "front_door_url_routing",
+        "execution_mode": str(extra_params.get("frontdoor_execution_mode") or "url_routing").strip() or "url_routing",
+    }
+
+
+def _apply_frontdoor_to_search_options(
+    search_options: Dict[str, Any] | None,
+    frontdoor_options: Dict[str, Any],
+) -> Dict[str, Any] | None:
+    if not bool((frontdoor_options or {}).get("enabled")):
+        return search_options
+    out: Dict[str, Any] = dict(search_options or {})
+    out["frontdoor_enabled"] = True
+    out["front_door_owner"] = frontdoor_options.get("front_door_owner")
+    out["frontdoor_route_decision"] = frontdoor_options.get("route_decision")
+    out["frontdoor_write_mode"] = frontdoor_options.get("write_mode")
+    out["frontdoor_execution_mode"] = frontdoor_options.get("execution_mode")
+    return out
+
+
 def _resolve_parallel_workers(
     *,
     extra_params: Optional[Dict[str, Any]],
     target_count: int,
 ) -> int:
-    default_workers = 1
+    default_workers = _DEFAULT_PARALLEL_WORKERS
     if not isinstance(extra_params, dict):
-        return default_workers
+        return min(default_workers, target_count) if target_count > 0 else default_workers
     raw = extra_params.get("single_url_parallel_workers", extra_params.get("parallel_workers", default_workers))
     workers = max(1, _as_int(raw, default_workers))
     workers = min(32, workers)
@@ -409,16 +842,19 @@ def collect_urls_from_list(
     urls = _normalize_url_list(urls)
     normalized_count = len(urls)
     if not urls:
+        source_template_health = _build_source_template_health_payload(_new_source_template_health_summary())
         return {
             "inserted": 0,
             "skipped": 0,
             "urls": 0,
+            "meta": {"source_template_health": source_template_health},
             "debug": {
                 "mode": "list",
                 "raw_url_count": raw_count,
                 "normalized_url_count": normalized_count,
                 "filtered_out": max(0, raw_count - normalized_count),
                 "note": "输入 URL 列表为空或全部被过滤（仅接受 http/https）",
+                "source_template_health": source_template_health,
             },
         }
 
@@ -451,13 +887,17 @@ def collect_urls_from_list(
         skipped_fetch_error = 0
         details: List[Dict[str, Any]] = []
         errors: List[Dict[str, Any]] = []
-        targets = _build_site_first_targets(urls)
+        targets, target_mode = _resolve_runtime_targets(urls, extra_params=extra_params)
         seen_runtime_urls: set[str] = set()
         dispatch_mode = _resolve_dispatch_mode(extra_params)
         strict_mode = _resolve_single_url_strict_mode(extra_params)
+        frontdoor_options = _resolve_frontdoor_options(extra_params, project_key=project_key)
+        workflow_name = "front_door_url_routing" if bool(frontdoor_options.get("enabled")) else (
+            "single_url_async" if dispatch_mode == "celery_async" else "single_url"
+        )
         runtime_targets: List[Tuple[str, Dict[str, Any]]] = []
         for target in targets:
-            target_url = _resolve_target_url(target, normalized_terms)
+            target_url = _resolve_target_url(target, normalized_terms, extra_params=extra_params)
             if target_url in seen_runtime_urls:
                 continue
             seen_runtime_urls.add(target_url)
@@ -465,12 +905,32 @@ def collect_urls_from_list(
 
         parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
         parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
+        metrics_summary = new_metrics_summary()
+        source_template_health_summary = _new_source_template_health_summary()
         queued = 0
         queued_tasks: List[Dict[str, Any]] = []
 
         def _run_single_target(target_url: str) -> Dict[str, Any]:
             try:
-                search_options = _search_options_for_target(target_url, normalized_terms)
+                search_options = _search_options_for_target(
+                    target_url,
+                    normalized_terms,
+                    target=target,
+                    extra_params=extra_params,
+                )
+                search_options = _apply_frontdoor_to_search_options(search_options, frontdoor_options)
+                search_options = _apply_frontdoor_target_hint(
+                    search_options=search_options,
+                    frontdoor_options=frontdoor_options,
+                    target_url=target_url,
+                )
+                target_frontdoor_options = dict(frontdoor_options or {})
+                if bool(target_frontdoor_options.get("enabled")):
+                    target_frontdoor_options["route_hint"] = str(search_options.get("frontdoor_route_hint") or "")
+                    target_frontdoor_options["prefer_crawler"] = bool(search_options.get("frontdoor_prefers_crawler"))
+                    target_frontdoor_options["prefer_search_shell"] = bool(
+                        search_options.get("frontdoor_prefers_search_shell")
+                    )
                 ctx_local = bind_project(project_key) if project_key else nullcontext()
                 with ctx_local:
                     return ingest_single_url(
@@ -478,6 +938,7 @@ def collect_urls_from_list(
                         query_terms=normalized_terms,
                         strict_mode=strict_mode,
                         search_options=search_options,
+                        frontdoor_options=target_frontdoor_options,
                     )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("url_pool single_url dispatch failed for %s: %s", target_url[:80], exc)
@@ -491,6 +952,12 @@ def collect_urls_from_list(
             skipped += item_skipped
             rejected_count += int(item_result.get("rejected_count") or 0)
             _merge_rejection_breakdown(rejection_breakdown, item_result.get("rejection_breakdown"))
+            record_metrics_observation(metrics_summary, item_result, fallback_adapter=workflow_name)
+            _record_source_template_health_observation(
+                source_template_health_summary,
+                target=target,
+                item_result=item_result,
+            )
             degradation_flags = list(item_result.get("degradation_flags") or [])
             if "document_already_exists" in degradation_flags:
                 skipped_exists += 1
@@ -534,7 +1001,18 @@ def collect_urls_from_list(
 
         if dispatch_mode == "celery_async":
             for target_url, target in runtime_targets:
-                search_options = _search_options_for_target(target_url, normalized_terms)
+                search_options = _search_options_for_target(
+                    target_url,
+                    normalized_terms,
+                    target=target,
+                    extra_params=extra_params,
+                )
+                search_options = _apply_frontdoor_to_search_options(search_options, frontdoor_options)
+                search_options = _apply_frontdoor_target_hint(
+                    search_options=search_options,
+                    frontdoor_options=frontdoor_options,
+                    target_url=target_url,
+                )
                 async_result = task_ingest_single_url.delay(
                     target_url,
                     normalized_terms,
@@ -543,6 +1021,15 @@ def collect_urls_from_list(
                     search_options,
                 )
                 queued += 1
+                record_metrics_observation(
+                    metrics_summary,
+                    {
+                        "inserted_valid": 0,
+                        "single_write_workflow": workflow_name,
+                        "reason_code": "queued_async",
+                    },
+                    fallback_adapter=workflow_name,
+                )
                 if len(queued_tasks) < _DEBUG_MAX_URLS:
                     queued_tasks.append(
                         _detail(
@@ -577,11 +1064,14 @@ def collect_urls_from_list(
             "skipped_exists": skipped_exists,
             "skipped_fetch_error": skipped_fetch_error,
             "queued": queued,
-            "single_write_workflow": "single_url_async" if dispatch_mode == "celery_async" else "single_url",
+            "single_write_workflow": workflow_name,
             "debug": {
                 "mode": "list",
                 "dispatch_mode": dispatch_mode,
                 "strict_mode": bool(strict_mode),
+                "frontdoor_enabled": bool(frontdoor_options.get("enabled")),
+                "disable_site_seed_expansion": bool(target_mode == "detail_only"),
+                "target_mode": target_mode,
                 "parallel_workers": parallel_workers,
                 "parallel_batch_size": parallel_batch_size,
                 "raw_url_count": raw_count,
@@ -614,6 +1104,10 @@ def collect_urls_from_list(
             ),
             summary="URL 池抓取并写入文档",
         )
+        metrics_payload = build_metrics_payload_from_summary(metrics_summary)
+        attach_metrics_payload(result, metrics_payload)
+        source_template_health = _build_source_template_health_payload(source_template_health_summary)
+        _attach_source_template_health(result, source_template_health)
         complete_job(job_id, result=result)
         return result
     except Exception as exc:  # noqa: BLE001
@@ -681,9 +1175,9 @@ def collect_urls_from_pool(
             normalized_urls.append(nu)
             if nu not in pool_item_by_target:
                 pool_item_by_target[nu] = item_by_url.get(url) or {}
-        targets = _build_site_first_targets(normalized_urls)
+        targets, target_mode = _resolve_runtime_targets(normalized_urls, extra_params=extra_params)
         for target in targets:
-            if bool(target.get("is_site_seed")):
+            if bool(target.get("is_site_seed")) and target_mode != "site_only":
                 continue
             tu = str(target.get("url") or "")
             if tu and tu in pool_item_by_target:
@@ -692,9 +1186,13 @@ def collect_urls_from_pool(
         seen_runtime_urls: set[str] = set()
         dispatch_mode = _resolve_dispatch_mode(extra_params)
         strict_mode = _resolve_single_url_strict_mode(extra_params)
+        frontdoor_options = _resolve_frontdoor_options(extra_params, project_key=project_key)
+        workflow_name = "front_door_url_routing" if bool(frontdoor_options.get("enabled")) else (
+            "single_url_async" if dispatch_mode == "celery_async" else "single_url"
+        )
         runtime_targets: List[Tuple[str, Dict[str, Any], Dict[str, Any]]] = []
         for target in targets:
-            target_url = _resolve_target_url(target, normalized_terms)
+            target_url = _resolve_target_url(target, normalized_terms, extra_params=extra_params)
             if target_url in seen_runtime_urls:
                 continue
             seen_runtime_urls.add(target_url)
@@ -720,12 +1218,32 @@ def collect_urls_from_pool(
 
         parallel_workers = _resolve_parallel_workers(extra_params=extra_params, target_count=len(runtime_targets))
         parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
+        metrics_summary = new_metrics_summary()
+        source_template_health_summary = _new_source_template_health_summary()
         queued = 0
         queued_tasks: List[Dict[str, Any]] = []
 
         def _run_single_target(target_url: str) -> Dict[str, Any]:
             try:
-                search_options = _search_options_for_target(target_url, normalized_terms)
+                search_options = _search_options_for_target(
+                    target_url,
+                    normalized_terms,
+                    target=target,
+                    extra_params=extra_params,
+                )
+                search_options = _apply_frontdoor_to_search_options(search_options, frontdoor_options)
+                search_options = _apply_frontdoor_target_hint(
+                    search_options=search_options,
+                    frontdoor_options=frontdoor_options,
+                    target_url=target_url,
+                )
+                target_frontdoor_options = dict(frontdoor_options or {})
+                if bool(target_frontdoor_options.get("enabled")):
+                    target_frontdoor_options["route_hint"] = str(search_options.get("frontdoor_route_hint") or "")
+                    target_frontdoor_options["prefer_crawler"] = bool(search_options.get("frontdoor_prefers_crawler"))
+                    target_frontdoor_options["prefer_search_shell"] = bool(
+                        search_options.get("frontdoor_prefers_search_shell")
+                    )
                 ctx_local = bind_project(project_key) if project_key else nullcontext()
                 with ctx_local:
                     return ingest_single_url(
@@ -733,6 +1251,7 @@ def collect_urls_from_pool(
                         query_terms=normalized_terms,
                         strict_mode=strict_mode,
                         search_options=search_options,
+                        frontdoor_options=target_frontdoor_options,
                     )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("url_pool single_url dispatch failed for %s: %s", str(target_url)[:80], exc)
@@ -746,6 +1265,12 @@ def collect_urls_from_pool(
             skipped += item_skipped
             rejected_count += int(item_result.get("rejected_count") or 0)
             _merge_rejection_breakdown(rejection_breakdown, item_result.get("rejection_breakdown"))
+            record_metrics_observation(metrics_summary, item_result, fallback_adapter=workflow_name)
+            _record_source_template_health_observation(
+                source_template_health_summary,
+                target=target,
+                item_result=item_result,
+            )
             degradation_flags = list(item_result.get("degradation_flags") or [])
             if "document_already_exists" in degradation_flags:
                 skipped_exists += 1
@@ -795,7 +1320,18 @@ def collect_urls_from_pool(
 
         if dispatch_mode == "celery_async":
             for target_url, target, pool_item in runtime_targets:
-                search_options = _search_options_for_target(target_url, normalized_terms)
+                search_options = _search_options_for_target(
+                    target_url,
+                    normalized_terms,
+                    target=target,
+                    extra_params=extra_params,
+                )
+                search_options = _apply_frontdoor_to_search_options(search_options, frontdoor_options)
+                search_options = _apply_frontdoor_target_hint(
+                    search_options=search_options,
+                    frontdoor_options=frontdoor_options,
+                    target_url=target_url,
+                )
                 async_result = task_ingest_single_url.delay(
                     target_url,
                     normalized_terms,
@@ -804,6 +1340,15 @@ def collect_urls_from_pool(
                     search_options,
                 )
                 queued += 1
+                record_metrics_observation(
+                    metrics_summary,
+                    {
+                        "inserted_valid": 0,
+                        "single_write_workflow": workflow_name,
+                        "reason_code": "queued_async",
+                    },
+                    fallback_adapter=workflow_name,
+                )
                 if len(queued_tasks) < _DEBUG_MAX_URLS:
                     queued_tasks.append(
                         _detail(
@@ -845,11 +1390,14 @@ def collect_urls_from_pool(
             "skipped_exists": skipped_exists,
             "skipped_fetch_error": skipped_fetch_error,
             "queued": queued,
-            "single_write_workflow": "single_url_async" if dispatch_mode == "celery_async" else "single_url",
+            "single_write_workflow": workflow_name,
             "debug": {
                 "mode": "pool",
                 "dispatch_mode": dispatch_mode,
                 "strict_mode": bool(strict_mode),
+                "frontdoor_enabled": bool(frontdoor_options.get("enabled")),
+                "disable_site_seed_expansion": bool(target_mode == "detail_only"),
+                "target_mode": target_mode,
                 "parallel_workers": parallel_workers,
                 "parallel_batch_size": parallel_batch_size,
                 "pool_total": int(total or 0),
@@ -893,6 +1441,10 @@ def collect_urls_from_pool(
             ),
             summary="URL 池抓取并写入文档",
         )
+        metrics_payload = build_metrics_payload_from_summary(metrics_summary)
+        attach_metrics_payload(result, metrics_payload)
+        source_template_health = _build_source_template_health_payload(source_template_health_summary)
+        _attach_source_template_health(result, source_template_health)
         complete_job(job_id, result=result)
         return result
     except Exception as exc:  # noqa: BLE001

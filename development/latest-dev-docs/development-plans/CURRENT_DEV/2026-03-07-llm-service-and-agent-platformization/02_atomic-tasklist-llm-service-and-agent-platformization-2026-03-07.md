@@ -1,41 +1,244 @@
 # Atomic Task List: LLM Service and Agent Platformization (2026-03-07)
 
-## 定位
+## Execution Status Snapshot
 
-本任务清单用于把多模型接入、agent 能力和长期框架接入要求整理成后续可继续细化的主题文档。
+- `A1`: pending, reconcile the plan with the repo's real LLM-related surfaces and remove greenfield assumptions.
+- `A2-A4`: pending, freeze shared service concepts, routing/config boundary, and trace/audit rules.
+- `A5-A6`: pending, normalize the consumer map and freeze the first supported agent shape.
+- `A7`: pending, define the long-horizon framework evaluation gate instead of promising immediate integration.
+- `A8`: pending, close with a minimum validation pack that later implementation work can reuse.
 
-## 全局规则
+## Global Serial-Parallel Rules
 
-- 先确认现有模型服务基线，再定义平台化增量。
-- 模型服务层和业务能力层要分开写。
-- 长期框架接入只先写阶段策略，不提前写重。
+- `L0` serial bootstrap: `A1` must finish first. No downstream task should redefine the baseline independently.
+- `L1` parallel platform-core:
+  - group-1 contract: `A2`
+  - group-2 routing/config: `A3`
+  - group-3 observability: `A4`
+- `L2` serial consumer alignment: `A5` starts only after `A2-A4` are frozen, because consumer mapping depends on shared vocabulary.
+- `L3` parallel strategy split:
+  - group-1 agent boundary: `A6`
+  - group-2 long-horizon framework strategy: `A7`
+  - `A7` may start after `A5`, but must not contradict the agent boundary frozen in `A6`.
+- `L4` serial closure: `A8` runs after `A1-A7` and consolidates validation and rollout expectations.
+- Conflict rule:
+  - Anything redefining provider/model/capability/route/trace terminology is serialized through `A2`.
+  - Anything redefining project-scope, trace, or audit requirements is serialized through `A4`.
+  - Anything redefining "agent" semantics is serialized through `A6`.
 
-## Task A1: Confirm LLM Baseline
+## Global Module Boundary
 
-- 目标: 盘点现有模型接入、配置、调用方式与 openclaw 相关上下文。
-- 输出:
-  - one baseline summary
-  - one platformization gap list
-- 验收:
-  - 当前能力与目标增量区分清楚
+The task list assumes the following boundaries.
 
-## Task A2: Freeze Service Layer Boundary
+- Platform config boundary:
+  - owns project-scoped LLM service configuration and normalized provider/model availability.
+  - current anchors: `main/backend/app/api/llm_config.py`, `main/backend/app/services/llm/config_service.py`, `main/backend/app/services/llm/config_loader.py`
+- Shared invocation boundary:
+  - owns provider/model/capability/routing resolution plus request context propagation.
+  - current anchors: `main/backend/app/services/llm/provider.py`, `main/backend/app/services/llm/service.py`, `main/backend/app/services/llm/ports.py`, `main/backend/app/services/llm/chains.py`
+- Business adapter boundary:
+  - owns business intent translation and domain-shaped responses.
+  - current anchors:
+    - writing: `main/backend/app/api/writing.py`, `main/backend/app/services/writing/llm_action_service.py`
+    - report: `main/backend/app/api/llm_report.py`, `main/backend/app/services/llm_report_generator.py`
+    - workflow: `main/backend/app/api/workflow_graph.py`, `main/backend/app/services/workflow_graph/executors/llm_call.py`
+- Agent/orchestration boundary:
+  - owns multi-step packaging on top of stable platform contracts.
+  - current anchors: `main/backend/app/services/workflow_graph/*`, `main/frontend-modern/src/pages/LlmDesignerPage.tsx`
+- This document does not authorize flattening these boundaries into one generic "agent layer".
 
-- 目标: 明确 provider、capability、route、trace 等统一服务层视图。
-- 验收:
-  - 至少一个统一抽象样例
-  - 与具体业务主题边界明确
+## Global Task IO Contract
 
-## Task A3: Clarify Agent Position
+Each task must declare:
 
-- 目标: 明确 agent 在平台中优先落在哪类场景和接口。
-- 验收:
-  - 至少一个 agent 使用场景
-  - 至少一个长期框架阶段策略
+- `goal`: the single thing the task is allowed to freeze;
+- `depends_on`: upstream tasks that provide mandatory vocabulary or constraints;
+- `input`: repo paths and planning inputs the owner must read;
+- `output`: the concrete planning artifact that changes;
+- `acceptance`: what must be true when the task is done;
+- `minimum_validation`: the smallest structural/process check that prevents planning drift.
 
-## Task A4: Define Minimal Validation
+## Task A1: Baseline Reconciliation
 
-- 目标: 预留后续实现的最小验证步骤。
-- 验收:
-  - 至少一个多模型接入验证
-  - 至少一个 agent 或 trace 相关验证
+- goal: Reconcile this theme with actual repo assets so the rest of the plan stops assuming missing platform pieces that already exist.
+- status: pending
+- depends_on: `[]`
+- blocks: `["A2","A3","A4"]`
+- input:
+  - `01_llm-service-and-agent-platformization-plan-2026-03-07.md`
+  - `main/backend/app/api/llm_config.py`
+  - `main/backend/app/api/writing.py`
+  - `main/backend/app/api/llm_report.py`
+  - `main/backend/app/api/workflow_graph.py`
+  - `main/backend/app/services/llm/*`
+  - `main/backend/app/services/writing/llm_action_service.py`
+  - `main/backend/app/services/workflow_graph/executors/llm_call.py`
+  - `main/frontend-modern/src/lib/api/domains/writing.ts`
+  - `main/frontend-modern/src/pages/LlmDesignerPage.tsx`
+- output:
+  - one corrected baseline section
+  - one repo-grounded gap list
+  - one drift note describing where old assumptions were wrong
+- acceptance:
+  - the document no longer describes `writing` API/domain or workflow-graph LLM execution as nonexistent
+  - the baseline clearly distinguishes existing assets from missing platform glue
+- minimum_validation:
+  - run one repo-wide grep confirming all cited baseline anchors exist
+
+## Task A2: Freeze Shared Service Vocabulary
+
+- goal: Freeze a shared vocabulary for `provider`, `model`, `capability`, `route`, and `trace` that can describe writing, report, and workflow consumers consistently.
+- status: pending
+- depends_on: `["A1"]`
+- blocks: `["A5","A6","A7"]`
+- input:
+  - `main/backend/app/services/llm/provider.py`
+  - `main/backend/app/services/llm/service.py`
+  - `main/backend/app/services/llm/ports.py`
+  - `main/backend/app/services/writing/llm_action_service.py`
+  - `main/backend/app/services/workflow_graph/executors/llm_call.py`
+- output:
+  - one platform concept model
+  - one short terminology table with allowed meanings
+- acceptance:
+  - each term has one primary definition and is not overloaded by business-specific wording
+  - the same vocabulary can explain at least:
+    - one writing action,
+    - one report flow,
+    - one workflow graph LLM node
+- minimum_validation:
+  - perform a table-top walkthrough for the three consumer examples above using the same five terms
+
+## Task A3: Freeze Config and Routing Boundary
+
+- goal: Clarify where configuration ownership stops and routing/runtime decisions begin.
+- status: pending
+- depends_on: `["A1"]`
+- blocks: `["A5","A7"]`
+- input:
+  - `main/backend/app/api/llm_config.py`
+  - `main/backend/app/services/llm/config_service.py`
+  - `main/backend/app/services/llm/config_loader.py`
+  - `main/backend/app/services/llm/service.py`
+  - `main/backend/app/services/llm/provider.py`
+- output:
+  - one config-to-runtime boundary note
+  - one routing-responsibility matrix
+- acceptance:
+  - the document states which inputs are project-config-driven versus runtime-request-driven
+  - new business consumers have a documented place to request capability without owning provider internals
+- minimum_validation:
+  - describe one route decision example from config read to runtime call
+
+## Task A4: Freeze Trace and Audit Rules
+
+- goal: Define the minimum trace, request identity, failure metadata, and audit expectations that every business consumer must preserve.
+- status: pending
+- depends_on: `["A1"]`
+- blocks: `["A5","A6","A8"]`
+- input:
+  - `main/backend/app/services/writing/llm_action_service.py`
+  - `main/backend/app/api/writing.py`
+  - `main/backend/app/api/llm_report.py`
+  - current response-envelope conventions already used by backend APIs
+- output:
+  - one trace/audit rule set
+  - one minimum response/observability checklist
+- acceptance:
+  - the plan names the minimum context fields required for debugging cross-layer failures
+  - failure metadata is described in a way that can apply to both direct business calls and workflow-triggered calls
+- minimum_validation:
+  - write one sample request/response context carrying `project_key`, `trace_id`, request identity, and failure/result metadata
+
+## Task A5: Map Platform Consumers and Adapter Responsibilities
+
+- goal: Freeze how existing consumers use the shared platform layer, and which logic stays in business adapters.
+- status: pending
+- depends_on: `["A2","A3","A4"]`
+- blocks: `["A6","A7","A8"]`
+- input:
+  - `main/backend/app/api/writing.py`
+  - `main/backend/app/services/writing/llm_action_service.py`
+  - `main/backend/app/api/llm_report.py`
+  - `main/backend/app/services/llm_report_generator.py`
+  - `main/backend/app/api/workflow_graph.py`
+  - `main/backend/app/services/workflow_graph/executors/llm_call.py`
+- output:
+  - one consumer map for writing/report/workflow
+  - one adapter-responsibility table
+  - one onboarding checklist for a future graph/ingest/crawler consumer
+- acceptance:
+  - the plan distinguishes platform capability naming from business action naming
+  - at least three current consumers are mapped without collapsing them into one fake generic flow
+- minimum_validation:
+  - verify each mapped consumer has a clear answer to:
+    - who owns business validation,
+    - who owns routing,
+    - who owns observable metadata
+
+## Task A6: Freeze Agent Position and Permission Boundary
+
+- goal: Define the first supported agent shape and prevent "agent" from becoming an umbrella term for all LLM-driven behavior.
+- status: pending
+- depends_on: `["A2","A4","A5"]`
+- blocks: `["A7","A8"]`
+- input:
+  - the shared vocabulary from `A2`
+  - the trace/audit rule set from `A4`
+  - the consumer map from `A5`
+  - `main/backend/app/services/workflow_graph/*`
+  - `main/frontend-modern/src/pages/LlmDesignerPage.tsx`
+- output:
+  - one agent role split:
+    - user-facing assistant,
+    - orchestration runtime,
+    - business capability wrapper
+  - one first-stage recommendation naming which role is actually prioritized
+  - one permission/audit note
+- acceptance:
+  - the document selects a primary phase-1 agent shape instead of listing all shapes as equal priorities
+  - agent behavior is documented as consuming platform capabilities, not bypassing them
+- minimum_validation:
+  - describe one allowed agent-assisted flow and one explicitly disallowed cross-domain flow
+
+## Task A7: Define Long-Horizon Framework Evaluation Gate
+
+- goal: Convert long-horizon framework discussion into explicit entry criteria instead of vague roadmap language.
+- status: pending
+- depends_on: `["A2","A3","A5","A6"]`
+- blocks: `["A8"]`
+- input:
+  - platform contract outputs from `A2-A5`
+  - agent boundary from `A6`
+  - local external references already cited by the plan such as `reference-pool/oss/dify/*` and `reference-pool/oss/langflow/*`
+- output:
+  - one evaluation checklist for external framework fit
+  - one reject/defer rule for premature integration
+- acceptance:
+  - the document states when an external framework is additive versus duplicative relative to the existing facade and workflow graph runtime
+  - the document does not commit to immediate adoption without a proven contract gap
+- minimum_validation:
+  - compare one required framework capability against one repo-native capability and document the delta
+
+## Task A8: Close the Minimum Validation Pack
+
+- goal: Produce the smallest validation set that later implementation work can execute to confirm the plan still matches the repo.
+- status: pending
+- depends_on: `["A4","A5","A6","A7"]`
+- blocks: `[]`
+- input:
+  - all outputs from `A1-A7`
+  - current repo path inventory used by this theme
+- output:
+  - one structural validation checklist
+  - one process validation checklist
+  - one implementation-facing smoke list
+- acceptance:
+  - the validation pack covers:
+    - config/read path,
+    - business consumer path,
+    - workflow/orchestration path,
+    - failure/trace path
+  - later implementers can use it without reinterpreting the whole theme from scratch
+- minimum_validation:
+  - ensure every checklist item points back to a named layer or consumer from earlier tasks

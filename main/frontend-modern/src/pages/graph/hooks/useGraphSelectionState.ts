@@ -42,7 +42,13 @@ export function useGraphSelectionState(adjacencyConnectedMap: Map<string, Set<st
   }, [hoverNodeKey])
 
   useEffect(() => {
-    if (selectionPinned && !selectedNodeKeys.size) setSelectionPinned(false)
+    if (!(selectionPinned && !selectedNodeKeys.size)) return
+    const timerId = window.setTimeout(() => {
+      setSelectionPinned(false)
+    }, 0)
+    return () => {
+      window.clearTimeout(timerId)
+    }
   }, [selectionPinned, selectedNodeKeys])
 
   return {

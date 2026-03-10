@@ -17,6 +17,22 @@
     radial-gradient(1100px 600px at 10% -10%, rgba(190, 217, 255, 0.55), transparent 60%),
     radial-gradient(1200px 700px at 85% -15%, rgba(196, 239, 246, 0.45), transparent 62%),
     linear-gradient(180deg, #edf2f9 0%, #eef3f8 45%, #ebf0f6 100%);
+  --app-background-app: #121820;
+  --app-background-subtle: #1a2230;
+  --app-surface-base: #1d2636;
+  --app-surface-raised: #243149;
+  --app-border-default: #31415c;
+  --app-border-strong: #476186;
+  --app-text-primary: #f0f5ff;
+  --app-text-secondary: #b7c8e5;
+  --app-accent-primary: #5e8eff;
+  --app-accent-contrast: #08172f;
+  --app-status-success: #22b573;
+  --app-status-warning: #e6a400;
+  --app-status-danger: #ef5757;
+  --app-interactive-hover: #2b3850;
+  --app-interactive-focus: #8aa9ff;
+  --app-interactive-active: #35496a;
 }
 
 * { box-sizing: border-box; }
@@ -24,8 +40,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--app-background-app);
+  color: var(--app-text-primary);
   font-family: 'Manrope', sans-serif;
 }
 
@@ -66,11 +82,12 @@ button, select, input, textarea { font-family: inherit; }
   grid-area: sidebar;
   width: 220px;
   min-height: calc(100vh - 40px);
-  background: #ffffff;
-  border-right: 1px solid #e6ebf0;
+  background: var(--app-surface-base);
+  border-right: 1px solid var(--app-border-default);
   border-radius: 0;
   position: relative;
   padding: 16px 8px 42px;
+  color: var(--app-text-primary);
 }
 
 .figma-side-nav__group {
@@ -78,6 +95,33 @@ button, select, input, textarea { font-family: inherit; }
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
+}
+
+.figma-side-nav__surface-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 0 4px 12px;
+  padding: 4px;
+  border-radius: 8px;
+  background: rgba(235, 241, 249, 0.9);
+}
+
+.figma-side-nav__surface-btn {
+  border: 0;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  color: #5a6d94;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.figma-side-nav__surface-btn.is-active {
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
 .figma-side-nav__section {
@@ -97,7 +141,7 @@ button, select, input, textarea { font-family: inherit; }
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(116, 132, 156, 0.95);
+  color: var(--app-text-secondary);
   font-weight: 700;
   cursor: pointer;
   text-align: left;
@@ -112,7 +156,7 @@ button, select, input, textarea { font-family: inherit; }
 .figma-side-nav__title-plus {
   border: 0;
   background: transparent;
-  color: rgba(116, 132, 156, 0.95);
+  color: var(--app-text-secondary);
   width: 22px;
   height: 22px;
   display: inline-flex;
@@ -139,8 +183,8 @@ button, select, input, textarea { font-family: inherit; }
   height: 40px;
   border-radius: 4px;
   border: 0;
-  background: #ffffff;
-  color: #2f3133;
+  background: transparent;
+  color: var(--app-text-primary);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -152,9 +196,9 @@ button, select, input, textarea { font-family: inherit; }
 }
 
 .figma-side-nav__item.is-active {
-  background: rgba(130, 220, 255, 0.18);
-  color: rgba(255, 255, 255, 0.9);
-  border-left: 2px solid rgba(130, 220, 255, 0.78);
+  background: var(--app-interactive-active);
+  color: var(--app-accent-contrast);
+  border-left: 2px solid var(--app-accent-primary);
 }
 
 .figma-side-nav__icon {
@@ -181,7 +225,7 @@ button, select, input, textarea { font-family: inherit; }
   height: 16px;
   border: 0;
   background: transparent;
-  color: #8d9094;
+  color: var(--app-text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -270,6 +314,19 @@ button, select, input, textarea { font-family: inherit; }
 
 .content-stack--immersive {
   gap: 0;
+}
+
+.app-surface-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(130, 220, 255, 0.2);
+  color: #355d8a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.app-surface-note {
+  margin: 8px 0 0;
 }
 
 .llm-standalone-root {
@@ -510,8 +567,8 @@ button, select, input, textarea { font-family: inherit; }
 }
 
 .panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--app-surface-base);
+  border: 1px solid var(--app-border-default);
   border-radius: 18px;
   padding: 14px 16px;
   backdrop-filter: blur(8px);
@@ -946,9 +1003,9 @@ tbody tr:last-child td { border-bottom: 0; }
 
 body {
   background:
-    radial-gradient(900px 420px at 14% -12%, rgba(85, 175, 255, 0.24), transparent 62%),
-    radial-gradient(900px 460px at 86% -14%, rgba(110, 205, 255, 0.16), transparent 64%),
-    #06090b;
+    radial-gradient(900px 420px at 14% -12%, rgba(85, 175, 255, 0.16), transparent 62%),
+    radial-gradient(900px 460px at 86% -14%, rgba(110, 205, 255, 0.12), transparent 64%),
+    var(--app-background-app);
 }
 
 .layout-root {

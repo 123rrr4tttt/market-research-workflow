@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Dict
 import os
 
 from dotenv import dotenv_values, set_key
 
-from ..settings.config import settings, reload_settings
+from ..settings.config import BACKEND_ROOT, settings, reload_settings
 
 
-ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+ENV_FILE = BACKEND_ROOT / ".env"
 
 ENV_KEY_MAPPING = {
     "DATABASE_URL": "database_url",

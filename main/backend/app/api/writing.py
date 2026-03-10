@@ -91,6 +91,10 @@ def _resolve_request_id(request: Request) -> str | None:
     return (request.headers.get("X-Request-Id") or "").strip() or None
 
 
+def _resolve_actor_id(request: Request) -> str | None:
+    return (request.headers.get("X-Actor-Id") or "").strip() or None
+
+
 def _handle_not_found(exc: KeyError) -> HTTPException:
     return HTTPException(status_code=404, detail=error_response(ErrorCode.NOT_FOUND, str(exc)))
 
@@ -290,7 +294,12 @@ def get_writing_suggest(
 def post_writing_llm_action(payload: LlmActionRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key)
     model = payload.model_copy(
-        update={"project_key": resolved_project_key, "request_id": _resolve_request_id(request), "trace_id": payload.trace_id or _resolve_request_id(request)}
+        update={
+            "project_key": resolved_project_key,
+            "request_id": _resolve_request_id(request),
+            "trace_id": payload.trace_id or _resolve_request_id(request),
+            "actor_id": payload.actor_id or _resolve_actor_id(request),
+        }
     )
     with bind_project(resolved_project_key):
         return success_response(dispatch_action(model).model_dump(by_alias=True))

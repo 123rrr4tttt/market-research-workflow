@@ -1,337 +1,330 @@
 # Ingest Digestion and Long-Cycle Automation Plan (2026-03-07)
 
-> 日期：2026-03-07
-> 范围：长文本切分、PDF 消化、二次产物消费、长周期采集任务、时间密度协同
-> 状态：主题主计划文档，用于冻结 ingest 消化层的问题定义、边界和第一阶段建议
+> Date: 2026-03-07
+> Scope: ingest digestion contract, derived artifact intake, long-cycle task semantics, time-window reuse, downstream handoff
+> Status: planning document; this revision only improves documentation quality and does not claim new implementation facts
 
-## 1. 背景
+## 1. Goals
 
-当前平台已经具备采集和基础抽取能力，但抽象规划提出的后续要求明显更高：
+This topic should freeze a repo-aligned phase-1 plan for turning ingest from a set of intake entrypoints into a reusable digestion layer.
 
-- 不只抓内容，还要消化长文本、PDF、一般报告。
-- 不只处理原始来源，还要消费 LLM 报告、用户写作文本等二次产物。
-- 不只执行单次采集，还要支持长周期任务设计。
-- 还要与已有时间密度建设形成统一语义。
+The minimum goals are:
 
-这意味着 ingest 不再只是“把原文拉进来”，而是要成为平台的内容处理与任务编排中层。
+1. Define one common digestion path for long text, PDF-like report content, and other document-shaped inputs.
+2. Clarify how derived artifacts such as LLM-generated reports and writing-domain markdown may re-enter the platform without losing lineage.
+3. Define the minimum long-cycle task semantics needed for repeated ingest planning without pretending a full scheduler already exists.
+4. Reuse the existing time-density and time-window surfaces instead of creating a parallel time model.
+5. Make downstream handoff explicit for resource pool, knowledge organization, graph/report generation, and writing-related consumers.
 
-## 2. 当前基线
+## 2. Current Baseline
 
-### 2.1 ingest 与抽取基线
+### 2.1 Existing intake and extraction surfaces
 
-当前仓库里，已经存在较多 ingest 能力：
+The repo already has multiple ingest entrypoints and related extraction utilities:
 
-- 单 URL、原始导入、结构抽取：
-  - `main/backend/app/services/ingest/single_url.py`
-  - `main/backend/app/services/ingest/raw_import.py`
-  - `main/backend/app/services/ingest/structured_extraction.py`
-- 长文本或文档归一化相关能力：
-  - `main/backend/app/services/ingest/meaningful_gate.py`
-  - `main/backend/app/services/resource_pool/extract.py`
-- 报告采集：
-  - `main/backend/app/services/ingest/reports/*`
+- `main/backend/app/api/ingest.py`
+- `main/backend/app/services/ingest/single_url.py`
+- `main/backend/app/services/ingest/raw_import.py`
+- `main/backend/app/services/ingest/url_pool.py`
+- `main/backend/app/services/ingest/structured_extraction.py`
+- `main/backend/app/services/ingest/reports/general.py`
+- `main/backend/app/services/ingest/reports/california.py`
+- `main/backend/app/services/resource_pool/extract.py`
+- `main/backend/app/services/ingest/meaningful_gate.py`
 
-这说明 ingest 已经不是空白，但更偏“抓取 + 抽取 + 入库”。
+This means the platform already knows how to collect, import, and extract. The gap is not "ingest does not exist"; the gap is that the repo does not yet present one clearly frozen digestion contract across these entrypoints.
 
-### 2.2 任务与调度基线
+### 2.2 Partial digestion primitives already exist
 
-任务层已有丰富入口：
+There are also reusable chunking or digestion-adjacent primitives outside the ingest folder:
+
+- `main/backend/app/services/extraction/topic_workflow.py`
+- `main/backend/app/services/indexer/policy.py`
+- `main/backend/app/services/search/hybrid.py`
+
+These files show that splitting, chunk selection, and structured extraction patterns already exist in the repo. What is missing is a documented rule for when ingest should reuse those patterns, when it should bypass them, and what normalized output shape downstream code should expect.
+
+### 2.3 Task and time semantics already exist
+
+Task execution and time-window selection are also not greenfield:
 
 - `main/backend/app/services/tasks.py`
+- `main/backend/app/api/stats.py`
+- `main/backend/app/services/stats/prompt_time_density.py`
+- `main/backend/app/contracts/tasks.py`
 
-其中已经包含：
+Concrete evidence in `tasks.py` includes:
 
 - `task_ingest_single_url`
 - `task_raw_import_documents`
 - `task_extract_resource_pool_from_documents`
 - `task_extract_resource_pool_from_tasks`
-- 多类 collect / ingest / crawler 任务
+- `task_collect_weekly_reports`
+- `task_collect_monthly_reports`
 - `task_select_prompt_time_windows`
 
-这说明：
+The repo therefore already has discrete tasks plus time-window selection. What is not yet frozen is a first-class long-cycle task definition with stable fields such as goal, input scope, cadence, selected window, output target, and lifecycle status.
 
-- 平台已有任务执行骨架
-- 但“长周期采集任务”还没有被定义成稳定主题对象
+### 2.4 Downstream consumers already exist
 
-### 2.3 时间语义基线
+Several downstream consumers are already present and should be treated as reuse targets rather than future placeholders:
 
-当前时间能力已有单独整改历史：
+- Resource pool and extraction surfaces:
+  - `main/backend/app/api/resource_pool.py`
+  - `main/backend/app/services/resource_pool/unified_search.py`
+- Report generation surfaces:
+  - `main/backend/app/api/llm_report.py`
+  - `main/backend/app/services/llm_report_generator.py`
+  - `main/backend/app/services/llm_report_source_enrichment.py`
+- Writing-domain surfaces:
+  - `main/backend/app/api/writing.py`
+  - `main/backend/app/services/writing/document_service.py`
+  - `main/backend/app/services/writing/keyword_card_service.py`
 
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/*`
-- `main/backend/app/services/stats/prompt_time_density.py`
+This is important for the plan: writing/report/keyword-card consumers already exist, but the ingest-side re-entry and handoff rules are not yet frozen as one coherent contract.
 
-这说明时间维度不是新需求，而是已有历史建设。后续计划不能再绕开已有时间窗口、时间密度、时间统计语义。
+### 2.5 Baseline gaps that this plan must close
 
-## 3. 核心问题定义
+The current repo shape still leaves these planning gaps:
 
-### 3.1 ingest 只擅长“收”，不擅长“消化”
+- No repo-level taxonomy that clearly separates raw external inputs from derived artifacts.
+- No documented decision rule for "pass through", "chunk first", "summarize first", or "extract first".
+- No explicit lineage contract for derived artifacts re-entering ingestion.
+- No first-class long-cycle task object visible from the current task inventory.
+- No single validation matrix connecting ingest, time-window selection, and downstream handoff.
 
-平台目前能做抓取、抽取、导入，但“长文本/PDF/二次产物如何被切分、摘要、结构化、再分发”还没有被定义成稳定能力层。
+## 3. Requirement Clarification
 
-### 3.2 二次产物身份不明确
+### 3.1 Primary users and decision owners
 
-LLM 报告和用户写作文本进入系统后，到底算：
+This document is mainly for:
 
-- 新来源
-- 派生内容
-- 可回流知识对象
+- backend owners aligning ingest, extraction, and task orchestration;
+- downstream owners of knowledge organization, graph/report generation, and writing flows;
+- future implementation agents that need a stable planning boundary before touching code.
 
-当前没有统一定义。没有对象定义，就无法谈治理和消费。
+### 3.2 Input classes that must be classified in phase 1
 
-### 3.3 长周期任务缺少稳定模型
+Phase 1 should classify at least the following input families:
 
-任务系统已存在，但“长周期任务”仍像一句产品需求，而不是具备：
+- external URL-driven content from `single_url`, `url_pool`, and report collectors;
+- raw imported text or files from `raw_import`;
+- long text and report-shaped content that is likely to require chunking before structured extraction;
+- derived artifacts from:
+  - `main/backend/app/api/llm_report.py`
+  - `main/backend/app/api/writing.py`
 
-- 调度策略
-- 时间窗口语义
-- 状态反馈
-- 输出治理
+This plan can recommend classifications, but it must not invent unsupported implementation details such as existing database fields that have not been verified.
 
-的稳定模型。
+### 3.3 Questions that must be answered
 
-### 3.4 时间密度能力容易再次被旁路
+The phase-1 document set must answer these questions clearly:
 
-如果长周期 ingest 设计不显式复用现有时间语义建设，就会再次出现时间窗口、统计和任务调度之间各说各话的问题。
+1. Which inputs are normalized into the same digestion path, and which stay on specialized paths?
+2. Which inputs require chunking before extraction, and which can go directly to extraction or indexing?
+3. How are derived artifacts distinguished from original source material?
+4. Which lineage fields must be preserved conceptually, even if storage work is deferred?
+5. How should time window, processed time, and original source time be kept distinct?
+6. What is the minimum long-cycle task object that implementation work can build on later?
+7. Which digestion outputs are reusable downstream assets, and which are transient processing artifacts?
 
-## 4. 目标
+## 4. Scope and Non-Goals
 
-本主题第一阶段要达成的目标是：
+### 4.1 In scope
 
-1. 定义一般信息消化层的最小链路。
-2. 定义二次产物进入系统的对象边界。
-3. 定义长周期任务的最小设计单元。
-4. 定义时间密度能力在 ingest 消化层中的复用方式。
+This topic currently includes:
 
-## 5. 明确需求清单
+- one unified digestion contract for long text, PDF-like reports, and similar document-shaped inputs;
+- derived artifact intake rules for LLM reports and writing-domain markdown;
+- minimum long-cycle task semantics built on top of existing task and time-window surfaces;
+- reuse rules for `prompt_time_density` and task-side window selection;
+- downstream handoff boundaries toward resource pool, knowledge organization, graph/report generation, and writing consumers.
 
-这一节是本主题后续设计和实现不能跳过的硬需求，不是可选建议。
+### 4.2 Non-goals
 
-### 5.1 长文本、PDF、一般报告的消化主链
+This topic does not currently include:
 
-- 必须定义长文本、PDF、一般报告三类输入的统一主链，而不是分别散落在不同入口里。
-- 必须明确这条主链至少包含：
-  - 输入归一化
-  - 内容切分
-  - 摘要或结构提取
-  - 结构化结果生成
-  - 下游交接
-- 必须说明 `single_url`、`url_pool`、`raw_import` 三种入口在这条主链中的职责差异。
-- 必须说明哪些输入允许跳过切分，哪些输入必须切分后再抽取。
+- rewriting crawler-source expansion logic;
+- replacing the current task runner with a new scheduler platform;
+- freezing the complete knowledge graph schema;
+- committing to new tables or migrations before implementation review;
+- solving every historical ingest inconsistency in one document.
 
-### 5.2 二次产物对象身份
+## 5. Recommended Layering
 
-- 必须定义 LLM 报告、用户写作文本、raw note 这类二次产物的对象身份。
-- 必须明确它们是否进入与原始来源文档相同的对象体系。
-- 必须明确二次产物是否保留父对象、来源链、生成链路和处理时间。
-- 必须明确二次产物是否允许再次被摘要、抽取、归类和送入图谱。
+### 5.1 Layer A: Intake normalization
 
-### 5.3 长周期任务对象与状态语义
+Responsibility:
 
-- 必须定义长周期任务的最小对象模型，而不能只停留在“支持长期任务”。
-- 该对象模型至少要覆盖：
-  - 任务目标
-  - 输入范围
-  - 时间窗口
-  - 执行节律
-  - 成功/失败状态
-  - 输出产物位置
-- 必须明确长周期任务和单次 ingest 任务的区别。
-- 必须明确任务模板和一次性任务参数之间的边界。
+- accept data from current ingest entrypoints;
+- normalize the minimum metadata needed for digestion decisions;
+- avoid coupling downstream stages to entrypoint-specific payload shape.
 
-### 5.4 时间窗口、时间密度与长周期任务关系
+Recommended minimum normalized fields to freeze at documentation level:
 
-- 必须定义时间窗口如何成为长周期任务输入，而不是统计侧附属参数。
-- 必须定义 `prompt_time_density` 在任务选择中的角色：
-  - 用于窗口选择
-  - 用于优先级排序
-  - 用于低密度补采
-- 必须说明内容对象至少涉及哪些时间字段：
-  - 来源时间
-  - 处理时间
-  - 任务窗口时间
-- 必须确保本主题不绕开 `2026-03-05-time-statistics-remediation-plan` 已建立的时间语义。
+- `project_key`
+- `input_kind`
+- `source_locator`
+- `content_format`
+- `source_time`
+- `processed_time`
+- `lineage_ref`
+- `requested_downstream_targets`
 
-### 5.5 下游交接
+These are recommended planning fields, not a claim that identical code-level fields already exist everywhere.
 
-- 必须明确消化结果如何进入：
-  - 知识组织
-  - 图谱
-  - 报告/写作链路
-- 必须说明交接的是原文、摘要、结构化结果还是组合对象。
-- 必须说明哪些中间结果允许复用，哪些只是过程产物。
+### 5.2 Layer B: Digestion decision and processing contract
 
-## 6. 范围
+Responsibility:
 
-本主题当前纳入范围：
+- decide whether a payload should pass through, be chunked, be summarized, or be structurally extracted first;
+- reuse existing chunking and extraction helpers where possible;
+- produce one documented output package for downstream handoff.
 
-- 长文本、PDF、一般报告的切分与结构化入口。
-- 二次产物的消费与回流规则。
-- 长周期任务的对象与状态语义。
-- 时间窗口、时间密度与任务编排之间的关系。
-- 消化结果进入知识组织、图谱、报告的衔接位置。
+Recommended phase-1 digestion chain:
 
-### 5.1 第一阶段优先范围
+`normalized input -> digestion decision -> optional chunking -> summary/extraction -> structured result package -> downstream handoff`
 
-第一阶段建议只冻结以下五项：
+The document should explicitly state:
 
-1. 一般信息消化主链
-2. 二次产物身份定义
-3. 长周期任务最小对象
-4. 时间语义复用口径
-5. 下游消费边界
+- which input classes must go through chunking first;
+- which inputs may bypass chunking;
+- which outputs are mandatory before handoff;
+- which diagnostics should be preserved for later audit.
 
-## 7. 非目标
+### 5.3 Layer C: Derived artifact intake and lineage
 
-本主题当前不纳入：
+Responsibility:
 
-- 重写 crawler 来源扩张规划。
-- 完整调度平台或工作流引擎改造。
-- 直接定义完整知识组织模型。
-- 把所有 ingest 历史问题打包成一份超大整改文档。
+- define when generated or user-authored content becomes a digestible platform object;
+- preserve conceptual lineage to upstream source or generation context;
+- state whether re-digestion is allowed, optional, or prohibited by artifact type.
 
-## 8. 关键能力拆解
+For phase 1, the document should freeze at least these conceptual rules:
 
-### 7.1 Content Digestion Layer
+- derived artifacts must remain distinguishable from raw external sources;
+- lineage should record parent object or source context when available;
+- time semantics should distinguish source-time from generation-time and processing-time;
+- downstream consumers must know whether they received an original source, a derived artifact, or a mixed evidence package.
 
-至少要回答：
+### 5.4 Layer D: Long-cycle orchestration semantics
 
-- 哪些内容先切分
-- 哪些内容先摘要
-- 哪些内容先结构抽取
-- 哪些结果直接可下游消费
+Responsibility:
 
-建议把 ingest 消化主链定义为：
+- define a planning object for repeated ingest work;
+- reuse current task execution and time-window selection surfaces;
+- stop short of promising a full scheduler rewrite.
 
-输入内容 -> 切分/规范化 -> 摘要/提取 -> 结构化结果 -> 下游消费
+Recommended minimum long-cycle task fields to freeze in docs:
 
-### 7.2 Derived Artifact Intake
+- `task_goal`
+- `input_selector`
+- `window_strategy`
+- `cadence`
+- `priority_rule`
+- `output_target`
+- `success_status`
+- `failure_status`
+- `last_run_snapshot`
 
-LLM 报告、用户写作文本等二次产物不能简单当成普通网页来源处理。必须明确：
+This section should explicitly separate:
 
-- 它们的对象身份
-- 是否保留来源链
-- 是否允许再次切分和结构化
-- 是否可回流到知识组织层
+- task template semantics;
+- per-run instance parameters;
+- window selection inputs and outputs.
 
-### 7.3 Long-Cycle Task Model
+### 5.5 Layer E: Downstream handoff
 
-长周期任务至少需要以下字段语义：
+Responsibility:
 
-- 目标范围
-- 执行节律
-- 时间窗口
-- 产物类型
-- 成功/失败反馈
+- map digestion outputs to concrete consumers already present in repo;
+- distinguish persistent reusable outputs from transient process artifacts;
+- make reuse boundaries explicit so later implementation does not invent parallel data shapes.
 
-第一阶段不必写成完整 scheduler 方案，但必须先定义任务对象。
+Phase-1 handoff targets should at least cover:
 
-### 7.4 Time-Semantics Reuse
+- resource pool style search/index consumers;
+- knowledge-organization and graph-facing consumers at contract level;
+- report generation and writing-related consumers that already exist in backend APIs.
 
-已有 `prompt_time_density` 和时间统计整改文档说明，时间不是附属字段，而是任务与内容处理的主约束之一。
+## 6. Recommended Implementation Order
 
-本主题必须写清：
+The safest order is:
 
-- 任务选择窗口如何定义
-- 长周期任务与时间密度如何关联
-- 消化结果是否保留原时间和处理时间两类字段
+1. Freeze a baseline evidence snapshot from current repo surfaces.
+2. Freeze the unified input taxonomy and digestion-stage contract.
+3. Freeze derived artifact identity and lineage rules.
+4. Freeze time-semantics reuse rules around `prompt_time_density` and task window selection.
+5. Freeze the minimum long-cycle task object and task-template boundary.
+6. Freeze the downstream handoff matrix.
+7. Freeze the minimal validation scenarios and consistency checks.
 
-## 9. 阶段计划
+This order avoids the common failure mode where task automation is designed before the digestion contract and time semantics are stable.
 
-### Phase 1: Freeze Digestion Contract, Artifact Identity, And Time Reuse
+## 7. Parallel and Serial Relationships
 
-Phase 1 只做“把基础语义冻结清楚”，不追求自动化铺满。
+Recommended planning dependency chain:
 
-必须完成：
+- Serial bootstrap:
+  - baseline evidence snapshot must happen first.
+- First parallel slice after bootstrap:
+  - unified digestion contract review;
+  - time-semantics reuse review.
+- Conditional parallel slice:
+  - derived artifact rules may proceed once input taxonomy is stable;
+  - downstream handoff review may proceed once digestion output shape is stable enough.
+- Serial convergence:
+  - long-cycle task definition must wait for both digestion and time-semantics decisions.
+- Final closure:
+  - validation matrix and wording cleanup should run only after all previous contracts are stable.
 
-- 冻结长文本、PDF、一般报告的消化主链。
-- 冻结 LLM 报告、用户写作文本、raw note 的对象身份。
-- 冻结时间窗口、时间密度与任务输入之间的复用关系。
-- 冻结 ingest 中间产物向知识组织、图谱、报告三条链的交接边界。
+This keeps low-coupling work parallel and forces convergent decisions back into serial checkpoints.
 
-阶段输出应至少包括：
+## 8. Minimal Validation
 
-- 一条统一消化主链定义。
-- 一份二次产物身份规则。
-- 一份时间语义复用规则。
-- 一份下游交接边界说明。
+The minimum validation for this planning theme should cover structure, process, and repo evidence.
 
-### Phase 2: Add Long-Cycle Task Object And Task Template Layer
+### 8.1 Structural validation
 
-Phase 2 开始把“任务”从执行函数提升为规划对象。
+The document set should prove that it contains:
 
-必须完成：
+- one stable input taxonomy;
+- one digestion-stage contract;
+- one derived-artifact lineage rule set;
+- one long-cycle task object definition;
+- one downstream handoff matrix;
+- one validation section that references real repo surfaces.
 
-- 定义长周期任务对象模型。
-- 定义长周期任务状态语义和最小生命周期。
-- 定义任务模板与实例参数的关系。
-- 定义长周期任务如何消费时间密度结果选择窗口。
+### 8.2 Repo evidence checks
 
-阶段输出应至少包括：
+The following commands are sufficient for a minimum repo-grounding pass:
 
-- 一份长周期任务对象定义。
-- 一份任务模板与窗口选择规则。
-- 一条“低密度窗口驱动补采”的最小样例。
+```bash
+rg -n "task_ingest_single_url|task_raw_import_documents|task_extract_resource_pool_from_documents|task_extract_resource_pool_from_tasks|task_collect_weekly_reports|task_collect_monthly_reports|task_select_prompt_time_windows" main/backend/app/services/tasks.py
 
-### Phase 3: Add Stronger Automation And Closed-Loop Handoff
+rg -n "prompt_time_density|select_prompt_time_windows" main/backend/app/api/stats.py main/backend/app/services/stats/prompt_time_density.py main/backend/app/services/tasks.py
 
-Phase 3 再补更强的自动化能力和回流闭环。
+rg -n "prefix=\"/resource_pool\"|prefix=\"/llm-report\"|prefix=\"/writing\"" main/backend/app/api
 
-必须完成：
+rg -n "segment_text|chunk|RecursiveCharacterTextSplitter" main/backend/app/services/extraction/topic_workflow.py main/backend/app/services/indexer/policy.py
+```
 
-- 让复杂输入消化和任务规划形成更稳定的自动化编排。
-- 让 digest 结果稳定回流到知识组织、图谱、报告链路。
-- 让任务结果与下游消费结果之间建立闭环。
+### 8.3 Flow validation scenarios
 
-阶段输出应至少包括：
+At least three scenario checks should be documented:
 
-- 一条从来源输入到下游消费的完整闭环说明。
-- 一条长周期任务驱动的自动化回流样例。
+1. External document path:
+   `raw import or report collector -> digestion decision -> structured package -> resource pool or knowledge-facing handoff`
+2. Derived artifact re-entry path:
+   `llm report or writing markdown -> lineage-preserved digestion intake -> reusable evidence or writing/report consumer`
+3. Window-driven long-cycle path:
+   `candidate windows -> prompt_time_density selection -> long-cycle task run -> output target + status snapshot`
 
-## 10. 依赖与边界
+## 9. Open Risks and Pending Decisions
 
-### 8.1 与 `crawler-source-expansion` 的边界
+The document should carry these risks forward explicitly:
 
-- crawler 主题定义内容如何被发现和带入平台
-- 本主题定义内容进入平台后如何被消化和再分发
-
-### 8.2 与 `typed-knowledge-organization` 的边界
-
-- 本主题负责把结果整理成可消费结构
-- 知识组织主题负责定义这些结构如何归类、分册、专题化
-
-### 8.3 与 `llm-service-and-agent-platformization` 的边界
-
-- 本主题定义哪些步骤需要模型能力
-- 模型服务如何路由与治理，不在本主题主导
-
-## 11. 第一阶段建议
-
-第一阶段不建议同时冲长文本、PDF、二次产物、长周期调度四条大链，而应先按顺序冻结：
-
-1. 一般信息消化主链
-2. 二次产物身份和入口
-3. 长周期任务最小对象
-4. 时间密度复用规则
-
-否则 ingest 主题会再次滑回“功能点堆叠”。
-
-## 12. 风险与待确认问题
-
-### 10.1 风险
-
-- 如果先做长周期任务而不冻结时间语义，会复现之前时间统计不一致问题。
-- 如果二次产物身份不明确，后续知识组织和报告链路会混淆原始来源与派生结果。
-- 如果消化层没有统一中间表示，下游会继续各自做一次摘要/抽取。
-
-### 10.2 待确认问题
-
-- PDF 与长文本是否走同一切分链。
-- 二次产物是否允许再次进入模型处理。
-- 长周期任务是否依赖项目级配置模板。
-- 消化结果的版本与追踪粒度要到什么程度。
-
-## 13. 最小验证
-
-- 至少定义一个长文本或 PDF 处理样例。
-- 至少定义一个二次产物回流路径。
-- 至少定义一个长周期任务与时间窗口/时间密度协同的验证点。
+- PDF-specific parsing may need a specialized branch even if the high-level digestion contract is shared.
+- Derived artifact lineage may require storage work later; this document should freeze contract language first, not promise migrations.
+- Long-cycle cadence and execution state may outgrow the current task helper surfaces; that should be recorded as a future implementation risk, not solved by assumption here.
+- Downstream knowledge/graph consumers may need more precise object contracts than phase 1 can responsibly freeze.

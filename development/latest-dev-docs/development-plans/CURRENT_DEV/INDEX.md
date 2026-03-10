@@ -4,6 +4,11 @@
 
 ## 当前进行中
 
+- [2026-03-09 Agent + Symbolic + Batch Search (Topic README)](./2026-03-09-agent-symbolic-batch-search-architecture/README.md)
+- [2026-03-09 Agent + Symbolic + Batch Search Plan](./2026-03-09-agent-symbolic-batch-search-architecture/01_agent-symbolic-batch-search-plan-2026-03-09.md)
+- [2026-03-09 Atomic Tasklist: Agent + Symbolic + Batch Search](./2026-03-09-agent-symbolic-batch-search-architecture/02_atomic-tasklist-agent-symbolic-batch-search-2026-03-09.md)
+- [2026-03-10 Atomic Task Library Investigation Map (AT-00 ~ AT-09)](./2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md)
+- [2026-03-10 Parallel Execution Playbook (Spark/Codex)](./2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md)
 - [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
 - [2026-03-07 Atomic Task List: Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
 - [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)
@@ -37,6 +42,9 @@
 
 - [2026-03-04 R41 OpenClaw Autodispatch Migration Bundle](./2026-03-04-r41-openclaw-autodispatch/README.md)
 - [2026-03-04 RAG Line Round3 Filter Robustness](./2026-03-04-rag-line-round3-filter-robustness/01_rag-filter-robustness-minimal-enhancement-2026-03-04.md)
+- [2026-03-08 LLM + Crawler Unified FrontDoor Architecture](./2026-03-08-llm-crawler-unified-frontdoor/01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md)
+- [2026-03-08 Atomic Task List: LLM + Crawler Unified FrontDoor](./2026-03-08-llm-crawler-unified-frontdoor/02_atomic-tasklist-llm-crawler-unified-frontdoor-2026-03-08.md)
+- [2026-03-08 A10 Closure and Validation: LLM + Crawler Unified FrontDoor](./2026-03-08-llm-crawler-unified-frontdoor/03_a10-closure-and-validation-2026-03-08.md)
 
 - [2026-03-01 Open Source Platform Integration](./2026-03-01-open-source-platform-integration/01_multi-agent-taskboard-open-source-platform-integration-2026-03-01.md)
 - [2026-03-02 Single URL First Ingest](./2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)

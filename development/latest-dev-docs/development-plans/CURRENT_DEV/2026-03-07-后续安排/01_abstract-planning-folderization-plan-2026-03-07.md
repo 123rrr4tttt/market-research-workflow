@@ -1,234 +1,216 @@
-# 抽象规划拆分与子文档展开计划（2026-03-07）
+# Abstract Planning Folderization Plan (2026-03-07)
 
-> 日期：2026-03-07
-> 范围：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-后续安排`
-> 状态：计划文档，当前阶段用于明确需求分组与初步开发流程
+> Date: 2026-03-07
+> Scope: `development/latest-dev-docs/development-plans/CURRENT_DEV/*`
+> Status: planning and normalization guide for topic-folder documentation
 
-## 1. 背景
+## 1. Goal
 
-[`抽象规划.md`](./抽象规划.md) 已汇总后续安排，但当前仍是单文件、多主题并列的草稿形态。
+This document defines how `抽象规划.md` should be split, normalized, and handed off into topic-specific directories.
 
-当前补充前提：
+The immediate goal is not to finish every downstream design. The goal is to make the folder structure and starter documents executable enough that follow-up topic owners do not need to re-derive:
 
-- 旧前端已退出活跃规划范围，不再作为后续主题计划的输入对象。
-- 前端相关主题统一以 `main/frontend-modern` 作为唯一前端基线。
-- 目录 `dual-frontend-workbench-topology` 保留既有命名，但后续语义统一解释为基于 modern 技术栈推进的双交互前端拓扑，不再讨论 legacy。
+- what problem each topic owns;
+- what the current repo baseline already gives them;
+- what is in scope for the first pass;
+- what can run in parallel versus what must stay serial;
+- what minimum validation a topic document must already include.
 
-这一轮的目标不是把所有主题一次性细化完，而是先完成两件事：
+## 2. Current Baseline
 
-1. 把草稿按主题拆成若干子文件夹。
-2. 为后续各个子 agent 留出标准化展开入口。
+The current repository already provides the main inputs needed for folderization:
 
-## 2. 本文档定位
+- `抽象规划.md` is the mother document for cross-topic demand sources, priority framing, and theme boundaries.
+- `development/latest-dev-docs/README.md` already treats `development/latest-dev-docs` as the first-entry index and shows the `CURRENT_DEV` topic set.
+- `CURRENT_DEV` already contains the expected March 7 topic directories for:
+  - `writing-workbench-evolution`
+  - `typed-knowledge-organization`
+  - `graph-editing-and-reporting`
+  - `ingest-digestion-and-long-cycle-automation`
+  - `crawler-source-expansion`
+  - `frontend-i18n-theme-modularization`
+  - `llm-service-and-agent-platformization`
+  - `dual-frontend-workbench-topology`
 
-本文档只负责：
+The quality gap is structural rather than thematic:
 
-- 明确 `抽象规划.md` 的主题拆分方式。
-- 明确每个主题目录的文档起步结构。
-- 明确后续由子 agent 继续细化需求和初步开发流程。
+- the mother document is useful, but still too dense to be used as a direct execution plan;
+- the split contract for child directories is described narratively, but not enforced as a stable document template;
+- the atomic task list is too light to guide repeatable per-topic normalization work.
 
-本文档不负责：
+## 3. Requirement Clarification
 
-- 把每个主题细化成完整产品方案。
-- 预先写满所有原子任务细节。
-- 代替各子目录后续的正式计划文档。
+### 3.1 Problem This Plan Solves
 
-## 3. 拆分原则
+One abstract planning document should not remain the only place where future work is explained. Topic owners need a stable directory-level contract so that each theme can evolve independently without re-opening the same boundary debate.
 
-- 一个主题一个目录，不把多个方向继续混在同一文档中。
-- 目录命名遵循 `YYYY-MM-DD-topic-slug`。
-- 每个新目录初始只要求两份文档：
-  - `01_<topic>-plan-2026-03-07.md`
-  - `02_atomic-tasklist-<topic>-2026-03-07.md`
-- 这两份文档先做到“进一步明确需求 + 初步设计开发流程”即可。
-- 更细的技术拆解、模块边界、任务依赖，由后续对应子 agent 在各自目录内继续补全。
+### 3.2 Primary Consumers
 
-## 4. 建议主题分组
+- Main agent or maintainer responsible for creating or normalizing topic directories under `CURRENT_DEV`.
+- Topic-level child agents responsible for rewriting the corresponding `01_*` and `02_*` documents.
+- Reviewers who need to verify whether a topic directory is ready for deeper planning.
 
-按当前草稿内容，建议先拆成以下主题：
+### 3.3 Core Writing Requirement for Child Directories
 
-1. `writing-workbench-evolution`
-   写作平台、侧边资料辅助、模板、导出格式扩展。
-2. `typed-knowledge-organization`
-   类型节点、信息归类、分册、双语化、专题聚类。
-3. `graph-editing-and-reporting`
-   图谱任务优化、图谱可编辑、图谱与报告联动。
-4. `ingest-digestion-and-long-cycle-automation`
-   长文本切分、PDF 消化、消费其他产物、长周期采集。
-5. `crawler-source-expansion`
-   现代 LLM 爬虫、定向信源拓展、来源质量治理。
-6. `frontend-i18n-theme-modularization`
-   中英文切换、主题切换、模块化管理。
-7. `llm-service-and-agent-platformization`
-   多 LLM 服务接入、agent 平台、长期智能框架。
-8. `dual-frontend-workbench-topology`
-   工作台化、基于 modern 的高低交互前端分层、共享平台层与工作区拓扑。
+The section `子目录文档写作要求` in this folder is the minimum contract, not a suggestion.
 
-若实际拆分时发现某两个主题高度重叠，可以合并；若某一主题过大，也允许继续拆分子主题，但仍应先保证主目录层级清晰。
+Each child directory must make two things explicit:
 
-## 5. 各主题初步细化方向
+1. `01_*` must clarify the problem, baseline, scope, recommended layering, order, dependency shape, and minimum validation.
+2. `02_*` must convert that clarified plan into atomic execution units with status, dependencies, module boundaries, inputs, outputs, acceptance, and minimum checks.
 
-这里的细化只用于帮助后续子 agent 更快展开，不在总计划中把方案写死。
+### 3.4 Theme Ownership Rule
 
-### 5.1 `writing-workbench-evolution`
+Each requirement from `抽象规划.md` must have exactly one primary topic owner.
 
-- 关注重点:
-  - 写作主工作区如何与资料卡、模板、格式扩展协同
-  - LLM 对话、续写、摘要、报告中间产物如何进入写作流
-  - 选中文本、参考资料、图谱节点之间的联动方式
-- 子 agent 需优先明确:
-  - 当前已有写作相关页面或可复用能力
-  - 最小可行写作链路是什么
-  - 哪些能力属于第一阶段，哪些留作后续扩展
+- The primary owner writes the main solution path.
+- Other affected topics only record dependency or interface impact.
+- Cross-topic overlap is resolved by boundary notes, not by duplicating the same main plan in multiple directories.
 
-### 5.2 `typed-knowledge-organization`
+## 4. Scope and Non-Goals
 
-- 关注重点:
-  - 类型节点如何组织具体信息节点
-  - 归类、分册、专题聚类、双语化的边界
-  - 手动创建与自动创建的协同方式
-- 子 agent 需优先明确:
-  - 当前数据结构是否已具备类型化基础
-  - 类型节点与专题节点是否应分层
-  - 自动归类链路依赖哪些检索、RAG、LLM 能力
+### 4.1 In Scope
 
-### 5.3 `graph-editing-and-reporting`
+- Freeze the topic grouping and naming convention.
+- Define the canonical `01_*` and `02_*` starter-document contract.
+- Describe the recommended execution order for creating or normalizing child topic directories.
+- Define minimum structural and content-level validation for topic folders.
 
-- 关注重点:
-  - 图谱节点/关系的手动编辑能力
-  - 前端编辑与后端同步机制
-  - 图谱结果如何进入 LLM 报告生成
-- 子 agent 需优先明确:
-  - 当前图谱哪些能力已存在，哪些仅缺编辑闭环
-  - 编辑动作的最小审计和回滚需求
-  - 图谱报告生成与普通写作报告的边界
+### 4.2 Non-Goals
 
-### 5.4 `ingest-digestion-and-long-cycle-automation`
+- Writing the final implementation design for all eight topics inside this directory.
+- Locking database models, API contracts, or UI details for each topic before topic-level exploration.
+- Renaming existing directories or files unless naming/date rules are already broken.
+- Treating index updates as part of the directory-local authoring work; index sync is a follow-up closure step owned outside this folder.
 
-- 关注重点:
-  - 长文本切分、PDF 消化、外部产物消费
-  - 与分册、时间密度、长周期采集任务的联动
-  - 一般信息采集后的结构化去向
-- 子 agent 需优先明确:
-  - 当前 ingest 流程能处理到什么深度
-  - 长文本和 PDF 的分段、摘要、入库边界
-  - 长周期任务需要哪些调度与状态能力
+## 5. Recommended Folderization Model
 
-### 5.5 `crawler-source-expansion`
+The recommended model has four layers.
 
-- 关注重点:
-  - 现代 LLM 爬虫项目的接入方式
-  - 定向信息源的来源谱系
-  - 来源质量参差不齐问题的治理口径
-- 子 agent 需优先明确:
-  - 现有采集来源的主要缺口在哪
-  - 哪些来源类型最值得优先补齐
-  - 新来源接入后的质量验证与去重标准
+| Layer | Purpose | Required Artifact | Notes |
+| --- | --- | --- | --- |
+| Mother source | Keep cross-topic context and original demand source | `抽象规划.md` | Remains the single upstream requirement source for the theme set |
+| Coordination | Freeze the split contract and execution method | `01_abstract-planning-folderization-plan-2026-03-07.md`, `02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md` | This directory should explain *how* to split and normalize |
+| Topic execution | Carry one theme per directory | `YYYY-MM-DD-topic-slug/` | One topic, one directory, one primary owner |
+| Topic starter docs | Make each topic actionable | `01_<topic>-plan-YYYY-MM-DD.md`, `02_atomic-tasklist-<topic>-YYYY-MM-DD.md` | Mandatory starter pair for every active topic |
 
-### 5.6 `frontend-i18n-theme-modularization`
+## 6. Recommended Topic Set
 
-- 关注重点:
-  - 中英文切换与主题切换的全局机制
-  - 模块化管理对页面、路由、状态、配置的影响
-- 子 agent 需优先明确:
-  - 当前前端是否已有国际化或主题切换基础
-  - 模块化管理是前端结构问题还是平台配置问题
-  - 该主题与双交互前端拓扑主题的边界
+The current split should stay aligned with the eight themes already derived from the mother document.
 
-### 5.7 `llm-service-and-agent-platformization`
+| Topic | Focus | Boundary Reminder |
+| --- | --- | --- |
+| `writing-workbench-evolution` | Writing flow, templates, related materials, LLM-assisted writing | Do not absorb platform-wide LLM orchestration |
+| `typed-knowledge-organization` | Type nodes, classification, collections, thematic grouping | Do not absorb graph editing as the main solution |
+| `graph-editing-and-reporting` | Editable graph workflow, sync, report handoff | Do not redefine the full knowledge model here |
+| `ingest-digestion-and-long-cycle-automation` | Long text/PDF digestion and long-cycle tasks | Do not absorb source-expansion planning |
+| `crawler-source-expansion` | Source coverage, crawler adapters, source quality | Do not replace downstream ingest design |
+| `frontend-i18n-theme-modularization` | i18n, theme, frontend modularity baseline | Do not merge with full workbench topology design |
+| `llm-service-and-agent-platformization` | Model routing, agent platform, long-lived orchestration | Do not swallow writing-workbench UX scope |
+| `dual-frontend-workbench-topology` | Modern workbench layering by interaction intensity | Do not reopen legacy frontend as an active baseline |
 
-- 关注重点:
-  - 多 LLM 服务接入与统一调度方式
-  - agent 对平台功能的增强位置
-  - 类似 openclaw 的长期框架如何接入
-- 子 agent 需优先明确:
-  - 当前已有哪些 LLM 接入能力
-  - 模型服务层与业务能力层如何隔离
-  - agent 平台化是 orchestration 优先还是 UI 集成优先
+If a future split is required, the default rule is: preserve the current primary topic set first, then split only the overloaded topic instead of reshuffling all boundaries.
 
-### 5.8 `dual-frontend-workbench-topology`
+## 7. Child Directory Documentation Standard
 
-- 关注重点:
-  - 基于 modern 的高交互工作区前端与低交互运营区前端的分层方式
-  - 写作、调研、统计、图表、工作流等工作台能力的组织方式
-  - 历史页面入口如何收敛到 modern 内统一导航和工作台结构
-- 子 agent 需优先明确:
-  - 哪些页面应划归高交互工作区，哪些应划归低交互运营区
-  - 工作台之间共用哪些底层能力
-  - 导航收口与路由兼容需要保留哪些阶段性回退能力
+### 7.1 `01_*` Plan Contract
 
-## 6. 子目录文档写作要求
+Every topic-level `01_*` document should contain, at minimum:
 
-每个子目录后续由对应子 agent 按开发文档规范继续写作，重点放在两层：
+- Goal
+- Current baseline
+- Requirement clarification
+- Scope and non-goals
+- Recommended solution or layered breakdown
+- Implementation order
+- Serial/parallel relationship
+- Minimum validation
 
-- 需求进一步明确：
-  - 解决什么问题
-  - 用户/系统需要什么能力
-  - 当前基线与缺口是什么
-  - 本轮范围与非目标是什么
-- 开发流程初步设计：
-  - 推荐先做哪些模块
-  - 哪些可以并行，哪些应串行
-  - 需要优先复用哪些现有能力
-  - 最小验证应该覆盖什么
+The content standard is:
 
-不要求在这一层就把所有实现细节写死。
+- baseline must cite repo anchors or clearly mark an item as a gap to verify;
+- requirement clarification must distinguish user/system needs from guessed implementation;
+- scope must include both what is being solved now and what is intentionally deferred;
+- recommended layering must make module ownership or dependency direction explicit;
+- minimum validation must include at least one structure check and one flow check.
 
-每个子 agent 至少应把以下信息补齐：
+### 7.2 `02_*` Atomic Task Contract
 
-- 当前基线：
-  - 仓库里已经存在什么
-  - 哪些能力可复用
-  - 哪些是明显缺口
-- 需求澄清：
-  - 目标用户或使用场景
-  - 本轮重点问题
-  - 本轮不做什么
-- 初步流程：
-  - 推荐先后顺序
-  - 可并行模块
-  - 依赖模块
-- 最小验证：
-  - 至少一个结构性验证
-  - 至少一个流程性验证
-  - 若涉及 UI 或接口，至少给出一条最小检查命令或验证步骤
+Every topic-level `02_*` document should contain, at minimum:
 
-建议子目录文档保持“能指导下一步执行”即可，不追求在首版写成最终设计定稿。
+- Execution status snapshot
+- Global serial/parallel rules
+- Module boundary or IO contract
+- Atomic tasks with:
+  - goal
+  - dependency
+  - input
+  - output
+  - acceptance
+  - minimum validation
 
-## 7. 子 Agent 委派口径
+The content standard is:
 
-后续将主题交给子 agent 时，主 agent 应统一要求：
+- tasks must be atomic enough that a child agent can own one task without redefining the whole topic;
+- dependencies must be concrete, not “do later” placeholders;
+- output must be inspectable;
+- minimum validation must be the smallest credible gate for that task, not a generic “self-check”.
 
-- 参考当前仓库实际结构，不机械照搬抽象规划原文。
-- 参考 `development/latest-dev-docs` 的开发文档规范写作。
-- 优先把需求和开发流程写清，再考虑细化到执行级任务。
-- 若发现主题边界与总计划不一致，应在子目录文档中记录偏差，而不是硬套原分组。
-- 若发现已有相近文档或已有实现，应优先复用与引用，不另起一套平行说法。
+## 8. Recommended Implementation Order
 
-## 8. 初步执行流程
+1. Freeze the mapping from mother-document requirements to the eight topic owners.
+2. Freeze the directory-level document contract before any topic-specific rewriting begins.
+3. Reuse existing topic directories when names already match the naming/date rule; only create missing ones.
+4. Normalize each topic `01_*` plan document first.
+5. Normalize each topic `02_*` atomic task document after the corresponding `01_*` scope is stable.
+6. Run directory-local structural and dependency validation.
+7. Hand off upper-level index synchronization as a separate closure step.
 
-推荐流程如下：
+This keeps planning quality ahead of indexing work. Indexes should point to normalized topic documents, not to half-formed placeholders.
 
-1. 先根据 `抽象规划.md` 完成主题分组与目录创建。
-2. 在每个目录中创建 `01` 主计划文档与 `02` 原子任务文档。
-3. 将对应主题交给子 agent，要求其参考开发文档规范继续细化。
-4. 子 agent 只需把需求澄清和开发流程初步设计写清，不必一开始就写到最终执行级别。
-5. 目录建立完成后，同步更新 `CURRENT_DEV` 与上层索引。
+## 9. Serial and Parallel Relationship
 
-## 9. 交付物
+The work should follow this dependency model:
 
-本计划完成后，应至少具备：
+- Serial:
+  - freeze source-to-topic mapping before any topic rewrite;
+  - freeze the child-document contract before parallel topic work;
+  - inside one topic directory, complete `01_*` before finalizing `02_*`;
+  - perform cross-topic review before external index sync.
+- Parallel:
+  - once the document contract is frozen, different topic directories can be normalized in parallel;
+  - baseline gathering and topic-specific repo anchor checks can run independently per topic;
+  - a single topic directory may proceed independently as long as it does not redefine another topic's primary ownership.
 
-- 一份拆分计划文档。
-- 一份轻量原子任务文档。
-- 一组按主题拆分的子目录。
-- 每个子目录的 `01/02` 起步文档。
-- 已同步的索引入口。
+Conflict rule:
 
-## 10. 验收标准
+- Do not let multiple editors rewrite the same topic file concurrently.
+- Do not mix directory-local topic normalization with upper-level index editing in the same work package.
 
-- `抽象规划.md` 不再是唯一承载后续安排的文档。
-- 每个主题都有独立目录和独立文档入口。
-- 每个子目录的文档定位清楚：先明确需求，再给出初步开发流程。
-- 更细化的任务分解明确留给对应子 agent 继续完成。
-- 索引文件已同步，读者可以从入口直接进入各主题目录。
+## 10. Minimum Validation
+
+The split is minimally acceptable only when all of the following are true:
+
+- Structural validation
+  - each active topic has one directory;
+  - each active topic directory has one `01_*` and one `02_*` starter document;
+  - file names and dates follow repository naming rules.
+- Content validation
+  - each `01_*` contains the required planning sections;
+  - each `02_*` contains the required task sections and dependency shape;
+  - no topic document silently replaces another topic's ownership boundary.
+- Cross-topic validation
+  - every major requirement from `抽象规划.md` maps to exactly one primary topic;
+  - shared concerns are recorded as dependencies instead of duplicate main plans.
+- Closure validation
+  - directory-local work is complete before external index sync is requested;
+  - any remaining index work is explicitly handed off rather than assumed done.
+
+## 11. Deliverable Definition
+
+When this plan is executed correctly, the result should be:
+
+- one stable mother document for cross-topic demand input;
+- one coordination directory explaining split method and normalization rules;
+- one normalized starter pair (`01/02`) per active topic directory;
+- one clear handoff point for external index synchronization.

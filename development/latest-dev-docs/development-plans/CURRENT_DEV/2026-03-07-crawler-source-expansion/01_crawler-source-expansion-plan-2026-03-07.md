@@ -1,315 +1,324 @@
 # Crawler Source Expansion Plan (2026-03-07)
 
-> 日期：2026-03-07
-> 范围：现代 crawler 接入、定向信息源扩展、来源分层、质量治理
-> 状态：主题主计划文档，用于冻结来源扩张层的问题定义、边界和第一阶段建议
+> Date: 2026-03-07
+> Scope: crawler onboarding, directed source expansion, source-layer governance, ingest handoff
+> Status: planning document for freezing problem framing, boundaries, and phase-1 execution order
 
-## 1. 背景
+## 1. Objective
 
-抽象规划对来源层提出了三个清晰要求：
+This topic is not "add more adapters" in isolation.
+It exists to turn the current source-related capabilities into a more explicit source system with:
 
-- 扩展更多现代基于 LLM 的 crawler 项目。
-- 系统性补齐学术、商业研报、商业信息、新闻平台等定向来源。
-- 解决当前来源固定、离散、质量参差不齐的问题。
+1. a stable source tiering model;
+2. a clear onboarding boundary for new crawlers and source adapters;
+3. a minimum quality and dedupe policy at source-layer time;
+4. a predictable handoff into downstream ingest.
 
-这说明来源扩张不能再被理解为“多加几个 adapter”，而需要被提升为来源生态建设主题。
+The immediate deliverable is a plan that can guide the next implementation round without pretending phase-1 already knows every future provider or source list.
 
-## 2. 当前基线
+## 2. Current Baseline
 
-### 2.1 crawler 与来源管理基线
+### 2.1 Existing repo entry points
 
-当前仓库已存在较完整的 crawler/source library 基础：
+The repo already has a non-trivial source stack.
+Confirmed entry points include:
 
-- 前端管理入口：
+- Frontend management page:
   - `main/frontend-modern/src/pages/CrawlerManagePage.tsx`
-- crawler API：
+- Backend APIs:
   - `main/backend/app/api/crawler.py`
-- source library API：
   - `main/backend/app/api/source_library.py`
-- 来源执行与同步：
+- Source-library services:
   - `main/backend/app/services/source_library/*`
-- crawler provider / registry / bridge：
+- Crawler runtime and provider services:
   - `main/backend/app/services/crawlers/*`
   - `main/backend/app/services/crawlers/providers/*`
   - `main/backend/app/services/crawlers_mgmt/*`
+- Collection and discovery chains:
+  - `main/backend/app/services/collect_runtime/*`
+  - `main/backend/app/services/discovery/*`
 
-这说明来源层已经不是空白，而是已经有运行骨架、provider 机制和管理面板。
+This means the source layer is already operational in pieces.
+The missing part is a stronger system-level framing across these pieces.
 
-### 2.2 collect runtime 与 discovery 基线
+### 2.2 Reusable contracts already in repo
 
-当前还存在另外两条与来源相关的重要链路：
+The current backend already exposes reusable contract anchors:
 
-- `main/backend/app/services/collect_runtime/*`
-- `main/backend/app/services/discovery/*`
+- `source_library/types.py`
+  - `ChannelRecord`
+  - `SourceItemRecord`
+  - `FrontDoorExecutionProtocol`
+- `collect_runtime/contracts.py`
+  - `CollectRequest`
+  - `CollectResult`
+- `crawlers/base.py`
+  - `CrawlerDispatchRequest`
+  - `CrawlerDispatchResult`
 
-它们说明平台已经具备：
+These files indicate that the repo already has:
 
-- 运行时 collect adapter
-- search/deep-search 能力
-- 来源发现与结果存储
+- a source definition layer;
+- a normalized collection request/result layer;
+- a provider-specific crawler dispatch layer.
 
-但这些能力目前分散在 discovery、collect、source library、crawler 几条线上，容易碎片化。
+That is enough to define a better layered plan without inventing an entirely new architecture.
 
-### 2.3 来源质量治理基线
+### 2.3 Existing source coverage hints
 
-当前仓库已经有若干质量治理锚点：
+The repo already includes several concrete source-library adapters, such as:
+
+- `google_news`
+- `reddit`
+- `official_access`
+- `generic_web`
+- `market`
+- `url_pool`
+- `handler_cluster`
+
+It also already includes collect-runtime adapters such as:
+
+- `source_library`
+- `url_pool`
+- `search_market`
+- `crawler_scrapy`
+
+This suggests the immediate gap is not "zero source support".
+The real gap is the absence of a documented and enforced rule for when a source belongs in:
+
+- source cataloging,
+- normalized collection,
+- provider dispatch,
+- discovery augmentation.
+
+### 2.4 Existing quality anchors
+
+Quality-related logic is already present in multiple places:
 
 - `main/backend/app/services/ingest/meaningful_gate.py`
 - `main/backend/app/services/resource_pool/llm_validator.py`
 - `main/backend/app/services/source_library/resolver.py`
 - `main/backend/app/services/discovery/store.py`
 
-说明“质量门禁”并不是零基础，但它目前没有被提炼成来源层统一治理规则。
+The problem is not the total absence of quality checks.
+The problem is that source quality, dedupe, and stability are still mostly implicit or downstream-heavy.
 
-## 3. 核心问题定义
+### 2.5 Baseline gaps
 
-### 3.1 来源体系缺少统一分层
+The current baseline still lacks a clearly documented answer to the following:
 
-当前来源能力已存在，但平台还没有统一回答：
+- Which source classes are baseline platform sources versus directed high-value sources versus experimental sources.
+- What the exact responsibility split is between `source_library`, `collect_runtime`, `crawlers/providers`, and `discovery`.
+- Which quality checks must happen before ingest rather than after ingest.
+- How directed sources such as academic, business intelligence, reports, and news should be prioritized.
+- What the minimum source-to-ingest handoff object should contain.
 
-- 什么是通用来源
-- 什么是定向高价值来源
-- 什么是实验性 crawler 能力
+## 3. Requirement Clarification
 
-没有分层，就无法决定优先级和治理标准。
+### 3.1 Main scenarios
 
-### 3.2 crawler 接入能力分散
+This plan is for the moment when the team needs to do one of the following safely:
 
-source library、collect runtime、crawler provider、discovery 都能“带来源进平台”，但主入口不统一。结果是：
+- add a new directed source family;
+- introduce a new crawler provider or crawler strategy;
+- decide whether an LLM-assisted crawler is a provider, a runtime strategy, or an enrichment step;
+- keep downstream ingest and knowledge organization from being polluted by unstable source metadata.
 
-- 接入边界不清
-- 输出格式不稳定
-- 后续 ingest 和知识组织难以对齐
+### 3.2 What phase-1 must answer
 
-### 3.3 来源质量问题仍在下游暴露
+Phase-1 must answer these questions explicitly:
 
-抽象规划明确要求解决质量参差不齐的问题。当前平台虽然有门禁，但仍更多在：
+1. How many source tiers are needed, and what belongs in each tier?
+2. What is the onboarding path for a new source or crawler capability?
+3. Which minimum quality checks are source-layer responsibilities?
+4. Which directed source families should be prioritized first, and why?
+5. What minimum normalized output should downstream ingest receive?
 
-- ingest 阶段
-- resource pool 校验阶段
+### 3.3 What phase-1 does not need to answer yet
 
-暴露问题，而不是在来源层就进行分层治理。
+Phase-1 does not need to:
 
-### 3.4 LLM crawler 容易变成“新技术愿望词”
+- produce a complete external source list;
+- select every future crawler framework up front;
+- redesign the downstream ingest system;
+- commit to a final scoring model for all source quality dimensions.
 
-如果不先定义它在平台中的职责，LLM crawler 很容易被写成概念口号，而不是：
+## 4. Scope and Non-Goals
 
-- 新型接入器
-- 新型抓取策略
-- 新型筛选/摘要/结构化增强器
+### 4.1 In scope
 
-中的哪一种。
+This document currently covers:
 
-## 4. 目标
+- source type tiering and priority;
+- onboarding boundary for crawler/source-related capabilities;
+- quality, dedupe, and stability governance at source-layer time;
+- directed source strategy for academic, business-report, business-information, and news classes;
+- minimum handoff semantics from source layer to ingest.
 
-本主题第一阶段要达成的目标是：
+### 4.2 Out of scope
 
-1. 定义平台来源体系的统一分层。
-2. 定义新型 crawler / adapter 进入平台的统一边界。
-3. 定义来源质量、去重、稳定性评价的最小规则。
-4. 定义来源层与 ingest、知识组织、报告之间的交接方式。
+This document does not attempt to finalize:
 
-## 5. 明确需求清单
+- the full ingest digestion design;
+- the full typed knowledge organization design;
+- global LLM platform architecture;
+- one-shot mass onboarding of all candidate sources;
+- final UI/ops workflows for source management.
 
-根据母文档“各主题需求清单与阶段计划”，本主题在后续细化时必须显式保留以下需求，不能只抽象成能力标题：
+## 5. Recommended Layering and Plan Shape
 
-1. 必须明确来源类型分层和优先级。
-具体要求：
-- 至少区分通用来源、定向高价值来源、实验性/增强型来源三层。
-- 必须说明学术、商业研报、商业信息、新闻平台分别优先落在哪一层。
-- 必须给出优先级判断依据，而不是只列来源名单。
+### 5.1 Recommended source tiers
 
-2. 必须定义新型 crawler / adapter 的统一接入边界。
-具体要求：
-- 必须说明 `source_library`、`collect_runtime`、`crawler provider` 三层各自负责什么。
-- 必须给出新增来源进入平台时的最小输入/输出合同。
-- 必须说明 LLM crawler 在平台中是新型 provider、adapter，还是增强型抓取策略。
+The source portfolio should be described with at least three tiers:
 
-3. 必须定义来源质量、去重、稳定性评估的最小规则。
-具体要求：
-- 至少覆盖可靠性、可重复抓取性、内容意义密度、去重和来源元数据完整性。
-- 必须说明哪些规则在来源层执行，哪些允许下游补充。
-- 必须说明质量差的来源是阻断、降级还是打标后放行。
+- Tier 1: baseline platform sources
+  - General-purpose, repeatable, broad-coverage sources that fit stable ongoing operation.
+- Tier 2: directed high-value sources
+  - Academic, business report, business-information, or domain-targeted sources that justify extra onboarding and governance effort.
+- Tier 3: experimental or augmentation sources
+  - LLM-assisted crawlers, exploratory discovery paths, or unstable sources that should not silently become the default backbone.
 
-4. 必须定义学术、商业研报、商业信息、新闻等定向来源的引入策略。
-具体要求：
-- 不能只写“后续补齐”，必须说明哪类来源先引、为什么先引。
-- 必须说明高价值高成本来源和高频低信噪来源的不同处理方式。
-- 必须说明定向来源是按主题域、项目域，还是全局来源库维护。
+The main point of the tier model is prioritization and governance, not taxonomy for taxonomy's sake.
 
-5. 必须说明来源扩张与下游 ingest / 知识组织的接口。
-具体要求：
-- 必须给出来源层输出到 ingest 的最小交接字段或对象语义。
-- 必须说明来源元数据如何被后续知识组织和质量分级消费。
-- 必须避免把下游消化逻辑重新写进本主题。
+### 5.2 Recommended runtime responsibility split
 
-## 6. 范围
+Based on current repo structure, the recommended boundary is:
 
-本主题当前纳入范围：
+- `source_library/*`
+  - Owns source/channel/item definitions, routing metadata, and reusable source catalog semantics.
+- `collect_runtime/*`
+  - Owns normalized collection requests/results and project-aware execution orchestration.
+- `crawlers/providers/*`
+  - Owns provider-specific dispatch details and should hide provider transport/runtime differences.
+- `discovery/*`
+  - Owns discovery and candidate-finding loops, but should not become the canonical source registry.
+- `ingest/*`
+  - Owns downstream digestion and should consume normalized source outputs rather than provider-specific raw semantics.
 
-- 来源类型分层
-- crawler/provider/adapter 的主接入边界
-- 定向来源优先级
-- 来源质量、去重、稳定性治理
-- 来源层到 ingest 的最小交接合同
+This split is consistent with the currently confirmed contracts and keeps future source onboarding from scattering logic across unrelated layers.
 
-### 5.1 第一阶段优先范围
+### 5.3 Position of LLM crawler capabilities
 
-第一阶段建议只冻结以下五项：
+The plan should avoid treating "LLM crawler" as a magic umbrella term.
+In this repo it should be classified explicitly as one of:
 
-1. 来源分层模型
-2. 新型 crawler 接入边界
-3. 定向来源优先级
-4. 来源质量最小门禁
-5. 来源到 ingest 的输出合同
+- a provider implementation;
+- a collection/runtime strategy;
+- an enrichment layer attached to discovery or post-fetch processing.
 
-## 7. 非目标
+Phase-1 should document the chosen role for each LLM-assisted capability instead of using the term generically.
 
-本主题当前不纳入：
+### 5.4 Minimum source-to-ingest handoff semantics
 
-- 下游 ingest 消化详细设计
-- 知识组织层完整方案
-- 多模型平台整体设计
-- 具体外部 crawler 项目选型清单定稿
-- 全量来源目录一次性列全
+The handoff from source layer to ingest should at minimum preserve:
 
-## 8. 关键能力拆解
+- source identity:
+  - channel/item/provider or equivalent stable identifiers;
+- execution context:
+  - `project_key`, query terms, or candidate URL origin when relevant;
+- provenance:
+  - original URL or canonical locator and acquisition path;
+- quality trace:
+  - minimum quality flags, dedupe hints, or review markers;
+- routing intent:
+  - whether the item is intended for direct ingest, pool write, or staged review.
 
-### 7.1 Source Tiering
+This is a planning-level contract, not a claim that all fields already exist in one object today.
 
-来源至少应分为三层：
+## 6. Implementation Order
 
-- 通用来源：高覆盖、低定制度
-- 定向来源：高价值、主题聚焦
-- 实验/增强来源：LLM crawler、探索性入口
+The recommended phase-1 order is:
 
-计划文档必须说明：
+1. Freeze the current baseline inventory and the layer map.
+2. Freeze the source tiering model and onboarding priority.
+3. Freeze the boundary between source catalog, collect runtime, provider dispatch, and discovery.
+4. Freeze minimum quality, dedupe, and stability rules.
+5. Freeze directed-source onboarding strategy by source class.
+6. Freeze the minimum handoff contract into ingest.
 
-- 每层为什么存在
-- 每层如何进入平台
-- 每层质量标准是否一致
+The point of this order is to avoid adding more sources before the system knows how to classify, route, and judge them.
 
-### 7.2 Adapter and Provider Boundary
+## 7. Serial and Parallel Relationships
 
-当前平台已有多层接入能力，第一阶段必须回答：
+### 7.1 Serial work that should happen first
 
-- source library adapter 负责什么
-- collect runtime adapter 负责什么
-- crawler provider 负责什么
+These items are serial prerequisites:
 
-否则后续新增来源仍会继续堆在任意层。
+- baseline inventory before tiering;
+- tiering and boundary freeze before large-scale source onboarding;
+- minimum quality rules before onboarding high-volume or experimental sources;
+- handoff definition before downstream automation depends on new sources.
 
-### 7.3 Quality Governance
+### 7.2 Work that can run in parallel after the basics are frozen
 
-来源质量治理至少应覆盖：
+After baseline, tiering, and boundaries are stable, these can progress in parallel:
 
-- 可靠性
-- 可重复抓取性
-- 内容意义密度
-- 去重
-- 来源元数据完整性
+- directed-source research by source family:
+  - academic
+  - business reports
+  - business information
+  - news
+- quality-rule examples and exception handling design;
+- handoff field mapping for ingest-facing consumers.
 
-第一阶段不要求最终评分体系，但必须先定义最小门禁。
+Parallel work is acceptable only after the layer boundaries are frozen.
+Otherwise multiple subtracks will encode conflicting assumptions into the plan.
 
-### 7.4 Directed Source Strategy
+## 8. Minimum Validation
 
-学术、商业研报、商业信息、新闻平台并不只是来源类别差异，而是：
+The next execution round should not start without at least the following checks:
 
-- 抓取成本不同
-- 更新节奏不同
-- 内容密度不同
-- 结构化难度不同
+- Structural validation:
+  - confirm that the documented source layers map to real repo paths with:
+  - `rg --files main/backend/app/services/source_library main/backend/app/services/collect_runtime main/backend/app/services/crawlers main/backend/app/services/discovery`
+- Contract validation:
+  - read and compare:
+  - `main/backend/app/services/source_library/types.py`
+  - `main/backend/app/services/collect_runtime/contracts.py`
+  - `main/backend/app/services/crawlers/base.py`
+- Flow validation:
+  - trace one source example from source definition to collect request/result and then to downstream ingest entry assumptions.
+- Governance validation:
+  - document at least one case each for:
+  - allow
+  - downgrade or label
+  - block
+  based on quality or dedupe conditions.
 
-主题计划必须写出优先级而不是平铺。
+## 9. Risks and Open Questions
 
-## 9. 阶段计划
+### 9.1 Primary risks
 
-### Phase 1：冻结来源分层、统一接入边界、质量口径
+- Adding sources before boundary freeze will keep multiplying duplicate logic.
+- Treating all LLM crawler ideas as first-class mainline sources may distort the repo's current architecture.
+- Leaving quality control mainly downstream will continue to push source noise into ingest and knowledge organization.
 
-本阶段必须完成：
+### 9.2 Open questions to resolve in the next round
 
-- 冻结来源层分层模型。
-- 冻结 `source_library / collect_runtime / crawler provider` 的边界。
-- 冻结新增来源接入的最小合同。
-- 冻结最小质量门禁与去重口径。
+- Which directed source families should be project-scoped versus global catalog entries?
+- Which minimum metadata fields are mandatory before source output can enter ingest?
+- Should quality gating be hard-blocking for some tiers and label-based for others?
+- Where should LLM-assisted source expansion sit when it is partly discovery and partly extraction?
 
-本阶段不追求：
+## 10. Phase Guidance
 
-- 一次性接入大量新来源。
-- 提前做复杂自动筛选或来源评分系统。
+### Phase 1
 
-### Phase 2：补高价值定向来源和新型 crawler 接入
+Freeze the model:
 
-本阶段重点：
+- tiering;
+- boundaries;
+- quality rules;
+- minimum handoff.
 
-- 按优先级接入高价值定向来源。
-- 补齐一批最值得投入的新型 crawler / adapter。
-- 验证不同来源层级下的接入成本和质量差异。
+### Phase 2
 
-本阶段要避免：
+Use the frozen model to onboard the first batch of directed high-value sources and any carefully bounded experimental crawlers.
 
-- 没有统一合同就并行接大量来源。
-- 把“实验性 crawler”直接提升为默认主链。
+### Phase 3
 
-### Phase 3：补自动评估、自动筛选和来源策略优化
+Refine automation:
 
-本阶段重点：
-
-- 引入更强的来源质量自动评估。
-- 引入基于策略的筛选、降级或优先级调整。
-- 让来源层对下游 ingest / 知识组织提供更稳定的策略化输出。
-
-本阶段前提：
-
-- Phase 1 的分层、合同、门禁已经稳定。
-- Phase 2 已验证至少一批高价值来源的接入效果。
-
-## 10. 依赖与边界
-
-### 8.1 与 `ingest-digestion-and-long-cycle-automation` 的边界
-
-- 本主题定义内容如何进入平台
-- ingest 主题定义内容进入平台后如何被消化和再分发
-
-### 8.2 与 `llm-service-and-agent-platformization` 的边界
-
-- 本主题定义来源层对模型增强的需求
-- 模型平台主题定义 provider、route、agent orchestration
-
-### 8.3 与 `typed-knowledge-organization` 的边界
-
-- 本主题输出来源内容
-- 知识组织主题决定这些内容如何被组织和分册
-
-## 11. 第一阶段建议
-
-第一阶段不建议一开始就追求“接入更多来源”，而应先做三件事：
-
-1. 冻结来源分层
-2. 冻结接入边界
-3. 冻结质量门禁
-
-只有这三件事清楚，后续新增来源才不会继续污染结构。
-
-这一判断与阶段计划一致：Phase 1 的价值不在于来源数量增长，而在于先把来源层做成稳定平台边界。
-
-## 12. 风险与待确认问题
-
-### 10.1 风险
-
-- 如果先接来源、后补治理，会继续积累低质量历史包袱。
-- 如果把 LLM crawler 写成主线而不是增强能力，可能偏离当前仓库现实。
-- 如果 provider / adapter / runtime 分层不清，后续每加一个来源都会复制逻辑。
-
-### 10.2 待确认问题
-
-- 新型 crawler 应落在 source library 还是 collect runtime 之上。
-- 来源质量门禁是否分层执行。
-- 定向来源是否按项目域维护独立目录。
-- 来源元数据最小集合应包含哪些字段。
-
-## 13. 最小验证
-
-- 至少定义一个新增来源类别的接入样例。
-- 至少定义一个来源质量或去重检查点。
-- 至少定义一个“来源层 -> ingest 层”的最小交接路径。
+- stronger evaluation;
+- policy-driven ranking or downgrade;
+- improved feedback from source-layer outcomes back into planning.

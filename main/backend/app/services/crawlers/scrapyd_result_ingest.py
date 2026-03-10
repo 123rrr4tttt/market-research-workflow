@@ -76,10 +76,13 @@ def _normalize_raw_items_to_import_items(raw_items: list[dict[str, Any]], *, doc
     for row in raw_items:
         if not isinstance(row, dict):
             continue
-        text = str(row.get("text") or "").strip()
-        if not text:
-            text = json.dumps(row, ensure_ascii=False)
-        title = str(row.get("title") or "").strip() or None
+        text = ""
+        for key in ("text", "content", "body", "summary", "snippet", "description"):
+            value = str(row.get(key) or "").strip()
+            if value:
+                text = value
+                break
+        title = str(row.get("title") or row.get("name") or "").strip() or None
         uri = str(row.get("url") or row.get("uri") or "").strip() or None
         out.append(
             {
