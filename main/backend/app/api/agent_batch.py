@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -25,6 +26,12 @@ class _BatchItemRecord:
     item_id: str
     item_key: str
     project_key: str | None
+    channel: str | None = None
+    query_terms: list[str] = field(default_factory=list)
+    max_items: int | None = None
+    provider: str | None = None
+    language: str | None = None
+    days_back: int | None = None
     override_params: dict[str, Any] = field(default_factory=dict)
     task_id: str = ""
     created_at: str = field(default_factory=_utcnow_iso)
@@ -47,6 +54,12 @@ class AgentBatchItemSubmit(BaseModel):
     item_id: str | None = Field(default=None, max_length=128)
     source_id: str | None = Field(default=None, max_length=128)
     item_key: str | None = Field(default=None, max_length=128)
+    channel: str | None = Field(default=None, max_length=64)
+    query_terms: list[str] = Field(default_factory=list)
+    max_items: int | None = Field(default=None, ge=1, le=100)
+    provider: str | None = Field(default=None, max_length=64)
+    language: str | None = Field(default=None, max_length=16)
+    days_back: int | None = Field(default=None, ge=1, le=365)
     input: dict[str, Any] | str | None = None
     override_params: dict[str, Any] = Field(default_factory=dict)
 
@@ -76,6 +89,12 @@ class RuleSetValidateRequest(BaseModel):
     sample_items: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class AgentBatchNlCommandRequest(BaseModel):
+    command: str = Field(..., min_length=1, max_length=2000)
+    project_key: str | None = Field(default=None, max_length=128)
+    idempotency_key: str | None = Field(default=None, max_length=128)
+
+
 def _resolve_project_key(project_key: str | None) -> str | None:
     explicit = (project_key or "").strip()
     if explicit:
@@ -95,6 +114,52 @@ def _resolve_item_key(job: AgentBatchItemSubmit) -> str:
             if value:
                 return value
     raise HTTPException(status_code=400, detail="each batch item requires item_key or source_id")
+
+
+def _normalize_query_terms(raw: list[str]) -> list[str]:
+    cleaned = []
+    for term in raw:
+        value = str(term or "").strip()
+        if value and value not in cleaned:
+            cleaned.append(value)
+    return cleaned
+
+
+def _extract_query_terms_from_command(command: str) -> list[str]:
+    text = str(command or "").strip()
+    if not text:
+        return []
+    separators = r"[，,、；;和与及\|/]+"
+    segments = [seg.strip() for seg in re.split(separators, text) if seg.strip()]
+    if not segments:
+        return [text]
+    return _normalize_query_terms(segments[:6])
+
+
+def _detect_language(command: str) -> str:
+    return "zh" if re.search(r"[\u4e00-\u9fff]", command or "") else "en"
+
+
+def _extract_days_back(command: str) -> int:
+    text = str(command or "")
+    m_cn = re.search(r"最近\s*(\d{1,3})\s*天", text)
+    if m_cn:
+        return max(1, min(365, int(m_cn.group(1))))
+    m_en = re.search(r"last\s+(\d{1,3})\s+days?", text, flags=re.IGNORECASE)
+    if m_en:
+        return max(1, min(365, int(m_en.group(1))))
+    return 7
+
+
+def _extract_max_items(command: str) -> int:
+    text = str(command or "")
+    m_cn = re.search(r"(\d{1,3})\s*条", text)
+    if m_cn:
+        return max(1, min(100, int(m_cn.group(1))))
+    m_en = re.search(r"(top|first)\s+(\d{1,3})", text, flags=re.IGNORECASE)
+    if m_en:
+        return max(1, min(100, int(m_en.group(2))))
+    return 20
 
 
 def _load_job(job_id: str) -> _BatchJobRecord:
@@ -120,6 +185,62 @@ def _task_snapshot(task_id: str) -> dict[str, Any]:
 def _submit_source_item(*, item_key: str, project_key: str | None, override_params: dict[str, Any]) -> str:
     task = tasks_module.task_run_source_library_item.delay(item_key, project_key, override_params or {})
     return str(task.id)
+
+
+def _submit_market_collect(
+    *,
+    query_terms: list[str],
+    max_items: int,
+    project_key: str | None,
+    provider: str | None,
+    language: str | None,
+    days_back: int | None,
+) -> str:
+    task = tasks_module.task_ingest_market.delay(
+        query_terms,
+        max_items,
+        True,
+        project_key,
+        None,
+        days_back,
+        language,
+        provider,
+    )
+    return str(task.id)
+
+
+def _submit_batch_item(job: AgentBatchItemSubmit, *, project_key: str | None) -> tuple[str, str, dict[str, Any]]:
+    channel = str(job.channel or "").strip().lower()
+    if channel == "search.market":
+        query_terms = _normalize_query_terms(job.query_terms)
+        if not query_terms and isinstance(job.input, dict):
+            query_terms = _normalize_query_terms(job.input.get("query_terms") or [])
+        if not query_terms:
+            raise HTTPException(status_code=400, detail="search.market item requires query_terms")
+        max_items = int(job.max_items or 20)
+        task_id = _submit_market_collect(
+            query_terms=query_terms,
+            max_items=max_items,
+            project_key=project_key,
+            provider=job.provider or "auto",
+            language=job.language or _detect_language(" ".join(query_terms)),
+            days_back=job.days_back,
+        )
+        return task_id, "search.market", {
+            "query_terms": query_terms,
+            "max_items": max_items,
+            "provider": job.provider or "auto",
+            "language": job.language or _detect_language(" ".join(query_terms)),
+            "days_back": job.days_back,
+        }
+
+    item_key = _resolve_item_key(job)
+    task_id = _submit_source_item(
+        item_key=item_key,
+        project_key=project_key,
+        override_params=dict(job.override_params or {}),
+    )
+    return task_id, "source_library", {"item_key": item_key, "override_params": dict(job.override_params or {})}
 
 
 @router.post("/jobs")
@@ -149,23 +270,33 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
 
     for idx, item in enumerate(payload.batch.jobs):
         try:
-            item_key = _resolve_item_key(item)
+            task_id, resolved_channel, resolved_payload = _submit_batch_item(item, project_key=project_key)
             item_id = str(item.item_id or f"{job_id}-item-{idx+1}").strip()
-            task_id = _submit_source_item(
-                item_key=item_key,
-                project_key=project_key,
-                override_params=dict(item.override_params or {}),
-            )
             record.items.append(
                 _BatchItemRecord(
                     item_id=item_id,
-                    item_key=item_key,
+                    item_key=str(resolved_payload.get("item_key") or ""),
+                    channel=resolved_channel,
+                    query_terms=list(resolved_payload.get("query_terms") or []),
+                    max_items=resolved_payload.get("max_items"),
+                    provider=resolved_payload.get("provider"),
+                    language=resolved_payload.get("language"),
+                    days_back=resolved_payload.get("days_back"),
                     project_key=project_key,
                     override_params=dict(item.override_params or {}),
                     task_id=task_id,
                 )
             )
-            accepted.append({"index": idx, "item_id": item_id, "task_id": task_id, "item_key": item_key})
+            accepted.append(
+                {
+                    "index": idx,
+                    "item_id": item_id,
+                    "task_id": task_id,
+                    "channel": resolved_channel,
+                    "item_key": resolved_payload.get("item_key"),
+                    "query_terms": resolved_payload.get("query_terms"),
+                }
+            )
         except Exception as exc:  # noqa: BLE001
             rejected.append({"index": idx, "reason": str(exc)})
 
@@ -233,7 +364,16 @@ def list_agent_batch_items(job_id: str) -> dict[str, Any]:
                 "item_id": item.item_id,
                 "task_id": item.task_id,
                 "status": snap.get("status"),
-                "input": {"item_key": item.item_key, "override_params": item.override_params},
+                "input": {
+                    "item_key": item.item_key,
+                    "channel": item.channel,
+                    "query_terms": item.query_terms,
+                    "max_items": item.max_items,
+                    "provider": item.provider,
+                    "language": item.language,
+                    "days_back": item.days_back,
+                    "override_params": item.override_params,
+                },
                 "output": snap.get("result") if snap.get("successful") else None,
                 "error": snap.get("result") if snap.get("failed") else None,
                 "last_update_at": _utcnow_iso(),
@@ -253,16 +393,32 @@ def retry_agent_batch_job(job_id: str, payload: AgentBatchRetryRequest) -> dict[
         snap = _task_snapshot(item.task_id)
         if snap.get("status") not in {"failure", "revoked"}:
             continue
-        new_task_id = _submit_source_item(
-            item_key=item.item_key,
-            project_key=item.project_key,
-            override_params=item.override_params,
-        )
+        if (item.channel or "source_library") == "search.market":
+            new_task_id = _submit_market_collect(
+                query_terms=list(item.query_terms or []),
+                max_items=int(item.max_items or 20),
+                project_key=item.project_key,
+                provider=item.provider,
+                language=item.language,
+                days_back=item.days_back,
+            )
+        else:
+            new_task_id = _submit_source_item(
+                item_key=item.item_key,
+                project_key=item.project_key,
+                override_params=item.override_params,
+            )
         replayed_task_ids.append(new_task_id)
         record.items.append(
             _BatchItemRecord(
                 item_id=f"{item.item_id}-retry-{len(replayed_task_ids)}",
                 item_key=item.item_key,
+                channel=item.channel,
+                query_terms=list(item.query_terms or []),
+                max_items=item.max_items,
+                provider=item.provider,
+                language=item.language,
+                days_back=item.days_back,
                 project_key=item.project_key,
                 override_params=item.override_params,
                 task_id=new_task_id,
@@ -318,3 +474,36 @@ def validate_agent_batch_rule_set(payload: RuleSetValidateRequest) -> dict[str, 
             "unsupported_fields": [],
         }
     )
+
+
+@router.post("/nl-command")
+def run_agent_batch_nl_command(payload: AgentBatchNlCommandRequest) -> dict[str, Any]:
+    command = str(payload.command or "").strip()
+    if not command:
+        raise HTTPException(status_code=400, detail="command is required")
+    parsed = {
+        "channel": "search.market",
+        "query_terms": _extract_query_terms_from_command(command),
+        "max_items": _extract_max_items(command),
+        "provider": "auto",
+        "language": _detect_language(command),
+        "days_back": _extract_days_back(command),
+    }
+    submit_payload = AgentBatchSubmitRequest(
+        project_key=payload.project_key,
+        idempotency_key=payload.idempotency_key,
+        batch=AgentBatchSubmitBatch(
+            jobs=[
+                AgentBatchItemSubmit(
+                    channel=parsed["channel"],
+                    query_terms=parsed["query_terms"],
+                    max_items=parsed["max_items"],
+                    provider=parsed["provider"],
+                    language=parsed["language"],
+                    days_back=parsed["days_back"],
+                )
+            ]
+        ),
+    )
+    submit_resp = submit_agent_batch_job(submit_payload)
+    return ok({"command": command, "parsed": parsed, "submit": submit_resp.get("data")})

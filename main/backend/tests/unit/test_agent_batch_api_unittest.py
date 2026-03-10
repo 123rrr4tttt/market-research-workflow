@@ -27,6 +27,26 @@ class _DelayTaskStub:
         return SimpleNamespace(id=task_id)
 
 
+class _MarketDelayTaskStub:
+    def __init__(self):
+        self.calls: list[tuple[list[str], int, bool, str | None, None, int | None, str | None, str | None]] = []
+
+    def delay(
+        self,
+        query_terms: list[str],
+        max_items: int,
+        enable_extraction: bool,
+        project_key: str | None,
+        start_offset: None,
+        days_back: int | None,
+        language: str | None,
+        provider: str | None,
+    ):
+        task_id = f"mkt-{len(self.calls) + 1}"
+        self.calls.append((list(query_terms), max_items, enable_extraction, project_key, start_offset, days_back, language, provider))
+        return SimpleNamespace(id=task_id)
+
+
 class _AsyncResultStub:
     def __init__(self, *, status: str, ready: bool, successful: bool, failed: bool, result):
         self.status = status
@@ -149,6 +169,26 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(valid_with_warning["status"], "ok")
         self.assertTrue(valid_with_warning["data"]["valid"])
         self.assertEqual(valid_with_warning["data"]["warnings"][0]["code"], "sample_items_truncated")
+
+    def test_nl_command_dispatches_search_market_batch(self):
+        market_delay_stub = _MarketDelayTaskStub()
+        payload = agent_batch_api.AgentBatchNlCommandRequest(
+            command="采集最近14天美国在线彩票市场新闻和监管政策，前30条",
+            project_key="proj-nl",
+            idempotency_key="idem-nl-1",
+        )
+        with patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub):
+            resp = agent_batch_api.run_agent_batch_nl_command(payload)
+
+        self.assertEqual(resp["status"], "ok")
+        parsed = resp["data"]["parsed"]
+        self.assertEqual(parsed["channel"], "search.market")
+        self.assertEqual(parsed["days_back"], 14)
+        self.assertEqual(parsed["max_items"], 30)
+        self.assertEqual(parsed["language"], "zh")
+        self.assertEqual(resp["data"]["submit"]["accepted_count"], 1)
+        self.assertEqual(resp["data"]["submit"]["accepted_job_items"][0]["task_id"], "mkt-1")
+        self.assertEqual(len(market_delay_stub.calls), 1)
 
 
 if __name__ == "__main__":
