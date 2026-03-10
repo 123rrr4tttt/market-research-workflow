@@ -25,6 +25,7 @@ from .llm_report import router as llm_report_router
 from .workflow_graph import router as workflow_graph_router
 from .stats import router as stats_router
 from .writing import router as writing_router
+from .agent_batch import router as agent_batch_router
 
 
 router = APIRouter()
@@ -53,3 +54,4 @@ router.include_router(llm_report_router)
 router.include_router(workflow_graph_router)
 router.include_router(stats_router)
 router.include_router(writing_router)
+router.include_router(agent_batch_router)

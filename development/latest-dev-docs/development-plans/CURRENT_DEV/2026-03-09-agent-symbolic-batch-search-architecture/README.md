@@ -9,6 +9,7 @@
 - [02 Atomic Tasklist: Agent + Symbolic + Batch Search](./02_atomic-tasklist-agent-symbolic-batch-search-2026-03-09.md)
 - [03 Atomic Task Library Investigation Map (AT-00 ~ AT-09)](./03_atomic-task-library-investigation-map-2026-03-10.md)
 - [04 Parallel Execution Playbook (Spark/Codex)](./04_parallel-execution-playbook-spark-codex-2026-03-10.md)
+- [05 P1 Delivery Checklist and Parallel Status](./05_p1-delivery-checklist-2026-03-10.md)
 
 ## Key Route
 
@@ -36,3 +37,4 @@
 2. `02`（原子任务、门禁与验收，按 Phase 0 -> 1 -> 2 执行）
 3. `03`（每个 AT 独立爬库调查结果、IO 架构、约束与最小验证）
 4. `04`（并行序列、Spark/Codex 分流、波次门禁与落地标准）
+5. `05`（P1 完成验收清单、Spark/Codex 并行状态与 done criteria）

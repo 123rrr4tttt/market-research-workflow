@@ -22,6 +22,42 @@ _ADAPTERS = {
 
 _AUTO_BATCH_CHANNELS = {"search.market", "search.policy"}
 
+_SKILL_REGISTRY: dict[str, Any] = {}
+
+
+def _bootstrap_skill_registry() -> None:
+    if _SKILL_REGISTRY:
+        return
+    for channel, adapter in _ADAPTERS.items():
+        _SKILL_REGISTRY[channel] = adapter
+        _SKILL_REGISTRY[f"collect.{channel}"] = adapter
+        _SKILL_REGISTRY[f"skill.collect.{channel}"] = adapter
+
+
+def register_collect_skill(skill_id: str, adapter: Any) -> None:
+    sid = str(skill_id or "").strip()
+    if not sid:
+        raise ValueError("skill_id is required")
+    _SKILL_REGISTRY[sid] = adapter
+
+
+def list_collect_skills() -> list[str]:
+    _bootstrap_skill_registry()
+    return sorted(_SKILL_REGISTRY.keys())
+
+
+def _resolve_collect_adapter(channel: str):
+    _bootstrap_skill_registry()
+    candidates = [
+        str(channel or "").strip(),
+        f"collect.{str(channel or '').strip()}",
+        f"skill.collect.{str(channel or '').strip()}",
+    ]
+    for key in candidates:
+        if key and key in _SKILL_REGISTRY:
+            return _SKILL_REGISTRY[key]
+    return None
+
 # Environment-driven workflow boundary switch.
 # - INGEST_WORKFLOW_ADAPTER: off|legacy -> legacy path (default)
 # - INGEST_WORKFLOW_ADAPTER: on|workflow|canary -> use WorkflowRoutingAdapter boundary
@@ -45,7 +81,7 @@ class WorkflowRoutingAdapter:
     """
 
     def run(self, request: CollectRequest) -> CollectResult:
-        adapter = _ADAPTERS.get(request.channel)
+        adapter = _resolve_collect_adapter(request.channel)
         if adapter is None:
             raise ValueError(f"unsupported collect channel: {request.channel}")
         # Delegate to existing channel adapter. Keep result types and display_meta.
@@ -188,7 +224,7 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
 
 
 def _run_collect_no_batch(request: CollectRequest) -> CollectResult:
-    adapter = _ADAPTERS.get(request.channel)
+    adapter = _resolve_collect_adapter(request.channel)
     if adapter is None:
         raise ValueError(f"unsupported collect channel: {request.channel}")
     return adapter.run(request)

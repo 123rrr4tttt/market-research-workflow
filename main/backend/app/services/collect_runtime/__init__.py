@@ -4,6 +4,8 @@ from .runtime import (
     collect_request_from_policy_api,
     collect_request_from_source_library_api,
     collect_request_from_url_pool,
+    list_collect_skills,
+    register_collect_skill,
     run_collect,
     run_source_library_item_compat,
 )
@@ -19,6 +21,8 @@ __all__ = [
     "collect_request_from_policy_api",
     "collect_request_from_source_library_api",
     "collect_request_from_url_pool",
+    "list_collect_skills",
+    "register_collect_skill",
     "run_collect",
     "run_source_library_item_compat",
 ]

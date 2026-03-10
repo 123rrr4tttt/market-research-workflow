@@ -9,6 +9,7 @@
 - [2026-03-09 Atomic Tasklist: Agent + Symbolic + Batch Search](./2026-03-09-agent-symbolic-batch-search-architecture/02_atomic-tasklist-agent-symbolic-batch-search-2026-03-09.md)
 - [2026-03-10 Atomic Task Library Investigation Map (AT-00 ~ AT-09)](./2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md)
 - [2026-03-10 Parallel Execution Playbook (Spark/Codex)](./2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md)
+- [2026-03-10 P1 Delivery Checklist](./2026-03-09-agent-symbolic-batch-search-architecture/05_p1-delivery-checklist-2026-03-10.md)
 - [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
 - [2026-03-07 Atomic Task List: Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
 - [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)

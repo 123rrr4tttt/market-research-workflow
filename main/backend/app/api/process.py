@@ -573,6 +573,21 @@ def _resolve_db_job(task_id: str) -> EtlJobRun | None:
         return session.get(EtlJobRun, job_id)
 
 
+def _extract_source_library_retry_payload(job: EtlJobRun) -> tuple[str, str | None, dict[str, Any]]:
+    params = dict(job.params or {})
+    item_key = str(params.get("item_key") or "").strip()
+    if not item_key:
+        raise HTTPException(
+            status_code=400,
+            detail=f"db job {job.id} missing retry param: item_key",
+        )
+    project_key = str(params.get("project_key") or "").strip() or None
+    override_params = params.get("override_params")
+    if not isinstance(override_params, dict):
+        override_params = {}
+    return item_key, project_key, dict(override_params)
+
+
 def _db_job_to_task_info(task_id: str, job: EtlJobRun) -> dict[str, Any]:
     status_raw = str(job.status or "running").strip().lower()
     ready = status_raw in {"completed", "failed", "cancelled", "canceled"}
@@ -682,6 +697,57 @@ def get_task_info(task_id: str) -> dict[str, Any]:
     except Exception as e:
         logger.exception(f"获取任务信息失败: {task_id}")
         raise HTTPException(status_code=500, detail=f"获取任务信息失败: {str(e)}")
+
+
+@router.post("/{task_id}/retry")
+def retry_task(task_id: str) -> dict[str, Any]:
+    """重试指定任务（优先支持 db-job 的 source_library_run）。"""
+    try:
+        db_job_id = _parse_db_job_id(task_id)
+        if db_job_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"仅支持 db-job 任务重试，示例: {_DB_JOB_PREFIX}<id>",
+            )
+
+        db_job = _resolve_db_job(task_id)
+        if db_job is None:
+            raise HTTPException(status_code=404, detail=f"未找到任务: {task_id}")
+
+        job_type = str(db_job.job_type or "").strip()
+        if job_type != "source_library_run":
+            raise HTTPException(
+                status_code=400,
+                detail=f"当前仅支持重试 job_type=source_library_run，实际为: {job_type or '-'}",
+            )
+
+        item_key, project_key, override_params = _extract_source_library_retry_payload(db_job)
+        from ..services.tasks import task_run_source_library_item
+
+        task = task_run_source_library_item.delay(
+            item_key=item_key,
+            project_key=project_key,
+            override_params=override_params,
+        )
+        return ok(
+            {
+                "success": True,
+                "message": f"任务 {task_id} 已提交重试",
+                "task_id": task_id,
+                "source": "db",
+                "job_type": job_type,
+                "retry_task_id": task.id,
+                "params": {
+                    "item_key": item_key,
+                    "project_key": project_key,
+                },
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"重试任务失败: {task_id}")
+        raise HTTPException(status_code=500, detail=f"重试任务失败: {str(e)}")
 
 
 

@@ -10,6 +10,7 @@ ALLOWED_COLLECT_FLOWS = {FLOW_COLLECT, FLOW_SOURCE_COLLECT}
 
 @dataclass(slots=True)
 class CollectRequest:
+    contract_version: str = "collect.request.v1"
     flow: str = FLOW_COLLECT
     channel: str = ""
     project_key: str | None = None
