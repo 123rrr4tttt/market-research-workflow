@@ -299,7 +299,7 @@
 ```
 
 ### 3.9 社交媒体情感数据摄取
-**POST** `/api/v1/ingest/social/sentiment`
+**POST** `/api/v1/ingest/data-api`
 
 收集社交媒体情感数据。
 

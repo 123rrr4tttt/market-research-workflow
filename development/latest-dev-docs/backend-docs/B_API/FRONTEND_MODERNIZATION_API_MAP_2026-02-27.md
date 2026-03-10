@@ -40,7 +40,7 @@
 - `POST /api/v1/ingest/policy`
 - `POST /api/v1/ingest/policy/regulation`
 - `POST /api/v1/ingest/market`
-- `POST /api/v1/ingest/social/sentiment`
+- `POST /api/v1/ingest/data-api`
 - `POST /api/v1/ingest/commodity/metrics`
 - `POST /api/v1/ingest/ecom/prices`
 - `GET /api/v1/ingest/history`

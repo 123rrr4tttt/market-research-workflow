@@ -13,11 +13,11 @@
 - 任务管理前端已优先读取 `display_meta`，旧任务名分支作为兜底
 
 ## 尚未完成（本说明重点）
-- `main/backend/app/services/ingest/social.py` 的社交采集/舆情采集执行链路 **尚未迁移** 到 `collect_runtime`
+- `main/backend/app/services/ingest/social.py` 的数据API采集/数据API采集执行链路 **尚未迁移** 到 `collect_runtime`
 - 当前 `social.py` 仍保留原执行框架（仅做了与 `display_meta` 相关的兼容增强时，不代表已完成统一通道改造）
 
 ## 为什么暂缓 `social.py`
-- 社交采集包含平台差异（如 subreddit/平台发现、平台参数、联想词/社交关键词生成）更复杂
+- 数据API采集包含平台差异（如 subreddit/平台发现、平台参数、联想词/社交关键词生成）更复杂
 - 需要在适配器层保留特化逻辑，但不能破坏主干统一协议
 - 若直接“套骨架”但不先抽清平台差异，容易造成协议假统一、实际仍分叉
 
@@ -32,7 +32,7 @@
   - 任务生命周期记录（开始/完成/失败）
 
 ## `social.py` 迁移完成的验收标志（后续）
-- `social/sentiment` 等社交采集入口通过 `collect_runtime` 执行
+- `data-api` 等数据API采集入口通过 `collect_runtime` 执行
 - `EtlJobRun.params.display_meta.channel` 对社交任务稳定输出（如 `social.sentiment`）
 - `process` 页面无需按任务名特判即可正确展示社交任务摘要与结果统计
 

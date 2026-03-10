@@ -66,7 +66,7 @@
 - Coverage:
   - Route inventory assertions (OpenAPI contains core ingest paths)
   - Strict mode (`project_key_enforcement_mode=require`) missing-key failures for:
-    - `policy`, `market`, `source-library/run`, `social/sentiment`, `graph/structured-search`,
+    - `policy`, `market`, `source-library/run`, `data-api`, `graph/structured-search`,
       `policy/regulation`, `commodity/metrics`, `ecom/prices`
   - Explicit key success cases for the same set, with async mode and task dispatch mocks
 - Outcome:

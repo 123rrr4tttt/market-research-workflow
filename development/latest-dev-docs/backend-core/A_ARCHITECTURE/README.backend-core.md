@@ -25,7 +25,7 @@ LLM：`OPENAI_API_KEY`、`AZURE_*`、`OLLAMA_BASE_URL`（提取与发现依赖�
 
 ## 主要接口
 
-- `POST /api/v1/ingest/policy`、`/market`、`/news/calottery`、`/social/reddit`、`/social/sentiment`、`/reports/weekly`、`/commodity/metrics`、`/ecom/prices` 等
+- `POST /api/v1/ingest/policy`、`/market`、`/news/calottery`、`/social/reddit`、`/data-api`、`/reports/weekly`、`/commodity/metrics`、`/ecom/prices` 等
 - `POST /api/v1/discovery/search`、`/smart`、`/deep`、`/generate-keywords`
 
 均支持 `async_mode=true` 触发 Celery 任务。完整接口见 `API接口文档.md` 或 `http://localhost:8000/docs`。

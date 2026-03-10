@@ -5,7 +5,7 @@
 > 合并校对清单：见 `MERGED_PLAN_REVIEW.md`（含保留/合并/疑似过时与链接校验结论）
 
 本仓库实现一体化信息工作流：多来源采集 -> 结构化处理 -> 索引检索 -> 可视化与运维管理。  
-适用于政策、市场、新闻、社媒等主题的数据采集与分析。
+适用于政策、市场、新闻、数据API等主题的数据采集与分析。
 
 ## 文档分层
 
@@ -205,7 +205,7 @@ VITE_API_PROXY_TARGET=http://localhost:8000 npm run dev
 
 `main/backend/app/services` 关键模块：
 
-- `ingest/`：政策、市场、新闻、社媒等采集
+- `ingest/`：政策、市场、新闻、数据API等采集
 - `search/`：Web 检索、ES 检索、混合检索
 - `resource_pool/`：URL 提取、站点入口发现、候选写回
 - `source_library/`：来源条目解析、路由、执行、同步
@@ -376,7 +376,7 @@ cd main/ops
 - `resource_pool` 路由存在下划线/连字符兼容写法，建议逐步统一。
 - 部分接口仍处于响应风格过渡期（Envelope 统一尚未完全收口）。
 - 异步任务依赖 Celery/Redis，排查问题需结合 worker 日志。
-- 外部搜索/社媒/LLM 供应商能力受 API Key 与配额影响。
+- 外部搜索/数据API/LLM 供应商能力受 API Key 与配额影响。
 
 ## 15. 协作规范
 

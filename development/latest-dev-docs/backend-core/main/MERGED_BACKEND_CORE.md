@@ -111,7 +111,7 @@ curl http://localhost:8000/api/v1/health/deep
 - `POST /ingest/social/reddit`
 - `POST /ingest/reports/weekly`
 - `POST /ingest/reports/monthly`
-- `POST /ingest/social/sentiment`
+- `POST /ingest/data-api`
 
 发现搜索：
 - `POST /discovery/search`
