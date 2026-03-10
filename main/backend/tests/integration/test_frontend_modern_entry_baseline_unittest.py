@@ -54,7 +54,6 @@ class FrontendModernEntryBaselineTestCase(unittest.TestCase):
             "/api/v1/discovery/generate-keywords",
             "/api/v1/ingest/source-library/sync",
             "/api/v1/ingest/source-library/run",
-            "/api/v1/ingest/policy",
             "/api/v1/ingest/policy/regulation",
             "/api/v1/ingest/market",
             "/api/v1/ingest/social/sentiment",
@@ -83,7 +82,6 @@ class FrontendModernEntryBaselineTestCase(unittest.TestCase):
                 "/api/v1/ingest/source-library/run",
                 {"item_key": "demo-item", "handler_key": None, "project_key": "demo_proj", "async_mode": True, "override_params": {}},
             ),
-            ("/api/v1/ingest/policy", {"state": "CA", "source_hint": None, "project_key": "demo_proj", "async_mode": True}),
             (
                 "/api/v1/ingest/policy/regulation",
                 {"query_terms": ["regulation"], "keywords": ["regulation"], "max_items": 1, "project_key": "demo_proj", "async_mode": True},
@@ -161,7 +159,6 @@ class FrontendModernEntryBaselineTestCase(unittest.TestCase):
     def test_frontend_modern_ingest_entries_reject_missing_project_key_in_require_mode(self):
         ingest_only_cases = [
             ("/api/v1/ingest/source-library/run", {"item_key": "demo-item", "async_mode": True, "override_params": {}}),
-            ("/api/v1/ingest/policy", {"state": "CA", "async_mode": True}),
             ("/api/v1/ingest/policy/regulation", {"query_terms": ["regulation"], "async_mode": True}),
             ("/api/v1/ingest/market", {"query_terms": ["market"], "async_mode": True}),
             ("/api/v1/ingest/social/sentiment", {"query_terms": ["sentiment"], "async_mode": True}),

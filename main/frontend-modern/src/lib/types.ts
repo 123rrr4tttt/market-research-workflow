@@ -346,7 +346,6 @@ export type IngestFormState = {
   ecomLimit: number
   sourceItemKey: string
   sourceHandlerKey: string
-  policyState: string
   singleUrl: string
   singleUrlStrictMode: boolean
   singleUrlSearchExpand: boolean

@@ -159,35 +159,7 @@
 
 ## 3. 数据摄取接口
 
-### 3.1 政策文档摄取
-**POST** `/api/v1/ingest/policy`
-
-摄取指定州的政策文档。
-
-**请求体**:
-```json
-{
-  "state": "CA",
-  "source_hint": "legiscan",
-  "async_mode": false
-}
-```
-
-**参数说明**:
-- `state` (string, 必需): 州代码，如 "CA"
-- `source_hint` (string, 可选): 数据源标识
-- `async_mode` (bool): 是否异步执行，默认 false
-
-**响应示例**:
-```json
-{
-  "state": "CA",
-  "ingested": 15,
-  "sources": ["legiscan", "official_site"]
-}
-```
-
-### 3.2 市场数据摄取
+### 3.1 市场数据摄取
 **POST** `/api/v1/ingest/market`
 
 摄取市场数据。

@@ -10,7 +10,6 @@ from ..ingest_config import get_config
 from ..ingest.market_web import collect_market_info
 from ..ingest.news import collect_google_news, collect_reddit_discussions
 from ..ingest.social import collect_user_social_sentiment
-from ..ingest.policy import ingest_policy_documents
 from .context import bind_project
 
 logger = logging.getLogger(__name__)
@@ -33,10 +32,6 @@ _WORKFLOW_HANDLERS: dict[str, WorkflowHandler] = {
         enable_extraction=bool(params.get("enable_extraction", True)),
         enable_subreddit_discovery=bool(params.get("enable_subreddit_discovery", True)),
         base_subreddits=[str(x) for x in (params.get("base_subreddits") or ["robotics"])],
-    ),
-    "ingest.policy": lambda params: ingest_policy_documents(
-        state=str(params.get("state") or ""),
-        source_hint=params.get("source_hint"),
     ),
     "ingest.market": lambda params: collect_market_info(
         keywords=[str(x) for x in (params.get("keywords") or params.get("query_terms") or [])],

@@ -18,13 +18,4 @@ WORKFLOW_MAPPING: dict[str, WorkflowDefinition] = {
             ),
         ]
     ),
-    "collect_lottery_policy": WorkflowDefinition(
-        steps=[
-            WorkflowStep(
-                name="state-policy",
-                handler="ingest.policy",
-                params={"state": "CA"},
-            )
-        ]
-    ),
 }

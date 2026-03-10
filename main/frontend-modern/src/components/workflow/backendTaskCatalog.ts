@@ -27,18 +27,6 @@ const COMMON_OUTPUT: BackendTaskField[] = [
 
 export const BACKEND_TASK_CATALOG: BackendTaskSpec[] = [
   {
-    taskKey: 'task_ingest_policy',
-    label: 'Policy Ingest',
-    moduleGroup: 'ingest',
-    description: 'Ingest policy documents by state.',
-    suggestedNodeType: 'vector_search',
-    inputs: [
-      { name: 'state', valueType: 'string', required: true },
-      { name: 'project_key', valueType: 'string', required: false },
-    ],
-    outputs: COMMON_OUTPUT,
-  },
-  {
     taskKey: 'task_ingest_market',
     label: 'Market Ingest',
     moduleGroup: 'ingest',

@@ -136,15 +136,6 @@ def _load_db_job_tracking(job_id: int) -> dict[str, Any]:
 
 
 @celery_app.task
-def task_ingest_policy(state: str, project_key: str | None = None) -> dict:
-    from .ingest.policy import ingest_policy_documents
-
-    ctx = bind_project(project_key) if project_key else nullcontext()
-    with ctx:
-        return ingest_policy_documents(state=state)
-
-
-@celery_app.task
 def task_select_prompt_time_windows(
     project_key: str | None = None,
     prompt_group_ids: list[str] | None = None,
@@ -1054,4 +1045,3 @@ def task_orchestrate_crawler_rollback(
         if job_id is not None:
             fail_job(int(job_id), str(exc), external_provider="scrapy")
         raise
-

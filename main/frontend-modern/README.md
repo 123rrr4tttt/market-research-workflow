@@ -74,7 +74,6 @@ docker compose -f main/ops/docker-compose.yml --profile modern-ui up -d frontend
 - `GET /api/v1/projects`
 - `POST /api/v1/projects/{project_key}/activate`
 - `POST /api/v1/discovery/generate-keywords`
-- `POST /api/v1/ingest/policy`
 - `POST /api/v1/ingest/policy/regulation`
 - `POST /api/v1/ingest/market`
 - `POST /api/v1/ingest/social/sentiment`

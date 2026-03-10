@@ -65,8 +65,6 @@ def _infer_node_module_from_handler(handler: str) -> str:
     handler = str(handler or "").strip()
     if handler == "ingest.market":
         return "search_market"
-    if handler == "ingest.policy":
-        return "search_policy"
     if handler == "ingest.social_sentiment":
         return "search_social"
     if handler == "ingest.google_news":

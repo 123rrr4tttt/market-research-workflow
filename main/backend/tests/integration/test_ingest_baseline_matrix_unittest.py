@@ -51,7 +51,6 @@ class IngestBaselineMatrixTestCase(unittest.TestCase):
         schema = self.client.get("/openapi.json").json()
         paths = schema.get("paths", {})
         expected = [
-            "/api/v1/ingest/policy",
             "/api/v1/ingest/market",
             "/api/v1/ingest/source-library/run",
             "/api/v1/ingest/source-library/sync",
@@ -66,7 +65,6 @@ class IngestBaselineMatrixTestCase(unittest.TestCase):
 
     def test_core_ingest_modes_require_project_key_in_require_mode(self):
         cases = [
-            ("/api/v1/ingest/policy", {"state": "CA", "async_mode": True}),
             ("/api/v1/ingest/market", {"query_terms": ["acme"], "async_mode": True}),
             ("/api/v1/ingest/source-library/run", {"item_key": "demo-item", "async_mode": True}),
             ("/api/v1/ingest/social/sentiment", {"query_terms": ["acme"], "async_mode": True}),
@@ -93,7 +91,6 @@ class IngestBaselineMatrixTestCase(unittest.TestCase):
     def test_core_ingest_modes_accept_explicit_project_key(self):
         headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "baseline-matrix-1"}
         cases = [
-            ("/api/v1/ingest/policy", {"state": "CA", "project_key": "demo_proj", "async_mode": True}),
             ("/api/v1/ingest/market", {"query_terms": ["acme"], "project_key": "demo_proj", "async_mode": True}),
             (
                 "/api/v1/ingest/source-library/run",

@@ -129,13 +129,6 @@ def _expand_query_terms_with_topic_focus(
         return query_terms, {}
 
 
-class PolicyIngestRequest(BaseModel):
-    state: str = Field(..., description="州，例如 CA")
-    source_hint: str | None = Field(default=None, description="可选源标识")
-    async_mode: bool = Field(default=False, description="是否走 Celery 异步任务")
-    project_key: str | None = Field(default=None, description="项目标识")
-
-
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 
@@ -181,26 +174,6 @@ def post_ingest_config_endpoint(body: IngestConfigUpsertPayload):
             payload=body.payload,
         )
         return success_response(data)
-    except Exception:
-        raise
-
-
-@router.post("/policy")
-def ingest_policy(payload: PolicyIngestRequest):
-    project_key = _require_project_key(payload.project_key)
-    if payload.async_mode:
-        task = _tasks_module().task_ingest_policy.delay(payload.state, project_key)
-        return success_response(
-            task_result_response(
-                task_id=task.id,
-                async_mode=True,
-                params={"state": payload.state},
-            )
-        )
-    try:
-        with bind_project(project_key):
-            from ..services.ingest.policy import ingest_policy_documents
-            return success_response(ingest_policy_documents(payload.state, payload.source_hint))
     except Exception:
         raise
 

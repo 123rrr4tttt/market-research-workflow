@@ -4,7 +4,6 @@ import {
   ingestCommodity,
   ingestEcom,
   ingestMarket,
-  ingestPolicy,
   ingestPolicyRegulation,
   ingestSingleUrl,
   ingestSocial,
@@ -117,8 +116,6 @@ export function useIngestActions(projectKey: string) {
     runAction,
     syncSourceLibrary: () => runAction('同步来源库', syncSourceLibrary),
     runSourceLibrary: (payload: SourceLibraryRunPayload) => runAction('运行来源库', () => runSourceLibrary(payload)),
-    ingestPolicy: (payload: { state: string; source_hint?: string | null; async_mode: boolean }) =>
-      runAction('政策采集', () => ingestPolicy(payload)),
     ingestPolicyRegulation: (payload: Record<string, unknown>) => runAction('政策法规采集', () => ingestPolicyRegulation(payload)),
     ingestMarket: (payload: Record<string, unknown>) => runAction('市场采集', () => ingestMarket(payload)),
     ingestSingleUrl: (payload: Parameters<typeof ingestSingleUrl>[0]) => runAction('单 URL 采集', () => ingestSingleUrl(payload)),

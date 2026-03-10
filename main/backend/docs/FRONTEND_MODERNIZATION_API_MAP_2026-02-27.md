@@ -37,7 +37,6 @@
 
 ### 3.2 采集工作台
 
-- `POST /api/v1/ingest/policy`
 - `POST /api/v1/ingest/policy/regulation`
 - `POST /api/v1/ingest/market`
 - `POST /api/v1/ingest/social/sentiment`

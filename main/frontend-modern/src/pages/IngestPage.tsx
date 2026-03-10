@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
-  Bot,
   Boxes,
   Cable,
   Database,
@@ -43,7 +42,6 @@ const defaultForm: IngestFormState = {
   ecomLimit: 100,
   sourceItemKey: '',
   sourceHandlerKey: '',
-  policyState: '',
   singleUrl: '',
   singleUrlStrictMode: false,
   singleUrlSearchExpand: true,
@@ -146,7 +144,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     runAction,
     syncSourceLibrary,
     runSourceLibrary,
-    ingestPolicy,
     ingestPolicyRegulation,
     ingestMarket,
     ingestSingleUrl,
@@ -266,7 +263,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     const item = sourceItemList.find((it) => it.item_key === itemKey) || null
     const params = getSourceParams(item)
 
-    const preferredState = String(params.state || '').trim()
     const preferredPlatform = listFromUnknown(params.platforms || params.platform)[0] || 'reddit'
     const preferredSubreddits = listFromUnknown(params.base_subreddits || params.subreddits)
     const keywords = [
@@ -281,7 +277,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
       ...prev,
       sourceItemKey: itemKey,
       sourceHandlerKey: '',
-      policyState: preferredState || prev.policyState,
       socialPlatform: preferredPlatform,
       baseSubreddits: preferredSubreddits.length ? preferredSubreddits.join(', ') : prev.baseSubreddits,
       queryTerms: prev.queryTerms.trim() ? prev.queryTerms : Array.from(new Set(keywords)).join(', '),
@@ -715,10 +710,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
 
         <div className="form-grid cols-3">
           <label>
-            <span>政策 State</span>
-            <input value={form.policyState} onChange={(e) => setForm((p) => ({ ...p, policyState: e.target.value }))} placeholder="如 CA" />
-          </label>
-          <label>
             <span>商品天数</span>
             <input
               type="number"
@@ -741,12 +732,6 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
         </div>
 
         <div className="action-grid">
-          <button
-            disabled={actionPending || !form.policyState.trim()}
-            onClick={() => void ingestPolicy({ state: form.policyState.trim(), async_mode: form.asyncMode, source_hint: null })}
-          >
-            <Bot size={16} />政策采集
-          </button>
           <button disabled={actionPending} onClick={() => void ingestPolicyRegulation(buildCommonPayload())}>
             <Radar size={16} />政策法规
           </button>

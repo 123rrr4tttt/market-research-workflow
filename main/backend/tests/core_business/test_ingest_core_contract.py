@@ -23,7 +23,6 @@ except Exception as exc:  # noqa: BLE001
 
 class _TrackedTasks:
     def __init__(self) -> None:
-        self.task_ingest_policy = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="policy-task-1")))
         self.task_ingest_market = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-1")))
         self.task_ingest_single_url = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1")))
         self.task_run_source_library_item = SimpleNamespace(
@@ -84,30 +83,6 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertIn("mutually exclusive", conflict_resp.text)
 
         tasks.task_run_source_library_item.delay.assert_not_called()
-
-    def test_policy_async_returns_task_contract_shape(self):
-        tasks = _TrackedTasks()
-        payload = {
-            "state": "CA",
-            "project_key": "demo_proj",
-            "async_mode": True,
-        }
-
-        with patch("app.api.ingest._tasks_module", return_value=tasks):
-            resp = self.client.post("/api/v1/ingest/policy", json=payload)
-
-        self.assertEqual(resp.status_code, 200, msg=resp.text)
-        body = resp.json()
-        self.assertEqual(body.get("status"), "ok")
-
-        data = _response_payload(body)
-        self.assertIsInstance(data, dict)
-        self.assertEqual(data.get("task_id"), "policy-task-1")
-        self.assertEqual(data.get("status"), "queued")
-        self.assertTrue(data.get("async"))
-        self.assertEqual(data.get("params"), {"state": "CA"})
-
-        tasks.task_ingest_policy.delay.assert_called_once_with("CA", "demo_proj")
 
     def test_market_async_normalizes_params_and_returns_task_contract_shape(self):
         tasks = _TrackedTasks()

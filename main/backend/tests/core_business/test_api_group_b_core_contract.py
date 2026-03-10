@@ -92,7 +92,6 @@ class _FakeSessionLocalOperationalError:
 
 class _TrackedIngestTasks:
     def __init__(self):
-        self.task_ingest_policy = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="policy-task-2")))
         self.task_ingest_market = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-2")))
         self.task_run_source_library_item = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="source-library-task-2")))
 
@@ -246,27 +245,6 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "error")
         self.assertEqual(body["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
-
-    def test_ingest_policy_async_success_contract(self):
-        tasks = _TrackedIngestTasks()
-        payload = {
-            "state": "CA",
-            "project_key": "demo_proj",
-            "async_mode": True,
-        }
-
-        with patch("app.api.ingest._tasks_module", return_value=tasks):
-            resp = self.client.post("/api/v1/ingest/policy", json=payload, headers=self.headers)
-
-        self.assertEqual(resp.status_code, 200, msg=resp.text)
-        body = resp.json()
-        self._assert_envelope(body)
-        self.assertEqual(body["status"], "ok")
-        self.assertEqual(body["data"]["task_id"], "policy-task-2")
-        self.assertEqual(body["data"]["status"], "queued")
-        self.assertTrue(body["data"]["async"])
-        self.assertEqual(body["data"]["params"], {"state": "CA"})
-        tasks.task_ingest_policy.delay.assert_called_once_with("CA", "demo_proj")
 
     def test_ingest_market_rejects_empty_query_terms(self):
         tasks = _TrackedIngestTasks()

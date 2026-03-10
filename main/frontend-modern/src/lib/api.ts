@@ -275,14 +275,6 @@ export async function generateKeywords(payload: {
   return post<{ search_keywords?: string[]; keywords?: string[] }>(endpoints.discovery.generateKeywords, payload)
 }
 
-export async function ingestPolicy(payload: {
-  state: string
-  source_hint?: string | null
-  async_mode: boolean
-}) {
-  return post<Record<string, unknown>>(endpoints.ingest.policy, payload)
-}
-
 export async function ingestPolicyRegulation(payload: Record<string, unknown>) {
   return post<Record<string, unknown>>(endpoints.ingest.policyRegulation, payload)
 }
