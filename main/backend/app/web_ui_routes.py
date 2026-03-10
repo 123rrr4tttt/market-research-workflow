@@ -215,7 +215,7 @@ def register_ui_routes(
 
     @app.get("/policy-tracking.html", response_class=HTMLResponse)
     def policy_tracking_page(request: Request):
-        """政策追踪页面"""
+        """政策可视化页面"""
         return _redirect_or_archive(
             request=request,
             route_target="policy-tracking.html",

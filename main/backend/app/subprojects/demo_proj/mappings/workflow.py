@@ -8,7 +8,7 @@ WORKFLOW_MAPPING: dict[str, WorkflowDefinition] = {
         steps=[
             WorkflowStep(
                 name="reddit-structured-scan",
-                handler="ingest.social_sentiment",
+                handler="ingest.data_api",
                 params={
                     "keywords": ["embodied ai", "humanoid robot", "robotics"],
                     "platforms": ["reddit"],

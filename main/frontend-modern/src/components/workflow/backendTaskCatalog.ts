@@ -64,10 +64,10 @@ export const BACKEND_TASK_CATALOG: BackendTaskSpec[] = [
     ],
   },
   {
-    taskKey: 'task_collect_social_sentiment',
-    label: 'Social Sentiment Collect',
+    taskKey: 'task_collect_data_api',
+    label: 'Data API Collect',
     moduleGroup: 'collect',
-    description: 'Collect social sentiment by keywords.',
+    description: 'Collect data from external APIs by keywords.',
     suggestedNodeType: 'vector_search',
     inputs: [
       { name: 'keywords', valueType: 'array', required: true },
@@ -82,9 +82,9 @@ export const BACKEND_TASK_CATALOG: BackendTaskSpec[] = [
   },
   {
     taskKey: 'task_collect_policy_regulation',
-    label: 'Policy Regulation Collect',
+    label: 'Policy Regulation Import',
     moduleGroup: 'collect',
-    description: 'Collect policy/regulation records by keywords.',
+    description: 'Import policy/regulation records by keywords.',
     suggestedNodeType: 'vector_search',
     inputs: [
       { name: 'keywords', valueType: 'array', required: true },

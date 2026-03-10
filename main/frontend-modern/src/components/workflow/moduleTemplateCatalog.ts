@@ -106,12 +106,12 @@ export const WORKFLOW_MODULE_TEMPLATES: WorkflowModuleTemplate[] = [
   },
   {
     key: 'ingest-social-posts',
-    label: 'Ingest Social Posts',
+    label: 'Ingest Data API',
     moduleType: 'ingest',
     nodeType: 'vector_search',
-    description: 'Social/public-opinion ingestion entry.',
+    description: 'Data-API ingestion entry.',
     data: {
-      label: 'Social Ingest',
+      label: 'Data API Ingest',
       node_type: 'vector_search',
       role: 'ingest',
       source: 'social_posts',
@@ -362,8 +362,8 @@ export const WORKFLOW_LINK_PRESETS: WorkflowLinkPreset[] = [
   },
   {
     key: 'collect-policy-basic',
-    label: '采集链: 政策信息采集',
-    description: '政策采集 -> 深检索 -> 结构抽取 -> JSON 聚合 -> 输出',
+    label: '采集链: 法规来源入库',
+    description: '法规来源 -> 深检索 -> 结构抽取 -> JSON 聚合 -> 输出',
     nodes: [
       { id: 'c-policy-ingest', templateKey: 'ingest-policy-docs', position: { x: 80, y: 220 } },
       { id: 'c-policy-vector', templateKey: 'vector-retrieve-deep', position: { x: 320, y: 220 } },
@@ -380,8 +380,8 @@ export const WORKFLOW_LINK_PRESETS: WorkflowLinkPreset[] = [
   },
   {
     key: 'collect-social-basic',
-    label: '采集链: 社媒舆情采集',
-    description: '社媒采集 -> 快检索 -> 风险评分 -> 输出',
+    label: '采集链: 数据 API 采集',
+    description: '数据 API 采集 -> 快检索 -> 风险评分 -> 输出',
     nodes: [
       { id: 'c-social-ingest', templateKey: 'ingest-social-posts', position: { x: 80, y: 320 } },
       { id: 'c-social-vector', templateKey: 'vector-retrieve-fast', position: { x: 320, y: 320 } },
@@ -413,7 +413,7 @@ export const WORKFLOW_LINK_PRESETS: WorkflowLinkPreset[] = [
   {
     key: 'collect-multi-source-fusion',
     label: '采集链: 多源信息汇聚',
-    description: '市场+政策+社媒采集 -> 聚合 -> 输出',
+    description: '市场 + 法规来源 + 数据 API 入库 -> 聚合 -> 输出',
     nodes: [
       { id: 'c-ms-market', templateKey: 'ingest-market-news', position: { x: 80, y: 560 } },
       { id: 'c-ms-policy', templateKey: 'ingest-policy-docs', position: { x: 80, y: 700 } },
@@ -448,8 +448,8 @@ export const WORKFLOW_LINK_PRESETS: WorkflowLinkPreset[] = [
   },
   {
     key: 'biz-social-sentiment',
-    label: '业务链: 舆情监测',
-    description: '社媒采集 -> 快检索 -> 风险评分 -> 摘要 -> 输出',
+    label: '业务链: 数据 API 监测',
+    description: '数据 API 采集 -> 快检索 -> 风险评分 -> 摘要 -> 输出',
     nodes: [
       { id: 'social-ingest', templateKey: 'ingest-social-posts', position: { x: 80, y: 220 } },
       { id: 'social-vector', templateKey: 'vector-retrieve-fast', position: { x: 320, y: 220 } },
@@ -466,8 +466,8 @@ export const WORKFLOW_LINK_PRESETS: WorkflowLinkPreset[] = [
   },
   {
     key: 'biz-policy-watch',
-    label: '业务链: 政策追踪',
-    description: '政策采集 -> 深检索 -> 结构抽取 -> JSON 聚合 -> 输出',
+    label: '业务链: 法规可视化',
+    description: '法规来源 -> 深检索 -> 结构抽取 -> JSON 聚合 -> 输出',
     nodes: [
       { id: 'policy-ingest', templateKey: 'ingest-policy-docs', position: { x: 80, y: 300 } },
       { id: 'policy-vector', templateKey: 'vector-retrieve-deep', position: { x: 320, y: 300 } },
@@ -501,7 +501,7 @@ export const WORKFLOW_LINK_PRESETS: WorkflowLinkPreset[] = [
   {
     key: 'biz-competitor-intel',
     label: '业务链: 竞品情报',
-    description: '市场采集 + 社媒采集 -> 合并 -> 分析 -> 输出',
+    description: '市场采集 + 数据 API 采集 -> 合并 -> 分析 -> 输出',
     nodes: [
       { id: 'comp-market-ingest', templateKey: 'ingest-market-news', position: { x: 80, y: 480 } },
       { id: 'comp-social-ingest', templateKey: 'ingest-social-posts', position: { x: 80, y: 620 } },
@@ -519,7 +519,7 @@ export const WORKFLOW_LINK_PRESETS: WorkflowLinkPreset[] = [
   {
     key: 'biz-weekly-report',
     label: '业务链: 周报自动生成',
-    description: '市场/舆情/政策采集 -> 聚合 -> 周报生成 -> 输出',
+    description: '市场/数据 API/法规来源 -> 聚合 -> 周报生成 -> 输出',
     nodes: [
       { id: 'wk-market', templateKey: 'ingest-market-news', position: { x: 80, y: 760 } },
       { id: 'wk-social', templateKey: 'ingest-social-posts', position: { x: 80, y: 900 } },
@@ -539,7 +539,7 @@ export const WORKFLOW_LINK_PRESETS: WorkflowLinkPreset[] = [
   {
     key: 'biz-risk-alert',
     label: '业务链: 风险告警',
-    description: '政策采集 + 舆情采集 -> 风险评分 -> 输出',
+    description: '法规来源 + 数据 API -> 风险评分 -> 输出',
     nodes: [
       { id: 'risk-policy', templateKey: 'ingest-policy-docs', position: { x: 80, y: 1160 } },
       { id: 'risk-social', templateKey: 'ingest-social-posts', position: { x: 80, y: 1300 } },

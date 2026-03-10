@@ -78,7 +78,7 @@ def infer_display_meta_from_celery_task(name: str, args: list[Any], kwargs: dict
             limit=k.get("limit") or (args[1] if len(args) > 1 else None),
             provider=k.get("provider") or (args[7] if len(args) > 7 else None),
             language=k.get("language") or (args[6] if len(args) > 6 else None),
-            source_context={"summary": "政策/监管采集"},
+            source_context={"summary": "法规来源"},
         )
         return build_display_meta(req)
     if "task_run_source_library_item" in n:

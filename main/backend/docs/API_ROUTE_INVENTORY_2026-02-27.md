@@ -85,7 +85,7 @@ Total routes: **135**
 | POST | `/api/v1/ingest/reports/monthly` | `ingest_monthly_reports` |  |
 | POST | `/api/v1/ingest/reports/weekly` | `ingest_weekly_reports` |  |
 | POST | `/api/v1/ingest/social/reddit` | `ingest_reddit` |  |
-| POST | `/api/v1/ingest/social/sentiment` | `ingest_social_sentiment` |  |
+| POST | `/api/v1/ingest/data-api` | `ingest_data_api` |  |
 | POST | `/api/v1/ingest/source-library/run` | `ingest_source_library_run` |  |
 | POST | `/api/v1/ingest/source-library/sync` | `ingest_source_library_sync` |  |
 ## llm_config.py

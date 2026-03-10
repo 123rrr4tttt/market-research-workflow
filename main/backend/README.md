@@ -18,13 +18,13 @@ LLM：`OPENAI_API_KEY`、`AZURE_*`、`OLLAMA_BASE_URL`（提取与发现依赖�
 
 - 政策、市场数据（州彩票 API / 官网）
 - 区域官网新闻 / 公告（如加州彩票）
-- Reddit、Twitter 社媒
+- Reddit、Twitter（作为数据 API 来源）
 - 周度 / 月度报告、商品指标、电商价格
 - 发现搜索（网页搜索 + 智能/深度发现）
 
 ## 主要接口
 
-- `POST /api/v1/ingest/market`、`/news/calottery`、`/social/reddit`、`/social/sentiment`、`/reports/weekly`、`/commodity/metrics`、`/ecom/prices` 等
+- `POST /api/v1/ingest/market`、`/news/calottery`、`/social/reddit`、`/data-api`、`/reports/weekly`、`/commodity/metrics`、`/ecom/prices` 等
 - `POST /api/v1/discovery/search`、`/smart`、`/deep`、`/generate-keywords`
 
 均支持 `async_mode=true` 触发 Celery 任务。完整接口见 `API接口文档.md` 或 `http://localhost:8000/docs`。

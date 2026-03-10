@@ -6,7 +6,7 @@ import {
   ingestMarket,
   ingestPolicyRegulation,
   ingestSingleUrl,
-  ingestSocial,
+  ingestDataApi,
   runSourceLibrary,
   syncSourceLibrary,
 } from '../lib/api'
@@ -116,10 +116,10 @@ export function useIngestActions(projectKey: string) {
     runAction,
     syncSourceLibrary: () => runAction('同步来源库', syncSourceLibrary),
     runSourceLibrary: (payload: SourceLibraryRunPayload) => runAction('运行来源库', () => runSourceLibrary(payload)),
-    ingestPolicyRegulation: (payload: Record<string, unknown>) => runAction('政策法规采集', () => ingestPolicyRegulation(payload)),
+    ingestPolicyRegulation: (payload: Record<string, unknown>) => runAction('法规类型文档导入', () => ingestPolicyRegulation(payload)),
     ingestMarket: (payload: Record<string, unknown>) => runAction('市场采集', () => ingestMarket(payload)),
     ingestSingleUrl: (payload: Parameters<typeof ingestSingleUrl>[0]) => runAction('单 URL 采集', () => ingestSingleUrl(payload)),
-    ingestSocial: (payload: Record<string, unknown>) => runAction('舆情采集', () => ingestSocial(payload)),
+    ingestDataApi: (payload: Record<string, unknown>) => runAction('数据API采集', () => ingestDataApi(payload)),
     ingestCommodity: (payload: { limit: number; async_mode: boolean }) => runAction('商品采集', () => ingestCommodity(payload)),
     ingestEcom: (payload: { limit: number; async_mode: boolean }) => runAction('电商采集', () => ingestEcom(payload)),
   }

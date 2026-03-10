@@ -75,12 +75,12 @@ export const endpoints = {
   discovery: {
     generateKeywords: `${API_BASE}/discovery/generate-keywords`,
   },
-  ingest: {
+    ingest: {
     history: `${API_BASE}/ingest/history`,
     urlSingle: `${API_BASE}/ingest/url/single`,
     policyRegulation: `${API_BASE}/ingest/policy/regulation`,
     market: `${API_BASE}/ingest/market`,
-    socialSentiment: `${API_BASE}/ingest/social/sentiment`,
+    dataApi: `${API_BASE}/ingest/data-api`,
     commodityMetrics: `${API_BASE}/ingest/commodity/metrics`,
     ecomPrices: `${API_BASE}/ingest/ecom/prices`,
     sourceLibrarySync: `${API_BASE}/ingest/source-library/sync`,

@@ -318,7 +318,7 @@ def collect_request_from_policy_api(*, query_terms: list[str], max_items: int, p
         provider=normalize_provider(provider),
         language=normalize_language(language) or "en",
         options={"start_offset": start_offset, "days_back": days_back, "enable_extraction": enable_extraction},
-        source_context={"summary": "政策/监管采集"},
+        source_context={"summary": "法规来源"},
     )
 
 

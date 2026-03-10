@@ -147,7 +147,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     ingestPolicyRegulation,
     ingestMarket,
     ingestSingleUrl,
-    ingestSocial,
+    ingestDataApi,
     ingestCommodity,
     ingestEcom,
   } = useIngestActions(projectKey)
@@ -741,7 +741,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
           <button
             disabled={actionPending}
             onClick={() =>
-              void ingestSocial({
+              void ingestDataApi({
                 ...buildCommonPayload(),
                 platforms: [form.socialPlatform],
                 base_subreddits: splitTerms(form.baseSubreddits),
@@ -749,7 +749,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
               })
             }
           >
-            <Globe size={16} />舆情采集
+            <Globe size={16} />数据 API 采集
           </button>
           <button disabled={actionPending} onClick={() => void ingestCommodity({ limit: form.commodityLimit, async_mode: form.asyncMode })}>
             <Boxes size={16} />商品采集

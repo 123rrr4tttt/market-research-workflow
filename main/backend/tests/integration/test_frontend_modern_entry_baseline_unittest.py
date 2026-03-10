@@ -56,7 +56,7 @@ class FrontendModernEntryBaselineTestCase(unittest.TestCase):
             "/api/v1/ingest/source-library/run",
             "/api/v1/ingest/policy/regulation",
             "/api/v1/ingest/market",
-            "/api/v1/ingest/social/sentiment",
+            "/api/v1/ingest/data-api",
             "/api/v1/ingest/commodity/metrics",
             "/api/v1/ingest/ecom/prices",
             "/api/v1/ingest/graph/structured-search",
@@ -91,7 +91,7 @@ class FrontendModernEntryBaselineTestCase(unittest.TestCase):
                 {"query_terms": ["market"], "keywords": ["market"], "max_items": 1, "project_key": "demo_proj", "async_mode": True},
             ),
             (
-                "/api/v1/ingest/social/sentiment",
+                "/api/v1/ingest/data-api",
                 {"query_terms": ["sentiment"], "keywords": ["sentiment"], "platforms": ["reddit"], "max_items": 1, "project_key": "demo_proj", "async_mode": True},
             ),
             ("/api/v1/ingest/commodity/metrics", {"limit": 1, "project_key": "demo_proj", "async_mode": True}),
@@ -161,7 +161,7 @@ class FrontendModernEntryBaselineTestCase(unittest.TestCase):
             ("/api/v1/ingest/source-library/run", {"item_key": "demo-item", "async_mode": True, "override_params": {}}),
             ("/api/v1/ingest/policy/regulation", {"query_terms": ["regulation"], "async_mode": True}),
             ("/api/v1/ingest/market", {"query_terms": ["market"], "async_mode": True}),
-            ("/api/v1/ingest/social/sentiment", {"query_terms": ["sentiment"], "async_mode": True}),
+            ("/api/v1/ingest/data-api", {"query_terms": ["sentiment"], "async_mode": True}),
             ("/api/v1/ingest/commodity/metrics", {"limit": 1, "async_mode": True}),
             ("/api/v1/ingest/ecom/prices", {"limit": 1, "async_mode": True}),
             (

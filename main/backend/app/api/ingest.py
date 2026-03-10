@@ -770,7 +770,7 @@ def ingest_monthly_reports(payload: NewsRequest):
         return _error_500(exc)
 
 
-class SocialSentimentRequest(BaseModel):
+class DataApiRequest(BaseModel):
     query_terms: list[str] | None = Field(default=None, description="统一查询词列表（推荐）")
     keywords: list[str] | None = Field(default=None, description="兼容字段：搜索关键词列表")
     platforms: list[str] = Field(default=["reddit"], description="平台列表（目前支持reddit）")
@@ -822,7 +822,7 @@ class GraphStructuredDashboardParams(BaseModel):
     days_back: int | None = Field(default=None, ge=1, le=365, description="仅搜最近N天")
     enable_extraction: bool = Field(default=True, description="是否启用LLM结构化提取")
     async_mode: bool = Field(default=False, description="是否异步执行")
-    platforms: list[str] = Field(default=["reddit"], description="社媒平台列表")
+    platforms: list[str] = Field(default=["reddit"], description="数据源平台列表")
     enable_subreddit_discovery: bool = Field(default=True, description="是否启用子论坛发现")
     base_subreddits: Optional[list[str]] = Field(default=None, description="基础子论坛列表")
     source_item_keys: list[str] = Field(default_factory=list, description="来源库 item_key 列表（可选）")
@@ -995,13 +995,13 @@ def _run_policy_batch(
         }
 
 
-def _run_social_batch(
+def _run_data_api_batch(
     *,
     project_key: str,
     query_terms: list[str],
     dashboard: GraphStructuredDashboardParams,
     llm_assist: bool,
-    batch_id: str = "social",
+    batch_id: str = "data_api",
 ) -> dict[str, Any]:
     terms = _unique_terms(query_terms)
     topic_meta: dict[str, Any] = {}
@@ -1013,7 +1013,7 @@ def _run_social_batch(
         )
     max_items = _normalize_max_items(dashboard.max_items, None)
     if dashboard.async_mode:
-        task = _tasks_module().task_collect_social_sentiment.delay(
+        task = _tasks_module().task_collect_data_api.delay(
             terms,
             dashboard.platforms,
             max_items,
@@ -1025,7 +1025,7 @@ def _run_social_batch(
         return {
             "batch_id": batch_id,
             "batch_name": batch_id,
-            "type": "social",
+            "type": "data_api",
             "query_terms": terms,
             "platforms": dashboard.platforms,
             "task_id": task.id,
@@ -1034,7 +1034,7 @@ def _run_social_batch(
         }
 
     with bind_project(project_key):
-        result = _social_ingest_app().collect_social_sentiment(
+        result = _social_ingest_app().collect_data_api(
             keywords=terms,
             platforms=dashboard.platforms,
             limit=max_items,
@@ -1047,7 +1047,7 @@ def _run_social_batch(
         return {
             "batch_id": batch_id,
             "batch_name": batch_id,
-            "type": "social",
+            "type": "data_api",
             "query_terms": terms,
             "platforms": dashboard.platforms,
             "async_mode": False,
@@ -1262,9 +1262,9 @@ def _run_source_collect_batch(
     }
 
 
-@router.post("/social/sentiment")
-def ingest_social_sentiment(payload: SocialSentimentRequest):
-    """收集社交媒体情感数据"""
+@router.post("/data-api")
+def ingest_data_api(payload: DataApiRequest):
+    """Run data API collection by keywords."""
     project_key = _require_project_key(payload.project_key)
     query_terms = _normalize_query_terms(payload.query_terms, payload.keywords)
     query_terms, topic_meta = _expand_query_terms_with_topic_focus(
@@ -1272,7 +1272,7 @@ def ingest_social_sentiment(payload: SocialSentimentRequest):
     )
     max_items = _normalize_max_items(payload.max_items, payload.limit)
     if payload.async_mode:
-        task = _tasks_module().task_collect_social_sentiment.delay(
+        task = _tasks_module().task_collect_data_api.delay(
             query_terms,
             payload.platforms,
             max_items,
@@ -1290,7 +1290,7 @@ def ingest_social_sentiment(payload: SocialSentimentRequest):
         )
     try:
         with bind_project(project_key):
-            result = _social_ingest_app().collect_social_sentiment(
+            result = _social_ingest_app().collect_data_api(
                 keywords=query_terms,
                 platforms=payload.platforms,
                 limit=max_items,
@@ -1417,7 +1417,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
                     batches.append(call())
             elif batch_type == "social":
                 call = partial(
-                    _run_social_batch,
+                    _run_data_api_batch,
                     project_key=project_key,
                     query_terms=terms,
                     dashboard=payload.dashboard,
@@ -1464,7 +1464,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
-    type_counts: dict[str, int] = {"policy": 0, "social": 0, "market": 0, "source_collect": 0}
+    type_counts: dict[str, int] = {"policy": 0, "data_api": 0, "market": 0, "source_collect": 0}
     for batch in batches:
         bt = str(batch.get("type") or "").strip().lower()
         if bt in type_counts:
@@ -1480,7 +1480,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
         "intent_mode": intent_mode,
         "types": {
             "policy": type_counts["policy"],
-            "social": type_counts["social"],
+            "data_api": type_counts["data_api"],
             "market": type_counts["market"],
             "source_collect": type_counts["source_collect"],
         },

@@ -54,7 +54,7 @@ class IngestBaselineMatrixTestCase(unittest.TestCase):
             "/api/v1/ingest/market",
             "/api/v1/ingest/source-library/run",
             "/api/v1/ingest/source-library/sync",
-            "/api/v1/ingest/social/sentiment",
+            "/api/v1/ingest/data-api",
             "/api/v1/ingest/graph/structured-search",
             "/api/v1/ingest/policy/regulation",
             "/api/v1/ingest/commodity/metrics",
@@ -67,7 +67,7 @@ class IngestBaselineMatrixTestCase(unittest.TestCase):
         cases = [
             ("/api/v1/ingest/market", {"query_terms": ["acme"], "async_mode": True}),
             ("/api/v1/ingest/source-library/run", {"item_key": "demo-item", "async_mode": True}),
-            ("/api/v1/ingest/social/sentiment", {"query_terms": ["acme"], "async_mode": True}),
+            ("/api/v1/ingest/data-api", {"query_terms": ["acme"], "async_mode": True}),
             (
                 "/api/v1/ingest/graph/structured-search",
                 {
@@ -97,7 +97,7 @@ class IngestBaselineMatrixTestCase(unittest.TestCase):
                 {"item_key": "demo-item", "project_key": "demo_proj", "async_mode": True},
             ),
             (
-                "/api/v1/ingest/social/sentiment",
+                "/api/v1/ingest/data-api",
                 {"query_terms": ["acme"], "project_key": "demo_proj", "async_mode": True},
             ),
             (

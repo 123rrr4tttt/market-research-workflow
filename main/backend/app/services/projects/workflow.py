@@ -25,7 +25,7 @@ _WORKFLOW_HANDLERS: dict[str, WorkflowHandler] = {
         keywords=[str(x) for x in (params.get("keywords") or [])],
         limit=int(params.get("limit", 20)),
     ),
-    "ingest.social_sentiment": lambda params: collect_user_social_sentiment(
+    "ingest.data_api": lambda params: collect_user_social_sentiment(
         keywords=[str(x) for x in (params.get("keywords") or [])],
         platforms=[str(x) for x in (params.get("platforms") or ["reddit"])],
         limit=int(params.get("limit", 20)),

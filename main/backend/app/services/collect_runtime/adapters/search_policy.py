@@ -24,5 +24,5 @@ class SearchPolicyAdapter:
             skipped=int(result.get("skipped") or 0),
             meta={"raw": result},
         )
-        cr.display_meta = build_display_meta(request, cr, summary="政策/监管采集")
+        cr.display_meta = build_display_meta(request, cr, summary="法规来源")
         return cr

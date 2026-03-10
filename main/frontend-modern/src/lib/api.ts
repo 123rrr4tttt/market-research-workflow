@@ -309,8 +309,8 @@ export async function ingestSingleUrl(payload: IngestSingleUrlPayload) {
   return post<Record<string, unknown>>(endpoints.ingest.urlSingle, payload)
 }
 
-export async function ingestSocial(payload: Record<string, unknown>) {
-  return post<Record<string, unknown>>(endpoints.ingest.socialSentiment, payload)
+export async function ingestDataApi(payload: Record<string, unknown>) {
+  return post<Record<string, unknown>>(endpoints.ingest.dataApi, payload)
 }
 
 export async function ingestCommodity(payload: { limit: number; async_mode: boolean }) {

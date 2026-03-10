@@ -59,7 +59,7 @@
 - 广泛搜索 = 按关键词在互联网上检索，使用 `search_sources`（`web.py`）
 - **默认**：Google Custom Search API（`provider="google"`），需配置 `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CSE_ID`
 - 回退：Serpstack → SerpAPI → DuckDuckGo（当 Google 未配置或失败时）
-- 政策/市场采集已切换为 `search_sources`，默认使用 Google CSE
+- 政策类内容与市场来源已切换为 `search_sources`，默认使用 Google CSE
 
 ### 4.3 当前实现
 

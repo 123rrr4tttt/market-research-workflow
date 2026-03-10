@@ -272,10 +272,10 @@
 }
 ```
 
-### 3.9 社交媒体情感数据摄取
-**POST** `/api/v1/ingest/social/sentiment`
+### 3.9 数据 API 摄取
+**POST** `/api/v1/ingest/data-api`
 
-收集社交媒体情感数据。
+收集外部数据 API 返回的数据（含 Reddit 等来源）。
 
 **请求体**:
 ```json
@@ -295,10 +295,10 @@
 - `enable_extraction` (bool): 是否启用 LLM 结构化提取，默认 true
 - `async_mode` (bool): 是否异步执行
 
-### 3.10 政策法规新闻摄取
+### 3.10 政策类文档入库
 **POST** `/api/v1/ingest/policy/regulation`
 
-收集政策法规相关新闻。
+按配置的州级/法规语义抓取相关文档并入库。
 
 **请求体**:
 ```json

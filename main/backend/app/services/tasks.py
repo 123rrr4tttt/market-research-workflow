@@ -456,7 +456,7 @@ def task_collect_monthly_reports(limit: int = 8, project_key: str | None = None)
 
 
 @celery_app.task
-def task_collect_social_sentiment(
+def task_collect_data_api(
     keywords: list[str],
     platforms: list[str] | None = None,
     limit: int = 20,
@@ -467,7 +467,7 @@ def task_collect_social_sentiment(
 ) -> dict:
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return _get_social_ingest_app().collect_social_sentiment(
+        return _get_social_ingest_app().collect_data_api(
             keywords=keywords,
             platforms=platforms,
             limit=limit,

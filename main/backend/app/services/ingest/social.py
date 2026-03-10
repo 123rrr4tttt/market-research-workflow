@@ -430,7 +430,7 @@ def collect_policy_and_regulation(
                 limit=limit,
                 provider=provider,
                 language=language,
-                source_context={"summary": "政策/监管采集"},
+                source_context={"summary": "法规来源"},
             ),
             CollectResult(
                 channel="search.policy",
@@ -439,7 +439,7 @@ def collect_policy_and_regulation(
                 updated=0,
                 status="completed",
             ),
-            summary="政策/监管采集",
+            summary="法规来源",
         )
         complete_job(job_id, result=result)
         return result
