@@ -32,7 +32,7 @@ Out of P1 scope:
 - AT-03 guardrail matrix + reason taxonomy + fail-closed routing: Done.
 - AT-04 scheduler baseline + strategy knobs: Done.
 - AT-05 batch API family baseline: Done.
-- AT-06 final API contract lock + regression verification: In progress.
+- AT-06 final API contract lock + regression verification: Done (local implementation + build/contract verification complete).
 
 ## 3. P1 Gate Commands (must pass)
 
@@ -75,3 +75,38 @@ P1 is accepted only when all criteria below are true:
 - Spark: contract documentation, compatibility map, UI operation composition.
 - Codex: runtime orchestration changes, adapter/guardrail/scheduler/batch API implementation, final contract lock and regression gate.
 - Joint: P1 done-criteria confirmation and merge gate sign-off.
+
+## 7. Execution Update (2026-03-10, Codex)
+
+- `agent-batch` submit path now enforces fail-closed guardrail pre-dispatch:
+  - unsupported channels are rejected with stable `reason_code`,
+  - missing `contract_version` is rejected pre-dispatch.
+- `rule_set` pre-dispatch controls are wired for P1 collection path:
+  - `blocked_channels`,
+  - `max_items_cap`,
+  - `provider_allowlist`,
+  - `require_project_key`.
+- `rule-sets/validate` now emits unsupported-field warnings for non-P1 keys.
+- Unit and contract/integration gates were rerun after change; the previously observed local integration smoke failure (`test_frontend_ingest_flow_smoke_unittest.py`) has now been fixed in follow-up validation.
+
+## 8. Execution Update (2026-03-10, Codex, AT-06 UI Contract Lock)
+
+- Frontend existing page operation now wires full P1 batch-execution surface without adding a standalone UI page:
+  - submit batch (`/agent-batch/jobs`),
+  - query queue/progress (`/agent-batch/jobs/{job_id}` + `/items`),
+  - timeline (`/events`),
+  - failed-item one-click replay (`/retry`),
+  - optional NL command entry (`/nl-command`).
+- API endpoint map and typed wrappers were added in `frontend-modern` for all P1 `agent-batch` routes, including rule-set validation endpoint exposure.
+- Ingest page now includes:
+  - queue view,
+  - timeline table,
+  - failure error display and rejected `reason_code` summary,
+  - per-item retry action.
+- Local verification after AT-06 wiring:
+  - `npm run build` (frontend-modern): pass.
+  - `bash scripts/test-standardize.sh contract`: pass.
+  - `bash scripts/test-standardize.sh integration`: pass.
+- Integration smoke fix summary:
+  - `tests/integration/test_frontend_ingest_flow_smoke_unittest.py` task stubs now mock Celery-style `.delay(...)` calls correctly.
+  - Sync assertion now matches current ingest source-library sync payload shape (`mode: sync`, top-level counters).
