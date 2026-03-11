@@ -16,6 +16,9 @@ from ..services.projects import current_project_key
 
 router = APIRouter(prefix="/agent-batch", tags=["agent_batch"])
 
+_DEFAULT_CONTRACT_VERSION = "collect.request.v2"
+_ALLOWED_CHANNELS = {"search.market", "source_library"}
+
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -60,6 +63,7 @@ class AgentBatchItemSubmit(BaseModel):
     provider: str | None = Field(default=None, max_length=64)
     language: str | None = Field(default=None, max_length=16)
     days_back: int | None = Field(default=None, ge=1, le=365)
+    contract_version: str = Field(default=_DEFAULT_CONTRACT_VERSION, max_length=64)
     input: dict[str, Any] | str | None = None
     override_params: dict[str, Any] = Field(default_factory=dict)
 
@@ -73,6 +77,8 @@ class AgentBatchSubmitRequest(BaseModel):
     batch: AgentBatchSubmitBatch
     idempotency_key: str | None = Field(default=None, max_length=128)
     priority: int | None = Field(default=None, ge=0, le=9)
+    rule_set_id: str | None = Field(default=None, max_length=128)
+    rule_set: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentBatchRetryRequest(BaseModel):
@@ -209,8 +215,86 @@ def _submit_market_collect(
     return str(task.id)
 
 
-def _submit_batch_item(job: AgentBatchItemSubmit, *, project_key: str | None) -> tuple[str, str, dict[str, Any]]:
+def _normalize_channel(job: AgentBatchItemSubmit) -> str:
     channel = str(job.channel or "").strip().lower()
+    if channel:
+        return channel
+    if str(job.item_key or "").strip() or str(job.source_id or "").strip():
+        return "source_library"
+    if isinstance(job.input, dict):
+        if str(job.input.get("item_key") or "").strip() or str(job.input.get("source_id") or "").strip():
+            return "source_library"
+    return "search.market"
+
+
+def _guard_batch_item(
+    job: AgentBatchItemSubmit,
+    *,
+    project_key: str | None,
+    rule_set: dict[str, Any],
+) -> dict[str, Any] | None:
+    channel = _normalize_channel(job)
+    if channel not in _ALLOWED_CHANNELS:
+        return {
+            "reason_code": "unsupported_channel",
+            "message": f"unsupported channel: {channel}",
+            "details": {"channel": channel, "allowed_channels": sorted(_ALLOWED_CHANNELS)},
+        }
+
+    contract_version = str(job.contract_version or "").strip()
+    if not contract_version:
+        return {
+            "reason_code": "contract_version_missing",
+            "message": "contract_version is required",
+            "details": {"channel": channel},
+        }
+
+    if bool(rule_set.get("require_project_key")) and not str(project_key or "").strip():
+        return {
+            "reason_code": "project_key_required_by_rule_set",
+            "message": "project_key is required by rule_set",
+            "details": {"channel": channel},
+        }
+
+    blocked_channels_raw = rule_set.get("blocked_channels")
+    blocked_channels = {str(x or "").strip().lower() for x in blocked_channels_raw or [] if str(x or "").strip()}
+    if channel in blocked_channels:
+        return {
+            "reason_code": "channel_blocked_by_rule_set",
+            "message": f"channel blocked by rule_set: {channel}",
+            "details": {"channel": channel},
+        }
+
+    if channel == "search.market":
+        max_items_cap = rule_set.get("max_items_cap")
+        if max_items_cap is not None:
+            try:
+                cap = max(1, min(100, int(max_items_cap)))
+            except Exception:
+                cap = 100
+            requested = int(job.max_items or 20)
+            if requested > cap:
+                return {
+                    "reason_code": "max_items_exceeds_rule_set_cap",
+                    "message": f"max_items exceeds rule_set cap: {requested} > {cap}",
+                    "details": {"requested": requested, "cap": cap},
+                }
+
+        allowlist_raw = rule_set.get("provider_allowlist")
+        allowlist = {str(x or "").strip().lower() for x in allowlist_raw or [] if str(x or "").strip()}
+        provider = str(job.provider or "auto").strip().lower()
+        if allowlist and provider not in allowlist:
+            return {
+                "reason_code": "provider_blocked_by_rule_set",
+                "message": f"provider blocked by rule_set: {provider}",
+                "details": {"provider": provider, "allowlist": sorted(allowlist)},
+            }
+
+    return None
+
+
+def _submit_batch_item(job: AgentBatchItemSubmit, *, project_key: str | None) -> tuple[str, str, dict[str, Any]]:
+    channel = _normalize_channel(job)
     if channel == "search.market":
         query_terms = _normalize_query_terms(job.query_terms)
         if not query_terms and isinstance(job.input, dict):
@@ -268,7 +352,19 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
 
+    rule_set = dict(payload.rule_set or {})
     for idx, item in enumerate(payload.batch.jobs):
+        guard = _guard_batch_item(item, project_key=project_key, rule_set=rule_set)
+        if guard is not None:
+            rejected.append(
+                {
+                    "index": idx,
+                    "reason_code": guard["reason_code"],
+                    "reason": guard["message"],
+                    "details": guard.get("details") or {},
+                }
+            )
+            continue
         try:
             task_id, resolved_channel, resolved_payload = _submit_batch_item(item, project_key=project_key)
             item_id = str(item.item_id or f"{job_id}-item-{idx+1}").strip()
@@ -295,10 +391,11 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
                     "channel": resolved_channel,
                     "item_key": resolved_payload.get("item_key"),
                     "query_terms": resolved_payload.get("query_terms"),
+                    "contract_version": item.contract_version,
                 }
             )
         except Exception as exc:  # noqa: BLE001
-            rejected.append({"index": idx, "reason": str(exc)})
+            rejected.append({"index": idx, "reason_code": "dispatch_error", "reason": str(exc)})
 
     _BATCH_JOB_REGISTRY[job_id] = record
     if idem:
@@ -318,6 +415,7 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
                 "events": f"/api/v1/agent-batch/jobs/{job_id}/events",
                 "retry": f"/api/v1/agent-batch/jobs/{job_id}/retry",
             },
+            "rule_set_id": payload.rule_set_id,
         }
     )
 
@@ -465,13 +563,22 @@ def validate_agent_batch_rule_set(payload: RuleSetValidateRequest) -> dict[str, 
         errors.append({"code": "schema_version_invalid", "message": "batch_schema_version must be non-empty"})
     if payload.sample_items and len(payload.sample_items) > 500:
         warnings.append({"code": "sample_items_truncated", "message": "sample_items exceeds 500; consider reducing"})
+    unsupported_fields = sorted(
+        [
+            k
+            for k in payload.rule_set.keys()
+            if k not in {"blocked_channels", "max_items_cap", "provider_allowlist", "require_project_key"}
+        ]
+    )
+    if unsupported_fields:
+        warnings.append({"code": "rule_set_unsupported_fields", "message": "rule_set contains unsupported fields"})
     return ok(
         {
             "valid": len(errors) == 0,
             "errors": errors,
             "warnings": warnings,
             "normalized_rule_set": payload.rule_set,
-            "unsupported_fields": [],
+            "unsupported_fields": unsupported_fields,
         }
     )
 

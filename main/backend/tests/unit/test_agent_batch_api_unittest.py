@@ -170,6 +170,83 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertTrue(valid_with_warning["data"]["valid"])
         self.assertEqual(valid_with_warning["data"]["warnings"][0]["code"], "sample_items_truncated")
 
+    def test_submit_job_fail_closed_for_unsupported_channel_and_missing_contract_version(self):
+        delay_stub = _DelayTaskStub()
+        payload = agent_batch_api.AgentBatchSubmitRequest(
+            project_key="proj-test",
+            batch=agent_batch_api.AgentBatchSubmitBatch(
+                jobs=[
+                    agent_batch_api.AgentBatchItemSubmit(
+                        item_id="bad-1",
+                        channel="unknown.channel",
+                        query_terms=["acme"],
+                    ),
+                    agent_batch_api.AgentBatchItemSubmit(
+                        item_id="bad-2",
+                        channel="search.market",
+                        query_terms=["acme"],
+                        contract_version="",
+                    ),
+                    agent_batch_api.AgentBatchItemSubmit(
+                        item_id="ok-1",
+                        item_key="source-a",
+                    ),
+                ]
+            ),
+        )
+        with patch.object(agent_batch_api.tasks_module, "task_run_source_library_item", delay_stub):
+            out = agent_batch_api.submit_agent_batch_job(payload)
+        self.assertEqual(out["status"], "ok")
+        self.assertEqual(out["data"]["accepted_count"], 1)
+        self.assertEqual(out["data"]["rejected_count"], 2)
+        reason_codes = [x.get("reason_code") for x in out["data"]["rejected_job_items"]]
+        self.assertIn("unsupported_channel", reason_codes)
+        self.assertIn("contract_version_missing", reason_codes)
+
+    def test_submit_job_respects_rule_set_provider_allowlist_and_cap(self):
+        market_delay_stub = _MarketDelayTaskStub()
+        payload = agent_batch_api.AgentBatchSubmitRequest(
+            project_key="proj-test",
+            rule_set={
+                "provider_allowlist": ["google"],
+                "max_items_cap": 10,
+            },
+            batch=agent_batch_api.AgentBatchSubmitBatch(
+                jobs=[
+                    agent_batch_api.AgentBatchItemSubmit(
+                        item_id="blocked-provider",
+                        channel="search.market",
+                        query_terms=["acme"],
+                        provider="auto",
+                        max_items=5,
+                    ),
+                    agent_batch_api.AgentBatchItemSubmit(
+                        item_id="blocked-cap",
+                        channel="search.market",
+                        query_terms=["acme"],
+                        provider="google",
+                        max_items=20,
+                    ),
+                    agent_batch_api.AgentBatchItemSubmit(
+                        item_id="allowed",
+                        channel="search.market",
+                        query_terms=["acme"],
+                        provider="google",
+                        max_items=10,
+                    ),
+                ]
+            ),
+        )
+        with patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub):
+            out = agent_batch_api.submit_agent_batch_job(payload)
+        self.assertEqual(out["status"], "ok")
+        self.assertEqual(out["data"]["accepted_count"], 1)
+        self.assertEqual(out["data"]["rejected_count"], 2)
+        reason_codes = [x.get("reason_code") for x in out["data"]["rejected_job_items"]]
+        self.assertIn("provider_blocked_by_rule_set", reason_codes)
+        self.assertIn("max_items_exceeds_rule_set_cap", reason_codes)
+        self.assertEqual(len(market_delay_stub.calls), 1)
+
     def test_nl_command_dispatches_search_market_batch(self):
         market_delay_stub = _MarketDelayTaskStub()
         payload = agent_batch_api.AgentBatchNlCommandRequest(
