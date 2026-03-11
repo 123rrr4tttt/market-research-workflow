@@ -6,11 +6,13 @@ import {
   Cable,
   Database,
   Globe,
+  History,
   LoaderCircle,
   Link2,
   Play,
   Radar,
   RefreshCw,
+  RotateCcw,
   Search,
   Sparkles,
 } from 'lucide-react'
@@ -23,7 +25,7 @@ import {
 import type { IngestSingleUrlPayload } from '../lib/api'
 import { useIngestActions } from '../hooks/useIngestActions'
 import { queryKeys } from '../lib/queryKeys'
-import type { IngestFormState, IngestJobRow, SourceLibraryItem } from '../lib/types'
+import type { AgentBatchEventRow, AgentBatchItemRow, IngestFormState, IngestJobRow, SourceLibraryItem } from '../lib/types'
 
 const defaultForm: IngestFormState = {
   queryTerms: '',
@@ -117,6 +119,21 @@ function statusClass(status?: string) {
   return 'chip chip-warn'
 }
 
+function isFailedStatus(status?: string) {
+  const key = String(status || '').toLowerCase()
+  return key.includes('fail') || key.includes('error') || key.includes('revoked')
+}
+
+function toErrorText(value: unknown) {
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return ''
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
 function getSourceParams(item: SourceLibraryItem | null) {
   return item?.params && typeof item.params === 'object' ? item.params : {}
 }
@@ -138,6 +155,8 @@ type IngestPageProps = {
 
 export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPageProps) {
   const [form, setForm] = useState<IngestFormState>(defaultForm)
+  const [agentBatchJobId, setAgentBatchJobId] = useState('')
+  const [agentBatchRejectedReasonCodes, setAgentBatchRejectedReasonCodes] = useState<string[]>([])
   const {
     actionPending,
     actionMessage,
@@ -150,11 +169,35 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     ingestDataApi,
     ingestCommodity,
     ingestEcom,
+    submitAgentBatchJob,
+    getAgentBatchJob,
+    listAgentBatchItems,
+    getAgentBatchEvents,
+    retryAgentBatchJob,
+    runAgentBatchNlCommand,
   } = useIngestActions(projectKey)
 
   const sourceItems = useQuery({ queryKey: queryKeys.sourceLibrary.items(projectKey), queryFn: listSourceItems })
   const handlerGrouped = useQuery({ queryKey: queryKeys.sourceLibrary.siteEntryGrouped(projectKey), queryFn: listSiteEntryGrouped })
   const history = useQuery({ queryKey: queryKeys.ingest.historyByProject(projectKey, 12), queryFn: () => listIngestHistory(12) })
+  const agentBatchJob = useQuery({
+    queryKey: ['agent-batch', projectKey, 'job', agentBatchJobId],
+    queryFn: () => getAgentBatchJob(agentBatchJobId),
+    enabled: Boolean(agentBatchJobId),
+    refetchInterval: 5000,
+  })
+  const agentBatchItems = useQuery({
+    queryKey: ['agent-batch', projectKey, 'items', agentBatchJobId],
+    queryFn: async () => (await listAgentBatchItems(agentBatchJobId)).items || [],
+    enabled: Boolean(agentBatchJobId),
+    refetchInterval: 5000,
+  })
+  const agentBatchEvents = useQuery({
+    queryKey: ['agent-batch', projectKey, 'events', agentBatchJobId],
+    queryFn: async () => (await getAgentBatchEvents(agentBatchJobId)).events || [],
+    enabled: Boolean(agentBatchJobId),
+    refetchInterval: 5000,
+  })
 
   const sourceItemList = useMemo(() => sourceItems.data || [], [sourceItems.data])
   const selectedSourceItem = useMemo(
@@ -303,6 +346,66 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
       setForm((prev) => ({ ...prev, queryTerms: merged.join(', ') }))
       return { ok: true }
     })
+
+  const onSubmitAgentBatch = async () => {
+    const terms = splitTerms(form.queryTerms)
+    if (!terms.length) throw new Error('请先输入查询词（逗号分隔）')
+    const language = getLanguageValue() || 'zh'
+    const daysBack = toNullableInt(form.daysBack, 1, 365) ?? undefined
+    const jobs = terms.map((term, idx) => ({
+      item_id: `market-${idx + 1}`,
+      channel: 'search.market',
+      query_terms: [term],
+      max_items: form.maxItems,
+      provider: form.provider || 'auto',
+      language,
+      days_back: daysBack,
+      contract_version: 'collect.request.v2',
+    }))
+
+    const result = await submitAgentBatchJob({
+      project_key: projectKey,
+      idempotency_key: `ingest-ui-${Date.now()}`,
+      batch: { jobs },
+    })
+    if (!result) return
+    const jobId = typeof result.job_id === 'string' ? result.job_id : ''
+    if (jobId) setAgentBatchJobId(jobId)
+    const rejected = Array.isArray(result.rejected_job_items) ? result.rejected_job_items : []
+    const reasonCodes = rejected.map((item) => String(item.reason_code || '').trim()).filter(Boolean)
+    setAgentBatchRejectedReasonCodes(Array.from(new Set(reasonCodes)))
+  }
+
+  const onSubmitNlAgentBatch = async () => {
+    const command = splitTerms(form.queryTerms).join('，')
+    if (!command) throw new Error('请先输入查询词')
+    const result = await runAgentBatchNlCommand({
+      command: `请在最近${toNullableInt(form.daysBack, 1, 365) ?? 7}天采集：${command}`,
+      project_key: projectKey,
+      idempotency_key: `ingest-ui-nl-${Date.now()}`,
+    })
+    if (!result?.submit?.job_id) return
+    setAgentBatchJobId(String(result.submit.job_id))
+    const rejected = Array.isArray(result.submit.rejected_job_items) ? result.submit.rejected_job_items : []
+    const reasonCodes = rejected.map((item) => String(item.reason_code || '').trim()).filter(Boolean)
+    setAgentBatchRejectedReasonCodes(Array.from(new Set(reasonCodes)))
+  }
+
+  const onRetryBatchItem = async (item: AgentBatchItemRow) => {
+    if (!agentBatchJobId || !item.item_id) return
+    const result = await retryAgentBatchJob(agentBatchJobId, {
+      scope: 'items',
+      item_ids: [item.item_id],
+      reason: 'ui_retry_failed_item',
+      max_retries: 1,
+    })
+    if (!result) return
+    await Promise.all([agentBatchJob.refetch(), agentBatchItems.refetch(), agentBatchEvents.refetch(), history.refetch()])
+  }
+
+  const progress = agentBatchJob.data?.progress
+  const failedBatchItems = (agentBatchItems.data || []).filter((item) => isFailedStatus(item.status))
+  const hasBatch = Boolean(agentBatchJobId)
 
   return (
     <div className="content-stack">
@@ -763,6 +866,123 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
           {actionPending ? <LoaderCircle size={14} className="spinning" /> : <Play size={14} />}
           {actionMessage}
         </p>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>
+            <History size={15} />
+            Agent 批量采集（P1）
+          </h2>
+          <span className="chip">{hasBatch ? `job: ${agentBatchJobId}` : '未提交'}</span>
+        </div>
+
+        <div className="inline-actions">
+          <button disabled={actionPending} onClick={() => void onSubmitAgentBatch()}>
+            <Play size={15} />提交批量任务
+          </button>
+          <button disabled={actionPending} onClick={() => void onSubmitNlAgentBatch()}>
+            <Sparkles size={15} />NL 指令启动
+          </button>
+          {hasBatch && (
+            <button
+              disabled={actionPending}
+              onClick={() => {
+                void Promise.all([agentBatchJob.refetch(), agentBatchItems.refetch(), agentBatchEvents.refetch()])
+              }}
+            >
+              <RefreshCw size={15} />刷新批量状态
+            </button>
+          )}
+        </div>
+
+        {hasBatch && (
+          <p className="status-line">
+            状态: {agentBatchJob.data?.status || '-'} · 进度: {progress?.succeeded || 0}/{progress?.total || 0}（失败 {progress?.failed || 0}
+            ，运行中 {progress?.running || 0}）
+          </p>
+        )}
+        {!!agentBatchRejectedReasonCodes.length && (
+          <p className="status-line">拒绝原因码: {agentBatchRejectedReasonCodes.join(', ')}</p>
+        )}
+        {hasBatch && !!failedBatchItems.length && <p className="status-line">失败项: {failedBatchItems.length}（可一键重试）</p>}
+
+        {hasBatch && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>任务</th>
+                  <th>状态</th>
+                  <th>错误</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(agentBatchItems.data || []).map((item, idx) => (
+                  <tr key={`${item.item_id || 'item'}-${idx}`}>
+                    <td>{item.item_id || '-'}</td>
+                    <td>{item.task_id || '-'}</td>
+                    <td>
+                      <span className={statusClass(item.status)}>{item.status || '-'}</span>
+                    </td>
+                    <td>{toErrorText(item.error) || '-'}</td>
+                    <td>
+                      <button
+                        disabled={actionPending || !isFailedStatus(item.status)}
+                        onClick={() => {
+                          void onRetryBatchItem(item)
+                        }}
+                      >
+                        <RotateCcw size={14} />重试
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!agentBatchItems.data?.length && (
+                  <tr>
+                    <td colSpan={5} className="empty-cell">
+                      暂无批量项
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {hasBatch && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>事件</th>
+                  <th>Item</th>
+                  <th>消息</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(agentBatchEvents.data || []).slice(0, 20).map((event: AgentBatchEventRow, idx) => (
+                  <tr key={`${event.id || 'evt'}-${idx}`}>
+                    <td>{formatDate(event.ts)}</td>
+                    <td>{event.event_type || '-'}</td>
+                    <td>{event.item_id || '-'}</td>
+                    <td>{event.message || '-'}</td>
+                  </tr>
+                ))}
+                {!agentBatchEvents.data?.length && (
+                  <tr>
+                    <td colSpan={4} className="empty-cell">
+                      暂无时间线事件
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="panel">

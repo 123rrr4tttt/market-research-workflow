@@ -1,19 +1,24 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
+  getAgentBatchEvents,
+  getAgentBatchJob,
   ingestCommodity,
   ingestEcom,
   ingestMarket,
   ingestPolicyRegulation,
   ingestSingleUrl,
   ingestDataApi,
+  listAgentBatchItems,
+  retryAgentBatchJob,
+  runAgentBatchNlCommand,
   runSourceLibrary,
+  submitAgentBatchJob,
   syncSourceLibrary,
+  validateAgentBatchRuleSet,
 } from '../lib/api'
 import { isApiClientError } from '../lib/api/client'
 import { queryKeys } from '../lib/queryKeys'
-
-type IngestActionFn = () => Promise<unknown>
 
 type SourceLibraryRunPayload = {
   item_key?: string | null
@@ -21,6 +26,11 @@ type SourceLibraryRunPayload = {
   async_mode: boolean
   override_params: Record<string, unknown>
 }
+
+type AgentBatchSubmitPayload = Parameters<typeof submitAgentBatchJob>[0]
+type AgentBatchRetryPayload = Parameters<typeof retryAgentBatchJob>[1]
+type AgentBatchRuleSetValidatePayload = Parameters<typeof validateAgentBatchRuleSet>[0]
+type AgentBatchNlCommandPayload = Parameters<typeof runAgentBatchNlCommand>[0]
 
 function getTraceId(meta: unknown): string {
   if (!meta || typeof meta !== 'object') return ''
@@ -51,7 +61,7 @@ export function useIngestActions(projectKey: string) {
   const [actionPending, setActionPending] = useState(false)
   const [actionMessage, setActionMessage] = useState('等待操作')
 
-  const runAction = async (name: string, fn: IngestActionFn) => {
+  const runAction = async <T>(name: string, fn: () => Promise<T>): Promise<T | null> => {
     setActionPending(true)
     setActionMessage(`${name} 执行中...`)
     try {
@@ -100,7 +110,7 @@ export function useIngestActions(projectKey: string) {
         queryClient.invalidateQueries({ queryKey: queryKeys.ingest.historyByProject(projectKey, 12) }),
       ])
 
-      return result
+      return result as T
     } catch (error) {
       const message = `${name} 失败: ${formatActionError(error)}`
       setActionMessage(message)
@@ -122,6 +132,16 @@ export function useIngestActions(projectKey: string) {
     ingestDataApi: (payload: Record<string, unknown>) => runAction('数据API采集', () => ingestDataApi(payload)),
     ingestCommodity: (payload: { limit: number; async_mode: boolean }) => runAction('商品采集', () => ingestCommodity(payload)),
     ingestEcom: (payload: { limit: number; async_mode: boolean }) => runAction('电商采集', () => ingestEcom(payload)),
+    submitAgentBatchJob: (payload: AgentBatchSubmitPayload) => runAction('提交批量采集任务', () => submitAgentBatchJob(payload)),
+    getAgentBatchJob,
+    listAgentBatchItems,
+    getAgentBatchEvents,
+    retryAgentBatchJob: (jobId: string, payload?: AgentBatchRetryPayload) =>
+      runAction('重试批量采集任务', () => retryAgentBatchJob(jobId, payload || {})),
+    validateAgentBatchRuleSet: (payload: AgentBatchRuleSetValidatePayload) =>
+      runAction('校验规则集', () => validateAgentBatchRuleSet(payload)),
+    runAgentBatchNlCommand: (payload: AgentBatchNlCommandPayload) =>
+      runAction('自然语言触发批量采集', () => runAgentBatchNlCommand(payload)),
   }
 }
 

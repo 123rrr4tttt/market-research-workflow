@@ -20,6 +20,17 @@ import {
 } from './api/services/crawlers'
 import { fetchDeepHealth, fetchHealth } from './api/services/health'
 import type {
+  AgentBatchEventsResult,
+  AgentBatchJobDetail,
+  AgentBatchItemsResult,
+  AgentBatchNlCommandPayload,
+  AgentBatchNlCommandResult,
+  AgentBatchRetryPayload,
+  AgentBatchRetryResult,
+  AgentBatchRuleSetValidatePayload,
+  AgentBatchRuleSetValidateResult,
+  AgentBatchSubmitPayload,
+  AgentBatchSubmitResult,
   AutoCreateProjectPayload,
   AutoCreateProjectResult,
   CrawlerDeployRunItem,
@@ -319,6 +330,34 @@ export async function ingestCommodity(payload: { limit: number; async_mode: bool
 
 export async function ingestEcom(payload: { limit: number; async_mode: boolean }) {
   return post<Record<string, unknown>>(endpoints.ingest.ecomPrices, payload)
+}
+
+export async function submitAgentBatchJob(payload: AgentBatchSubmitPayload) {
+  return post<AgentBatchSubmitResult>(endpoints.agentBatch.jobs, payload)
+}
+
+export async function getAgentBatchJob(jobId: string) {
+  return get<AgentBatchJobDetail>(endpoints.agentBatch.jobById(jobId))
+}
+
+export async function listAgentBatchItems(jobId: string) {
+  return get<AgentBatchItemsResult>(endpoints.agentBatch.itemsByJob(jobId))
+}
+
+export async function retryAgentBatchJob(jobId: string, payload: AgentBatchRetryPayload = {}) {
+  return post<AgentBatchRetryResult>(endpoints.agentBatch.retryByJob(jobId), payload)
+}
+
+export async function getAgentBatchEvents(jobId: string) {
+  return get<AgentBatchEventsResult>(endpoints.agentBatch.eventsByJob(jobId))
+}
+
+export async function validateAgentBatchRuleSet(payload: AgentBatchRuleSetValidatePayload) {
+  return post<AgentBatchRuleSetValidateResult>(endpoints.agentBatch.ruleSetValidate, payload)
+}
+
+export async function runAgentBatchNlCommand(payload: AgentBatchNlCommandPayload) {
+  return post<AgentBatchNlCommandResult>(endpoints.agentBatch.nlCommand, payload)
 }
 
 export async function getEnvSettings() {

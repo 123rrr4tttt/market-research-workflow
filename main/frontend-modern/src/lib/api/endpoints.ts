@@ -72,6 +72,15 @@ export const endpoints = {
     logs: (taskId: string) => `${API_BASE}/process/${encodeURIComponent(taskId)}/logs`,
     cancel: (taskId: string) => `${API_BASE}/process/${encodeURIComponent(taskId)}/cancel`,
   },
+  agentBatch: {
+    jobs: `${API_BASE}/agent-batch/jobs`,
+    jobById: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}`,
+    itemsByJob: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}/items`,
+    retryByJob: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}/retry`,
+    eventsByJob: (jobId: string) => `${API_BASE}/agent-batch/jobs/${encodeURIComponent(jobId)}/events`,
+    ruleSetValidate: `${API_BASE}/agent-batch/rule-sets/validate`,
+    nlCommand: `${API_BASE}/agent-batch/nl-command`,
+  },
   discovery: {
     generateKeywords: `${API_BASE}/discovery/generate-keywords`,
   },

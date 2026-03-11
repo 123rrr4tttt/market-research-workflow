@@ -248,6 +248,155 @@ export type IngestJobRow = {
   params?: Record<string, unknown> | null
 }
 
+export type AgentBatchItemSubmitPayload = {
+  item_id?: string | null
+  source_id?: string | null
+  item_key?: string | null
+  channel?: string | null
+  query_terms?: string[]
+  max_items?: number | null
+  provider?: string | null
+  language?: string | null
+  days_back?: number | null
+  contract_version?: string
+  input?: Record<string, unknown> | string | null
+  override_params?: Record<string, unknown>
+}
+
+export type AgentBatchSubmitPayload = {
+  project_key?: string | null
+  idempotency_key?: string | null
+  priority?: number | null
+  rule_set_id?: string | null
+  rule_set?: Record<string, unknown>
+  batch: {
+    jobs: AgentBatchItemSubmitPayload[]
+  }
+}
+
+export type AgentBatchSubmitResult = {
+  job_id: string
+  status: string
+  accepted_count: number
+  rejected_count: number
+  accepted_job_items: Array<{
+    index: number
+    item_id: string
+    task_id: string
+    channel?: string
+    item_key?: string
+    query_terms?: string[]
+    contract_version?: string
+  }>
+  rejected_job_items: Array<{
+    index: number
+    reason_code?: string
+    reason?: string
+    details?: Record<string, unknown>
+  }>
+  created_at?: string
+  links?: Record<string, string>
+  idempotency_reused?: boolean
+  rule_set_id?: string | null
+}
+
+export type AgentBatchJobDetail = {
+  job_id: string
+  status: string
+  phase?: string
+  progress?: {
+    total?: number
+    succeeded?: number
+    failed?: number
+    running?: number
+    queued?: number
+  }
+  started_at?: string | null
+  updated_at?: string | null
+  finished_at?: string | null
+  retry_count?: number
+  error?: string | null
+  meta?: Record<string, unknown>
+}
+
+export type AgentBatchItemRow = {
+  item_id: string
+  task_id: string
+  status?: string
+  input?: Record<string, unknown>
+  output?: unknown
+  error?: unknown
+  last_update_at?: string
+}
+
+export type AgentBatchItemsResult = {
+  items: AgentBatchItemRow[]
+  pagination?: {
+    next_cursor?: string | null
+    has_more?: boolean
+  }
+}
+
+export type AgentBatchRetryPayload = {
+  scope?: string
+  item_ids?: string[]
+  reason?: string | null
+  max_retries?: number | null
+}
+
+export type AgentBatchRetryResult = {
+  job_id: string
+  retry_session_id: string
+  status: string
+  retry_count: number
+  targets: string[]
+}
+
+export type AgentBatchEventRow = {
+  id: string
+  event_type: string
+  ts: string
+  item_id: string
+  severity?: string
+  message?: string
+  payload?: Record<string, unknown>
+}
+
+export type AgentBatchEventsResult = {
+  events: AgentBatchEventRow[]
+  pagination?: {
+    next_cursor?: string | null
+    has_more?: boolean
+  }
+}
+
+export type AgentBatchRuleSetValidatePayload = {
+  rule_set_id?: string | null
+  rule_set: Record<string, unknown>
+  batch_schema_version?: string | null
+  sample_items?: Array<Record<string, unknown>>
+}
+
+export type AgentBatchRuleSetValidateResult = {
+  valid: boolean
+  errors: Array<{ code: string; message: string }>
+  warnings: Array<{ code: string; message: string }>
+  normalized_rule_set?: Record<string, unknown>
+  unsupported_fields?: string[]
+}
+
+export type AgentBatchNlCommandPayload = {
+  command: string
+  project_key?: string | null
+  idempotency_key?: string | null
+}
+
+export type AgentBatchNlCommandResult = {
+  command: string
+  parsed?: Record<string, unknown>
+  submit?: AgentBatchSubmitResult
+}
+
 export type ProcessTaskItem = {
   task_id: string
   name: string
