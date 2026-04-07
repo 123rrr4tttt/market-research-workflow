@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .contracts import build_workflow_graph_integrity_report
 from .executors.base import BaseNodeExecutor, NodeExecutionContext
 from .executors.join import JoinExecutor
 from .executors.llm_call import LLMCallExecutor
@@ -35,6 +36,7 @@ class WorkflowGraphRuntime:
     ) -> dict[str, Any]:
         nodes = _normalize_nodes(workflow.get("nodes") or {})
         topo_order = _resolve_topo_order(workflow=workflow, nodes=nodes)
+        integrity = _build_runtime_integrity_report(workflow=workflow, nodes=nodes, topo_order=topo_order)
 
         resolved_run_id = self.store.create_run(
             run_id=run_id,
@@ -48,6 +50,19 @@ class WorkflowGraphRuntime:
         )
         self.store.set_run_status(resolved_run_id, "running")
         self.store.append_event(resolved_run_id, event_type="run.running")
+
+        if not integrity["valid"]:
+            self.store.set_run_status(resolved_run_id, "failed")
+            self.store.append_event(
+                resolved_run_id,
+                event_type="run.failed",
+                payload={
+                    "reason_code": "workflow_integrity_failed",
+                    "reason": "workflow graph integrity check failed",
+                    "integrity": integrity,
+                },
+            )
+            return self.store.snapshot(resolved_run_id)
 
         run_inputs = dict(inputs or {})
 
@@ -174,6 +189,36 @@ def _resolve_topo_order(*, workflow: dict[str, Any], nodes: dict[str, dict[str, 
     if topo:
         return topo
     return list(nodes.keys())
+
+
+def _build_runtime_integrity_report(
+    *,
+    workflow: dict[str, Any],
+    nodes: dict[str, dict[str, Any]],
+    topo_order: list[str],
+) -> dict[str, Any]:
+    edges: list[tuple[str, str]] = []
+    for node_id, node in nodes.items():
+        depends_on = node.get("depends_on") or []
+        for upstream in depends_on:
+            upstream_id = str(upstream or "").strip()
+            if upstream_id:
+                edges.append((upstream_id, node_id))
+    report = build_workflow_graph_integrity_report(
+        node_ids=list(nodes.keys()),
+        edges=edges,
+        topo_order=topo_order,
+    )
+    return {
+        "contract_version": report.contract_version,
+        "valid": report.valid,
+        "issue_count": report.issue_count,
+        "issues": [
+            {"code": issue.code, "message": issue.message, "details": dict(issue.details)}
+            for issue in report.issues
+        ],
+        "workflow_id": workflow.get("workflow_id"),
+    }
 
 
 def _resolve_node_inputs(

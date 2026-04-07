@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { translate, useAppLocale } from '../platform/i18n'
 import { getKernelModuleContract } from './contracts'
+import LayerSwitch from './LayerSwitch'
 import ModuleRenderer from './ModuleRenderer'
 import type { KernelModuleKey } from './types'
 import type { useKernelRuntime } from './useKernelRuntime'
@@ -86,6 +87,7 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
             <span>project control</span>
             <strong>{loadedProjects} projects loaded</strong>
           </div>
+          <LayerSwitch activeLayer="C" runtime={runtime} />
           <div className="kernel-admin__rail-actions">
             <label className="kernel-admin__control-field">
               <span>target project</span>

@@ -52,6 +52,12 @@ class WorkflowGraphEditContractUnitTest(unittest.TestCase):
         with self.assertRaisesRegex(WorkflowGraphEditContractError, "missing target node"):
             parse_graph_edit_draft_contract(dsl, object_kind="template_graph")
 
+    def test_parse_rejects_cycle_with_explicit_integrity_signal(self):
+        dsl = self._valid_dsl()
+        dsl["edges"].append({"from": "draft-2", "to": "draft-1", "type": "REL"})
+        with self.assertRaisesRegex(WorkflowGraphEditContractError, "workflow graph contains a cycle"):
+            parse_graph_edit_draft_contract(dsl, object_kind="template_graph")
+
     def test_parse_rejects_system_managed_node_fields(self):
         dsl = self._valid_dsl()
         dsl["nodes"][0]["revision"] = 3

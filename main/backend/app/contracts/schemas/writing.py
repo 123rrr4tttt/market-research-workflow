@@ -191,6 +191,7 @@ class LlmActionResponse(BaseModel):
     trace_id: str | None = None
     job_id: int | None = None
     status: str = "completed"
+    capability_truth: dict[str, Any] = Field(default_factory=dict)
     observability: dict[str, Any] = Field(default_factory=dict)
     action_boundary: dict[str, Any] = Field(default_factory=dict)
     dependency_gate: dict[str, Any] = Field(default_factory=dict)

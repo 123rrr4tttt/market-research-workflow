@@ -1,32 +1,20 @@
-import { Suspense, lazy, useEffect, useState, type KeyboardEvent } from 'react'
+import { Suspense, useEffect, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import FigmaSideNav, { type NavMode } from '../../components/FigmaSideNav'
+import FigmaSideNav from '../../components/FigmaSideNav'
 import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKey, injectInitialProject, listProjects } from '../../lib/api'
 import { getLocalJson, setLocalJson } from '../../lib/localStore'
 import { queryKeys } from '../../lib/queryKeys'
-import { defaultNavMode, hashByMode, parseLegacyHashToMode } from '../navigation'
+import type { NavMode } from '../kernel/types'
+import { defaultNavMode, hashByMode } from '../navigation'
 import { translate, useAppLocale } from '../platform/i18n'
 import { getModuleDescriptor, verifyRegistryHashCompatibility } from '../platform/modules'
 import { applyThemeTokens, useAppTheme } from '../platform/theme'
+import { renderKernelModuleContent } from '../kernel/renderKernelModuleContent'
+import { resolveKernelRoute } from '../kernel/routes'
 import { resolveInteractionSurface } from '../topology/contracts'
 import { resolveSurfaceSwitchTarget, updateLastModeBySurface, type SurfaceLastModeMap } from '../topology/navigationSwitching'
 import { SHARED_CONTRACT_NOTE, SURFACE_SWITCH_RULES } from '../topology/sharedPlatformContract'
 import type { InteractionSurface } from '../topology/surfaces'
-
-const CatalogPage = lazy(() => import('../../pages/CatalogPage'))
-const DashboardPage = lazy(() => import('../../pages/DashboardPage'))
-const IngestPage = lazy(() => import('../../pages/IngestPage'))
-const OpsPage = lazy(() => import('../../pages/OpsPage'))
-const PolicyPage = lazy(() => import('../../pages/PolicyPage'))
-const ProcessPage = lazy(() => import('../../pages/ProcessPage'))
-const ProjectsPage = lazy(() => import('../../pages/ProjectsPage'))
-const CrawlerManagePage = lazy(() => import('../../pages/CrawlerManagePage'))
-const GraphPage = lazy(() => import('../../pages/GraphPage'))
-const ResourcePage = lazy(() => import('../../pages/ResourcePage'))
-const RawDataPage = lazy(() => import('../../pages/RawDataPage'))
-const SettingsPage = lazy(() => import('../../pages/SettingsPage'))
-const WritingWorkbenchPage = lazy(() => import('../../pages/WritingWorkbenchPage'))
-const AgentChatPage = lazy(() => import('../../pages/AgentChatPage'))
 type StatusIntentMode = 'sysSettings' | 'sysLlm' | 'sysCrawler' | 'sysBackend'
 type StatusIntentGuide = 'llm' | 'search' | 'news' | 'db' | 'es'
 type StatusNavIntent = {
@@ -39,9 +27,15 @@ type StatusNavIntent = {
 const SHELL_PREFS_KEY = 'app_shell_prefs_v1'
 const STATUS_NAV_INTENT_KEY = 'app_status_nav_intent_v1'
 
+function resolveShellModeFromHash(rawHash: string, fallbackMode: NavMode): NavMode {
+  const route = resolveKernelRoute(rawHash)
+  if (route.source === 'unknown') return fallbackMode
+  return route.moduleKey
+}
+
 export default function AppShell() {
   const shellPrefs = getLocalJson<{ lastMode?: NavMode; pendingProjectKey?: string; lastModeBySurface?: SurfaceLastModeMap }>(SHELL_PREFS_KEY, {})
-  const defaultMode = parseLegacyHashToMode(window.location.hash) || shellPrefs.lastMode || defaultNavMode
+  const defaultMode = resolveShellModeFromHash(window.location.hash, shellPrefs.lastMode || defaultNavMode)
   const defaultSurface = resolveInteractionSurface(defaultMode)
   const queryClient = useQueryClient()
   const [viewMode, setViewMode] = useState<NavMode>(defaultMode)
@@ -160,48 +154,16 @@ export default function AppShell() {
     })
   }
 
-  const modernContent = (() => {
-    if (viewMode === 'overviewTasks') return <ProcessPage projectKey={projectKey} />
-    if (viewMode === 'flowProcessing') return <ProcessPage projectKey={projectKey} variant="processing" />
-    if (viewMode === 'overviewData') return <OpsPage projectKey={projectKey} />
-    if (viewMode === 'sysBackend') return <OpsPage projectKey={projectKey} variant="backend" />
-    if (viewMode === 'dataDashboard' || viewMode === 'flowAnalysis' || viewMode === 'flowBoard' || viewMode === 'dataMarket' || viewMode === 'dataSocial') {
-      if (viewMode === 'dataMarket') return <DashboardPage projectKey={projectKey} variant="market" />
-      if (viewMode === 'dataSocial') return <DashboardPage projectKey={projectKey} variant="social" />
-      if (viewMode === 'flowAnalysis') return <DashboardPage projectKey={projectKey} variant="analysis" />
-      if (viewMode === 'flowBoard') return <DashboardPage projectKey={projectKey} variant="board" />
-      return <DashboardPage projectKey={projectKey} variant="dashboard" />
-    }
-    if (viewMode === 'flowIngest') return <IngestPage key="ingest" projectKey={projectKey} variant="ingest" />
-    if (viewMode === 'flowSpecialized') return <IngestPage key="specialized" projectKey={projectKey} variant="specialized" />
-    if (viewMode === 'flowRawData') return <RawDataPage projectKey={projectKey} variant="rawData" />
-    if (viewMode === 'flowWriting') return <WritingWorkbenchPage projectKey={projectKey} />
-    if (viewMode === 'flowAgentChat') return <AgentChatPage projectKey={projectKey} />
-    if (viewMode === 'dataPolicy') return <PolicyPage projectKey={projectKey} variant="policy" />
-    if (viewMode === 'dataCatalog') return <CatalogPage projectKey={projectKey} variant="catalog" />
-    if (viewMode === 'flowLlmNodeDesign') {
-      return null
-    }
-    if (viewMode === 'graphMarket') return <GraphPage projectKey={projectKey} variant="graphMarket" />
-    if (viewMode === 'graphPolicy') return <GraphPage projectKey={projectKey} variant="graphPolicy" />
-    if (viewMode === 'graphSocial') return <GraphPage projectKey={projectKey} variant="graphSocial" />
-    if (viewMode === 'graphCompany') return <GraphPage projectKey={projectKey} variant="graphCompany" />
-    if (viewMode === 'graphProduct') return <GraphPage projectKey={projectKey} variant="graphProduct" />
-    if (viewMode === 'graphOperation') return <GraphPage projectKey={projectKey} variant="graphOperation" />
-    if (viewMode === 'graphDeep') return <GraphPage projectKey={projectKey} variant="graphDeep" />
-    if (viewMode === 'graphBuilder') return <GraphPage projectKey={projectKey} variant="graphMarket" templateBuilder />
-    if (viewMode === 'sysProjects') return <ProjectsPage projectKey={projectKey} onProjectChange={setProjectKeyState} />
-    if (viewMode === 'sysCrawler') return <CrawlerManagePage projectKey={projectKey} />
-    if (viewMode === 'sysResource') return <ResourcePage projectKey={projectKey} variant="resource" />
-    if (viewMode === 'flowExtract') return <ResourcePage projectKey={projectKey} variant="extract" />
-    if (viewMode === 'sysSettings') return <SettingsPage projectKey={projectKey} variant="settings" />
-    if (viewMode === 'sysLlm') return <SettingsPage projectKey={projectKey} variant="llm" />
-    return null
-  })()
+  const modernContent = renderKernelModuleContent({
+    moduleKey: viewMode,
+    projectKey,
+    onProjectChange: setProjectKeyState,
+    shellMode: 'legacy-shell',
+  })
 
   useEffect(() => {
     const syncModeFromHash = () => {
-      const nextMode = parseLegacyHashToMode(window.location.hash) || defaultNavMode
+      const nextMode = resolveShellModeFromHash(window.location.hash, defaultNavMode)
       setViewMode((prev) => (prev === nextMode ? prev : nextMode))
       setActiveSurface(resolveInteractionSurface(nextMode))
       setLastModeBySurface((prev) => updateLastModeBySurface(prev, nextMode))
@@ -243,7 +205,7 @@ export default function AppShell() {
     }
     setViewMode(mode)
     persistShellPrefs(mode, pendingProjectKey, nextLastModeBySurface)
-    const nextHash = getModuleDescriptor(mode).hash || hashByMode[mode]
+    const nextHash = hashByMode[mode]
     if (nextHash && window.location.hash !== nextHash) window.location.hash = nextHash
   }
 

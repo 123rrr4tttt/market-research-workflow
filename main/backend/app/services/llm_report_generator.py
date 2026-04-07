@@ -28,6 +28,20 @@ DEFAULT_SECTION_TITLES = [
 ]
 
 
+def build_report_capability_truth(*, route_kind: str, auto_source_enabled: bool) -> dict[str, Any]:
+    resolved_route_kind = str(route_kind or "").strip().lower() or "unknown"
+    return {
+        "contract_version": "llm_report.capability_truth.v1",
+        "declared_capability": "llm_report_generation",
+        "implementation_kind": "structured_template_report",
+        "real_model_path": False,
+        "fallback_path": True,
+        "source_resolution_kind": "auto_enriched" if auto_source_enabled else "caller_supplied_only",
+        "route_kind": resolved_route_kind,
+        "semantic_warning": "current implementation is structured/template-driven and should not be interpreted as a fully model-generated report path",
+    }
+
+
 @dataclass
 class ReportSection:
     title: str

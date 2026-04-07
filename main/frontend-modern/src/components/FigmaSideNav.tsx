@@ -1,71 +1,18 @@
 import { useState, type ComponentType } from 'react'
 import {
-  AreaChart,
-  Brain,
-  Building2,
   ChevronDown,
-  Database,
-  DatabaseZap,
-  Download,
-  Factory,
-  FileInput,
-  Folders,
-  Landmark,
-  Layers,
-  LineChart,
-  MessageCircleMore,
-  MessageSquare,
-  Network,
-  Package,
   Plus,
-  Puzzle,
-  Radar,
-  Settings2,
-  ShoppingBag,
-  ShoppingCart,
-  Sparkles,
-  TrendingUp,
   Wrench,
-  Zap,
 } from 'lucide-react'
+import type { NavMode } from '../app/kernel/types'
+import { MODULE_ICON_BY_KEY } from '../app/kernel/moduleChrome'
 import { translate, useAppLocale } from '../app/platform/i18n'
 import { getModulesByGroup, MODULE_NAV_GROUP_KEYS } from '../app/platform/modules'
 import type { ModuleDescriptor, ModuleNavGroupKey } from '../app/platform/modules'
 import { resolveInteractionSurface } from '../app/topology/contracts'
 import type { InteractionSurface } from '../app/topology/surfaces'
 
-export type NavMode =
-  | 'overviewTasks'
-  | 'overviewData'
-  | 'dataDashboard'
-  | 'dataMarket'
-  | 'dataSocial'
-  | 'dataPolicy'
-  | 'dataCatalog'
-  | 'graphMarket'
-  | 'graphPolicy'
-  | 'graphSocial'
-  | 'graphCompany'
-  | 'graphProduct'
-  | 'graphOperation'
-  | 'graphDeep'
-  | 'graphBuilder'
-  | 'flowIngest'
-  | 'flowSpecialized'
-  | 'flowProcessing'
-  | 'flowRawData'
-  | 'flowExtract'
-  | 'flowAnalysis'
-  | 'flowBoard'
-  | 'flowWriting'
-  | 'flowAgentChat'
-  | 'flowLlmNodeDesign'
-  | 'sysProjects'
-  | 'sysCrawler'
-  | 'sysResource'
-  | 'sysBackend'
-  | 'sysSettings'
-  | 'sysLlm'
+export type { NavMode } from '../app/kernel/types'
 
 type Props = {
   mode: NavMode
@@ -73,40 +20,6 @@ type Props = {
   surface: InteractionSurface
   onSurfaceChange: (surface: InteractionSurface) => void
   theme?: 'light' | 'dark' | 'brand'
-}
-
-const iconByMode: Record<NavMode, ComponentType<{ size?: number; className?: string }>> = {
-  overviewTasks: Zap,
-  overviewData: Database,
-  dataDashboard: AreaChart,
-  dataMarket: LineChart,
-  dataSocial: MessageSquare,
-  dataPolicy: Landmark,
-  dataCatalog: Factory,
-  graphMarket: Network,
-  graphPolicy: Network,
-  graphSocial: Network,
-  graphCompany: Building2,
-  graphProduct: Package,
-  graphOperation: ShoppingBag,
-  graphDeep: TrendingUp,
-  graphBuilder: Network,
-  flowIngest: Download,
-  flowSpecialized: Sparkles,
-  flowProcessing: FileInput,
-  flowRawData: Database,
-  flowExtract: Puzzle,
-  flowAnalysis: Brain,
-  flowBoard: TrendingUp,
-  flowWriting: FileInput,
-  flowAgentChat: MessageCircleMore,
-  flowLlmNodeDesign: Brain,
-  sysProjects: Folders,
-  sysCrawler: Radar,
-  sysResource: DatabaseZap,
-  sysBackend: Layers,
-  sysSettings: Settings2,
-  sysLlm: Wrench,
 }
 
 export default function FigmaSideNav({ mode, onModeChange, surface, onSurfaceChange, theme = 'dark' }: Props) {
@@ -178,7 +91,7 @@ export default function FigmaSideNav({ mode, onModeChange, surface, onSurfaceCha
                 ) : null}
               </div>
               {expanded ? group.items.map((item) => {
-                const Icon = iconByMode[item.mode] || ShoppingCart
+                const Icon = MODULE_ICON_BY_KEY[item.mode] as ComponentType<{ size?: number; className?: string }>
                 const active = mode === item.mode
                 return (
                   <button

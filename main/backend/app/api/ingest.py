@@ -14,7 +14,7 @@ from ..services.projects import bind_project, current_project_key
 from ..services.skill_runtime import invoke_skill
 from ..services.agent_batch.routing import apply_async_or_delay, validate_lane
 from ..services.agent_batch.task_contract import build_source_library_override_params
-from ..settings.config import settings
+from ..settings.config import get_effective_project_key_enforcement_mode, settings
 from ..contracts import (
     ErrorCode,
     error_response,
@@ -172,7 +172,7 @@ def _require_project_key(project_key: str | None) -> str:
     if key:
         return key
 
-    enforcement_mode = str(getattr(settings, "project_key_enforcement_mode", "warn")).strip().lower()
+    enforcement_mode = get_effective_project_key_enforcement_mode()
     if enforcement_mode == "require":
         raise HTTPException(
             status_code=400,
@@ -693,14 +693,39 @@ def _run_single_source_library_entry(
     def _external_terminal_payload(result: dict[str, Any]) -> dict[str, Any]:
         terminal_output = result.get("terminal_output") if isinstance(result, dict) else None
         if isinstance(terminal_output, dict):
+            authority_output = result.get("authority_output") if isinstance(result.get("authority_output"), dict) else None
+            compat_projection = result.get("compat_projection") if isinstance(result.get("compat_projection"), dict) else None
+            frontdoor_ingress = result.get("frontdoor_ingress") if isinstance(result.get("frontdoor_ingress"), dict) else None
+            postprocess_frontdoor = result.get("postprocess_frontdoor") if isinstance(result.get("postprocess_frontdoor"), dict) else None
+            legacy_result = result.get("legacy_result") if isinstance(result.get("legacy_result"), dict) else None
+            if authority_output is None and frontdoor_ingress and postprocess_frontdoor and legacy_result is not None:
+                from ..services.collect_runtime.adapters.source_library import (
+                    build_source_library_authority_output,
+                    build_source_library_compat_projection,
+                )
+
+                authority_output = build_source_library_authority_output(
+                    terminal_output=terminal_output,
+                    frontdoor_ingress=frontdoor_ingress,
+                    postprocess_frontdoor=postprocess_frontdoor,
+                    legacy_result=legacy_result,
+                )
+                compat_projection = build_source_library_compat_projection(
+                    legacy_result=legacy_result,
+                    authority_output=authority_output,
+                )
             response_payload = dict(terminal_output)
             response_payload.setdefault("terminal_output", terminal_output)
-            if isinstance(result.get("frontdoor_ingress"), dict):
-                response_payload["frontdoor_ingress"] = dict(result["frontdoor_ingress"])
-            if isinstance(result.get("postprocess_frontdoor"), dict):
-                response_payload["postprocess_frontdoor"] = dict(result["postprocess_frontdoor"])
-            if isinstance(result.get("legacy_result"), dict):
-                response_payload["legacy_result"] = dict(result["legacy_result"])
+            if isinstance(authority_output, dict):
+                response_payload["authority_output"] = dict(authority_output)
+            if isinstance(compat_projection, dict):
+                response_payload["compat_projection"] = dict(compat_projection)
+            if isinstance(frontdoor_ingress, dict):
+                response_payload["frontdoor_ingress"] = dict(frontdoor_ingress)
+            if isinstance(postprocess_frontdoor, dict):
+                response_payload["postprocess_frontdoor"] = dict(postprocess_frontdoor)
+            if isinstance(legacy_result, dict):
+                response_payload["legacy_result"] = dict(legacy_result)
                 response_payload["legacy_result_is_deprecated"] = bool(result.get("legacy_result_is_deprecated", True))
             if result.get("display_meta") is not None and "display_meta" not in response_payload:
                 response_payload["display_meta"] = result.get("display_meta")
@@ -1426,13 +1451,15 @@ def _run_source_collect_batch(
             override_params=override_params,
         )
 
-    nested = run_result.get("result") if isinstance(run_result, dict) else {}
-    errors = nested.get("errors") if isinstance(nested, dict) else []
-    sources_inserted = int((nested or {}).get("inserted") or 0)
-    sources_updated = int((nested or {}).get("updated") or 0)
-    skipped = int((nested or {}).get("skipped") or 0)
-    has_errors = isinstance(errors, list) and any(str(e or "").strip() for e in errors)
-    bootstrap_required = (sources_inserted + sources_updated == 0) and not has_errors
+    authority_output = run_result.get("authority_output") if isinstance(run_result, dict) else {}
+    authority_summary = authority_output.get("summary") if isinstance(authority_output, dict) else {}
+    write_effects = authority_summary.get("write_effects") if isinstance(authority_summary.get("write_effects"), dict) else {}
+    errors = write_effects.get("errors") if isinstance(write_effects.get("errors"), list) else []
+    sources_inserted = int(write_effects.get("inserted") or 0)
+    sources_updated = int(write_effects.get("updated") or 0)
+    skipped = int(write_effects.get("skipped") or 0)
+    has_errors = any(str(e or "").strip() for e in errors)
+    bootstrap_required = bool(authority_summary.get("bootstrap_required")) if authority_summary else (sources_inserted + sources_updated == 0 and not has_errors)
     warnings: list[str] = []
     if bootstrap_required:
         warnings.append("No source candidates produced. Bootstrap URL pool or source templates, then retry source_collect.")

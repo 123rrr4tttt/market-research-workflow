@@ -4,10 +4,20 @@ import type { KernelModuleKey } from './types'
 export const defaultNavMode: KernelModuleKey = DEFAULT_KERNEL_MODULE
 
 export const hashByMode = Object.fromEntries(
+  moduleManifest.map((entry) => [entry.moduleKey, `#${entry.entryRoute}`]),
+) as Record<KernelModuleKey, `#/${string}`>
+
+export const legacyHashByMode = Object.fromEntries(
   moduleManifest.map((entry) => [entry.moduleKey, entry.legacyHashes[0] || `#${entry.entryRoute}`]),
 ) as Record<KernelModuleKey, string>
 
 const navModes = new Set<KernelModuleKey>(moduleManifest.map((entry) => entry.moduleKey))
+
+export const supportedLegacyHashMatrix = moduleManifest.map((entry) => ({
+  moduleKey: entry.moduleKey,
+  canonicalHash: `#${entry.entryRoute}` as `#/${string}`,
+  legacyHashes: entry.legacyHashes,
+}))
 
 export function parseLegacyHashToMode(rawHash: string): KernelModuleKey | null {
   const decoded = decodeURIComponent((rawHash || '').replace(/^#/, '')).trim().toLowerCase()

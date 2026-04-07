@@ -342,6 +342,88 @@ def _project_agent_session_from_loop(
     return session
 
 
+def _project_agent_session_from_job_submission(
+    *,
+    record: _BatchJobRecord,
+    request_payload: AgentBatchSubmitRequest,
+    accepted_items: list[dict[str, Any]],
+    rejected_items: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    try:
+        service = get_agent_session_service()
+        bundle = service.project_agent_batch_job_submission(
+            job_id=record.job_id,
+            project_key=record.project_key,
+            request_payload=request_payload.model_dump(),
+            accepted_items=accepted_items,
+            rejected_items=rejected_items,
+            rule_set_id=request_payload.rule_set_id,
+        )
+    except Exception:
+        return None
+    session = dict(bundle.get("session") or {})
+    session_id = str(session.get("session_id") or "").strip()
+    if session_id:
+        record.metadata.update(
+            {
+                "session_id": session_id,
+                "root_task_id": session.get("root_task_id"),
+                "current_phase": session.get("current_phase"),
+                "compat_mode": True,
+                "compat_projection_version": session.get("compat_projection_version") or "agent_batch.jobs.v1",
+            }
+        )
+    return session
+
+
+def _project_agent_session_from_job_state(
+    *,
+    record: _BatchJobRecord,
+    snapshots: list[dict[str, Any]],
+    phase: str,
+    progress: dict[str, Any],
+) -> dict[str, Any] | None:
+    session_id = str((record.metadata or {}).get("session_id") or "").strip()
+    if not session_id:
+        return None
+    projected_items: list[dict[str, Any]] = []
+    for item, snapshot in zip(record.items, snapshots):
+        projected_items.append(
+            {
+                "item_id": item.item_id,
+                "index": len(projected_items) + 1,
+                "task_id": item.task_id,
+                "channel": item.channel,
+                "item_key": item.item_key,
+                "lane": item.lane,
+                "workflow_run_id": item.workflow_run_id,
+                "trace_id": item.trace_id,
+                "run_id": _resolve_run_id(item, snapshot),
+                "snapshot": snapshot,
+            }
+        )
+    try:
+        bundle = get_agent_session_service().project_agent_batch_job_state(
+            compat_job_id=record.job_id,
+            projected_items=projected_items,
+            phase=phase,
+            progress=progress,
+        )
+    except Exception:
+        return None
+    session = dict((bundle or {}).get("session") or {})
+    if session:
+        record.metadata.update(
+            {
+                "session_id": session.get("session_id"),
+                "root_task_id": session.get("root_task_id"),
+                "current_phase": session.get("current_phase"),
+                "compat_projection_version": session.get("compat_projection_version") or "agent_batch.jobs.v1",
+            }
+        )
+    return session or None
+
+
 def _task_snapshot(task_id: str) -> dict[str, Any]:
     result = celery_app.AsyncResult(task_id)
     status = str(result.status or "").lower() or "unknown"
@@ -976,6 +1058,8 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
                 "run_ids": run_ids,
                 "created_at": existing.created_at,
                 "idempotency_reused": True,
+                "session_id": (existing.metadata or {}).get("session_id"),
+                "current_phase": (existing.metadata or {}).get("current_phase"),
             }
         )
 
@@ -1060,6 +1144,12 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
     _BATCH_JOB_REGISTRY[job_id] = record
     if idem:
         _IDEMPOTENCY_INDEX[idem] = job_id
+    projected_session = _project_agent_session_from_job_submission(
+        record=record,
+        request_payload=payload,
+        accepted_items=accepted,
+        rejected_items=rejected,
+    )
     run_ids = [run_id for run_id in (str(it.workflow_run_id or "").strip() for it in record.items) if run_id]
     return ok(
         {
@@ -1078,6 +1168,8 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
                 "retry": f"/api/v1/agent-batch/jobs/{job_id}/retry",
             },
             "rule_set_id": payload.rule_set_id,
+            "session_id": str((projected_session or {}).get("session_id") or "").strip() or None,
+            "current_phase": (projected_session or {}).get("current_phase"),
         }
     )
 
@@ -1096,6 +1188,14 @@ def get_agent_batch_job(job_id: str) -> dict[str, Any]:
     failed = sum(1 for it in snapshots if it.get("status") == "failure")
     running = sum(1 for it in snapshots if it.get("status") in {"pending", "started", "retry", "running"})
     phase = "completed" if total > 0 and (succeeded + failed) == total else "running"
+    progress = {
+        "total": total,
+        "succeeded": succeeded,
+        "failed": failed,
+        "running": running,
+        "queued": max(0, total - succeeded - failed - running),
+    }
+    projected_session = _project_agent_session_from_job_state(record=record, snapshots=snapshots, phase=phase, progress=progress)
     session_id = str((record.metadata or {}).get("session_id") or "").strip() or None
     current_phase = str((record.metadata or {}).get("current_phase") or "").strip() or None
     return ok(
@@ -1103,15 +1203,9 @@ def get_agent_batch_job(job_id: str) -> dict[str, Any]:
             "job_id": record.job_id,
             "status": phase,
             "phase": phase,
-            "session_id": session_id,
-            "current_phase": current_phase,
-            "progress": {
-                "total": total,
-                "succeeded": succeeded,
-                "failed": failed,
-                "running": running,
-                "queued": max(0, total - succeeded - failed - running),
-            },
+            "session_id": str((projected_session or {}).get("session_id") or session_id or "").strip() or None,
+            "current_phase": (projected_session or {}).get("current_phase") or current_phase,
+            "progress": progress,
             "started_at": record.created_at,
             "updated_at": _utcnow_iso(),
             "finished_at": _utcnow_iso() if phase == "completed" else None,
@@ -1126,9 +1220,12 @@ def get_agent_batch_job(job_id: str) -> dict[str, Any]:
 @router.get("/jobs/{job_id}/items")
 def list_agent_batch_items(job_id: str) -> dict[str, Any]:
     record = _load_job(job_id)
+    snapshots = [_task_snapshot(item.task_id) for item in record.items]
+    phase = "completed" if snapshots and all(it.get("status") in {"success", "failure", "revoked"} for it in snapshots) else "running"
+    progress = _job_progress_from_snapshots(snapshots)
+    _project_agent_session_from_job_state(record=record, snapshots=snapshots, phase=phase, progress=progress)
     items = []
-    for item in record.items:
-        snap = _task_snapshot(item.task_id)
+    for item, snap in zip(record.items, snapshots):
         run_id = _resolve_run_id(item, snap)
         items.append(
             {
@@ -1226,6 +1323,10 @@ def retry_agent_batch_job(job_id: str, payload: AgentBatchRetryRequest) -> dict[
 @router.get("/jobs/{job_id}/events")
 def get_agent_batch_events(job_id: str) -> dict[str, Any]:
     record = _load_job(job_id)
+    snapshots = [_task_snapshot(item.task_id) for item in record.items]
+    phase = "completed" if snapshots and all(it.get("status") in {"success", "failure", "revoked"} for it in snapshots) else "running"
+    progress = _job_progress_from_snapshots(snapshots)
+    _project_agent_session_from_job_state(record=record, snapshots=snapshots, phase=phase, progress=progress)
     events = []
     search_brief = dict((record.metadata or {}).get("search_brief") or {})
     search_critic = dict((record.metadata or {}).get("search_critic") or {})
@@ -1326,8 +1427,7 @@ def get_agent_batch_events(job_id: str) -> dict[str, Any]:
                 },
             }
         )
-    for item in record.items:
-        snap = _task_snapshot(item.task_id)
+    for item, snap in zip(record.items, snapshots):
         run_id = _resolve_run_id(item, snap)
         events.append(
             {

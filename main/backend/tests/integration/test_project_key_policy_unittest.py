@@ -68,6 +68,18 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         detail = ctx.exception.detail
         self.assertEqual(detail["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
 
+    def test_ingest_require_project_key_in_non_dev_opt_in_require_rejects_fallback(self):
+        with (
+            patch("app.api.ingest.settings.project_key_enforcement_mode", "warn"),
+            patch("app.api.ingest.settings.env", "prod"),
+            patch("app.api.ingest.settings.project_key_require_in_non_dev", True),
+            patch("app.api.ingest.current_project_key", return_value="demo_proj"),
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                ingest_api._require_project_key(None)
+        detail = ctx.exception.detail
+        self.assertEqual(detail["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
     def test_source_library_require_project_key_fallback_logs_warning(self):
         with patch("app.api.source_library.settings.project_key_enforcement_mode", "warn"):
             with patch("app.api.source_library.current_project_key", return_value="demo_proj"):
@@ -76,6 +88,18 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         self.assertEqual(value, "demo_proj")
         self.assertTrue(any("project_key_fallback_used" in msg for msg in cm.output))
 
+    def test_source_library_require_project_key_in_non_dev_opt_in_require_rejects_fallback(self):
+        with (
+            patch("app.api.source_library.settings.project_key_enforcement_mode", "warn"),
+            patch("app.api.source_library.settings.env", "staging"),
+            patch("app.api.source_library.settings.project_key_require_in_non_dev", True),
+            patch("app.api.source_library.current_project_key", return_value="demo_proj"),
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                source_library_api._require_project_key(None)
+        detail = ctx.exception.detail
+        self.assertEqual(detail["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
     def test_middleware_sets_project_context_headers(self):
         client = TestClient(backend_app)
         resp = client.get("/api/v1/health", headers={"X-Project-Key": "demo_proj", "X-Request-Id": "req-1"})
@@ -83,6 +107,20 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         self.assertEqual(resp.headers.get("x-request-id"), "req-1")
         self.assertEqual(resp.headers.get("x-project-key-source"), "header")
         self.assertEqual(resp.headers.get("x-project-key-resolved"), "demo_proj")
+        self.assertEqual(resp.headers.get("x-project-key-enforcement-mode"), "warn")
+        self.assertEqual(resp.headers.get("x-project-key-fallback-allowed"), "true")
+
+    def test_middleware_exposes_non_dev_require_mode_headers(self):
+        client = TestClient(backend_app)
+        with (
+            patch("app.main.settings.project_key_enforcement_mode", "warn"),
+            patch("app.main.settings.env", "prod"),
+            patch("app.main.settings.project_key_require_in_non_dev", True),
+        ):
+            resp = client.get("/api/v1/health", headers={"X-Project-Key": "demo_proj", "X-Request-Id": "req-2"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.headers.get("x-project-key-enforcement-mode"), "require")
+        self.assertEqual(resp.headers.get("x-project-key-fallback-allowed"), "false")
 
     def test_graph_structured_search_explicit_project_key_success(self):
         client = TestClient(backend_app)
@@ -155,7 +193,7 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         body = resp.json()
         data = body.get("data") if isinstance(body, dict) and "data" in body else body
         self.assertIsInstance(data, dict)
-        self.assertEqual(data["item_key"], "demo-item")
+        self.assertEqual(data["item"]["item_key"], "demo-item")
         mocked_run.assert_called_once()
 
     def test_ingest_source_library_run_missing_project_key_in_require_mode_fails(self):

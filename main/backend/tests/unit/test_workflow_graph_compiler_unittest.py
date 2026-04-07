@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import unittest
 
+from app.services.workflow_graph import WorkflowGraphCompilerService
 from app.services.workflow_graph.compiler import compile_workflow_graph
 from app.services.workflow_graph.contracts import WorkflowGraphCompileError
+from app.services.workflow_graph.store import InMemoryCompiledGraphStore
 
 
 class WorkflowGraphCompilerUnitTestCase(unittest.TestCase):
@@ -64,6 +66,19 @@ class WorkflowGraphCompilerUnitTestCase(unittest.TestCase):
 
         with self.assertRaisesRegex(WorkflowGraphCompileError, "contains a cycle"):
             compile_workflow_graph(payload)
+
+    def test_compiler_service_persists_and_reloads_compiled_graph(self):
+        durable_store = InMemoryCompiledGraphStore()
+        first_service = WorkflowGraphCompilerService(store=durable_store)
+
+        response = first_service.compile({"dsl": self._build_valid_payload(), "graph_id": "graph-durable"})
+        self.assertEqual(response["graph_id"], "graph-durable")
+
+        reloaded_service = WorkflowGraphCompilerService(store=durable_store)
+        compiled = reloaded_service.get_compiled("graph-durable")
+        self.assertEqual(compiled["graph_id"], "graph-durable")
+        self.assertEqual(compiled["topo_order"], ["n1", "n2", "n3"])
+        self.assertEqual(compiled["checksum"], response["checksum"])
 
 
 if __name__ == "__main__":

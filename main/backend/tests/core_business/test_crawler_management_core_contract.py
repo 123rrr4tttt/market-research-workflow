@@ -81,6 +81,8 @@ class CrawlerManagementApiContractTestCase(unittest.TestCase):
             "crawler.demo.item",
             "demo_proj",
             {"provider": "scrapy", "spider": "market_spider"},
+            workflow_run_id=None,
+            trace_id=None,
         )
 
 

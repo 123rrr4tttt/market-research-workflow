@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     # Neutral default project key for local bootstrap.
     active_project_key: str = Field(default="default")
     project_key_enforcement_mode: str = Field(default="warn")  # warn | require
+    project_key_require_in_non_dev: bool = Field(default=False)
     project_schema_prefix: str = Field(default="project_")
     bootstrap_create_initial_project: bool = Field(default=False)
     enable_legacy_default_to_online_lottery_migration: bool = Field(default=False)
@@ -184,6 +185,36 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def _normalize_project_key_enforcement_mode(raw_mode: str | None) -> str:
+    mode = str(raw_mode or "").strip().lower()
+    if mode == "require":
+        return "require"
+    return "warn"
+
+
+def get_effective_project_key_enforcement_mode(
+    *,
+    env_name: str | None = None,
+    explicit_mode: str | None = None,
+    require_in_non_dev: bool | None = None,
+) -> str:
+    mode = _normalize_project_key_enforcement_mode(
+        explicit_mode if explicit_mode is not None else settings.project_key_enforcement_mode
+    )
+    if mode == "require":
+        return mode
+
+    normalized_env = str(env_name if env_name is not None else settings.env or "dev").strip().lower()
+    resolved_require_in_non_dev = (
+        bool(require_in_non_dev)
+        if require_in_non_dev is not None
+        else bool(getattr(settings, "project_key_require_in_non_dev", False))
+    )
+    if normalized_env != "dev" and resolved_require_in_non_dev:
+        return "require"
+    return mode
 
 
 def reload_settings() -> Settings:

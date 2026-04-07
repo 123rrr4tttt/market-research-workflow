@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from threading import RLock
 from typing import Any
 from uuid import uuid4
+import json
 import logging
 
 from sqlalchemy import func, text
@@ -125,6 +126,27 @@ class InMemoryRunStore:
         if run is None:
             raise KeyError(f"run not found: {run_id}")
         return run
+
+
+class InMemoryCompiledGraphStore:
+    """Thread-safe in-memory store for compiled workflow graph artifacts."""
+
+    def __init__(self) -> None:
+        self._compiled: dict[str, dict[str, Any]] = {}
+        self._lock = RLock()
+
+    def save_compiled(self, record: dict[str, Any]) -> None:
+        normalized = _normalize_compiled_record(record)
+        graph_id = str(normalized.get("graph_id") or "").strip()
+        with self._lock:
+            self._compiled[graph_id] = normalized
+
+    def get_compiled(self, graph_id: str) -> dict[str, Any]:
+        with self._lock:
+            row = self._compiled.get(str(graph_id))
+        if row is None:
+            raise KeyError(f"compiled graph not found: {graph_id}")
+        return deepcopy(row)
 
 
 class SqlRunStore:
@@ -287,6 +309,84 @@ class SqlRunStore:
         return row
 
 
+class SqlCompiledGraphStore:
+    """DB-backed store for durable compiled workflow graph artifacts."""
+
+    _TABLE_NAME = "workflow_graph_compiled_artifacts"
+
+    def __init__(self) -> None:
+        with engine.begin() as conn:
+            conn.execute(text('SET search_path TO "public"'))
+            conn.execute(
+                text(
+                    f"""
+                    CREATE TABLE IF NOT EXISTS {self._TABLE_NAME} (
+                        graph_id TEXT PRIMARY KEY,
+                        version TEXT NOT NULL,
+                        checksum TEXT NOT NULL,
+                        payload_json JSONB NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+            )
+
+    def save_compiled(self, record: dict[str, Any]) -> None:
+        normalized = _normalize_compiled_record(record)
+        with engine.begin() as conn:
+            conn.execute(text('SET search_path TO "public"'))
+            conn.execute(
+                text(
+                    f"""
+                    INSERT INTO {self._TABLE_NAME} (
+                        graph_id,
+                        version,
+                        checksum,
+                        payload_json,
+                        created_at,
+                        updated_at
+                    ) VALUES (
+                        :graph_id,
+                        :version,
+                        :checksum,
+                        CAST(:payload_json AS JSONB),
+                        NOW(),
+                        NOW()
+                    )
+                    ON CONFLICT (graph_id) DO UPDATE SET
+                        version = EXCLUDED.version,
+                        checksum = EXCLUDED.checksum,
+                        payload_json = EXCLUDED.payload_json,
+                        updated_at = NOW()
+                    """
+                ),
+                {
+                    "graph_id": str(normalized.get("graph_id") or ""),
+                    "version": str(normalized.get("version") or ""),
+                    "checksum": str(normalized.get("checksum") or ""),
+                    "payload_json": json.dumps(normalized, sort_keys=True),
+                },
+            )
+
+    def get_compiled(self, graph_id: str) -> dict[str, Any]:
+        with engine.connect() as conn:
+            conn.execute(text('SET search_path TO "public"'))
+            row = conn.execute(
+                text(
+                    f"""
+                    SELECT payload_json
+                    FROM {self._TABLE_NAME}
+                    WHERE graph_id = :graph_id
+                    """
+                ),
+                {"graph_id": str(graph_id)},
+            ).mappings().one_or_none()
+        if row is None:
+            raise KeyError(f"compiled graph not found: {graph_id}")
+        return _normalize_compiled_payload(row.get("payload_json"))
+
+
 def build_run_store() -> InMemoryRunStore | SqlRunStore:
     """Construct runtime store with fail-closed option."""
     if not bool(getattr(settings, "workflow_graph_db_store_enabled", True)):
@@ -300,6 +400,19 @@ def build_run_store() -> InMemoryRunStore | SqlRunStore:
         return InMemoryRunStore()
 
 
+def build_compiled_graph_store() -> InMemoryCompiledGraphStore | SqlCompiledGraphStore:
+    """Construct durable compiled graph store with the same fail-closed policy as run store."""
+    if not bool(getattr(settings, "workflow_graph_db_store_enabled", True)):
+        return InMemoryCompiledGraphStore()
+    try:
+        return SqlCompiledGraphStore()
+    except Exception as exc:  # noqa: BLE001
+        if bool(getattr(settings, "workflow_graph_db_store_fail_closed", True)):
+            raise RuntimeError(f"workflow graph compiled store unavailable (fail-closed): {exc}") from exc
+        logger.warning("workflow graph compiled store disabled by runtime error, fallback to memory: %s", exc)
+        return InMemoryCompiledGraphStore()
+
+
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -308,3 +421,29 @@ def _to_iso(value: Any) -> str:
     if isinstance(value, datetime):
         return value.astimezone(timezone.utc).isoformat()
     return _utcnow()
+
+
+def _normalize_compiled_record(record: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(record, dict):
+        raise ValueError("compiled graph record must be a dict")
+    graph_id = str(record.get("graph_id") or "").strip()
+    if not graph_id:
+        raise ValueError("compiled graph record requires graph_id")
+    version = str(record.get("version") or "").strip()
+    checksum = str(record.get("checksum") or "").strip()
+    if not version:
+        raise ValueError("compiled graph record requires version")
+    if not checksum:
+        raise ValueError("compiled graph record requires checksum")
+    return deepcopy(record)
+
+
+def _normalize_compiled_payload(value: Any) -> dict[str, Any]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"compiled graph payload is not valid JSON: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError("compiled graph payload must be a dict")
+    return _normalize_compiled_record(value)

@@ -24,6 +24,16 @@
 
 ## 最新补充
 
+- `development-plans/CURRENT_DEV` 新增仓库级收口计划的 live runtime smoke 复现实录（2026-04-07）：
+  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
+- `development-plans/CURRENT_DEV` 新增 agent runtime canonical path closure 文档（2026-04-07）：
+  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
+- `development-plans/CURRENT_DEV` 新增仓库级收口 topic-level closure matrix（2026-04-07）：
+  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md)
+- `development-plans/CURRENT_DEV` 新增仓库级收口计划的最终验证与 closure 判断文档（2026-04-07）：
+  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md)
+- `development-plans/CURRENT_DEV` 新增治理默认门禁、PR 证据和文档导航维护基线（2026-04-07）：
+  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md)
 - `development-plans/CURRENT_DEV` 新增高风险收口线的拓扑冻结、compat caller matrix 与 rollout guards 文档（2026-04-06）：
   - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md)
 - `development-plans/CURRENT_DEV` 新增仓库级收口计划的原子任务单（2026-04-06）：

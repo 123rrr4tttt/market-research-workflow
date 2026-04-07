@@ -22,6 +22,22 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _build_capability_truth(*, action_id: str, route_kind: str, status: str) -> dict[str, Any]:
+    resolved_route_kind = str(route_kind or "").strip().lower() or "unknown"
+    resolved_status = str(status or "").strip().lower() or "completed"
+    return {
+        "contract_version": "writing.llm_action.capability_truth.v1",
+        "declared_capability": "writing_action",
+        "action_id": str(action_id or "").strip(),
+        "implementation_kind": "rule_template_action",
+        "real_model_path": False,
+        "fallback_path": True,
+        "route_kind": resolved_route_kind,
+        "status": resolved_status,
+        "semantic_warning": "current implementation is rule/template-driven and should not be interpreted as a guaranteed real-model execution path",
+    }
+
+
 def _build_action_result(payload: LlmActionRequest) -> tuple[str, list[str]]:
     warnings: list[str] = []
     if payload.action_id == "outline_generate":
@@ -105,6 +121,11 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
         }
         if not agent_boundary.allowed:
             status = "rejected"
+            capability_truth = _build_capability_truth(
+                action_id=payload.action_id,
+                route_kind=routing.route_kind,
+                status=status,
+            )
             warnings = list(agent_boundary.denied_reasons) or ["agent_boundary_rejected"]
             result = {
                 "trace_id": trace_id,
@@ -116,6 +137,7 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
                 "request_id": identity.request_id,
                 "route_kind": routing.route_kind,
                 "agent_boundary_allowed": False,
+                "capability_truth": capability_truth,
                 "error_code": "AGENT_BOUNDARY_REJECTED",
             }
             complete_job(job_id, status=status, result=result)
@@ -127,6 +149,7 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
                 trace_id=trace_id,
                 job_id=job_id,
                 status=status,
+                capability_truth=capability_truth,
                 observability={
                     "job_id": job_id,
                     "trace_id": trace_id,
@@ -154,6 +177,12 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
             )
 
         content, warnings = _build_action_result(payload)
+        status = "queued" if payload.async_mode else "completed"
+        capability_truth = _build_capability_truth(
+            action_id=payload.action_id,
+            route_kind=routing.route_kind,
+            status=status,
+        )
         result = {
             "trace_id": trace_id,
             "action_id": payload.action_id,
@@ -164,9 +193,9 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
             "request_id": identity.request_id,
             "route_kind": routing.route_kind,
             "agent_boundary_allowed": True,
+            "capability_truth": capability_truth,
         }
         complete_job(job_id, result=result)
-        status = "queued" if payload.async_mode else "completed"
         return LlmActionResponse(
             content="" if payload.async_mode else content,
             sources=[],
@@ -175,6 +204,7 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
             trace_id=trace_id,
             job_id=job_id,
             status=status,
+            capability_truth=capability_truth,
             observability={
                 "job_id": job_id,
                 "trace_id": trace_id,

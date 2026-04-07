@@ -655,6 +655,196 @@ class AgentSessionService:
         self._refresh_memory_artifacts(session_id, force=True)
         return self.get_session_bundle(session_id)
 
+    def project_agent_batch_job_submission(
+        self,
+        *,
+        job_id: str,
+        project_key: str | None,
+        request_payload: dict[str, Any],
+        accepted_items: list[dict[str, Any]],
+        rejected_items: list[dict[str, Any]],
+        rule_set_id: str | None = None,
+    ) -> dict[str, Any]:
+        existing = self.find_session_by_compat_job_id(job_id)
+        if existing is not None:
+            return self.get_session_bundle(str(existing["session_id"]))
+
+        task_blueprints = self._build_agent_batch_job_blueprints(
+            job_id=job_id,
+            accepted_items=accepted_items,
+            rejected_items=rejected_items,
+        )
+        metadata = {
+            "compat_projection_version": "agent_batch.jobs.v1",
+            "agent_batch": {
+                "job_id": job_id,
+                "rule_set_id": rule_set_id,
+                "accepted_count": len(accepted_items),
+                "rejected_count": len(rejected_items),
+            },
+        }
+        bundle = self.create_session(
+            source="agent_batch",
+            entrypoint_type="agent_batch.jobs",
+            goal=f"Execute agent batch job {job_id}",
+            project_key=project_key,
+            initial_context=request_payload,
+            compat_mode=True,
+            compat_job_id=job_id,
+            metadata=metadata,
+            task_blueprints=task_blueprints,
+        )
+        session_id = str(bundle["session"]["session_id"])
+        self.store.upsert_artifact(
+            {
+                "session_id": session_id,
+                "artifact_type": "compat.job.submit",
+                "name": "compat.job.submit.json",
+                "mime_type": "application/json",
+                "content_json": {
+                    "job_id": job_id,
+                    "request_payload": request_payload,
+                    "accepted_items": accepted_items,
+                    "rejected_items": rejected_items,
+                    "rule_set_id": rule_set_id,
+                },
+                "metadata": {"source": "agent_batch.jobs"},
+            }
+        )
+        self.store.append_event(
+            session_id,
+            event_type="compat.job_projected",
+            payload={
+                "compat_job_id": job_id,
+                "accepted_count": len(accepted_items),
+                "rejected_count": len(rejected_items),
+            },
+        )
+        self._sync_session_state(session_id)
+        self._refresh_memory_artifacts(session_id, force=True)
+        return self.get_session_bundle(session_id)
+
+    def project_agent_batch_job_state(
+        self,
+        *,
+        compat_job_id: str,
+        projected_items: list[dict[str, Any]],
+        phase: str,
+        progress: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        existing = self.find_session_by_compat_job_id(compat_job_id)
+        if existing is None:
+            return None
+
+        session_id = str(existing["session_id"])
+        tasks = self.store.list_tasks(session_id)
+        item_tasks = {
+            str(dict(task.get("metadata") or {}).get("item_id") or ""): task
+            for task in tasks
+            if str(dict(task.get("metadata") or {}).get("compat_projection") or "") == "agent_batch.job_item"
+        }
+        verification_task = next(
+            (
+                task
+                for task in tasks
+                if str(dict(task.get("metadata") or {}).get("compat_projection") or "") == "agent_batch.job_verification"
+            ),
+            None,
+        )
+        for projected in projected_items:
+            item_id = str(projected.get("item_id") or "").strip()
+            if not item_id:
+                continue
+            task = item_tasks.get(item_id)
+            if task is None:
+                task = self.store.create_task(
+                    self._build_agent_batch_job_item_blueprint(compat_job_id=compat_job_id, item=projected)
+                    | {"session_id": session_id}
+                )
+                self.store.append_event(
+                    session_id,
+                    event_type="task.created",
+                    task_id=task["task_id"],
+                    payload={
+                        "phase": task["phase"],
+                        "task_type": task["task_type"],
+                        "blocked_by": list(task.get("blocked_by") or []),
+                        "write_set": list(task.get("write_set") or []),
+                    },
+                )
+                item_tasks[item_id] = task
+            snapshot = dict(projected.get("snapshot") or {})
+            mapped_status = self._map_agent_batch_task_status(str(snapshot.get("status") or "pending"))
+            changes = {
+                "status": mapped_status,
+                "result_summary": _short_json(
+                    {
+                        "task_status": snapshot.get("status"),
+                        "run_id": projected.get("run_id"),
+                        "workflow_run_id": projected.get("workflow_run_id"),
+                    },
+                    limit=180,
+                ),
+                "result_payload": {
+                    "snapshot": snapshot,
+                    "run_id": projected.get("run_id"),
+                    "workflow_run_id": projected.get("workflow_run_id"),
+                    "trace_id": projected.get("trace_id"),
+                    "lane": projected.get("lane"),
+                },
+                "last_activity": f"compat job item {item_id} status={snapshot.get('status')}",
+                "recent_activities": [f"compat job item {item_id} status={snapshot.get('status')}"],
+                "lease_until": None,
+            }
+            if mapped_status in FINAL_TASK_STATUSES:
+                changes["completed_at"] = _utcnow()
+            updated = self.store.update_task(session_id, task["task_id"], changes)
+            self.store.update_task(session_id, task["task_id"], {"summary_label": build_summary_label(updated)})
+            self.store.append_event(
+                session_id,
+                event_type=f"task.{mapped_status}",
+                task_id=task["task_id"],
+                payload={
+                    "compat_job_id": compat_job_id,
+                    "item_id": item_id,
+                    "run_id": projected.get("run_id"),
+                    "workflow_run_id": projected.get("workflow_run_id"),
+                },
+            )
+
+        if verification_task is not None:
+            verification_status = self._map_agent_batch_job_phase_to_task_status(phase, progress=progress)
+            updated = self.store.update_task(
+                session_id,
+                verification_task["task_id"],
+                {
+                    "status": verification_status,
+                    "result_summary": _short_json({"phase": phase, "progress": progress}, limit=180),
+                    "result_payload": {"phase": phase, "progress": progress},
+                    "last_activity": f"compat job {compat_job_id} phase={phase}",
+                    "recent_activities": [f"compat job {compat_job_id} phase={phase}"],
+                    "lease_until": None,
+                    "completed_at": _utcnow() if verification_status in FINAL_TASK_STATUSES else None,
+                },
+            )
+            self.store.update_task(session_id, verification_task["task_id"], {"summary_label": build_summary_label(updated)})
+        session = self.store.get_session(session_id)
+        metadata = dict(session.get("metadata") or {})
+        agent_batch_meta = dict(metadata.get("agent_batch") or {})
+        last_projection = {"status": phase, "progress": dict(progress or {})}
+        if dict(agent_batch_meta.get("last_projection") or {}) != last_projection:
+            agent_batch_meta["last_projection"] = last_projection
+            metadata["agent_batch"] = agent_batch_meta
+            self.store.update_session(session_id, {"metadata": metadata})
+            self.store.append_event(
+                session_id,
+                event_type="compat.job_state_projected",
+                payload={"compat_job_id": compat_job_id, "phase": phase, "progress": progress},
+            )
+        self._sync_session_state(session_id)
+        self._refresh_memory_artifacts(session_id, force=True)
+        return self.get_session_bundle(session_id)
+
     def create_workflow_graph_session(
         self,
         *,
@@ -1184,6 +1374,96 @@ class AgentSessionService:
         )
         return blueprints
 
+    def _build_agent_batch_job_blueprints(
+        self,
+        *,
+        job_id: str,
+        accepted_items: list[dict[str, Any]],
+        rejected_items: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        blueprints: list[dict[str, Any]] = []
+        item_task_ids: list[str] = []
+        for item in accepted_items:
+            blueprint = self._build_agent_batch_job_item_blueprint(compat_job_id=job_id, item=item)
+            blueprints.append(blueprint)
+            item_task_ids.append(str(blueprint["task_id"]))
+        verification_status = "blocked" if item_task_ids else "completed"
+        blueprints.append(
+            {
+                "task_id": _new_id("task"),
+                "subject": "Verification",
+                "description": "Track projected agent_batch job completion state.",
+                "task_type": "verification",
+                "phase": "verification",
+                "status": verification_status,
+                "execution_mode": "worker",
+                "priority": 90,
+                "blocked_by": item_task_ids,
+                "write_set": [],
+                "read_set": [f"agent_batch.job:{job_id}"],
+                "result_summary": f"accepted={len(accepted_items)} rejected={len(rejected_items)}",
+                "metadata": {
+                    "compat_projection": "agent_batch.job_verification",
+                    "compat_job_id": job_id,
+                },
+                "task_spec": {
+                    "task_type": "verification",
+                    "goal": f"Verify projected agent_batch job {job_id}",
+                    "context": {"accepted_items": accepted_items, "rejected_items": rejected_items},
+                    "target_scope": job_id,
+                    "write_set": [],
+                    "completion_criteria": ["Reflect aggregate batch job completion state in the session ledger."],
+                    "verification_steps": ["Observe projected item task states and aggregate progress."],
+                    "artifact_targets": ["compat.job.submit.json", "memory.md", "scratchpad.md"],
+                },
+            }
+        )
+        return blueprints
+
+    def _build_agent_batch_job_item_blueprint(self, *, compat_job_id: str, item: dict[str, Any]) -> dict[str, Any]:
+        item_id = str(item.get("item_id") or _new_id("task")).strip()
+        task_status = self._map_agent_batch_task_status(str((item.get("snapshot") or {}).get("status") or "pending"))
+        return {
+            "task_id": _new_id("task"),
+            "subject": f"Dispatch {item_id}",
+            "description": "Projected from /agent-batch/jobs direct submit path.",
+            "task_type": "implementation",
+            "phase": "implementation",
+            "status": task_status,
+            "execution_mode": "worker",
+            "priority": max(1, int(item.get("index") or 1)),
+            "write_set": [f"agent_batch.job:{compat_job_id}:item:{item_id}"],
+            "read_set": [f"agent_batch.job:{compat_job_id}"],
+            "result_summary": _short_json(
+                {
+                    "lane": item.get("lane"),
+                    "channel": item.get("channel"),
+                    "workflow_run_id": item.get("workflow_run_id"),
+                },
+                limit=180,
+            ),
+            "metadata": {
+                "compat_projection": "agent_batch.job_item",
+                "compat_job_id": compat_job_id,
+                "item_id": item_id,
+                "task_id": item.get("task_id"),
+                "channel": item.get("channel"),
+                "lane": item.get("lane"),
+                "workflow_run_id": item.get("workflow_run_id"),
+                "trace_id": item.get("trace_id"),
+            },
+            "task_spec": {
+                "task_type": "implementation",
+                "goal": f"Track dispatch item {item_id} for agent_batch job {compat_job_id}",
+                "context": {"item": item},
+                "target_scope": item.get("item_key") or item_id,
+                "write_set": [f"agent_batch.job:{compat_job_id}:item:{item_id}"],
+                "completion_criteria": ["Reflect task dispatch state from celery/runtime into the agent session ledger."],
+                "verification_steps": ["Observe task snapshot and workflow run mapping."],
+                "artifact_targets": ["compat.job.submit.json", "scratchpad.md"],
+            },
+        }
+
     def _build_workflow_graph_task_blueprints(self, *, graph_id: str, run_id: str, workflow: dict[str, Any]) -> list[dict[str, Any]]:
         topo_order = [str(item or "").strip() for item in list(workflow.get("topo_order") or []) if str(item or "").strip()]
         nodes = dict(workflow.get("nodes") or {})
@@ -1335,6 +1615,28 @@ class AgentSessionService:
             return "in_progress"
         if normalized in {"queued", "pending"}:
             return "pending"
+        return "pending"
+
+    @staticmethod
+    def _map_agent_batch_task_status(status: str) -> str:
+        normalized = str(status or "").strip().lower()
+        if normalized in {"success", "succeeded"}:
+            return "completed"
+        if normalized in {"failure", "failed", "revoked"}:
+            return "failed"
+        if normalized in {"started", "running", "retry"}:
+            return "in_progress"
+        return "pending"
+
+    @staticmethod
+    def _map_agent_batch_job_phase_to_task_status(phase: str, *, progress: dict[str, Any]) -> str:
+        normalized = str(phase or "").strip().lower()
+        failed = int(progress.get("failed") or 0)
+        running = int(progress.get("running") or 0) + int(progress.get("queued") or 0)
+        if normalized == "completed":
+            return "failed" if failed > 0 else "completed"
+        if running > 0:
+            return "blocked"
         return "pending"
 
     def _sync_session_state(self, session_id: str) -> dict[str, Any]:

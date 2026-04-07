@@ -120,6 +120,8 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(first["status"], "ok")
         self.assertEqual(first["data"]["accepted_count"], 2)
         self.assertEqual(first["data"]["rejected_count"], 0)
+        self.assertTrue(str(first["data"].get("session_id") or ""))
+        self.assertEqual(first["data"]["current_phase"], "implementation")
         self.assertEqual([x["task_id"] for x in first["data"]["accepted_job_items"]], ["task-1", "task-2"])
         self.assertEqual(len(first["data"]["run_ids"]), 2)
         self.assertEqual(first["data"]["run_ids"][0], first["data"]["accepted_job_items"][0]["run_id"])
@@ -128,10 +130,13 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(second["status"], "ok")
         self.assertTrue(second["data"]["idempotency_reused"])
         self.assertEqual(second["data"]["accepted_count"], 2)
+        self.assertEqual(second["data"]["session_id"], first["data"]["session_id"])
         self.assertEqual(len(second["data"]["run_ids"]), 2)
         self.assertTrue(delay_stub.calls[0][2]["workflow_run_id"].endswith("-run"))
         self.assertTrue((delay_stub.calls[0][3] or "").endswith("-run"))
         self.assertEqual(len(delay_stub.calls), 2)
+        compat_session = agent_batch_api.get_agent_session_service().find_session_by_compat_job_id(first["data"]["job_id"])
+        self.assertIsNotNone(compat_session)
 
     def test_get_job_and_items_and_events_reflect_celery_task_snapshots(self):
         delay_stub = _DelayTaskStub()
@@ -153,6 +158,7 @@ class AgentBatchApiUnitTest(unittest.TestCase):
 
         self.assertEqual(job["status"], "ok")
         self.assertEqual(job["data"]["status"], "completed")
+        self.assertTrue(str(job["data"].get("session_id") or ""))
         self.assertEqual(job["data"]["progress"], {"total": 2, "succeeded": 1, "failed": 1, "running": 0, "queued": 0})
         self.assertEqual(len(job["data"]["run_ids"]), 2)
         self.assertEqual(items["status"], "ok")
@@ -162,7 +168,26 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(items["data"]["items"][1]["error"], "boom")
         self.assertEqual(events["status"], "ok")
         self.assertEqual(events["data"]["events"][0]["run_id"], job["data"]["run_ids"][0])
-        self.assertEqual([e["event_type"] for e in events["data"]["events"]], ["task.success", "task.failure"])
+        event_types = [e["event_type"] for e in events["data"]["events"]]
+        self.assertIn("task.success", event_types)
+        self.assertIn("task.failure", event_types)
+        self.assertIn("agent_session.session.created", event_types)
+        self.assertIn("agent_session.compat.job_state_projected", event_types)
+        projected = agent_batch_api.get_agent_session_service().find_session_by_compat_job_id(job_id)
+        self.assertIsNotNone(projected)
+        session_bundle = agent_batch_api.get_agent_session_service().get_session_bundle(projected["session_id"])
+        implementation_tasks = [
+            task
+            for task in session_bundle["tasks"]
+            if str(dict(task.get("metadata") or {}).get("compat_projection") or "") == "agent_batch.job_item"
+        ]
+        verification_task = next(
+            task
+            for task in session_bundle["tasks"]
+            if str(dict(task.get("metadata") or {}).get("compat_projection") or "") == "agent_batch.job_verification"
+        )
+        self.assertEqual({task["status"] for task in implementation_tasks}, {"completed", "failed"})
+        self.assertEqual(verification_task["status"], "failed")
 
     def test_retry_replays_failed_items_only(self):
         delay_stub = _DelayTaskStub()

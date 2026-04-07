@@ -1,4 +1,4 @@
-import type { NavMode } from '../../components/FigmaSideNav'
+import type { NavMode } from '../kernel/types'
 import { classifyByRubric, hasMixedSignals, type RubricSignalProfile } from './classificationRubric'
 import type { InteractionSurface } from './surfaces'
 

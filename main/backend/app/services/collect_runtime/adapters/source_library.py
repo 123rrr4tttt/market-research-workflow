@@ -65,6 +65,11 @@ except Exception:  # pragma: no cover - optional compatibility import
             "raw_snapshot": dict(payload),
         }
 
+
+AUTHORITY_OUTPUT_CONTRACT_VERSION = "source_library.authority_output.v1"
+COMPAT_PROJECTION_CONTRACT_VERSION = "source_library.compat_projection.v1"
+
+
 class SourceLibraryAdapter:
     def run(self, request: CollectRequest) -> CollectResult:
         from ...source_library.resolver import (
@@ -169,9 +174,114 @@ def to_source_library_response(raw_collect_result: CollectResult) -> dict:
         ingress_envelope=frontdoor_ingress,
         run_writer=False,
     )
+    authority_output = build_source_library_authority_output(
+        terminal_output=terminal_output,
+        frontdoor_ingress=frontdoor_ingress,
+        postprocess_frontdoor=postprocess_frontdoor,
+        legacy_result=legacy_result,
+    )
+    compat_projection = build_source_library_compat_projection(
+        legacy_result=legacy_result,
+        authority_output=authority_output,
+    )
     response["terminal_output"] = terminal_output
     response["frontdoor_ingress"] = frontdoor_ingress
     response["postprocess_frontdoor"] = postprocess_frontdoor
+    response["authority_output"] = authority_output
+    response["compat_projection"] = compat_projection
     response["legacy_result"] = legacy_result
     response["legacy_result_is_deprecated"] = True
     return response
+
+
+def build_source_library_authority_output(
+    *,
+    terminal_output: dict[str, Any],
+    frontdoor_ingress: dict[str, Any],
+    postprocess_frontdoor: dict[str, Any],
+    legacy_result: dict[str, Any],
+) -> dict[str, Any]:
+    terminal_results = terminal_output.get("results") if isinstance(terminal_output.get("results"), dict) else {}
+    record_stats = terminal_results.get("stats") if isinstance(terminal_results.get("stats"), dict) else {}
+    postprocess_data = (
+        postprocess_frontdoor.get("data") if isinstance(postprocess_frontdoor.get("data"), dict) else {}
+    )
+    dispatch_plan = postprocess_data.get("dispatch_plan") if isinstance(postprocess_data.get("dispatch_plan"), dict) else {}
+    legacy_nested = legacy_result.get("result") if isinstance(legacy_result.get("result"), dict) else {}
+    write_effects_errors = legacy_nested.get("errors") if isinstance(legacy_nested.get("errors"), list) else []
+
+    normalized_records = int(record_stats.get("normalized") or 0)
+    write_inserted = int(legacy_nested.get("inserted") or 0)
+    write_updated = int(legacy_nested.get("updated") or 0)
+    write_skipped = int(legacy_nested.get("skipped") or 0)
+    write_error_count = sum(1 for item in write_effects_errors if str(item or "").strip())
+    bootstrap_required = normalized_records + write_inserted + write_updated == 0 and write_error_count == 0
+
+    return {
+        "contract_version": AUTHORITY_OUTPUT_CONTRACT_VERSION,
+        "authority_path": "terminal_output -> frontdoor_ingress -> postprocess_frontdoor",
+        "authority_fields": [
+            "terminal_output",
+            "frontdoor_ingress",
+            "postprocess_frontdoor",
+            "summary.record_stats",
+            "summary.handoff",
+            "summary.write_effects",
+        ],
+        "terminal_output": dict(terminal_output),
+        "frontdoor_ingress": dict(frontdoor_ingress),
+        "postprocess_frontdoor": dict(postprocess_frontdoor),
+        "summary": {
+            "status": str(terminal_output.get("status") or "ok"),
+            "source_mode": str(terminal_output.get("source_mode") or "protocol_search"),
+            "record_stats": {
+                "fetched": int(record_stats.get("fetched") or 0),
+                "normalized": normalized_records,
+                "dropped": int(record_stats.get("dropped") or 0),
+                "errors": int(record_stats.get("errors") or 0),
+                "source": "terminal_output.results.stats",
+            },
+            "handoff": {
+                "admission": str(postprocess_data.get("admission") or "reject"),
+                "run_extraction": bool(dispatch_plan.get("run_extraction")),
+                "run_writer": bool(dispatch_plan.get("run_writer")),
+                "writer_result": postprocess_data.get("writer_result"),
+                "source": "postprocess_frontdoor.data",
+            },
+            "write_effects": {
+                "inserted": write_inserted,
+                "updated": write_updated,
+                "skipped": write_skipped,
+                "errors": list(write_effects_errors),
+                "source": "legacy_result.result",
+            },
+            "bootstrap_required": bootstrap_required,
+        },
+    }
+
+
+def build_source_library_compat_projection(
+    *,
+    legacy_result: dict[str, Any],
+    authority_output: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "contract_version": COMPAT_PROJECTION_CONTRACT_VERSION,
+        "status": "retained_compat",
+        "deprecated": True,
+        "authority_reference": {
+            "authority_output": "authority_output",
+            "terminal_output": "authority_output.terminal_output",
+            "frontdoor_ingress": "authority_output.frontdoor_ingress",
+            "postprocess_frontdoor": "authority_output.postprocess_frontdoor",
+        },
+        "deprecated_fields": ["legacy_result"],
+        "removal_gates": [
+            "caller matrix + source_collect consumers migrated to authority_output",
+            "source-library core contract and smoke pack green with authority_output assertions",
+            "closure note records retained compat lifecycle and rollback handle",
+        ],
+        "legacy_result": dict(legacy_result),
+        "legacy_result_is_deprecated": True,
+        "authority_summary": dict(authority_output.get("summary") or {}),
+    }

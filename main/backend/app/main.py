@@ -12,7 +12,7 @@ from prometheus_client import Counter, Histogram, REGISTRY, generate_latest, CON
 
 from .contracts.errors import ErrorCode, map_exception_to_error, map_status_to_error_code
 from .contracts.responses import ApiMetaModel, fail, ok
-from .settings.config import settings
+from .settings.config import get_effective_project_key_enforcement_mode, settings
 from .models.base import engine, get_db_pool_status
 from .services.search.es_client import get_es_client
 from .services.projects import bind_project
@@ -351,6 +351,7 @@ async def metrics_middleware(request: Request, call_next):
             return _build_codex_auth_error(request, reason="codex_auth_tokens_not_configured")
 
     project_key, project_key_source, project_key_is_fallback = _resolve_request_project_context(request)
+    effective_project_key_mode = get_effective_project_key_enforcement_mode()
     request_id = (request.headers.get("X-Request-Id") or "").strip() or str(uuid.uuid4())
     start = time.perf_counter()
     with bind_project(project_key):
@@ -366,16 +367,20 @@ async def metrics_middleware(request: Request, call_next):
     response.headers["X-Request-Id"] = request_id
     response.headers["X-Project-Key-Resolved"] = project_key
     response.headers["X-Project-Key-Source"] = project_key_source
+    response.headers["X-Project-Key-Enforcement-Mode"] = effective_project_key_mode
+    response.headers["X-Project-Key-Fallback-Allowed"] = "false" if effective_project_key_mode == "require" else "true"
     if project_key_is_fallback:
         response.headers["X-Project-Key-Warning"] = "fallback_used"
     REQUEST_COUNT.labels(request.method, endpoint, response.status_code).inc()
     REQUEST_LATENCY.labels(endpoint).observe(elapsed)
     if project_key_is_fallback:
         _REQUEST_LOGGER.warning(
-            "event=project_key_fallback http_target=%s project_key=%s request_id=%s",
+            "event=project_key_fallback http_target=%s project_key=%s request_id=%s enforcement_mode=%s fallback_allowed=%s",
             endpoint,
             project_key,
             request_id,
+            effective_project_key_mode,
+            "false" if effective_project_key_mode == "require" else "true",
         )
     error_code = (response.headers.get("X-Error-Code") or "").strip() or "-"
     duration_ms = int(round(elapsed * 1000))

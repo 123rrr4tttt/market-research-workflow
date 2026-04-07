@@ -17,6 +17,7 @@ from ..services.llm.platformization import (
     resolve_routing_decision,
 )
 from ..services.llm_report_generator import (
+    build_report_capability_truth,
     build_structured_report,
     evaluate_report_gate,
     export_quality_gate_metrics,
@@ -141,6 +142,10 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                 target_count=auto_source_target_count,
             )
         source_count_resolved = len(resolved_sources)
+        capability_truth = build_report_capability_truth(
+            route_kind=routing.route_kind,
+            auto_source_enabled=auto_source_enabled,
+        )
         job_id = start_job(
             _LLM_REPORT_JOB_TYPE,
             {
@@ -158,6 +163,7 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                 "consumer": identity.consumer,
                 "service_name": routing.service_name,
                 "capability": routing.capability,
+                "capability_truth": capability_truth,
                 "route_kind": routing.route_kind,
                 "adapter_boundary": boundary.to_observability(),
                 "agent_boundary": agent_boundary.to_observability(),
@@ -203,6 +209,7 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                     "message": "quality gate blocked report generation in strict mode",
                     "quality_gate": gate,
                     "quality_gate_metrics": quality_gate_metrics,
+                    "capability_truth": capability_truth,
                     "observability": {
                         "job_id": job_id,
                         "trace_id": trace_id,
@@ -232,6 +239,7 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                 "markdown": markdown,
                 "quality_gate": gate,
                 "quality_gate_metrics": quality_gate_metrics,
+                "capability_truth": capability_truth,
                 "observability": {
                     "job_id": job_id,
                     "trace_id": trace_id,
@@ -269,6 +277,10 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                 "request_id": identity.request_id,
                 "project_key": identity.project_key,
                 "job_id": job_id,
+                "capability_truth": build_report_capability_truth(
+                    route_kind=routing.route_kind,
+                    auto_source_enabled=bool(getattr(settings, "llm_report_auto_source_enabled", True)),
+                ),
                 "routing": routing.to_observability(),
                 "audit": build_trace_audit_record(
                     identity=identity,

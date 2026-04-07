@@ -98,6 +98,12 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(response["frontdoor_ingress"]["ingress_type"], "source_library")
         self.assertEqual(response["postprocess_frontdoor"]["data"]["admission"], "defer")
         self.assertEqual(response["postprocess_frontdoor"]["data"]["dispatch_plan"]["run_writer"], False)
+        self.assertEqual(response["authority_output"]["contract_version"], "source_library.authority_output.v1")
+        self.assertEqual(response["authority_output"]["summary"]["record_stats"]["normalized"], 1)
+        self.assertEqual(response["authority_output"]["summary"]["handoff"]["admission"], "defer")
+        self.assertEqual(response["compat_projection"]["contract_version"], "source_library.compat_projection.v1")
+        self.assertTrue(response["compat_projection"]["deprecated"])
+        self.assertEqual(response["compat_projection"]["legacy_result"]["item_key"], raw["item_key"])
 
         self.assertIn("legacy_result", response)
         self.assertEqual(response["legacy_result"], raw)
@@ -135,6 +141,11 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(terminal_output["raw_snapshot"]["result"]["inserted"], 3)
         self.assertEqual(response["frontdoor_ingress"]["contract_version"], "frontdoor.ingress.v1")
         self.assertEqual(response["postprocess_frontdoor"]["data"]["admission"], "reject")
+        self.assertEqual(response["authority_output"]["summary"]["write_effects"]["inserted"], 3)
+        self.assertEqual(response["authority_output"]["summary"]["write_effects"]["updated"], 4)
+        self.assertEqual(response["authority_output"]["summary"]["write_effects"]["skipped"], 5)
+        self.assertFalse(response["authority_output"]["summary"]["bootstrap_required"])
+        self.assertEqual(response["compat_projection"]["status"], "retained_compat")
 
         self.assertIn("legacy_result", response)
         self.assertEqual(response["legacy_result"]["display_meta"], {"summary": "collect-display"})
@@ -181,6 +192,7 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(response["frontdoor_ingress"]["contract_version"], "frontdoor.ingress.v1")
         self.assertEqual(response["postprocess_frontdoor"]["data"]["admission"], "defer")
         self.assertEqual(response["legacy_result"]["item_key"], "handler.cluster.search_template")
+        self.assertEqual(response["authority_output"]["frontdoor_ingress"]["contract_version"], "frontdoor.ingress.v1")
 
     def test_to_source_library_response_propagates_external_manifest_summary(self) -> None:
         raw = {
@@ -254,6 +266,7 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         )
         self.assertEqual(response["frontdoor_ingress"]["source_ref"]["source_kind"], "feed_aggregator")
         self.assertEqual(response["frontdoor_ingress"]["source_ref"]["execution_mode"], "rss_feed")
+        self.assertEqual(response["authority_output"]["summary"]["record_stats"]["normalized"], 1)
 
 
 if __name__ == "__main__":

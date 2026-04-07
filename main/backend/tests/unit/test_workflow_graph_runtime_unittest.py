@@ -12,6 +12,7 @@ from app.services import workflow_graph as workflow_graph_module
 from app.services.workflow_graph.executors.base import BaseNodeExecutor
 from app.services.workflow_graph.executors.llm_call import LLMCallExecutor
 from app.services.workflow_graph.executors.vector_search import VectorSearchExecutor
+from app.services.workflow_graph.store import InMemoryCompiledGraphStore
 from app.services.workflow_graph.runtime import WorkflowGraphRuntime
 from app.services.workflow_graph import WorkflowGraphRuntimeService
 from app.services.workflow_graph.store import InMemoryRunStore
@@ -249,6 +250,28 @@ class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
         self.assertTrue(fail_events)
         self.assertIn("prompt_template_missing_inputs:context", str(fail_events[-1].get("payload", {}).get("error", "")))
 
+    def test_runtime_fails_with_explicit_integrity_payload_when_topo_order_drifts(self):
+        runtime = WorkflowGraphRuntime()
+        workflow = {
+            "workflow_id": "wf-invalid-topo",
+            "topo_order": ["n2", "n1"],
+            "nodes": {
+                "n1": {"id": "n1", "node_type": "vector_search", "params": {"query": "x"}},
+                "n2": {"id": "n2", "node_type": "join", "depends_on": ["n1"]},
+            },
+        }
+
+        out = runtime.run(workflow, run_id="run-invalid-topo")
+
+        self.assertEqual(out["run"]["status"], "failed")
+        fail_events = [item for item in out.get("events", []) if item.get("type") == "run.failed"]
+        self.assertTrue(fail_events)
+        payload = fail_events[-1].get("payload") or {}
+        self.assertEqual(payload.get("reason_code"), "workflow_integrity_failed")
+        self.assertEqual(payload.get("integrity", {}).get("valid"), False)
+        codes = [item.get("code") for item in payload.get("integrity", {}).get("issues", [])]
+        self.assertIn("topo_order_dependency_drift", codes)
+
     def test_runtime_service_projects_run_into_agent_session(self):
         service = WorkflowGraphRuntimeService()
         service._engine = WorkflowGraphRuntime(store=InMemoryRunStore())
@@ -272,6 +295,48 @@ class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
         task_subjects = [item["subject"] for item in session_bundle["tasks"]]
         self.assertIn("Node n1", task_subjects)
         self.assertIn("Verification", task_subjects)
+
+    def test_runtime_service_reads_compiled_graph_from_durable_store_after_reload(self):
+        compiled_store = InMemoryCompiledGraphStore()
+        compiler_service = workflow_graph_module.WorkflowGraphCompilerService(store=compiled_store)
+        compile_payload = {
+            "graph_id": "wf-durable",
+            "dsl": {
+                "version": "1.0",
+                "nodes": [
+                    {"node_id": "n1", "node_type": "vector_search", "config": {"query": "ai"}},
+                    {"node_id": "n2", "node_type": "join"},
+                ],
+                "edges": [{"from": "n1", "to": "n2"}],
+            },
+        }
+        compiler_service.compile(compile_payload)
+
+        reloaded_compiler = workflow_graph_module.WorkflowGraphCompilerService(store=compiled_store)
+        service = WorkflowGraphRuntimeService()
+        service._engine = WorkflowGraphRuntime(store=InMemoryRunStore())
+
+        with patch.object(workflow_graph_module, "compiler", reloaded_compiler):
+            out = service.run({"graph_id": "wf-durable", "input": {"query": "ai"}})
+
+        self.assertEqual(out["status"], "succeeded")
+        run_detail = service.get_run(str(out["run_id"]))
+        self.assertEqual(run_detail["status"], "succeeded")
+
+    def test_replay_run_reports_explicit_consistency_mismatch(self):
+        service = WorkflowGraphRuntimeService()
+        service._engine = WorkflowGraphRuntime(store=InMemoryRunStore())
+        run_id = service._engine.store.create_run(run_id="run-replay-mismatch", topo_order=["n1"])
+        service._engine.store.set_run_status(run_id, "succeeded")
+        service._engine.store.append_event(run_id, event_type="run.running")
+        service._engine.store.append_event(run_id, event_type="node.running", node_id="n1")
+
+        replay = service.replay_run(run_id, replay_mode="events_only")
+
+        self.assertFalse(replay["replay_consistency"]["consistent"])
+        codes = [item["code"] for item in replay["replay_consistency"]["issues"]]
+        self.assertIn("run_status_mismatch", codes)
+        self.assertIn("node_status_mismatch", codes)
 
 
 if __name__ == "__main__":

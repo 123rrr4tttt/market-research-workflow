@@ -11,6 +11,7 @@
     "storybook": "storybook dev -p 6006 --host 0.0.0.0",
     "storybook:build": "storybook build",
     "test:e2e": "playwright test",
+    "test:e2e:runtime": "playwright test tests/e2e/runtime-smoke.spec.ts",
     "test:e2e:headed": "playwright test --headed",
     "test:ingest-smoke": "../backend/scripts/run_ingest_flow_smoke.sh"
   },

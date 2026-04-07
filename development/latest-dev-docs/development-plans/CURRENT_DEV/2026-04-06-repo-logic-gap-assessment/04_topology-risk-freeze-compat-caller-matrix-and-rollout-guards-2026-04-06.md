@@ -155,12 +155,82 @@
 3. 只允许先补 canonical-path mapping、session lifecycle mapping、compat adapter map
 4. 只有当 old entrypoint -> new core 的 caller matrix 明确后，才允许引入 switchable default
 
-### 5.4 必须通过的 parity checklist
+### 5.4 Canonical Path Freeze
+
+当前 freeze-only 结论先按“单核提交链 + 多入口合流”定义，不把现有 compat 入口误写成多个同级主链。
+
+冻结后的 canonical path 如下：
+
+1. `POST /agent-batch/jobs`
+2. `submit_agent_batch_job`
+3. `_guard_batch_item`
+4. `_submit_batch_item`
+5. `_invoke_agent_batch_dispatch`
+6. `SkillRuntime.invoke_skill`
+7. `_skill_dispatch_*`
+8. 进入具体任务提交与执行
+
+补充说明：
+
+1. `POST /agent-batch/nl-command` 不是平行主链，而是 planner loop 入口：
+   - `run_agent_batch_nl_command`
+   - `run_agent_batch_nl_command_loop`
+   - `_submit_jobs_from_loop_tasks`
+   - 最终回到 `submit_agent_batch_job`
+2. `WorkflowGraphRuntimeService.run(...)` 是 skill-runtime 注册链上的执行器主路径，不应和 `jobs` submit path 混写成两个同级 canonical submit 入口。
+3. session 投影仍跨到外部 session service 边界；在 additive 阶段前，文档必须显式标注该外部依赖边界，而不是假设全部 runtime 语义都已内聚在单模块内。
+
+### 5.5 Compat Adapter Map
+
+当前必须显式保留的 compat entrypoints：
+
+1. `agent_batch.dispatch.market_collect`
+2. `agent_batch.dispatch.source_library_item`
+3. `POST /agent-batch/jobs/{job_id}/retry`
+4. `POST /agent-batch/nl-command`
+5. `POST /agent-batch/nl-command/direct`
+6. `/agent-batch/approvals/*`
+7. `workflow_graph.curated.*`
+
+冻结解释：
+
+1. `retry`、`approval`、planner fallback 不是可忽略边角，而是现有恢复与人工绑定链的一部分。
+2. `workflow_graph.curated.*` 属于 compat / extension registration surface，不是默认 submit path。
+3. additive 阶段的目标是“compat entrypoint -> canonical core”的显式 adapter map，而不是先删 compat surface。
+
+### 5.6 最小 Caller Matrix
+
+最小 caller matrix 冻结如下：
+
+1. `/agent-batch/jobs`
+   - `submit_agent_batch_job`
+   - `_submit_batch_item`
+   - `_invoke_agent_batch_dispatch`
+   - `SkillRuntime.invoke_skill`
+   - `_skill_dispatch_*`
+   - `tasks_module.task_ingest_market / task_run_source_library_item`
+2. `/agent-batch/nl-command`
+   - `run_agent_batch_nl_command`
+   - `run_agent_batch_nl_command_loop`
+   - `submit_agent_batch_job`
+   - 之后合流到上面的 canonical submit path
+3. `/agent-batch/jobs/{job_id}/retry`
+   - `submit_agent_batch_job`
+   - `_submit_batch_item`
+   - 之后合流到 canonical submit path
+4. `WorkflowGraphRuntimeService.run`
+   - `compiler.get_compiled`
+   - `WorkflowGraphRuntime.run`
+   - executor registry / store / events
+   - session handoff update
+
+### 5.7 必须通过的 parity checklist
 
 1. `agent_batch` 现有 API 仍可调用
 2. approval binding 行为不退化
 3. retry / planner 合同字段不丢失
 4. session current phase 能从现有 task status 正常投影
+5. `jobs` 与 `nl-command` 的 session / projection 回放语义保持一致
 
 ## 6. Source-Library / Ingest: Frozen Current Topology
 

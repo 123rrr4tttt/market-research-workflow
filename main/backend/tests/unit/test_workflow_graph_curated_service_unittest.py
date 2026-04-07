@@ -73,6 +73,34 @@ class WorkflowGraphCuratedServiceUnitTest(unittest.TestCase):
             audits = service.list_audits("cg-1")
             self.assertEqual(audits["items"][0]["action"], "submit")
 
+    def test_save_draft_rejects_cycle_before_submit(self):
+        state = self._state()
+        store = {"payload": state}
+        service = WorkflowGraphCuratedService()
+        with patch("app.services.workflow_graph.curated_service.current_project_key", return_value="demo_proj"), patch(
+            "app.services.workflow_graph.curated_service.get_ingest_config",
+            side_effect=lambda *_args, **_kwargs: {"payload": store["payload"]},
+        ), patch(
+            "app.services.workflow_graph.curated_service.upsert_ingest_config",
+            side_effect=lambda *_args, **kwargs: (
+                store.update({"payload": kwargs.get("payload")}),
+                {"payload": store["payload"]},
+            )[1],
+        ):
+            with self.assertRaisesRegex(ValueError, "workflow graph contains a cycle"):
+                service.save_draft(
+                    "cg-1",
+                    {
+                        "dsl": {
+                            "nodes": [{"id": "n1", "type": "Entity"}, {"id": "n2", "type": "Entity"}],
+                            "edges": [
+                                {"from": "n1", "to": "n2", "type": "REL"},
+                                {"from": "n2", "to": "n1", "type": "REL"},
+                            ],
+                        },
+                    },
+                )
+
     def test_build_evidence_pack_and_reporting_handoff(self):
         state = self._state()
         store = {"payload": state}

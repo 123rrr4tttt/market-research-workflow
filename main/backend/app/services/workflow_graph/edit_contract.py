@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
+from .contracts import assert_workflow_graph_integrity
+
 GRAPH_OBJECT_KINDS = frozenset(
     {
         "template_graph",
@@ -167,6 +169,12 @@ def parse_graph_edit_draft_contract(
                 raw=item,
             )
         )
+
+    assert_workflow_graph_integrity(
+        node_ids=[node.node_id for node in nodes],
+        edges=[(edge.from_node_id, edge.to_node_id) for edge in edges],
+        error_cls=WorkflowGraphEditContractError,
+    )
 
     return GraphEditDraftContract(
         object_kind=resolved_object_kind,

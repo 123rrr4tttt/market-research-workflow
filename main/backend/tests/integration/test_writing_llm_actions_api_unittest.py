@@ -49,7 +49,21 @@ class WritingLlmActionsApiIntegrationTestCase(unittest.TestCase):
         with (
             patch(
                 "app.api.writing.dispatch_action",
-                return_value=LlmActionResponse(content="Output", mode="selection_rewrite", trace_id="trace-1", job_id=7),
+                return_value=LlmActionResponse(
+                    content="Output",
+                    mode="selection_rewrite",
+                    trace_id="trace-1",
+                    job_id=7,
+                    capability_truth={
+                        "contract_version": "writing.llm_action.capability_truth.v1",
+                        "declared_capability": "writing_action",
+                        "implementation_kind": "rule_template_action",
+                        "real_model_path": False,
+                        "fallback_path": True,
+                        "route_kind": "sync",
+                        "status": "completed",
+                    },
+                ),
             ),
             patch("app.api.writing.get_action_history", return_value=[history_item]),
             patch("app.api.writing.get_action_detail", return_value=history_item),
@@ -66,6 +80,7 @@ class WritingLlmActionsApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(history_response.status_code, 200)
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(action_response.json()["data"]["job_id"], 7)
+        self.assertEqual(action_response.json()["data"]["capability_truth"]["implementation_kind"], "rule_template_action")
         self.assertEqual(history_response.json()["data"]["items"][0]["job_id"], 7)
 
 

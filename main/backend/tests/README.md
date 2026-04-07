@@ -36,26 +36,43 @@ CORE_COVERAGE_PATHS="app/api/search.py,app/contracts/api.py,app/contracts/respon
 
 ## CI Gate Policy
 
+- Branch protection source of truth:
+  - `.github/branch-protection-required-checks.json`
+  - Required PR checks for `main`: `backend-tests` + `r9_ef_required_check`
+- Workflow source of truth:
+  - `.github/workflows/backend-tests.yml`
+  - `.github/workflows/r9-ef-required-check.yml`
+
 - `pull_request`:
   - `standards-check`
+  - `r81-a-min-verify-check`
+  - `r81-b-min-verify-check`
   - `unit-check`
+  - `llm-report-must-check`
   - `integration-check`
+  - `flaky-observe` (observation lane, non-blocking on PR)
   - `schema-guard-check` (blocking)
   - `coverage-check` (blocking)
   - `security-check` (blocking: `bandit + pip-audit + gitleaks`)
   - `docker-check`
+  - separate required workflow job: `r9_ef_required_check`
 - `push` to `main`, `schedule`, `workflow_dispatch`:
   - `standards-check`
+  - `r81-a-min-verify-check`
+  - `r81-b-min-verify-check`
   - `unit-check`
+  - `llm-report-must-check`
   - `integration-check`
+  - `flaky-observe` (observation lane; still publishes artifacts/summary)
   - `schema-guard-check` (blocking)
   - `coverage-check` (blocking, `core=100%` and `other=20%`)
   - `security-check` (blocking: `bandit + pip-audit + gitleaks`)
   - `contract-check`
   - `e2e-check`
   - `docker-check`
+  - `contracts-governance-observe` (observation lane)
 
-This enforces layered quality/security gates on both PR and mainline.
+This enforces layered quality/security gates on both PR and mainline, while keeping observation-only lanes explicit instead of implicit.
 
 ## 自动化测试标准化执行
 
@@ -104,9 +121,12 @@ Profile policy:
 
 Tier policy:
 
-- `PR` tier (required gate): `standards-check + unit-check + integration-check + schema-guard-check + coverage-check + security-check + docker-check`.
-- `main` tier (full gate): `standards-check + unit-check + integration-check + schema-guard-check + coverage-check + security-check + contract-check + e2e-check + docker-check`.
-- Current policy: PR and mainline both block on `schema-guard-check + coverage-check + security-check`.
+- `PR` branch-protection tier: workflow suite `backend-tests` + workflow job `r9_ef_required_check`.
+- `PR` deterministic lane inside `backend-tests`: `standards-check + r81-a-min-verify-check + r81-b-min-verify-check + unit-check + llm-report-must-check + integration-check + schema-guard-check + coverage-check + security-check + docker-check`.
+- `PR` observation lane inside `backend-tests`: `flaky-observe`.
+- `main` full lane: `standards-check + r81-a-min-verify-check + r81-b-min-verify-check + unit-check + llm-report-must-check + integration-check + schema-guard-check + coverage-check + security-check + contract-check + e2e-check + docker-check`.
+- `main` observation lane: `flaky-observe + contracts-governance-observe`.
+- Current default PR evidence lives in `.github/PULL_REQUEST_TEMPLATE.md`: `Scope / Risk / Test Evidence / Rollback Strategy / Docs And Closure`.
 
 ## Manual Checks Archive (Not CI Gates)
 

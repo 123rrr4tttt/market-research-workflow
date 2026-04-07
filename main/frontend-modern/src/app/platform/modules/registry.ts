@@ -19,14 +19,14 @@ function defineModule(mode: RegisteredNavMode, navGroupKey: ModuleNavGroupKey, h
 
 export const moduleRegistry: Record<RegisteredNavMode, ModuleDescriptor> = Object.fromEntries(
   moduleManifest.map((entry) => [
-    entry.moduleKey,
-    defineModule(
       entry.moduleKey,
-      entry.navGroupKey,
-      entry.legacyHashes[0] || `#${entry.entryRoute}`,
-      entry.visibleInNav,
-      entry.enabled,
-    ),
+      defineModule(
+        entry.moduleKey,
+        entry.navGroupKey,
+        `#${entry.entryRoute}`,
+        entry.visibleInNav,
+        entry.enabled,
+      ),
   ]),
 ) as Record<RegisteredNavMode, ModuleDescriptor>
 
@@ -52,5 +52,8 @@ export function buildRegistryHashMap(): Record<RegisteredNavMode, string> {
 }
 
 export function verifyRegistryHashCompatibility(): { isCompatible: boolean; mismatchedModes: RegisteredNavMode[] } {
-  return { isCompatible: true, mismatchedModes: [] }
+  const mismatchedModes = moduleManifest
+    .filter((entry) => moduleRegistry[entry.moduleKey].hash !== `#${entry.entryRoute}`)
+    .map((entry) => entry.moduleKey)
+  return { isCompatible: mismatchedModes.length === 0, mismatchedModes }
 }

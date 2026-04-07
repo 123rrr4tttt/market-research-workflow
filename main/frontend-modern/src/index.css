@@ -73,6 +73,43 @@ button, select, input, textarea { font-family: inherit; }
   color: #61758a;
 }
 
+.kernel-layer-switch {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.kernel-layer-switch__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(19, 35, 55, 0.12);
+  background: transparent;
+  color: rgba(19, 35, 55, 0.48);
+  letter-spacing: 0.02em;
+}
+
+.kernel-layer-switch__item span {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.kernel-layer-switch__item strong {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.kernel-layer-switch__item:hover {
+  color: rgba(19, 35, 55, 0.82);
+  border-color: rgba(19, 35, 55, 0.24);
+}
+
+.kernel-layer-switch__item.is-active {
+  color: rgba(19, 35, 55, 0.92);
+  border-color: rgba(19, 35, 55, 0.34);
+}
+
 .kernel-admin {
   min-height: 100vh;
   background: #060606;
@@ -94,7 +131,7 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__rail-control {
   display: grid;
-  gap: 6px;
+  gap: 10px;
 }
 
 .kernel-admin__rail-heading {
@@ -275,6 +312,21 @@ button, select, input, textarea { font-family: inherit; }
   gap: 12px;
   padding: 22px 24px 20px;
   border-bottom: 1px solid rgba(143, 186, 255, 0.16);
+}
+
+.kernel-visual .kernel-layer-switch__item {
+  border-color: rgba(143, 186, 255, 0.18);
+  color: rgba(214, 228, 255, 0.56);
+}
+
+.kernel-visual .kernel-layer-switch__item:hover {
+  color: rgba(239, 245, 255, 0.86);
+  border-color: rgba(143, 186, 255, 0.32);
+}
+
+.kernel-visual .kernel-layer-switch__item.is-active {
+  color: rgba(239, 245, 255, 0.96);
+  border-color: rgba(143, 186, 255, 0.46);
 }
 
 .kernel-visual__eyebrow,
@@ -1024,8 +1076,27 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-workbench__rail-bar {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+}
+
+.kernel-workbench .kernel-layer-switch {
+  align-self: start;
+}
+
+.kernel-admin .kernel-layer-switch__item,
+.kernel-admin .kernel-layer-switch__item:hover,
+.kernel-admin .kernel-layer-switch__item.is-active {
+  color: inherit;
+}
+
+.kernel-admin .kernel-layer-switch__item {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.kernel-admin .kernel-layer-switch__item:hover,
+.kernel-admin .kernel-layer-switch__item.is-active {
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
 .kernel-workbench__project-control {

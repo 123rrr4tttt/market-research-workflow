@@ -163,6 +163,30 @@ Freeze closure scope, gates, and compatibility inventory.
 2. 兼容面清单明确。
 3. 后续阶段不再出现“讨论的是 A，落地成 B”的口径漂移。
 
+### 阶段 0 冻结产物
+
+阶段 0 的冻结产物统一以 [03_atomic-tasklist-repo-closure-plan-2026-04-06.md](./03_atomic-tasklist-repo-closure-plan-2026-04-06.md) 中的以下四块为准：
+
+1. `Frozen Closure Owner Map`
+2. `Frozen Compatibility Inventory`
+3. `Topic Exit Criteria`
+4. `Touched-Module Execution Sheet`
+
+说明：
+
+1. owner 先按“代码责任模块 / 子系统”冻结，而不是假定当前已有稳定的人名 owner。
+2. compat status 统一使用：
+   - `canonical`
+   - `retained-compat`
+   - `deprecated-compat`
+   - `switchable`
+3. exit criteria 必须同时带：
+   - authority path
+   - retained compat status
+   - minimum validation
+   - rollback handle
+4. touched-module execution sheet 只记录本轮允许改动的主路径，不把外围研究资料和镜像仓库混入执行面。
+
 ## 阶段 1
 
 ### 名称

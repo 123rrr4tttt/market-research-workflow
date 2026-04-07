@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 import unittest
-import importlib.util
 from pathlib import Path
 
 import pytest
@@ -11,15 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.unit
 
-_MODULE_PATH = Path(__file__).resolve().parents[2] / "app/services/source_library/terminal_output.py"
-_SPEC = importlib.util.spec_from_file_location("source_library_terminal_output", _MODULE_PATH)
-if _SPEC is None or _SPEC.loader is None:
-    raise RuntimeError(f"failed to load module spec: {_MODULE_PATH}")
-_MODULE = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(_MODULE)
-
-CONTRACT_VERSION = _MODULE.CONTRACT_VERSION
-to_terminal_output_dto = _MODULE.to_terminal_output_dto
+from app.services.source_library.terminal_output import CONTRACT_VERSION, to_terminal_output_dto
 
 
 class SourceLibraryTerminalOutputUnitTestCase(unittest.TestCase):

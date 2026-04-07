@@ -1,6 +1,6 @@
-# CURRENT_DEV Index（未封口）
+# CURRENT_DEV Index（未封口 / 待迁档）
 
-仅保留尚未封口的开发计划。
+主要保留尚未封口的开发计划；少量已达到 archive-ready 但尚未执行目录迁移的主题，也会暂时留在这里。
 
 ## 当前进行中
 
@@ -8,6 +8,11 @@
 - [2026-04-06 Repo Closure Plan Aligned With Latest Direction](./2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md)
 - [2026-04-06 Atomic Task List: Repo Closure Plan](./2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md)
 - [2026-04-06 Topology Risk Freeze: Compat Caller Matrix And Rollout Guards](./2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md)
+- [2026-04-07 Governance Default Gates, PR Evidence, and Docs Navigation](./2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md)
+- [2026-04-07 Validation Closure: Repo Closure Plan](./2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md)
+- [2026-04-07 Topic Closure Matrix: Repo Closure Plan](./2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md)
+- [2026-04-07 Agent Runtime Canonical Path Closure: Repo Closure Plan](./2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
+- [2026-04-07 Runtime Smoke Reproduction: Repo Closure Plan](./2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
 - [2026-04-02 Claude Agent High-Fidelity Migration Mapping](./2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 
 - 2026-03-14 状态说明：

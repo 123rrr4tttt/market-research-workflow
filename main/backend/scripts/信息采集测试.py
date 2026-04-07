@@ -13,9 +13,6 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.models.base import SessionLocal
-from app.models.entities import Document
-from app.services.ingest.single_url import ingest_single_url
 from app.services.projects import bind_project
 from app.settings.config import settings
 
@@ -76,6 +73,9 @@ def _load_urls(args: argparse.Namespace) -> list[str]:
 
 
 def _fetch_doc_preview(doc_id: int) -> dict[str, Any] | None:
+    from app.models.base import SessionLocal
+    from app.models.entities import Document
+
     with SessionLocal() as session:
         doc = session.query(Document).filter(Document.id == int(doc_id)).first()
         if doc is None:
@@ -139,6 +139,8 @@ def _validate_row_shape(row: dict[str, Any]) -> list[str]:
 
 
 def main() -> int:
+    from app.services.ingest.single_url import ingest_single_url
+
     args = _build_parser().parse_args()
     urls = _load_urls(args)
     if not urls:

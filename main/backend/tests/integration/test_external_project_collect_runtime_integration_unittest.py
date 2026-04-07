@@ -129,6 +129,8 @@ class ExternalProjectCollectRuntimeIntegrationTestCase(unittest.TestCase):
         )
         self.assertEqual(response["frontdoor_ingress"]["source_ref"]["source_kind"], "feed_aggregator")
         self.assertEqual(response["frontdoor_ingress"]["source_ref"]["execution_mode"], "rss_feed")
+        self.assertEqual(response["authority_output"]["summary"]["record_stats"]["normalized"], 1)
+        self.assertEqual(response["compat_projection"]["status"], "retained_compat")
         self.assertIn(response["postprocess_frontdoor"]["data"]["admission"], {"accept", "defer", "reject"})
         self.assertEqual(len(response["terminal_output"]["results"]["records"]), 1)
 

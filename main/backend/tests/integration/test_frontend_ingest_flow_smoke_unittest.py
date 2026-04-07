@@ -138,6 +138,8 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
     assert sync_payload["results"]["records"] == []
     assert sync_payload["results"]["stats"]["normalized"] == 0
     assert sync_payload["terminal_output"]["contract_version"] == "source_library.terminal_output.v1"
+    assert sync_payload["authority_output"]["contract_version"] == "source_library.authority_output.v1"
+    assert sync_payload["compat_projection"]["contract_version"] == "source_library.compat_projection.v1"
     assert sync_payload["frontdoor_ingress"]["contract_version"] == "frontdoor.ingress.v1"
     assert sync_payload["postprocess_frontdoor"]["data"]["admission"] == "reject"
     assert sync_payload["legacy_result"]["item_key"] == "url_pool.default"

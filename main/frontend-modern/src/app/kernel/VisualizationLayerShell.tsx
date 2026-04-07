@@ -1,6 +1,8 @@
-import { Activity, BarChart3, Compass, Network, Sparkles, type LucideIcon } from 'lucide-react'
+import { useEffect } from 'react'
 import { translate, useAppLocale } from '../platform/i18n'
 import { getKernelModuleContract } from './contracts'
+import LayerSwitch from './LayerSwitch'
+import { getVisualizationShellCoverage, MODULE_ICON_BY_KEY, VISUALIZATION_SHELL_SECTIONS } from './moduleChrome'
 import ModuleRenderer from './ModuleRenderer'
 import type { KernelModuleKey } from './types'
 import type { useKernelRuntime } from './useKernelRuntime'
@@ -10,46 +12,6 @@ type Runtime = ReturnType<typeof useKernelRuntime>
 type Props = {
   activeModule: KernelModuleKey
   runtime: Runtime
-}
-
-const VISUAL_GROUPS: Array<{ label: string; items: KernelModuleKey[] }> = [
-  { label: 'Signals', items: ['dataDashboard', 'dataMarket', 'dataSocial', 'dataPolicy', 'dataCatalog'] },
-  { label: 'Graphs', items: ['graphMarket', 'graphPolicy', 'graphSocial', 'graphCompany', 'graphProduct', 'graphOperation', 'graphDeep', 'graphBuilder'] },
-  { label: 'Review', items: ['flowAnalysis', 'flowBoard'] },
-]
-
-const ICON_BY_MODULE: Record<KernelModuleKey, LucideIcon> = {
-  overviewTasks: Activity,
-  overviewData: Activity,
-  dataDashboard: BarChart3,
-  dataMarket: Compass,
-  dataSocial: Compass,
-  dataPolicy: Compass,
-  dataCatalog: Compass,
-  graphMarket: Network,
-  graphPolicy: Network,
-  graphSocial: Network,
-  graphCompany: Network,
-  graphProduct: Network,
-  graphOperation: Network,
-  graphDeep: Network,
-  graphBuilder: Sparkles,
-  flowIngest: Activity,
-  flowSpecialized: Activity,
-  flowProcessing: Activity,
-  flowRawData: Activity,
-  flowExtract: Activity,
-  flowAnalysis: BarChart3,
-  flowBoard: BarChart3,
-  flowWriting: Activity,
-  flowAgentChat: Activity,
-  flowLlmNodeDesign: Activity,
-  sysProjects: Activity,
-  sysCrawler: Activity,
-  sysResource: Activity,
-  sysBackend: Activity,
-  sysSettings: Activity,
-  sysLlm: Activity,
 }
 
 function statusChipClass(value: string | boolean) {
@@ -65,10 +27,18 @@ export default function VisualizationLayerShell({ activeModule, runtime }: Props
   const locale = useAppLocale()
   const activeContract = getKernelModuleContract(activeModule)
 
+  useEffect(() => {
+    const coverage = getVisualizationShellCoverage()
+    if (!coverage.isComplete) {
+      console.warn('visualization shell coverage mismatch', coverage)
+    }
+  }, [])
+
   return (
     <div className={`kernel-visual kernel-visual--${activeModule}`}>
       <header className="kernel-visual__masthead">
         <div className="kernel-visual__eyebrow">Layer B / Visualization</div>
+        <LayerSwitch activeLayer="B" runtime={runtime} />
         <div className="kernel-visual__heading">
           <div>
             <p>{runtime.projectKey} / observation surface / {activeContract.entryRoute}</p>
@@ -123,11 +93,11 @@ export default function VisualizationLayerShell({ activeModule, runtime }: Props
 
       <section className="kernel-visual__shell">
         <aside className="kernel-visual__sidebar">
-          {VISUAL_GROUPS.map((group) => (
+          {VISUALIZATION_SHELL_SECTIONS.map((group) => (
             <section key={group.label} className="kernel-visual__section">
               <p className="kernel-visual__section-title">{group.label}</p>
-              {group.items.map((moduleKey) => {
-                const Icon = ICON_BY_MODULE[moduleKey]
+              {group.moduleKeys.map((moduleKey) => {
+                const Icon = MODULE_ICON_BY_KEY[moduleKey]
                 const contract = getKernelModuleContract(moduleKey)
                 const active = moduleKey === activeModule
                 return (

@@ -1,5 +1,3 @@
-import type { NavMode } from '../../components/FigmaSideNav'
-
 export const MODULE_NAV_GROUP_KEYS = [
   'navigation.group.overview',
   'navigation.group.dataFacets',
@@ -14,7 +12,40 @@ export type LayerId = 'A' | 'B' | 'C'
 export type SurfaceKind = 'workbench' | 'visualization' | 'management'
 export type StorybookGroup = 'Workbench' | 'Visualization' | 'Management'
 
-export type KernelModuleKey = NavMode
+export type KernelModuleKey =
+  | 'overviewTasks'
+  | 'overviewData'
+  | 'dataDashboard'
+  | 'dataMarket'
+  | 'dataSocial'
+  | 'dataPolicy'
+  | 'dataCatalog'
+  | 'graphMarket'
+  | 'graphPolicy'
+  | 'graphSocial'
+  | 'graphCompany'
+  | 'graphProduct'
+  | 'graphOperation'
+  | 'graphDeep'
+  | 'graphBuilder'
+  | 'flowIngest'
+  | 'flowSpecialized'
+  | 'flowProcessing'
+  | 'flowRawData'
+  | 'flowExtract'
+  | 'flowAnalysis'
+  | 'flowBoard'
+  | 'flowWriting'
+  | 'flowAgentChat'
+  | 'flowLlmNodeDesign'
+  | 'sysProjects'
+  | 'sysCrawler'
+  | 'sysResource'
+  | 'sysBackend'
+  | 'sysSettings'
+  | 'sysLlm'
+
+export type NavMode = KernelModuleKey
 
 export type TitleMessageKey = `shell.title.${KernelModuleKey}`
 export type NavMessageKey = `navigation.item.${KernelModuleKey}`

@@ -1,6 +1,6 @@
 # Development Plans Index
 
-更新时间：2026-04-06（PST）
+更新时间：2026-04-07（PST）
 范围：`development/latest-dev-docs/development-plans`
 
 ## Main Entry
@@ -10,6 +10,11 @@
 - [CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md](./CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md)
 - [CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md](./CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md)
 - [CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md](./CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md)
+- [CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md](./CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md)
+- [CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md](./CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md)
+- [CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md](./CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md)
+- [CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md](./CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
+- [CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md](./CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
 - [CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md](./CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 - [CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 - [F_PLAN/12_static-temporal-decoupling-platformization-plan-2026-03-01.md](./F_PLAN/12_static-temporal-decoupling-platformization-plan-2026-03-01.md)

@@ -28,7 +28,7 @@ from ..services.source_library.external_project import (
 from ..services.source_library.external_project_registration import synthesize_external_project_item
 from ..services.source_library.item_plan import build_item_execution_plan
 from ..services.streamplus.contracts import SOURCE_ITEM_CAPABILITY_DEFAULT
-from ..settings.config import settings
+from ..settings.config import get_effective_project_key_enforcement_mode, settings
 
 ScopeType = Literal["shared", "project", "effective"]
 ItemType = Literal["user_defined", "service_aggregated"]
@@ -180,7 +180,7 @@ def _require_project_key(project_key: str | None) -> str:
     if key:
         return key
 
-    enforcement_mode = str(getattr(settings, "project_key_enforcement_mode", "warn")).strip().lower()
+    enforcement_mode = get_effective_project_key_enforcement_mode()
     if enforcement_mode == "require":
         raise HTTPException(
             status_code=400,

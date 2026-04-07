@@ -4,5 +4,31 @@
     "backend-tests",
     "r9_ef_required_check"
   ],
-  "note": "R9 E/F next-batch hard gate baseline"
+  "required_check_sources": {
+    "backend-tests": ".github/workflows/backend-tests.yml",
+    "r9_ef_required_check": ".github/workflows/r9-ef-required-check.yml"
+  },
+  "default_pr_evidence": {
+    "template": ".github/PULL_REQUEST_TEMPLATE.md",
+    "required_sections": [
+      "Scope",
+      "Risk",
+      "Test Evidence",
+      "Rollback Strategy",
+      "Docs And Closure"
+    ]
+  },
+  "docs_sync_targets": [
+    "development/latest-dev-docs/README.md",
+    "development/latest-dev-docs/MERGED_OVERVIEW.md",
+    "development/latest-dev-docs/development-plans/INDEX.md",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md"
+  ],
+  "local_repro_profiles": [
+    "unit",
+    "integration",
+    "contract",
+    "ci-pr"
+  ],
+  "note": "AT-RCL-10 governance default-gate baseline aligned with current workflows on 2026-04-07"
 }

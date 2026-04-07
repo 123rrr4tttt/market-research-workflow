@@ -12,8 +12,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.contract
 
 try:
+    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
+    from app.api import resource_pool as resource_pool_api
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
 
@@ -64,8 +66,12 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
             )
         )
 
-        with patch("app.api.resource_pool.list_urls", list_urls_mock):
-            response = self.client.get(
+        app = FastAPI()
+        app.include_router(resource_pool_api.router, prefix="/api/v1")
+        client = TestClient(app)
+
+        with patch.object(resource_pool_api, "list_urls", list_urls_mock):
+            response = client.get(
                 "/api/v1/resource_pool/urls",
                 params={
                     "project_key": "demo_proj",

@@ -55,6 +55,7 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
         body = resp.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["report"]["sources"][0]["id"], "RAG1")
+        self.assertEqual(body["data"]["capability_truth"]["implementation_kind"], "structured_template_report")
         mocked_resolve.assert_called_once()
 
     def test_generate_topic_only_auto_source_disabled_strict_blocks(self):

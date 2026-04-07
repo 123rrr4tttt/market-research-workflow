@@ -289,6 +289,8 @@ class IngestCoreContractTestCase(unittest.TestCase):
         data = _response_payload(body)
         self.assertEqual(data["contract_version"], "source_library.terminal_output.v1")
         self.assertEqual(data["terminal_output"]["contract_version"], "source_library.terminal_output.v1")
+        self.assertEqual(data["authority_output"]["contract_version"], "source_library.authority_output.v1")
+        self.assertEqual(data["compat_projection"]["contract_version"], "source_library.compat_projection.v1")
         self.assertEqual(data["frontdoor_ingress"]["contract_version"], "frontdoor.ingress.v1")
         self.assertEqual(data["frontdoor_ingress"]["ingress_type"], "source_library")
         self.assertEqual(data["postprocess_frontdoor"]["data"]["admission"], "defer")

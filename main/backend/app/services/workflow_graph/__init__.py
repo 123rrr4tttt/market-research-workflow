@@ -10,16 +10,26 @@ from app.services.agent_sessions import get_agent_session_service
 from .compiler import compile_workflow_graph
 from .curated_service import WorkflowGraphCuratedService
 from .runtime import WorkflowGraphRuntime
-from .store import build_run_store
+from .store import (
+    InMemoryCompiledGraphStore,
+    SqlCompiledGraphStore,
+    build_compiled_graph_store,
+    build_run_store,
+)
 from .templates import WorkflowGraphTemplateService
 
 
 class WorkflowGraphCompilerService:
     """Compiler facade with in-memory compiled graph registry."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        store: InMemoryCompiledGraphStore | SqlCompiledGraphStore | None = None,
+    ) -> None:
         self._compiled: dict[str, dict[str, Any]] = {}
         self._lock = RLock()
+        self._store = store or build_compiled_graph_store()
         self._templates = WorkflowGraphTemplateService()
 
     def compile(self, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -79,6 +89,7 @@ class WorkflowGraphCompilerService:
         }
         with self._lock:
             self._compiled[graph_id] = compiled_record
+        self._store.save_compiled(compiled_record)
         response = {
             "graph_id": graph_id,
             "version": compiled.version,
@@ -95,7 +106,9 @@ class WorkflowGraphCompilerService:
         with self._lock:
             row = self._compiled.get(str(graph_id))
         if row is None:
-            raise KeyError(f"compiled graph not found: {graph_id}")
+            row = self._store.get_compiled(str(graph_id))
+            with self._lock:
+                self._compiled[str(graph_id)] = row
         return row
 
     def list_templates(self) -> dict[str, Any]:
@@ -210,8 +223,10 @@ class WorkflowGraphRuntimeService:
         if resolved_mode not in {"events_only", "stateful"}:
             raise ValueError("replay_mode must be events_only or stateful")
 
+        snapshot = self._engine.store.snapshot(str(run_id))
+        replay_consistency = _build_replay_consistency_report(snapshot)
+
         if resolved_mode == "stateful":
-            snapshot = self._engine.store.snapshot(str(run_id))
             run = snapshot.get("run") or {}
             events = list(snapshot.get("events") or [])
             return {
@@ -222,6 +237,7 @@ class WorkflowGraphRuntimeService:
                 "events": events,
                 "results": dict(snapshot.get("results") or {}),
                 "replay_mode": "stateful",
+                "replay_consistency": replay_consistency,
             }
 
         events = list(self._engine.store.get_events(str(run_id)))
@@ -248,7 +264,68 @@ class WorkflowGraphRuntimeService:
             "node_statuses": node_statuses,
             "events_count": len(events),
             "replay_mode": "events_only",
+            "replay_consistency": replay_consistency,
         }
+
+
+def _build_replay_consistency_report(snapshot: dict[str, Any]) -> dict[str, Any]:
+    run = snapshot.get("run") or {}
+    events = list(snapshot.get("events") or [])
+    derived_status = "queued"
+    derived_node_statuses: dict[str, str] = {}
+    issues: list[dict[str, Any]] = []
+
+    for event in events:
+        event_type = str(event.get("type") or "")
+        node_id = str(event.get("node_id") or "").strip()
+        if event_type == "run.running":
+            derived_status = "running"
+        elif event_type == "run.succeeded":
+            derived_status = "succeeded"
+        elif event_type == "run.failed":
+            derived_status = "failed"
+        elif event_type == "node.running" and node_id:
+            derived_node_statuses[node_id] = "running"
+        elif event_type == "node.succeeded" and node_id:
+            derived_node_statuses[node_id] = "succeeded"
+        elif event_type == "node.failed" and node_id:
+            derived_node_statuses[node_id] = "failed"
+
+    stored_status = str(run.get("status") or "queued")
+    if stored_status != derived_status:
+        issues.append(
+            {
+                "code": "run_status_mismatch",
+                "message": f"stored run status '{stored_status}' does not match replayed status '{derived_status}'",
+                "details": {"stored_status": stored_status, "replayed_status": derived_status},
+            }
+        )
+
+    stored_node_statuses = dict(run.get("node_statuses") or {})
+    for node_id in sorted(set(stored_node_statuses) | set(derived_node_statuses)):
+        stored_node_status = str(stored_node_statuses.get(node_id) or "")
+        derived_node_status = str(derived_node_statuses.get(node_id) or "")
+        if stored_node_status != derived_node_status:
+            issues.append(
+                {
+                    "code": "node_status_mismatch",
+                    "message": f"stored node status for '{node_id}' does not match replayed status",
+                    "details": {
+                        "node_id": node_id,
+                        "stored_status": stored_node_status,
+                        "replayed_status": derived_node_status,
+                    },
+                }
+            )
+
+    return {
+        "contract_version": "workflow_graph.replay_consistency.v1",
+        "consistent": not issues,
+        "issue_count": len(issues),
+        "issues": issues,
+        "stored_status": stored_status,
+        "replayed_status": derived_status,
+    }
 
 
 compiler = WorkflowGraphCompilerService()

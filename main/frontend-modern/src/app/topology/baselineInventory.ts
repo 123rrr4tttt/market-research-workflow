@@ -1,4 +1,4 @@
-import type { NavMode } from '../../components/FigmaSideNav'
+import type { NavMode } from '../kernel/types'
 import { resolveInteractionSurface } from './contracts'
 import type { InteractionSurface } from './surfaces'
 

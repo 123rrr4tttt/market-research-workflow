@@ -1,5 +1,6 @@
 import { translate, useAppLocale } from '../platform/i18n'
 import { getKernelModuleContract } from './contracts'
+import LayerSwitch from './LayerSwitch'
 import ModuleRenderer from './ModuleRenderer'
 import type { KernelModuleKey } from './types'
 import type { useKernelRuntime } from './useKernelRuntime'
@@ -32,6 +33,7 @@ export default function WorkbenchLayerShell({ activeModule, runtime }: Props) {
             <span>workbench</span>
             <strong>{runtime.projectKey}</strong>
           </div>
+          <LayerSwitch activeLayer="A" runtime={runtime} />
           <nav className="kernel-workbench__rail-nav" aria-label="Layer A modules">
             {WORKBENCH_MODULES.map((moduleKey) => {
               const contract = getKernelModuleContract(moduleKey)

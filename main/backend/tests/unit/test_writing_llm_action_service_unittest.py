@@ -42,6 +42,8 @@ class WritingLlmActionServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(response.status, "rejected")
         self.assertEqual(response.mode, "selection_rewrite")
         self.assertFalse(response.dependency_gate["passed"])
+        self.assertEqual(response.capability_truth["implementation_kind"], "rule_template_action")
+        self.assertFalse(response.capability_truth["real_model_path"])
         self.assertTrue(any("agent_role_not_allowed_for_consumer" in item for item in response.warnings))
         self.assertEqual(mocked_complete.call_args.kwargs["status"], "rejected")
 
@@ -60,6 +62,8 @@ class WritingLlmActionServiceUnitTestCase(unittest.TestCase):
 
         self.assertEqual(response.status, "completed")
         self.assertTrue(response.dependency_gate["passed"])
+        self.assertEqual(response.capability_truth["implementation_kind"], "rule_template_action")
+        self.assertFalse(response.capability_truth["real_model_path"])
         self.assertIn("agent_boundary", response.action_boundary)
         self.assertIn("audit", response.observability)
 

@@ -1,6 +1,6 @@
 # 合并文档总览
 
-Updated: 2026-04-06 PST
+Updated: 2026-04-07 PST
 
 ## 目录级合并结果
 
@@ -20,6 +20,16 @@ Updated: 2026-04-06 PST
 
 ## 最近新增
 
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-07 Runtime Smoke Reproduction: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-07 Agent Runtime Canonical Path Closure: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-07 Topic Closure Matrix: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-07 Validation Closure: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-07 Governance Default Gates, PR Evidence, and Docs Navigation](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-04-06 Topology Risk Freeze: Compat Caller Matrix And Rollout Guards](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md)
 - `development-plans/CURRENT_DEV`：

@@ -67,7 +67,7 @@ test('graph page smoke test loads with mocked graph APIs', async ({ page }) => {
   const response = await page.goto('/#graph.html?type=market')
   expect(response?.ok()).toBeTruthy()
 
-  await expect(page.getByRole('heading', { level: 2, name: '市场图谱', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
 
   await expect(page.getByRole('button', { name: '3D模式', exact: true })).toBeVisible()
 
@@ -81,14 +81,14 @@ test('graph page can switch 2D/3D mode and interact with key slider', async ({ p
   const response = await page.goto('/#graph.html?type=market')
   expect(response?.ok()).toBeTruthy()
 
-  await expect(page.getByRole('heading', { level: 2, name: '市场图谱', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
 
   const renderModeToggle = page.locator('button[title="轻量3D模型模式（中心锁定，非相机视角）"]').first()
   await expect(renderModeToggle).toHaveText('3D模式')
   await renderModeToggle.click()
   await expect(renderModeToggle).toHaveText('回到2D')
 
-  const repulsionSlider = page.locator('label:has-text("斥力") input[type="range"]').first()
+  const repulsionSlider = page.getByRole('slider', { name: /^斥力/ }).first()
   await expect(repulsionSlider).toBeVisible()
 
   const initial = Number(await repulsionSlider.inputValue())
