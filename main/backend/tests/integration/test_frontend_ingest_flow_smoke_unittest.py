@@ -22,7 +22,7 @@ class _TasksStub:
         self.task_run_source_library_item = SimpleNamespace(
             delay=Mock(return_value=SimpleNamespace(id="source-library-task-1"))
         )
-        self.task_ingest_single_url = SimpleNamespace(
+        self.task_ingest_url_via_source_library = SimpleNamespace(
             delay=Mock(return_value=SimpleNamespace(id="single-url-task-1"))
         )
 
@@ -86,8 +86,10 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
         "reddit.general",
         "demo_proj",
         {"limit": 2},
+        workflow_run_id=None,
+        trace_id=None,
     )
-    tasks_stub.task_ingest_single_url.delay.assert_called_once_with(
+    tasks_stub.task_ingest_url_via_source_library.delay.assert_called_once_with(
         "https://example.com",
         ["market"],
         False,
@@ -96,7 +98,27 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
 
     with patch(
         "app.services.collect_runtime.run_source_library_item_compat",
-        return_value={"inserted": 5, "updated": 0, "skipped": 0, "mode": "sync"},
+        return_value={
+            "terminal_output": {
+                "contract_version": "source_library.terminal_output.v1",
+                "status": "ok",
+                "source_mode": "protocol_search",
+                "item": {"item_key": "url_pool.default", "item_type": "user_defined", "managed_by": "user"},
+                "request": {"project_key": "demo_proj"},
+                "results": {"records": [], "stats": {"fetched": 0, "normalized": 0, "dropped": 0, "errors": 0}},
+                "errors": [],
+                "meta": {"reason_code": "empty"},
+            },
+            "frontdoor_ingress": {
+                "contract_version": "frontdoor.ingress.v1",
+                "ingress_type": "source_library",
+            },
+            "postprocess_frontdoor": {
+                "status": "ok",
+                "data": {"admission": "reject"},
+            },
+            "legacy_result": {"item_key": "url_pool.default", "channel_key": "url_pool"},
+        },
     ):
         source_library_sync_resp = client.post(
             "/api/v1/ingest/source-library/run",
@@ -111,10 +133,19 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
 
     assert source_library_sync_resp.status_code == 200, source_library_sync_resp.text
     sync_payload = _response_payload(source_library_sync_resp.json())
-    assert sync_payload["mode"] == "sync"
-    assert sync_payload["inserted"] == 5
-    assert sync_payload.get("updated") == 0
-    assert sync_payload.get("skipped") == 0
+    assert sync_payload["contract_version"] == "source_library.terminal_output.v1"
+    assert sync_payload["source_mode"] == "protocol_search"
+    assert sync_payload["results"]["records"] == []
+    assert sync_payload["results"]["stats"]["normalized"] == 0
+    assert sync_payload["terminal_output"]["contract_version"] == "source_library.terminal_output.v1"
+    assert sync_payload["frontdoor_ingress"]["contract_version"] == "frontdoor.ingress.v1"
+    assert sync_payload["postprocess_frontdoor"]["data"]["admission"] == "reject"
+    assert sync_payload["legacy_result"]["item_key"] == "url_pool.default"
+    assert "inserted" not in sync_payload
+    assert "updated" not in sync_payload
+    assert "skipped" not in sync_payload
+    assert "legacy_ingest_result" not in sync_payload
+    assert "channel_key" not in sync_payload["item"]
 
 
 def test_frontend_ingest_flow_headers_derive_project():

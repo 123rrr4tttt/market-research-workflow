@@ -11,6 +11,9 @@ from ..project_customization import get_project_customization
 from ..services.ingest_config import get_config as get_ingest_config, upsert_config as upsert_ingest_config
 from ..services.job_logger import list_jobs
 from ..services.projects import bind_project, current_project_key
+from ..services.skill_runtime import invoke_skill
+from ..services.agent_batch.routing import apply_async_or_delay, validate_lane
+from ..services.agent_batch.task_contract import build_source_library_override_params
 from ..settings.config import settings
 from ..contracts import (
     ErrorCode,
@@ -22,7 +25,6 @@ from ..contracts import (
 
 logger = logging.getLogger(__name__)
 from fastapi.responses import JSONResponse
-
 
 @lru_cache(maxsize=1)
 def _tasks_module():
@@ -42,6 +44,126 @@ def _error_500(exc: Exception) -> JSONResponse:
         status_code=500,
         content=error_response(code, message, details=details),
     )
+
+
+def _dispatch_market_collect_async(
+    *,
+    query_terms: list[str],
+    max_items: int,
+    project_key: str,
+    enable_extraction: bool,
+    start_offset: int,
+    days_back: int | None,
+    language: str | None,
+    provider: str | None,
+    consumer: str,
+) -> str:
+    # Keep parity with historical async semantics while routing through skill runtime.
+    normalized_start_offset = start_offset if isinstance(start_offset, int) else None
+    invoked = invoke_skill(
+        skill_id="ingest.dispatch.market_collect",
+        payload={
+            "query_terms": list(query_terms or []),
+            "max_items": int(max_items),
+            "project_key": project_key,
+            "provider": provider,
+            "language": language,
+            "days_back": days_back,
+            "lane": "main",
+            "override_params": {
+                "enable_extraction": bool(enable_extraction),
+                "start_offset": normalized_start_offset,
+            },
+        },
+        context={
+            "actor_role": "business_capability_wrapper",
+            "permissions": ["ingest.dispatch.market_collect"],
+            "consumer": consumer,
+            "trace_id": f"{consumer}.market",
+        },
+    )
+    result = invoked.get("result")
+    task_id = str((result or {}).get("task_id") or "").strip() if isinstance(result, dict) else ""
+    if not task_id:
+        raise RuntimeError("market async dispatch skill returned empty task_id")
+    return task_id
+
+
+def _dispatch_source_library_item_async(
+    *,
+    item_key: str,
+    project_key: str,
+    override_params: dict[str, Any],
+    consumer: str,
+) -> str:
+    invoked = invoke_skill(
+        skill_id="ingest.dispatch.source_library_item",
+        payload={
+            "item_key": item_key,
+            "project_key": project_key,
+            "override_params": dict(override_params or {}),
+            "lane": "subagent",
+        },
+        context={
+            "actor_role": "business_capability_wrapper",
+            "permissions": ["ingest.dispatch.source_library_item"],
+            "consumer": consumer,
+            "trace_id": f"{consumer}.source_library",
+        },
+    )
+    result = invoked.get("result")
+    task_id = str((result or {}).get("task_id") or "").strip() if isinstance(result, dict) else ""
+    if not task_id:
+        raise RuntimeError("source library async dispatch skill returned empty task_id")
+    return task_id
+
+
+def _skill_dispatch_ingest_market_collect(payload: dict[str, Any]) -> dict[str, Any]:
+    query_terms = _normalize_query_terms((payload or {}).get("query_terms") or [], None)
+    max_items = _normalize_max_items((payload or {}).get("max_items"), None)
+    project_key = _require_project_key((payload or {}).get("project_key"))
+    lane = validate_lane((payload or {}).get("lane"))
+    override_params = dict((payload or {}).get("override_params") or {})
+    enable_extraction = bool(override_params.get("enable_extraction", True))
+    start_offset = override_params.get("start_offset")
+    if not isinstance(start_offset, int):
+        start_offset = None
+    trace_id = str((payload or {}).get("trace_id") or "").strip() or None
+    workflow_run_id = str((payload or {}).get("workflow_run_id") or "").strip() or None
+    task = apply_async_or_delay(
+        _tasks_module().task_ingest_market,
+        (
+            query_terms,
+            max_items,
+            enable_extraction,
+            project_key,
+            start_offset,
+            (payload or {}).get("days_back"),
+            (payload or {}).get("language"),
+            (payload or {}).get("provider"),
+        ),
+        {"workflow_run_id": workflow_run_id, "trace_id": trace_id},
+        lane,
+    )
+    return {"task_id": str(task.id)}
+
+
+def _skill_dispatch_ingest_source_library_item(payload: dict[str, Any]) -> dict[str, Any]:
+    item_key = str((payload or {}).get("item_key") or "").strip()
+    if not item_key:
+        raise ValueError("item_key is required")
+    project_key = _require_project_key((payload or {}).get("project_key"))
+    lane = validate_lane((payload or {}).get("lane"))
+    override_params = dict((payload or {}).get("override_params") or {})
+    trace_id = str((payload or {}).get("trace_id") or "").strip() or None
+    workflow_run_id = str((payload or {}).get("workflow_run_id") or "").strip() or None
+    task = apply_async_or_delay(
+        _tasks_module().task_run_source_library_item,
+        (item_key, project_key, override_params),
+        {"workflow_run_id": workflow_run_id, "trace_id": trace_id},
+        lane,
+    )
+    return {"task_id": str(task.id)}
 
 
 def _require_project_key(project_key: str | None) -> str:
@@ -255,19 +377,20 @@ def ingest_market(payload: MarketIngestRequest):
     )
     max_items = _normalize_max_items(payload.max_items, payload.limit)
     if payload.async_mode:
-        task = _tasks_module().task_ingest_market.delay(
-            query_terms,
-            max_items,
-            payload.enable_extraction,
-            project_key,
-            payload.start_offset,
-            payload.days_back,
-            payload.language,
-            payload.provider,
+        task_id = _dispatch_market_collect_async(
+            query_terms=query_terms,
+            max_items=max_items,
+            project_key=project_key,
+            enable_extraction=payload.enable_extraction,
+            start_offset=payload.start_offset,
+            days_back=payload.days_back,
+            language=payload.language,
+            provider=payload.provider,
+            consumer="ingest.market.api",
         )
         return success_response(
             task_result_response(
-                task_id=task.id,
+                task_id=task_id,
                 async_mode=True,
                 params={"query_terms": query_terms, "max_items": max_items, **({"topic_focus": payload.topic_focus} if payload.topic_focus else {})},
             )
@@ -352,7 +475,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
 
     if payload.async_mode:
         if isinstance(search_options, dict):
-            task = _tasks_module().task_ingest_single_url.delay(
+            task = _tasks_module().task_ingest_url_via_source_library.delay(
                 normalized_url,
                 payload.query_terms,
                 payload.strict_mode,
@@ -360,7 +483,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
                 search_options,
             )
         else:
-            task = _tasks_module().task_ingest_single_url.delay(
+            task = _tasks_module().task_ingest_url_via_source_library.delay(
                 normalized_url,
                 payload.query_terms,
                 payload.strict_mode,
@@ -381,13 +504,18 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
 
     try:
         with bind_project(project_key):
-            from ..services.ingest.single_url import ingest_single_url
+            from ..services.ingest.url_pool import ingest_url_via_source_library_frontdoor
 
-            result = ingest_single_url(
+            result = ingest_url_via_source_library_frontdoor(
                 url=normalized_url,
+                project_key=project_key,
                 query_terms=payload.query_terms,
                 strict_mode=payload.strict_mode,
                 search_options=search_options,
+                frontdoor_options={"enabled": True},
+                entrypoint="ingest.url.single",
+                source_name="ingest_url_single",
+                enable_extraction=True,
             )
             if isinstance(result, dict):
                 result.setdefault("effective_payload", effective_payload)
@@ -467,6 +595,14 @@ def _resource_display_name(resource_id: str) -> str:
 class SourceLibraryRunPayload(BaseModel):
     item_key: str | None = Field(default=None, min_length=1)
     handler_key: str | None = Field(default=None, min_length=1, description="Run all items under this handler key (provider/kind)")
+    source_mode: Literal["protocol_search", "provider_harvest", "site_search", "url_execution"] | None = Field(default=None)
+    query_terms: list[str] = Field(default_factory=list)
+    urls: list[str] = Field(default_factory=list)
+    max_items: int | None = Field(default=None, ge=1, le=100)
+    provider: str | None = Field(default=None)
+    language: str | None = Field(default=None)
+    scope: str | None = Field(default=None)
+    platforms: list[str] = Field(default_factory=list)
     project_key: str | None = Field(default=None)
     async_mode: bool = Field(default=False)
     override_params: dict = Field(default_factory=dict)
@@ -543,9 +679,38 @@ def _run_single_source_library_entry(
     project_key: str,
     item_key: str,
     handler_key: str,
+    source_mode: str,
+    query_terms: list[str] | None,
+    urls: list[str] | None,
+    max_items: int | None,
+    provider: str | None,
+    language: str | None,
+    scope: str | None,
+    platforms: list[str] | None,
     async_mode: bool,
     override_params: dict | None,
 ) -> dict[str, Any]:
+    def _external_terminal_payload(result: dict[str, Any]) -> dict[str, Any]:
+        terminal_output = result.get("terminal_output") if isinstance(result, dict) else None
+        if isinstance(terminal_output, dict):
+            response_payload = dict(terminal_output)
+            response_payload.setdefault("terminal_output", terminal_output)
+            if isinstance(result.get("frontdoor_ingress"), dict):
+                response_payload["frontdoor_ingress"] = dict(result["frontdoor_ingress"])
+            if isinstance(result.get("postprocess_frontdoor"), dict):
+                response_payload["postprocess_frontdoor"] = dict(result["postprocess_frontdoor"])
+            if isinstance(result.get("legacy_result"), dict):
+                response_payload["legacy_result"] = dict(result["legacy_result"])
+                response_payload["legacy_result_is_deprecated"] = bool(result.get("legacy_result_is_deprecated", True))
+            if result.get("display_meta") is not None and "display_meta" not in response_payload:
+                response_payload["display_meta"] = result.get("display_meta")
+            return response_payload
+        if isinstance(result, dict):
+            from ..services.source_library.terminal_output import build_source_library_terminal_output
+
+            return build_source_library_terminal_output(result_payload=result, collect_result=None)
+        return result
+
     resolved_item_key = str(item_key or "").strip()
     resolved_handler_key = str(handler_key or "").strip()
     mode_count = int(bool(resolved_item_key)) + int(bool(resolved_handler_key))
@@ -554,7 +719,20 @@ def _run_single_source_library_entry(
     if mode_count > 1:
         raise HTTPException(status_code=400, detail="item_key and handler_key are mutually exclusive.")
 
-    final_override_params = dict(override_params or {})
+    final_override_params = build_source_library_override_params(
+        {
+            "override_params": dict(override_params or {}),
+            "query_terms": list(query_terms or []),
+            "urls": list(urls or []),
+            "max_items": max_items,
+            "provider": provider,
+            "language": language,
+            "scope": scope,
+            "platforms": list(platforms or []),
+            "source_mode": str(source_mode or "").strip().lower() or None,
+        },
+        workflow_run_id=str((override_params or {}).get("workflow_run_id") or "").strip() or None,
+    )
     if resolved_handler_key:
         resolved_item_key, site_entry_count = _ensure_handler_cluster_item(
             project_key=project_key,
@@ -564,15 +742,16 @@ def _run_single_source_library_entry(
         final_override_params.setdefault("_handler_site_entry_count", site_entry_count)
 
     if async_mode:
-        task = _tasks_module().task_run_source_library_item.delay(
-            resolved_item_key,
-            project_key,
-            final_override_params,
+        task_id = _dispatch_source_library_item_async(
+            item_key=resolved_item_key,
+            project_key=project_key,
+            override_params=final_override_params,
+            consumer="ingest.source_library.run",
         )
         return {
             "mode": "source_library_item",
             "result": task_result_response(
-                task_id=task.id,
+                task_id=task_id,
                 async_mode=True,
                 params={"item_key": resolved_item_key},
             ),
@@ -585,7 +764,7 @@ def _run_single_source_library_entry(
         project_key=project_key,
         override_params=final_override_params,
     )
-    return {"mode": "source_library_item", "result": result}
+    return {"mode": "source_library_item", "result": _external_terminal_payload(result)}
 
 
 @router.post("/source-library/run")
@@ -609,6 +788,14 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
                 "item_key": payload.item_key,
                 "handler_key": payload.handler_key,
                 "async_mode": payload.async_mode,
+                "source_mode": payload.source_mode,
+                "query_terms": payload.query_terms,
+                "urls": payload.urls,
+                "max_items": payload.max_items,
+                "provider": payload.provider,
+                "language": payload.language,
+                "scope": payload.scope,
+                "platforms": payload.platforms,
                 "override_params": payload.override_params,
             }
         ]
@@ -620,6 +807,14 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
                 project_key=project_key,
                 item_key=str(entry.get("item_key") or "").strip(),
                 handler_key=str(entry.get("handler_key") or "").strip(),
+                source_mode=str(entry.get("source_mode") or payload.source_mode or "").strip(),
+                query_terms=entry.get("query_terms") if isinstance(entry.get("query_terms"), list) else payload.query_terms,
+                urls=entry.get("urls") if isinstance(entry.get("urls"), list) else payload.urls,
+                max_items=entry.get("max_items") if entry.get("max_items") is not None else payload.max_items,
+                provider=str(entry.get("provider") or payload.provider or "").strip() or None,
+                language=str(entry.get("language") or payload.language or "").strip() or None,
+                scope=str(entry.get("scope") or payload.scope or "").strip() or None,
+                platforms=entry.get("platforms") if isinstance(entry.get("platforms"), list) else payload.platforms,
                 async_mode=bool(entry.get("async_mode", payload.async_mode)),
                 override_params=entry.get("override_params")
                 if isinstance(entry.get("override_params"), dict)
@@ -1075,15 +1270,16 @@ def _run_market_batch(
     max_items = _normalize_max_items(dashboard.max_items, None)
     final_batch_id = batch_id or f"market:{topic_focus}"
     if dashboard.async_mode:
-        task = _tasks_module().task_ingest_market.delay(
-            terms,
-            max_items,
-            dashboard.enable_extraction,
-            project_key,
-            dashboard.start_offset,
-            dashboard.days_back,
-            dashboard.language,
-            dashboard.provider,
+        task_id = _dispatch_market_collect_async(
+            query_terms=terms,
+            max_items=max_items,
+            project_key=project_key,
+            enable_extraction=dashboard.enable_extraction,
+            start_offset=dashboard.start_offset,
+            days_back=dashboard.days_back,
+            language=dashboard.language,
+            provider=dashboard.provider,
+            consumer="ingest.graph_structured.market_batch",
         )
         return {
             "batch_id": final_batch_id,
@@ -1091,7 +1287,7 @@ def _run_market_batch(
             "type": "market",
             "topic_focus": topic_focus,
             "query_terms": terms,
-            "task_id": task.id,
+            "task_id": task_id,
             "async_mode": True,
             **({"topic_meta": topic_meta} if topic_meta else {}),
         }
@@ -1195,10 +1391,11 @@ def _run_source_collect_batch(
             "enable_extraction": dashboard.enable_extraction,
         }
         if dashboard.async_mode:
-            task = _tasks_module().task_run_source_library_item.delay(
-                item_key,
-                project_key,
-                override_params,
+            task_id = _dispatch_source_library_item_async(
+                item_key=item_key,
+                project_key=project_key,
+                override_params=override_params,
+                consumer="ingest.graph_structured.source_collect",
             )
             return {
                 "batch_id": batch_id,
@@ -1208,7 +1405,7 @@ def _run_source_collect_batch(
                 "intent": intent,
                 "item_key": item_key,
                 "query_terms": terms,
-                "task_id": task.id,
+                "task_id": task_id,
                 "async_mode": True,
                 "result": {
                     "sources_inserted": 0,
@@ -1481,6 +1678,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
         "types": {
             "policy": type_counts["policy"],
             "data_api": type_counts["data_api"],
+            "social": type_counts["data_api"],
             "market": type_counts["market"],
             "source_collect": type_counts["source_collect"],
         },

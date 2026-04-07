@@ -164,6 +164,9 @@ export type SourceLibraryItem = {
   extra?: Record<string, unknown>
   project_key?: string | null
   scope?: SourceLibraryScope
+  execution_plan?: Record<string, unknown>
+  item_type?: string
+  managed_by?: string
 }
 
 export type SourceLibraryChannel = {
@@ -199,6 +202,36 @@ export type SourceLibraryItemUpsertPayload = {
 export type SourceLibraryItemRefreshPayload = {
   incremental?: boolean
   max_site_entries?: number
+}
+
+export type ExternalProjectRegistrationPayload = {
+  project_link: string
+  item_key?: string
+  name?: string
+  description?: string
+  tags?: string[]
+  enabled?: boolean
+  persist?: boolean
+  hints?: Record<string, unknown>
+}
+
+export type ExternalProjectRegistrationResponse = {
+  ok?: boolean
+  persisted?: boolean
+  project_key?: string
+  item?: SourceLibraryItem
+  registration_context?: {
+    source?: string
+    project_link?: string
+    preferred_execution_modes?: string[]
+    endpoint_candidates?: Array<{
+      execution_mode?: string
+      runner_ref?: string
+      reason?: string
+      confidence?: string
+    }>
+    evidence?: Array<Record<string, unknown>>
+  }
 }
 
 export type SourceLibraryHandlerSyncPayload = {
@@ -395,6 +428,195 @@ export type AgentBatchNlCommandResult = {
   command: string
   parsed?: Record<string, unknown>
   submit?: AgentBatchSubmitResult
+  session_id?: string | null
+  root_task_id?: string | null
+  current_phase?: string | null
+  compat_mode?: boolean | null
+  compat_projection_version?: string | null
+  session?: AgentSessionItem | null
+}
+
+export type AgentSessionStatus = 'pending' | 'active' | 'blocked' | 'completed' | 'failed' | 'canceled' | string
+
+export type AgentTaskStatus = 'pending' | 'claimed' | 'in_progress' | 'blocked' | 'completed' | 'failed' | 'canceled' | 'expired' | string
+
+export type AgentTaskProgressSummary = {
+  tool_use_count?: number | null
+  token_usage?: number | null
+  last_activity?: string | null
+  recent_activities?: string[] | null
+  summary_label?: string | null
+  started_at?: string | null
+  updated_at?: string | null
+}
+
+export type AgentSessionItem = {
+  session_id: string
+  project_key?: string | null
+  source?: string | null
+  goal?: string | null
+  title?: string | null
+  status?: AgentSessionStatus
+  current_phase?: string | null
+  compat_mode?: boolean | null
+  compat_projection_version?: string | null
+  root_task_id?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  task_count?: number | null
+  event_count?: number | null
+  artifact_count?: number | null
+  metadata?: Record<string, unknown> | null
+  progress?: AgentTaskProgressSummary | null
+}
+
+export type AgentTaskItem = {
+  task_id: string
+  session_id?: string | null
+  parent_task_id?: string | null
+  task_type?: string | null
+  phase?: string | null
+  subject?: string | null
+  description?: string | null
+  status?: AgentTaskStatus
+  owner?: string | null
+  blocked_by?: string[] | null
+  blocks?: string[] | null
+  priority?: number | null
+  write_set?: string[] | null
+  read_set?: string[] | null
+  lease_until?: string | null
+  result_summary?: string | null
+  metadata?: Record<string, unknown> | null
+  progress?: AgentTaskProgressSummary | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export type AgentEventItem = {
+  event_id: string
+  session_id?: string | null
+  seq?: number | null
+  task_id?: string | null
+  event_type?: string | null
+  ts?: string | null
+  severity?: string | null
+  message?: string | null
+  payload?: Record<string, unknown> | null
+}
+
+export type AgentArtifactItem = {
+  artifact_id: string
+  session_id?: string | null
+  task_id?: string | null
+  artifact_type?: string | null
+  name?: string | null
+  path?: string | null
+  status?: string | null
+  summary?: string | null
+  content?: string | null
+  metadata?: Record<string, unknown> | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export type AgentMessageItem = {
+  session_id: string
+  task_id?: string | null
+  role?: string | null
+  actor?: string | null
+  content?: string | null
+  metadata?: Record<string, unknown> | null
+  created_at?: string | null
+}
+
+export type AgentApprovalItem = {
+  approval_id: string
+  session_id?: string | null
+  task_id?: string | null
+  requester_session_id?: string | null
+  requester_task_id?: string | null
+  requester_actor?: string | null
+  binding_hash?: string | null
+  status?: string | null
+  requested_by?: string | null
+  approved_by?: string | null
+  approved_at?: string | null
+  expires_at?: string | null
+  audit_log?: string[] | null
+  binding_payload?: Record<string, unknown> | null
+}
+
+export type AgentSessionDetail = AgentSessionItem & {
+  tasks?: AgentTaskItem[] | null
+  messages?: AgentMessageItem[] | null
+  events?: AgentEventItem[] | null
+  artifacts?: AgentArtifactItem[] | null
+  approvals?: AgentApprovalItem[] | null
+}
+
+export type AgentSessionListResult = {
+  sessions: AgentSessionItem[]
+}
+
+export type AgentTaskListResult = {
+  tasks: AgentTaskItem[]
+}
+
+export type AgentEventListResult = {
+  events: AgentEventItem[]
+}
+
+export type AgentArtifactListResult = {
+  artifacts: AgentArtifactItem[]
+}
+
+export type AgentMessageListResult = {
+  messages: AgentMessageItem[]
+}
+
+export type AgentSessionCreatePayload = {
+  project_key?: string | null
+  source?: string | null
+  goal: string
+  entrypoint_type?: string | null
+  initial_context?: Record<string, unknown> | null
+  compat_mode?: boolean | null
+}
+
+export type AgentSessionTaskRetryPayload = {
+  task_id: string
+  reason?: string | null
+}
+
+export type AgentSessionCancelPayload = {
+  reason?: string | null
+}
+
+export type AgentSessionMessageCreatePayload = {
+  role?: string | null
+  actor?: string | null
+  task_id?: string | null
+  content: string
+  metadata?: Record<string, unknown> | null
+}
+
+export type AgentApprovalRequestPayload = {
+  task_id: string
+  requester_actor?: string | null
+  binding_payload?: Record<string, unknown> | null
+  metadata?: Record<string, unknown> | null
+}
+
+export type AgentCoordinatorPassResult = {
+  session?: AgentSessionItem | null
+  decisions?: Record<string, unknown>[] | null
+  messages?: AgentMessageItem[] | null
+}
+
+export type AgentApprovalResolvePayload = {
+  approved: boolean
+  reason?: string | null
 }
 
 export type ProcessTaskItem = {
@@ -843,6 +1065,55 @@ export type SourceLibraryRunResult = {
   item_key?: string
   project_key?: string
   ok?: boolean
+  status?: string
+  contract_version?: string
+  source_mode?: 'protocol_search' | 'provider_harvest' | 'site_search' | 'url_execution' | string
+  item?: {
+    item_key?: string
+    item_type?: string | null
+    managed_by?: string | null
+  }
+  request?: {
+    project_key?: string | null
+    query_terms?: string[]
+    time_window?: {
+      days_back?: number | null
+      start_time?: string | null
+      end_time?: string | null
+    }
+    paging?: {
+      page?: number | null
+      start_offset?: number | null
+      cursor?: string | null
+    }
+    limits?: {
+      limit?: number | null
+      max_items?: number | null
+      per_keyword_limit?: number | null
+      max_candidates?: number | null
+      ingest_limit?: number | null
+    }
+  }
+  results?: {
+    records?: Array<Record<string, unknown>>
+    stats?: {
+      fetched?: number
+      normalized?: number
+      dropped?: number
+      errors?: number
+    }
+  }
+  errors?: Array<Record<string, unknown>>
+  meta?: {
+    reason_code?: string
+    retryable?: boolean
+    provider?: string | null
+    provider_job_id?: string | null
+    trace_id?: string | null
+    warnings?: string[]
+    raw_result_keys?: string[]
+  }
+  raw_snapshot?: Record<string, unknown>
 }
 
 export type ProcessTaskCancelResult = {

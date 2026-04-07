@@ -21,6 +21,13 @@ from ..contracts.schemas.policies import (
 )
 from ..models.base import SessionLocal
 from ..models.entities import Document
+from ..services.document_views import (
+    build_policy_detail,
+    build_policy_summary,
+    get_policy_data,
+    get_policy_key_points,
+    get_policy_relations,
+)
 from ..services.graph.relation_ontology import relation_annotation
 
 logger = logging.getLogger(__name__)
@@ -38,36 +45,11 @@ def _json_error(status_code: int, code: ErrorCode, message: str) -> JSONResponse
 
 def _extract_policy_data(doc: Document) -> dict[str, Any]:
     """从文档中提取政策数据"""
-    extracted = doc.extracted_data or {}
-    policy_data = extracted.get("policy", {})
-
-    return {
-        "id": doc.id,
-        "title": doc.title,
-        "state": doc.state or policy_data.get("state"),
-        "status": doc.status,
-        "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
-        "effective_date": policy_data.get("effective_date"),
-        "policy_type": policy_data.get("policy_type"),
-        "key_points": policy_data.get("key_points", []),
-        "summary": doc.summary,
-        "uri": doc.uri,
-        "created_at": doc.created_at.isoformat() if doc.created_at else None,
-    }
+    return build_policy_summary(doc)
 
 
 def _extract_policy_detail(doc: Document) -> dict[str, Any]:
-    extracted = doc.extracted_data or {}
-    policy_data = extracted.get("policy", {})
-    entities_relations = extracted.get("entities_relations", {})
-    return {
-        **_extract_policy_data(doc),
-        "content": doc.content,
-        "source_id": doc.source_id,
-        "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
-        "entities": entities_relations.get("entities", []),
-        "relations": entities_relations.get("relations", []),
-    }
+    return build_policy_detail(doc)
 
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -256,8 +238,7 @@ def get_policy_stats(
             for doc in docs:
                 state_value = doc.state
                 if not state_value:
-                    extracted = doc.extracted_data or {}
-                    state_value = extracted.get("policy", {}).get("state")
+                    state_value = get_policy_data(doc).get("state")
                 if state_value:
                     key = state_value.upper()
                     state_counts[key] = state_counts.get(key, 0) + 1
@@ -265,8 +246,7 @@ def get_policy_stats(
 
             type_counts: dict[str, int] = {}
             for doc in docs:
-                extracted = doc.extracted_data or {}
-                policy_type = extracted.get("policy", {}).get("policy_type") or "unknown"
+                policy_type = get_policy_data(doc).get("policy_type") or "unknown"
                 type_counts[policy_type] = type_counts.get(policy_type, 0) + 1
             type_distribution = [{"policy_type": k, "count": v} for k, v in type_counts.items()]
 
@@ -368,15 +348,12 @@ def get_state_policies(
             relation_class_counts: dict[str, int] = {}
             all_key_points: list[str] = []
             for doc in documents:
-                extracted = doc.extracted_data or {}
-                policy_data = extracted.get("policy", {})
-                all_key_points.extend(policy_data.get("key_points", []))
+                all_key_points.extend(get_policy_key_points(doc))
 
-                entities_relations = extracted.get("entities_relations", {})
-                for entity in entities_relations.get("entities", []):
+                for entity in build_policy_detail(doc)["entities"]:
                     entity_type = entity.get("type", "unknown")
                     entity_counts[entity_type] = entity_counts.get(entity_type, 0) + 1
-                for relation in entities_relations.get("relations", []):
+                for relation in get_policy_relations(doc):
                     ann = relation_annotation(relation.get("predicate", "unknown"))
                     predicate = ann["predicate_norm"]
                     relation_counts[predicate] = relation_counts.get(predicate, 0) + 1

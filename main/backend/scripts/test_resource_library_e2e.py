@@ -114,7 +114,7 @@ def run_e2e(project_key: str = PROJECT_KEY) -> dict:
         unified_search_by_item,
         write_discovered_site_entries,
     )
-    from app.services.source_library import run_item_by_key
+    from app.services.collect_runtime.runtime import run_source_library_item_compat
 
     schema_name = project_schema_name(project_key)
     logger.info("Schema isolation: project_key=%s -> schema=%s", project_key, schema_name)
@@ -215,17 +215,20 @@ def run_e2e(project_key: str = PROJECT_KEY) -> dict:
 
     # Step 4: Ingest from resource pool (url_pool.default)
     r4 = _step(
-        "run_item_by_key (url_pool.default)",
-        run_item_by_key,
+        "run_source_library_item_compat (url_pool.default)",
+        run_source_library_item_compat,
         item_key="url_pool.default",
         project_key=project_key,
         override_params={"limit": 5},
     )
-    results["ingest"] = r4
+    terminal_output = (r4 or {}).get("terminal_output") or {}
+    if not terminal_output:
+        raise RuntimeError("source-library compat run returned no terminal_output; cannot verify source_library contract")
+    results["ingest"] = {"terminal_output": terminal_output}
 
     # Verify schema isolation: docs should be in project schema only
     doc_count_after = _count_docs_in_schema(project_key)
-    inserted = r4.get("result", {}).get("inserted", 0)
+    inserted = int((terminal_output.get("results") or {}).get("inserted") or 0)
     results["schema"]["docs_after"] = doc_count_after
     results["schema"]["docs_delta"] = doc_count_after - doc_count_before
     if inserted > 0 and doc_count_after - doc_count_before != inserted:

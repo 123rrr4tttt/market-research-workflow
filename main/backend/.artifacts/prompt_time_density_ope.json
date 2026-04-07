@@ -1,0 +1,45 @@
+{
+  "summary": {
+    "contexts_total": 2,
+    "contexts_used": 2,
+    "replay_match_rate": 1.0
+  },
+  "estimators": {
+    "replay": {
+      "mean": 0.3,
+      "ci_low": 0.3,
+      "ci_high": 0.3
+    },
+    "ips": {
+      "mean": 0.3043476,
+      "ci_low": 0.3043476,
+      "ci_high": 0.3043476
+    },
+    "snips": {
+      "mean": 0.3,
+      "ci_low": 0.3,
+      "ci_high": 0.3
+    },
+    "dr": {
+      "mean": 0.27043476,
+      "ci_low": 0.27043476,
+      "ci_high": 0.27043476
+    },
+    "switch_dr": {
+      "mean": 0.27043476,
+      "ci_low": 0.27043476,
+      "ci_high": 0.27043476
+    },
+    "dros": {
+      "mean": 0.27043476,
+      "ci_low": 0.27043476,
+      "ci_high": 0.27043476
+    }
+  },
+  "meta": {
+    "rows": 4,
+    "days": 30,
+    "policy_version": null,
+    "generated_at": "2026-03-13T01:20:41.905522+00:00"
+  }
+}

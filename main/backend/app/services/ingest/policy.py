@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
 from ..job_logger import start_job, complete_job, fail_job
+from .frontdoor_ingress import build_frontdoor_ingress_envelope
+from .postprocess_frontdoor import run_postprocess_frontdoor
 from .adapters import (
     CaliforniaLegislatureAdapter,
     LegiScanApiAdapter,
@@ -78,22 +80,62 @@ def ingest_policy_documents(state: str, source_hint: str | None = None) -> dict:
 
                 source = _get_or_create_source(session, doc)
 
-                db_doc = Document(
-                    source_id=source.id,
-                    state=doc.state,
-                    doc_type="policy",
-                    title=doc.title,
-                    status=doc.status,
-                    publish_date=doc.publish_date,
-                    summary=doc.summary,
-                    content=doc.content,
-                    text_hash=text_hash,
-                    uri=doc.uri,
+                ingress_envelope = build_frontdoor_ingress_envelope(
+                    ingress_type="discovery",
+                    entrypoint="ingest.policy_documents",
+                    source_mode="provider_harvest",
+                    project_key=None,
+                    source_ref={"url": doc.uri, "locator": doc.uri},
+                    collection_payload={
+                        "document_candidate": {
+                            "source_name": source.name,
+                            "source_kind": "state_site",
+                            "source_base_url": doc.uri,
+                            "state": doc.state,
+                            "doc_type": "policy",
+                            "title": doc.title,
+                            "status": doc.status,
+                            "publish_date": doc.publish_date,
+                            "summary": doc.summary,
+                            "content": doc.content,
+                            "text_hash": text_hash,
+                            "uri": doc.uri,
+                            "extracted_data_base": {},
+                        },
+                        "terminal_context": {
+                            "platform": "policy_adapter",
+                            "ingestion_entrypoint": "ingest.policy_documents",
+                            "source_mode": "provider_harvest",
+                            "quality_score": 0.0,
+                            "degradation_flags": [],
+                            "http_status": None,
+                            "capability_profile": {},
+                            "light_filter": {},
+                        },
+                        "extraction_outcome": {
+                            "status": "skipped",
+                            "reason": "policy_ingest_no_structured_extraction",
+                            "error": None,
+                            "domains": {},
+                        },
+                    },
+                    raw_snapshot={
+                        "state": doc.state,
+                        "title": doc.title,
+                        "uri": doc.uri,
+                        "source_name": source.name,
+                    },
                 )
-                session.add(db_doc)
-                session.flush()
-                inserted_ids.append(db_doc.id)
-                inserted += 1
+                frontdoor_result = run_postprocess_frontdoor(
+                    ingress_envelope=ingress_envelope,
+                    run_writer=True,
+                )
+                writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
+                if int((writer_result or {}).get("inserted") or 0) > 0:
+                    inserted_ids.append(int((writer_result or {}).get("doc_id") or 0))
+                    inserted += 1
+                elif str((writer_result or {}).get("reason") or "") == "skipped_exists":
+                    skipped += 1
 
             session.commit()
         except Exception as exc:  # noqa: BLE001
@@ -118,5 +160,4 @@ def ingest_policy_documents(state: str, source_hint: str | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001
         fail_job(job_id, str(exc))
         raise
-
 

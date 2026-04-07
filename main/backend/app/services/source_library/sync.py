@@ -24,6 +24,19 @@ def _as_dict(value: Any) -> dict:
     return {}
 
 
+def _normalize_item_taxonomy(payload: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
+    extra = _as_dict(payload.get("extra"))
+    item_type = str(payload.get("item_type") or extra.get("item_type") or "service_aggregated").strip().lower()
+    if item_type not in {"user_defined", "service_aggregated"}:
+        item_type = "service_aggregated"
+    managed_by = str(payload.get("managed_by") or extra.get("managed_by") or "").strip().lower()
+    if managed_by not in {"user", "system"}:
+        managed_by = "system" if item_type == "service_aggregated" else "user"
+    extra["item_type"] = item_type
+    extra["managed_by"] = managed_by
+    return item_type, managed_by, extra
+
+
 def sync_shared_library_from_files() -> Dict[str, Any]:
     data = load_global_library_files()
     channels_data = data.get("channels", [])
@@ -83,7 +96,12 @@ def sync_shared_library_from_files() -> Dict[str, Any]:
                 row.schedule = payload.get("schedule")
                 row.extends_item_key = payload.get("extends_item_key")
                 row.enabled = bool(payload.get("enabled", True))
-                row.extra = _as_dict(payload.get("extra"))
+                item_type, managed_by, normalized_extra = _normalize_item_taxonomy(payload)
+                if hasattr(row, "item_type"):
+                    row.item_type = item_type
+                if hasattr(row, "managed_by"):
+                    row.managed_by = managed_by
+                row.extra = normalized_extra
                 upserted_items += 1
 
             session.commit()

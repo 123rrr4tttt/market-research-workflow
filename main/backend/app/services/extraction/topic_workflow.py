@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from dataclasses import dataclass
 from typing import Any
 
+from ..ingest.postprocess_frontdoor import run_frontdoor_extraction
 
 TOPIC_FIELDS = {
     "company": "company_structured",
@@ -218,15 +220,29 @@ def select_chunks_with_coverage(scored_chunks: list[TopicChunk], *, max_chunks: 
     return selected, coverage_ratio
 
 
-def _extract_topic_from_chunk(extraction_app: Any, topic: str, text: str) -> dict[str, Any]:
-    kwargs = {
-        "include_company": topic == "company",
-        "include_product": topic == "product",
-        "include_operation": topic == "operation",
-    }
-    result = extraction_app.extract_structured_enriched(text, **kwargs) or {}
+def _default_topic_extractor(topic: str, text: str) -> dict[str, Any]:
+    result = run_frontdoor_extraction(
+        title=None,
+        content=text,
+        extraction_plan={
+            "enabled": True,
+            "mode": "topic_workflow",
+            "include_policy": False,
+            "include_market": False,
+            "include_sentiment": False,
+            "include_company": topic == "company",
+            "include_product": topic == "product",
+            "include_operation": topic == "operation",
+        },
+    )
+    domains = result.get("domains") if isinstance(result, dict) else None
     field = TOPIC_FIELDS[topic]
-    payload = result.get(field) if isinstance(result, dict) else None
+    payload = domains.get(field) if isinstance(domains, dict) else None
+    return payload if isinstance(payload, dict) else empty_topic_structured()
+
+
+def _extract_topic_from_chunk(topic_extractor: Any, topic: str, text: str) -> dict[str, Any]:
+    payload = topic_extractor(topic, text)
     return payload if isinstance(payload, dict) else empty_topic_structured()
 
 
@@ -243,7 +259,7 @@ def _resolve_parallel_workers(total_tasks: int) -> int:
 
 def _run_topic_chunk_tasks(
     *,
-    extraction_app: Any,
+    topic_extractor: Any,
     tasks: list[tuple[str, TopicChunk]],
 ) -> dict[str, list[dict[str, Any]]]:
     if not tasks:
@@ -252,12 +268,16 @@ def _run_topic_chunk_tasks(
     workers = _resolve_parallel_workers(len(tasks))
     if workers == 1:
         for topic, ch in tasks:
-            payload = _extract_topic_from_chunk(extraction_app, topic, ch.text)
+            payload = _extract_topic_from_chunk(topic_extractor, topic, ch.text)
             grouped.setdefault(topic, []).append(payload)
         return grouped
 
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="topic-workflow") as executor:
-        future_map = {executor.submit(_extract_topic_from_chunk, extraction_app, topic, ch.text): topic for topic, ch in tasks}
+        # Propagate project contextvars into worker threads.
+        future_map = {
+            executor.submit(copy_context().run, _extract_topic_from_chunk, topic_extractor, topic, ch.text): topic
+            for topic, ch in tasks
+        }
         for future in as_completed(future_map):
             topic = future_map[future]
             try:
@@ -270,19 +290,22 @@ def _run_topic_chunk_tasks(
 
 def run_topic_extraction_workflow(
     *,
-    extraction_app: Any,
+    extraction_app: Any | None,
     text: str,
     topics: list[str],
     extracted_data: dict[str, Any] | None,
     dictionaries: dict[str, Any],
     max_selected_chunks: int = 6,
     fallback_max_chunks: int = 8,
+    topic_extractor: Any | None = None,
 ) -> dict[str, Any]:
+    del extraction_app  # Retained for backward-compatible call sites; topic extraction now routes via topic_extractor/frontdoor.
     ex = extracted_data if isinstance(extracted_data, dict) else {}
     er = ex.get("entities_relations") if isinstance(ex.get("entities_relations"), dict) else None
     chunks = segment_text(text, target_size=1000, overlap=120, max_chunks=30)
     if not chunks:
         return {"results": {t: empty_topic_structured() for t in topics}, "diagnostics": {"chunks_total": 0}}
+    effective_topic_extractor = topic_extractor if callable(topic_extractor) else _default_topic_extractor
 
     topic_results: dict[str, dict[str, Any]] = {}
     diagnostics: dict[str, Any] = {"chunks_total": len(chunks), "topics": {}}
@@ -297,7 +320,7 @@ def run_topic_extraction_workflow(
         total_chunk_tasks += len(selected)
         merged = empty_topic_structured()
         selected_payloads = _run_topic_chunk_tasks(
-            extraction_app=extraction_app,
+            topic_extractor=effective_topic_extractor,
             tasks=[(topic, ch) for ch in selected],
         )
         for payload in selected_payloads.get(topic, []):
@@ -309,7 +332,7 @@ def run_topic_extraction_workflow(
             residual = [c for c in chunks if c.chunk_id not in selected_ids][:fallback_max_chunks]
             total_chunk_tasks += len(residual)
             residual_payloads = _run_topic_chunk_tasks(
-                extraction_app=extraction_app,
+                topic_extractor=effective_topic_extractor,
                 tasks=[(topic, ch) for ch in residual],
             )
             for payload in residual_payloads.get(topic, []):

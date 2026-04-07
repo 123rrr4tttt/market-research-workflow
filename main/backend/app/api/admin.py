@@ -15,7 +15,6 @@ import logging
 from ..models.base import SessionLocal
 from ..models.entities import Document, Source, MarketStat, SearchHistory
 from ..services.extraction.extract import extract_policy_info, extract_market_info, extract_entities_relations
-from ..services.extraction.application import ExtractionApplicationService
 from ..services.extraction.topic_workflow import (
     TOPIC_FIELDS as WORKFLOW_TOPIC_FIELDS,
     empty_topic_structured as wf_empty_topic_structured,
@@ -27,6 +26,7 @@ from ..services.projects import bind_project
 from ..services.graph.relation_ontology import relation_annotation
 from ..contracts import ErrorCode, error_response, success_response, task_result_response
 from ..services.ingest.adapters.http_utils import fetch_html
+from ..services.ingest.postprocess_frontdoor import run_frontdoor_extraction
 from ..services.ingest.raw_import import run_raw_import_documents
 from ..services.ingest.url_pool import _extract_text_from_html
 from ..project_customization import get_project_customization
@@ -243,6 +243,20 @@ class ReExtractRequest(BaseModel):
     batch_size: int = Field(default=20, ge=1, le=200, description="分批提交大小（降低长事务）")
     limit: Optional[int] = Field(default=None, ge=1, le=5000, description="最多处理文档数")
     treat_empty_er_as_missing: bool = Field(default=True, description="entities_relations存在但实体/关系为空时仍视为缺失")
+
+
+def _build_reextract_plan(doc_type: str) -> dict[str, Any]:
+    dt = str(doc_type or "").strip().lower()
+    return {
+        "enabled": True,
+        "mode": "admin_reextract",
+        "include_policy": dt in {"policy", "policy_regulation"},
+        "include_market": dt in {"market", "market_info"},
+        "include_sentiment": dt in {"social_sentiment", "social_feed"},
+        "include_company": False,
+        "include_product": False,
+        "include_operation": False,
+    }
 
 
 class TopicExtractRequest(BaseModel):
@@ -1156,8 +1170,6 @@ def delete_documents(payload: DeleteDocumentsRequest):
 @router.post("/documents/re-extract")
 def re_extract_documents(payload: ReExtractRequest):
     """重新提取文档的结构化数据"""
-    from ..services.extraction.application import ExtractionApplicationService
-    extraction_app = ExtractionApplicationService()
     with SessionLocal() as session:
         # 确定要提取的文档
         if payload.doc_ids:
@@ -1219,19 +1231,28 @@ def re_extract_documents(payload: ReExtractRequest):
                 elif not text_for_extract:
                     text_for_extract = ""
 
-                # 提取结构化信息
-                extracted_data = None
-                
-                dt = str(doc.doc_type or "").strip().lower()
-                extracted_data = extraction_app.extract_structured_enriched(
-                    text_for_extract,
-                    include_policy=dt in {"policy", "policy_regulation"},
-                    include_market=dt in {"market", "market_info"},
-                    include_sentiment=dt in {"social_sentiment", "social_feed"},
+                extraction_outcome = run_frontdoor_extraction(
+                    title=title_text,
+                    content=text_for_extract,
+                    extraction_plan=_build_reextract_plan(str(doc.doc_type or "")),
                 )
-                
-                if extracted_data:
-                    doc.extracted_data = extracted_data
+                extracted_domains = extraction_outcome.get("domains") if isinstance(extraction_outcome, dict) else None
+
+                if isinstance(extracted_domains, dict) and extracted_domains:
+                    existing = doc.extracted_data if isinstance(doc.extracted_data, dict) else {}
+                    merged = _deep_merge_json(existing, extracted_domains)
+                    merged["structured_extraction_status"] = str(extraction_outcome.get("status") or "failed")
+                    if extraction_outcome.get("reason"):
+                        merged["structured_extraction_reason"] = str(extraction_outcome.get("reason"))
+                    elif "structured_extraction_reason" in merged:
+                        merged.pop("structured_extraction_reason", None)
+                    if extraction_outcome.get("error"):
+                        merged["structured_extraction_error"] = str(extraction_outcome.get("error"))
+                    elif "structured_extraction_error" in merged:
+                        merged.pop("structured_extraction_error", None)
+                    if isinstance(extraction_outcome.get("summary"), dict):
+                        merged["_structured_summary"] = dict(extraction_outcome.get("summary") or {})
+                    doc.extracted_data = merged
                     success_count += 1
                     pending += 1
                 else:
@@ -1260,8 +1281,6 @@ def re_extract_documents(payload: ReExtractRequest):
 @router.post("/documents/topic-extract")
 def topic_extract_documents(request: Request, payload: TopicExtractRequest):
     """专题析取（规则筛 + LLM确认），回填 company/product/operation 专题结构化字段。"""
-    from ..services.extraction.application import ExtractionApplicationService
-    extraction_app = ExtractionApplicationService()
     project_key = _project_key_from_request(request)
     dicts = _get_topic_dictionaries(project_key)
     default_doc_types = ["market", "market_info", "policy", "policy_regulation", "social_sentiment", "social_feed", "news", "raw_note"]
@@ -1344,7 +1363,7 @@ def topic_extract_documents(request: Request, payload: TopicExtractRequest):
                     workflow_diag = {}
                     if selected_topics:
                         wf_result = run_topic_extraction_workflow(
-                            extraction_app=extraction_app,
+                            extraction_app=None,
                             text=text_for_extract,
                             topics=selected_topics,
                             extracted_data=ex,

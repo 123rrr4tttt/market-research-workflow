@@ -7,11 +7,46 @@
 set -e
 MODE="${1:-local}"
 
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
+elif [[ -x /usr/local/bin/brew ]]; then
+  eval "$(/usr/local/bin/brew shellenv 2>/dev/null)" || true
+fi
+
+resolve_psql_cmd() {
+  if command -v psql >/dev/null 2>&1; then
+    echo "psql"
+  elif [[ -x /opt/homebrew/opt/postgresql@18/bin/psql ]]; then
+    echo "/opt/homebrew/opt/postgresql@18/bin/psql"
+  elif [[ -x /opt/homebrew/opt/postgresql@17/bin/psql ]]; then
+    echo "/opt/homebrew/opt/postgresql@17/bin/psql"
+  elif [[ -x /opt/homebrew/opt/postgresql@16/bin/psql ]]; then
+    echo "/opt/homebrew/opt/postgresql@16/bin/psql"
+  elif [[ -x /opt/homebrew/opt/postgresql/bin/psql ]]; then
+    echo "/opt/homebrew/opt/postgresql/bin/psql"
+  elif [[ -x /usr/local/opt/postgresql@18/bin/psql ]]; then
+    echo "/usr/local/opt/postgresql@18/bin/psql"
+  elif [[ -x /usr/local/opt/postgresql@17/bin/psql ]]; then
+    echo "/usr/local/opt/postgresql@17/bin/psql"
+  elif [[ -x /usr/local/opt/postgresql@16/bin/psql ]]; then
+    echo "/usr/local/opt/postgresql@16/bin/psql"
+  elif [[ -x /usr/local/opt/postgresql/bin/psql ]]; then
+    echo "/usr/local/opt/postgresql/bin/psql"
+  else
+    return 127
+  fi
+}
+
 run_sql() {
   if [[ "$MODE" == "docker" ]]; then
     docker compose -f main/ops/docker-compose.yml exec -T db psql -U postgres -d postgres -t -A -c "$1"
   else
-    psql "postgresql://postgres:postgres@localhost:5432/postgres" -t -A -c "$1"
+    local psql_cmd
+    psql_cmd="$(resolve_psql_cmd)" || {
+      echo "psql client not found. Install PostgreSQL client or run: ./scripts/fix_demo_proj_seq.sh docker" >&2
+      exit 127
+    }
+    "$psql_cmd" "postgresql://postgres:postgres@localhost:5432/postgres" -t -A -c "$1"
   fi
 }
 

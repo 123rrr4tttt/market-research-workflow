@@ -62,6 +62,7 @@ class IngestBaselineMatrixTestCase(unittest.TestCase):
         ]
         for p in expected:
             self.assertIn(p, paths)
+        self.assertNotIn("/api/v1/ingest/social/sentiment", paths)
 
     def test_core_ingest_modes_require_project_key_in_require_mode(self):
         cases = [
@@ -126,6 +127,18 @@ class IngestBaselineMatrixTestCase(unittest.TestCase):
                 self.assertIsInstance(data, dict, msg=f"path={path} body={body}")
                 self.assertEqual(resp.headers.get("x-project-key-source"), "header")
                 self.assertEqual(resp.headers.get("x-project-key-resolved"), "demo_proj")
+
+    def test_legacy_social_sentiment_route_is_rewritten_to_data_api(self):
+        headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "baseline-matrix-legacy-1"}
+        payload = {"query_terms": ["acme"], "project_key": "demo_proj", "async_mode": True}
+        with patch("app.api.ingest._tasks_module", return_value=_FakeTasks()):
+            resp = self.client.post("/api/v1/ingest/social/sentiment", json=payload, headers=headers)
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok", msg=body)
+        data = _response_payload(body)
+        self.assertIsInstance(data, dict, msg=body)
+        self.assertIn("/api/v1/ingest/data-api", str(resp.headers.get("x-legacy-route-rewrite") or ""))
 
 
 if __name__ == "__main__":

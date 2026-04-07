@@ -5,10 +5,15 @@ from unittest.mock import patch
 
 import pytest
 
+from app.services.agent_sessions import reset_agent_session_service_for_tests, reset_agent_session_store_for_tests
+from app.services.agent_sessions.service import AgentSessionService
+from app.services.agent_sessions.store import InMemoryAgentSessionStore
+from app.services import workflow_graph as workflow_graph_module
 from app.services.workflow_graph.executors.base import BaseNodeExecutor
 from app.services.workflow_graph.executors.llm_call import LLMCallExecutor
 from app.services.workflow_graph.executors.vector_search import VectorSearchExecutor
 from app.services.workflow_graph.runtime import WorkflowGraphRuntime
+from app.services.workflow_graph import WorkflowGraphRuntimeService
 from app.services.workflow_graph.store import InMemoryRunStore
 
 pytestmark = pytest.mark.unit
@@ -36,6 +41,11 @@ class _EchoLlmExecutor(BaseNodeExecutor):
 
 
 class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
+    def setUp(self) -> None:
+        store = InMemoryAgentSessionStore()
+        reset_agent_session_store_for_tests(store)
+        reset_agent_session_service_for_tests(AgentSessionService(store=store))
+
     def test_store_keeps_runs_events_results(self):
         store = InMemoryRunStore()
         run_id = store.create_run(run_id="run-1", topo_order=["a", "b"])
@@ -238,6 +248,30 @@ class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
         fail_events = [item for item in out.get("events", []) if item.get("type") == "node.failed"]
         self.assertTrue(fail_events)
         self.assertIn("prompt_template_missing_inputs:context", str(fail_events[-1].get("payload", {}).get("error", "")))
+
+    def test_runtime_service_projects_run_into_agent_session(self):
+        service = WorkflowGraphRuntimeService()
+        service._engine = WorkflowGraphRuntime(store=InMemoryRunStore())
+        compiled = {
+            "topo_order": ["n1", "n2"],
+            "nodes": {
+                "n1": {"id": "n1", "node_type": "vector_search", "params": {"query": "ai"}},
+                "n2": {"id": "n2", "node_type": "join", "depends_on": ["n1"]},
+            },
+        }
+
+        with patch.object(workflow_graph_module.compiler, "get_compiled", return_value=compiled):
+            out = service.run({"graph_id": "wf-1", "input": {"query": "ai"}})
+
+        self.assertTrue(str(out["session_id"]))
+        self.assertEqual(out["status"], "succeeded")
+        run_detail = service.get_run(str(out["run_id"]))
+        self.assertEqual(run_detail["session_id"], out["session_id"])
+        session_bundle = service.get_run_agent_session(str(out["run_id"]))
+        self.assertEqual(session_bundle["session"]["session_id"], out["session_id"])
+        task_subjects = [item["subject"] for item in session_bundle["tasks"]]
+        self.assertIn("Node n1", task_subjects)
+        self.assertIn("Verification", task_subjects)
 
 
 if __name__ == "__main__":

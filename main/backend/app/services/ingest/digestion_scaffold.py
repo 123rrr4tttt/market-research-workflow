@@ -97,7 +97,13 @@ def classify_input_kind(
         return IngestInputKind.RAW_IMPORT
     if "report" in ep or dtype in {"report", "policy_regulation", "policy"}:
         return IngestInputKind.REPORT_SHAPED
-    if "single_url" in ep or "url_pool" in ep or "source-library" in ep or "source_library" in ep:
+    if (
+        "single_url" in ep
+        or "url_pool" in ep
+        or "source-library" in ep
+        or "source_library" in ep
+        or "ingest.url.single" in ep
+    ):
         return IngestInputKind.URL_DRIVEN_EXTERNAL
     return IngestInputKind.UNKNOWN
 

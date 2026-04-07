@@ -4,6 +4,8 @@ set -euo pipefail
 # Minimal pre-release quality gate:
 # 1) lint (frontend eslint when dependencies are available)
 # 2) critical backend tests via existing backend pre_release_gate.sh
+# 3) rollback drill dry-run to ensure rollback path remains executable
+# 4) metrics schema check
 #
 # Observability enhancement (non-invasive):
 # - optional run report output via --report <path> or MIN_GATE_REPORT_PATH
@@ -13,12 +15,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 FRONTEND_DIR="${ROOT_DIR}/main/frontend-modern"
 BACKEND_GATE="${ROOT_DIR}/main/backend/scripts/pre_release_gate.sh"
+METRICS_SCHEMA_CHECK="${ROOT_DIR}/main/backend/scripts/check_agent_symbolic_metrics_schema.py"
+DEPLOY_SCRIPT="${ROOT_DIR}/scripts/docker-deploy.sh"
 
 MODE_ARGS=()
 REPORT_PATH="${MIN_GATE_REPORT_PATH:-}"
 
 lint_status="skip"
 backend_status="skip"
+rollback_drill_status="skip"
+metrics_schema_status="skip"
 
 emit_report() {
   if [[ -z "${REPORT_PATH}" ]]; then
@@ -32,6 +38,8 @@ emit_report() {
   "root": "${ROOT_DIR}",
   "lint": "${lint_status}",
   "backend": "${backend_status}",
+  "rollback_drill": "${rollback_drill_status}",
+  "metrics_schema": "${metrics_schema_status}",
   "result": "${1}"
 }
 EOF
@@ -75,7 +83,7 @@ while (($# > 0)); do
 done
 
 echo "[min-gate] root=${ROOT_DIR}"
-echo "[min-gate] phase 1/2: lint"
+echo "[min-gate] phase 1/4: lint"
 
 if [[ -f "${FRONTEND_DIR}/package.json" ]]; then
   if ! command -v npm >/dev/null 2>&1; then
@@ -98,7 +106,7 @@ else
   echo "[min-gate] SKIP lint: frontend package.json not found"
 fi
 
-echo "[min-gate] phase 2/2: critical backend tests"
+echo "[min-gate] phase 2/4: critical backend tests"
 if [[ ! -x "${BACKEND_GATE}" ]]; then
   chmod +x "${BACKEND_GATE}"
 fi
@@ -108,6 +116,28 @@ else
   "${BACKEND_GATE}"
 fi
 backend_status="pass"
+
+echo "[min-gate] phase 3/4: rollback drill (dry-run)"
+if [[ ! -f "${DEPLOY_SCRIPT}" ]]; then
+  rollback_drill_status="fail"
+  echo "[min-gate] ERROR: docker deploy script not found: ${DEPLOY_SCRIPT}" >&2
+  exit 2
+fi
+bash "${DEPLOY_SCRIPT}" rollback-drill --dry-run --skip-preflight
+rollback_drill_status="pass"
+
+echo "[min-gate] phase 4/4: metrics schema"
+if [[ ! -f "${METRICS_SCHEMA_CHECK}" ]]; then
+  metrics_schema_status="fail"
+  echo "[min-gate] ERROR: metrics schema check script not found: ${METRICS_SCHEMA_CHECK}" >&2
+  exit 2
+fi
+if [[ -x "${ROOT_DIR}/main/backend/.venv311/bin/python" ]]; then
+  "${ROOT_DIR}/main/backend/.venv311/bin/python" "${METRICS_SCHEMA_CHECK}"
+else
+  python3 "${METRICS_SCHEMA_CHECK}"
+fi
+metrics_schema_status="pass"
 
 emit_report "pass"
 echo "[min-gate] PASS"

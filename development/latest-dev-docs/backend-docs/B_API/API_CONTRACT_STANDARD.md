@@ -145,5 +145,30 @@ const envelope = await window.MarketApp.api.getFull(\"/api/v1/xxx?page=1\"); // 
 |------|----------|------|
 | policies | ✅ | 使用 ok/ok_page/fail |
 | ingest, admin, config, discovery, llm_config, project_customization | ✅ | 通过 success_response/error_response 产出 envelope |
-| projects, source_library | ❌ | 返回裸 JSON，待迁移 |
+| projects | ❌ | 返回裸 JSON，待迁移 |
+| source_library | ⚠️ | 管理接口仍有历史裸 JSON；运行入口 `POST /api/v1/ingest/source-library/run` 的权威输出已切换到 `source_library.terminal_output.v1` |
 
+## 8. Agent-Facing Task Contract Rule（2026-03-14）
+
+对于暴露给 planner / LLM 的任务协议，除了 HTTP envelope 外，还必须满足以下规则：
+
+1. planner-visible schema 必须和 dispatch-effective schema 一致；
+2. 任何暴露给 agent 的参数都必须是：
+   - 真正会影响执行的参数；或
+   - 被明确标注为 advisory / compatibility-only；
+3. `override_params` 不允许作为未声明能力的黑箱入口，必须按 channel 维护 allowlist；
+4. planner manifest、task normalization、submit payload、runtime parser 应复用同一份权威 schema；
+5. 每个对 agent 暴露的参数都应有至少一个端到端 contract test，验证该参数确实被保留并影响执行。
+
+当前已落地规则：
+
+- `search.market.override_params` 仅允许：
+  - `enable_extraction`
+  - `start_offset`
+  - `require_approval`
+  - `approval_token`
+- `source_library.override_params` 仅允许声明过的高级字段与兼容字段；未声明 key 必须 fail-closed 拒绝。
+
+当前专项审计见：
+
+- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/11_agent-exposed-task-contract-completeness-audit-2026-03-14.md`

@@ -13,6 +13,7 @@ import {
   Landmark,
   Layers,
   LineChart,
+  MessageCircleMore,
   MessageSquare,
   Network,
   Package,
@@ -57,6 +58,7 @@ export type NavMode =
   | 'flowAnalysis'
   | 'flowBoard'
   | 'flowWriting'
+  | 'flowAgentChat'
   | 'flowLlmNodeDesign'
   | 'sysProjects'
   | 'sysCrawler'
@@ -97,6 +99,7 @@ const iconByMode: Record<NavMode, ComponentType<{ size?: number; className?: str
   flowAnalysis: Brain,
   flowBoard: TrendingUp,
   flowWriting: FileInput,
+  flowAgentChat: MessageCircleMore,
   flowLlmNodeDesign: Brain,
   sysProjects: Folders,
   sysCrawler: Radar,

@@ -4,7 +4,6 @@ from .resolver import (
     list_effective_items,
     list_items_grouped_by_channel,
     list_items_by_symbol,
-    run_item_by_key,
 )
 from .sync import sync_shared_library_from_files
 
@@ -14,6 +13,5 @@ __all__ = [
     "list_effective_items",
     "list_items_grouped_by_channel",
     "list_items_by_symbol",
-    "run_item_by_key",
     "sync_shared_library_from_files",
 ]

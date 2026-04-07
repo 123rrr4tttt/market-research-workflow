@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Mapping
 
 from ...llm.config_loader import get_llm_config
 from ...llm.platformization import (
@@ -43,6 +43,61 @@ def _invoke_llm(
     if isinstance(resp, dict) and "content" in resp:
         return str(resp["content"])
     return str(resp)
+
+
+def invoke_workflow_llm_call_skill(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, Mapping):
+        raise ValueError("workflow.llm_call payload must be a mapping")
+    prompt = str(payload.get("prompt") or "").strip()
+    if not prompt:
+        raise ValueError("prompt is required")
+
+    text = _invoke_llm(
+        prompt,
+        model=_as_str_or_none(payload.get("model")),
+        temperature=_to_float(payload.get("temperature"), default=0.0),
+        max_tokens=_to_int_or_none(payload.get("max_tokens")),
+        top_p=_to_float_or_none(payload.get("top_p")),
+        extra=dict(payload.get("extra") or {}),
+    )
+    return {"text": text}
+
+
+def _invoke_llm_via_skill(
+    prompt: str,
+    *,
+    model: str | None,
+    temperature: float,
+    max_tokens: int | None,
+    top_p: float | None,
+    extra: dict[str, Any],
+    trace_id: str | None,
+) -> str:
+    from app.services.skill_runtime import invoke_skill
+
+    invoked = invoke_skill(
+        skill_id="workflow.llm_call",
+        payload={
+            "prompt": prompt,
+            "model": model,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p,
+            "extra": dict(extra or {}),
+        },
+        context={
+            "actor_role": "orchestration_runtime",
+            "permissions": ["workflow.llm_call"],
+            "trace_id": str(trace_id or "").strip() or "workflow-graph.workflow.llm_call",
+            "consumer": "workflow_graph.llm_call.executor",
+        },
+    )
+    result = invoked.get("result")
+    if isinstance(result, Mapping):
+        text = result.get("text")
+        if text is not None:
+            return str(text)
+    return str(result)
 
 
 class LLMCallExecutor(BaseNodeExecutor):
@@ -108,17 +163,31 @@ class LLMCallExecutor(BaseNodeExecutor):
             )
         else:
             try:
-                text = _invoke_llm(
+                extra_payload = {
+                    key: value
+                    for key, value in normalized.items()
+                    if key
+                    not in {
+                        "provider",
+                        "model",
+                        "temperature",
+                        "top_p",
+                        "max_tokens",
+                        "prompt_class",
+                        "prompt_template",
+                        "prompt",
+                        "input_vars",
+                        "output_vars",
+                    }
+                }
+                text = _invoke_llm_via_skill(
                     prompt,
                     model=model,
                     temperature=temperature,
                     max_tokens=max_tokens,
                     top_p=top_p,
-                    extra={
-                        key: value
-                        for key, value in normalized.items()
-                        if key not in {"provider", "model", "temperature", "top_p", "max_tokens", "prompt_class", "prompt_template", "prompt", "input_vars", "output_vars"}
-                    },
+                    extra=extra_payload,
+                    trace_id=identity.trace_id,
                 )
                 degraded = False
                 reason = None

@@ -10,9 +10,10 @@ from sqlalchemy import select
 
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
-from ..extraction.application import ExtractionApplicationService
 from ..job_logger import complete_job, fail_job, start_job
 from .adapters.http_utils import fetch_html, make_html_parser
+from .frontdoor_ingress import build_raw_import_ingress_envelope
+from .postprocess_frontdoor import run_postprocess_frontdoor
 from .structured_extraction import build_structured_summary
 
 logger = logging.getLogger(__name__)
@@ -263,7 +264,6 @@ def _derive_publish_date_from_extracted(extracted_data: dict[str, Any]) -> date 
 
 
 def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[str, Any]:
-    extraction_app = ExtractionApplicationService()
     now = datetime.utcnow()
 
     source_name = str(payload.get("source_name") or "raw_import").strip() or "raw_import"
@@ -381,22 +381,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         continue
 
                     if doc is None:
-                        doc = Document(
-                            source_id=source.id,
-                            state=item.get("state") or None,
-                            doc_type=doc_type,
-                            title=title,
-                            publish_date=publish_date_value,
-                            content=text,
-                            summary=summary,
-                            text_hash=text_hash,
-                            uri=uri,
-                            created_at=now,
-                            updated_at=now,
-                        )
-                        session.add(doc)
-                        session.flush()
-                        inserted += 1
+                        pass
                     else:
                         doc.source_id = source.id
                         doc.state = item.get("state") or doc.state
@@ -430,32 +415,8 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                     extracted_base = doc.extracted_data if isinstance(doc.extracted_data, dict) else {}
                     extracted_base["_raw_input"] = _deep_merge_json(extracted_base.get("_raw_input", {}), raw_meta)
 
-                    mode = extraction_mode
-                    if enable_extraction:
-                        extraction_flags = _resolve_extraction_flags(extraction_mode, doc_type)
-                        mode = str(extraction_flags.get("mode") or extraction_mode)
-
-                        extracted_parts: list[dict[str, Any]] = []
-                        for chunk in chunks:
-                            extracted = extraction_app.extract_structured_enriched(
-                                chunk,
-                                include_policy=bool(extraction_flags.get("include_policy")),
-                                include_market=bool(extraction_flags.get("include_market")),
-                                include_sentiment=bool(extraction_flags.get("include_sentiment")),
-                                include_company=bool(extraction_flags.get("include_company")),
-                                include_product=bool(extraction_flags.get("include_product")),
-                                include_operation=bool(extraction_flags.get("include_operation")),
-                            )
-                            if isinstance(extracted, dict) and extracted:
-                                extracted_parts.append(extracted)
-
-                        if extracted_parts:
-                            extracted_base = _deep_merge_json(extracted_base, _merge_extracted_batch(extracted_parts))
-                            if doc.publish_date is None:
-                                derived = _derive_publish_date_from_extracted(extracted_base)
-                                if derived:
-                                    doc.publish_date = derived
-
+                    extraction_flags = _resolve_extraction_flags(extraction_mode, doc_type)
+                    mode = str(extraction_flags.get("mode") or extraction_mode)
                     extracted_base["_structured_summary"] = build_structured_summary(
                         extracted_base,
                         extraction_enabled=enable_extraction,
@@ -463,18 +424,105 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         extraction_mode=mode,
                     )
 
-                    doc.extracted_data = extracted_base
-                    item_results.append(
-                        {
-                            "index": idx,
-                            "doc_id": doc.id,
-                            "status": "ok",
-                            "uri": doc.uri,
-                            "uris": uri_list,
-                            "fetched_from_url": fetched_from_url,
-                            "doc_type": doc.doc_type,
-                        }
+                    frontdoor_item = {
+                        **item,
+                        "state": item.get("state") or None,
+                        "doc_type": doc_type,
+                        "title": title,
+                        "publish_date": publish_date_value.isoformat() if publish_date_value else None,
+                        "content": text,
+                        "summary": summary,
+                        "text_hash": text_hash,
+                        "uri": uri,
+                        "source_name": source_name,
+                        "source_kind": source_kind,
+                        "source_base_url": None,
+                        "extracted_data_base": extracted_base,
+                    }
+                    ingress_envelope = build_raw_import_ingress_envelope(
+                        project_key=project_key,
+                        payload=payload,
+                        item=frontdoor_item,
                     )
+                    collection_payload = ingress_envelope.get("collection_payload") if isinstance(ingress_envelope.get("collection_payload"), dict) else {}
+                    collection_payload["document_candidate"] = {
+                        "source_name": source_name,
+                        "source_kind": source_kind,
+                        "source_base_url": None,
+                        "state": item.get("state") or None,
+                        "doc_type": doc_type,
+                        "title": title,
+                        "publish_date": publish_date_value,
+                        "content": text,
+                        "summary": summary,
+                        "text_hash": text_hash,
+                        "uri": uri,
+                        "status": None,
+                        "extracted_data_base": extracted_base,
+                    }
+                    collection_payload["terminal_context"] = {
+                        "platform": "raw_import",
+                        "ingestion_entrypoint": "ingest.raw_import",
+                        "source_mode": "raw_import",
+                        "quality_score": 0.0,
+                        "degradation_flags": [],
+                        "http_status": fetched_url_status,
+                        "capability_profile": {},
+                        "light_filter": {},
+                    }
+                    collection_payload["extraction_plan"] = {
+                        "enabled": bool(enable_extraction),
+                        "mode": mode,
+                        "chunks": list(chunks),
+                        "include_policy": bool(extraction_flags.get("include_policy")),
+                        "include_market": bool(extraction_flags.get("include_market")),
+                        "include_sentiment": bool(extraction_flags.get("include_sentiment")),
+                        "include_company": bool(extraction_flags.get("include_company")),
+                        "include_product": bool(extraction_flags.get("include_product")),
+                        "include_operation": bool(extraction_flags.get("include_operation")),
+                    }
+
+                    if doc is None:
+                        frontdoor_result = run_postprocess_frontdoor(
+                            ingress_envelope=ingress_envelope,
+                            run_writer=True,
+                        )
+                        writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
+                        inserted += int((writer_result or {}).get("inserted") or 0)
+                        skipped += int((writer_result or {}).get("skipped") or 0)
+                        item_results.append(
+                            {
+                                "index": idx,
+                                "doc_id": (writer_result or {}).get("doc_id"),
+                                "status": "ok" if int((writer_result or {}).get("inserted") or 0) > 0 else str((writer_result or {}).get("reason") or "skipped"),
+                                "uri": uri,
+                                "uris": uri_list,
+                                "fetched_from_url": fetched_from_url,
+                                "doc_type": doc_type,
+                            }
+                        )
+                    else:
+                        frontdoor_result = run_postprocess_frontdoor(
+                            ingress_envelope=ingress_envelope,
+                            run_writer=False,
+                        )
+                        normalized_payload = (frontdoor_result.get("data") or {}).get("normalized_payload") if isinstance(frontdoor_result.get("data"), dict) else {}
+                        normalized_extracted = (normalized_payload or {}).get("extracted_data") if isinstance(normalized_payload, dict) else extracted_base
+                        doc.extracted_data = normalized_extracted
+                        normalized_publish_date = (normalized_payload or {}).get("publish_date") if isinstance(normalized_payload, dict) else None
+                        if normalized_publish_date and doc.publish_date is None:
+                            doc.publish_date = _normalize_iso_date(normalized_publish_date) or doc.publish_date
+                        item_results.append(
+                            {
+                                "index": idx,
+                                "doc_id": doc.id,
+                                "status": "ok",
+                                "uri": doc.uri,
+                                "uris": uri_list,
+                                "fetched_from_url": fetched_from_url,
+                                "doc_type": doc.doc_type,
+                            }
+                        )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("raw_import failed idx=%s err=%s", idx, exc)
                     errors.append({"index": idx, "error": str(exc)})

@@ -17,7 +17,10 @@ from ..indexer.policy import index_policy_documents
 from ...models.base import SessionLocal
 from ...models.entities import Source, Document
 from ..extraction.extract import extract_policy_info, extract_market_info, extract_entities_relations
-from ..ingest.meaningful_gate import content_quality_check, normalize_content_for_ingest, url_policy_check
+from ..ingest.frontdoor_ingress import build_discovery_ingress_envelope
+from ..ingest.content_cleaner import normalize_content_for_ingest
+from ..ingest.meaningful_gate import content_quality_check, url_policy_check
+from ..ingest.postprocess_frontdoor import run_postprocess_frontdoor
 
 
 logger = logging.getLogger(__name__)
@@ -841,19 +844,7 @@ def store_results(
                 kind = _classify_kind(title, snippet, content)
                 state = _infer_state(domain, title, snippet)
                 
-                # 结构化提取（Phase 2）
                 extracted_data = None
-                if content:
-                    try:
-                        from ..extraction.application import ExtractionApplicationService
-                        extraction_app = ExtractionApplicationService()
-                        if kind == "policy":
-                            extracted_data = extraction_app.extract_structured_enriched(content, include_policy=True)
-                        
-                        elif kind == "market":
-                            extracted_data = extraction_app.extract_structured_enriched(content, include_market=True)
-                    except Exception as e:
-                        logger.warning("discovery.store extraction failed url=%s err=%s", link, e)
                 
                 # 提取发布时间（增强版：包括HTTP响应头）
                 publish_date = _extract_publish_date(link, soup, content, extracted_data, http_headers)
@@ -877,25 +868,68 @@ def store_results(
                 else:
                     extracted_data = {"_meaningful_gate": gate_diagnostics}
                 
-                doc = Document(
-                    source_id=source_id,
-                    state=state,
-                    doc_type=kind,
-                    title=title,
-                    status=None,
-                    publish_date=publish_date,
-                    content=(content or None),
-                    summary=snippet,
-                    text_hash=text_hash,
-                    uri=link,
-                    extracted_data=extracted_data,
+                ingress_envelope = build_discovery_ingress_envelope(
+                    project_key=None,
+                    item={
+                        "source_name": domain,
+                        "source_kind": "web",
+                        "source_base_url": domain,
+                        "state": state,
+                        "doc_type": kind,
+                        "title": title,
+                        "status": None,
+                        "publish_date": publish_date.isoformat() if publish_date else None,
+                        "content": (content or None),
+                        "summary": snippet,
+                        "text_hash": text_hash,
+                        "uri": link,
+                        "extracted_data_base": extracted_data,
+                    },
                 )
-                session.add(doc)
-                inserted += 1
-                inserted_valid += 1
-                if kind == "policy":
-                    session.flush()
-                    policy_to_index.append(doc.id)
+                collection_payload = ingress_envelope.get("collection_payload") if isinstance(ingress_envelope.get("collection_payload"), dict) else {}
+                collection_payload["document_candidate"] = {
+                    "source_name": domain,
+                    "source_kind": "web",
+                    "source_base_url": domain,
+                    "state": state,
+                    "doc_type": kind,
+                    "title": title,
+                    "status": None,
+                    "publish_date": publish_date,
+                    "content": (content or None),
+                    "summary": snippet,
+                    "text_hash": text_hash,
+                    "uri": link,
+                    "extracted_data_base": extracted_data,
+                }
+                collection_payload["terminal_context"] = {
+                    "platform": "discovery",
+                    "ingestion_entrypoint": "discovery.store",
+                    "source_mode": "discovery",
+                    "quality_score": 0.0,
+                    "degradation_flags": [],
+                    "http_status": None,
+                    "capability_profile": {},
+                    "light_filter": {},
+                }
+                collection_payload["extraction_plan"] = {
+                    "enabled": bool(content) and kind in {"policy", "market"},
+                    "include_policy": kind == "policy",
+                    "include_market": kind == "market",
+                    "include_sentiment": False,
+                    "include_company": True,
+                    "include_product": True,
+                    "include_operation": True,
+                }
+                frontdoor_result = run_postprocess_frontdoor(
+                    ingress_envelope=ingress_envelope,
+                    run_writer=True,
+                )
+                writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
+                inserted += int((writer_result or {}).get("inserted") or 0)
+                inserted_valid += int((writer_result or {}).get("inserted") or 0)
+                if kind == "policy" and int((writer_result or {}).get("inserted") or 0) > 0:
+                    policy_to_index.append(int((writer_result or {}).get("doc_id") or 0))
             except Exception as exc:  # noqa: BLE001
                 logger.warning("discovery.store skipped error err=%s", exc)
                 skipped += 1

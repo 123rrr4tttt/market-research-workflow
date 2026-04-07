@@ -1,10 +1,10 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import AppShell from './app/shell/AppShell'
-import { resolveStandaloneView } from './app/topology/hash'
-import { getProjectKey } from './lib/api'
+import FrontendKernelApp from './app/kernel/FrontendKernelApp'
 
-const LlmDesignerPage = lazy(() => import('./pages/LlmDesignerPage'))
-const LazyWritingWorkbenchPage = lazy(() => import('./pages/WritingWorkbenchPage'))
+const ConceptLabIndexPage = lazy(() => import('./pages/ConceptLabIndexPage'))
+const ConceptQuietPage = lazy(() => import('./pages/ConceptQuietPage'))
+const ConceptMonolithPage = lazy(() => import('./pages/ConceptMonolithPage'))
+const ConceptOrbitalPage = lazy(() => import('./pages/ConceptOrbitalPage'))
 
 export default function App() {
   const [hash, setHash] = useState(() => window.location.hash)
@@ -15,27 +15,39 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  const standaloneView = resolveStandaloneView(hash)
+  const decodedHash = decodeURIComponent((hash || '').replace(/^#/, '')).trim().toLowerCase()
 
-  if (standaloneView === 'llm-designer') {
+  if (decodedHash.includes('design-concepts.html') || decodedHash.includes('concept-lab')) {
     return (
-      <div className="llm-standalone-root">
-        <Suspense fallback={null}>
-          <LlmDesignerPage projectKey={getProjectKey()} />
-        </Suspense>
-      </div>
+      <Suspense fallback={null}>
+        <ConceptLabIndexPage />
+      </Suspense>
     )
   }
 
-  if (standaloneView === 'writing-workbench') {
+  if (decodedHash.includes('concept-quiet.html')) {
     return (
-      <div className="writing-standalone-root">
-        <Suspense fallback={null}>
-          <LazyWritingWorkbenchPage projectKey={getProjectKey()} standalone />
-        </Suspense>
-      </div>
+      <Suspense fallback={null}>
+        <ConceptQuietPage />
+      </Suspense>
     )
   }
 
-  return <AppShell />
+  if (decodedHash.includes('concept-monolith.html')) {
+    return (
+      <Suspense fallback={null}>
+        <ConceptMonolithPage />
+      </Suspense>
+    )
+  }
+
+  if (decodedHash.includes('concept-orbital.html')) {
+    return (
+      <Suspense fallback={null}>
+        <ConceptOrbitalPage />
+      </Suspense>
+    )
+  }
+
+  return <FrontendKernelApp />
 }

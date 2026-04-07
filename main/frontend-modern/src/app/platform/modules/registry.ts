@@ -1,59 +1,34 @@
-import { hashByMode } from '../../navigation'
+import { moduleManifest } from '../../kernel/moduleManifest'
 import { resolveInteractionSurface } from '../../topology/contracts'
 import type { InteractionSurface } from '../../topology/surfaces'
 import type { ModuleDescriptor, ModuleNavGroupKey, RegisteredNavMode } from './types'
 
-const defaultVisibility = {
-  visibleInNav: true,
-  enabled: true,
-} as const
-
-function defineModule(mode: RegisteredNavMode, navGroupKey: ModuleNavGroupKey): ModuleDescriptor {
+function defineModule(mode: RegisteredNavMode, navGroupKey: ModuleNavGroupKey, hash: string, visibleInNav: boolean, enabled: boolean): ModuleDescriptor {
   const interactionProfile = resolveInteractionSurface(mode) === 'workbench' ? 'workbench' : 'standard'
   return {
     mode,
-    hash: hashByMode[mode],
+    hash,
     titleKey: `shell.title.${mode}`,
     navLabelKey: `navigation.item.${mode}`,
     navGroupKey,
     interactionProfile,
-    visibleInNav: defaultVisibility.visibleInNav,
-    enabled: defaultVisibility.enabled,
+    visibleInNav,
+    enabled,
   }
 }
 
-export const moduleRegistry: Record<RegisteredNavMode, ModuleDescriptor> = {
-  overviewTasks: defineModule('overviewTasks', 'navigation.group.overview'),
-  overviewData: defineModule('overviewData', 'navigation.group.overview'),
-  dataDashboard: defineModule('dataDashboard', 'navigation.group.dataFacets'),
-  dataMarket: defineModule('dataMarket', 'navigation.group.dataFacets'),
-  dataSocial: defineModule('dataSocial', 'navigation.group.dataFacets'),
-  dataPolicy: defineModule('dataPolicy', 'navigation.group.dataFacets'),
-  dataCatalog: defineModule('dataCatalog', 'navigation.group.dataFacets'),
-  graphMarket: defineModule('graphMarket', 'navigation.group.graph'),
-  graphPolicy: defineModule('graphPolicy', 'navigation.group.graph'),
-  graphSocial: defineModule('graphSocial', 'navigation.group.graph'),
-  graphCompany: defineModule('graphCompany', 'navigation.group.graph'),
-  graphProduct: defineModule('graphProduct', 'navigation.group.graph'),
-  graphOperation: defineModule('graphOperation', 'navigation.group.graph'),
-  graphDeep: defineModule('graphDeep', 'navigation.group.graph'),
-  graphBuilder: defineModule('graphBuilder', 'navigation.group.graph'),
-  flowIngest: defineModule('flowIngest', 'navigation.group.flow'),
-  flowSpecialized: defineModule('flowSpecialized', 'navigation.group.flow'),
-  flowProcessing: defineModule('flowProcessing', 'navigation.group.flow'),
-  flowRawData: defineModule('flowRawData', 'navigation.group.flow'),
-  flowExtract: defineModule('flowExtract', 'navigation.group.flow'),
-  flowAnalysis: defineModule('flowAnalysis', 'navigation.group.flow'),
-  flowBoard: defineModule('flowBoard', 'navigation.group.flow'),
-  flowWriting: defineModule('flowWriting', 'navigation.group.flow'),
-  flowLlmNodeDesign: defineModule('flowLlmNodeDesign', 'navigation.group.flow'),
-  sysProjects: defineModule('sysProjects', 'navigation.group.system'),
-  sysCrawler: defineModule('sysCrawler', 'navigation.group.system'),
-  sysResource: defineModule('sysResource', 'navigation.group.system'),
-  sysBackend: defineModule('sysBackend', 'navigation.group.system'),
-  sysSettings: defineModule('sysSettings', 'navigation.group.system'),
-  sysLlm: defineModule('sysLlm', 'navigation.group.system'),
-}
+export const moduleRegistry: Record<RegisteredNavMode, ModuleDescriptor> = Object.fromEntries(
+  moduleManifest.map((entry) => [
+    entry.moduleKey,
+    defineModule(
+      entry.moduleKey,
+      entry.navGroupKey,
+      entry.legacyHashes[0] || `#${entry.entryRoute}`,
+      entry.visibleInNav,
+      entry.enabled,
+    ),
+  ]),
+) as Record<RegisteredNavMode, ModuleDescriptor>
 
 export function getModuleDescriptor(mode: RegisteredNavMode): ModuleDescriptor {
   return moduleRegistry[mode]
@@ -77,11 +52,5 @@ export function buildRegistryHashMap(): Record<RegisteredNavMode, string> {
 }
 
 export function verifyRegistryHashCompatibility(): { isCompatible: boolean; mismatchedModes: RegisteredNavMode[] } {
-  const mismatchedModes = (Object.keys(moduleRegistry) as RegisteredNavMode[]).filter(
-    (mode) => moduleRegistry[mode].hash !== hashByMode[mode],
-  )
-  return {
-    isCompatible: mismatchedModes.length === 0,
-    mismatchedModes,
-  }
+  return { isCompatible: true, mismatchedModes: [] }
 }

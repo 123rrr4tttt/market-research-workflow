@@ -16,6 +16,7 @@ from .settings.config import settings
 from .models.base import engine, get_db_pool_status
 from .services.search.es_client import get_es_client
 from .services.projects import bind_project
+from .services.codex_oauth import codex_cookie_name, codex_oauth_enabled, get_session, has_valid_token_sink
 from .startup_hooks import register_startup_hooks
 from .web_ui_routes import register_ui_routes
 
@@ -234,6 +235,52 @@ def _resolve_request_project_context(request: Request) -> tuple[str, str, bool]:
     fallback = _get_active_project_key_fallback() or settings.active_project_key
     return fallback, "fallback", True
 
+
+def _parse_codex_auth_tokens() -> set[str]:
+    raw = str(getattr(settings, "codex_auth_tokens", "") or "")
+    return {item.strip() for item in raw.split(",") if item.strip()}
+
+
+def _is_codex_protected_path(path: str) -> bool:
+    if not bool(getattr(settings, "codex_auth_enabled", False)):
+        return False
+    raw_prefixes = str(getattr(settings, "codex_auth_protected_prefixes", "") or "")
+    prefixes = [item.strip() for item in raw_prefixes.split(",") if item.strip()]
+    if not prefixes:
+        return False
+    return any(path.startswith(prefix) for prefix in prefixes)
+
+
+def _extract_codex_token(request: Request) -> str | None:
+    auth_header = (request.headers.get("Authorization") or "").strip()
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+        if token:
+            return token
+    custom_header = (request.headers.get("X-Codex-Auth") or "").strip()
+    return custom_header or None
+
+
+def _has_valid_codex_oauth_session(request: Request) -> bool:
+    sid = (request.cookies.get(codex_cookie_name()) or "").strip()
+    if not sid:
+        return has_valid_token_sink()
+    return get_session(sid) is not None or has_valid_token_sink()
+
+
+def _build_codex_auth_error(request: Request, *, reason: str) -> JSONResponse:
+    payload = _build_error_payload(
+        request,
+        ErrorCode.INVALID_INPUT,
+        "codex auth required",
+        details={"category": "codex_auth", "reason_code": reason},
+    )
+    return JSONResponse(
+        status_code=401,
+        content=_with_legacy_detail_alias(payload),
+        headers={"X-Error-Code": ErrorCode.INVALID_INPUT.value},
+    )
+
 # Frontend archive cleanup: backend runtime no longer depends on the legacy
 # template frontend directory. Only shared backend-owned assets remain here.
 APP_ROOT = Path(__file__).resolve().parent
@@ -265,9 +312,44 @@ REQUEST_LATENCY = _get_or_create_histogram(
     ["endpoint"],
 )
 
+_LEGACY_ROUTE_REWRITES: dict[str, str] = {
+    "/api/v1/ingest/social/sentiment": "/api/v1/ingest/data-api",
+}
+
+
+@app.middleware("http")
+async def legacy_route_rewrite_middleware(request: Request, call_next):
+    legacy_path = request.scope.get("path") or ""
+    target_path = _LEGACY_ROUTE_REWRITES.get(str(legacy_path))
+    rewritten = False
+    if target_path:
+        request.scope["path"] = target_path
+        request.scope["raw_path"] = target_path.encode("utf-8")
+        rewritten = True
+    response: Response = await call_next(request)
+    if rewritten:
+        response.headers["X-Legacy-Route-Rewrite"] = f"{legacy_path}->{target_path}"
+    return response
+
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
+    if _is_codex_protected_path(request.url.path):
+        valid_tokens = _parse_codex_auth_tokens()
+        token = _extract_codex_token(request)
+        if token and token in valid_tokens:
+            pass
+        elif _has_valid_codex_oauth_session(request):
+            pass
+        elif token:
+            return _build_codex_auth_error(request, reason="invalid_token")
+        elif valid_tokens:
+            return _build_codex_auth_error(request, reason="missing_token")
+        elif codex_oauth_enabled():
+            return _build_codex_auth_error(request, reason="missing_oauth_session")
+        else:
+            return _build_codex_auth_error(request, reason="codex_auth_tokens_not_configured")
+
     project_key, project_key_source, project_key_is_fallback = _resolve_request_project_context(request)
     request_id = (request.headers.get("X-Request-Id") or "").strip() or str(uuid.uuid4())
     start = time.perf_counter()

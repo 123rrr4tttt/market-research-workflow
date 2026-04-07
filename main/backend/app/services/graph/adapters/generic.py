@@ -10,6 +10,13 @@ from typing import Optional
 
 from ....models.entities import Document
 from ..models import NormalizedSocialPost
+from ...document_views import (
+    get_social_entities,
+    get_social_keywords,
+    get_social_platform,
+    get_social_sentiment,
+    get_social_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,27 +33,24 @@ class GenericSocialAdapter:
             return None
 
         extracted = doc.extracted_data
-        sentiment = extracted.get("sentiment", {})
+        sentiment = get_social_sentiment(doc)
         if not sentiment:
             return None
 
-        text = extracted.get("text") or doc.content or doc.title or ""
+        text = get_social_text(doc)
         if not text:
             logger.debug("Document %s has no text content", doc.id)
             return None
 
-        platform = (extracted.get("platform") or "generic").lower()
+        platform = get_social_platform(doc)
         sentiment_orientation = sentiment.get("sentiment_orientation")
         sentiment_tags = sentiment.get("sentiment_tags", [])
         key_phrases = sentiment.get("key_phrases", [])
         emotion_words = sentiment.get("emotion_words", [])
         topic = sentiment.get("topic")
 
-        keywords = extracted.get("keywords", []) or key_phrases
-        entities = extracted.get("entities", [])
-        if not entities:
-            er = extracted.get("entities_relations", {}) or {}
-            entities = er.get("entities", [])
+        keywords = get_social_keywords(doc) or key_phrases
+        entities = get_social_entities(doc)
 
         return NormalizedSocialPost(
             doc_id=doc.id,

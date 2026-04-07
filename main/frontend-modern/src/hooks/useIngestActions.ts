@@ -23,6 +23,7 @@ import { queryKeys } from '../lib/queryKeys'
 type SourceLibraryRunPayload = {
   item_key?: string | null
   handler_key?: string | null
+  source_mode?: string | null
   async_mode: boolean
   override_params: Record<string, unknown>
 }

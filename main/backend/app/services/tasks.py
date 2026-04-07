@@ -138,12 +138,19 @@ def _load_db_job_tracking(job_id: int) -> dict[str, Any]:
 @celery_app.task
 def task_select_prompt_time_windows(
     project_key: str | None = None,
+    noun_group_ids: list[str] | None = None,
     prompt_group_ids: list[str] | None = None,
     source_domains: list[str] | None = None,
     candidate_windows: list[str] | None = None,
     top_k: int = 10,
     prefer_low_density: bool = True,
     exclude_high_dup: bool = True,
+    min_overlap: float = 0.35,
+    target_overlap: float = 0.55,
+    eta: float = 0.08,
+    delta_max: float = 0.12,
+    tau: float = 0.03,
+    avoid_peak: bool = True,
     end: str | None = None,
 ) -> dict[str, Any]:
     from .stats import query_prompt_time_density_priority
@@ -156,9 +163,17 @@ def task_select_prompt_time_windows(
             end=end_date,
             candidate_windows=windows,
             source_domains=source_domains,
+            noun_group_ids=noun_group_ids,
             prompt_group_ids=prompt_group_ids,
             prefer_low_density=prefer_low_density,
             exclude_high_dup=exclude_high_dup,
+            min_overlap=min_overlap,
+            target_overlap=target_overlap,
+            eta=eta,
+            delta_max=delta_max,
+            tau=tau,
+            avoid_peak=avoid_peak,
+            project_key=project_key,
         )
         selected = rows[: max(1, int(top_k or 10))]
         return {
@@ -180,6 +195,8 @@ def task_ingest_market(
     days_back: int | None = None,
     language: str | None = None,
     provider: str | None = None,
+    workflow_run_id: str | None = None,
+    trace_id: str | None = None,
 ) -> dict:
     from .collect_runtime import collect_request_from_market_api, run_collect
 
@@ -195,28 +212,38 @@ def task_ingest_market(
             provider=provider or "auto",
             enable_extraction=enable_extraction,
         )
+        if str(workflow_run_id or "").strip():
+            req.source_context = {**(req.source_context or {}), "workflow_run_id": str(workflow_run_id)}
+        if str(trace_id or "").strip():
+            req.source_context = {**(req.source_context or {}), "trace_id": str(trace_id)}
         cr = run_collect(req)
         return dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped})
 
 
 @celery_app.task
-def task_ingest_single_url(
+def task_ingest_url_via_source_library(
     url: str,
     query_terms: list[str] | None = None,
     strict_mode: bool = False,
     project_key: str | None = None,
     search_options: dict | None = None,
 ) -> dict:
-    from .ingest.single_url import ingest_single_url
+    from .ingest.url_pool import ingest_url_via_source_library_frontdoor
 
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return ingest_single_url(
+        return ingest_url_via_source_library_frontdoor(
             url=url,
+            project_key=project_key,
             query_terms=query_terms,
             strict_mode=strict_mode,
             search_options=search_options,
+            frontdoor_options={"enabled": True},
+            entrypoint="ingest.url.single.async",
+            source_name="task_ingest_url_via_source_library",
+            enable_extraction=True,
         )
+
 
 
 @celery_app.task
@@ -546,13 +573,19 @@ def task_run_source_library_item(
     item_key: str,
     project_key: str | None = None,
     override_params: dict | None = None,
+    workflow_run_id: str | None = None,
+    trace_id: str | None = None,
 ) -> dict:
     from .collect_runtime import run_source_library_item_compat
 
     return run_source_library_item_compat(
         item_key=item_key,
         project_key=project_key,
-        override_params=override_params or {},
+        override_params={
+            **(override_params or {}),
+            **({"workflow_run_id": str(workflow_run_id)} if str(workflow_run_id or "").strip() else {}),
+            **({"trace_id": str(trace_id)} if str(trace_id or "").strip() else {}),
+        },
     )
 
 

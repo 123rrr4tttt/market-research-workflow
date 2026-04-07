@@ -55,6 +55,9 @@ export const queryKeys = {
     all: ['health'] as const,
     deep: () => ['health-deep'] as const,
   },
+  auth: {
+    codex: () => ['auth', 'codex'] as const,
+  },
   projects: {
     all: () => ['projects'] as const,
   },
@@ -73,6 +76,16 @@ export const queryKeys = {
     detailByProject: (taskId: string, projectKey: string) => ['process', 'detail', taskId, projectKey] as const,
     logs: (taskId: string, tail = 200) => ['process', 'logs', taskId, tail] as const,
     logsByProject: (taskId: string, projectKey: string, tail = 200) => ['process', 'logs', taskId, tail, projectKey] as const,
+  },
+  agentSessions: {
+    all: () => ['agent-sessions'] as const,
+    list: () => ['agent-sessions', 'list'] as const,
+    detail: (sessionId: string) => ['agent-sessions', 'detail', sessionId] as const,
+    tasks: (sessionId: string) => ['agent-sessions', 'tasks', sessionId] as const,
+    messages: (sessionId: string) => ['agent-sessions', 'messages', sessionId] as const,
+    events: (sessionId: string) => ['agent-sessions', 'events', sessionId] as const,
+    artifacts: (sessionId: string) => ['agent-sessions', 'artifacts', sessionId] as const,
+    approvals: (sessionId: string) => ['agent-sessions', 'approvals', sessionId] as const,
   },
   ingest: {
     all: () => ['ingest'] as const,

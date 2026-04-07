@@ -204,15 +204,12 @@ export default function CrawlerManagePage({ projectKey }: Props) {
   const detail = (crawlerDetail.data || null) as CrawlerProjectItem | null
 
   return (
-    <div className="content-stack">
+    <div className="content-stack crawler-page">
       <section className="panel">
         <div className="panel-header">
           <h2><Bot size={15} />爬虫项目接入</h2>
           <span className="status-line">project: {projectKey}</span>
         </div>
-        <p className="status-line">
-          该页面与“信息资源库管理”已拆分。这里专门用于管理爬虫项目导入、部署与运行观测。
-        </p>
         <div className="form-grid cols-3" style={{ marginTop: 12 }}>
           <label>
             <span>Crawler Project Key</span>

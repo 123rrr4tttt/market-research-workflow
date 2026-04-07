@@ -26,6 +26,7 @@ const ResourcePage = lazy(() => import('../../pages/ResourcePage'))
 const RawDataPage = lazy(() => import('../../pages/RawDataPage'))
 const SettingsPage = lazy(() => import('../../pages/SettingsPage'))
 const WritingWorkbenchPage = lazy(() => import('../../pages/WritingWorkbenchPage'))
+const AgentChatPage = lazy(() => import('../../pages/AgentChatPage'))
 type StatusIntentMode = 'sysSettings' | 'sysLlm' | 'sysCrawler' | 'sysBackend'
 type StatusIntentGuide = 'llm' | 'search' | 'news' | 'db' | 'es'
 type StatusNavIntent = {
@@ -171,10 +172,11 @@ export default function AppShell() {
       if (viewMode === 'flowBoard') return <DashboardPage projectKey={projectKey} variant="board" />
       return <DashboardPage projectKey={projectKey} variant="dashboard" />
     }
-    if (viewMode === 'flowIngest') return <IngestPage projectKey={projectKey} variant="ingest" />
-    if (viewMode === 'flowSpecialized') return <IngestPage projectKey={projectKey} variant="specialized" />
+    if (viewMode === 'flowIngest') return <IngestPage key="ingest" projectKey={projectKey} variant="ingest" />
+    if (viewMode === 'flowSpecialized') return <IngestPage key="specialized" projectKey={projectKey} variant="specialized" />
     if (viewMode === 'flowRawData') return <RawDataPage projectKey={projectKey} variant="rawData" />
     if (viewMode === 'flowWriting') return <WritingWorkbenchPage projectKey={projectKey} />
+    if (viewMode === 'flowAgentChat') return <AgentChatPage projectKey={projectKey} />
     if (viewMode === 'dataPolicy') return <PolicyPage projectKey={projectKey} variant="policy" />
     if (viewMode === 'dataCatalog') return <CatalogPage projectKey={projectKey} variant="catalog" />
     if (viewMode === 'flowLlmNodeDesign') {

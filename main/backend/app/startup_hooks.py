@@ -9,6 +9,12 @@ from sqlalchemy import text
 from .models.base import Base, engine
 from .settings.config import settings
 from .models.entities import (
+    AgentApproval,
+    AgentArtifact,
+    AgentEvent,
+    AgentMessage,
+    AgentSession,
+    AgentTask,
     ConfigState,
     Document,
     Embedding,
@@ -234,6 +240,12 @@ def register_startup_hooks(app: FastAPI) -> None:
     @app.on_event("startup")
     def _ensure_shared_library_tables_ready() -> None:
         shared_tables = [
+            AgentSession.__table__,
+            AgentTask.__table__,
+            AgentMessage.__table__,
+            AgentArtifact.__table__,
+            AgentEvent.__table__,
+            AgentApproval.__table__,
             SharedIngestChannel.__table__,
             SharedSourceLibraryItem.__table__,
             SharedResourcePoolUrl.__table__,

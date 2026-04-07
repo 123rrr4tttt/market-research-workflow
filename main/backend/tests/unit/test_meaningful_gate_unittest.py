@@ -115,6 +115,17 @@ class MeaningfulGateUnitTestCase(unittest.TestCase):
         self.assertNotIn("Home | News | Sport", normalized)
         self.assertNotIn("Privacy Policy", normalized)
 
+    def test_normalize_content_for_ingest_strips_jsonld_and_script_shell(self):
+        raw = (
+            '"@context": "https://schema.org" | "@type": "BreadcrumbList" | "position": "1"\n'
+            'window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} sourcemappingurl=abc\n'
+            "Real article body explains the market impact in detail with meaningful narrative.\n"
+        )
+        normalized = normalize_content_for_ingest(raw, max_chars=2000)
+        self.assertIn("Real article body explains", normalized)
+        self.assertNotIn('"@context"', normalized)
+        self.assertNotIn("window.dataLayer", normalized)
+
     def test_content_quality_rejects_link_farm_like(self):
         links = " ".join([f"https://example.com/{idx}" for idx in range(30)])
         decision = content_quality_check(
@@ -167,6 +178,24 @@ class MeaningfulGateUnitTestCase(unittest.TestCase):
         )
         self.assertTrue(decision.blocked)
         self.assertEqual(decision.reason, "content_js_template_shell")
+
+    def test_content_quality_rejects_shell_heavy_after_extraction(self):
+        decision = content_quality_check(
+            "https://example.com/support/device-setup",
+            "Setup instructions and troubleshooting menu text repeated repeatedly.",
+            "url_fetch",
+            config={"enable_strict_gate": True, "min_semantic_len": 80},
+            content_profile={
+                "page_family": "support",
+                "shell_heavy": True,
+                "main_text_ratio": 0.22,
+                "shell_marker_hits": 5,
+                "duplicate_line_ratio": 0.4,
+                "js_template_hits": 1,
+            },
+        )
+        self.assertTrue(decision.blocked)
+        self.assertEqual(decision.reason, "content_support_shell")
 
     def test_content_quality_rejects_mojibake_garbled(self):
         decision = content_quality_check(

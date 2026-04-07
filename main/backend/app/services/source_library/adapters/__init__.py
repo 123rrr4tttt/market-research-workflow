@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .base import ChannelHandlerProtocol
+from .external_project import handle_external_project_manifest
 from .google_news import handle_google_news
 from .generic_web import (
     handle_generic_web_rss,
@@ -31,12 +32,14 @@ def _register_all() -> None:
     register("generic_web", "sitemap", handle_generic_web_sitemap)
     register("generic_web", "search_template", handle_generic_web_search_template)
     register("official_access", "api", handle_official_access_api)
+    register("external_project", "manifest", handle_external_project_manifest)
 
 
 _register_all()
 
 __all__ = [
     "ChannelHandlerProtocol",
+    "handle_external_project_manifest",
     "handle_google_news",
     "handle_generic_web_rss",
     "handle_generic_web_search_template",

@@ -58,7 +58,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"ingest frontdoor context tests require backend dependencies: {_IMPORT_ERROR}")
 
-    def test_news_dispatch_links_to_single_url_enables_frontdoor_by_default(self):
+    def test_news_dispatch_links_via_source_library_frontdoor_enables_frontdoor_by_default(self):
         captured: dict = {}
 
         def _fake_collect(urls, *, project_key=None, query_terms=None, extra_params=None, enable_extraction=True):
@@ -72,7 +72,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         with patch("app.services.ingest.url_pool.collect_urls_from_list", side_effect=_fake_collect), patch.object(
             news_module, "current_project_key", return_value="demo_proj"
         ):
-            result = news_module._dispatch_links_to_single_url(
+            result = news_module._dispatch_links_via_source_library_frontdoor(
                 links=["https://example.com/news/1"],
                 query_terms=["market"],
             )
@@ -81,7 +81,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(captured["project_key"], "demo_proj")
         self.assertEqual(captured["query_terms"], ["market"])
         self.assertTrue(captured["enable_extraction"])
-        self.assertEqual(captured["extra_params"].get("single_url_frontdoor_enabled"), True)
+        self.assertEqual(captured["extra_params"].get("url_routing_frontdoor_enabled"), True)
         self.assertEqual(captured["extra_params"].get("front_door_owner"), "ingest.news")
         self.assertEqual(captured["extra_params"].get("frontdoor_route_decision"), "front_door_url_routing")
         self.assertEqual(captured["extra_params"].get("frontdoor_write_mode"), "front_door_url_routing")
@@ -127,7 +127,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(captured["project_key"], "demo_proj")
         self.assertEqual(captured["query_terms"], ["ev"])
         self.assertEqual(captured["enable_extraction"], False)
-        self.assertEqual(captured["extra_params"].get("single_url_frontdoor_enabled"), True)
+        self.assertEqual(captured["extra_params"].get("url_routing_frontdoor_enabled"), True)
         self.assertEqual(captured["extra_params"].get("front_door_owner"), "ingest.market_web")
         self.assertEqual(captured["extra_params"].get("frontdoor_route_decision"), "front_door_url_routing")
         self.assertEqual(captured["extra_params"].get("frontdoor_write_mode"), "front_door_url_routing")

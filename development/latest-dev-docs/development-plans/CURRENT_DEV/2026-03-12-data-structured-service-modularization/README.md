@@ -1,0 +1,26 @@
+# 2026-03-12 Data Structured Service Modularization
+
+## 文档列表
+
+1. [01_terminal-structured-ingest-output-standardization-plan-2026-03-12.md](./01_terminal-structured-ingest-output-standardization-plan-2026-03-12.md)
+2. [02_source-library-terminal-output-unification-and-boundary-2026-03-12.md](./02_source-library-terminal-output-unification-and-boundary-2026-03-12.md)
+3. [03_discrete-retained-modules-and-preprocess-frontdoor-plan-2026-03-12.md](./03_discrete-retained-modules-and-preprocess-frontdoor-plan-2026-03-12.md)
+4. [05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md](./05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md)
+5. [06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md](./06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md)
+
+## 使用顺序
+
+1. 先读 `02`：明确来源库末端边界与统一输出格式。
+2. 再读 `03`：按离散模块与后处理前门计划推进实施。
+3. 再读 `05`：看当前过渡期实测状态，确认 clean boundary 与兼容 write-through 并存。
+4. 再读 `06`：按“统一质检前门、来源库先行”的原子任务清单推进。
+5. `01` 作为扩展背景与细化参考。
+
+## 2026-03-14 状态补充
+
+- `02` 所定义的来源库 clean terminal output 已进入代码主链。
+- 对外契约主语义已切换到 `results.records/results.stats/errors/meta/raw_snapshot`。
+- `legacy_result` 仍保留兼容，但不再代表来源库正式边界。
+- 2026-03-14 实测确认：部分来源项仍可继续下沉到 `single_url` 写入链，且新增文档已产出 `terminal.ingest.v1.1` 结构化结果。
+- 2026-03-14 架构修正：`single_url` 仅视为历史遗留实现；统一标准化质检应前移为前门层能力，并优先在来源库采集链落地。
+- 2026-03-14 已补充来源库优先的统一质检前门原子任务清单，作为下一阶段实施主入口。

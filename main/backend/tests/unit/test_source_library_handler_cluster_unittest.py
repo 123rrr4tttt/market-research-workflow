@@ -27,7 +27,7 @@ class SourceLibraryHandlerClusterUnitTestCase(unittest.TestCase):
         self.assertEqual(channel.get("kind"), "cluster")
         self.assertTrue(channel.get("enabled"))
 
-    def test_source_library_adapter_uses_run_item_by_key_for_handler_cluster_items(self) -> None:
+    def test_source_library_adapter_uses_run_item_payload_for_handler_cluster_items(self) -> None:
         adapter = SourceLibraryAdapter()
         request = CollectRequest(
             channel="source_library",
@@ -46,12 +46,33 @@ class SourceLibraryHandlerClusterUnitTestCase(unittest.TestCase):
             patch("app.services.collect_runtime.adapters.source_library.start_job", return_value="job-test-1"),
             patch("app.services.collect_runtime.adapters.source_library.complete_job"),
             patch("app.services.collect_runtime.adapters.source_library.fail_job"),
-            patch("app.services.source_library.resolver.run_item_by_key", return_value=raw) as mocked_run_item_by_key,
+            patch(
+                "app.services.source_library.resolver.list_effective_channels",
+                return_value=[{"channel_key": "handler.cluster", "enabled": True}],
+            ),
+            patch(
+                "app.services.source_library.resolver.list_effective_items",
+                return_value=[
+                    {
+                        "item_key": "handler.cluster.search_template",
+                        "channel_key": "handler.cluster",
+                        "enabled": True,
+                        "params": {},
+                    }
+                ],
+            ),
+            patch("app.services.source_library.resolver.run_item_payload", return_value=raw) as mocked_run_item_payload,
         ):
             result = adapter.run(request)
 
-        mocked_run_item_by_key.assert_called_once_with(
-            item_key="handler.cluster.search_template",
+        mocked_run_item_payload.assert_called_once_with(
+            item={
+                "item_key": "handler.cluster.search_template",
+                "channel_key": "handler.cluster",
+                "enabled": True,
+                "params": {},
+            },
+            channels=[{"channel_key": "handler.cluster", "enabled": True}],
             project_key="demo_proj",
             override_params={"query_terms": ["Humane AI Pin"]},
         )

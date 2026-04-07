@@ -8,6 +8,7 @@ from datetime import datetime
 from ....models.entities import Document
 from ..models import NormalizedMarketData
 from ...extraction.numeric import normalize_market_payload
+from ...document_views import get_market_data, get_market_entities
 
 logger = logging.getLogger(__name__)
 
@@ -35,28 +36,7 @@ class MarketAdapter:
             return None
         
         extracted = doc.extracted_data
-        market = extracted.get("market", {})
-
-        # For project-customized pipelines (e.g. demo_proj), "market" docs may come
-        # from normalized news/social sources without extracted_data.market.
-        # Build a minimal market view from document metadata to keep graph usable.
-        if not market:
-            fallback_state = (
-                (doc.state or "").strip()
-                or str(extracted.get("state") or "").strip()
-                or "NA"
-            )
-            fallback_game = (
-                str(extracted.get("keyword") or "").strip()
-                or str(extracted.get("topic") or "").strip()
-                or str(extracted.get("source") or "").strip()
-                or "general"
-            )
-            market = {
-                "state": fallback_state,
-                "game": fallback_game,
-                "report_date": doc.publish_date.isoformat() if doc.publish_date else None,
-            }
+        market = get_market_data(doc)
         
         # 提取基础字段
         state = market.get("state") or doc.state or ""
@@ -104,8 +84,7 @@ class MarketAdapter:
         )
         
         # 提取实体信息
-        entities_relations = extracted.get("entities_relations", {})
-        entities = entities_relations.get("entities", []) if isinstance(entities_relations, dict) else []
+        entities = get_market_entities(doc)
         
         return NormalizedMarketData(
             stat_id=doc.id,

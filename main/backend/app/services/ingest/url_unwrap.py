@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import base64
+import html
 import ipaddress
 import re
 import socket
+import threading
+import time
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 from urllib.parse import ParseResult, parse_qsl, urlencode, urlparse, urlunparse, unquote
 
 import requests
@@ -47,6 +50,25 @@ _WRAPPED_URL_QUERY_KEYS = (
 )
 
 _HTTP_URL_IN_TEXT_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+_GOOGLE_NEWS_SIG_RE = re.compile(r"data-n-a-sg=(?:\"([^\"]+)\"|'([^']+)')")
+_GOOGLE_NEWS_TS_RE = re.compile(r"data-n-a-ts=(?:\"([^\"]+)\"|'([^']+)')")
+_GOOGLE_NEWS_BATCH_RESULT_RES = (
+    re.compile(r'\\\\"garturlres\\\\",\\\\"(.*?)\\\\",'),
+    re.compile(r'\["garturlres","(.*?)",'),
+)
+_GOOGLE_NEWS_BATCH_CACHE: dict[str, str] = {}
+_GOOGLE_NEWS_BATCH_CACHE_EXPIRES_AT: dict[str, float] = {}
+_GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_EXPIRES_AT: dict[str, float] = {}
+_GOOGLE_NEWS_BATCH_CACHE_TTL_SECONDS = 24 * 60 * 60
+_GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_TTL_SECONDS = 5 * 60
+_GOOGLE_NEWS_RATE_LIMIT_RPS = 1.5
+_GOOGLE_NEWS_RATE_LIMIT_INTERVAL_SECONDS = 1.0 / _GOOGLE_NEWS_RATE_LIMIT_RPS
+_GOOGLE_NEWS_BACKOFF_BASE_SECONDS = 2.0
+_GOOGLE_NEWS_BACKOFF_MAX_SECONDS = 120.0
+_GOOGLE_NEWS_NETWORK_NEXT_AT = 0.0
+_GOOGLE_NEWS_BACKOFF_FAILURES = 0
+_GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL = 0.0
+_GOOGLE_NEWS_BATCH_GUARD_LOCK = threading.Lock()
 
 
 @dataclass(slots=True)
@@ -61,6 +83,14 @@ class UrlUnwrapAdapter:
     name: str
     applies: Callable[[ParseResult], bool]
     unwrap: Callable[[str, ParseResult], tuple[str, bool]]
+
+
+@dataclass(slots=True)
+class GoogleNewsDecodeResult:
+    url: str
+    changed: bool
+    reason: str
+    retryable: bool
 
 
 def _safe_url(raw: str | None) -> str:
@@ -148,6 +178,313 @@ def _decode_google_news_token(url: str, parsed: ParseResult) -> tuple[str, bool]
     return url, False
 
 
+def _decode_google_news_batch_execute(url: str) -> tuple[str, bool]:
+    parsed = urlparse(url)
+    if not _is_google_news_url(parsed):
+        return url, False
+
+    token_candidates = _google_news_token_candidates(parsed)
+    if not token_candidates:
+        return url, False
+    gn_art_id = str(token_candidates[0] or "").strip()
+    if not gn_art_id:
+        return url, False
+
+    cached = _google_news_batch_cache_get(gn_art_id)
+    if cached is not None:
+        if cached:
+            return cached, cached != url
+        return url, False
+
+    if not _google_news_batch_acquire_network_slot():
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+
+    headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://news.google.com/"}
+    try:
+        response = requests.get(
+            f"https://news.google.com/articles/{gn_art_id}",
+            timeout=8.0,
+            headers=headers,
+        )
+        status_code = int(getattr(response, "status_code", 0) or 0)
+        if status_code in {403, 429}:
+            _google_news_batch_record_throttle()
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return url, False
+        if status_code >= 400:
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return url, False
+        article_html = str(getattr(response, "text", "") or "")
+    except Exception:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+    _google_news_batch_record_success()
+
+    sig_match = _GOOGLE_NEWS_SIG_RE.search(article_html)
+    ts_match = _GOOGLE_NEWS_TS_RE.search(article_html)
+    if sig_match is None or ts_match is None:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+
+    signature = html.unescape(str(sig_match.group(1) or sig_match.group(2) or "").strip())
+    timestamp = str(ts_match.group(1) or ts_match.group(2) or "").strip()
+    if not signature or not timestamp.isdigit():
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+
+    # Community-proven batchexecute payload for RSS/read article-id to source URL resolution.
+    inner = (
+        '["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],'
+        '"X","X",1,[1,1,1],1,1,null,0,0,null,0],'
+        f'"{gn_art_id}",{int(timestamp)},"{signature}"]'
+    )
+    escaped_inner = inner.replace('"', '\\"')
+    f_req = '[[["Fbv4je","' + escaped_inner + '",null,"generic"]]]'
+    if not _google_news_batch_acquire_network_slot():
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+    try:
+        batch_response = requests.post(
+            "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+                "Referer": "https://news.google.com/",
+                "User-Agent": "Mozilla/5.0",
+            },
+            data={"f.req": f_req},
+            timeout=8.0,
+        )
+        status_code = int(getattr(batch_response, "status_code", 0) or 0)
+        if status_code in {403, 429}:
+            _google_news_batch_record_throttle()
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return url, False
+        if status_code >= 400:
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return url, False
+    except Exception:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+    _google_news_batch_record_success()
+
+    payload = str(getattr(batch_response, "text", "") or "")
+    match = None
+    for pattern in _GOOGLE_NEWS_BATCH_RESULT_RES:
+        match = pattern.search(payload)
+        if match is not None:
+            break
+    if match is None:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+
+    decoded = html.unescape(str(match.group(1) or "").strip().replace("\\/", "/"))
+    decoded_url = _safe_url(decoded)
+    if not decoded_url:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+    if not _is_safe_redirect_target(decoded_url):
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+    if decoded_url == url:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return url, False
+    _google_news_batch_cache_put(gn_art_id, decoded_url)
+    return decoded_url, True
+
+
+def _decode_google_news_batch_execute_diagnostic(url: str) -> GoogleNewsDecodeResult:
+    parsed = urlparse(url)
+    if not _is_google_news_url(parsed):
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="not_google_news_url", retryable=False)
+
+    token_candidates = _google_news_token_candidates(parsed)
+    if not token_candidates:
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_missing_token", retryable=False)
+    gn_art_id = str(token_candidates[0] or "").strip()
+    if not gn_art_id:
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_missing_token", retryable=False)
+
+    cached = _google_news_batch_cache_get(gn_art_id)
+    if cached is not None:
+        if cached:
+            return GoogleNewsDecodeResult(url=cached, changed=cached != url, reason="ok", retryable=False)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_negative_cached", retryable=True)
+
+    if not _google_news_batch_acquire_network_slot():
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="rate_limited", retryable=True)
+
+    headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://news.google.com/"}
+    try:
+        response = requests.get(
+            f"https://news.google.com/articles/{gn_art_id}",
+            timeout=8.0,
+            headers=headers,
+        )
+        status_code = int(getattr(response, "status_code", 0) or 0)
+        if status_code in {403, 429}:
+            _google_news_batch_record_throttle()
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return GoogleNewsDecodeResult(url=url, changed=False, reason="rate_limited", retryable=True)
+        if status_code >= 500:
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return GoogleNewsDecodeResult(url=url, changed=False, reason="fetch_failed", retryable=True)
+        if status_code >= 400:
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_article_http_error", retryable=False)
+        article_html = str(getattr(response, "text", "") or "")
+    except Exception:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="fetch_failed", retryable=True)
+    _google_news_batch_record_success()
+
+    sig_match = _GOOGLE_NEWS_SIG_RE.search(article_html)
+    ts_match = _GOOGLE_NEWS_TS_RE.search(article_html)
+    if sig_match is None or ts_match is None:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_missing_signature", retryable=False)
+
+    signature = html.unescape(str(sig_match.group(1) or sig_match.group(2) or "").strip())
+    timestamp = str(ts_match.group(1) or ts_match.group(2) or "").strip()
+    if not signature or not timestamp.isdigit():
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_invalid_signature", retryable=False)
+
+    inner = (
+        '["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],'
+        '"X","X",1,[1,1,1],1,1,null,0,0,null,0],'
+        f'"{gn_art_id}",{int(timestamp)},"{signature}"]'
+    )
+    escaped_inner = inner.replace('"', '\\"')
+    f_req = '[[["Fbv4je","' + escaped_inner + '",null,"generic"]]]'
+    if not _google_news_batch_acquire_network_slot():
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="rate_limited", retryable=True)
+    try:
+        batch_response = requests.post(
+            "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+                "Referer": "https://news.google.com/",
+                "User-Agent": "Mozilla/5.0",
+            },
+            data={"f.req": f_req},
+            timeout=8.0,
+        )
+        status_code = int(getattr(batch_response, "status_code", 0) or 0)
+        if status_code in {403, 429}:
+            _google_news_batch_record_throttle()
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return GoogleNewsDecodeResult(url=url, changed=False, reason="rate_limited", retryable=True)
+        if status_code >= 500:
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return GoogleNewsDecodeResult(url=url, changed=False, reason="fetch_failed", retryable=True)
+        if status_code >= 400:
+            _google_news_batch_cache_put_negative(gn_art_id)
+            return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_batch_http_error", retryable=False)
+    except Exception:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="fetch_failed", retryable=True)
+    _google_news_batch_record_success()
+
+    payload = str(getattr(batch_response, "text", "") or "")
+    match = None
+    for pattern in _GOOGLE_NEWS_BATCH_RESULT_RES:
+        match = pattern.search(payload)
+        if match is not None:
+            break
+    if match is None:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_batch_parse_failed", retryable=False)
+
+    decoded = html.unescape(str(match.group(1) or "").strip().replace("\\/", "/"))
+    decoded_url = _safe_url(decoded)
+    if not decoded_url:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_batch_parse_failed", retryable=False)
+    if not _is_safe_redirect_target(decoded_url):
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_unsafe_redirect_target", retryable=False)
+    if decoded_url == url:
+        _google_news_batch_cache_put_negative(gn_art_id)
+        return GoogleNewsDecodeResult(url=url, changed=False, reason="google_news_decode_unchanged", retryable=False)
+    _google_news_batch_cache_put(gn_art_id, decoded_url)
+    return GoogleNewsDecodeResult(url=decoded_url, changed=True, reason="ok", retryable=False)
+
+
+def _google_news_batch_cache_get(gn_art_id: str) -> str | None:
+    now = time.monotonic()
+    with _GOOGLE_NEWS_BATCH_GUARD_LOCK:
+        negative_expires_at = _GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_EXPIRES_AT.get(gn_art_id)
+        if negative_expires_at is not None:
+            if negative_expires_at > now:
+                return ""
+            _GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_EXPIRES_AT.pop(gn_art_id, None)
+
+        cached = _GOOGLE_NEWS_BATCH_CACHE.get(gn_art_id)
+        if not cached:
+            return None
+
+        expires_at = _GOOGLE_NEWS_BATCH_CACHE_EXPIRES_AT.get(gn_art_id)
+        if expires_at is None:
+            _GOOGLE_NEWS_BATCH_CACHE_EXPIRES_AT[gn_art_id] = now + _GOOGLE_NEWS_BATCH_CACHE_TTL_SECONDS
+            return cached
+        if expires_at <= now:
+            _GOOGLE_NEWS_BATCH_CACHE.pop(gn_art_id, None)
+            _GOOGLE_NEWS_BATCH_CACHE_EXPIRES_AT.pop(gn_art_id, None)
+            return None
+        return cached
+
+
+def _google_news_batch_cache_put(gn_art_id: str, publisher_url: str) -> None:
+    now = time.monotonic()
+    with _GOOGLE_NEWS_BATCH_GUARD_LOCK:
+        _GOOGLE_NEWS_BATCH_CACHE[gn_art_id] = publisher_url
+        _GOOGLE_NEWS_BATCH_CACHE_EXPIRES_AT[gn_art_id] = now + _GOOGLE_NEWS_BATCH_CACHE_TTL_SECONDS
+        _GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_EXPIRES_AT.pop(gn_art_id, None)
+
+
+def _google_news_batch_cache_put_negative(gn_art_id: str) -> None:
+    now = time.monotonic()
+    with _GOOGLE_NEWS_BATCH_GUARD_LOCK:
+        _GOOGLE_NEWS_BATCH_CACHE.pop(gn_art_id, None)
+        _GOOGLE_NEWS_BATCH_CACHE_EXPIRES_AT.pop(gn_art_id, None)
+        _GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_EXPIRES_AT[gn_art_id] = now + _GOOGLE_NEWS_BATCH_NEGATIVE_CACHE_TTL_SECONDS
+
+
+def _google_news_batch_acquire_network_slot() -> bool:
+    global _GOOGLE_NEWS_NETWORK_NEXT_AT
+    now = time.monotonic()
+    with _GOOGLE_NEWS_BATCH_GUARD_LOCK:
+        if now < _GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL:
+            return False
+        scheduled = max(now, _GOOGLE_NEWS_NETWORK_NEXT_AT)
+        _GOOGLE_NEWS_NETWORK_NEXT_AT = scheduled + _GOOGLE_NEWS_RATE_LIMIT_INTERVAL_SECONDS
+    wait_seconds = max(0.0, scheduled - now)
+    if wait_seconds > 0:
+        time.sleep(wait_seconds)
+    return True
+
+
+def _google_news_batch_record_throttle() -> None:
+    global _GOOGLE_NEWS_BACKOFF_FAILURES, _GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL
+    now = time.monotonic()
+    with _GOOGLE_NEWS_BATCH_GUARD_LOCK:
+        _GOOGLE_NEWS_BACKOFF_FAILURES += 1
+        delay = min(
+            _GOOGLE_NEWS_BACKOFF_MAX_SECONDS,
+            _GOOGLE_NEWS_BACKOFF_BASE_SECONDS * (2 ** (_GOOGLE_NEWS_BACKOFF_FAILURES - 1)),
+        )
+        _GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL = max(_GOOGLE_NEWS_CIRCUIT_OPEN_UNTIL, now + delay)
+
+
+def _google_news_batch_record_success() -> None:
+    global _GOOGLE_NEWS_BACKOFF_FAILURES
+    with _GOOGLE_NEWS_BATCH_GUARD_LOCK:
+        _GOOGLE_NEWS_BACKOFF_FAILURES = 0
+
+
 def _apply_query_wrapper(url: str, _parsed: ParseResult) -> tuple[str, bool]:
     return _decode_wrapped_query_url(url)
 
@@ -208,6 +545,33 @@ def _apply_adapter_pool(url: str) -> tuple[str, list[str]]:
         if not changed:
             break
     return current, applied_steps
+
+
+def decode_google_news_url_for_dispatch(url: str) -> dict[str, Any]:
+    original = str(url or "").strip()
+    current = _safe_url(original)
+    if not current:
+        return {"url": original, "changed": False, "reason": "invalid_url", "retryable": False}
+
+    pooled_url, _ = _apply_adapter_pool(current)
+    current = _safe_url(pooled_url) or current
+
+    cleaned, _ = _clean_tracking_query(current)
+    current = cleaned
+    current = _normalize_no_fragment(current)
+
+    parsed = urlparse(current)
+    if not _is_google_news_url(parsed):
+        return {"url": current, "changed": current != original, "reason": "ok", "retryable": False}
+
+    diag = _decode_google_news_batch_execute_diagnostic(current)
+    final_url = _safe_url(diag.url) or current
+    return {
+        "url": final_url,
+        "changed": bool(diag.changed),
+        "reason": str(diag.reason or "google_news_decode_failed"),
+        "retryable": bool(diag.retryable),
+    }
 
 
 def _resolve_http_redirect(url: str, *, timeout_seconds: float = 6.0) -> tuple[str, bool]:
@@ -304,6 +668,13 @@ def unwrap_url(
             changed = True
 
         if enable_network_redirect:
+            batch_decoded, batch_changed = _decode_google_news_batch_execute(current)
+            if batch_changed:
+                current = batch_decoded
+                steps.append("google_news_batch_execute")
+                changed = True
+
+        if enable_network_redirect:
             redirected, redirected_changed = _resolve_http_redirect(current)
             if redirected_changed:
                 current = redirected
@@ -335,8 +706,10 @@ def unwrap_urls(urls: Iterable[str], *, enable_network_redirect: bool = True) ->
 
 
 __all__ = [
+    "GoogleNewsDecodeResult",
     "UrlUnwrapAdapter",
     "UrlUnwrapResult",
+    "decode_google_news_url_for_dispatch",
     "list_unwrap_adapters",
     "unwrap_url",
     "unwrap_urls",

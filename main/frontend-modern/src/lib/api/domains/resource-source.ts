@@ -3,6 +3,8 @@ import { asList, getProjectKey, httpGet as get, httpPost as post } from '../clie
 import type {
   ResourcePoolBatchRecommendationPayload,
   ResourcePoolBatchRecommendationResponse,
+  ExternalProjectRegistrationPayload,
+  ExternalProjectRegistrationResponse,
   ResourcePoolDiscoverPayload,
   ResourcePoolDiscoverResponse,
   ResourcePoolRecommendationPayload,
@@ -16,6 +18,7 @@ import type {
   SourceLibraryHandlerSyncResponse,
   SourceLibraryItem,
   SourceLibraryItemRefreshPayload,
+  SourceLibraryRunResult,
   SourceLibraryItemUpsertPayload,
   SourceLibraryItemsGroupedResponse,
   SourceLibraryScope,
@@ -64,6 +67,19 @@ export async function refreshSourceLibraryItem(itemKey: string, payload: SourceL
     project_key: getProjectKey(),
     incremental: payload.incremental ?? true,
     max_site_entries: payload.max_site_entries ?? 500,
+  })
+}
+
+export async function registerExternalProject(payload: ExternalProjectRegistrationPayload) {
+  return post<ExternalProjectRegistrationResponse>(endpoints.sourceLibrary.externalProjectRegister, {
+    project_link: payload.project_link,
+    item_key: payload.item_key ?? null,
+    name: payload.name ?? null,
+    description: payload.description ?? null,
+    tags: payload.tags ?? [],
+    enabled: payload.enabled ?? true,
+    persist: payload.persist ?? false,
+    hints: payload.hints ?? {},
   })
 }
 
@@ -247,8 +263,9 @@ export async function syncSourceLibrary() {
 export async function runSourceLibrary(payload: {
   item_key?: string | null
   handler_key?: string | null
+  source_mode?: string | null
   async_mode: boolean
   override_params: Record<string, unknown>
 }) {
-  return post<Record<string, unknown>>(endpoints.ingest.sourceLibraryRun, payload)
+  return post<SourceLibraryRunResult>(endpoints.ingest.sourceLibraryRun, payload)
 }

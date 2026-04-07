@@ -24,10 +24,16 @@ except Exception as exc:  # noqa: BLE001
 class _TrackedTasks:
     def __init__(self) -> None:
         self.task_ingest_market = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-1")))
-        self.task_ingest_single_url = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1")))
+        self.task_ingest_url_via_source_library = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1")))
         self.task_run_source_library_item = SimpleNamespace(
             delay=Mock(return_value=SimpleNamespace(id="source-library-task-1"))
         )
+
+
+class _ApplyAsyncTask:
+    def __init__(self, task_id: str) -> None:
+        self.delay = Mock(return_value=SimpleNamespace(id=task_id))
+        self.apply_async = Mock(return_value=SimpleNamespace(id=task_id))
 
 
 def _response_payload(body):
@@ -116,6 +122,8 @@ class IngestCoreContractTestCase(unittest.TestCase):
             None,
             None,
             None,
+            workflow_run_id=None,
+            trace_id=None,
         )
 
     def test_source_library_run_async_returns_task_contract_shape(self):
@@ -145,6 +153,48 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "demo-item",
             "demo_proj",
             {"k": "v"},
+            workflow_run_id=None,
+            trace_id=None,
+        )
+
+    def test_source_library_run_promotes_top_level_fields_into_override_params(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "query_terms": ["ai terminal"],
+            "urls": ["https://example.com/a"],
+            "max_items": 3,
+            "provider": "google",
+            "language": "zh",
+            "scope": "project",
+            "platforms": ["web", "rss"],
+            "source_mode": "site_search",
+            "override_params": {"k": "v"},
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        tasks.task_run_source_library_item.delay.assert_called_once_with(
+            "demo-item",
+            "demo_proj",
+            {
+                "k": "v",
+                "query_terms": ["ai terminal"],
+                "urls": ["https://example.com/a"],
+                "max_items": 3,
+                "limit": 3,
+                "provider": "google",
+                "language": "zh",
+                "scope": "project",
+                "platforms": ["web", "rss"],
+                "source_mode": "site_search",
+            },
+            workflow_run_id=None,
+            trace_id=None,
         )
 
     def test_source_library_run_items_batch_uses_item_form_only(self):
@@ -181,6 +231,118 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(calls[0].args, ("demo-item", "demo_proj", {"k": "v"}))
         self.assertEqual(calls[1].args, ("demo-item-2", "demo_proj", {}))
 
+    def test_source_library_run_sync_preserves_terminal_payload_and_exposes_frontdoor_tracks(self):
+        payload = {
+            "item_key": "external.demo.item",
+            "project_key": "demo_proj",
+            "async_mode": False,
+            "override_params": {"max_items": 2},
+        }
+        compat_result = {
+            "terminal_output": {
+                "contract_version": "source_library.terminal_output.v1",
+                "status": "ok",
+                "source_mode": "protocol_search",
+                "item": {
+                    "item_key": "external.demo.item",
+                    "item_type": "user_defined",
+                    "managed_by": "user",
+                    "external_manifest": {
+                        "project_link": "https://github.com/example/external-demo",
+                        "execution_mode": "rss_feed",
+                    },
+                },
+                "request": {"project_key": "demo_proj"},
+                "results": {
+                    "records": [{"record_id": "r1", "url": "https://example.com/a", "title": "Alpha"}],
+                    "stats": {"fetched": 1, "normalized": 1, "dropped": 0, "errors": 0},
+                },
+                "errors": [],
+                "meta": {"reason_code": "ok"},
+            },
+            "frontdoor_ingress": {
+                "contract_version": "frontdoor.ingress.v1",
+                "ingress_type": "source_library",
+                "source_ref": {
+                    "source_kind": "feed_aggregator",
+                    "execution_mode": "rss_feed",
+                },
+            },
+            "postprocess_frontdoor": {
+                "status": "ok",
+                "data": {"admission": "defer"},
+            },
+            "legacy_result": {
+                "item_key": "external.demo.item",
+                "channel_key": "external_project.manifest",
+            },
+            "legacy_result_is_deprecated": True,
+            "display_meta": {"summary": "external item"},
+        }
+
+        with patch("app.services.collect_runtime.run_source_library_item_compat", return_value=compat_result):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+        data = _response_payload(body)
+        self.assertEqual(data["contract_version"], "source_library.terminal_output.v1")
+        self.assertEqual(data["terminal_output"]["contract_version"], "source_library.terminal_output.v1")
+        self.assertEqual(data["frontdoor_ingress"]["contract_version"], "frontdoor.ingress.v1")
+        self.assertEqual(data["frontdoor_ingress"]["ingress_type"], "source_library")
+        self.assertEqual(data["postprocess_frontdoor"]["data"]["admission"], "defer")
+        self.assertEqual(data["legacy_result"]["item_key"], "external.demo.item")
+        self.assertEqual(data["item"]["item_key"], "external.demo.item")
+
+    def test_market_async_routes_with_lane_queue_when_apply_async_available(self):
+        tasks = SimpleNamespace(
+            task_ingest_market=_ApplyAsyncTask("market-task-apply"),
+            task_ingest_url_via_source_library=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1"))),
+            task_run_source_library_item=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="source-library-task-1"))),
+        )
+        payload = {
+            "query_terms": ["acme"],
+            "max_items": 5,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest.settings.agent_batch_lane_main_queue",
+            "lane-main-q",
+        ):
+            resp = self.client.post("/api/v1/ingest/market", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        tasks.task_ingest_market.apply_async.assert_called_once()
+        self.assertEqual(tasks.task_ingest_market.apply_async.call_args.kwargs["queue"], "lane-main-q")
+        self.assertEqual(tasks.task_ingest_market.apply_async.call_args.kwargs["routing_key"], "agent_batch.main")
+
+    def test_source_library_run_async_routes_with_subagent_lane_when_apply_async_available(self):
+        tasks = SimpleNamespace(
+            task_ingest_market=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-1"))),
+            task_ingest_url_via_source_library=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1"))),
+            task_run_source_library_item=_ApplyAsyncTask("source-library-task-apply"),
+        )
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "override_params": {"k": "v"},
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest.settings.agent_batch_lane_subagent_queue",
+            "lane-subagent-q",
+        ):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        tasks.task_run_source_library_item.apply_async.assert_called_once()
+        self.assertEqual(tasks.task_run_source_library_item.apply_async.call_args.kwargs["queue"], "lane-subagent-q")
+        self.assertEqual(tasks.task_run_source_library_item.apply_async.call_args.kwargs["routing_key"], "agent_batch.subagent")
+
     def test_url_single_async_task_contract_compat_with_task_result_status(self):
         tasks = _TrackedTasks()
         payload = {
@@ -215,7 +377,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
         if task_result_status is not None:
             self.assertEqual(task_result_status, data.get("status"))
 
-        tasks.task_ingest_single_url.delay.assert_called_once_with(
+        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
             "https://example.com/post/42",
             ["market"],
             True,
@@ -260,7 +422,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(effective_payload.get("light_filter_reject_static_assets"), False)
         self.assertEqual(effective_payload.get("light_filter_reject_search_noise_domain"), False)
 
-        tasks.task_ingest_single_url.delay.assert_called_once_with(
+        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
             "https://example.com/post/43",
             ["market"],
             False,
@@ -293,7 +455,10 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "light_filter_min_score": 42,
         }
 
-        with patch("app.services.ingest.single_url.ingest_single_url", return_value={"status": "degraded_success", "inserted": 0}):
+        with patch(
+            "app.services.ingest.url_pool.ingest_url_via_source_library_frontdoor",
+            return_value={"status": "degraded_success", "inserted": 0},
+        ):
             resp = self.client.post("/api/v1/ingest/url/single", json=payload)
 
         self.assertEqual(resp.status_code, 200, msg=resp.text)

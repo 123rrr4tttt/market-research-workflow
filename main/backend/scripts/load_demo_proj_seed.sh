@@ -3,6 +3,12 @@ set -euo pipefail
 # Supports both Docker (DB_CONTAINER) and local (psql) modes.
 # Local: set DB_CONTAINER="" or USE_LOCAL=1, ensure .env or PGHOST/PGUSER/PGPASSWORD/PGDATABASE are set.
 
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || true
+elif [[ -x /usr/local/bin/brew ]]; then
+  eval "$(/usr/local/bin/brew shellenv 2>/dev/null)" || true
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 if [[ $# -ge 1 ]]; then
@@ -34,6 +40,30 @@ TABLES=(
   ingest_channels
 )
 
+resolve_psql_cmd() {
+  if command -v psql >/dev/null 2>&1; then
+    echo "psql"
+  elif [[ -x /opt/homebrew/opt/postgresql@18/bin/psql ]]; then
+    echo "/opt/homebrew/opt/postgresql@18/bin/psql"
+  elif [[ -x /opt/homebrew/opt/postgresql@17/bin/psql ]]; then
+    echo "/opt/homebrew/opt/postgresql@17/bin/psql"
+  elif [[ -x /opt/homebrew/opt/postgresql@16/bin/psql ]]; then
+    echo "/opt/homebrew/opt/postgresql@16/bin/psql"
+  elif [[ -x /opt/homebrew/opt/postgresql/bin/psql ]]; then
+    echo "/opt/homebrew/opt/postgresql/bin/psql"
+  elif [[ -x /usr/local/opt/postgresql@18/bin/psql ]]; then
+    echo "/usr/local/opt/postgresql@18/bin/psql"
+  elif [[ -x /usr/local/opt/postgresql@17/bin/psql ]]; then
+    echo "/usr/local/opt/postgresql@17/bin/psql"
+  elif [[ -x /usr/local/opt/postgresql@16/bin/psql ]]; then
+    echo "/usr/local/opt/postgresql@16/bin/psql"
+  elif [[ -x /usr/local/opt/postgresql/bin/psql ]]; then
+    echo "/usr/local/opt/postgresql/bin/psql"
+  else
+    return 127
+  fi
+}
+
 # Resolve seed file path when given relative path
 if [[ "$SEED_FILE" != /* ]] && [[ "$SEED_FILE" != ./* ]]; then
   SEED_FILE="$BACKEND_DIR/../$SEED_FILE"
@@ -64,14 +94,9 @@ fi
 # Detect mode: local when DB_CONTAINER empty or USE_LOCAL=1
 if [[ -z "$DB_CONTAINER" ]] || [[ "$USE_LOCAL" == "1" ]]; then
   USE_LOCAL=1
-  if command -v psql >/dev/null 2>&1; then
-    PSQL_CMD="psql"
-  elif [[ -x /opt/homebrew/opt/postgresql/bin/psql ]]; then
-    PSQL_CMD="/opt/homebrew/opt/postgresql/bin/psql"
-  elif [[ -x /usr/local/opt/postgresql/bin/psql ]]; then
-    PSQL_CMD="/usr/local/opt/postgresql/bin/psql"
-  else
-    PSQL_CMD="psql"
+  if ! PSQL_CMD="$(resolve_psql_cmd)"; then
+    echo "psql client not found. Install PostgreSQL client or use Docker mode with DB_CONTAINER." >&2
+    exit 127
   fi
   PSQL_OPTS=(-h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1)
   export PGPASSWORD

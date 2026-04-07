@@ -8,7 +8,12 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from ..contracts import ErrorCode, fail, ok
-from ..services.stats import query_prompt_time_density, query_prompt_time_density_priority, select_priority_windows
+from ..services.stats import (
+    query_prompt_time_density,
+    query_prompt_time_density_cloud,
+    query_prompt_time_density_priority,
+    select_priority_windows,
+)
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -53,6 +58,14 @@ def _resolve_range(*, start: Optional[str], end: Optional[str], time_window: Opt
     return start_day, end_day
 
 
+def _coalesce_noun_group_ids(
+    *,
+    noun_group_ids: Optional[list[str]],
+    prompt_group_ids: Optional[list[str]],
+) -> Optional[list[str]]:
+    return noun_group_ids if noun_group_ids is not None else prompt_group_ids
+
+
 @router.get("/prompt-time-density")
 def get_prompt_time_density(
     start: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
@@ -60,6 +73,7 @@ def get_prompt_time_density(
     time_window: Optional[str] = Query("30d", description="时间窗 Nd，如 7d/30d/90d"),
     bucket: str = Query("day", description="桶粒度 day/week/month"),
     source_domains: Optional[list[str]] = Query(None, description="来源域过滤"),
+    noun_group_ids: Optional[list[str]] = Query(None, description="语义组过滤（noun group）"),
     prompt_group_ids: Optional[list[str]] = Query(None, description="提示词组过滤"),
     normalize: bool = Query(True, description="是否输出规范化密度"),
 ):
@@ -67,11 +81,13 @@ def get_prompt_time_density(
         start_dt, end_dt = _resolve_range(start=start, end=end, time_window=time_window)
         if bucket not in {"day", "week", "month"}:
             return _json_error(422, ErrorCode.INVALID_INPUT, "bucket must be one of: day, week, month")
+        merged_groups = _coalesce_noun_group_ids(noun_group_ids=noun_group_ids, prompt_group_ids=prompt_group_ids)
         items = query_prompt_time_density(
             start=start_dt,
             end=end_dt,
             bucket=bucket,
             source_domains=source_domains,
+            noun_group_ids=merged_groups,
             prompt_group_ids=prompt_group_ids,
             normalize=normalize,
         )
@@ -88,25 +104,84 @@ def get_prompt_time_density(
         return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
 
 
+@router.get("/prompt-time-density/cloud")
+def get_prompt_time_density_cloud(
+    keyword: str = Query(..., description="关键词"),
+    start: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
+    end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    time_window: Optional[str] = Query("30d", description="时间窗 Nd，如 7d/30d/90d"),
+    bucket: str = Query("day", description="桶粒度 day/week/month"),
+    source_domains: Optional[list[str]] = Query(None, description="来源域过滤"),
+    noun_group_ids: Optional[list[str]] = Query(None, description="语义组过滤（noun group）"),
+    prompt_group_ids: Optional[list[str]] = Query(None, description="提示词组过滤（兼容）"),
+    smoothing: str = Query("ema", description="平滑方法 ema/gaussian/none"),
+    peak_percentile: float = Query(0.85, description="峰值分位阈值 [0,1]"),
+    uncertainty: float = Query(0.2, description="不确定度带宽 [0,1]"),
+    normalize: bool = Query(True, description="是否输出规范化密度"),
+):
+    try:
+        start_dt, end_dt = _resolve_range(start=start, end=end, time_window=time_window)
+        if bucket not in {"day", "week", "month"}:
+            return _json_error(422, ErrorCode.INVALID_INPUT, "bucket must be one of: day, week, month")
+        merged_groups = _coalesce_noun_group_ids(noun_group_ids=noun_group_ids, prompt_group_ids=prompt_group_ids)
+        data = query_prompt_time_density_cloud(
+            keyword=keyword,
+            start=start_dt,
+            end=end_dt,
+            bucket=bucket,
+            source_domains=source_domains,
+            noun_group_ids=merged_groups,
+            prompt_group_ids=prompt_group_ids,
+            smoothing=smoothing,
+            peak_percentile=peak_percentile,
+            uncertainty=uncertainty,
+            normalize=normalize,
+        )
+        return ok(
+            {
+                **data,
+                "start": start_dt.isoformat(),
+                "end": end_dt.isoformat(),
+            }
+        )
+    except ValueError as exc:
+        return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
+
+
 @router.get("/prompt-time-density/priority")
 def get_prompt_time_density_priority(
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD，默认今天"),
     candidate_windows: Optional[list[str]] = Query(None, description="候选窗口 Nd 列表"),
     source_domains: Optional[list[str]] = Query(None, description="来源域过滤"),
+    noun_group_ids: Optional[list[str]] = Query(None, description="语义组过滤（noun group）"),
     prompt_group_ids: Optional[list[str]] = Query(None, description="提示词组过滤"),
     prefer_low_density: bool = Query(True, description="是否低密度优先"),
     exclude_high_dup: bool = Query(True, description="是否过滤高重复窗口"),
+    min_overlap: float = Query(0.35, description="最小 overlap [0,1]"),
+    target_overlap: float = Query(0.55, description="目标 overlap [0,1]"),
+    eta: float = Query(0.08, description="轻避峰强度 >=0"),
+    delta_max: float = Query(0.12, description="单窗口分布偏移上限 [0,1]"),
+    tau: float = Query(0.03, description="KL 预算 >=0"),
+    avoid_peak: bool = Query(True, description="是否启用轻避峰"),
 ):
     try:
         end_dt = _parse_ymd(end, field="end") or datetime.utcnow().date()
         windows = candidate_windows or ["7d", "30d", "90d"]
+        merged_groups = _coalesce_noun_group_ids(noun_group_ids=noun_group_ids, prompt_group_ids=prompt_group_ids)
         items = query_prompt_time_density_priority(
             end=end_dt,
             candidate_windows=windows,
             source_domains=source_domains,
+            noun_group_ids=merged_groups,
             prompt_group_ids=prompt_group_ids,
             prefer_low_density=prefer_low_density,
             exclude_high_dup=exclude_high_dup,
+            min_overlap=min_overlap,
+            target_overlap=target_overlap,
+            eta=eta,
+            delta_max=delta_max,
+            tau=tau,
+            avoid_peak=avoid_peak,
         )
         return ok(
             {
@@ -125,21 +200,36 @@ def select_prompt_time_windows(
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD，默认今天"),
     candidate_windows: Optional[list[str]] = Query(None, description="候选窗口 Nd 列表"),
     source_domains: Optional[list[str]] = Query(None, description="来源域过滤"),
+    noun_group_ids: Optional[list[str]] = Query(None, description="语义组过滤（noun group）"),
     prompt_group_ids: Optional[list[str]] = Query(None, description="提示词组过滤"),
     max_windows: int = Query(3, ge=1, le=10, description="最多返回窗口数"),
     prefer_low_density: bool = Query(True, description="是否低密度优先"),
     exclude_high_dup: bool = Query(True, description="是否过滤高重复窗口"),
+    min_overlap: float = Query(0.35, description="最小 overlap [0,1]"),
+    target_overlap: float = Query(0.55, description="目标 overlap [0,1]"),
+    eta: float = Query(0.08, description="轻避峰强度 >=0"),
+    delta_max: float = Query(0.12, description="单窗口分布偏移上限 [0,1]"),
+    tau: float = Query(0.03, description="KL 预算 >=0"),
+    avoid_peak: bool = Query(True, description="是否启用轻避峰"),
 ):
     try:
         end_dt = _parse_ymd(end, field="end") or datetime.utcnow().date()
         windows = candidate_windows or ["7d", "30d", "90d"]
+        merged_groups = _coalesce_noun_group_ids(noun_group_ids=noun_group_ids, prompt_group_ids=prompt_group_ids)
         rows = query_prompt_time_density_priority(
             end=end_dt,
             candidate_windows=windows,
             source_domains=source_domains,
+            noun_group_ids=merged_groups,
             prompt_group_ids=prompt_group_ids,
             prefer_low_density=prefer_low_density,
             exclude_high_dup=exclude_high_dup,
+            min_overlap=min_overlap,
+            target_overlap=target_overlap,
+            eta=eta,
+            delta_max=delta_max,
+            tau=tau,
+            avoid_peak=avoid_peak,
         )
         selected = select_priority_windows(rows, max_windows=max_windows)
         return ok(

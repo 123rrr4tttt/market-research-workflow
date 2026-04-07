@@ -23,6 +23,7 @@ class GoogleNewsItem:
     link: str
     summary: Optional[str] = None
     source: Optional[str] = None
+    source_url: Optional[str] = None
     date: Optional[datetime] = None
     keyword: Optional[str] = None
 
@@ -183,6 +184,7 @@ class GoogleNewsAdapter:
                     link=clean_link,
                     summary=summary,
                     source=source,
+                    source_url=None,
                     date=date,
                     keyword=keyword,
                 )
@@ -235,9 +237,11 @@ class GoogleNewsAdapter:
             summary = unescape(summary_raw).strip() if summary_raw else None
 
             source = None
+            source_url = None
             for child in item_elem:
                 if child.tag.endswith("source") and child.text:
                     source = child.text.strip()
+                    source_url = str(child.attrib.get("url") or "").strip() or None
                     break
 
             pub_date = item_elem.findtext("pubDate")
@@ -254,6 +258,7 @@ class GoogleNewsAdapter:
                     link=link,
                     summary=summary,
                     source=source,
+                    source_url=source_url,
                     date=pub_datetime,
                     keyword=keyword,
                 )
@@ -336,4 +341,3 @@ class GoogleNewsAdapter:
                     continue
         
         return None
-

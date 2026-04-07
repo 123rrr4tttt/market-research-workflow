@@ -22,7 +22,6 @@ except Exception as exc:  # noqa: BLE001
 try:
     from app.services.ingest.frontdoor_contract import FRONTDOOR_STAGES
     from app.services.ingest.frontdoor_orchestrator import FrontDoorOrchestrator, FrontDoorOrchestratorConfig
-    from app.services.ingest.single_url import _build_frontdoor_envelope
 
     _INGEST_IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -56,8 +55,9 @@ class FrontdoorOrchestratorUnitTestCase(unittest.TestCase):
             "write_mode",
             "route_decision",
             "candidate_urls",
-            "force_single_url_flow",
+            "force_url_routing_flow",
             "routing_parallelism",
+            "concurrency_plan",
         }
         self.assertTrue(required_keys.issubset(set(envelope.keys())))
         self.assertEqual(envelope["item_key"], "url_pool.default")
@@ -66,6 +66,7 @@ class FrontdoorOrchestratorUnitTestCase(unittest.TestCase):
         self.assertEqual(envelope["route_decision"], "front_door_url_routing")
         self.assertIsInstance(envelope["candidate_urls"], list)
         self.assertIsInstance(envelope["routing_parallelism"], int)
+        self.assertIsInstance(envelope["concurrency_plan"], dict)
 
     def test_run_item_payload_handler_cluster_respects_search_then_route_stage_order(self):
         item = {
@@ -100,7 +101,7 @@ class FrontdoorOrchestratorUnitTestCase(unittest.TestCase):
                 item=item,
                 channels=[],
                 project_key="demo_proj",
-                override_params={"query_terms": ["robotics"]},
+                override_params={"query_terms": ["robotics"], "_allow_internal_generic_web": True},
             )
 
         self.assertEqual(events, ["search", "route"])
@@ -131,17 +132,35 @@ class FrontdoorOrchestratorUnitTestCase(unittest.TestCase):
                 item=item,
                 channels=[],
                 project_key="demo_proj",
-                override_params={"query_terms": ["robotics"]},
+                override_params={"query_terms": ["robotics"], "_allow_internal_generic_web": True},
             )
 
         routed.assert_not_called()
-        self.assertEqual(raw["result"]["inserted"], 0)
-        self.assertEqual(raw["result"]["updated"], 0)
-        self.assertEqual(raw["result"]["skipped"], 0)
+        self.assertEqual(raw["result"]["stats"]["fetched"], 0)
+        self.assertEqual(raw["result"]["stats"]["normalized"], 0)
+        self.assertEqual(raw["result"]["stats"]["errors"], 0)
         self.assertEqual(raw["result"]["errors"], [])
+        self.assertEqual(raw["result"]["records"], [])
+        self.assertEqual(raw["result"]["routing_result"]["inserted"], 0)
         self.assertEqual(raw["result"]["single_write_workflow"], "front_door_url_routing")
         self.assertEqual(raw["result"]["middle_layer_protocol"]["execution_mode"], "search_then_route")
         self.assertEqual(raw["result"]["middle_layer_protocol"]["route_decision"], "handler_cluster_search")
+
+    def test_run_item_payload_blocks_direct_generic_web_without_internal_flag(self):
+        item = {
+            "item_key": "handler.cluster.search_template",
+            "channel_key": "generic_web.search_template",
+            "enabled": True,
+            "params": {"site_entries": ["https://example.com/search?q={{q}}"]},
+        }
+
+        with self.assertRaisesRegex(ValueError, "generic_web\\.\\* direct item execution is disabled"):
+            resolver.run_item_payload(
+                item=item,
+                channels=[],
+                project_key="demo_proj",
+                override_params={"query_terms": ["robotics"]},
+            )
 
 
 class FrontdoorStageDiagnosticsUnitTestCase(unittest.TestCase):
@@ -165,44 +184,6 @@ class FrontdoorStageDiagnosticsUnitTestCase(unittest.TestCase):
         self.assertEqual(diagnostics["stage.unwrap.status"], "ok")
         self.assertEqual(diagnostics["stage.gate.status"], "failed")
         self.assertEqual(diagnostics["stage.gate.reason"], "url_policy_blocked")
-
-    def test_single_url_frontdoor_envelope_meta_contains_stage_diagnostics(self):
-        result = {
-            "status": "success",
-            "reason_code": "ok",
-            "reason_category": "none",
-            "url": "https://example.com/a",
-            "document_id": 42,
-            "inserted": 1,
-            "inserted_valid": 1,
-            "skipped": 0,
-            "quality_score": 91.0,
-            "rejected_count": 0,
-            "rejection_breakdown": {},
-            "structured_extraction_status": "ok",
-            "handler_allocation": {"handler_used": "native_http"},
-        }
-        frontdoor_context = {
-            "front_door_owner": "single_url_ingest",
-            "execution_mode": "url_routing",
-            "write_mode": "front_door_url_routing",
-            "route_decision": "front_door_url_routing",
-            "route": "default",
-            "route_source": "auto",
-        }
-        envelope = _build_frontdoor_envelope(result, frontdoor_context)
-        diagnostics = envelope["meta"].get("diagnostics") or {}
-        for stage in FRONTDOOR_STAGES:
-            self.assertIn(f"stage.{stage}.status", diagnostics)
-        self.assertEqual(diagnostics["stage.persist.status"], "ok")
-        self.assertIn("retry_count_by_reason", envelope["meta"])
-        self.assertIn("retry_count_by_class", envelope["meta"])
-        self.assertIn("retryable", envelope["meta"])
-        self.assertEqual(envelope["meta"]["retry_count_by_reason"], {})
-        self.assertEqual((envelope["meta"]["retry_count_by_class"] or {}).get("transient"), 0)
-        self.assertEqual((envelope["meta"]["retry_count_by_class"] or {}).get("permanent"), 0)
-        self.assertFalse(bool(envelope["meta"]["retryable"]))
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -32,6 +32,79 @@ npm run test:e2e:headed
 
 测试会自动拉起本地前端（`http://127.0.0.1:4173`）并执行 `tests/e2e/` 下用例。
 
+## 1.2) Storybook + MCP
+
+```bash
+npm run storybook
+```
+
+- 默认访问地址：`http://localhost:6006`
+- 本地 MCP 入口：`http://localhost:6006/mcp`
+- Storybook 现在作为 agent-facing contract surface 使用，默认分三类 story：
+  - `Component Stories`：纯展示与高复用组件
+  - `Container Stories`：带 query / mutation / 行为的工作单元
+  - `Shell Stories`：挂在真实 workbench / visualization / management 壳层下的高保真页面
+- 热点页已经切到 MCP-first 分组与矩阵：
+  - `Pages/Workbench/IngestPage`
+  - `Pages/Workbench/WritingWorkbenchPage`
+  - `Pages/Visualization/GraphPage`
+  - `Pages/Management/SettingsPage`
+  - `Pages/Management/ProcessPage`
+  - `Pages/Workbench/LlmDesignerPage`
+  - 上述 story 统一提供 `Container` + `Shell` 入口，并补了 loading / empty / error / mode-diff / realistic data 等状态
+  - 其中 `SettingsPage`、`ProcessPage` 与 `IngestPage` 已进一步抽出真实 `View` 组件，MCP 可直接消费 `View Default` story
+  - `LlmDesignerPage` 在 Storybook 中默认走 `storybook-lite` 入口，只保留 agent 所需 contract surface；完整 ReactFlow runtime 仍保留在应用路径
+- Storybook 与三层架构共享：
+  - `src/app/kernel/moduleManifest.ts`
+  - `src/app/kernel/legacyHashAdapter.ts`
+  - `src/pages/storybookKernelUtils.tsx`
+- 当前首批 story 覆盖：
+  - `src/components/Gv2NodeCard.stories.tsx`
+  - `src/components/GraphBusinessCardSections.stories.tsx`
+  - `src/components/GraphExtensionsSections.stories.tsx`
+  - `src/components/FigmaTopNav.stories.tsx`
+  - `src/components/FigmaSideNav.stories.tsx`
+  - `src/components/graph-kit/GraphShapeBadge.stories.tsx`
+  - `src/components/graph-kit/GraphLegend.stories.tsx`
+  - `src/components/graph-kit/GraphNodeCard.stories.tsx`
+  - `src/components/graph-kit/GraphToolbar.stories.tsx`
+  - `src/components/workflow/NodeTemplatePalette.stories.tsx`
+  - `src/components/workflow/NodeInfoCard.stories.tsx`
+  - `src/components/workflow/LlmNodeDesigner.stories.tsx`
+  - `src/components/writing/CitationBasket.stories.tsx`
+  - `src/components/writing/KeywordInsightSidebar.stories.tsx`
+  - `src/components/writing/LlmAssistantPanel.stories.tsx`
+  - `src/components/writing/MarkdownEditor.stories.tsx`
+  - `src/components/writing/MarkdownPreview.stories.tsx`
+  - `src/components/writing/TemplateLibraryPanel.stories.tsx`
+  - `src/components/writing/WritingInsightCard.stories.tsx`
+  - `src/components/writing/WritingShell.stories.tsx`
+  - `src/pages/ConceptLabIndexPage.stories.tsx`
+  - `src/pages/ConceptQuietPage.stories.tsx`
+  - `src/pages/ConceptMonolithPage.stories.tsx`
+  - `src/pages/ConceptOrbitalPage.stories.tsx`
+  - `src/pages/WritingWorkbenchPage.stories.tsx`
+  - `src/pages/AgentChatPage.stories.tsx`
+  - `src/pages/CatalogPage.stories.tsx`
+  - `src/pages/CrawlerManagePage.stories.tsx`
+  - `src/pages/DashboardPage.stories.tsx`
+  - `src/pages/GraphPage.stories.tsx`
+  - `src/pages/IngestPage.stories.tsx`
+  - `src/pages/LlmDesignerPage.stories.tsx`
+  - `src/pages/OpsPage.stories.tsx`
+  - `src/pages/PolicyPage.stories.tsx`
+  - `src/pages/ProcessPage.stories.tsx`
+  - `src/pages/ProjectsPage.stories.tsx`
+  - `src/pages/RawDataPage.stories.tsx`
+  - `src/pages/ResourcePage.stories.tsx`
+  - `src/pages/SettingsPage.stories.tsx`
+
+静态构建：
+
+```bash
+npm run storybook:build
+```
+
 ## 2) Docker 运行
 
 ```bash

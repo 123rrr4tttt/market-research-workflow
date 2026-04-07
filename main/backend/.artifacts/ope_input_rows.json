@@ -1,0 +1,10 @@
+{
+  "rows": [
+    {"request_id":"r1","source_domain":"a.com","noun_group_id":"ng1","window":"7d","chosen_window":"30d","p_base":0.2,"p_new":0.6,"vector_overlap":0.7,"offpeak_confidence":0.6,"features_json":{"dup_ratio":0.1,"peak_pressure":0.4}},
+    {"request_id":"r1","source_domain":"a.com","noun_group_id":"ng1","window":"30d","chosen_window":"30d","p_base":0.7,"p_new":0.3,"vector_overlap":0.55,"offpeak_confidence":0.45,"features_json":{"dup_ratio":0.2,"peak_pressure":0.6},"observed_reward":0.35},
+    {"request_id":"r1","source_domain":"a.com","noun_group_id":"ng1","window":"90d","chosen_window":"30d","p_base":0.1,"p_new":0.1,"vector_overlap":0.5,"offpeak_confidence":0.4,"features_json":{"dup_ratio":0.25,"peak_pressure":0.7}},
+    {"request_id":"r2","source_domain":"b.com","noun_group_id":"ng2","window":"7d","chosen_window":"7d","p_base":0.6,"p_new":0.65,"vector_overlap":0.8,"offpeak_confidence":0.7,"features_json":{"dup_ratio":0.1,"peak_pressure":0.3},"observed_reward":0.75},
+    {"request_id":"r2","source_domain":"b.com","noun_group_id":"ng2","window":"30d","chosen_window":"7d","p_base":0.3,"p_new":0.25,"vector_overlap":0.58,"offpeak_confidence":0.5,"features_json":{"dup_ratio":0.2,"peak_pressure":0.5}},
+    {"request_id":"r2","source_domain":"b.com","noun_group_id":"ng2","window":"90d","chosen_window":"7d","p_base":0.1,"p_new":0.1,"vector_overlap":0.45,"offpeak_confidence":0.35,"features_json":{"dup_ratio":0.35,"peak_pressure":0.8}}
+  ]
+}

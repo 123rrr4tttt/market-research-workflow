@@ -14,11 +14,10 @@ from ...models.entities import Document
 from .adapters.social_reddit import RedditAdapter
 from .adapters.http_utils import fetch_html
 from .url_pool import _extract_text_from_html
-from ..llm.extraction import extract_structured_sentiment, extract_policy_info
-from ..extraction.application import ExtractionApplicationService
 from ..keyword_generation import generate_social_keywords
-from .structured_extraction import extract_structured_enriched_safe
+from .frontdoor_ingress import build_frontdoor_ingress_envelope
 from .doc_type_mapper import normalize_doc_type
+from .postprocess_frontdoor import run_postprocess_frontdoor
 from .keyword_library import (
     store_keywords as store_social_keywords,
     get_keywords as get_social_keywords,
@@ -27,7 +26,6 @@ from .keyword_library import (
 
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
-_EXTRACTION_APP = ExtractionApplicationService()
 
 
 def collect_user_social_sentiment(
@@ -194,53 +192,66 @@ def collect_user_social_sentiment(
                         "text": post.text,
                     }
                     
-                    if enable_extraction:
-                        extraction_text = "\n\n".join(
-                            [
-                                f"Title: {post.title or ''}",
-                                f"Summary: {post.summary or ''}",
-                                f"Body: {post.text or ''}",
-                            ]
-                        ).strip()
-                        extraction_result = extract_structured_enriched_safe(
-                            extraction_app=_EXTRACTION_APP,
-                            payload=extraction_text,
-                            include_market=False,
-                            include_policy=False,
-                            include_sentiment=True,
-                            include_company=True,
-                            include_product=True,
-                            include_operation=True,
-                        )
-                        if extraction_result.data:
-                            extracted_data.update(extraction_result.data)
-                            extracted_data["extraction_status"] = "ok"
-                            extraction_ok += 1
-                        else:
-                            extraction_empty += 1
-                            extracted_data["extraction_status"] = "failed"
-                            extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
-                            if extraction_result.error:
-                                extracted_data["extraction_error"] = extraction_result.error
-                            extraction_fallback += 1
-                    
-                    document = Document(
-                        source_id=source_id,
-                        state=None,
-                        doc_type=normalized_doc_type,
-                        title=post.title,
-                        summary=post.summary,
-                        publish_date=post.timestamp.date() if post.timestamp else None,
-                        uri=link,
-                        extracted_data=extracted_data,
+                    ingress_envelope = build_frontdoor_ingress_envelope(
+                        ingress_type="discovery",
+                        entrypoint="ingest.social_sentiment",
+                        source_mode="protocol_search",
+                        project_key=None,
+                        source_ref={"url": link, "locator": link},
+                        collection_payload={
+                            "document_candidate": {
+                                "source_name": "Reddit Social Sentiment",
+                                "source_kind": "social",
+                                "source_base_url": "reddit.com",
+                                "state": None,
+                                "doc_type": normalized_doc_type,
+                                "title": post.title,
+                                "summary": post.summary,
+                                "publish_date": post.timestamp.date() if post.timestamp else None,
+                                "content": post.text or post.summary,
+                                "text_hash": None,
+                                "uri": link,
+                                "status": None,
+                                "extracted_data_base": extracted_data,
+                            },
+                            "terminal_context": {
+                                "platform": "reddit",
+                                "ingestion_entrypoint": "ingest.social_sentiment",
+                                "source_mode": "protocol_search",
+                                "quality_score": 0.0,
+                                "degradation_flags": [],
+                                "http_status": None,
+                                "capability_profile": {},
+                                "light_filter": {},
+                            },
+                            "extraction_plan": {
+                                "enabled": bool(enable_extraction),
+                                "include_market": False,
+                                "include_policy": False,
+                                "include_sentiment": True,
+                                "include_company": True,
+                                "include_product": True,
+                                "include_operation": True,
+                            },
+                        },
+                        raw_snapshot={"link": link, "title": post.title, "subreddit": post.subreddit},
                     )
-                    session.add(document)
-                    inserted += 1
-                    pending_inserts += 1
-                    if pending_inserts >= BATCH_COMMIT_SIZE:
-                        session.commit()
-                        session.expunge_all()
-                        pending_inserts = 0
+                    frontdoor_result = run_postprocess_frontdoor(
+                        ingress_envelope=ingress_envelope,
+                        run_writer=True,
+                    )
+                    writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
+                    normalized_payload = (frontdoor_result.get("data") or {}).get("normalized_payload") if isinstance(frontdoor_result.get("data"), dict) else {}
+                    extracted = (normalized_payload or {}).get("extracted_data") if isinstance(normalized_payload, dict) else {}
+                    structured_status = str((extracted or {}).get("structured_extraction_status") or "skipped").strip().lower()
+                    if structured_status == "ok":
+                        extraction_ok += 1
+                    elif structured_status == "failed":
+                        extraction_empty += 1
+                    else:
+                        extraction_fallback += 1
+                    inserted += int((writer_result or {}).get("inserted") or 0)
+                    skipped += int((writer_result or {}).get("skipped") or 0)
 
                 logger.info(
                     "Found %d Reddit posts for keywords: %s (searched with: %s)",
@@ -363,49 +374,57 @@ def collect_policy_and_regulation(
                     "platform": item.get("source") or provider,
                     "keyword": item.get("keyword"),
                 }
-                if enable_extraction:
-                    text_to_extract = "\n\n".join([x for x in [title.strip(), snippet.strip(), (content or "").strip()] if x])
-                    extraction_result = extract_structured_enriched_safe(
-                        extraction_app=_EXTRACTION_APP,
-                        payload=text_to_extract,
-                        include_market=False,
-                        include_policy=True,
-                        include_sentiment=False,
-                        include_company=True,
-                        include_product=True,
-                        include_operation=True,
-                    )
-                    if extraction_result.data:
-                        extracted_data.update(extraction_result.data)
-                        extracted_data["extraction_status"] = "ok"
-                    elif (policy_info := extract_policy_info(text_to_extract)):
-                        extracted_data["policy"] = policy_info
-                        extracted_data["extraction_status"] = "fallback"
-                        extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
-                    else:
-                        extracted_data["extraction_status"] = "failed"
-                        extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
-                    if extraction_result.error:
-                        extracted_data["extraction_error"] = extraction_result.error
-
-                document = Document(
-                    source_id=source_id,
-                    state=None,
-                    doc_type=normalized_doc_type,
-                    title=title,
-                    summary=snippet,
-                    publish_date=None,
-                    content=content,
-                    uri=link,
-                    extracted_data=extracted_data,
+                ingress_envelope = build_frontdoor_ingress_envelope(
+                    ingress_type="discovery",
+                    entrypoint="ingest.policy_regulation",
+                    source_mode="protocol_search",
+                    project_key=None,
+                    source_ref={"url": link, "locator": link},
+                    collection_payload={
+                        "document_candidate": {
+                            "source_name": "Search API Policy",
+                            "source_kind": "search",
+                            "source_base_url": "search",
+                            "state": None,
+                            "doc_type": normalized_doc_type,
+                            "title": title,
+                            "summary": snippet,
+                            "publish_date": None,
+                            "content": content,
+                            "text_hash": None,
+                            "uri": link,
+                            "status": None,
+                            "extracted_data_base": extracted_data,
+                        },
+                        "terminal_context": {
+                            "platform": item.get("source") or provider or "policy_search",
+                            "ingestion_entrypoint": "ingest.policy_regulation",
+                            "source_mode": "protocol_search",
+                            "quality_score": 0.0,
+                            "degradation_flags": [],
+                            "http_status": None,
+                            "capability_profile": {},
+                            "light_filter": {},
+                        },
+                        "extraction_plan": {
+                            "enabled": bool(enable_extraction),
+                            "include_market": False,
+                            "include_policy": True,
+                            "include_sentiment": False,
+                            "include_company": True,
+                            "include_product": True,
+                            "include_operation": True,
+                        },
+                    },
+                    raw_snapshot={"item": dict(item or {}), "link": link},
                 )
-                session.add(document)
-                inserted += 1
-                pending_inserts += 1
-                if pending_inserts >= BATCH_COMMIT_SIZE:
-                    session.commit()
-                    session.expunge_all()
-                    pending_inserts = 0
+                frontdoor_result = run_postprocess_frontdoor(
+                    ingress_envelope=ingress_envelope,
+                    run_writer=True,
+                )
+                writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
+                inserted += int((writer_result or {}).get("inserted") or 0)
+                skipped += int((writer_result or {}).get("skipped") or 0)
 
             if pending_inserts > 0:
                 session.commit()

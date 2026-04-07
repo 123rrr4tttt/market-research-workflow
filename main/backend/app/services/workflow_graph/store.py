@@ -288,12 +288,14 @@ class SqlRunStore:
 
 
 def build_run_store() -> InMemoryRunStore | SqlRunStore:
-    """Construct runtime store. Prefer DB store; fallback to in-memory."""
+    """Construct runtime store with fail-closed option."""
     if not bool(getattr(settings, "workflow_graph_db_store_enabled", True)):
         return InMemoryRunStore()
     try:
         return SqlRunStore()
     except Exception as exc:  # noqa: BLE001
+        if bool(getattr(settings, "workflow_graph_db_store_fail_closed", True)):
+            raise RuntimeError(f"workflow graph db store unavailable (fail-closed): {exc}") from exc
         logger.warning("workflow graph db store disabled by runtime error, fallback to memory: %s", exc)
         return InMemoryRunStore()
 

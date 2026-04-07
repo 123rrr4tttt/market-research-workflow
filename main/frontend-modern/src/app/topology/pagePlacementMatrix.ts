@@ -41,6 +41,20 @@ const PAGE_PLACEMENT_BASELINE: readonly PagePlacementRecord[] = [
     },
   },
   {
+    page: 'AgentChatPage',
+    navModes: ['flowAgentChat'],
+    phase1Surface: 'workbench',
+    reason: 'Continuous agent conversation with staged execution feedback and session context.',
+    revisit: false,
+    rubricSignals: {
+      interactionDensity: 'workbench',
+      contextContinuity: 'workbench',
+      panelCoordination: 'workbench',
+      stateCoupling: 'workbench',
+      primaryOutcome: 'workbench',
+    },
+  },
+  {
     page: 'LlmDesignerPage',
     navModes: ['flowLlmNodeDesign'],
     phase1Surface: 'workbench',

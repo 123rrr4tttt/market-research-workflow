@@ -79,19 +79,12 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
   }
 
   return (
-    <div className="content-stack">
-      <section className="panel">
-        <div className="panel-header">
-          <h2>原始数据导入</h2>
-        </div>
-        <p className="status-line">当前项目：{projectKey}</p>
-        <p className="status-line">兼容入口：raw-data-processing.html / raw-data</p>
-      </section>
-
-      <section className="panel">
+    <div className="content-stack rawdata-page rawdata-page--quiet">
+      <section className="panel rawdata-page__section rawdata-page__section--params">
         <div className="panel-header">
           <h2>导入参数</h2>
         </div>
+        <p className="status-line">project_key: {projectKey}</p>
         <div className="form-grid cols-3">
           <label>
             <span>source_name</span>
@@ -147,7 +140,7 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel rawdata-page__section rawdata-page__section--draft">
         <div className="panel-header">
           <h2>原始内容</h2>
         </div>
@@ -181,7 +174,7 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel rawdata-page__section rawdata-page__section--result">
         <div className="panel-header">
           <h2>导入结果</h2>
         </div>

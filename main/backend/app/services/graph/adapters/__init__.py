@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Dict, Type, Protocol, Optional
 from ..models import NormalizedSocialPost
 from ....models.entities import Document
+from ...document_views import get_social_platform
 
 
 class PlatformAdapter(Protocol):
@@ -32,7 +33,7 @@ def normalize_document(doc: Document) -> Optional[NormalizedSocialPost]:
     if not doc.extracted_data:
         return None
 
-    platform = doc.extracted_data.get("platform", "").lower()
+    platform = get_social_platform(doc)
     adapter_class = get_adapter(platform) if platform else None
 
     if adapter_class:
@@ -51,4 +52,3 @@ from .generic import GenericSocialAdapter
 
 register_adapter("reddit", RedditAdapter)
 register_adapter("generic", GenericSocialAdapter)
-

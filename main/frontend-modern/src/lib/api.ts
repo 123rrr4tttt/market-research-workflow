@@ -20,6 +20,24 @@ import {
 } from './api/services/crawlers'
 import { fetchDeepHealth, fetchHealth } from './api/services/health'
 import type {
+  AgentApprovalResolvePayload,
+  AgentArtifactItem,
+  AgentArtifactListResult,
+  AgentCoordinatorPassResult,
+  AgentEventItem,
+  AgentEventListResult,
+  AgentMessageItem,
+  AgentMessageListResult,
+  AgentSessionMessageCreatePayload,
+  AgentSessionCancelPayload,
+  AgentSessionCreatePayload,
+  AgentSessionDetail,
+  AgentSessionItem,
+  AgentSessionListResult,
+  AgentApprovalRequestPayload,
+  AgentSessionTaskRetryPayload,
+  AgentTaskItem,
+  AgentTaskListResult,
   AgentBatchEventsResult,
   AgentBatchJobDetail,
   AgentBatchItemsResult,
@@ -58,6 +76,17 @@ import type {
   TopicItem,
 } from './types'
 
+function extractSectionList<T>(value: unknown, keys: string[] = ['items']): T[] {
+  if (Array.isArray(value)) return value as T[]
+  if (!value || typeof value !== 'object') return []
+  const record = value as Record<string, unknown>
+  for (const key of keys) {
+    const candidate = record[key]
+    if (Array.isArray(candidate)) return candidate as T[]
+  }
+  return []
+}
+
 export async function getHealth() {
   return fetchHealth()
 }
@@ -79,6 +108,14 @@ export {
   updateProject,
 } from './api/domains/project-admin'
 export {
+  bootstrapCodexCliLogin,
+  getCodexAuthStatus,
+  logoutCodexAuth,
+  openCodexAuthLoginPopup,
+} from './api/domains/codex-auth'
+export type CodexAuthStatusResponse = import('./api/domains/codex-auth').CodexAuthStatusResponse
+export type CodexCliBootstrapResponse = import('./api/domains/codex-auth').CodexCliBootstrapResponse
+export {
   bindSiteEntry,
   discoverSiteEntries,
   discoverSiteEntriesAdvanced,
@@ -92,6 +129,7 @@ export {
   listSourceLibraryChannels,
   listSourceLibraryItemsGrouped,
   listSourceLibraryItemsWithScope,
+  registerExternalProject,
   recommendSiteEntriesBatch,
   recommendSiteEntry,
   refreshSourceLibraryItem,
@@ -131,28 +169,24 @@ export {
   updateWorkflowGraphTemplate,
   upsertWorkflowTemplate,
 } from './api/domains/graph-workflow'
-export type {
-  GraphKind,
-  GraphQueryParams,
-  NormalizedGraphQueryParams,
-  WorkflowGraphCompilePayload,
-  WorkflowGraphCompileResponse,
-  WorkflowGraphRunDetailResponse,
-  WorkflowGraphRunEventsResponse,
-  WorkflowGraphRunPayload,
-  WorkflowGraphRunResponse,
-} from './api/domains/graph-workflow'
-export type {
-  WorkflowGraphTemplateItem,
-  WorkflowGraphTemplateListResponse,
-  WorkflowGraphTemplateMutationResponse,
-  WorkflowGraphTemplatePayload,
-  WorkflowGraphTemplateUpdatePayload,
-  WorkflowGraphTemplateVersionItem,
-  WorkflowGraphTemplateVersionListResponse,
-  WorkflowGraphTemplateVersionMutationResponse,
-  WorkflowGraphTemplateVersionPayload,
-} from './types'
+export type GraphKind = import('./api/domains/graph-workflow').GraphKind
+export type GraphQueryParams = import('./api/domains/graph-workflow').GraphQueryParams
+export type NormalizedGraphQueryParams = import('./api/domains/graph-workflow').NormalizedGraphQueryParams
+export type WorkflowGraphCompilePayload = import('./api/domains/graph-workflow').WorkflowGraphCompilePayload
+export type WorkflowGraphCompileResponse = import('./api/domains/graph-workflow').WorkflowGraphCompileResponse
+export type WorkflowGraphRunDetailResponse = import('./api/domains/graph-workflow').WorkflowGraphRunDetailResponse
+export type WorkflowGraphRunEventsResponse = import('./api/domains/graph-workflow').WorkflowGraphRunEventsResponse
+export type WorkflowGraphRunPayload = import('./api/domains/graph-workflow').WorkflowGraphRunPayload
+export type WorkflowGraphRunResponse = import('./api/domains/graph-workflow').WorkflowGraphRunResponse
+export type WorkflowGraphTemplateItem = import('./types').WorkflowGraphTemplateItem
+export type WorkflowGraphTemplateListResponse = import('./types').WorkflowGraphTemplateListResponse
+export type WorkflowGraphTemplateMutationResponse = import('./types').WorkflowGraphTemplateMutationResponse
+export type WorkflowGraphTemplatePayload = import('./types').WorkflowGraphTemplatePayload
+export type WorkflowGraphTemplateUpdatePayload = import('./types').WorkflowGraphTemplateUpdatePayload
+export type WorkflowGraphTemplateVersionItem = import('./types').WorkflowGraphTemplateVersionItem
+export type WorkflowGraphTemplateVersionListResponse = import('./types').WorkflowGraphTemplateVersionListResponse
+export type WorkflowGraphTemplateVersionMutationResponse = import('./types').WorkflowGraphTemplateVersionMutationResponse
+export type WorkflowGraphTemplateVersionPayload = import('./types').WorkflowGraphTemplateVersionPayload
 export {
   autosaveWritingDraft,
   createWritingDocument,
@@ -172,33 +206,31 @@ export {
   upsertWritingCitations,
   validateWritingTemplate,
 } from './api/domains/writing'
-export type {
-  AutosaveWritingDraftPayload,
-  CreateWritingDocumentPayload,
-  UpdateWritingDocumentPayload,
-  ValidateWritingTemplatePayload,
-  WritingCardDetailParams,
-  WritingCitation,
-  WritingDocument,
-  WritingDraft,
-  WritingKeywordCard,
-  WritingKeywordCardDetail,
-  WritingKeywordCardListResponse,
-  WritingKeywordCardPreview,
-  WritingKeywordCardPreviewRequest,
-  WritingKeywordCardRequest,
-  WritingKeywordCardSource,
-  WritingLlmActionHistoryItem,
-  WritingLlmActionId,
-  WritingLlmActionPayload,
-  WritingLlmActionResponse,
-  WritingSuggestItem,
-  WritingSuggestMode,
-  WritingSuggestParams,
-  WritingSuggestResponse,
-  WritingTemplate,
-  WritingTemplateValidation,
-} from './api/domains/writing'
+export type AutosaveWritingDraftPayload = import('./api/domains/writing').AutosaveWritingDraftPayload
+export type CreateWritingDocumentPayload = import('./api/domains/writing').CreateWritingDocumentPayload
+export type UpdateWritingDocumentPayload = import('./api/domains/writing').UpdateWritingDocumentPayload
+export type ValidateWritingTemplatePayload = import('./api/domains/writing').ValidateWritingTemplatePayload
+export type WritingCardDetailParams = import('./api/domains/writing').WritingCardDetailParams
+export type WritingCitation = import('./api/domains/writing').WritingCitation
+export type WritingDocument = import('./api/domains/writing').WritingDocument
+export type WritingDraft = import('./api/domains/writing').WritingDraft
+export type WritingKeywordCard = import('./api/domains/writing').WritingKeywordCard
+export type WritingKeywordCardDetail = import('./api/domains/writing').WritingKeywordCardDetail
+export type WritingKeywordCardListResponse = import('./api/domains/writing').WritingKeywordCardListResponse
+export type WritingKeywordCardPreview = import('./api/domains/writing').WritingKeywordCardPreview
+export type WritingKeywordCardPreviewRequest = import('./api/domains/writing').WritingKeywordCardPreviewRequest
+export type WritingKeywordCardRequest = import('./api/domains/writing').WritingKeywordCardRequest
+export type WritingKeywordCardSource = import('./api/domains/writing').WritingKeywordCardSource
+export type WritingLlmActionHistoryItem = import('./api/domains/writing').WritingLlmActionHistoryItem
+export type WritingLlmActionId = import('./api/domains/writing').WritingLlmActionId
+export type WritingLlmActionPayload = import('./api/domains/writing').WritingLlmActionPayload
+export type WritingLlmActionResponse = import('./api/domains/writing').WritingLlmActionResponse
+export type WritingSuggestItem = import('./api/domains/writing').WritingSuggestItem
+export type WritingSuggestMode = import('./api/domains/writing').WritingSuggestMode
+export type WritingSuggestParams = import('./api/domains/writing').WritingSuggestParams
+export type WritingSuggestResponse = import('./api/domains/writing').WritingSuggestResponse
+export type WritingTemplate = import('./api/domains/writing').WritingTemplate
+export type WritingTemplateValidation = import('./api/domains/writing').WritingTemplateValidation
 
 export async function autoCreateProject(payload: AutoCreateProjectPayload) {
   return post<AutoCreateProjectResult>(endpoints.projects.autoCreate, payload)
@@ -357,7 +389,78 @@ export async function validateAgentBatchRuleSet(payload: AgentBatchRuleSetValida
 }
 
 export async function runAgentBatchNlCommand(payload: AgentBatchNlCommandPayload) {
-  return post<AgentBatchNlCommandResult>(endpoints.agentBatch.nlCommand, payload)
+  return post<AgentBatchNlCommandResult>(endpoints.agentBatch.nlCommandDirect, payload)
+}
+
+export async function createAgentSession(payload: AgentSessionCreatePayload) {
+  return post<AgentSessionDetail>(endpoints.agentSessions.root, payload)
+}
+
+export async function listAgentSessions() {
+  const data = await get<AgentSessionItem[] | AgentSessionListResult | { sessions?: AgentSessionItem[]; items?: AgentSessionItem[] }>(
+    endpoints.agentSessions.root,
+  )
+  return extractSectionList<AgentSessionItem>(data, ['sessions', 'items'])
+}
+
+export async function getAgentSession(sessionId: string) {
+  return get<AgentSessionDetail>(endpoints.agentSessions.byId(sessionId))
+}
+
+export async function listAgentSessionTasks(sessionId: string) {
+  const data = await get<AgentTaskItem[] | AgentTaskListResult | { tasks?: AgentTaskItem[]; items?: AgentTaskItem[] }>(
+    endpoints.agentSessions.tasksBySession(sessionId),
+  )
+  return extractSectionList<AgentTaskItem>(data, ['tasks', 'items'])
+}
+
+export async function listAgentSessionMessages(sessionId: string) {
+  const data = await get<AgentMessageItem[] | AgentMessageListResult | { messages?: AgentMessageItem[]; items?: AgentMessageItem[] }>(
+    endpoints.agentSessions.messagesBySession(sessionId),
+  )
+  return extractSectionList<AgentMessageItem>(data, ['messages', 'items'])
+}
+
+export async function createAgentSessionMessage(sessionId: string, payload: AgentSessionMessageCreatePayload) {
+  return post<AgentMessageItem>(endpoints.agentSessions.messagesBySession(sessionId), payload)
+}
+
+export async function listAgentSessionEvents(sessionId: string) {
+  const data = await get<AgentEventItem[] | AgentEventListResult | { events?: AgentEventItem[]; items?: AgentEventItem[] }>(
+    endpoints.agentSessions.eventsBySession(sessionId),
+  )
+  return extractSectionList<AgentEventItem>(data, ['events', 'items'])
+}
+
+export async function listAgentSessionArtifacts(sessionId: string) {
+  const data = await get<
+    AgentArtifactItem[] | AgentArtifactListResult | { artifacts?: AgentArtifactItem[]; items?: AgentArtifactItem[] }
+  >(endpoints.agentSessions.artifactsBySession(sessionId))
+  return extractSectionList<AgentArtifactItem>(data, ['artifacts', 'items'])
+}
+
+export async function retryAgentSessionTask(sessionId: string, payload: AgentSessionTaskRetryPayload) {
+  return post<AgentSessionDetail>(endpoints.agentSessions.retryTaskBySession(sessionId), payload)
+}
+
+export async function cancelAgentSession(sessionId: string, payload: AgentSessionCancelPayload = {}) {
+  return post<AgentSessionDetail>(endpoints.agentSessions.cancelBySession(sessionId), payload)
+}
+
+export async function reclaimExpiredAgentSessionTasks(sessionId: string) {
+  return post<{ items?: AgentTaskItem[] }>(endpoints.agentSessions.reclaimExpiredBySession(sessionId), {})
+}
+
+export async function runAgentSessionCoordinatorPass(sessionId: string) {
+  return post<AgentCoordinatorPassResult>(endpoints.agentSessions.coordinatorPassBySession(sessionId), {})
+}
+
+export async function requestAgentSessionApproval(sessionId: string, payload: AgentApprovalRequestPayload) {
+  return post(endpoints.agentSessions.requestApprovalBySession(sessionId), payload)
+}
+
+export async function resolveAgentApproval(approvalId: string, payload: AgentApprovalResolvePayload) {
+  return post<AgentSessionDetail>(endpoints.agentSessions.resolveApprovalById(approvalId), payload)
 }
 
 export async function getEnvSettings() {

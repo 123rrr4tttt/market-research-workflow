@@ -1,0 +1,8 @@
+{
+  "rows": [
+    {"policy_version":"density-cloud-v2","p_base":0.4,"p_new":0.5,"kl_to_base":0.02,"offpeak_confidence":0.62,"features_json":{"dup_ratio":0.15},"created_at":"2026-03-12T20:00:00+00:00"},
+    {"policy_version":"density-cloud-v2","p_base":0.5,"p_new":0.62,"kl_to_base":0.025,"offpeak_confidence":0.58,"features_json":{"dup_ratio":0.2},"created_at":"2026-03-12T21:00:00+00:00"},
+    {"policy_version":"density-cloud-v1","p_base":0.55,"p_new":0.55,"kl_to_base":0.0,"offpeak_confidence":0.66,"features_json":{"dup_ratio":0.1},"created_at":"2026-03-10T20:00:00+00:00"},
+    {"policy_version":"density-cloud-v1","p_base":0.52,"p_new":0.52,"kl_to_base":0.0,"offpeak_confidence":0.64,"features_json":{"dup_ratio":0.1},"created_at":"2026-03-10T22:00:00+00:00"}
+  ]
+}

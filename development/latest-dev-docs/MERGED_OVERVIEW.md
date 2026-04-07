@@ -1,6 +1,6 @@
 # 合并文档总览
 
-Updated: 2026-03-09 PST
+Updated: 2026-04-06 PST
 
 ## 目录级合并结果
 
@@ -21,11 +21,81 @@ Updated: 2026-03-09 PST
 ## 最近新增
 
 - `development-plans/CURRENT_DEV`：
+  - [2026-04-06 Topology Risk Freeze: Compat Caller Matrix And Rollout Guards](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-06 Atomic Task List: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-06 Repo Closure Plan Aligned With Latest Direction](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-06 Repo Logic Gap Assessment](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-02 Claude Agent High-Fidelity Migration Mapping](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
+- `backend-core`：
+  - [F_PLAN/2026-03-14-frontdoor-content-extraction-cleaning-best-practices.md](./backend-core/F_PLAN/2026-03-14-frontdoor-content-extraction-cleaning-best-practices.md)
+  - [D_TEST/2026-03-14-source-library-frontdoor-cleaning-sample-validation-temp.md](./backend-core/D_TEST/2026-03-14-source-library-frontdoor-cleaning-sample-validation-temp.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/06_atomic-tasklist-item-layering-migration-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/06_atomic-tasklist-item-layering-migration-2026-03-27.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/07_validation-closure-item-layering-migration-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/07_validation-closure-item-layering-migration-2026-03-27.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md)
+  - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/04_site-search-open-source-capability-matrix-and-execution-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/04_site-search-open-source-capability-matrix-and-execution-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/05_search-contract-discovery-service-and-storage-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/05_search-contract-discovery-service-and-storage-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md)
+  - [2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md)
+  - [2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md)
+  - [2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md)
+  - [2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
+  - [2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-03-12-time-semantics-density-merged-plan/01_merged-remediation-and-smart-timestamp-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/01_merged-remediation-and-smart-timestamp-plan-2026-03-12.md)
+  - [2026-03-12-time-semantics-density-merged-plan/02_research-report-density-cloud-overlap-avoid-peak-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/02_research-report-density-cloud-overlap-avoid-peak-2026-03-12.md)
+  - [2026-03-12-time-semantics-density-merged-plan/03_unified-research-and-design-report-density-cloud-overlap-shift-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/03_unified-research-and-design-report-density-cloud-overlap-shift-2026-03-12.md)
+  - [2026-03-12-time-semantics-density-merged-plan/04_backend-interface-change-checklist-density-cloud-overlap-shift-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/04_backend-interface-change-checklist-density-cloud-overlap-shift-2026-03-12.md)
+  - [2026-03-12-time-semantics-density-merged-plan/05_merged-unified-report-from-two-reports-density-cloud-overlap-shift-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/05_merged-unified-report-from-two-reports-density-cloud-overlap-shift-2026-03-12.md)
+  - [2026-03-12-time-semantics-density-merged-plan/06_atomic-tasklist-density-cloud-overlap-shift-implementation-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/06_atomic-tasklist-density-cloud-overlap-shift-implementation-2026-03-12.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md)
+  - [2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md)
+  - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md)
+  - [2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md)
+  - [2026-03-11-source-library-three-lane-architecture/05_agent-dispatch-lane-alignment-and-contract-closure-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/05_agent-dispatch-lane-alignment-and-contract-closure-2026-03-14.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/11_agent-exposed-task-contract-completeness-audit-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/11_agent-exposed-task-contract-completeness-audit-2026-03-14.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/12_search-brief-critic-retry-policy-and-agent-strategy-selection-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/12_search-brief-critic-retry-policy-and-agent-strategy-selection-2026-03-25.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/13_reference-library-search-brief-critic-retry-implementation-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/13_reference-library-search-brief-critic-retry-implementation-2026-03-25.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/14_atomic-tasklist-search-brief-critic-retry-implementation-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/14_atomic-tasklist-search-brief-critic-retry-implementation-2026-03-25.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/15_multi-agent-wave-execution-order-search-brief-critic-retry-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/15_multi-agent-wave-execution-order-search-brief-critic-retry-2026-03-25.md)
+  - [2026-03-12-data-structured-service-modularization/01_terminal-structured-ingest-output-standardization-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/01_terminal-structured-ingest-output-standardization-plan-2026-03-12.md)
+  - [2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md)
+  - [2026-03-12-data-structured-service-modularization/03_discrete-retained-modules-and-preprocess-frontdoor-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/03_discrete-retained-modules-and-preprocess-frontdoor-plan-2026-03-12.md)
+  - [2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md)
+  - [2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
+- `development-plans/CURRENT_DEV`：
   - [2026-03-09-agent-symbolic-batch-search-architecture/README.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/README.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/01_agent-symbolic-batch-search-plan-2026-03-09.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/01_agent-symbolic-batch-search-plan-2026-03-09.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/02_atomic-tasklist-agent-symbolic-batch-search-2026-03-09.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/02_atomic-tasklist-agent-symbolic-batch-search-2026-03-09.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md)
+  - [2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/05_p1-delivery-checklist-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/05_p1-delivery-checklist-2026-03-10.md)
   - [2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
   - [2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
@@ -59,3 +129,14 @@ Updated: 2026-03-09 PST
   - [frontend-modern-api-graph-atomic-execution-2026-03-05.md](./ops-frontend/F_PLAN/frontend-modern-api-graph-atomic-execution-2026-03-05.md)
 
 更多历史新增请进入对应子目录 `INDEX.md`。
+
+## 2026-03-14 迁移补充（最新口径主入口）
+
+- `development-plans/CURRENT_DEV` 时间语义与密度合并计划最新口径主入口：
+  - [2026-03-14-time-semantics-density-merged-plan/README.md](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/README.md)
+  - [2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md)
+- 旧目录兼容迁移说明：
+  - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/README.md)
+- 2026-03-14 最新收敛：
+  - `single_url` 历史实现已被 `url_routing/source_library -> postprocess_frontdoor` 替代。
+  - 当前代码主链不再保留 `single_url.py`、`task_ingest_single_url`、`single_url_*` 参数兼容层。

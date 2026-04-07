@@ -15,10 +15,13 @@ from ..services.ingest_config import get_config as get_ingest_config
 from ..services.resource_pool import (
     classify_site_entry,
     classify_site_entries_batch,
+    discover_search_contract,
     discover_site_entries_from_urls,
     extract_from_documents,
     extract_from_tasks,
+    import_open_source_preset_pack,
     list_urls,
+    list_open_source_preset_packs,
     list_site_entries,
     simplify_site_entries,
     unified_search_by_item,
@@ -166,6 +169,53 @@ class CaptureFromTasksPayload(BaseModel):
     since: str | None = Field(default=None)
     limit: int = Field(default=100, ge=1, le=500)
     async_mode: bool = Field(default=False)
+
+
+class ImportOpenSourcePresetPayload(BaseModel):
+    project_key: str | None = Field(default=None, description="Project identifier")
+    scope: Literal["project", "shared"] = Field(default="project")
+    pack_key: str = Field(..., description="Preset pack key")
+    enabled: bool = Field(default=True)
+    extra_tags: list[str] = Field(default_factory=list)
+
+
+@router.get("/open-source-presets", operation_id="resource_pool_list_open_source_presets")
+def list_open_source_presets_api():
+    return JSONResponse(status_code=200, content=ok({"items": list_open_source_preset_packs()}))
+
+
+@router.post("/import/open-source-presets", operation_id="resource_pool_import_open_source_presets")
+def import_open_source_presets_api(payload: ImportOpenSourcePresetPayload):
+    project_key = None
+    if payload.scope == "project":
+        project_key, error = _get_project_key_or_error(payload.project_key)
+        if error:
+            return error
+    try:
+        result = import_open_source_preset_pack(
+            pack_key=payload.pack_key,
+            scope=payload.scope,
+            project_key=project_key,
+            enabled=payload.enabled,
+            extra_tags=payload.extra_tags,
+        )
+        return JSONResponse(
+            status_code=200,
+            content=ok(
+                {
+                    "pack_key": result.pack_key,
+                    "title": result.title,
+                    "scope": result.scope,
+                    "project_key": result.project_key,
+                    "inserted_or_updated": result.inserted_or_updated,
+                    "count": len(result.inserted_or_updated),
+                }
+            ),
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
 
 
 @router.post("/capture/enable")
@@ -386,6 +436,66 @@ class SimplifySiteEntriesPayload(BaseModel):
     scope: Literal["project", "shared"] = Field(default="project")
     domain: str | None = Field(default=None, description="Optional domain filter")
     dry_run: bool = Field(default=True, description="Preview only; do not delete duplicates")
+
+
+class DiscoverSearchContractPayload(BaseModel):
+    project_key: str | None = Field(default=None, description="Project identifier")
+    scope: Literal["project", "shared"] = Field(default="project", description="write target scope for site entry")
+    site_url: str = Field(..., min_length=1)
+    query_terms: list[str] | str = Field(..., description="Probe query terms")
+    suffixes: list[str] | None = Field(default=None, description="Optional controlled suffix variants")
+    max_pages: int = Field(default=1, ge=1, le=10)
+    probe_timeout: float = Field(default=6.0, ge=1.0, le=30.0)
+    persist: bool = Field(default=True)
+
+
+@router.post("/discover/search-contract", operation_id="resource_pool_discover_search_contract")
+def discover_search_contract_api(payload: DiscoverSearchContractPayload):
+    project_key, error = _get_project_key_or_error(payload.project_key)
+    if error and payload.scope == "project":
+        return error
+    try:
+        result = discover_search_contract(
+            scope=payload.scope,
+            project_key=project_key if payload.scope == "project" else None,
+            site_url=payload.site_url,
+            query_terms=payload.query_terms,
+            suffixes=payload.suffixes,
+            max_pages=payload.max_pages,
+            probe_timeout=payload.probe_timeout,
+            persist=payload.persist,
+        )
+        return JSONResponse(
+            status_code=200,
+            content=ok(
+                {
+                    "site_url": result.site_url,
+                    "domain": result.domain,
+                    "entry_type": result.entry_type,
+                    "templates_tried": result.templates_tried,
+                    "suffixes_tried": result.suffixes_tried,
+                    "best_template": result.best_template,
+                    "best_suffix": result.best_suffix,
+                    "best_score": result.best_score,
+                    "probe_rows": [
+                        {
+                            "template": row.template,
+                            "query_text": row.query_text,
+                            "candidate_count": row.candidate_count,
+                            "selected_count": row.selected_count,
+                            "search_service": row.search_service,
+                            "score": row.score,
+                        }
+                        for row in result.probe_rows
+                    ],
+                    "persisted_entry": result.persisted_entry,
+                }
+            ),
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
+    except Exception as exc:
+        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
 
 
 @router.post("/discover/site-entries", operation_id="resource_pool_discover_site_entries")

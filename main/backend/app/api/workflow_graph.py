@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from importlib import import_module
 from typing import Any
 
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 
 from ..contracts import ErrorCode, error_response, map_exception_to_error, success_response
+from ..services.skill_runtime import invoke_skill
 from ..services.workflow_graph.curated_service import WorkflowGraphObjectMissingError, WorkflowGraphSyncConflictError
+from ..services.workflow_graph.handoff_store import handoff_store
+from ..services.workflow_graph.observability import query_top_failure_reasons
 
 
 router = APIRouter(prefix="/workflow-graph", tags=["workflow-graph"])
@@ -33,149 +35,229 @@ def _error_json(code: ErrorCode, message: str, details: dict[str, Any] | None = 
     )
 
 
-def _load_workflow_graph_services() -> tuple[Any, Any]:
-    module = import_module("app.services.workflow_graph")
-    compiler = getattr(module, "compiler", None)
-    runtime = getattr(module, "runtime", None)
-    if compiler is None or runtime is None:
-        raise RuntimeError("services.workflow_graph must define compiler and runtime")
-    return compiler, runtime
-
-
-def _load_workflow_graph_curated_service() -> Any:
-    module = import_module("app.services.workflow_graph")
-    curated = getattr(module, "curated", None)
-    if curated is None:
-        raise RuntimeError("services.workflow_graph must define curated")
-    return curated
-
-
-def _call_first(target: Any, method_names: tuple[str, ...], *args: Any, **kwargs: Any) -> Any:
-    for name in method_names:
-        method = getattr(target, name, None)
-        if callable(method):
-            return method(*args, **kwargs)
-    raise AttributeError(f"no supported method found: {', '.join(method_names)}")
+def _skill_context(*, operation: str, actor_role: str = "orchestration_runtime") -> dict[str, Any]:
+    return {
+        "actor_role": actor_role,
+        "permissions": [operation],
+        "trace_id": f"workflow-graph.{operation}",
+        "consumer": "workflow_graph.api",
+    }
 
 
 def _invoke_compile(payload: dict[str, Any]) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("compile", "compile_graph"), payload)
+    return invoke_skill(
+        skill_id="workflow_graph.compile",
+        payload=payload,
+        context=_skill_context(operation="workflow_graph.compile"),
+    ).get("result")
 
 
 def _invoke_run(payload: dict[str, Any]) -> Any:
-    _, runtime = _load_workflow_graph_services()
-    return _call_first(runtime, ("run", "run_graph", "start_run"), payload)
+    return invoke_skill(
+        skill_id="workflow_graph.run",
+        payload=payload,
+        context=_skill_context(operation="workflow_graph.run"),
+    ).get("result")
 
 
 def _invoke_get_run(run_id: str) -> Any:
-    _, runtime = _load_workflow_graph_services()
-    return _call_first(runtime, ("get_run", "fetch_run"), run_id)
+    return invoke_skill(
+        skill_id="workflow_graph.get_run",
+        args=(run_id,),
+        context=_skill_context(
+            operation="workflow_graph.read",
+            actor_role="business_capability_wrapper",
+        ),
+    ).get("result")
 
 
 def _invoke_get_run_events(run_id: str) -> Any:
-    _, runtime = _load_workflow_graph_services()
-    return _call_first(runtime, ("get_run_events", "list_run_events", "events"), run_id)
+    return invoke_skill(
+        skill_id="workflow_graph.get_run_events",
+        args=(run_id,),
+        context=_skill_context(
+            operation="workflow_graph.read",
+            actor_role="business_capability_wrapper",
+        ),
+    ).get("result")
 
 
-def _invoke_replay_run(run_id: str) -> Any:
-    _, runtime = _load_workflow_graph_services()
-    return _call_first(runtime, ("replay_run", "replay"), run_id)
+def _invoke_replay_run(run_id: str, replay_mode: str = "events_only") -> Any:
+    return invoke_skill(
+        skill_id="workflow_graph.replay_run",
+        args=(run_id,),
+        kwargs={"replay_mode": replay_mode},
+        context=_skill_context(
+            operation="workflow_graph.read",
+            actor_role="business_capability_wrapper",
+        ),
+    ).get("result")
+
+
+def _invoke_get_run_agent_session(run_id: str) -> Any:
+    return invoke_skill(
+        skill_id="workflow_graph.get_run_agent_session",
+        args=(run_id,),
+        context=_skill_context(
+            operation="workflow_graph.read",
+            actor_role="business_capability_wrapper",
+        ),
+    ).get("result")
 
 
 def _invoke_get_compiled(graph_id: str) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("get_compiled", "get_graph", "fetch_compiled"), graph_id)
+    return invoke_skill(
+        skill_id="workflow_graph.get_compiled",
+        args=(graph_id,),
+        context=_skill_context(
+            operation="workflow_graph.read",
+            actor_role="business_capability_wrapper",
+        ),
+    ).get("result")
 
 
 def _invoke_list_templates() -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("list_templates",))
+    return invoke_skill(
+        skill_id="workflow_graph.template.list",
+        context=_skill_context(operation="workflow_graph.template"),
+    ).get("result")
 
 
 def _invoke_create_template(payload: dict[str, Any]) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("create_template",), payload)
+    return invoke_skill(
+        skill_id="workflow_graph.template.create",
+        payload=payload,
+        context=_skill_context(operation="workflow_graph.template"),
+    ).get("result")
 
 
 def _invoke_get_template(template_id: str) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("get_template",), template_id)
+    return invoke_skill(
+        skill_id="workflow_graph.template.get",
+        args=(template_id,),
+        context=_skill_context(operation="workflow_graph.template"),
+    ).get("result")
 
 
 def _invoke_patch_template(template_id: str, payload: dict[str, Any]) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("patch_template",), template_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.template.patch",
+        args=(template_id, payload),
+        context=_skill_context(operation="workflow_graph.template"),
+    ).get("result")
 
 
 def _invoke_delete_template(template_id: str, payload: dict[str, Any]) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("delete_template",), template_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.template.delete",
+        args=(template_id, payload),
+        context=_skill_context(operation="workflow_graph.template"),
+    ).get("result")
 
 
 def _invoke_list_template_versions(template_id: str) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("list_template_versions",), template_id)
+    return invoke_skill(
+        skill_id="workflow_graph.template.version.list",
+        args=(template_id,),
+        context=_skill_context(operation="workflow_graph.template"),
+    ).get("result")
 
 
 def _invoke_create_template_version(template_id: str, payload: dict[str, Any]) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("create_template_version",), template_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.template.version.create",
+        args=(template_id, payload),
+        context=_skill_context(operation="workflow_graph.template"),
+    ).get("result")
 
 
 def _invoke_get_template_version(template_id: str, version_id: str) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("get_template_version",), template_id, version_id)
+    return invoke_skill(
+        skill_id="workflow_graph.template.version.get",
+        args=(template_id, version_id),
+        context=_skill_context(operation="workflow_graph.template"),
+    ).get("result")
 
 
 def _invoke_activate_template_version(template_id: str, version_id: str, payload: dict[str, Any]) -> Any:
-    compiler, _ = _load_workflow_graph_services()
-    return _call_first(compiler, ("activate_template_version",), template_id, version_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.template.version.activate",
+        args=(template_id, version_id, payload),
+        context=_skill_context(operation="workflow_graph.template"),
+    ).get("result")
 
 
 def _invoke_get_curated_graph(graph_id: str) -> Any:
-    curated = _load_workflow_graph_curated_service()
-    return _call_first(curated, ("get_graph",), graph_id)
+    return invoke_skill(
+        skill_id="workflow_graph.curated.get",
+        args=(graph_id,),
+        context=_skill_context(operation="workflow_graph.curated"),
+    ).get("result")
 
 
 def _invoke_save_curated_draft(graph_id: str, payload: dict[str, Any]) -> Any:
-    curated = _load_workflow_graph_curated_service()
-    return _call_first(curated, ("save_draft",), graph_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.curated.save_draft",
+        args=(graph_id, payload),
+        context=_skill_context(operation="workflow_graph.curated"),
+    ).get("result")
 
 
 def _invoke_submit_curated_draft(graph_id: str, payload: dict[str, Any]) -> Any:
-    curated = _load_workflow_graph_curated_service()
-    return _call_first(curated, ("submit_draft",), graph_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.curated.submit",
+        args=(graph_id, payload),
+        context=_skill_context(operation="workflow_graph.curated"),
+    ).get("result")
 
 
 def _invoke_sync_curated_graph(graph_id: str, payload: dict[str, Any]) -> Any:
-    curated = _load_workflow_graph_curated_service()
-    return _call_first(curated, ("sync_graph",), graph_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.curated.sync",
+        args=(graph_id, payload),
+        context=_skill_context(operation="workflow_graph.curated"),
+    ).get("result")
 
 
 def _invoke_rollback_curated_graph(graph_id: str, payload: dict[str, Any]) -> Any:
-    curated = _load_workflow_graph_curated_service()
-    return _call_first(curated, ("rollback",), graph_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.curated.rollback",
+        args=(graph_id, payload),
+        context=_skill_context(operation="workflow_graph.curated"),
+    ).get("result")
 
 
 def _invoke_list_curated_audits(graph_id: str, limit: int) -> Any:
-    curated = _load_workflow_graph_curated_service()
-    return _call_first(curated, ("list_audits",), graph_id, limit=limit)
+    return invoke_skill(
+        skill_id="workflow_graph.curated.list_audits",
+        args=(graph_id,),
+        kwargs={"limit": limit},
+        context=_skill_context(operation="workflow_graph.curated"),
+    ).get("result")
 
 
 def _invoke_build_evidence_pack(graph_id: str, payload: dict[str, Any]) -> Any:
-    curated = _load_workflow_graph_curated_service()
-    return _call_first(curated, ("build_evidence_pack",), graph_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.curated.evidence_pack",
+        args=(graph_id, payload),
+        context=_skill_context(operation="workflow_graph.curated"),
+    ).get("result")
 
 
 def _invoke_reporting_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
-    curated = _load_workflow_graph_curated_service()
-    return _call_first(curated, ("build_reporting_handoff",), graph_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.curated.handoff.reporting",
+        args=(graph_id, payload),
+        context=_skill_context(operation="workflow_graph.handoff"),
+    ).get("result")
 
 
 def _invoke_writing_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
-    curated = _load_workflow_graph_curated_service()
-    return _call_first(curated, ("build_writing_handoff",), graph_id, payload)
+    return invoke_skill(
+        skill_id="workflow_graph.curated.handoff.writing",
+        args=(graph_id, payload),
+        context=_skill_context(operation="workflow_graph.handoff"),
+    ).get("result")
 
 
 def _ok_workflow_graph(payload: dict[str, Any]) -> dict[str, Any]:
@@ -206,13 +288,17 @@ def _normalize_compile(value: Any) -> dict[str, Any]:
 def _normalize_run(value: Any) -> dict[str, Any]:
     data = _as_dict(value)
     node_statuses = data.get("node_statuses") if isinstance(data.get("node_statuses"), dict) else {}
-    return {
+    normalized = {
         "run_id": data.get("run_id"),
         "status": data.get("status"),
         "node_statuses": node_statuses,
         "nodes": node_statuses,
         "contract_version": "workflow_graph.v2",
     }
+    for field in ("session_id", "current_phase", "root_task_id", "compat_mode"):
+        if field in data:
+            normalized[field] = data.get(field)
+    return normalized
 
 
 def _normalize_run_detail(value: Any) -> dict[str, Any]:
@@ -229,11 +315,14 @@ def _normalize_run_detail(value: Any) -> dict[str, Any]:
 def _normalize_run_events(value: Any) -> dict[str, Any]:
     data = _as_dict(value)
     items = data.get("items") if isinstance(data.get("items"), list) else []
-    return {
+    normalized = {
         "items": items,
         "total": len(items),
         "contract_version": "workflow_graph.v2",
     }
+    if data.get("session_id") is not None:
+        normalized["session_id"] = data.get("session_id")
+    return normalized
 
 
 def _workflow_sync_error_json(exc: Exception, *, fallback_message: str) -> JSONResponse:
@@ -311,6 +400,19 @@ def get_workflow_graph_run_events(run_id: str) -> Any:
         return _error_json(code, message, details)
 
 
+@router.get("/runs/{run_id}/agent-session", response_model=None)
+def get_workflow_graph_run_agent_session(run_id: str) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(_invoke_get_run_agent_session(run_id)))
+    except ValueError as exc:
+        return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
+    except KeyError as exc:
+        return _error_json(ErrorCode.NOT_FOUND, str(exc) or "run agent session not found")
+    except Exception as exc:  # noqa: BLE001
+        code, message, details = map_exception_to_error(exc)
+        return _error_json(code, message, details)
+
+
 @router.get("/compiled/{graph_id}", response_model=None)
 def get_workflow_graph_compiled(graph_id: str) -> Any:
     try:
@@ -325,9 +427,9 @@ def get_workflow_graph_compiled(graph_id: str) -> Any:
 
 
 @router.get("/runs/{run_id}/replay", response_model=None)
-def replay_workflow_graph_run(run_id: str) -> Any:
+def replay_workflow_graph_run(run_id: str, replay_mode: str = "events_only") -> Any:
     try:
-        return _ok_workflow_graph(_normalize_run_detail(_invoke_replay_run(run_id)))
+        return _ok_workflow_graph(_normalize_run_detail(_invoke_replay_run(run_id, replay_mode)))
     except ValueError as exc:
         return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
     except KeyError as exc:
@@ -515,7 +617,10 @@ def build_workflow_graph_evidence_pack(graph_id: str, payload: dict[str, Any] | 
 @router.post("/curated/{graph_id}/handoff/reporting", response_model=None)
 def build_workflow_graph_reporting_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
     try:
-        return _ok_workflow_graph(_as_dict(_invoke_reporting_handoff(graph_id, payload)))
+        handoff_payload = _as_dict(_invoke_reporting_handoff(graph_id, payload))
+        persist = handoff_store.persist(graph_id=graph_id, payload=handoff_payload)
+        handoff_payload["persistence"] = persist
+        return _ok_workflow_graph(handoff_payload)
     except Exception as exc:  # noqa: BLE001
         return _workflow_sync_error_json(exc, fallback_message="failed to build reporting handoff")
 
@@ -523,6 +628,46 @@ def build_workflow_graph_reporting_handoff(graph_id: str, payload: dict[str, Any
 @router.post("/curated/{graph_id}/handoff/writing", response_model=None)
 def build_workflow_graph_writing_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
     try:
-        return _ok_workflow_graph(_as_dict(_invoke_writing_handoff(graph_id, payload)))
+        handoff_payload = _as_dict(_invoke_writing_handoff(graph_id, payload))
+        persist = handoff_store.persist(graph_id=graph_id, payload=handoff_payload)
+        handoff_payload["persistence"] = persist
+        return _ok_workflow_graph(handoff_payload)
     except Exception as exc:  # noqa: BLE001
         return _workflow_sync_error_json(exc, fallback_message="failed to build writing handoff")
+
+
+@router.get("/runs/{run_id}/handoff", response_model=None)
+def list_workflow_graph_run_handoffs(run_id: str, handoff_mode: str | None = None) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(handoff_store.list_handoffs(run_id=run_id, handoff_mode=handoff_mode)))
+    except ValueError as exc:
+        return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
+    except KeyError as exc:
+        return _error_json(ErrorCode.NOT_FOUND, str(exc) or "run not found")
+    except Exception as exc:  # noqa: BLE001
+        code, message, details = map_exception_to_error(exc)
+        return _error_json(code, message, details)
+
+
+@router.get("/runs/{run_id}/handoff/{handoff_id}/replay", response_model=None)
+def replay_workflow_graph_handoff(run_id: str, handoff_id: str) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(handoff_store.replay_handoff(run_id=run_id, handoff_id=handoff_id)))
+    except ValueError as exc:
+        return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
+    except KeyError as exc:
+        return _error_json(ErrorCode.NOT_FOUND, str(exc) or "handoff not found")
+    except Exception as exc:  # noqa: BLE001
+        code, message, details = map_exception_to_error(exc)
+        return _error_json(code, message, details)
+
+
+@router.get("/observability/failure-reasons", response_model=None)
+def get_workflow_graph_failure_reasons(limit: int = 20) -> Any:
+    try:
+        return _ok_workflow_graph(_as_dict(query_top_failure_reasons(limit=limit)))
+    except ValueError as exc:
+        return _error_json(ErrorCode.INVALID_INPUT, str(exc) or "invalid input")
+    except Exception as exc:  # noqa: BLE001
+        code, message, details = map_exception_to_error(exc)
+        return _error_json(code, message, details)

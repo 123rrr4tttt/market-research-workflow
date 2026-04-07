@@ -17,6 +17,7 @@ from ..llm.provider import get_embeddings
 from ..search.es_client import get_es_client
 from ..job_logger import start_job, complete_job, fail_job
 from ..projects import current_project_key
+from ..document_views import get_extracted_data
 
 
 _CHUNK_SIZE = 800
@@ -73,7 +74,7 @@ def _infer_effective_time(document: Document, extracted_data: dict) -> str | Non
 
 
 def _build_vector_contract_payload(document: Document, clean_text: str) -> dict:
-    extracted_data = dict(document.extracted_data or {})
+    extracted_data = get_extracted_data(document)
     payload = {
         "project_key": _as_non_empty_text(extracted_data.get("project_key") or current_project_key()),
         "object_type": _EMBEDDING_OBJECT_TYPE,
@@ -196,8 +197,8 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
                         "source_domain": vector_contract["source_domain"],
                         "effective_time": vector_contract["effective_time"],
                         "keep_for_vectorization": vector_contract["keep_for_vectorization"],
-                        "topic": (chunk.document.extracted_data or {}).get("topic"),
-                        "domain": (chunk.document.extracted_data or {}).get("domain"),
+                        "topic": get_extracted_data(chunk.document).get("topic"),
+                        "domain": get_extracted_data(chunk.document).get("domain"),
                         "document_id": chunk.document.id,
                         "chunk_index": chunk.chunk_index,
                         "state": chunk.document.state,

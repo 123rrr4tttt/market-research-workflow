@@ -82,7 +82,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
   })
 
   return (
-    <div className="content-stack">
+    <div className="content-stack projects-page">
       <section className="panel">
         <div className="panel-header"><h2><CopyPlus size={15} />创建项目</h2></div>
         <div className="form-grid cols-3">

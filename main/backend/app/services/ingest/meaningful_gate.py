@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from ...settings.config import settings
+from .content_cleaner import normalize_content_for_ingest
 from .gate_reason_codes import normalize_reason_code
 
 
@@ -35,70 +36,6 @@ _DEFAULT_LOW_VALUE_PATH_KEYWORDS = ("/search", "/login", "/home", "/showcase", "
 _DEFAULT_SHELL_SIGNATURES = ("window.wiz_progre", "var bodycacheable = true", "self.__next_f", "errorcontainer")
 _URL_CLEAN_RE = re.compile(r"https?://\S+")
 _NON_TEXT_RE = re.compile(r"[^a-zA-Z0-9\u4e00-\u9fff]+")
-_LINE_NOISE_MARKERS = (
-    "skip to content",
-    "accessibility help",
-    "more menu",
-    "watch live",
-    "your account",
-    "privacy policy",
-    "terms of use",
-    "cookies",
-    "sourcemappingurl",
-    "window.__",
-    "window.wiz_",
-    "self.__next_f",
-    "var bodycacheable",
-)
-_NAV_NOISE_WORDS = {
-    "home",
-    "news",
-    "sport",
-    "sports",
-    "business",
-    "tech",
-    "technology",
-    "science",
-    "video",
-    "videos",
-    "live",
-    "menu",
-    "search",
-    "about",
-    "contact",
-    "help",
-    "account",
-    "login",
-    "log",
-    "signin",
-    "sign",
-    "register",
-    "subscribe",
-    "privacy",
-    "policy",
-    "terms",
-    "cookie",
-    "cookies",
-    "settings",
-    "首页",
-    "新闻",
-    "体育",
-    "科技",
-    "视频",
-    "菜单",
-    "搜索",
-    "关于",
-    "联系",
-    "登录",
-    "注册",
-    "隐私",
-    "条款",
-    "设置",
-}
-_NOISE_LINE_PATTERNS = (
-    re.compile(r"^\s*(privacy|terms|cookie|all rights reserved)\b", re.IGNORECASE),
-    re.compile(r"^\s*(sign in|log in|register|subscribe)\b", re.IGNORECASE),
-)
 _JS_TEMPLATE_MARKERS = (
     "__dopostback",
     "__eventtarget",
@@ -206,51 +143,6 @@ def _js_template_hits(lower_text: str) -> int:
     return sum(lower_text.count(marker) for marker in _JS_TEMPLATE_MARKERS)
 
 
-def normalize_content_for_ingest(content: str, *, max_chars: int = 50000) -> str:
-    text = str(content or "").replace("\x00", "").strip()
-    if not text:
-        return ""
-    raw_lines = [line.strip() for line in re.split(r"[\r\n]+", text) if line and line.strip()]
-    if len(raw_lines) <= 1:
-        raw_lines = [line.strip() for line in re.split(r"(?<=[.!?])\s+", text) if line and line.strip()]
-    kept: list[str] = []
-    seen_kept: set[str] = set()
-
-    def _is_noise_line(line: str) -> bool:
-        lower = line.lower()
-        if any(marker in lower for marker in _LINE_NOISE_MARKERS):
-            return True
-        if any(p.search(line) for p in _NOISE_LINE_PATTERNS):
-            return True
-        script_hits = sum(1 for marker in _JS_TEMPLATE_MARKERS if marker in lower)
-        if script_hits >= 2 and len(line) < 240:
-            return True
-        tokens = re.findall(r"[a-zA-Z\u4e00-\u9fff]+", lower)
-        if len(tokens) >= 4:
-            nav_hits = sum(1 for t in tokens if t in _NAV_NOISE_WORDS)
-            if nav_hits / float(len(tokens)) >= 0.6 and len(tokens) <= 24:
-                return True
-        sep_hits = line.count("|") + line.count("›") + line.count("»") + line.count("•")
-        if sep_hits >= 3 and len(tokens) <= 24:
-            return True
-        return False
-
-    for line in raw_lines:
-        if _is_noise_line(line):
-            continue
-        if len(line) < 3:
-            continue
-        key = line.strip().lower()
-        if key in seen_kept:
-            continue
-        seen_kept.add(key)
-        kept.append(line)
-    normalized = "\n".join(kept).strip()
-    if not normalized:
-        normalized = text
-    return normalized[:max_chars]
-
-
 def url_policy_check(uri: str, config: dict[str, Any] | None = None) -> GateDecision:
     cfg = _resolve_gate_config(config)
     parsed = urlparse(str(uri or "").strip())
@@ -300,12 +192,14 @@ def content_quality_check(
     doc_type: str | None,
     extraction_status: dict[str, Any] | str | None = None,
     config: dict[str, Any] | None = None,
+    content_profile: dict[str, Any] | None = None,
 ) -> GateDecision:
     cfg = _resolve_gate_config(config)
     text = str(content or "")
     stripped = normalize_content_for_ingest(text)
     lower = stripped.lower()
     semantic_len = _semantic_text_len(stripped)
+    profile = dict(content_profile or {})
     min_len = max(1, int(cfg["min_semantic_len"]))
     if not cfg["enable_strict_gate"]:
         return GateDecision(
@@ -332,6 +226,48 @@ def content_quality_check(
             reason="content_api_status_wrapper",
             quality_score=0.0,
             diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len},
+        )
+
+    page_family = str(profile.get("page_family") or "").strip().lower()
+    main_text_ratio = float(profile.get("main_text_ratio") or 0.0)
+    js_profile_hits = int(profile.get("js_template_hits") or 0)
+    shell_marker_hits = int(profile.get("shell_marker_hits") or 0)
+    duplicate_ratio = float(profile.get("duplicate_line_ratio") or 0.0)
+
+    if page_family == "support" and shell_marker_hits >= 3 and main_text_ratio < 0.55:
+        return GateDecision(
+            accepted=False,
+            blocked=True,
+            reason="content_support_shell",
+            quality_score=18.0,
+            diagnostics={
+                "uri": uri,
+                "doc_type": doc_type,
+                "semantic_len": semantic_len,
+                "page_family": page_family,
+                "main_text_ratio": main_text_ratio,
+                "shell_marker_hits": shell_marker_hits,
+            },
+        )
+    if bool(profile.get("shell_heavy")) and (
+        main_text_ratio < 0.35
+        or duplicate_ratio >= 0.35
+        or (shell_marker_hits >= 4 and semantic_len < max(2400, min_len * 5))
+    ):
+        return GateDecision(
+            accepted=False,
+            blocked=True,
+            reason="content_shell_heavy_after_extraction",
+            quality_score=16.0,
+            diagnostics={
+                "uri": uri,
+                "doc_type": doc_type,
+                "semantic_len": semantic_len,
+                "page_family": page_family or "unknown",
+                "main_text_ratio": main_text_ratio,
+                "shell_marker_hits": shell_marker_hits,
+                "duplicate_line_ratio": duplicate_ratio,
+            },
         )
 
     matched_sig = next((sig for sig in cfg["shell_signatures"] if sig and sig in lower), None)
@@ -383,7 +319,8 @@ def content_quality_check(
         )
 
     js_hits = _js_template_hits(lower)
-    if js_hits >= 6 and semantic_len < max(1600, min_len * 3):
+    js_hits = max(js_hits, js_profile_hits)
+    if js_hits >= 5 and semantic_len < max(1600, min_len * 3):
         return GateDecision(
             accepted=False,
             blocked=True,
@@ -440,12 +377,27 @@ def content_quality_check(
         )
 
     score = min(100.0, max(0.0, 70.0 + min(30.0, (semantic_len - min_len) / 20.0)))
+    if main_text_ratio:
+        score = min(100.0, score + min(8.0, main_text_ratio * 10.0))
+    score = max(0.0, score - min(12.0, shell_marker_hits * 1.5))
+    score = max(0.0, score - min(10.0, duplicate_ratio * 20.0))
+    if bool(profile.get("readerable")):
+        score = min(100.0, score + 4.0)
     return GateDecision(
         accepted=True,
         blocked=False,
         reason="ok",
         quality_score=round(score, 2),
-        diagnostics={"uri": uri, "doc_type": doc_type, "semantic_len": semantic_len, "min_semantic_len": min_len},
+        diagnostics={
+            "uri": uri,
+            "doc_type": doc_type,
+            "semantic_len": semantic_len,
+            "min_semantic_len": min_len,
+            "page_family": page_family or "unknown",
+            "main_text_ratio": main_text_ratio,
+            "shell_marker_hits": shell_marker_hits,
+            "duplicate_line_ratio": duplicate_ratio,
+        },
     )
 
 

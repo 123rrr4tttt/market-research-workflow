@@ -6,12 +6,18 @@ Scope: normalize current production-intended ingest workflows from entry API to 
 
 ## 1. Workflow Catalog (Current Standard)
 
-### WF-1: `single_url` standard path
+Status note (2026-03-14 PDT):
 
-- Entry:
+- Historical `single_url.py` has been physically removed.
+- Current single-URL ingest standard is `url_routing/source_library -> postprocess_frontdoor`.
+- Mentions of `single_url` below are retained only as historical context for the 2026-03-02 snapshot.
+
+### WF-1: historical `single_url` standard path
+
+- Historical entry:
   - `POST /api/v1/ingest/url/single`
   - async task: `task_ingest_single_url`
-- Core service:
+- Historical core service:
   - `app/services/ingest/single_url.py::ingest_single_url`
 - Standard stages:
   1. URL normalization + validity guard
@@ -25,6 +31,26 @@ Scope: normalize current production-intended ingest workflows from entry API to 
   - `inserted`, `skipped`, `document_id`, `quality_score`
   - `degradation_flags`, `handler_allocation`, `page_gate`
 
+### WF-1R: `url_routing` current replacement path
+
+- Entry:
+  - `POST /api/v1/ingest/url/single`
+  - async task: `task_ingest_url_via_source_library`
+- Core services:
+  - `app/services/ingest/url_pool.py::ingest_url_via_source_library_frontdoor`
+  - `app/services/source_library/resolver.py::run_item_with_url_routing`
+  - `app/services/ingest/postprocess_frontdoor.py`
+- Standard stages:
+  1. URL normalization + route hint assembly
+  2. source-library URL execution / clean record generation
+  3. frontdoor ingress envelope build
+  4. postprocess frontdoor normalization / structured path
+  5. writer execution
+- Output contract (business):
+  - `inserted`, `skipped`, `queued`
+  - `single_write_workflow = source_library_frontdoor | front_door_url_routing | url_routing`
+  - `frontdoor_ingress`, `postprocess_frontdoor`
+
 ### WF-2: `url_pool` site-first standard path
 
 - Entry:
@@ -35,7 +61,7 @@ Scope: normalize current production-intended ingest workflows from entry API to 
 - Standard stages:
   1. normalize pool/list URLs
   2. build site-first targets (`domain_root/search_template/sitemap/rss` seeds first, detail later)
-  3. each target reuses WF-1 (`ingest_single_url`)
+  3. each target reuses WF-1R (`ingest_url_via_source_library_frontdoor`)
   4. attach `url_pool_context` back to inserted docs
   5. aggregate counters + debug traces
 - Output contract (business):
@@ -114,7 +140,7 @@ Scope: normalize current production-intended ingest workflows from entry API to 
 
 ### Automated tests (latest local pass)
 
-- `tests/unit/test_single_url_ingest_unittest.py`: passed
+- `tests/core_business/test_ingest_core_contract.py`: passed
 - `tests/core_business/test_ingest_core_contract.py`: passed
 
 ### Runtime checks (recent)
@@ -173,4 +199,3 @@ Scope: normalize current production-intended ingest workflows from entry API to 
   - reject if binary signatures hit (`%PDF-1.` without successful parsed text extraction).
 7. Add domain/path denylist for low-value endpoints:
   - examples: `/search`, `/login`, `/home`, `/showcase`, `/topics/*`, `/stargazers` (unless parser explicitly supports target value).
-

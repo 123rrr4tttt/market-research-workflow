@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from dataclasses import replace
 from math import ceil
 from typing import Any
@@ -10,6 +12,7 @@ from .adapters.search_policy import SearchPolicyAdapter
 from .adapters.source_library import SourceLibraryAdapter, to_source_library_response
 from .adapters.url_pool import UrlPoolAdapter
 from .adapters.crawler_scrapy import CrawlerScrapyAdapter
+from ..agent_batch.task_contract import parse_source_library_runtime_params
 
 
 _ADAPTERS = {
@@ -21,6 +24,7 @@ _ADAPTERS = {
 }
 
 _AUTO_BATCH_CHANNELS = {"search.market", "search.policy"}
+_DEFAULT_AUTO_BATCH_PARALLELISM = 1
 
 _SKILL_REGISTRY: dict[str, Any] = {}
 
@@ -107,20 +111,9 @@ def run_collect(request: CollectRequest) -> CollectResult:
     # Workflow boundary path: reuse the same batching rules, but delegate each
     # execution to WorkflowRoutingAdapter. Return types remain CollectResult.
     wr = WorkflowRoutingAdapter()
-    if _should_auto_batch(request):
-        term_batches = _split_query_terms(request.query_terms)
-        if len(term_batches) > 1:
-            per_batch_limit = max(10, int(ceil(max(1, int(request.limit or 20)) / len(term_batches))))
-            batch_results: list[tuple[list[str], CollectResult]] = []
-            for terms in term_batches:
-                sub = replace(
-                    request,
-                    query_terms=terms,
-                    limit=per_batch_limit,
-                    source_context={**(request.source_context or {}), "auto_batched_child": True},
-                )
-                batch_results.append((terms, wr.run(sub)))
-            return _merge_collect_results(request, batch_results)
+    batch_result = _run_auto_batch(request, wr.run)
+    if batch_result is not None:
+        return batch_result
 
     # No auto-batch; single-run through workflow boundary.
     return wr.run(request)
@@ -153,11 +146,14 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
     provider_jobs_seen: set[str] = set()
     attempts_total = 0
     has_attempt_count = False
+    batches_failed = 0
     for terms, cr in batch_results:
         out.inserted += int(cr.inserted or 0)
         out.updated += int(cr.updated or 0)
         out.skipped += int(cr.skipped or 0)
         out.errors.extend(cr.errors or [])
+        if str(cr.status or "").lower() == "failed":
+            batches_failed += 1
         raw = dict((cr.meta or {}).get("raw") or {})
         batch_meta: dict[str, Any] = {"query_terms": terms, "result": raw}
         if cr.provider_job_id:
@@ -189,6 +185,8 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
         "auto_batched": True,
         "batches_total": len(batch_results),
         "batches_completed": len(batch_results),
+        "batches_failed": batches_failed,
+        "batches_succeeded": max(0, len(batch_results) - batches_failed),
         "batch_results": raw_batches,
     }
     if merged_links:
@@ -205,6 +203,8 @@ def _merge_collect_results(parent_request: CollectRequest, batch_results: list[t
         "raw": raw_merged,
         "auto_batched": True,
         "batches_total": len(batch_results),
+        "batches_failed": batches_failed,
+        "batches_succeeded": max(0, len(batch_results) - batches_failed),
         "query_term_batches": [terms for terms, _ in batch_results],
     }
     # Adapter-specific summary stays same; display_meta builder will fill standard stats.
@@ -231,22 +231,123 @@ def _run_collect_no_batch(request: CollectRequest) -> CollectResult:
 
 
 def _maybe_run_auto_batched(request: CollectRequest) -> CollectResult | None:
+    return _run_auto_batch(request, _run_collect_no_batch)
+
+
+def _run_auto_batch(
+    request: CollectRequest,
+    runner: Any,
+) -> CollectResult | None:
     if not _should_auto_batch(request):
         return None
     term_batches = _split_query_terms(request.query_terms)
     if len(term_batches) <= 1:
         return None
     per_batch_limit = max(10, int(ceil(max(1, int(request.limit or 20)) / len(term_batches))))
-    batch_results: list[tuple[list[str], CollectResult]] = []
-    for terms in term_batches:
-        sub = replace(
-            request,
-            query_terms=terms,
-            limit=per_batch_limit,
-            source_context={**(request.source_context or {}), "auto_batched_child": True},
+    fail_fast = _resolve_auto_batch_fail_fast(request)
+    max_workers = min(len(term_batches), _resolve_auto_batch_parallelism(request))
+    batch_results = _execute_auto_batch(request, term_batches, per_batch_limit, runner, max_workers=max_workers, fail_fast=fail_fast)
+    merged = _merge_collect_results(request, batch_results)
+    merged.meta = {
+        **(merged.meta or {}),
+        "batch_parallelism": max_workers,
+        "batch_parallelism_requested": _resolve_auto_batch_parallelism(request),
+        "batch_fail_fast": fail_fast,
+    }
+    raw_meta = dict((merged.meta or {}).get("raw") or {})
+    raw_meta.update(
+        {
+            "batch_parallelism": max_workers,
+            "batch_parallelism_requested": _resolve_auto_batch_parallelism(request),
+            "batch_fail_fast": fail_fast,
+        }
+    )
+    merged.meta["raw"] = raw_meta
+    return merged
+
+
+def _execute_auto_batch(
+    request: CollectRequest,
+    term_batches: list[list[str]],
+    per_batch_limit: int,
+    runner: Any,
+    *,
+    max_workers: int,
+    fail_fast: bool,
+) -> list[tuple[list[str], CollectResult]]:
+    indexed_results: list[tuple[int, list[str], CollectResult]] = []
+    if max_workers <= 1:
+        for idx, terms in enumerate(term_batches):
+            indexed_results.append((idx, terms, _run_single_auto_batch(request, terms, per_batch_limit, runner, fail_fast=fail_fast)))
+        return [(terms, result) for idx, terms, result in sorted(indexed_results, key=lambda item: item[0])]
+
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="collect-auto-batch") as executor:
+        future_map = {
+            executor.submit(copy_context().run, _run_single_auto_batch, request, terms, per_batch_limit, runner, fail_fast): (idx, terms)
+            for idx, terms in enumerate(term_batches)
+        }
+        for future in as_completed(future_map):
+            idx, terms = future_map[future]
+            indexed_results.append((idx, terms, future.result()))
+    return [(terms, result) for idx, terms, result in sorted(indexed_results, key=lambda item: item[0])]
+
+
+def _run_single_auto_batch(
+    request: CollectRequest,
+    terms: list[str],
+    per_batch_limit: int,
+    runner: Any,
+    fail_fast: bool = False,
+) -> CollectResult:
+    sub = replace(
+        request,
+        query_terms=terms,
+        limit=per_batch_limit,
+        source_context={**(request.source_context or {}), "auto_batched_child": True},
+    )
+    try:
+        return runner(sub)
+    except Exception as exc:
+        if fail_fast:
+            raise
+        return CollectResult(
+            channel=request.channel,
+            status="failed",
+            errors=[
+                {
+                    "code": "auto_batch_execution_failed",
+                    "message": str(exc) or exc.__class__.__name__,
+                    "query_terms": list(terms),
+                }
+            ],
+            meta={
+                "raw": {
+                    "auto_batched": True,
+                    "query_terms": list(terms),
+                    "exception_type": exc.__class__.__name__,
+                    "failed": True,
+                }
+            },
         )
-        batch_results.append((terms, _run_collect_no_batch(sub)))
-    return _merge_collect_results(request, batch_results)
+
+
+def _resolve_auto_batch_parallelism(request: CollectRequest) -> int:
+    options = request.options if isinstance(request.options, dict) else {}
+    source_context = request.source_context if isinstance(request.source_context, dict) else {}
+    raw = options.get("batch_parallelism", source_context.get("batch_parallelism", _DEFAULT_AUTO_BATCH_PARALLELISM))
+    try:
+        return max(1, int(raw))
+    except Exception:
+        return _DEFAULT_AUTO_BATCH_PARALLELISM
+
+
+def _resolve_auto_batch_fail_fast(request: CollectRequest) -> bool:
+    options = request.options if isinstance(request.options, dict) else {}
+    source_context = request.source_context if isinstance(request.source_context, dict) else {}
+    raw = options.get("batch_fail_fast", source_context.get("batch_fail_fast", False))
+    if isinstance(raw, bool):
+        return raw
+    return str(raw or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def normalize_query_terms(value: Any) -> list[str]:
@@ -256,14 +357,6 @@ def normalize_query_terms(value: Any) -> list[str]:
         return [str(x).strip() for x in value if str(x).strip()]
     s = str(value).strip()
     return [s] if s else []
-
-
-def _first_nonempty_terms(*values: Any) -> list[str]:
-    for value in values:
-        terms = normalize_query_terms(value)
-        if terms:
-            return terms
-    return []
 
 
 def normalize_urls(value: Any) -> list[str]:
@@ -323,26 +416,20 @@ def collect_request_from_policy_api(*, query_terms: list[str], max_items: int, p
 
 
 def collect_request_from_source_library_api(*, item_key: str, project_key: str | None, override_params: dict | None = None) -> CollectRequest:
-    ov = dict(override_params or {})
+    parsed = parse_source_library_runtime_params(override_params)
     return CollectRequest(
         flow=FLOW_SOURCE_COLLECT,
         channel="source_library",
         project_key=project_key,
         item_key=str(item_key or "").strip() or None,
-        query_terms=_first_nonempty_terms(
-            ov.get("query_terms"),
-            ov.get("keywords"),
-            ov.get("search_keywords"),
-            ov.get("base_keywords"),
-            ov.get("topic_keywords"),
-        ),
-        urls=normalize_urls(ov.get("urls")),
-        limit=normalize_limit(ov.get("limit") or ov.get("max_items"), None),
-        provider=normalize_provider(ov.get("provider")),
-        language=normalize_language(ov.get("language")),
-        scope=(str(ov.get("scope")).strip() if ov.get("scope") is not None else None),
-        platforms=ov.get("platforms") if isinstance(ov.get("platforms"), list) else None,
-        options={"override_params": ov},
+        query_terms=list(parsed.get("query_terms") or []),
+        urls=list(parsed.get("urls") or []),
+        limit=parsed.get("limit"),
+        provider=parsed.get("provider"),
+        language=parsed.get("language"),
+        scope=parsed.get("scope"),
+        platforms=parsed.get("platforms"),
+        options={"override_params": dict(parsed.get("override_params") or {})},
         source_context={"summary": f"执行来源项 {item_key}"},
     )
 

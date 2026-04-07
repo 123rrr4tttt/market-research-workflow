@@ -2,6 +2,7 @@ import axios from 'axios'
 import type { ApiEnvelope } from '../types'
 
 const STORAGE_KEY = 'market_project_key'
+export const CODEX_AUTH_REQUIRED_EVENT = 'codex-auth-required'
 
 export function normalizeProjectKey(raw: string) {
   return (
@@ -27,6 +28,7 @@ export function setProjectKey(projectKey: string) {
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
   timeout: 30000,
+  withCredentials: true,
 })
 
 export type ApiClientErrorShape = {
@@ -83,6 +85,29 @@ apiClient.interceptors.request.use((config) => {
   config.url = isAbsolute ? url.toString() : `${url.pathname}${url.search}${url.hash}`
   return config
 })
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    try {
+      const status = Number(error?.response?.status || 0)
+      const payload = error?.response?.data
+      const details = payload?.error?.details
+      const category = String(details?.category || '')
+      const reasonCode = String(details?.reason_code || '')
+      if (status === 401 && category === 'codex_auth') {
+        window.dispatchEvent(
+          new CustomEvent(CODEX_AUTH_REQUIRED_EVENT, {
+            detail: { reasonCode: reasonCode || 'codex_auth_required' },
+          }),
+        )
+      }
+    } catch {
+      // ignore interceptor side-effect errors
+    }
+    return Promise.reject(error)
+  },
+)
 
 export function unwrapEnvelope<T>(payload: ApiEnvelope<T> | T): T {
   if (payload && typeof payload === 'object' && 'status' in payload && 'data' in payload) {

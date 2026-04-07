@@ -68,12 +68,20 @@ class Settings(BaseSettings):
     celery_max_tasks_per_child: int = Field(default=100)
     celery_max_memory_per_child: int = Field(default=500000)
     celery_queues: str = Field(default="celery")
+    agent_batch_lane_main_queue: str = Field(default="celery")
+    agent_batch_lane_subagent_queue: str = Field(default="celery")
+    agent_batch_lane_system_queue: str = Field(default="celery")
+    skill_loop_guard_enabled: bool = Field(default=True)
+    skill_loop_guard_threshold: int = Field(default=10)
+    skill_loop_guard_ttl_seconds: int = Field(default=600)
+    agent_batch_approval_ttl_seconds: int = Field(default=900)
     graph_structured_async_dispatch_workers: int = Field(default=4)
     graph_node_projection_write_mode: str = Field(default="shadow")  # off | shadow | on
     graph_node_projection_read_mode: str = Field(default="a_only")  # a_only | b_canary | b_primary
     graph_node_projection_canary_projects: str = Field(default="demo_proj")
     ingest_frontdoor_rollout_mode: str = Field(default="on")  # on | off | canary | passthrough
     ingest_frontdoor_canary_projects: str = Field(default="demo_proj")
+    url_batch_path_default_mode: str = Field(default="batch_runtime_targets")  # legacy_per_url | batch_runtime_targets
     ingest_enable_strict_gate: bool = Field(default=False)
     ingest_low_value_domains: str = Field(default="news.google.com,x.com,actiontoaction.ai")
     ingest_low_value_path_keywords: str = Field(default="/search,/login,/home,/showcase,/topics/,/stargazers,/sitemap")
@@ -84,6 +92,38 @@ class Settings(BaseSettings):
     llm_report_auto_source_enabled: bool = Field(default=True)
     llm_report_auto_source_target_count: int = Field(default=6)
     workflow_graph_db_store_enabled: bool = Field(default=True)
+    workflow_graph_db_store_fail_closed: bool = Field(default=True)
+    agent_session_db_store_enabled: bool = Field(default=True)
+    agent_session_db_store_fail_closed: bool = Field(default=False)
+    agent_session_memory_token_threshold: int = Field(default=4000)
+    agent_session_memory_tool_threshold: int = Field(default=12)
+    agent_session_memory_event_threshold: int = Field(default=16)
+    codex_auth_enabled: bool = Field(default=False)
+    codex_auth_tokens: str = Field(default="")
+    codex_auth_protected_prefixes: str = Field(
+        default="/api/v1/agent-batch,/api/v1/agent-sessions,/api/v1/agent-approvals,/api/v1/workflow-graph,/api/v1/skills"
+    )
+    codex_oauth_enabled: bool = Field(default=False)
+    codex_oauth_authorize_url: str = Field(default="")
+    codex_oauth_token_url: str = Field(default="")
+    codex_oauth_client_id: str = Field(default="app_EMoamEEZ73f0CkXaXp7hrann")
+    codex_oauth_client_secret: str = Field(default="")
+    codex_oauth_scope: str = Field(
+        default="openid profile email offline_access api.connectors.read api.connectors.invoke"
+    )
+    codex_oauth_redirect_uri: str = Field(default="http://localhost:8000/api/v1/codex-auth/callback")
+    codex_oauth_frontend_success_url: str = Field(default="/")
+    codex_oauth_frontend_error_url: str = Field(default="/")
+    codex_oauth_cookie_name: str = Field(default="codex_session")
+    codex_oauth_cookie_secure: bool = Field(default=False)
+    codex_oauth_state_ttl_seconds: int = Field(default=600)
+    codex_oauth_provider: str = Field(default="openai")  # openai | custom
+    codex_oauth_originator: str = Field(default="codex_cli_rs")
+    codex_oauth_token_sink_enabled: bool = Field(default=True)
+    codex_oauth_token_sink_path: str = Field(default="~/.codex/auth_openai.json")
+    codex_oauth_token_sink_profile: str = Field(default="default")
+    codex_cli_auth_path: str = Field(default="~/.codex/auth.json")
+    codex_cli_install_command: str = Field(default="npm i -g @openai/codex")
 
     # LLM providers
     # Allowed values now include: openai | azure | ollama | litellm | local

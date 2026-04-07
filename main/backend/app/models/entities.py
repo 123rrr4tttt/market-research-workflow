@@ -281,6 +281,8 @@ class SharedSourceLibraryItem(BigIDMixin, Base):
     params = Column(JSONB, nullable=True)
     tags = Column(JSONB, nullable=True)
     schedule = Column(String(128), nullable=True)
+    item_type = Column(String(32), nullable=False, server_default="user_defined")
+    managed_by = Column(String(32), nullable=False, server_default="user")
     extends_item_key = Column(String(128), nullable=True)
     enabled = Column(Boolean, nullable=False, server_default=expression.true())
     extra = Column(JSONB, nullable=True)
@@ -329,6 +331,8 @@ class SourceLibraryItem(BigIDMixin, Base):
     params = Column(JSONB, nullable=True)
     tags = Column(JSONB, nullable=True)
     schedule = Column(String(128), nullable=True)
+    item_type = Column(String(32), nullable=False, server_default="user_defined")
+    managed_by = Column(String(32), nullable=False, server_default="user")
     extends_item_key = Column(String(128), nullable=True)
     enabled = Column(Boolean, nullable=False, server_default=expression.true())
     extra = Column(JSONB, nullable=True)
@@ -680,3 +684,206 @@ class WorkflowGraphEvent(BigIDMixin, Base):
     node_id = Column(String(128), nullable=True)
     payload = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
     ts = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class AgentSession(BigIDMixin, Base):
+    """Claude-style agent session ledger persisted in public schema."""
+
+    __tablename__ = "agent_sessions"
+    __table_args__ = (
+        UniqueConstraint("session_id", name="uq_agent_sessions_session_id"),
+        {"schema": "public"},
+    )
+
+    session_id = Column(String(64), nullable=False, unique=True)
+    source = Column(String(64), nullable=False, server_default="user")
+    project_key = Column(String(128), nullable=True, index=True)
+    entrypoint_type = Column(String(64), nullable=False, server_default="chat")
+    goal = Column(Text, nullable=False)
+    status = Column(String(16), nullable=False, server_default="pending")
+    current_phase = Column(String(32), nullable=False, server_default="research")
+    compat_mode = Column(Boolean, nullable=False, server_default=expression.false())
+    compat_job_id = Column(String(64), nullable=True, index=True)
+    logical_task_list_key = Column(String(128), nullable=True)
+    root_task_id = Column(String(64), nullable=True)
+    metadata_json = Column("metadata", JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    final_summary = Column(Text, nullable=True)
+    final_result = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AgentTask(BigIDMixin, Base):
+    """Session task bus row modelled after Claude's task ledger semantics."""
+
+    __tablename__ = "agent_tasks"
+    __table_args__ = (
+        UniqueConstraint("task_id", name="uq_agent_tasks_task_id"),
+        {"schema": "public"},
+    )
+
+    task_id = Column(String(64), nullable=False, unique=True)
+    session_id = Column(String(64), nullable=False, index=True)
+    parent_task_id = Column(String(64), nullable=True, index=True)
+    subject = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    task_type = Column(String(64), nullable=False)
+    phase = Column(String(32), nullable=False, server_default="research")
+    status = Column(String(16), nullable=False, server_default="pending")
+    execution_mode = Column(String(32), nullable=False, server_default="worker")
+    owner = Column(String(128), nullable=True)
+    blocked_by = Column(JSONB, nullable=False, server_default=expression.text("'[]'::jsonb"))
+    blocks = Column(JSONB, nullable=False, server_default=expression.text("'[]'::jsonb"))
+    priority = Column(Integer, nullable=False, server_default="5")
+    write_set = Column(JSONB, nullable=False, server_default=expression.text("'[]'::jsonb"))
+    read_set = Column(JSONB, nullable=False, server_default=expression.text("'[]'::jsonb"))
+    task_spec = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    metadata_json = Column("metadata", JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    result_summary = Column(Text, nullable=True)
+    result_payload = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    tool_use_count = Column(Integer, nullable=False, server_default="0")
+    token_usage = Column(Integer, nullable=False, server_default="0")
+    last_activity = Column(Text, nullable=True)
+    recent_activities = Column(JSONB, nullable=False, server_default=expression.text("'[]'::jsonb"))
+    summary_label = Column(String(255), nullable=True)
+    lease_until = Column(DateTime(timezone=True), nullable=True)
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AgentMessage(BigIDMixin, Base):
+    """Session transcript rows for coordinator/worker/system/user messages."""
+
+    __tablename__ = "agent_messages"
+    __table_args__ = (
+        {"schema": "public"},
+    )
+
+    session_id = Column(String(64), nullable=False, index=True)
+    task_id = Column(String(64), nullable=True, index=True)
+    role = Column(String(32), nullable=False)
+    actor = Column(String(128), nullable=True)
+    content = Column(Text, nullable=False)
+    metadata_json = Column("metadata", JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class AgentArtifact(BigIDMixin, Base):
+    """Session artifacts including memory.md and scratchpad.md."""
+
+    __tablename__ = "agent_artifacts"
+    __table_args__ = (
+        UniqueConstraint("artifact_id", name="uq_agent_artifacts_artifact_id"),
+        {"schema": "public"},
+    )
+
+    artifact_id = Column(String(64), nullable=False, unique=True)
+    session_id = Column(String(64), nullable=False, index=True)
+    task_id = Column(String(64), nullable=True, index=True)
+    artifact_type = Column(String(64), nullable=False)
+    name = Column(String(255), nullable=False)
+    mime_type = Column(String(128), nullable=True)
+    content_text = Column(Text, nullable=True)
+    content_json = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    metadata_json = Column("metadata", JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AgentEvent(BigIDMixin, Base):
+    """Append-only session events used for watch/panel feeds."""
+
+    __tablename__ = "agent_events"
+    __table_args__ = (
+        UniqueConstraint("session_id", "seq", name="uq_agent_events_session_seq"),
+        {"schema": "public"},
+    )
+
+    session_id = Column(String(64), nullable=False, index=True)
+    seq = Column(Integer, nullable=False)
+    event_type = Column(String(64), nullable=False)
+    task_id = Column(String(64), nullable=True, index=True)
+    payload = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    ts = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class AgentApproval(BigIDMixin, Base):
+    """Persisted approval binding audit trail for agent actions."""
+
+    __tablename__ = "agent_approvals"
+    __table_args__ = (
+        UniqueConstraint("approval_id", name="uq_agent_approvals_approval_id"),
+        {"schema": "public"},
+    )
+
+    approval_id = Column(String(128), nullable=False, unique=True)
+    binding_hash = Column(String(128), nullable=False, index=True)
+    binding_payload = Column(JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    requester_session_id = Column(String(64), nullable=True, index=True)
+    requester_task_id = Column(String(64), nullable=True, index=True)
+    requester_actor = Column(String(64), nullable=False, server_default="unknown")
+    approved_by = Column(String(128), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(16), nullable=False, server_default="pending")
+    audit_log = Column(JSONB, nullable=False, server_default=expression.text("'[]'::jsonb"))
+    metadata_json = Column("metadata", JSONB, nullable=False, server_default=expression.text("'{}'::jsonb"))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PromptTimePolicyDecisionLog(BigIDMixin, Base):
+    """Prompt time density policy decision trace in public schema."""
+
+    __tablename__ = "prompt_time_policy_decision_logs"
+    __table_args__ = (
+        {"schema": "public"},
+    )
+
+    request_id = Column(String(64), nullable=False, index=True)
+    project_key = Column(String(64), nullable=True, index=True)
+    source_domain = Column(String(255), nullable=False)
+    noun_group_id = Column(String(255), nullable=False, index=True)
+    window = Column(String(16), nullable=False)
+    chosen_window = Column(String(16), nullable=False)
+    is_chosen = Column(Boolean, nullable=False, server_default=expression.false())
+    vector_overlap = Column(Numeric(8, 6), nullable=False, server_default="0")
+    shift_signal = Column(Numeric(10, 6), nullable=False, server_default="0")
+    p_base = Column(Numeric(10, 6), nullable=False, server_default="0")
+    p_new = Column(Numeric(10, 6), nullable=False, server_default="0")
+    kl_to_base = Column(Numeric(10, 6), nullable=False, server_default="0")
+    offpeak_confidence = Column(Numeric(8, 6), nullable=False, server_default="0")
+    policy_version = Column(String(64), nullable=False, server_default="density-cloud-v1")
+    shift_signal_breakdown = Column(JSONB, nullable=True)
+    features_json = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class PromptTimeWindowFeedback(BigIDMixin, Base):
+    """Observed feedback for prompt time window decisions."""
+
+    __tablename__ = "prompt_time_window_feedback"
+    __table_args__ = (
+        {"schema": "public"},
+    )
+
+    request_id = Column(String(64), nullable=False, index=True)
+    source_domain = Column(String(255), nullable=False)
+    noun_group_id = Column(String(255), nullable=False, index=True)
+    window = Column(String(16), nullable=False)
+    observed_reward = Column(Numeric(10, 6), nullable=True)
+    duplicate_rate = Column(Numeric(10, 6), nullable=True)
+    fail_rate = Column(Numeric(10, 6), nullable=True)
+    feedback_json = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

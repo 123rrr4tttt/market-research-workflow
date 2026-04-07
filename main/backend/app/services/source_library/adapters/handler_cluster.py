@@ -29,6 +29,9 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
     from ...resource_pool import unified_search_by_item_payload
 
     merged_params = dict(params or {})
+    terminal_output_only = bool(merged_params.get("source_library_terminal_output_only")) or str(
+        merged_params.get("source_library_execution_layer") or ""
+    ).strip().lower() == "terminal_output_only"
     item_key = str(merged_params.pop("_item_key", "") or "").strip()
     item_params = {k: v for k, v in merged_params.items() if not str(k).startswith("_")}
     item = {
@@ -70,7 +73,7 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
                 probe_timeout=float(item_params.get("probe_timeout") or 10.0),
                 sitemap_max_depth=sitemap_max_depth,
                 sitemap_max_sitemaps=sitemap_max_sitemaps,
-                auto_ingest=bool(item_params.get("auto_ingest", True)),
+                auto_ingest=False if terminal_output_only else bool(item_params.get("auto_ingest", True)),
                 ingest_limit=batch_ingest_limit,
                 enable_extraction=bool(item_params.get("enable_extraction", True)),
                 allow_term_fallback=bool(item_params.get("allow_term_fallback", False)),
@@ -114,6 +117,8 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
         w = us.written or {}
         written_urls_new += int(w.get("urls_new") or 0)
         written_urls_skipped += int(w.get("urls_skipped") or 0)
+        if terminal_output_only:
+            continue
         ir = us.ingest_result or {}
         ingest_inserted += int(ir.get("inserted") or 0)
         ingest_updated += int(ir.get("updated") or 0)
@@ -134,16 +139,31 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
                     continue
                 rejection_breakdown_total[reason] = int(rejection_breakdown_total.get(reason) or 0) + count
 
-    inserted_total = ingest_inserted or written_urls_new
-    updated_total = ingest_updated
-    skipped_total = ingest_skipped or written_urls_skipped
-    if inserted_valid_total <= 0:
-        inserted_valid_total = inserted_total
+    records = [
+        {
+            "record_id": f"candidate:{idx}:{url}",
+            "url": url,
+            "title": None,
+            "content_text": None,
+            "summary": None,
+            "published_at": None,
+            "author": None,
+            "language": None,
+            "source_label": "handler.cluster",
+            "record_meta": {"origin": "unified_search.candidate"},
+            "raw_ref": {"source": "candidates", "index": idx},
+        }
+        for idx, url in enumerate(merged_candidates)
+        if str(url or "").strip()
+    ]
 
-    return {
-        "inserted": inserted_total,
-        "updated": updated_total,
-        "skipped": skipped_total,
+    response = {
+        "record_stats": {
+            "fetched": len(merged_candidates),
+            "normalized": len(records),
+            "dropped": max(len(merged_candidates) - len(records), 0),
+            "errors": len(merged_errors),
+        },
         "errors": merged_errors,
         "query_terms": q,
         "per_keyword_limit": per_keyword_limit,
@@ -151,18 +171,22 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
         "batches_total": len(term_batches),
         "site_entries_used": merged_site_entries,
         "candidates": merged_candidates,
-        "written": {
+        "records": records,
+        "fetch_diagnostics": {
             "urls_new": written_urls_new,
             "urls_skipped": written_urls_skipped,
         },
-        "single_write_workflow": "single_url",
-        "ingest_result": {
+        "single_write_workflow": "terminal_output_only" if terminal_output_only else "url_routing",
+        "execution_layer": "terminal_output_only" if terminal_output_only else "execute",
+        "error_details": merged_error_details,
+    }
+    if not terminal_output_only:
+        response["legacy_ingest_result"] = {
             "inserted": ingest_inserted,
             "updated": ingest_updated,
             "skipped": ingest_skipped,
             "inserted_valid": inserted_valid_total,
             "rejected_count": rejected_count_total,
             "rejection_breakdown": rejection_breakdown_total,
-        },
-        "error_details": merged_error_details,
-    }
+        }
+    return response

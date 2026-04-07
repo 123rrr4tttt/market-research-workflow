@@ -56,7 +56,7 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
     def test_build_normalized_ingest_envelope_sets_defaults(self):
         envelope = scaffold.build_normalized_ingest_envelope(
             project_key="demo_proj",
-            entrypoint="ingest.single_url",
+            entrypoint="ingest.url.single",
             source_locator="https://example.com/report.html",
             text_sample="<html><body>demo</body></html>",
             processed_time="2026-03-08T11:00:00Z",

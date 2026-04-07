@@ -17,6 +17,7 @@ from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
 from ..services.projects import bind_project
+from ..services.skill_runtime import invoke_skill
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/process", tags=["process"])
@@ -722,13 +723,25 @@ def retry_task(task_id: str) -> dict[str, Any]:
             )
 
         item_key, project_key, override_params = _extract_source_library_retry_payload(db_job)
-        from ..services.tasks import task_run_source_library_item
-
-        task = task_run_source_library_item.delay(
-            item_key=item_key,
-            project_key=project_key,
-            override_params=override_params,
+        invoked = invoke_skill(
+            skill_id="agent_batch.dispatch.source_library_item",
+            payload={
+                "item_key": item_key,
+                "project_key": project_key,
+                "override_params": dict(override_params or {}),
+                "lane": "subagent",
+            },
+            context={
+                "actor_role": "business_capability_wrapper",
+                "permissions": ["agent_batch.dispatch.source_library_item"],
+                "consumer": "process.retry_task.api",
+                "trace_id": f"process.retry.{task_id}",
+            },
         )
+        result = invoked.get("result")
+        retry_task_id = str((result or {}).get("task_id") or "").strip() if isinstance(result, dict) else ""
+        if not retry_task_id:
+            raise RuntimeError("source library retry dispatch skill returned empty task_id")
         return ok(
             {
                 "success": True,
@@ -736,7 +749,7 @@ def retry_task(task_id: str) -> dict[str, Any]:
                 "task_id": task_id,
                 "source": "db",
                 "job_type": job_type,
-                "retry_task_id": task.id,
+                "retry_task_id": retry_task_id,
                 "params": {
                     "item_key": item_key,
                     "project_key": project_key,

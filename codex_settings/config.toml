@@ -32,5 +32,12 @@ url = "https://mcp.figma.com/mcp"
 args = ["@playwright/mcp@latest"]
 command = "npx"
 
+[mcp_servers.chrome_devtools]
+args = ["-y", "chrome-devtools-mcp@latest"]
+command = "npx"
+
+[mcp_servers.storybook]
+url = "http://127.0.0.1:6006/mcp"
+
 [tui]
 status_line = ["model-with-reasoning", "context-remaining", "current-dir"]

@@ -133,30 +133,37 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         body = resp.json()
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
 
-    def test_source_library_run_explicit_project_key_success(self):
+    def test_source_library_run_legacy_endpoint_removed(self):
+        client = TestClient(backend_app)
+        resp = client.post(
+            "/api/v1/source_library/items/demo-item/run",
+            json={"project_key": "demo_proj", "async_mode": False, "override_params": {}},
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_ingest_source_library_run_explicit_project_key_success(self):
         client = TestClient(backend_app)
         with patch(
-            "app.api.source_library.run_item_by_key",
+            "app.services.collect_runtime.run_source_library_item_compat",
             return_value={"item_key": "demo-item", "ok": True, "saved": 1},
         ) as mocked_run:
             resp = client.post(
-                "/api/v1/source_library/items/demo-item/run",
-                json={"project_key": "demo_proj", "async_mode": False, "override_params": {}},
+                "/api/v1/ingest/source-library/run",
+                json={"project_key": "demo_proj", "item_key": "demo-item", "async_mode": False, "override_params": {}},
             )
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         data = body.get("data") if isinstance(body, dict) and "data" in body else body
         self.assertIsInstance(data, dict)
-        self.assertEqual(data["async"], False)
         self.assertEqual(data["item_key"], "demo-item")
         mocked_run.assert_called_once()
 
-    def test_source_library_run_missing_project_key_in_require_mode_fails(self):
+    def test_ingest_source_library_run_missing_project_key_in_require_mode_fails(self):
         client = TestClient(backend_app)
-        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+        with patch("app.api.ingest.settings.project_key_enforcement_mode", "require"):
             resp = client.post(
-                "/api/v1/source_library/items/demo-item/run",
-                json={"async_mode": False, "override_params": {}},
+                "/api/v1/ingest/source-library/run",
+                json={"item_key": "demo-item", "async_mode": False, "override_params": {}},
             )
         self.assertEqual(resp.status_code, 400)
         body = resp.json()

@@ -124,6 +124,7 @@ coverage.xml
 .tox/
 .nox/
 .ruff_cache/
+main/frontend-modern/storybook-static/
 
 # -----------------------------------------------------------------------------
 # Testing & Linting
@@ -143,4 +144,3 @@ main/backend/scripts/remaining_docs_deep_analysis.json
 main/backend/scripts/missing_dates_analysis.json
 main/backend/scripts/actual_dates_check.json
 main/backend/scripts/date_source_analysis.json
-

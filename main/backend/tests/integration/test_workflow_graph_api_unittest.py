@@ -58,32 +58,56 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["version_id"], "ver-2")
 
     def test_run_success(self):
-        with patch("app.api.workflow_graph._invoke_run", return_value={"run_id": "r-1", "status": "running"}):
+        with patch(
+            "app.api.workflow_graph._invoke_run",
+            return_value={"run_id": "r-1", "status": "running", "session_id": "as-1", "current_phase": "implementation"},
+        ):
             response = self.client.post("/api/v1/workflow-graph/run", json={"graph_id": "g-1"}, headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["run_id"], "r-1")
+        self.assertEqual(body["data"]["session_id"], "as-1")
 
     def test_get_run_success(self):
-        with patch("app.api.workflow_graph._invoke_get_run", return_value={"run_id": "r-1", "status": "done"}):
+        with patch(
+            "app.api.workflow_graph._invoke_get_run",
+            return_value={"run_id": "r-1", "status": "done", "session_id": "as-1"},
+        ):
             response = self.client.get("/api/v1/workflow-graph/runs/r-1", headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["status"], "done")
+        self.assertEqual(body["data"]["session_id"], "as-1")
 
     def test_get_run_events_success(self):
-        with patch("app.api.workflow_graph._invoke_get_run_events", return_value={"items": [{"seq": 1, "event": "started"}]}):
+        with patch(
+            "app.api.workflow_graph._invoke_get_run_events",
+            return_value={"items": [{"seq": 1, "event": "started"}], "session_id": "as-1"},
+        ):
             response = self.client.get("/api/v1/workflow-graph/runs/r-1/events", headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["items"][0]["event"], "started")
+        self.assertEqual(body["data"]["session_id"], "as-1")
         self.assertEqual(body["data"]["contract_version"], "workflow_graph.v2")
+
+    def test_get_run_agent_session_success(self):
+        with patch(
+            "app.api.workflow_graph._invoke_get_run_agent_session",
+            return_value={"session": {"session_id": "as-1"}, "tasks": [], "events": [], "artifacts": []},
+        ):
+            response = self.client.get("/api/v1/workflow-graph/runs/r-1/agent-session", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["data"]["session"]["session_id"], "as-1")
 
     def test_replay_run_success(self):
         with patch(
@@ -97,6 +121,25 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["run_id"], "r-1")
         self.assertEqual(body["data"]["nodes"]["n1"], "succeeded")
+
+    def test_replay_run_stateful_mode_forwards_query_param(self):
+        with patch(
+            "app.api.workflow_graph._invoke_replay_run",
+            return_value={
+                "run_id": "r-1",
+                "status": "succeeded",
+                "node_statuses": {"n1": "succeeded"},
+                "replay_mode": "stateful",
+                "results": {"n1": {"text": "ok"}},
+            },
+        ) as replay_mock:
+            response = self.client.get("/api/v1/workflow-graph/runs/r-1/replay?replay_mode=stateful", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        replay_mock.assert_called_once_with("r-1", "stateful")
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["data"]["replay_mode"], "stateful")
 
     def test_get_compiled_success(self):
         with patch("app.api.workflow_graph._invoke_get_compiled", return_value={"graph_id": "g-1", "version": 1}):
@@ -301,7 +344,16 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
 
         with patch(
             "app.api.workflow_graph._invoke_reporting_handoff",
-            return_value={"contract_version": "graph_handoff.v1", "consumer": "llm_report.generate"},
+            return_value={
+                "contract_version": "graph_handoff.v1",
+                "handoff_id": "h-report-1",
+                "handoff_mode": "pull_prepared_evidence",
+                "consumer": "llm_report.generate",
+                "producer": "workflow_graph.backend_bridge",
+            },
+        ), patch(
+            "app.api.workflow_graph.handoff_store.persist",
+            return_value={"contract_version": "workflow_graph.handoff.v1", "run_id": "r-1", "handoff_id": "h-report-1"},
         ):
             reporting_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/handoff/reporting",
@@ -313,7 +365,16 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
 
         with patch(
             "app.api.workflow_graph._invoke_writing_handoff",
-            return_value={"contract_version": "graph_handoff.v1", "consumer": "writing.keyword_cards"},
+            return_value={
+                "contract_version": "graph_handoff.v1",
+                "handoff_id": "h-writing-1",
+                "handoff_mode": "pull_prepared_evidence",
+                "consumer": "writing.keyword_cards",
+                "producer": "workflow_graph.backend_bridge",
+            },
+        ), patch(
+            "app.api.workflow_graph.handoff_store.persist",
+            return_value={"contract_version": "workflow_graph.handoff.v1", "run_id": "r-1", "handoff_id": "h-writing-1"},
         ):
             writing_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/handoff/writing",
@@ -322,6 +383,57 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
             )
         self.assertEqual(writing_resp.status_code, 200)
         self.assertEqual(writing_resp.json()["data"]["consumer"], "writing.keyword_cards")
+
+    def test_handoff_list_replay_and_observability_success(self):
+        with patch(
+            "app.api.workflow_graph.handoff_store.list_handoffs",
+            return_value={"run_id": "r-1", "items": [{"handoff_id": "h-1"}], "total": 1, "contract_version": "workflow_graph.handoff.v1"},
+        ):
+            list_resp = self.client.get("/api/v1/workflow-graph/runs/r-1/handoff", headers=self.headers)
+        self.assertEqual(list_resp.status_code, 200)
+        self.assertEqual(list_resp.json()["data"]["total"], 1)
+
+        with patch(
+            "app.api.workflow_graph.handoff_store.replay_handoff",
+            return_value={
+                "run_id": "r-1",
+                "handoff_id": "h-1",
+                "events": [{"seq": 1, "type": "handoff.persisted"}],
+                "result": {"handoff_id": "h-1"},
+                "contract_version": "workflow_graph.handoff.v1",
+            },
+        ):
+            replay_resp = self.client.get("/api/v1/workflow-graph/runs/r-1/handoff/h-1/replay", headers=self.headers)
+        self.assertEqual(replay_resp.status_code, 200)
+        self.assertEqual(replay_resp.json()["data"]["handoff_id"], "h-1")
+
+        with patch(
+            "app.api.workflow_graph.query_top_failure_reasons",
+            return_value={"contract_version": "workflow_graph.observability.v1", "items": [], "total_reasons": 0},
+        ):
+            metrics_resp = self.client.get("/api/v1/workflow-graph/observability/failure-reasons", headers=self.headers)
+        self.assertEqual(metrics_resp.status_code, 200)
+        self.assertEqual(metrics_resp.json()["data"]["contract_version"], "workflow_graph.observability.v1")
+
+    def test_handoff_list_aggregate_empty_data_success(self):
+        with patch(
+            "app.api.workflow_graph.handoff_store.list_handoffs",
+            return_value={
+                "run_id": "r-empty",
+                "items": [],
+                "total": 0,
+                "contract_version": "workflow_graph.handoff.v1",
+                "backend_marker": "workflow_graph.run_store",
+            },
+        ):
+            response = self.client.get("/api/v1/workflow-graph/runs/r-empty/handoff", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["data"]["run_id"], "r-empty")
+        self.assertEqual(body["data"]["total"], 0)
+        self.assertEqual(body["data"]["items"], [])
+        self.assertEqual(body["data"]["contract_version"], "workflow_graph.handoff.v1")
 
     def test_compiler_service_compile_from_template_version(self):
         from app.services.workflow_graph import WorkflowGraphCompilerService

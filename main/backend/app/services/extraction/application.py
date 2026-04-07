@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -98,7 +99,11 @@ class ExtractionApplicationService:
                         out[key] = value
             else:
                 with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="extract-overlay") as executor:
-                    future_map = {executor.submit(fn, raw): key for key, fn in tasks}
+                    # Propagate project contextvars into worker threads.
+                    future_map = {
+                        executor.submit(copy_context().run, fn, raw): key
+                        for key, fn in tasks
+                    }
                     for future in as_completed(future_map):
                         key = future_map[future]
                         try:

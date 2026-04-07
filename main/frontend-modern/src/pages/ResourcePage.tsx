@@ -10,6 +10,7 @@ import {
   listSourceLibraryItemsGrouped,
   listSourceLibraryItemsWithScope,
   listSiteEntriesWithFilters,
+  registerExternalProject,
   refreshSourceLibraryItem,
   recommendSiteEntriesBatch,
   recommendSiteEntry,
@@ -85,6 +86,25 @@ function renderUrlFold(url?: string | null) {
   )
 }
 
+function parseJsonObjectInput(raw: string, fieldName: string) {
+  const text = raw.trim()
+  if (!text) return {}
+  const parsed = JSON.parse(text)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`${fieldName} 必须是 JSON object`)
+  }
+  return parsed as Record<string, unknown>
+}
+
+function getExternalProjectPlan(item: SourceLibraryItem | null | undefined) {
+  const executionPlan = item?.execution_plan
+  if (!executionPlan || typeof executionPlan !== 'object') return {}
+  const planMeta = (executionPlan as Record<string, unknown>).plan_meta
+  if (!planMeta || typeof planMeta !== 'object') return {}
+  const externalProject = (planMeta as Record<string, unknown>).external_project
+  return externalProject && typeof externalProject === 'object' ? (externalProject as Record<string, unknown>) : {}
+}
+
 export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageProps) {
   const queryClient = useQueryClient()
 
@@ -102,6 +122,16 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
   })
   const [itemParamsSnapshot, setItemParamsSnapshot] = useState<Record<string, unknown>>({})
   const [itemExtraSnapshot, setItemExtraSnapshot] = useState<Record<string, unknown>>({})
+  const [externalProjectForm, setExternalProjectForm] = useState({
+    project_link: '',
+    item_key: '',
+    name: '',
+    description: '',
+    tags: '',
+    enabled: true,
+    hints_json: '{\n  "query_terms": []\n}',
+  })
+  const [externalProjectPreview, setExternalProjectPreview] = useState<Record<string, unknown> | null>(null)
 
   const [domainFilter, setDomainFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
@@ -114,7 +144,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
   const [newSiteEntryType, setNewSiteEntryType] = useState('domain_root')
 
   const [actionPending, setActionPending] = useState(false)
-  const [actionMessage, setActionMessage] = useState('等待操作')
+  const [actionMessage, setActionMessage] = useState('就绪')
   const [actionError, setActionError] = useState('')
 
   const [discoverLimitDomains, setDiscoverLimitDomains] = useState('60')
@@ -272,6 +302,49 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     setItemExtraSnapshot(extra)
   }
 
+  const runExternalProjectAction = async (persist: boolean) => {
+    const projectLink = externalProjectForm.project_link.trim()
+    if (!projectLink) throw new Error('project_link 不能为空')
+    const response = await registerExternalProject({
+      project_link: projectLink,
+      item_key: externalProjectForm.item_key.trim() || undefined,
+      name: externalProjectForm.name.trim() || undefined,
+      description: externalProjectForm.description.trim() || undefined,
+      tags: splitToList(externalProjectForm.tags),
+      enabled: externalProjectForm.enabled,
+      persist,
+      hints: parseJsonObjectInput(externalProjectForm.hints_json, 'hints_json'),
+    })
+    const payload = response && typeof response === 'object' ? (response as Record<string, unknown>) : {}
+    setExternalProjectPreview(payload)
+    const item = payload.item
+    if (item && typeof item === 'object') {
+      fillItemForm(item as SourceLibraryItem)
+    }
+    if (persist) {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.itemsBase(projectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.itemsGroupedBase(projectKey) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.channelsBase(projectKey) }),
+      ])
+    }
+    const itemPayload = item && typeof item === 'object' ? (item as SourceLibraryItem) : null
+    const externalPlan = getExternalProjectPlan(itemPayload)
+    const registrationContext =
+      payload.registration_context && typeof payload.registration_context === 'object'
+        ? (payload.registration_context as Record<string, unknown>)
+        : {}
+    const endpointCandidates = Array.isArray(registrationContext.endpoint_candidates)
+      ? registrationContext.endpoint_candidates.length
+      : 0
+    return {
+      item_key: itemPayload?.item_key || '-',
+      persisted: String(Boolean(payload.persisted)),
+      execution_mode: String(externalPlan.execution_mode || '-'),
+      endpoint_candidates: endpointCandidates,
+    }
+  }
+
   const saveSourceItem = async () => {
     const itemKey = itemForm.item_key.trim()
     const name = itemForm.name.trim()
@@ -358,7 +431,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
   const bindAllRecommendations = async () => {
     if (!batchRecommendations.length && !singleRecommendation) {
-      setActionError('没有可绑定的推荐结果')
+      setActionError('无可绑定结果')
       return
     }
     setBindingPending(true)
@@ -395,7 +468,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
   }
 
   return (
-    <div className="content-stack">
+    <div className={`content-stack resource-page resource-page--${variant}`}>
       <section className="panel">
         <div className="panel-header">
           <h2>{variant === 'extract' ? '提取与资源沉淀' : '信息资源库管理'}</h2>
@@ -414,7 +487,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <input
               value={domainFilter}
               onChange={(e) => setDomainFilter(e.target.value)}
-              placeholder="按域名筛选"
+              placeholder="domain"
             />
           </label>
           <label>
@@ -422,7 +495,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <input
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              placeholder="manual/discovered/..."
+              placeholder="source"
             />
           </label>
           <label>
@@ -430,7 +503,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <input
               value={entryTypeFilter}
               onChange={(e) => setEntryTypeFilter(e.target.value)}
-              placeholder="domain_root/rss/..."
+              placeholder="entry type"
             />
           </label>
           <div className="inline-actions">
@@ -478,7 +551,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <input
               value={discoverLimitDomains}
               onChange={(e) => setDiscoverLimitDomains(e.target.value)}
-              placeholder="60"
+              placeholder="limit"
             />
           </label>
           <label>
@@ -568,11 +641,11 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
         <div className="form-grid cols-4">
           <label>
             <span>item_key</span>
-            <input value={itemForm.item_key} onChange={(e) => setItemForm((p) => ({ ...p, item_key: e.target.value }))} placeholder="handler.cluster.rss" />
+            <input value={itemForm.item_key} onChange={(e) => setItemForm((p) => ({ ...p, item_key: e.target.value }))} placeholder="item key" />
           </label>
           <label>
             <span>name</span>
-            <input value={itemForm.name} onChange={(e) => setItemForm((p) => ({ ...p, name: e.target.value }))} placeholder="Handler Cluster rss" />
+            <input value={itemForm.name} onChange={(e) => setItemForm((p) => ({ ...p, name: e.target.value }))} placeholder="name" />
           </label>
           <label>
             <span>channel_key</span>
@@ -580,7 +653,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
               list="source-channel-options"
               value={itemForm.channel_key}
               onChange={(e) => setItemForm((p) => ({ ...p, channel_key: e.target.value }))}
-              placeholder="handler.cluster / url_pool"
+              placeholder="channel key"
             />
             <datalist id="source-channel-options">
               {(sourceChannels.data || []).map((channel) => (
@@ -593,7 +666,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <input
               value={itemForm.extends_item_key}
               onChange={(e) => setItemForm((p) => ({ ...p, extends_item_key: e.target.value }))}
-              placeholder="可选"
+              placeholder="extends key"
             />
           </label>
           <label>
@@ -612,7 +685,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
               rows={4}
               value={itemForm.tags}
               onChange={(e) => setItemForm((p) => ({ ...p, tags: e.target.value }))}
-              placeholder="tag1&#10;tag2"
+              placeholder="tags"
             />
           </label>
           <label>
@@ -621,7 +694,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
               rows={4}
               value={itemForm.description}
               onChange={(e) => setItemForm((p) => ({ ...p, description: e.target.value }))}
-              placeholder="描述"
+              placeholder="description"
             />
           </label>
           <label>
@@ -630,10 +703,166 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
               rows={7}
               value={itemForm.site_entries}
               onChange={(e) => setItemForm((p) => ({ ...p, site_entries: e.target.value }))}
-              placeholder="https://example.com&#10;https://example.org/rss"
+              placeholder="one url per line"
             />
           </label>
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>External Project 注册</h2>
+          <div className="inline-actions">
+            <button disabled={actionPending} onClick={() => void runAction('预览 external project', () => runExternalProjectAction(false))}>
+              <Search size={14} />预览 manifest
+            </button>
+            <button disabled={actionPending} onClick={() => void runAction('注册 external project', () => runExternalProjectAction(true))}>
+              <Save size={14} />注册到项目
+            </button>
+          </div>
+        </div>
+        <div className="form-grid cols-4">
+          <label>
+            <span>project_link</span>
+            <input
+              value={externalProjectForm.project_link}
+              onChange={(e) => setExternalProjectForm((p) => ({ ...p, project_link: e.target.value }))}
+              placeholder="https://github.com/... or https://..."
+            />
+          </label>
+          <label>
+            <span>item_key（可选）</span>
+            <input
+              value={externalProjectForm.item_key}
+              onChange={(e) => setExternalProjectForm((p) => ({ ...p, item_key: e.target.value }))}
+              placeholder="external.demo.item"
+            />
+          </label>
+          <label>
+            <span>name（可选）</span>
+            <input
+              value={externalProjectForm.name}
+              onChange={(e) => setExternalProjectForm((p) => ({ ...p, name: e.target.value }))}
+              placeholder="display name"
+            />
+          </label>
+          <label>
+            <span>enabled</span>
+            <select
+              value={externalProjectForm.enabled ? 'true' : 'false'}
+              onChange={(e) => setExternalProjectForm((p) => ({ ...p, enabled: e.target.value === 'true' }))}
+            >
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>
+            <span>tags（多行或逗号）</span>
+            <textarea
+              rows={4}
+              value={externalProjectForm.tags}
+              onChange={(e) => setExternalProjectForm((p) => ({ ...p, tags: e.target.value }))}
+              placeholder="ai, news"
+            />
+          </label>
+          <label>
+            <span>description</span>
+            <textarea
+              rows={4}
+              value={externalProjectForm.description}
+              onChange={(e) => setExternalProjectForm((p) => ({ ...p, description: e.target.value }))}
+              placeholder="optional description"
+            />
+          </label>
+          <label style={{ gridColumn: 'span 2' }}>
+            <span>hints_json</span>
+            <textarea
+              rows={8}
+              value={externalProjectForm.hints_json}
+              onChange={(e) => setExternalProjectForm((p) => ({ ...p, hints_json: e.target.value }))}
+              placeholder='{"query_terms":["ai"]}'
+            />
+          </label>
+        </div>
+        {externalProjectPreview ? (
+          <div style={{ marginTop: 16 }}>
+            {(() => {
+              const previewItem = externalProjectPreview.item && typeof externalProjectPreview.item === 'object'
+                ? (externalProjectPreview.item as SourceLibraryItem)
+                : null
+              const externalPlan = getExternalProjectPlan(previewItem)
+              const registrationContext =
+                externalProjectPreview.registration_context && typeof externalProjectPreview.registration_context === 'object'
+                  ? (externalProjectPreview.registration_context as Record<string, unknown>)
+                  : {}
+              const endpointCandidates = Array.isArray(registrationContext.endpoint_candidates)
+                ? (registrationContext.endpoint_candidates as Array<Record<string, unknown>>)
+                : []
+              const preferredModes = Array.isArray(registrationContext.preferred_execution_modes)
+                ? registrationContext.preferred_execution_modes.join(', ')
+                : '-'
+              return (
+                <>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>item_key</th>
+                          <th>name</th>
+                          <th>persisted</th>
+                          <th>execution_mode</th>
+                          <th>runner_ref</th>
+                          <th>source_kind</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>{previewItem?.item_key || '-'}</td>
+                          <td>{previewItem?.name || '-'}</td>
+                          <td>{String(Boolean(externalProjectPreview.persisted))}</td>
+                          <td>{String(externalPlan.execution_mode || '-')}</td>
+                          <td>{renderUrlFold(String(externalPlan.runner_ref || ''))}</td>
+                          <td>{String(externalPlan.source_kind || '-')}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="status-line">preferred_execution_modes: {preferredModes}</p>
+                  {endpointCandidates.length ? (
+                    <div className="table-wrap" style={{ marginTop: 12 }}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>execution_mode</th>
+                            <th>runner_ref</th>
+                            <th>confidence</th>
+                            <th>reason</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {endpointCandidates.map((candidate, idx) => (
+                            <tr key={`${candidate.runner_ref || idx}`}>
+                              <td>{String(candidate.execution_mode || '-')}</td>
+                              <td>{renderUrlFold(String(candidate.runner_ref || ''))}</td>
+                              <td>{String(candidate.confidence || '-')}</td>
+                              <td>{String(candidate.reason || '-')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
+                  <details style={{ marginTop: 12 }}>
+                    <summary style={{ cursor: 'pointer' }}>查看 registration_context / item payload</summary>
+                    <pre style={{ marginTop: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {JSON.stringify(externalProjectPreview, null, 2)}
+                    </pre>
+                  </details>
+                </>
+              )
+            })()}
+          </div>
+        ) : null}
       </section>
 
       <section className="panel">
@@ -645,7 +874,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
               <input
                 value={handlerSearch}
                 onChange={(e) => setHandlerSearch(e.target.value)}
-                placeholder="handler / item_key / name / channel"
+                placeholder="search handler or item"
               />
             </label>
             <button
@@ -732,7 +961,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <input
               value={recommendSiteUrl}
               onChange={(e) => setRecommendSiteUrl(e.target.value)}
-              placeholder="https://example.com"
+              placeholder="site url"
             />
           </label>
           <label>
@@ -879,7 +1108,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <input
               value={newSiteUrl}
               onChange={(e) => setNewSiteUrl(e.target.value)}
-              placeholder="https://example.com"
+              placeholder="site url"
             />
           </label>
           <label>

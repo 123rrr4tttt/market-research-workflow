@@ -7,6 +7,15 @@ from typing import Optional, List, Dict, Any
 
 from ....models.entities import Document
 from ..models import NormalizedPolicyData
+from ...document_views import (
+    get_policy_data,
+    get_policy_entities,
+    get_policy_key_points,
+    get_policy_relations,
+    get_policy_state,
+    get_policy_summary_text,
+    get_policy_type,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,35 +46,18 @@ class PolicyAdapter:
             return None
 
         extracted = doc.extracted_data
-        policy_data: Dict[str, Any] = extracted.get("policy") or {}
+        policy_data: Dict[str, Any] = get_policy_data(doc)
 
         # 如果既没有 policy 数据也没有基本信息，则跳过
         if not policy_data and doc.doc_type not in ("policy", "policy_regulation"):
             logger.debug("Document %s doc_type=%s，非政策文档", doc.id, doc.doc_type)
             return None
 
-        state = (policy_data.get("state") or doc.state or "").strip() or None
-        policy_type = (policy_data.get("policy_type") or "").strip() or None
-
-        key_points_raw = policy_data.get("key_points") or []
-        key_points: List[str] = []
-        if isinstance(key_points_raw, list):
-            for item in key_points_raw[:5]:
-                if isinstance(item, str):
-                    cleaned = item.strip()
-                    if cleaned:
-                        key_points.append(cleaned)
-
-        entities_relations = extracted.get("entities_relations", {}) or {}
-        entities = []
-        relations = []
-        if isinstance(entities_relations, dict):
-            ent_list = entities_relations.get("entities")
-            if isinstance(ent_list, list):
-                entities = [e for e in ent_list if isinstance(e, dict)]
-            rel_list = entities_relations.get("relations")
-            if isinstance(rel_list, list):
-                relations = [r for r in rel_list if isinstance(r, dict)]
+        state = get_policy_state(doc)
+        policy_type = get_policy_type(doc)
+        key_points = get_policy_key_points(doc)[:5]
+        entities = get_policy_entities(doc)
+        relations = get_policy_relations(doc)
 
         publish_dt = _to_datetime(doc.publish_date)
         effective_dt = _to_datetime(policy_data.get("effective_date"))
@@ -77,7 +69,7 @@ class PolicyAdapter:
         except Exception as exc:  # noqa: BLE001
             logger.debug("访问文档 %s 的 source 失败: %s", doc.id, exc)
 
-        summary = doc.summary or extracted.get("summary")
+        summary = get_policy_summary_text(doc)
 
         return NormalizedPolicyData(
             doc_id=doc.id,
@@ -94,4 +86,3 @@ class PolicyAdapter:
             entities=entities,
             relations=relations,
         )
-

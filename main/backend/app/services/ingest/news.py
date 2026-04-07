@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, date, timezone
 from typing import Iterable, List, Optional
+from urllib.parse import urlparse
 
 from ..job_logger import start_job, complete_job, fail_job
 from ..projects import current_project_key
@@ -11,6 +13,9 @@ from .doc_type_mapper import normalize_doc_type
 from .adapters.http_utils import fetch_html, make_html_parser
 from .adapters.social_reddit import RedditAdapter, RedditPost
 from .adapters.news_google import GoogleNewsAdapter, GoogleNewsItem
+from .gate_reason_codes import normalize_reason_code
+from .retry_policy import classify_retry_reason, RETRY_CLASS_TRANSIENT
+from .url_unwrap import decode_google_news_url_for_dispatch
 from ..http.client import default_http_client
 from ...settings.config import settings
 
@@ -100,6 +105,7 @@ def collect_reddit_discussions(
             base_url="reddit.com",
             default_state="CA",
             job_type="reddit_discussions",
+            query_terms_override=[str(x).strip() for x in (keywords or []) if str(x).strip()],
         )
         complete_job(job_id, result=result)
         return result
@@ -143,7 +149,7 @@ def _persist_news_items(
         links.append(link)
         if job_type:
             _maybe_append_to_resource_pool(link, job_type, {"source": source_name})
-    ingest_result = _dispatch_links_to_single_url(
+    ingest_result = _dispatch_links_via_source_library_frontdoor(
         links=links,
         query_terms=[],
     )
@@ -155,31 +161,79 @@ def _persist_news_items(
         "queued": int(ingest_result.get("queued") or 0),
         "links": links,
         "doc_type": normalized_doc_type,
-        "single_write_workflow": "single_url",
+        "single_write_workflow": "source_library_frontdoor",
         "enforced_body_only": True,
     }
 
 
-def _dispatch_links_to_single_url(*, links: List[str], query_terms: List[str]) -> dict:
+def _dispatch_links_via_source_library_frontdoor(
+    *,
+    links: List[str],
+    query_terms: List[str],
+    extra_params: dict | None = None,
+) -> dict:
     if not links:
         return {"inserted": 0, "inserted_valid": 0, "skipped": 0, "queued": 0}
     from .url_pool import collect_urls_from_list
 
     project_key = (current_project_key() or "").strip() or None
+    merged_extra_params = {
+        "dispatch_mode": "inline",
+        "url_routing_frontdoor_enabled": True,
+        "front_door_owner": "ingest.news",
+        "frontdoor_route_decision": "front_door_url_routing",
+        "frontdoor_write_mode": "front_door_url_routing",
+        "frontdoor_execution_mode": "url_routing",
+    }
+    if isinstance(extra_params, dict) and extra_params:
+        merged_extra_params.update(extra_params)
     return collect_urls_from_list(
         links,
         project_key=project_key,
         query_terms=list(query_terms or []),
-        extra_params={
-            "dispatch_mode": "inline",
-            "single_url_frontdoor_enabled": True,
-            "front_door_owner": "ingest.news",
-            "frontdoor_route_decision": "front_door_url_routing",
-            "frontdoor_write_mode": "front_door_url_routing",
-            "frontdoor_execution_mode": "url_routing",
-        },
+        extra_params=merged_extra_params,
         enable_extraction=True,
     )
+
+
+def _dispatch_links_to_single_url(
+    *,
+    links: List[str],
+    query_terms: List[str],
+    extra_params: dict | None = None,
+) -> dict:
+    return _dispatch_links_via_source_library_frontdoor(
+        links=links,
+        query_terms=query_terms,
+        extra_params=extra_params,
+    )
+
+
+def _normalize_publisher_seed_url(value: str | None) -> str | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw if raw.startswith(("http://", "https://")) else f"https://{raw}")
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}/"
+
+
+def _title_query_terms(title: str | None) -> list[str]:
+    text = str(title or "").strip()
+    if not text:
+        return []
+    compact = re.sub(r"\s+", " ", text).strip()
+    if not compact:
+        return []
+    tokens = [tok.lower() for tok in re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{2,}", compact)]
+    out: list[str] = [compact]
+    for tok in tokens:
+        if tok not in out:
+            out.append(tok)
+        if len(out) >= 8:
+            break
+    return out
 
 
 def _extract_official_news_items(
@@ -290,11 +344,12 @@ def _persist_reddit_items(
     base_url: str,
     default_state: str | None,
     job_type: str | None = None,
+    query_terms_override: list[str] | None = None,
 ) -> dict:
     """Store reddit links via single_url body-fetch pipeline (no URL-only docs)."""
     normalized_doc_type = normalize_doc_type(doc_type)
     links: List[str] = []
-    query_terms: list[str] = []
+    query_terms: list[str] = [str(x).strip() for x in (query_terms_override or []) if str(x or "").strip()]
     for post in posts:
         link = post.link.strip()
         if not link:
@@ -302,11 +357,12 @@ def _persist_reddit_items(
         links.append(link)
         if job_type:
             _maybe_append_to_resource_pool(link, job_type, {"subreddit": post.subreddit})
-        subreddit = str(post.subreddit or "").strip()
-        if subreddit:
-            query_terms.append(subreddit)
+        if not query_terms:
+            subreddit = str(post.subreddit or "").strip()
+            if subreddit:
+                query_terms.append(subreddit)
 
-    ingest_result = _dispatch_links_to_single_url(
+    ingest_result = _dispatch_links_via_source_library_frontdoor(
         links=links,
         query_terms=query_terms,
     )
@@ -318,7 +374,7 @@ def _persist_reddit_items(
         "queued": int(ingest_result.get("queued") or 0),
         "links": links,
         "doc_type": normalized_doc_type,
-        "single_write_workflow": "single_url",
+        "single_write_workflow": "source_library_frontdoor",
         "enforced_body_only": True,
     }
 
@@ -401,7 +457,19 @@ def _persist_google_news_items(
     """Store Google News links via single_url body-fetch pipeline (no URL-only docs)."""
     normalized_doc_type = normalize_doc_type(doc_type)
     links: List[str] = []
+    dispatch_links: List[str] = []
+    publisher_seed_links: List[str] = []
     query_terms: list[str] = []
+    publisher_seed_terms: list[str] = []
+    decode_breakdown: dict[str, int] = {}
+    decode_failed_links: list[dict[str, object]] = []
+    delayed_retry_queue: list[dict[str, object]] = []
+    seen_dispatch_links: set[str] = set()
+    seen_publisher_seed_links: set[str] = set()
+
+    def _add_breakdown(reason: str) -> None:
+        decode_breakdown[reason] = int(decode_breakdown.get(reason) or 0) + 1
+
     for item in items:
         link = item.link.strip()
         if not link:
@@ -412,19 +480,95 @@ def _persist_google_news_items(
         kw = str(item.keyword or "").strip()
         if kw:
             query_terms.append(kw)
+            publisher_seed_terms.append(kw)
 
-    ingest_result = _dispatch_links_to_single_url(
-        links=links,
+        decode_result = decode_google_news_url_for_dispatch(link)
+        normalized_reason = normalize_reason_code(decode_result.get("reason"), default="google_news_decode_failed")
+        final_url = str(decode_result.get("url") or "").strip()
+        decode_changed = bool(decode_result.get("changed"))
+
+        # Google News wrapped URLs must be decoded first; non-Google links can pass through.
+        if normalized_reason == "ok" and final_url:
+            if final_url not in seen_dispatch_links:
+                seen_dispatch_links.add(final_url)
+                dispatch_links.append(final_url)
+            continue
+
+        if decode_changed and final_url:
+            if final_url not in seen_dispatch_links:
+                seen_dispatch_links.add(final_url)
+                dispatch_links.append(final_url)
+            continue
+
+        _, retry_class = classify_retry_reason(normalized_reason)
+        retryable = bool(decode_result.get("retryable")) or retry_class == RETRY_CLASS_TRANSIENT
+        seed_url = _normalize_publisher_seed_url(getattr(item, "source_url", None))
+        if seed_url:
+            if seed_url not in seen_publisher_seed_links:
+                seen_publisher_seed_links.add(seed_url)
+                publisher_seed_links.append(seed_url)
+            for term in _title_query_terms(getattr(item, "title", None)):
+                publisher_seed_terms.append(term)
+            _add_breakdown("publisher_seed_fallback")
+            continue
+
+        _add_breakdown(normalized_reason)
+        failed_item = {
+            "url": link,
+            "reason": normalized_reason,
+            "retryable": retryable,
+            "source_url": getattr(item, "source_url", None),
+        }
+        decode_failed_links.append(failed_item)
+        if normalized_reason == "rate_limited":
+            delayed_retry_queue.append(failed_item)
+
+    dispatch_result = _dispatch_links_via_source_library_frontdoor(
+        links=dispatch_links,
         query_terms=query_terms,
+        extra_params={
+            "url_target_mode": "detail_only",
+            "disable_site_seed_expansion": True,
+        },
     )
+    publisher_seed_result = _dispatch_links_via_source_library_frontdoor(
+        links=publisher_seed_links,
+        query_terms=list(dict.fromkeys([x for x in publisher_seed_terms if str(x or "").strip()])),
+        extra_params={
+            "url_target_mode": "site_only",
+            "disable_site_seed_expansion": False,
+        },
+    )
+
+    ingest_result = {
+        "inserted": int(dispatch_result.get("inserted") or 0) + int(publisher_seed_result.get("inserted") or 0),
+        "inserted_valid": int(dispatch_result.get("inserted_valid") or 0)
+        + int(publisher_seed_result.get("inserted_valid") or 0),
+        "skipped": int(dispatch_result.get("skipped") or 0) + int(publisher_seed_result.get("skipped") or 0),
+        "queued": int(dispatch_result.get("queued") or 0) + int(publisher_seed_result.get("queued") or 0),
+    }
+
+    delayed_queue_count = len(delayed_retry_queue)
+    dispatch_queued_count = int(ingest_result.get("queued") or 0)
+    total_queued_count = dispatch_queued_count + delayed_queue_count
+    total_skipped = int(ingest_result.get("skipped") or 0) + max(0, len(decode_failed_links) - delayed_queue_count)
 
     return {
         "inserted": int(ingest_result.get("inserted") or 0),
         "inserted_valid": int(ingest_result.get("inserted_valid") or 0),
-        "skipped": int(ingest_result.get("skipped") or 0),
-        "queued": int(ingest_result.get("queued") or 0),
+        "skipped": total_skipped,
+        "queued": total_queued_count,
+        "retryable": bool(delayed_queue_count > 0),
+        "breakdown": decode_breakdown,
+        "decode_breakdown": decode_breakdown,
+        "decode_failed": len(decode_failed_links),
+        "retryable_queued": delayed_queue_count,
+        "retryable_queue": delayed_retry_queue,
+        "decode_failed_links": decode_failed_links,
+        "dispatch_links": dispatch_links,
+        "publisher_seed_links": publisher_seed_links,
         "links": links,
         "doc_type": normalized_doc_type,
-        "single_write_workflow": "single_url",
+        "single_write_workflow": "source_library_frontdoor",
         "enforced_body_only": True,
     }

@@ -91,6 +91,51 @@ type ProjectLlmTemplateDraft = {
   user_prompt_template: string
 }
 
+export type SettingsPageViewProps = {
+  projectKey: string
+  variant: 'settings' | 'llm'
+  locale: (typeof APP_LOCALES)[number]
+  appTheme: AppTheme
+  themeLabelByValue: Record<AppTheme, string>
+  localeLabelByValue: Record<(typeof APP_LOCALES)[number], string>
+  effectiveEnvDraft: EnvSettings
+  templateItems: ProjectLlmTemplateItem[]
+  envSettingsFetching: boolean
+  envSettingsError: boolean
+  llmTemplatesFetching: boolean
+  llmTemplatesError: boolean
+  envSavePending: boolean
+  templateSavePending: boolean
+  copyTemplatesPending: boolean
+  hasAnyEnvValue: boolean
+  saveMessage: string
+  templateMessage: string
+  copyMessage: string
+  copySourceProjectKey: string
+  copyOverwrite: boolean
+  expandedService: string | null
+  savingService: string | null
+  guideType: StatusIntentGuide | null
+  focusField: string
+  envSnippet: string
+  templateDrafts: Record<string, ProjectLlmTemplateDraft>
+  onLocaleChange: (locale: (typeof APP_LOCALES)[number]) => void
+  onThemeChange: (theme: AppTheme) => void
+  onRefreshEnv: () => void
+  onCopySnippet: () => void
+  onDismissGuide: () => void
+  onNavigateCrawler: () => void
+  onEnvDraftChange: (key: string, value: string) => void
+  onSaveEnv: () => void
+  onRefreshTemplates: () => void
+  onCopySourceProjectKeyChange: (value: string) => void
+  onCopyOverwriteChange: (value: boolean) => void
+  onCopyTemplates: () => void
+  onExpandedServiceChange: (serviceName: string | null) => void
+  onTemplateDraftChange: (serviceName: string, patch: Partial<ProjectLlmTemplateDraft>) => void
+  onSaveTemplate: (serviceName: string, draft: ProjectLlmTemplateDraft) => void
+}
+
 function toDraft(item: ProjectLlmTemplateItem): ProjectLlmTemplateDraft {
   return {
     model: item.model ?? '',
@@ -326,7 +371,129 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
   } as const
 
   return (
-    <div className="content-stack">
+    <SettingsPageView
+      projectKey={projectKey}
+      variant={variant}
+      locale={locale}
+      appTheme={appTheme}
+      themeLabelByValue={themeLabelByValue}
+      localeLabelByValue={localeLabelByValue}
+      effectiveEnvDraft={effectiveEnvDraft}
+      templateItems={templateItems}
+      envSettingsFetching={envSettings.isFetching}
+      envSettingsError={envSettings.isError}
+      llmTemplatesFetching={llmTemplates.isFetching}
+      llmTemplatesError={llmTemplates.isError}
+      envSavePending={envSaveMutation.isPending}
+      templateSavePending={templateSaveMutation.isPending}
+      copyTemplatesPending={copyTemplatesMutation.isPending}
+      hasAnyEnvValue={hasAnyEnvValue}
+      saveMessage={saveMessage}
+      templateMessage={templateMessage}
+      copyMessage={copyMessage}
+      copySourceProjectKey={copySourceProjectKey}
+      copyOverwrite={copyOverwrite}
+      expandedService={expandedService}
+      savingService={savingService}
+      guideType={guideType}
+      focusField={focusField}
+      envSnippet={envSnippet}
+      templateDrafts={templateDrafts}
+      onLocaleChange={setAppLocale}
+      onThemeChange={setAppTheme}
+      onRefreshEnv={() => {
+        setEnvDraft(null)
+        void queryClient.invalidateQueries({ queryKey: queryKeys.settings.env() })
+      }}
+      onCopySnippet={() => {
+        void (async () => {
+          try {
+            await navigator.clipboard.writeText(envSnippet)
+            setSaveMessage('示例配置已复制到剪贴板，可直接粘贴到对应字段。')
+          } catch {
+            setSaveMessage('复制失败，请手动复制页面中的示例字段。')
+          }
+        })()
+      }}
+      onDismissGuide={() => setGuideType(null)}
+      onNavigateCrawler={() => {
+        window.location.hash = hashByMode.sysCrawler
+      }}
+      onEnvDraftChange={(key, value) =>
+        setEnvDraft((prev) => ({
+          ...(prev ?? envSettings.data ?? {}),
+          [key]: value,
+        }))
+      }
+      onSaveEnv={() => envSaveMutation.mutate()}
+      onRefreshTemplates={() => {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.settings.projectLlmTemplates(projectKey) })
+      }}
+      onCopySourceProjectKeyChange={setCopySourceProjectKey}
+      onCopyOverwriteChange={setCopyOverwrite}
+      onCopyTemplates={() => copyTemplatesMutation.mutate()}
+      onExpandedServiceChange={setExpandedService}
+      onTemplateDraftChange={(serviceName, patch) =>
+        setTemplateDrafts((prev) => ({
+          ...prev,
+          [serviceName]: { ...(prev[serviceName] || toDraft(templateItems.find((item) => item.service_name === serviceName) || {
+            service_name: serviceName,
+            model: '',
+            temperature: null,
+            max_tokens: null,
+            enabled: false,
+          } as ProjectLlmTemplateItem)), ...patch },
+        }))
+      }
+      onSaveTemplate={(serviceName, draft) => templateSaveMutation.mutate({ serviceName, draft })}
+    />
+  )
+}
+
+export function SettingsPageView({
+  variant,
+  locale,
+  appTheme,
+  themeLabelByValue,
+  localeLabelByValue,
+  effectiveEnvDraft,
+  templateItems,
+  envSettingsFetching,
+  envSettingsError,
+  llmTemplatesFetching,
+  llmTemplatesError,
+  envSavePending,
+  copyTemplatesPending,
+  hasAnyEnvValue,
+  saveMessage,
+  templateMessage,
+  copyMessage,
+  copySourceProjectKey,
+  copyOverwrite,
+  expandedService,
+  savingService,
+  guideType,
+  focusField,
+  envSnippet,
+  templateDrafts,
+  onLocaleChange,
+  onThemeChange,
+  onRefreshEnv,
+  onCopySnippet,
+  onDismissGuide,
+  onNavigateCrawler,
+  onEnvDraftChange,
+  onSaveEnv,
+  onRefreshTemplates,
+  onCopySourceProjectKeyChange,
+  onCopyOverwriteChange,
+  onCopyTemplates,
+  onExpandedServiceChange,
+  onTemplateDraftChange,
+  onSaveTemplate,
+}: SettingsPageViewProps) {
+  return (
+    <div className={`content-stack settings-page settings-page--${variant}`}>
       <section className="panel">
         <div className="panel-header">
           <h2>{variant === 'llm' ? 'LLM 配置视图' : '系统设置视图'}</h2>
@@ -334,12 +501,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
         <div className="inline-actions" style={{ marginTop: 10, flexWrap: 'wrap' }}>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <span>{translate(locale, 'settings.locale.label', 'UI Language')}</span>
-            <select
-              value={locale}
-              onChange={(event) => {
-                setAppLocale(event.target.value as (typeof APP_LOCALES)[number])
-              }}
-            >
+            <select value={locale} onChange={(event) => onLocaleChange(event.target.value as (typeof APP_LOCALES)[number])}>
               {APP_LOCALES.map((nextLocale) => (
                 <option key={nextLocale} value={nextLocale}>
                   {localeLabelByValue[nextLocale]}
@@ -354,7 +516,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
               onChange={(event) => {
                 const next = event.target.value
                 if (!isAppTheme(next)) return
-                setAppTheme(next)
+                onThemeChange(next)
               }}
             >
               {APP_THEMES.map((theme) => (
@@ -373,15 +535,9 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
             环境配置
           </h2>
           <div className="inline-actions">
-            <button
-              onClick={() => {
-                setEnvDraft(null)
-                queryClient.invalidateQueries({ queryKey: queryKeys.settings.env() })
-              }}
-              disabled={envSettings.isFetching}
-            >
+            <button onClick={onRefreshEnv} disabled={envSettingsFetching}>
               <RefreshCw size={14} />
-              {envSettings.isFetching ? '刷新中...' : '刷新'}
+              {envSettingsFetching ? '刷新中...' : '刷新'}
             </button>
           </div>
         </div>
@@ -397,26 +553,9 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
             </p>
             {focusField ? <p className="status-line">已自动定位字段：`{focusField}`</p> : null}
             <div className="inline-actions" style={{ flexWrap: 'wrap' }}>
-              {envSnippet ? (
-                <button
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(envSnippet)
-                      setSaveMessage('示例配置已复制到剪贴板，可直接粘贴到对应字段。')
-                    } catch {
-                      setSaveMessage('复制失败，请手动复制页面中的示例字段。')
-                    }
-                  }}
-                >
-                  复制示例配置
-                </button>
-              ) : null}
-              {(guideType === 'search' || guideType === 'news') ? (
-                <button onClick={() => { window.location.hash = hashByMode.sysCrawler }}>
-                  前往爬虫管理（安装/接入）
-                </button>
-              ) : null}
-              <button onClick={() => setGuideType(null)}>关闭指引</button>
+              {envSnippet ? <button onClick={onCopySnippet}>复制示例配置</button> : null}
+              {guideType === 'search' || guideType === 'news' ? <button onClick={onNavigateCrawler}>前往爬虫管理（安装/接入）</button> : null}
+              <button onClick={onDismissGuide}>关闭指引</button>
             </div>
           </div>
         ) : null}
@@ -425,61 +564,41 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
           {ENV_KEYS.map((key) => (
             <label key={key} data-env-key={key}>
               <span>{key}</span>
-              <input
-                value={effectiveEnvDraft[key] || ''}
-                onChange={(e) =>
-                  setEnvDraft((prev) => ({
-                    ...(prev ?? envSettings.data ?? {}),
-                    [key]: e.target.value,
-                  }))
-                }
-                placeholder={`输入 ${key}`}
-              />
+              <input value={effectiveEnvDraft[key] || ''} onChange={(e) => onEnvDraftChange(key, e.target.value)} placeholder={`输入 ${key}`} />
             </label>
           ))}
         </div>
 
         <div className="inline-actions">
-          <button disabled={envSaveMutation.isPending || !hasAnyEnvValue} onClick={() => envSaveMutation.mutate()}>
+          <button disabled={envSavePending || !hasAnyEnvValue} onClick={onSaveEnv}>
             <Settings2 size={14} />
-            {envSaveMutation.isPending ? '保存中...' : '保存配置'}
+            {envSavePending ? '保存中...' : '保存配置'}
           </button>
         </div>
 
         {saveMessage ? <p className="status-line">{saveMessage}</p> : null}
-        {envSettings.isError ? <p className="status-line">环境配置加载失败，请稍后重试</p> : null}
+        {envSettingsError ? <p className="status-line">环境配置加载失败，请稍后重试</p> : null}
       </section>
 
       <section className="panel">
         <div className="panel-header">
           <h2>项目级 LLM 模板</h2>
           <div className="inline-actions">
-            <button
-              onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.settings.projectLlmTemplates(projectKey) })}
-              disabled={llmTemplates.isFetching}
-            >
+            <button onClick={onRefreshTemplates} disabled={llmTemplatesFetching}>
               <RefreshCw size={14} />
-              {llmTemplates.isFetching ? '刷新中...' : '刷新'}
+              {llmTemplatesFetching ? '刷新中...' : '刷新'}
             </button>
           </div>
         </div>
 
         <div className="inline-actions" style={{ marginBottom: 12, flexWrap: 'wrap' }}>
-          <input
-            value={copySourceProjectKey}
-            onChange={(e) => setCopySourceProjectKey(e.target.value)}
-            placeholder="来源 project_key"
-            style={{ minWidth: 220 }}
-          />
+          <input value={copySourceProjectKey} onChange={(e) => onCopySourceProjectKeyChange(e.target.value)} placeholder="来源 project_key" style={{ minWidth: 220 }} />
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <input type="checkbox" checked={copyOverwrite} onChange={(e) => setCopyOverwrite(e.target.checked)} />
+            <input type="checkbox" checked={copyOverwrite} onChange={(e) => onCopyOverwriteChange(e.target.checked)} />
             <span>覆盖已存在模板</span>
           </label>
-          <button
-            disabled={copyTemplatesMutation.isPending || !copySourceProjectKey.trim()}
-            onClick={() => copyTemplatesMutation.mutate()}
-          >
-            {copyTemplatesMutation.isPending ? '复制中...' : '从项目复制模板'}
+          <button disabled={copyTemplatesPending || !copySourceProjectKey.trim()} onClick={onCopyTemplates}>
+            {copyTemplatesPending ? '复制中...' : '从项目复制模板'}
           </button>
         </div>
 
@@ -501,7 +620,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
               {templateItems.map((row) => {
                 const draft = templateDrafts[row.service_name] || toDraft(row)
                 const isExpanded = expandedService === row.service_name
-                const isSaving = templateSaveMutation.isPending && savingService === row.service_name
+                const isSaving = savingService === row.service_name
                 return (
                   <>
                     <tr key={row.id}>
@@ -513,7 +632,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                       <td>{String(draft.enabled)}</td>
                       <td>{formatDate(row.updated_at)}</td>
                       <td>
-                        <button onClick={() => setExpandedService(isExpanded ? null : row.service_name)}>
+                        <button onClick={() => onExpandedServiceChange(isExpanded ? null : row.service_name)}>
                           {isExpanded ? '收起' : '编辑'}
                         </button>
                       </td>
@@ -524,123 +643,45 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
                           <div className="form-grid cols-2" style={{ marginTop: 8 }}>
                             <label>
                               <span>model</span>
-                              <input
-                                value={draft.model}
-                                onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, model: e.target.value },
-                                  }))
-                                }
-                              />
+                              <input value={draft.model} onChange={(e) => onTemplateDraftChange(row.service_name, { model: e.target.value })} />
                             </label>
                             <label>
                               <span>temperature</span>
-                              <input
-                                value={draft.temperature}
-                                onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, temperature: e.target.value },
-                                  }))
-                                }
-                              />
+                              <input value={draft.temperature} onChange={(e) => onTemplateDraftChange(row.service_name, { temperature: e.target.value })} />
                             </label>
                             <label>
                               <span>top_p</span>
-                              <input
-                                value={draft.top_p}
-                                onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, top_p: e.target.value },
-                                  }))
-                                }
-                              />
+                              <input value={draft.top_p} onChange={(e) => onTemplateDraftChange(row.service_name, { top_p: e.target.value })} />
                             </label>
                             <label>
                               <span>presence_penalty</span>
-                              <input
-                                value={draft.presence_penalty}
-                                onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, presence_penalty: e.target.value },
-                                  }))
-                                }
-                              />
+                              <input value={draft.presence_penalty} onChange={(e) => onTemplateDraftChange(row.service_name, { presence_penalty: e.target.value })} />
                             </label>
                             <label>
                               <span>frequency_penalty</span>
-                              <input
-                                value={draft.frequency_penalty}
-                                onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, frequency_penalty: e.target.value },
-                                  }))
-                                }
-                              />
+                              <input value={draft.frequency_penalty} onChange={(e) => onTemplateDraftChange(row.service_name, { frequency_penalty: e.target.value })} />
                             </label>
                             <label>
                               <span>max_tokens</span>
-                              <input
-                                value={draft.max_tokens}
-                                onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, max_tokens: e.target.value },
-                                  }))
-                                }
-                              />
+                              <input value={draft.max_tokens} onChange={(e) => onTemplateDraftChange(row.service_name, { max_tokens: e.target.value })} />
                             </label>
                             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                              <input
-                                type="checkbox"
-                                checked={draft.enabled}
-                                onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, enabled: e.target.checked },
-                                  }))
-                                }
-                              />
+                              <input type="checkbox" checked={draft.enabled} onChange={(e) => onTemplateDraftChange(row.service_name, { enabled: e.target.checked })} />
                               <span>enabled</span>
                             </label>
                           </div>
                           <div className="form-grid" style={{ marginTop: 8 }}>
                             <label>
                               <span>system_prompt</span>
-                              <textarea
-                                value={draft.system_prompt}
-                                onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, system_prompt: e.target.value },
-                                  }))
-                                }
-                                rows={5}
-                              />
+                              <textarea value={draft.system_prompt} onChange={(e) => onTemplateDraftChange(row.service_name, { system_prompt: e.target.value })} rows={5} />
                             </label>
                             <label>
                               <span>user_prompt_template</span>
-                              <textarea
-                                value={draft.user_prompt_template}
-                                onChange={(e) =>
-                                  setTemplateDrafts((prev) => ({
-                                    ...prev,
-                                    [row.service_name]: { ...draft, user_prompt_template: e.target.value },
-                                  }))
-                                }
-                                rows={5}
-                              />
+                              <textarea value={draft.user_prompt_template} onChange={(e) => onTemplateDraftChange(row.service_name, { user_prompt_template: e.target.value })} rows={5} />
                             </label>
                           </div>
                           <div className="inline-actions" style={{ marginTop: 8 }}>
-                            <button
-                              disabled={isSaving}
-                              onClick={() => templateSaveMutation.mutate({ serviceName: row.service_name, draft })}
-                            >
+                            <button disabled={isSaving} onClick={() => onSaveTemplate(row.service_name, draft)}>
                               {isSaving ? '保存中...' : `保存 ${row.service_name}`}
                             </button>
                           </div>
@@ -663,7 +704,7 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
 
         {templateMessage ? <p className="status-line">{templateMessage}</p> : null}
         {copyMessage ? <p className="status-line">{copyMessage}</p> : null}
-        {llmTemplates.isError ? <p className="status-line">项目级 LLM 模板加载失败，请稍后重试</p> : null}
+        {llmTemplatesError ? <p className="status-line">项目级 LLM 模板加载失败，请稍后重试</p> : null}
       </section>
     </div>
   )

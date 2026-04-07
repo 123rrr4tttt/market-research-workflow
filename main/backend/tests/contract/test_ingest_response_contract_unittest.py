@@ -40,7 +40,7 @@ class IngestResponseContractTestCase(unittest.TestCase):
             "quality_score": 0.0,
         }
 
-        with patch("app.services.ingest.single_url.ingest_single_url", return_value=fake_result):
+        with patch("app.services.ingest.url_pool.ingest_url_via_source_library_frontdoor", return_value=fake_result):
             resp = self.client.post(
                 "/api/v1/ingest/url/single",
                 json={

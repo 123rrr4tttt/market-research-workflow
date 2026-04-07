@@ -70,6 +70,7 @@ type CanvasPanelKey = 'templates' | 'p2p' | 'preset' | 'runtime' | 'json' | 'res
 type LlmDesignerPageProps = {
   projectKey: string
   onExportDsl?: (dsl: DesignerDsl) => void
+  presentationMode?: 'runtime' | 'storybook-lite'
 }
 
 type DesignerLinkParams = {
@@ -115,6 +116,40 @@ function readDesignerLinkParams(): DesignerLinkParams {
     databaseStoreUri: String(query.get('database_store_uri') || query.get('db_uri') || '').trim(),
     databaseTable: String(query.get('database_table') || '').trim(),
   }
+}
+
+function mergeUniqueTemplates(...groups: NodeTemplate[][]) {
+  const seen = new Set<string>()
+  return groups.flatMap((group) =>
+    group.filter((item) => {
+      if (seen.has(item.key)) return false
+      seen.add(item.key)
+      return true
+    }),
+  )
+}
+
+function isStorybookIframe() {
+  return typeof window !== 'undefined' && window.location.pathname.includes('iframe.html')
+}
+
+function createModuleTemplates(): NodeTemplate[] {
+  return WORKFLOW_MODULE_TEMPLATES.map((item) => ({
+    key: item.key,
+    label: item.label,
+    description: item.description,
+    nodeType: resolveNodeType(item.nodeType),
+    data: {
+      ...item.data,
+      module_type: item.moduleType,
+      module_key: item.key,
+      node_type: resolveNodeType(item.nodeType),
+    },
+  }))
+}
+
+function createTemplateCatalog(): NodeTemplate[] {
+  return mergeUniqueTemplates(NODE_TEMPLATES, createModuleTemplates())
 }
 
 const NODE_TEMPLATES: NodeTemplate[] = [
@@ -608,6 +643,7 @@ function createConnectedInputVars(sourceNode: Node, targetNode: Node): Array<Rec
 }
 
 function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
+  const isStorybookCanvas = useMemo(isStorybookIframe, [])
   const linkParams = useMemo(readDesignerLinkParams, [])
   const boundaryConfig = useMemo<BoundaryNodeConfig>(
     () => ({
@@ -618,23 +654,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     }),
     [linkParams.databaseStoreUri, linkParams.databaseTable, linkParams.frontendPayload, linkParams.frontendQueryKey],
   )
-  const moduleTemplates = useMemo<NodeTemplate[]>(
-    () =>
-      WORKFLOW_MODULE_TEMPLATES.map((item) => ({
-        key: item.key,
-        label: item.label,
-        description: item.description,
-        nodeType: resolveNodeType(item.nodeType),
-        data: {
-          ...item.data,
-          module_type: item.moduleType,
-          module_key: item.key,
-          node_type: resolveNodeType(item.nodeType),
-        },
-      })),
-    [],
-  )
-  const templateCatalog = useMemo(() => [...NODE_TEMPLATES, ...moduleTemplates], [moduleTemplates])
+  const templateCatalog = useMemo(createTemplateCatalog, [])
   const resolvedTemplateKey = useMemo(() => {
     const key = linkParams.templateKey
     if (!key) return templateCatalog[2]?.key || 'llm-call'
@@ -657,17 +677,17 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   const [fromNodeId, setFromNodeId] = useState(linkParams.fromNodeId)
   const [toNodeId, setToNodeId] = useState(linkParams.toNodeId)
   const [selectedPresetKey, setSelectedPresetKey] = useState<string>(DEFAULT_WORKFLOW_LINK_PRESET_KEY)
-  const [isNodeSidebarCollapsed, setIsNodeSidebarCollapsed] = useState(false)
-  const [leftSidebarWidth, setLeftSidebarWidth] = useState(320)
-  const [rightStackWidth, setRightStackWidth] = useState(520)
+  const [isNodeSidebarCollapsed, setIsNodeSidebarCollapsed] = useState(isStorybookCanvas)
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(isStorybookCanvas ? 240 : 320)
+  const [rightStackWidth, setRightStackWidth] = useState(isStorybookCanvas ? 360 : 520)
   const [nodeSidebarQuery, setNodeSidebarQuery] = useState('')
   const [panelCollapsed, setPanelCollapsed] = useState<Record<CanvasPanelKey, boolean>>({
-    templates: false,
+    templates: isStorybookCanvas,
     p2p: true,
     preset: true,
-    runtime: false,
+    runtime: isStorybookCanvas,
     json: true,
-    results: true,
+    results: isStorybookCanvas,
   })
 
   const [editingNodeId, setEditingNodeId] = useState(linkParams.nodeId)
@@ -746,6 +766,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   }, [editingNodeId, nodes])
 
   useEffect(() => {
+    if (isStorybookCanvas) return
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
     const collapsedWidth = 56
@@ -754,7 +775,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     const maxRight = Math.max(320, Math.min(760, rect.width - effectiveLeft - 120))
     setLeftSidebarWidth((prev) => Math.min(maxLeft, Math.max(240, prev)))
     setRightStackWidth((prev) => Math.min(maxRight, Math.max(320, prev)))
-  }, [isNodeSidebarCollapsed, leftSidebarWidth, rightStackWidth])
+  }, [isNodeSidebarCollapsed, isStorybookCanvas, leftSidebarWidth, rightStackWidth])
 
   useEffect(() => {
     if (!activeResize) return
@@ -930,7 +951,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     window.requestAnimationFrame(() => {
       flowRef.current?.fitView({ duration: 300, padding: 0.2 })
     })
-  }, [setEdges, setNodes])
+  }, [boundaryConfig, setEdges, setNodes])
 
   const collectDsl = useCallback((): DesignerDsl => {
     const viewport = flowRef.current?.getViewport()
@@ -964,7 +985,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         flowRef.current?.setViewport(parsed.viewport as Viewport, { duration: 280 })
       })
     }
-  }, [setEdges, setNodes])
+  }, [boundaryConfig, setEdges, setNodes])
 
   const onImportJson = useCallback(() => {
     try {
@@ -1325,10 +1346,14 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   }, [editingNodeId, nodes, setEdges, setNodes])
 
   return (
-    <section className="llm-designer-page llm-designer-page--full">
+    <section className="llm-designer-page llm-designer-page--full llm-designer-page--quiet">
       <header className="llm-designer-header">
-        <h2>LLM Designer</h2>
-        <p>{statsText}</p>
+        <div className="llm-designer-header__copy">
+          <small>workflow composition</small>
+          <h2>LLM Designer</h2>
+          <p>让模板、连线、运行态和结果检查留在同一块安静的画布里，而不是变成一组过度抢眼的控制台。</p>
+        </div>
+        <div className="llm-designer-header__stats">{statsText}</div>
       </header>
 
       <div
@@ -1342,7 +1367,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         }}
       >
         <aside
-          className="llm-canvas-left-sidebar"
+          className={`llm-canvas-left-sidebar ${isNodeSidebarCollapsed ? 'is-collapsed' : ''}`.trim()}
           style={{
             position: 'absolute',
             left: 12,
@@ -1350,32 +1375,16 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
             bottom: 12,
             width: isNodeSidebarCollapsed ? 56 : leftSidebarWidth,
             zIndex: 12,
-            border: '1px solid rgba(148, 163, 184, 0.45)',
-            borderRadius: 12,
-            background: 'rgba(15, 23, 42, 0.72)',
-            backdropFilter: 'blur(4px)',
-            color: '#e2e8f0',
-            display: 'flex',
-            flexDirection: 'column',
             transition: 'width 180ms ease',
-            overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 10px 8px' }}>
-            {!isNodeSidebarCollapsed && <strong style={{ fontSize: 13 }}>Nodes</strong>}
+          <div className="llm-canvas-sidebar__head">
+            {!isNodeSidebarCollapsed && <strong>Nodes</strong>}
             <button
               type="button"
+              className="llm-canvas-sidebar__toggle"
               onClick={() => setIsNodeSidebarCollapsed((prev) => !prev)}
               aria-label={isNodeSidebarCollapsed ? 'Expand node sidebar' : 'Collapse node sidebar'}
-              style={{
-                border: '1px solid rgba(148, 163, 184, 0.5)',
-                background: 'rgba(30, 41, 59, 0.86)',
-                color: '#e2e8f0',
-                borderRadius: 8,
-                padding: '4px 8px',
-                cursor: 'pointer',
-                minWidth: 30,
-              }}
             >
               {isNodeSidebarCollapsed ? '>' : '<'}
             </button>
@@ -1383,26 +1392,18 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
 
           {!isNodeSidebarCollapsed && (
             <>
-              <div style={{ padding: '0 10px 8px' }}>
+              <div className="llm-canvas-sidebar__search">
                 <input
+                  className="llm-canvas-sidebar__search-input"
                   value={nodeSidebarQuery}
                   onChange={(event) => setNodeSidebarQuery(event.target.value)}
                   placeholder="Search node id / label / type"
-                  style={{
-                    width: '100%',
-                    fontSize: 12,
-                    padding: '7px 8px',
-                    borderRadius: 8,
-                    border: '1px solid rgba(148, 163, 184, 0.45)',
-                    background: 'rgba(15, 23, 42, 0.76)',
-                    color: '#f8fafc',
-                  }}
                 />
               </div>
-              <div style={{ padding: '0 10px 6px', fontSize: 11, color: '#cbd5e1' }}>
+              <div className="llm-canvas-sidebar__count">
                 {filteredNodes.length}/{nodes.length} node(s)
               </div>
-              <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="llm-canvas-sidebar__list">
                 {filteredNodes.map((node) => {
                   const nodeData = asObject(node.data)
                   const label = asKey(nodeData.label, node.id)
@@ -1410,60 +1411,28 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
                   return (
                     <article
                       key={node.id}
-                      style={{
-                        border: isSelected ? '1px solid #60a5fa' : '1px solid rgba(148, 163, 184, 0.35)',
-                        background: isSelected ? 'rgba(37, 99, 235, 0.2)' : 'rgba(30, 41, 59, 0.58)',
-                        borderRadius: 10,
-                        padding: '8px 8px 7px',
-                      }}
+                      className={`llm-canvas-node-item ${isSelected ? 'is-selected' : ''}`.trim()}
                     >
                       <button
                         type="button"
+                        className="llm-canvas-node-item__meta"
                         onClick={() => openNodeCardById(node.id)}
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          border: 'none',
-                          background: 'transparent',
-                          color: '#f8fafc',
-                          cursor: 'pointer',
-                          padding: 0,
-                          marginBottom: 6,
-                        }}
                       >
-                        <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
-                        <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 2 }}>{node.id}</div>
+                        <div className="llm-canvas-node-item__label">{label}</div>
+                        <div className="llm-canvas-node-item__id">{node.id}</div>
                       </button>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div className="llm-canvas-node-item__actions">
                         <button
                           type="button"
+                          className="llm-canvas-node-item__action"
                           onClick={() => focusNodeById(node.id)}
-                          style={{
-                            flex: 1,
-                            border: '1px solid rgba(148, 163, 184, 0.45)',
-                            background: 'rgba(15, 23, 42, 0.8)',
-                            color: '#e2e8f0',
-                            borderRadius: 6,
-                            fontSize: 11,
-                            padding: '4px 0',
-                            cursor: 'pointer',
-                          }}
                         >
                           Focus
                         </button>
                         <button
                           type="button"
+                          className="llm-canvas-node-item__action is-danger"
                           onClick={() => deleteNodeById(node.id)}
-                          style={{
-                            flex: 1,
-                            border: '1px solid rgba(248, 113, 113, 0.65)',
-                            background: 'rgba(127, 29, 29, 0.5)',
-                            color: '#fecaca',
-                            borderRadius: 6,
-                            fontSize: 11,
-                            padding: '4px 0',
-                            cursor: 'pointer',
-                          }}
                         >
                           Delete
                         </button>
@@ -1472,18 +1441,18 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
                   )
                 })}
                 {!filteredNodes.length && (
-                  <div style={{ fontSize: 12, color: '#cbd5e1', padding: '6px 0' }}>No nodes matched.</div>
+                  <div className="llm-canvas-sidebar__empty">No nodes matched.</div>
                 )}
               </div>
             </>
           )}
-          {!isNodeSidebarCollapsed && (
+          {!isStorybookCanvas && !isNodeSidebarCollapsed && (
             <div className="llm-canvas-resize-handle llm-canvas-resize-handle--left" onPointerDown={startLeftResize} />
           )}
         </aside>
 
         <div className="llm-canvas-right-stack" style={{ width: rightStackWidth }}>
-          <div className="llm-canvas-resize-handle llm-canvas-resize-handle--right" onPointerDown={startRightResize} />
+          {!isStorybookCanvas ? <div className="llm-canvas-resize-handle llm-canvas-resize-handle--right" onPointerDown={startRightResize} /> : null}
           {renderCanvasPanel('templates', '模板', (
             <NodeTemplatePalette
               templates={templateCatalog}
@@ -1635,7 +1604,9 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
           onConnect={onConnect}
           onInit={(instance) => {
             flowRef.current = instance
-            instance.fitView({ padding: 0.2 })
+            if (!isStorybookCanvas) {
+              instance.fitView({ padding: 0.2 })
+            }
           }}
           onNodeClick={(event, node) => {
             const rect = canvasRef.current?.getBoundingClientRect()
@@ -1659,11 +1630,13 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
               setToNodeId((prev) => (prev && prev !== pickedIds[0] ? prev : ''))
             }
           }}
-          fitView
+          zoomOnScroll={!isStorybookCanvas}
+          panOnDrag={!isStorybookCanvas}
+          selectionOnDrag={!isStorybookCanvas}
         >
-          <MiniMap pannable zoomable />
-          <Controls />
-          <Background gap={24} size={1} />
+          {!isStorybookCanvas ? <MiniMap pannable zoomable /> : null}
+          {!isStorybookCanvas ? <Controls /> : null}
+          {!isStorybookCanvas ? <Background gap={24} size={1} /> : null}
         </ReactFlow>
 
         <NodeInfoCard
@@ -1693,7 +1666,132 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   )
 }
 
-export default function LlmDesignerPage(props: LlmDesignerPageProps) {
+function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'projectKey'>) {
+  const templateCatalog = useMemo(() => createTemplateCatalog(), [])
+  const preset = WORKFLOW_LINK_PRESET_BY_KEY[DEFAULT_WORKFLOW_LINK_PRESET_KEY]
+  const previewNodes = useMemo(() => ensureBoundaryNodes(baseNodes).map((node) => ({
+    id: node.id,
+    label: asKey(asObject(node.data).label, node.id),
+    nodeType: asKey(asObject(node.data).node_type, node.type || 'unknown'),
+    role: asKey(asObject(node.data).role, ''),
+  })), [])
+  const previewEdges = useMemo(() => [...baseEdges, ...buildAutoBridgeEdges(ensureBoundaryNodes(baseNodes), baseEdges)], [])
+  const visibleTemplates = useMemo(() => templateCatalog.slice(0, 8), [templateCatalog])
+  const visibleProfiles = useMemo(() => NODE_INFO_PROFILES.slice(0, 4), [])
+
+  return (
+    <section className="llm-designer-page llm-designer-page--full llm-designer-page--quiet">
+      <header className="llm-designer-header">
+        <div className="llm-designer-header__copy">
+          <small>storybook-lite contract</small>
+          <h2>LLM Designer</h2>
+          <p>Storybook 只保留 agent 后续开发真正需要的模板、链路和运行 contract，不再承接完整 ReactFlow 运行时。</p>
+        </div>
+        <div className="llm-designer-header__stats">Templates {templateCatalog.length} · Nodes {previewNodes.length} · Edges {previewEdges.length}</div>
+      </header>
+
+      <div className="content-stack">
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Storybook Contract Surface</h2>
+            <span className="chip">project: {projectKey}</span>
+          </div>
+          <p className="status-line">
+            生产页继续使用完整 runtime canvas；Storybook 使用轻量入口，避免 iframe 中的布局反馈、自动 fit 和重交互拖垮 story。
+          </p>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Default Workflow Preview</h2>
+            <span className="chip">{preset.label}</span>
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              {previewNodes.map((node) => (
+                <article key={node.id} style={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.72)' }}>
+                  <strong>{node.label}</strong>
+                  <div className="status-line">{node.id}</div>
+                  <div className="status-line">type: {node.nodeType}</div>
+                  <div className="status-line">role: {node.role || '-'}</div>
+                </article>
+              ))}
+            </div>
+            <div className="status-line">
+              edges: {previewEdges.map((edge) => `${edge.source} -> ${edge.target}`).join(' | ')}
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Template Palette</h2>
+            <span className="chip">deduped</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            {visibleTemplates.map((template) => (
+              <article key={template.key} style={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.72)' }}>
+                <strong>{template.label}</strong>
+                <div className="status-line">{template.key}</div>
+                <div className="status-line">{template.description || 'No description'}</div>
+                <div className="status-line">node_type: {template.nodeType}</div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Node Profiles</h2>
+            <span className="chip">editable presets</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            {visibleProfiles.map((profile) => (
+              <article key={profile.key} style={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.72)' }}>
+                <strong>{profile.label}</strong>
+                <div className="status-line">{profile.description || '-'}</div>
+                <div className="status-line">node_type: {profile.nodeType}</div>
+                <div className="status-line">model: {asKey(profile.data.model, '-')}</div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Runtime Contract</h2>
+            <span className="chip">api integration</span>
+          </div>
+          <div className="form-grid cols-3">
+            <label>
+              <span>graph_id</span>
+              <input value="graph-demo-001" readOnly />
+            </label>
+            <label>
+              <span>run_id</span>
+              <input value="run-demo-001" readOnly />
+            </label>
+            <label>
+              <span>run input</span>
+              <input value='{"query":"battery market"}' readOnly />
+            </label>
+          </div>
+          <div className="inline-actions">
+            <button type="button" disabled>Compile Graph</button>
+            <button type="button" disabled>Run Graph</button>
+            <button type="button" disabled>Get Run Detail</button>
+            <button type="button" disabled>Get Run Events</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  )
+}
+
+export default function LlmDesignerPage({ presentationMode = 'runtime', ...props }: LlmDesignerPageProps) {
+  if (presentationMode === 'storybook-lite') {
+    return <LlmDesignerStorybookLite projectKey={props.projectKey} />
+  }
   return (
     <ReactFlowProvider>
       <DesignerCanvas {...props} />

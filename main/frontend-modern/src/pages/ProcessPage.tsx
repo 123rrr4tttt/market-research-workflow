@@ -1,11 +1,70 @@
 import { Database, RefreshCw, XCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useProcessData } from '../hooks/useProcessData'
-import type { ProcessTaskItem } from '../lib/types'
+import type { ProcessHistoryResponse, ProcessTaskDetail, ProcessTaskItem, ProcessTaskList, ProcessTaskStats } from '../lib/types'
 
 export type ProcessPageProps = {
   projectKey: string
   variant?: 'process' | 'processing'
+}
+
+type ProcessHistoryItem = NonNullable<ProcessHistoryResponse['history']>[number]
+
+const detailPreStyle = {
+  marginTop: 8,
+  maxHeight: 280,
+  overflow: 'auto' as const,
+  whiteSpace: 'pre-wrap' as const,
+  overflowWrap: 'anywhere' as const,
+}
+
+export type ProcessPageViewProps = {
+  variant: 'process' | 'processing'
+  autoRefreshEnabled: boolean
+  refreshIntervalSec: number
+  processStats: ProcessTaskStats | undefined
+  processList: ProcessTaskList | undefined
+  processHistory: ProcessHistoryResponse | undefined
+  taskDetail: ProcessTaskDetail | undefined
+  taskLogsText: string | undefined
+  taskLogsError: boolean
+  cancelPending: boolean
+  isRefreshing: boolean
+  selectedTask: ProcessTaskItem | undefined
+  selectedHistoryTask: ProcessHistoryItem | undefined
+  selectedCurrent: boolean
+  selectedTaskId: string | null
+  selectedHistoryId: number | null
+  selectedTaskIds: string[]
+  selectedMeta: Record<string, unknown> | null
+  selectedSourceKind: string
+  selectedResultSummary: string
+  selectedRejectionView: {
+    insertedValid: number | null
+    rejectedCount: number | null
+    rejectionBreakdown: Record<string, number>
+    topReason: string
+  }
+  selectedLightFilterView: {
+    decision: string
+    reason: string
+    score: number | null
+    keep: string
+  }
+  cancellableSelectedTaskIds: string[]
+  onAutoRefreshEnabledChange: (value: boolean) => void
+  onRefreshIntervalChange: (value: number) => void
+  onRefreshAll: () => void
+  onSelectAllCancellable: () => void
+  onClearSelectedTasks: () => void
+  onCancelSelectedTasks: () => void
+  onToggleTaskSelect: (taskId: string) => void
+  onToggleCurrentTaskDetail: (taskId: string) => void
+  onToggleHistoryDetail: (historyId: number) => void
+  onCancelTask: (taskId: string) => void
+  onCloseDetail: () => void
+  onRefreshSelectedTask: () => void
+  onRefreshHistory: () => void
 }
 
 function formatDate(value?: string | null) {
@@ -264,16 +323,105 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
     clearSelectedTasks()
   }
 
-  const detailPreStyle = {
-    marginTop: 8,
-    maxHeight: 280,
-    overflow: 'auto' as const,
-    whiteSpace: 'pre-wrap' as const,
-    overflowWrap: 'anywhere' as const,
-  }
-
   return (
-    <div className="content-stack">
+    <ProcessPageView
+      variant={variant}
+      autoRefreshEnabled={autoRefreshEnabled}
+      refreshIntervalSec={refreshIntervalSec}
+      processStats={processStats.data}
+      processList={processList.data}
+      processHistory={processHistory.data}
+      taskDetail={taskDetail.data}
+      taskLogsText={taskLogs.data?.text}
+      taskLogsError={taskLogs.isError}
+      cancelPending={cancelMutation.isPending}
+      isRefreshing={isRefreshing}
+      selectedTask={selectedTask}
+      selectedHistoryTask={selectedHistoryTask}
+      selectedCurrent={selectedCurrent}
+      selectedTaskId={selectedTaskId}
+      selectedHistoryId={selectedHistoryId}
+      selectedTaskIds={selectedTaskIds}
+      selectedMeta={selectedMeta as Record<string, unknown> | null}
+      selectedSourceKind={selectedSourceKind}
+      selectedResultSummary={selectedResultSummary}
+      selectedRejectionView={selectedRejectionView}
+      selectedLightFilterView={selectedLightFilterView}
+      cancellableSelectedTaskIds={cancellableSelectedTaskIds}
+      onAutoRefreshEnabledChange={setAutoRefreshEnabled}
+      onRefreshIntervalChange={setRefreshIntervalSec}
+      onRefreshAll={() => {
+        void refreshAll()
+      }}
+      onSelectAllCancellable={selectAllCancellable}
+      onClearSelectedTasks={clearSelectedTasks}
+      onCancelSelectedTasks={() => {
+        void cancelSelectedTasks()
+      }}
+      onToggleTaskSelect={toggleTaskSelect}
+      onToggleCurrentTaskDetail={(taskId) => {
+        setSelectedHistoryId(null)
+        setSelectedTaskId((prev) => (prev === taskId ? null : taskId))
+      }}
+      onToggleHistoryDetail={(historyId) => {
+        setSelectedTaskId(null)
+        setSelectedHistoryId((prev) => (prev === historyId ? null : historyId))
+      }}
+      onCancelTask={(taskId) => cancelMutation.mutate(taskId)}
+      onCloseDetail={() => {
+        setSelectedTaskId(null)
+        setSelectedHistoryId(null)
+      }}
+      onRefreshSelectedTask={() => {
+        void refreshSelectedTask(selectedTaskId)
+      }}
+      onRefreshHistory={() => {
+        void refreshHistory()
+      }}
+    />
+  )
+}
+
+export function ProcessPageView({
+  variant,
+  autoRefreshEnabled,
+  refreshIntervalSec,
+  processStats,
+  processList,
+  processHistory,
+  taskDetail,
+  taskLogsText,
+  taskLogsError,
+  cancelPending,
+  isRefreshing,
+  selectedTask,
+  selectedHistoryTask,
+  selectedCurrent,
+  selectedTaskId,
+  selectedHistoryId,
+  selectedTaskIds,
+  selectedMeta,
+  selectedSourceKind,
+  selectedResultSummary,
+  selectedRejectionView,
+  selectedLightFilterView,
+  cancellableSelectedTaskIds,
+  onAutoRefreshEnabledChange,
+  onRefreshIntervalChange,
+  onRefreshAll,
+  onSelectAllCancellable,
+  onClearSelectedTasks,
+  onCancelSelectedTasks,
+  onToggleTaskSelect,
+  onToggleCurrentTaskDetail,
+  onToggleHistoryDetail,
+  onCancelTask,
+  onCloseDetail,
+  onRefreshSelectedTask,
+  onRefreshHistory,
+}: ProcessPageViewProps) {
+  return (
+    <div className={`content-stack process-page process-page--${variant}`}>
       <section className="panel">
         <div className="panel-header">
           <h2>{variant === 'processing' ? '数据处理任务视图' : '任务调度视图'}</h2>
@@ -282,23 +430,23 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
       <section className="kpi-grid">
         <article className="kpi-card">
           <span>运行任务</span>
-          <strong>{processStats.data?.total_running || 0}</strong>
-          <small>active {processStats.data?.active_tasks || 0}</small>
+          <strong>{processStats?.total_running || 0}</strong>
+          <small>active {processStats?.active_tasks || 0}</small>
         </article>
         <article className="kpi-card">
           <span>scheduled</span>
-          <strong>{processStats.data?.scheduled_tasks || 0}</strong>
-          <small>reserved {processStats.data?.reserved_tasks || 0}</small>
+          <strong>{processStats?.scheduled_tasks || 0}</strong>
+          <small>reserved {processStats?.reserved_tasks || 0}</small>
         </article>
         <article className="kpi-card">
           <span>workers</span>
-          <strong>{processStats.data?.workers || 0}</strong>
-          <small>{(processStats.data?.worker_names || []).slice(0, 2).join(', ') || '-'}</small>
+          <strong>{processStats?.workers || 0}</strong>
+          <small>{(processStats?.worker_names || []).slice(0, 2).join(', ') || '-'}</small>
         </article>
         <article className="kpi-card">
           <span>总任务</span>
-          <strong>{processList.data?.stats?.total_tasks || 0}</strong>
-          <small>pending {processList.data?.stats?.pending_tasks || 0}</small>
+          <strong>{processList?.stats?.total_tasks || 0}</strong>
+          <small>pending {processList?.stats?.pending_tasks || 0}</small>
         </article>
       </section>
 
@@ -310,20 +458,12 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
           </h2>
           <div className="inline-actions">
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="checkbox"
-                checked={autoRefreshEnabled}
-                onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
-              />
+              <input type="checkbox" checked={autoRefreshEnabled} onChange={(e) => onAutoRefreshEnabledChange(e.target.checked)} />
               自动刷新
             </label>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               间隔
-              <select
-                value={refreshIntervalSec}
-                disabled={!autoRefreshEnabled}
-                onChange={(e) => setRefreshIntervalSec(Number(e.target.value) || 8)}
-              >
+              <select value={refreshIntervalSec} disabled={!autoRefreshEnabled} onChange={(e) => onRefreshIntervalChange(Number(e.target.value) || 8)}>
                 {[5, 8, 10, 15, 30, 60].map((sec) => (
                   <option key={sec} value={sec}>
                     {sec}s
@@ -331,17 +471,17 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
                 ))}
               </select>
             </label>
-            <button onClick={() => void refreshAll()} disabled={isRefreshing}>
+            <button onClick={onRefreshAll} disabled={isRefreshing}>
               <RefreshCw size={14} />
               {isRefreshing ? '刷新中...' : '刷新'}
             </button>
-            <button onClick={selectAllCancellable} disabled={!(processList.data?.tasks || []).length}>
+            <button onClick={onSelectAllCancellable} disabled={!(processList?.tasks || []).length}>
               选择可取消
             </button>
-            <button onClick={clearSelectedTasks} disabled={!selectedTaskIds.length}>
+            <button onClick={onClearSelectedTasks} disabled={!selectedTaskIds.length}>
               清空选择
             </button>
-            <button onClick={() => void cancelSelectedTasks()} disabled={!cancellableSelectedTaskIds.length || cancelMutation.isPending}>
+            <button onClick={onCancelSelectedTasks} disabled={!cancellableSelectedTaskIds.length || cancelPending}>
               批量取消({cancellableSelectedTaskIds.length})
             </button>
           </div>
@@ -362,13 +502,11 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
               </tr>
             </thead>
             <tbody>
-              {(processList.data?.tasks || []).map((task) => (
+              {(processList?.tasks || []).map((task) => (
                 <tr key={task.task_id}>
                   <td>{task.task_id}</td>
                   <td>{task.name || '-'}</td>
-                  <td>
-                    <span className={statusClass(task.status)}>{task.status || '-'}</span>
-                  </td>
+                  <td><span className={statusClass(task.status)}>{task.status || '-'}</span></td>
                   <td>{task.worker || '-'}</td>
                   <td>
                     <div>{getTaskSourceKind(task)}</div>
@@ -384,37 +522,22 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
                   </td>
                   <td>{formatDate(task.started_at)}</td>
                   <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedTaskIds.includes(task.task_id)}
-                      onChange={() => toggleTaskSelect(task.task_id)}
-                      disabled={!canCancelTask(task)}
-                    />
+                    <input type="checkbox" checked={selectedTaskIds.includes(task.task_id)} onChange={() => onToggleTaskSelect(task.task_id)} disabled={!canCancelTask(task)} />
                   </td>
                   <td>
-                    <button
-                      onClick={() => {
-                        setSelectedHistoryId(null)
-                        setSelectedTaskId((prev) => (prev === task.task_id ? null : task.task_id))
-                      }}
-                    >
+                    <button onClick={() => onToggleCurrentTaskDetail(task.task_id)}>
                       {selectedTaskId === task.task_id ? '收起' : '详情'}
                     </button>
-                    <button
-                      disabled={!canCancelTask(task) || cancelMutation.isPending}
-                      onClick={() => cancelMutation.mutate(task.task_id)}
-                    >
+                    <button disabled={!canCancelTask(task) || cancelPending} onClick={() => onCancelTask(task.task_id)}>
                       <XCircle size={14} />
                       取消
                     </button>
                   </td>
                 </tr>
               ))}
-              {!processList.data?.tasks?.length ? (
+              {!processList?.tasks?.length ? (
                 <tr>
-                  <td colSpan={8} className="empty-cell">
-                    暂无运行中任务
-                  </td>
+                  <td colSpan={8} className="empty-cell">暂无运行中任务</td>
                 </tr>
               ) : null}
             </tbody>
@@ -423,171 +546,65 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
       </section>
 
       {selectedTaskId || selectedHistoryId ? (
-        <div
-          className="process-detail-backdrop"
-          onClick={() => {
-            setSelectedTaskId(null)
-            setSelectedHistoryId(null)
-          }}
-        >
+        <div className="process-detail-backdrop" onClick={onCloseDetail}>
           <section className="panel process-detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="panel-header">
-            <h2>
-              任务详情 {selectedCurrent ? selectedTaskId : `history#${selectedHistoryId}`}
-            </h2>
-            <div className="inline-actions">
-              <button
-                onClick={() => {
-                  void refreshSelectedTask(selectedTaskId)
-                }}
-                disabled={!selectedCurrent || taskDetail.isFetching || taskLogs.isFetching}
-              >
-                <RefreshCw size={14} />
-                {selectedCurrent && (taskDetail.isFetching || taskLogs.isFetching) ? '刷新中...' : '刷新'}
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedTaskId(null)
-                  setSelectedHistoryId(null)
-                }}
-              >
-                关闭
-              </button>
-            </div>
+              <h2>任务详情 {selectedCurrent ? selectedTaskId : `history#${selectedHistoryId}`}</h2>
+              <div className="inline-actions">
+                <button onClick={onRefreshSelectedTask} disabled={!selectedCurrent || isRefreshing}>
+                  <RefreshCw size={14} />
+                  {selectedCurrent && isRefreshing ? '刷新中...' : '刷新'}
+                </button>
+                <button onClick={onCloseDetail}>关闭</button>
+              </div>
             </div>
             <div className="content-stack">
-            <div>
-              <strong>状态：</strong>
-              <span className={statusClass(selectedCurrent ? (taskDetail.data?.status || selectedTask?.status) : selectedHistoryTask?.status)}>
-                {selectedCurrent ? (taskDetail.data?.status || selectedTask?.status || '-') : (selectedHistoryTask?.status || '-')}
-              </span>
-            </div>
-            <div>
-              <strong>来源：</strong>
-              {selectedSourceKind}
-              {selectedMeta?.item_key ? ` | item_key=${selectedMeta.item_key}` : ''}
-              {selectedMeta?.channel ? ` | channel=${selectedMeta.channel}` : ''}
-              {selectedMeta?.provider ? ` | provider=${selectedMeta.provider}` : ''}
-            </div>
-            <div>
-              <strong>结果摘要：</strong>
-              {selectedResultSummary}
-            </div>
-            <div>
-              <strong>有效入库：</strong>
-              {selectedRejectionView.insertedValid ?? '-'}
-              {' | '}
-              <strong>剔除：</strong>
-              {selectedRejectionView.rejectedCount ?? '-'}
-            </div>
-            <div>
-              <strong>主要剔除原因：</strong>
-              {selectedRejectionView.topReason}
-            </div>
-            <div>
-              <strong>轻过滤：</strong>
-              {selectedLightFilterView.decision}
-              {' | '}
-              <strong>原因：</strong>
-              {selectedLightFilterView.reason}
-              {' | '}
-              <strong>分数：</strong>
-              {selectedLightFilterView.score ?? '-'}
-              {' | '}
-              <strong>向量化保留：</strong>
-              {selectedLightFilterView.keep}
-            </div>
-            <div>
-              <strong>剔除明细</strong>
-              <pre style={detailPreStyle}>
-                {Object.keys(selectedRejectionView.rejectionBreakdown).length
-                  ? stringifyBlock(selectedRejectionView.rejectionBreakdown)
-                  : '-'}
-              </pre>
-            </div>
-            <div>
-              <strong>Worker：</strong>
-              {selectedCurrent ? (taskDetail.data?.worker || selectedTask?.worker || '-') : (selectedHistoryTask?.worker || '-')}
-            </div>
-            <div>
-              <strong>Started：</strong>
-              {formatDate(selectedCurrent ? (taskDetail.data?.started_at || selectedTask?.started_at) : selectedHistoryTask?.started_at)}
-            </div>
-            {!selectedCurrent ? (
-              <>
-                <div>
-                  <strong>Finished：</strong>
-                  {formatDate(selectedHistoryTask?.finished_at)}
-                </div>
-                <div>
-                  <strong>Duration(s)：</strong>
-                  {selectedHistoryTask?.duration_seconds != null ? selectedHistoryTask.duration_seconds.toFixed(1) : '-'}
-                </div>
-                <div>
-                  <strong>job_type：</strong>
-                  {selectedHistoryTask?.job_type || '-'}
-                </div>
-              </>
-            ) : null}
-            <div>
-              <strong>display_meta</strong>
-              <pre style={detailPreStyle}>{stringifyBlock(selectedMeta)}</pre>
-            </div>
-            {selectedCurrent ? (
-              <>
-                <div>
-                  <strong>args</strong>
-                  <pre style={detailPreStyle}>
-                    {stringifyBlock(taskDetail.data?.args || selectedTask?.args)}
-                  </pre>
-                </div>
-                <div>
-                  <strong>kwargs</strong>
-                  <pre style={detailPreStyle}>
-                    {stringifyBlock(taskDetail.data?.kwargs || selectedTask?.kwargs)}
-                  </pre>
-                </div>
-                <div>
-                  <strong>progress</strong>
-                  <pre style={detailPreStyle}>
-                    {stringifyBlock(taskDetail.data?.progress || selectedTask?.progress)}
-                  </pre>
-                </div>
-                <div>
-                  <strong>result</strong>
-                  <pre style={detailPreStyle}>
-                    {stringifyBlock(taskDetail.data?.result)}
-                  </pre>
-                </div>
-                <div>
-                  <strong>traceback</strong>
-                  <pre style={detailPreStyle}>
-                    {stringifyBlock(taskDetail.data?.traceback || selectedTask?.traceback)}
-                  </pre>
-                </div>
-                <div>
-                  <strong>logs (tail 200)</strong>
-                  <pre style={detailPreStyle}>
-                    {taskLogs.isError ? '日志加载失败' : stringifyBlock(taskLogs.data?.text)}
-                  </pre>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <strong>params</strong>
-                  <pre style={detailPreStyle}>
-                    {stringifyBlock(selectedHistoryTask?.params)}
-                  </pre>
-                </div>
-                <div>
-                  <strong>error</strong>
-                  <pre style={detailPreStyle}>
-                    {stringifyBlock(selectedHistoryTask?.error)}
-                  </pre>
-                </div>
-              </>
-            )}
+              <div>
+                <strong>状态：</strong>
+                <span className={statusClass(selectedCurrent ? (taskDetail?.status || selectedTask?.status) : selectedHistoryTask?.status)}>
+                  {selectedCurrent ? (taskDetail?.status || selectedTask?.status || '-') : (selectedHistoryTask?.status || '-')}
+                </span>
+              </div>
+              <div>
+                <strong>来源：</strong>
+                {selectedSourceKind}
+                {selectedMeta?.item_key ? ` | item_key=${selectedMeta.item_key}` : ''}
+                {selectedMeta?.channel ? ` | channel=${selectedMeta.channel}` : ''}
+                {selectedMeta?.provider ? ` | provider=${selectedMeta.provider}` : ''}
+              </div>
+              <div><strong>结果摘要：</strong>{selectedResultSummary}</div>
+              <div><strong>有效入库：</strong>{selectedRejectionView.insertedValid ?? '-'} {' | '}<strong>剔除：</strong>{selectedRejectionView.rejectedCount ?? '-'}</div>
+              <div><strong>主要剔除原因：</strong>{selectedRejectionView.topReason}</div>
+              <div><strong>轻过滤：</strong>{selectedLightFilterView.decision} {' | '}<strong>原因：</strong>{selectedLightFilterView.reason} {' | '}<strong>分数：</strong>{selectedLightFilterView.score ?? '-'} {' | '}<strong>向量化保留：</strong>{selectedLightFilterView.keep}</div>
+              <div>
+                <strong>剔除明细</strong>
+                <pre style={detailPreStyle}>{Object.keys(selectedRejectionView.rejectionBreakdown).length ? stringifyBlock(selectedRejectionView.rejectionBreakdown) : '-'}</pre>
+              </div>
+              <div><strong>Worker：</strong>{selectedCurrent ? (taskDetail?.worker || selectedTask?.worker || '-') : (selectedHistoryTask?.worker || '-')}</div>
+              <div><strong>Started：</strong>{formatDate(selectedCurrent ? (taskDetail?.started_at || selectedTask?.started_at) : selectedHistoryTask?.started_at)}</div>
+              {!selectedCurrent ? (
+                <>
+                  <div><strong>Finished：</strong>{formatDate(selectedHistoryTask?.finished_at)}</div>
+                  <div><strong>Duration(s)：</strong>{selectedHistoryTask?.duration_seconds != null ? selectedHistoryTask.duration_seconds.toFixed(1) : '-'}</div>
+                  <div><strong>job_type：</strong>{selectedHistoryTask?.job_type || '-'}</div>
+                </>
+              ) : null}
+              <div><strong>display_meta</strong><pre style={detailPreStyle}>{stringifyBlock(selectedMeta)}</pre></div>
+              {selectedCurrent ? (
+                <>
+                  <div><strong>args</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.args || selectedTask?.args)}</pre></div>
+                  <div><strong>kwargs</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.kwargs || selectedTask?.kwargs)}</pre></div>
+                  <div><strong>progress</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.progress || selectedTask?.progress)}</pre></div>
+                  <div><strong>result</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.result)}</pre></div>
+                  <div><strong>traceback</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.traceback || selectedTask?.traceback)}</pre></div>
+                  <div><strong>logs (tail 200)</strong><pre style={detailPreStyle}>{taskLogsError ? '日志加载失败' : stringifyBlock(taskLogsText)}</pre></div>
+                </>
+              ) : (
+                <>
+                  <div><strong>params</strong><pre style={detailPreStyle}>{stringifyBlock(selectedHistoryTask?.params)}</pre></div>
+                  <div><strong>error</strong><pre style={detailPreStyle}>{stringifyBlock(selectedHistoryTask?.error)}</pre></div>
+                </>
+              )}
             </div>
           </section>
         </div>
@@ -597,9 +614,9 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
         <div className="panel-header">
           <h2>任务历史</h2>
           <div className="inline-actions">
-            <button onClick={() => void refreshHistory()} disabled={processHistory.isFetching}>
+            <button onClick={onRefreshHistory} disabled={isRefreshing}>
               <RefreshCw size={14} />
-              {processHistory.isFetching ? '刷新中...' : '刷新'}
+              {isRefreshing ? '刷新中...' : '刷新'}
             </button>
           </div>
         </div>
@@ -622,7 +639,7 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
               </tr>
             </thead>
             <tbody>
-              {(processHistory.data?.history || []).map((row) => {
+              {(processHistory?.history || []).map((row) => {
                 const rowRejectionView = buildRejectionView({
                   display_meta: row.display_meta as Record<string, unknown> | null,
                   params: row.params || null,
@@ -631,9 +648,7 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
                   <tr key={row.id}>
                     <td>{row.id}</td>
                     <td>{row.job_type || '-'}</td>
-                    <td>
-                      <span className={statusClass(row.status)}>{row.status || '-'}</span>
-                    </td>
+                    <td><span className={statusClass(row.status)}>{row.status || '-'}</span></td>
                     <td>{formatDate(row.started_at)}</td>
                     <td>{formatDate(row.finished_at)}</td>
                     <td>{row.duration_seconds != null ? row.duration_seconds.toFixed(1) : '-'}</td>
@@ -642,23 +657,16 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
                     <td>{rowRejectionView.rejectedCount ?? '-'}</td>
                     <td>{rowRejectionView.topReason}</td>
                     <td>
-                      <button
-                        onClick={() => {
-                          setSelectedTaskId(null)
-                          setSelectedHistoryId((prev) => (prev === Number(row.id) ? null : Number(row.id)))
-                        }}
-                      >
+                      <button onClick={() => onToggleHistoryDetail(Number(row.id))}>
                         {selectedHistoryId === Number(row.id) ? '收起' : '详情'}
                       </button>
                     </td>
                   </tr>
                 )
               })}
-              {!processHistory.data?.history?.length ? (
+              {!processHistory?.history?.length ? (
                 <tr>
-                  <td colSpan={11} className="empty-cell">
-                    暂无历史数据
-                  </td>
+                  <td colSpan={11} className="empty-cell">暂无历史数据</td>
                 </tr>
               ) : null}
             </tbody>

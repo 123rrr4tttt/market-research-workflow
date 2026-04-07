@@ -194,9 +194,159 @@ class FrontDoorExecutionProtocol:
     write_to_pool: bool
     auto_ingest: bool
     ingest_limit: int
-    force_single_url_flow: bool
+    force_url_routing_flow: bool
     prefer_crawler_first: bool
     search_parallelism: int
     routing_parallelism: int
+    concurrency_plan: Dict[str, Any]
     source_tier: str
     onboarding_priority: str
+
+
+@dataclass(slots=True, frozen=True)
+class ConcurrencyStagePlan:
+    stage: str
+    tasks_total: int
+    requested_parallelism: int
+    parallelism: int
+    budget: int
+    fail_fast: bool
+    timeout_seconds: float | None
+
+
+@dataclass(slots=True, frozen=True)
+class SourceConcurrencyPlan:
+    batch_size: int
+    shared_budget: int
+    search: ConcurrencyStagePlan
+    url: ConcurrencyStagePlan
+
+
+def _as_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    raw = str(value or "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def _clamp_int(value: Any, default: int, *, min_value: int, max_value: int) -> int:
+    try:
+        parsed = int(value)
+    except Exception:
+        parsed = int(default)
+    return max(min_value, min(max_value, parsed))
+
+
+def _as_optional_float(value: Any, *, min_value: float | None = None) -> float | None:
+    try:
+        parsed = float(value)
+    except Exception:
+        return None
+    if min_value is not None and parsed < min_value:
+        return None
+    return parsed
+
+
+def source_concurrency_plan_to_dict(plan: SourceConcurrencyPlan) -> Dict[str, Any]:
+    return {
+        "batch_size": plan.batch_size,
+        "shared_budget": plan.shared_budget,
+        "search": {
+            "stage": plan.search.stage,
+            "tasks_total": plan.search.tasks_total,
+            "requested_parallelism": plan.search.requested_parallelism,
+            "parallelism": plan.search.parallelism,
+            "budget": plan.search.budget,
+            "fail_fast": plan.search.fail_fast,
+            "timeout_seconds": plan.search.timeout_seconds,
+        },
+        "url": {
+            "stage": plan.url.stage,
+            "tasks_total": plan.url.tasks_total,
+            "requested_parallelism": plan.url.requested_parallelism,
+            "parallelism": plan.url.parallelism,
+            "budget": plan.url.budget,
+            "fail_fast": plan.url.fail_fast,
+            "timeout_seconds": plan.url.timeout_seconds,
+        },
+    }
+
+
+def build_source_concurrency_plan(
+    *,
+    params: Dict[str, Any] | None,
+    total_search_tasks: int,
+    total_url_tasks: int,
+) -> SourceConcurrencyPlan:
+    raw = dict(params or {})
+    batch_size = _clamp_int(
+        raw.get("keyword_batch_size") if raw.get("keyword_batch_size") is not None else raw.get("batch_size", raw.get("batch")),
+        4,
+        min_value=1,
+        max_value=100,
+    )
+    shared_budget = _clamp_int(
+        raw.get("concurrency_budget") if raw.get("concurrency_budget") is not None else raw.get("budget"),
+        4,
+        min_value=1,
+        max_value=64,
+    )
+    requested_search = _clamp_int(
+        raw.get("search_parallelism") if raw.get("search_parallelism") is not None else raw.get("search", shared_budget),
+        min(3, max(1, total_search_tasks or 1)),
+        min_value=1,
+        max_value=64,
+    )
+    requested_url = _clamp_int(
+        raw.get("url_routing_parallelism")
+        if raw.get("url_routing_parallelism") is not None
+        else raw.get("routing_parallelism", raw.get("url", shared_budget)),
+        min(4, max(1, total_url_tasks or 1)),
+        min_value=1,
+        max_value=64,
+    )
+    fail_fast = _as_bool(raw.get("fail_fast"), False)
+    shared_timeout = _as_optional_float(raw.get("timeout"), min_value=0.001)
+    search_timeout = _as_optional_float(raw.get("search_timeout"), min_value=0.001) or shared_timeout
+    url_timeout = (
+        _as_optional_float(raw.get("url_timeout_seconds"), min_value=0.001)
+        or _as_optional_float(raw.get("url_timeout"), min_value=0.001)
+        or _as_optional_float(raw.get("per_url_timeout_seconds"), min_value=0.001)
+        or shared_timeout
+    )
+    if url_timeout is None:
+        url_timeout = _as_optional_float(raw.get("probe_timeout"), min_value=0.001)
+    search_budget = min(shared_budget, max(1, total_search_tasks or 1))
+    url_budget = min(shared_budget, max(1, total_url_tasks or 1))
+    search_parallelism = min(search_budget, requested_search, max(1, total_search_tasks or 1))
+    url_parallelism = min(url_budget, requested_url, max(1, total_url_tasks or 1))
+    return SourceConcurrencyPlan(
+        batch_size=batch_size,
+        shared_budget=shared_budget,
+        search=ConcurrencyStagePlan(
+            stage="search",
+            tasks_total=max(0, total_search_tasks),
+            requested_parallelism=requested_search,
+            parallelism=max(1, search_parallelism),
+            budget=search_budget,
+            fail_fast=fail_fast,
+            timeout_seconds=search_timeout,
+        ),
+        url=ConcurrencyStagePlan(
+            stage="url",
+            tasks_total=max(0, total_url_tasks),
+            requested_parallelism=requested_url,
+            parallelism=max(1, url_parallelism),
+            budget=url_budget,
+            fail_fast=fail_fast,
+            timeout_seconds=url_timeout,
+        ),
+    )

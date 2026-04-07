@@ -11,20 +11,17 @@ from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..projects import current_project_key
 from ..search.web import search_sources
-from ..extraction.numeric import normalize_market_payload
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
 from .doc_type_mapper import normalize_doc_type
-from ..llm.extraction import extract_market_info
-from ..extraction.application import ExtractionApplicationService
-from .structured_extraction import extract_structured_enriched_safe
+from .frontdoor_ingress import build_frontdoor_ingress_envelope
+from .postprocess_frontdoor import run_postprocess_frontdoor
 from .adapters.http_utils import fetch_html
 from .url_pool import collect_urls_from_list
 from .url_pool import _extract_text_from_html
 
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
-_EXTRACTION_APP = ExtractionApplicationService()
 
 
 def _get_or_create_source(session: Session, name: str, kind: str, base_url: str) -> Source:
@@ -108,69 +105,58 @@ def collect_market_info(
                     "platform": item.get("source") or provider,
                     "keyword": item.get("keyword"),
                 }
-                if enable_extraction:
-                    text_to_extract = "\n\n".join([x for x in [title.strip(), snippet.strip(), (content or "").strip()] if x])
-                    extraction_result = extract_structured_enriched_safe(
-                        extraction_app=_EXTRACTION_APP,
-                        payload=text_to_extract,
-                        include_market=True,
-                        include_policy=False,
-                        include_sentiment=False,
-                        include_company=True,
-                        include_product=True,
-                        include_operation=True,
-                    )
-                    if extraction_result.data:
-                        enriched = dict(extraction_result.data)
-                        market_raw = enriched.get("market")
-                        if isinstance(market_raw, dict):
-                            try:
-                                market_norm, market_quality = normalize_market_payload(
-                                    market_raw,
-                                    scope="lottery.market",
-                                )
-                                market_norm["numeric_quality"] = market_quality
-                                enriched["market"] = market_norm
-                            except Exception as e:
-                                logger.warning("collect_market_info: market normalization failed: %s", e)
-                        extracted_data.update(enriched)
-                        extracted_data["extraction_status"] = "ok"
-                    elif (market_info := extract_market_info(text_to_extract)):
-                        try:
-                            market_norm, market_quality = normalize_market_payload(
-                                market_info,
-                                scope="lottery.market",
-                            )
-                            market_norm["numeric_quality"] = market_quality
-                            extracted_data["market"] = market_norm
-                            extracted_data["extraction_status"] = "fallback"
-                            extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
-                        except Exception as e:
-                            logger.warning("collect_market_info: market normalization fallback failed: %s", e)
-                    else:
-                        extracted_data["extraction_status"] = "failed"
-                        extracted_data["extraction_reason"] = extraction_result.reason or "empty_structured_output"
-                    if extraction_result.error:
-                        extracted_data["extraction_error"] = extraction_result.error
 
-                document = Document(
-                    source_id=source_id,
-                    state=None,
-                    doc_type=normalized_doc_type,
-                    title=title,
-                    summary=snippet,
-                    publish_date=None,
-                    content=content,
-                    uri=link,
-                    extracted_data=extracted_data,
+                ingress_envelope = build_frontdoor_ingress_envelope(
+                    ingress_type="discovery",
+                    entrypoint="ingest.market_web",
+                    source_mode="protocol_search",
+                    project_key=(current_project_key() or "").strip() or None,
+                    source_ref={"url": link, "locator": link},
+                    collection_payload={
+                        "document_candidate": {
+                            "source_name": "Search API Market",
+                            "source_kind": "search",
+                            "source_base_url": "search",
+                            "state": None,
+                            "doc_type": normalized_doc_type,
+                            "title": title,
+                            "summary": snippet,
+                            "publish_date": None,
+                            "content": content,
+                            "text_hash": None,
+                            "uri": link,
+                            "status": None,
+                            "extracted_data_base": extracted_data,
+                        },
+                        "terminal_context": {
+                            "platform": item.get("source") or provider or "market_search",
+                            "ingestion_entrypoint": "ingest.market_web",
+                            "source_mode": "protocol_search",
+                            "quality_score": 0.0,
+                            "degradation_flags": [],
+                            "http_status": None,
+                            "capability_profile": {},
+                            "light_filter": {},
+                        },
+                        "extraction_plan": {
+                            "enabled": bool(enable_extraction),
+                            "include_market": True,
+                            "include_policy": False,
+                            "include_sentiment": False,
+                            "include_company": True,
+                            "include_product": True,
+                            "include_operation": True,
+                        },
+                    },
+                    raw_snapshot={"item": dict(item or {}), "link": link},
                 )
-                session.add(document)
-                inserted += 1
-                pending_inserts += 1
-                if pending_inserts >= BATCH_COMMIT_SIZE:
-                    session.commit()
-                    session.expunge_all()
-                    pending_inserts = 0
+                frontdoor_result = run_postprocess_frontdoor(
+                    ingress_envelope=ingress_envelope,
+                    run_writer=True,
+                )
+                writer_result = (frontdoor_result.get("data") or {}).get("writer_result") if isinstance(frontdoor_result.get("data"), dict) else {}
+                inserted += int((writer_result or {}).get("inserted") or 0)
+                skipped += int((writer_result or {}).get("skipped") or 0)
 
             if pending_inserts > 0:
                 session.commit()
@@ -188,7 +174,7 @@ def collect_market_info(
                 query_terms=list(keywords or []),
                 extra_params={
                     "dispatch_mode": "inline",
-                    "single_url_frontdoor_enabled": True,
+                    "url_routing_frontdoor_enabled": True,
                     "front_door_owner": "ingest.market_web",
                     "frontdoor_route_decision": "front_door_url_routing",
                     "frontdoor_write_mode": "front_door_url_routing",

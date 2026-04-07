@@ -5,6 +5,8 @@ from threading import RLock
 from typing import Any, Mapping
 from uuid import uuid4
 
+from app.services.agent_sessions import get_agent_session_service
+
 from .compiler import compile_workflow_graph
 from .curated_service import WorkflowGraphCuratedService
 from .runtime import WorkflowGraphRuntime
@@ -153,19 +155,75 @@ class WorkflowGraphRuntimeService:
         run_id = str(payload.get("run_id") or "").strip() or None
         snapshot = self._engine.run(workflow, inputs=dict(run_input), run_id=run_id)
         run = snapshot.get("run") or {}
+        session_bundle = get_agent_session_service().project_workflow_graph_run(
+            graph_id=graph_id,
+            run_id=str(run.get("run_id") or ""),
+            workflow=workflow,
+            inputs=dict(run_input),
+            snapshot=snapshot,
+            project_key=str(payload.get("project_key") or "").strip() or None,
+        )
+        session = dict(session_bundle.get("session") or {})
         return {
             "run_id": run.get("run_id"),
             "status": run.get("status"),
             "node_statuses": run.get("node_statuses") or {},
+            "session_id": session.get("session_id"),
+            "current_phase": session.get("current_phase"),
+            "root_task_id": session.get("root_task_id"),
+            "compat_mode": False,
         }
 
     def get_run(self, run_id: str) -> dict[str, Any]:
-        return self._engine.store.get_run(str(run_id))
+        out = dict(self._engine.store.get_run(str(run_id)))
+        session = get_agent_session_service().find_session_by_logical_task_list_key(str(run_id))
+        if session:
+            out["session_id"] = session.get("session_id")
+            out["current_phase"] = session.get("current_phase")
+            out["root_task_id"] = session.get("root_task_id")
+        return out
 
     def get_run_events(self, run_id: str) -> dict[str, Any]:
-        return {"items": self._engine.store.get_events(str(run_id))}
+        items = list(self._engine.store.get_events(str(run_id)))
+        session = get_agent_session_service().find_session_by_logical_task_list_key(str(run_id))
+        if session:
+            session_events = get_agent_session_service().list_events(str(session.get("session_id") or ""))
+            for event in session_events:
+                items.append(
+                    {
+                        "ts": event.get("ts"),
+                        "type": f"agent_session.{event.get('event_type')}",
+                        "node_id": None,
+                        "payload": dict(event.get("payload") or {}),
+                    }
+                )
+        return {"items": items, "session_id": session.get("session_id") if session else None}
 
-    def replay_run(self, run_id: str) -> dict[str, Any]:
+    def get_run_agent_session(self, run_id: str) -> dict[str, Any]:
+        session = get_agent_session_service().find_session_by_logical_task_list_key(str(run_id))
+        if session is None:
+            raise KeyError(f"agent session not found for run: {run_id}")
+        return get_agent_session_service().get_session_bundle(str(session.get("session_id") or ""))
+
+    def replay_run(self, run_id: str, replay_mode: str = "events_only") -> dict[str, Any]:
+        resolved_mode = str(replay_mode or "events_only").strip().lower() or "events_only"
+        if resolved_mode not in {"events_only", "stateful"}:
+            raise ValueError("replay_mode must be events_only or stateful")
+
+        if resolved_mode == "stateful":
+            snapshot = self._engine.store.snapshot(str(run_id))
+            run = snapshot.get("run") or {}
+            events = list(snapshot.get("events") or [])
+            return {
+                "run_id": str(run.get("run_id") or run_id),
+                "status": str(run.get("status") or "queued"),
+                "node_statuses": dict(run.get("node_statuses") or {}),
+                "events_count": len(events),
+                "events": events,
+                "results": dict(snapshot.get("results") or {}),
+                "replay_mode": "stateful",
+            }
+
         events = list(self._engine.store.get_events(str(run_id)))
         node_statuses: dict[str, str] = {}
         run_status = "queued"
