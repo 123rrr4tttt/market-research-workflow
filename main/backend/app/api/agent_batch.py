@@ -823,7 +823,7 @@ def _submit_search_market_job(
     if not query_terms and isinstance(job.input, dict):
         query_terms = _normalize_query_terms(job.input.get("query_terms") or [])
     if not query_terms:
-        raise HTTPException(status_code=400, detail="search.market item requires query_terms")
+        raise HTTPException(400, "search.market item requires query_terms")
     max_items = int(job.max_items or 20)
     language = job.language or _detect_language(" ".join(query_terms))
     override_params = dict(job.override_params or {})
@@ -960,7 +960,7 @@ def _submit_batch_item(
     channel_registry = dict(_CHANNEL_EXECUTION_REGISTRY.get(channel) or {})
     submitter = channel_registry.get("submitter")
     if submitter is None:
-        raise HTTPException(status_code=400, detail=f"channel has no submit handler: {channel}")
+        raise HTTPException(400, f"channel has no submit handler: {channel}")
     task_id, resolved_payload = submitter(
         job,
         project_key=project_key,
@@ -987,7 +987,7 @@ def _build_approval_binding(
         approval_payload["item_key"] = candidate_item_key
     argv = build_agent_batch_approval_argv(channel, approval_payload)
     if not argv:
-        raise HTTPException(status_code=400, detail=f"channel has no approval binding handler: {channel}")
+        raise HTTPException(400, f"channel has no approval binding handler: {channel}")
     return {
         "argv": argv,
         "cwd": str(project_key or "").strip() or "/workspace",
@@ -1593,13 +1593,13 @@ def create_agent_batch_approval(payload: AgentBatchApprovalRequest) -> dict[str,
 @router.post("/approvals/{approval_token}/resolve")
 def resolve_agent_batch_approval(approval_token: str, payload: AgentBatchApprovalResolveRequest) -> dict[str, Any]:
     if not payload.approved:
-        raise HTTPException(status_code=400, detail="only approved=true is supported")
+        raise HTTPException(400, "only approved=true is supported")
     try:
         out = approve_approval(approval_token=approval_token)
     except KeyError:
-        raise HTTPException(status_code=404, detail="approval token not found") from None
+        raise HTTPException(404, "approval token not found") from None
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(400, str(exc)) from exc
     try:
         get_agent_session_service().resolve_approval(
             approval_token,
@@ -1645,7 +1645,7 @@ def validate_agent_batch_rule_set(payload: RuleSetValidateRequest) -> dict[str, 
 def run_agent_batch_nl_command(payload: AgentBatchNlCommandRequest) -> dict[str, Any]:
     command = str(payload.command or "").strip()
     if not command:
-        raise HTTPException(status_code=400, detail="command is required")
+        raise HTTPException(400, "command is required")
     try:
         loop_result = run_agent_batch_nl_command_loop(
             command=command,
@@ -1659,7 +1659,7 @@ def run_agent_batch_nl_command(payload: AgentBatchNlCommandRequest) -> dict[str,
             executor_snapshot=inspect_executor_health,
         )
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"failed to execute command loop: {exc}") from exc
+        raise HTTPException(400, f"failed to execute command loop: {exc}") from exc
     submit = loop_result.get("submit") if isinstance(loop_result, dict) else None
     job_id = str((submit or {}).get("job_id") or "").strip() if isinstance(submit, dict) else ""
     if job_id:

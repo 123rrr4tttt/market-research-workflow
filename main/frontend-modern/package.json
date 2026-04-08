@@ -1,7 +1,7 @@
 {
   "name": "frontend-modern",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.8-rc1",
   "type": "module",
   "scripts": {
     "dev": "vite",

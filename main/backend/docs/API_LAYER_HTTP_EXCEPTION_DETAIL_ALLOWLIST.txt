@@ -2,16 +2,8 @@
 # Format:
 #   <api_file.py>:L<line>|raise HTTPException(<args>, detail=<expr>)
 
-agent_batch.py:L1496|raise HTTPException(status_code=400, detail='only approved=true is supported')
-agent_batch.py:L1500|raise HTTPException(status_code=404, detail='approval token not found')
-agent_batch.py:L1502|raise HTTPException(status_code=400, detail=str(exc))
-agent_batch.py:L1548|raise HTTPException(status_code=400, detail='command is required')
-agent_batch.py:L1562|raise HTTPException(status_code=400, detail=f'failed to execute command loop: {exc}')
 agent_batch.py:L206|raise HTTPException(status_code=400, detail='each batch item requires item_key or source_id')
 agent_batch.py:L258|raise HTTPException(status_code=404, detail=f'agent batch job not found: {job_id}')
-agent_batch.py:L744|raise HTTPException(status_code=400, detail='search.market item requires query_terms')
-agent_batch.py:L881|raise HTTPException(status_code=400, detail=f'channel has no submit handler: {channel}')
-agent_batch.py:L908|raise HTTPException(status_code=400, detail=f'channel has no approval binding handler: {channel}')
 agent_sessions.py:L108|raise HTTPException(status_code=404, detail='session not found')
 agent_sessions.py:L117|raise HTTPException(status_code=404, detail='session not found')
 agent_sessions.py:L126|raise HTTPException(status_code=404, detail='session not found')

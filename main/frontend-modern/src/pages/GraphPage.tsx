@@ -1159,23 +1159,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     }
   }, [])
 
-  useEffect(() => {
-    // Avoid carrying hidden type masks across graph variants.
-    setHiddenTypes({})
-    setHiddenEdgeKinds({})
-    setExpandedGroup(null)
-    setExpandedEdgeGroup(null)
-    setManualSelectedNodeKeys(new Set())
-    setManualDeselectedNodeKeys(new Set())
-    setRadiationSelectionByCenter({})
-    setSelectionPinned(false)
-    setHoverNodeKey(null)
-    projectionPhysicsRef.current = { positions: {}, velocities: {} }
-    projectionInteractionQuatRef.current = { x: 0, y: 0, z: 0, w: 1 }
-    projectionAngularVelRef.current = { x: 0, y: 0 }
-    projectionDragStateRef.current = { active: false, x: 0, y: 0 }
-  }, [graphKind])
-
   const graphConfig = useQuery({
     queryKey: queryKeys.graph.config(projectKey),
     queryFn: getGraphConfig,
@@ -1539,7 +1522,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     hiddenTypes,
     graphKind,
     defaultNodeTypesForCompute,
-    templateBuilder,
     appliedFilters.limit,
     appliedRankingWeights,
     appliedRankingStrategy,
@@ -1701,6 +1683,34 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   } = useGraphSelectionState(adjacencyConnectedMap)
 
   useEffect(() => {
+    // Avoid carrying hidden type masks across graph variants.
+    setHiddenTypes({})
+    setHiddenEdgeKinds({})
+    setExpandedGroup(null)
+    setExpandedEdgeGroup(null)
+    setManualSelectedNodeKeys(new Set())
+    setManualDeselectedNodeKeys(new Set())
+    setRadiationSelectionByCenter({})
+    setSelectionPinned(false)
+    setHoverNodeKey(null)
+    projectionPhysicsRef.current = { positions: {}, velocities: {} }
+    projectionInteractionQuatRef.current = { x: 0, y: 0, z: 0, w: 1 }
+    projectionAngularVelRef.current = { x: 0, y: 0 }
+    projectionDragStateRef.current = { active: false, x: 0, y: 0 }
+  }, [
+    graphKind,
+    setHiddenTypes,
+    setHiddenEdgeKinds,
+    setExpandedGroup,
+    setExpandedEdgeGroup,
+    setManualSelectedNodeKeys,
+    setManualDeselectedNodeKeys,
+    setRadiationSelectionByCenter,
+    setSelectionPinned,
+    setHoverNodeKey,
+  ])
+
+  useEffect(() => {
     if (!selectionEnabled) {
       nodeDragUnlockedRef.current = false
       if (nodeDragHoldTimerRef.current != null) {
@@ -1744,7 +1754,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       if (!prev) return prev
       return topology.connectedNodeKeys.has(nodeKey(prev)) ? prev : null
     })
-  }, [topology.connectedNodeKeys])
+  }, [
+    topology.connectedNodeKeys,
+    setManualSelectedNodeKeys,
+    setManualDeselectedNodeKeys,
+    setRadiationSelectionByCenter,
+  ])
 
   const dashboardParams: GraphStructuredDashboardParams = useMemo(() => {
     const maxItems = Math.min(100, Math.max(1, Number(dashboard.maxItems) || 100))
@@ -1826,7 +1841,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setTemplateItems(parsed)
     if (!activeTemplateKey && parsed[0]) setActiveTemplateKey(parsed[0].key)
     return parsed
-  }, [callApiByCandidates, projectKey, graphKind, activeTemplateKey])
+  }, [callApiByCandidates, activeTemplateKey])
 
   const loadVersionList = useCallback(async (templateKey: string) => {
     if (!templateKey) {
@@ -2301,7 +2316,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
     })
     return () => window.cancelAnimationFrame(raf)
-  }, [useForceGraph3D, selectedNodeKeys, forceGraphData.nodes, autoFocusEnabled, forceAutoFocusSet, applyForceObjectVisualState])
+  }, [useForceGraph3D, selectedNodeKeys, selectedNodeKeysRef, forceGraphData.nodes, autoFocusEnabled, forceAutoFocusSet, applyForceObjectVisualState])
 
   useEffect(() => {
     if (renderMode === 'projection3d') return
@@ -2331,7 +2346,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     if (hoverNodeKey && !topology.visibleNodeKeys.has(hoverNodeKey)) {
       setHoverNodeKey(null)
     }
-  }, [autoFocusEnabled, hoverNodeKey, topology.visibleNodeKeys])
+  }, [autoFocusEnabled, hoverNodeKey, topology.visibleNodeKeys, selectedNodeKeysRef, setHoverNodeKey, hoverNodeKeyRef])
 
   useEffect(() => {
     try {
@@ -2533,7 +2548,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     const onResize = () => chartInstRef.current?.resize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [])
+  }, [hoverNodeKeyRef, setHoverNodeKey])
 
   useEffect(() => {
     if (!chartRef.current) return
@@ -2541,7 +2556,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     const preventContextMenu = (event: MouseEvent) => event.preventDefault()
     chartElement.addEventListener('contextmenu', preventContextMenu)
     return () => chartElement.removeEventListener('contextmenu', preventContextMenu)
-  }, [])
+  }, [hoverNodeKeyRef, setHoverNodeKey])
 
   useEffect(() => {
     const onWindowResize = () => {
@@ -2551,7 +2566,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     onWindowResize()
     window.addEventListener('resize', onWindowResize)
     return () => window.removeEventListener('resize', onWindowResize)
-  }, [])
+  }, [
+    selectionEnabledRef,
+    selectedNodeKeysRef,
+    setManualSelectedNodeKeys,
+    setManualDeselectedNodeKeys,
+  ])
 
   const clearTransientInteractionState = useCallback(() => {
     dragFocusNodeKeyRef.current = null
@@ -2578,7 +2598,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     }
     document.body.style.userSelect = ''
     document.body.style.cursor = ''
-  }, [])
+  }, [hoverNodeKeyRef, setHoverNodeKey])
 
   const scheduleForceHoverNodeKey = useCallback((nextKey: string | null) => {
     const normalized = nextKey ? String(nextKey).trim() : ''
@@ -2593,7 +2613,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       hoverNodeKeyRef.current = pending
       setHoverNodeKey(pending)
     })
-  }, [])
+  }, [hoverNodeKeyRef, setHoverNodeKey])
 
   const clearAutoFocusState = useCallback(() => {
     dragFocusNodeKeyRef.current = null
@@ -2606,7 +2626,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       hoverNodeKeyRef.current = null
       setHoverNodeKey(null)
     }
-  }, [])
+  }, [hoverNodeKeyRef, setHoverNodeKey])
 
   const toggleForceNodeSelectionByKey = useCallback((key: string) => {
     if (!selectionEnabledRef.current || !key) return
@@ -2638,7 +2658,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       next.add(key)
       return next
     })
-  }, [])
+  }, [
+    selectionEnabledRef,
+    selectedNodeKeysRef,
+    setManualSelectedNodeKeys,
+    setManualDeselectedNodeKeys,
+  ])
 
   const toggleRadiationSelectionCenterByKey = useCallback((key: string) => {
     if (!selectionEnabledRef.current || !key) return
@@ -2664,7 +2689,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       next.delete(key)
       return next
     })
-  }, [])
+  }, [
+    selectionEnabledRef,
+    setManualDeselectedNodeKeys,
+    setRadiationSelectionByCenter,
+  ])
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -2711,7 +2740,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setHoverNodeKey(null)
     setManualDeselectedNodeKeys(new Set())
     setRadiationSelectionByCenter({})
-  }, [variant])
+  }, [variant, setHoverNodeKey, setManualDeselectedNodeKeys, setRadiationSelectionByCenter])
 
   useEffect(() => {
     if (useForceGraph3D) {
@@ -3071,7 +3100,18 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       }
       dragFocusNodeKeyRef.current = null
     }
-  }, [variant, useForceGraph3D, toggleRadiationSelectionCenterByKey])
+  }, [
+    variant,
+    useForceGraph3D,
+    toggleRadiationSelectionCenterByKey,
+    autoFocusEnabledRef,
+    renderModeRef,
+    selectedNodeKeysRef,
+    selectionEnabledRef,
+    setHoverNodeKey,
+    setManualDeselectedNodeKeys,
+    setManualSelectedNodeKeys,
+  ])
 
   useEffect(() => {
     if (!chartReady) return
@@ -3586,7 +3626,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     const n = node as { key?: string; id?: string }
     const key = String(n.key || n.id || '')
     scheduleForceHoverNodeKey(key || null)
-  }, [scheduleForceHoverNodeKey])
+  }, [scheduleForceHoverNodeKey, selectionEnabledRef, autoFocusEnabledRef, hoverNodeKeyRef])
 
   const handleForceNodeClick = useCallback((node: unknown, event: unknown) => {
     const nodeData = node as { key?: string; id?: string; rawNode?: GraphNodeItem }
@@ -3616,7 +3656,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     if (autoFocusEnabledRef.current) scheduleForceHoverNodeKey(null)
     // In selection mode, left click toggles selection directly.
     if (selectionEnabledRef.current) toggleForceNodeSelectionByKey(key)
-  }, [scheduleForceHoverNodeKey, toggleForceNodeSelectionByKey])
+  }, [scheduleForceHoverNodeKey, toggleForceNodeSelectionByKey, autoFocusEnabledRef, selectionEnabledRef])
 
   const handleForceNodeRightClick = useCallback((node: unknown, event: unknown) => {
     const mouseEvent = event as MouseEvent | undefined
@@ -3631,7 +3671,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const handleForceBackgroundClick = useCallback(() => {
     if (Date.now() - lastForceNodeClickAtRef.current < 180) return
     if (autoFocusEnabledRef.current) setHoverNodeKey(null)
-  }, [])
+  }, [autoFocusEnabledRef, setHoverNodeKey])
 
   const collectForce3DSceneStats = useCallback(() => {
     const api = forceGraphRef.current
@@ -3735,7 +3775,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         logForce3DDiagnostics('selection-toggle:after', { nextEnabled })
       }, 120)
     }
-  }, [useForceGraph3D, logForce3DDiagnostics])
+  }, [
+    useForceGraph3D,
+    logForce3DDiagnostics,
+    setSelectionEnabled,
+    selectionEnabledRef,
+    setManualDeselectedNodeKeys,
+    setManualSelectedNodeKeys,
+    setRadiationSelectionByCenter,
+    setSelectionPinned,
+  ])
 
   const handleCreateDraftNode = useCallback(() => {
     const node = createDraftNode({
@@ -4076,6 +4125,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     handleForceNodeRightClick,
     handleForceBackgroundClick,
     applyForceObjectVisualState,
+    selectedNodeKeysRef,
   ])
 
   const detachProjectionControls = renderMode === 'projection3d' && activeRendererCapabilities.supportsProjectionControls
