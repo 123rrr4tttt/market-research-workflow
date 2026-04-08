@@ -1,163 +1,123 @@
-# 市场情报（market-intel）项目说明
+# 市场研究工作流
 
-> 最后更新：2026-03-07  
-> 当前版本：`v0.1-rc2.0`（预发布，开发版）
+> 最后更新：`2026-04-07`
+> 当前状态：持续开发中，默认按 Docker 链路运行
 
-本仓库实现一体化信息工作流：多来源采集 -> 结构化处理 -> 索引检索 -> 可视化与运维管理。  
-适用于政策、市场、新闻、数据API等主题的数据采集与分析。
+这是一个面向市场研究 / 情报采集 / 结构化分析的全栈工作流仓库。仓库核心目标不是只提供一个 API 服务，而是把采集、抽取、索引、检索、项目隔离、异步任务、运维入口和现代化操作前端放在一套统一工程里。
 
-## 1. 项目总览
+这个仓库也不只是“应用代码”。其中同时包含开发计划、归档文档、参考资料、验证脚本和运行时来源配置。第一次进入仓库时，建议先看本文档的启动入口、目录地图和文档索引，而不是直接在大目录里盲搜。
 
-- 后端：`FastAPI + SQLAlchemy + Alembic + Celery + Redis + Elasticsearch`
-- 数据库：`PostgreSQL + pgvector`
-- 前端：`main/frontend-modern`（React + Vite + TypeScript，唯一活跃前端）
-- 首选运行方式：Docker（首选脚本：`./scripts/docker-deploy.sh`）
-- 多项目隔离：按 `project_<key>` schema 进行业务数据隔离
+## 项目定位
 
-## 1.1 依赖一览
+- 后端：`FastAPI + SQLAlchemy + Alembic + Celery + Redis`
+- 存储与检索：`PostgreSQL + pgvector + Elasticsearch`
+- 前端：`main/frontend-modern`，当前唯一活跃前端
+- 运行方式：Docker-first，本地模式用于开发调试
+- 作用范围：多来源采集、结构化处理、资源池/来源库管理、检索与分析、任务编排与运维
 
-### Docker 模式（推荐）
+## 当前能力概览
 
-| 依赖 | 说明 |
-|------|------|
-| **Docker** | 含 Docker Compose，用于运行全栈服务 |
-| **Git** | 克隆与版本管理 |
+### 已落地的核心模块
 
-### 本地开发模式（`local-start`）
+- `ingest`：市场、政策、报告、社交、数据 API 等采集链路
+- `discovery` / `search`：发现、检索、索引访问
+- `resource_pool`：资源池与候选入口管理
+- `source_library`：来源库条目、解析、执行与项目定制
+- `collect_runtime` / `indexer`：采集运行时与索引写入
+- `graph` / `workflow_graph` / `writing` / `agent_runtime` / `typed_knowledge`：图谱、工作流、写作与 agent 相关服务能力
 
-| 依赖 | 说明 | 自动安装 |
-|------|------|----------|
-| **Homebrew** | **必装**，用于安装 PostgreSQL、Redis；macOS 本地模式核心依赖 | 需[手动安装](https://brew.sh) |
-| **Python 3.11+** | 后端运行时 | 否 |
-| **PostgreSQL** | 数据库（端口 5432） | 是，通过 Homebrew |
-| **Redis** | 消息队列（端口 6379） | 是，通过 Homebrew |
-| **Elasticsearch** | 全文检索（端口 9200） | 否，需 `--with-docker-deps` 或手动启动 |
-| **Node.js / npm** | 前端构建（modern 前端） | 否 |
-| **Git** | 版本管理 | 否 |
+### 技术栈
 
-> **重要**：本地模式依赖 **Homebrew**。若未安装，请先执行：
-> ```bash
-> /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-> ```
-> 安装后按提示将 `brew` 加入 PATH。
+- 后端：`Python 3.11+`, `FastAPI`, `SQLAlchemy`, `Alembic`, `Celery`
+- 前端：`React 19`, `Vite`, `TypeScript`, `React Query`, `Storybook`
+- 测试：`pytest`, Playwright
+- 工程门禁：GitHub Actions + 仓库内自定义 verification / smoke 脚本
 
-## 2. 快速开始（首选 Docker）
+## 运行拓扑
 
-### 2.1 首次准备
+默认容器编排定义在 [`main/ops/docker-compose.yml`](./main/ops/docker-compose.yml)：
+
+- `db`：PostgreSQL，端口 `5432`
+- `es`：Elasticsearch，端口 `9200`
+- `redis`：Redis，端口 `6379`
+- `backend`：FastAPI，端口 `8000`
+- `celery-worker`：异步任务 worker
+- `frontend-modern`：可选 profile，端口 `5174`
+- `scrapyd`：可选 profile，端口 `6800`
+
+## 快速开始
+
+### 推荐方式：Docker
+
+1. 准备环境文件：
 
 ```bash
 cp main/backend/.env.example main/backend/.env
 ```
 
-### 2.2 可部署性检查（推荐先执行）
+2. 先做部署前检查：
 
 ```bash
 ./scripts/docker-deploy.sh preflight
-# 启用可选 profile 校验（如 scrapyd）
 ./scripts/docker-deploy.sh preflight --profile scrapyd
 ```
 
-### 2.3 一键启动（首选）
+3. 启动服务：
 
 ```bash
 ./scripts/docker-deploy.sh start
 ```
 
-### 2.4 常用运维命令（首选）
+4. 常用操作：
 
 ```bash
+./scripts/docker-deploy.sh status
+./scripts/docker-deploy.sh logs
+./scripts/docker-deploy.sh health
 ./scripts/docker-deploy.sh stop
-./scripts/docker-deploy.sh restart
 ```
 
-### 2.5 常用访问地址
+### 常用访问地址
 
-- OpenAPI：`http://localhost:8000/docs`
-- 健康检查：`http://localhost:8000/api/v1/health`
-- 深度健康检查：`http://localhost:8000/api/v1/health/deep`
-- 管理入口：`http://localhost:8000/resource-pool-management.html`
+- OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
+- 健康检查: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+- 深度健康检查: [http://localhost:8000/api/v1/health/deep](http://localhost:8000/api/v1/health/deep)
+- modern 前端（启用对应 profile 时）: [http://localhost:5174](http://localhost:5174)
 
-本地（非 Docker）模式仅用于开发调试，生产与联调默认按 Docker 链路执行。
+## 本地开发
 
-### 2.6 本地首次启动（macOS）
+当你需要快速迭代后端和前端，而不想整套容器都拉起时，使用本地模式。
 
-若使用本机 PostgreSQL/Redis（非 Docker），首次启动步骤：
+### 一键本地启动
 
 ```bash
-# 1. 复制配置（若尚未存在）
 cp main/backend/.env.example main/backend/.env
-
-# 2. 一键启动（自动安装依赖、迁移、导入演示数据）
-./scripts/platform-macos.sh local-start
+./scripts/local-deploy.sh start
 ```
 
-脚本会自动：安装 Python 依赖、PostgreSQL/Redis（Homebrew）、pgvector、Node.js，执行数据库迁移，无演示数据时导入 demo_proj。若 Homebrew PostgreSQL 无 `postgres` 用户，会尝试自动创建。
+这个入口会转发到 [`main/backend/start-local.sh`](./main/backend/start-local.sh)，通常会启动：
 
-### 2.7 平台封装脚本（每个平台一个入口）
+- 本地 backend：`8000`
+- modern 前端 dev server：`5173`
+- 本地 Celery worker
+- 本地 PostgreSQL / Redis（按脚本检测与配置决定）
+- 本地 Elasticsearch 或 Docker 托管依赖（取决于参数与环境）
 
-说明：平台脚本的 `start` / `stop` / `restart` 会统一转发到 `./scripts/docker-deploy.sh` 对应命令。`local-start` 调用 `main/backend/start-local.sh`。
-
-统一子命令：
-- `start`：Docker 启动全服务
-- `stop`：Docker 停止全服务
-- `restart`：Docker 重启全服务
-- `local-start`：本地后端启动（依赖 `main/backend/start-local.sh`）
-- `local-stop`：本地后端停止（依赖 `main/backend/stop-local.sh`）
-
-macOS：
+### 本地常用命令
 
 ```bash
-./scripts/platform-macos.sh start
-./scripts/platform-macos.sh stop
-./scripts/platform-macos.sh restart
-./scripts/platform-macos.sh local-start
-./scripts/platform-macos.sh local-stop
+./scripts/local-deploy.sh status
+./scripts/local-deploy.sh health
+./scripts/local-deploy.sh stop
 ```
 
-Linux：
+### 平台封装脚本
 
-```bash
-./scripts/platform-linux.sh start
-./scripts/platform-linux.sh stop
-./scripts/platform-linux.sh restart
-./scripts/platform-linux.sh local-start
-./scripts/platform-linux.sh local-stop
-```
+- [`scripts/platform-macos.sh`](./scripts/platform-macos.sh)
+- [`scripts/platform-linux.sh`](./scripts/platform-linux.sh)
+- [`scripts/platform-windows.ps1`](./scripts/platform-windows.ps1)
 
-Windows（PowerShell，自动尝试 Git Bash/WSL）：
-
-```powershell
-.\scripts\platform-windows.ps1 start
-.\scripts\platform-windows.ps1 stop
-.\scripts\platform-windows.ps1 restart
-.\scripts\platform-windows.ps1 local-start
-.\scripts\platform-windows.ps1 local-stop
-```
-
-## 3. 运行拓扑
-
-默认容器服务（`main/ops/docker-compose.yml`）：
-
-- `db`（PostgreSQL）:`5432`
-- `es`（Elasticsearch）:`9200`
-- `redis`:`6379`
-- `backend`（FastAPI）:`8000`
-- `celery-worker`（异步任务）
-- `frontend-modern`（可选 profile：`modern-ui`）:`5174`
-- `scrapyd`（可选 profile：`scrapyd`）:`6800`
-
-后端核心环境变量：
-
-- `DATABASE_URL`
-- `ES_URL`
-- `REDIS_URL`
-- `MODERN_FRONTEND_URL`（启用新前端重定向）
-
-## 4. 前端入口
-
-- 默认情况下，若配置了 `MODERN_FRONTEND_URL`，访问 `/`、`/app`、`/app.html` 以及历史 HTML 入口都会重定向到新版前端。
-- 未配置 `MODERN_FRONTEND_URL` 时，后端仅保留历史入口的归档提示，不再提供旧模板前端渲染。
-- 本地开发新版前端：
+### 前端单独开发
 
 ```bash
 cd main/frontend-modern
@@ -165,283 +125,119 @@ npm install
 VITE_API_PROXY_TARGET=http://localhost:8000 npm run dev
 ```
 
-- 访问：`http://localhost:5173`
+`main/frontend-modern` 常用脚本见 [`main/frontend-modern/package.json`](./main/frontend-modern/package.json)：
 
-## 5. 仓库结构与职责
+- `npm run dev`
+- `npm run build`
+- `npm run lint`
+- `npm run storybook`
+- `npm run test:e2e`
+
+## 仓库地图
 
 ```text
-<repo-root>/
-├── README.md                     # 项目主说明
-├── GIT_WORKFLOW.md               # 协作规范
-├── 信息源库/                     # 运行时来源配置库（global + projects）
-├── 信息流优化/                   # 优化路线与阶段规划
-├── reference_pool/               # 调研与参考资料库
-└── main/
-    ├── QUICKSTART.md             # 快速启动
-    ├── ops/                      # Docker 编排与运维脚本
-    ├── backend/                  # FastAPI 服务、模型、迁移、测试
-    └── frontend-modern/          # 新版 React 前端
+.
+├── main/
+│   ├── backend/            # FastAPI 应用、服务层、迁移、测试、后端脚本
+│   ├── frontend-modern/    # 当前活跃的 React + Vite 前端
+│   ├── ops/                # Docker 编排、启停脚本、运维说明
+│   └── QUICKSTART.md       # 较短的快速启动说明
+├── scripts/                # 仓库级部署、验证、冒烟、自检脚本
+├── development/            # 开发文档与合并索引
+├── docs/                   # 运维、安全、契约、实现类文档
+├── plans/                  # 规划与执行计划
+├── 信息源库/               # 来源库运行时配置
+├── 信息流优化/             # 工作流优化方向与规划
+├── reference-pool/         # 参考资料与 OSS 参考代码
+└── tmp/                    # 临时导入或研究材料
 ```
 
-## 6. 后端架构（`main/backend`）
+### 后端重点目录
 
-### 6.1 API 层
+[`main/backend/app/services`](./main/backend/app/services) 下目前可以优先关注这些域：
 
-统一前缀：`/api/v1`。主要分组：
+- `ingest`
+- `discovery`
+- `search`
+- `resource_pool`
+- `source_library`
+- `collect_runtime`
+- `indexer`
+- `graph`
+- `workflow_graph`
+- `writing`
+- `agent_runtime`
+- `typed_knowledge`
 
-- `ingest`：采集与配置
-- `search`：检索与索引初始化
-- `resource_pool`：资源池抽取、站点入口、统一搜索
-- `source_library`：来源库条目与执行
-- `projects` / `project-customization`：项目管理与定制
-- `dashboard` / `admin` / `process`：运营与任务管理
+### 测试分层
 
-### 6.2 服务层
+后端测试位于 [`main/backend/tests`](./main/backend/tests)：
 
-`main/backend/app/services` 关键模块：
+- `unit`
+- `integration`
+- `contract`
+- `e2e`
+- `core_business`
 
-- `ingest/`：政策、市场、新闻、数据API等采集
-- `search/`：Web 检索、ES 检索、混合检索
-- `resource_pool/`：URL 提取、站点入口发现、候选写回
-- `source_library/`：来源条目解析、路由、执行、同步
-- `collect_runtime/`：统一采集运行时与适配器执行
-- `indexer/`：文本处理与索引写入
-- `tasks.py`：Celery 异步任务
+## 测试与质量门禁
 
-### 6.3 数据层与迁移
+### 本地测试入口
 
-- ORM：`main/backend/app/models/entities.py`
-- 迁移：`main/backend/migrations/versions/*`
-- 策略：
-  - `public`：共享与控制平面（如 shared_*、部分全局配置）
-  - `project_<key>`：项目隔离业务数据
-- 启动时会自动执行：`alembic upgrade head`
-
-## 7. 核心数据流
-
-### 7.1 采集流（Ingest）
-
-输入任务 -> `ingest/*` / `collect_runtime/*` -> 落库 -> `indexer/*` -> 可检索。
-
-### 7.2 检索流（Search）
-
-`search` API -> ES/DB（bm25/vector/hybrid）-> 返回标准化结果。
-
-### 7.3 来源库流（Source Library）
-
-条目配置（global/project）-> handler 路由与适配器执行 -> 采集结果落库/索引。
-
-### 7.4 资源池流（Resource Pool）
-
-从文档/任务提取 URL -> 发现 site entries -> 统一搜索扩展候选 -> 写回资源池 -> 可触发后续入库。
-
-## 8. API 快速验证
-
-```bash
-BASE=http://localhost:8000/api/v1
-
-curl "$BASE/health"
-curl "$BASE/health/deep"
-curl "$BASE/search?q=lottery&top_k=5"
-curl "$BASE/projects"
-```
-
-带项目上下文示例：
-
-```bash
-curl "$BASE/source_library/items?project_key=demo_proj&scope=effective"
-curl "$BASE/resource_pool/urls?project_key=demo_proj&scope=effective&page=1&page_size=20"
-```
-
-说明：部分接口要求 `project_key` 参数或 `X-Project-Key` 请求头。
-
-## 9. 测试分层与 CI 门禁
-
-后端测试目录：`main/backend/tests`，按分层组织为：
-
-- `unit`：纯逻辑测试，快速反馈
-- `integration`：模块装配与协作测试
-- `contract`：API Envelope / OpenAPI 契约稳定性测试
-- `e2e`：关键链路冒烟测试
-
-`pytest` 已启用 `--strict-markers`，marker 定义见 `main/backend/pytest.ini`。
-
-本地执行（仓库根目录）：
+后端常用执行方式：
 
 ```bash
 cp main/backend/.env.example main/backend/.env
 cd main/backend
-.venv311/bin/python -m pytest -m unit -q
-.venv311/bin/python -m pytest -m integration -q
-.venv311/bin/python -m pytest -m contract -q
-.venv311/bin/python -m pytest -m e2e -q
+pytest -m "unit and not external and not flaky" -q
+pytest -m "integration and not external and not flaky" -q
+pytest -m "contract and not external and not flaky" -q
 ```
 
-CI 门禁（`.github/workflows/backend-tests.yml`）：
-
-- `pull_request`：`standards-check + unit-check + integration-check + schema-guard-check(非阻塞) + coverage-check(非阻塞) + docker-check`
-- `main` 分支 `push` / `schedule` / `workflow_dispatch`：`standards-check + unit-check + integration-check + schema-guard-check + coverage-check + contract-check + e2e-check + docker-check`
-
-### 9.1 自动化测试标准化执行
-
-统一脚本入口（仓库根目录执行）：
+统一脚本入口：
 
 ```bash
 ./scripts/test-standardize.sh unit
 ./scripts/test-standardize.sh integration
-./scripts/test-standardize.sh schema-guard
-./scripts/test-standardize.sh core-business
+./scripts/test-standardize.sh contract
 ./scripts/test-standardize.sh coverage
 ./scripts/test-standardize.sh ci-pr
-TEST_PROFILE=test ./scripts/test-standardize.sh docker
 ```
 
-Profile 说明：
+其他常用检查：
 
-- 可用 profile：`unit|integration|schema-guard|contract|e2e|core-business|coverage|all|ci-pr|ci-main|docker`
-- 本地 pytest profile 默认排除 `external`（避免外部依赖波动）
-- `docker` profile 默认 `TEST_PROFILE=test`（对应 `main/ops/docker-compose.yml` 中的 `backend-test` 服务）
-- CI `workflow_dispatch` 可通过 `test_profile` 输入覆盖，未传时回退为 `test`
-- `core-business` profile：运行 `tests/core_business` 的关键业务集合（`unit/integration/contract/e2e` marker 并集，排除 `external`）
-- `schema-guard` profile：运行 `tests/integration/test_project_schema_guard_unittest.py`，逐个校验所有项目的 `/api/v1/dashboard/stats` 可用性；失败会直接输出具体 `project_key`
-- 覆盖率门禁默认策略：核心模块 `100%`、其他模块 `20%`（由 `main/backend/scripts/check_coverage_thresholds.py` 执行）
-- 核心模块列表默认：`app/api/search.py,app/contracts/api.py,app/contracts/responses.py,app/contracts/tasks.py,app/contracts/errors.py`，可通过 `CORE_COVERAGE_PATHS` 调整
+- [`scripts/run_repo_runtime_smoke.sh`](./scripts/run_repo_runtime_smoke.sh)
+- [`scripts/local-smoke-all-stages.sh`](./scripts/local-smoke-all-stages.sh)
+- [`scripts/verify/`](./scripts/verify)
 
-执行策略（两档）：
+### 仓库内现有 GitHub Actions
 
-- `PR` 档（快速反馈）：`standards-check + unit-check + integration-check + schema-guard-check(非阻塞) + coverage-check(非阻塞) + docker-check`
-- `main` 档（全量门禁）：`standards-check + unit-check + integration-check + schema-guard-check + coverage-check + contract-check + e2e-check + docker-check`
+- [`backend-tests.yml`](./.github/workflows/backend-tests.yml)
+- [`r3-must-gates.yml`](./.github/workflows/r3-must-gates.yml)
+- [`r84-f-required-check.yml`](./.github/workflows/r84-f-required-check.yml)
+- [`r9-ef-required-check.yml`](./.github/workflows/r9-ef-required-check.yml)
 
-并行执行建议（与现有脚本/CI 一致）：
+这些工作流覆盖了后端分层测试、依赖与安全门禁、必过校验切片，以及特定报告链路的质量检查。
 
-- CI 侧已并行：`standards-check` 完成后，其余 job 可并行调度；`contract-check/e2e-check` 仅在非 PR 事件执行。
-- 本地可通过标准入口透传 pytest 参数启用并行（需安装 `pytest-xdist`）：
-  - `./scripts/test-standardize.sh unit -n auto`
-  - `./scripts/test-standardize.sh integration -n auto`
-  - `./scripts/test-standardize.sh core-business -n auto`
-- 排查 CI 失败或对齐门禁时，建议使用默认串行命令（不传 `-n auto`），保持与 CI 执行路径一致。
+## 文档入口
 
-当前 `e2e` 冒烟已覆盖：
+如果你要理解当前实现状态、开发背景或历史计划，不要从零散文件开始，优先走下面这些入口：
 
-- `/api/v1/health`
-- `/api/v1/health/deep`
-- `X-Project-Key` 请求头解析与 header/query 优先级
+- 开发文档第一入口：[`development/latest-dev-docs/README.md`](./development/latest-dev-docs/README.md)
+- 开发文档总览：[`development/latest-dev-docs/MERGED_OVERVIEW.md`](./development/latest-dev-docs/MERGED_OVERVIEW.md)
+- 开发计划索引：[`development/latest-dev-docs/development-plans/INDEX.md`](./development/latest-dev-docs/development-plans/INDEX.md)
+- 后端文档索引：[`main/backend/docs/README.md`](./main/backend/docs/README.md)
+- 后端本地开发说明：[`main/backend/README.local.md`](./main/backend/README.local.md)
+- 运维说明：[`main/ops/README.md`](./main/ops/README.md)
+- modern 前端说明：[`main/frontend-modern/README.md`](./main/frontend-modern/README.md)
 
-## 10. 运维与排障
+## 使用前需要知道的事实
 
-常用命令：
+- Docker 是团队协作和可复现运行的默认路径。
+- `main/frontend-modern` 是当前唯一活跃前端，旧模板前端不是主开发目标。
+- 仓库里包含大量规划、归档、参考资料目录，其中不少不是运行时路径。
+- 部分采集 / 搜索 / LLM 能力依赖 `main/backend/.env` 中的外部 API Key。
 
-```bash
-cd main/ops
-docker-compose ps
-docker-compose logs -f backend
-docker-compose logs -f celery-worker
-```
+## 协作约定
 
-端口排查：
-
-```bash
-lsof -i :8000
-lsof -i :5432
-lsof -i :9200
-lsof -i :6379
-lsof -i :6800
-```
-
-快速自检：
-
-```bash
-cd main/ops
-./test-docker-startup.sh
-# 可选：同时验证 scrapyd profile
-./test-docker-startup.sh --with-scrapyd
-```
-
-## 11. 演示数据
-
-- SQL 数据包：`main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql`
-- 导入脚本：`main/backend/scripts/load_demo_proj_seed.sh`
-
-## 12. 文档导航
-
-- 开发重要索引（第一入口）：`development/latest-dev-docs/README.md`
-- 开发文档合并总览：`development/latest-dev-docs/MERGED_OVERVIEW.md`
-- 开发计划索引：`development/latest-dev-docs/development-plans/INDEX.md`
-- 快速启动：`main/QUICKSTART.md`
-- Docker 运维：`main/ops/README.md`
-- 后端说明：`main/backend/README.md`
-- 本地开发：`main/backend/README.local.md`
-- API 总文档：`main/backend/API接口文档.md`
-- API 路由清单：`main/backend/docs/API_ROUTE_INVENTORY_2026-02-27.md`
-- 后端文档索引：`main/backend/docs/README.md`
-- 资源库定义：`main/backend/docs/RESOURCE_LIBRARY_DEFINITION.md`
-- 资源池 API：`main/backend/docs/RESOURCE_POOL_EXTRACTION_API.md`
-- 前端迁移契约：`main/backend/docs/FRONTEND_MODERNIZATION_API_MAP_2026-02-27.md`
-- 后端测试分层说明：`main/backend/tests/README.md`
-- 迭代计划：`plans/status-8x-2026-02-27.md`
-- 版本说明：`RELEASE_NOTES_pre-release-0.1-rc2.0.md`
-
-### 12.1 本轮开发文档增量（来自 `development/latest-dev-docs`）
-
-- 单 URL 优先采集分配方案：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md`
-- Source Time Window + Smart Timestamp：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/01_source-time-window-smart-timestamp-plan-2026-03-02.md`
-- 执行拆解（时间窗与名词密度解耦）：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md`
-- 图谱节点 A→B 标准化：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md`
-- 全局向量化通用基础：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-02.md`
-- 标准化 ingest workflow 打包：`development/latest-dev-docs/backend-core/main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md`
-
-## 13. 8.x 进一步开发规划（状态同步）
-
-以下状态同步自预发布说明，并结合当前仓库落地情况更新（截至 `2026-03-02`）：
-
-| 路线 | 当前状态 | 说明 / 下一步 |
-|---|---|---|
-| `8.1` 来源池自动提取与整合 | 已完成 | 主链路可用，继续做稳定性回归。 |
-| `8.2` 工作流平台化 | 已完成最小闭环 | 已具备模板读取/保存/运行，下一步补更细粒度编排能力。 |
-| `8.3` Perplexity 集成 | 未开始 | 进入实现前先完成 provider 接口与配额策略设计。 |
-| `8.4` 时间轴与事件/实体演化 | 进行中 | 统一时间线模型与展示口径。 |
-| `8.5` RAG + LLM 对话与分析报告 | 部分完成 | 检索能力已具备，需补报告与对话闭环 API。 |
-| `8.6` 公司/商品/电商对象化采集 | 部分完成 | 已有专题能力，需统一采集入口与对象模型。 |
-| `8.7` 数据类型优化 | 进行中 | 继续提升提取质量与类型一致性。 |
-| `8.8` 其他迭代（质量与工程化） | 进行中（基线已落地） | 已完成测试分层与 CI 门禁基线，下一步扩展关键业务 e2e。 |
-
-本轮已完成的 `8.8` 基线项：
-
-- 后端测试分层：`unit / integration / contract / e2e`
-- `pytest` 严格 marker：`--strict-markers`
-- CI 并行门禁：`standards-check` 预检后并行执行 `unit-check`、`integration-check`、`coverage-check`、`docker-check`（其中 `contract-check`、`e2e-check` 仅非 PR 触发）
-
-详见：
-
-- 版本说明：`RELEASE_NOTES_pre-release-0.1-rc2.0.md`
-- 迭代计划：`plans/status-8x-2026-02-27.md`
-
-## 14. 当前已知风险（供联调参考）
-
-- modern 前端是唯一活跃前端，历史 HTML 入口仅保留重定向或归档提示兼容。
-- `resource_pool` 路由存在下划线/连字符兼容写法，建议逐步统一。
-- 部分接口仍处于响应风格过渡期（Envelope 统一尚未完全收口）。
-- 异步任务依赖 Celery/Redis，排查问题需结合 worker 日志。
-- 外部搜索/数据API/LLM 供应商能力受 API Key 与配额影响。
-
-## 15. 协作规范
-
-代码协作与分支策略见：`GIT_WORKFLOW.md`
-
-### 15.1 开发文档目录规范（`development/`）
-
-`development/` 用于承载研发过程文档与归档快照。`development/latest-dev-docs/` 是本项目开发文档的**重要索引与第一入口**。
-
-- 建议从 `development/latest-dev-docs/README.md` 开始阅读，再进入各子项目 `INDEX.md` 与 `main/index.md`。
-
-该目录下每个子项目目录（如 `root-plans`、`backend-core`、`backend-docs`、`ops-frontend`、`development-plans`）遵循同一规则：
-
-- `main/`：主文档目录，仅放该子项目的合并主文档（`MERGED_*.md`）及 `main/index.md`。
-- 其他分类目录：归档目录单列保留（如 `A_ARCHITECTURE/`、`B_API/`、`C_INGEST/`、`D_TEST/`、`E_OPS/`、`F_PLAN/`、`G_REVIEW/`），用于按主题追溯历史材料。
-- 子项目根 `INDEX.md`：必须先指向 `main/`，再列出归档目录。
-
-维护要求：
-
-- 新增/迁移开发说明时，优先落到对应子项目 `main/` 或归档目录，并同步更新该子项目 `INDEX.md`。
-- 顶层导航需同步：`development/latest-dev-docs/README.md` 与 `development/latest-dev-docs/MERGED_OVERVIEW.md`。
-- 禁止只在零散路径保留“唯一副本”而不进 `development/latest-dev-docs`（避免遗漏归档与断链）。
+- Git / 分支规范见 [`GIT_WORKFLOW.md`](./GIT_WORKFLOW.md)
+- 开发说明类文档应统一纳入 [`development/latest-dev-docs/`](./development/latest-dev-docs) 索引体系

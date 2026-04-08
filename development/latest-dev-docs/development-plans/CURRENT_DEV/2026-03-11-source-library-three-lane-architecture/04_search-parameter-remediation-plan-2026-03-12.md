@@ -117,8 +117,8 @@
 
 本节用于对齐：
 
-1. `2026-03-12-time-semantics-density-merged-plan/05_*`（时间语义与密度主报告）
-2. `2026-03-12-time-semantics-density-merged-plan/06_*`（原子任务单）
+1. `ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/05_*`（历史时间语义与密度主报告）
+2. `ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/06_*`（历史原子任务单）
 3. 当前来源库三分入口与参数修复现状（2026-03-12）
 
 ### 7.1 时间参数统一口径

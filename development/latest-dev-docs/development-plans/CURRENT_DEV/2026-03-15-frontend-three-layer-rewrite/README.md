@@ -17,7 +17,7 @@
 1. 本目录是前端重写主线，目标是“框架逻辑完全重构，业务核心交互闭环保留，分阶段替换旧壳层”。
 2. `2026-03-07-dual-frontend-workbench-topology/` 提供了早期 workbench / management 拓扑基线，但本专题将其升级为 A/B/C 三层重写方案，并固定新的路由和模块契约。
 3. `2026-03-07-frontend-i18n-theme-modularization/` 提供共享平台层的旧基线，本专题仅复用其中“主题、语言、模块元数据应被平台化”的原则，不继承既有 `AppShell` 结构。
-4. `2026-03-07-builtin-writing-workbench-design/` 与 `2026-03-07-writing-workbench-evolution/` 仍然是 A 层写作工作台的领域输入，但不再承担前端总体架构主线职责。
+4. `ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/` 的历史设计稿与 `2026-03-07-writing-workbench-evolution/` 仍然是 A 层写作工作台的领域输入，但不再承担前端总体架构主线职责。
 
 ## 使用说明
 

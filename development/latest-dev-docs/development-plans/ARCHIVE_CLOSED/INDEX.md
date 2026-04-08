@@ -4,6 +4,7 @@
 
 ## 归档目录
 
+- [2026-03-02 Ingest Chain Full Branch Map](./2026-03-02-ingest-chain-full-branch-map/)
 - [2026-03-03 Platformization First Vectorization](./2026-03-03-platformization-first-vectorization/)
 - [2026-03-03 Version A Atomic Plan](./2026-03-03-version-A-atomic-plan/)
 - [2026-03-03 Version B Atomic Plan](./2026-03-03-version-B-atomic-plan/)
@@ -28,6 +29,7 @@
 - [2026-03-04 SA3-R3-F LLM Report Must Minset](./2026-03-04-sa3-r3-f-llm-report-must-minset/)
 - [2026-03-06 Handler-Cluster Frontdoor Middle-Layer Alignment](./2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/)
 - [2026-03-11 Source Library Three-Lane Architecture](./2026-03-11-source-library-three-lane-architecture/)
+- [2026-04-06 Repo Logic Gap Assessment](./2026-04-06-repo-logic-gap-assessment/)
 
 ## 返回
 

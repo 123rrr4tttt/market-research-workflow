@@ -24,24 +24,20 @@
 
 ## 最新补充
 
-- `development-plans/CURRENT_DEV` 新增仓库级收口计划的 live runtime smoke 复现实录（2026-04-07）：
-  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
-- `development-plans/CURRENT_DEV` 新增 agent runtime canonical path closure 文档（2026-04-07）：
-  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
-- `development-plans/CURRENT_DEV` 新增仓库级收口 topic-level closure matrix（2026-04-07）：
-  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md)
-- `development-plans/CURRENT_DEV` 新增仓库级收口计划的最终验证与 closure 判断文档（2026-04-07）：
-  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md)
-- `development-plans/CURRENT_DEV` 新增治理默认门禁、PR 证据和文档导航维护基线（2026-04-07）：
-  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md)
-- `development-plans/CURRENT_DEV` 新增高风险收口线的拓扑冻结、compat caller matrix 与 rollout guards 文档（2026-04-06）：
-  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md)
-- `development-plans/CURRENT_DEV` 新增仓库级收口计划的原子任务单（2026-04-06）：
-  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md)
-- `development-plans/CURRENT_DEV` 新增按最新文档方向与近期 Codex 对话统一后的仓库级收口计划（2026-04-06）：
-  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md)
-- `development-plans/CURRENT_DEV` 新增仓库级逻辑缺口评估文档（2026-04-06）：
-  - [development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md)
+- `development-plans/ARCHIVE_CLOSED` 已迁入仓库级收口计划整包（2026-04-07）：
+  - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md)
+- `development-plans/CURRENT_DEV` 新增状态与时效性审计（2026-04-07）：
+  - [development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md](./development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
+- `development-plans/ARCHIVE_RETIRED` 新增已退场文档索引（2026-04-07）：
+  - [development-plans/ARCHIVE_RETIRED/INDEX.md](./development-plans/ARCHIVE_RETIRED/INDEX.md)
 - `development-plans/CURRENT_DEV` 新增 Claude Agent 高保真迁移映射文档（2026-04-02）：
   - [development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 - `development-plans/CURRENT_DEV` 新增前端三层重写专题的收口差距评估与建议推进顺序（2026-04-02）：
@@ -101,13 +97,8 @@
   - [2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md)
   - [2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
   - [2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md)
-- `development-plans/CURRENT_DEV` 新增时间语义与密度能力合并主计划（保留原 03-02 与 03-05 源文档）：
-  - [2026-03-12-time-semantics-density-merged-plan/01_merged-remediation-and-smart-timestamp-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/01_merged-remediation-and-smart-timestamp-plan-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/02_research-report-density-cloud-overlap-avoid-peak-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/02_research-report-density-cloud-overlap-avoid-peak-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/03_unified-research-and-design-report-density-cloud-overlap-shift-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/03_unified-research-and-design-report-density-cloud-overlap-shift-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/04_backend-interface-change-checklist-density-cloud-overlap-shift-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/04_backend-interface-change-checklist-density-cloud-overlap-shift-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/05_merged-unified-report-from-two-reports-density-cloud-overlap-shift-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/05_merged-unified-report-from-two-reports-density-cloud-overlap-shift-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/06_atomic-tasklist-density-cloud-overlap-shift-implementation-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/06_atomic-tasklist-density-cloud-overlap-shift-implementation-2026-03-12.md)
+- `development-plans/ARCHIVE_RETIRED` 已退场旧版时间语义与密度合并计划：
+  - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md)
 - `development-plans/CURRENT_DEV` 新增来源库三分入口架构说明：
   - [2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md)
   - [2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md)
@@ -150,10 +141,9 @@
   - [2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md)
 - `development-plans/CURRENT_DEV` 新增 docs 根目录重构迁移映射表：
   - [2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
-- `development-plans/CURRENT_DEV` 新增内置写作工作台设计方案：
-  - [2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md)
-- `development-plans/CURRENT_DEV` 补充内置写作工作台原子任务清单：
-  - [2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md)
+- `development-plans/ARCHIVE_RETIRED` 已退场早期内置写作工作台设计稿：
+  - [2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md](./development-plans/ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md)
+  - [2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md](./development-plans/ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md)
 - `development-plans/CURRENT_DEV` 新增 LLM + 爬虫统一前门架构草案：
   - [2026-03-08-llm-crawler-unified-frontdoor/01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md)
   - [2026-03-08-llm-crawler-unified-frontdoor/02_atomic-tasklist-llm-crawler-unified-frontdoor-2026-03-08.md](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/02_atomic-tasklist-llm-crawler-unified-frontdoor-2026-03-08.md)
@@ -174,5 +164,5 @@
 - `development-plans/CURRENT_DEV` 时间语义与密度合并计划已迁移到最新口径主入口：
   - [2026-03-14-time-semantics-density-merged-plan/README.md](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/README.md)
   - [2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md)
-- 旧目录保留并新增兼容迁移说明：
-  - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/README.md)
+- 旧目录已退场并保留兼容迁移说明：
+  - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md)

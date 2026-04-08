@@ -23,10 +23,10 @@ The target of this round is to make the workbench operationally coherent:
 
 The immediate upstream references are:
 
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md`
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md`
+- `development/latest-dev-docs/development-plans/ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md`
+- `development/latest-dev-docs/development-plans/ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md`
 
-Those documents are still the baseline for the MVP shape: Markdown editing, preview, keyword cards, templates, and writing-oriented LLM actions.
+Those documents are the historical MVP baseline for Markdown editing, preview, keyword cards, templates, and writing-oriented LLM actions.
 
 This document should therefore focus on delta and convergence, not on re-proposing the same MVP from zero.
 

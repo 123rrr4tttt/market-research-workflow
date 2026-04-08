@@ -209,8 +209,8 @@ Exit policy:
   - topic exit criteria
   - touched-module execution sheet
 - Likely files:
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md`
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md`
+  - `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md`
+  - `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md`
 - Acceptance:
   - 每个收口对象都有 owner、compat status、最低验收项和回退路径。
 - Closure result:
@@ -219,7 +219,7 @@ Exit policy:
   - `Topic Exit Criteria`
   - `Touched-Module Execution Sheet`
 - Minimum validation:
-  - `rg -n "workflow graph|agent runtime|project_key|LLM|source-library|frontend|required checks|compat" development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment -S`
+  - `rg -n "workflow graph|agent runtime|project_key|LLM|source-library|frontend|required checks|compat" development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment -S`
 
 ## Task AT-RCL-02: Land Durable Workflow Graph Runtime Contract
 
@@ -606,8 +606,8 @@ Exit policy:
   - updated indexes and merged overview
   - exit recommendation: remain in `CURRENT_DEV` or archive
 - Likely files:
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md`
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_validation-closure-repo-closure-plan-2026-04-06.md`
+  - `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md`
+  - `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md`
   - `development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md`
   - `development/latest-dev-docs/development-plans/INDEX.md`
   - `development/latest-dev-docs/README.md`

@@ -20,24 +20,28 @@ Updated: 2026-04-07 PST
 
 ## 最近新增
 
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-04-07 Runtime Smoke Reproduction: Repo Closure Plan](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-04-07 Agent Runtime Canonical Path Closure: Repo Closure Plan](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-04-07 Topic Closure Matrix: Repo Closure Plan](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-04-07 Validation Closure: Repo Closure Plan](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-04-07 Governance Default Gates, PR Evidence, and Docs Navigation](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-04-06 Topology Risk Freeze: Compat Caller Matrix And Rollout Guards](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-04-06 Atomic Task List: Repo Closure Plan](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-04-06 Repo Closure Plan Aligned With Latest Direction](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-04-06 Repo Logic Gap Assessment](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md)
 - `development-plans/CURRENT_DEV`：
-  - [2026-04-07 Runtime Smoke Reproduction: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-04-07 Agent Runtime Canonical Path Closure: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-04-07 Topic Closure Matrix: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-04-07 Validation Closure: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-04-07 Governance Default Gates, PR Evidence, and Docs Navigation](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-04-06 Topology Risk Freeze: Compat Caller Matrix And Rollout Guards](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-04-06 Atomic Task List: Repo Closure Plan](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-04-06 Repo Closure Plan Aligned With Latest Direction](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-04-06 Repo Logic Gap Assessment](./development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md)
+  - [2026-04-07 Current-Dev Status Audit](./development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
+- `development-plans/ARCHIVE_RETIRED`：
+  - [2026-04-07 Retired Development Plans Index](./development-plans/ARCHIVE_RETIRED/INDEX.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-04-02 Claude Agent High-Fidelity Migration Mapping](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 - `development-plans/CURRENT_DEV`：
@@ -76,13 +80,8 @@ Updated: 2026-04-07 PST
   - [2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md)
   - [2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
   - [2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-03-12-time-semantics-density-merged-plan/01_merged-remediation-and-smart-timestamp-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/01_merged-remediation-and-smart-timestamp-plan-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/02_research-report-density-cloud-overlap-avoid-peak-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/02_research-report-density-cloud-overlap-avoid-peak-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/03_unified-research-and-design-report-density-cloud-overlap-shift-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/03_unified-research-and-design-report-density-cloud-overlap-shift-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/04_backend-interface-change-checklist-density-cloud-overlap-shift-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/ARCHIVE_01_04/04_backend-interface-change-checklist-density-cloud-overlap-shift-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/05_merged-unified-report-from-two-reports-density-cloud-overlap-shift-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/05_merged-unified-report-from-two-reports-density-cloud-overlap-shift-2026-03-12.md)
-  - [2026-03-12-time-semantics-density-merged-plan/06_atomic-tasklist-density-cloud-overlap-shift-implementation-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/06_atomic-tasklist-density-cloud-overlap-shift-implementation-2026-03-12.md)
+- `development-plans/ARCHIVE_RETIRED`：
+  - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md)
   - [2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md)
@@ -126,8 +125,8 @@ Updated: 2026-04-07 PST
   - [2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md)
   - [2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md)
   - [2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
-  - [2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md)
-  - [2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md)
+  - [2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md](./development-plans/ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md)
+  - [2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md](./development-plans/ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md)
   - [2026-03-08-llm-crawler-unified-frontdoor/01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md)
   - [2026-03-08-llm-crawler-unified-frontdoor/02_atomic-tasklist-llm-crawler-unified-frontdoor-2026-03-08.md](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/02_atomic-tasklist-llm-crawler-unified-frontdoor-2026-03-08.md)
   - [2026-03-08-llm-crawler-unified-frontdoor/03_a10-closure-and-validation-2026-03-08.md](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/03_a10-closure-and-validation-2026-03-08.md)
@@ -146,7 +145,7 @@ Updated: 2026-04-07 PST
   - [2026-03-14-time-semantics-density-merged-plan/README.md](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/README.md)
   - [2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md)
 - 旧目录兼容迁移说明：
-  - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/CURRENT_DEV/2026-03-12-time-semantics-density-merged-plan/README.md)
+  - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md)
 - 2026-03-14 最新收敛：
   - `single_url` 历史实现已被 `url_routing/source_library -> postprocess_frontdoor` 替代。
   - 当前代码主链不再保留 `single_url.py`、`task_ingest_single_url`、`single_url_*` 参数兼容层。

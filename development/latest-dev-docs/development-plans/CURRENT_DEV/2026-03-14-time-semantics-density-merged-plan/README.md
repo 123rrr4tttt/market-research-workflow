@@ -11,5 +11,5 @@
 
 ## 迁移关系
 
-- 旧目录（保留原文，不删除）：[`../2026-03-12-time-semantics-density-merged-plan/`](../2026-03-12-time-semantics-density-merged-plan/)
-- 兼容说明：[`../2026-03-12-time-semantics-density-merged-plan/README.md`](../2026-03-12-time-semantics-density-merged-plan/README.md)
+- 旧目录（历史保留，已退场）：[`../../ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/`](../../ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/)
+- 兼容说明：[`../../ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md`](../../ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md)

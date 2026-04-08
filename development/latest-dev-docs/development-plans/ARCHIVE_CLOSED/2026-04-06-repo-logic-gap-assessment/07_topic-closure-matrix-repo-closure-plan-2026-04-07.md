@@ -74,5 +74,5 @@
 
 ```bash
 rg -n "AT-RCL-0[2-9]|completed|in_progress|remain in `CURRENT_DEV`" \
-  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-06-repo-logic-gap-assessment -S
+  development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment -S
 ```

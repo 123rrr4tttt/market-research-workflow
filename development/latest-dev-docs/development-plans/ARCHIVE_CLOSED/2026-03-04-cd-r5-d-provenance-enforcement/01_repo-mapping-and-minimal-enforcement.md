@@ -4,7 +4,7 @@
 
 - 本次优先路径 `docs/reference-pool` 不存在，已按约束切换为替代参考包：
   - `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r3-d-security-minimal/01_repo-mapping-and-minimal-implementation.md`
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-rag-line-round3-filter-robustness/01_rag-filter-robustness-minimal-enhancement-2026-03-04.md`
+  - `development/latest-dev-docs/development-plans/ARCHIVE_RETIRED/2026-03-04-rag-line-round3-filter-robustness/01_rag-filter-robustness-minimal-enhancement-2026-03-04.md`
   - `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-d-line-rag-filter-robustness/01_task_and_closing.md`
 
 ## 1) Repo-level 映射（R5 执行前）
