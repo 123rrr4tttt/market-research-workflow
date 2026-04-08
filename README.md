@@ -49,6 +49,13 @@
 
 ### 推荐方式：Docker
 
+首次 clone 后，先确认本机满足这些前置条件：
+
+- 已安装并启动 `Docker Desktop` 或 `Docker Engine`
+- 已安装 `docker compose` 或 `docker-compose`
+- 已安装 `curl`
+- 当前 shell 位于仓库根目录
+
 1. 准备环境文件：
 
 ```bash
@@ -59,13 +66,21 @@ cp main/backend/.env.example main/backend/.env
 
 ```bash
 ./scripts/docker-deploy.sh preflight
+./scripts/docker-deploy.sh preflight --profile modern-ui
 ./scripts/docker-deploy.sh preflight --profile scrapyd
 ```
 
 3. 启动服务：
 
 ```bash
+# 核心后端链路
 ./scripts/docker-deploy.sh start
+
+# 如需同时启动 modern 前端
+./scripts/docker-deploy.sh start --profile modern-ui
+
+# 如需同时启动 modern 前端和 scrapyd
+./scripts/docker-deploy.sh start --profile modern-ui --profile scrapyd
 ```
 
 4. 常用操作：
@@ -87,6 +102,12 @@ cp main/backend/.env.example main/backend/.env
 ## 本地开发
 
 当你需要快速迭代后端和前端，而不想整套容器都拉起时，使用本地模式。
+
+本地模式的完整前置依赖和自动安装行为见 [`main/backend/README.local.md`](./main/backend/README.local.md)。至少应提前确认：
+
+- 已安装 `Python 3.11+`
+- 已安装 `Node.js / npm`
+- 若不用 `--with-docker-deps`，本机可启动 `PostgreSQL`、`Redis`、`Elasticsearch`
 
 ### 一键本地启动
 
@@ -236,6 +257,7 @@ pytest -m "contract and not external and not flaky" -q
 - `main/frontend-modern` 是当前唯一活跃前端，旧模板前端不是主开发目标。
 - 仓库里包含大量规划、归档、参考资料目录，其中不少不是运行时路径。
 - 部分采集 / 搜索 / LLM 能力依赖 `main/backend/.env` 中的外部 API Key。
+- 如果你是首次加入项目，建议优先按本 README 的 Docker 路径完成首轮启动，再进入本地开发模式。
 
 ## 协作约定
 

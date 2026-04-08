@@ -159,5 +159,5 @@ docker compose -f main/ops/docker-compose.yml --profile modern-ui up -d frontend
 - `GET /api/v1/resource_pool/site_entries/grouped`
 
 接口盘点见：
-- `/Users/wangyiliang/projects/信息收集工作流/main/backend/docs/API_ROUTE_INVENTORY_2026-02-27.md`
-- `/Users/wangyiliang/projects/信息收集工作流/main/backend/docs/FRONTEND_MODERNIZATION_API_MAP_2026-02-27.md`
+- `../backend/docs/API_ROUTE_INVENTORY_2026-02-27.md`
+- `../backend/docs/FRONTEND_MODERNIZATION_API_MAP_2026-02-27.md`
