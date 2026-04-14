@@ -1,0 +1,48 @@
+结果
+- 并行完成三项原子任务并最小落地改动，统一“爬虫 vs 连接器”在运行返回的关键状态边界，且保持 import/deploy/rollback/run-item 的兼容性。
+- crawler 分支（经 provider registry 调度）补充统一状态字段：当 provider_status ∈ {ok, queued, scheduled, running, accepted} 时设置 status=accepted，否则为 failed；不改动原有 errors 的字符串列表语义与 output_ingest 结构，确保与下游（如单 URL 回落校验）兼容。
+- 连接器（native handler）分支不做强行补齐，严格透传 handler 返回，避免单测中对完整字典相等断言的回归风险。
+- 子 Agent 并行结论：
+  - explorer 给出需归一字段与需保留字段清单（status/inserted/updated/skipped/errors/provider_*；保留 output_ingest.import_result、by_url 明细等）。
+  - reviewer 指出高风险点：test_source_library_runner_gray_rollout_unittest.py 存在整字典相等断言，若在 run_channel(native) 分支补齐字段将导致回归。因此仅在 crawler 分支补充 status，native 分支保持不变。
+- 最小检查：完成指定三文件 py_compile 通过；pytest 环境缺失已按验收的 “|| true” 路径执行，不阻塞。
+
+改动文件
+- main/backend/app/services/source_library/runner.py: 在 _run_via_crawler_provider_registry 返回包中新增统一的 top-level status 字段；保持 errors 为 list[str] 与 output_ingest 不变；native 分支恢复“原样透传”。
+
+验证状态
+- 编译检查
+  - python3 -m py_compile main/backend/app/api/crawler.py ✅
+  - python3 -m py_compile main/backend/app/services/crawlers_mgmt/service.py ✅
+  - python3 -m py_compile main/backend/app/services/source_library/runner.py ✅
+- 单测（受环境限制，pytest 不可用）
+  - cd main/backend && pytest -q tests/unit -k "crawler or source_library" || true 已执行，因本机缺少 pytest 命令，按验收逻辑不作为失败处理。
+- 兼容性自检
+  - 不改 API/Service 函数签名与参数；import/deploy/rollback/run-item 行为与返回结构兼容。
+  - test_source_library_runner_gray_rollout_unittest 里的 mock 返回结果仍按原样透传，不受新增 status 影响（crawler 分支被 mock 覆盖；native 分支保持透传）。
+
+风险
+- 外部依赖风险：运行态依赖的 pytest 不存在，无法在本机完成用例级回归；建议在 CI 环境补跑相关用例。
+- 语义风险：crawler 分支新增的 status=accepted/failed 仅代表“外部调度状态”，不等同于“入库成功/失败”；下游若将其当作采集完成状态，需避免误用。当前未改动下游逻辑。
+- 兼容性风险已规避：未在 native 分支新增字段，避免 test_* 对完整字典相等的断言失败；errors 仍为 list[str]，保证 source_library → collect_runtime 的旧路径转换逻辑稳定。
+
+——
+
+原子任务并行明细（目标/输入/输出/验收）
+- 任务A（explore）
+  - 目标：梳理需归一字段与保留字段
+  - 输入：runner.py、resolver.py、相关单测
+  - 输出：{normalize: [...], keep: [...]} 清单
+  - 验收：列出 status/errors/provider_* 等统一字段与 output_ingest.import_result 等保留字段
+- 任务B（reviewer）
+  - 目标：评审回归风险与安全默认值
+  - 输入：任务A清单与单测断言
+  - 输出：{risks: [...], safe_defaults: {...}}
+  - 验收：指出整字典相等断言风险并提出“仅改 crawler 分支”的处置
+- 任务C（implement）
+  - 目标：最小代码改动落地 + 编译验证
+  - 输入：runner.py
+  - 输出：补丁并通过 py_compile
+  - 验收：三文件 py_compile 全部通过；接口兼容性不变
+
+需要我继续在本地补跑更全面的用例或推进下一个归一项（例如在 collect_runtime 的 adapter 层对 native 结果做非入侵式映射）吗？

@@ -1,0 +1,145 @@
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+pytestmark = pytest.mark.integration
+
+try:
+    from fastapi.testclient import TestClient
+    from app.main import app as backend_app
+    from app.contracts.errors import ErrorCode
+    _IMPORT_ERROR = None
+except Exception as exc:  # noqa: BLE001
+    _IMPORT_ERROR = exc
+
+
+def _response_payload(body):
+    if isinstance(body, dict) and isinstance(body.get("data"), dict):
+        return body["data"]
+    return body
+
+
+class _FakeTask:
+    def __init__(self, name: str):
+        self._name = name
+
+    def delay(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        return SimpleNamespace(id=f"{self._name}-task-id")
+
+
+class _FakeTasks:
+    def __getattr__(self, name: str):
+        return _FakeTask(name)
+
+
+class IngestBaselineMatrixTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if _IMPORT_ERROR is not None:
+            raise unittest.SkipTest(f"ingest baseline tests require backend dependencies: {_IMPORT_ERROR}")
+        cls.client = TestClient(backend_app)
+
+    def test_ingest_route_inventory_contains_core_modes(self):
+        schema = self.client.get("/openapi.json").json()
+        paths = schema.get("paths", {})
+        expected = [
+            "/api/v1/ingest/market",
+            "/api/v1/ingest/source-library/run",
+            "/api/v1/ingest/source-library/sync",
+            "/api/v1/ingest/data-api",
+            "/api/v1/ingest/graph/structured-search",
+            "/api/v1/ingest/policy/regulation",
+            "/api/v1/ingest/commodity/metrics",
+            "/api/v1/ingest/ecom/prices",
+        ]
+        for p in expected:
+            self.assertIn(p, paths)
+        self.assertNotIn("/api/v1/ingest/social/sentiment", paths)
+
+    def test_core_ingest_modes_require_project_key_in_require_mode(self):
+        cases = [
+            ("/api/v1/ingest/market", {"query_terms": ["acme"], "async_mode": True}),
+            ("/api/v1/ingest/source-library/run", {"item_key": "demo-item", "async_mode": True}),
+            ("/api/v1/ingest/data-api", {"query_terms": ["acme"], "async_mode": True}),
+            (
+                "/api/v1/ingest/graph/structured-search",
+                {
+                    "selected_nodes": [{"type": "market", "entry_id": "n1", "label": "ACME"}],
+                    "dashboard": {"async_mode": True},
+                    "flow_type": "collect",
+                },
+            ),
+            ("/api/v1/ingest/policy/regulation", {"query_terms": ["policy"], "async_mode": True}),
+            ("/api/v1/ingest/commodity/metrics", {"limit": 1, "async_mode": True}),
+            ("/api/v1/ingest/ecom/prices", {"limit": 1, "async_mode": True}),
+        ]
+        with patch("app.api.ingest.settings.project_key_enforcement_mode", "require"):
+            for path, payload in cases:
+                resp = self.client.post(path, json=payload)
+                self.assertEqual(resp.status_code, 400, msg=f"path={path} body={resp.text}")
+                body = resp.json()
+                self.assertIn("detail", body, msg=f"path={path} body={body}")
+                self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_core_ingest_modes_accept_explicit_project_key(self):
+        headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "baseline-matrix-1"}
+        cases = [
+            ("/api/v1/ingest/market", {"query_terms": ["acme"], "project_key": "demo_proj", "async_mode": True}),
+            (
+                "/api/v1/ingest/source-library/run",
+                {"item_key": "demo-item", "project_key": "demo_proj", "async_mode": True},
+            ),
+            (
+                "/api/v1/ingest/data-api",
+                {"query_terms": ["acme"], "project_key": "demo_proj", "async_mode": True},
+            ),
+            (
+                "/api/v1/ingest/graph/structured-search",
+                {
+                    "selected_nodes": [{"type": "market", "entry_id": "n1", "label": "ACME"}],
+                    "dashboard": {"async_mode": True, "project_key": "demo_proj"},
+                    "flow_type": "collect",
+                },
+            ),
+            (
+                "/api/v1/ingest/policy/regulation",
+                {"query_terms": ["policy"], "project_key": "demo_proj", "async_mode": True},
+            ),
+            ("/api/v1/ingest/commodity/metrics", {"limit": 1, "project_key": "demo_proj", "async_mode": True}),
+            ("/api/v1/ingest/ecom/prices", {"limit": 1, "project_key": "demo_proj", "async_mode": True}),
+        ]
+        with patch("app.api.ingest._tasks_module", return_value=_FakeTasks()):
+            for path, payload in cases:
+                resp = self.client.post(path, json=payload, headers=headers)
+                self.assertEqual(resp.status_code, 200, msg=f"path={path} body={resp.text}")
+                body = resp.json()
+                if isinstance(body, dict) and "status" in body:
+                    self.assertEqual(body["status"], "ok", msg=f"path={path} body={body}")
+                data = _response_payload(body)
+                self.assertIsInstance(data, dict, msg=f"path={path} body={body}")
+                self.assertEqual(resp.headers.get("x-project-key-source"), "header")
+                self.assertEqual(resp.headers.get("x-project-key-resolved"), "demo_proj")
+
+    def test_legacy_social_sentiment_route_is_rewritten_to_data_api(self):
+        headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "baseline-matrix-legacy-1"}
+        payload = {"query_terms": ["acme"], "project_key": "demo_proj", "async_mode": True}
+        with patch("app.api.ingest._tasks_module", return_value=_FakeTasks()):
+            resp = self.client.post("/api/v1/ingest/social/sentiment", json=payload, headers=headers)
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok", msg=body)
+        data = _response_payload(body)
+        self.assertIsInstance(data, dict, msg=body)
+        self.assertIn("/api/v1/ingest/data-api", str(resp.headers.get("x-legacy-route-rewrite") or ""))
+
+
+if __name__ == "__main__":
+    unittest.main()

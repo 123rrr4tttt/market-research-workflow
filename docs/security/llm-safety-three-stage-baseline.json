@@ -1,0 +1,16 @@
+{
+  "line": "D",
+  "round": "R15",
+  "task_id": "D-R15-M2",
+  "spec": "input/retrieval/output three-stage safety checks",
+  "thresholds": {
+    "prompt_injection_block_rate_min": 0.95,
+    "unsafe_output_escape_rate_max": 0.01,
+    "citation_coverage_min": 0.98
+  },
+  "stages": {
+    "input": {"enabled": true, "checklist": ["prompt_injection", "policy_filter", "pii_redaction"]},
+    "retrieval": {"enabled": true, "checklist": ["allowlist_host", "source_trust", "provenance_presence"]},
+    "output": {"enabled": true, "checklist": ["unsafe_content_filter", "citation_presence", "format_guard"]}
+  }
+}

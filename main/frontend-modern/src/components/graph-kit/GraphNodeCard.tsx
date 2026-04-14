@@ -1,0 +1,19 @@
+import type { CSSProperties, DragEventHandler, MouseEventHandler, ReactNode } from 'react'
+import Gv2NodeCard from '../Gv2NodeCard'
+
+type GraphNodeCardProps = {
+  title: string
+  subtitle?: string
+  onClose?: () => void
+  actions?: ReactNode
+  style?: CSSProperties
+  draggable?: boolean
+  onDragStart?: DragEventHandler<HTMLElement>
+  onDragEnd?: DragEventHandler<HTMLElement>
+  onHeadMouseDown?: MouseEventHandler<HTMLDivElement>
+  children?: ReactNode
+}
+
+export default function GraphNodeCard(props: GraphNodeCardProps) {
+  return <Gv2NodeCard {...props} />
+}

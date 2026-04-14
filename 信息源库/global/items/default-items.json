@@ -1,0 +1,50 @@
+[
+  {
+    "item_key": "reddit.general",
+    "name": "Reddit General Baseline",
+    "channel_key": "social.reddit.general",
+    "description": "Default shared subreddit baseline.",
+    "params": {
+      "subreddit": "technology",
+      "limit": 20
+    },
+    "tags": ["social", "baseline"],
+    "enabled": true
+  },
+  {
+    "item_key": "news.general.regulation",
+    "name": "General Regulation News Baseline",
+    "channel_key": "news.google.general",
+    "description": "Shared baseline for general regulation news discovery.",
+    "params": {
+      "keywords": ["market regulation", "industry policy"],
+      "limit": 20
+    },
+    "tags": ["news", "policy"],
+    "enabled": true
+  },
+  {
+    "item_key": "policy.general.default",
+    "name": "General Policy Baseline",
+    "channel_key": "policy.general",
+    "description": "Shared baseline for general policy ingest.",
+    "params": {
+      "state": "NY"
+    },
+    "tags": ["policy", "baseline"],
+    "enabled": true
+  },
+  {
+    "item_key": "market.general.baseline",
+    "name": "General Market Info Baseline",
+    "channel_key": "market.general",
+    "description": "Shared baseline for market/industry news.",
+    "params": {
+      "keywords": ["market trend", "industry news"],
+      "limit": 20
+    },
+    "tags": ["market", "baseline"],
+    "enabled": true
+  }
+]
+

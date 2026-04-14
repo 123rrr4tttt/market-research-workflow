@@ -1,0 +1,746 @@
+name: backend-tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      test_profile:
+        description: "Docker compose test profile"
+        required: false
+        default: "test"
+        type: string
+
+concurrency:
+  group: backend-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  standards-check:
+    name: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run API layer standards guardrails
+        run: |
+          python main/backend/scripts/check_api_layer_imports.py
+
+  r81-a-min-verify-check:
+    name: r81-a-min-verify-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run R8.1 A minimal verifier
+        run: |
+          chmod +x scripts/verify/verify_r81_a.sh
+          ./scripts/verify/verify_r81_a.sh
+
+  r81-b-min-verify-check:
+    name: r81-b-min-verify-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run R8.1 B minimal verifier
+        run: |
+          chmod +x scripts/verify_r81_b.sh
+          ./scripts/verify_r81_b.sh
+
+  unit-check:
+    name: unit-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run pytest (unit, deterministic lane)
+        working-directory: main/backend
+        env:
+          PYTHONHASHSEED: "0"
+        run: |
+          pytest -m "unit and not external and not flaky" -q
+
+  llm-report-must-check:
+    name: llm-report-must-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run llm report must-check minset
+        run: |
+          python main/backend/scripts/check_llm_report_must_minset.py --artifact-dir artifacts/llm-report-must-check
+
+      - name: Upload llm report must-check artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-report-must-check-evidence
+          path: artifacts/llm-report-must-check/
+          if-no-files-found: error
+
+  integration-check:
+    name: integration-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run pytest (integration, deterministic lane)
+        working-directory: main/backend
+        env:
+          PYTHONHASHSEED: "0"
+        run: |
+          pytest -m "integration and not external and not flaky" -q
+
+  flaky-observe:
+    name: flaky-observe
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run flaky observation suite
+        working-directory: main/backend
+        env:
+          PYTHONHASHSEED: "0"
+        run: |
+          mkdir -p artifacts
+          set +e
+          pytest -m "flaky and not external" --junitxml=artifacts/flaky-junit.xml -q
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then
+            echo "Flaky suite returned non-zero ($code), continue for observation lane."
+          fi
+
+      - name: Validate flaky registry ownership
+        working-directory: main/backend
+        run: |
+          set +e
+          python scripts/validate_flaky_registry.py \
+            --registry tests/quarantine/flaky_registry.json \
+            --output artifacts/flaky-registry-report.md
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            echo "Flaky registry validation returned non-zero ($code), keep observation lane running."
+          fi
+
+      - name: Generate flaky report
+        working-directory: main/backend
+        run: |
+          python scripts/flake_report.py --junit artifacts/flaky-junit.xml --output artifacts/flaky-report.md
+
+      - name: Generate flaky trend report
+        working-directory: main/backend
+        run: |
+          mkdir -p artifacts/history
+          cp artifacts/flaky-junit.xml artifacts/history/flaky-junit-current.xml 2>/dev/null || true
+          python scripts/flake_trend.py \
+            --junit-glob "artifacts/history/*.xml" \
+            --output artifacts/flaky-trend-report.md \
+            --output-json artifacts/flaky-trend-summary.json \
+            --top-n 15 \
+            --threshold 0.30
+
+      - name: Enforce flaky trend gate (machine-readable)
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        working-directory: main/backend
+        run: |
+          python scripts/check_flake_trend_thresholds.py \
+            --summary-json artifacts/flaky-trend-summary.json \
+            --output-json artifacts/flaky-trend-gate.json \
+            --max-above-threshold 0 \
+            --min-tests 1
+
+      - name: Publish flaky summaries
+        if: always()
+        working-directory: main/backend
+        run: |
+          cat artifacts/flaky-registry-report.md >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat artifacts/flaky-report.md >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat artifacts/flaky-trend-report.md >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Flaky Trend Gate JSON" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`json" >> "$GITHUB_STEP_SUMMARY"
+          cat artifacts/flaky-trend-gate.json >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload flaky diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-observation-artifacts
+          path: main/backend/artifacts/
+          if-no-files-found: warn
+
+  gateplus-guard-check:
+    name: gateplus-guard-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run GatePlus CI guard
+        working-directory: main/backend
+        env:
+          GATEPLUS_COMPAT_LEVEL: BACKWARD
+        run: |
+          chmod +x scripts/gateplus_ci_guard.sh
+          GATEPLUS_ARTIFACT_DIR=.artifacts/gateplus ./scripts/gateplus_ci_guard.sh
+
+      - name: Render GatePlus diagnostics to job summary
+        if: always()
+        working-directory: main/backend
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          summary_path = Path(".artifacts/gateplus/summary.json")
+          target = os.environ.get("GITHUB_STEP_SUMMARY")
+          if not target:
+              print("[gateplus-guard] GITHUB_STEP_SUMMARY is not available.")
+              raise SystemExit(0)
+
+          lines = ["## GatePlus Guard Diagnostics", ""]
+          if not summary_path.exists():
+              lines.extend(
+                  [
+                      "- status: missing-summary",
+                      "- hint: summary.json not found; check guard step logs.",
+                      "",
+                  ]
+              )
+          else:
+              data = json.loads(summary_path.read_text(encoding="utf-8"))
+              counts = data.get("counts", {})
+              compatibility = data.get("compatibility", {})
+              diagnostics = data.get("failure_diagnostics", {})
+              lines.extend(
+                  [
+                      f"- status: `{data.get('status', 'unknown')}`",
+                      f"- pytest_exit: `{data.get('pytest_exit', 'n/a')}`",
+                      f"- summary_line: `{data.get('summary_line', '').strip()}`",
+                      f"- compatibility: level={compatibility.get('level', 'n/a')} source={compatibility.get('source', 'n/a')} enforced={compatibility.get('enforced', False)}",
+                      f"- counts: pass={counts.get('passed', 0)} skip={counts.get('skipped', 0)} fail={counts.get('failed', 0)} warnings={counts.get('warnings', 0)}",
+                      f"- root_cause_code: `{diagnostics.get('root_cause_code', 'none')}`",
+                  ]
+              )
+
+              reasons = diagnostics.get("failure_reasons") or []
+              hints = diagnostics.get("actionable_hints") or []
+              failed_tests = diagnostics.get("failed_tests") or []
+
+              if reasons:
+                  lines.extend(["", "### Failure reasons"])
+                  lines.extend([f"- {item}" for item in reasons[:5]])
+              if hints:
+                  lines.extend(["", "### Actionable hints"])
+                  lines.extend([f"- {item}" for item in hints[:5]])
+              if failed_tests:
+                  lines.extend(["", "### Failed tests"])
+                  for item in failed_tests[:10]:
+                      nodeid = item.get("nodeid", "unknown")
+                      msg = item.get("message", "")
+                      lines.append(f"- `{nodeid}`: {msg}")
+
+          with open(target, "a", encoding="utf-8") as fp:
+              fp.write("\n".join(lines) + "\n")
+          print(f"[gateplus-guard] wrote job summary: {target}")
+          PY
+
+      - name: Upload GatePlus artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateplus-guard-artifacts
+          path: |
+            main/backend/.artifacts/gateplus/junit.xml
+            main/backend/.artifacts/gateplus/summary.json
+          if-no-files-found: warn
+
+  gateplus-required-check:
+    name: gateplus-required-check
+    if: always()
+    needs:
+      - standards-check
+      - gateplus-guard-check
+      - r81-b-min-verify-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Evaluate required checks convergence
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          needs = json.loads(os.environ.get("NEEDS_JSON", "{}"))
+          required = ("standards-check", "gateplus-guard-check", "r81-b-min-verify-check")
+          failed = []
+          lines = ["## GatePlus Required Check Convergence", ""]
+
+          for job in required:
+              result = (needs.get(job) or {}).get("result", "missing")
+              lines.append(f"- {job}: `{result}`")
+              if result != "success":
+                  failed.append((job, result))
+
+          lines.append("")
+          if failed:
+              lines.append("### Actionable hints")
+              lines.append("- Open failed job logs and fix root cause before merge.")
+              lines.append("- Keep branch protection required check pinned to `gateplus-required-check`.")
+          else:
+              lines.append("- convergence_status: `pass`")
+
+          summary_target = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_target:
+              with open(summary_target, "a", encoding="utf-8") as fp:
+                  fp.write("\n".join(lines) + "\n")
+              print(f"[gateplus-required-check] wrote summary: {summary_target}")
+
+          if failed:
+              detail = ", ".join(f"{job}={result}" for job, result in failed)
+              print(f"[gateplus-required-check] FAIL: {detail}", file=sys.stderr)
+              sys.exit(1)
+
+          print("[gateplus-required-check] PASS")
+          PY
+
+      - name: Deep health integration non-skip gate
+        working-directory: main/backend
+        run: |
+          out=$(pytest tests/integration/test_deep_health_db_degraded_unittest.py -q -rs)
+          echo "$out"
+          if echo "$out" | grep -q "SKIPPED"; then
+            echo "[E-LINE][FAIL] deep health integration test was skipped"
+            exit 1
+          fi
+
+  schema-guard-check:
+    name: schema-guard-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Run project schema guard in docker compose
+        run: |
+          docker compose -f main/ops/docker-compose.yml up -d --wait --wait-timeout 120 db es redis
+          docker compose -f main/ops/docker-compose.yml run --rm backend-test tests/integration/test_project_schema_guard_unittest.py -q
+
+      - name: Collect docker compose diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          docker compose -f main/ops/docker-compose.yml ps -a > artifacts/schema-guard-compose-ps.txt
+          docker compose -f main/ops/docker-compose.yml logs --no-color > artifacts/schema-guard-compose-logs.txt
+
+      - name: Upload docker compose diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-guard-compose-diagnostics
+          path: artifacts/
+          if-no-files-found: warn
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose -f main/ops/docker-compose.yml down -v
+
+  coverage-check:
+    name: coverage-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest pytest-cov
+
+      - name: Run pytest coverage gate (core path)
+        working-directory: main/backend
+        env:
+          CORE_COVERAGE_PATHS: app/api/search.py,app/contracts/api.py,app/contracts/responses.py,app/contracts/tasks.py,app/contracts/errors.py
+        run: |
+          pytest -m "(unit or integration) and not external" --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml -q
+          python scripts/check_coverage_thresholds.py --coverage-file coverage.xml --core-paths "${CORE_COVERAGE_PATHS}" --core-threshold 100 --other-threshold 20
+
+  security-check:
+    name: security-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt bandit pip-audit
+
+      - name: Run SAST (Bandit)
+        run: |
+          bandit -q -r main/backend/app -x main/backend/tests
+
+      - name: Run dependency vulnerability scan (pip-audit)
+        run: |
+          pip-audit -r main/backend/requirements.txt --strict
+
+      - name: Run secret scanning (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  contract-check:
+    if: github.event_name != 'pull_request'
+    name: contract-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run pytest (contract)
+        working-directory: main/backend
+        run: |
+          pytest -m "contract and not external" -q
+
+  e2e-check:
+    if: github.event_name != 'pull_request'
+    name: e2e-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt pytest
+
+      - name: Run pytest (e2e)
+        working-directory: main/backend
+        run: |
+          pytest -m "e2e and not external" -q
+
+  docker-check:
+    name: docker-check
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare env
+        run: |
+          cp main/backend/.env.example main/backend/.env
+
+      - name: Run backend tests in docker compose
+        run: |
+          docker compose -f main/ops/docker-compose.yml --profile "${{ github.event.inputs.test_profile || 'test' }}" up --build --abort-on-container-exit --exit-code-from backend-test backend-test
+
+      - name: Collect docker compose diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          docker compose -f main/ops/docker-compose.yml ps -a > artifacts/compose-ps.txt
+          docker compose -f main/ops/docker-compose.yml logs --no-color > artifacts/compose-logs.txt
+
+      - name: Upload docker compose diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-compose-diagnostics
+          path: artifacts/
+          if-no-files-found: warn
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose -f main/ops/docker-compose.yml down -v
+
+  contracts-governance-observe:
+    name: contracts-governance-observe
+    needs: standards-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Observation-only lane for API contract governance (openapi/contract snapshots)
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: main/backend/requirements.txt
+
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r main/backend/requirements.txt
+
+      - name: Compile contract modules
+        run: |
+          python -m py_compile \
+            main/backend/app/contracts/api.py \
+            main/backend/app/contracts/responses.py \
+            main/backend/app/contracts/errors.py
+
+      - name: Emit contract governance snapshots (observe)
+        working-directory: main/backend
+        env:
+          CONTRACT_GOVERNANCE_DIR: .artifacts/contracts-governance
+        run: |
+          python - <<'PY'
+          from app.contracts.responses import ok, fail, ApiMetaModel
+          from app.contracts.errors import ErrorCode
+          # Emit a few sample envelopes; hook writes snapshots when env var is set
+          ok({"ping": "pong"}, meta=ApiMetaModel(trace_id="trace-ci-observe"))
+          fail(ErrorCode.INVALID_INPUT, "invalid payload", details={"field": "q"})
+          print("[contracts-governance] snapshots emitted")
+          PY
+
+      - name: Upload governance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-governance-artifacts
+          path: main/backend/.artifacts/contracts-governance/
+          if-no-files-found: warn
+
+  contracts-required-check:
+    name: contracts-required-check
+    if: always()
+    needs:
+      - standards-check
+      - contracts-governance-observe
+      - r81-b-min-verify-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Evaluate contract gates convergence
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+          CONTRACTS_REQUIRED: ${{ vars.CONTRACTS_REQUIRED || 'false' }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ.get("NEEDS_JSON", "{}"))
+          required_flag = os.environ.get("CONTRACTS_REQUIRED", "false").lower() == "true"
+          jobs = ("contracts-governance-observe", "r81-b-min-verify-check")
+          failed = []
+          lines = ["## Contracts Required Check", ""]
+          lines.append(f"- contracts_required: `{required_flag}`")
+          for job in jobs:
+            result = (needs.get(job) or {}).get("result", "missing")
+            lines.append(f"- {job}: `{result}`")
+            if result != "success":
+              failed.append((job, result))
+
+          lines.append("")
+          if failed:
+            lines.append("### Actionable hints")
+            lines.append("- Review governance snapshots and r81-b verifier outputs.")
+            lines.append("- Flip `CONTRACTS_REQUIRED` to false to run as non-blocking.")
+          else:
+            lines.append("- convergence_status: `pass`")
+
+          target = os.environ.get("GITHUB_STEP_SUMMARY")
+          if target:
+            with open(target, "a", encoding="utf-8") as fp:
+              fp.write("\n".join(lines) + "\n")
+
+          if required_flag and failed:
+            detail = ", ".join(f"{j}={r}" for j, r in failed)
+            print(f"[contracts-required-check] FAIL: {detail}", file=sys.stderr)
+            sys.exit(1)
+
+          print("[contracts-required-check] PASS (non-blocking mode)")
+          PY

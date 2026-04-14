@@ -1,0 +1,84 @@
+# LLM Embedded Repo Snapshot (Domain F: local/edge runtime)
+# Captured at: 2026-03-04 (US/Pacific)
+# Source: GitHub REST API /repos/{owner}/{repo} + /releases/latest
+# Filter focus: Ollama / llama.cpp / MLX / TensorRT-LLM / KServe(optional)
+
+[selected_repos=7]
+
+1) ollama/ollama
+- url: https://github.com/ollama/ollama
+- stars: 164077
+- forks: 14762
+- language: Go
+- license: MIT
+- latest_release: v0.17.6 (2026-03-04T07:28:34Z)
+- pushed_at: 2026-03-04T11:00:43Z
+- fit: local unified runtime + model packaging/distribution entry
+
+2) ggml-org/llama.cpp
+- url: https://github.com/ggml-org/llama.cpp
+- stars: 96652
+- forks: 15224
+- language: C++
+- license: MIT
+- latest_release: b8198 (2026-03-04T14:44:57Z)
+- pushed_at: 2026-03-04T14:44:57Z
+- fit: low-dependency C/C++ inference core for GGUF
+
+3) ml-explore/mlx
+- url: https://github.com/ml-explore/mlx
+- stars: 24207
+- forks: 1543
+- language: C++
+- license: MIT
+- latest_release: v0.31.0 (2026-02-28T06:22:01Z)
+- pushed_at: 2026-03-04T10:13:19Z
+- fit: Apple Silicon native edge runtime base
+
+4) ml-explore/mlx-examples
+- url: https://github.com/ml-explore/mlx-examples
+- stars: 8307
+- forks: 1126
+- language: Python
+- license: MIT
+- latest_release: N/A
+- pushed_at: 2026-02-12T22:55:33Z
+- fit: MLX operational examples for inference/finetune packaging
+
+5) NVIDIA/TensorRT-LLM
+- url: https://github.com/NVIDIA/TensorRT-LLM
+- stars: 12997
+- forks: 2144
+- language: Python
+- license: NOASSERTION
+- latest_release: v1.1.0 (2025-12-19T13:55:05Z)
+- pushed_at: 2026-03-04T18:10:48Z
+- fit: NVIDIA GPU high-throughput acceleration backend
+
+6) kserve/kserve
+- url: https://github.com/kserve/kserve
+- stars: 5162
+- forks: 1396
+- language: Go
+- license: Apache-2.0
+- latest_release: v0.16.0 (2025-11-03T02:40:28Z)
+- pushed_at: 2026-03-04T18:10:45Z
+- fit: optional K8s serving platform (not low-dependency first)
+
+7) abetlen/llama-cpp-python
+- url: https://github.com/abetlen/llama-cpp-python
+- stars: 10021
+- forks: 1316
+- language: Python
+- license: MIT
+- latest_release: v0.3.16-cu123 (2025-08-15T06:23:26Z)
+- pushed_at: 2025-08-15T06:23:26Z
+- fit: Python binding/service wrapper for llama.cpp in internal tools
+
+[single_recommended_route]
+Ollama + llama.cpp(GGUF) + MLX(Apple edge) + TensorRT-LLM(optional NVIDIA acceleration)
+
+[why_single_route]
+- keeps core path low-dependency and locally runnable
+- avoids introducing Kubernetes control-plane as prerequisite
+- keeps hardware specialization pluggable without splitting platform contract

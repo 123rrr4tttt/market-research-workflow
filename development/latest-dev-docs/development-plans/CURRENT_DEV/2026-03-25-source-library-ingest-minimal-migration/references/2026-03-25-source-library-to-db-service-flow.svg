@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1220" viewBox="0 0 1700 1220">
+  <defs>
+    <style>
+      .title { font: 700 24px Arial, sans-serif; fill: #1f2937; }
+      .group { font: 700 18px Arial, sans-serif; fill: #111827; }
+      .node { font: 14px Arial, sans-serif; fill: #111827; }
+      .small { font: 12px Arial, sans-serif; fill: #374151; }
+      .box { rx: 12; ry: 12; stroke-width: 2; }
+      .line-blue { stroke: #5B8DEF; }
+      .line-green { stroke: #59A14F; }
+      .line-orange { stroke: #F28E2B; }
+      .line-purple { stroke: #B07AA1; }
+      .line-teal { stroke: #76B7B2; }
+      .line-yellow { stroke: #EDC948; }
+      .line-violet { stroke: #AF7AA1; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5563"/>
+    </marker>
+  </defs>
+
+  <text x="30" y="30" class="title">来源库到入库 Service 全链路图</text>
+  <text x="30" y="55" class="small">2026-03-25 | 编辑版请看同目录 .drawio 文件</text>
+
+  <rect x="30" y="80" width="420" height="220" class="box" fill="#E8F0FE" stroke="#5B8DEF"/>
+  <text x="50" y="110" class="group">A. 来源库定义入库</text>
+  <rect x="55" y="130" width="170" height="60" class="box" fill="#fff" stroke="#5B8DEF"/>
+  <text x="70" y="155" class="node">信息源库文件</text><text x="70" y="175" class="small">global/channels + items</text><text x="70" y="193" class="small">projects/*</text>
+  <rect x="255" y="130" width="170" height="70" class="box" fill="#fff" stroke="#5B8DEF"/>
+  <text x="275" y="155" class="node">loader.py</text><text x="275" y="175" class="small">load_global_library_files</text><text x="275" y="193" class="small">load_project_library_files</text>
+  <rect x="255" y="220" width="170" height="50" class="box" fill="#fff" stroke="#5B8DEF"/>
+  <text x="275" y="250" class="node">sync_shared_library_from_files</text>
+  <rect x="55" y="220" width="170" height="45" class="box" fill="#fff" stroke="#5B8DEF"/>
+  <text x="70" y="248" class="node">shared_ingest_channels</text>
+  <rect x="55" y="275" width="170" height="45" class="box" fill="#fff" stroke="#5B8DEF"/>
+  <text x="70" y="303" class="node">shared_source_library_items</text>
+
+  <rect x="480" y="80" width="520" height="320" class="box" fill="#EAF7EA" stroke="#59A14F"/>
+  <text x="500" y="110" class="group">B. 来源库运行入口</text>
+  <rect x="510" y="130" width="190" height="50" class="box" fill="#fff" stroke="#59A14F"/>
+  <text x="530" y="160" class="node">POST /ingest/source-library/run</text>
+  <rect x="740" y="130" width="220" height="50" class="box" fill="#fff" stroke="#59A14F"/>
+  <text x="760" y="160" class="node">_run_single_source_library_entry</text>
+  <rect x="510" y="210" width="190" height="50" class="box" fill="#fff" stroke="#59A14F"/>
+  <text x="530" y="240" class="node">task_run_source_library_item</text>
+  <rect x="740" y="210" width="220" height="50" class="box" fill="#fff" stroke="#59A14F"/>
+  <text x="760" y="240" class="node">run_source_library_item_compat</text>
+  <rect x="510" y="290" width="210" height="60" class="box" fill="#fff" stroke="#59A14F"/>
+  <text x="530" y="320" class="node">collect_request_from_source_library_api</text>
+  <rect x="760" y="300" width="120" height="45" class="box" fill="#fff" stroke="#59A14F"/>
+  <text x="790" y="328" class="node">run_collect</text>
+  <rect x="900" y="300" width="160" height="45" class="box" fill="#fff" stroke="#59A14F"/>
+  <text x="920" y="328" class="node">SourceLibraryAdapter.run</text>
+  <rect x="760" y="360" width="160" height="45" class="box" fill="#fff" stroke="#59A14F"/>
+  <text x="782" y="388" class="node">list_effective_* </text>
+  <rect x="940" y="360" width="120" height="45" class="box" fill="#fff" stroke="#59A14F"/>
+  <text x="968" y="388" class="node">run_item_payload</text>
+
+  <rect x="1030" y="80" width="250" height="320" class="box" fill="#FFF4E5" stroke="#F28E2B"/>
+  <text x="1050" y="110" class="group">C. source_mode 分流</text>
+  <rect x="1060" y="130" width="190" height="45" class="box" fill="#fff" stroke="#F28E2B"/>
+  <text x="1088" y="158" class="node">ItemResolver.resolve</text>
+  <rect x="1060" y="195" width="190" height="40" class="box" fill="#fff" stroke="#F28E2B"/><text x="1105" y="220" class="node">protocol_search</text>
+  <rect x="1060" y="245" width="190" height="40" class="box" fill="#fff" stroke="#F28E2B"/><text x="1102" y="270" class="node">provider_harvest</text>
+  <rect x="1060" y="295" width="190" height="40" class="box" fill="#fff" stroke="#F28E2B"/><text x="1117" y="320" class="node">site_search</text>
+  <rect x="1060" y="345" width="190" height="40" class="box" fill="#fff" stroke="#F28E2B"/><text x="1112" y="370" class="node">url_execution</text>
+
+  <rect x="30" y="440" width="1250" height="360" class="box" fill="#FCE8F1" stroke="#B07AA1"/>
+  <text x="50" y="470" class="group">D. 编排与具体 Service</text>
+  <rect x="60" y="500" width="200" height="50" class="box" fill="#fff" stroke="#B07AA1"/><text x="78" y="530" class="node">run_protocol_search_orchestrator</text>
+  <rect x="280" y="500" width="200" height="50" class="box" fill="#fff" stroke="#B07AA1"/><text x="292" y="530" class="node">run_provider_harvest_orchestrator</text>
+  <rect x="500" y="500" width="200" height="50" class="box" fill="#fff" stroke="#B07AA1"/><text x="526" y="530" class="node">run_site_search_orchestrator</text>
+  <rect x="720" y="500" width="200" height="50" class="box" fill="#fff" stroke="#B07AA1"/><text x="742" y="530" class="node">run_url_execution_orchestrator</text>
+  <rect x="170" y="585" width="200" height="50" class="box" fill="#fff" stroke="#B07AA1"/><text x="192" y="615" class="node">run_single_channel_orchestrator</text>
+  <rect x="390" y="585" width="120" height="50" class="box" fill="#fff" stroke="#B07AA1"/><text x="417" y="615" class="node">run_channel</text>
+  <rect x="540" y="585" width="160" height="60" class="box" fill="#fff" stroke="#B07AA1"/><text x="565" y="612" class="node">google_news</text><text x="558" y="632" class="small">collect_google_news</text>
+  <rect x="720" y="585" width="160" height="60" class="box" fill="#fff" stroke="#B07AA1"/><text x="775" y="612" class="node">reddit</text><text x="736" y="632" class="small">collect_reddit_discussions</text>
+  <rect x="900" y="585" width="160" height="60" class="box" fill="#fff" stroke="#B07AA1"/><text x="954" y="612" class="node">market</text><text x="931" y="632" class="small">collect_market_info</text>
+  <rect x="1080" y="585" width="170" height="60" class="box" fill="#fff" stroke="#B07AA1"/><text x="1138" y="612" class="node">policy</text><text x="1096" y="632" class="small">ingest_policy_documents</text>
+  <rect x="1080" y="665" width="170" height="50" class="box" fill="#fff" stroke="#B07AA1"/><text x="1100" y="695" class="node">generic_web / official_access</text>
+  <rect x="500" y="665" width="220" height="60" class="box" fill="#fff" stroke="#B07AA1"/><text x="542" y="692" class="node">handler.cluster</text><text x="516" y="712" class="small">unified_search_by_item_payload</text>
+  <rect x="760" y="670" width="180" height="50" class="box" fill="#fff" stroke="#B07AA1"/><text x="780" y="700" class="node">run_item_with_url_routing</text>
+
+  <rect x="30" y="840" width="520" height="230" class="box" fill="#E8F8F5" stroke="#76B7B2"/>
+  <text x="50" y="870" class="group">E. 资源池与候选层</text>
+  <rect x="60" y="910" width="210" height="50" class="box" fill="#fff" stroke="#76B7B2"/><text x="86" y="940" class="node">append_url / upsert_site_entry</text>
+  <rect x="300" y="900" width="220" height="60" class="box" fill="#fff" stroke="#76B7B2"/><text x="330" y="928" class="node">resource_pool_urls</text><text x="314" y="948" class="small">shared_resource_pool_urls</text>
+  <rect x="300" y="980" width="220" height="60" class="box" fill="#fff" stroke="#76B7B2"/><text x="315" y="1008" class="node">resource_pool_site_entries</text><text x="306" y="1028" class="small">shared_resource_pool_site_entries</text>
+
+  <rect x="580" y="840" width="700" height="310" class="box" fill="#FFF9DB" stroke="#EDC948"/>
+  <text x="600" y="870" class="group">F. frontdoor 写入层</text>
+  <rect x="610" y="910" width="160" height="50" class="box" fill="#fff" stroke="#EDC948"/><text x="632" y="940" class="node">collect_urls_from_list</text>
+  <rect x="800" y="910" width="220" height="50" class="box" fill="#fff" stroke="#EDC948"/><text x="814" y="940" class="node">ingest_url_via_source_library_frontdoor</text>
+  <rect x="1050" y="910" width="200" height="50" class="box" fill="#fff" stroke="#EDC948"/><text x="1068" y="940" class="node">build_frontdoor_ingress_envelope</text>
+  <rect x="720" y="995" width="180" height="50" class="box" fill="#fff" stroke="#EDC948"/><text x="740" y="1025" class="node">run_postprocess_frontdoor</text>
+  <rect x="930" y="985" width="200" height="80" class="box" fill="#fff" stroke="#EDC948"/>
+  <text x="954" y="1010" class="node">content_extraction</text><text x="980" y="1030" class="small">cleaning + quality gates</text><text x="968" y="1050" class="small">structured extraction</text>
+  <rect x="720" y="1090" width="180" height="50" class="box" fill="#fff" stroke="#EDC948"/><text x="748" y="1120" class="node">persist_terminal_document</text>
+  <rect x="940" y="1090" width="170" height="50" class="box" fill="#fff" stroke="#EDC948"/><text x="980" y="1120" class="node">sources + documents</text>
+
+  <rect x="1310" y="840" width="320" height="220" class="box" fill="#F3E8FF" stroke="#AF7AA1"/>
+  <text x="1330" y="870" class="group">G. 运行日志</text>
+  <rect x="1350" y="910" width="220" height="60" class="box" fill="#fff" stroke="#AF7AA1"/><text x="1412" y="938" class="node">job_logger</text><text x="1372" y="958" class="small">start_job / complete_job / fail_job</text>
+  <rect x="1390" y="995" width="140" height="50" class="box" fill="#fff" stroke="#AF7AA1"/><text x="1426" y="1025" class="node">etl_job_runs</text>
+
+  <g stroke="#4b5563" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <path d="M225 160 L255 165"/>
+    <path d="M340 200 L340 220"/>
+    <path d="M255 245 L225 242"/>
+    <path d="M700 155 L740 155"/>
+    <path d="M700 235 L740 235"/>
+    <path d="M850 180 L850 210"/>
+    <path d="M615 260 L615 290"/>
+    <path d="M720 320 L760 322"/>
+    <path d="M880 322 L900 322"/>
+    <path d="M980 345 L980 360"/>
+    <path d="M1060 382 L1060 152 L1060 152"/>
+    <path d="M1000 383 L1060 383"/>
+    <path d="M1155 175 L1155 195"/>
+    <path d="M1155 175 L1155 245"/>
+    <path d="M1155 175 L1155 295"/>
+    <path d="M1155 175 L1155 345"/>
+
+    <path d="M1155 215 L260 215 L260 500"/>
+    <path d="M1155 265 L480 265 L480 500"/>
+    <path d="M1155 315 L700 315 L700 500"/>
+    <path d="M1155 365 L820 365 L820 500"/>
+
+    <path d="M260 550 L270 585"/>
+    <path d="M380 550 L300 585"/>
+    <path d="M370 610 L390 610"/>
+    <path d="M510 610 L540 610"/>
+    <path d="M510 610 L720 610"/>
+    <path d="M510 610 L900 610"/>
+    <path d="M510 610 L1080 610"/>
+    <path d="M510 610 L1080 690"/>
+    <path d="M600 550 L600 665"/>
+    <path d="M820 550 L850 670"/>
+    <path d="M720 695 L760 695"/>
+
+    <path d="M1165 715 L1165 910 L270 910"/>
+    <path d="M610 725 L610 910"/>
+    <path d="M270 935 L300 930"/>
+    <path d="M270 935 L300 1010"/>
+
+    <path d="M620 645 L620 910"/>
+    <path d="M800 645 L690 910"/>
+    <path d="M980 645 L690 910"/>
+    <path d="M940 695 L910 910"/>
+    <path d="M770 935 L800 935"/>
+    <path d="M1020 935 L1050 935"/>
+    <path d="M1150 960 L900 1015"/>
+    <path d="M900 1020 L930 1025"/>
+    <path d="M1030 1065 L900 1115"/>
+    <path d="M900 1115 L940 1115"/>
+
+    <path d="M620 610 L1350 930"/>
+    <path d="M800 610 L1350 930"/>
+    <path d="M980 610 L1350 930"/>
+    <path d="M910 935 L1350 935"/>
+    <path d="M1460 970 L1460 995"/>
+  </g>
+</svg>

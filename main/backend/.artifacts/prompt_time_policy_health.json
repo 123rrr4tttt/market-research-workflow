@@ -1,0 +1,10 @@
+{
+  "samples": 4,
+  "p95_kl_to_base": 0.000105,
+  "p95_abs_shift": 0.007245999999999975,
+  "benefit_lift_48h": 0.2,
+  "degradation_hours": 0,
+  "current_policy_version": "density-cloud-v1",
+  "previous_policy_version": null,
+  "generated_at": "2026-03-13T01:20:41.904634+00:00"
+}

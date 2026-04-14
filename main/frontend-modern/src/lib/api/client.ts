@@ -1,0 +1,161 @@
+import axios from 'axios'
+import type { ApiEnvelope } from '../types'
+
+const STORAGE_KEY = 'market_project_key'
+export const CODEX_AUTH_REQUIRED_EVENT = 'codex-auth-required'
+
+export function normalizeProjectKey(raw: string) {
+  return (
+    String(raw || 'default')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'default'
+  )
+}
+
+export function getProjectKey() {
+  return normalizeProjectKey(window.localStorage.getItem(STORAGE_KEY) || 'default')
+}
+
+export function setProjectKey(projectKey: string) {
+  const next = normalizeProjectKey(projectKey)
+  window.localStorage.setItem(STORAGE_KEY, next)
+  return next
+}
+
+export const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  timeout: 30000,
+  withCredentials: true,
+})
+
+export type ApiClientErrorShape = {
+  status: ApiEnvelope<unknown>['status']
+  code: string
+  details?: Record<string, unknown>
+  meta?: ApiEnvelope<unknown>['meta']
+}
+
+export class ApiClientError extends Error implements ApiClientErrorShape {
+  status: ApiEnvelope<unknown>['status']
+  code: string
+  details?: Record<string, unknown>
+  meta?: ApiEnvelope<unknown>['meta']
+
+  constructor({
+    message,
+    status,
+    code,
+    details,
+    meta,
+  }: {
+    message: string
+    status: ApiEnvelope<unknown>['status']
+    code: string
+    details?: Record<string, unknown>
+    meta?: ApiEnvelope<unknown>['meta']
+  }) {
+    super(message)
+    this.name = 'ApiClientError'
+    this.status = status
+    this.code = code
+    this.details = details
+    this.meta = meta
+  }
+}
+
+export function isApiClientError(error: unknown): error is ApiClientError {
+  return error instanceof ApiClientError
+}
+
+apiClient.interceptors.request.use((config) => {
+  const projectKey = getProjectKey()
+  config.headers['X-Project-Key'] = projectKey
+
+  const original = String(config.url || '')
+  const isAbsolute = /^https?:\/\//i.test(original)
+  const url = new URL(original || '/', isAbsolute ? undefined : window.location.origin)
+
+  if (url.pathname.startsWith('/api/')) {
+    url.searchParams.set('project_key', projectKey)
+  }
+
+  config.url = isAbsolute ? url.toString() : `${url.pathname}${url.search}${url.hash}`
+  return config
+})
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    try {
+      const status = Number(error?.response?.status || 0)
+      const payload = error?.response?.data
+      const details = payload?.error?.details
+      const category = String(details?.category || '')
+      const reasonCode = String(details?.reason_code || '')
+      if (status === 401 && category === 'codex_auth') {
+        window.dispatchEvent(
+          new CustomEvent(CODEX_AUTH_REQUIRED_EVENT, {
+            detail: { reasonCode: reasonCode || 'codex_auth_required' },
+          }),
+        )
+      }
+    } catch {
+      // ignore interceptor side-effect errors
+    }
+    return Promise.reject(error)
+  },
+)
+
+export function unwrapEnvelope<T>(payload: ApiEnvelope<T> | T): T {
+  if (payload && typeof payload === 'object' && 'status' in payload && 'data' in payload) {
+    const envelope = payload as ApiEnvelope<T>
+    if (envelope.status === 'error') {
+      throw new ApiClientError({
+        message: envelope.error?.message || 'Request failed',
+        status: envelope.status,
+        code: envelope.error?.code || 'REQUEST_FAILED',
+        details: envelope.error?.details,
+        meta: envelope.meta,
+      })
+    }
+    return envelope.data as T
+  }
+  return payload as T
+}
+
+export async function httpGet<T>(url: string) {
+  const { data } = await apiClient.get<ApiEnvelope<T> | T>(url)
+  return unwrapEnvelope<T>(data)
+}
+
+export async function httpPost<T>(url: string, body: unknown) {
+  const { data } = await apiClient.post<ApiEnvelope<T> | T>(url, body)
+  return unwrapEnvelope<T>(data)
+}
+
+export async function httpPut<T>(url: string, body: unknown) {
+  const { data } = await apiClient.put<ApiEnvelope<T> | T>(url, body)
+  return unwrapEnvelope<T>(data)
+}
+
+export async function httpPatch<T>(url: string, body: unknown) {
+  const { data } = await apiClient.patch<ApiEnvelope<T> | T>(url, body)
+  return unwrapEnvelope<T>(data)
+}
+
+export async function httpDelete<T>(url: string) {
+  const { data } = await apiClient.delete<ApiEnvelope<T> | T>(url)
+  return unwrapEnvelope<T>(data)
+}
+
+export function asList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[]
+  if (value && typeof value === 'object' && 'items' in value) {
+    const items = (value as { items?: unknown }).items
+    return Array.isArray(items) ? (items as T[]) : []
+  }
+  return []
+}

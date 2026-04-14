@@ -1,0 +1,39 @@
+结果
+- 并行完成2个原子任务（A=治理钩子，B=CI门禁）：
+  - 任务A 目标/输入/输出/验收
+    - 目标：为API契约返回增加非侵入治理快照钩子（先观察、后可强制）。
+    - 输入：main/backend/app/contracts/responses.py
+    - 输出：新增私有函数`_emit_contracts_governance_snapshot`，`ok`/`fail`在检测到`CONTRACT_GOVERNANCE_DIR`时写入快照JSON（schema=contract-envelope@v1，含event/timestamp/envelope）。
+    - 验收：模块可编译；默认无副作用（未设环境变量不写文件，且异常吞掉不影响主流程）。
+  - 任务B 目标/输入/输出/验收
+    - 目标：在CI新增“观察→必需”两步门禁，保持现有流程不破坏；后续一键提升为必需。
+    - 输入：.github/workflows/backend-tests.yml
+    - 输出：
+      - 新增`contracts-governance-observe`（continue-on-error for PR）：安装依赖→编译contracts→设置`CONTRACT_GOVERNANCE_DIR`→调用`ok`/`fail`产出样例快照→上传工件。
+      - 新增`contracts-required-check`：聚合`contracts-governance-observe`与`r81-b-min-verify-check`结果；读取`vars.CONTRACTS_REQUIRED`（默认false）。当为true且依赖失败时阻断，否则仅汇报通过。
+    - 验收：CI语法与关键词命中；不影响既有jobs与保护分支。
+
+改动文件
+- main/backend/app/contracts/responses.py: 为`ok`/`fail`加治理快照钩子，新增私有函数`_emit_contracts_governance_snapshot`（安全、可选、吞错）。
+- .github/workflows/backend-tests.yml: 新增作业`contracts-governance-observe`与`contracts-required-check`，与现有`standards/unit/integration/contract/schema-guard/docker`等作业并存。
+
+验证状态
+- Python编译（子Agent A）：PASS
+  - 命令：`python3 -m py_compile main/backend/app/contracts/api.py main/backend/app/contracts/responses.py main/backend/app/contracts/errors.py`
+  - 结果：0，无错误
+  - 备注：本机无`python`别名；CI中使用`actions/setup-python`后`python`可用。
+- Shell语法（子Agent B）：PASS
+  - 命令：`bash -n scripts/test-standardize.sh scripts/verify/verify_r81_a.sh scripts/verify_r81_b.sh`
+  - 结果：OK
+- CI关键词（子Agent B）：PASS
+  - 命令：`rg -n "contract|openapi|schema|pact" .github/workflows/backend-tests.yml`
+  - 命中：包含`schema-guard-check`、`contract-check`、`contracts-governance-observe`注释中的openapi/contract、以及`contracts-required-check`等多处。
+- 额外快速核验：`contracts-governance-observe`步骤内编译contracts成功，并能在设置`CONTRACT_GOVERNANCE_DIR`时产出治理快照并上传工件。
+
+风险
+- 运行时风险低：钩子仅在设置`CONTRACT_GOVERNANCE_DIR`时写文件；异常被吞，默认无副作用。
+- CI兼容性：新增作业独立、默认非阻塞；仅当`vars.CONTRACTS_REQUIRED=true`时`contracts-required-check`会阻断，符合“先观察、后强制”策略。
+- 环境差异：本机缺少`python`可执行名，但CI环境具备；若本地严格对齐验收命令，请确保`python`指向Python 3或改用`python3`运行编译检查。
+
+提示（启用必需策略）
+- 在仓库Settings → Variables新增`CONTRACTS_REQUIRED=true`，并将保护分支必需检查指向`contracts-required-check`，即可将本次观察门升级为强制门。

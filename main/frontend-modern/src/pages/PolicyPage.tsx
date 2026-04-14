@@ -1,0 +1,372 @@
+import { useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Database, RefreshCw } from 'lucide-react'
+import { getPolicyDetail, getPolicyStats, getPromptTimeDensityPriority, listPolicies } from '../lib/api'
+import { queryKeys } from '../lib/queryKeys'
+
+export type PolicyPageProps = {
+  projectKey: string
+  variant?: 'policy' | 'policyGraph'
+}
+
+type PromptDensityRow = {
+  rank?: number | string | null
+  source_domain?: string | null
+  prompt_group_id?: string | null
+  window?: string | null
+  norm_density?: number | string | null
+  dup_ratio?: number | string | null
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '-'
+  const dt = new Date(value)
+  if (Number.isNaN(dt.getTime())) return value
+  return dt.toLocaleDateString('zh-CN')
+}
+
+function statusClass(status?: string | null) {
+  const key = String(status || '').toLowerCase()
+  if (key.includes('active') || key.includes('effective') || key.includes('valid')) return 'chip chip-ok'
+  if (key.includes('draft') || key.includes('pending') || key.includes('review')) return 'chip chip-warn'
+  if (key.includes('expire') || key.includes('invalid') || key.includes('suspend')) return 'chip chip-danger'
+  return 'chip'
+}
+
+export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) {
+  const queryClient = useQueryClient()
+
+  const [policyStateFilter, setPolicyStateFilter] = useState('')
+  const [policyPage, setPolicyPage] = useState(1)
+  const [selectedPolicyId, setSelectedPolicyId] = useState<number | null>(null)
+  const [densityPromptGroupId, setDensityPromptGroupId] = useState('')
+  const [densityTimeWindow, setDensityTimeWindow] = useState('30d')
+
+  const policyStats = useQuery({
+    queryKey: queryKeys.policy.stats(projectKey),
+    queryFn: getPolicyStats,
+    enabled: Boolean(projectKey),
+  })
+
+  const policyList = useQuery({
+    queryKey: queryKeys.policy.list(projectKey, policyStateFilter, policyPage),
+    queryFn: () => listPolicies(policyStateFilter, policyPage, 12),
+    enabled: Boolean(projectKey),
+  })
+
+  const effectiveSelectedPolicyId = useMemo(() => {
+    const items = policyList.data || []
+    if (!items.length) return null
+    if (selectedPolicyId != null && items.some((item) => item.id === selectedPolicyId)) return selectedPolicyId
+    return items[0].id
+  }, [policyList.data, selectedPolicyId])
+
+  const policyDetail = useQuery({
+    queryKey: queryKeys.policy.detail(projectKey, effectiveSelectedPolicyId),
+    queryFn: () => getPolicyDetail(Number(effectiveSelectedPolicyId)),
+    enabled: Boolean(projectKey) && effectiveSelectedPolicyId != null,
+  })
+
+  const normalizedDensityTimeWindow = useMemo(() => {
+    const raw = String(densityTimeWindow || '').trim().toLowerCase()
+    return /^\d+d$/.test(raw) ? raw : '30d'
+  }, [densityTimeWindow])
+
+  const promptDensityPriority = useQuery({
+    queryKey: queryKeys.stats.promptTimeDensityPriority(
+      projectKey,
+      normalizedDensityTimeWindow,
+      densityPromptGroupId.trim(),
+      true,
+    ),
+    queryFn: () =>
+      getPromptTimeDensityPriority({
+        candidate_windows: [normalizedDensityTimeWindow],
+        prompt_group_ids: densityPromptGroupId.trim() ? [densityPromptGroupId.trim()] : [],
+        prefer_low_density: true,
+        exclude_high_dup: true,
+      }),
+    enabled: Boolean(projectKey),
+  })
+  const promptDensityRows = useMemo(
+    () => (((promptDensityPriority.data as { items?: PromptDensityRow[] } | undefined)?.items) || []).slice(0, 5),
+    [promptDensityPriority.data],
+  )
+
+  const stateOptions = useMemo(() => {
+    const items = policyStats.data?.state_distribution || []
+    const unique = new Set<string>()
+    const options: string[] = []
+
+    items.forEach((row) => {
+      const state = String(row.state || '').trim()
+      if (!state || unique.has(state)) return
+      unique.add(state)
+      options.push(state)
+    })
+
+    return options.sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  }, [policyStats.data?.state_distribution])
+
+  const activePolicy = policyDetail.data
+
+  const refreshAll = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.policy.stats(projectKey) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.policy.listBase(projectKey) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.policy.detailBase(projectKey) }),
+    ])
+  }
+
+  const isRefreshing = policyStats.isFetching || policyList.isFetching || policyDetail.isFetching
+
+  return (
+    <div className="content-stack">
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{variant === 'policyGraph' ? '政策图谱视角' : '政策数据视角'}</h2>
+        </div>
+      </section>
+      <section className="kpi-grid">
+        <article className="kpi-card">
+          <span>政策总数</span>
+          <strong>{policyStats.data?.total_policies || 0}</strong>
+          <small>当前项目</small>
+        </article>
+        <article className="kpi-card">
+          <span>覆盖省份</span>
+          <strong>{policyStats.data?.state_distribution?.length || 0}</strong>
+          <small>state_distribution</small>
+        </article>
+        <article className="kpi-card">
+          <span>政策类型</span>
+          <strong>{policyStats.data?.type_distribution?.length || 0}</strong>
+          <small>type_distribution</small>
+        </article>
+        <article className="kpi-card">
+          <span>状态分类</span>
+          <strong>{policyStats.data?.status_distribution?.length || 0}</strong>
+          <small>status_distribution</small>
+        </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>提示词空间 × 时间窗密度（Top 5 Priority）</h2>
+        </div>
+        <div className="form-grid cols-2" style={{ marginBottom: 12 }}>
+          <label>
+            <span>prompt_group_id</span>
+            <input
+              value={densityPromptGroupId}
+              placeholder="如：pg-ai（留空=全部）"
+              onChange={(e) => setDensityPromptGroupId(e.target.value)}
+            />
+          </label>
+          <label>
+            <span>time_window</span>
+            <input
+              value={densityTimeWindow}
+              placeholder="如：7d / 30d / 90d"
+              onChange={(e) => setDensityTimeWindow(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Domain</th>
+                <th>Prompt Group</th>
+                <th>Window</th>
+                <th>Norm Density</th>
+                <th>Dup Ratio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {promptDensityRows.map((item) => (
+                <tr key={`${item.rank}-${item.source_domain}-${item.prompt_group_id}-${item.window}`}>
+                  <td>{item.rank}</td>
+                  <td>{item.source_domain}</td>
+                  <td>{item.prompt_group_id}</td>
+                  <td>{item.window}</td>
+                  <td>{Number(item.norm_density || 0).toFixed(4)}</td>
+                  <td>{Number(item.dup_ratio || 0).toFixed(4)}</td>
+                </tr>
+              ))}
+              {!promptDensityRows.length ? (
+                <tr>
+                  <td colSpan={6} className="empty-cell">
+                    暂无密度优先级数据
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel two-col">
+        <div>
+          <div className="panel-header">
+            <h2>
+              <Database size={15} />
+              政策列表
+            </h2>
+            <div className="inline-actions">
+              <button onClick={() => void refreshAll()} disabled={isRefreshing}>
+                <RefreshCw size={14} />
+                {isRefreshing ? '刷新中...' : '刷新'}
+              </button>
+            </div>
+          </div>
+
+          <div className="form-grid cols-2" style={{ marginBottom: 12 }}>
+            <label>
+              <span>省份筛选</span>
+              <select
+                value={policyStateFilter}
+                onChange={(e) => {
+                  setPolicyStateFilter(e.target.value)
+                  setPolicyPage(1)
+                }}
+              >
+                <option value="">全部</option>
+                {stateOptions.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="inline-actions" style={{ alignItems: 'end' }}>
+              <button disabled={policyPage <= 1} onClick={() => setPolicyPage((p) => Math.max(1, p - 1))}>
+                上一页
+              </button>
+              <span className="chip">第 {policyPage} 页</span>
+              <button onClick={() => setPolicyPage((p) => p + 1)}>下一页</button>
+            </div>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>标题</th>
+                  <th>省份</th>
+                  <th>状态</th>
+                  <th>发布日期</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(policyList.data || []).map((item) => (
+                  <tr
+                    key={item.id}
+                    onClick={() => setSelectedPolicyId(item.id)}
+                    style={{ cursor: 'pointer', background: effectiveSelectedPolicyId === item.id ? 'rgba(59, 130, 246, 0.1)' : undefined }}
+                  >
+                    <td>{item.id}</td>
+                    <td>{item.title || '-'}</td>
+                    <td>{item.state || '-'}</td>
+                    <td>
+                      <span className={statusClass(item.status)}>{item.status || '-'}</span>
+                    </td>
+                    <td>{formatDate(item.publish_date)}</td>
+                  </tr>
+                ))}
+                {!policyList.data?.length ? (
+                  <tr>
+                    <td colSpan={5} className="empty-cell">
+                      暂无政策数据
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <div className="panel-header">
+            <h2>政策详情</h2>
+            <span className="chip">{activePolicy?.id ? `ID: ${activePolicy.id}` : '未选择'}</span>
+          </div>
+
+          {effectiveSelectedPolicyId == null ? <p className="empty-cell">请先在左侧选择一条政策</p> : null}
+
+          {effectiveSelectedPolicyId != null ? (
+            <div className="content-stack" style={{ gap: 10 }}>
+              <article className="panel" style={{ padding: 12 }}>
+                <div className="form-grid cols-2">
+                  <div>
+                    <strong>标题</strong>
+                    <p>{activePolicy?.title || '-'}</p>
+                  </div>
+                  <div>
+                    <strong>政策类型</strong>
+                    <p>{activePolicy?.policy_type || '-'}</p>
+                  </div>
+                  <div>
+                    <strong>省份</strong>
+                    <p>{activePolicy?.state || '-'}</p>
+                  </div>
+                  <div>
+                    <strong>状态</strong>
+                    <p>
+                      <span className={statusClass(activePolicy?.status)}>{activePolicy?.status || '-'}</span>
+                    </p>
+                  </div>
+                  <div>
+                    <strong>发布日期</strong>
+                    <p>{formatDate(activePolicy?.publish_date)}</p>
+                  </div>
+                  <div>
+                    <strong>生效日期</strong>
+                    <p>{formatDate(activePolicy?.effective_date)}</p>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <strong>来源链接</strong>
+                    <p>
+                      {activePolicy?.uri ? (
+                        <a href={activePolicy.uri} target="_blank" rel="noreferrer">
+                          {activePolicy.uri}
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </article>
+
+              <article className="panel" style={{ padding: 12 }}>
+                <h3>要点</h3>
+                <ul>
+                  {(activePolicy?.key_points || []).length ? (
+                    (activePolicy?.key_points || []).map((point, idx) => <li key={`${idx}-${point}`}>{point}</li>)
+                  ) : (
+                    <li>-</li>
+                  )}
+                </ul>
+              </article>
+
+              <article className="panel" style={{ padding: 12 }}>
+                <h3>摘要</h3>
+                <p>{activePolicy?.summary || '-'}</p>
+              </article>
+
+              <article className="panel" style={{ padding: 12 }}>
+                <h3>正文</h3>
+                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>{activePolicy?.content || '-'}</pre>
+              </article>
+            </div>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+export default PolicyPage

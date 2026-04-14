@@ -1,0 +1,317 @@
+# Frontend I18N, Theme, and Modularization Plan (2026-03-07)
+
+> Date: 2026-03-07
+> Scope: `main/frontend-modern`
+> Status: planning document for frontend infrastructure, not direct code implementation
+> Constraint: keep the plan aligned with the current `main/frontend-modern` entrypoints instead of inventing a second frontend shell
+
+## 1. Objective
+
+This topic is the infrastructure layer for the modern frontend, not a one-off page polish pass.
+
+The first implementation wave should make three cross-cutting capabilities explicit and reusable:
+
+1. UI i18n for shell-level and shared frontend text.
+2. Theme state plus a stable token boundary for shared UI surfaces.
+3. Module registration so navigation, page mounting, and mode visibility are no longer maintained through scattered hardcoded branches.
+
+The intended outcome is that later workbench pages and management pages can plug into one shared contract instead of each feature rebuilding its own shell behavior.
+
+## 2. Verified Current Baseline
+
+### 2.1 Active frontend surface
+
+The active frontend base for this topic is `main/frontend-modern`.
+
+The current shell path is already centralized:
+
+- `main/frontend-modern/src/app/shell/AppShell.tsx`
+- `main/frontend-modern/src/app/navigation/index.ts`
+- `main/frontend-modern/src/components/FigmaSideNav.tsx`
+- `main/frontend-modern/src/pages/SettingsPage.tsx`
+- `main/frontend-modern/src/index.css`
+
+This is the correct implementation seam for i18n, theme, and module registration work. The topic should not be framed as isolated page-by-page cleanup.
+
+### 2.2 Reusable mechanisms already present
+
+Several reusable patterns already exist in the current repo:
+
+- `AppShell.tsx` already holds shell state such as `viewMode`, current project, shell-level health display, and lazy page mounting.
+- `app/navigation/index.ts` already maps `NavMode` to hash routes and provides legacy-hash parsing. That makes route normalization a shared concern rather than a page-local concern.
+- `FigmaSideNav.tsx` already defines grouped navigation and mode switching. It is the main candidate for shell-level label extraction.
+- `lib/localStore.ts` already provides safe local storage helpers and is already used by `AppShell.tsx` and `SettingsPage.tsx`.
+- `SettingsPage.tsx` already acts as a configuration surface and already persists local draft state, so it is a credible home for language/theme preferences.
+- The modern frontend already contains both management-style pages and heavier interaction pages such as `GraphPage.tsx`, `WritingWorkbenchPage.tsx`, and `LlmDesignerPage.tsx`. That is enough evidence to plan around shared infrastructure for more than one interaction shape.
+
+### 2.3 Verified gaps
+
+The current baseline still has clear infrastructure gaps:
+
+- No shared frontend i18n provider, locale catalog, or translation accessor was found in `main/frontend-modern/src`.
+- `FigmaSideNav.tsx` stores navigation group titles and item labels inline in Chinese.
+- `AppShell.tsx` stores page titles inline in Chinese through `titleMap`.
+- `AppShell.tsx` defines `figmaTheme` state but currently fixes it to `'dark'`, so there is no user-facing theme switching path yet.
+- Theme styling is still expressed as component-specific CSS variants such as `.figma-top-nav.is-dark`, `.figma-top-nav.is-brand`, `.figma-side-nav.is-dark`, and `.figma-side-nav.is-brand`, rather than a documented token contract consumed across the app.
+- Page mounting still depends on a long `if` chain inside `AppShell.tsx`, while navigation metadata is also duplicated in `FigmaSideNav.tsx` and route mapping in `app/navigation/index.ts`.
+
+## 3. Requirement Clarification
+
+### 3.1 Target users and owners
+
+This topic primarily serves:
+
+- frontend engineers adding or modifying `main/frontend-modern` pages;
+- feature owners who need shell-level language/theme behavior without re-implementing it;
+- future workbench topics that need stronger interaction patterns but still depend on the same shell contract.
+
+### 3.2 Problem statement
+
+The core problem is not translation quality or color polish by itself.
+
+The actual problem is that shell text, theme behavior, and module wiring are currently encoded in separate hardcoded locations. Without a shared contract:
+
+- UI labels will continue to drift into component-local hardcoded strings;
+- theme behavior will remain a mix of fixed state and CSS variants without clear ownership;
+- every new mode will require touching multiple places by hand;
+- workbench pages and standard admin pages will diverge in infrastructure even when they should share platform rules.
+
+### 3.3 In-scope for the first wave
+
+The first wave should freeze and then implement only the minimum platform layer:
+
+- shell-level locale state and locale persistence;
+- shell/shared message catalog organization;
+- theme enum, theme persistence, and shared token boundary;
+- module registration metadata for navigation, page title, visibility, and hash mapping;
+- settings entrypoints for language and theme preferences;
+- onboarding rules for both standard pages and high-interaction pages.
+
+### 3.4 Non-goals
+
+This topic does not try to complete any of the following in the same wave:
+
+- full translation of all business content across every page;
+- backend-driven content localization or LLM language strategy;
+- a full visual redesign of every existing page;
+- replacement of all shell rendering logic in one step;
+- a forced decision that every future interaction shape must share the exact same shell layout.
+
+## 4. Recommended Architecture
+
+### 4.1 Localization layer
+
+Recommended direction: introduce a shell-owned locale contract first, then let pages consume that contract.
+
+The first wave should define:
+
+- one locale enum for UI display, initially scoped to `zh-CN` and `en-US` or an equivalent two-locale pair;
+- one shell-level locale state source;
+- one persistence rule using the existing local storage helper pattern;
+- one translation access path for shell/shared text;
+- one message catalog split that keeps shell text separate from domain-page text.
+
+Recommended catalog partition for the first wave:
+
+1. `shell`
+   - app shell, page titles, common status text, generic buttons
+2. `navigation`
+   - group titles, nav item labels, route-facing mode names
+3. `settings`
+   - language/theme controls and related helper text
+4. `shared`
+   - reusable empty/loading/error text for common components
+
+This document intentionally does not lock the repo to a specific third-party i18n runtime. The repo currently has no established frontend i18n stack, so the first decision should optimize for low-friction adoption in `main/frontend-modern`.
+
+### 4.2 Theme layer
+
+Recommended direction: keep theme ownership at shell scope first, but document a token contract instead of expanding ad hoc variant CSS.
+
+The first wave should freeze:
+
+- a stable theme enum;
+- one theme state source;
+- one persistence rule that survives refresh and mode switches;
+- a minimum shared token contract for shell surfaces;
+- rules for page-local extensions that do not redefine global shell semantics.
+
+Minimum token groups for the first wave:
+
+- background
+- surface
+- border
+- text
+- muted text
+- accent
+- status or emphasis
+- interactive hover/focus/active
+
+The important design decision is not the exact token names; it is the boundary. Shared shell surfaces should consume shared tokens, while page-local workbench styling may extend them without forking the global contract.
+
+### 4.3 Module registration layer
+
+Recommended direction: introduce module metadata as the shared source for navigation, page title, and visibility rules.
+
+The minimum module registration object should be able to describe:
+
+- `mode`
+- `title_key`
+- `nav_group_key`
+- `hash`
+- page loader or page component binding
+- visibility flags
+- interaction profile such as `standard` or `workbench`
+
+This layer is needed because current behavior is split across:
+
+- `hashByMode` in `app/navigation/index.ts`
+- grouped navigation metadata in `FigmaSideNav.tsx`
+- page title mapping in `AppShell.tsx`
+- the page rendering `if` chain in `AppShell.tsx`
+
+The first wave does not have to eliminate every branch immediately, but it should establish one registration contract that later refactors can converge toward.
+
+### 4.4 Dual-interaction boundary
+
+For this topic, “dual interaction” should mean:
+
+- standard admin/dashboard flows and high-interaction workbench flows share language, theme, and module metadata contracts;
+- they may still diverge in layout density, local controls, or workbench-specific interaction shells.
+
+This topic should therefore define shared infrastructure, not force all pages into one identical presentation model.
+
+## 5. Implementation Order
+
+### 5.1 Stage 0: Freeze baseline and contracts
+
+First freeze the current baseline and contract boundaries:
+
+- inventory shell-visible strings;
+- inventory current theme surfaces and variant classes;
+- inventory all current `NavMode` definitions and where they are duplicated;
+- confirm which state is already persisted through local storage.
+
+This step is serial. Without it, later tasks will keep re-deriving different assumptions.
+
+### 5.2 Stage 1: Introduce shell-level i18n and theme contracts
+
+Once the baseline is frozen, define:
+
+- locale state and persistence;
+- theme state and persistence;
+- message catalog partition;
+- minimum theme token groups.
+
+This stage should be implemented before migrating page-level consumers, because otherwise multiple pages will invent incompatible access patterns.
+
+### 5.3 Stage 2: Introduce module registration metadata
+
+After locale/theme contracts exist, define module registration metadata so shell text and navigation can consume translation keys and module descriptors from a common source.
+
+This is the point where route metadata, page titles, navigation groups, and visibility rules should stop drifting independently.
+
+### 5.4 Stage 3: Migrate shell entrypoints
+
+Then migrate the highest-value shell surfaces first:
+
+- `AppShell.tsx` page titles and shell messages;
+- `FigmaSideNav.tsx` group titles and item labels;
+- settings entrypoints for theme and locale controls.
+
+This is the minimum user-visible slice that proves the infrastructure is real.
+
+### 5.5 Stage 4: Onboard representative pages
+
+After shell entrypoints are stable, onboard representative pages from both interaction shapes:
+
+- one standard page path;
+- one high-interaction page path.
+
+The purpose is to verify that the infrastructure works across both simple and dense pages before larger-scale migration.
+
+## 6. Serial and Parallel Relationships
+
+### 6.1 Serial dependencies
+
+The following order should remain serial:
+
+1. Baseline freeze
+2. Locale/theme contract freeze
+3. Module registration contract freeze
+4. Shell migration
+5. Representative page onboarding
+6. Regression closure
+
+This order matters because module registration should consume translation/theme conventions, not invent them independently.
+
+### 6.2 Safe parallel slices
+
+Once Stage 0 is complete, some work can proceed in parallel:
+
+- locale catalog partition and translation accessor design;
+- theme token grouping and persistence design;
+- module descriptor shape and visibility-rule design.
+
+After those contracts are frozen, the following can also run in parallel:
+
+- shell text migration in `AppShell.tsx`;
+- navigation label migration in `FigmaSideNav.tsx`;
+- settings integration for locale/theme controls.
+
+### 6.3 File-conflict hotspots
+
+The likely conflict hotspots are:
+
+- `main/frontend-modern/src/app/shell/AppShell.tsx`
+- `main/frontend-modern/src/app/navigation/index.ts`
+- `main/frontend-modern/src/components/FigmaSideNav.tsx`
+- `main/frontend-modern/src/pages/SettingsPage.tsx`
+- `main/frontend-modern/src/index.css`
+
+Any implementation plan that assigns multiple contributors to this topic should treat those files as serial merge points.
+
+## 7. Minimal Validation
+
+### 7.1 Structural validation
+
+At minimum, later implementation must verify:
+
+- a shell-visible string can be switched through the shared locale path;
+- a theme switch changes shell surfaces through shared token usage rather than one-off class edits;
+- one new or existing module can be represented through module metadata without adding yet another disconnected label map.
+
+### 7.2 Flow validation
+
+At minimum, later implementation must verify:
+
+1. change language in the settings entrypoint;
+2. refresh the page and confirm shell labels remain in the selected locale;
+3. switch between at least two navigation modes and confirm locale/theme state remains stable;
+4. open one standard page and one high-interaction page and confirm both still render under the same shell contract.
+
+### 7.3 Minimum command-level check
+
+If code changes are made for this topic, the minimum verification pack should include:
+
+```bash
+cd main/frontend-modern && npm run -s lint
+```
+
+If a lightweight frontend smoke script exists later, it should be added on top of lint rather than replacing the structural checks above.
+
+## 8. Risks and Open Questions
+
+### 8.1 Main risks
+
+- If locale state is introduced without first extracting shell strings, the app will end up with mixed translated and hardcoded shell surfaces.
+- If theme work only adds toggles without a token boundary, workbench pages will fork visual semantics immediately.
+- If module registration is postponed too long, every new mode will keep expanding hardcoded maps and `if` chains.
+- If high-interaction pages are ignored during onboarding, the resulting infrastructure may fit dashboards but fail on workbench-style screens.
+
+### 8.2 Open questions to settle before implementation
+
+- Should the first-wave locale preference remain frontend-local only, or later sync with project-level/user-level settings?
+- Is `brand` a supported end-user theme in the first wave, or only an internal styling branch that should remain non-default?
+- Do module visibility rules eventually need project-based or role-based gating, or is mode-level visibility enough for the first wave?
+- Should page title generation be fully registration-driven immediately, or staged through a compatibility layer while the current `if` rendering chain remains in place?

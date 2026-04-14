@@ -1,0 +1,48 @@
+{
+  "name": "frontend-modern",
+  "private": true,
+  "version": "0.1.8-rc1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "storybook": "storybook dev -p 6006 --host 0.0.0.0",
+    "storybook:build": "storybook build",
+    "test:e2e": "playwright test",
+    "test:e2e:runtime": "playwright test tests/e2e/runtime-smoke.spec.ts",
+    "test:e2e:headed": "playwright test --headed",
+    "test:ingest-smoke": "../backend/scripts/run_ingest_flow_smoke.sh"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
+    "@xyflow/react": "^12.9.3",
+    "axios": "^1.13.5",
+    "echarts": "^5.6.0",
+    "lucide-react": "^0.575.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-force-graph-3d": "^1.29.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.58.2",
+    "@storybook/addon-docs": "^10.3.4",
+    "@storybook/addon-mcp": "^0.5.0",
+    "@storybook/react-vite": "^10.3.4",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.183.1",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "storybook": "^10.3.4",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vite": "^7.3.1"
+  }
+}

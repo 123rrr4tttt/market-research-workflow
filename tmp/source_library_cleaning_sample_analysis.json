@@ -1,0 +1,363 @@
+[
+  {
+    "url": "https://www.serverman.co.uk/hardware/remarkable-2-review-2/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 6845,
+    "cleaned_chars": 6845,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "Home\nHardware\nReMarkable\nReMarkable 2 Review (2025): Still the Best Paper Tablet? + New Colour Version\nTable of Contents\n1. Introduction\n2. 1. Design & Build\n3. 2. Writing & Note-Taking Experience\n4. Stylus\n5. Writing Feel\n6. 3. How I Use the Desktop App\n7. 4. Reading & Document Use\n8. 5. Subscription Model\n9. 6. ReMarkable 2 vs New ReMarkable Colour (Paper Pro)\n10. What’s New in 2025\n11. Comparison\n12. 7. Pros & Cons\n13. ✅ Pros\n14. ❌ Cons\n15. 8. Alternatives\n16. 9. Verdict: Is the ReMarkable Still Worth It in 2025?\n17. Final Score\n18. FAQs\n19. Does the ReMarkable 2 require a subscription?\n20. Can you use the ReMarkable 2 like an iPad?\n21. Is the new ReMarkable Colour worth it?\nIntroduction\n1. Design & Build\n2. Writing & Note-Taking Experience\nStylus\nWriting Feel\n3. How I Use the Desktop A",
+    "cleaned_excerpt": "Home\nHardware\nReMarkable\nReMarkable 2 Review (2025): Still the Best Paper Tablet? + New Colour Version\nTable of Contents\n1. Introduction\n2. 1. Design & Build\n3. 2. Writing & Note-Taking Experience\n4. Stylus\n5. Writing Feel\n6. 3. How I Use the Desktop App\n7. 4. Reading & Document Use\n8. 5. Subscription Model\n9. 6. ReMarkable 2 vs New ReMarkable Colour (Paper Pro)\n10. What’s New in 2025\n11. Comparison\n12. 7. Pros & Cons\n13. ✅ Pros\n14. ❌ Cons\n15. 8. Alternatives\n16. 9. Verdict: Is the ReMarkable Still Worth It in 2025?\n17. Final Score\n18. FAQs\n19. Does the ReMarkable 2 require a subscription?\n20. Can you use the ReMarkable 2 like an iPad?\n21. Is the new ReMarkable Colour worth it?\nIntroduction\n1. Design & Build\n2. Writing & Note-Taking Experience\nStylus\nWriting Feel\n3. How I Use the Desktop A"
+  },
+  {
+    "url": "https://www.reddit.com/r/RemarkableTablet/comments/16trg8j/looking_for_honest_reviews_remarkable_2/",
+    "fetch_ok": false,
+    "error": "HttpFetchError: 403 Client Error: Blocked for url: https://www.reddit.com/r/RemarkableTablet/comments/16trg8j/looking_for_honest_reviews_remarkable_2/"
+  },
+  {
+    "url": "https://cybernews.com/best-tablets/remarkable-2-review/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 12245,
+    "cleaned_chars": 12245,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "With the reMarkable 2 digital tablet, you can\ncombine the convenience of digital notebooking with the unbeatable experience of taking notes on paper\n. With over two million units sold worldwide, this paper tablet is a popular choice among students, professionals, and creatives alike.\nWith the help of Cybernews’s team of tech experts, I studied the reMarkable 2 to help you decide if it will help boost your productivity and creativity. This detailed review covers the reMarkable 2’s design, features, and customer reviews. Keep reading to find out more.\nRating:\n4.9\nBattery:\nLasts up to 2 weeks\nApp integration:\nGoogle Drive, Dropbox, Microsoft OneDrive\nMain features:\nPaper-like display, ultra-responsive stylus, cloud sync, customizable templates, lightweight and portable design\nTake a look at r",
+    "cleaned_excerpt": "With the reMarkable 2 digital tablet, you can\ncombine the convenience of digital notebooking with the unbeatable experience of taking notes on paper\n. With over two million units sold worldwide, this paper tablet is a popular choice among students, professionals, and creatives alike.\nWith the help of Cybernews’s team of tech experts, I studied the reMarkable 2 to help you decide if it will help boost your productivity and creativity. This detailed review covers the reMarkable 2’s design, features, and customer reviews. Keep reading to find out more.\nRating:\n4.9\nBattery:\nLasts up to 2 weeks\nApp integration:\nGoogle Drive, Dropbox, Microsoft OneDrive\nMain features:\nPaper-like display, ultra-responsive stylus, cloud sync, customizable templates, lightweight and portable design\nTake a look at r"
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=GFKma0-MJpY&vl=en",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 50000,
+    "cleaned_chars": 49999,
+    "content_changed": true,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "var ytInitialPlayerResponse = {\"responseContext\":{\"serviceTrackingParams\":[{\"service\":\"GFEEDBACK\",\"params\":[{\"key\":\"is_viewed_live\",\"value\":\"False\"},{\"key\":\"is_alc_surface\",\"value\":\"false\"},{\"key\":\"ipcc\",\"value\":\"1\"},{\"key\":\"logged_in\",\"value\":\"0\"},{\"key\":\"visitor_data\",\"value\":\"CgswN2xwNmV6anhsdyjOntnNBjIKCgJVUxIEGgAgMQ%3D%3D\"}]},{\"service\":\"CSI\",\"params\":[{\"key\":\"yt_ad\",\"value\":\"1\"},{\"key\":\"c\",\"value\":\"WEB\"},{\"key\":\"cver\",\"value\":\"2.20260312.08.00\"},{\"key\":\"yt_li\",\"value\":\"0\"},{\"key\":\"GetPlayer_rid\",\"value\":\"0x72261ed35eda135b\"}]},{\"service\":\"GUIDED_HELP\",\"params\":[{\"key\":\"logged_in\",\"value\":\"0\"}]},{\"service\":\"ECATCHER\",\"params\":[{\"key\":\"client.version\",\"value\":\"2.20260312\"},{\"key\":\"client.name\",\"value\":\"WEB\"}]}],\"maxAgeSeconds\":0,\"mainAppWebResponseContext\":{\"loggedOut\":true,\"trackingPa",
+    "cleaned_excerpt": "var ytInitialPlayerResponse = {\"responseContext\":{\"serviceTrackingParams\":[{\"service\":\"GFEEDBACK\",\"params\":[{\"key\":\"is_viewed_live\",\"value\":\"False\"},{\"key\":\"is_alc_surface\",\"value\":\"false\"},{\"key\":\"ipcc\",\"value\":\"1\"},{\"key\":\"logged_in\",\"value\":\"0\"},{\"key\":\"visitor_data\",\"value\":\"CgswN2xwNmV6anhsdyjOntnNBjIKCgJVUxIEGgAgMQ%3D%3D\"}]},{\"service\":\"CSI\",\"params\":[{\"key\":\"yt_ad\",\"value\":\"1\"},{\"key\":\"c\",\"value\":\"WEB\"},{\"key\":\"cver\",\"value\":\"2.20260312.08.00\"},{\"key\":\"yt_li\",\"value\":\"0\"},{\"key\":\"GetPlayer_rid\",\"value\":\"0x72261ed35eda135b\"}]},{\"service\":\"GUIDED_HELP\",\"params\":[{\"key\":\"logged_in\",\"value\":\"0\"}]},{\"service\":\"ECATCHER\",\"params\":[{\"key\":\"client.version\",\"value\":\"2.20260312\"},{\"key\":\"client.name\",\"value\":\"WEB\"}]}],\"maxAgeSeconds\":0,\"mainAppWebResponseContext\":{\"loggedOut\":true,\"trackingPa"
+  },
+  {
+    "url": "https://www.thequalityedit.com/articles/remarkable-tablet-review",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 27791,
+    "cleaned_chars": 27791,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [
+      "script_tokens"
+    ],
+    "raw_excerpt": "Columns\nRead All\nLaunch Digest\nQuality Makers\nReceipts\nBirthday Registry\nTV Style Guides\nSnack Bar\nThe Sweep\nGifts\nGift Guides\nHoliday Gifts\nHome\nHome Decor\nSustainable Home\nOutdoor Design & Products\nEntertaining\nFood & Beverage\nPets\nReviews\nParenting\nParenting Gifts\nPregnancy\nBaby Gear\nTravel\nCity Guides\nHotel Reviews\nTravel Tips & Products\nFamily Friendly Vacations\nBeauty\nClean Beauty\nSkincare\nHair Care\nSPF\nWellness\nFitness\nSexual Health\nSupplements\nFashion\nStyle Guides\nWomen's Fashion\nJewelry\nMen's Fashion\nSustainable Fashion\nShop\nAll\nTech\nTQE Deals\nSale\nAll Reviews\nAbout TQE\nContact\nFollow us on\nWhat are you looking for?\nSuggested for you\nBest Outdoor Furniture\nTV Style Guide\nInvestment Beauty Products\nRitual Probiotic\nGift Guide\nBe the friend that found it first.\nAll Reviews\nHome Revi",
+    "cleaned_excerpt": "Columns\nRead All\nLaunch Digest\nQuality Makers\nReceipts\nBirthday Registry\nTV Style Guides\nSnack Bar\nThe Sweep\nGifts\nGift Guides\nHoliday Gifts\nHome\nHome Decor\nSustainable Home\nOutdoor Design & Products\nEntertaining\nFood & Beverage\nPets\nReviews\nParenting\nParenting Gifts\nPregnancy\nBaby Gear\nTravel\nCity Guides\nHotel Reviews\nTravel Tips & Products\nFamily Friendly Vacations\nBeauty\nClean Beauty\nSkincare\nHair Care\nSPF\nWellness\nFitness\nSexual Health\nSupplements\nFashion\nStyle Guides\nWomen's Fashion\nJewelry\nMen's Fashion\nSustainable Fashion\nShop\nAll\nTech\nTQE Deals\nSale\nAll Reviews\nAbout TQE\nContact\nFollow us on\nWhat are you looking for?\nSuggested for you\nBest Outdoor Furniture\nTV Style Guide\nInvestment Beauty Products\nRitual Probiotic\nGift Guide\nBe the friend that found it first.\nAll Reviews\nHome Revi"
+  },
+  {
+    "url": "https://bogdanraczynski.com/6-month-supernote-nomad-review-digital-notebook-e-reader/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 5342,
+    "cleaned_chars": 5342,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [
+      "script_tokens"
+    ],
+    "raw_excerpt": "ebook\nDelightful Digital Notebook & E-Book Experience - 6 Month Supernote Nomad Review\nBogdan Raczynski\n17 Apr 2025\n4 min\nAfter 6 months of use I'm happy to report that the Nomad e-book reader and digital notebook is awesome.\nThe features are thoughtful, construction is sustainable in parts, and you can even draw on it.\nHardware\nThe Nomad feels great and the design is pleasing. It's slim but with a suitable amount of weight. Interactivity with the pen feels surprisingly nice. There are a number of gestures that make navigating an easy experience.\nScreen\nEverybody's familiar with the pace of e-ink screens so there will be no surprise here. The contrast is very good and reading is easy.\nSpecs\nThe Nomad is 191x139mm with a 7.8\" (19.82cm) diagonal screen (300 DPI), 32GB storage (expandable of ",
+    "cleaned_excerpt": "ebook\nDelightful Digital Notebook & E-Book Experience - 6 Month Supernote Nomad Review\nBogdan Raczynski\n17 Apr 2025\n4 min\nAfter 6 months of use I'm happy to report that the Nomad e-book reader and digital notebook is awesome.\nThe features are thoughtful, construction is sustainable in parts, and you can even draw on it.\nHardware\nThe Nomad feels great and the design is pleasing. It's slim but with a suitable amount of weight. Interactivity with the pen feels surprisingly nice. There are a number of gestures that make navigating an easy experience.\nScreen\nEverybody's familiar with the pace of e-ink screens so there will be no surprise here. The contrast is very good and reading is easy.\nSpecs\nThe Nomad is 191x139mm with a 7.8\" (19.82cm) diagonal screen (300 DPI), 32GB storage (expandable of "
+  },
+  {
+    "url": "https://supernote.com/pages/supernote-nomad",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 45517,
+    "cleaned_chars": 45517,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [
+      "script_tokens"
+    ],
+    "raw_excerpt": "window.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments);}\ngtag('js', new Date());\ngtag('config', 'G-KE6XGQ12T7', { groups: 'pagefly' });\nwindow.pfPageInfo = Object.assign(window.pfPageInfo || {});\ndocument.addEventListener(\"PageFlyHelperContentLoaded\", () => {\nwindow.pfPageInfo = Object.assign(window.pfPageInfo || {}, {\npf_page_id: pageId,\npf_page_name: pageTitle,\npf_page_type: pageType,\npf_page_subject_id: '106049011948',\n});\nsetTimeout(function() {\ngtag('event', 'pf_view_page', Object.assign({\npf_view_page: 1,\nsend_to: 'pagefly',\npf_event: 'view_page'\n}, window.pfPageInfo))\n}, 500);\nacceptNewTracking: true,\nenableTrackingRevenue: true,\nsessionTimeout: 30,\ntimezoneOffset: 0\nif(typeof analyticsSrc === 'undefined'){\nlet analyticsSrc = \"https://cdn.pagefly.io/pag",
+    "cleaned_excerpt": "window.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments);}\ngtag('js', new Date());\ngtag('config', 'G-KE6XGQ12T7', { groups: 'pagefly' });\nwindow.pfPageInfo = Object.assign(window.pfPageInfo || {});\ndocument.addEventListener(\"PageFlyHelperContentLoaded\", () => {\nwindow.pfPageInfo = Object.assign(window.pfPageInfo || {}, {\npf_page_id: pageId,\npf_page_name: pageTitle,\npf_page_type: pageType,\npf_page_subject_id: '106049011948',\n});\nsetTimeout(function() {\ngtag('event', 'pf_view_page', Object.assign({\npf_view_page: 1,\nsend_to: 'pagefly',\npf_event: 'view_page'\n}, window.pfPageInfo))\n}, 500);\nacceptNewTracking: true,\nenableTrackingRevenue: true,\nsessionTimeout: 30,\ntimezoneOffset: 0\nif(typeof analyticsSrc === 'undefined'){\nlet analyticsSrc = \"https://cdn.pagefly.io/pag"
+  },
+  {
+    "url": "https://www.dcrainmaker.com/2021/11/oura-depth-review.html",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 50000,
+    "cleaned_chars": 50000,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [
+      "script_tokens"
+    ],
+    "raw_excerpt": "var ua = navigator.userAgent;\nif( isMobile() ) document.body.classList.add(\"is-mobile\");\nLogin\nBecome a Member\nAbout Me\nPress\nContact\nAdvertise\nSearch for:\nMenu\nHome\nBlog\nProduct Reviews\nApple\nAction Cams\nCOROS\nDJI\nDrone Reviews\nElite\nFitbit\nGarmin + Tacx\nGoPro\nGoogle (Pixel Watch)\nHammmerhead\nInsta360\nPeloton\nPolar\nPower Meters\nSamsung\nSuunto\nTrainers\nWahoo Fitness\nWeight Scales\nWhoop\nEverything Else…\nBuyers Guides\nBest GPS Watches Buyers Guide\nBest Bike GPS & Cycling Tech Buyers Guide\nBike Smart Trainers Guide\nSmart Trainer App Guide\nDCR Sports Gear I Use List (2024)\nThe Girl’s Sports Gear I Use List (2024)\nPhotography/Drones/Action Cams – Gear I Use\nBaby/Child Gear We Use\nHow-To Guides & Tips\nRace Reports\nTravel\nParis Swim/Bike/Run Resources\nParis Restaurants (DCR Favs!)\nNewsletter\nJUMP",
+    "cleaned_excerpt": "var ua = navigator.userAgent;\nif( isMobile() ) document.body.classList.add(\"is-mobile\");\nLogin\nBecome a Member\nAbout Me\nPress\nContact\nAdvertise\nSearch for:\nMenu\nHome\nBlog\nProduct Reviews\nApple\nAction Cams\nCOROS\nDJI\nDrone Reviews\nElite\nFitbit\nGarmin + Tacx\nGoPro\nGoogle (Pixel Watch)\nHammmerhead\nInsta360\nPeloton\nPolar\nPower Meters\nSamsung\nSuunto\nTrainers\nWahoo Fitness\nWeight Scales\nWhoop\nEverything Else…\nBuyers Guides\nBest GPS Watches Buyers Guide\nBest Bike GPS & Cycling Tech Buyers Guide\nBike Smart Trainers Guide\nSmart Trainer App Guide\nDCR Sports Gear I Use List (2024)\nThe Girl’s Sports Gear I Use List (2024)\nPhotography/Drones/Action Cams – Gear I Use\nBaby/Child Gear We Use\nHow-To Guides & Tips\nRace Reports\nTravel\nParis Swim/Bike/Run Resources\nParis Restaurants (DCR Favs!)\nNewsletter\nJUMP"
+  },
+  {
+    "url": "https://www.androidpolice.com/oura-sells-the-benefits-of-its-subscription-as-ceramic-smart-ring-continues-to-impress/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 11217,
+    "cleaned_chars": 11217,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [
+      "script_tokens"
+    ],
+    "raw_excerpt": "\"@context\": \"https://schema.org\",\n\"@type\": \"BreadcrumbList\",\n\"itemListElement\": [\n\"@type\": \"ListItem\",\n\"position\": \"1\",\n\"name\": \"Home\",\n\"item\": \"https://www.androidpolice.com/\"\n\"position\":\"2\",\n\"name\": \"Smartwatches & Wearables\",\n\"item\": \"https://www.androidpolice.com/wearables/\"\n},                        {\n\"position\":\"3\",\n\"name\": \"Oura sells the benefits of its subscription, as Ceramic smart ring continues to impress\",\n\"item\": \"https://www.androidpolice.com/oura-sells-the-benefits-of-its-subscription-as-ceramic-smart-ring-continues-to-impress/\"\n}            ]\nOura sells the benefits of its subscription, as Ceramic smart ring continues to impress\nAndy Boxall\nPublished\nFeb 3, 2026, 12:15 PM EST\nAndy is a seasoned technology journalist with more than 15 years experience in the mobile industry",
+    "cleaned_excerpt": "\"@context\": \"https://schema.org\",\n\"@type\": \"BreadcrumbList\",\n\"itemListElement\": [\n\"@type\": \"ListItem\",\n\"position\": \"1\",\n\"name\": \"Home\",\n\"item\": \"https://www.androidpolice.com/\"\n\"position\":\"2\",\n\"name\": \"Smartwatches & Wearables\",\n\"item\": \"https://www.androidpolice.com/wearables/\"\n},                        {\n\"position\":\"3\",\n\"name\": \"Oura sells the benefits of its subscription, as Ceramic smart ring continues to impress\",\n\"item\": \"https://www.androidpolice.com/oura-sells-the-benefits-of-its-subscription-as-ceramic-smart-ring-continues-to-impress/\"\n}            ]\nOura sells the benefits of its subscription, as Ceramic smart ring continues to impress\nAndy Boxall\nPublished\nFeb 3, 2026, 12:15 PM EST\nAndy is a seasoned technology journalist with more than 15 years experience in the mobile industry"
+  },
+  {
+    "url": "https://www.whoop.com/us/en/thelocker/whoop-year-in-review-2025/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 8758,
+    "cleaned_chars": 8758,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "Topics\nArticle\nHealth & Wellness\nTraining & Exercise\nRecovery\nStrain\nSleep\nWHOOP Year in Review 2025: Inside a Record-Breaking Year of Sleep, Strength, and Longevity\nDecember 08, 2025\nYear in Review brings together data and insights from members around the world to reveal the bigger picture of health and longevity. This year, health became the ultimate investment — and WHOOP data shows how the community moved more, recovered smarter, and lived better.\nThe world of WHOOP\nBefore diving into the details, here’s what we accomplished together.\nEach number represents small, consistent choices that moved the needle — not just for individuals, but for the future of health and human performance.\nHow the world slept\nSleep trends this year revealed how age, environment, and culture shape the way we r",
+    "cleaned_excerpt": "Topics\nArticle\nHealth & Wellness\nTraining & Exercise\nRecovery\nStrain\nSleep\nWHOOP Year in Review 2025: Inside a Record-Breaking Year of Sleep, Strength, and Longevity\nDecember 08, 2025\nYear in Review brings together data and insights from members around the world to reveal the bigger picture of health and longevity. This year, health became the ultimate investment — and WHOOP data shows how the community moved more, recovered smarter, and lived better.\nThe world of WHOOP\nBefore diving into the details, here’s what we accomplished together.\nEach number represents small, consistent choices that moved the needle — not just for individuals, but for the future of health and human performance.\nHow the world slept\nSleep trends this year revealed how age, environment, and culture shape the way we r"
+  },
+  {
+    "url": "https://www.cosmopolitan.com/health-fitness/a64223031/whoop-4-review/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 7101,
+    "cleaned_chars": 7101,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "Health & Fitness\nLatest Tech News and Best Gadgets\nIs the WHOOP 4.0 Worth the Splurge? We Reviewed It!\nThis is how it compares to other fitness trackers out there.\nKimberley Bond\nPublished: Mar 19, 2025\nListen\n(7 min)\n7 min\nWHOOP\nWe may earn commission from links on this page, but we only recommend products we love. Promise.\nJump to:\nSo, what's the deal with the WHOOP?\nAre there any cons?\nHow much does the WHOOP 4.0 cost?\nHow's the battery life of the WHOOP 4.0?\nIs the WHOOP 4.0 waterproof?\nWHOOP 4.0 vs Apple Watch—how do the two compare?\nIs WHOOP 4.0 worth the price?\nSmartwatches and\nfitness trackers\nhave become increasingly popular, with a range of devices now available to track a number of vitals from resting heart rate to sleep patterns and stress levels. One in particular—the\nWHOOP 4.",
+    "cleaned_excerpt": "Health & Fitness\nLatest Tech News and Best Gadgets\nIs the WHOOP 4.0 Worth the Splurge? We Reviewed It!\nThis is how it compares to other fitness trackers out there.\nKimberley Bond\nPublished: Mar 19, 2025\nListen\n(7 min)\n7 min\nWHOOP\nWe may earn commission from links on this page, but we only recommend products we love. Promise.\nJump to:\nSo, what's the deal with the WHOOP?\nAre there any cons?\nHow much does the WHOOP 4.0 cost?\nHow's the battery life of the WHOOP 4.0?\nIs the WHOOP 4.0 waterproof?\nWHOOP 4.0 vs Apple Watch—how do the two compare?\nIs WHOOP 4.0 worth the price?\nSmartwatches and\nfitness trackers\nhave become increasingly popular, with a range of devices now available to track a number of vitals from resting heart rate to sleep patterns and stress levels. One in particular—the\nWHOOP 4."
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=AORC9yeoiRc",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 49999,
+    "cleaned_chars": 49999,
+    "content_changed": true,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "var ytInitialPlayerResponse = {\"responseContext\":{\"serviceTrackingParams\":[{\"service\":\"GFEEDBACK\",\"params\":[{\"key\":\"is_viewed_live\",\"value\":\"False\"},{\"key\":\"ipcc\",\"value\":\"0\"},{\"key\":\"is_alc_surface\",\"value\":\"false\"},{\"key\":\"logged_in\",\"value\":\"0\"},{\"key\":\"visitor_data\",\"value\":\"CgtJLTVjTnlUazdLQSjQntnNBjIKCgJVUxIEGgAgWWLfAgrcAjE2LllUPWEzWEJGTXdmc05mZlAxLVBlMnZYOW5jVmhWaUpaNDdmU24xLU1HeWFUT2RzVFE4VmZuWWxWMkgxcFhiZDNOczItV2N2UlJSM1ZEZDFlTGhSd2J2UEJhN2NpbFpDejhHQ2llUXp1U3duckJtSUszV1lxSzVBY0lNamNGWm51QWVpMTIyTnpRa1ZaaFVMTHlGaVpxUlBpZUMtMXFLUlBXUkItR2Ria3pQdXBnNUplUUFNdzg4czhkQl8wc2FPNHIwZ21zTlBVam5tQjhyOXRVLXNXc2w0ZVZLSE5YampXNUI3NjRiQVJCUnpaUGxJWXBadGpRNklZMnZGc2pLMTBzUmprVUpTRFhna3JaQzV3eEY5T3F0Rll5OVdVMGdSREJPUWpUOHFOR1JjNUltMW4wY2JGYkQ1VTRIenFza3dLYTktLU10dUxUMDAxbmFla0hMdF9Od1Qzdw%3D%3D",
+    "cleaned_excerpt": "var ytInitialPlayerResponse = {\"responseContext\":{\"serviceTrackingParams\":[{\"service\":\"GFEEDBACK\",\"params\":[{\"key\":\"is_viewed_live\",\"value\":\"False\"},{\"key\":\"ipcc\",\"value\":\"0\"},{\"key\":\"is_alc_surface\",\"value\":\"false\"},{\"key\":\"logged_in\",\"value\":\"0\"},{\"key\":\"visitor_data\",\"value\":\"CgtJLTVjTnlUazdLQSjQntnNBjIKCgJVUxIEGgAgWWLfAgrcAjE2LllUPWEzWEJGTXdmc05mZlAxLVBlMnZYOW5jVmhWaUpaNDdmU24xLU1HeWFUT2RzVFE4VmZuWWxWMkgxcFhiZDNOczItV2N2UlJSM1ZEZDFlTGhSd2J2UEJhN2NpbFpDejhHQ2llUXp1U3duckJtSUszV1lxSzVBY0lNamNGWm51QWVpMTIyTnpRa1ZaaFVMTHlGaVpxUlBpZUMtMXFLUlBXUkItR2Ria3pQdXBnNUplUUFNdzg4czhkQl8wc2FPNHIwZ21zTlBVam5tQjhyOXRVLXNXc2w0ZVZLSE5YampXNUI3NjRiQVJCUnpaUGxJWXBadGpRNklZMnZGc2pLMTBzUmprVUpTRFhna3JaQzV3eEY5T3F0Rll5OVdVMGdSREJPUWpUOHFOR1JjNUltMW4wY2JGYkQ1VTRIenFza3dLYTktLU10dUxUMDAxbmFla0hMdF9Od1Qzdw%3D%3D"
+  },
+  {
+    "url": "https://support.whoop.com/s/article/Membership-Pricing",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 50000,
+    "cleaned_chars": 50000,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [
+      "html_tags",
+      "script_tokens"
+    ],
+    "raw_excerpt": "Loading\nSorry to interrupt\nCSS Error\nRefresh\n(function() {\nif (!navigator.cookieEnabled) {\ndocument.body.appendChild(cookieMessage);\n}());\nvar templateType = \"home\";\nvar showUnsupportedBrowserModal = false;\nif (templateType === \"login\") {\nreturn;\nif (showUnsupportedBrowserModal) {\nbrowserNotSupportedMessage.id = \"community-browser-not-support-message\";\nbrowserNotSupportedMessage.innerHTML = \"<section role='alertdialog' tabindex='-1' aria-labelledby='prompt-heading-id' aria-describedby='prompt-message-wrapper'         class='slds-modal slds-fade-in-open slds-modal_prompt' aria-modal='true' style='color: rgb(62, 62, 60);'>   <div class='slds-modal__container'>       <header class='slds-modal__header slds-theme_info slds-theme_alert-texture'>           <h2 class='slds-text-heading_medium' id=",
+    "cleaned_excerpt": "Loading\nSorry to interrupt\nCSS Error\nRefresh\n(function() {\nif (!navigator.cookieEnabled) {\ndocument.body.appendChild(cookieMessage);\n}());\nvar templateType = \"home\";\nvar showUnsupportedBrowserModal = false;\nif (templateType === \"login\") {\nreturn;\nif (showUnsupportedBrowserModal) {\nbrowserNotSupportedMessage.id = \"community-browser-not-support-message\";\nbrowserNotSupportedMessage.innerHTML = \"<section role='alertdialog' tabindex='-1' aria-labelledby='prompt-heading-id' aria-describedby='prompt-message-wrapper'         class='slds-modal slds-fade-in-open slds-modal_prompt' aria-modal='true' style='color: rgb(62, 62, 60);'>   <div class='slds-modal__container'>       <header class='slds-modal__header slds-theme_info slds-theme_alert-texture'>           <h2 class='slds-text-heading_medium' id="
+  },
+  {
+    "url": "https://www.whoop.com/us/en/membership/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 3564,
+    "cleaned_chars": 3564,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "Memberships made for you\nEach membership includes a device, a charger, and a unique set of features — choose the one that best fits your health and fitness goals.\nJoin Now\nChoose a membership\nAvailable at $149\n$199\nWHOOP 4.0 with 5 day battery\nSleep, Strain, & Recovery insights\nPersonalized coaching\nVO2 Max & heart rate zones\nWomen's Hormonal Insights\nSTART WITH ONE\nLEARN MORE\nAvailable at $239/yr\n+14\nEverything on WHOOP One, plus\nWHOOP 5.0 with 14+ day battery\nHealthspan and Pace of Aging\nHealth Monitor with health alerts\nReal-time Stress Monitor\nSTART WITH PEAK\nFree trial available\nAvailable at $359/yr\n+10\nEverything on WHOOP Peak, plus\nWHOOP MG with 14+ day battery\nDaily Blood Pressure Insights (beta)\nHeart Screener with ECG readings\nOn-demand AFib Detection\nSTART WITH LIFE\nAdditional m",
+    "cleaned_excerpt": "Memberships made for you\nEach membership includes a device, a charger, and a unique set of features — choose the one that best fits your health and fitness goals.\nJoin Now\nChoose a membership\nAvailable at $149\n$199\nWHOOP 4.0 with 5 day battery\nSleep, Strain, & Recovery insights\nPersonalized coaching\nVO2 Max & heart rate zones\nWomen's Hormonal Insights\nSTART WITH ONE\nLEARN MORE\nAvailable at $239/yr\n+14\nEverything on WHOOP One, plus\nWHOOP 5.0 with 14+ day battery\nHealthspan and Pace of Aging\nHealth Monitor with health alerts\nReal-time Stress Monitor\nSTART WITH PEAK\nFree trial available\nAvailable at $359/yr\n+10\nEverything on WHOOP Peak, plus\nWHOOP MG with 14+ day battery\nDaily Blood Pressure Insights (beta)\nHeart Screener with ECG readings\nOn-demand AFib Detection\nSTART WITH LIFE\nAdditional m"
+  },
+  {
+    "url": "https://gizmodo.com/meta-ray-ban-display-smart-glasses-review-is-this-the-future-we-really-want-2000679520",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 30305,
+    "cleaned_chars": 30305,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "My first reaction when I put on\nMeta’s $800 Ray-Ban Display\nwas excitement. As frivolous as it may seem to have yet\nanother\nscreen in your life, there’s something that happens when you basically glue a display to your eyeball. You transform from a person with glasses to, like, a spy, or a cyborgâa cyborg spy! Yeah, that’s it.\nGhost in the Shell\nfans will get it.\nWhen I initially donned these smart glasses at\nMeta Connect,\nI smiled because\nthisÂ\nwas what I felt had been missing from my previous Ray-Ban smart glasses experience. A big, bright, full-color screenâthe\noneÂ\nthing people always wanted to know about when I showed them my deflatingly screenless Ray-Ban Meta AI glasses.\nThat little dose of magic is even further heightened by\nMeta’s Neural Band\n, a small wristband that, when slip",
+    "cleaned_excerpt": "My first reaction when I put on\nMeta’s $800 Ray-Ban Display\nwas excitement. As frivolous as it may seem to have yet\nanother\nscreen in your life, there’s something that happens when you basically glue a display to your eyeball. You transform from a person with glasses to, like, a spy, or a cyborgâa cyborg spy! Yeah, that’s it.\nGhost in the Shell\nfans will get it.\nWhen I initially donned these smart glasses at\nMeta Connect,\nI smiled because\nthisÂ\nwas what I felt had been missing from my previous Ray-Ban smart glasses experience. A big, bright, full-color screenâthe\noneÂ\nthing people always wanted to know about when I showed them my deflatingly screenless Ray-Ban Meta AI glasses.\nThat little dose of magic is even further heightened by\nMeta’s Neural Band\n, a small wristband that, when slip"
+  },
+  {
+    "url": "https://moorinsightsstrategy.com/research-notes/ray-ban-meta-smart-glasses-review-better-cooler-and-more-useful-than-ever/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 1905,
+    "cleaned_chars": 1905,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": ".elementor-21518 .elementor-element.elementor-element-9f0175f{border-style:solid;border-width:1px 1px 1px 1px;border-color:var( --e-global-color-secondary );}.elementor-21518 .elementor-element.elementor-element-9f0175f, .elementor-21518 .elementor-element.elementor-element-9f0175f > .elementor-background-overlay{border-radius:0px 0px 0px 0px;}.elementor-21518 .elementor-element.elementor-element-d27851e > .elementor-widget-wrap > .elementor-widget:not(.elementor-widget__width-auto):not(.elementor-widget__width-initial):not(:last-child):not(.elementor-absolute){margin-block-end:10px;}.elementor-21518 .elementor-element.elementor-element-1f941ec .elementor-heading-title{font-family:\"Lato\", Sans-serif;font-size:16px;font-weight:600;color:var( --e-global-color-primary );}.elementor-21518 .ele",
+    "cleaned_excerpt": ".elementor-21518 .elementor-element.elementor-element-9f0175f{border-style:solid;border-width:1px 1px 1px 1px;border-color:var( --e-global-color-secondary );}.elementor-21518 .elementor-element.elementor-element-9f0175f, .elementor-21518 .elementor-element.elementor-element-9f0175f > .elementor-background-overlay{border-radius:0px 0px 0px 0px;}.elementor-21518 .elementor-element.elementor-element-d27851e > .elementor-widget-wrap > .elementor-widget:not(.elementor-widget__width-auto):not(.elementor-widget__width-initial):not(:last-child):not(.elementor-absolute){margin-block-end:10px;}.elementor-21518 .elementor-element.elementor-element-1f941ec .elementor-heading-title{font-family:\"Lato\", Sans-serif;font-size:16px;font-weight:600;color:var( --e-global-color-primary );}.elementor-21518 .ele"
+  },
+  {
+    "url": "https://www.theverge.com/news/671955/jony-ive-rabbit-r1-humane-ai-pin",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 4999,
+    "cleaned_chars": 4999,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "News\nClose\nPosts from this topic will be added to your daily email digest and your homepage feed.\nFollow\nSee All\nGadgets\nJony Ive says Rabbit and Humane made bad products\n﻿As Jony Ive and Sam Altman work toward an AI gadget for release in 2026, the former chief Apple designer called last year’s Pin and R1 ‘poor products.’\nRichard Lawler\nSenior News Editor\nPosts from this author will be added to your daily email digest and your homepage feed.\nSee All by\nMay 21, 2025, 7:02 PM UTC\nLink\nShare\nGift\nPhoto: David Pierce / The Verge\nPart Of\nHumane’s AI Pin: all the news about the dead AI-powered wearable\nsee all updates\nis a senior editor following news across tech, culture, policy, and entertainment. He joined The Verge in 2021 after several years covering news at Engadget.\nWhile announcing a rep",
+    "cleaned_excerpt": "News\nClose\nPosts from this topic will be added to your daily email digest and your homepage feed.\nFollow\nSee All\nGadgets\nJony Ive says Rabbit and Humane made bad products\n﻿As Jony Ive and Sam Altman work toward an AI gadget for release in 2026, the former chief Apple designer called last year’s Pin and R1 ‘poor products.’\nRichard Lawler\nSenior News Editor\nPosts from this author will be added to your daily email digest and your homepage feed.\nSee All by\nMay 21, 2025, 7:02 PM UTC\nLink\nShare\nGift\nPhoto: David Pierce / The Verge\nPart Of\nHumane’s AI Pin: all the news about the dead AI-powered wearable\nsee all updates\nis a senior editor following news across tech, culture, policy, and entertainment. He joined The Verge in 2021 after several years covering news at Engadget.\nWhile announcing a rep"
+  },
+  {
+    "url": "https://www.laptopmag.com/ai/rabbit-r1-2024-ai-year-in-review",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 15942,
+    "cleaned_chars": 15942,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [
+      "script_tokens"
+    ],
+    "raw_excerpt": "This cute AI gadget was one of the biggest tech failures of 2024... or was it?\nFeatures\nStevie Bonifield\npublished\n17 December 2024\nThe cute, quirky device that took CES 2024 by storm wasn't a Tamagotchi revival. It was an AI assistant.\nWhen you purchase through links on our site, we may earn an affiliate commission.\nHere’s how it works\n(Image credit: Rael Hornby / rabbit)\nShare\nCopy link\nFacebook\nLinkedin\nWhatsapp\nPinterest\nFlipboard\nBluesky\nEmail\nShare this article\nJoin the conversation\nFollow us\nAdd us as a preferred source on Google\nNewsletter\nLaptop Mag\nGet the Laptop Mag Newsletter\nSign up to receive The Snapshot, a free special dispatch from Laptop Mag, in your inbox.\nContact me with news and offers from other Future brands\nReceive email from us on behalf of our trusted partners or ",
+    "cleaned_excerpt": "This cute AI gadget was one of the biggest tech failures of 2024... or was it?\nFeatures\nStevie Bonifield\npublished\n17 December 2024\nThe cute, quirky device that took CES 2024 by storm wasn't a Tamagotchi revival. It was an AI assistant.\nWhen you purchase through links on our site, we may earn an affiliate commission.\nHere’s how it works\n(Image credit: Rael Hornby / rabbit)\nShare\nCopy link\nFacebook\nLinkedin\nWhatsapp\nPinterest\nFlipboard\nBluesky\nEmail\nShare this article\nJoin the conversation\nFollow us\nAdd us as a preferred source on Google\nNewsletter\nLaptop Mag\nGet the Laptop Mag Newsletter\nSign up to receive The Snapshot, a free special dispatch from Laptop Mag, in your inbox.\nContact me with news and offers from other Future brands\nReceive email from us on behalf of our trusted partners or "
+  },
+  {
+    "url": "https://www.linkedin.com/pulse/looking-rabbit-r1s-fails-from-furps-perspective-noble-ackerson-fdqwe",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 5133,
+    "cleaned_chars": 5133,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "Sad Wabbit\nLooking at Rabbit R1's Fails From a FURPS+ Perspective\nReport this article\nNoble Ackerson\nPublished Jun 29, 2024\n+ Follow\nI recently\nasked if folks wanted to hear my take on the Rabbit R1\n. I got a few of you interested. I also wanted to give myself at least a week with it, so now, as any old-school product nerd would, let's evaluate my experience with R1 in a structured way.\nI'll use my old and trusty\nFURPS+ framework\nto organize my thoughts about why the device is failing.\nThe Rabbit R1 is a $199 AI-powered hardware device. It's not a phone because it only connects to services through something they call a LAM, and it's not quite a brick because they promise the AI (Large Action Model) will work soon. It was developed by tech startup Rabbit Inc. and designed by Teenage Enginee",
+    "cleaned_excerpt": "Sad Wabbit\nLooking at Rabbit R1's Fails From a FURPS+ Perspective\nReport this article\nNoble Ackerson\nPublished Jun 29, 2024\n+ Follow\nI recently\nasked if folks wanted to hear my take on the Rabbit R1\n. I got a few of you interested. I also wanted to give myself at least a week with it, so now, as any old-school product nerd would, let's evaluate my experience with R1 in a structured way.\nI'll use my old and trusty\nFURPS+ framework\nto organize my thoughts about why the device is failing.\nThe Rabbit R1 is a $199 AI-powered hardware device. It's not a phone because it only connects to services through something they call a LAM, and it's not quite a brick because they promise the AI (Large Action Model) will work soon. It was developed by tech startup Rabbit Inc. and designed by Teenage Enginee"
+  },
+  {
+    "url": "https://eu.36kr.com/en/p/3380081710655237",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 27968,
+    "cleaned_chars": 27968,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [
+      "script_tokens",
+      "privacy_terms"
+    ],
+    "raw_excerpt": "English\nDeutsch\nHome\nArticle\nThe first batch of AI hardware has already died.\nNEXT趋势\n2025-07-15 19:26\nWhen the frenzy of capital meets the technological bottleneck, is it the \"real fire\" burning or the \"false fire\" at play?\nIn the current era when the AI wave is sweeping the globe, who could have imagined that an AI hardware device once hailed as the \"killer of smartphones\" would plummet from the peak to the bottom in just one year?\nIn April 2024, the AI Pin launched by Humane, an AI device company, with its innovative brooch-style design and AI interaction functions, once set off a storm in the tech circle. The pre-sales were booming, and the media rushed to report on it.\nHowever, just a few months later, this product faced a large number of returns and complaints about its functions. Fin",
+    "cleaned_excerpt": "English\nDeutsch\nHome\nArticle\nThe first batch of AI hardware has already died.\nNEXT趋势\n2025-07-15 19:26\nWhen the frenzy of capital meets the technological bottleneck, is it the \"real fire\" burning or the \"false fire\" at play?\nIn the current era when the AI wave is sweeping the globe, who could have imagined that an AI hardware device once hailed as the \"killer of smartphones\" would plummet from the peak to the bottom in just one year?\nIn April 2024, the AI Pin launched by Humane, an AI device company, with its innovative brooch-style design and AI interaction functions, once set off a storm in the tech circle. The pre-sales were booming, and the media rushed to report on it.\nHowever, just a few months later, this product faced a large number of returns and complaints about its functions. Fin"
+  },
+  {
+    "url": "https://mashable.com/article/humane-ai-pin-discontinued-killed",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 8803,
+    "cleaned_chars": 8803,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [
+      "script_tokens"
+    ],
+    "raw_excerpt": "Home\nTech\nHumane has killed its Ai Pin less than a year after its release\nThe wearable AI gadget which intended to replace smartphones will now be dead in 10 days.\nAmanda Yeo\nAssistant Editor\nAmanda Yeo is an Assistant Editor at Mashable, covering entertainment, culture, tech, science, and social good. Based in Australia, she writes about everything from video games and K-pop to movies and gadgets.\nRead Full Bio\nFebruary 19, 2025\nShare on Facebook\nShare on Twitter\nShare on Flipboard\nCredit: Humane\nHumane's Ai Pin\nis about to become an expensive brick, with the startup set to discontinue service less than a year after the\nwearable AI gadget began shipping\n. It seems the fairy tale is over, and they can no longer deny that their golden carriage is actually a rotting pumpkin.\nIn a post to Hum",
+    "cleaned_excerpt": "Home\nTech\nHumane has killed its Ai Pin less than a year after its release\nThe wearable AI gadget which intended to replace smartphones will now be dead in 10 days.\nAmanda Yeo\nAssistant Editor\nAmanda Yeo is an Assistant Editor at Mashable, covering entertainment, culture, tech, science, and social good. Based in Australia, she writes about everything from video games and K-pop to movies and gadgets.\nRead Full Bio\nFebruary 19, 2025\nShare on Facebook\nShare on Twitter\nShare on Flipboard\nCredit: Humane\nHumane's Ai Pin\nis about to become an expensive brick, with the startup set to discontinue service less than a year after the\nwearable AI gadget began shipping\n. It seems the fairy tale is over, and they can no longer deny that their golden carriage is actually a rotting pumpkin.\nIn a post to Hum"
+  },
+  {
+    "url": "https://pylessons.com/news/humane-ai-pin-shutdown-refund-policy-tech-discontinuation",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 8225,
+    "cleaned_chars": 8225,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": ".news-page-container {\ndisplay: flex;\ngap: 20px;\nmax-width: 1200px;\nmargin: 0 auto;\npadding: 20px;\n.news-detail-container {\nflex: 3;\n/* margin: 20px auto; */\nborder-radius: 10px;\nbackground: var(--brightBackground);\nbox-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);\n.popular-news-sidebar {\nflex: 1;\n.popular-news-sidebar h2 {\nfont-size: 1.5rem;\nmargin-bottom: 15px;\ncolor: #333;\n.popular-news-sidebar ul {\nlist-style: none;\npadding: 0;\n.popular-news-sidebar li {\n/* margin-bottom: 15px; */\nalign-items: center;\ngap: 10px;\noverflow: hidden; /* Prevents overflow */\n.popular-news-sidebar li img {\nwidth: 100%;\nheight: 80px;\nobject-fit: cover; /* Ensures proper cropping */\nborder-radius: 5px;\ntransition: transform 0.3s ease;\n.popular-news-sidebar li:hover img {\ntransform: scale(1.05); /* Zoom-in effect */\n",
+    "cleaned_excerpt": ".news-page-container {\ndisplay: flex;\ngap: 20px;\nmax-width: 1200px;\nmargin: 0 auto;\npadding: 20px;\n.news-detail-container {\nflex: 3;\n/* margin: 20px auto; */\nborder-radius: 10px;\nbackground: var(--brightBackground);\nbox-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);\n.popular-news-sidebar {\nflex: 1;\n.popular-news-sidebar h2 {\nfont-size: 1.5rem;\nmargin-bottom: 15px;\ncolor: #333;\n.popular-news-sidebar ul {\nlist-style: none;\npadding: 0;\n.popular-news-sidebar li {\n/* margin-bottom: 15px; */\nalign-items: center;\ngap: 10px;\noverflow: hidden; /* Prevents overflow */\n.popular-news-sidebar li img {\nwidth: 100%;\nheight: 80px;\nobject-fit: cover; /* Ensures proper cropping */\nborder-radius: 5px;\ntransition: transform 0.3s ease;\n.popular-news-sidebar li:hover img {\ntransform: scale(1.05); /* Zoom-in effect */\n"
+  },
+  {
+    "url": "https://www.howtogeek.com/humane-ai-pin-shutdown/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 4395,
+    "cleaned_chars": 4395,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "\"@context\": \"https://schema.org\",\n\"@type\": \"BreadcrumbList\",\n\"itemListElement\": [\n\"@type\": \"ListItem\",\n\"position\": \"1\",\n\"name\": \"Home\",\n\"item\": \"https://www.howtogeek.com/\"\n\"position\":\"2\",\n\"name\": \"Hobbies\",\n\"item\": \"https://www.howtogeek.com/category/hobbies/\"\n},                        {\n\"position\":\"3\",\n\"name\": \"Humane AI Pin Is Shutting Down After HP Acquisition\",\n\"item\": \"https://www.howtogeek.com/humane-ai-pin-shutdown/\"\n}            ]\nHumane AI Pin Is Shutting Down After HP Acquisition\nCredit: Humane\nJorge A. Aguilar\nPublished\nFeb 19, 2025, 9:40 AM EST\nAggy is a veteran writer and editor in the technology and gaming space. Having served as a Managing Editor for high-traffic digital publications, alongside being an editor and consultant for over a dozen sites. Aggy's published work spa",
+    "cleaned_excerpt": "\"@context\": \"https://schema.org\",\n\"@type\": \"BreadcrumbList\",\n\"itemListElement\": [\n\"@type\": \"ListItem\",\n\"position\": \"1\",\n\"name\": \"Home\",\n\"item\": \"https://www.howtogeek.com/\"\n\"position\":\"2\",\n\"name\": \"Hobbies\",\n\"item\": \"https://www.howtogeek.com/category/hobbies/\"\n},                        {\n\"position\":\"3\",\n\"name\": \"Humane AI Pin Is Shutting Down After HP Acquisition\",\n\"item\": \"https://www.howtogeek.com/humane-ai-pin-shutdown/\"\n}            ]\nHumane AI Pin Is Shutting Down After HP Acquisition\nCredit: Humane\nJorge A. Aguilar\nPublished\nFeb 19, 2025, 9:40 AM EST\nAggy is a veteran writer and editor in the technology and gaming space. Having served as a Managing Editor for high-traffic digital publications, alongside being an editor and consultant for over a dozen sites. Aggy's published work spa"
+  },
+  {
+    "url": "https://arstechnica.com/gadgets/2025/02/truly-a-middle-finger-humane-bricking-700-ai-pins-with-limited-refunds/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 6949,
+    "cleaned_chars": 6949,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "put a pin in it\n“Truly a middle finger”: Humane bricking $700 AI Pins with limited refunds\nHumane’s showing how\nnot\nto treat early adopters.\nScharon Harding\nFeb 19, 2025 1:48 pm\n164\nHumane's AI Pin.\nCredit:\nHumane\nText\nsettings\nStory text\nSize\nSmall\nStandard\nLarge\nWidth\nWide\nLinks\nOrange\n* Subscribers only\nLearn more\nMinimize to nav\nAfter launching its AI Pin in April 2024 and reportedly\nseeking a buyout\nby May 2024, Humane is shutting down. Most of the people who bought an AI Pin will not get refunds for the devices, which\ndebuted at $700\n, dropped to $500, and will be bricked on February 28 at noon PT.\nAt that time, AI Pins, which are lapel pins with an integrated AI voice assistant, camera, speaker, and laser projector, “will no longer connect to Humane’s servers,” and “all customer dat",
+    "cleaned_excerpt": "put a pin in it\n“Truly a middle finger”: Humane bricking $700 AI Pins with limited refunds\nHumane’s showing how\nnot\nto treat early adopters.\nScharon Harding\nFeb 19, 2025 1:48 pm\n164\nHumane's AI Pin.\nCredit:\nHumane\nText\nsettings\nStory text\nSize\nSmall\nStandard\nLarge\nWidth\nWide\nLinks\nOrange\n* Subscribers only\nLearn more\nMinimize to nav\nAfter launching its AI Pin in April 2024 and reportedly\nseeking a buyout\nby May 2024, Humane is shutting down. Most of the people who bought an AI Pin will not get refunds for the devices, which\ndebuted at $700\n, dropped to $500, and will be bricked on February 28 at noon PT.\nAt that time, AI Pins, which are lapel pins with an integrated AI voice assistant, camera, speaker, and laser projector, “will no longer connect to Humane’s servers,” and “all customer dat"
+  },
+  {
+    "url": "https://www.slashgear.com/1794149/humane-ai-pin-shutdown-timeline-refund-details/",
+    "fetch_ok": true,
+    "http_status": 200,
+    "raw_chars": 2975,
+    "cleaned_chars": 2975,
+    "content_changed": false,
+    "quality_reason": "ok",
+    "quality_score": 100.0,
+    "blocked": false,
+    "residue_patterns": [],
+    "raw_excerpt": "Technology\nWearables\nHumane Is Killing Its Disastrous AI Pin: Here's Who Gets Their Money Back\nNadeem Sarwar\nFeb. 19, 2025 1:13 pm EST\nTada Images/Shutterstock\nHumane, the buzzy startup from former Apple executives that made a wearable AI gadget, is shutting down. At noon Pacific time on Feb. 28, all Humane AI Pins sold will stop connecting to servers and cease to work. HP has agreed to take over the company's assets in a deal valued at roughly $116 million, while the AI Pin dreams will be abandoned.\nThere is no word why the product has been canceled, and what exactly HP intends to do with the acquisition. \"We are winding down the Ai pin as we are moving onto new endeavors,\"\nHumane\nsaid in a customer note, without going into details.\nHowever, the writing has been on the wall since the begi",
+    "cleaned_excerpt": "Technology\nWearables\nHumane Is Killing Its Disastrous AI Pin: Here's Who Gets Their Money Back\nNadeem Sarwar\nFeb. 19, 2025 1:13 pm EST\nTada Images/Shutterstock\nHumane, the buzzy startup from former Apple executives that made a wearable AI gadget, is shutting down. At noon Pacific time on Feb. 28, all Humane AI Pins sold will stop connecting to servers and cease to work. HP has agreed to take over the company's assets in a deal valued at roughly $116 million, while the AI Pin dreams will be abandoned.\nThere is no word why the product has been canceled, and what exactly HP intends to do with the acquisition. \"We are winding down the Ai pin as we are moving onto new endeavors,\"\nHumane\nsaid in a customer note, without going into details.\nHowever, the writing has been on the wall since the begi"
+  }
+]

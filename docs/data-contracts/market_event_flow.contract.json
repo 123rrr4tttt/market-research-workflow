@@ -1,0 +1,26 @@
+{
+  "name": "market_event_flow",
+  "version": "v1",
+  "owner": "data-platform@market-research-workflow",
+  "consumers": [
+    "analytics-dashboard",
+    "ai-ranking-service"
+  ],
+  "schema": {
+    "event_id": "string",
+    "event_time": "datetime",
+    "source": "string",
+    "topic": "string",
+    "score": "number"
+  },
+  "semantics": {
+    "event_id": "全局唯一事件ID",
+    "score": "标准化热度分值，范围[0,1]"
+  },
+  "validation_rules": [
+    "event_id required and unique",
+    "event_time must be UTC ISO8601",
+    "score between 0 and 1"
+  ],
+  "change_policy": "schema变更需提前通知消费者并升级版本"
+}

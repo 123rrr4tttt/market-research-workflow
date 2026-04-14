@@ -1,0 +1,859 @@
+from __future__ import annotations
+
+import json
+import logging
+import re
+import time
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import select, text
+
+from ..contracts.responses import ok
+from ..models.base import SessionLocal, engine
+from ..models.base import Base
+from ..models.entities import (
+    ConfigState,
+    Document,
+    Embedding,
+    EtlJobRun,
+    IngestChannel,
+    KeywordHistory,
+    KeywordPrior,
+    LlmServiceConfig,
+    MarketMetricPoint,
+    MarketStat,
+    PriceObservation,
+    Product,
+    Project,
+    ResourcePoolUrl,
+    ResourcePoolSiteEntry,
+    SearchHistory,
+    SourceLibraryItem,
+    Source,
+    Topic,
+)
+from ..services.llm.config_service import LlmConfigService
+from ..services.llm.provider import get_chat_model
+from ..services.projects.context import bind_project, bind_schema, project_schema_name, _normalize_project_key
+
+
+router = APIRouter(prefix="/projects", tags=["projects"])
+logger = logging.getLogger(__name__)
+
+
+class CreateProjectPayload(BaseModel):
+    project_key: str = Field(..., min_length=1, max_length=64)
+    name: str = Field(..., min_length=1, max_length=255)
+    enabled: bool = True
+
+
+class UpdateProjectPayload(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    enabled: bool | None = None
+
+
+class InjectInitialProjectPayload(BaseModel):
+    project_key: str | None = Field(default=None, min_length=1, max_length=64)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    source_project_key: str = Field(default="demo_proj", min_length=1, max_length=64)
+    overwrite: bool = False
+    activate: bool = True
+
+
+class AutoLlmConfigPayload(BaseModel):
+    service_name: str = Field(..., min_length=1, max_length=64)
+    description: str | None = None
+    system_prompt: str | None = None
+    user_prompt_template: str | None = None
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    top_p: float | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
+    enabled: bool = True
+
+
+class AutoCreateProjectPayload(BaseModel):
+    project_name: str = Field(..., min_length=1, max_length=255)
+    project_key: str | None = Field(default=None, min_length=1, max_length=64)
+    template_project_key: str = Field(default="demo_proj", min_length=1, max_length=64)
+    activate: bool = True
+    copy_initial_data: bool = True
+    llm_configs: list[AutoLlmConfigPayload] = Field(default_factory=list)
+
+
+TENANT_TABLES = [
+    Source.__table__,
+    Document.__table__,
+    MarketStat.__table__,
+    ConfigState.__table__,
+    Embedding.__table__,
+    EtlJobRun.__table__,
+    SearchHistory.__table__,
+    KeywordHistory.__table__,
+    KeywordPrior.__table__,
+    LlmServiceConfig.__table__,
+    Topic.__table__,
+    IngestChannel.__table__,
+    SourceLibraryItem.__table__,
+    MarketMetricPoint.__table__,
+    Product.__table__,
+    PriceObservation.__table__,
+    ResourcePoolUrl.__table__,
+    ResourcePoolSiteEntry.__table__,
+]
+
+# Seed/inject path uses a safe subset of tenant tables (exclude embeddings/vector + llm configs).
+INITIAL_PROJECT_TABLES = [
+    Source.__table__,
+    Document.__table__,
+    MarketStat.__table__,
+    ConfigState.__table__,
+    SearchHistory.__table__,
+    KeywordHistory.__table__,
+    KeywordPrior.__table__,
+    Topic.__table__,
+    IngestChannel.__table__,
+    SourceLibraryItem.__table__,
+    MarketMetricPoint.__table__,
+    Product.__table__,
+    PriceObservation.__table__,
+    ResourcePoolUrl.__table__,
+    ResourcePoolSiteEntry.__table__,
+]
+
+llm_config_service = LlmConfigService()
+
+
+def _backend_root_dir() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _locate_demo_seed_file() -> Path | None:
+    seed_dir = _backend_root_dir() / "seed_data"
+    candidates = list(seed_dir.glob("project_demo_proj*.sql"))
+    if not candidates:
+        return None
+
+    def _version_key(path: Path) -> tuple[int, ...]:
+        # e.g. project_demo_proj_v0.9-rc2.0.sql -> (0, 9, 2, 0)
+        nums = re.findall(r"\d+", path.name)
+        return tuple(int(n) for n in nums) if nums else (0,)
+
+    return sorted(candidates, key=_version_key)[-1]
+
+
+def _demo_schema_has_seed_data(schema_name: str) -> bool:
+    with engine.begin() as conn:
+        table_exists = conn.execute(
+            text(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema=:schema AND table_name='documents')"
+            ),
+            {"schema": schema_name},
+        ).scalar()
+        if not table_exists:
+            return False
+        count = conn.execute(text(f'SELECT COUNT(*) FROM "{schema_name}"."documents"')).scalar()
+        return int(count or 0) > 0
+
+
+def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
+    if source_key != "demo_proj":
+        return
+    source_schema = project_schema_name(source_key)
+    if _demo_schema_has_seed_data(source_schema):
+        return
+
+    seed_file = _locate_demo_seed_file()
+    if not seed_file:
+        raise HTTPException(status_code=500, detail="demo seed file not found under backend/seed_data")
+
+    sql_text = seed_file.read_text(encoding="utf-8")
+    # Data-only dumps may include sequence setval statements that can fail on fresh schemas.
+    filtered_sql = "\n".join(
+        line for line in sql_text.splitlines() if not re.search(r"pg_catalog\.setval", line, re.IGNORECASE)
+    )
+
+    with engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{source_schema}"'))
+        conn.exec_driver_sql(filtered_sql)
+
+    # Ensure full tenant table structure + schema-local id sequence defaults.
+    _create_tenant_tables_best_effort(source_schema)
+
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            row = session.execute(select(Project).where(Project.project_key == source_key)).scalar_one_or_none()
+            if row is None:
+                session.add(
+                    Project(
+                        project_key=source_key,
+                        name="Demo Project",
+                        schema_name=source_schema,
+                        enabled=True,
+                        is_active=False,
+                    )
+                )
+            else:
+                row.schema_name = source_schema
+                row.enabled = True
+            session.commit()
+PROMPT_FACTORY_SERVICE_NAME = "prompt_factory"
+PROMPT_FACTORY_TARGET_SERVICES = [
+    "keyword_generation",
+    "social_keyword_generation",
+    "policy_extraction",
+    "market_info_extraction",
+    "entities_relations_extraction",
+    "site_entry_classification",
+    "document_classification",
+]
+
+
+def _safe_parse_json_from_text(raw: str) -> dict | None:
+    text = (raw or "").strip()
+    if not text:
+        return None
+    # direct json
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    # fenced json
+    if "```" in text:
+        parts = text.split("```")
+        for part in parts:
+            candidate = part.strip()
+            if candidate.startswith("json"):
+                candidate = candidate[4:].strip()
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                continue
+    return None
+
+
+def _fallback_prompt_factory_bundle(requirement: str) -> dict[str, dict]:
+    return {
+        service_name: {
+            "description": f"Auto-generated by prompt_factory for {service_name}",
+            "user_prompt_template": (
+                f"[Project Requirement]\n{requirement}\n\n"
+                f"[Target Service]\n{service_name}\n\n"
+                "Generate output that is directly usable by this service. "
+                "Keep constraints explicit, avoid ambiguity, and prioritize stable structured fields."
+            ),
+            "enabled": True,
+        }
+        for service_name in PROMPT_FACTORY_TARGET_SERVICES
+    }
+
+
+def _generate_prompt_factory_bundle(requirement: str, factory_payload: dict) -> dict[str, dict]:
+    factory_model = factory_payload.get("model")
+    factory_temperature = factory_payload.get("temperature")
+    factory_max_tokens = factory_payload.get("max_tokens")
+    try:
+        model = get_chat_model(
+            model=factory_model,
+            temperature=factory_temperature if factory_temperature is not None else 0.2,
+            max_tokens=factory_max_tokens if factory_max_tokens is not None else 2400,
+        ).with_retry()
+        instruction = (
+            "You are Prompt Factory. Generate prompt configurations for downstream services.\n"
+            "Return strict JSON only with shape:\n"
+            "{"
+            '"services":[{"service_name":"...","description":"...","system_prompt":"...","user_prompt_template":"...","enabled":true}]'
+            "}\n"
+            f"Target services: {', '.join(PROMPT_FACTORY_TARGET_SERVICES)}\n"
+            f"Project requirement:\n{requirement}\n"
+            "Rules:\n"
+            "1) Include all target services exactly once.\n"
+            "2) Make user_prompt_template concrete and executable.\n"
+            "3) Keep language concise.\n"
+            "4) enabled=true.\n"
+        )
+        resp = model.invoke(instruction)
+        content = getattr(resp, "content", "")
+        if isinstance(content, list):
+            content = "\n".join(str(x) for x in content)
+        parsed = _safe_parse_json_from_text(str(content))
+        services = parsed.get("services") if isinstance(parsed, dict) else None
+        if not isinstance(services, list):
+            raise ValueError("invalid services json")
+
+        built: dict[str, dict] = {}
+        for item in services:
+            if not isinstance(item, dict):
+                continue
+            service_name = str(item.get("service_name") or "").strip()
+            if service_name not in PROMPT_FACTORY_TARGET_SERVICES:
+                continue
+            payload = {
+                "description": item.get("description") or f"Generated by prompt_factory for {service_name}",
+                "system_prompt": item.get("system_prompt"),
+                "user_prompt_template": item.get("user_prompt_template"),
+                "enabled": bool(item.get("enabled", True)),
+            }
+            built[service_name] = {k: v for k, v in payload.items() if v is not None}
+
+        for service_name, fallback_payload in _fallback_prompt_factory_bundle(requirement).items():
+            built.setdefault(service_name, fallback_payload)
+        return built
+    except Exception as exc:
+        logger.warning("prompt_factory generation fallback due to error: %s", exc)
+        return _fallback_prompt_factory_bundle(requirement)
+
+
+def _build_auto_project_key(project_name: str, project_key: str | None) -> str:
+    explicit = _normalize_project_key(project_key or "")
+    if explicit:
+        return explicit
+    base = _normalize_project_key(project_name)
+    if not base or base == "default":
+        base = "project"
+    suffix = int(time.time() * 1000) % 1000000
+    return _normalize_project_key(f"{base}_{suffix}")
+
+
+def _project_exists(project_key: str) -> bool:
+    normalized = _normalize_project_key(project_key)
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            row = session.execute(select(Project).where(Project.project_key == normalized)).scalar_one_or_none()
+            return row is not None
+
+
+def _create_tenant_tables_best_effort(schema_name: str) -> None:
+    """
+    Create tenant tables, but tolerate missing pgvector extension by
+    skipping only the embeddings table instead of failing project creation.
+    """
+    with engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
+    for table in TENANT_TABLES:
+        with engine.begin() as conn:
+            conn.execute(text(f'SET search_path TO "{schema_name}"'))
+            try:
+                table.create(bind=conn, checkfirst=True)
+            except Exception as exc:  # noqa: BLE001
+                table_name = getattr(table, "name", "")
+                message = str(exc).lower()
+                if table_name == "embeddings" and "vector" in message and "does not exist" in message:
+                    logger.warning(
+                        "skip embeddings table for schema=%s because pgvector extension is unavailable: %s",
+                        schema_name,
+                        exc,
+                    )
+                    continue
+                raise
+    _ensure_tenant_id_sequences(schema_name)
+
+
+def _ensure_tenant_id_sequences(schema_name: str) -> None:
+    """
+    Ensure every tenant table uses schema-local id sequence default.
+
+    This prevents cross-schema sequence drift such as:
+    project_x.table.id DEFAULT nextval('project_default.table_id_seq'::regclass)
+    """
+    table_names = [t.name for t in TENANT_TABLES if "id" in t.c]
+    for table_name in table_names:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    DO $$
+                    DECLARE
+                      seq_qualified text := format('%I.%I_id_seq', :schema_name, :table_name);
+                      table_qualified text := format('%I.%I', :schema_name, :table_name);
+                      has_table regclass;
+                    BEGIN
+                      EXECUTE format('SELECT to_regclass(%L)', table_qualified) INTO has_table;
+                      IF has_table IS NULL THEN
+                        RETURN;
+                      END IF;
+
+                      EXECUTE format('CREATE SEQUENCE IF NOT EXISTS %s', seq_qualified);
+                      EXECUTE format('ALTER SEQUENCE %s OWNED BY %I.%I.id', seq_qualified, :schema_name, :table_name);
+                      EXECUTE format(
+                        'ALTER TABLE %I.%I ALTER COLUMN id SET DEFAULT nextval(%L::regclass)',
+                        :schema_name, :table_name, seq_qualified
+                      );
+                      EXECUTE format(
+                        'SELECT setval(%L, COALESCE((SELECT MAX(id) FROM %I.%I), 0) + 1, false)',
+                        seq_qualified, :schema_name, :table_name
+                      );
+                    END$$;
+                    """
+                ),
+                {"schema_name": schema_name, "table_name": table_name},
+            )
+
+
+def _apply_llm_configs_to_project(project_key: str, llm_configs: list[AutoLlmConfigPayload]) -> int:
+    if not llm_configs:
+        return 0
+    normalized = _normalize_project_key(project_key)
+    merged_payload: dict[str, dict] = {}
+
+    # 1) user provided configs (highest priority)
+    for item in llm_configs:
+        service_name = item.service_name.strip()
+        if not service_name:
+            continue
+        merged_payload[service_name] = item.model_dump(exclude={"service_name"}, exclude_none=True)
+
+    # 2) if prompt_factory exists, auto-generate prompt bundle for core services
+    factory_payload = merged_payload.get(PROMPT_FACTORY_SERVICE_NAME)
+    if factory_payload is not None:
+        requirement = str(factory_payload.get("user_prompt_template") or "").strip() or "general market intelligence"
+        factory_payload.setdefault(
+            "description",
+            "Prompt factory: generate/maintain prompts for downstream services based on project requirement.",
+        )
+        factory_payload.setdefault(
+            "system_prompt",
+            "You are Prompt Factory. Produce high-quality prompts for downstream modules with strict JSON-compatible output.",
+        )
+        factory_payload.setdefault(
+            "user_prompt_template",
+            requirement,
+        )
+        factory_payload.setdefault("enabled", True)
+        generated_bundle = _generate_prompt_factory_bundle(requirement, factory_payload)
+        for service_name, generated_payload in generated_bundle.items():
+            merged_payload.setdefault(service_name, generated_payload)
+
+    applied = 0
+    with bind_project(normalized):
+        with SessionLocal() as db:
+            for service_name, payload in merged_payload.items():
+                llm_config_service.upsert_config(db, service_name, payload)
+                applied += 1
+    return applied
+
+
+@router.get("")
+def list_projects() -> dict:
+    # Control-plane data always read from public schema.
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            rows = session.execute(select(Project).order_by(Project.id.asc())).scalars().all()
+            return ok(
+                {
+                    "items": [
+                        {
+                            "id": row.id,
+                            "project_key": row.project_key,
+                            "name": row.name,
+                            "schema_name": row.schema_name,
+                            "enabled": row.enabled,
+                            "is_active": row.is_active,
+                        }
+                        for row in rows
+                    ]
+                }
+            )
+
+
+@router.post("")
+def create_project(payload: CreateProjectPayload) -> dict:
+    normalized_key = _normalize_project_key(payload.project_key)
+    if normalized_key in ("public", "default"):
+        raise HTTPException(status_code=409, detail="project_key is reserved")
+    schema_name = project_schema_name(normalized_key)
+
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            existed = session.execute(
+                select(Project).where(Project.project_key == normalized_key)
+            ).scalar_one_or_none()
+            if existed:
+                raise HTTPException(status_code=409, detail="project_key already exists")
+
+            row = Project(
+                project_key=normalized_key,
+                name=payload.name,
+                schema_name=schema_name,
+                enabled=payload.enabled,
+                is_active=False,
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+
+    # Initialize tenant tables in target schema (best-effort for optional pgvector).
+    _create_tenant_tables_best_effort(schema_name)
+
+    return ok({"id": row.id, "schema_name": schema_name})
+
+
+@router.post("/inject-initial")
+def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
+    source_project_key_raw = (payload.source_project_key or "").strip()
+    if not source_project_key_raw:
+        raise HTTPException(status_code=400, detail="source_project_key is required")
+    source_key = _normalize_project_key(source_project_key_raw)
+    target_key = _normalize_project_key(payload.project_key or f"{source_key}_{int(__import__('time').time())}")
+    if target_key in ("public", "default"):
+        raise HTTPException(status_code=409, detail="project_key is reserved")
+    source_schema = project_schema_name(source_key)
+    target_schema = project_schema_name(target_key)
+    target_name = (payload.name or f"{source_key}（初始注入）").strip()
+
+    # New-deploy convenience: lazily bootstrap demo template from bundled seed archive.
+    _bootstrap_demo_seed_if_needed(source_key)
+
+    with engine.begin() as conn:
+        source_exists = conn.execute(
+            text("SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name=:s)"),
+            {"s": source_schema},
+        ).scalar()
+        if not source_exists:
+            raise HTTPException(status_code=404, detail=f"source project schema not found: {source_schema}")
+
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            src_project = session.execute(select(Project).where(Project.project_key == source_key)).scalar_one_or_none()
+            if src_project is None:
+                raise HTTPException(status_code=404, detail=f"source project not found: {source_key}")
+
+            existed = session.execute(select(Project).where(Project.project_key == target_key)).scalar_one_or_none()
+            if existed and not payload.overwrite:
+                raise HTTPException(status_code=409, detail="project_key already exists (set overwrite=true)")
+
+            if existed and payload.overwrite:
+                session.delete(existed)
+                session.commit()
+                with engine.begin() as conn:
+                    conn.execute(text(f'DROP SCHEMA IF EXISTS "{target_schema}" CASCADE'))
+
+            row = Project(
+                project_key=target_key,
+                name=target_name,
+                schema_name=target_schema,
+                enabled=True,
+                is_active=False,
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+
+    with engine.begin() as conn:
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{target_schema}"'))
+        conn.execute(text(f'SET search_path TO "{target_schema}"'))
+        Base.metadata.create_all(bind=conn, tables=INITIAL_PROJECT_TABLES, checkfirst=True)
+
+        copied_counts: dict[str, int] = {}
+        # Copy only tables that exist in source schema.
+        for table in INITIAL_PROJECT_TABLES:
+            tname = table.name
+            source_table_exists = conn.execute(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                    "WHERE table_schema=:schema AND table_name=:table)"
+                ),
+                {"schema": source_schema, "table": tname},
+            ).scalar()
+            if not source_table_exists:
+                copied_counts[tname] = 0
+                continue
+            conn.execute(text(f'TRUNCATE TABLE "{target_schema}"."{tname}" RESTART IDENTITY CASCADE'))
+            inserted = conn.execute(
+                text(f'INSERT INTO "{target_schema}"."{tname}" SELECT * FROM "{source_schema}"."{tname}"')
+            )
+            copied_counts[tname] = int(getattr(inserted, "rowcount", 0) or 0)
+            # best-effort sequence alignment for id-based tables
+            try:
+                conn.execute(
+                    text(
+                        """
+                        DO $$
+                        DECLARE seq_name text;
+                        BEGIN
+                          SELECT pg_get_serial_sequence(format('%I.%I', :schema_name, :table_name), 'id') INTO seq_name;
+                          IF seq_name IS NOT NULL THEN
+                            EXECUTE format(
+                              'SELECT setval(%L, COALESCE((SELECT MAX(id) FROM %I.%I), 0) + 1, false)',
+                              seq_name, :schema_name, :table_name
+                            );
+                          END IF;
+                        END$$;
+                        """
+                    ),
+                    {"schema_name": target_schema, "table_name": tname},
+                )
+            except Exception:
+                # not all copied tables have id sequences; ignore
+                pass
+
+    # Ensure inject path has full tenant tables + schema-local id sequence defaults.
+    _create_tenant_tables_best_effort(target_schema)
+
+    if payload.activate:
+        with bind_schema("public"):
+            with SessionLocal() as session:
+                all_rows = session.execute(select(Project)).scalars().all()
+                for p in all_rows:
+                    p.is_active = p.project_key == target_key
+                session.commit()
+
+    return ok(
+        {
+            "project_key": target_key,
+            "name": target_name,
+            "schema_name": target_schema,
+            "source_project_key": source_key,
+            "activated": bool(payload.activate),
+            "copied_counts": copied_counts,
+        }
+    )
+
+
+@router.post("/auto-create")
+def auto_create_project(payload: AutoCreateProjectPayload) -> dict:
+    target_key = _build_auto_project_key(payload.project_name, payload.project_key)
+    if target_key in ("public", "default"):
+        raise HTTPException(status_code=409, detail="project_key is reserved")
+    if _project_exists(target_key):
+        raise HTTPException(status_code=409, detail="project_key already exists")
+
+    template_key = _normalize_project_key(payload.template_project_key)
+    if payload.copy_initial_data:
+        if not _project_exists(template_key):
+            raise HTTPException(status_code=404, detail=f"template project not found: {template_key}")
+        created = inject_initial_project(
+            InjectInitialProjectPayload(
+                project_key=target_key,
+                name=payload.project_name,
+                source_project_key=template_key,
+                overwrite=False,
+                activate=payload.activate,
+            )
+        )
+        created = (created.get("data") if isinstance(created, dict) else None) or {}
+        created_mode = "inject_initial"
+    else:
+        created = create_project(
+            CreateProjectPayload(
+                project_key=target_key,
+                name=payload.project_name,
+                enabled=True,
+            )
+        )
+        created = (created.get("data") if isinstance(created, dict) else None) or {}
+        if payload.activate:
+            activate_project(target_key)
+        created = {
+            "project_key": target_key,
+            "name": payload.project_name,
+            "schema_name": created.get("schema_name"),
+            "activated": bool(payload.activate),
+            "copied_counts": {},
+        }
+        created_mode = "create_empty"
+
+    llm_applied = _apply_llm_configs_to_project(target_key, payload.llm_configs)
+    return ok(
+        {
+            **created,
+            "created_mode": created_mode,
+            "template_project_key": template_key,
+            "llm_configs_applied": llm_applied,
+        }
+    )
+
+
+@router.patch("/{project_key}")
+def update_project(project_key: str, payload: UpdateProjectPayload) -> dict:
+    normalized_key = _normalize_project_key(project_key)
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            project = session.execute(
+                select(Project).where(Project.project_key == normalized_key)
+            ).scalar_one_or_none()
+            if project is None:
+                raise HTTPException(status_code=404, detail="project not found")
+
+            changed = False
+            if payload.name is not None:
+                project.name = payload.name
+                changed = True
+            if payload.enabled is not None:
+                project.enabled = bool(payload.enabled)
+                if not project.enabled and project.is_active:
+                    project.is_active = False
+                changed = True
+
+            if changed:
+                session.commit()
+                session.refresh(project)
+
+            # If disabling an active project, pick a fallback active.
+            if payload.enabled is False:
+                active = session.execute(select(Project).where(Project.is_active == True)).scalar_one_or_none()  # noqa: E712
+                if active is None:
+                    fallback = (
+                        session.execute(
+                            select(Project)
+                            .where(Project.enabled == True)  # noqa: E712
+                            .order_by(Project.project_key.asc())
+                        )
+                        .scalars()
+                        .first()
+                    )
+                    if fallback is not None:
+                        fallback.is_active = True
+                        session.commit()
+                        return ok(
+                            {
+                                "project_key": normalized_key,
+                                "fallback_active_project_key": fallback.project_key,
+                            }
+                        )
+
+    return ok({"project_key": normalized_key})
+
+
+@router.post("/{project_key}/archive")
+def archive_project(project_key: str) -> dict:
+    normalized_key = _normalize_project_key(project_key)
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            project = session.execute(
+                select(Project).where(Project.project_key == normalized_key)
+            ).scalar_one_or_none()
+            if project is None:
+                raise HTTPException(status_code=404, detail="project not found")
+
+            project.enabled = False
+            if project.is_active:
+                project.is_active = False
+
+            # Pick fallback active if needed.
+            active = session.execute(select(Project).where(Project.is_active == True)).scalar_one_or_none()  # noqa: E712
+            if active is None:
+                fallback = (
+                    session.execute(
+                        select(Project)
+                        .where(Project.enabled == True)  # noqa: E712
+                        .order_by(Project.project_key.asc())
+                    )
+                    .scalars()
+                    .first()
+                )
+                if fallback is not None:
+                    fallback.is_active = True
+
+            session.commit()
+
+    return ok({"project_key": normalized_key, "archived": True})
+
+
+@router.post("/{project_key}/restore")
+def restore_project(project_key: str) -> dict:
+    normalized_key = _normalize_project_key(project_key)
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            project = session.execute(
+                select(Project).where(Project.project_key == normalized_key)
+            ).scalar_one_or_none()
+            if project is None:
+                raise HTTPException(status_code=404, detail="project not found")
+            project.enabled = True
+            session.commit()
+    return ok({"project_key": normalized_key, "archived": False})
+
+
+@router.post("/{project_key}/activate")
+def activate_project(project_key: str) -> dict:
+    normalized_key = _normalize_project_key(project_key)
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            project = session.execute(
+                select(Project).where(Project.project_key == normalized_key)
+            ).scalar_one_or_none()
+            if project is None:
+                raise HTTPException(status_code=404, detail="project not found")
+            if not project.enabled:
+                raise HTTPException(status_code=409, detail="project is archived/disabled")
+
+            all_rows = session.execute(select(Project)).scalars().all()
+            for row in all_rows:
+                row.is_active = row.project_key == normalized_key
+            session.commit()
+
+    return ok({"active_project_key": normalized_key})
+
+
+@router.delete("/{project_key}")
+def delete_project(project_key: str, hard: bool = Query(default=False)) -> dict:
+    normalized_key = _normalize_project_key(project_key)
+    if hard and normalized_key == "default":
+        raise HTTPException(status_code=409, detail="default project cannot be hard-deleted")
+
+    with bind_schema("public"):
+        with SessionLocal() as session:
+            project = session.execute(
+                select(Project).where(Project.project_key == normalized_key)
+            ).scalar_one_or_none()
+            if project is None:
+                raise HTTPException(status_code=404, detail="project not found")
+
+            schema_name = project.schema_name
+            was_active = bool(project.is_active)
+
+            if not hard:
+                # Soft-delete == archive
+                project.enabled = False
+                project.is_active = False
+                if was_active:
+                    fallback = (
+                        session.execute(
+                            select(Project)
+                            .where(Project.enabled == True)  # noqa: E712
+                            .where(Project.project_key != normalized_key)
+                            .order_by(Project.project_key.asc())
+                        )
+                        .scalars()
+                        .first()
+                    )
+                    if fallback is not None:
+                        fallback.is_active = True
+                session.commit()
+                return ok({"project_key": normalized_key, "deleted": False, "archived": True})
+
+            # Hard delete: remove control-plane row and drop schema
+            if was_active:
+                fallback = (
+                    session.execute(
+                        select(Project)
+                        .where(Project.enabled == True)  # noqa: E712
+                        .where(Project.project_key != normalized_key)
+                        .order_by(Project.project_key.asc())
+                    )
+                    .scalars()
+                    .first()
+                )
+                if fallback is not None:
+                    fallback.is_active = True
+
+            session.delete(project)
+            session.commit()
+
+    with engine.begin() as conn:
+        # best-effort cleanup sync cursors
+        conn.execute(text("DELETE FROM public.project_sync_state WHERE project_key = :k"), {"k": normalized_key})
+        if schema_name:
+            conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
+
+    return ok({"project_key": normalized_key, "deleted": True, "hard": True})

@@ -1,0 +1,123 @@
+{
+  "command": "帮我搜索人工智能终端的一些成功例子",
+  "project_key": "demo_proj",
+  "submit": {
+    "job_id": "abj-18aa73fc58654986",
+    "status": "accepted",
+    "accepted_count": 1,
+    "rejected_count": 0,
+    "accepted_job_items": [
+      {
+        "index": 0,
+        "item_id": "abj-18aa73fc58654986-item-1",
+        "task_id": "8f91aabd-ff6d-4eaf-b0b5-9ff4aa6a8eb1",
+        "channel": "search.market",
+        "item_key": null,
+        "query_terms": [
+          "帮我搜索人工智能终端的一些成功例子"
+        ],
+        "contract_version": "collect.request.v2"
+      }
+    ],
+    "rejected_job_items": [],
+    "created_at": "2026-03-11T18:53:46.662263+00:00",
+    "links": {
+      "self": "/api/v1/agent-batch/jobs/abj-18aa73fc58654986",
+      "items": "/api/v1/agent-batch/jobs/abj-18aa73fc58654986/items",
+      "events": "/api/v1/agent-batch/jobs/abj-18aa73fc58654986/events",
+      "retry": "/api/v1/agent-batch/jobs/abj-18aa73fc58654986/retry"
+    },
+    "rule_set_id": null
+  },
+  "parsed": {
+    "channel": "search.market",
+    "query_terms": [
+      "帮我搜索人工智能终端的一些成功例子"
+    ],
+    "max_items": 20,
+    "provider": "auto",
+    "language": "zh",
+    "days_back": 7
+  },
+  "job": {
+    "job_id": "abj-18aa73fc58654986",
+    "status": "completed",
+    "phase": "completed",
+    "progress": {
+      "total": 1,
+      "succeeded": 1,
+      "failed": 0,
+      "running": 0,
+      "queued": 0
+    },
+    "started_at": "2026-03-11T18:53:46.662263+00:00",
+    "updated_at": "2026-03-11T18:53:48.688004+00:00",
+    "finished_at": "2026-03-11T18:53:48.688024+00:00",
+    "retry_count": 0,
+    "error": null,
+    "meta": {
+      "project_key": "demo_proj"
+    }
+  },
+  "items": [
+    {
+      "item_id": "abj-18aa73fc58654986-item-1",
+      "task_id": "8f91aabd-ff6d-4eaf-b0b5-9ff4aa6a8eb1",
+      "status": "success",
+      "input": {
+        "item_key": "",
+        "channel": "search.market",
+        "query_terms": [
+          "帮我搜索人工智能终端的一些成功例子"
+        ],
+        "max_items": 20,
+        "provider": "auto",
+        "language": "zh",
+        "days_back": 7,
+        "override_params": {}
+      },
+      "output": {
+        "inserted": 0,
+        "inserted_valid": 0,
+        "skipped": 0,
+        "links": [],
+        "doc_type": "market_info",
+        "body_fetch_routed_urls": 0,
+        "body_fetch_inserted": 0,
+        "body_fetch_skipped": 0,
+        "display_meta": {
+          "version": 1,
+          "flow": "collect",
+          "channel": "search.market",
+          "summary": "市场信息采集",
+          "provider": "auto",
+          "language": "zh",
+          "query_terms_count": 1,
+          "url_count": 0,
+          "limit": 20,
+          "status": "completed",
+          "inserted": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors_count": 0
+        }
+      },
+      "error": null,
+      "last_update_at": "2026-03-11T18:53:48.692565+00:00"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt-8f91aabd-ff6d-4eaf-b0b5-9ff4aa6a8eb1",
+      "event_type": "task.success",
+      "ts": "2026-03-11T18:53:48.696063+00:00",
+      "item_id": "abj-18aa73fc58654986-item-1",
+      "severity": "info",
+      "message": "task 8f91aabd-ff6d-4eaf-b0b5-9ff4aa6a8eb1 status=success",
+      "payload": {
+        "task_id": "8f91aabd-ff6d-4eaf-b0b5-9ff4aa6a8eb1",
+        "status": "success"
+      }
+    }
+  ]
+}

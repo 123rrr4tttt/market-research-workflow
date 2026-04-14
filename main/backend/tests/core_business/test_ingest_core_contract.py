@@ -1,0 +1,480 @@
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+pytestmark = pytest.mark.integration
+
+try:
+    from fastapi.testclient import TestClient
+    from app.main import app as backend_app
+
+    _IMPORT_ERROR = None
+except Exception as exc:  # noqa: BLE001
+    _IMPORT_ERROR = exc
+
+
+class _TrackedTasks:
+    def __init__(self) -> None:
+        self.task_ingest_market = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-1")))
+        self.task_ingest_url_via_source_library = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1")))
+        self.task_run_source_library_item = SimpleNamespace(
+            delay=Mock(return_value=SimpleNamespace(id="source-library-task-1"))
+        )
+
+
+class _ApplyAsyncTask:
+    def __init__(self, task_id: str) -> None:
+        self.delay = Mock(return_value=SimpleNamespace(id=task_id))
+        self.apply_async = Mock(return_value=SimpleNamespace(id=task_id))
+
+
+def _response_payload(body):
+    if isinstance(body, dict) and isinstance(body.get("data"), dict):
+        return body["data"]
+    return body
+
+
+class IngestCoreContractTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if _IMPORT_ERROR is not None:
+            raise unittest.SkipTest(f"ingest core contract tests require backend dependencies: {_IMPORT_ERROR}")
+        cls.client = TestClient(backend_app)
+
+    def test_market_rejects_empty_query_terms_before_task_dispatch(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "query_terms": [],
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/market", json=payload)
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("query_terms is required and cannot be empty", resp.text)
+        tasks.task_ingest_market.delay.assert_not_called()
+
+    def test_source_library_run_rejects_missing_and_conflicting_identifiers(self):
+        tasks = _TrackedTasks()
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            missing_resp = self.client.post(
+                "/api/v1/ingest/source-library/run",
+                json={"project_key": "demo_proj", "async_mode": True},
+            )
+            conflict_resp = self.client.post(
+                "/api/v1/ingest/source-library/run",
+                json={
+                    "project_key": "demo_proj",
+                    "item_key": "demo-item",
+                    "handler_key": "news",
+                    "async_mode": True,
+                },
+            )
+
+        self.assertEqual(missing_resp.status_code, 400)
+        self.assertIn("item_key or handler_key is required", missing_resp.text)
+
+        self.assertEqual(conflict_resp.status_code, 400)
+        self.assertIn("mutually exclusive", conflict_resp.text)
+
+        tasks.task_run_source_library_item.delay.assert_not_called()
+
+    def test_market_async_normalizes_params_and_returns_task_contract_shape(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "keywords": [" acme ", "", "acme", "tesla "],
+            "limit": 5,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/market", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+
+        data = _response_payload(body)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data.get("task_id"), "market-task-1")
+        self.assertEqual(data.get("status"), "queued")
+        self.assertTrue(data.get("async"))
+        self.assertEqual(data.get("params"), {"query_terms": ["acme", "tesla"], "max_items": 5})
+
+        tasks.task_ingest_market.delay.assert_called_once_with(
+            ["acme", "tesla"],
+            5,
+            True,
+            "demo_proj",
+            None,
+            None,
+            None,
+            None,
+            workflow_run_id=None,
+            trace_id=None,
+        )
+
+    def test_source_library_run_async_returns_task_contract_shape(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "override_params": {"k": "v"},
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+
+        data = _response_payload(body)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data.get("task_id"), "source-library-task-1")
+        self.assertEqual(data.get("status"), "queued")
+        self.assertTrue(data.get("async"))
+        self.assertEqual(data.get("params"), {"item_key": "demo-item"})
+
+        tasks.task_run_source_library_item.delay.assert_called_once_with(
+            "demo-item",
+            "demo_proj",
+            {"k": "v"},
+            workflow_run_id=None,
+            trace_id=None,
+        )
+
+    def test_source_library_run_promotes_top_level_fields_into_override_params(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "query_terms": ["ai terminal"],
+            "urls": ["https://example.com/a"],
+            "max_items": 3,
+            "provider": "google",
+            "language": "zh",
+            "scope": "project",
+            "platforms": ["web", "rss"],
+            "source_mode": "site_search",
+            "override_params": {"k": "v"},
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        tasks.task_run_source_library_item.delay.assert_called_once_with(
+            "demo-item",
+            "demo_proj",
+            {
+                "k": "v",
+                "query_terms": ["ai terminal"],
+                "urls": ["https://example.com/a"],
+                "max_items": 3,
+                "limit": 3,
+                "provider": "google",
+                "language": "zh",
+                "scope": "project",
+                "platforms": ["web", "rss"],
+                "source_mode": "site_search",
+            },
+            workflow_run_id=None,
+            trace_id=None,
+        )
+
+    def test_source_library_run_items_batch_uses_item_form_only(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "project_key": "demo_proj",
+            "items": [
+                {
+                    "item_key": "demo-item",
+                    "async_mode": True,
+                    "override_params": {"k": "v"},
+                },
+                {
+                    "item_key": "demo-item-2",
+                    "async_mode": True,
+                },
+            ],
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+        data = _response_payload(body)
+        self.assertTrue(bool(data.get("batch")))
+        self.assertEqual(data.get("count"), 2)
+        self.assertEqual(data.get("queued"), 2)
+        self.assertEqual(len(data.get("items") or []), 2)
+
+        self.assertEqual(tasks.task_run_source_library_item.delay.call_count, 2)
+        calls = tasks.task_run_source_library_item.delay.call_args_list
+        self.assertEqual(calls[0].args, ("demo-item", "demo_proj", {"k": "v"}))
+        self.assertEqual(calls[1].args, ("demo-item-2", "demo_proj", {}))
+
+    def test_source_library_run_sync_preserves_terminal_payload_and_exposes_frontdoor_tracks(self):
+        payload = {
+            "item_key": "external.demo.item",
+            "project_key": "demo_proj",
+            "async_mode": False,
+            "override_params": {"max_items": 2},
+        }
+        compat_result = {
+            "terminal_output": {
+                "contract_version": "source_library.terminal_output.v1",
+                "status": "ok",
+                "source_mode": "protocol_search",
+                "item": {
+                    "item_key": "external.demo.item",
+                    "item_type": "user_defined",
+                    "managed_by": "user",
+                    "external_manifest": {
+                        "project_link": "https://github.com/example/external-demo",
+                        "execution_mode": "rss_feed",
+                    },
+                },
+                "request": {"project_key": "demo_proj"},
+                "results": {
+                    "records": [{"record_id": "r1", "url": "https://example.com/a", "title": "Alpha"}],
+                    "stats": {"fetched": 1, "normalized": 1, "dropped": 0, "errors": 0},
+                },
+                "errors": [],
+                "meta": {"reason_code": "ok"},
+            },
+            "frontdoor_ingress": {
+                "contract_version": "frontdoor.ingress.v1",
+                "ingress_type": "source_library",
+                "source_ref": {
+                    "source_kind": "feed_aggregator",
+                    "execution_mode": "rss_feed",
+                },
+            },
+            "postprocess_frontdoor": {
+                "status": "ok",
+                "data": {"admission": "defer"},
+            },
+            "legacy_result": {
+                "item_key": "external.demo.item",
+                "channel_key": "external_project.manifest",
+            },
+            "legacy_result_is_deprecated": True,
+            "display_meta": {"summary": "external item"},
+        }
+
+        with patch("app.services.collect_runtime.run_source_library_item_compat", return_value=compat_result):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+        data = _response_payload(body)
+        self.assertEqual(data["contract_version"], "source_library.terminal_output.v1")
+        self.assertEqual(data["terminal_output"]["contract_version"], "source_library.terminal_output.v1")
+        self.assertEqual(data["authority_output"]["contract_version"], "source_library.authority_output.v1")
+        self.assertEqual(data["compat_projection"]["contract_version"], "source_library.compat_projection.v1")
+        self.assertEqual(data["frontdoor_ingress"]["contract_version"], "frontdoor.ingress.v1")
+        self.assertEqual(data["frontdoor_ingress"]["ingress_type"], "source_library")
+        self.assertEqual(data["postprocess_frontdoor"]["data"]["admission"], "defer")
+        self.assertEqual(data["legacy_result"]["item_key"], "external.demo.item")
+        self.assertEqual(data["item"]["item_key"], "external.demo.item")
+
+    def test_market_async_routes_with_lane_queue_when_apply_async_available(self):
+        tasks = SimpleNamespace(
+            task_ingest_market=_ApplyAsyncTask("market-task-apply"),
+            task_ingest_url_via_source_library=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1"))),
+            task_run_source_library_item=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="source-library-task-1"))),
+        )
+        payload = {
+            "query_terms": ["acme"],
+            "max_items": 5,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest.settings.agent_batch_lane_main_queue",
+            "lane-main-q",
+        ):
+            resp = self.client.post("/api/v1/ingest/market", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        tasks.task_ingest_market.apply_async.assert_called_once()
+        self.assertEqual(tasks.task_ingest_market.apply_async.call_args.kwargs["queue"], "lane-main-q")
+        self.assertEqual(tasks.task_ingest_market.apply_async.call_args.kwargs["routing_key"], "agent_batch.main")
+
+    def test_source_library_run_async_routes_with_subagent_lane_when_apply_async_available(self):
+        tasks = SimpleNamespace(
+            task_ingest_market=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-1"))),
+            task_ingest_url_via_source_library=SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="single-url-task-1"))),
+            task_run_source_library_item=_ApplyAsyncTask("source-library-task-apply"),
+        )
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "override_params": {"k": "v"},
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest.settings.agent_batch_lane_subagent_queue",
+            "lane-subagent-q",
+        ):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        tasks.task_run_source_library_item.apply_async.assert_called_once()
+        self.assertEqual(tasks.task_run_source_library_item.apply_async.call_args.kwargs["queue"], "lane-subagent-q")
+        self.assertEqual(tasks.task_run_source_library_item.apply_async.call_args.kwargs["routing_key"], "agent_batch.subagent")
+
+    def test_url_single_async_task_contract_compat_with_task_result_status(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "url": "https://example.com/post/42",
+            "query_terms": ["market"],
+            "strict_mode": True,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+
+        data = _response_payload(body)
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data.get("task_id"), "single-url-task-1")
+        self.assertEqual(data.get("status"), "queued")
+        self.assertTrue(data.get("async"))
+        self.assertEqual(
+            data.get("params"),
+            {
+                "url": "https://example.com/post/42",
+                "query_terms": ["market"],
+                "strict_mode": True,
+            },
+        )
+        task_result_status = data.get("task_result_status")
+        if task_result_status is not None:
+            self.assertEqual(task_result_status, data.get("status"))
+
+        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
+            "https://example.com/post/42",
+            ["market"],
+            True,
+            "demo_proj",
+        )
+
+    def test_url_single_async_includes_light_filter_search_options_when_overridden(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "url": "https://example.com/post/43",
+            "query_terms": ["market"],
+            "strict_mode": False,
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "light_filter_enabled": False,
+            "light_filter_min_score": 55,
+            "light_filter_reject_static_assets": False,
+            "light_filter_reject_search_noise_domain": False,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+
+        data = _response_payload(body)
+        self.assertIsInstance(data, dict)
+        params = data.get("params") or {}
+        self.assertEqual(params.get("url"), "https://example.com/post/43")
+        self.assertEqual(params.get("strict_mode"), False)
+        self.assertIsInstance(params.get("search_options"), dict)
+        self.assertEqual(params["search_options"].get("light_filter_enabled"), False)
+        self.assertEqual(params["search_options"].get("light_filter_min_score"), 55)
+        self.assertEqual(params["search_options"].get("light_filter_reject_static_assets"), False)
+        self.assertEqual(params["search_options"].get("light_filter_reject_search_noise_domain"), False)
+
+        effective_payload = data.get("effective_payload") or {}
+        self.assertEqual(effective_payload.get("light_filter_enabled"), False)
+        self.assertEqual(effective_payload.get("light_filter_min_score"), 55)
+        self.assertEqual(effective_payload.get("light_filter_reject_static_assets"), False)
+        self.assertEqual(effective_payload.get("light_filter_reject_search_noise_domain"), False)
+
+        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
+            "https://example.com/post/43",
+            ["market"],
+            False,
+            "demo_proj",
+            {
+                "search_expand": True,
+                "search_expand_limit": 3,
+                "search_provider": "auto",
+                "search_fallback_provider": "ddg_html",
+                "fallback_on_insufficient": True,
+                "allow_search_summary_write": False,
+                "min_results_required": 6,
+                "target_candidates": 6,
+                "decode_redirect_wrappers": True,
+                "filter_low_value_candidates": True,
+                "light_filter_enabled": False,
+                "light_filter_min_score": 55,
+                "light_filter_reject_static_assets": False,
+                "light_filter_reject_search_noise_domain": False,
+            },
+        )
+
+    def test_url_single_sync_response_contains_effective_payload_with_light_filter_fields(self):
+        payload = {
+            "url": "https://example.com/post/44",
+            "query_terms": ["market"],
+            "strict_mode": False,
+            "project_key": "demo_proj",
+            "async_mode": False,
+            "light_filter_min_score": 42,
+        }
+
+        with patch(
+            "app.services.ingest.url_pool.ingest_url_via_source_library_frontdoor",
+            return_value={"status": "degraded_success", "inserted": 0},
+        ):
+            resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+        data = _response_payload(body)
+        self.assertEqual(data.get("status"), "degraded_success")
+        effective_payload = data.get("effective_payload") or {}
+        self.assertEqual(effective_payload.get("url"), "https://example.com/post/44")
+        self.assertEqual(effective_payload.get("light_filter_enabled"), True)
+        self.assertEqual(effective_payload.get("light_filter_min_score"), 42)
+        self.assertEqual(effective_payload.get("light_filter_reject_static_assets"), True)
+        self.assertEqual(effective_payload.get("light_filter_reject_search_noise_domain"), True)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,52 @@
+**结果**
+- 已实现“provider-first”方案：当 `llm_provider == "litellm"` 时，LLM 调用静态绑定到 LiteLLM 的 OpenAI 兼容端点；其他 provider 继续走既有适配器（openai/azure/ollama）。本地兜底仅作为应急接口暴露，不纳入 chains 组合。
+- 业务服务层保持“只通过适配器调用 LLM”，未引入直连 SDK 用法。
+- 通过最小编译校验；单测命令在当前环境缺少 `pytest`，按验收脚本容错策略（`|| true`）已记录并不阻断。
+
+**原子任务A：扩展设置（并行）**
+- 目标: 为 LiteLLM 与本地兜底增加配置项，扩展 provider 取值范围（不破坏现有默认）。
+- 输入: 现有 `Settings` 定义与加载逻辑。
+- 输出: 新增字段与注释；支持 `litellm` 与 `local`。
+- 验收: `python -m py_compile main/backend/app/settings/config.py` 通过。
+- 变更要点:
+  - `llm_provider` 注释扩展为 `openai | azure | ollama | litellm | local`。
+  - 新增 LiteLLM 网关字段：`litellm_api_base: Optional[str]`、`litellm_api_key: Optional[str]`。
+  - 新增本地兜底开关：`local_llm_enabled: bool = True`。
+
+**原子任务B：Provider 静态绑定 + 兜底接口（并行）**
+- 目标: 在 provider 层实现 LiteLLM 静态绑定；提供仅限紧急场景的本地兜底接口。
+- 输入: 既有 `LangChainProviderAdapter` 与 `settings`。
+- 输出: 新的 `litellm` 分支与 `get_local_fallback_chat()`。
+- 验收: `python -m py_compile main/backend/app/services/llm/provider.py` 通过。
+- 变更要点:
+  - 当 `settings.llm_provider == "litellm"`：
+    - `get_chat_model()` 返回 `langchain_openai.ChatOpenAI(model=..., base_url=settings.litellm_api_base, api_key=settings.litellm_api_key or "")`。
+    - `get_embeddings()` 返回 `OpenAIEmbeddings(base_url=..., api_key=...)`。
+  - 其他 provider 保持通过 `LangChainProviderAdapter` 实现（无动态路由）。
+  - 新增 `get_local_fallback_chat()`：返回仅具备 `.invoke()` 与 `.with_retry()` 的轻量对象，供业务在无外部连通时做应急调用；不参与 `prompt | llm | parser` 的链式组合。
+
+**原子任务C：业务服务“只经适配器调用”一致性检查**
+- 目标: 确认业务层未直连 SDK。
+- 输入: 代码库检索结果。
+- 输出: 未发现直连 `ChatOpenAI/AzureChatOpenAI` 等用法；如 `keyword_generation.py` 均调用 `services.llm.provider.get_chat_model`。
+- 验收: 代码检视通过（`rg` 检索）。
+
+**改动文件**
+- main/backend/app/settings/config.py:79,85-86,99
+- main/backend/app/services/llm/provider.py:1-120
+
+**验证状态**
+- 编译校验
+  - 通过: `python -m py_compile main/backend/app/services/llm/*.py main/backend/app/api/llm_config.py main/backend/app/api/llm_report.py main/backend/app/services/keyword_generation.py main/backend/app/services/report.py`
+- 单测尝试
+  - 命令: `cd main/backend && pytest -q tests/unit -k "llm or report or keyword" || true`
+  - 结果: 当前环境缺少 `pytest`（命令不存在），按验收命令的 `|| true` 容错策略不作为失败处理。
+
+**风险**
+- 运行时依赖：`langchain-openai` 已在 `requirements.txt`；若部署侧未配置 `settings.litellm_api_base`/`litellm_api_key`，`litellm` 分支会创建到空 `base_url`/`api_key` 的客户端，需运维确保网关地址与密钥正确。
+- 本地兜底：`get_local_fallback_chat()` 不参与 LangChain Runnable 管道，仅适合直接 `.invoke(prompt)` 的紧急使用；如误用于 `prompt | llm | parser` 将不兼容。
+- 环境差异：CI/本地需具备 `pytest` 方可实际执行单测；当前任务验收脚本允许跳过，但建议后续在目标环境补齐以获得完整回归信心。
+
+如果需要，我可以：
+- 在配置 API 暴露/校验 `llm_provider == litellm` 时的必须字段，给出更清晰的 422 错误。
+- 为兜底接口补充一个最小回归用例（仅在具备 `pytest` 环境时启用）。

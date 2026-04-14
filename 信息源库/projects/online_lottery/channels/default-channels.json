@@ -1,0 +1,65 @@
+[
+  {
+    "channel_key": "social.reddit",
+    "name": "Reddit Discussion Channel",
+    "kind": "social",
+    "provider": "reddit",
+    "description": "Collect lottery discussions from a target subreddit.",
+    "credential_refs": ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"],
+    "default_params": {
+      "subreddit": "Lottery",
+      "limit": 20
+    },
+    "param_schema": {
+      "required": ["subreddit"]
+    },
+    "enabled": true
+  },
+  {
+    "channel_key": "news.google",
+    "name": "Google News Search Channel",
+    "kind": "news",
+    "provider": "google_news",
+    "description": "Search lottery news by keyword list.",
+    "credential_refs": [],
+    "default_params": {
+      "keywords": ["lottery regulation"],
+      "limit": 20
+    },
+    "param_schema": {
+      "required": ["keywords"]
+    },
+    "enabled": true
+  },
+  {
+    "channel_key": "policy.default",
+    "name": "Policy Ingest Channel",
+    "kind": "policy",
+    "provider": "policy",
+    "description": "Ingest lottery policy documents by state.",
+    "credential_refs": ["LEGISCAN_API_KEY"],
+    "default_params": {
+      "state": "CA"
+    },
+    "param_schema": {
+      "required": ["state"]
+    },
+    "enabled": true
+  },
+  {
+    "channel_key": "lottery.stats",
+    "name": "Lottery Stats Channel",
+    "kind": "stats",
+    "provider": "lottery",
+    "description": "Fixed source: CA/NY/TX lottery draw and sales stats.",
+    "credential_refs": [],
+    "default_params": {
+      "state": "CA",
+      "limit": 30
+    },
+    "param_schema": {
+      "required": ["state"]
+    },
+    "enabled": true
+  }
+]

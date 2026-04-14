@@ -1,0 +1,12 @@
+https://www.rfc-editor.org/rfc/rfc9110
+https://www.rfc-editor.org/rfc/rfc9457
+https://opentelemetry.io/docs/specs/otel/
+https://opentelemetry.io/docs/specs/semconv/
+https://slsa.dev/spec/v1.0/
+https://docs.sigstore.dev/
+https://github.com/in-toto/attestation/tree/main/spec
+https://kubernetes.io/docs/concepts/workloads/autoscaling/
+https://argo-rollouts.readthedocs.io/en/stable/features/analysis/
+https://semver.org/
+https://opensource.google/docs/releasing/versioning/
+https://cloud.google.com/architecture/devops/devops-measurement-monitoring-and-observability
