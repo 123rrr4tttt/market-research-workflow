@@ -295,6 +295,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
   const [templateValidation, setTemplateValidation] = useState<WritingTemplateValidation | null>(null)
   const [llmOutput, setLlmOutput] = useState('')
+  const [citationTrayVisible, setCitationTrayVisible] = useState(true)
   const [citationTrayCollapsed, setCitationTrayCollapsed] = useState(false)
   const [citationTrayDragOver, setCitationTrayDragOver] = useState(false)
   const [autosaveMessage, setAutosaveMessage] = useState('idle')
@@ -1443,7 +1444,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
             <button type="button" className={panelButtonClass(insightsPanelOpen)} onClick={toggleInsightsPanel}>
               资料
             </button>
-            <button type="button" className={panelButtonClass(!citationTrayCollapsed)} onClick={toggleCitationTray}>
+            <button type="button" className={panelButtonClass(citationTrayVisible)} onClick={() => { activateFloatingWindow('citations'); setCitationTrayVisible((prev) => !prev) }}>
               引用
             </button>
             <button type="button" className={panelButtonClass(llmPanelOpen)} onClick={toggleLlmPanel}>
@@ -1677,7 +1678,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           ) : null}
         </main>
 
-        <CitationBasket
+        {citationTrayVisible && <CitationBasket
           containerRef={citationTrayRef}
           dockEdge={citationTrayPosition.edge}
           style={citationTrayStyle}
@@ -1698,7 +1699,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
               await queryClient.invalidateQueries({ queryKey: queryKeys.writing.citations(projectKey, effectiveDocumentId) })
             })
           }}
-        />
+        />}
 
         {pinnedCardsWithDetail.map((item, index) => {
           const resolvedPinnedAnchor = resolveInsightCardAnchor(item.anchor, viewport)
