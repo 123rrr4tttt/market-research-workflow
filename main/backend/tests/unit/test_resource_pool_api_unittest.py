@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from starlette.requests import Request
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -29,6 +30,18 @@ DiscoverSearchContractPayload = _MODULE.DiscoverSearchContractPayload
 discover_search_contract_api = _MODULE.discover_search_contract_api
 ImportOpenSourcePresetPayload = _MODULE.ImportOpenSourcePresetPayload
 import_open_source_presets_api = _MODULE.import_open_source_presets_api
+
+
+def _build_request() -> Request:
+    return Request(
+        {
+            "type": "http",
+            "headers": [],
+            "method": "POST",
+            "path": "/resource_pool",
+            "query_string": b"",
+        }
+    )
 
 
 class ResourcePoolApiUnitTestCase(unittest.TestCase):
@@ -54,7 +67,7 @@ class ResourcePoolApiUnitTestCase(unittest.TestCase):
         )
 
         with patch.object(_MODULE, "discover_search_contract", return_value=fake_result):
-            response = discover_search_contract_api(payload)
+            response = discover_search_contract_api(payload, _build_request())
 
         self.assertEqual(response.status_code, 200)
         body = response.body.decode("utf-8")
@@ -78,7 +91,7 @@ class ResourcePoolApiUnitTestCase(unittest.TestCase):
         )
 
         with patch.object(_MODULE, "import_open_source_preset_pack", return_value=fake_result):
-            response = import_open_source_presets_api(payload)
+            response = import_open_source_presets_api(payload, _build_request())
 
         self.assertEqual(response.status_code, 200)
         body = response.body.decode("utf-8")

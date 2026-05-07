@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 
+from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal, engine
 from ..models.base import Base
@@ -41,6 +42,36 @@ from ..services.projects.context import bind_project, bind_schema, project_schem
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
+
+
+def _raise_invalid_input(message: str, *, status_code: int = 400) -> None:
+    raise HTTPException(
+        status_code=status_code,
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            message,
+        ),
+    )
+
+
+def _raise_not_found(message: str) -> None:
+    raise HTTPException(
+        status_code=404,
+        detail=error_response(
+            ErrorCode.NOT_FOUND,
+            message,
+        ),
+    )
+
+
+def _raise_internal_error(message: str) -> None:
+    raise HTTPException(
+        status_code=500,
+        detail=error_response(
+            ErrorCode.INTERNAL_ERROR,
+            message,
+        ),
+    )
 
 
 class CreateProjectPayload(BaseModel):
@@ -170,7 +201,7 @@ def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
 
     seed_file = _locate_demo_seed_file()
     if not seed_file:
-        raise HTTPException(status_code=500, detail="demo seed file not found under backend/seed_data")
+        _raise_internal_error("demo seed file not found under backend/seed_data")
 
     sql_text = seed_file.read_text(encoding="utf-8")
     # Data-only dumps may include sequence setval statements that can fail on fresh schemas.
@@ -469,7 +500,7 @@ def list_projects() -> dict:
 def create_project(payload: CreateProjectPayload) -> dict:
     normalized_key = _normalize_project_key(payload.project_key)
     if normalized_key in ("public", "default"):
-        raise HTTPException(status_code=409, detail="project_key is reserved")
+        _raise_invalid_input("project_key is reserved", status_code=409)
     schema_name = project_schema_name(normalized_key)
 
     with bind_schema("public"):
@@ -478,7 +509,7 @@ def create_project(payload: CreateProjectPayload) -> dict:
                 select(Project).where(Project.project_key == normalized_key)
             ).scalar_one_or_none()
             if existed:
-                raise HTTPException(status_code=409, detail="project_key already exists")
+                _raise_invalid_input("project_key already exists", status_code=409)
 
             row = Project(
                 project_key=normalized_key,
@@ -501,11 +532,11 @@ def create_project(payload: CreateProjectPayload) -> dict:
 def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
     source_project_key_raw = (payload.source_project_key or "").strip()
     if not source_project_key_raw:
-        raise HTTPException(status_code=400, detail="source_project_key is required")
+        _raise_invalid_input("source_project_key is required")
     source_key = _normalize_project_key(source_project_key_raw)
     target_key = _normalize_project_key(payload.project_key or f"{source_key}_{int(__import__('time').time())}")
     if target_key in ("public", "default"):
-        raise HTTPException(status_code=409, detail="project_key is reserved")
+        _raise_invalid_input("project_key is reserved", status_code=409)
     source_schema = project_schema_name(source_key)
     target_schema = project_schema_name(target_key)
     target_name = (payload.name or f"{source_key}（初始注入）").strip()
@@ -519,17 +550,17 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
             {"s": source_schema},
         ).scalar()
         if not source_exists:
-            raise HTTPException(status_code=404, detail=f"source project schema not found: {source_schema}")
+            _raise_not_found(f"source project schema not found: {source_schema}")
 
     with bind_schema("public"):
         with SessionLocal() as session:
             src_project = session.execute(select(Project).where(Project.project_key == source_key)).scalar_one_or_none()
             if src_project is None:
-                raise HTTPException(status_code=404, detail=f"source project not found: {source_key}")
+                _raise_not_found(f"source project not found: {source_key}")
 
             existed = session.execute(select(Project).where(Project.project_key == target_key)).scalar_one_or_none()
             if existed and not payload.overwrite:
-                raise HTTPException(status_code=409, detail="project_key already exists (set overwrite=true)")
+                _raise_invalid_input("project_key already exists (set overwrite=true)", status_code=409)
 
             if existed and payload.overwrite:
                 session.delete(existed)
@@ -623,14 +654,14 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
 def auto_create_project(payload: AutoCreateProjectPayload) -> dict:
     target_key = _build_auto_project_key(payload.project_name, payload.project_key)
     if target_key in ("public", "default"):
-        raise HTTPException(status_code=409, detail="project_key is reserved")
+        _raise_invalid_input("project_key is reserved", status_code=409)
     if _project_exists(target_key):
-        raise HTTPException(status_code=409, detail="project_key already exists")
+        _raise_invalid_input("project_key already exists", status_code=409)
 
     template_key = _normalize_project_key(payload.template_project_key)
     if payload.copy_initial_data:
         if not _project_exists(template_key):
-            raise HTTPException(status_code=404, detail=f"template project not found: {template_key}")
+            _raise_not_found(f"template project not found: {template_key}")
         created = inject_initial_project(
             InjectInitialProjectPayload(
                 project_key=target_key,
@@ -682,7 +713,7 @@ def update_project(project_key: str, payload: UpdateProjectPayload) -> dict:
                 select(Project).where(Project.project_key == normalized_key)
             ).scalar_one_or_none()
             if project is None:
-                raise HTTPException(status_code=404, detail="project not found")
+                _raise_not_found("project not found")
 
             changed = False
             if payload.name is not None:
@@ -733,7 +764,7 @@ def archive_project(project_key: str) -> dict:
                 select(Project).where(Project.project_key == normalized_key)
             ).scalar_one_or_none()
             if project is None:
-                raise HTTPException(status_code=404, detail="project not found")
+                _raise_not_found("project not found")
 
             project.enabled = False
             if project.is_active:
@@ -768,7 +799,7 @@ def restore_project(project_key: str) -> dict:
                 select(Project).where(Project.project_key == normalized_key)
             ).scalar_one_or_none()
             if project is None:
-                raise HTTPException(status_code=404, detail="project not found")
+                _raise_not_found("project not found")
             project.enabled = True
             session.commit()
     return ok({"project_key": normalized_key, "archived": False})
@@ -783,9 +814,9 @@ def activate_project(project_key: str) -> dict:
                 select(Project).where(Project.project_key == normalized_key)
             ).scalar_one_or_none()
             if project is None:
-                raise HTTPException(status_code=404, detail="project not found")
+                _raise_not_found("project not found")
             if not project.enabled:
-                raise HTTPException(status_code=409, detail="project is archived/disabled")
+                _raise_invalid_input("project is archived/disabled", status_code=409)
 
             all_rows = session.execute(select(Project)).scalars().all()
             for row in all_rows:
@@ -799,7 +830,7 @@ def activate_project(project_key: str) -> dict:
 def delete_project(project_key: str, hard: bool = Query(default=False)) -> dict:
     normalized_key = _normalize_project_key(project_key)
     if hard and normalized_key == "default":
-        raise HTTPException(status_code=409, detail="default project cannot be hard-deleted")
+        _raise_invalid_input("default project cannot be hard-deleted", status_code=409)
 
     with bind_schema("public"):
         with SessionLocal() as session:
@@ -807,7 +838,7 @@ def delete_project(project_key: str, hard: bool = Query(default=False)) -> dict:
                 select(Project).where(Project.project_key == normalized_key)
             ).scalar_one_or_none()
             if project is None:
-                raise HTTPException(status_code=404, detail="project not found")
+                _raise_not_found("project not found")
 
             schema_name = project.schema_name
             was_active = bool(project.is_active)

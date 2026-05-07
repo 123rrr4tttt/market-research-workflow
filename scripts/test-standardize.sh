@@ -28,6 +28,7 @@ Profiles:
   e2e         Run e2e tests
   core-business Run core business suite (tests/core_business)
   external-smoke Run external chain smoke checks in docker compose
+  source-library-strength Run heavier source-library keyword collection strength profile
   frontend-e2e Run frontend Playwright e2e suite
   coverage    Run split coverage gate (core=100%, other=20%)
   all         Run unit + integration + contract + e2e
@@ -111,6 +112,30 @@ run_external_smoke() {
     compose up -d db es redis
     compose run --rm backend python -m scripts.test_resource_library_e2e
     compose run --rm backend python -m scripts.test_search_to_document_chain
+    compose run --rm backend python -m scripts.test_source_library_keyword_collect_smoke
+  )
+}
+
+run_source_library_strength() {
+  (
+    cd "${OPS_DIR}"
+    cleanup() {
+      compose down -v || true
+    }
+    trap cleanup EXIT
+    compose up -d db es redis
+    compose run --rm \
+      -e PROJECT_KEY \
+      -e SOURCE_LIBRARY_STRENGTH_PACK \
+      -e SOURCE_LIBRARY_STRENGTH_ITEM_KEY \
+      -e SOURCE_LIBRARY_STRENGTH_QUERY \
+      -e SOURCE_LIBRARY_STRENGTH_MAX_CANDIDATES \
+      -e SOURCE_LIBRARY_STRENGTH_INGEST_LIMIT \
+      -e SOURCE_LIBRARY_STRENGTH_MIN_CANDIDATES \
+      -e SOURCE_LIBRARY_STRENGTH_MIN_VALID \
+      -e SOURCE_LIBRARY_STRENGTH_ENABLE_EXTRACTION \
+      -e SOURCE_LIBRARY_STRENGTH_KEEP_ITEM \
+      backend python -m scripts.test_source_library_keyword_collect_strength
   )
 }
 
@@ -122,6 +147,17 @@ run_frontend_e2e() {
   (
     cd "${FRONTEND_DIR}"
     npm run test:e2e -- "$@"
+  )
+}
+
+run_ci_pr_suite() {
+  prepare_env
+  run_pytest_marker "unit and not external" -q "$@"
+  run_pytest_marker "integration and not external" -q "$@"
+  (
+    cd "${BACKEND_DIR}"
+    "$(resolve_python_exec)" -m pytest -m "(unit or integration or contract or e2e) and not external" tests/core_business -q "$@"
+    "$(resolve_python_exec)" -m pytest -m "e2e and not external" -q "$@"
   )
 }
 
@@ -183,6 +219,10 @@ case "${profile}" in
     prepare_env
     run_external_smoke "$@"
     ;;
+  source-library-strength)
+    prepare_env
+    run_source_library_strength "$@"
+    ;;
   frontend-e2e)
     run_frontend_e2e "$@"
     ;;
@@ -195,8 +235,7 @@ case "${profile}" in
     run_pytest_marker "(unit or integration or contract or e2e) and not external" "$@"
     ;;
   ci-pr)
-    prepare_env
-    run_pytest_marker "(unit or integration) and not external" "$@"
+    run_ci_pr_suite "$@"
     ;;
   ci-main)
     prepare_env

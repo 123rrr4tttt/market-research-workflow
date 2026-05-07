@@ -169,7 +169,9 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "error")
         self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertIn("bucket", body["error"]["message"])
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
     def test_prompt_time_density_priority_success_envelope(self):
         mocked_items = [
@@ -209,7 +211,9 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "error")
         self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertIn("candidate_windows", body["error"]["message"])
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
     def test_prompt_time_density_select_windows_success(self):
         mocked_rows = [
@@ -235,6 +239,36 @@ class ApiGroupACoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["total"], 1)
         self.assertEqual(body["data"]["items"][0]["window"], "7d")
+
+    def test_prompt_time_density_cloud_runtime_failure_returns_internal_error(self):
+        with patch("app.api.stats.query_prompt_time_density_cloud", side_effect=RuntimeError("cloud query failed")):
+            response = self.client.get(
+                "/api/v1/stats/prompt-time-density/cloud",
+                params={"keyword": "ai", "time_window": "7d"},
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 500)
+        body = response.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
+
+    def test_prompt_time_density_select_windows_runtime_failure_returns_internal_error(self):
+        with patch("app.api.stats.query_prompt_time_density_priority", side_effect=RuntimeError("priority query failed")):
+            response = self.client.get(
+                "/api/v1/stats/prompt-time-density/select-windows",
+                params={"candidate_windows": "7d"},
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 500)
+        body = response.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
 
 
 if __name__ == "__main__":

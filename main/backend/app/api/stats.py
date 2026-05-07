@@ -22,7 +22,13 @@ _TIME_WINDOW_RE = re.compile(r"^\d+d$")
 
 
 def _json_error(status_code: int, code: ErrorCode, message: str) -> JSONResponse:
-    return JSONResponse(status_code=status_code, content=fail(code, message))
+    payload = fail(code, message)
+    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
+    return JSONResponse(
+        status_code=status_code,
+        content=payload,
+        headers={"X-Error-Code": code.value},
+    )
 
 
 def _parse_ymd(value: Optional[str], *, field: str) -> Optional[date]:
@@ -102,6 +108,8 @@ def get_prompt_time_density(
         )
     except ValueError as exc:
         return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        return _json_error(500, ErrorCode.INTERNAL_ERROR, str(exc))
 
 
 @router.get("/prompt-time-density/cloud")
@@ -146,6 +154,8 @@ def get_prompt_time_density_cloud(
         )
     except ValueError as exc:
         return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        return _json_error(500, ErrorCode.INTERNAL_ERROR, str(exc))
 
 
 @router.get("/prompt-time-density/priority")
@@ -193,6 +203,8 @@ def get_prompt_time_density_priority(
         )
     except ValueError as exc:
         return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        return _json_error(500, ErrorCode.INTERNAL_ERROR, str(exc))
 
 
 @router.get("/prompt-time-density/select-windows")
@@ -243,3 +255,5 @@ def select_prompt_time_windows(
         )
     except ValueError as exc:
         return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        return _json_error(500, ErrorCode.INTERNAL_ERROR, str(exc))

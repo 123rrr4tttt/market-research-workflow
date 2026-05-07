@@ -124,6 +124,34 @@ class ExternalProjectRegistrationUnitTestCase(unittest.TestCase):
         self.assertEqual(manifest["item_key"], "external.github.demo")
         self.assertEqual(manifest["execution_mode"], "rss_feed")
 
+    def test_synthesize_external_project_manifest_uses_deterministic_context_probe_when_high_confidence_exists(self) -> None:
+        project_context = {
+            "source": "github",
+            "evidence": [{"kind": "readme", "content": "demo"}],
+            "endpoint_candidates": [
+                {
+                    "execution_mode": "rss_feed",
+                    "runner_ref": "https://demo.example.com/feed.xml",
+                    "reason": "explicit_readme_feed_marker",
+                    "confidence": "high",
+                }
+            ],
+        }
+        with patch("app.services.source_library.external_project_registration.invoke_skill") as invoke_skill:
+            manifest = synthesize_external_project_manifest(
+                project_link="https://github.com/example/demo",
+                item_key="external.github.demo",
+                display_name="demo",
+                project_context=project_context,
+                hints=None,
+            )
+
+        invoke_skill.assert_not_called()
+        self.assertEqual(manifest["execution_mode"], "rss_feed")
+        self.assertEqual(manifest["runner_ref"], "https://demo.example.com/feed.xml")
+        self.assertEqual(manifest["provenance"]["discovered_by"], "context_probe")
+        self.assertEqual(manifest["provider_binding"]["provider_key"], "external_project.rss_feed")
+
     def test_synthesize_external_project_item_rejects_localhost_project_link(self) -> None:
         with self.assertRaisesRegex(ValueError, "project_link must use http or https|cannot target localhost|cannot target private"):
             synthesize_external_project_item(project_link="http://127.0.0.1:8000/demo")
@@ -135,6 +163,71 @@ class ExternalProjectRegistrationUnitTestCase(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "enough external project evidence"):
                 synthesize_external_project_item(project_link="https://example.com/demo")
+
+    def test_synthesize_external_project_item_attaches_provider_binding_to_registration_context(self) -> None:
+        manifest = {
+            "contract_version": "external_item.manifest.v1",
+            "item_key": "external.example.demo",
+            "display_name": "demo",
+            "project_link": "https://example.com/demo",
+            "source_kind": "feed_aggregator",
+            "source_scope": "developer_news",
+            "capabilities": {
+                "candidate_urls": True,
+                "article_metadata": True,
+                "article_body": False,
+                "pdf_artifact": False,
+            },
+            "accepted_inputs": {
+                "query_terms": True,
+                "urls": False,
+                "domains": False,
+                "date_range": False,
+                "max_items": True,
+            },
+            "execution_mode": "rss_feed",
+            "runner_ref": "https://example.com/feed.xml",
+            "normalization": {
+                "record_kind": "article_metadata",
+                "frontdoor_strategy": "records_only_defer",
+            },
+            "limits": {
+                "default_max_items": 20,
+                "max_items_cap": 100,
+                "request_timeout_ms": 30000,
+            },
+            "refresh_policy": {
+                "manifest_ttl_minutes": 60,
+                "probe_ttl_minutes": 1440,
+            },
+            "provenance": {
+                "discovered_by": "manual_registration",
+                "source_refs": ["https://example.com/demo"],
+            },
+        }
+        with (
+            patch(
+                "app.services.source_library.external_project_registration.collect_external_project_context",
+                return_value={"source": "generic", "project_link": "https://example.com/demo", "evidence": [{"kind": "page_summary", "content": "demo"}]},
+            ),
+            patch(
+                "app.services.source_library.external_project_registration.synthesize_external_project_manifest",
+                return_value={
+                    **manifest,
+                    "provider_binding": {
+                        "registry_version": "external_project.provider_registry.v1",
+                        "execution_mode": "rss_feed",
+                        "provider_key": "external_project.rss_feed",
+                    },
+                },
+            ),
+        ):
+            item = synthesize_external_project_item(project_link="https://example.com/demo")
+
+        self.assertEqual(
+            item["registration_context"]["provider_binding"]["provider_key"],
+            "external_project.rss_feed",
+        )
 
     def test_synthesize_external_project_manifest_rejects_blocked_headers(self) -> None:
         llm_json = {

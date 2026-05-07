@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from prometheus_client import Counter, Histogram, REGISTRY, generate_latest, CONTENT_TYPE_LATEST
@@ -354,6 +355,9 @@ async def metrics_middleware(request: Request, call_next):
     effective_project_key_mode = get_effective_project_key_enforcement_mode()
     request_id = (request.headers.get("X-Request-Id") or "").strip() or str(uuid.uuid4())
     start = time.perf_counter()
+    request.state.project_key_resolved = project_key
+    request.state.project_key_source = project_key_source
+    request.state.project_key_is_fallback = project_key_is_fallback
     with bind_project(project_key):
         response: Response = await call_next(request)
     response = _maybe_wrap_success_json_response(
@@ -408,6 +412,25 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         status_code=exc.status_code,
         content=payload,
         headers={"X-Error-Code": code.value},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    if not _is_contract_api_path(request.url.path):
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+    payload = _with_legacy_detail_alias(
+        _build_error_payload(
+            request,
+            ErrorCode.INVALID_INPUT,
+            "Request validation failed",
+            details={"errors": exc.errors()},
+        )
+    )
+    return JSONResponse(
+        status_code=422,
+        content=payload,
+        headers={"X-Error-Code": ErrorCode.INVALID_INPUT.value},
     )
 
 

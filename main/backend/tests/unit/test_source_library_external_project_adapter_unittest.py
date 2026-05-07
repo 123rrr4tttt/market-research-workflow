@@ -100,6 +100,7 @@ class ExternalProjectAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["provider"], "external_project")
         self.assertEqual(result["execution_mode"], "rss_feed")
+        self.assertEqual(result["provider_binding"]["provider_key"], "external_project.rss_feed")
         self.assertEqual(len(result["records"]), 2)
         self.assertEqual(result["records"][0]["title"], "Fintech One")
         self.assertEqual(result["records"][0]["record_meta"]["external_project"]["project_link"], "https://github.com/example/external-demo")
@@ -131,6 +132,7 @@ class ExternalProjectAdapterUnitTestCase(unittest.TestCase):
         get_json.assert_called_once()
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["execution_mode"], "http_api")
+        self.assertEqual(result["provider_binding"]["provider_key"], "external_project.http_api")
         self.assertEqual(result["records"][0]["url"], "https://example.com/posts/api-1")
         self.assertEqual(
             result["records"][0]["record_meta"]["artifact_ref"]["source_locator"],

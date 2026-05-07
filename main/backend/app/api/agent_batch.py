@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import logging
 import re
 import time
 from typing import Any
@@ -11,9 +12,10 @@ from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
+from ..contracts import ErrorCode, error_response
 from ..celery_app import celery_app
 from ..contracts.responses import ok
-from ..settings.config import settings
+from ..settings.config import get_effective_project_key_enforcement_mode, settings
 from ..services.agent_batch.approval_binding import (
     REASON_APPROVAL_REQUIRED,
     approve_approval,
@@ -45,10 +47,33 @@ from ..services.projects import current_project_key
 from ..services.workflow_graph.handoff_store import handoff_store
 
 router = APIRouter(prefix="/agent-batch", tags=["agent_batch"])
+logger = logging.getLogger(__name__)
 
 _DEFAULT_CONTRACT_VERSION = "collect.request.v2"
 _ALLOWED_CHANNELS = get_agent_batch_known_channels()
 _ALLOWED_OVERRIDE_PARAMS_BY_CHANNEL = get_allowed_override_params_by_channel()
+
+
+def _raise_invalid_input(message: str) -> None:
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            message,
+        ),
+    )
+
+
+def _raise_not_found(message: str) -> None:
+    raise HTTPException(
+        status_code=404,
+        detail=error_response(
+            ErrorCode.NOT_FOUND,
+            message,
+        ),
+    )
+
+
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -189,8 +214,25 @@ def _resolve_project_key(project_key: str | None) -> str | None:
     explicit = (project_key or "").strip()
     if explicit:
         return explicit
+    if get_effective_project_key_enforcement_mode() == "require":
+        raise HTTPException(
+            status_code=400,
+            detail=error_response(
+                ErrorCode.PROJECT_KEY_REQUIRED,
+                "project_key is required. Please select a project first.",
+            ),
+        )
     fallback = (current_project_key() or "").strip()
-    return fallback or None
+    if fallback:
+        logger.warning("project_key_fallback_used endpoint=agent_batch resolved_project_key=%s", fallback)
+        return fallback
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(
+            ErrorCode.PROJECT_KEY_REQUIRED,
+            "project_key is required. Please select a project first.",
+        ),
+    )
 
 
 def _resolve_item_key(job: AgentBatchItemSubmit) -> str:
@@ -203,7 +245,7 @@ def _resolve_item_key(job: AgentBatchItemSubmit) -> str:
             value = str(job.input.get(key) or "").strip()
             if value:
                 return value
-    raise HTTPException(status_code=400, detail="each batch item requires item_key or source_id")
+    _raise_invalid_input("each batch item requires item_key or source_id")
 
 
 def _normalize_query_terms(raw: list[str]) -> list[str]:
@@ -255,7 +297,7 @@ def _extract_max_items(command: str) -> int:
 def _load_job(job_id: str) -> _BatchJobRecord:
     record = _BATCH_JOB_REGISTRY.get(job_id)
     if record is None:
-        raise HTTPException(status_code=404, detail=f"agent batch job not found: {job_id}")
+        _raise_not_found(f"agent batch job not found: {job_id}")
     return record
 
 
@@ -823,7 +865,7 @@ def _submit_search_market_job(
     if not query_terms and isinstance(job.input, dict):
         query_terms = _normalize_query_terms(job.input.get("query_terms") or [])
     if not query_terms:
-        raise HTTPException(400, "search.market item requires query_terms")
+        _raise_invalid_input("search.market item requires query_terms")
     max_items = int(job.max_items or 20)
     language = job.language or _detect_language(" ".join(query_terms))
     override_params = dict(job.override_params or {})
@@ -960,7 +1002,7 @@ def _submit_batch_item(
     channel_registry = dict(_CHANNEL_EXECUTION_REGISTRY.get(channel) or {})
     submitter = channel_registry.get("submitter")
     if submitter is None:
-        raise HTTPException(400, f"channel has no submit handler: {channel}")
+        _raise_invalid_input(f"channel has no submit handler: {channel}")
     task_id, resolved_payload = submitter(
         job,
         project_key=project_key,
@@ -987,7 +1029,7 @@ def _build_approval_binding(
         approval_payload["item_key"] = candidate_item_key
     argv = build_agent_batch_approval_argv(channel, approval_payload)
     if not argv:
-        raise HTTPException(400, f"channel has no approval binding handler: {channel}")
+        _raise_invalid_input(f"channel has no approval binding handler: {channel}")
     return {
         "argv": argv,
         "cwd": str(project_key or "").strip() or "/workspace",
@@ -1136,6 +1178,20 @@ def submit_agent_batch_job(payload: AgentBatchSubmitRequest) -> dict[str, Any]:
                     "run_id": workflow_run_id,
                     "workflow_run_id": workflow_run_id,
                     "trace_id": trace_id,
+                }
+            )
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, dict) else {}
+            error = detail.get("error") if isinstance(detail, dict) else {}
+            rejected.append(
+                {
+                    "index": idx,
+                    "reason_code": "dispatch_error",
+                    "reason": str(error.get("message") or exc.detail or "dispatch error"),
+                    "details": {
+                        "error_code": error.get("code"),
+                        **(dict(error.get("details") or {}) if isinstance(error, dict) else {}),
+                    },
                 }
             )
         except Exception as exc:  # noqa: BLE001
@@ -1593,13 +1649,13 @@ def create_agent_batch_approval(payload: AgentBatchApprovalRequest) -> dict[str,
 @router.post("/approvals/{approval_token}/resolve")
 def resolve_agent_batch_approval(approval_token: str, payload: AgentBatchApprovalResolveRequest) -> dict[str, Any]:
     if not payload.approved:
-        raise HTTPException(400, "only approved=true is supported")
+        _raise_invalid_input("only approved=true is supported")
     try:
         out = approve_approval(approval_token=approval_token)
     except KeyError:
-        raise HTTPException(404, "approval token not found") from None
+        _raise_not_found("approval token not found")
     except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        _raise_invalid_input(str(exc))
     try:
         get_agent_session_service().resolve_approval(
             approval_token,
@@ -1645,11 +1701,12 @@ def validate_agent_batch_rule_set(payload: RuleSetValidateRequest) -> dict[str, 
 def run_agent_batch_nl_command(payload: AgentBatchNlCommandRequest) -> dict[str, Any]:
     command = str(payload.command or "").strip()
     if not command:
-        raise HTTPException(400, "command is required")
+        _raise_invalid_input("command is required")
+    project_key = _resolve_project_key(payload.project_key)
     try:
         loop_result = run_agent_batch_nl_command_loop(
             command=command,
-            project_key=payload.project_key,
+            project_key=project_key,
             idempotency_key=payload.idempotency_key,
             dry_run=bool(payload.dry_run),
             enable_bounded_retry=bool(payload.enable_bounded_retry),
@@ -1659,7 +1716,7 @@ def run_agent_batch_nl_command(payload: AgentBatchNlCommandRequest) -> dict[str,
             executor_snapshot=inspect_executor_health,
         )
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(400, f"failed to execute command loop: {exc}") from exc
+        _raise_invalid_input(f"failed to execute command loop: {exc}")
     submit = loop_result.get("submit") if isinstance(loop_result, dict) else None
     job_id = str((submit or {}).get("job_id") or "").strip() if isinstance(submit, dict) else ""
     if job_id:

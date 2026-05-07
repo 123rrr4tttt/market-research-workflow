@@ -2070,6 +2070,7 @@ def run_item_payload(
     channels = channels if channels is not None else list_effective_channels(scope="effective", project_key=project_key)
     channel_map = {x["channel_key"]: x for x in channels}
     item = _enrich_item_with_channel_tiering(item=item, channel_map=channel_map)
+    item = _normalize_item_taxonomy(item)
     # Base params: item.params + ingest_config + override (no channel yet)
     params = dict(item.get("params") or {})
     if project_key:
@@ -2083,7 +2084,15 @@ def run_item_payload(
     # generic_web.* is internal plugin capability for site_search orchestration only.
     # Direct item execution should be blocked unless explicitly opened by internal call sites.
     item_channel_key_lower = str(item.get("channel_key") or "").strip().lower()
-    if item_channel_key_lower.startswith("generic_web.") and not _as_bool(params.get("_allow_internal_generic_web"), False):
+    generic_web_internal_item = (
+        str(item.get("item_type") or "").strip().lower() == "service_aggregated"
+        and str(item.get("managed_by") or "").strip().lower() == "system"
+    )
+    if (
+        item_channel_key_lower.startswith("generic_web.")
+        and not generic_web_internal_item
+        and not _as_bool(params.get("_allow_internal_generic_web"), False)
+    ):
         raise ValueError("generic_web.* direct item execution is disabled; use site_search(handler.cluster) entry")
 
     # Keep static URL-list items on the same front-door path as runtime-provided URLs.

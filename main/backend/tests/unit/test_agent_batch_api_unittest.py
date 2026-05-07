@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from fastapi import HTTPException
 from app.services.agent_batch.task_contract import validate_retry_action_payload
 from app.services.agent_sessions import reset_agent_session_service_for_tests, reset_agent_session_store_for_tests
 from app.services.agent_sessions.service import AgentSessionService
@@ -14,6 +15,7 @@ pytestmark = pytest.mark.unit
 
 try:
     from app.api import agent_batch as agent_batch_api
+    from app.contracts.errors import ErrorCode
 except Exception as exc:  # pragma: no cover - dependency/import guard
     agent_batch_api = None  # type: ignore[assignment]
     _IMPORT_ERROR = exc
@@ -1001,9 +1003,9 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(project_key, "proj-nl")
         self.assertEqual(override_params["query_terms"], ["ai terminal products companies"])
         self.assertEqual(override_params["provider"], "auto")
-        self.assertEqual(override_params["max_items"], 1)
-        self.assertEqual(override_params["limit"], 1)
-        self.assertEqual(override_params["source_mode"], "protocol_search")
+        self.assertEqual(override_params["max_items"], 10)
+        self.assertEqual(override_params["limit"], 10)
+        self.assertNotIn("source_mode", override_params)
         self.assertEqual(override_params["workflow_run_id"], workflow_run_id)
 
     def test_search_policy_benchmark_pack_and_gate_endpoints_return_contract_shapes(self):
@@ -1211,6 +1213,113 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         approvals = agent_batch_api.get_agent_session_service().list_approvals(session_id="session-1")
         self.assertEqual(len(approvals), 1)
         self.assertEqual(approvals[0]["approval_id"], token)
+
+    def test_load_job_missing_raises_structured_not_found(self):
+        with self.assertRaises(HTTPException) as ctx:
+            agent_batch_api._load_job("missing-job")
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.NOT_FOUND.value)
+
+    def test_resolve_approval_rejects_unapproved_flag_with_structured_error(self):
+        with self.assertRaises(HTTPException) as ctx:
+            agent_batch_api.resolve_agent_batch_approval(
+                "approval-token",
+                agent_batch_api.AgentBatchApprovalResolveRequest(approved=False),
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("only approved=true is supported", ctx.exception.detail["error"]["message"])
+
+    def test_resolve_approval_missing_token_raises_structured_not_found(self):
+        with patch.object(agent_batch_api, "approve_approval", side_effect=KeyError("missing")):
+            with self.assertRaises(HTTPException) as ctx:
+                agent_batch_api.resolve_agent_batch_approval(
+                    "missing-token",
+                    agent_batch_api.AgentBatchApprovalResolveRequest(approved=True),
+                )
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(ctx.exception.detail["error"]["message"], "approval token not found")
+
+    def test_resolve_approval_value_error_raises_structured_invalid_input(self):
+        with patch.object(agent_batch_api, "approve_approval", side_effect=ValueError("binding mismatch")):
+            with self.assertRaises(HTTPException) as ctx:
+                agent_batch_api.resolve_agent_batch_approval(
+                    "bad-token",
+                    agent_batch_api.AgentBatchApprovalResolveRequest(approved=True),
+                )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("binding mismatch", ctx.exception.detail["error"]["message"])
+
+    def test_nl_command_requires_command_with_structured_error(self):
+        with self.assertRaises(HTTPException) as ctx:
+            agent_batch_api.run_agent_batch_nl_command(
+                agent_batch_api.AgentBatchNlCommandRequest(command="   ", project_key="proj-test")
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(ctx.exception.detail["error"]["message"], "command is required")
+
+    def test_nl_command_loop_failure_raises_structured_invalid_input(self):
+        payload = agent_batch_api.AgentBatchNlCommandRequest(command="collect ai", project_key="proj-test")
+        with patch.object(agent_batch_api, "run_agent_batch_nl_command_loop", side_effect=RuntimeError("loop exploded")):
+            with self.assertRaises(HTTPException) as ctx:
+                agent_batch_api.run_agent_batch_nl_command(payload)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("loop exploded", ctx.exception.detail["error"]["message"])
+
+    def test_resolve_item_key_missing_identifiers_raises_structured_invalid_input(self):
+        job = agent_batch_api.AgentBatchItemSubmit(item_id="missing-key")
+        with self.assertRaises(HTTPException) as ctx:
+            agent_batch_api._resolve_item_key(job)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
+
+    def test_submit_search_market_job_missing_query_terms_raises_structured_invalid_input(self):
+        job = agent_batch_api.AgentBatchItemSubmit(item_id="market-1", channel="search.market", query_terms=[])
+        with self.assertRaises(HTTPException) as ctx:
+            agent_batch_api._submit_search_market_job(
+                job,
+                project_key="proj-test",
+                lane="main",
+                trace_id="trace-1",
+                workflow_run_id="run-1",
+            )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("query_terms", ctx.exception.detail["error"]["message"])
+
+    def test_submit_batch_item_without_submitter_raises_structured_invalid_input(self):
+        job = agent_batch_api.AgentBatchItemSubmit(item_id="m1", channel="search.market", query_terms=["ai"])
+        with patch.dict(agent_batch_api._CHANNEL_EXECUTION_REGISTRY, {}, clear=True):
+            with self.assertRaises(HTTPException) as ctx:
+                agent_batch_api._submit_batch_item(
+                    job,
+                    project_key="proj-test",
+                    priority=None,
+                    trace_id="trace-1",
+                    workflow_run_id="run-1",
+                )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("channel has no submit handler", ctx.exception.detail["error"]["message"])
+
+    def test_build_approval_binding_without_argv_raises_structured_invalid_input(self):
+        job = agent_batch_api.AgentBatchItemSubmit(item_id="m1", channel="search.market", query_terms=["ai"])
+        with patch.object(agent_batch_api, "build_agent_batch_approval_argv", return_value=[]):
+            with self.assertRaises(HTTPException) as ctx:
+                agent_batch_api._build_approval_binding(
+                    channel="search.market",
+                    project_key="proj-test",
+                    workflow_run_id="run-1",
+                    trace_id="trace-1",
+                    job=job,
+                )
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("approval binding handler", ctx.exception.detail["error"]["message"])
 
 
 if __name__ == "__main__":

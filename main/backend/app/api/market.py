@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import OperationalError, DatabaseError
 import logging
 
+from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import MarketStat
@@ -12,6 +13,28 @@ from ..models.entities import MarketStat
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/market", tags=["market"])
+
+
+def _raise_upstream_error(message: str, *, details: dict | None = None) -> None:
+    raise HTTPException(
+        status_code=503,
+        detail=error_response(
+            ErrorCode.UPSTREAM_ERROR,
+            message,
+            details=details,
+        ),
+    )
+
+
+def _raise_internal_error(message: str, *, details: dict | None = None) -> None:
+    raise HTTPException(
+        status_code=500,
+        detail=error_response(
+            ErrorCode.INTERNAL_ERROR,
+            message,
+            details=details,
+        ),
+    )
 
 
 def _decimal_to_float(value):
@@ -82,19 +105,22 @@ def market_stats(
             })
     except (OperationalError, DatabaseError) as e:
         logger.exception("数据库连接失败")
-        raise HTTPException(
-            status_code=503,
-            detail="数据库服务不可用，请检查数据库服务是否已启动。"
+        _raise_upstream_error(
+            "数据库服务不可用，请检查数据库服务是否已启动。",
+            details={"category": "database", "exception_type": e.__class__.__name__, "retriable": True},
         )
     except Exception as e:
         logger.exception("获取市场数据失败")
         error_msg = str(e)
         if "Connection" in error_msg or "db" in error_msg.lower() or "database" in error_msg.lower() or "postgres" in error_msg.lower() or "timeout" in error_msg.lower():
-            raise HTTPException(
-                status_code=503,
-                detail="数据库服务不可用，请检查数据库服务是否已启动。"
+            _raise_upstream_error(
+                "数据库服务不可用，请检查数据库服务是否已启动。",
+                details={"category": "database", "exception_type": e.__class__.__name__, "retriable": True},
             )
-        raise HTTPException(status_code=500, detail=f"获取市场数据失败: {error_msg}")
+        _raise_internal_error(
+            f"获取市场数据失败: {error_msg}",
+            details={"exception_type": e.__class__.__name__},
+        )
 
 
 @router.get("/games")
@@ -107,17 +133,19 @@ def market_games(state: str = Query(...)):
             return ok({"state": state, "games": games})
     except (OperationalError, DatabaseError) as e:
         logger.exception("数据库连接失败")
-        raise HTTPException(
-            status_code=503,
-            detail="数据库服务不可用，请检查数据库服务是否已启动。"
+        _raise_upstream_error(
+            "数据库服务不可用，请检查数据库服务是否已启动。",
+            details={"category": "database", "exception_type": e.__class__.__name__, "retriable": True},
         )
     except Exception as e:
         logger.exception("获取游戏列表失败")
         error_msg = str(e)
         if "Connection" in error_msg or "db" in error_msg.lower() or "database" in error_msg.lower() or "timeout" in error_msg.lower():
-            raise HTTPException(
-                status_code=503,
-                detail="数据库服务不可用，请检查数据库服务是否已启动。"
+            _raise_upstream_error(
+                "数据库服务不可用，请检查数据库服务是否已启动。",
+                details={"category": "database", "exception_type": e.__class__.__name__, "retriable": True},
             )
-        raise HTTPException(status_code=500, detail=f"获取游戏列表失败: {error_msg}")
-
+        _raise_internal_error(
+            f"获取游戏列表失败: {error_msg}",
+            details={"exception_type": e.__class__.__name__},
+        )

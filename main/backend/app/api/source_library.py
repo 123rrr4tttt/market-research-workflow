@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from ..contracts import ErrorCode, error_response
+from ..contracts import ErrorCode, error_response, map_exception_to_error
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import SourceLibraryItem
@@ -23,6 +23,8 @@ from ..services.source_library import (
 )
 from ..services.source_library.external_project import (
     EXTERNAL_PROJECT_CHANNEL_KEY,
+    build_external_project_summary,
+    get_external_project_manifest,
     normalize_external_project_extra,
 )
 from ..services.source_library.external_project_registration import synthesize_external_project_item
@@ -37,6 +39,26 @@ ITEM_TYPE_SERVICE_AGGREGATED: ItemType = "service_aggregated"
 
 router = APIRouter(prefix="/source_library", tags=["source_library"])
 logger = logging.getLogger(__name__)
+
+
+def _raise_mapped_error(exc: Exception) -> None:
+    if isinstance(exc, HTTPException):
+        raise exc
+    if isinstance(exc, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail=error_response(
+                ErrorCode.INVALID_INPUT,
+                str(exc) or "Invalid source library request.",
+                details={"exception_type": exc.__class__.__name__},
+            ),
+        ) from exc
+    code, message, details = map_exception_to_error(exc)
+    status_code = 503 if code == ErrorCode.UPSTREAM_ERROR else 500
+    raise HTTPException(
+        status_code=status_code,
+        detail=error_response(code, message, details=details),
+    ) from exc
 
 
 class SourceLibraryItemUpsertPayload(BaseModel):
@@ -54,13 +76,13 @@ class SourceLibraryItemUpsertPayload(BaseModel):
 
 
 class RefreshItemPayload(BaseModel):
-    project_key: str
+    project_key: str | None = None
     incremental: bool = True
     max_site_entries: int = Field(default=500, ge=1, le=5000)
 
 
 class SyncHandlerClustersPayload(BaseModel):
-    project_key: str
+    project_key: str | None = None
     handlers: list[str] | None = None
     incremental: bool = True
     max_site_entries: int = Field(default=500, ge=1, le=5000)
@@ -210,20 +232,59 @@ def _build_definition_response(item_payload: dict[str, Any]) -> dict[str, Any]:
     return _attach_item_type(definition)
 
 
+def _resolve_query_project_key(
+    scope: ScopeType,
+    project_key: str | None,
+    *,
+    request: Request | None = None,
+) -> str | None:
+    explicit = str(project_key or "").strip()
+    if explicit:
+        return explicit
+    if request is not None:
+        source = str(getattr(getattr(request, "state", None), "project_key_source", "") or "").strip().lower()
+        resolved = str(getattr(getattr(request, "state", None), "project_key_resolved", "") or "").strip()
+        if source in {"header", "query"} and resolved:
+            return resolved
+    resolved_scope = str(scope or "effective").strip().lower()
+    if resolved_scope == "shared":
+        return None
+    return _require_project_key(None)
+
+
+def _resolve_write_project_key(
+    project_key: str | None,
+    *,
+    request: Request | None = None,
+) -> str:
+    explicit = str(project_key or "").strip()
+    if explicit:
+        return explicit
+    if request is not None:
+        source = str(getattr(getattr(request, "state", None), "project_key_source", "") or "").strip().lower()
+        resolved = str(getattr(getattr(request, "state", None), "project_key_resolved", "") or "").strip()
+        if source in {"header", "query"} and resolved:
+            return resolved
+    return _require_project_key(None)
+
+
 @router.get("/channels")
 def list_channels(
+    request: Request,
     scope: ScopeType = Query(default="effective"),
     project_key: str | None = Query(default=None),
 ) -> dict:
     try:
-        items = list_effective_channels(scope=scope, project_key=project_key)
+        resolved_project_key = _resolve_query_project_key(scope, project_key, request=request)
+        items = list_effective_channels(scope=scope, project_key=resolved_project_key)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return ok({"items": items, "scope": scope, "project_key": project_key})
+        _raise_mapped_error(exc)
+    return ok({"items": items, "scope": scope, "project_key": resolved_project_key})
 
 
 @router.get("/items")
 def list_items(
+    request: Request,
     scope: ScopeType = Query(default="effective"),
     project_key: str | None = Query(default=None),
     item_type: ItemType | None = Query(default=None),
@@ -231,10 +292,11 @@ def list_items(
     include_execution_plan: bool = Query(default=False),
 ) -> dict:
     try:
+        resolved_project_key = _resolve_query_project_key(scope, project_key, request=request)
         if include_execution_plan:
-            raw_items = list_effective_items(scope=scope, project_key=project_key, include_execution_plan=True)
+            raw_items = list_effective_items(scope=scope, project_key=resolved_project_key, include_execution_plan=True)
         else:
-            raw_items = list_effective_items(scope=scope, project_key=project_key)
+            raw_items = list_effective_items(scope=scope, project_key=resolved_project_key)
         allowed_item_types = {ITEM_TYPE_USER_DEFINED}
         if include_system:
             allowed_item_types.add(ITEM_TYPE_SERVICE_AGGREGATED)
@@ -256,18 +318,12 @@ def list_items(
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=400,
-            detail=error_response(
-                ErrorCode.INVALID_INPUT,
-                str(exc),
-            ),
-        ) from exc
+        _raise_mapped_error(exc)
     return ok(
         {
             "items": items,
             "scope": scope,
-            "project_key": project_key,
+            "project_key": resolved_project_key,
             "item_type": item_type,
             "include_system": include_system,
             "include_execution_plan": include_execution_plan,
@@ -277,45 +333,51 @@ def list_items(
 
 @router.get("/items/by_symbol")
 def list_items_by_symbol_api(
+    request: Request,
     scope: ScopeType = Query(default="effective"),
     project_key: str | None = Query(default=None),
 ) -> dict:
     """Items grouped by tag (symbol). For Phase 5 symbol clustering."""
     try:
-        grouped = list_items_by_symbol(scope=scope, project_key=project_key)
+        resolved_project_key = _resolve_query_project_key(scope, project_key, request=request)
+        grouped = list_items_by_symbol(scope=scope, project_key=resolved_project_key)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return ok({"by_symbol": grouped, "scope": scope, "project_key": project_key})
+        _raise_mapped_error(exc)
+    return ok({"by_symbol": grouped, "scope": scope, "project_key": resolved_project_key})
 
 
 @router.get("/channels/grouped")
 def list_channels_grouped_api(
+    request: Request,
     scope: ScopeType = Query(default="effective"),
     project_key: str | None = Query(default=None),
 ) -> dict:
     """Channels grouped by provider (tool type). For Phase 5 handler clustering."""
     try:
-        grouped = list_channels_grouped_by_provider(scope=scope, project_key=project_key)
+        resolved_project_key = _resolve_query_project_key(scope, project_key, request=request)
+        grouped = list_channels_grouped_by_provider(scope=scope, project_key=resolved_project_key)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return ok({"by_provider": grouped, "scope": scope, "project_key": project_key})
+        _raise_mapped_error(exc)
+    return ok({"by_provider": grouped, "scope": scope, "project_key": resolved_project_key})
 
 
 @router.get("/items/grouped")
 def list_items_grouped_api(
+    request: Request,
     scope: ScopeType = Query(default="effective"),
     project_key: str | None = Query(default=None),
 ) -> dict:
     """Items grouped by resource parser handler (derived from bound site_entries.entry_type)."""
     try:
-        items = list_effective_items(scope=scope, project_key=project_key)
+        resolved_project_key = _resolve_query_project_key(scope, project_key, request=request)
+        items = list_effective_items(scope=scope, project_key=resolved_project_key)
         grouped: dict[str, list[dict]] = {}
         for it in items:
-            for hk in _resource_handler_keys_for_item(it, project_key=project_key):
+            for hk in _resource_handler_keys_for_item(it, project_key=resolved_project_key):
                 grouped.setdefault(hk, []).append(it)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return ok({"by_handler": grouped, "scope": scope, "project_key": project_key})
+        _raise_mapped_error(exc)
+    return ok({"by_handler": grouped, "scope": scope, "project_key": resolved_project_key})
 
 
 def _resource_handler_keys_for_item(item: dict, *, project_key: str | None) -> list[str]:
@@ -496,8 +558,13 @@ def _refresh_handler_item_site_entries(*, row: SourceLibraryItem, project_key: s
 
 
 @router.post("/items")
-def upsert_project_item(payload: SourceLibraryItemUpsertPayload, project_key: str) -> dict:
+def upsert_project_item(
+    payload: SourceLibraryItemUpsertPayload,
+    request: Request,
+    project_key: str | None = Query(default=None),
+) -> dict:
     try:
+        resolved_project_key = _resolve_write_project_key(project_key, request=request)
         norm_params, _ = _normalize_item_site_entries(payload.params or {})
         normalized_extra = _normalize_source_item_capability(payload.extra or {})
         normalized_extra = normalize_external_project_extra(
@@ -531,9 +598,9 @@ def upsert_project_item(payload: SourceLibraryItemUpsertPayload, project_key: st
         _validate_handler_item_constraints(
             params=norm_params,
             extra=normalized_extra,
-            project_key=project_key,
+            project_key=resolved_project_key,
         )
-        with bind_project(project_key):
+        with bind_project(resolved_project_key):
             with SessionLocal() as session:
                 row = session.execute(
                     select(SourceLibraryItem).where(SourceLibraryItem.item_key == payload.item_key)
@@ -559,21 +626,19 @@ def upsert_project_item(payload: SourceLibraryItemUpsertPayload, project_key: st
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=400,
-            detail=error_response(
-                ErrorCode.INVALID_INPUT,
-                str(exc),
-            ),
-        ) from exc
+        _raise_mapped_error(exc)
 
-    return ok({"item_key": payload.item_key, "project_key": project_key, "ok": True})
+    return ok({"item_key": payload.item_key, "project_key": resolved_project_key, "ok": True})
 
 
 @router.post("/external-projects/register")
-def register_external_project(payload: ExternalProjectRegistrationPayload, project_key: str | None = None) -> dict:
+def register_external_project(
+    payload: ExternalProjectRegistrationPayload,
+    request: Request,
+    project_key: str | None = Query(default=None),
+) -> dict:
     try:
-        resolved_project_key = _require_project_key(project_key)
+        resolved_project_key = _resolve_write_project_key(project_key, request=request)
         item_payload = synthesize_external_project_item(
             project_link=payload.project_link,
             item_key=payload.item_key,
@@ -583,6 +648,15 @@ def register_external_project(payload: ExternalProjectRegistrationPayload, proje
             hints=payload.hints,
         )
         item_payload["enabled"] = bool(payload.enabled)
+        registration_context = dict(item_payload.get("registration_context") or {})
+        manifest = get_external_project_manifest(
+            item_payload.get("extra") if isinstance(item_payload.get("extra"), dict) else {},
+            item_key=str(item_payload.get("item_key") or "").strip() or None,
+            display_name=str(item_payload.get("name") or "").strip() or None,
+        )
+        if manifest is not None and "provider_binding" not in registration_context:
+            registration_context["provider_binding"] = dict((manifest.get("provider_binding") or {}))
+        item_payload["registration_context"] = registration_context
         item_response = _build_definition_response(item_payload)
         if not payload.persist:
             return ok(
@@ -591,7 +665,8 @@ def register_external_project(payload: ExternalProjectRegistrationPayload, proje
                     "persisted": False,
                     "project_key": resolved_project_key,
                     "item": item_response,
-                    "registration_context": item_payload.get("registration_context"),
+                    "registration_context": registration_context,
+                    "manifest_summary": build_external_project_summary(manifest),
                 }
             )
 
@@ -613,17 +688,23 @@ def register_external_project(payload: ExternalProjectRegistrationPayload, proje
                 "persisted": True,
                 "project_key": resolved_project_key,
                 "item": item_response,
-                "registration_context": item_payload.get("registration_context"),
+                "registration_context": registration_context,
+                "manifest_summary": build_external_project_summary(manifest),
             }
         )
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_mapped_error(exc)
 
 
 @router.put("/items/{item_key}")
-def update_project_item(item_key: str, payload: SourceLibraryItemUpsertPayload, project_key: str) -> dict:
+def update_project_item(
+    item_key: str,
+    payload: SourceLibraryItemUpsertPayload,
+    request: Request,
+    project_key: str | None = Query(default=None),
+) -> dict:
     payload_item_key = str(payload.item_key or "").strip()
     if payload_item_key != str(item_key or "").strip():
         raise HTTPException(
@@ -633,22 +714,27 @@ def update_project_item(item_key: str, payload: SourceLibraryItemUpsertPayload, 
                 "path item_key must equal payload.item_key",
             ),
         )
-    return upsert_project_item(payload=payload, project_key=project_key)
+    return upsert_project_item(payload=payload, request=request, project_key=project_key)
 
 
 @router.post("/items/{item_key}/refresh")
-def refresh_item(item_key: str, payload: RefreshItemPayload) -> dict:
+def refresh_item(item_key: str, payload: RefreshItemPayload, request: Request) -> dict:
     try:
-        project_key = str(payload.project_key or "").strip()
-        if not project_key:
-            raise HTTPException(status_code=400, detail="project_key is required.")
+        project_key = _resolve_write_project_key(payload.project_key, request=request)
         with bind_project(project_key):
             with SessionLocal() as session:
                 row = session.execute(
                     select(SourceLibraryItem).where(SourceLibraryItem.item_key == item_key)
                 ).scalar_one_or_none()
                 if row is None:
-                    raise HTTPException(status_code=404, detail=f"item not found: {item_key}")
+                    raise HTTPException(
+                        status_code=404,
+                        detail=error_response(
+                            ErrorCode.NOT_FOUND,
+                            f"item not found: {item_key}",
+                            details={"item_key": item_key},
+                        ),
+                    )
                 result = _refresh_handler_item_site_entries(
                     row=row,
                     project_key=project_key,
@@ -665,15 +751,13 @@ def refresh_item(item_key: str, payload: RefreshItemPayload) -> dict:
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_mapped_error(exc)
 
 
 @router.post("/handler_clusters/sync")
-def sync_handler_clusters(payload: SyncHandlerClustersPayload) -> dict:
+def sync_handler_clusters(payload: SyncHandlerClustersPayload, request: Request) -> dict:
     try:
-        project_key = str(payload.project_key or "").strip()
-        if not project_key:
-            raise HTTPException(status_code=400, detail="project_key is required.")
+        project_key = _resolve_write_project_key(payload.project_key, request=request)
 
         requested = [str(x).strip().lower() for x in (payload.handlers or []) if str(x or "").strip()]
         requested_set = set(requested)
@@ -776,15 +860,17 @@ def sync_handler_clusters(payload: SyncHandlerClustersPayload) -> dict:
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_mapped_error(exc)
 
 
 @router.post("/sync_shared_from_files")
-def sync_shared_from_files(project_key: str | None = None) -> dict:
+def sync_shared_from_files(request: Request, project_key: str | None = Query(default=None)) -> dict:
     try:
-        resolved_project_key = _require_project_key(project_key)
+        resolved_project_key = _resolve_write_project_key(project_key, request=request)
         with bind_project(resolved_project_key):
             result = sync_shared_library_from_files()
             return ok({"ok": True, "project_key": resolved_project_key, **result})
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_mapped_error(exc)

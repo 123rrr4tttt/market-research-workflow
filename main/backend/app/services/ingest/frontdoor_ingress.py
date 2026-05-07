@@ -4,6 +4,8 @@ from copy import deepcopy
 from hashlib import sha256
 from typing import Any
 
+from ..resource_pool.url_utils import domain_from_url
+
 
 CONTRACT_VERSION = "frontdoor.ingress.v1"
 _ALLOWED_INGRESS_TYPES = {"source_library", "raw_import", "discovery"}
@@ -37,7 +39,13 @@ def build_frontdoor_ingress_envelope(
         "project_key": str(project_key or "").strip() or None,
         "entrypoint": normalized_entrypoint,
         "source_mode": normalized_source_mode,
-        "source_ref": _normalize_source_ref(source_ref),
+        "source_ref": _normalize_source_ref(
+            source_ref,
+            ingress_type=normalized_type,
+            entrypoint=normalized_entrypoint,
+            source_mode=normalized_source_mode,
+            project_key=str(project_key or "").strip() or None,
+        ),
         "collection_payload": payload,
         "raw_snapshot": snapshot,
         "meta": {
@@ -126,8 +134,35 @@ def build_discovery_ingress_envelope(
     )
 
 
-def _normalize_source_ref(value: dict[str, Any] | None) -> dict[str, Any]:
+def _normalize_source_ref(
+    value: dict[str, Any] | None,
+    *,
+    ingress_type: str | None = None,
+    entrypoint: str | None = None,
+    source_mode: str | None = None,
+    project_key: str | None = None,
+) -> dict[str, Any]:
     source_ref = dict(value or {})
+    url = str(source_ref.get("url") or source_ref.get("site_entry_url") or "").strip() or None
+    locator = str(source_ref.get("locator") or url or entrypoint or "").strip() or None
+    domain = (
+        str(source_ref.get("domain") or source_ref.get("entry_domain") or domain_from_url(url or "") or "").strip().lower()
+        or None
+    )
+    if locator:
+        source_ref.setdefault("locator", locator)
+    if url:
+        source_ref.setdefault("url", url)
+    if domain:
+        source_ref.setdefault("domain", domain)
+    if ingress_type:
+        source_ref.setdefault("ingress_type", ingress_type)
+    if entrypoint:
+        source_ref.setdefault("entrypoint", entrypoint)
+    if source_mode:
+        source_ref.setdefault("source_mode", source_mode)
+    if project_key:
+        source_ref.setdefault("project_key", project_key)
     out: dict[str, Any] = {}
     for key, raw in source_ref.items():
         if raw is None:

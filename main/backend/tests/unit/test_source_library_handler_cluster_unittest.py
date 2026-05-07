@@ -13,6 +13,7 @@ pytestmark = pytest.mark.unit
 
 from app.services.collect_runtime.adapters.source_library import SourceLibraryAdapter
 from app.services.collect_runtime.contracts import CollectRequest
+from app.services.source_library.adapters.handler_cluster import handle_handler_cluster
 from app.services.source_library.resolver import list_effective_channels
 
 
@@ -78,6 +79,47 @@ class SourceLibraryHandlerClusterUnitTestCase(unittest.TestCase):
         )
         self.assertEqual(result.inserted, 1)
         self.assertEqual(((result.meta or {}).get("raw") or {}).get("channel_key"), "handler.cluster")
+
+    def test_handler_cluster_adapter_reports_site_search_taxonomy(self) -> None:
+        with patch("app.services.resource_pool.unified_search_by_item_payload") as unified_search:
+            unified_search.return_value = type(
+                "UnifiedSearchResult",
+                (),
+                {
+                    "site_entries_used": [{"site_url": "https://example.com/search?q=robotics", "entry_type": "search_template"}],
+                    "candidates": ["https://example.com/posts/robotics-1"],
+                    "written": {"urls_new": 1, "urls_skipped": 0},
+                    "ingest_result": {
+                        "inserted": 0,
+                        "updated": 0,
+                        "skipped": 0,
+                        "inserted_valid": 0,
+                        "rejected_count": 0,
+                        "rejection_breakdown": {},
+                    },
+                    "errors": [],
+                },
+            )()
+            result = handle_handler_cluster(
+                {
+                    "_item_key": "handler.cluster.search_template",
+                    "query_terms": ["robotics"],
+                    "expected_entry_type": "search_template",
+                    "_source_library_item": {
+                        "item_key": "handler.cluster.search_template",
+                        "item_type": "service_aggregated",
+                        "managed_by": "system",
+                        "extra": {"expected_entry_type": "search_template"},
+                    },
+                },
+                project_key="demo_proj",
+            )
+
+        self.assertEqual(result["source_mode"], "site_search")
+        self.assertEqual(result["capability_profile"]["entry_type"], "search_template")
+        self.assertEqual(result["execution_taxonomy"]["lane"], "site_search")
+        self.assertEqual(result["execution_taxonomy"]["item_type"], "service_aggregated")
+        self.assertEqual(result["execution_taxonomy"]["managed_by"], "system")
 
 
 if __name__ == "__main__":

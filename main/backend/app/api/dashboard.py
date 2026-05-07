@@ -9,6 +9,7 @@ from datetime import datetime, date, timedelta
 import logging
 import re
 
+from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import (
@@ -35,6 +36,42 @@ def _decimal_to_float(value):
     return float(value)
 
 
+def _raise_invalid_input_422(message: str, *, field: str, value: str) -> None:
+    raise HTTPException(
+        status_code=422,
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            message,
+            details={
+                "field": field,
+                "value": value,
+            },
+        ),
+    )
+
+
+def _raise_upstream_error(message: str, *, details: dict | None = None) -> None:
+    raise HTTPException(
+        status_code=503,
+        detail=error_response(
+            ErrorCode.UPSTREAM_ERROR,
+            message,
+            details=details,
+        ),
+    )
+
+
+def _raise_internal_error(message: str, *, details: dict | None = None) -> None:
+    raise HTTPException(
+        status_code=500,
+        detail=error_response(
+            ErrorCode.INTERNAL_ERROR,
+            message,
+            details=details,
+        ),
+    )
+
+
 def _parse_ymd_date_param(value: Optional[str], *, field: str) -> Optional[date]:
     if value is None:
         return None
@@ -42,11 +79,15 @@ def _parse_ymd_date_param(value: Optional[str], *, field: str) -> Optional[date]
     if not raw:
         return None
     if not _DATE_RE.match(raw):
-        raise HTTPException(status_code=422, detail=f"{field} must be YYYY-MM-DD")
+        _raise_invalid_input_422(f"{field} must be YYYY-MM-DD", field=field, value=raw)
     try:
         return datetime.strptime(raw, "%Y-%m-%d").date()
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=f"{field} must be a valid YYYY-MM-DD date") from exc
+    except ValueError:
+        _raise_invalid_input_422(
+            f"{field} must be a valid YYYY-MM-DD date",
+            field=field,
+            value=raw,
+        )
 
 
 def _parse_iso8601_datetime_param(value: Optional[str], *, field: str) -> Optional[datetime]:
@@ -59,10 +100,14 @@ def _parse_iso8601_datetime_param(value: Optional[str], *, field: str) -> Option
         raw = f"{raw[:-1]}+00:00"
     try:
         parsed = datetime.fromisoformat(raw)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=f"{field} must be ISO8601 datetime") from exc
+    except ValueError:
+        _raise_invalid_input_422(
+            f"{field} must be ISO8601 datetime",
+            field=field,
+            value=raw,
+        )
     if "T" not in raw and " " not in raw:
-        raise HTTPException(status_code=422, detail=f"{field} must be ISO8601 datetime")
+        _raise_invalid_input_422(f"{field} must be ISO8601 datetime", field=field, value=raw)
     return parsed
 
 
@@ -188,19 +233,30 @@ def get_dashboard_stats():
             })
     except (OperationalError, DatabaseError) as e:
         logger.exception("数据库连接失败")
-        raise HTTPException(
-            status_code=503,
-            detail="数据库服务不可用，请检查数据库服务是否已启动。"
+        _raise_upstream_error(
+            "数据库服务不可用，请检查数据库服务是否已启动。",
+            details={
+                "category": "database",
+                "exception_type": e.__class__.__name__,
+                "retriable": True,
+            },
         )
     except Exception as e:
         logger.exception("获取仪表盘统计数据失败")
         error_msg = str(e)
         if "Connection" in error_msg or "db" in error_msg.lower() or "database" in error_msg.lower() or "postgres" in error_msg.lower() or "timeout" in error_msg.lower():
-            raise HTTPException(
-                status_code=503,
-                detail="数据库服务不可用，请检查数据库服务是否已启动。"
+            _raise_upstream_error(
+                "数据库服务不可用，请检查数据库服务是否已启动。",
+                details={
+                    "category": "database",
+                    "exception_type": e.__class__.__name__,
+                    "retriable": True,
+                },
             )
-        raise HTTPException(status_code=500, detail=f"获取统计数据失败: {error_msg}")
+        _raise_internal_error(
+            f"获取统计数据失败: {error_msg}",
+            details={"exception_type": e.__class__.__name__},
+        )
 
 
 @router.get("/market-trends")

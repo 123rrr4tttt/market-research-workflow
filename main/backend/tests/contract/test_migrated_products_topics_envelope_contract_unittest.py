@@ -5,7 +5,7 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -31,6 +31,9 @@ class _FakeSession:
 
     def execute(self, _stmt):
         return _FakeExecuteResult(self._rows)
+
+    def get(self, _model, _id):
+        return None
 
 
 @contextmanager
@@ -112,6 +115,84 @@ class MigratedProductsTopicsEnvelopeContractTestCase(unittest.TestCase):
         self.assertIsNone(payload["error"])
         self.assertEqual(len(payload["data"]["items"]), 1)
         self.assertEqual(payload["data"]["items"][0]["topic_name"], "California Lotto")
+
+    def test_products_missing_id_returns_structured_not_found_error(self):
+        try:
+            from fastapi.testclient import TestClient
+            from app.contracts.errors import ErrorCode
+        except Exception as exc:  # noqa: BLE001
+            self.skipTest(f"Unable to import contract dependencies: {exc}")
+
+        client = TestClient(self._build_app())
+        with patch("app.api.products.SessionLocal", side_effect=lambda: _fake_session_local([])):
+            response = client.put(
+                "/api/v1/products/404",
+                json={"name": "Missing", "enabled": True},
+            )
+
+        self.assertEqual(response.status_code, 404)
+        payload = response.json()
+        self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(payload["detail"]["error"]["message"], "product not found")
+
+    def test_topics_missing_id_returns_structured_not_found_error(self):
+        try:
+            from fastapi.testclient import TestClient
+            from app.contracts.errors import ErrorCode
+        except Exception as exc:  # noqa: BLE001
+            self.skipTest(f"Unable to import contract dependencies: {exc}")
+
+        client = TestClient(self._build_app())
+        with patch("app.api.topics.SessionLocal", side_effect=lambda: _fake_session_local([])):
+            response = client.put(
+                "/api/v1/topics/404",
+                json={"topic_name": "Missing", "enabled": True},
+            )
+
+        self.assertEqual(response.status_code, 404)
+        payload = response.json()
+        self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(payload["detail"]["error"]["message"], "topic not found")
+
+    def test_topics_duplicate_topic_name_returns_structured_invalid_input_error(self):
+        try:
+            from fastapi.testclient import TestClient
+            from app.contracts.errors import ErrorCode
+        except Exception as exc:  # noqa: BLE001
+            self.skipTest(f"Unable to import contract dependencies: {exc}")
+
+        existing_topic = SimpleNamespace(id=7, topic_name="California Lotto")
+        client = TestClient(self._build_app())
+
+        class _ConflictSession(_FakeSession):
+            def execute(self, _stmt):
+                result = Mock()
+                result.scalar_one_or_none.return_value = existing_topic
+                return result
+
+            def add(self, _row):
+                return None
+
+            def commit(self):
+                return None
+
+            def refresh(self, _row):
+                return None
+
+        @contextmanager
+        def _conflict_session_local():
+            yield _ConflictSession([])
+
+        with patch("app.api.topics.SessionLocal", side_effect=lambda: _conflict_session_local()):
+            response = client.post(
+                "/api/v1/topics",
+                json={"topic_name": "California Lotto", "enabled": True},
+            )
+
+        self.assertEqual(response.status_code, 409)
+        payload = response.json()
+        self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(payload["detail"]["error"]["message"], "topic_name already exists")
 
 
 if __name__ == "__main__":

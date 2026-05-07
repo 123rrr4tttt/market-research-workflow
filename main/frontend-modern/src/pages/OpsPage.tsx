@@ -48,6 +48,16 @@ const OPS_CARD_PALETTE = [
   '#bae6fd', // sky-200
 ]
 
+const AGENT_ENFORCEMENT_EVENT_TYPES = new Set([
+  'skill.write_conflict',
+  'approval.requested',
+  'approval.waiting',
+  'approval.approved',
+  'approval.failed',
+  'coordinator.dispatch_planned',
+  'coordinator.synthesis_completed',
+])
+
 function formatDate(value?: string | null) {
   if (!value) return '-'
   const dt = new Date(value)
@@ -221,6 +231,25 @@ function getMessageLabel(message: AgentMessageItem) {
   return [message.actor, message.role].filter(Boolean).join(' · ') || '-'
 }
 
+function getAgentEventKey(event: AgentEventItem) {
+  return `${event.seq || '-'}-${event.event_type || '-'}-${event.ts || '-'}-${event.task_id || event.session_id || '-'}`
+}
+
+function getEnforcementPolicyLabel(event: AgentEventItem) {
+  const payload = event.payload || {}
+  const concurrencyClass = typeof payload.concurrency_class === 'string' ? payload.concurrency_class : ''
+  if (concurrencyClass) return concurrencyClass
+  const eventType = String(event.event_type || '')
+  if (eventType === 'skill.write_conflict') return 'write_shared conflict'
+  if (eventType.startsWith('approval.')) return 'approval flow'
+  return '-'
+}
+
+function getPayloadSummary(payload?: Record<string, unknown> | null) {
+  const text = JSON.stringify(payload || {})
+  return text.length > 160 ? `${text.slice(0, 160)}...` : text
+}
+
 const detailPreStyle = {
   marginTop: 8,
   maxHeight: 280,
@@ -260,6 +289,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [selectedArtifactName, setSelectedArtifactName] = useState<string | null>(null)
+  const [selectedEnforcementEventKey, setSelectedEnforcementEventKey] = useState<string | null>(null)
 
   const adminStats = useQuery({ queryKey: queryKeys.admin.stats(projectKey), queryFn: getAdminStats, enabled: Boolean(projectKey) })
   const searchHistory = useQuery({ queryKey: queryKeys.admin.searchHistory(projectKey), queryFn: () => getSearchHistory(1, 30), enabled: Boolean(projectKey) })
@@ -374,6 +404,16 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   )
   const selectedSessionApprovals = selectedSession?.approvals || []
   const selectedSessionMessages = selectedSession?.messages || []
+  const selectedEnforcementEvents = useMemo(
+    () => selectedSessionEvents.filter((event) => AGENT_ENFORCEMENT_EVENT_TYPES.has(String(event.event_type || ''))),
+    [selectedSessionEvents],
+  )
+  const selectedEnforcementEvent = useMemo(
+    () =>
+      selectedEnforcementEvents.find((event) => getAgentEventKey(event) === selectedEnforcementEventKey)
+      || selectedEnforcementEvents[0],
+    [selectedEnforcementEventKey, selectedEnforcementEvents],
+  )
   const selectedArtifact = useMemo(
     () => selectedSessionArtifacts.find((artifact) => artifact.name === selectedArtifactName) || selectedSessionArtifacts[0],
     [selectedArtifactName, selectedSessionArtifacts],
@@ -837,6 +877,55 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     <strong>Approval Payload</strong>
                     <pre style={{ ...detailPreStyle, maxHeight: 180 }}>
                       {selectedSessionApprovals[0] ? JSON.stringify(selectedSessionApprovals[0].binding_payload || {}, null, 2) : '-'}
+                    </pre>
+                  </div>
+                </section>
+
+                <section className="panel" style={{ margin: 0 }}>
+                  <div className="panel-header">
+                    <h4>Skill Enforcement Timeline</h4>
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Type</th>
+                          <th>Task</th>
+                          <th>Policy</th>
+                          <th>Payload</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedEnforcementEvents.slice().reverse().slice(0, 12).map((event) => {
+                          const eventKey = getAgentEventKey(event)
+                          return (
+                            <tr
+                              key={eventKey}
+                              className={eventKey === selectedEnforcementEventKey ? 'row-selected' : undefined}
+                              onClick={() => setSelectedEnforcementEventKey(eventKey)}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <td>{formatDate(event.ts)}</td>
+                              <td>{event.event_type || '-'}</td>
+                              <td>{event.task_id || '-'}</td>
+                              <td>{getEnforcementPolicyLabel(event)}</td>
+                              <td>{getPayloadSummary(event.payload)}</td>
+                            </tr>
+                          )
+                        })}
+                        {!selectedEnforcementEvents.length ? (
+                          <tr>
+                            <td colSpan={5} className="empty-cell">暂无执行策略事件</td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <strong>Enforcement Payload</strong>
+                    <pre style={{ ...detailPreStyle, maxHeight: 180 }}>
+                      {selectedEnforcementEvent ? JSON.stringify(selectedEnforcementEvent.payload || {}, null, 2) : '-'}
                     </pre>
                   </div>
                 </section>

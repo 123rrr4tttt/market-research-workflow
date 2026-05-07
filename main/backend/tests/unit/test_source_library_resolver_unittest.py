@@ -854,6 +854,26 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(snapshot.get("query_terms"), ["x"])
         self.assertEqual(snapshot.get("max_items"), 9)
 
+    def test_execution_request_contains_taxonomy_for_site_search_item(self):
+        item = {
+            "item_key": "handler.cluster.news",
+            "channel_key": "generic_web.search_template",
+            "enabled": True,
+            "params": {"site_entries": ["https://example.com/search?q={{q}}"], "keywords": ["x"], "limit": 9},
+            "extra": {"stable_handler_cluster": True, "expected_entry_type": "search_template"},
+        }
+        channels = [{"channel_key": "handler.cluster", "enabled": True, "default_params": {}}]
+        fake_result = {"inserted": 0, "updated": 0, "skipped": 0, "errors": []}
+
+        with patch("app.services.source_library.resolver._run_handler_cluster_item", return_value={"result": fake_result}):
+            result = resolver.run_item_payload(item=item, channels=channels, project_key=None, override_params=None)
+
+        taxonomy = result["result"]["execution_request"]["taxonomy"]
+        self.assertEqual(taxonomy["channel_family"], "generic_web")
+        self.assertEqual(taxonomy["item_type"], "service_aggregated")
+        self.assertEqual(taxonomy["managed_by"], "system")
+        self.assertTrue(taxonomy["site_search_authoritative"])
+
 
 if __name__ == "__main__":
     unittest.main()

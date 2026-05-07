@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
-REPO_ROOT = BACKEND_ROOT.parents[1]
+REPO_ROOT = BACKEND_ROOT.parents[1] if len(BACKEND_ROOT.parents) > 1 else BACKEND_ROOT
 ENV_FILE_CANDIDATES = (str(BACKEND_ROOT / ".env"), str(REPO_ROOT / ".env"))
 
 
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     # Neutral default project key for local bootstrap.
     active_project_key: str = Field(default="default")
     project_key_enforcement_mode: str = Field(default="warn")  # warn | require
-    project_key_require_in_non_dev: bool = Field(default=False)
+    project_key_require_in_non_dev: bool = Field(default=True)
     project_schema_prefix: str = Field(default="project_")
     bootstrap_create_initial_project: bool = Field(default=False)
     enable_legacy_default_to_online_lottery_migration: bool = Field(default=False)
@@ -125,6 +125,10 @@ class Settings(BaseSettings):
     codex_oauth_token_sink_profile: str = Field(default="default")
     codex_cli_auth_path: str = Field(default="~/.codex/auth.json")
     codex_cli_install_command: str = Field(default="npm i -g @openai/codex")
+    codex_cli_llm_fallback_enabled: bool = Field(default=True)
+    codex_cli_llm_command: str = Field(default="codex")
+    codex_cli_llm_model: str = Field(default="gpt-5.4-mini")
+    codex_cli_llm_timeout_seconds: int = Field(default=120)
 
     # LLM providers
     # Allowed values now include: openai | azure | ollama | litellm | local

@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import Product
@@ -69,7 +70,13 @@ def update_product(product_id: int, payload: ProductPayload) -> dict:
     with SessionLocal() as session:
         row = session.get(Product, product_id)
         if row is None:
-            raise HTTPException(status_code=404, detail="product not found")
+            raise HTTPException(
+                status_code=404,
+                detail=error_response(
+                    ErrorCode.NOT_FOUND,
+                    "product not found",
+                ),
+            )
         row.name = payload.name.strip()
         row.category = payload.category
         row.source_name = payload.source_name
@@ -86,7 +93,13 @@ def delete_product(product_id: int) -> dict:
     with SessionLocal() as session:
         row = session.get(Product, product_id)
         if row is None:
-            raise HTTPException(status_code=404, detail="product not found")
+            raise HTTPException(
+                status_code=404,
+                detail=error_response(
+                    ErrorCode.NOT_FOUND,
+                    "product not found",
+                ),
+            )
         session.delete(row)
         session.commit()
         return ok({"deleted": product_id})

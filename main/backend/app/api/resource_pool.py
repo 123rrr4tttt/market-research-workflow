@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..contracts import fail, ok, ok_page, task_result_response
-from ..contracts.errors import ErrorCode
+from ..contracts.errors import ErrorCode, map_exception_to_error
+from ..settings.config import get_effective_project_key_enforcement_mode
 from ..services.projects import current_project_key
 from ..services.ingest_config import get_config as get_ingest_config
 from ..services.resource_pool import (
@@ -35,19 +36,104 @@ ScopeType = Literal["shared", "project", "effective"]
 router = APIRouter(prefix="/resource_pool", tags=["resource_pool"])
 
 
-def _get_project_key_or_error(project_key: str | None) -> tuple[str | None, JSONResponse | None]:
+def _error_status_code(code: ErrorCode) -> int:
+    if code in {ErrorCode.INVALID_INPUT, ErrorCode.PROJECT_KEY_REQUIRED, ErrorCode.CONFIG_ERROR}:
+        return 400
+    if code == ErrorCode.NOT_FOUND:
+        return 404
+    if code == ErrorCode.RATE_LIMITED:
+        return 429
+    if code == ErrorCode.UPSTREAM_ERROR:
+        return 503
+    if code == ErrorCode.PARSE_ERROR:
+        return 502
+    return 500
+
+
+def _error_json(
+    status_code: int,
+    code: ErrorCode,
+    message: str,
+    *,
+    details: dict[str, Any] | None = None,
+) -> JSONResponse:
+    payload = fail(code, message, details=details)
+    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
+    return JSONResponse(
+        status_code=status_code,
+        content=payload,
+        headers={"X-Error-Code": code.value},
+    )
+
+
+def _json_from_exception(exc: Exception) -> JSONResponse:
+    if isinstance(exc, ValueError):
+        return _error_json(
+            400,
+            ErrorCode.INVALID_INPUT,
+            str(exc) or "Invalid resource pool request.",
+            details={"exception_type": exc.__class__.__name__},
+        )
+    code, message, details = map_exception_to_error(exc)
+    return _error_json(_error_status_code(code), code, message, details=details)
+
+
+def _get_project_key_or_error(project_key: str | None, *, request: Request | None = None) -> tuple[str | None, JSONResponse | None]:
     key = (project_key or "").strip()
-    if not key:
-        key = (current_project_key() or "").strip()
+    blocked_by_require_fallback = False
+    if not key and request is not None:
+        source = str(getattr(getattr(request, "state", None), "project_key_source", "") or "").strip().lower()
+        resolved = str(getattr(getattr(request, "state", None), "project_key_resolved", "") or "").strip()
+        if source in {"header", "query"} and resolved:
+            key = resolved
+        elif source == "fallback" and get_effective_project_key_enforcement_mode() == "require":
+            blocked_by_require_fallback = True
+    if not key and not blocked_by_require_fallback:
+        try:
+            key = (current_project_key() or "").strip()
+        except RuntimeError:
+            key = ""
     if not key:
         return (
             None,
-            JSONResponse(
-                status_code=400,
-                content=fail(ErrorCode.INVALID_INPUT, "project_key is required. Please select a project first."),
-            ),
+            _error_json(400, ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required. Please select a project first."),
         )
     return key, None
+
+
+def _resolve_request_project_key(project_key: str | None, request: Request | None = None) -> str | None:
+    explicit = (project_key or "").strip()
+    if explicit:
+        return explicit
+    if request is not None:
+        source = str(getattr(getattr(request, "state", None), "project_key_source", "") or "").strip().lower()
+        resolved = str(getattr(getattr(request, "state", None), "project_key_resolved", "") or "").strip()
+        if source in {"header", "query"} and resolved:
+            return resolved
+    return None
+
+
+def _get_project_key_for_scope_or_error(
+    scope: ScopeType | str,
+    project_key: str | None,
+    *,
+    request: Request | None = None,
+) -> tuple[str | None, JSONResponse | None]:
+    resolved_scope = str(scope or "effective").strip().lower()
+    if resolved_scope == "shared":
+        return None, None
+    explicit = _resolve_request_project_key(project_key, request=request)
+    if explicit:
+        return explicit, None
+    return _get_project_key_or_error(None, request=request)
+
+
+def _get_project_key_for_project_route_or_error(
+    project_key: str | None,
+    *,
+    request: Request | None = None,
+) -> tuple[str | None, JSONResponse | None]:
+    return _get_project_key_or_error(_resolve_request_project_key(project_key, request=request), request=request)
 
 
 class ExtractFromDocumentsPayload(BaseModel):
@@ -58,8 +144,8 @@ class ExtractFromDocumentsPayload(BaseModel):
 
 
 @router.post("/extract/from-documents")
-def extract_from_documents_api(payload: ExtractFromDocumentsPayload):
-    project_key, error = _get_project_key_or_error(payload.project_key)
+def extract_from_documents_api(payload: ExtractFromDocumentsPayload, request: Request):
+    project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
     filters = payload.filters or {}
@@ -109,14 +195,12 @@ def extract_from_documents_api(payload: ExtractFromDocumentsPayload):
             ),
         )
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 @router.get("/urls")
 def list_urls_api(
+    request: Request,
     project_key: str | None = Query(default=None),
     scope: ScopeType = Query(default="effective"),
     page: int = Query(default=1, ge=1),
@@ -124,7 +208,7 @@ def list_urls_api(
     source: str | None = Query(default=None),
     domain: str | None = Query(default=None),
 ):
-    project_key, error = _get_project_key_or_error(project_key)
+    project_key, error = _get_project_key_for_scope_or_error(scope, project_key, request=request)
     if error:
         return error
     try:
@@ -148,10 +232,7 @@ def list_urls_api(
             ),
         )
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 class CaptureEnablePayload(BaseModel):
@@ -185,17 +266,15 @@ def list_open_source_presets_api():
 
 
 @router.post("/import/open-source-presets", operation_id="resource_pool_import_open_source_presets")
-def import_open_source_presets_api(payload: ImportOpenSourcePresetPayload):
-    project_key = None
-    if payload.scope == "project":
-        project_key, error = _get_project_key_or_error(payload.project_key)
-        if error:
-            return error
+def import_open_source_presets_api(payload: ImportOpenSourcePresetPayload, request: Request):
+    project_key, error = _get_project_key_for_scope_or_error(payload.scope, payload.project_key, request=request)
+    if error and payload.scope == "project":
+        return error
     try:
         result = import_open_source_preset_pack(
             pack_key=payload.pack_key,
             scope=payload.scope,
-            project_key=project_key,
+            project_key=project_key if payload.scope == "project" else None,
             enabled=payload.enabled,
             extra_tags=payload.extra_tags,
         )
@@ -212,15 +291,13 @@ def import_open_source_presets_api(payload: ImportOpenSourcePresetPayload):
                 }
             ),
         )
-    except ValueError as exc:
-        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
     except Exception as exc:  # noqa: BLE001
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+        return _json_from_exception(exc)
 
 
 @router.post("/capture/enable")
-def capture_enable_api(payload: CaptureEnablePayload):
-    project_key, error = _get_project_key_or_error(payload.project_key)
+def capture_enable_api(payload: CaptureEnablePayload, request: Request):
+    project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
     try:
@@ -232,15 +309,12 @@ def capture_enable_api(payload: CaptureEnablePayload):
         )
         return JSONResponse(status_code=200, content=ok(result))
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 @router.post("/capture/from-tasks")
-def capture_from_tasks_api(payload: CaptureFromTasksPayload):
-    project_key, error = _get_project_key_or_error(payload.project_key)
+def capture_from_tasks_api(payload: CaptureFromTasksPayload, request: Request):
+    project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
     if payload.async_mode:
@@ -283,10 +357,7 @@ def capture_from_tasks_api(payload: CaptureFromTasksPayload):
             ),
         )
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 class UpsertSiteEntryPayload(BaseModel):
@@ -308,6 +379,7 @@ class UpsertSiteEntryPayload(BaseModel):
 @router.get("/site_entries", operation_id="resource_pool_list_site_entries")
 @router.get("/site-entries", operation_id="resource_pool_list_site_entries_dash")
 def list_site_entries_api(
+    request: Request,
     project_key: str | None = Query(default=None),
     scope: ScopeType = Query(default="effective"),
     page: int = Query(default=1, ge=1),
@@ -316,7 +388,7 @@ def list_site_entries_api(
     entry_type: str | None = Query(default=None),
     enabled: bool | None = Query(default=None),
 ):
-    project_key, error = _get_project_key_or_error(project_key)
+    project_key, error = _get_project_key_for_scope_or_error(scope, project_key, request=request)
     if error:
         return error
     try:
@@ -341,17 +413,18 @@ def list_site_entries_api(
             ),
         )
     except Exception as exc:
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+        return _json_from_exception(exc)
 
 
 @router.get("/site_entries/grouped", operation_id="resource_pool_group_site_entries")
 @router.get("/site-entries/grouped", operation_id="resource_pool_group_site_entries_dash")
 def group_site_entries_api(
+    request: Request,
     project_key: str | None = Query(default=None),
     scope: ScopeType = Query(default="effective"),
     enabled: bool | None = Query(default=True),
 ):
-    project_key, error = _get_project_key_or_error(project_key)
+    project_key, error = _get_project_key_for_scope_or_error(scope, project_key, request=request)
     if error:
         return error
     try:
@@ -378,13 +451,13 @@ def group_site_entries_api(
             page += 1
         return JSONResponse(status_code=200, content=ok({"by_entry_type": by_entry_type, "scope": scope, "project_key": project_key}))
     except Exception as exc:
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+        return _json_from_exception(exc)
 
 
 @router.post("/site_entries", operation_id="resource_pool_upsert_site_entry")
 @router.post("/site-entries", operation_id="resource_pool_upsert_site_entry_dash")
-def upsert_site_entry_api(payload: UpsertSiteEntryPayload):
-    project_key, error = _get_project_key_or_error(payload.project_key)
+def upsert_site_entry_api(payload: UpsertSiteEntryPayload, request: Request):
+    project_key, error = _get_project_key_for_scope_or_error(payload.scope, payload.project_key, request=request)
     if error and payload.scope == "project":
         return error
     try:
@@ -404,10 +477,8 @@ def upsert_site_entry_api(payload: UpsertSiteEntryPayload):
             extra=payload.extra,
         )
         return JSONResponse(status_code=200, content=ok(item))
-    except ValueError as exc:
-        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
     except Exception as exc:
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+        return _json_from_exception(exc)
 
 
 class DiscoverSiteEntriesPayload(BaseModel):
@@ -450,8 +521,8 @@ class DiscoverSearchContractPayload(BaseModel):
 
 
 @router.post("/discover/search-contract", operation_id="resource_pool_discover_search_contract")
-def discover_search_contract_api(payload: DiscoverSearchContractPayload):
-    project_key, error = _get_project_key_or_error(payload.project_key)
+def discover_search_contract_api(payload: DiscoverSearchContractPayload, request: Request):
+    project_key, error = _get_project_key_for_scope_or_error(payload.scope, payload.project_key, request=request)
     if error and payload.scope == "project":
         return error
     try:
@@ -492,15 +563,13 @@ def discover_search_contract_api(payload: DiscoverSearchContractPayload):
                 }
             ),
         )
-    except ValueError as exc:
-        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
     except Exception as exc:
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+        return _json_from_exception(exc)
 
 
 @router.post("/discover/site-entries", operation_id="resource_pool_discover_site_entries")
-def discover_site_entries_api(payload: DiscoverSiteEntriesPayload):
-    project_key, error = _get_project_key_or_error(payload.project_key)
+def discover_site_entries_api(payload: DiscoverSiteEntriesPayload, request: Request):
+    project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
     try:
@@ -603,13 +672,13 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload):
                 }
             ),
         )
-    except ValueError as exc:
-        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
+    except Exception as exc:
+        return _json_from_exception(exc)
 
 
 @router.post("/site_entries/simplify", operation_id="resource_pool_simplify_site_entries")
-def simplify_site_entries_api(payload: SimplifySiteEntriesPayload):
-    project_key, error = _get_project_key_or_error(payload.project_key)
+def simplify_site_entries_api(payload: SimplifySiteEntriesPayload, request: Request):
+    project_key, error = _get_project_key_for_scope_or_error(payload.scope, payload.project_key, request=request)
     if error and payload.scope == "project":
         return error
     try:
@@ -620,12 +689,8 @@ def simplify_site_entries_api(payload: SimplifySiteEntriesPayload):
             dry_run=payload.dry_run,
         )
         return JSONResponse(status_code=200, content=ok(result))
-    except ValueError as exc:
-        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
     except Exception as exc:
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
-    except Exception as exc:
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+        return _json_from_exception(exc)
 
 
 class RecommendSiteEntryPayload(BaseModel):
@@ -646,9 +711,6 @@ class BatchRecommendSiteEntriesPayload(BaseModel):
 @router.post("/site_entries/recommend", operation_id="resource_pool_recommend_site_entry")
 def recommend_site_entry_api(payload: RecommendSiteEntryPayload):
     """Recommend channel_key and entry_type for a site entry. Rule-first, LLM fallback when use_llm=True."""
-    project_key, error = _get_project_key_or_error(payload.project_key)
-    if error:
-        return error
     try:
         rec = classify_site_entry(
             site_url=payload.site_url,
@@ -669,18 +731,13 @@ def recommend_site_entry_api(payload: RecommendSiteEntryPayload):
                 }
             ),
         )
-    except ValueError as exc:
-        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
     except Exception as exc:
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+        return _json_from_exception(exc)
 
 
 @router.post("/site_entries/recommend-batch", operation_id="resource_pool_recommend_site_entries_batch")
 def recommend_site_entries_batch_api(payload: BatchRecommendSiteEntriesPayload):
     """Batch recommend channel/entry_type/template (+ capability/symbol-ready hints) for site entries."""
-    project_key, error = _get_project_key_or_error(payload.project_key)
-    if error:
-        return error
     try:
         rows = []
         for i, row in enumerate(payload.entries or []):
@@ -713,10 +770,8 @@ def recommend_site_entries_batch_api(payload: BatchRecommendSiteEntriesPayload):
             for item in result
         ]
         return JSONResponse(status_code=200, content=ok({"items": normalized, "count": len(normalized)}))
-    except ValueError as exc:
-        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
     except Exception as exc:
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+        return _json_from_exception(exc)
 
 
 class UnifiedSearchPayload(BaseModel):
@@ -731,9 +786,62 @@ class UnifiedSearchPayload(BaseModel):
     ingest_limit: int = Field(default=10, ge=1, le=50)
 
 
+class SourceLibraryCollectPayload(BaseModel):
+    project_key: str | None = Field(default=None, description="Project identifier")
+    item_key: str = Field(..., min_length=1, max_length=128)
+    query_terms: list[str] = Field(default_factory=list, description="User keywords or normalized base information")
+    max_candidates: int = Field(default=500, ge=1, le=2000)
+    pool_scope: Literal["project", "shared"] = Field(default="project")
+    probe_timeout: float = Field(default=10.0, ge=1.0, le=60.0)
+    ingest_limit: int = Field(default=100, ge=1, le=500)
+    allow_term_fallback: bool = Field(default=True)
+
+
+def _source_library_collect_response(result) -> dict[str, Any]:
+    ingest_result = result.ingest_result if isinstance(result.ingest_result, dict) else {}
+    written = result.written if isinstance(result.written, dict) else {}
+    inserted = int(ingest_result.get("inserted") or 0)
+    inserted_valid = int(ingest_result.get("inserted_valid") or inserted or 0)
+    queued = int(ingest_result.get("queued") or 0)
+    rejected_count = int(ingest_result.get("rejected_count") or 0)
+    skipped = int(ingest_result.get("skipped") or 0)
+    candidates = list(result.candidates or [])
+    site_entries_used = list(result.site_entries_used or [])
+    return {
+        "contract_version": "source_library.keyword_collect.v1",
+        "item_key": result.item_key,
+        "query_terms": result.query_terms,
+        "site_entries_used": site_entries_used,
+        "candidates": candidates,
+        "written": written or None,
+        "ingest_result": result.ingest_result,
+        "errors": result.errors,
+        "summary": {
+            "site_entries_used": len(site_entries_used),
+            "candidates_found": len(candidates),
+            "urls_written_new": int(written.get("urls_new") or written.get("new") or 0),
+            "urls_written_skipped": int(written.get("urls_skipped") or written.get("duplicate") or 0),
+            "documents_inserted": inserted,
+            "documents_inserted_valid": inserted_valid,
+            "documents_queued": queued,
+            "documents_skipped": skipped,
+            "documents_rejected": rejected_count,
+            "ready_for_project_flows": (inserted_valid + queued) > 0,
+        },
+        "pipeline": {
+            "entrypoint": "resource_pool.source_library.collect",
+            "source_search": "resource_pool.unified_search_by_item",
+            "candidate_materialization": "resource_pool.urls",
+            "document_ingest": "ingest.url_pool.source_library_frontdoor",
+            "structured_extraction": "frontdoor.unified.structured.v1",
+            "project_downstream": ["documents", "writing_materials", "graph_projection", "llm_report_sources"],
+        },
+    }
+
+
 @router.post("/unified-search", operation_id="resource_pool_unified_search")
-def unified_search_api(payload: UnifiedSearchPayload):
-    project_key, error = _get_project_key_or_error(payload.project_key)
+def unified_search_api(payload: UnifiedSearchPayload, request: Request):
+    project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
         return error
     try:
@@ -762,10 +870,32 @@ def unified_search_api(payload: UnifiedSearchPayload):
                 }
             ),
         )
-    except ValueError as exc:
-        return JSONResponse(status_code=400, content=fail(ErrorCode.INVALID_INPUT, str(exc)))
     except Exception as exc:
-        return JSONResponse(status_code=500, content=fail(ErrorCode.INTERNAL_ERROR, str(exc)))
+        return _json_from_exception(exc)
+
+
+@router.post("/source-library/collect", operation_id="resource_pool_source_library_collect")
+def source_library_collect_api(payload: SourceLibraryCollectPayload, request: Request):
+    project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
+    if error:
+        return error
+    try:
+        result = unified_search_by_item(
+            project_key=project_key,
+            item_key=payload.item_key,
+            query_terms=payload.query_terms or [],
+            max_candidates=payload.max_candidates,
+            write_to_pool=True,
+            pool_scope=payload.pool_scope,
+            probe_timeout=payload.probe_timeout,
+            auto_ingest=True,
+            ingest_limit=payload.ingest_limit,
+            enable_extraction=True,
+            allow_term_fallback=payload.allow_term_fallback,
+        )
+        return JSONResponse(status_code=200, content=ok(_source_library_collect_response(result)))
+    except Exception as exc:
+        return _json_from_exception(exc)
 
 
 def _get_tasks_module():

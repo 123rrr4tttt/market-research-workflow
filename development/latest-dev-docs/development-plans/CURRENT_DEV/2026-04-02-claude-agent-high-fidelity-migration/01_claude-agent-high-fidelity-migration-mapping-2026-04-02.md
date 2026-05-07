@@ -1,6 +1,6 @@
 # Claude Agent High-Fidelity Migration Mapping
 
-Updated: 2026-04-02 PST
+Updated: 2026-04-25 PST
 
 ## Goal
 
@@ -52,3 +52,12 @@ The new repo-side agent core should be treated as the canonical execution path:
 
 The existing `agent_batch`, `skill_runtime`, and `workflow_graph` stacks remain in place only as compatibility adapters until callers are moved to the session/task APIs.
 
+## Runtime Enforcement Status
+
+The tool orchestration migration now has runtime enforcement in `skill_runtime`:
+
+- `read_only`: invokes directly after role and permission checks.
+- `write_shared`: when `agent_session_id` and `agent_task_id` are present, reclaims expired leases and checks the task bus `write_set` before invocation; conflicts append `skill.write_conflict` and reject the invocation.
+- `write_external`: without `approval_granted`, creates an approval plus an `approval_wait` task and rejects the current invocation with `approval_required:<approval_id>`.
+- `privileged`: follows the same approval path as `write_external`; role checks remain enforced by the skill registration.
+- Compatibility default: legacy `write_shared` calls without session/task context remain allowed, while `write_external` and `privileged` calls require approval context or explicit `approval_granted`.

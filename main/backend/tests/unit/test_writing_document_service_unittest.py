@@ -15,6 +15,7 @@ try:
         WritingVersionConflictError,
         _build_conflict_details,
         _compute_etag,
+        _serialize_document,
     )
 
     _IMPORT_ERROR = None
@@ -58,6 +59,12 @@ class WritingDocumentServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(exc.expected_version, 1)
         self.assertEqual(exc.current_version, 2)
         self.assertEqual(exc.server_snapshot["conflict_code"], "VERSION_CONFLICT")
+
+    def test_serialize_document_uses_view_shape(self):
+        serialized = _serialize_document(_FakeDocument())
+        self.assertEqual(serialized["id"], 11)
+        self.assertEqual(serialized["version"], 2)
+        self.assertEqual(serialized["etag"], "etag-2")
 
 
 if __name__ == "__main__":

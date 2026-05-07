@@ -5,7 +5,7 @@ from contextvars import ContextVar
 import logging
 import re
 
-from ...settings.config import settings
+from ...settings.config import get_effective_project_key_enforcement_mode, settings
 
 
 _PROJECT_KEY_VAR: ContextVar[str | None] = ContextVar("project_key", default=None)
@@ -84,7 +84,7 @@ def current_project_key() -> str:
     if key:
         return key
     # No explicit context; enforce per mode.
-    mode = str(getattr(settings, "project_key_enforcement_mode", "warn")).lower()
+    mode = get_effective_project_key_enforcement_mode()
     fallback = settings.active_project_key
     if mode == "require":
         raise RuntimeError("project key required but missing (enforcement=require)")
@@ -108,7 +108,7 @@ def bind_project(project_key: str):
     raw = str(project_key or "").strip()
     normalized = _normalize_project_key(raw)
     if normalized == "public":
-        mode = str(getattr(settings, "project_key_enforcement_mode", "warn")).lower()
+        mode = get_effective_project_key_enforcement_mode()
         msg = "attempt to bind_project to reserved key public is not allowed"
         if mode == "require":
             raise ValueError(msg)

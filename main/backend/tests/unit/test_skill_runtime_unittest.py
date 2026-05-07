@@ -243,6 +243,103 @@ class SkillRuntimeUnitTest(unittest.TestCase):
         )
         self.assertEqual(out["result"]["ok"], "done")
 
+    def test_write_shared_rejects_conflicting_active_write_set(self):
+        runtime = SkillRuntime()
+        runtime._bootstrapped = True
+        runtime.register(
+            skill_id="test.shared_write",
+            handler=lambda payload: payload,
+            required_permissions=("test.invoke",),
+            concurrency_class="write_shared",
+        )
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Write shared conflict",
+            task_blueprints=[
+                {
+                    "task_id": "impl-a",
+                    "subject": "Implementation A",
+                    "task_type": "implementation",
+                    "phase": "implementation",
+                    "write_set": ["file:a.py"],
+                },
+                {
+                    "task_id": "impl-b",
+                    "subject": "Implementation B",
+                    "task_type": "implementation",
+                    "phase": "implementation",
+                    "write_set": ["file:a.py"],
+                },
+            ],
+        )
+        session_id = bundle["session"]["session_id"]
+        service.claim_task(session_id, "impl-a", owner="worker-a")
+
+        with patch("app.services.skill_runtime.get_agent_session_service", return_value=service):
+            with self.assertRaises(RuntimeError) as exc:
+                runtime.invoke(
+                    skill_id="test.shared_write",
+                    payload={"value": "x"},
+                    context={
+                        "actor_role": "orchestration_runtime",
+                        "permissions": ["test.invoke"],
+                        "agent_session_id": session_id,
+                        "agent_task_id": "impl-b",
+                    },
+                )
+        self.assertIn("write_set_conflict", str(exc.exception))
+        events = service.list_events(session_id)
+        self.assertTrue(any(item["event_type"] == "skill.write_conflict" for item in events))
+
+    def test_write_shared_allows_non_conflicting_write_set(self):
+        runtime = SkillRuntime()
+        runtime._bootstrapped = True
+        runtime.register(
+            skill_id="test.shared_write",
+            handler=lambda payload: {"ok": payload.get("value")},
+            required_permissions=("test.invoke",),
+            concurrency_class="write_shared",
+        )
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="chat",
+            goal="Write shared no conflict",
+            task_blueprints=[
+                {
+                    "task_id": "impl-a",
+                    "subject": "Implementation A",
+                    "task_type": "implementation",
+                    "phase": "implementation",
+                    "write_set": ["file:a.py"],
+                },
+                {
+                    "task_id": "impl-b",
+                    "subject": "Implementation B",
+                    "task_type": "implementation",
+                    "phase": "implementation",
+                    "write_set": ["file:b.py"],
+                },
+            ],
+        )
+        session_id = bundle["session"]["session_id"]
+        service.claim_task(session_id, "impl-a", owner="worker-a")
+
+        with patch("app.services.skill_runtime.get_agent_session_service", return_value=service):
+            out = runtime.invoke(
+                skill_id="test.shared_write",
+                payload={"value": "done"},
+                context={
+                    "actor_role": "orchestration_runtime",
+                    "permissions": ["test.invoke"],
+                    "agent_session_id": session_id,
+                    "agent_task_id": "impl-b",
+                },
+            )
+        self.assertEqual(out["result"]["ok"], "done")
+
 
 if __name__ == "__main__":
     unittest.main()

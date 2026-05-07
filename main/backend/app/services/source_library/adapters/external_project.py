@@ -9,6 +9,14 @@ from ..external_project import (
     get_external_project_manifest,
     resolve_runner_url,
 )
+from ..external_project_registry import resolve_external_project_provider_binding
+
+
+_RUNNER_BY_PROVIDER_KEY = {
+    "external_project.rss_feed": lambda *, manifest, params: _run_rss_feed_manifest(manifest=manifest, params=params),
+    "external_project.sitemap": lambda *, manifest, params: _run_sitemap_manifest(manifest=manifest, params=params),
+    "external_project.http_api": lambda *, manifest, params: _run_http_api_manifest(manifest=manifest, params=params),
+}
 
 
 def handle_external_project_manifest(params: dict[str, Any], project_key: str | None) -> dict[str, Any]:
@@ -22,15 +30,13 @@ def handle_external_project_manifest(params: dict[str, Any], project_key: str | 
     if manifest is None:
         raise ValueError("external project item requires a normalized external project manifest")
 
-    execution_mode = str(manifest.get("execution_mode") or "").strip().lower()
-    if execution_mode == "rss_feed":
-        result = _run_rss_feed_manifest(manifest=manifest, params=params)
-    elif execution_mode == "sitemap":
-        result = _run_sitemap_manifest(manifest=manifest, params=params)
-    elif execution_mode == "http_api":
-        result = _run_http_api_manifest(manifest=manifest, params=params)
-    else:
-        raise ValueError(f"unsupported external project execution_mode: {execution_mode}")
+    provider_binding = resolve_external_project_provider_binding(manifest)
+    execution_mode = str(provider_binding.get("execution_mode") or "").strip().lower()
+    provider_key = str(provider_binding.get("provider_key") or "").strip()
+    runner = _RUNNER_BY_PROVIDER_KEY.get(provider_key)
+    if runner is None:
+        raise ValueError(f"external project registry does not define a runtime runner for {provider_key or execution_mode}")
+    result = runner(manifest=manifest, params=params)
 
     result.setdefault("provider", "external_project")
     result.setdefault("project_link", manifest.get("project_link"))
@@ -38,6 +44,7 @@ def handle_external_project_manifest(params: dict[str, Any], project_key: str | 
     result.setdefault("execution_mode", execution_mode)
     result.setdefault("runner_ref", manifest.get("runner_ref"))
     result.setdefault("manifest_summary", build_external_project_summary(manifest))
+    result.setdefault("provider_binding", provider_binding)
     return result
 
 
@@ -234,6 +241,7 @@ def _build_probe_result(
             "source_kind": manifest.get("source_kind"),
             "source_scope": manifest.get("source_scope"),
             "frontdoor_strategy": ((manifest.get("normalization") or {}).get("frontdoor_strategy")),
+            "provider_binding": dict((manifest.get("provider_binding") or {})),
             "accepted_inputs": dict(manifest.get("accepted_inputs") or {}),
             "runtime_inputs": runtime,
             "diagnostics": diagnostics,

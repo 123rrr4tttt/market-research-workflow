@@ -50,6 +50,8 @@ CORE_COVERAGE_PATHS="app/api/search.py,app/contracts/api.py,app/contracts/respon
   - `unit-check`
   - `llm-report-must-check`
   - `integration-check`
+  - `core-business-check`
+  - `e2e-check`
   - `flaky-observe` (observation lane, non-blocking on PR)
   - `schema-guard-check` (blocking)
   - `coverage-check` (blocking)
@@ -122,7 +124,7 @@ Profile policy:
 Tier policy:
 
 - `PR` branch-protection tier: workflow suite `backend-tests` + workflow job `r9_ef_required_check`.
-- `PR` deterministic lane inside `backend-tests`: `standards-check + r81-a-min-verify-check + r81-b-min-verify-check + unit-check + llm-report-must-check + integration-check + schema-guard-check + coverage-check + security-check + docker-check`.
+- `PR` deterministic lane inside `backend-tests`: `standards-check + r81-a-min-verify-check + r81-b-min-verify-check + unit-check + llm-report-must-check + integration-check + core-business-check + e2e-check + schema-guard-check + coverage-check + security-check + docker-check`.
 - `PR` observation lane inside `backend-tests`: `flaky-observe`.
 - `main` full lane: `standards-check + r81-a-min-verify-check + r81-b-min-verify-check + unit-check + llm-report-must-check + integration-check + schema-guard-check + coverage-check + security-check + contract-check + e2e-check + docker-check`.
 - `main` observation lane: `flaky-observe + contracts-governance-observe`.

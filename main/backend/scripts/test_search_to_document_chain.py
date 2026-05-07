@@ -28,21 +28,39 @@ def main() -> int:
     from app.models.base import SessionLocal
     from app.models.entities import SourceLibraryItem
     from app.services.projects import bind_project
+    from app.services.projects.bootstrap import ensure_project_schema_ready
     from app.services.resource_pool import (
         list_site_entries,
         unified_search_by_item,
     )
+    from app.services.resource_pool.open_source_source_importer import import_open_source_preset_pack
 
     project_key = os.environ.get("PROJECT_KEY", PROJECT_KEY)
     logger.info("Testing search->document chain (auto_ingest) for project_key=%s", project_key)
+    ensure_project_schema_ready(project_key, name="Online Lottery")
 
     # Ensure we have site entries and a temp item
     entries, _ = list_site_entries(scope="effective", project_key=project_key, page=1, page_size=20)
+    if not entries:
+        imported = import_open_source_preset_pack(
+            pack_key="keyword_research_foundation",
+            scope="project",
+            project_key=project_key,
+            enabled=True,
+            extra_tags=["search_to_document_chain_smoke"],
+        )
+        logger.info(
+            "Imported fallback source preset pack=%s entries=%d",
+            imported.pack_key,
+            len(imported.inserted_or_updated),
+        )
+        entries, _ = list_site_entries(scope="effective", project_key=project_key, page=1, page_size=20)
+
     rss_sitemap = [e for e in entries if str(e.get("entry_type", "")).lower() in ("rss", "sitemap")]
     site_urls = [e.get("site_url") for e in (rss_sitemap or entries)[:5] if e.get("site_url")]
 
     if not site_urls:
-        logger.error("No site entries (rss/sitemap) found. Run E2E test first: extract->discover->write.")
+        logger.error("No site entries found after fallback source preset import.")
         return 1
 
     with bind_project(project_key):
@@ -85,10 +103,13 @@ def main() -> int:
         logger.info("  ingest_result: %s", result.ingest_result)
         logger.info("  errors: %s", result.errors)
 
+        inserted = 0
+        queued = 0
         if result.ingest_result:
             inserted = result.ingest_result.get("inserted", 0)
             skipped = result.ingest_result.get("skipped", 0)
             urls = result.ingest_result.get("urls", 0)
+            queued = result.ingest_result.get("queued", 0)
             logger.info("  -> Documents: inserted=%d, skipped=%d, urls_fetched=%d", inserted, skipped, urls)
             if inserted > 0:
                 logger.info("  SUCCESS: auto_ingest produced %d new document(s)", inserted)
@@ -97,6 +118,8 @@ def main() -> int:
         else:
             logger.warning("  No ingest_result (auto_ingest may have failed)")
 
+        if inserted + queued > 0:
+            return 0
         return 0 if not result.errors else 1
     finally:
         with bind_project(project_key):

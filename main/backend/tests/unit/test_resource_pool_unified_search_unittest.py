@@ -175,6 +175,61 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
         execute.assert_called_once()
         self.assertEqual(result.candidates, ["https://example.com/posts/rss-guide"])
 
+    def test_unified_search_payload_writes_granular_source_ref_to_pool(self) -> None:
+        item = {
+            "item_key": "rss-item",
+            "params": {
+                "site_entries": ["https://example.com/feed.xml"],
+            },
+        }
+
+        with (
+            patch(
+                "app.services.resource_pool.unified_search.get_site_entry_by_url",
+                return_value={
+                    "site_url": "https://example.com/feed.xml",
+                    "domain": "example.com",
+                    "entry_type": "rss",
+                    "channel_key": "generic_web.rss",
+                    "capabilities": {"supports_query_terms": True, "keyword_mode": "filter"},
+                },
+            ),
+            patch(
+                "app.services.resource_pool.unified_search.execute_feed_probe",
+                return_value=SimpleNamespace(
+                    selected_candidates=[
+                        SimpleNamespace(
+                            url="https://example.com/posts/rss-guide",
+                            matched_by="text",
+                            route_kind="article",
+                            candidate_quality="high",
+                            usable_for_search=True,
+                            score=0.8,
+                        )
+                    ],
+                    used_term_fallback=False,
+                    errors=[],
+                ),
+            ),
+            patch("app.services.resource_pool.unified_search.append_url", return_value=True) as append,
+        ):
+            result = unified_search_by_item_payload(
+                project_key="demo",
+                item=item,
+                query_terms=["robotics"],
+                allow_term_fallback=False,
+                write_to_pool=True,
+            )
+
+        self.assertEqual(result.written, {"urls_new": 1, "urls_skipped": 0})
+        append.assert_called_once()
+        source_ref = append.call_args.kwargs["source_ref"]
+        self.assertEqual(source_ref["item_key"], "rss-item")
+        self.assertEqual(source_ref["query_terms"], ["robotics"])
+        self.assertEqual(source_ref["site_entry_url"], "https://example.com/feed.xml")
+        self.assertEqual(source_ref["entry_type"], "rss")
+        self.assertEqual(source_ref["domain"], "example.com")
+
     def test_unified_search_payload_passes_candidate_scoring_config_to_search_template(self) -> None:
         item = {
             "item_key": "search-item",
@@ -1810,6 +1865,63 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
 
         execute.assert_called_once()
         self.assertEqual(result.candidates, ["https://example.com/posts/sitemap-guide"])
+
+    def test_unified_search_payload_write_to_pool_backfills_traceable_source_ref_fields(self) -> None:
+        item = {
+            "item_key": "pool-item",
+            "params": {
+                "site_entries": ["https://example.com/search?q={{q}}"],
+            },
+        }
+
+        with (
+            patch(
+                "app.services.resource_pool.unified_search.get_site_entry_by_url",
+                return_value={
+                    "site_url": "https://example.com/search?q={{q}}",
+                    "domain": "example.com",
+                    "entry_type": "search_template",
+                    "channel_key": "generic_web.search_template",
+                    "template": "https://example.com/search?q={{q}}",
+                    "capabilities": {"supports_query_terms": True, "keyword_mode": "search"},
+                },
+            ),
+            patch(
+                "app.services.resource_pool.unified_search.execute_search_template",
+                return_value=SimpleNamespace(
+                    selected_candidates=[
+                        SimpleNamespace(
+                            url="https://example.com/posts/openai-market-map",
+                            matched_by="title",
+                            route_kind="article",
+                            candidate_quality="high",
+                            usable_for_search=True,
+                            score=0.93,
+                        )
+                    ],
+                    used_term_fallback=False,
+                    errors=[],
+                    diagnostics={"search_service": "basic", "search_service_fallbacks": 0},
+                ),
+            ),
+            patch("app.services.resource_pool.unified_search.append_url", return_value=True) as append,
+        ):
+            result = unified_search_by_item_payload(
+                project_key="demo",
+                item=item,
+                query_terms=["OpenAI market map"],
+                write_to_pool=True,
+            )
+
+        self.assertEqual(result.written, {"urls_new": 1, "urls_skipped": 0})
+        append.assert_called_once()
+        source_ref = append.call_args.kwargs["source_ref"]
+        self.assertEqual(source_ref["item_key"], "pool-item")
+        self.assertEqual(source_ref["query_terms"], ["OpenAI market map"])
+        self.assertEqual(source_ref["site_entry_url"], "https://example.com/search?q={{q}}")
+        self.assertEqual(source_ref["entry_type"], "search_template")
+        self.assertEqual(source_ref["entry_domain"], "example.com")
+        self.assertEqual(source_ref["domain"], "example.com")
 
 
 if __name__ == "__main__":

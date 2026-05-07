@@ -17,7 +17,9 @@ try:
     from fastapi.testclient import TestClient
     from app.contracts.errors import ErrorCode
     from app.api import ingest as ingest_api
+    from app.api import resource_pool as resource_pool_api
     from app.api import source_library as source_library_api
+    from app.api import writing as writing_api
     from app.main import app as backend_app
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -97,6 +99,16 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         ):
             with self.assertRaises(HTTPException) as ctx:
                 source_library_api._require_project_key(None)
+        detail = ctx.exception.detail
+        self.assertEqual(detail["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_writing_resolve_project_key_in_require_mode_rejects_fallback(self):
+        with (
+            patch("app.api.writing.get_effective_project_key_enforcement_mode", return_value="require"),
+            patch("app.api.writing.current_project_key", return_value="demo_proj"),
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                writing_api._resolve_project_key(None)
         detail = ctx.exception.detail
         self.assertEqual(detail["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
 
@@ -206,6 +218,242 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         body = resp.json()
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_ingest_config_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.ingest.settings.project_key_enforcement_mode", "require"):
+            resp = client.post(
+                "/api/v1/ingest/config",
+                json={"config_key": "social_forum", "config_type": "json", "payload": {}},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_agent_batch_jobs_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.agent_batch.settings.project_key_enforcement_mode", "require"):
+            resp = client.post(
+                "/api/v1/agent-batch/jobs",
+                json={"batch": {"jobs": [{"item_key": "demo-item"}]}},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_agent_batch_nl_command_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.agent_batch.settings.project_key_enforcement_mode", "require"):
+            resp = client.post(
+                "/api/v1/agent-batch/nl-command",
+                json={"command": "collect acme"},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_source_library_project_scope_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+            resp = client.get("/api/v1/source_library/items", params={"scope": "project"})
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_source_library_post_item_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+            resp = client.post(
+                "/api/v1/source_library/items",
+                json={
+                    "item_key": "demo.item",
+                    "name": "Demo Item",
+                    "channel_key": "market.general",
+                    "params": {},
+                    "extra": {},
+                },
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_source_library_put_item_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+            resp = client.put(
+                "/api/v1/source_library/items/demo.item",
+                json={
+                    "item_key": "demo.item",
+                    "name": "Demo Item",
+                    "channel_key": "market.general",
+                    "params": {},
+                    "extra": {},
+                },
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_source_library_refresh_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+            resp = client.post(
+                "/api/v1/source_library/items/demo.item/refresh",
+                json={"incremental": True, "max_site_entries": 10},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_source_library_sync_handler_clusters_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+            resp = client.post(
+                "/api/v1/source_library/handler_clusters/sync",
+                json={"handlers": ["rss"], "incremental": True, "max_site_entries": 10},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_source_library_external_project_register_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+            resp = client.post(
+                "/api/v1/source_library/external-projects/register",
+                json={"project_link": "https://github.com/example/demo", "persist": False},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_source_library_sync_shared_from_files_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.source_library.settings.project_key_enforcement_mode", "require"):
+            resp = client.post("/api/v1/source_library/sync_shared_from_files")
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_resource_pool_unified_search_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.resource_pool.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.post(
+                "/api/v1/resource_pool/unified-search",
+                json={"item_key": "demo-item", "query_terms": ["acme"]},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_resource_pool_extract_from_documents_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.resource_pool.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.post(
+                "/api/v1/resource_pool/extract/from-documents",
+                json={"scope": "project", "filters": {}, "async_mode": False},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_resource_pool_capture_enable_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.resource_pool.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.post(
+                "/api/v1/resource_pool/capture/enable",
+                json={"scope": "project", "job_types": ["ingest"], "enabled": True},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_resource_pool_capture_from_tasks_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.resource_pool.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.post(
+                "/api/v1/resource_pool/capture/from-tasks",
+                json={"scope": "project", "limit": 20, "async_mode": False},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_resource_pool_discover_site_entries_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.resource_pool.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.post(
+                "/api/v1/resource_pool/discover/site-entries",
+                json={"url_scope": "effective", "target_scope": "project", "dry_run": True, "write": False},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_resource_pool_shared_import_open_source_presets_allows_missing_project_key(self):
+        client = TestClient(backend_app)
+
+        class _Result:
+            pack_key = "demo-pack"
+            title = "Demo Pack"
+            scope = "shared"
+            project_key = None
+            inserted_or_updated = ["https://example.com/feed.xml"]
+
+        with patch.object(resource_pool_api, "import_open_source_preset_pack", return_value=_Result()) as mocked_import:
+            resp = client.post(
+                "/api/v1/resource_pool/import/open-source-presets",
+                json={"scope": "shared", "pack_key": "demo-pack", "enabled": True},
+            )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["data"]["project_key"], None)
+        mocked_import.assert_called_once()
+        self.assertEqual(mocked_import.call_args.kwargs["project_key"], None)
+
+    def test_writing_documents_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.writing.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.post("/api/v1/writing/documents", json={"title": "Draft"})
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_writing_suggest_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.writing.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.get("/api/v1/writing/suggest", params={"query": "market", "mode": "template"})
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_writing_llm_actions_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.writing.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.post(
+                "/api/v1/writing/llm-actions",
+                json={"action_id": "selection_rewrite", "input_markdown": "draft", "async": False},
+            )
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_writing_export_markdown_missing_project_key_in_require_mode_fails(self):
+        client = TestClient(backend_app)
+        with patch("app.api.writing.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.post("/api/v1/writing/export/markdown", json={"doc_id": 101})
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_writing_templates_remains_public_without_project_key_in_require_mode(self):
+        client = TestClient(backend_app)
+        with patch("app.api.writing.get_effective_project_key_enforcement_mode", return_value="require"):
+            resp = client.get("/api/v1/writing/templates")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["status"], "ok")
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ class ExecutionRequest:
     params: Dict[str, Any]
     protocol: FrontDoorExecutionProtocol
     warnings: list[str] = field(default_factory=list)
+    taxonomy: Dict[str, Any] = field(default_factory=dict)
 
 
 def execution_request_to_dict(request: ExecutionRequest) -> Dict[str, Any]:
@@ -29,6 +30,7 @@ def execution_request_to_dict(request: ExecutionRequest) -> Dict[str, Any]:
         "project_key": request.project_key,
         "params": dict(request.params),
         "warnings": list(request.warnings),
+        "taxonomy": dict(request.taxonomy),
     }
 
 
@@ -62,13 +64,35 @@ class ItemResolver:
         channel = channel_map.get(item_channel_key) or {}
         provider = str(channel.get("provider") or "").strip().lower()
         provider_type = str(channel.get("provider_type") or "").strip().lower()
+        item_extra = _as_dict(item.get("extra"))
+        normalized_item = normalize_item_taxonomy(item)
+        channel_family = _resolve_channel_family(
+            item_channel_key=item_channel_key,
+            provider=provider,
+            provider_type=provider_type,
+        )
+        expected_entry_type = str(
+            params.get("expected_entry_type")
+            or item_extra.get("expected_entry_type")
+            or _as_dict(item.get("params")).get("expected_entry_type")
+            or ""
+        ).strip().lower()
+        site_search_authoritative = _is_site_search_authoritative(
+            item=item,
+            params=params,
+            item_channel_key=item_channel_key,
+            channel_family=channel_family,
+            expected_entry_type=expected_entry_type,
+            is_handler_cluster_item=is_handler_cluster_item,
+            has_site_entries=has_site_entries,
+        )
         protocol = build_frontdoor_protocol(item=item, params=params, project_key=project_key)
         warnings: list[str] = []
 
         source_mode: SourceMode = "protocol_search"
         if protocol.candidate_urls:
             source_mode = "url_execution"
-        elif is_handler_cluster_item(item) or has_site_entries(params):
+        elif site_search_authoritative:
             source_mode = "site_search"
         elif provider_type in {"scrapy", "crawlee", "meltano"} or item_channel_key.lower().startswith("crawler."):
             source_mode = "provider_harvest"
@@ -85,14 +109,27 @@ class ItemResolver:
             warnings.append(f"source_mode_overridden_by_urls:{source_mode}->url_execution")
             source_mode = "url_execution"
 
+        if site_search_authoritative and source_mode not in {"site_search", "url_execution"}:
+            warnings.append(f"source_mode_coerced_by_site_search_taxonomy:{source_mode}->site_search")
+            source_mode = "site_search"
+
         if source_mode == "site_search" and item_channel_key.lower() != "handler.cluster":
             warnings.append(f"site_search_forced_handler_cluster:{item_channel_key or '<empty>'}")
 
-        if provider == "generic_web" or item_channel_key.lower().startswith("generic_web."):
+        if channel_family == "generic_web":
             warnings.append("generic_web_internal_adapter_detected")
-            if source_mode != "url_execution" and protocol.candidate_urls:
-                source_mode = "url_execution"
-                warnings.append("generic_web_mode_coerced:url_execution")
+            if source_mode not in {"site_search", "url_execution"}:
+                warnings.append(f"generic_web_mode_coerced:{source_mode}->site_search")
+                source_mode = "site_search"
+
+        taxonomy = {
+            "channel_family": channel_family,
+            "item_type": normalized_item.get("item_type"),
+            "managed_by": normalized_item.get("managed_by"),
+            "expected_entry_type": expected_entry_type or None,
+            "internal_adapter_only": channel_family == "generic_web",
+            "site_search_authoritative": site_search_authoritative,
+        }
 
         return ExecutionRequest(
             source_mode=source_mode,
@@ -102,7 +139,42 @@ class ItemResolver:
             params=params,
             protocol=protocol,
             warnings=warnings,
+            taxonomy=taxonomy,
         )
+
+
+def _resolve_channel_family(*, item_channel_key: str, provider: str, provider_type: str) -> str:
+    channel_key = str(item_channel_key or "").strip().lower()
+    if channel_key == "handler.cluster":
+        return "handler_cluster"
+    if channel_key.startswith("generic_web.") or provider == "generic_web":
+        return "generic_web"
+    if channel_key.startswith("crawler.") or provider_type in {"scrapy", "crawlee", "meltano"}:
+        return "crawler_provider"
+    if channel_key == "url_pool":
+        return "url_pool"
+    return provider or "single_channel"
+
+
+def _is_site_search_authoritative(
+    *,
+    item: Dict[str, Any],
+    params: Dict[str, Any],
+    item_channel_key: str,
+    channel_family: str,
+    expected_entry_type: str,
+    is_handler_cluster_item: Callable[[Dict[str, Any] | None], bool],
+    has_site_entries: Callable[[Dict[str, Any] | None], bool],
+) -> bool:
+    if channel_family in {"handler_cluster", "generic_web"}:
+        return True
+    if is_handler_cluster_item(item):
+        return True
+    if has_site_entries(params):
+        return True
+    if expected_entry_type:
+        return True
+    return False
 
 
 def _resolve_item_type(payload: Dict[str, Any]) -> ItemType:

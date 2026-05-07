@@ -9,27 +9,19 @@ from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from sqlalchemy import Date, String, case, cast, func, select
+from sqlalchemy import func, select
 
 from ...models.base import SessionLocal
 from ...models.entities import Document, PromptTimePolicyDecisionLog
+from ..document_queries import policy_effective_date_expr
 
 _EPSILON = 1e-9
 _DEFAULT_WINDOWS = ["7d", "30d", "90d"]
 _LOG = logging.getLogger(__name__)
 
 
-def _policy_effective_date_expr():
-    effective_raw = cast(Document.extracted_data["policy"]["effective_date"], String)
-    effective_text = func.replace(effective_raw, '"', "")
-    return case(
-        (effective_text.op("~")(r"^\d{4}-\d{2}-\d{2}"), cast(func.substr(effective_text, 1, 10), Date)),
-        else_=None,
-    )
-
-
 def _effective_date_expr():
-    return func.coalesce(_policy_effective_date_expr(), Document.publish_date, func.date(Document.created_at))
+    return func.coalesce(policy_effective_date_expr(), Document.publish_date, func.date(Document.created_at))
 
 
 def _normalize_json_text(value: Any) -> str | None:

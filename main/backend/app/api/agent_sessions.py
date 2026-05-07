@@ -6,11 +6,44 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..contracts import ErrorCode, error_response
+from ..contracts.errors import map_exception_to_error
 from ..contracts.responses import ok
 from ..services.agent_runtime import iter_session_events
 from ..services.agent_sessions import get_agent_session_service
 
 router = APIRouter(tags=["agent_sessions"])
+
+
+def _raise_invalid_input(message: str) -> None:
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            message,
+        ),
+    )
+
+
+def _raise_not_found(message: str) -> None:
+    raise HTTPException(
+        status_code=404,
+        detail=error_response(
+            ErrorCode.NOT_FOUND,
+            message,
+        ),
+    )
+
+
+def _raise_mapped_error(exc: Exception) -> None:
+    if isinstance(exc, ValueError):
+        _raise_invalid_input(str(exc) or "invalid agent session request")
+    code, message, details = map_exception_to_error(exc)
+    status_code = 400 if code == ErrorCode.INVALID_INPUT else 404 if code == ErrorCode.NOT_FOUND else 429 if code == ErrorCode.RATE_LIMITED else 502 if code in {ErrorCode.UPSTREAM_ERROR, ErrorCode.PARSE_ERROR} else 500
+    raise HTTPException(
+        status_code=status_code,
+        detail=error_response(code, message, details=details),
+    ) from exc
 
 
 class AgentSessionTaskBlueprint(BaseModel):
@@ -89,7 +122,7 @@ def create_agent_session(payload: AgentSessionCreateRequest) -> dict[str, Any]:
             task_blueprints=[item.model_dump() for item in payload.task_blueprints],
         )
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_mapped_error(exc)
     return ok(out)
 
 
@@ -105,7 +138,7 @@ def get_agent_session(session_id: str) -> dict[str, Any]:
     try:
         return ok(service.get_session_bundle(session_id))
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
 
 
 @router.get("/agent-sessions/{session_id}/tasks")
@@ -114,7 +147,7 @@ def get_agent_session_tasks(session_id: str) -> dict[str, Any]:
     try:
         return ok({"items": service.list_tasks(session_id)})
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
 
 
 @router.get("/agent-sessions/{session_id}/events")
@@ -123,7 +156,7 @@ def get_agent_session_events(session_id: str) -> dict[str, Any]:
     try:
         return ok({"items": service.list_events(session_id)})
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
 
 
 @router.get("/agent-sessions/{session_id}/artifacts")
@@ -132,7 +165,7 @@ def get_agent_session_artifacts(session_id: str) -> dict[str, Any]:
     try:
         return ok({"items": service.list_artifacts(session_id)})
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
 
 
 @router.get("/agent-sessions/{session_id}/messages")
@@ -141,7 +174,7 @@ def get_agent_session_messages(session_id: str) -> dict[str, Any]:
     try:
         return ok({"items": service.list_messages(session_id)})
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
 
 
 @router.post("/agent-sessions/{session_id}/messages")
@@ -157,7 +190,7 @@ def create_agent_session_message(session_id: str, payload: AgentMessageCreateReq
             metadata=dict(payload.metadata or {}),
         )
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
     return ok(out)
 
 
@@ -178,7 +211,7 @@ def stream_agent_session_events(
     try:
         service.get_session(session_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
     return StreamingResponse(
         iter_session_events(
             service=service,
@@ -197,9 +230,9 @@ def retry_agent_session_task(session_id: str, payload: AgentTaskRetryRequest) ->
     try:
         out = service.retry_task(session_id, payload.task_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="session or task not found") from None
+        _raise_not_found("session or task not found")
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_mapped_error(exc)
     return ok(out)
 
 
@@ -209,7 +242,7 @@ def cancel_agent_session(session_id: str) -> dict[str, Any]:
     try:
         out = service.cancel_session(session_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
     return ok(out)
 
 
@@ -219,7 +252,7 @@ def reclaim_agent_session_expired_tasks(session_id: str) -> dict[str, Any]:
     try:
         out = service.reclaim_expired_tasks(session_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
     return ok({"items": out})
 
 
@@ -229,7 +262,7 @@ def run_agent_session_coordinator_pass(session_id: str) -> dict[str, Any]:
     try:
         out = service.run_coordinator_pass(session_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="session not found") from None
+        _raise_not_found("session not found")
     return ok(out)
 
 
@@ -245,7 +278,7 @@ def request_agent_session_approval(session_id: str, payload: AgentApprovalReques
             metadata=dict(payload.metadata or {}),
         )
     except KeyError:
-        raise HTTPException(status_code=404, detail="session or task not found") from None
+        _raise_not_found("session or task not found")
     return ok(out)
 
 
@@ -259,5 +292,5 @@ def resolve_agent_approval(approval_id: str, payload: AgentApprovalResolveReques
             approved_by=payload.approved_by,
         )
     except KeyError:
-        raise HTTPException(status_code=404, detail="approval not found") from None
+        _raise_not_found("approval not found")
     return ok(out)

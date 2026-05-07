@@ -101,5 +101,7 @@ def test_discovery_search_exception_mapping(
     assert body["status"] == "error"
     assert body["data"] is None
     assert body["error"]["code"] == expected_code
+    assert body["detail"]["error"]["code"] == expected_code
     assert body["error"]["message"] == exc_message
     assert set(body["meta"].keys()) == {"trace_id", "pagination", "project_key", "deprecated"}
+    assert resp.headers.get("x-error-code") == expected_code

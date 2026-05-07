@@ -174,6 +174,85 @@ class GenericWebSearchTemplateAdapterUnitTestCase(unittest.TestCase):
         self.assertTrue(result["used_term_fallback"])
         self.assertEqual(result["pages_scanned"], 1)
 
+    def test_write_to_pool_uses_traceable_source_ref_shape(self) -> None:
+        with (
+            patch("app.services.source_library.adapters.generic_web.execute_search_template") as execute,
+            patch("app.services.source_library.adapters.generic_web.append_url", return_value=True) as append,
+        ):
+            execute.return_value = SimpleNamespace(
+                template="https://example.com/search?q={{q}}",
+                search_urls=["https://example.com/search?q=robotics"],
+                pages_scanned=1,
+                raw_candidates=[],
+                selected_candidates=[type("Decision", (), {"url": "https://example.com/posts/robotics-1"})()],
+                used_term_fallback=False,
+                errors=[],
+                diagnostics={"raw_candidates": 1},
+            )
+            handle_generic_web_search_template(
+                {
+                    "template": "https://example.com/search?q={{q}}",
+                    "query_terms": ["robotics"],
+                    "write_to_pool": True,
+                    "_source_library_item": {
+                        "item_key": "handler.cluster.search_template",
+                        "channel_key": "handler.cluster",
+                        "item_type": "service_aggregated",
+                        "managed_by": "system",
+                        "extra": {"expected_entry_type": "search_template"},
+                    },
+                },
+                project_key="demo_proj",
+            )
+
+        source_ref = append.call_args.kwargs["source_ref"]
+        self.assertEqual(source_ref["tool"], "generic_web_search_template")
+        self.assertEqual(source_ref["query_terms"], ["robotics"])
+        self.assertEqual(source_ref["locator"], "https://example.com/posts/robotics-1")
+        self.assertEqual(source_ref["url"], "https://example.com/posts/robotics-1")
+        self.assertEqual(source_ref["domain"], "example.com")
+        self.assertEqual(source_ref["entrypoint"], "source_library.generic_web_search_template")
+        self.assertEqual(source_ref["source_mode"], "generic_web_search_template")
+        self.assertEqual(source_ref["project_key"], "demo_proj")
+        self.assertEqual(source_ref["item_key"], "handler.cluster.search_template")
+        self.assertEqual(source_ref["channel_key"], "handler.cluster")
+        self.assertEqual(source_ref["item_type"], "service_aggregated")
+        self.assertEqual(source_ref["managed_by"], "system")
+        self.assertEqual(source_ref["entry_type"], "search_template")
+        self.assertEqual(source_ref["source_family"], "generic_web")
+
+    def test_search_template_reports_capability_profile_and_taxonomy(self) -> None:
+        with patch("app.services.source_library.adapters.generic_web.execute_search_template") as execute:
+            execute.return_value = SimpleNamespace(
+                template="https://example.com/search?q={{q}}",
+                search_urls=["https://example.com/search?q=robotics"],
+                pages_scanned=1,
+                raw_candidates=[],
+                selected_candidates=[type("Decision", (), {"url": "https://example.com/posts/robotics-1"})()],
+                used_term_fallback=False,
+                errors=[],
+                diagnostics={"raw_candidates": 1},
+            )
+            result = handle_generic_web_search_template(
+                {
+                    "template": "https://example.com/search?q={{q}}",
+                    "query_terms": ["robotics"],
+                    "_source_library_item": {
+                        "item_key": "handler.cluster.search_template",
+                        "item_type": "service_aggregated",
+                        "managed_by": "system",
+                    },
+                },
+                project_key="demo_proj",
+            )
+
+        self.assertEqual(result["source_mode"], "site_search")
+        self.assertEqual(result["capability_profile"]["entry_type"], "search_template")
+        self.assertTrue(result["capability_profile"]["supports_pagination"])
+        self.assertEqual(result["adapter_taxonomy"]["lane"], "site_search_internal_adapter")
+        self.assertTrue(result["adapter_taxonomy"]["internal_adapter_only"])
+        self.assertEqual(result["adapter_taxonomy"]["item_type"], "service_aggregated")
+
 
 if __name__ == "__main__":
     unittest.main()

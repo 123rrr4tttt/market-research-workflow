@@ -22,6 +22,7 @@ from ..contracts import (
     success_response,
     task_result_response,
 )
+from ..contracts.responses import ok
 
 logger = logging.getLogger(__name__)
 from fastapi.responses import JSONResponse
@@ -38,11 +39,63 @@ def _social_ingest_app():
     return SocialIngestApplicationService()
 
 
+def _status_code_for_error_code(code: ErrorCode) -> int:
+    if code in {ErrorCode.INVALID_INPUT, ErrorCode.PROJECT_KEY_REQUIRED, ErrorCode.CONFIG_ERROR}:
+        return 400
+    if code == ErrorCode.NOT_FOUND:
+        return 404
+    if code == ErrorCode.RATE_LIMITED:
+        return 429
+    if code in {ErrorCode.UPSTREAM_ERROR, ErrorCode.PARSE_ERROR}:
+        return 503 if code == ErrorCode.UPSTREAM_ERROR else 502
+    return 500
+
+
+def _error_json(
+    code: ErrorCode,
+    message: str,
+    *,
+    details: dict[str, Any] | None = None,
+) -> JSONResponse:
+    payload = error_response(code, message, details=details)
+    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
+    return JSONResponse(
+        status_code=_status_code_for_error_code(code),
+        content=payload,
+        headers={"X-Error-Code": code.value},
+    )
+
+
 def _error_500(exc: Exception) -> JSONResponse:
     code, message, details = map_exception_to_error(exc)
+    status_code = _status_code_for_error_code(code)
+    payload = error_response(code, message, details=details)
+    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
     return JSONResponse(
-        status_code=500,
-        content=error_response(code, message, details=details),
+        status_code=status_code,
+        content=payload,
+        headers={"X-Error-Code": code.value},
+    )
+
+
+def _raise_invalid_input(message: str, *, details: dict[str, Any] | None = None) -> None:
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(ErrorCode.INVALID_INPUT, message, details=details),
+    )
+
+
+def _raise_not_found(message: str, *, details: dict[str, Any] | None = None) -> None:
+    raise HTTPException(
+        status_code=404,
+        detail=error_response(ErrorCode.NOT_FOUND, message, details=details),
+    )
+
+
+def _raise_upstream_error(message: str, *, details: dict[str, Any] | None = None) -> None:
+    raise HTTPException(
+        status_code=503,
+        detail=error_response(ErrorCode.UPSTREAM_ERROR, message, details=details),
     )
 
 
@@ -205,7 +258,10 @@ def _normalize_query_terms(
     raw_terms = query_terms if query_terms is not None else legacy_keywords
     terms = [str(item).strip() for item in (raw_terms or []) if str(item).strip()]
     if not terms:
-        raise HTTPException(status_code=400, detail=f"{field_name} is required and cannot be empty.")
+        _raise_invalid_input(
+            f"{field_name} is required and cannot be empty.",
+            details={"field": field_name, "value": raw_terms or []},
+        )
     # Preserve order while deduplicating.
     return list(dict.fromkeys(terms))
 
@@ -270,24 +326,14 @@ def get_ingest_config_endpoint(
     pk = _require_project_key(project_key)
     data = get_ingest_config(pk, config_key)
     if data is None:
-        return JSONResponse(
-            status_code=404,
-            content=error_response(ErrorCode.NOT_FOUND, f"Config not found: {config_key}"),
-        )
-    return success_response(data)
+        return _error_json(ErrorCode.NOT_FOUND, f"Config not found: {config_key}")
+    return ok(data)
 
 
 @router.post("/config")
 def post_ingest_config_endpoint(body: IngestConfigUpsertPayload):
     """Upsert ingest config."""
-    pk = (body.project_key or "").strip()
-    if not pk:
-        pk = (current_project_key() or "").strip()
-    if not pk:
-        return JSONResponse(
-            status_code=400,
-            content=error_response(ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required"),
-        )
+    pk = _require_project_key(body.project_key)
     try:
         data = upsert_ingest_config(
             project_key=pk,
@@ -295,9 +341,23 @@ def post_ingest_config_endpoint(body: IngestConfigUpsertPayload):
             config_type=body.config_type,
             payload=body.payload,
         )
-        return success_response(data)
-    except Exception:
-        raise
+        return ok(data)
+    except ValueError as exc:
+        _raise_invalid_input(
+            str(exc) or "Invalid ingest config payload.",
+            details={"config_key": body.config_key, "exception_type": exc.__class__.__name__},
+        )
+    except Exception as exc:
+        code, message, details = map_exception_to_error(exc)
+        status_code = 503 if code == ErrorCode.UPSTREAM_ERROR else 500
+        raise HTTPException(
+            status_code=status_code,
+            detail=error_response(
+                code,
+                message,
+                details=details or {"config_key": body.config_key, "exception_type": exc.__class__.__name__},
+            ),
+        ) from exc
 
 
 class MarketIngestRequest(BaseModel):
@@ -414,7 +474,7 @@ def ingest_market(payload: MarketIngestRequest):
                 raw["topic_focus"] = topic_meta.get("topic_focus")
                 raw["topic_hints"] = topic_meta.get("topic_hints") or []
                 raw["topic_search_keywords"] = topic_meta.get("topic_search_keywords") or []
-            return success_response(raw)
+            return ok(raw)
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -500,7 +560,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
             },
         )
         task_payload["effective_payload"] = effective_payload
-        return success_response(task_payload)
+        return ok(task_payload)
 
     try:
         with bind_project(project_key):
@@ -519,7 +579,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
             )
             if isinstance(result, dict):
                 result.setdefault("effective_payload", effective_payload)
-            return success_response(result)
+            return ok(result)
     except Exception as exc:  # noqa: BLE001
         return _error_500(exc)
 
@@ -530,19 +590,26 @@ def ingest_history(limit: int = 20):
         return success_response(list_jobs(limit=limit))
     except (OperationalError, DatabaseError) as e:
         logger.exception("数据库连接失败")
-        raise HTTPException(
-            status_code=503,
-            detail="数据库服务不可用，请检查数据库服务是否已启动。"
+        _raise_upstream_error(
+            "数据库服务不可用，请检查数据库服务是否已启动。",
+            details={"reason": str(e)},
         )
     except Exception as e:
         logger.exception("获取历史记录失败")
         error_msg = str(e)
         if "Connection" in error_msg or "db" in error_msg.lower() or "database" in error_msg.lower() or "timeout" in error_msg.lower():
-            raise HTTPException(
-                status_code=503,
-                detail="数据库服务不可用，请检查数据库服务是否已启动。"
+            _raise_upstream_error(
+                "数据库服务不可用，请检查数据库服务是否已启动。",
+                details={"reason": error_msg},
             )
-        raise HTTPException(status_code=500, detail=f"获取历史记录失败: {error_msg}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_response(
+                ErrorCode.INTERNAL_ERROR,
+                "获取历史记录失败。",
+                details={"reason": error_msg},
+            ),
+        )
 
 
 @router.post("/reports/california")
@@ -563,9 +630,9 @@ def _dispatch_news_resource(resource_id: str, payload: NewsRequest):
     handlers = {**shared, **project_handlers}
     handler = handlers.get(resource_id)
     if not handler:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Project '{project_key}' does not support news resource '{resource_id}'.",
+        _raise_not_found(
+            f"Project '{project_key}' does not support news resource '{resource_id}'.",
+            details={"project_key": project_key, "resource_id": resource_id},
         )
     if payload.async_mode:
         task = _tasks_module().task_collect_news_resource.delay(resource_id, payload.limit, project_key)
@@ -606,7 +673,7 @@ class SourceLibraryRunPayload(BaseModel):
     project_key: str | None = Field(default=None)
     async_mode: bool = Field(default=False)
     override_params: dict = Field(default_factory=dict)
-    items: list[dict[str, Any]] | None = Field(
+    items: list[Any] | None = Field(
         default=None,
         description="统一批量 item 入口；每个元素使用 item_key/handler_key 结构。",
     )
@@ -622,11 +689,11 @@ def _ensure_handler_cluster_item(*, project_key: str, handler_key: str) -> tuple
 
     hk = str(handler_key or "").strip().lower()
     if not hk:
-        raise HTTPException(status_code=400, detail="handler_key is required")
+        _raise_invalid_input("handler_key is required", details={"field": "handler_key"})
     if hk == "url_routing":
-        raise HTTPException(
-            status_code=400,
-            detail="handler_key=url_routing is item-level URL routing, not a URL-entry(entry_type) cluster. Use item_key to run url_routing items.",
+        _raise_invalid_input(
+            "handler_key=url_routing is item-level URL routing, not a URL-entry(entry_type) cluster. Use item_key to run url_routing items.",
+            details={"field": "handler_key", "value": hk},
         )
 
     page = 1
@@ -650,7 +717,10 @@ def _ensure_handler_cluster_item(*, project_key: str, handler_key: str) -> tuple
         page += 1
 
     if not site_entries:
-        raise HTTPException(status_code=404, detail=f"No enabled site_entries found for handler_key={hk}")
+        _raise_not_found(
+            f"No enabled site_entries found for handler_key={hk}",
+            details={"handler_key": hk},
+        )
 
     item_key = f"handler.cluster.{hk}"
     payload = SourceLibraryItemUpsertPayload(
@@ -740,9 +810,15 @@ def _run_single_source_library_entry(
     resolved_handler_key = str(handler_key or "").strip()
     mode_count = int(bool(resolved_item_key)) + int(bool(resolved_handler_key))
     if mode_count == 0:
-        raise HTTPException(status_code=400, detail="item_key or handler_key is required.")
+        _raise_invalid_input(
+            "item_key or handler_key is required.",
+            details={"fields": ["item_key", "handler_key"]},
+        )
     if mode_count > 1:
-        raise HTTPException(status_code=400, detail="item_key and handler_key are mutually exclusive.")
+        _raise_invalid_input(
+            "item_key and handler_key are mutually exclusive.",
+            details={"fields": ["item_key", "handler_key"]},
+        )
 
     final_override_params = build_source_library_override_params(
         {
@@ -798,14 +874,17 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
     project_key = _require_project_key(payload.project_key)
     if payload.items:
         if payload.item_key or payload.handler_key:
-            raise HTTPException(
-                status_code=400,
-                detail="When items is provided, top-level item_key/handler_key must be empty.",
+            _raise_invalid_input(
+                "When items is provided, top-level item_key/handler_key must be empty.",
+                details={"field": "items"},
             )
         entries = []
         for item in payload.items:
             if not isinstance(item, dict):
-                raise HTTPException(status_code=400, detail="items must be an array of objects.")
+                _raise_invalid_input(
+                    "items must be an array of objects.",
+                    details={"field": "items"},
+                )
             entries.append(item)
     else:
         entries = [
@@ -922,10 +1001,16 @@ def ingest_subproject_news_resource(subproject_key: str, resource_id: str, paylo
     """Subproject-scoped news resource entrypoint."""
     route_project_key = (subproject_key or "").strip()
     if not route_project_key:
-        raise HTTPException(status_code=400, detail="subproject_key is required")
+        _raise_invalid_input(
+            "subproject_key is required",
+            details={"field": "subproject_key", "value": subproject_key},
+        )
     body_project_key = (payload.project_key or "").strip()
     if body_project_key and body_project_key != route_project_key:
-        raise HTTPException(status_code=400, detail="project_key in body must match subproject_key in path")
+        _raise_invalid_input(
+            "project_key in body must match subproject_key in path",
+            details={"project_key": body_project_key, "subproject_key": route_project_key},
+        )
     scoped_payload = payload.model_copy(update={"project_key": route_project_key})
     return _dispatch_news_resource(resource_id, scoped_payload)
 
@@ -1054,7 +1139,7 @@ class GraphStructuredSearchRequest(BaseModel):
     selected_edges: list[GraphStructuredSelectedEdge] = Field(default_factory=list, description="图谱选中边（可选）")
     dashboard: GraphStructuredDashboardParams = Field(default_factory=GraphStructuredDashboardParams, description="采集面板参数")
     llm_assist: bool = Field(default=False, description="是否使用 LLM 扩展关键词")
-    flow_type: Literal["collect", "source_collect"] = Field(default="collect", description="执行流类型")
+    flow_type: str = Field(default="collect", description="执行流类型")
     intent_mode: Literal["keyword", "keyword_llm"] | None = Field(default=None, description="意图模式（未传时兼容 llm_assist）")
 
 
@@ -1535,10 +1620,16 @@ def ingest_data_api(payload: DataApiRequest):
 def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
     project_key = _require_project_key(payload.dashboard.project_key)
     if not payload.selected_nodes:
-        raise HTTPException(status_code=400, detail="selected_nodes is required and cannot be empty.")
+        _raise_invalid_input(
+            "selected_nodes is required and cannot be empty.",
+            details={"field": "selected_nodes", "value": []},
+        )
     flow_type = str(payload.flow_type or "collect").strip().lower()
     if flow_type not in {"collect", "source_collect"}:
-        raise HTTPException(status_code=400, detail="flow_type must be collect or source_collect.")
+        _raise_invalid_input(
+            "flow_type must be collect or source_collect.",
+            details={"field": "flow_type", "value": flow_type},
+        )
     intent_mode = _resolve_intent_mode(payload)
     llm_assist = intent_mode == "keyword_llm"
     source_item_keys = _unique_terms(payload.dashboard.source_item_keys or [])
@@ -1575,7 +1666,10 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
                 current["terms"] = _unique_terms([*(current.get("terms") or []), label])
 
     if not grouped_intents:
-        raise HTTPException(status_code=400, detail="selected_nodes does not contain usable labels.")
+        _raise_invalid_input(
+            "selected_nodes does not contain usable labels.",
+            details={"field": "selected_nodes"},
+        )
 
     batches: list[dict[str, Any]] = []
     async_dispatchers: list[Any] = []

@@ -17,9 +17,17 @@ from .structured_extraction import build_structured_summary, extract_structured_
 from .terminal_compat import apply_terminal_compat
 from .terminal_normalizer import build_terminal_ingest_payload
 from .terminal_writer import persist_terminal_document
+from ...settings.config import settings
 
 
 _EXTRACTION_APP = ExtractionApplicationService()
+
+
+def _frontdoor_gate_config() -> dict[str, Any]:
+    return {
+        "enable_strict_gate": bool(getattr(settings, "ingest_enable_strict_gate", False)),
+        "min_semantic_len": int(getattr(settings, "ingest_min_semantic_len", 500) or 500),
+    }
 
 
 def run_postprocess_frontdoor(
@@ -509,7 +517,7 @@ def _evaluate_quality_frontdoor(
             "gate_plus": {"checks": [], "blocked": True, "blocked_stage": "light_filter", "blocked_reason": light_reason},
         }
 
-    gate_cfg = {"enable_strict_gate": True, "min_semantic_len": 120}
+    gate_cfg = _frontdoor_gate_config()
     url_gate = url_policy_check(uri, config=gate_cfg) if uri else None
     content_gate = content_quality_check(
         uri=uri,

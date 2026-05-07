@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from ..contracts import success_response
+from ..contracts import ErrorCode, error_response, map_exception_to_error, success_response
 from ..services.ingest_config import get_config, upsert_config
 from ..project_customization import get_project_customization
 from ..services.graph.doc_types import (
@@ -25,6 +25,41 @@ from ..services.projects.workflow import (
 )
 
 router = APIRouter(prefix="/project-customization", tags=["project-customization"])
+
+
+def _raise_invalid_input(message: str, *, details: dict | None = None) -> None:
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(ErrorCode.INVALID_INPUT, message, details=details),
+    )
+
+
+def _raise_project_key_required(message: str = "project_key is required. Please select a project first.") -> None:
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(ErrorCode.PROJECT_KEY_REQUIRED, message),
+    )
+
+
+def _raise_not_found(message: str, *, details: dict | None = None) -> None:
+    raise HTTPException(
+        status_code=404,
+        detail=error_response(ErrorCode.NOT_FOUND, message, details=details),
+    )
+
+
+def _status_code_for_error_code(code: ErrorCode) -> int:
+    if code == ErrorCode.INVALID_INPUT:
+        return 400
+    if code == ErrorCode.NOT_FOUND:
+        return 404
+    if code == ErrorCode.RATE_LIMITED:
+        return 429
+    if code in {ErrorCode.UPSTREAM_ERROR, ErrorCode.PARSE_ERROR}:
+        return 502
+    if code == ErrorCode.CONFIG_ERROR:
+        return 500
+    return 500
 
 
 class WorkflowRunPayload(BaseModel):
@@ -176,7 +211,10 @@ def _read_workflow_template(project_key: str | None, workflow_name: str) -> tupl
     effective_project_key = customization.project_key
     normalized_workflow_name = workflow_name.strip()
     if not normalized_workflow_name:
-        raise HTTPException(status_code=400, detail="workflow_name is required.")
+        _raise_invalid_input(
+            "workflow_name is required.",
+            details={"field": "workflow_name", "value": workflow_name},
+        )
 
     custom_definition = load_custom_workflow_definition(effective_project_key, normalized_workflow_name)
     if custom_definition is not None:
@@ -195,7 +233,10 @@ def _read_workflow_template(project_key: str | None, workflow_name: str) -> tupl
     workflow_mapping = customization.get_workflow_mapping()
     workflow = workflow_mapping.get(normalized_workflow_name)
     if workflow is None:
-        raise HTTPException(status_code=404, detail=f"workflow not found: {normalized_workflow_name}")
+        _raise_not_found(
+            f"workflow not found: {normalized_workflow_name}",
+            details={"workflow_name": normalized_workflow_name},
+        )
     steps = dump_workflow_definition(workflow.steps)
     board_layout = _normalize_board_layout(
         load_custom_workflow_board_layout(effective_project_key, normalized_workflow_name),
@@ -227,17 +268,26 @@ def get_workflow_template(workflow_name: str, project_key: str | None = Query(de
 def upsert_workflow_template(workflow_name: str, payload: WorkflowTemplatePayload):
     effective_project_key = (payload.project_key or "").strip() or get_project_customization().project_key
     if not effective_project_key:
-        raise HTTPException(status_code=400, detail="project_key is required. Please select a project first.")
+        _raise_project_key_required()
 
     normalized_workflow_name = workflow_name.strip()
     if not normalized_workflow_name:
-        raise HTTPException(status_code=400, detail="workflow_name is required.")
+        _raise_invalid_input(
+            "workflow_name is required.",
+            details={"field": "workflow_name", "value": workflow_name},
+        )
 
     if not isinstance(payload.steps, list) or not payload.steps:
-        raise HTTPException(status_code=400, detail="steps is required and must be a non-empty array.")
+        _raise_invalid_input(
+            "steps is required and must be a non-empty array.",
+            details={"field": "steps"},
+        )
     for idx, step in enumerate(payload.steps, start=1):
         if not step.handler or not str(step.handler).strip():
-            raise HTTPException(status_code=400, detail=f"steps[{idx}].handler is required.")
+            _raise_invalid_input(
+                f"steps[{idx}].handler is required.",
+                details={"field": f"steps[{idx}].handler", "index": idx},
+            )
 
     existing_record = get_config(effective_project_key, WORKFLOW_PLATFORM_CONFIG_KEY)
     existing_payload = (existing_record or {}).get("payload")
@@ -287,17 +337,23 @@ def upsert_workflow_template(workflow_name: str, payload: WorkflowTemplatePayloa
 def delete_workflow_template(workflow_name: str, project_key: str | None = Query(default=None)):
     effective_project_key = (project_key or "").strip() or get_project_customization().project_key
     if not effective_project_key:
-        raise HTTPException(status_code=400, detail="project_key is required. Please select a project first.")
+        _raise_project_key_required()
 
     normalized_workflow_name = workflow_name.strip()
     if not normalized_workflow_name:
-        raise HTTPException(status_code=400, detail="workflow_name is required.")
+        _raise_invalid_input(
+            "workflow_name is required.",
+            details={"field": "workflow_name", "value": workflow_name},
+        )
 
     record = get_config(effective_project_key, WORKFLOW_PLATFORM_CONFIG_KEY) or {}
     existing_payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
     workflows, boards, version = _coerce_workflow_payload(existing_payload)
     if normalized_workflow_name not in workflows:
-        raise HTTPException(status_code=404, detail=f"custom workflow not found: {normalized_workflow_name}")
+        _raise_not_found(
+            f"custom workflow not found: {normalized_workflow_name}",
+            details={"workflow_name": normalized_workflow_name},
+        )
 
     workflows.pop(normalized_workflow_name, None)
     boards.pop(normalized_workflow_name, None)
@@ -354,12 +410,27 @@ def run_workflow(workflow_name: str, payload: WorkflowRunPayload):
     try:
         project_key = (payload.project_key or "").strip()
         if not project_key:
-            raise HTTPException(status_code=400, detail="project_key is required. Please select a project first.")
+            _raise_project_key_required()
         result = execute_project_workflow(
             workflow_name=workflow_name,
             params=payload.params or {},
             project_key=project_key,
         )
         return success_response(result)
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if isinstance(exc, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail=error_response(
+                    ErrorCode.INVALID_INPUT,
+                    str(exc) or "Invalid workflow input.",
+                    details={"exception_type": exc.__class__.__name__},
+                ),
+            ) from exc
+        code, message, details = map_exception_to_error(exc)
+        raise HTTPException(
+            status_code=_status_code_for_error_code(code),
+            detail=error_response(code, message, details=details),
+        ) from exc

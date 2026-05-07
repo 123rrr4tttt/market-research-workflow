@@ -27,6 +27,16 @@ class SourceLibraryUrlPoolAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(title, "Arxiv Paper")
         self.assertTrue(preview)
 
+    def test_extract_text_preview_keeps_article_body_beyond_legacy_preview_limit(self) -> None:
+        article_text = " ".join([f"sentence {i} with enough body text." for i in range(600)])
+        title, content = _extract_text_preview(
+            f"<html><head><title>Long Article</title></head><body><article>{article_text}</article></body></html>"
+        )
+
+        self.assertEqual(title, "Long Article")
+        self.assertGreater(len(content), 2000)
+        self.assertIn("sentence 599", content)
+
     def test_terminal_output_only_mode_fetches_clean_records_without_write_side_effects(self) -> None:
         with patch(
             "app.services.source_library.adapters.url_pool.fetch_html",

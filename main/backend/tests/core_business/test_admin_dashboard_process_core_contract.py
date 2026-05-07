@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -92,6 +93,41 @@ class _FakeSessionLocalOperationalError:
         return False
 
 
+class _FakeResultNone:
+    def scalar_one_or_none(self):
+        return None
+
+
+class _FakeResultDoc:
+    def __init__(self, doc):
+        self._doc = doc
+
+    def scalar_one_or_none(self):
+        return self._doc
+
+
+class _FakeAdminSession:
+    def __init__(self, doc=None):
+        self._doc = doc
+
+    def execute(self, _query):
+        return _FakeResultDoc(self._doc) if self._doc is not None else _FakeResultNone()
+
+    def commit(self):
+        return None
+
+
+class _FakeAdminSessionLocal:
+    def __init__(self, doc=None):
+        self._doc = doc
+
+    def __enter__(self):
+        return _FakeAdminSession(self._doc)
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
 class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -165,6 +201,97 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "error")
         self.assertEqual(body["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
+
+    def test_admin_get_document_not_found_returns_error_envelope(self):
+        with patch("app.api.admin.SessionLocal", return_value=_FakeAdminSessionLocal()):
+            resp = self.client.get("/api/v1/admin/documents/999", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 404)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
+
+    def test_admin_update_document_invalid_merge_returns_error_envelope(self):
+        doc = SimpleNamespace(id=1, extracted_data="raw")
+        with patch("app.api.admin.SessionLocal", return_value=_FakeAdminSessionLocal(doc)):
+            resp = self.client.post(
+                "/api/v1/admin/documents/1/extracted-data",
+                headers=self.headers,
+                json={"mode": "merge", "extracted_data": {"a": 1}},
+            )
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_admin_bulk_update_requires_doc_ids_returns_error_envelope(self):
+        from app.api.admin import BulkUpdateExtractedDataRequest, bulk_update_document_extracted_data
+
+        resp = bulk_update_document_extracted_data(
+            BulkUpdateExtractedDataRequest(doc_ids=[], mode="replace", extracted_data={})
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        body = json.loads(resp.body)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_admin_export_graph_empty_doc_ids_returns_error_envelope(self):
+        resp = self.client.get("/api/v1/admin/export-graph?doc_ids=", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_admin_export_graph_invalid_doc_ids_returns_error_envelope(self):
+        resp = self.client.get("/api/v1/admin/export-graph?doc_ids=1,abc", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_admin_content_graph_invalid_start_date_returns_error_envelope(self):
+        resp = self.client.get("/api/v1/admin/content-graph?start_date=not-a-date&limit=10", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["details"]["field"], "start_date")
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_admin_market_graph_invalid_start_date_returns_error_envelope(self):
+        resp = self.client.get("/api/v1/admin/market-graph?start_date=2026-13-99&limit=10", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["details"]["field"], "start_date")
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_admin_policy_graph_invalid_end_date_returns_error_envelope(self):
+        resp = self.client.get("/api/v1/admin/policy-graph?end_date=bad-date&limit=10", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["details"]["field"], "end_date")
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
     def test_dashboard_ecom_price_trends_invalid_start_date_returns_422_invalid_input(self):
         resp = self.client.get(

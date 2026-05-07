@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from ..contracts import ErrorCode, error_response, success_response
+from ..settings.config import get_effective_project_key_enforcement_mode
 from ..contracts.schemas.writing import (
     KeywordCardDetailRequest,
     KeywordCardPreviewRequest,
@@ -77,8 +79,23 @@ class WritingExportMarkdownRequest(BaseModel):
     doc_id: int = Field(..., ge=1)
 
 
-def _resolve_project_key(explicit_project_key: str | None = None) -> str:
-    candidate = str(explicit_project_key or "").strip() or str(current_project_key() or "").strip()
+def _resolve_project_key(explicit_project_key: str | None = None, *, request: Request | None = None) -> str:
+    candidate = str(explicit_project_key or "").strip()
+    if not candidate and request is not None:
+        source = str(getattr(getattr(request, "state", None), "project_key_source", "") or "").strip().lower()
+        resolved = str(getattr(getattr(request, "state", None), "project_key_resolved", "") or "").strip()
+        if source in {"header", "query"} and resolved:
+            candidate = resolved
+    if not candidate and get_effective_project_key_enforcement_mode() == "require":
+        raise HTTPException(
+            status_code=400,
+            detail=error_response(ErrorCode.PROJECT_KEY_REQUIRED, "project_key is required"),
+        )
+    if not candidate:
+        try:
+            candidate = str(current_project_key() or "").strip()
+        except RuntimeError:
+            candidate = ""
     if not candidate:
         raise HTTPException(
             status_code=400,
@@ -110,17 +127,33 @@ def _handle_conflict(exc: WritingVersionConflictError) -> HTTPException:
     )
 
 
+@contextmanager
+def _writing_project_context(project_key: str):
+    try:
+        with bind_project(project_key):
+            yield
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=error_response(
+                ErrorCode.INVALID_INPUT,
+                str(exc) or "invalid writing project context",
+                details={"project_key": project_key, "exception_type": exc.__class__.__name__},
+            ),
+        ) from exc
+
+
 @router.get("/documents")
-def list_writing_documents(project_key: str | None = Query(default=None), limit: int = Query(default=50, ge=1, le=100)):
-    resolved_project_key = _resolve_project_key(project_key)
-    with bind_project(resolved_project_key):
+def list_writing_documents(request: Request, project_key: str | None = Query(default=None), limit: int = Query(default=50, ge=1, le=100)):
+    resolved_project_key = _resolve_project_key(project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         return success_response({"items": list_documents(project_key=resolved_project_key, limit=limit)})
 
 
 @router.post("/documents")
-def create_writing_document(payload: WritingDocumentCreateRequest):
-    resolved_project_key = _resolve_project_key(payload.project_key)
-    with bind_project(resolved_project_key):
+def create_writing_document(payload: WritingDocumentCreateRequest, request: Request):
+    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         return success_response(
             create_document(
                 project_key=resolved_project_key,
@@ -133,9 +166,9 @@ def create_writing_document(payload: WritingDocumentCreateRequest):
 
 
 @router.get("/documents/{doc_id}")
-def get_writing_document(doc_id: int, project_key: str | None = Query(default=None)):
-    resolved_project_key = _resolve_project_key(project_key)
-    with bind_project(resolved_project_key):
+def get_writing_document(request: Request, doc_id: int, project_key: str | None = Query(default=None)):
+    resolved_project_key = _resolve_project_key(project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         try:
             return success_response(get_document(doc_id=doc_id, project_key=resolved_project_key))
         except KeyError as exc:
@@ -144,8 +177,8 @@ def get_writing_document(doc_id: int, project_key: str | None = Query(default=No
 
 @router.patch("/documents/{doc_id}")
 def patch_writing_document(doc_id: int, payload: WritingDocumentPatchRequest, request: Request):
-    resolved_project_key = _resolve_project_key(payload.project_key)
-    with bind_project(resolved_project_key):
+    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         try:
             return success_response(
                 save_document_with_conflict(
@@ -165,9 +198,9 @@ def patch_writing_document(doc_id: int, payload: WritingDocumentPatchRequest, re
 
 
 @router.post("/documents/{doc_id}/draft")
-def autosave_writing_document_draft(doc_id: int, payload: WritingDraftAutosaveRequest):
-    resolved_project_key = _resolve_project_key(payload.project_key)
-    with bind_project(resolved_project_key):
+def autosave_writing_document_draft(doc_id: int, payload: WritingDraftAutosaveRequest, request: Request):
+    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         try:
             return success_response(
                 save_draft_autosave(
@@ -187,9 +220,9 @@ def autosave_writing_document_draft(doc_id: int, payload: WritingDraftAutosaveRe
 
 
 @router.post("/documents/{doc_id}/citations")
-def post_writing_document_citations(doc_id: int, payload: WritingCitationUpsertRequest):
-    resolved_project_key = _resolve_project_key(payload.project_key)
-    with bind_project(resolved_project_key):
+def post_writing_document_citations(doc_id: int, payload: WritingCitationUpsertRequest, request: Request):
+    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         try:
             return success_response(
                 {
@@ -205,9 +238,9 @@ def post_writing_document_citations(doc_id: int, payload: WritingCitationUpsertR
 
 
 @router.get("/documents/{doc_id}/citations")
-def get_writing_document_citations(doc_id: int, project_key: str | None = Query(default=None)):
-    resolved_project_key = _resolve_project_key(project_key)
-    with bind_project(resolved_project_key):
+def get_writing_document_citations(request: Request, doc_id: int, project_key: str | None = Query(default=None)):
+    resolved_project_key = _resolve_project_key(project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         try:
             return success_response({"items": list_citations(doc_id=doc_id, project_key=resolved_project_key)})
         except KeyError as exc:
@@ -221,24 +254,24 @@ def get_writing_templates():
 
 @router.post("/templates/validate")
 def post_writing_template_validate(payload: TemplateValidateRequest, request: Request):
-    resolved_project_key = _resolve_project_key(payload.project_key)
+    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     model = payload.model_copy(update={"project_key": resolved_project_key, "request_id": _resolve_request_id(request)})
     return success_response(validate_template_payload(model).model_dump())
 
 
 @router.post("/keyword-cards")
 def post_keyword_cards(payload: KeywordCardRequest, request: Request):
-    resolved_project_key = _resolve_project_key(payload.project_key)
+    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     model = payload.model_copy(update={"project_key": resolved_project_key, "request_id": _resolve_request_id(request)})
-    with bind_project(resolved_project_key):
+    with _writing_project_context(resolved_project_key):
         return success_response(aggregate_cards(model).model_dump())
 
 
 @router.post("/keyword-cards/preview")
 def post_keyword_card_preview(payload: KeywordCardPreviewRequest, request: Request):
-    resolved_project_key = _resolve_project_key(payload.project_key)
+    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     model = payload.model_copy(update={"project_key": resolved_project_key, "request_id": _resolve_request_id(request)})
-    with bind_project(resolved_project_key):
+    with _writing_project_context(resolved_project_key):
         try:
             return success_response(get_card_preview(model).model_dump())
         except KeyError as exc:
@@ -253,7 +286,7 @@ def get_writing_card_detail(
     include_provenance: bool = Query(default=True),
     max_provenance_items: int = Query(default=20, ge=1, le=100),
 ):
-    resolved_project_key = _resolve_project_key(project_key)
+    resolved_project_key = _resolve_project_key(project_key, request=request)
     model = KeywordCardDetailRequest(
         project_key=resolved_project_key,
         trace_id=_resolve_request_id(request),
@@ -262,7 +295,7 @@ def get_writing_card_detail(
         include_provenance=include_provenance,
         max_provenance_items=max_provenance_items,
     )
-    with bind_project(resolved_project_key):
+    with _writing_project_context(resolved_project_key):
         try:
             return success_response(get_card_detail(model).model_dump())
         except KeyError as exc:
@@ -277,7 +310,7 @@ def get_writing_suggest(
     project_key: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
 ):
-    resolved_project_key = _resolve_project_key(project_key)
+    resolved_project_key = _resolve_project_key(project_key, request=request)
     model = SuggestRequest(
         project_key=resolved_project_key,
         trace_id=_resolve_request_id(request),
@@ -286,13 +319,13 @@ def get_writing_suggest(
         mode=mode,
         limit=limit,
     )
-    with bind_project(resolved_project_key):
+    with _writing_project_context(resolved_project_key):
         return success_response(suggest(model).model_dump())
 
 
 @router.post("/llm-actions")
 def post_writing_llm_action(payload: LlmActionRequest, request: Request):
-    resolved_project_key = _resolve_project_key(payload.project_key)
+    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     model = payload.model_copy(
         update={
             "project_key": resolved_project_key,
@@ -301,22 +334,22 @@ def post_writing_llm_action(payload: LlmActionRequest, request: Request):
             "actor_id": payload.actor_id or _resolve_actor_id(request),
         }
     )
-    with bind_project(resolved_project_key):
+    with _writing_project_context(resolved_project_key):
         return success_response(dispatch_action(model).model_dump(by_alias=True))
 
 
 @router.get("/llm-actions/history")
-def get_writing_llm_action_history(project_key: str | None = Query(default=None), limit: int = Query(default=20, ge=1, le=100)):
-    resolved_project_key = _resolve_project_key(project_key)
-    with bind_project(resolved_project_key):
+def get_writing_llm_action_history(request: Request, project_key: str | None = Query(default=None), limit: int = Query(default=20, ge=1, le=100)):
+    resolved_project_key = _resolve_project_key(project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         items = [item.model_dump() for item in get_action_history(limit=limit, project_key=resolved_project_key)]
         return success_response({"items": items})
 
 
 @router.get("/llm-actions/{job_id}")
-def get_writing_llm_action_detail(job_id: int, project_key: str | None = Query(default=None)):
-    resolved_project_key = _resolve_project_key(project_key)
-    with bind_project(resolved_project_key):
+def get_writing_llm_action_detail(request: Request, job_id: int, project_key: str | None = Query(default=None)):
+    resolved_project_key = _resolve_project_key(project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         try:
             return success_response(get_action_detail(job_id=job_id, project_key=resolved_project_key).model_dump())
         except KeyError as exc:
@@ -324,9 +357,9 @@ def get_writing_llm_action_detail(job_id: int, project_key: str | None = Query(d
 
 
 @router.post("/export/markdown")
-def post_writing_export_markdown(payload: WritingExportMarkdownRequest):
-    resolved_project_key = _resolve_project_key(payload.project_key)
-    with bind_project(resolved_project_key):
+def post_writing_export_markdown(payload: WritingExportMarkdownRequest, request: Request):
+    resolved_project_key = _resolve_project_key(payload.project_key, request=request)
+    with _writing_project_context(resolved_project_key):
         try:
             exported = export_document_markdown(doc_id=payload.doc_id, project_key=resolved_project_key)
             citations = list_citations(doc_id=payload.doc_id, project_key=resolved_project_key)

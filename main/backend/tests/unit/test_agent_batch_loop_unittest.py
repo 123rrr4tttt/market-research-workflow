@@ -249,6 +249,8 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
         self.assertIn("autonomous_mix", stage_names)
         source_keys = [str(x.get("item_key") or "") for x in tasks if str(x.get("channel") or "") == "source_library"]
         self.assertEqual(source_keys, ["ai_terminal.weekly", "robotics.market_watch"])
+        for source_task in [x for x in tasks if str(x.get("channel") or "") == "source_library"]:
+            self.assertEqual(source_task["query_terms"], ["智能终端 商业产品 公司"])
 
     def test_nl_command_autonomous_source_prefers_site_constrained_items(self):
         payload = agent_batch_api.AgentBatchNlCommandRequest(
@@ -320,9 +322,9 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
         )
 
         self.assertEqual(len(tasks), 1)
-        self.assertEqual(tasks[0]["max_items"], 1)
+        self.assertEqual(tasks[0]["max_items"], 20)
         self.assertEqual(tasks[0]["provider"], "auto")
-        self.assertEqual(tasks[0]["source_mode"], "protocol_search")
+        self.assertIsNone(tasks[0]["source_mode"])
 
     def test_planner_prompt_contains_task_manifest(self):
         from app.services.agent_batch.agent_loop import _build_planner_prompt
@@ -380,6 +382,83 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
             keys = agent_loop._discover_source_library_item_keys(project_key="proj-loop", limit=2)
 
         self.assertEqual(keys, ["handler.cluster.search_template", "market.general.baseline"])
+
+    def test_discover_source_items_prefers_goal_relevant_collect_sources(self):
+        from app.services.agent_batch import agent_loop
+
+        with patch.object(
+            agent_loop,
+            "_list_effective_source_items",
+            return_value=[
+                {
+                    "item_key": "handler.cluster.domain_root",
+                    "name": "General domain roots",
+                    "channel_key": "handler.cluster",
+                    "enabled": True,
+                    "params": {
+                        "site_entries": ["https://example.com/"],
+                        "expected_entry_type": "domain_root",
+                    },
+                },
+                {
+                    "item_key": "report1.high_value_urls",
+                    "name": "High value static URLs",
+                    "channel_key": "url_pool",
+                    "enabled": True,
+                    "params": {
+                        "urls": ["https://example.com/unrelated-review"],
+                    },
+                },
+                {
+                    "item_key": "robotics.market_watch",
+                    "name": "Embodied AI Robotics Market Watch",
+                    "description": "Commercial robotics product launches and embodied AI company news",
+                    "channel_key": "handler.cluster",
+                    "enabled": True,
+                    "tags": ["robotics", "embodied ai", "commercialization"],
+                    "params": {
+                        "site_entries": ["https://robotics.example.com/search?q={{q}}"],
+                        "expected_entry_type": "search_template",
+                    },
+                },
+                {
+                    "item_key": "robotics.rss",
+                    "name": "Robotics Commercialization RSS",
+                    "description": "Robotics funding and product launch feeds",
+                    "channel_key": "handler.cluster",
+                    "enabled": True,
+                    "tags": ["robotics", "funding"],
+                    "params": {
+                        "site_entries": ["https://robotics.example.com/feed.xml"],
+                        "expected_entry_type": "rss",
+                    },
+                },
+            ],
+        ), patch.object(
+            agent_loop,
+            "_build_channel_capability_index",
+            return_value={
+                "handler.cluster": {"channel_key": "handler.cluster", "provider": "handler", "credential_refs": []},
+                "url_pool": {"channel_key": "url_pool", "provider": "url_pool", "credential_refs": []},
+            },
+        ), patch.object(
+            agent_loop,
+            "_is_item_credentials_ready",
+            return_value=True,
+        ):
+            keys = agent_loop._discover_source_library_item_keys(
+                project_key="proj-loop",
+                limit=2,
+                command="search embodied ai robotics commercialization companies product latest news",
+                tasks=[
+                    {
+                        "channel": "search.market",
+                        "query_terms": ["embodied ai robotics commercialization companies product latest news"],
+                    }
+                ],
+            )
+
+        self.assertEqual(keys, ["robotics.market_watch", "robotics.rss"])
 
     def test_loop_schedules_single_retry_round_when_enabled(self):
         submit_calls: list[dict[str, object]] = []
@@ -442,6 +521,102 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
         retried_tasks = list(submit_calls[1]["tasks"])
         self.assertEqual(retried_tasks[0]["days_back"], 120)
         self.assertNotEqual(retried_tasks[0]["query_terms"], ["chip pricing regulation"])
+
+    def test_loop_retries_source_library_when_source_gap_score_is_above_threshold(self):
+        submit_calls: list[dict[str, object]] = []
+
+        def _submitter(tasks, project_key, idempotency_key):
+            submit_calls.append(
+                {
+                    "tasks": [dict(task) for task in tasks],
+                    "project_key": project_key,
+                    "idempotency_key": idempotency_key,
+                }
+            )
+            return {
+                "job_id": f"abj-{len(submit_calls)}",
+                "accepted_count": len(tasks),
+                "rejected_count": 0,
+                "status": "ok",
+            }
+
+        skill_text = (
+            '{"intent":"market_research_general","strategy":"single_query","constraints":{"retrieval_mode":"web_only"},'
+            '"tasks":[{"channel":"search.market",'
+            '"query_terms":["embodied ai robotics commercialization companies product latest news"],'
+            '"max_items":3,"provider":"auto","language":"en","days_back":7}]}'
+        )
+        with patch(
+            "app.services.agent_batch.agent_loop.invoke_skill_safe",
+            return_value={"ok": True, "result": {"result": {"text": skill_text}}, "error": None},
+        ), patch(
+            "app.services.agent_batch.agent_loop._list_effective_source_items",
+            return_value=[
+                {
+                    "item_key": "robotics.market_watch",
+                    "name": "Robotics Market Watch",
+                    "channel_key": "handler.cluster",
+                    "enabled": True,
+                    "params": {
+                        "site_entries": ["https://example.com/search?q={{q}}"],
+                        "expected_entry_type": "search_template",
+                    },
+                }
+            ],
+        ), patch(
+            "app.services.agent_batch.agent_loop._build_channel_capability_index",
+            return_value={
+                "handler.cluster": {
+                    "channel_key": "handler.cluster",
+                    "provider": "handler",
+                    "credential_refs": [],
+                }
+            },
+        ), patch(
+            "app.services.agent_batch.agent_loop._is_item_credentials_ready",
+            return_value=True,
+        ):
+            result = run_agent_batch_nl_command_loop(
+                command="search embodied ai robotics commercialization companies product latest news last 7 days top 3",
+                project_key="proj-loop",
+                idempotency_key="idem-loop",
+                dry_run=False,
+                enable_bounded_retry=True,
+                enable_limited_branching=False,
+                parser_fallback=lambda _command: {
+                    "intent": "market_research_general",
+                    "strategy": "single_query",
+                    "tasks": [
+                        {
+                            "channel": "search.market",
+                            "query_terms": ["embodied ai robotics commercialization companies product latest news"],
+                            "max_items": 3,
+                            "provider": "auto",
+                            "language": "en",
+                            "days_back": 7,
+                        }
+                    ],
+                },
+                submitter=_submitter,
+                executor_snapshot=lambda: {"worker_online": True, "workers": ["celery@test"]},
+            )
+
+        search_retry = result["plan"]["search_retry"]
+        self.assertGreaterEqual(search_retry["score"], search_retry["score_threshold"])
+        self.assertTrue(search_retry["scheduled"])
+        self.assertTrue(search_retry["threshold_bypassed"])
+        self.assertEqual(search_retry["threshold_bypass_reason"], "source_backing_missing")
+        self.assertEqual(search_retry["action"]["action"], "attach_source_library")
+        self.assertEqual(len(submit_calls), 2)
+        self.assertEqual(len(result["submit_rounds"]), 2)
+        retried_tasks = list(submit_calls[1]["tasks"])
+        source_tasks = [task for task in retried_tasks if str(task.get("channel") or "") == "source_library"]
+        self.assertEqual(len(source_tasks), 1)
+        self.assertEqual(source_tasks[0]["item_key"], "robotics.market_watch")
+        self.assertEqual(source_tasks[0]["max_items"], 3)
+        self.assertEqual(source_tasks[0]["query_terms"], ["embodied ai robotics commercialization companies product latest news"])
+        self.assertIsNone(source_tasks[0]["source_mode"])
+        self.assertTrue(str(submit_calls[1]["idempotency_key"]).endswith(":retry:2"))
 
     def test_loop_skips_retry_when_critic_recommends_stop(self):
         submit_calls: list[dict[str, object]] = []

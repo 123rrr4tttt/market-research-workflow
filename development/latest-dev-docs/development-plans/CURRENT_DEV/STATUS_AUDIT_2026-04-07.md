@@ -58,6 +58,7 @@
 | `2026-03-05-oss-node-platform-io-plan` | `partial` | `doc_aligned` | runtime / replay 主线已存在，但整套平台目标未闭环 |
 | `2026-03-05-time-statistics-remediation-plan` | `partial` | `doc_stale` | 核心接口和 realcase 结果已落地，文档任务状态滞后 |
 | `2026-03-07-crawler-source-expansion` | `not_closed` | `doc_aligned` | 仍是规划和待办链条 |
+| `2026-04-07-parallel-agent-wave-orchestration` | `not_closed` | `doc_aligned` | 当前作为仓库级并行执行主入口，主文档、契约模板与 Wave 0 任务池均可直接复用 |
 | `2026-03-07-docs-root-restructuring` | `not_closed` | `doc_aligned` | 旧根路径仍是当前权威入口 |
 | `2026-03-07-dual-frontend-workbench-topology` | `not_closed` | `doc_stale` | 代码已有部分双交互面能力，文档仍停在规划态 |
 | `2026-03-07-frontend-i18n-theme-modularization` | `not_closed` | `doc_stale` | i18n/theme/registry 已落地，任务文档仍全 pending |

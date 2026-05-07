@@ -61,8 +61,80 @@ class IngestCoreContractTestCase(unittest.TestCase):
             resp = self.client.post("/api/v1/ingest/market", json=payload)
 
         self.assertEqual(resp.status_code, 400)
-        self.assertIn("query_terms is required and cannot be empty", resp.text)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(body["detail"]["error"]["details"]["field"], "query_terms")
         tasks.task_ingest_market.delay.assert_not_called()
+
+    def test_ingest_config_maps_known_failures_to_standard_error_envelope(self):
+        with patch("app.api.ingest.upsert_ingest_config", side_effect=ValueError("invalid config payload")):
+            invalid_resp = self.client.post(
+                "/api/v1/ingest/config",
+                json={
+                    "project_key": "demo_proj",
+                    "config_key": "social_forum",
+                    "config_type": "social_forum",
+                    "payload": {"k": "v"},
+                },
+            )
+        with patch("app.api.ingest.upsert_ingest_config", side_effect=RuntimeError("database timeout")):
+            upstream_resp = self.client.post(
+                "/api/v1/ingest/config",
+                json={
+                    "project_key": "demo_proj",
+                    "config_key": "social_forum",
+                    "config_type": "social_forum",
+                    "payload": {"k": "v"},
+                },
+            )
+
+        self.assertEqual(invalid_resp.status_code, 400)
+        self.assertEqual(invalid_resp.json()["detail"]["error"]["code"], "INVALID_INPUT")
+
+        self.assertEqual(upstream_resp.status_code, 503)
+        self.assertEqual(upstream_resp.json()["detail"]["error"]["code"], "UPSTREAM_ERROR")
+
+    def test_ingest_config_missing_record_sets_error_header(self):
+        with patch("app.api.ingest.get_ingest_config", return_value=None):
+            resp = self.client.get(
+                "/api/v1/ingest/config",
+                params={"project_key": "demo_proj", "config_key": "missing_config"},
+            )
+
+        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.headers.get("x-error-code"), "NOT_FOUND")
+        body = resp.json()
+        self.assertEqual(body["error"]["code"], "NOT_FOUND")
+        self.assertEqual(body["detail"]["error"]["code"], "NOT_FOUND")
+
+    def test_market_runtime_errors_use_mapped_status_and_error_headers(self):
+        with patch("app.api.ingest.bind_project", side_effect=RuntimeError("missing API key")):
+            config_resp = self.client.post(
+                "/api/v1/ingest/market",
+                json={
+                    "query_terms": ["acme"],
+                    "project_key": "demo_proj",
+                    "async_mode": False,
+                },
+            )
+
+        with patch("app.api.ingest.bind_project", side_effect=RuntimeError("database timeout")):
+            upstream_resp = self.client.post(
+                "/api/v1/ingest/market",
+                json={
+                    "query_terms": ["acme"],
+                    "project_key": "demo_proj",
+                    "async_mode": False,
+                },
+            )
+
+        self.assertEqual(config_resp.status_code, 400)
+        self.assertEqual(config_resp.headers.get("x-error-code"), "CONFIG_ERROR")
+        self.assertEqual(config_resp.json()["detail"]["error"]["code"], "CONFIG_ERROR")
+
+        self.assertEqual(upstream_resp.status_code, 503)
+        self.assertEqual(upstream_resp.headers.get("x-error-code"), "UPSTREAM_ERROR")
+        self.assertEqual(upstream_resp.json()["detail"]["error"]["code"], "UPSTREAM_ERROR")
 
     def test_source_library_run_rejects_missing_and_conflicting_identifiers(self):
         tasks = _TrackedTasks()
@@ -83,12 +155,63 @@ class IngestCoreContractTestCase(unittest.TestCase):
             )
 
         self.assertEqual(missing_resp.status_code, 400)
-        self.assertIn("item_key or handler_key is required", missing_resp.text)
+        self.assertEqual(missing_resp.json()["detail"]["error"]["code"], "INVALID_INPUT")
 
         self.assertEqual(conflict_resp.status_code, 400)
-        self.assertIn("mutually exclusive", conflict_resp.text)
+        self.assertEqual(conflict_resp.json()["detail"]["error"]["code"], "INVALID_INPUT")
 
         tasks.task_run_source_library_item.delay.assert_not_called()
+
+    def test_source_library_run_rejects_invalid_items_payload_with_standard_envelope(self):
+        resp = self.client.post(
+            "/api/v1/ingest/source-library/run",
+            json={
+                "project_key": "demo_proj",
+                "items": ["bad-entry"],
+            },
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(body["detail"]["error"]["details"]["field"], "items")
+
+    def test_subproject_news_rejects_body_project_mismatch_with_standard_envelope(self):
+        resp = self.client.post(
+            "/api/v1/ingest/subprojects/demo_proj/news/google_news",
+            json={"project_key": "other_proj", "limit": 5, "async_mode": True},
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["detail"]["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(body["detail"]["error"]["details"]["project_key"], "other_proj")
+
+    def test_graph_structured_search_rejects_invalid_payload_with_standard_envelope(self):
+        empty_nodes = self.client.post(
+            "/api/v1/ingest/graph/structured-search",
+            json={
+                "selected_nodes": [],
+                "dashboard": {"project_key": "demo_proj"},
+                "flow_type": "collect",
+            },
+        )
+        invalid_flow = self.client.post(
+            "/api/v1/ingest/graph/structured-search",
+            json={
+                "selected_nodes": [{"type": "company", "label": "Acme"}],
+                "dashboard": {"project_key": "demo_proj"},
+                "flow_type": "bad",
+            },
+        )
+
+        self.assertEqual(empty_nodes.status_code, 400)
+        self.assertEqual(empty_nodes.json()["detail"]["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(empty_nodes.json()["detail"]["error"]["details"]["field"], "selected_nodes")
+
+        self.assertEqual(invalid_flow.status_code, 400)
+        self.assertEqual(invalid_flow.json()["detail"]["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(invalid_flow.json()["detail"]["error"]["details"]["field"], "flow_type")
 
     def test_market_async_normalizes_params_and_returns_task_contract_shape(self):
         tasks = _TrackedTasks()

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
+from ..contracts import ErrorCode, error_response
 from ..models.base import SessionLocal, get_db
 from ..models.entities import LlmServiceConfig, Project
 from ..services.llm.config_service import LlmConfigService
@@ -16,6 +17,26 @@ from ..services.projects.context import bind_project, bind_schema, _normalize_pr
 
 router = APIRouter(prefix="/llm-config", tags=["llm-config"])
 llm_config_service = LlmConfigService()
+
+
+def _raise_invalid_input(message: str) -> None:
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            message,
+        ),
+    )
+
+
+def _raise_not_found(message: str) -> None:
+    raise HTTPException(
+        status_code=404,
+        detail=error_response(
+            ErrorCode.NOT_FOUND,
+            message,
+        ),
+    )
 
 
 class LlmServiceConfigCreate(BaseModel):
@@ -99,7 +120,7 @@ def _assert_project_exists(project_key: str) -> str:
                 select(Project).where(Project.project_key == normalized, Project.enabled == True)  # noqa: E712
             ).scalar_one_or_none()
             if project is None:
-                raise HTTPException(status_code=404, detail=f"项目 '{normalized}' 不存在或已禁用")
+                _raise_not_found(f"项目 '{normalized}' 不存在或已禁用")
     return normalized
 
 
@@ -115,7 +136,7 @@ def _copy_configs_between_projects(
     source = _assert_project_exists(source_project_key)
     target = _assert_project_exists(target_project_key)
     if source == target:
-        raise HTTPException(status_code=400, detail="源项目与目标项目不能相同")
+        _raise_invalid_input("源项目与目标项目不能相同")
 
     copied = 0
     skipped = 0
@@ -166,7 +187,7 @@ def get_llm_config(service_name: str, db: Session = Depends(get_db)):
     """获取指定服务配置"""
     config = llm_config_service.get_config(db, service_name)
     if not config:
-        raise HTTPException(status_code=404, detail=f"服务配置 '{service_name}' 不存在")
+        _raise_not_found(f"服务配置 '{service_name}' 不存在")
     return success_response(LlmServiceConfigResponse.from_orm(config).model_dump())
 
 
@@ -176,7 +197,7 @@ def create_llm_config(config: LlmServiceConfigCreate, db: Session = Depends(get_
     # 检查是否已存在
     existing = llm_config_service.get_config(db, config.service_name)
     if existing:
-        raise HTTPException(status_code=400, detail=f"服务配置 '{config.service_name}' 已存在")
+        _raise_invalid_input(f"服务配置 '{config.service_name}' 已存在")
     db_config = llm_config_service.create_config(db, config.model_dump())
     return success_response(LlmServiceConfigResponse.from_orm(db_config).model_dump())
 
@@ -190,7 +211,7 @@ def update_llm_config(
     """更新LLM服务配置"""
     db_config = llm_config_service.get_config(db, service_name)
     if not db_config:
-        raise HTTPException(status_code=404, detail=f"服务配置 '{service_name}' 不存在")
+        _raise_not_found(f"服务配置 '{service_name}' 不存在")
     update_data = config.model_dump(exclude_unset=True)
     db_config = llm_config_service.update_config(db, db_config, update_data)
     return success_response(LlmServiceConfigResponse.from_orm(db_config).model_dump())
@@ -201,7 +222,7 @@ def delete_llm_config(service_name: str, db: Session = Depends(get_db)):
     """删除LLM服务配置"""
     db_config = llm_config_service.get_config(db, service_name)
     if not db_config:
-        raise HTTPException(status_code=404, detail=f"服务配置 '{service_name}' 不存在")
+        _raise_not_found(f"服务配置 '{service_name}' 不存在")
     llm_config_service.delete_config(db, db_config)
     return success_response({"message": f"服务配置 '{service_name}' 已删除"})
 
@@ -227,7 +248,7 @@ def get_llm_config_by_project(project_key: str, service_name: str):
         with SessionLocal() as db:
             config = llm_config_service.get_config(db, service_name)
             if not config:
-                raise HTTPException(status_code=404, detail=f"项目 '{normalized}' 下服务配置 '{service_name}' 不存在")
+                _raise_not_found(f"项目 '{normalized}' 下服务配置 '{service_name}' 不存在")
             return success_response(
                 {
                     "project_key": normalized,
@@ -243,7 +264,7 @@ def create_llm_config_by_project(project_key: str, config: LlmServiceConfigCreat
         with SessionLocal() as db:
             existing = llm_config_service.get_config(db, config.service_name)
             if existing:
-                raise HTTPException(status_code=400, detail=f"项目 '{normalized}' 下服务配置 '{config.service_name}' 已存在")
+                _raise_invalid_input(f"项目 '{normalized}' 下服务配置 '{config.service_name}' 已存在")
             created = llm_config_service.create_config(db, config.model_dump())
             return success_response(
                 {
@@ -274,7 +295,7 @@ def delete_llm_config_by_project(project_key: str, service_name: str):
         with SessionLocal() as db:
             config = llm_config_service.get_config(db, service_name)
             if not config:
-                raise HTTPException(status_code=404, detail=f"项目 '{normalized}' 下服务配置 '{service_name}' 不存在")
+                _raise_not_found(f"项目 '{normalized}' 下服务配置 '{service_name}' 不存在")
             llm_config_service.delete_config(db, config)
             return success_response(
                 {
@@ -308,4 +329,3 @@ def update_llm_config_legacy(service_name: str, config: LlmServiceConfigUpdate, 
 @router.delete("/{service_name}")
 def delete_llm_config_legacy(service_name: str, db: Session = Depends(get_db)):
     return delete_llm_config(service_name=service_name, db=db)
-

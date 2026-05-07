@@ -16,6 +16,7 @@ try:
 
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from app.services.workflow_graph.curated_service import WorkflowGraphObjectMissingError, WorkflowGraphSyncConflictError
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -158,6 +159,18 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "error")
         self.assertEqual(body["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
+
+    def test_get_compiled_value_error_returns_invalid_input_envelope(self):
+        with patch("app.api.workflow_graph._invoke_get_compiled", side_effect=ValueError("compiled graph id invalid")):
+            response = self.client.get("/api/v1/workflow-graph/compiled/bad", headers=self.headers)
+
+        self.assertEqual(response.status_code, 400)
+        body = response.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
     def test_template_crud_success(self):
         with patch(
@@ -270,6 +283,34 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["status"], "error")
         self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertIn("conflict", body["error"]["message"])
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_curated_sync_conflict_returns_invalid_input_with_details(self):
+        with patch(
+            "app.api.workflow_graph._invoke_sync_curated_graph",
+            side_effect=WorkflowGraphSyncConflictError(expected_revision=1, actual_revision=2),
+        ):
+            response = self.client.post("/api/v1/workflow-graph/curated/g-1/sync", json={"since_revision": 1}, headers=self.headers)
+
+        self.assertEqual(response.status_code, 400)
+        body = response.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["details"]["category"], "version_conflict")
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_curated_get_missing_object_returns_not_found(self):
+        with patch(
+            "app.api.workflow_graph._invoke_get_curated_graph",
+            side_effect=WorkflowGraphObjectMissingError("curated graph not found: g-404"),
+        ):
+            response = self.client.get("/api/v1/workflow-graph/curated/g-404", headers=self.headers)
+
+        self.assertEqual(response.status_code, 404)
+        body = response.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
 
     def test_curated_draft_submit_sync_success(self):
         with patch(
