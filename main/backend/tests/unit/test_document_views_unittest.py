@@ -13,11 +13,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 from app.services.document_views import (
+    build_keyword_card_from_graph_node,
+    build_keyword_card_from_hybrid_row,
     build_policy_detail,
     build_policy_summary,
+    build_writing_conflict_details,
     get_market_data,
     get_social_entities,
     get_social_keywords,
+    serialize_writing_document,
 )
 
 
@@ -82,6 +86,45 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
 
         self.assertEqual(get_social_keywords(doc), ["jackpot"])
         self.assertEqual(get_social_entities(doc), [{"name": "Mega Millions"}])
+
+    def test_writing_view_serializes_document_and_conflict_snapshot(self):
+        row = SimpleNamespace(
+            id=11,
+            project_key="demo_proj",
+            title="Draft",
+            body_md="body",
+            status="draft",
+            head_version=3,
+            etag="etag-3",
+            updated_by_user_id="tester",
+            updated_at=datetime(2026, 3, 5, 11, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 3, 4, 10, 0, tzinfo=timezone.utc),
+            metadata_json={"section": "overview"},
+        )
+
+        serialized = serialize_writing_document(row)
+        conflict = build_writing_conflict_details(row, expected_version=2)
+
+        self.assertEqual(serialized["version"], 3)
+        self.assertEqual(serialized["metadata_json"], {"section": "overview"})
+        self.assertEqual(conflict["current_version"], 3)
+        self.assertEqual(conflict["server_snapshot"]["id"], 11)
+
+    def test_keyword_card_views_normalize_hybrid_and_graph_rows(self):
+        hybrid = build_keyword_card_from_hybrid_row(
+            {"title": "Doc A", "snippet": "body", "url": "https://example.org/a", "score": 0.9, "backend": "hybrid"},
+            normalized_query="robotics",
+        )
+        graph = build_keyword_card_from_graph_node(
+            {"node_id": "n1", "node_type": "entity", "title": "Entity A", "summary": "from graph"},
+            normalized_query="robotics",
+            graph_context={"contract_version": "graph.v1", "revision": 2},
+        )
+
+        self.assertEqual(hybrid.source_type, "document")
+        self.assertEqual(hybrid.extra["backend"], "hybrid")
+        self.assertEqual(graph.source_type, "graph")
+        self.assertEqual(graph.extra["graph_contract_version"], "graph.v1")
 
 
 if __name__ == "__main__":

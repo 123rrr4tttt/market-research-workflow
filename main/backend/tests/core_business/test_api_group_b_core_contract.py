@@ -90,6 +90,24 @@ class _FakeSessionLocalOperationalError:
         return False
 
 
+class _FakeScalarResult:
+    def scalar_one_or_none(self):
+        return None
+
+
+class _FakeEmptyPolicySession:
+    def execute(self, _query):
+        return _FakeScalarResult()
+
+
+class _FakePolicySessionLocalEmpty:
+    def __enter__(self):
+        return _FakeEmptyPolicySession()
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
 class _TrackedIngestTasks:
     def __init__(self):
         self.task_ingest_market = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-2")))
@@ -194,6 +212,38 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self.assertIn("YYYY-MM-DD", body["error"]["message"])
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
+    def test_dashboard_document_analysis_invalid_start_date_returns_422_invalid_input(self):
+        resp = self.client.get(
+            "/api/v1/dashboard/document-analysis",
+            headers=self.headers,
+            params={"start_date": "2026/01/01"},
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["details"]["field"], "start_date")
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_dashboard_sentiment_analysis_invalid_end_date_returns_422_invalid_input(self):
+        resp = self.client.get(
+            "/api/v1/dashboard/sentiment-analysis",
+            headers=self.headers,
+            params={"end_date": "2026/13/40"},
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["details"]["field"], "end_date")
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
     def test_policies_list_invalid_start_date_returns_422_invalid_input(self):
         resp = self.client.get(
             "/api/v1/policies",
@@ -206,8 +256,49 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self._assert_envelope(body)
         self.assertEqual(body["status"], "error")
         self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertIn("start", body["error"]["message"])
         self.assertIn("YYYY-MM-DD", body["error"]["message"])
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_policies_stats_invalid_start_date_returns_422_invalid_input(self):
+        resp = self.client.get(
+            "/api/v1/policies/stats",
+            headers=self.headers,
+            params={"start": "2026/01/01"},
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_policies_state_invalid_start_date_returns_422_invalid_input(self):
+        resp = self.client.get(
+            "/api/v1/policies/state/CA",
+            headers=self.headers,
+            params={"start": "2026/01/01"},
+        )
+
+        self.assertEqual(resp.status_code, 422)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_policy_detail_missing_returns_404_not_found(self):
+        with patch("app.api.policies.SessionLocal", return_value=_FakePolicySessionLocalEmpty()):
+            resp = self.client.get("/api/v1/policies/99999999", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 404)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
 
     def test_process_stats_success_contract(self):
         inspect = SimpleNamespace(

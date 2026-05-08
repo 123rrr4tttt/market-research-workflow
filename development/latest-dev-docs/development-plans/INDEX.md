@@ -16,6 +16,7 @@
 - [ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md](./ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
 - [ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md](./ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
 - [CURRENT_DEV/STATUS_AUDIT_2026-04-07.md](./CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
+- [CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md](./CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
 - [CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md](./CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 - [CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 - [F_PLAN/12_static-temporal-decoupling-platformization-plan-2026-03-01.md](./F_PLAN/12_static-temporal-decoupling-platformization-plan-2026-03-01.md)
@@ -115,6 +116,7 @@
 - `G_REVIEW/`（review 文档位置保持不变）
 - `CURRENT_DEV/`（当前开发任务分解，仅未封口且仍可作为现行入口）
 - `CURRENT_DEV/STATUS_AUDIT_2026-04-07.md`（当前目录状态与文档时效性审计）
+- `CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/`（仓库级并行开发编排主入口与子 agent 契约模板）
 - `ARCHIVE_CLOSED/`（已封口开发计划归档）
 - `ARCHIVE_RETIRED/`（已退场 / 过时开发计划）
 - [ARCHIVE_CLOSED/INDEX.md](./ARCHIVE_CLOSED/INDEX.md)

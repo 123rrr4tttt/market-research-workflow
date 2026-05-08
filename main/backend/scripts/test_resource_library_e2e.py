@@ -106,6 +106,7 @@ def _count_docs_in_schema(project_key: str) -> int:
 
 def run_e2e(project_key: str = PROJECT_KEY) -> dict:
     from app.services.projects import project_schema_name
+    from app.services.projects.bootstrap import ensure_project_schema_ready
     from app.services.resource_pool import (
         discover_site_entries_from_urls,
         extract_from_documents,
@@ -118,6 +119,7 @@ def run_e2e(project_key: str = PROJECT_KEY) -> dict:
 
     schema_name = project_schema_name(project_key)
     logger.info("Schema isolation: project_key=%s -> schema=%s", project_key, schema_name)
+    ensure_project_schema_ready(project_key, name="Online Lottery")
 
     results: dict = {}
     doc_count_before = _count_docs_in_schema(project_key)

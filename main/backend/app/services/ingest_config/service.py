@@ -2,33 +2,47 @@
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from ...models.base import SessionLocal
 from ...models.entities import IngestConfig
 from ..projects import bind_schema
 
+logger = logging.getLogger(__name__)
+
 
 def get_config(project_key: str, config_key: str) -> dict | None:
     """Get ingest config by project_key + config_key. Returns payload dict if found, else None."""
-    with bind_schema("public"):
-        with SessionLocal() as session:
-            cfg = session.execute(
-                select(IngestConfig).where(
-                    IngestConfig.project_key == project_key,
-                    IngestConfig.config_key == config_key,
-                )
-            ).scalar_one_or_none()
-            if not cfg:
-                return None
-            return {
-                "project_key": cfg.project_key,
-                "config_key": cfg.config_key,
-                "config_type": cfg.config_type,
-                "payload": cfg.payload,
-                "created_at": cfg.created_at.isoformat() if cfg.created_at else None,
-                "updated_at": cfg.updated_at.isoformat() if cfg.updated_at else None,
-            }
+    try:
+        with bind_schema("public"):
+            with SessionLocal() as session:
+                cfg = session.execute(
+                    select(IngestConfig).where(
+                        IngestConfig.project_key == project_key,
+                        IngestConfig.config_key == config_key,
+                    )
+                ).scalar_one_or_none()
+                if not cfg:
+                    return None
+                return {
+                    "project_key": cfg.project_key,
+                    "config_key": cfg.config_key,
+                    "config_type": cfg.config_type,
+                    "payload": cfg.payload,
+                    "created_at": cfg.created_at.isoformat() if cfg.created_at else None,
+                    "updated_at": cfg.updated_at.isoformat() if cfg.updated_at else None,
+                }
+    except SQLAlchemyError as exc:
+        logger.warning(
+            "ingest_config_read_degraded project_key=%s config_key=%s error=%s",
+            project_key,
+            config_key,
+            exc.__class__.__name__,
+        )
+        return None
 
 
 def upsert_config(

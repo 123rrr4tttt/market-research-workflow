@@ -14,6 +14,7 @@ pytestmark = pytest.mark.integration
 try:
     from fastapi.testclient import TestClient
 
+    from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
     from app.services.agent_sessions.service import AgentSessionService
     from app.services.agent_sessions.store import InMemoryAgentSessionStore
@@ -110,6 +111,93 @@ class AgentSessionsApiIntegrationTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["requester_task_id"], task_id)
+
+    def test_create_agent_session_invalid_input_returns_structured_error(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
+            with patch.object(service, "create_session", side_effect=ValueError("invalid session payload")):
+                response = self.client.post(
+                    "/api/v1/agent-sessions",
+                    json={"source": "user", "entrypoint_type": "chat", "goal": "Create session"},
+                )
+
+        self.assertEqual(response.status_code, 400)
+        body = response.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("invalid session payload", body["detail"]["error"]["message"])
+
+    def test_retry_agent_session_task_invalid_input_returns_structured_error(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Retry API")
+        session_id = bundle["session"]["session_id"]
+        task_id = bundle["tasks"][0]["task_id"]
+
+        with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
+            with patch.object(service, "retry_task", side_effect=ValueError("task cannot be retried")):
+                response = self.client.post(
+                    f"/api/v1/agent-sessions/{session_id}/actions/retry-task",
+                    json={"task_id": task_id},
+                )
+
+        self.assertEqual(response.status_code, 400)
+        body = response.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("task cannot be retried", body["detail"]["error"]["message"])
+
+    def test_create_agent_session_runtime_error_returns_internal_error(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
+            with patch.object(service, "create_session", side_effect=RuntimeError("database timeout")):
+                response = self.client.post(
+                    "/api/v1/agent-sessions",
+                    json={"source": "user", "entrypoint_type": "chat", "goal": "Create session"},
+                )
+
+        self.assertEqual(response.status_code, 502)
+        body = response.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
+
+    def test_retry_agent_session_task_runtime_error_returns_internal_error(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        bundle = service.create_session(source="user", entrypoint_type="chat", goal="Retry API")
+        session_id = bundle["session"]["session_id"]
+        task_id = bundle["tasks"][0]["task_id"]
+
+        with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
+            with patch.object(service, "retry_task", side_effect=RuntimeError("database timeout")):
+                response = self.client.post(
+                    f"/api/v1/agent-sessions/{session_id}/actions/retry-task",
+                    json={"task_id": task_id},
+                )
+
+        self.assertEqual(response.status_code, 502)
+        body = response.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.UPSTREAM_ERROR.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.UPSTREAM_ERROR.value)
+
+    def test_get_agent_session_not_found_returns_structured_error(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
+            response = self.client.get("/api/v1/agent-sessions/missing-session")
+
+        self.assertEqual(response.status_code, 404)
+        body = response.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(body["detail"]["error"]["message"], "session not found")
+
+    def test_resolve_approval_not_found_returns_structured_error(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        with patch("app.api.agent_sessions.get_agent_session_service", return_value=service):
+            response = self.client.post(
+                "/api/v1/agent-approvals/missing-approval/resolve",
+                json={"approved": True, "approved_by": "user"},
+            )
+
+        self.assertEqual(response.status_code, 404)
+        body = response.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(body["detail"]["error"]["message"], "approval not found")
 
 
 if __name__ == "__main__":

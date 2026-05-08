@@ -15,6 +15,7 @@ pytestmark = pytest.mark.integration
 
 try:
     from fastapi.testclient import TestClient
+    from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
     from app.services.graph.models import Graph, GraphEdge, GraphNode
 
@@ -354,6 +355,45 @@ class AdminGraphStandardizationIntegrationTestCase(unittest.TestCase):
             node_ids = {str(n.get("id")) for n in body["data"]["nodes"]}
             self.assertIn("canary-1", node_ids)
             self.assertEqual(len(body["data"]["edges"]), 0)
+
+    def test_admin_content_graph_build_failure_returns_error_envelope(self):
+        patches = self._patch_common()
+        with patch("app.api.admin._augment_market_graph_with_topic_structured", side_effect=self._fake_augment):
+            with patches[0], patches[1], patches[2], patch("app.services.graph.builder.build_graph", side_effect=RuntimeError("boom")), patches[4], patches[5], patches[6], patches[7], patches[8]:
+                resp = self.client.get("/api/v1/admin/content-graph?limit=20", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 500)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
+
+    def test_admin_market_graph_build_failure_returns_error_envelope(self):
+        patches = self._patch_common()
+        with patch("app.api.admin._augment_market_graph_with_topic_structured", side_effect=self._fake_augment):
+            with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patch("app.services.graph.builder.build_market_graph", side_effect=RuntimeError("boom")), patches[7], patches[8]:
+                resp = self.client.get("/api/v1/admin/market-graph?limit=20", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 500)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
+
+    def test_admin_policy_graph_build_failure_returns_error_envelope(self):
+        patches = self._patch_common()
+        with patch("app.api.admin._augment_market_graph_with_topic_structured", side_effect=self._fake_augment):
+            with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patch("app.services.graph.builder.build_policy_graph", side_effect=RuntimeError("boom")):
+                resp = self.client.get("/api/v1/admin/policy-graph?limit=20", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 500)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
 
 
 if __name__ == "__main__":

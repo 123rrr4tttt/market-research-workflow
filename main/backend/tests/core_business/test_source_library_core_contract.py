@@ -114,15 +114,34 @@ def test_source_library_query_endpoints_error_envelope(
 
     resp = client.get(path, params={"scope": "effective", "project_key": "demo_proj"}, headers=HEADERS)
 
-    assert resp.status_code == 400
-    assert resp.headers.get("x-error-code") == ErrorCode.INVALID_INPUT.value
+    assert resp.status_code == 500
+    assert resp.headers.get("x-error-code") == ErrorCode.INTERNAL_ERROR.value
 
     body = resp.json()
     assert body["status"] == "error"
     assert body["data"] is None
-    assert body["error"]["code"] == ErrorCode.INVALID_INPUT.value
+    assert body["error"]["code"] == ErrorCode.INTERNAL_ERROR.value
     assert "simulated service failure" in body["error"]["message"]
-    assert body["detail"]["error"]["code"] == ErrorCode.INVALID_INPUT.value
+    assert body["detail"]["error"]["code"] == ErrorCode.INTERNAL_ERROR.value
+
+
+def test_source_library_shared_scope_allows_missing_project_key(client, monkeypatch: pytest.MonkeyPatch):
+    captured = {}
+
+    def _fake_service(scope: str, project_key: str | None):
+        captured["scope"] = scope
+        captured["project_key"] = project_key
+        return [{"channel_key": "news", "name": "News"}]
+
+    monkeypatch.setattr(source_library_api, "list_effective_channels", _fake_service)
+
+    resp = client.get("/api/v1/source_library/channels", params={"scope": "shared"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["data"]["project_key"] is None
+    assert captured == {"scope": "shared", "project_key": None}
 
 
 def test_source_library_items_default_filters_user_defined_and_include_system_opt_in(
@@ -375,7 +394,13 @@ def test_external_project_register_preview_returns_synthesized_item_without_pers
     assert body["data"]["item"]["item_key"] == "external.demo.item"
     assert body["data"]["item"]["channel_key"] == "external_project.manifest"
     assert body["data"]["item"]["execution_plan"]["plan_meta"]["execution_family"] == "external_project"
+    assert (
+        body["data"]["item"]["execution_plan"]["plan_meta"]["external_project"]["provider_binding"]["provider_key"]
+        == "external_project.rss_feed"
+    )
     assert body["data"]["registration_context"]["source"] == "github"
+    assert body["data"]["registration_context"]["provider_binding"]["provider_key"] == "external_project.rss_feed"
+    assert body["data"]["manifest_summary"]["provider_binding"]["provider_key"] == "external_project.rss_feed"
 
 
 def test_external_project_register_persist_upserts_synthesized_item(client, monkeypatch: pytest.MonkeyPatch):
@@ -414,6 +439,11 @@ def test_external_project_register_persist_upserts_synthesized_item(client, monk
     assert captured["payload"]["channel_key"] == "external_project.manifest"
     assert captured["payload"]["enabled"] is False
     assert body["data"]["item"]["execution_plan"]["plan_meta"]["external_project"]["execution_mode"] == "rss_feed"
+    assert (
+        body["data"]["item"]["execution_plan"]["plan_meta"]["external_project"]["provider_binding"]["provider_key"]
+        == "external_project.rss_feed"
+    )
+    assert body["data"]["manifest_summary"]["provider_binding"]["provider_key"] == "external_project.rss_feed"
 
 
 def test_external_project_register_surfaces_synthesis_failure_as_invalid_input(client, monkeypatch: pytest.MonkeyPatch):
@@ -435,3 +465,183 @@ def test_external_project_register_surfaces_synthesis_failure_as_invalid_input(c
     assert body["status"] == "error"
     assert body["error"]["code"] == ErrorCode.INVALID_INPUT.value
     assert "localhost" in body["error"]["message"]
+
+
+def test_external_project_register_surfaces_runtime_failure_as_internal_error(client, monkeypatch: pytest.MonkeyPatch):
+    def _fake_synthesize(**_kwargs):
+        raise RuntimeError("manifest loader crashed")
+
+    monkeypatch.setattr(source_library_api, "synthesize_external_project_item", _fake_synthesize)
+
+    resp = client.post(
+        "/api/v1/source_library/external-projects/register",
+        params={"project_key": "demo_proj"},
+        json={"project_link": "https://github.com/example/external-demo"},
+        headers=HEADERS,
+    )
+
+    assert resp.status_code == 500
+    assert resp.headers.get("x-error-code") == ErrorCode.INTERNAL_ERROR.value
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == ErrorCode.INTERNAL_ERROR.value
+    assert "manifest loader crashed" in body["error"]["message"]
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "payload"),
+    [
+        (
+            "post",
+            "/api/v1/source_library/items",
+            {
+                "item_key": "demo.item",
+                "name": "Demo Item",
+                "channel_key": "market.general",
+                "params": {},
+                "extra": {},
+            },
+        ),
+        (
+            "put",
+            "/api/v1/source_library/items/demo.item",
+            {
+                "item_key": "demo.item",
+                "name": "Demo Item",
+                "channel_key": "market.general",
+                "params": {},
+                "extra": {},
+            },
+        ),
+        (
+            "post",
+            "/api/v1/source_library/items/demo.item/refresh",
+            {
+                "incremental": True,
+                "max_site_entries": 10,
+            },
+        ),
+        (
+            "post",
+            "/api/v1/source_library/handler_clusters/sync",
+            {
+                "handlers": ["rss"],
+                "incremental": True,
+                "max_site_entries": 10,
+            },
+        ),
+        (
+            "post",
+            "/api/v1/source_library/external-projects/register",
+            {
+                "project_link": "https://github.com/example/demo",
+                "persist": False,
+            },
+        ),
+    ],
+)
+def test_source_library_write_routes_require_project_key_with_standard_error_envelope(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+    path: str,
+    payload: dict,
+):
+    monkeypatch.setattr(source_library_api, "get_effective_project_key_enforcement_mode", lambda: "require")
+
+    requester = getattr(client, method)
+    resp = requester(path, json=payload)
+
+    assert resp.status_code == 400
+    assert resp.headers.get("x-error-code") == ErrorCode.PROJECT_KEY_REQUIRED.value
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == ErrorCode.PROJECT_KEY_REQUIRED.value
+
+
+def test_source_library_sync_shared_from_files_requires_project_key_with_standard_error_envelope(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(source_library_api, "get_effective_project_key_enforcement_mode", lambda: "require")
+
+    resp = client.post("/api/v1/source_library/sync_shared_from_files")
+
+    assert resp.status_code == 400
+    assert resp.headers.get("x-error-code") == ErrorCode.PROJECT_KEY_REQUIRED.value
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == ErrorCode.PROJECT_KEY_REQUIRED.value
+
+
+def test_source_library_refresh_missing_item_returns_not_found_envelope(client):
+    class _FakeResult:
+        def scalar_one_or_none(self):
+            return None
+
+    class _FakeSession:
+        def execute(self, _query):
+            return _FakeResult()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(source_library_api, "SessionLocal", lambda: _FakeSession())
+        resp = client.post(
+            "/api/v1/source_library/items/demo.item/refresh",
+            json={"project_key": "demo_proj", "incremental": True, "max_site_entries": 10},
+            headers=HEADERS,
+        )
+
+    assert resp.status_code == 404
+    assert resp.headers.get("x-error-code") == ErrorCode.NOT_FOUND.value
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == ErrorCode.NOT_FOUND.value
+    assert body["detail"]["error"]["details"]["item_key"] == "demo.item"
+
+
+def test_source_library_refresh_runtime_failure_returns_internal_error_envelope(
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    class _FakeResult:
+        @staticmethod
+        def scalar_one_or_none():
+            return type("Row", (), {"params": {}, "extra": {}})()
+
+    class _FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, _query):
+            return _FakeResult()
+
+        def commit(self):
+            return None
+
+    def _boom(**_kwargs):
+        raise RuntimeError("refresh backend exploded")
+
+    monkeypatch.setattr(source_library_api, "SessionLocal", lambda: _FakeSession())
+    monkeypatch.setattr(source_library_api, "_refresh_handler_item_site_entries", _boom)
+
+    resp = client.post(
+        "/api/v1/source_library/items/demo.item/refresh",
+        json={"project_key": "demo_proj", "incremental": True, "max_site_entries": 10},
+        headers=HEADERS,
+    )
+
+    assert resp.status_code == 500
+    assert resp.headers.get("x-error-code") == ErrorCode.INTERNAL_ERROR.value
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == ErrorCode.INTERNAL_ERROR.value
+    assert "refresh backend exploded" in body["error"]["message"]

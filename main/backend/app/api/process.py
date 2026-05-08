@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, func
 
 from ..celery_app import celery_app
+from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
@@ -24,6 +25,37 @@ router = APIRouter(prefix="/process", tags=["process"])
 _DB_JOB_PREFIX = "db-job-"
 _DEBUG_LOG_PATH = "/Users/wangyiliang/market-research-workflow/.cursor/debug-14c8b9.log"
 _DEBUG_SESSION_ID = "14c8b9"
+
+
+def _raise_invalid_input(message: str) -> None:
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            message,
+        ),
+    )
+
+
+def _raise_not_found(message: str) -> None:
+    raise HTTPException(
+        status_code=404,
+        detail=error_response(
+            ErrorCode.NOT_FOUND,
+            message,
+        ),
+    )
+
+
+def _raise_internal_error(message: str, *, details: dict[str, Any] | None = None) -> None:
+    raise HTTPException(
+        status_code=500,
+        detail=error_response(
+            ErrorCode.INTERNAL_ERROR,
+            message,
+            details=details,
+        ),
+    )
 
 
 def _debug_log(*, run_id: str, hypothesis_id: str, location: str, message: str, data: dict[str, Any] | None = None) -> None:
@@ -384,7 +416,10 @@ def list_tasks(
         )
         # endregion
         logger.exception("获取任务列表失败")
-        raise HTTPException(status_code=500, detail=f"获取任务列表失败: {str(e)}")
+        _raise_internal_error(
+            f"获取任务列表失败: {str(e)}",
+            details={"exception_type": e.__class__.__name__},
+        )
 
 
 @router.get("/stats")
@@ -428,7 +463,10 @@ def get_task_stats() -> dict[str, Any]:
 
     except Exception as e:
         logger.exception("获取任务统计信息失败")
-        raise HTTPException(status_code=500, detail=f"获取任务统计信息失败: {str(e)}")
+        _raise_internal_error(
+            f"获取任务统计信息失败: {str(e)}",
+            details={"exception_type": e.__class__.__name__},
+        )
 
 
 @router.get("/history")
@@ -532,7 +570,10 @@ def get_task_history(
 
     except Exception as e:
         logger.exception("获取任务历史记录失败")
-        raise HTTPException(status_code=500, detail=f"获取任务历史记录失败: {str(e)}")
+        _raise_internal_error(
+            f"获取任务历史记录失败: {str(e)}",
+            details={"exception_type": e.__class__.__name__},
+        )
 
 
 @router.post("/{task_id}/cancel")
@@ -554,7 +595,10 @@ def cancel_task(task_id: str, terminate: bool = False) -> dict[str, Any]:
 
     except Exception as e:
         logger.exception(f"取消任务 {task_id} 失败")
-        raise HTTPException(status_code=500, detail=f"取消任务失败: {str(e)}")
+        _raise_internal_error(
+            f"取消任务失败: {str(e)}",
+            details={"exception_type": e.__class__.__name__, "task_id": task_id},
+        )
 
 
 def _parse_db_job_id(task_id: str) -> int | None:
@@ -578,10 +622,7 @@ def _extract_source_library_retry_payload(job: EtlJobRun) -> tuple[str, str | No
     params = dict(job.params or {})
     item_key = str(params.get("item_key") or "").strip()
     if not item_key:
-        raise HTTPException(
-            status_code=400,
-            detail=f"db job {job.id} missing retry param: item_key",
-        )
+        _raise_invalid_input(f"db job {job.id} missing retry param: item_key")
     project_key = str(params.get("project_key") or "").strip() or None
     override_params = params.get("override_params")
     if not isinstance(override_params, dict):
@@ -697,7 +738,10 @@ def get_task_info(task_id: str) -> dict[str, Any]:
 
     except Exception as e:
         logger.exception(f"获取任务信息失败: {task_id}")
-        raise HTTPException(status_code=500, detail=f"获取任务信息失败: {str(e)}")
+        _raise_internal_error(
+            f"获取任务信息失败: {str(e)}",
+            details={"exception_type": e.__class__.__name__, "task_id": task_id},
+        )
 
 
 @router.post("/{task_id}/retry")
@@ -706,21 +750,15 @@ def retry_task(task_id: str) -> dict[str, Any]:
     try:
         db_job_id = _parse_db_job_id(task_id)
         if db_job_id is None:
-            raise HTTPException(
-                status_code=400,
-                detail=f"仅支持 db-job 任务重试，示例: {_DB_JOB_PREFIX}<id>",
-            )
+            _raise_invalid_input(f"仅支持 db-job 任务重试，示例: {_DB_JOB_PREFIX}<id>")
 
         db_job = _resolve_db_job(task_id)
         if db_job is None:
-            raise HTTPException(status_code=404, detail=f"未找到任务: {task_id}")
+            _raise_not_found(f"未找到任务: {task_id}")
 
         job_type = str(db_job.job_type or "").strip()
         if job_type != "source_library_run":
-            raise HTTPException(
-                status_code=400,
-                detail=f"当前仅支持重试 job_type=source_library_run，实际为: {job_type or '-'}",
-            )
+            _raise_invalid_input(f"当前仅支持重试 job_type=source_library_run，实际为: {job_type or '-'}")
 
         item_key, project_key, override_params = _extract_source_library_retry_payload(db_job)
         invoked = invoke_skill(
@@ -760,7 +798,10 @@ def retry_task(task_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.exception(f"重试任务失败: {task_id}")
-        raise HTTPException(status_code=500, detail=f"重试任务失败: {str(e)}")
+        _raise_internal_error(
+            f"重试任务失败: {str(e)}",
+            details={"exception_type": e.__class__.__name__, "task_id": task_id},
+        )
 
 
 
@@ -938,4 +979,7 @@ def get_task_logs(task_id: str, tail: int = Query(default=200, ge=1, le=5000)) -
         raise
     except Exception as e:
         logger.exception("读取任务日志失败")
-        raise HTTPException(status_code=500, detail=f"读取任务日志失败: {str(e)}")
+        _raise_internal_error(
+            f"读取任务日志失败: {str(e)}",
+            details={"exception_type": e.__class__.__name__, "task_id": task_id},
+        )

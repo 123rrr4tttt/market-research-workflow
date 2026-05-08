@@ -5,7 +5,8 @@ from typing import Any
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from ..contracts import success_response
+from ..contracts import ErrorCode, error_response, success_response
+from ..contracts.errors import map_exception_to_error
 from ..services.keyword_memory import (
     keyword_memory_stats,
     list_keyword_history,
@@ -13,8 +14,18 @@ from ..services.keyword_memory import (
     list_vectorization_candidates,
     upsert_keyword_prior,
 )
+from fastapi import HTTPException
 
 router = APIRouter(prefix="/keywords", tags=["keywords"])
+
+
+def _raise_mapped_error(exc: Exception) -> None:
+    code, message, details = map_exception_to_error(exc)
+    status_code = 400 if code == ErrorCode.INVALID_INPUT else 404 if code == ErrorCode.NOT_FOUND else 429 if code == ErrorCode.RATE_LIMITED else 502 if code in {ErrorCode.UPSTREAM_ERROR, ErrorCode.PARSE_ERROR} else 500
+    raise HTTPException(
+        status_code=status_code,
+        detail=error_response(code, message, details=details),
+    ) from exc
 
 
 class KeywordPriorUpsertPayload(BaseModel):
@@ -30,7 +41,10 @@ class KeywordPriorUpsertPayload(BaseModel):
 
 @router.get("/stats")
 def get_keyword_memory_stats():
-    return success_response(keyword_memory_stats())
+    try:
+        return success_response(keyword_memory_stats())
+    except Exception as exc:  # noqa: BLE001
+        _raise_mapped_error(exc)
 
 
 @router.get("/history")
@@ -38,7 +52,10 @@ def get_keyword_history(
     limit: int = Query(default=200, ge=1, le=1000),
     q: str | None = Query(default=None),
 ):
-    rows = list_keyword_history(limit=limit, q=q)
+    try:
+        rows = list_keyword_history(limit=limit, q=q)
+    except Exception as exc:  # noqa: BLE001
+        _raise_mapped_error(exc)
     out = [
         {
             "id": int(r.id),
@@ -66,7 +83,10 @@ def get_keyword_priors(
     limit: int = Query(default=200, ge=1, le=1000),
     enabled_only: bool = Query(default=False),
 ):
-    rows = list_keyword_priors(limit=limit, enabled_only=enabled_only)
+    try:
+        rows = list_keyword_priors(limit=limit, enabled_only=enabled_only)
+    except Exception as exc:  # noqa: BLE001
+        _raise_mapped_error(exc)
     out = [
         {
             "id": int(r.id),
@@ -88,16 +108,19 @@ def get_keyword_priors(
 
 @router.post("/priors/upsert")
 def post_keyword_prior_upsert(payload: KeywordPriorUpsertPayload):
-    row = upsert_keyword_prior(
-        keyword=payload.keyword,
-        prior_score=payload.prior_score,
-        confidence=payload.confidence,
-        source=payload.source,
-        enabled=payload.enabled,
-        tags=payload.tags,
-        notes=payload.notes,
-        extra=payload.extra,
-    )
+    try:
+        row = upsert_keyword_prior(
+            keyword=payload.keyword,
+            prior_score=payload.prior_score,
+            confidence=payload.confidence,
+            source=payload.source,
+            enabled=payload.enabled,
+            tags=payload.tags,
+            notes=payload.notes,
+            extra=payload.extra,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _raise_mapped_error(exc)
     return success_response(
         {
             "id": int(row.id),
@@ -115,4 +138,7 @@ def post_keyword_prior_upsert(payload: KeywordPriorUpsertPayload):
 
 @router.get("/vectorization/candidates")
 def get_vectorization_candidates(limit: int = Query(default=200, ge=1, le=1000)):
-    return success_response({"items": list_vectorization_candidates(limit=limit), "total": limit})
+    try:
+        return success_response({"items": list_vectorization_candidates(limit=limit), "total": limit})
+    except Exception as exc:  # noqa: BLE001
+        _raise_mapped_error(exc)

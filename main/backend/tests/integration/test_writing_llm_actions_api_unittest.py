@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,6 +16,7 @@ try:
     from fastapi.testclient import TestClient
 
     from app.contracts.schemas.writing import LlmActionHistoryItem, LlmActionResponse, TemplateValidateResponse
+    from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
 
     _IMPORT_ERROR = None
@@ -82,6 +84,33 @@ class WritingLlmActionsApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(action_response.json()["data"]["job_id"], 7)
         self.assertEqual(action_response.json()["data"]["capability_truth"]["implementation_kind"], "rule_template_action")
         self.assertEqual(history_response.json()["data"]["items"][0]["job_id"], 7)
+
+    def test_llm_action_detail_not_found_returns_structured_error(self):
+        with patch("app.api.writing.get_action_detail", side_effect=KeyError("action not found")):
+            response = self.client.get("/api/v1/writing/llm-actions/7", headers=self.headers)
+
+        self.assertEqual(response.status_code, 404)
+        body = response.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
+
+    def test_llm_action_project_context_value_error_returns_invalid_input(self):
+        @contextmanager
+        def _broken_bind(_project_key):
+            raise ValueError("reserved project key")
+            yield
+
+        with patch("app.api.writing.bind_project", _broken_bind):
+            response = self.client.post(
+                "/api/v1/writing/llm-actions",
+                json={"project_key": "demo_proj", "action_id": "selection_rewrite", "input_markdown": "draft", "async": False},
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        body = response.json()
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
 
 if __name__ == "__main__":

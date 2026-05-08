@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-pytestmark = pytest.mark.contract
+pytestmark = [pytest.mark.contract, pytest.mark.unit]
 
 try:
     from fastapi.testclient import TestClient
@@ -39,7 +39,10 @@ class SearchCoreContractTestCase(unittest.TestCase):
     def test_search_success_envelope_complete(self):
         mocked_results = [{"id": "doc-1", "score": 0.91}, {"id": "doc-2", "score": 0.73}]
 
-        with patch("app.api.search.hybrid_search", return_value=mocked_results):
+        with (
+            patch("app.api.search.hybrid_search", return_value=mocked_results),
+            patch("app.api.search.get_last_used_backends", return_value=["opensearch", "qdrant", "pgvector", "custom"]),
+        ):
             response = self.client.get(
                 "/api/v1/search",
                 params={"q": "market", "state": "CA", "modality": "text", "rank": "hybrid", "top_k": 2},
@@ -58,6 +61,10 @@ class SearchCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["rank"], "hybrid")
         self.assertEqual(body["data"]["top_k"], 2)
         self.assertEqual(body["data"]["results"], mocked_results)
+        self.assertEqual(
+            body["data"]["search_backends_used"],
+            ["opensearch_lexical", "qdrant_vector", "pgvector_fallback", "custom"],
+        )
 
         self.assertIsInstance(body["meta"], dict)
         self.assertTrue({"trace_id", "pagination", "project_key", "deprecated"}.issubset(body["meta"].keys()))

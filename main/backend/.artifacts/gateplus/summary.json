@@ -1,0 +1,32 @@
+{
+  "tool": "gateplus_ci_guard",
+  "status": "pass",
+  "summary_line": "22 passed, 4 warnings in 1.57s",
+  "pytest_exit": 0,
+  "compatibility": {
+    "level": "BACKWARD",
+    "source": "env",
+    "enforced": true
+  },
+  "counts": {
+    "passed": 22,
+    "skipped": 0,
+    "failed": 0,
+    "warnings": 4
+  },
+  "gates": {
+    "min_pass": 1,
+    "max_warnings": 9999,
+    "skip_must_be_zero": true
+  },
+  "selected_tests": [
+    "tests/unit/test_meaningful_gate_unittest.py",
+    "tests/unit/test_collect_runtime_process_fallback_unittest.py"
+  ],
+  "failure_diagnostics": {
+    "root_cause_code": "none",
+    "failure_reasons": [],
+    "actionable_hints": [],
+    "failed_tests": []
+  }
+}

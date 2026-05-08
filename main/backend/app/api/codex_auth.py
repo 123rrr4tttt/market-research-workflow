@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Query, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
@@ -32,39 +32,37 @@ _DEVICE_URL_RE = re.compile(r"https://auth\.openai\.com/codex/device\S*")
 _DEVICE_CODE_RE = re.compile(r"\b[A-Z0-9]{4}-[A-Z0-9]{5}\b")
 
 
+def _error_json(status_code: int, code: ErrorCode, message: str, *, details: dict[str, Any] | None = None) -> JSONResponse:
+    payload = error_response(code, message, details=details)
+    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
+    return JSONResponse(status_code=status_code, content=payload, headers={"X-Error-Code": code.value})
+
+
 @router.get("/login", response_model=None)
 def codex_auth_login(next_url: str | None = Query(default=None, max_length=2048)) -> Any:
     if not codex_oauth_enabled():
         if has_valid_token_sink():
             return RedirectResponse(url=next_url or codex_oauth_frontend_success_url(), status_code=302)
-        return {
-            "status": "error",
-            "error": error_response(
-                ErrorCode.INVALID_INPUT,
-                "codex cli login is required on host machine",
-                details={
-                    "category": "codex_cli_auth",
-                    "reason_code": "codex_cli_login_required",
-                    "hint": "run `codex login` on the backend host",
-                },
-            )["error"],
-            "data": None,
-            "meta": None,
-        }
+        return _error_json(
+            400,
+            ErrorCode.INVALID_INPUT,
+            "codex cli login is required on host machine",
+            details={
+                "category": "codex_cli_auth",
+                "reason_code": "codex_cli_login_required",
+                "hint": "run `codex login` on the backend host",
+            },
+        )
     try:
         authorize_url = build_authorize_url(next_url=next_url)
         return RedirectResponse(url=authorize_url, status_code=302)
     except ValueError as exc:
-        return {
-            "status": "error",
-            "error": error_response(
-                ErrorCode.INVALID_INPUT,
-                "codex oauth login is not configured",
-                details={"category": "codex_oauth_config", "reason_code": str(exc)},
-            )["error"],
-            "data": None,
-            "meta": None,
-        }
+        return _error_json(
+            400,
+            ErrorCode.INVALID_INPUT,
+            "codex oauth login is not configured",
+            details={"category": "codex_oauth_config", "reason_code": str(exc)},
+        )
 
 
 @router.get("/callback", response_model=None)

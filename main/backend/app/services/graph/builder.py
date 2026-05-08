@@ -33,7 +33,7 @@ def _generate_keyword_id(text: str, lang: str = "en") -> str:
     """
     normalized = _normalize_text(text)
     content = f"{normalized}{lang.lower()}"
-    return hashlib.sha1(content.encode("utf-8")).hexdigest()
+    return hashlib.sha1(content.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def _normalize_text(text: str) -> str:
@@ -57,14 +57,14 @@ def _generate_entity_id(entity: Dict) -> str:
     canonical_name = _normalize_text(entity.get("canonical_name") or entity.get("text", ""))
     entity_type = (entity.get("type", "UNKNOWN") or "UNKNOWN").lower().strip()
     content = f"{canonical_name}{entity_type}"
-    return hashlib.sha1(content.encode("utf-8")).hexdigest()
+    return hashlib.sha1(content.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def _generate_keypoint_id(text: str) -> str:
     """生成政策关键要点ID"""
     normalized = _normalize_text(text)
     content = f"policy_keypoint:{normalized}"
-    return hashlib.sha1(content.encode("utf-8")).hexdigest()
+    return hashlib.sha1(content.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def _calculate_tfidf(

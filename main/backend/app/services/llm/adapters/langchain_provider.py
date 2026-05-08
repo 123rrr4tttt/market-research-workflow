@@ -10,6 +10,7 @@ from langchain_openai import (
 )
 
 from ....settings.config import settings
+from ..codex_cli import CodexCliChatModel, codex_cli_llm_available
 from ..ports import ChatModelOptions, ChatPort, EmbeddingPort
 
 
@@ -36,6 +37,8 @@ class LangChainProviderAdapter(ChatPort, EmbeddingPort):
             model_params.update(options.extra)
 
         if provider == "openai":
+            if not settings.openai_api_key and codex_cli_llm_available():
+                return CodexCliChatModel(model=options.model)
             return ChatOpenAI(
                 model=options.model or "gpt-4o-mini",
                 api_key=_ensure(settings.openai_api_key, "OPENAI_API_KEY"),

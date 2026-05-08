@@ -5,6 +5,7 @@ import socket
 from typing import Any
 from urllib.parse import quote_plus, urlsplit
 
+from .external_project_registry import resolve_external_project_provider_binding
 
 EXTERNAL_PROJECT_CHANNEL_KEY = "external_project.manifest"
 EXTERNAL_PROJECT_MANIFEST_KEY = "external_project_manifest"
@@ -160,6 +161,7 @@ def normalize_external_project_manifest(
     if isinstance(payload.get("runtime"), dict):
         runtime_config = {**runtime_config, **dict(payload.get("runtime") or {})}
     normalized["runtime_config"] = _normalize_runtime_config(runtime_config)
+    normalized["provider_binding"] = resolve_external_project_provider_binding(normalized)
 
     if not any(bool(normalized["capabilities"].get(key)) for key in _CAPABILITY_KEYS):
         raise ValueError("external project manifest capabilities must declare at least one supported output")
@@ -181,6 +183,7 @@ def build_external_project_summary(manifest: dict[str, Any] | None) -> dict[str,
         "execution_mode": normalized.get("execution_mode"),
         "runner_ref": normalized.get("runner_ref"),
         "frontdoor_strategy": ((normalized.get("normalization") or {}).get("frontdoor_strategy")),
+        "provider_binding": dict((normalized.get("provider_binding") or {})),
     }
 
 

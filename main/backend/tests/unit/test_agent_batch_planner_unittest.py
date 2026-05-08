@@ -128,7 +128,8 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         self.assertIsNone(reason_code)
         self.assertEqual(normalized["tasks"][0]["channel"], "source_library")
         self.assertEqual(normalized["tasks"][0]["item_key"], "ai_terminal.weekly")
-        self.assertEqual(normalized["tasks"][0]["max_items"], 1)
+        self.assertEqual(normalized["tasks"][0]["max_items"], 20)
+        self.assertIsNone(normalized["tasks"][0]["source_mode"])
 
     def test_task_manifest_exposes_callable_channels(self):
         manifest = build_agent_batch_task_manifest()
@@ -261,9 +262,9 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
 
     def test_normalize_agent_batch_task_uses_contract_defaults(self):
         normalized = normalize_agent_batch_task({"channel": "source_library", "item_key": "demo.item"}, idx=1, default_language="zh")
-        self.assertEqual(normalized["max_items"], 1)
+        self.assertEqual(normalized["max_items"], 20)
         self.assertEqual(normalized["provider"], "auto")
-        self.assertEqual(normalized["source_mode"], "protocol_search")
+        self.assertIsNone(normalized["source_mode"])
         self.assertEqual(normalized["language"], "zh")
 
     def test_build_source_library_override_params_promotes_top_level_fields(self):
@@ -325,9 +326,9 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         item = build_agent_batch_submit_item_data({"channel": "source_library", "item_key": "demo.item"}, idx=1, default_language="zh")
         self.assertEqual(item["channel"], "source_library")
         self.assertEqual(item["item_key"], "demo.item")
-        self.assertEqual(item["max_items"], 1)
+        self.assertEqual(item["max_items"], 20)
         self.assertEqual(item["provider"], "auto")
-        self.assertEqual(item["source_mode"], "protocol_search")
+        self.assertIsNone(item["source_mode"])
 
     def test_build_agent_batch_execution_registry_resolves_exports_and_fails_fast(self):
         registry = build_agent_batch_execution_registry(

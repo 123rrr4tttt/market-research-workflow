@@ -108,6 +108,77 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
+    def test_create_project_duplicate_key_maps_to_invalid_input_error_code(self):
+        result = Mock()
+        result.scalar_one_or_none.return_value = SimpleNamespace(id=1, project_key="demo_proj")
+
+        with (
+            patch("app.api.projects.bind_schema", return_value=nullcontext()),
+            patch("app.api.projects.SessionLocal", self._session_local_with_result(result)),
+        ):
+            response = self.client.post(
+                "/api/v1/projects",
+                headers=self.headers,
+                json={"project_key": "demo_proj", "name": "Demo", "enabled": True},
+            )
+
+        self.assertEqual(response.status_code, 409)
+        payload = response.json()
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_projects_auto_create_missing_template_maps_to_not_found_error_code(self):
+        with patch("app.api.projects._project_exists", return_value=False):
+            response = self.client.post(
+                "/api/v1/projects/auto-create",
+                headers=self.headers,
+                json={
+                    "project_name": "New Project",
+                    "project_key": "new_proj",
+                    "template_project_key": "missing_proj",
+                    "activate": False,
+                    "copy_initial_data": True,
+                    "llm_configs": [],
+                },
+            )
+
+        self.assertEqual(response.status_code, 404)
+        payload = response.json()
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
+
+    def test_activate_archived_project_maps_to_invalid_input_error_code(self):
+        disabled_project = SimpleNamespace(project_key="archived_proj", enabled=False)
+        result = Mock()
+        result.scalar_one_or_none.return_value = disabled_project
+
+        with (
+            patch("app.api.projects.bind_schema", return_value=nullcontext()),
+            patch("app.api.projects.SessionLocal", self._session_local_with_result(result)),
+        ):
+            response = self.client.post("/api/v1/projects/archived_proj/activate", headers=self.headers)
+
+        self.assertEqual(response.status_code, 409)
+        payload = response.json()
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_delete_default_hard_delete_guard_maps_to_invalid_input_error_code(self):
+        response = self.client.delete("/api/v1/projects/default", headers=self.headers, params={"hard": True})
+
+        self.assertEqual(response.status_code, 409)
+        payload = response.json()
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -25,10 +25,25 @@ def _split_batches(terms: list[str], chunk_size: int) -> list[list[str]]:
     return [clean[i : i + size] for i in range(0, len(clean), size)]
 
 
+def _source_library_item_context(params: Dict[str, Any]) -> dict[str, Any]:
+    raw = params.get("_source_library_item")
+    if not isinstance(raw, dict):
+        return {}
+    extra = raw.get("extra") if isinstance(raw.get("extra"), dict) else {}
+    return {
+        "item_key": str(raw.get("item_key") or "").strip() or None,
+        "channel_key": str(raw.get("channel_key") or "").strip() or None,
+        "item_type": str(raw.get("item_type") or extra.get("item_type") or "").strip().lower() or None,
+        "managed_by": str(raw.get("managed_by") or extra.get("managed_by") or "").strip().lower() or None,
+        "expected_entry_type": str(extra.get("expected_entry_type") or "").strip().lower() or None,
+    }
+
+
 def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> Dict[str, Any]:
     from ...resource_pool import unified_search_by_item_payload
 
     merged_params = dict(params or {})
+    item_ctx = _source_library_item_context(merged_params)
     terminal_output_only = bool(merged_params.get("source_library_terminal_output_only")) or str(
         merged_params.get("source_library_execution_layer") or ""
     ).strip().lower() == "terminal_output_only"
@@ -179,6 +194,25 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
         "single_write_workflow": "terminal_output_only" if terminal_output_only else "url_routing",
         "execution_layer": "terminal_output_only" if terminal_output_only else "execute",
         "error_details": merged_error_details,
+        "source_mode": "site_search",
+        "capability_profile": {
+            "entry_type": str(item_params.get("expected_entry_type") or item_ctx.get("expected_entry_type") or "").strip().lower()
+            or None,
+            "source_mode": "site_search",
+            "supports_query_terms": True,
+            "supports_pagination": True,
+            "extractor_kind": "candidate_batch_router",
+            "fallback_policy": "query_search_then_url_fetch",
+        },
+        "execution_taxonomy": {
+            "lane": "site_search",
+            "source_family": "handler_cluster",
+            "item_key": item_ctx.get("item_key") or item_key or "_anonymous_handler_cluster",
+            "item_type": item_ctx.get("item_type"),
+            "managed_by": item_ctx.get("managed_by"),
+            "entry_type": str(item_params.get("expected_entry_type") or item_ctx.get("expected_entry_type") or "").strip().lower()
+            or None,
+        },
     }
     if not terminal_output_only:
         response["legacy_ingest_result"] = {

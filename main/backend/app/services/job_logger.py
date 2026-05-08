@@ -3,12 +3,15 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List
+import logging
 
 from sqlalchemy import select
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 
 from ..models.base import SessionLocal, run_with_session_retry
 from ..models.entities import EtlJobRun
+
+logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -19,7 +22,10 @@ def _fit_job_type(job_type: str, max_len: int = 16) -> str:
     """Fit job_type into DB column length without collisions."""
     if len(job_type) <= max_len:
         return job_type
-    digest = hashlib.sha1(job_type.encode("utf-8", errors="ignore")).hexdigest()[:4]
+    digest = hashlib.sha1(
+        job_type.encode("utf-8", errors="ignore"),
+        usedforsecurity=False,
+    ).hexdigest()[:4]
     prefix_len = max_len - 5  # reserve "_" + 4 hex chars
     return f"{job_type[:prefix_len]}_{digest}"
 
@@ -51,7 +57,11 @@ def start_job(
         session.flush()
         return job.id
 
-    return run_with_session_retry(_op, log_context={"operation": "start_job", "job_type": stored_job_type})
+    try:
+        return run_with_session_retry(_op, log_context={"operation": "start_job", "job_type": stored_job_type})
+    except SQLAlchemyError as exc:
+        logger.warning("job_log_start_degraded job_type=%s error=%s", stored_job_type, exc.__class__.__name__)
+        return -1
 
 
 def complete_job(
@@ -63,6 +73,8 @@ def complete_job(
     external_provider: str | None = None,
     retry_count: int | None = None,
 ) -> None:
+    if int(job_id or 0) <= 0:
+        return
 
     def _op(session) -> None:
         job = session.get(EtlJobRun, job_id)
@@ -81,7 +93,10 @@ def complete_job(
             params.update(result)
             job.params = params
 
-    run_with_session_retry(_op, log_context={"operation": "complete_job", "job_id": job_id})
+    try:
+        run_with_session_retry(_op, log_context={"operation": "complete_job", "job_id": job_id})
+    except SQLAlchemyError as exc:
+        logger.warning("job_log_complete_degraded job_id=%s error=%s", job_id, exc.__class__.__name__)
 
 
 def fail_job(
@@ -92,6 +107,8 @@ def fail_job(
     external_provider: str | None = None,
     retry_count: int | None = None,
 ) -> None:
+    if int(job_id or 0) <= 0:
+        return
 
     def _op(session) -> None:
         job = session.get(EtlJobRun, job_id)
@@ -111,7 +128,10 @@ def fail_job(
         if retry_count is not None:
             job.retry_count = retry_count
 
-    run_with_session_retry(_op, log_context={"operation": "fail_job", "job_id": job_id})
+    try:
+        run_with_session_retry(_op, log_context={"operation": "fail_job", "job_id": job_id})
+    except SQLAlchemyError as exc:
+        logger.warning("job_log_fail_degraded job_id=%s error=%s", job_id, exc.__class__.__name__)
 
 
 def update_job_tracking(

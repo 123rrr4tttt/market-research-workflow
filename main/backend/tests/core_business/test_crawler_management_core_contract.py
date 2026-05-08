@@ -15,6 +15,7 @@ pytestmark = [pytest.mark.contract, pytest.mark.mocked]
 try:
     from fastapi.testclient import TestClient
 
+    from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
 
     _IMPORT_ERROR = None
@@ -84,6 +85,46 @@ class CrawlerManagementApiContractTestCase(unittest.TestCase):
             workflow_run_id=None,
             trace_id=None,
         )
+
+    def test_crawler_import_invalid_input_returns_standard_error_envelope(self):
+        with patch("app.api.crawler.import_project", side_effect=ValueError("invalid crawler manifest")):
+            resp = self.client.post(
+                "/api/v1/crawler/projects/import",
+                json={"project_key": "demo", "source_type": "git", "provider": "scrapyd"},
+                headers=self.headers,
+            )
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_crawler_project_missing_returns_standard_not_found_envelope(self):
+        with patch("app.api.crawler.get_project", return_value=None):
+            resp = self.client.get("/api/v1/crawler/projects/demo-missing", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 404)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
+
+    def test_crawler_list_runtime_failure_returns_internal_error(self):
+        with patch("app.api.crawler.list_projects", side_effect=RuntimeError("crawler storage down")):
+            resp = self.client.get("/api/v1/crawler/projects", headers=self.headers)
+
+        self.assertEqual(resp.status_code, 500)
+        body = resp.json()
+        self._assert_envelope(body)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
 
 
 if __name__ == "__main__":

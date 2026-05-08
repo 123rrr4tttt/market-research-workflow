@@ -614,6 +614,25 @@ export type AgentCoordinatorPassResult = {
   messages?: AgentMessageItem[] | null
 }
 
+export type SkillInvokeMeta = {
+  trace_id?: string | null
+  consumer?: string | null
+  actor_role?: string | null
+  permissions?: string[] | null
+  owner?: string | null
+  execution_profile?: string | null
+  concurrency_class?: 'read_only' | 'write_shared' | 'write_external' | 'privileged' | string | null
+  approval_policy?: Record<string, unknown> | null
+  artifact_contract?: Record<string, unknown> | null
+  approval_request?: Record<string, unknown> | null
+}
+
+export type SkillInvokeResult = {
+  skill_id: string
+  result?: unknown
+  skill_meta?: SkillInvokeMeta | null
+}
+
 export type AgentApprovalResolvePayload = {
   approved: boolean
   reason?: string | null

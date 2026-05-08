@@ -16,10 +16,41 @@ from app.services.ingest.frontdoor_ingress import (
     build_raw_import_ingress_envelope,
     build_source_library_ingress_envelope,
 )
-from app.services.ingest.postprocess_frontdoor import run_postprocess_frontdoor
+from app.services.ingest.postprocess_frontdoor import _evaluate_quality_frontdoor, run_postprocess_frontdoor
 
 
 class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
+    def test_frontdoor_quality_gate_reads_runtime_settings(self) -> None:
+        document_candidate = {
+            "uri": "https://example.com/article",
+            "title": "Example article",
+            "summary": "summary",
+            "content": "short content",
+            "source_base_url": "example.com",
+            "doc_type": "market",
+        }
+        terminal_context = {
+            "capability_profile": {"entry_type": "rss"},
+            "content_extraction": {"page_family": "article"},
+            "http_status": 200,
+            "light_filter": {"filter_decision": "accept", "filter_reason_code": "ok", "filter_score": 92},
+        }
+
+        with (
+            patch("app.services.ingest.postprocess_frontdoor.settings.ingest_enable_strict_gate", False),
+            patch("app.services.ingest.postprocess_frontdoor.settings.ingest_min_semantic_len", 640),
+        ):
+            result = _evaluate_quality_frontdoor(
+                document_candidate=document_candidate,
+                terminal_context=terminal_context,
+            )
+
+        gate_plus = result["quality_gates"]["gate_plus"]
+        content_check = next(check for check in gate_plus["checks"] if check["stage"] == "pre_write_content_gate")
+        self.assertFalse(content_check["blocked"])
+        self.assertEqual(content_check["reason_code"], "disabled")
+        self.assertEqual(content_check["diagnostics"]["min_semantic_len"], 640)
+
     def test_source_library_terminal_output_is_deferred_without_writer(self) -> None:
         terminal_output = {
             "contract_version": "source_library.terminal_output.v1",
@@ -34,6 +65,10 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
         }
 
         ingress = build_source_library_ingress_envelope(terminal_output=terminal_output, legacy_result={"item_key": "handler.cluster.search_template"})
+        self.assertEqual(ingress["source_ref"]["entrypoint"], "ingest.source_library.run")
+        self.assertEqual(ingress["source_ref"]["source_mode"], "site_search")
+        self.assertEqual(ingress["source_ref"]["project_key"], "demo_proj")
+        self.assertEqual(ingress["source_ref"]["ingress_type"], "source_library")
         result = run_postprocess_frontdoor(ingress_envelope=ingress, run_writer=False)
 
         self.assertEqual(result["status"], "ok")
@@ -103,6 +138,10 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
                 "extracted_data_base": {},
             },
         )
+        self.assertEqual(ingress["source_ref"]["entrypoint"], "discovery.store")
+        self.assertEqual(ingress["source_ref"]["source_mode"], "discovery")
+        self.assertEqual(ingress["source_ref"]["ingress_type"], "discovery")
+        self.assertEqual(ingress["source_ref"]["domain"], "example.com")
         collection_payload = ingress["collection_payload"]
         collection_payload["terminal_context"] = {
             "platform": "discovery",

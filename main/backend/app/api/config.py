@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ..contracts import ErrorCode, error_response
 from ..settings.config import settings
 from ..services.settings_manager import load_env_settings, update_env_settings, ENV_KEY_MAPPING
 from ..settings.config import reload_settings
@@ -8,6 +9,26 @@ from ..contracts import success_response
 
 
 router = APIRouter(prefix="/config", tags=["config"])
+
+
+def _raise_invalid_input(message: str) -> None:
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            message,
+        ),
+    )
+
+
+def _raise_internal_error(message: str) -> None:
+    raise HTTPException(
+        status_code=500,
+        detail=error_response(
+            ErrorCode.INTERNAL_ERROR,
+            message,
+        ),
+    )
 
 
 @router.get("")
@@ -63,18 +84,21 @@ class EnvSettingsPayload(BaseModel):
 
 @router.get("/env")
 def get_env_settings():
-    return success_response(load_env_settings())
+    try:
+        return success_response(load_env_settings())
+    except Exception as exc:  # noqa: BLE001
+        _raise_internal_error(str(exc) or "加载环境配置失败")
 
 
 @router.post("/env")
 def update_env(payload: EnvSettingsPayload):
     payload_dict = {k: v for k, v in payload.dict().items() if v is not None}
     if not payload_dict:
-        raise HTTPException(status_code=400, detail="没有需要更新的字段")
+        _raise_invalid_input("没有需要更新的字段")
 
     invalid = [key for key in payload_dict if key not in ENV_KEY_MAPPING]
     if invalid:
-        raise HTTPException(status_code=400, detail=f"不支持的字段: {', '.join(invalid)}")
+        _raise_invalid_input(f"不支持的字段: {', '.join(invalid)}")
 
     updated = update_env_settings(payload_dict)
     return success_response({"updated": updated})
@@ -82,5 +106,8 @@ def update_env(payload: EnvSettingsPayload):
 
 @router.post("/reload")
 def reload_env_settings():
-    reload_settings()
-    return success_response({"status": "reloaded"})
+    try:
+        reload_settings()
+        return success_response({"status": "reloaded"})
+    except Exception as exc:  # noqa: BLE001
+        _raise_internal_error(str(exc) or "重载环境配置失败")

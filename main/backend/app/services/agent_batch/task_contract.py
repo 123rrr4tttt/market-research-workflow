@@ -298,7 +298,7 @@ _AGENT_BATCH_CHANNEL_SPECS: dict[str, dict[str, Any]] = {
             ],
             "note": "Use top-level fields first; keep override_params for secondary item-specific tuning.",
         },
-        "defaults": {"max_items": 1, "provider": "auto", "source_mode": "protocol_search"},
+        "defaults": {"max_items": 20, "provider": "auto"},
         "execution": {
             "required_non_empty_keys": ["item_key"],
             "default_lane": "subagent",

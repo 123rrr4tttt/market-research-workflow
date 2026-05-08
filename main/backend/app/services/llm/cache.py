@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from langchain.cache import SQLiteCache
-from langchain.globals import set_llm_cache
+from langchain_community.cache import SQLiteCache
+from langchain_core.globals import set_llm_cache
 
 from ...settings.config import settings
 
@@ -21,5 +21,4 @@ def setup_cache() -> None:
 
 
 setup_cache()
-
 

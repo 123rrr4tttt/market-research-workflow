@@ -1,0 +1,8 @@
+version: 1
+entries:
+  - name: gateplus_guard
+    description: Guardrail for GatePlus CI verification
+    kill_switch: true
+    service_owner: backend-platform
+    data_owner: backend-platform
+    alert_owner: backend-oncall

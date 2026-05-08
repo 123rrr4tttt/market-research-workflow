@@ -20,6 +20,10 @@ Updated: 2026-04-07 PST
 
 ## 最近新增
 
+- `development-plans/CURRENT_DEV`：
+  - [2026-04-07 Parallel Agent Wave Orchestration](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
+  - [2026-04-07 Subagent Task Contract Template](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md)
+  - [2026-04-07 Wave 0 Baseline Freeze Task Pool](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md)
 - `development-plans/ARCHIVE_CLOSED`：
   - [2026-04-07 Runtime Smoke Reproduction: Repo Closure Plan](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
 - `development-plans/ARCHIVE_CLOSED`：
@@ -43,7 +47,7 @@ Updated: 2026-04-07 PST
 - `development-plans/ARCHIVE_RETIRED`：
   - [2026-04-07 Retired Development Plans Index](./development-plans/ARCHIVE_RETIRED/INDEX.md)
 - `development-plans/CURRENT_DEV`：
-  - [2026-04-02 Claude Agent High-Fidelity Migration Mapping](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
+  - [2026-04-25 Claude Agent High-Fidelity Migration Mapping and Runtime Enforcement](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 - `backend-core`：

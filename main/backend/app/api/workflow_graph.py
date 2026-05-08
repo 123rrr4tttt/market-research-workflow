@@ -29,9 +29,12 @@ def _error_status_code(code: ErrorCode) -> int:
 
 
 def _error_json(code: ErrorCode, message: str, details: dict[str, Any] | None = None) -> JSONResponse:
+    payload = error_response(code, message, details=details)
+    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
     return JSONResponse(
         status_code=_error_status_code(code),
-        content=error_response(code, message, details=details),
+        content=payload,
+        headers={"X-Error-Code": code.value},
     )
 
 

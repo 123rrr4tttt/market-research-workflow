@@ -24,6 +24,11 @@
 
 ## 最新补充
 
+- `development-plans/CURRENT_DEV` 新增并行开发编排主入口与子 agent 契约模板（2026-04-07）：
+  - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/README.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/README.md)
+  - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
+  - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md)
+  - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md)
 - `development-plans/ARCHIVE_CLOSED` 已迁入仓库级收口计划整包（2026-04-07）：
   - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
   - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
@@ -38,7 +43,7 @@
   - [development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md](./development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
 - `development-plans/ARCHIVE_RETIRED` 新增已退场文档索引（2026-04-07）：
   - [development-plans/ARCHIVE_RETIRED/INDEX.md](./development-plans/ARCHIVE_RETIRED/INDEX.md)
-- `development-plans/CURRENT_DEV` 新增 Claude Agent 高保真迁移映射文档（2026-04-02）：
+- `development-plans/CURRENT_DEV` 新增 Claude Agent 高保真迁移映射文档，已补 runtime enforcement 契约（2026-04-25）：
   - [development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 - `development-plans/CURRENT_DEV` 新增前端三层重写专题的收口差距评估与建议推进顺序（2026-04-02）：
   - [development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)

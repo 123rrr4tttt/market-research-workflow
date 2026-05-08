@@ -62,6 +62,19 @@ class CodexOauthBrowserFlowIntegrationTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp.headers.get("location"), "https://auth.example/authorize?state=abc")
 
+    def test_login_returns_error_envelope_when_oauth_config_missing(self):
+        with (
+            patch("app.api.codex_auth.codex_oauth_enabled", return_value=True),
+            patch("app.api.codex_auth.build_authorize_url", side_effect=ValueError("missing state secret")),
+        ):
+            resp = self.client.get("/api/v1/codex-auth/login", follow_redirects=False)
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(body["detail"]["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(resp.headers.get("x-error-code"), "INVALID_INPUT")
+
     def test_callback_sets_cookie_after_success_exchange(self):
         with (
             patch("app.api.codex_auth.codex_oauth_enabled", return_value=True),

@@ -70,6 +70,7 @@ def run_agent_batch_nl_command_loop(
         tasks=tasks,
         project_key=project_key,
         retrieval_mode=retrieval_mode,
+        command=command,
     )
     pre_branch_search_brief = _build_search_brief(
         command=command,
@@ -275,6 +276,7 @@ def _augment_tasks_with_source_library(
     tasks: list[dict[str, Any]],
     project_key: str | None,
     retrieval_mode: str,
+    command: str,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not tasks and retrieval_mode != _RETRIEVAL_MODE_SOURCE_ONLY:
         return tasks, {"enabled": False, "reason": "empty_tasks"}
@@ -284,18 +286,25 @@ def _augment_tasks_with_source_library(
     if any(str(task.get("channel") or "").strip().lower() == "source_library" for task in tasks) and retrieval_mode != _RETRIEVAL_MODE_SOURCE_ONLY:
         return tasks, {"enabled": False, "reason": "source_library_already_planned"}
 
-    item_keys = _discover_source_library_item_keys(project_key=project_key, limit=_AUTONOMOUS_SOURCE_MAX_TASKS)
+    item_keys = _discover_source_library_item_keys(
+        project_key=project_key,
+        limit=_AUTONOMOUS_SOURCE_MAX_TASKS,
+        command=command,
+        tasks=tasks,
+    )
     if not item_keys:
         return tasks, {"enabled": False, "reason": "no_source_library_match"}
 
+    source_collect_limit = _resolve_source_collect_limit(tasks=tasks)
+    source_query_terms = _resolve_source_query_terms(tasks=tasks)
     appended: list[dict[str, Any]] = []
     for idx, item_key in enumerate(item_keys, start=1):
         appended.append(
             {
                 "task_id": f"source_{idx}",
                 "channel": "source_library",
-                "query_terms": [],
-                "max_items": 1,
+                "query_terms": source_query_terms,
+                "max_items": source_collect_limit,
                 "provider": "auto",
                 "language": "zh",
                 "days_back": None,
@@ -311,7 +320,37 @@ def _augment_tasks_with_source_library(
         merged = preserved + appended
     else:
         merged = tasks + appended
-    return merged, {"enabled": True, "item_keys": item_keys}
+    return merged, {"enabled": True, "item_keys": item_keys, "selection_mode": "goal_relevance"}
+
+
+def _resolve_source_collect_limit(*, tasks: list[dict[str, Any]], default: int = 20) -> int:
+    limits: list[int] = []
+    for task in tasks:
+        channel = str(task.get("channel") or "").strip().lower()
+        if channel not in {"search.market", "source_library"}:
+            continue
+        try:
+            value = int(task.get("max_items") or 0)
+        except Exception:
+            value = 0
+        if value > 0:
+            limits.append(value)
+    if not limits:
+        return max(1, min(100, int(default or 20)))
+    return max(1, min(100, max(limits)))
+
+
+def _resolve_source_query_terms(*, tasks: list[dict[str, Any]]) -> list[str]:
+    out: list[str] = []
+    for task in tasks:
+        channel = str(task.get("channel") or "").strip().lower()
+        if channel != "search.market":
+            continue
+        for term in list(task.get("query_terms") or []):
+            text = str(term or "").strip()
+            if text and text not in out:
+                out.append(text)
+    return out
 
 
 def _resolve_retrieval_mode(*, command: str, plan_payload: dict[str, Any]) -> str:
@@ -592,6 +631,15 @@ def _build_search_retry_state(
     retry_score_threshold = float(defaults.get("retry_score_threshold") or 0.72)
     score = float(search_critic.get("score") or 0.0)
     next_action = str(search_critic.get("next_action") or "stop").strip().lower()
+    reason_codes = [
+        str(reason or "").strip()
+        for reason in list(search_critic.get("reason_codes") or [])
+        if str(reason or "").strip()
+    ]
+    should_retry_source_gap = (
+        next_action == "retry_with_source_library"
+        and "source_backing_missing" in reason_codes
+    )
     state: dict[str, Any] = {
         "enabled": bool(enable_bounded_retry),
         "scheduled": False,
@@ -600,7 +648,7 @@ def _build_search_retry_state(
         "max_retry_rounds": max_retry_rounds,
         "score_threshold": retry_score_threshold,
         "score": score,
-        "reason_codes": list(search_critic.get("reason_codes") or []),
+        "reason_codes": reason_codes,
         "next_action": next_action,
     }
     if not enable_bounded_retry:
@@ -615,9 +663,12 @@ def _build_search_retry_state(
     if next_action == "stop":
         state["skip_reason"] = "critic_stop"
         return state, None, list(tasks)
-    if score >= retry_score_threshold:
+    if score >= retry_score_threshold and not should_retry_source_gap:
         state["skip_reason"] = "score_above_threshold"
         return state, None, list(tasks)
+    if score >= retry_score_threshold and should_retry_source_gap:
+        state["threshold_bypassed"] = True
+        state["threshold_bypass_reason"] = "source_backing_missing"
 
     retry_payload = _build_retry_action_from_critic(
         command=command,
@@ -719,10 +770,17 @@ def _build_retry_action_from_critic(
     if next_action == "retry_with_source_library":
         candidate_items = list(rewrite.get("source_library") or ((search_brief.get("source_preferences") or {}).get("candidate_items") or []))
         if not candidate_items:
-            candidate_items = _discover_source_library_item_keys(project_key=project_key, limit=1)
+            candidate_items = _discover_source_library_item_keys(
+                project_key=project_key,
+                limit=1,
+                command=command,
+                tasks=tasks,
+                search_brief=search_brief,
+            )
         if not candidate_items:
             return None
         source_query_terms = list(primary_search_task.get("query_terms") or [])
+        source_collect_limit = _resolve_source_collect_limit(tasks=tasks, default=20)
         return {
             "action": "attach_source_library",
             "reason": reason,
@@ -731,8 +789,7 @@ def _build_retry_action_from_critic(
                 "item_key": str(candidate_items[0]),
                 "query_terms": source_query_terms,
                 "provider": "auto",
-                "max_items": 1,
-                "source_mode": "protocol_search",
+                "max_items": source_collect_limit,
             },
             "target_items": candidate_items,
         }
@@ -817,7 +874,7 @@ def _apply_retry_action(
                     "language": rewrite.get("language"),
                     "scope": rewrite.get("scope"),
                     "platforms": list(rewrite.get("platforms") or []),
-                    "source_mode": rewrite.get("source_mode") or "protocol_search",
+                    "source_mode": rewrite.get("source_mode"),
                     "urls": list(rewrite.get("urls") or []),
                     "override_params": dict(rewrite.get("override_params") or {}),
                 },
@@ -856,7 +913,14 @@ def _build_submit_round_record(*, round_index: int, submit_data: dict[str, Any] 
     }
 
 
-def _discover_source_library_item_keys(*, project_key: str | None, limit: int) -> list[str]:
+def _discover_source_library_item_keys(
+    *,
+    project_key: str | None,
+    limit: int,
+    command: str | None = None,
+    tasks: list[dict[str, Any]] | None = None,
+    search_brief: dict[str, Any] | None = None,
+) -> list[str]:
     try:
         items = _list_effective_source_items(project_key=project_key)
     except Exception:
@@ -865,6 +929,11 @@ def _discover_source_library_item_keys(*, project_key: str | None, limit: int) -
         return []
 
     channel_capability = _build_channel_capability_index(project_key=project_key)
+    context_tokens = _build_source_selection_tokens(
+        command=command,
+        tasks=tasks or [],
+        search_brief=search_brief or {},
+    )
     category_scored: dict[str, list[tuple[int, str]]] = {
         "fixed_channel_search": [],
         "fixed_source_site_search": [],
@@ -877,6 +946,8 @@ def _discover_source_library_item_keys(*, project_key: str | None, limit: int) -
         item_key = str(row.get("item_key") or "").strip()
         if not item_key:
             continue
+        if _is_builtin_source_library_item(row=row, item_key=item_key):
+            continue
         category = _classify_source_library_item(row=row, channel_capability=channel_capability)
         # fixed_api_info tasks require credentials; skip missing-credential entries for autonomous selection.
         if category == "fixed_api_info" and not _is_item_credentials_ready(
@@ -885,7 +956,7 @@ def _discover_source_library_item_keys(*, project_key: str | None, limit: int) -
             project_key=project_key,
         ):
             continue
-        category_scored.setdefault(category, []).append((_source_item_priority(row), item_key))
+        category_scored.setdefault(category, []).append((_source_item_priority(row, context_tokens=context_tokens), item_key))
 
     category_order = ["fixed_source_site_search", "fixed_channel_search", "fixed_api_info", "other"]
     out: list[str] = []
@@ -898,6 +969,19 @@ def _discover_source_library_item_keys(*, project_key: str | None, limit: int) -
         per_category_cursor[category] = 0
 
     hard_limit = max(1, int(limit or _AUTONOMOUS_SOURCE_MAX_TASKS))
+    if context_tokens:
+        ranked: list[tuple[int, str]] = []
+        for category in category_order:
+            ranked.extend(sorted_buckets.get(category) or [])
+        ranked.sort(key=lambda x: (-x[0], x[1]))
+        for _, key in ranked:
+            if key in out:
+                continue
+            out.append(key)
+            if len(out) >= hard_limit:
+                break
+        return out
+
     # Round-robin across categories to keep "source_library = multi-capability set" semantics.
     while len(out) < hard_limit:
         progressed = False
@@ -926,34 +1010,136 @@ def _list_effective_source_items(*, project_key: str | None) -> list[dict[str, A
     return list_effective_items(scope="effective", project_key=project_key)
 
 
-def _source_item_priority(row: dict[str, Any]) -> int:
+def _is_builtin_source_library_item(*, row: dict[str, Any], item_key: str) -> bool:
+    return str(row.get("scope") or "").strip().lower() == "builtin" or item_key == "url_pool.default"
+
+
+def _build_source_selection_tokens(
+    *,
+    command: str | None,
+    tasks: list[dict[str, Any]],
+    search_brief: dict[str, Any],
+) -> list[str]:
+    parts: list[str] = [str(command or "")]
+    for task in tasks:
+        parts.extend(str(term or "") for term in list(task.get("query_terms") or []))
+        parts.append(str(task.get("channel") or ""))
+    parts.extend(str(axis or "") for axis in list(search_brief.get("coverage_axes") or []))
+    for strategy in list(search_brief.get("search_strategies") or []):
+        if isinstance(strategy, dict):
+            parts.extend(str(term or "") for term in list(strategy.get("query_terms") or []))
+    return _tokenize_source_selection_context(" ".join(parts))
+
+
+def _tokenize_source_selection_context(text: str) -> list[str]:
+    raw_tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9\-_/\.]*|[\u4e00-\u9fff]{2,}", str(text or "").lower())
+    stopwords = {
+        "about",
+        "and",
+        "companies",
+        "company",
+        "for",
+        "from",
+        "information",
+        "latest",
+        "market",
+        "news",
+        "product",
+        "products",
+        "research",
+        "search",
+        "startup",
+        "the",
+        "with",
+        "公司",
+        "产品",
+        "信息",
+        "搜索",
+        "资料",
+    }
+    tokens: list[str] = []
+    for token in raw_tokens:
+        token = token.strip("._-/")
+        if len(token) < 3 and not re.search(r"[\u4e00-\u9fff]", token):
+            continue
+        if token in stopwords:
+            continue
+        if token not in tokens:
+            tokens.append(token)
+    return tokens[:24]
+
+
+def _source_item_text(row: dict[str, Any]) -> str:
+    params = dict(row.get("params") or {})
+    parts: list[str] = [
+        str(row.get("item_key") or ""),
+        str(row.get("name") or ""),
+        str(row.get("description") or ""),
+        str(row.get("channel_key") or ""),
+        str(params.get("expected_entry_type") or ""),
+    ]
+    tags = row.get("tags")
+    if isinstance(tags, list):
+        parts.extend(str(tag or "") for tag in tags)
+    for key in ("site_entries", "site_entry_urls", "urls", "keywords", "query_terms"):
+        value = params.get(key)
+        if isinstance(value, list):
+            parts.extend(str(item or "") for item in value[:25])
+        elif isinstance(value, str):
+            parts.append(value)
+    return " ".join(parts).lower()
+
+
+def _source_item_relevance(row: dict[str, Any], context_tokens: list[str]) -> int:
+    if not context_tokens:
+        return 0
+    haystack = _source_item_text(row)
+    score = 0
+    for token in context_tokens:
+        if token and token in haystack:
+            score += 6
+    key = str(row.get("item_key") or "").lower()
+    name = str(row.get("name") or "").lower()
+    description = str(row.get("description") or "").lower()
+    focused_text = f"{key} {name} {description}"
+    if any(token in focused_text for token in context_tokens):
+        score += 10
+    return score
+
+
+def _source_item_priority(row: dict[str, Any], *, context_tokens: list[str] | None = None) -> int:
     key = str(row.get("item_key") or "").lower()
     name = str(row.get("name") or "").lower()
     channel_key = str(row.get("channel_key") or "").lower()
     params = dict(row.get("params") or {})
     text = f"{key} {name}"
     score = 1
+    score += _source_item_relevance(row, list(context_tokens or []))
     site_entries = params.get("site_entries") or params.get("site_entry_urls")
     has_site_entries = isinstance(site_entries, list) and any(str(x or "").strip() for x in site_entries)
     if has_site_entries:
         score += 8
     expected_entry_type = str(params.get("expected_entry_type") or "").strip().lower()
-    if expected_entry_type in {"search_template", "rss", "sitemap", "domain_root"}:
+    if expected_entry_type in {"search_template", "rss", "sitemap"}:
         score += 4
+    if expected_entry_type == "domain_root":
+        score += 1
     if channel_key == "handler.cluster":
         score += 6
     if channel_key.startswith("generic_web."):
         score += 3
     if "baseline" in text:
-        score += 6
+        score += 2
     if "default" in text:
-        score += 5
+        score -= 3
     if "general" in text:
-        score += 4
+        score -= 2
     if "high_value" in text or "root_site_search" in text:
         score += 3
     if key.startswith("handler.cluster"):
         score += 2
+    if "domain_root" in text and not _source_item_relevance(row, list(context_tokens or [])):
+        score -= 4
     if "crawler." in key:
         score -= 2
     return score

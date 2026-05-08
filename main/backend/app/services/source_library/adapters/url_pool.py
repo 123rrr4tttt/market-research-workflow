@@ -33,7 +33,7 @@ def _normalize_urls_from_params(params: Dict[str, Any]) -> List[str]:
     return out
 
 
-def _extract_text_preview(html: str, *, max_chars: int = 2000) -> tuple[str | None, str]:
+def _extract_text_preview(html: str, *, max_chars: int = 50000) -> tuple[str | None, str]:
     parser = make_html_parser(html)
     title_node = parser.css_first("title") if hasattr(parser, "css_first") else None
     title = str(title_node.text(strip=True) if title_node is not None else "").strip() or None
@@ -154,7 +154,8 @@ def handle_url_pool(params: Dict[str, Any], project_key: str | None) -> Dict[str
     for url in urls:
         try:
             html, resp = fetch_html(url, timeout=timeout, retries=retries)
-            title, preview = _extract_text_preview(html)
+            title, content_text = _extract_text_preview(html)
+            preview = content_text[:2000]
             artifact_ref = _materialize_pdf_artifact(
                 _build_pdf_artifact_ref(url),
                 timeout=timeout,
@@ -170,7 +171,7 @@ def handle_url_pool(params: Dict[str, Any], project_key: str | None) -> Dict[str
                 "record_id": url,
                 "url": url,
                 "title": title,
-                "content_text": preview,
+                "content_text": content_text,
                 "summary": None,
                 "published_at": None,
                 "author": None,
@@ -189,7 +190,7 @@ def handle_url_pool(params: Dict[str, Any], project_key: str | None) -> Dict[str
                         "title": title,
                         "content_text": preview,
                         "content_preview": preview,
-                        "content_chars": len(preview or ""),
+                        "content_chars": len(content_text or ""),
                         "record_id": url,
                         "source_label": "url_pool",
                         "execution_layer": "terminal_output_only" if terminal_output_only else "execute",

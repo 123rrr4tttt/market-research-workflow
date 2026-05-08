@@ -4,10 +4,18 @@ import hashlib
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
-
 from ...models.base import SessionLocal, run_with_session_retry
 from ...models.writing_entities import WritingDocument, WritingDocumentDraft
+from ..document_queries import (
+    fetch_active_document,
+    fetch_draft_by_autosave_token,
+    list_active_documents,
+)
+from ..document_views import (
+    build_writing_conflict_details,
+    serialize_writing_document,
+    serialize_writing_document_draft,
+)
 
 
 class WritingVersionConflictError(ValueError):
@@ -24,49 +32,29 @@ def _utcnow_iso() -> str:
 
 def _compute_etag(*, body_md: str, version: int) -> str:
     payload = f"{version}:{body_md}".encode("utf-8", errors="ignore")
-    return hashlib.sha1(payload).hexdigest()
+    return hashlib.sha1(payload, usedforsecurity=False).hexdigest()
 
 
 def _serialize_document(row: WritingDocument) -> dict[str, Any]:
-    return {
-        "id": int(row.id),
-        "project_key": row.project_key,
-        "title": row.title or "",
-        "body_md": row.body_md or "",
-        "status": row.status or "draft",
-        "version": int(row.head_version or 1),
-        "etag": row.etag or _compute_etag(body_md=row.body_md or "", version=int(row.head_version or 1)),
-        "updated_by_user_id": row.updated_by_user_id,
-        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "metadata_json": dict(row.metadata_json or {}),
-    }
+    serialized = serialize_writing_document(row)
+    serialized["etag"] = serialized.get("etag") or _compute_etag(
+        body_md=row.body_md or "",
+        version=int(row.head_version or 1),
+    )
+    return serialized
 
 
 def _serialize_draft(row: WritingDocumentDraft) -> dict[str, Any]:
-    return {
-        "id": int(row.id),
-        "doc_id": int(row.doc_id),
-        "project_key": row.project_key,
-        "draft_body_md": row.draft_body_md or "",
-        "selection_snapshot": dict(row.selection_snapshot or {}) if isinstance(row.selection_snapshot, dict) else row.selection_snapshot,
-        "base_version": int(row.base_version or 1),
-        "autosave_token": row.autosave_token,
-        "request_id": row.request_id,
-        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-    }
+    return serialize_writing_document_draft(row)
 
 
 def _build_conflict_details(row: WritingDocument, *, expected_version: int | None) -> dict[str, Any]:
-    return {
-        "conflict_code": "VERSION_CONFLICT",
-        "expected_version": expected_version,
-        "current_version": int(row.head_version or 1),
-        "server_snapshot": _serialize_document(row),
-        "updated_by_user_id": row.updated_by_user_id,
-        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-    }
+    details = build_writing_conflict_details(row, expected_version=expected_version)
+    details["server_snapshot"]["etag"] = details["server_snapshot"].get("etag") or _compute_etag(
+        body_md=row.body_md or "",
+        version=int(row.head_version or 1),
+    )
+    return details
 
 
 def create_document(
@@ -98,24 +86,13 @@ def create_document(
 
 def list_documents(*, project_key: str, limit: int = 50) -> list[dict[str, Any]]:
     with SessionLocal() as session:
-        stmt = (
-            select(WritingDocument)
-            .where(WritingDocument.project_key == project_key, WritingDocument.deleted_at.is_(None))
-            .order_by(WritingDocument.updated_at.desc().nullslast(), WritingDocument.id.desc())
-            .limit(max(1, min(int(limit), 100)))
-        )
-        rows = session.execute(stmt).scalars().all()
+        rows = list_active_documents(session, project_key=project_key, limit=limit)
         return [_serialize_document(row) for row in rows]
 
 
 def get_document(*, doc_id: int, project_key: str) -> dict[str, Any]:
     with SessionLocal() as session:
-        stmt = select(WritingDocument).where(
-            WritingDocument.id == int(doc_id),
-            WritingDocument.project_key == project_key,
-            WritingDocument.deleted_at.is_(None),
-        )
-        row = session.execute(stmt).scalar_one_or_none()
+        row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if row is None:
             raise KeyError(f"writing document not found: {doc_id}")
         return _serialize_document(row)
@@ -132,12 +109,7 @@ def save_document_with_conflict(
     updated_by_user_id: str | None = None,
 ) -> dict[str, Any]:
     def _op(session) -> dict[str, Any]:
-        stmt = select(WritingDocument).where(
-            WritingDocument.id == int(doc_id),
-            WritingDocument.project_key == project_key,
-            WritingDocument.deleted_at.is_(None),
-        )
-        row = session.execute(stmt).scalar_one_or_none()
+        row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if row is None:
             raise KeyError(f"writing document not found: {doc_id}")
 
@@ -181,12 +153,7 @@ def save_draft_autosave(
     selection_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     def _op(session) -> dict[str, Any]:
-        doc_stmt = select(WritingDocument).where(
-            WritingDocument.id == int(doc_id),
-            WritingDocument.project_key == project_key,
-            WritingDocument.deleted_at.is_(None),
-        )
-        document = session.execute(doc_stmt).scalar_one_or_none()
+        document = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if document is None:
             raise KeyError(f"writing document not found: {doc_id}")
 
@@ -199,12 +166,12 @@ def save_draft_autosave(
                 server_snapshot=_build_conflict_details(document, expected_version=expected_version),
             )
 
-        draft_stmt = select(WritingDocumentDraft).where(
-            WritingDocumentDraft.doc_id == int(doc_id),
-            WritingDocumentDraft.project_key == project_key,
-            WritingDocumentDraft.autosave_token == autosave_token,
+        row = fetch_draft_by_autosave_token(
+            session,
+            doc_id=doc_id,
+            project_key=project_key,
+            autosave_token=autosave_token,
         )
-        row = session.execute(draft_stmt).scalar_one_or_none()
         if row is None:
             row = WritingDocumentDraft(
                 doc_id=int(doc_id),

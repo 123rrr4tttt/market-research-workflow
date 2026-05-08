@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
+from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
@@ -8,6 +9,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/search", tags=["search"])
+
+
+def _raise_upstream_error(message: str, *, details: dict | None = None) -> None:
+    raise HTTPException(
+        status_code=503,
+        detail=error_response(
+            ErrorCode.UPSTREAM_ERROR,
+            message,
+            details=details,
+        ),
+    )
+
+
+def _raise_internal_error(message: str, *, details: dict | None = None) -> None:
+    raise HTTPException(
+        status_code=500,
+        detail=error_response(
+            ErrorCode.INTERNAL_ERROR,
+            message,
+            details=details,
+        ),
+    )
 
 
 @router.get("")
@@ -54,11 +77,14 @@ def search(
         logger.exception("搜索失败")
         error_msg = str(e)
         if "Connection" in error_msg or "es" in error_msg.lower() or "elasticsearch" in error_msg.lower():
-            raise HTTPException(
-                status_code=503,
-                detail="Elasticsearch服务不可用，请检查ES服务是否已启动。如需跳过ES，请先启动ES服务或修改配置。"
+            _raise_upstream_error(
+                "Elasticsearch服务不可用，请检查ES服务是否已启动。如需跳过ES，请先启动ES服务或修改配置。",
+                details={"exception_type": e.__class__.__name__, "category": "search_backend"},
             )
-        raise HTTPException(status_code=500, detail=f"搜索失败: {error_msg}")
+        _raise_internal_error(
+            f"搜索失败: {error_msg}",
+            details={"exception_type": e.__class__.__name__},
+        )
 
 
 @router.post("/_init")

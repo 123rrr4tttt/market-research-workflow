@@ -55,7 +55,10 @@ def _slugify(value: str) -> str:
 
 
 def _version_from_payload(payload: dict[str, Any]) -> str:
-    digest = hashlib.sha1(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:10]
+    digest = hashlib.sha1(
+        json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()[:10]
     return f"v{digest}"
 
 

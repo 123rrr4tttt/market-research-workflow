@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Path, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy import Date, and_, case, cast, func, or_, select, String
+from sqlalchemy import and_, func, select
 from sqlalchemy.exc import DatabaseError, OperationalError
 
 from ..contracts import ApiEnvelope, ErrorCode, fail, ok, ok_page
@@ -28,6 +28,14 @@ from ..services.document_views import (
     get_policy_key_points,
     get_policy_relations,
 )
+from ..services.document_queries import (
+    policy_effective_date_expr,
+    policy_has_data_condition,
+    policy_state_condition,
+    policy_time_expr,
+    policy_type_condition,
+    policy_type_order_expr,
+)
 from ..services.graph.relation_ontology import relation_annotation
 
 logger = logging.getLogger(__name__)
@@ -40,7 +48,13 @@ PolicyDetailEnvelope = ApiEnvelope[PolicyDetail]
 
 
 def _json_error(status_code: int, code: ErrorCode, message: str) -> JSONResponse:
-    return JSONResponse(status_code=status_code, content=fail(code, message))
+    payload = fail(code, message)
+    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
+    return JSONResponse(
+        status_code=status_code,
+        content=payload,
+        headers={"X-Error-Code": code.value},
+    )
 
 
 def _extract_policy_data(doc: Document) -> dict[str, Any]:
@@ -64,21 +78,6 @@ def _parse_date_param(value: Optional[str], *, field: str) -> Optional[date]:
     if not _DATE_RE.match(raw):
         raise ValueError(f"{field} must be YYYY-MM-DD")
     return datetime.strptime(raw, "%Y-%m-%d").date()
-
-
-def _policy_effective_date_expr():
-    # JSONB string values may include wrapping quotes after cast (e.g. "\"2026-03-02\"").
-    # Normalize first so date matching/casting works consistently.
-    effective_raw = cast(Document.extracted_data["policy"]["effective_date"], String)
-    effective_text = func.replace(effective_raw, '"', "")
-    return case(
-        (effective_text.op("~")(r"^\d{4}-\d{2}-\d{2}"), cast(func.substr(effective_text, 1, 10), Date)),
-        else_=None,
-    )
-
-
-def _policy_time_expr():
-    return func.coalesce(_policy_effective_date_expr(), Document.publish_date, func.date(Document.created_at))
 
 
 @router.get("", response_model=PoliciesListEnvelope)
@@ -106,20 +105,15 @@ def list_policies(
             return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
 
         with SessionLocal() as session:
-            conditions = [Document.doc_type.in_(["policy", "policy_regulation"])]
-            policy_time = _policy_time_expr()
-            policy_effective = _policy_effective_date_expr()
+            conditions = [Document.doc_type.in_(["policy", "policy_regulation"]), policy_has_data_condition()]
+            policy_time = policy_time_expr()
+            policy_effective = policy_effective_date_expr()
 
             if state:
-                conditions.append(
-                    or_(
-                        Document.state == state.upper(),
-                        cast(Document.extracted_data["policy"]["state"], String) == state.upper(),
-                    )
-                )
+                conditions.append(policy_state_condition(state))
 
             if policy_type:
-                conditions.append(cast(Document.extracted_data["policy"]["policy_type"], String) == policy_type)
+                conditions.append(policy_type_condition(policy_type))
 
             if status:
                 conditions.append(Document.status == status)
@@ -167,12 +161,12 @@ def list_policies(
             elif sort_by == "policy_type":
                 if sort_order == "desc":
                     query = query.order_by(
-                        cast(Document.extracted_data["policy"]["policy_type"], String).desc().nullslast(),
+                        policy_type_order_expr().desc().nullslast(),
                         Document.id.desc(),
                     )
                 else:
                     query = query.order_by(
-                        cast(Document.extracted_data["policy"]["policy_type"], String).asc().nullslast(),
+                        policy_type_order_expr().asc().nullslast(),
                         Document.id.asc(),
                     )
             elif sort_by == "status":
@@ -222,8 +216,8 @@ def get_policy_stats(
             return _json_error(422, ErrorCode.INVALID_INPUT, str(exc))
 
         with SessionLocal() as session:
-            conditions = [Document.doc_type.in_(["policy", "policy_regulation"])]
-            policy_time = _policy_time_expr()
+            conditions = [Document.doc_type.in_(["policy", "policy_regulation"]), policy_has_data_condition()]
+            policy_time = policy_time_expr()
 
             if start_dt:
                 conditions.append(policy_time >= start_dt)

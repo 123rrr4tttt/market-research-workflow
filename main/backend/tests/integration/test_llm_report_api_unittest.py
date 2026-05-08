@@ -14,6 +14,7 @@ pytestmark = pytest.mark.integration
 try:
     from fastapi.testclient import TestClient
 
+    from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
 
     _IMPORT_ERROR = None
@@ -72,8 +73,47 @@ class LlmReportApiIntegrationTestCase(unittest.TestCase):
 
         self.assertEqual(resp.status_code, 422)
         body = resp.json()
-        self.assertIn("quality gate blocked report generation", str(body.get("detail")))
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertIn("quality gate blocked report generation", body["error"]["message"])
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
         mocked_resolve.assert_not_called()
+
+    def test_generate_feature_flag_disabled_returns_structured_config_error(self):
+        payload = {"topic": "market growth", "sources": []}
+        with patch("app.api.llm_report.settings.llm_report_enabled", False):
+            resp = self.client.post("/api/v1/llm-report/generate", json=payload, headers=self.headers)
+
+        self.assertEqual(resp.status_code, 503)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.CONFIG_ERROR.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.CONFIG_ERROR.value)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.CONFIG_ERROR.value)
+
+    def test_generate_internal_error_returns_structured_internal_error(self):
+        payload = {"topic": "market growth", "sources": []}
+        with (
+            patch("app.api.llm_report.start_job", return_value=2003),
+            patch("app.api.llm_report.fail_job"),
+            patch("app.api.llm_report.resolve_report_sources", return_value=[]),
+            patch("app.api.llm_report.build_structured_report", side_effect=RuntimeError("boom")),
+            patch("app.api.llm_report.settings.llm_report_enabled", True),
+            patch("app.api.llm_report.settings.llm_report_gate_mode", "warn"),
+        ):
+            resp = self.client.post("/api/v1/llm-report/generate", json=payload, headers=self.headers)
+
+        self.assertEqual(resp.status_code, 500)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+        self.assertEqual(
+            body["detail"]["error"]["details"]["error_code"],
+            "LLM_REPORT_INTERNAL_ERROR",
+        )
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
 
 
 if __name__ == "__main__":

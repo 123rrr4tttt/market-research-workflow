@@ -7,6 +7,7 @@ from importlib import import_module
 from threading import RLock
 from typing import Any, Callable, Mapping
 
+from app.services.agent_runtime import assert_no_write_conflict
 from app.services.agent_sessions import get_agent_session_service
 from app.settings.config import settings
 from app.services.agent_batch.task_contract import build_agent_batch_manifest_entry, list_agent_batch_dispatch_skill_bindings
@@ -510,6 +511,36 @@ def _resolve_agent_session_context(context: Mapping[str, Any] | None) -> tuple[s
     return session_id, task_id
 
 
+def _normalize_context_write_set(value: Any) -> list[str]:
+    out: list[str] = []
+    for item in value or []:
+        text = str(item or "").strip()
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
+def _enforce_write_shared_policy(*, skill_id: str, context: Mapping[str, Any] | None) -> None:
+    session_id, task_id = _resolve_agent_session_context(context)
+    if not session_id or not task_id:
+        return
+    service = get_agent_session_service()
+    service.reclaim_expired_tasks(session_id)
+    task = service.store.get_task(session_id, task_id)
+    tasks = service.store.list_tasks(session_id)
+    write_set = _normalize_context_write_set((context or {}).get("write_set")) or _normalize_context_write_set(task.get("write_set"))
+    try:
+        assert_no_write_conflict(tasks, task_id, write_set)
+    except RuntimeError as exc:
+        service.store.append_event(
+            session_id,
+            event_type="skill.write_conflict",
+            task_id=task_id,
+            payload={"skill_id": skill_id, "write_set": write_set},
+        )
+        raise RuntimeError(f"skill invoke denied: {skill_id} (write_set_conflict)") from exc
+
+
 def _enforce_runtime_policies(
     *,
     spec: SkillSpec,
@@ -520,6 +551,9 @@ def _enforce_runtime_policies(
     context: Mapping[str, Any] | None,
 ) -> dict[str, Any] | None:
     concurrency_class = spec.concurrency_class
+    if concurrency_class == "write_shared":
+        _enforce_write_shared_policy(skill_id=skill_id, context=context)
+        return None
     if concurrency_class not in {"write_external", "privileged"}:
         return None
 

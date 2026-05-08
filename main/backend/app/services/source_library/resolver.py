@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, List, Literal, Sequence, Tuple
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from ...models.base import SessionLocal
 from ...models.entities import (
@@ -803,10 +804,14 @@ def _item_row_to_dict(row: Any, scope: str) -> Dict[str, Any]:
 
 
 def _load_shared_channels() -> List[Dict[str, Any]]:
-    with bind_schema("public"):
-        with SessionLocal() as session:
-            rows = session.execute(select(SharedIngestChannel).order_by(SharedIngestChannel.id.asc())).scalars().all()
-            return [_channel_row_to_dict(row, "shared") for row in rows]
+    try:
+        with bind_schema("public"):
+            with SessionLocal() as session:
+                rows = session.execute(select(SharedIngestChannel).order_by(SharedIngestChannel.id.asc())).scalars().all()
+                return [_channel_row_to_dict(row, "shared") for row in rows]
+    except SQLAlchemyError as exc:
+        logger.warning("source_library_shared_channels_degraded error=%s", exc.__class__.__name__)
+        return []
 
 
 def _load_project_channels(project_key: str | None) -> List[Dict[str, Any]]:
@@ -839,20 +844,32 @@ def _load_project_channels(project_key: str | None) -> List[Dict[str, Any]]:
         )
     if not project_key:
         return file_rows
-    with bind_project(project_key):
-        with SessionLocal() as session:
-            rows = session.execute(select(IngestChannel).order_by(IngestChannel.id.asc())).scalars().all()
-            db_rows = [_channel_row_to_dict(row, "project") for row in rows]
-            return [*file_rows, *db_rows]
+    try:
+        with bind_project(project_key):
+            with SessionLocal() as session:
+                rows = session.execute(select(IngestChannel).order_by(IngestChannel.id.asc())).scalars().all()
+                db_rows = [_channel_row_to_dict(row, "project") for row in rows]
+                return [*file_rows, *db_rows]
+    except SQLAlchemyError as exc:
+        logger.warning(
+            "source_library_project_channels_degraded project_key=%s error=%s",
+            project_key,
+            exc.__class__.__name__,
+        )
+        return file_rows
 
 
 def _load_shared_items() -> List[Dict[str, Any]]:
-    with bind_schema("public"):
-        with SessionLocal() as session:
-            rows = session.execute(
-                select(SharedSourceLibraryItem).order_by(SharedSourceLibraryItem.id.asc())
-            ).scalars().all()
-            return [_item_row_to_dict(row, "shared") for row in rows]
+    try:
+        with bind_schema("public"):
+            with SessionLocal() as session:
+                rows = session.execute(
+                    select(SharedSourceLibraryItem).order_by(SharedSourceLibraryItem.id.asc())
+                ).scalars().all()
+                return [_item_row_to_dict(row, "shared") for row in rows]
+    except SQLAlchemyError as exc:
+        logger.warning("source_library_shared_items_degraded error=%s", exc.__class__.__name__)
+        return []
 
 
 def _load_project_items(project_key: str | None) -> List[Dict[str, Any]]:
@@ -884,11 +901,19 @@ def _load_project_items(project_key: str | None) -> List[Dict[str, Any]]:
         )
     if not project_key:
         return file_rows
-    with bind_project(project_key):
-        with SessionLocal() as session:
-            rows = session.execute(select(SourceLibraryItem).order_by(SourceLibraryItem.id.asc())).scalars().all()
-            db_rows = [_item_row_to_dict(row, "project") for row in rows]
-            return [*file_rows, *db_rows]
+    try:
+        with bind_project(project_key):
+            with SessionLocal() as session:
+                rows = session.execute(select(SourceLibraryItem).order_by(SourceLibraryItem.id.asc())).scalars().all()
+                db_rows = [_item_row_to_dict(row, "project") for row in rows]
+                return [*file_rows, *db_rows]
+    except SQLAlchemyError as exc:
+        logger.warning(
+            "source_library_project_items_degraded project_key=%s error=%s",
+            project_key,
+            exc.__class__.__name__,
+        )
+        return file_rows
 
 
 def _merge_channels(
@@ -2070,6 +2095,7 @@ def run_item_payload(
     channels = channels if channels is not None else list_effective_channels(scope="effective", project_key=project_key)
     channel_map = {x["channel_key"]: x for x in channels}
     item = _enrich_item_with_channel_tiering(item=item, channel_map=channel_map)
+    item = _normalize_item_taxonomy(item)
     # Base params: item.params + ingest_config + override (no channel yet)
     params = dict(item.get("params") or {})
     if project_key:
@@ -2083,7 +2109,15 @@ def run_item_payload(
     # generic_web.* is internal plugin capability for site_search orchestration only.
     # Direct item execution should be blocked unless explicitly opened by internal call sites.
     item_channel_key_lower = str(item.get("channel_key") or "").strip().lower()
-    if item_channel_key_lower.startswith("generic_web.") and not _as_bool(params.get("_allow_internal_generic_web"), False):
+    generic_web_internal_item = (
+        str(item.get("item_type") or "").strip().lower() == "service_aggregated"
+        and str(item.get("managed_by") or "").strip().lower() == "system"
+    )
+    if (
+        item_channel_key_lower.startswith("generic_web.")
+        and not generic_web_internal_item
+        and not _as_bool(params.get("_allow_internal_generic_web"), False)
+    ):
         raise ValueError("generic_web.* direct item execution is disabled; use site_search(handler.cluster) entry")
 
     # Keep static URL-list items on the same front-door path as runtime-provided URLs.

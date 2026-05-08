@@ -976,6 +976,7 @@ def unified_search_by_item_payload(
                             {
                                 "site_entry_url": base_url,
                                 "entry_type": etype,
+                                "domain": entry_domain,
                                 "entry_domain": entry_domain,
                                 "tool": "official_access.api",
                                 "candidate_source": "official_api_search",
@@ -1055,6 +1056,7 @@ def unified_search_by_item_payload(
                             {
                                 "site_entry_url": base_url,
                                 "entry_type": etype,
+                                "domain": entry_domain,
                                 "entry_domain": entry_domain,
                                 "tool": "search_template",
                                 "candidate_source": "external_search",
@@ -1138,6 +1140,7 @@ def unified_search_by_item_payload(
                         ref={
                             "site_entry_url": base_url,
                             "entry_type": etype,
+                            "domain": entry_domain,
                             "entry_domain": entry_domain,
                             "tool": "rss",
                             "candidate_source": "rss_feed",
@@ -1191,6 +1194,7 @@ def unified_search_by_item_payload(
                         ref={
                             "site_entry_url": base_url,
                             "entry_type": etype,
+                            "domain": entry_domain,
                             "entry_domain": entry_domain,
                             "tool": "sitemap",
                             "candidate_source": "sitemap_probe",
@@ -1314,6 +1318,7 @@ def unified_search_by_item_payload(
                         ref={
                             "site_entry_url": base_url,
                             "entry_type": etype,
+                            "domain": entry_domain,
                             "entry_domain": entry_domain,
                             "tool": "search_template",
                             "candidate_source": "external_search" if external_execution is not None and execution is external_execution else "search_template",
@@ -1415,7 +1420,12 @@ def unified_search_by_item_payload(
         new_count = 0
         skipped = 0
         for u in candidates:
-            ref = candidate_refs.get(u) or {}
+            ref = dict(candidate_refs.get(u) or {})
+            if not str(ref.get("domain") or "").strip():
+                ref["domain"] = (
+                    str(ref.get("entry_domain") or domain_from_url(str(ref.get("site_entry_url") or u)) or "").strip().lower()
+                    or None
+                )
             ok = append_url(
                 url=u,
                 source=pool_source,

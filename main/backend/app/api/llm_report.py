@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import AnyHttpUrl, BaseModel, Field, field_validator
 
+from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
 from ..services.job_logger import complete_job, fail_job, start_job
 from ..services.llm.config_loader import get_llm_config
@@ -85,10 +86,31 @@ def _resolve_auto_source_target_count(raw_value: int | None) -> int:
     return min(value, 20)
 
 
+def _raise_http_error(
+    status_code: int,
+    code: ErrorCode,
+    message: str,
+    *,
+    details: dict[str, Any] | None = None,
+) -> None:
+    raise HTTPException(
+        status_code=status_code,
+        detail=error_response(
+            code,
+            message,
+            details=details,
+        ),
+    )
+
+
 @router.post("/generate")
 def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dict[str, Any]:
     if not settings.llm_report_enabled:
-        raise HTTPException(status_code=503, detail="llm report is temporarily disabled by config")
+        _raise_http_error(
+            503,
+            ErrorCode.CONFIG_ERROR,
+            "llm report is temporarily disabled by config",
+        )
 
     header_request_id = None
     header_project_key = None
@@ -203,10 +225,11 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                 },
             )
             job_finalized = True
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "message": "quality gate blocked report generation in strict mode",
+            _raise_http_error(
+                422,
+                ErrorCode.INVALID_INPUT,
+                "quality gate blocked report generation in strict mode",
+                details={
                     "quality_gate": gate,
                     "quality_gate_metrics": quality_gate_metrics,
                     "capability_truth": capability_truth,
@@ -268,10 +291,11 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
     except Exception as exc:  # noqa: BLE001
         if not job_finalized and job_id is not None:
             fail_job(job_id, str(exc))
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "failed to generate llm report",
+        _raise_http_error(
+            500,
+            ErrorCode.INTERNAL_ERROR,
+            "failed to generate llm report",
+            details={
                 "error_code": "LLM_REPORT_INTERNAL_ERROR",
                 "trace_id": trace_id,
                 "request_id": identity.request_id,
@@ -291,4 +315,4 @@ def generate_llm_report(payload: GenerateReportRequest, request: Request) -> dic
                     error_detail=str(exc),
                 ),
             },
-        ) from exc
+        )

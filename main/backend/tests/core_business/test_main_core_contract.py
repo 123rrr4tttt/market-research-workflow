@@ -12,10 +12,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = [pytest.mark.contract, pytest.mark.mocked]
 
 try:
-    from fastapi import HTTPException
+    from fastapi import HTTPException, Query
     from fastapi.responses import JSONResponse
     from fastapi.routing import APIRoute
     from starlette.requests import Request
+    from fastapi.exceptions import RequestValidationError
 
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
@@ -49,6 +50,7 @@ def test_app_initialization_core_contract() -> None:
     assert "/api/v1/health/deep" in paths
     assert "/metrics" in paths
     assert HTTPException in backend_app.exception_handlers
+    assert RequestValidationError in backend_app.exception_handlers
     assert Exception in backend_app.exception_handlers
 
 
@@ -170,6 +172,24 @@ def test_unhandled_exception_for_contract_api_is_enveloped(core_business_client,
     assert payload["status"] == "error"
     assert payload["error"]["code"] == ErrorCode.UPSTREAM_ERROR.value
     assert payload["detail"]["error"]["code"] == ErrorCode.UPSTREAM_ERROR.value
+
+
+def test_request_validation_error_for_contract_api_is_enveloped(core_business_client, contract_headers: dict[str, str]):
+    path = "/api/v1/test/main-core/validation"
+
+    def _validation_route(limit: int = Query(..., ge=1)) -> dict[str, int]:
+        return {"limit": limit}
+
+    _ensure_route(path, _validation_route)
+
+    response = core_business_client.get(path, params={"limit": 0}, headers=contract_headers)
+
+    assert response.status_code == 422
+    assert response.headers.get("x-error-code") == ErrorCode.INVALID_INPUT.value
+    payload = response.json()
+    assert payload["status"] == "error"
+    assert payload["error"]["code"] == ErrorCode.INVALID_INPUT.value
+    assert isinstance(payload["error"]["details"]["errors"], list)
 
 
 def test_unhandled_exception_for_non_contract_api_keeps_legacy_shape(core_business_client, contract_headers: dict[str, str]):

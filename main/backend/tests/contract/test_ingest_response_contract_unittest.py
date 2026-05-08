@@ -67,6 +67,23 @@ class IngestResponseContractTestCase(unittest.TestCase):
         self.assertIsInstance(data.get("rejection_breakdown"), dict)
         self.assertIsInstance(data.get("degradation_flags"), list)
 
+    def test_graph_structured_search_invalid_payload_uses_standard_error_envelope(self):
+        resp = self.client.post(
+            "/api/v1/ingest/graph/structured-search",
+            json={
+                "selected_nodes": [],
+                "dashboard": {"project_key": "demo_proj"},
+                "flow_type": "collect",
+            },
+            headers={"X-Project-Key": "demo_proj"},
+        )
+
+        self.assertEqual(resp.status_code, 400, msg=resp.text)
+        payload = resp.json()
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(payload["detail"]["error"]["code"], "INVALID_INPUT")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,9 +11,11 @@ pytestmark = pytest.mark.unit
 
 try:
     from pydantic import ValidationError
+    from app.contracts.errors import ErrorCode
     from app.api import llm_report as llm_report_api
 except Exception as exc:  # pragma: no cover - dependency/import guard
     ValidationError = Exception  # type: ignore[assignment]
+    ErrorCode = None  # type: ignore[assignment]
     llm_report_api = None  # type: ignore[assignment]
     _IMPORT_ERROR = exc
 else:
@@ -93,9 +95,16 @@ class LlmReportApiUnitTest(unittest.TestCase):
             with self.assertRaises(HTTPException) as exc_ctx:
                 llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(exc_ctx.exception.status_code, 422)
-            self.assertIn("quality gate blocked report generation", str(exc_ctx.exception.detail))
-            self.assertEqual(exc_ctx.exception.detail["capability_truth"]["implementation_kind"], "structured_template_report")
-            self.assertEqual(exc_ctx.exception.detail["observability"]["job_id"], 102)
+            self.assertEqual(exc_ctx.exception.detail["error"]["code"], ErrorCode.INVALID_INPUT.value)
+            self.assertIn("quality gate blocked report generation", exc_ctx.exception.detail["error"]["message"])
+            self.assertEqual(
+                exc_ctx.exception.detail["error"]["details"]["capability_truth"]["implementation_kind"],
+                "structured_template_report",
+            )
+            self.assertEqual(
+                exc_ctx.exception.detail["error"]["details"]["observability"]["job_id"],
+                102,
+            )
             mocked_complete.assert_called_once()
 
     def test_generate_llm_report_warn_mode_does_not_block_failed_gate(self):
@@ -159,7 +168,11 @@ class LlmReportApiUnitTest(unittest.TestCase):
             with self.assertRaises(HTTPException) as exc_ctx:
                 llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(exc_ctx.exception.status_code, 500)
-            self.assertIn("LLM_REPORT_INTERNAL_ERROR", str(exc_ctx.exception.detail))
+            self.assertEqual(exc_ctx.exception.detail["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
+            self.assertEqual(
+                exc_ctx.exception.detail["error"]["details"]["error_code"],
+                "LLM_REPORT_INTERNAL_ERROR",
+            )
             mocked_fail.assert_called_once()
 
     def test_generate_llm_report_respects_feature_flag_disable(self):
@@ -171,6 +184,7 @@ class LlmReportApiUnitTest(unittest.TestCase):
             with self.assertRaises(HTTPException) as exc_ctx:
                 llm_report_api.generate_llm_report(payload, self._mock_request())
             self.assertEqual(exc_ctx.exception.status_code, 503)
+            self.assertEqual(exc_ctx.exception.detail["error"]["code"], ErrorCode.CONFIG_ERROR.value)
             mocked_start.assert_not_called()
 
     def test_generate_llm_report_auto_resolves_sources_when_topic_only(self):

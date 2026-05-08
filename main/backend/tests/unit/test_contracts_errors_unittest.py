@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import importlib.util
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DBAPIError, DatabaseError, OperationalError, TimeoutError as SATimeoutError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -84,6 +86,46 @@ class ContractsErrorsUnitTestCase(unittest.TestCase):
             details,
             {"exception_type": "OperationalError", "category": "database", "retriable": True},
         )
+
+    def test_map_exception_to_error_sqlalchemy_database_branches(self):
+        cases = [
+            (SATimeoutError("db timeout"), {"exception_type": "TimeoutError", "category": "database", "retriable": True}),
+            (
+                DatabaseError("SELECT 1", {}, Exception("database failed")),
+                {"exception_type": "DatabaseError", "category": "database", "retriable": False},
+            ),
+            (
+                DBAPIError("SELECT 1", {}, Exception("dbapi failed")),
+                {"exception_type": "DBAPIError", "category": "database", "retriable": False},
+            ),
+        ]
+        for exc, expected_details in cases:
+            with self.subTest(exception_type=exc.__class__.__name__):
+                code, msg, details = map_exception_to_error(exc)
+                self.assertEqual(code, ErrorCode.UPSTREAM_ERROR)
+                self.assertTrue(msg)
+                self.assertEqual(details, expected_details)
+
+    def test_errors_module_falls_back_when_sqlalchemy_is_unavailable(self):
+        module_path = Path(__file__).resolve().parents[2] / "app" / "contracts" / "errors.py"
+        spec = importlib.util.spec_from_file_location("app.contracts._errors_no_sqlalchemy_unit", module_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        original_import = __import__
+
+        def _blocked_import(name, globals=None, locals=None, fromlist=(), level=0):  # noqa: ANN001
+            if name == "sqlalchemy.exc":
+                raise ImportError("blocked sqlalchemy for fallback coverage")
+            return original_import(name, globals, locals, fromlist, level)
+
+        with patch("builtins.__import__", side_effect=_blocked_import):
+            spec.loader.exec_module(module)
+
+        code, msg, details = module.map_exception_to_error(Exception("fallback branch"))
+        self.assertEqual(code, module.ErrorCode.INTERNAL_ERROR)
+        self.assertEqual(msg, "fallback branch")
+        self.assertEqual(details, {"exception_type": "Exception"})
 
 
 if __name__ == "__main__":

@@ -14,9 +14,18 @@ from ...contracts.schemas.writing import (
     KeywordCardPreviewResponse,
     KeywordCardRequest,
 )
-from ..llm_report_source_enrichment import resolve_report_sources
-from ..search.hybrid import get_last_used_backends, hybrid_search
-from ..source_library.resolver import list_effective_items
+from ..document_queries import (
+    query_hybrid_document_rows,
+    query_report_source_rows,
+    query_source_library_material_rows,
+)
+from ..document_views import (
+    build_keyword_card_from_graph_node,
+    build_keyword_card_from_hybrid_row,
+    build_keyword_card_from_material_item,
+    build_keyword_card_from_source_row,
+)
+from ..search.hybrid import get_last_used_backends
 
 _CARD_CACHE: dict[str, dict[str, Any]] = {}
 _SELECTION_CACHE: dict[str, KeywordCardListResponse] = {}
@@ -31,7 +40,10 @@ def normalize_and_rewrite_query(text: str) -> str:
 
 def _selection_hash(project_key: str, query: str) -> str:
     payload = f"{project_key}:{normalize_and_rewrite_query(query)}"
-    return hashlib.sha1(payload.encode("utf-8", errors="ignore")).hexdigest()[:16]
+    return hashlib.sha1(
+        payload.encode("utf-8", errors="ignore"),
+        usedforsecurity=False,
+    ).hexdigest()[:16]
 
 
 def _now_iso() -> str:
@@ -47,121 +59,32 @@ def _remember_card(item: KeywordCardItem, *, normalized_query: str, raw: dict[st
     }
 
 
-def _make_card_id(source_type: str, title: str, url: str | None, normalized_query: str) -> str:
-    payload = f"{source_type}|{title}|{url or ''}|{normalized_query}"
-    return hashlib.sha1(payload.encode("utf-8", errors="ignore")).hexdigest()[:24]
-
-
-def _build_card(
-    *,
-    source_type: str,
-    title: str,
-    snippet: str,
-    url: str | None,
-    score: float,
-    publisher: str | None,
-    published_at: str | None,
-    evidence: str | None,
-    normalized_query: str,
-    extra: dict[str, Any] | None = None,
-) -> KeywordCardItem:
-    card_id = _make_card_id(source_type, title, url, normalized_query)
-    return KeywordCardItem(
-        card_id=card_id,
-        source_type=source_type,
-        title=title[:300] or "Untitled",
-        snippet=(snippet or evidence or "")[:2000],
-        url=url,
-        score=max(0.0, float(score or 0.0)),
-        publisher=(publisher or "")[:255] or None,
-        published_at=published_at,
-        retrieved_at=_now_iso(),
-        evidence=(evidence or "")[:2000] or None,
-        relevance_tags=[normalized_query] if normalized_query else [],
-        credibility=min(1.0, max(0.0, float(score or 0.0))) if score is not None else None,
-        quick_actions=["insert_quote", "insert_summary", "open_detail"],
-        extra=extra or {},
-    )
-
-
 def _cards_from_hybrid(query: str, limit: int) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
     normalized_query = normalize_and_rewrite_query(query)
-    rows = hybrid_search(query, state=None, top_k=limit, mode="hybrid")
+    rows = query_hybrid_document_rows(query, limit=limit)
     cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
     for row in rows:
-        title = str(row.get("title") or row.get("document_title") or row.get("id") or "Document").strip()
-        snippet = str(row.get("snippet") or row.get("summary") or row.get("content") or "").strip()
-        score = float(row.get("score") or row.get("_score") or 0.6)
-        url = str(row.get("url") or row.get("uri") or "").strip() or None
-        publisher = str(row.get("publisher") or row.get("source") or "document").strip() or None
-        published_at = str(row.get("published_at") or row.get("publish_date") or "").strip() or None
-        card = _build_card(
-            source_type="document",
-            title=title,
-            snippet=snippet,
-            url=url,
-            score=score,
-            publisher=publisher,
-            published_at=published_at,
-            evidence=str(row.get("evidence") or "").strip() or None,
-            normalized_query=normalized_query,
-            extra={"backend": row.get("backend"), "document_id": row.get("document_id")},
-        )
+        card = build_keyword_card_from_hybrid_row(row, normalized_query=normalized_query)
         cards.append((card, row))
     return cards
 
 
 def _cards_from_sources(query: str, limit: int) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
     normalized_query = normalize_and_rewrite_query(query)
-    rows = resolve_report_sources(query, None, target_count=limit)
+    rows = query_report_source_rows(query, limit=limit)
     cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
     for row in rows:
-        publisher = str(row.get("publisher") or "").strip() or None
-        source_type = "graph" if publisher and publisher.startswith("graph:") else "resource"
-        score = 0.72 if source_type == "graph" else 0.65
-        card = _build_card(
-            source_type=source_type,
-            title=str(row.get("title") or "Source").strip(),
-            snippet=str(row.get("evidence") or "").strip(),
-            url=str(row.get("url") or "").strip() or None,
-            score=score,
-            publisher=publisher,
-            published_at=str(row.get("published_at") or "").strip() or None,
-            evidence=str(row.get("evidence") or "").strip() or None,
-            normalized_query=normalized_query,
-            extra={"source_id": row.get("id")},
-        )
+        card = build_keyword_card_from_source_row(row, normalized_query=normalized_query)
         cards.append((card, row))
     return cards
 
 
 def _cards_from_source_library(project_key: str, query: str, limit: int) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
     normalized_query = normalize_and_rewrite_query(query)
-    items = list_effective_items(project_key=project_key)
+    items = query_source_library_material_rows(project_key, query=query)
     cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
     for item in items:
-        blob = " ".join(
-            [
-                str(item.get("item_key") or ""),
-                str(item.get("name") or ""),
-                str(item.get("description") or ""),
-            ]
-        ).lower()
-        if normalized_query and normalized_query not in blob:
-            continue
-        title = str(item.get("name") or item.get("item_key") or "Material").strip()
-        card = _build_card(
-            source_type="resource",
-            title=title,
-            snippet=str(item.get("description") or item.get("item_key") or "").strip(),
-            url=None,
-            score=0.55,
-            publisher="source_library",
-            published_at=None,
-            evidence=str(item.get("item_key") or "").strip() or None,
-            normalized_query=normalized_query,
-            extra={"item_key": item.get("item_key"), "channel_key": item.get("channel_key")},
-        )
+        card = build_keyword_card_from_material_item(item, normalized_query=normalized_query)
         cards.append((card, item))
         if len(cards) >= limit:
             break
@@ -188,27 +111,10 @@ def _cards_from_graph_context(payload: KeywordCardRequest, limit: int) -> list[t
     for node in selected_nodes:
         if not isinstance(node, dict):
             continue
-        node_id = str(node.get("node_id") or "").strip()
-        title = str(node.get("title") or node.get("label") or node_id or "Graph Node").strip()
-        evidence = str(node.get("summary") or node.get("evidence") or "").strip()
-        source_uri = str(node.get("source_uri") or node.get("uri") or "").strip() or None
-        publisher = f"graph:{str(node.get('node_type') or 'node').strip() or 'node'}"
-        card = _build_card(
-            source_type="graph",
-            title=title,
-            snippet=evidence,
-            url=source_uri,
-            score=0.74,
-            publisher=publisher,
-            published_at=None,
-            evidence=evidence or f"Graph node {node_id or title} selected by curated workflow graph.",
+        card = build_keyword_card_from_graph_node(
+            node,
             normalized_query=normalized_query,
-            extra={
-                "graph_node_id": node_id or None,
-                "context_boundary": "graph_context",
-                "graph_contract_version": graph_context.get("contract_version"),
-                "graph_revision": graph_context.get("revision"),
-            },
+            graph_context=graph_context,
         )
         cards.append((card, node))
         if len(cards) >= limit:

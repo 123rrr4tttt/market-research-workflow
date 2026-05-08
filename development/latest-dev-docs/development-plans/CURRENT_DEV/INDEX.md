@@ -26,7 +26,7 @@
 ## 剩余状态分布
 
 - `partial`: 21
-- `not_closed`: 9
+- `not_closed`: 10
 - `no_closure_claim`: 4
 
 ## Partial
@@ -55,6 +55,7 @@
 
 ## Not Closed
 
+- `[not_closed][doc_aligned]` [2026-04-07 Parallel Agent Wave Orchestration](./2026-04-07-parallel-agent-wave-orchestration/README.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
 - `[not_closed][doc_stale]` [2026-03-07 Dual Frontend Workbench Topology](./2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md)
@@ -70,7 +71,7 @@
 - `[no_closure_claim][doc_drift]` [2026-03-02 Graph Node Standardization A Then B Plan](./2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
 - `[no_closure_claim][doc_aligned]` [2026-03-07 Ingest Digestion And Long-Cycle Automation](./2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md)
 - `[no_closure_claim][placeholder]` [2026-03-24 Frontend Visual Layering](./2026-03-24-frontend-visual-layering)
-- `[no_closure_claim][doc_aligned]` [2026-04-02 Claude Agent High-Fidelity Migration](./2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
+- `[no_closure_claim][doc_aligned]` [2026-04-25 Claude Agent High-Fidelity Migration + Runtime Enforcement](./2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 
 ## 说明
 

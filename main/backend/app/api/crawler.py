@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..contracts import fail, ok, ok_page
-from ..contracts.errors import ErrorCode
+from ..contracts.errors import ErrorCode, map_exception_to_error
 from ..services.crawlers_mgmt import (
     CrawlerProjectNotFoundError,
     deploy_project,
@@ -20,6 +20,35 @@ from ..services.crawlers_mgmt import (
 
 
 router = APIRouter(prefix="/crawler", tags=["crawler"])
+
+
+def _error_json(
+    status_code: int,
+    code: ErrorCode,
+    message: str,
+    *,
+    details: dict[str, Any] | None = None,
+) -> JSONResponse:
+    payload = fail(code, message, details=details)
+    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
+    return JSONResponse(
+        status_code=status_code,
+        content=payload,
+        headers={"X-Error-Code": code.value},
+    )
+
+
+def _json_from_exception(exc: Exception) -> JSONResponse:
+    if isinstance(exc, ValueError):
+        return _error_json(
+            400,
+            ErrorCode.INVALID_INPUT,
+            str(exc) or "Invalid crawler request.",
+            details={"exception_type": exc.__class__.__name__},
+        )
+    code, message, details = map_exception_to_error(exc)
+    status_code = 503 if code == ErrorCode.UPSTREAM_ERROR else 500
+    return _error_json(status_code, code, message, details=details)
 
 
 def _resolve_registration_project_key(request: Request) -> str | None:
@@ -66,16 +95,8 @@ def import_crawler_project_api(payload: ImportCrawlerProjectPayload):
     try:
         saved = import_project(payload.model_dump())
         return JSONResponse(status_code=200, content=ok(saved))
-    except ValueError as exc:
-        return JSONResponse(
-            status_code=400,
-            content=fail(ErrorCode.INVALID_INPUT, str(exc)),
-        )
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 @router.get("/projects")
@@ -97,10 +118,7 @@ def list_crawler_projects_api(
             ),
         )
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 @router.get("/projects/{project_key}")
@@ -108,16 +126,10 @@ def get_crawler_project_api(project_key: str):
     try:
         data = get_project(project_key=project_key)
         if data is None:
-            return JSONResponse(
-                status_code=404,
-                content=fail(ErrorCode.NOT_FOUND, f"crawler project not found: {project_key}"),
-            )
+            return _error_json(404, ErrorCode.NOT_FOUND, f"crawler project not found: {project_key}")
         return JSONResponse(status_code=200, content=ok(data))
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 @router.post("/projects/{project_key}/deploy")
@@ -136,20 +148,9 @@ def deploy_crawler_project_api(
         )
         return JSONResponse(status_code=200, content=ok(result))
     except CrawlerProjectNotFoundError as exc:
-        return JSONResponse(
-            status_code=404,
-            content=fail(ErrorCode.NOT_FOUND, str(exc)),
-        )
-    except ValueError as exc:
-        return JSONResponse(
-            status_code=400,
-            content=fail(ErrorCode.INVALID_INPUT, str(exc)),
-        )
+        return _error_json(404, ErrorCode.NOT_FOUND, str(exc))
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 @router.post("/projects/{project_key}/rollback")
@@ -168,20 +169,9 @@ def rollback_crawler_project_api(
         )
         return JSONResponse(status_code=200, content=ok(result))
     except CrawlerProjectNotFoundError as exc:
-        return JSONResponse(
-            status_code=404,
-            content=fail(ErrorCode.NOT_FOUND, str(exc)),
-        )
-    except ValueError as exc:
-        return JSONResponse(
-            status_code=400,
-            content=fail(ErrorCode.INVALID_INPUT, str(exc)),
-        )
+        return _error_json(404, ErrorCode.NOT_FOUND, str(exc))
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 @router.get("/deploy-runs/{run_id}")
@@ -189,16 +179,10 @@ def get_crawler_deploy_run_api(run_id: int):
     try:
         run = get_deploy_run(run_id)
         if run is None:
-            return JSONResponse(
-                status_code=404,
-                content=fail(ErrorCode.NOT_FOUND, f"crawler deploy run not found: {run_id}"),
-            )
+            return _error_json(404, ErrorCode.NOT_FOUND, f"crawler deploy run not found: {run_id}")
         return JSONResponse(status_code=200, content=ok(run))
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 @router.get("/deploy-runs")
@@ -211,10 +195,7 @@ def list_crawler_deploy_runs_api(
         rows = list_deploy_runs(limit=limit)
         return JSONResponse(status_code=200, content=ok({"items": rows}))
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)
 
 
 @router.get("/projects/{project_key}/deploy-runs")
@@ -228,7 +209,4 @@ def list_crawler_project_deploy_runs_api(
         rows = list_deploy_runs(project_key=project_key, limit=limit)
         return JSONResponse(status_code=200, content=ok({"items": rows}))
     except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content=fail(ErrorCode.INTERNAL_ERROR, str(exc)),
-        )
+        return _json_from_exception(exc)

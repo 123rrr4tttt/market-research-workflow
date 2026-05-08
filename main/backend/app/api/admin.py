@@ -71,6 +71,31 @@ def _empty_graph_response():
     return success_response(export_to_json(Graph()))
 
 
+def _error_json(status_code: int, code: ErrorCode, message: str, *, details: dict[str, Any] | None = None) -> JSONResponse:
+    payload = error_response(code, message, details=details)
+    payload["detail"] = {"error": payload["error"], "message": payload["error"]["message"]}
+    return JSONResponse(
+        status_code=status_code,
+        content=payload,
+        headers={"X-Error-Code": code.value},
+    )
+
+
+def _parse_iso_date_or_error(value: Optional[str], *, field: str) -> tuple[date | None, JSONResponse | None]:
+    if not value:
+        return None, None
+    try:
+        return datetime.fromisoformat(value).date(), None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("解析日期失败 field=%s value=%s err=%s", field, value, exc)
+        return None, _error_json(
+            400,
+            ErrorCode.INVALID_INPUT,
+            f"{field} must be a valid ISO date (YYYY-MM-DD)",
+            details={"field": field, "value": value},
+        )
+
+
 def _finalize_graph_response(
     graph,
     *,
@@ -1032,10 +1057,7 @@ def get_document(doc_id: int):
         ).scalar_one_or_none()
         
         if not doc:
-            return JSONResponse(
-                status_code=404,
-                content=error_response(ErrorCode.NOT_FOUND, "文档不存在"),
-            )
+            return _error_json(404, ErrorCode.NOT_FOUND, "文档不存在")
         
         return success_response({
             "id": doc.id,
@@ -1074,10 +1096,7 @@ def update_document_extracted_data(doc_id: int, payload: UpdateExtractedDataRequ
         ).scalar_one_or_none()
 
         if not doc:
-            return JSONResponse(
-                status_code=404,
-                content=error_response(ErrorCode.NOT_FOUND, "文档不存在"),
-            )
+            return _error_json(404, ErrorCode.NOT_FOUND, "文档不存在")
 
         if payload.extracted_data is None:
             doc.extracted_data = None
@@ -1085,10 +1104,7 @@ def update_document_extracted_data(doc_id: int, payload: UpdateExtractedDataRequ
             if payload.mode == "merge":
                 base_val = doc.extracted_data or {}
                 if not isinstance(base_val, dict) or not isinstance(payload.extracted_data, dict):
-                    return JSONResponse(
-                        status_code=400,
-                        content=error_response(ErrorCode.INVALID_INPUT, "merge 模式要求 extracted_data 为 JSON 对象(dict)"),
-                    )
+                    return _error_json(400, ErrorCode.INVALID_INPUT, "merge 模式要求 extracted_data 为 JSON 对象(dict)")
                 doc.extracted_data = _deep_merge_json(base_val, payload.extracted_data)
             else:
                 doc.extracted_data = payload.extracted_data
@@ -1101,10 +1117,7 @@ def update_document_extracted_data(doc_id: int, payload: UpdateExtractedDataRequ
 def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest):
     """批量写入/合并文档 extracted_data。"""
     if not payload.doc_ids:
-        return JSONResponse(
-            status_code=400,
-            content=error_response(ErrorCode.INVALID_INPUT, "doc_ids 不能为空"),
-        )
+        return _error_json(400, ErrorCode.INVALID_INPUT, "doc_ids 不能为空")
 
     updated = 0
     skipped = 0
@@ -1733,11 +1746,10 @@ def export_graph(doc_ids: str = Query(..., description="文档ID列表，逗号�
     try:
         doc_id_list = [int(id.strip()) for id in doc_ids.split(',') if id.strip()]
         if not doc_id_list:
-            return JSONResponse(
-                status_code=400,
-                content=error_response(ErrorCode.INVALID_INPUT, "请提供至少一个文档ID"),
-            )
-        
+            return _error_json(400, ErrorCode.INVALID_INPUT, "请提供至少一个文档ID")
+    except ValueError:
+        return _error_json(400, ErrorCode.INVALID_INPUT, "doc_ids must be a comma-separated list of integers", details={"field": "doc_ids", "value": doc_ids})
+    try:
         with SessionLocal() as session:
             # 查询文档
             query = select(Document).where(
@@ -1749,10 +1761,7 @@ def export_graph(doc_ids: str = Query(..., description="文档ID列表，逗号�
             documents = session.execute(query).scalars().all()
             
             if not documents:
-                return JSONResponse(
-                    status_code=404,
-                    content=error_response(ErrorCode.NOT_FOUND, "未找到指定的文档"),
-                )
+                return _error_json(404, ErrorCode.NOT_FOUND, "未找到指定的文档")
             
             # 规范化文档
             normalized_posts = []
@@ -1762,10 +1771,7 @@ def export_graph(doc_ids: str = Query(..., description="文档ID列表，逗号�
                     normalized_posts.append(normalized)
             
             if not normalized_posts:
-                return JSONResponse(
-                    status_code=400,
-                    content=error_response(ErrorCode.INVALID_INPUT, "无法规范化文档数据"),
-                )
+                return _error_json(400, ErrorCode.INVALID_INPUT, "无法规范化文档数据")
             
             # 构建图谱
             graph = build_graph(normalized_posts)
@@ -1777,10 +1783,7 @@ def export_graph(doc_ids: str = Query(..., description="文档ID列表，逗号�
             
     except Exception as e:
         logger.error(f"导出图谱失败: {e}", exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content=error_response(ErrorCode.INTERNAL_ERROR, f"导出失败: {str(e)}"),
-        )
+        return _error_json(500, ErrorCode.INTERNAL_ERROR, f"导出失败: {str(e)}")
 
 
 @router.get("/content-graph")
@@ -1811,29 +1814,27 @@ def get_content_graph(
                 ]
 
                 # 时间过滤
-                if start_date:
-                    try:
-                        start = datetime.fromisoformat(start_date).date()
-                        conditions.append(
-                            or_(
-                                Document.publish_date >= start,
-                                and_(Document.publish_date.is_(None), func.date(Document.created_at) >= start)
-                            )
+                start, start_error = _parse_iso_date_or_error(start_date, field="start_date")
+                if start_error:
+                    return start_error
+                if start:
+                    conditions.append(
+                        or_(
+                            Document.publish_date >= start,
+                            and_(Document.publish_date.is_(None), func.date(Document.created_at) >= start)
                         )
-                    except Exception as e:
-                        logger.warning(f"解析开始日期失败: {start_date}, 错误: {e}")
+                    )
 
-                if end_date:
-                    try:
-                        end = datetime.fromisoformat(end_date).date()
-                        conditions.append(
-                            or_(
-                                Document.publish_date <= end,
-                                and_(Document.publish_date.is_(None), func.date(Document.created_at) <= end)
-                            )
+                end, end_error = _parse_iso_date_or_error(end_date, field="end_date")
+                if end_error:
+                    return end_error
+                if end:
+                    conditions.append(
+                        or_(
+                            Document.publish_date <= end,
+                            and_(Document.publish_date.is_(None), func.date(Document.created_at) <= end)
                         )
-                    except Exception as e:
-                        logger.warning(f"解析结束日期失败: {end_date}, 错误: {e}")
+                    )
 
                 query = select(Document).where(and_(*conditions)).limit(limit)
                 documents = session.execute(query).scalars().all()
@@ -1885,9 +1886,7 @@ def get_content_graph(
                     logger.info(f"构建图谱成功: {len(graph.nodes)} 个节点, {len(graph.edges)} 条边")
                 except Exception as e:
                     logger.error(f"构建图谱失败: {e}", exc_info=True)
-                    empty_graph = Graph()
-                    json_data = export_to_json(empty_graph)
-                    return success_response(json_data)
+                    return _error_json(500, ErrorCode.INTERNAL_ERROR, "构建内容图谱失败", details={"exception_type": e.__class__.__name__})
 
                 if topic:
                     try:
@@ -1972,43 +1971,41 @@ def get_market_graph(
                         Document.extracted_data['market']['game'].astext.ilike(f"%{game}%")
                     )
 
-                if start_date:
-                    try:
-                        start = datetime.fromisoformat(start_date).date()
-                        conditions.append(
-                            or_(
-                                Document.publish_date >= start,
-                                and_(
-                                    Document.publish_date.is_(None),
-                                    func.date(Document.created_at) >= start
-                                ),
-                                func.cast(
-                                    Document.extracted_data['market']['report_date'].astext,
-                                    date
-                                ) >= start
-                            )
+                start, start_error = _parse_iso_date_or_error(start_date, field="start_date")
+                if start_error:
+                    return start_error
+                if start:
+                    conditions.append(
+                        or_(
+                            Document.publish_date >= start,
+                            and_(
+                                Document.publish_date.is_(None),
+                                func.date(Document.created_at) >= start
+                            ),
+                            func.cast(
+                                Document.extracted_data['market']['report_date'].astext,
+                                date
+                            ) >= start
                         )
-                    except Exception as e:
-                        logger.warning(f"解析开始日期失败: {start_date}, 错误: {e}")
+                    )
 
-                if end_date:
-                    try:
-                        end = datetime.fromisoformat(end_date).date()
-                        conditions.append(
-                            or_(
-                                Document.publish_date <= end,
-                                and_(
-                                    Document.publish_date.is_(None),
-                                    func.date(Document.created_at) <= end
-                                ),
-                                func.cast(
-                                    Document.extracted_data['market']['report_date'].astext,
-                                    date
-                                ) <= end
-                            )
+                end, end_error = _parse_iso_date_or_error(end_date, field="end_date")
+                if end_error:
+                    return end_error
+                if end:
+                    conditions.append(
+                        or_(
+                            Document.publish_date <= end,
+                            and_(
+                                Document.publish_date.is_(None),
+                                func.date(Document.created_at) <= end
+                            ),
+                            func.cast(
+                                Document.extracted_data['market']['report_date'].astext,
+                                date
+                            ) <= end
                         )
-                    except Exception as e:
-                        logger.warning(f"解析结束日期失败: {end_date}, 错误: {e}")
+                    )
 
                 query = select(Document).where(and_(*conditions))
                 query = query.order_by(Document.publish_date.desc().nullslast(), Document.created_at.desc()).limit(limit)
@@ -2056,9 +2053,7 @@ def get_market_graph(
                     logger.info(f"构建图谱成功: {len(graph.nodes)} 个节点, {len(graph.edges)} 条边")
                 except Exception as e:
                     logger.error(f"构建图谱失败: {e}", exc_info=True)
-                    empty_graph = Graph()
-                    json_data = export_to_json(empty_graph)
-                    return success_response(json_data)
+                    return _error_json(500, ErrorCode.INTERNAL_ERROR, "构建市场图谱失败", details={"exception_type": e.__class__.__name__})
 
                 return _finalize_graph_response(
                     graph,
@@ -2090,15 +2085,12 @@ def get_policy_graph(
     from app.services.graph.models import Graph
     from app.services.graph.exporter import export_to_json
     project_key = _project_key_from_request(request)
-    def _parse_date(value: Optional[str]) -> Optional[date]:
-        if not value:
-            return None
-        try:
-            return datetime.fromisoformat(value).date()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("解析日期失败 %s: %s", value, exc)
-            return None
-
+    start_dt, start_error = _parse_iso_date_or_error(start_date, field="start_date")
+    if start_error:
+        return start_error
+    end_dt, end_error = _parse_iso_date_or_error(end_date, field="end_date")
+    if end_error:
+        return end_error
     try:
         with bind_project(project_key):
             with SessionLocal() as session:
@@ -2138,9 +2130,6 @@ def get_policy_graph(
                     json_data = export_to_json(empty_graph)
                     return success_response(json_data)
 
-                start_dt = _parse_date(start_date)
-                end_dt = _parse_date(end_date)
-
                 adapter = PolicyAdapter()
                 normalized_policies = []
                 skipped_count = 0
@@ -2160,7 +2149,7 @@ def get_policy_graph(
                             dates.append(doc.created_at.date())
                         effective = policy_info.get("effective_date")
                         if effective:
-                            parsed_effective = _parse_date(effective)
+                            parsed_effective, _ = _parse_iso_date_or_error(effective, field="effective_date")
                             if parsed_effective:
                                 dates.append(parsed_effective)
                         return dates
@@ -2212,9 +2201,7 @@ def get_policy_graph(
                     )
                 except Exception as exc:  # noqa: BLE001
                     logger.error("构建政策图谱失败: %s", exc, exc_info=True)
-                    empty_graph = Graph()
-                    json_data = export_to_json(empty_graph)
-                    return success_response(json_data)
+                    return _error_json(500, ErrorCode.INTERNAL_ERROR, "构建政策图谱失败", details={"exception_type": exc.__class__.__name__})
 
                 return _finalize_graph_response(
                     graph,

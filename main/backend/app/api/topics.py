@@ -6,12 +6,23 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from ..contracts import ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import Topic
 
 
 router = APIRouter(prefix="/topics", tags=["topics"])
+
+
+def _raise_invalid_input(message: str, *, status_code: int = 400) -> None:
+    raise HTTPException(
+        status_code=status_code,
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            message,
+        ),
+    )
 
 
 class TopicPayload(BaseModel):
@@ -55,7 +66,7 @@ def create_topic(payload: TopicPayload) -> dict:
             select(Topic).where(Topic.topic_name == payload.topic_name.strip())
         ).scalar_one_or_none()
         if existed:
-            raise HTTPException(status_code=409, detail="topic_name already exists")
+            _raise_invalid_input("topic_name already exists", status_code=409)
 
         row = Topic(
             topic_name=payload.topic_name.strip(),
@@ -77,13 +88,19 @@ def update_topic(topic_id: int, payload: TopicPayload) -> dict:
     with SessionLocal() as session:
         row = session.get(Topic, topic_id)
         if row is None:
-            raise HTTPException(status_code=404, detail="topic not found")
+            raise HTTPException(
+                status_code=404,
+                detail=error_response(
+                    ErrorCode.NOT_FOUND,
+                    "topic not found",
+                ),
+            )
 
         conflict = session.execute(
             select(Topic).where(Topic.topic_name == payload.topic_name.strip(), Topic.id != topic_id)
         ).scalar_one_or_none()
         if conflict:
-            raise HTTPException(status_code=409, detail="topic_name already exists")
+            _raise_invalid_input("topic_name already exists", status_code=409)
 
         row.topic_name = payload.topic_name.strip()
         row.domains = payload.domains
@@ -101,7 +118,13 @@ def delete_topic(topic_id: int) -> dict:
     with SessionLocal() as session:
         row = session.get(Topic, topic_id)
         if row is None:
-            raise HTTPException(status_code=404, detail="topic not found")
+            raise HTTPException(
+                status_code=404,
+                detail=error_response(
+                    ErrorCode.NOT_FOUND,
+                    "topic not found",
+                ),
+            )
         session.delete(row)
         session.commit()
         return ok({"deleted": topic_id})

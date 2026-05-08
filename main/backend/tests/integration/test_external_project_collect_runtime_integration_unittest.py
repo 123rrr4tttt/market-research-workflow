@@ -127,6 +127,10 @@ class ExternalProjectCollectRuntimeIntegrationTestCase(unittest.TestCase):
             response["terminal_output"]["item"]["external_manifest"]["execution_mode"],
             "rss_feed",
         )
+        self.assertEqual(
+            response["terminal_output"]["item"]["external_manifest"]["provider_binding"]["provider_key"],
+            "external_project.rss_feed",
+        )
         self.assertEqual(response["frontdoor_ingress"]["source_ref"]["source_kind"], "feed_aggregator")
         self.assertEqual(response["frontdoor_ingress"]["source_ref"]["execution_mode"], "rss_feed")
         self.assertEqual(response["authority_output"]["summary"]["record_stats"]["normalized"], 1)

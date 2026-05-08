@@ -17,6 +17,7 @@ from .external_project import (
     normalize_external_project_manifest,
     validate_external_http_url,
 )
+from .external_project_registry import list_external_project_provider_bindings
 
 _DEFAULT_SUMMARY_CHAR_LIMIT = 6000
 _GITHUB_API_BASE = "https://api.github.com/repos"
@@ -72,7 +73,10 @@ def synthesize_external_project_item(
         "extra": {
             EXTERNAL_PROJECT_MANIFEST_KEY: manifest,
         },
-        "registration_context": project_context,
+        "registration_context": {
+            **project_context,
+            "provider_binding": dict((manifest.get("provider_binding") or {})),
+        },
     }
 
 
@@ -84,6 +88,16 @@ def synthesize_external_project_manifest(
     project_context: dict[str, Any],
     hints: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    deterministic_manifest = _build_manifest_from_context(
+        project_link=project_link,
+        item_key=item_key,
+        display_name=display_name,
+        project_context=project_context,
+        hints=hints,
+    )
+    if deterministic_manifest is not None:
+        return deterministic_manifest
+
     prompt = _build_manifest_prompt(
         project_link=project_link,
         item_key=item_key,
@@ -124,6 +138,119 @@ def synthesize_external_project_manifest(
         display_name=display_name,
     )
     return manifest
+
+
+def _build_manifest_from_context(
+    *,
+    project_link: str,
+    item_key: str,
+    display_name: str,
+    project_context: dict[str, Any],
+    hints: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    candidates = project_context.get("endpoint_candidates")
+    if not isinstance(candidates, list):
+        return None
+
+    high_confidence = [
+        dict(candidate)
+        for candidate in candidates
+        if isinstance(candidate, dict) and str(candidate.get("confidence") or "").strip().lower() == "high"
+    ]
+    if not high_confidence:
+        return None
+
+    chosen = high_confidence[0]
+    execution_mode = str(chosen.get("execution_mode") or "").strip().lower()
+    runner_ref = str(chosen.get("runner_ref") or "").strip()
+    if execution_mode not in {"rss_feed", "sitemap", "http_api"} or not runner_ref:
+        return None
+
+    payload: dict[str, Any] = {
+        "contract_version": EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION,
+        "item_key": item_key,
+        "display_name": display_name,
+        "project_link": project_link,
+        "source_kind": str((hints or {}).get("source_kind") or "").strip() or _infer_source_kind(execution_mode),
+        "source_scope": str((hints or {}).get("source_scope") or "").strip() or _infer_source_scope(project_context),
+        "capabilities": _default_capabilities_for_mode(execution_mode),
+        "accepted_inputs": {
+            "query_terms": True,
+            "urls": False,
+            "domains": False,
+            "date_range": execution_mode == "http_api",
+            "max_items": True,
+        },
+        "execution_mode": execution_mode,
+        "runner_ref": runner_ref,
+        "normalization": {
+            "record_kind": "article_metadata",
+            "frontdoor_strategy": "records_only_defer",
+        },
+        "limits": {
+            "default_max_items": 20,
+            "max_items_cap": 100,
+            "request_timeout_ms": 30000,
+        },
+        "refresh_policy": {
+            "manifest_ttl_minutes": 60,
+            "probe_ttl_minutes": 1440,
+        },
+        "provenance": {
+            "discovered_by": "context_probe",
+            "source_refs": [project_link, runner_ref],
+        },
+    }
+    if execution_mode == "http_api":
+        payload["runtime_config"] = {
+            "method": "GET",
+            "query_param_map": {"query_terms": "q", "max_items": "limit"},
+            "records_path": "items",
+            "record_mapping": {
+                "url": "url",
+                "title": "title",
+                "summary": "summary",
+                "artifact_url": "pdf_url",
+            },
+        }
+
+    return normalize_external_project_manifest(
+        payload,
+        item_key=item_key,
+        display_name=display_name,
+    )
+
+
+def _default_capabilities_for_mode(execution_mode: str) -> dict[str, bool]:
+    if execution_mode == "http_api":
+        return {
+            "candidate_urls": True,
+            "article_metadata": True,
+            "article_body": False,
+            "pdf_artifact": True,
+        }
+    return {
+        "candidate_urls": True,
+        "article_metadata": True,
+        "article_body": False,
+        "pdf_artifact": False,
+    }
+
+
+def _infer_source_kind(execution_mode: str) -> str:
+    mapping = {
+        "rss_feed": "feed_aggregator",
+        "sitemap": "site_extractor",
+        "http_api": "api_provider",
+    }
+    return mapping.get(execution_mode, "external_project")
+
+
+def _infer_source_scope(project_context: dict[str, Any]) -> str:
+    source = str(project_context.get("source") or "").strip().lower()
+    if source == "github":
+        return "project_repo"
+    return "external_site"
 
 
 def collect_external_project_context(*, project_link: str, hints: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -230,6 +357,7 @@ def _build_manifest_prompt(
     hints: dict[str, Any] | None,
 ) -> str:
     allowed_execution_modes = ["rss_feed", "sitemap", "http_api"]
+    provider_registry = list_external_project_provider_bindings()
     contract_example = {
         "contract_version": EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION,
         "item_key": item_key,
@@ -286,6 +414,9 @@ def _build_manifest_prompt(
         "Prefer candidate_urls/article_metadata over article_body unless the evidence is explicit.\n"
         f"Allowed execution_mode values: {_safe_json(allowed_execution_modes)}.\n"
         "Prefer endpoint_candidates and preferred_execution_modes from evidence when they are present.\n"
+        "Use this provider registry for bounded runtime selection. "
+        "Do not invent provider families or adapter refs outside this list.\n"
+        f"Provider registry:\n{_safe_json(provider_registry)}\n"
         "Use high-confidence explicit URLs ahead of convention-derived URLs.\n"
         "If runner_ref is unknown, infer the narrowest stable endpoint from evidence. "
         "Do not return placeholders or empty strings.\n"

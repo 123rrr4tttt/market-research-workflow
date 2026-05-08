@@ -1596,12 +1596,18 @@ class AgentSessionService:
 
     @staticmethod
     def _workflow_graph_node_task_id(*, run_id: str, node_id: str) -> str:
-        digest = hashlib.sha1(f"{run_id}:{node_id}".encode("utf-8")).hexdigest()[:12]
+        digest = hashlib.sha1(
+            f"{run_id}:{node_id}".encode("utf-8"),
+            usedforsecurity=False,
+        ).hexdigest()[:12]
         return f"wgn-{digest}"
 
     @staticmethod
     def _workflow_graph_verification_task_id(run_id: str) -> str:
-        digest = hashlib.sha1(f"{run_id}:verification".encode("utf-8")).hexdigest()[:12]
+        digest = hashlib.sha1(
+            f"{run_id}:verification".encode("utf-8"),
+            usedforsecurity=False,
+        ).hexdigest()[:12]
         return f"wgv-{digest}"
 
     @staticmethod

@@ -13,7 +13,7 @@ pytestmark = pytest.mark.unit
 
 try:
     from app.contracts.schemas.writing import KeywordCardItem, KeywordCardRequest, WritingContextEnvelope
-    from app.services.writing.keyword_card_service import aggregate_cards
+    from app.services.writing.keyword_card_service import _CARD_CACHE, _SELECTION_CACHE, aggregate_cards
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -24,6 +24,8 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
     def setUp(self):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"writing keyword card service tests require backend dependencies: {_IMPORT_ERROR}")
+        _CARD_CACHE.clear()
+        _SELECTION_CACHE.clear()
 
     def test_graph_context_is_consumed_as_optional_adapter(self):
         payload = KeywordCardRequest(
@@ -94,6 +96,28 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
             response = aggregate_cards(payload)
 
         self.assertEqual([item.source_type for item in response.cards], ["graph"])
+
+    def test_source_library_query_layer_is_used_for_resource_cards(self):
+        payload = KeywordCardRequest(
+            project_key="demo_proj",
+            query="robotics",
+            sources=["resource"],
+        )
+        with (
+            patch("app.services.writing.keyword_card_service.query_hybrid_document_rows", return_value=[]),
+            patch("app.services.writing.keyword_card_service.query_report_source_rows", return_value=[]),
+            patch(
+                "app.services.writing.keyword_card_service.query_source_library_material_rows",
+                return_value=[
+                    {"item_key": "robotics_feed", "name": "Robotics Feed", "description": "robotics source", "channel_key": "market"}
+                ],
+            ),
+        ):
+            response = aggregate_cards(payload)
+
+        self.assertEqual(len(response.cards), 1)
+        self.assertEqual(response.cards[0].source_type, "resource")
+        self.assertEqual(response.cards[0].extra["item_key"], "robotics_feed")
 
 
 if __name__ == "__main__":
