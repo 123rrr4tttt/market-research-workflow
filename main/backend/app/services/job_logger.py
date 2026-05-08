@@ -19,7 +19,10 @@ def _fit_job_type(job_type: str, max_len: int = 16) -> str:
     """Fit job_type into DB column length without collisions."""
     if len(job_type) <= max_len:
         return job_type
-    digest = hashlib.sha1(job_type.encode("utf-8", errors="ignore")).hexdigest()[:4]
+    digest = hashlib.sha1(
+        job_type.encode("utf-8", errors="ignore"),
+        usedforsecurity=False,
+    ).hexdigest()[:4]
     prefix_len = max_len - 5  # reserve "_" + 4 hex chars
     return f"{job_type[:prefix_len]}_{digest}"
 

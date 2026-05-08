@@ -34,7 +34,7 @@ Source of truth: `.github/workflows/backend-tests.yml`.
   - `integration-check`
   - `schema-guard-check` (blocking)
   - `coverage-check` (blocking)
-  - `security-check` (blocking)
+  - `security-check` (blocking: high/high `bandit` + `pip-audit` + `gitleaks`)
   - `docker-check`
   - `flaky-observe` (observation-only lane, non-blocking on PR)
 - `push(main)` / `schedule` / `workflow_dispatch` lane:
@@ -44,7 +44,7 @@ Source of truth: `.github/workflows/backend-tests.yml`.
   - `integration-check`
   - `schema-guard-check` (blocking)
   - `coverage-check` (blocking)
-  - `security-check` (blocking)
+  - `security-check` (blocking: high/high `bandit` + `pip-audit` + `gitleaks`)
   - `contract-check`
   - `e2e-check`
   - `docker-check`

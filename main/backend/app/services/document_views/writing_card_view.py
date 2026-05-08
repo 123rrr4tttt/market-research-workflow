@@ -13,7 +13,10 @@ def now_iso() -> str:
 
 def make_card_id(source_type: str, title: str, url: str | None, normalized_query: str) -> str:
     payload = f"{source_type}|{title}|{url or ''}|{normalized_query}"
-    return hashlib.sha1(payload.encode("utf-8", errors="ignore")).hexdigest()[:24]
+    return hashlib.sha1(
+        payload.encode("utf-8", errors="ignore"),
+        usedforsecurity=False,
+    ).hexdigest()[:24]
 
 
 def build_keyword_card(

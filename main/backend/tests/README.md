@@ -52,7 +52,7 @@ CORE_COVERAGE_PATHS="app/api/search.py,app/contracts/api.py,app/contracts/respon
   - `flaky-observe` (observation lane, non-blocking on PR)
   - `schema-guard-check` (blocking)
   - `coverage-check` (blocking)
-  - `security-check` (blocking: `bandit + pip-audit + gitleaks`)
+  - `security-check` (blocking: high/high `bandit` + `pip-audit` + `gitleaks`)
   - `docker-check`
 - `push` to `main`, `schedule`, `workflow_dispatch`:
   - `standards-check`
@@ -62,7 +62,7 @@ CORE_COVERAGE_PATHS="app/api/search.py,app/contracts/api.py,app/contracts/respon
   - `flaky-observe` (observation lane; still publishes artifacts/summary)
   - `schema-guard-check` (blocking)
   - `coverage-check` (blocking, `core=100%` and `other=20%`)
-  - `security-check` (blocking: `bandit + pip-audit + gitleaks`)
+  - `security-check` (blocking: high/high `bandit` + `pip-audit` + `gitleaks`)
   - `contract-check`
   - `e2e-check`
   - `docker-check`

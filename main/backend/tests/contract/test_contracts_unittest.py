@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import json
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-pytestmark = pytest.mark.contract
+pytestmark = [pytest.mark.contract, pytest.mark.unit]
 
 try:
     from app.contracts.api import error_response, success_response
@@ -64,6 +68,27 @@ class ContractTestCase(unittest.TestCase):
         self.assertEqual(payload["data"]["items"], [1, 2])
         self.assertEqual(payload["meta"]["pagination"]["page"], 2)
         self.assertEqual(payload["meta"]["pagination"]["total_pages"], 3)
+
+    def test_contract_governance_snapshot_writes_when_enabled(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(os.environ, {"CONTRACT_GOVERNANCE_DIR": tmp_dir}, clear=False):
+                payload = ok({"hello": "world"})
+
+            files = list(Path(tmp_dir).glob("*.json"))
+            self.assertEqual(len(files), 1)
+            snapshot = json.loads(files[0].read_text(encoding="utf-8"))
+            self.assertEqual(snapshot["event"], "ok")
+            self.assertEqual(snapshot["schema"], "contract-envelope@v1")
+            self.assertEqual(snapshot["envelope"], payload)
+
+    def test_contract_governance_snapshot_never_raises_on_write_failure(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            blocked_path = Path(tmp_dir) / "not-a-directory"
+            blocked_path.write_text("blocked", encoding="utf-8")
+            with patch.dict(os.environ, {"CONTRACT_GOVERNANCE_DIR": str(blocked_path)}, clear=False):
+                payload = fail(ErrorCode.INVALID_INPUT, "bad request")
+
+        self.assertEqual(payload["status"], "error")
 
 
 if __name__ == "__main__":

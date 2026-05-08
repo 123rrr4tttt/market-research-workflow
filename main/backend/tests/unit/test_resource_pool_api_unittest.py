@@ -20,10 +20,10 @@ _MODULE_PATH = ROOT / "app" / "api" / "resource_pool.py"
 _API_PACKAGE = types.ModuleType("app.api")
 _API_PACKAGE.__path__ = [str(ROOT / "app" / "api")]
 sys.modules.setdefault("app.api", _API_PACKAGE)
-_SPEC = importlib.util.spec_from_file_location("app.api.resource_pool", _MODULE_PATH)
+_SPEC = importlib.util.spec_from_file_location("app.api._resource_pool_api_unit_under_test", _MODULE_PATH)
 assert _SPEC and _SPEC.loader
 _MODULE = importlib.util.module_from_spec(_SPEC)
-sys.modules["app.api.resource_pool"] = _MODULE
+sys.modules[_SPEC.name] = _MODULE
 _SPEC.loader.exec_module(_MODULE)
 
 DiscoverSearchContractPayload = _MODULE.DiscoverSearchContractPayload

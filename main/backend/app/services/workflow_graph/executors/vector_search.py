@@ -44,7 +44,10 @@ class VectorSearchExecutor(BaseNodeExecutor):
 
 
 def _fallback_hit(*, query: str, state: str | None) -> dict[str, Any]:
-    digest = hashlib.sha1((query or "").encode("utf-8", errors="ignore")).hexdigest()[:10]
+    digest = hashlib.sha1(
+        (query or "").encode("utf-8", errors="ignore"),
+        usedforsecurity=False,
+    ).hexdigest()[:10]
     return {
         "document_id": f"mock-{digest}",
         "score": 1.0,

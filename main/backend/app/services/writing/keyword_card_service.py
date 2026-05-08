@@ -40,7 +40,10 @@ def normalize_and_rewrite_query(text: str) -> str:
 
 def _selection_hash(project_key: str, query: str) -> str:
     payload = f"{project_key}:{normalize_and_rewrite_query(query)}"
-    return hashlib.sha1(payload.encode("utf-8", errors="ignore")).hexdigest()[:16]
+    return hashlib.sha1(
+        payload.encode("utf-8", errors="ignore"),
+        usedforsecurity=False,
+    ).hexdigest()[:16]
 
 
 def _now_iso() -> str:

@@ -1461,7 +1461,10 @@ def _run_source_collect_batch(
         auto_generated_item = False
         if not item_key:
             # Append a short hash to avoid collisions after token normalization.
-            fingerprint = hashlib.sha1(f"{entry_id}::{intent}".encode("utf-8")).hexdigest()[:8]
+            fingerprint = hashlib.sha1(
+                f"{entry_id}::{intent}".encode("utf-8"),
+                usedforsecurity=False,
+            ).hexdigest()[:8]
             item_key = f"graph::{normalized_entry_id}::{normalized_intent}::{fingerprint}"
             from .source_library import SourceLibraryItemUpsertPayload, upsert_project_item
             from ..services.source_library import list_effective_items

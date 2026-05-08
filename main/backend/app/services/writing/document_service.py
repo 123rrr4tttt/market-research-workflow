@@ -32,7 +32,7 @@ def _utcnow_iso() -> str:
 
 def _compute_etag(*, body_md: str, version: int) -> str:
     payload = f"{version}:{body_md}".encode("utf-8", errors="ignore")
-    return hashlib.sha1(payload).hexdigest()
+    return hashlib.sha1(payload, usedforsecurity=False).hexdigest()
 
 
 def _serialize_document(row: WritingDocument) -> dict[str, Any]:

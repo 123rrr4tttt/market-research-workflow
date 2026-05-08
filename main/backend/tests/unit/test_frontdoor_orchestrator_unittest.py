@@ -148,7 +148,7 @@ class FrontdoorOrchestratorUnitTestCase(unittest.TestCase):
 
     def test_run_item_payload_blocks_direct_generic_web_without_internal_flag(self):
         item = {
-            "item_key": "handler.cluster.search_template",
+            "item_key": "direct.generic_web.search_template",
             "channel_key": "generic_web.search_template",
             "enabled": True,
             "params": {"site_entries": ["https://example.com/search?q={{q}}"]},
