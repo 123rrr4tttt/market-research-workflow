@@ -790,7 +790,10 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
             captured["channel_key"] = item.get("channel_key")
             return {"item_key": item.get("item_key"), "channel_key": item.get("channel_key"), "params": params, "result": {}}
 
-        with patch("app.services.source_library.resolver._run_handler_cluster_item", side_effect=_fake_run_handler_cluster_item):
+        with (
+            patch("app.services.source_library.resolver.get_ingest_config", return_value=None),
+            patch("app.services.source_library.resolver._run_handler_cluster_item", side_effect=_fake_run_handler_cluster_item),
+        ):
             result = resolver.run_item_payload(item=item, channels=channels, project_key="demo_proj", override_params=None)
 
         self.assertEqual(captured["channel_key"], "handler.cluster")

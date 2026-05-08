@@ -397,7 +397,10 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   }, [normalizedSessions, selectedSessionId])
   const selectedSession = selectedSessionQuery.data
   const selectedSessionTasks = selectedSession?.tasks || []
-  const selectedSessionEvents = selectedSession?.events || []
+  const selectedSessionEvents = useMemo(
+    () => selectedSession?.events || [],
+    [selectedSession?.events],
+  )
   const selectedSessionArtifacts = useMemo(
     () => selectedSession?.artifacts || [],
     [selectedSession?.artifacts],
