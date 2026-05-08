@@ -38,15 +38,12 @@ CORE_COVERAGE_PATHS="app/api/search.py,app/contracts/api.py,app/contracts/respon
 
 - Branch protection source of truth:
   - `.github/branch-protection-required-checks.json`
-  - Required PR checks for `main`: `backend-tests` + `r9_ef_required_check`
+  - Required PR checks for `main`: `backend-tests`
 - Workflow source of truth:
   - `.github/workflows/backend-tests.yml`
-  - `.github/workflows/r9-ef-required-check.yml`
 
 - `pull_request`:
   - `standards-check`
-  - `r81-a-min-verify-check`
-  - `r81-b-min-verify-check`
   - `unit-check`
   - `llm-report-must-check`
   - `integration-check`
@@ -57,11 +54,8 @@ CORE_COVERAGE_PATHS="app/api/search.py,app/contracts/api.py,app/contracts/respon
   - `coverage-check` (blocking)
   - `security-check` (blocking: `bandit + pip-audit + gitleaks`)
   - `docker-check`
-  - separate required workflow job: `r9_ef_required_check`
 - `push` to `main`, `schedule`, `workflow_dispatch`:
   - `standards-check`
-  - `r81-a-min-verify-check`
-  - `r81-b-min-verify-check`
   - `unit-check`
   - `llm-report-must-check`
   - `integration-check`
@@ -123,10 +117,10 @@ Profile policy:
 
 Tier policy:
 
-- `PR` branch-protection tier: workflow suite `backend-tests` + workflow job `r9_ef_required_check`.
-- `PR` deterministic lane inside `backend-tests`: `standards-check + r81-a-min-verify-check + r81-b-min-verify-check + unit-check + llm-report-must-check + integration-check + core-business-check + e2e-check + schema-guard-check + coverage-check + security-check + docker-check`.
+- `PR` branch-protection tier: workflow suite `backend-tests`.
+- `PR` deterministic lane inside `backend-tests`: `standards-check + unit-check + llm-report-must-check + integration-check + core-business-check + e2e-check + schema-guard-check + coverage-check + security-check + docker-check`.
 - `PR` observation lane inside `backend-tests`: `flaky-observe`.
-- `main` full lane: `standards-check + r81-a-min-verify-check + r81-b-min-verify-check + unit-check + llm-report-must-check + integration-check + schema-guard-check + coverage-check + security-check + contract-check + e2e-check + docker-check`.
+- `main` full lane: `standards-check + unit-check + llm-report-must-check + integration-check + schema-guard-check + coverage-check + security-check + contract-check + e2e-check + docker-check`.
 - `main` observation lane: `flaky-observe + contracts-governance-observe`.
 - Current default PR evidence lives in `.github/PULL_REQUEST_TEMPLATE.md`: `Scope / Risk / Test Evidence / Rollback Strategy / Docs And Closure`.
 

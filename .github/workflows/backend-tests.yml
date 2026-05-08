@@ -36,34 +36,6 @@ jobs:
         run: |
           python main/backend/scripts/check_api_layer_imports.py
 
-  r81-a-min-verify-check:
-    name: r81-a-min-verify-check
-    needs: standards-check
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run R8.1 A minimal verifier
-        run: |
-          chmod +x scripts/verify/verify_r81_a.sh
-          ./scripts/verify/verify_r81_a.sh
-
-  r81-b-min-verify-check:
-    name: r81-b-min-verify-check
-    needs: standards-check
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run R8.1 B minimal verifier
-        run: |
-          chmod +x scripts/verify_r81_b.sh
-          ./scripts/verify_r81_b.sh
-
   unit-check:
     name: unit-check
     needs: standards-check
@@ -411,7 +383,6 @@ jobs:
     needs:
       - standards-check
       - gateplus-guard-check
-      - r81-b-min-verify-check
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -426,7 +397,7 @@ jobs:
           import sys
 
           needs = json.loads(os.environ.get("NEEDS_JSON", "{}"))
-          required = ("standards-check", "gateplus-guard-check", "r81-b-min-verify-check")
+          required = ("standards-check", "gateplus-guard-check")
           failed = []
           lines = ["## GatePlus Required Check Convergence", ""]
 
@@ -731,7 +702,6 @@ jobs:
     needs:
       - standards-check
       - contracts-governance-observe
-      - r81-b-min-verify-check
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -745,7 +715,7 @@ jobs:
           import json, os, sys
           needs = json.loads(os.environ.get("NEEDS_JSON", "{}"))
           required_flag = os.environ.get("CONTRACTS_REQUIRED", "false").lower() == "true"
-          jobs = ("contracts-governance-observe", "r81-b-min-verify-check")
+          jobs = ("contracts-governance-observe",)
           failed = []
           lines = ["## Contracts Required Check", ""]
           lines.append(f"- contracts_required: `{required_flag}`")
@@ -758,7 +728,7 @@ jobs:
           lines.append("")
           if failed:
             lines.append("### Actionable hints")
-            lines.append("- Review governance snapshots and r81-b verifier outputs.")
+            lines.append("- Review governance snapshots.")
             lines.append("- Flip `CONTRACTS_REQUIRED` to false to run as non-blocking.")
           else:
             lines.append("- convergence_status: `pass`")

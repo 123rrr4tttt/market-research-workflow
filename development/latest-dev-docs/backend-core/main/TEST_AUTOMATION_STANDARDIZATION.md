@@ -1,6 +1,6 @@
 # Test Automation Standardization
 
-Last updated: 2026-03-01
+Last updated: 2026-05-07
 
 ## 1. Standardized Test Boundary
 
@@ -29,8 +29,6 @@ Source of truth: `.github/workflows/backend-tests.yml`.
 
 - `pull_request` lane:
   - `standards-check`
-  - `r81-a-min-verify-check`
-  - `r81-b-min-verify-check`
   - `unit-check`
   - `llm-report-must-check`
   - `integration-check`
@@ -39,11 +37,8 @@ Source of truth: `.github/workflows/backend-tests.yml`.
   - `security-check` (blocking)
   - `docker-check`
   - `flaky-observe` (observation-only lane, non-blocking on PR)
-  - separate required workflow job: `r9_ef_required_check` from `.github/workflows/r9-ef-required-check.yml`
 - `push(main)` / `schedule` / `workflow_dispatch` lane:
   - `standards-check`
-  - `r81-a-min-verify-check`
-  - `r81-b-min-verify-check`
   - `unit-check`
   - `llm-report-must-check`
   - `integration-check`
@@ -82,7 +77,7 @@ This policy is executed both:
 
 1. Frontend E2E is available via standardized profile (`frontend-e2e`) but is not a default blocking CI gate in `backend-tests`.
 2. Backend `e2e` still focuses on smoke paths, not a full scenario matrix.
-3. Branch protection currently records `backend-tests` as a workflow-level required check plus separate `r9_ef_required_check`; it does not list every individual blocking job.
+3. Branch protection currently records `backend-tests` as the required check baseline; retired `rxx` version matrix workflows are no longer required.
 4. External dependency determinism is still incomplete for some third-party integrations.
 
 ## 6. Manual Checks (Archived but Retained)

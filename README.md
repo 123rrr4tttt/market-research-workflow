@@ -233,11 +233,8 @@ pytest -m "contract and not external and not flaky" -q
 ### 仓库内现有 GitHub Actions
 
 - [`backend-tests.yml`](./.github/workflows/backend-tests.yml)
-- [`r3-must-gates.yml`](./.github/workflows/r3-must-gates.yml)
-- [`r84-f-required-check.yml`](./.github/workflows/r84-f-required-check.yml)
-- [`r9-ef-required-check.yml`](./.github/workflows/r9-ef-required-check.yml)
 
-这些工作流覆盖了后端分层测试、依赖与安全门禁、必过校验切片，以及特定报告链路的质量检查。
+该工作流覆盖后端分层测试、质量检查、依赖与安全门禁；临时 `rxx` 版本测试矩阵已退役。
 
 ## 文档入口
 

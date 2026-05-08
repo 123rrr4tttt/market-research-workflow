@@ -1,12 +1,10 @@
 {
   "branch": "main",
   "required_checks": [
-    "backend-tests",
-    "r9_ef_required_check"
+    "backend-tests"
   ],
   "required_check_sources": {
-    "backend-tests": ".github/workflows/backend-tests.yml",
-    "r9_ef_required_check": ".github/workflows/r9-ef-required-check.yml"
+    "backend-tests": ".github/workflows/backend-tests.yml"
   },
   "default_pr_evidence": {
     "template": ".github/PULL_REQUEST_TEMPLATE.md",
@@ -30,5 +28,5 @@
     "contract",
     "ci-pr"
   ],
-  "note": "AT-RCL-10 governance default-gate baseline aligned with current workflows on 2026-04-07"
+  "note": "Temporary rxx matrix workflows were retired; backend-tests is the current required check baseline as of 2026-05-07"
 }
