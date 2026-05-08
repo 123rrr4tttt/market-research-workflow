@@ -90,6 +90,24 @@ class _FakeSessionLocalOperationalError:
         return False
 
 
+class _FakeScalarResult:
+    def scalar_one_or_none(self):
+        return None
+
+
+class _FakeEmptyPolicySession:
+    def execute(self, _query):
+        return _FakeScalarResult()
+
+
+class _FakePolicySessionLocalEmpty:
+    def __enter__(self):
+        return _FakeEmptyPolicySession()
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
 class _TrackedIngestTasks:
     def __init__(self):
         self.task_ingest_market = SimpleNamespace(delay=Mock(return_value=SimpleNamespace(id="market-task-2")))
@@ -272,7 +290,8 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
     def test_policy_detail_missing_returns_404_not_found(self):
-        resp = self.client.get("/api/v1/policies/99999999", headers=self.headers)
+        with patch("app.api.policies.SessionLocal", return_value=_FakePolicySessionLocalEmpty()):
+            resp = self.client.get("/api/v1/policies/99999999", headers=self.headers)
 
         self.assertEqual(resp.status_code, 404)
         body = resp.json()

@@ -475,25 +475,31 @@ def _apply_llm_configs_to_project(project_key: str, llm_configs: list[AutoLlmCon
 
 @router.get("")
 def list_projects() -> dict:
+    from sqlalchemy.exc import SQLAlchemyError
+
     # Control-plane data always read from public schema.
-    with bind_schema("public"):
-        with SessionLocal() as session:
-            rows = session.execute(select(Project).order_by(Project.id.asc())).scalars().all()
-            return ok(
-                {
-                    "items": [
-                        {
-                            "id": row.id,
-                            "project_key": row.project_key,
-                            "name": row.name,
-                            "schema_name": row.schema_name,
-                            "enabled": row.enabled,
-                            "is_active": row.is_active,
-                        }
-                        for row in rows
-                    ]
-                }
-            )
+    try:
+        with bind_schema("public"):
+            with SessionLocal() as session:
+                rows = session.execute(select(Project).order_by(Project.id.asc())).scalars().all()
+                return ok(
+                    {
+                        "items": [
+                            {
+                                "id": row.id,
+                                "project_key": row.project_key,
+                                "name": row.name,
+                                "schema_name": row.schema_name,
+                                "enabled": row.enabled,
+                                "is_active": row.is_active,
+                            }
+                            for row in rows
+                        ]
+                    }
+                )
+    except SQLAlchemyError as exc:
+        logger.warning("project_list_degraded error=%s", exc.__class__.__name__)
+        return ok({"items": []})
 
 
 @router.post("")

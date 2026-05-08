@@ -946,6 +946,8 @@ def _discover_source_library_item_keys(
         item_key = str(row.get("item_key") or "").strip()
         if not item_key:
             continue
+        if _is_builtin_source_library_item(row=row, item_key=item_key):
+            continue
         category = _classify_source_library_item(row=row, channel_capability=channel_capability)
         # fixed_api_info tasks require credentials; skip missing-credential entries for autonomous selection.
         if category == "fixed_api_info" and not _is_item_credentials_ready(
@@ -1006,6 +1008,10 @@ def _list_effective_source_items(*, project_key: str | None) -> list[dict[str, A
     from app.services.source_library.resolver import list_effective_items
 
     return list_effective_items(scope="effective", project_key=project_key)
+
+
+def _is_builtin_source_library_item(*, row: dict[str, Any], item_key: str) -> bool:
+    return str(row.get("scope") or "").strip().lower() == "builtin" or item_key == "url_pool.default"
 
 
 def _build_source_selection_tokens(

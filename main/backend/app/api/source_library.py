@@ -293,10 +293,6 @@ def list_items(
 ) -> dict:
     try:
         resolved_project_key = _resolve_query_project_key(scope, project_key, request=request)
-        if include_execution_plan:
-            raw_items = list_effective_items(scope=scope, project_key=resolved_project_key, include_execution_plan=True)
-        else:
-            raw_items = list_effective_items(scope=scope, project_key=resolved_project_key)
         allowed_item_types = {ITEM_TYPE_USER_DEFINED}
         if include_system:
             allowed_item_types.add(ITEM_TYPE_SERVICE_AGGREGATED)
@@ -308,6 +304,10 @@ def list_items(
                     "item_type=service_aggregated requires include_system=true",
                 ),
             )
+        if include_execution_plan:
+            raw_items = list_effective_items(scope=scope, project_key=resolved_project_key, include_execution_plan=True)
+        else:
+            raw_items = list_effective_items(scope=scope, project_key=resolved_project_key)
         selected_item_types = {item_type} if item_type is not None else allowed_item_types
         items = []
         for row in raw_items:

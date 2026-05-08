@@ -53,7 +53,7 @@ source_library.py:L181|raise HTTPException(status_code=400, detail=error_respons
 source_library.py:L189|raise HTTPException(status_code=403, detail=error_response(ErrorCode.INVALID_INPUT, 'service_aggregated item_type is system-managed and cannot be written via user API'))
 source_library.py:L207|raise HTTPException(status_code=400, detail=error_response(ErrorCode.PROJECT_KEY_REQUIRED, 'project_key is required. Please select a project first.'))
 source_library.py:L220|raise HTTPException(status_code=400, detail=error_response(ErrorCode.PROJECT_KEY_REQUIRED, 'project_key is required. Please select a project first.'))
-source_library.py:L304|raise HTTPException(status_code=400, detail=error_response(ErrorCode.INVALID_INPUT, 'item_type=service_aggregated requires include_system=true'))
+source_library.py:L300|raise HTTPException(status_code=400, detail=error_response(ErrorCode.INVALID_INPUT, 'item_type=service_aggregated requires include_system=true'))
 source_library.py:L48|raise HTTPException(status_code=400, detail=error_response(ErrorCode.INVALID_INPUT, str(exc) or 'Invalid source library request.', details={'exception_type': exc.__class__.__name__}))
 source_library.py:L583|raise HTTPException(status_code=400, detail=error_response(ErrorCode.INVALID_INPUT, 'generic_web.* is internal adapter-only and cannot be directly created as user_defined item'))
 source_library.py:L58|raise HTTPException(status_code=status_code, detail=error_response(code, message, details=details))

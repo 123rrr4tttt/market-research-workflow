@@ -575,11 +575,27 @@ def test_source_library_sync_shared_from_files_requires_project_key_with_standar
 
 
 def test_source_library_refresh_missing_item_returns_not_found_envelope(client):
-    resp = client.post(
-        "/api/v1/source_library/items/demo.item/refresh",
-        json={"project_key": "demo_proj", "incremental": True, "max_site_entries": 10},
-        headers=HEADERS,
-    )
+    class _FakeResult:
+        def scalar_one_or_none(self):
+            return None
+
+    class _FakeSession:
+        def execute(self, _query):
+            return _FakeResult()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(source_library_api, "SessionLocal", lambda: _FakeSession())
+        resp = client.post(
+            "/api/v1/source_library/items/demo.item/refresh",
+            json={"project_key": "demo_proj", "incremental": True, "max_site_entries": 10},
+            headers=HEADERS,
+        )
 
     assert resp.status_code == 404
     assert resp.headers.get("x-error-code") == ErrorCode.NOT_FOUND.value

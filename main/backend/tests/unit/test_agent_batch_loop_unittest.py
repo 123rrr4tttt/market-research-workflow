@@ -383,6 +383,31 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
 
         self.assertEqual(keys, ["handler.cluster.search_template", "market.general.baseline"])
 
+    def test_discover_source_items_skips_builtin_fallback_items(self):
+        from app.services.agent_batch import agent_loop
+
+        with patch.object(
+            agent_loop,
+            "_list_effective_source_items",
+            return_value=[
+                {
+                    "item_key": "url_pool.default",
+                    "name": "URL pool default",
+                    "channel_key": "url_pool",
+                    "enabled": True,
+                    "scope": "builtin",
+                    "params": {"scope": "effective", "limit": 50},
+                }
+            ],
+        ), patch.object(
+            agent_loop,
+            "_build_channel_capability_index",
+            return_value={"url_pool": {"channel_key": "url_pool", "provider": "url_pool", "credential_refs": []}},
+        ):
+            keys = agent_loop._discover_source_library_item_keys(project_key="proj-loop", limit=2)
+
+        self.assertEqual(keys, [])
+
     def test_discover_source_items_prefers_goal_relevant_collect_sources(self):
         from app.services.agent_batch import agent_loop
 

@@ -2085,6 +2085,12 @@ def get_policy_graph(
     from app.services.graph.models import Graph
     from app.services.graph.exporter import export_to_json
     project_key = _project_key_from_request(request)
+    start_dt, start_error = _parse_iso_date_or_error(start_date, field="start_date")
+    if start_error:
+        return start_error
+    end_dt, end_error = _parse_iso_date_or_error(end_date, field="end_date")
+    if end_error:
+        return end_error
     try:
         with bind_project(project_key):
             with SessionLocal() as session:
@@ -2123,13 +2129,6 @@ def get_policy_graph(
                     empty_graph = Graph()
                     json_data = export_to_json(empty_graph)
                     return success_response(json_data)
-
-                start_dt, start_error = _parse_iso_date_or_error(start_date, field="start_date")
-                if start_error:
-                    return start_error
-                end_dt, end_error = _parse_iso_date_or_error(end_date, field="end_date")
-                if end_error:
-                    return end_error
 
                 adapter = PolicyAdapter()
                 normalized_policies = []
