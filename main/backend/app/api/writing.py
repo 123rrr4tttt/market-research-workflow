@@ -22,6 +22,7 @@ from ..services.writing import (
     WritingVersionConflictError,
     aggregate_cards,
     create_document,
+    delete_document,
     dispatch_action,
     export_document_markdown,
     get_action_detail,
@@ -58,6 +59,7 @@ class WritingDocumentPatchRequest(BaseModel):
     body_md: str = Field(default="", max_length=50000)
     base_version: int | None = Field(default=None, ge=1)
     updated_by_user_id: str | None = Field(default=None, max_length=128)
+    metadata_json: dict[str, Any] | None = Field(default=None)
 
 
 class WritingDraftAutosaveRequest(BaseModel):
@@ -175,6 +177,25 @@ def get_writing_document(request: Request, doc_id: int, project_key: str | None 
             raise _handle_not_found(exc) from exc
 
 
+@router.delete("/documents/{doc_id}")
+def delete_writing_document(doc_id: int, request: Request, project_key: str | None = Query(default=None)):
+    resolved_project_key = _resolve_project_key(project_key, request=request)
+    with _writing_project_context(resolved_project_key):
+        try:
+            return success_response(
+                {
+                    "deleted": True,
+                    "document": delete_document(
+                        doc_id=doc_id,
+                        project_key=resolved_project_key,
+                        updated_by_user_id=_resolve_actor_id(request),
+                    ),
+                }
+            )
+        except KeyError as exc:
+            raise _handle_not_found(exc) from exc
+
+
 @router.patch("/documents/{doc_id}")
 def patch_writing_document(doc_id: int, payload: WritingDocumentPatchRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
@@ -189,6 +210,7 @@ def patch_writing_document(doc_id: int, payload: WritingDocumentPatchRequest, re
                     base_version=payload.base_version,
                     if_match=(request.headers.get("If-Match") or "").strip() or None,
                     updated_by_user_id=payload.updated_by_user_id,
+                    metadata_json=payload.metadata_json,
                 )
             )
         except KeyError as exc:

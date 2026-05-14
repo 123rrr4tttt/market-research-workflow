@@ -1,11 +1,13 @@
 import { endpoints } from './api/endpoints'
 import {
   asList,
+  CODEX_AUTH_REQUIRED_EVENT,
   getProjectKey,
   httpDelete as del,
   httpGet as get,
   httpPost as post,
   httpPut as put,
+  resolveApiUrl,
   setProjectKey,
 } from './api/client'
 import { fetchEnvSettings, saveEnvSettings } from './api/services/config'
@@ -21,6 +23,7 @@ import {
 import { fetchDeepHealth, fetchHealth } from './api/services/health'
 import type {
   AgentApprovalResolvePayload,
+  AgentApprovalItem,
   AgentArtifactItem,
   AgentArtifactListResult,
   AgentCoordinatorPassResult,
@@ -35,7 +38,13 @@ import type {
   AgentSessionItem,
   AgentSessionListResult,
   AgentApprovalRequestPayload,
+  AgentChatApprovalContinuePayload,
+  AgentChatApprovalContinueResult,
+  AgentChatCapabilitiesResult,
   AgentSessionTaskRetryPayload,
+  AgentChatTurnPayload,
+  AgentChatTurnResult,
+  AgentSessionEventStreamStatus,
   AgentTaskItem,
   AgentTaskListResult,
   AgentBatchEventsResult,
@@ -91,7 +100,7 @@ export async function getHealth() {
   return fetchHealth()
 }
 
-export { getProjectKey, setProjectKey }
+export { CODEX_AUTH_REQUIRED_EVENT, getProjectKey, setProjectKey }
 
 export async function getDeepHealth() {
   return fetchDeepHealth()
@@ -190,6 +199,7 @@ export type WorkflowGraphTemplateVersionPayload = import('./types').WorkflowGrap
 export {
   autosaveWritingDraft,
   createWritingDocument,
+  deleteWritingDocument,
   exportWritingMarkdown,
   getWritingCardDetail,
   getWritingDocument,
@@ -392,6 +402,124 @@ export async function runAgentBatchNlCommand(payload: AgentBatchNlCommandPayload
   return post<AgentBatchNlCommandResult>(endpoints.agentBatch.nlCommandDirect, payload)
 }
 
+export async function runAgentChatTurn(payload: AgentChatTurnPayload) {
+  return post<AgentChatTurnResult>(endpoints.agentChat.turn, payload)
+}
+
+export async function runAgentChatTurnStream(payload: AgentChatTurnPayload) {
+  return fetch(resolveApiUrl(endpoints.agentChat.turnStream), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export type AgentChatTurnStreamHandlers = {
+  onEvent?: (event: AgentEventItem) => void
+  onStatus?: (status: AgentSessionEventStreamStatus) => void
+  onFinalAnswer?: (answer: string, result?: AgentChatTurnResult | null) => void
+}
+
+function parseAgentChatTurnSseBlock(block: string) {
+  let eventType = 'message'
+  const dataLines: string[] = []
+  for (const line of block.split(/\r?\n/)) {
+    if (line.startsWith('event:')) {
+      eventType = line.replace(/^event:\s*/, '').trim() || eventType
+    } else if (line.startsWith('data:')) {
+      dataLines.push(line.replace(/^data:\s?/, ''))
+    }
+  }
+  if (!dataLines.length) return null
+  try {
+    return { eventType, data: JSON.parse(dataLines.join('\n')) as Record<string, unknown> }
+  } catch {
+    return null
+  }
+}
+
+function isAgentEventPayload(value: unknown): value is AgentEventItem {
+  if (!value || typeof value !== 'object') return false
+  const item = value as Record<string, unknown>
+  return typeof item.event_type === 'string' || typeof item.event_id === 'string' || typeof item.seq === 'number'
+}
+
+export async function runAgentChatTurnStreaming(
+  payload: AgentChatTurnPayload,
+  handlers: AgentChatTurnStreamHandlers = {},
+): Promise<AgentChatTurnResult> {
+  handlers.onStatus?.('connecting')
+  const response = await runAgentChatTurnStream(payload)
+  if (!response.ok) {
+    handlers.onStatus?.('error')
+    throw new Error(`agent chat stream failed: ${response.status}`)
+  }
+  if (!response.body) {
+    handlers.onStatus?.('error')
+    throw new Error('agent chat stream did not return a readable body')
+  }
+
+  handlers.onStatus?.('open')
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let finalResult: AgentChatTurnResult | null = null
+
+  const processBlock = (block: string) => {
+    const parsed = parseAgentChatTurnSseBlock(block)
+    if (!parsed) return
+    const { eventType, data } = parsed
+    if (eventType === 'interactive_agent.error' || eventType === 'agent_core.error') {
+      handlers.onStatus?.('error')
+      throw new Error(String((data.error as Record<string, unknown> | undefined)?.message || 'agent chat stream error'))
+    }
+    if (isAgentEventPayload(data)) {
+      handlers.onEvent?.(data)
+    }
+    if (eventType === 'interactive_agent.final_answer' || eventType === 'agent_core.final_answer') {
+      const dataRecord = data as Record<string, unknown>
+      const result = dataRecord.result
+      if (result && typeof result === 'object') {
+        finalResult = result as AgentChatTurnResult
+        handlers.onFinalAnswer?.(String((finalResult as AgentChatTurnResult).final_answer || ''), finalResult)
+      } else if (typeof dataRecord.final_answer === 'string' || typeof dataRecord.contract_version === 'string') {
+        finalResult = dataRecord as AgentChatTurnResult
+        handlers.onFinalAnswer?.(String(dataRecord.final_answer || ''), finalResult)
+      }
+    }
+  }
+
+  while (true) {
+    const { value, done } = await reader.read()
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+    const blocks = buffer.split(/\n\n/)
+    buffer = blocks.pop() || ''
+    for (const block of blocks) {
+      processBlock(block)
+    }
+    if (done) break
+  }
+  if (buffer.trim()) {
+    processBlock(buffer)
+  }
+  handlers.onStatus?.('closed')
+  if (!finalResult) {
+    throw new Error('agent chat stream closed before final answer')
+  }
+  return finalResult
+}
+
+export async function listAgentChatCapabilities(projectKey?: string | null) {
+  const query = new URLSearchParams()
+  if (projectKey) query.set('project_key', projectKey)
+  const suffix = query.toString()
+  return get<AgentChatCapabilitiesResult>(suffix ? `${endpoints.agentChat.capabilities}?${suffix}` : endpoints.agentChat.capabilities)
+}
+
+export async function continueAgentChatApproval(approvalId: string, payload: AgentChatApprovalContinuePayload = {}) {
+  return post<AgentChatApprovalContinueResult>(endpoints.agentChat.approvalContinue(approvalId), payload)
+}
+
 export async function createAgentSession(payload: AgentSessionCreatePayload) {
   return post<AgentSessionDetail>(endpoints.agentSessions.root, payload)
 }
@@ -432,6 +560,122 @@ export async function listAgentSessionEvents(sessionId: string) {
   return extractSectionList<AgentEventItem>(data, ['events', 'items'])
 }
 
+const AGENT_SESSION_STREAM_EVENT_TYPES = [
+  'session.created',
+  'session.canceled',
+  'task.created',
+  'task.claimed',
+  'task.heartbeat',
+  'task.released',
+  'task.retried',
+  'task.expired',
+  'task.unblocked',
+  'message.created',
+  'artifact.upserted',
+  'approval.requested',
+  'approval.waiting',
+  'approval.resolved',
+  'approval.approved',
+  'approval.failed',
+  'memory.updated',
+  'compat.projected',
+  'compat.job_projected',
+  'compat.job_state_projected',
+  'workflow_graph.run_projected',
+  'coordinator.dispatch_planned',
+  'coordinator.noop',
+  'coordinator.synthesis_completed',
+  'interactive_agent.model_delta',
+  'interactive_agent.turn_started',
+  'interactive_agent.capability_planned',
+  'interactive_agent.tool_call_requested',
+  'interactive_agent.tool_call_started',
+  'interactive_agent.tool_call_result',
+  'interactive_agent.capability_executed',
+  'interactive_agent.approval_continued',
+  'interactive_agent.final_answer',
+  'interactive_agent.failed',
+  'agent_core.session_started',
+  'agent_core.user_message',
+  'agent_core.assistant_delta',
+  'agent_core.assistant_message',
+  'agent_core.tool_call_requested',
+  'agent_core.permission_requested',
+  'agent_core.tool_call_started',
+  'agent_core.tool_progress',
+  'agent_core.tool_result',
+  'agent_core.approval_resolved',
+  'agent_core.run_resumed',
+  'agent_core.final_answer',
+  'agent_core.error',
+]
+
+export type AgentSessionEventStreamOptions = {
+  sinceSeq?: number
+  pollSeconds?: number
+  maxSeconds?: number
+}
+
+export type AgentSessionEventStreamHandlers = {
+  onEvent?: (event: AgentEventItem) => void
+  onStatus?: (status: AgentSessionEventStreamStatus) => void
+  onError?: (error: Event) => void
+}
+
+function parseAgentSessionStreamEvent(message: MessageEvent): AgentEventItem | null {
+  try {
+    const parsed = JSON.parse(String(message.data || '')) as AgentEventItem
+    if (!parsed || typeof parsed !== 'object') return null
+    if (!parsed.event_id && !parsed.event_type && !parsed.seq) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+export function openAgentSessionEventStream(
+  sessionId: string,
+  handlers: AgentSessionEventStreamHandlers = {},
+  options: AgentSessionEventStreamOptions = {},
+) {
+  if (!sessionId || typeof window === 'undefined' || typeof EventSource === 'undefined') {
+    handlers.onStatus?.('idle')
+    return () => undefined
+  }
+  const params = new URLSearchParams({
+    since_seq: String(Math.max(0, Math.trunc(options.sinceSeq || 0))),
+    poll_seconds: String(options.pollSeconds ?? 1),
+    max_seconds: String(options.maxSeconds ?? 120),
+  })
+  const streamUrl = resolveApiUrl(`${endpoints.agentSessions.streamBySession(sessionId)}?${params.toString()}`)
+  const source = new EventSource(streamUrl, { withCredentials: true })
+  let closed = false
+  const emitStatus = (status: AgentSessionEventStreamStatus) => {
+    if (!closed) handlers.onStatus?.(status)
+  }
+  const handleMessage = (event: Event) => {
+    const parsed = parseAgentSessionStreamEvent(event as MessageEvent)
+    if (parsed) handlers.onEvent?.(parsed)
+  }
+
+  emitStatus('connecting')
+  source.onopen = () => emitStatus('open')
+  source.onmessage = handleMessage
+  for (const eventType of AGENT_SESSION_STREAM_EVENT_TYPES) {
+    source.addEventListener(eventType, handleMessage)
+  }
+  source.onerror = (event) => {
+    handlers.onError?.(event)
+    emitStatus('error')
+    source.close()
+  }
+  return () => {
+    closed = true
+    source.close()
+    handlers.onStatus?.('closed')
+  }
+}
+
 export async function listAgentSessionArtifacts(sessionId: string) {
   const data = await get<
     AgentArtifactItem[] | AgentArtifactListResult | { artifacts?: AgentArtifactItem[]; items?: AgentArtifactItem[] }
@@ -460,7 +704,7 @@ export async function requestAgentSessionApproval(sessionId: string, payload: Ag
 }
 
 export async function resolveAgentApproval(approvalId: string, payload: AgentApprovalResolvePayload) {
-  return post<AgentSessionDetail>(endpoints.agentSessions.resolveApprovalById(approvalId), payload)
+  return post<AgentApprovalItem>(endpoints.agentSessions.resolveApprovalById(approvalId), payload)
 }
 
 export async function getEnvSettings() {

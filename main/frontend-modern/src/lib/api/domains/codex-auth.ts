@@ -1,5 +1,5 @@
 import { endpoints } from '../endpoints'
-import { httpGet, httpPost } from '../client'
+import { httpGet, httpPost, resolveApiUrl } from '../client'
 
 export type CodexAuthStatusResponse = {
   codex_oauth_enabled?: boolean
@@ -34,11 +34,14 @@ export async function bootstrapCodexCliLogin() {
   return httpPost<CodexCliBootstrapResponse>(endpoints.codexAuth.cliBootstrap, {})
 }
 
-export function openCodexAuthLoginPopup(nextUrl?: string) {
-  const next = String(nextUrl || window.location.href)
-  const joiner = endpoints.codexAuth.login.includes('?') ? '&' : '?'
-  const loginUrl = `${endpoints.codexAuth.login}${joiner}next_url=${encodeURIComponent(next)}`
+export function openCodexAuthLoginPopup(nextUrl?: string, forceOAuth = false) {
+  const next = String(nextUrl || `${window.location.origin}${window.location.pathname}${window.location.search}${window.location.hash}`)
+  const loginUrl = new URL(resolveApiUrl(endpoints.codexAuth.login), window.location.origin)
+  loginUrl.searchParams.set('next_url', next)
+  if (forceOAuth) {
+    loginUrl.searchParams.set('force_oauth', 'true')
+  }
   // Use same-tab redirect for maximum OAuth compatibility across browsers.
-  window.location.assign(loginUrl)
+  window.location.assign(loginUrl.toString())
   return true
 }

@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-05-14T09:17:00Z",
+  "root": "/Users/wangyiliang/market-research-workflow",
+  "lint": "pass",
+  "frontend_build": "pass",
+  "backend": "pass",
+  "rollback_drill": "pass",
+  "metrics_schema": "pass",
+  "result": "pass"
+}

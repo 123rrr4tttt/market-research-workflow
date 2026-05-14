@@ -62,6 +62,13 @@ function createStorybookRuntime({
     message,
     setMessage: () => undefined,
     projects: createQueryStub(projects) as unknown as KernelRuntime['projects'],
+    codexAuth: createQueryStub({
+      authenticated: true,
+      token_sink_authenticated: true,
+      codex_oauth_enabled: true,
+    }) as unknown as KernelRuntime['codexAuth'],
+    projectOptions: projects,
+    canActivatePendingProject: true,
     health: createQueryStub({ status: 'ok' }) as unknown as KernelRuntime['health'],
     envSettings: createQueryStub({
       DATABASE_URL: 'postgres://storybook',
@@ -75,6 +82,8 @@ function createStorybookRuntime({
       searchReady: true,
       newsReady: true,
       dbReady: true,
+      codexReady: true,
+      codexOauthEnabled: true,
     },
     activateMutation: createMutationStub<KernelRuntime['activateMutation']>(),
     injectInitialMutation: createMutationStub<KernelRuntime['injectInitialMutation']>(),

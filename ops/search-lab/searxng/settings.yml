@@ -1,0 +1,16 @@
+use_default_settings: true
+
+server:
+  bind_address: "0.0.0.0"
+  port: 8080
+  secret_key: "mrw-search-lab-change-before-shared-use"
+
+search:
+  formats:
+    - html
+    - json
+  safe_search: 0
+
+outgoing:
+  request_timeout: 8.0
+

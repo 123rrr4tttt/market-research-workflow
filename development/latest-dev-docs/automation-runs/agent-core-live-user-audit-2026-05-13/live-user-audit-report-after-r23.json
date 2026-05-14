@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-05-13T05:18:02Z",
+  "results": [
+    {
+      "name": "robot_structured_search_compact700",
+      "returncode": 28,
+      "duration_seconds": 75.014,
+      "bytes": 29960,
+      "has_final_bundle": false,
+      "first_answer_event_index": -1,
+      "tool_event_count": 4,
+      "keepalive_count": 14,
+      "answer_excerpt": "",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/robot_structured_search_compact700.sse.txt"
+    }
+  ]
+}

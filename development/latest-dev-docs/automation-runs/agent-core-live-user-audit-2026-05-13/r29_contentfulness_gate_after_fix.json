@@ -1,0 +1,68 @@
+{
+  "created_at": "2026-05-12T23:30:13-0700",
+  "gate": "agent_core_contentfulness_gate.v2",
+  "overall_status": "pass",
+  "fixes_under_test": [
+    "Native/JSON provider final-answer prompt requires concrete object, counts/snippets/result IDs, and next inspectable state after tools.",
+    "source-library run model_summary now includes item keys, project, dispatch task ids, and inspectable next state.",
+    "writing insert model_summary now includes document title/id, operation, diff, source ref count, and inserted excerpt."
+  ],
+  "checks": [
+    {
+      "case": "source_library_approval_continue_after_content_prompt",
+      "status": "pass",
+      "failures": [],
+      "requirements": [
+        {
+          "requirement": "names source-library item",
+          "status": "pass",
+          "evidence": "已为 `market.general.baseline` 补了一轮证据采集，任务已排队完成。\n\n- 项目：`demo_proj`\n- 来源项：`market.general.baseline`\n- 生成的任务 ID：`6ed1453b-a19f-4d9e-917c-83a370676ddc`\n- 当前状态：已进入 source-library ingest 队列\n- 下一步可检查：该任务对应的 source-library ingest 产物/工件是否落盘"
+        },
+        {
+          "requirement": "names generated task id",
+          "status": "pass",
+          "evidence": "已为 `market.general.baseline` 补了一轮证据采集，任务已排队完成。\n\n- 项目：`demo_proj`\n- 来源项：`market.general.baseline`\n- 生成的任务 ID：`6ed1453b-a19f-4d9e-917c-83a370676ddc`\n- 当前状态：已进入 source-library ingest 队列\n- 下一步可检查：该任务对应的 source-library ingest 产物/工件是否落盘"
+        },
+        {
+          "requirement": "names next inspectable state",
+          "status": "pass",
+          "evidence": "已为 `market.general.baseline` 补了一轮证据采集，任务已排队完成。\n\n- 项目：`demo_proj`\n- 来源项：`market.general.baseline`\n- 生成的任务 ID：`6ed1453b-a19f-4d9e-917c-83a370676ddc`\n- 当前状态：已进入 source-library ingest 队列\n- 下一步可检查：该任务对应的 source-library ingest 产物/工件是否落盘"
+        },
+        {
+          "requirement": "continue executed source-library run",
+          "status": "pass",
+          "evidence": "['ingest.source_library.run']"
+        }
+      ],
+      "final_answer_preview": "已为 `market.general.baseline` 补了一轮证据采集，任务已排队完成。\n\n- 项目：`demo_proj`\n- 来源项：`market.general.baseline`\n- 生成的任务 ID：`6ed1453b-a19f-4d9e-917c-83a370676ddc`\n- 当前状态：已进入 source-library ingest 队列\n- 下一步可检查：该任务对应的 source-library ingest 产物/工件是否落盘"
+    },
+    {
+      "case": "writing_writeback_after_content_prompt",
+      "status": "pass",
+      "failures": [],
+      "requirements": [
+        {
+          "requirement": "names concrete document",
+          "status": "pass",
+          "evidence": "已在写作工作台新建短文 **Robot Contentfulness Snapshot**（文档 ID: 11），并写入了一段中文短文，核心内容是：机器人市场正在同时扩张“内容供给”和“应用场景”，工业、服务、教育机器人持续受关注，同时围绕感知、控制、协作与人机交互的描述变得更具体、更可落地；结尾强调这不仅是“机器人变多了”，也是“相关信息、案例和能力描述更丰富了”。\n\n我写入的是一段聚焦“市场内容充实度”的概述，偏向趋势判断而非数据罗列。"
+        },
+        {
+          "requirement": "names document id",
+          "status": "pass",
+          "evidence": "已在写作工作台新建短文 **Robot Contentfulness Snapshot**（文档 ID: 11），并写入了一段中文短文，核心内容是：机器人市场正在同时扩张“内容供给”和“应用场景”，工业、服务、教育机器人持续受关注，同时围绕感知、控制、协作与人机交互的描述变得更具体、更可落地；结尾强调这不仅是“机器人变多了”，也是“相关信息、案例和能力描述更丰富了”。\n\n我写入的是一段聚焦“市场内容充实度”的概述，偏向趋势判断而非数据罗列。"
+        },
+        {
+          "requirement": "summarizes inserted content",
+          "status": "pass",
+          "evidence": "已在写作工作台新建短文 **Robot Contentfulness Snapshot**（文档 ID: 11），并写入了一段中文短文，核心内容是：机器人市场正在同时扩张“内容供给”和“应用场景”，工业、服务、教育机器人持续受关注，同时围绕感知、控制、协作与人机交互的描述变得更具体、更可落地；结尾强调这不仅是“机器人变多了”，也是“相关信息、案例和能力描述更丰富了”。\n\n我写入的是一段聚焦“市场内容充实度”的概述，偏向趋势判断而非数据罗列。"
+        }
+      ],
+      "final_answer_preview": "已在写作工作台新建短文 **Robot Contentfulness Snapshot**（文档 ID: 11），并写入了一段中文短文，核心内容是：机器人市场正在同时扩张“内容供给”和“应用场景”，工业、服务、教育机器人持续受关注，同时围绕感知、控制、协作与人机交互的描述变得更具体、更可落地；结尾强调这不仅是“机器人变多了”，也是“相关信息、案例和能力描述更丰富了”。\n\n我写入的是一段聚焦“市场内容充实度”的概述，偏向趋势判断而非数据罗列。"
+    }
+  ],
+  "source_artifacts": [
+    "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_contentfulness_rerun/summary.json",
+    "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_contentfulness_rerun/source_library_approval_after_content_prompt.continue.json",
+    "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_contentfulness_rerun/writing_writeback_after_content_prompt.sse.txt"
+  ]
+}

@@ -168,7 +168,7 @@ button, select, input, textarea { font-family: inherit; }
 .kernel-admin__shell {
   display: grid;
   grid-template-columns: 160px minmax(0, 1fr);
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - 118px);
 }
 
 .kernel-admin__sidebar {
@@ -271,17 +271,24 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__main {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 8px;
-  padding: 20px;
+  grid-template-rows: minmax(0, 1fr);
+  padding: 18px 20px 20px;
 }
 
-.kernel-admin__hero {
-  padding: 8px 0 12px;
+.kernel-admin__topbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(480px, 1.2fr);
+  align-items: start;
+  gap: 14px 20px;
+  padding: 12px 20px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.16);
 }
 
-.kernel-admin__hero p {
+.kernel-admin__topbar-heading {
+  min-width: 0;
+}
+
+.kernel-admin__topbar-heading p {
   margin: 0;
   color: rgba(243, 243, 243, 0.5);
   text-transform: uppercase;
@@ -289,13 +296,51 @@ button, select, input, textarea { font-family: inherit; }
   font-size: 10px;
 }
 
-.kernel-admin__hero h1 {
-  margin: 6px 0 0;
-  max-width: 720px;
-  font-size: clamp(36px, 6vw, 72px);
-  line-height: 0.94;
+.kernel-admin__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.kernel-admin__title-row h1 {
+  margin: 0;
+  font-size: clamp(28px, 3.2vw, 42px);
+  line-height: 1;
   font-weight: 650;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
+}
+
+.kernel-admin__title-row span {
+  color: var(--admin-text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.kernel-admin__topbar-diagnostics {
+  display: flex;
+  align-items: start;
+  justify-content: end;
+  gap: 14px;
+  min-width: 0;
+}
+
+.kernel-admin__project-bar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) repeat(3, minmax(140px, 0.42fr));
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kernel-admin__project-bar button {
+  min-height: 30px;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .kernel-visual {
@@ -449,12 +494,12 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__status-strip {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  padding: 2px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  grid-template-columns: 1fr;
+  align-self: start;
+  gap: 6px;
+  padding: 0;
+  justify-self: end;
+  width: min(100%, 600px);
 }
 
 .kernel-admin__status-strip-label {
@@ -467,15 +512,17 @@ button, select, input, textarea { font-family: inherit; }
 
 .kernel-admin__status-strip-chips {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .kernel-admin__status-strip-chips button {
   width: 100%;
-  min-height: 28px;
-  padding: 4px 10px;
+  min-height: 26px;
+  padding: 3px 8px;
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: none;
@@ -1357,8 +1404,8 @@ button, select, input, textarea { font-family: inherit; }
 }
 
 .kernel-workbench--flowWriting .writing-floating-toolbar {
-  top: 68px;
-  width: min(1220px, calc(100vw - 48px));
+  top: 14px;
+  width: min(1220px, calc(100% - 48px));
   border-color: rgba(19, 35, 55, 0.12);
   background: rgba(247, 250, 252, 0.82);
   box-shadow: none;
@@ -1369,7 +1416,7 @@ button, select, input, textarea { font-family: inherit; }
 }
 
 .kernel-workbench--flowWriting .writing-canvas-pane {
-  padding-top: 94px;
+  padding-top: 88px;
 }
 
 .kernel-workbench--flowWriting .writing-canvas-pane--editor .writing-editor,
@@ -3520,15 +3567,21 @@ tbody tr:last-child td { border-bottom: 0; }
   .kernel-admin {
     display: block;
   }
-  .kernel-admin__rail {
-    grid-template-columns: 1fr;
-    gap: 6px;
-    padding: 12px 14px;
-  }
-  .kernel-admin__rail-actions,
-  .kernel-admin__status-strip,
+  .kernel-admin__topbar,
+  .kernel-admin__project-bar,
   .kernel-admin__status-strip-chips {
     grid-template-columns: 1fr;
+  }
+  .kernel-admin__topbar {
+    gap: 12px;
+  }
+  .kernel-admin__topbar-diagnostics {
+    display: grid;
+    justify-content: stretch;
+  }
+  .kernel-admin__status-strip {
+    justify-self: stretch;
+    width: 100%;
   }
   .kernel-admin__shell {
     grid-template-columns: 1fr;

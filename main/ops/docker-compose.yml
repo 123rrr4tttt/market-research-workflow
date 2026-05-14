@@ -46,6 +46,8 @@ services:
     build:
       context: ../
       dockerfile: ./backend/Dockerfile
+      args:
+        INSTALL_OPTIONAL_ENHANCEMENTS: ${INSTALL_OPTIONAL_ENHANCEMENTS:-false}
     env_file:
       - ../backend/.env
     environment:
@@ -53,6 +55,9 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@db:5432/postgres}
       ES_URL: ${ES_URL:-http://es:9200}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://searxng:8080}
+      YACY_BASE_URL: ${YACY_BASE_URL:-http://yacy:8090}
+      YACY_RESOURCE_MODE: ${YACY_RESOURCE_MODE:-local}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS_BACKEND:-true}
       CELERY_LOG_FILE: /var/log/celery/worker.log
       OPENAI_API_BASE: "https://api.openai.com/v1"
@@ -73,6 +78,7 @@ services:
       # 单独挂载启动脚本，确保entrypoint可用
       - ../backend/docker-entrypoint.sh:/docker-entrypoint.sh:ro
       - ../logs:/var/log/celery
+      - codex_auth:/root/.codex
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 30s
@@ -85,11 +91,18 @@ services:
     build:
       context: ../
       dockerfile: ./backend/Dockerfile
+      args:
+        INSTALL_OPTIONAL_ENHANCEMENTS: ${INSTALL_OPTIONAL_ENHANCEMENTS:-false}
+    env_file:
+      - ../backend/.env
     environment:
       DOCKER_ENV: "true"
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@db:5432/postgres}
       ES_URL: ${ES_URL:-http://es:9200}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://searxng:8080}
+      YACY_BASE_URL: ${YACY_BASE_URL:-http://yacy:8090}
+      YACY_RESOURCE_MODE: ${YACY_RESOURCE_MODE:-local}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS_WORKER:-false}
       CELERY_LOG_FILE: /var/log/celery/worker.log
     depends_on:
@@ -103,6 +116,7 @@ services:
       - ../backend:/app
       - ../../信息源库:/app/信息源库:ro
       - ../logs:/var/log/celery
+      - codex_auth:/root/.codex
     command: >-
       celery -A app.celery_app worker
       --loglevel=${CELERY_LOG_LEVEL:-info}
@@ -155,6 +169,40 @@ services:
     profiles:
       - modern-ui
 
+  launcher-ui:
+    build:
+      context: ./launcher-ui
+      dockerfile: Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      launcher-agent:
+        condition: service_started
+    ports:
+      - "5176:80"
+    profiles:
+      - modern-ui
+
+  launcher-agent:
+    build:
+      context: ./launcher-agent
+      dockerfile: Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      HOST_PROJECT_ROOT: ${HOST_PROJECT_ROOT:-/Users/wangyiliang/market-research-workflow}
+      LAUNCHER_PROJECT_NAME: ${LAUNCHER_PROJECT_NAME:-mrw-launcher}
+      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://host.docker.internal:8000}
+      LAUNCHER_AGENT_PORT: 8787
+    working_dir: ${HOST_PROJECT_ROOT:-/Users/wangyiliang/market-research-workflow}/main/ops
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOST_PROJECT_ROOT:-/Users/wangyiliang/market-research-workflow}:${HOST_PROJECT_ROOT:-/Users/wangyiliang/market-research-workflow}
+    ports:
+      - "127.0.0.1:8787:8787"
+    profiles:
+      - modern-ui
+
   scrapyd:
     image: vimagick/scrapyd:latest
     ports:
@@ -168,6 +216,31 @@ services:
     profiles:
       - scrapyd
 
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "127.0.0.1:8088:8080"
+    volumes:
+      - ../../ops/search-lab/searxng:/etc/searxng:rw
+      - searxng_cache:/var/cache/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://127.0.0.1:8088/
+    restart: unless-stopped
+    profiles:
+      - search-enhancements
+
+  yacy:
+    image: yacy/yacy_search_server:latest
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - ../../ops/search-lab/yacy/DATA:/opt/yacy_search_server/DATA
+    restart: unless-stopped
+    profiles:
+      - search-enhancements
+
 volumes:
   db_data:
   es_data:
+  searxng_cache:
+  codex_auth:

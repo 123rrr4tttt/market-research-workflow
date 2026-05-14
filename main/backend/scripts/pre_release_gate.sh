@@ -54,7 +54,21 @@ echo "[gate] step 2/3: targeted contract/unit tests"
 if [[ "$MODE" == "quick" ]]; then
   "$PYTHON_BIN" -m pytest -q \
     tests/unit/test_streamplus_contracts_unittest.py \
-    tests/unit/test_collect_runtime_process_fallback_unittest.py
+    tests/unit/test_collect_runtime_process_fallback_unittest.py \
+    tests/unit/test_agent_control_tools_unittest.py \
+    tests/unit/test_agent_run_loop_unittest.py \
+    tests/unit/test_agent_session_memory_unittest.py \
+    tests/unit/test_interactive_agent_runtime_unittest.py \
+    tests/unit/test_local_index_service_unittest.py \
+    tests/unit/test_material_ontology_unittest.py \
+    tests/unit/test_search_web_provider_adapters_unittest.py \
+    tests/unit/test_source_candidate_trust_unittest.py \
+    tests/unit/test_source_library_url_pool_adapter_unittest.py \
+    tests/unit/test_structured_data_search_unittest.py \
+    tests/integration/test_agent_chat_api_unittest.py \
+    tests/integration/test_agent_runtime_artifact_idle_replay_unittest.py \
+    tests/integration/test_agent_runtime_scenario_replay_unittest.py \
+    tests/integration/test_writing_api_unittest.py
 else
   "$PYTHON_BIN" -m pytest -q \
     tests/unit \

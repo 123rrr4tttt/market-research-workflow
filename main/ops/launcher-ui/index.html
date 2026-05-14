@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Market Research Workflow Docker Launcher</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="launcher">
+      <header class="topbar">
+        <div class="brand">
+          <div class="mark">MR</div>
+          <div>
+            <h1>Market Research Workflow</h1>
+            <p id="subtitle">Docker control plane</p>
+          </div>
+        </div>
+        <button id="refresh" class="ghost" type="button">Refresh</button>
+      </header>
+
+      <section class="summary">
+        <div class="score" aria-label="running service ratio">
+          <span id="score">0</span>
+          <small>%</small>
+        </div>
+        <div class="summary-copy">
+          <span id="state" class="state">Checking...</span>
+          <h2 id="headline">Launcher is ready</h2>
+          <p id="runtime-detail">Docker UI starts first; use it to control the app stack and optional search services.</p>
+        </div>
+        <div class="summary-badges">
+          <span id="app-count">App 0/6</span>
+          <span id="control-count">Control 0/2</span>
+        </div>
+      </section>
+
+      <section class="mode-row">
+        <article class="mode-card">
+          <span class="icon">D</span>
+          <div>
+            <h3>Docker App</h3>
+            <p>Backend, frontend, worker, database, Redis, Elasticsearch</p>
+          </div>
+        </article>
+        <article class="mode-card muted">
+          <span class="icon">C</span>
+          <div>
+            <h3>Control Plane</h3>
+            <p>Launcher UI and agent stay online while app services stop</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h3>Optional Startup Enhancements</h3>
+          <p>Only starts when checked</p>
+        </div>
+        <div class="enhancements">
+          <label class="enhancement">
+            <input id="with-searxng" type="checkbox" />
+            <span>SearXNG</span>
+            <small>External metasearch :8088</small>
+          </label>
+          <label class="enhancement">
+            <input id="with-yacy" type="checkbox" />
+            <span>YaCy</span>
+            <small>Local corpus search :8090</small>
+          </label>
+          <label class="enhancement disabled">
+            <input id="with-lancedb" type="checkbox" disabled />
+            <span>LanceDB</span>
+            <small>Backend optional dependency</small>
+          </label>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="docker actions">
+        <button id="start" type="button">Start App</button>
+        <button id="stop" class="danger" type="button">Stop App</button>
+        <button id="restart" class="warn" type="button">Restart App</button>
+        <a href="http://127.0.0.1:5174" target="_blank" rel="noreferrer">App UI</a>
+        <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">API Docs</a>
+        <a href="/settings.html">API Settings</a>
+        <button id="codex-auth" type="button">Codex Auth</button>
+        <div id="codex-device-panel" class="codex-panel" hidden>
+          <span>Device code</span>
+          <strong id="codex-device-code">-</strong>
+          <div class="codex-actions">
+            <button id="copy-codex-code" type="button">Copy Code</button>
+            <button id="open-codex-auth" type="button">Open Auth Page</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel codex-status-panel">
+        <div class="panel-title">
+          <h3>Codex Status</h3>
+          <p id="codex-updated">Checking...</p>
+        </div>
+        <div class="codex-status-grid">
+          <span id="codex-cli-state">CLI: unknown</span>
+          <span id="codex-auth-state">Auth: unknown</span>
+          <span id="codex-core-state">Core: unknown</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h3>Frontend Shortcuts</h3>
+          <p>Open business frontend routes on port 5174</p>
+        </div>
+        <div class="provider-grid frontend-grid">
+          <a href="http://127.0.0.1:5174/#/admin/process" target="_blank" rel="noreferrer">Process</a>
+          <a href="http://127.0.0.1:5174/#/admin/ops" target="_blank" rel="noreferrer">Ops</a>
+          <a href="http://127.0.0.1:5174/#/visual/dashboard" target="_blank" rel="noreferrer">Dashboard</a>
+          <a href="http://127.0.0.1:5174/#/visual/catalog" target="_blank" rel="noreferrer">Catalog</a>
+          <a href="http://127.0.0.1:5174/#/workbench/ingest" target="_blank" rel="noreferrer">Ingest</a>
+          <a href="http://127.0.0.1:5174/#/workbench/raw-data" target="_blank" rel="noreferrer">Raw Data</a>
+          <a href="http://127.0.0.1:5174/#/workbench/writing" target="_blank" rel="noreferrer">Writing</a>
+          <a href="http://127.0.0.1:5174/#/workbench/agent" target="_blank" rel="noreferrer">Agent Chat</a>
+          <a href="http://127.0.0.1:5174/#/admin/projects" target="_blank" rel="noreferrer">Projects</a>
+          <a href="http://127.0.0.1:5174/#/admin/settings" target="_blank" rel="noreferrer">Frontend Settings</a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h3>Runtime Monitor</h3>
+          <p id="updated">Waiting for status</p>
+        </div>
+        <div id="services" class="service-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h3>External Provider Links</h3>
+          <p>Open provider consoles in a new tab</p>
+        </div>
+        <div class="provider-grid">
+          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">OpenAI</a>
+          <a href="https://portal.azure.com/" target="_blank" rel="noreferrer">Azure</a>
+          <a href="https://ollama.com/download" target="_blank" rel="noreferrer">Ollama</a>
+          <a href="https://serper.dev/api-key" target="_blank" rel="noreferrer">Serper</a>
+          <a href="https://programmablesearchengine.google.com/" target="_blank" rel="noreferrer">Google CSE</a>
+          <a href="https://serpapi.com/manage-api-key" target="_blank" rel="noreferrer">SerpApi</a>
+          <a href="https://serpstack.com/dashboard" target="_blank" rel="noreferrer">Serpstack</a>
+          <a href="https://www.microsoft.com/bing/apis/bing-web-search-api" target="_blank" rel="noreferrer">Bing</a>
+          <a href="https://legiscan.com/legiscan" target="_blank" rel="noreferrer">LegiScan</a>
+          <a href="https://developer.x.com/" target="_blank" rel="noreferrer">Twitter/X</a>
+        </div>
+      </section>
+
+      <section class="panel control">
+        <div class="panel-title">
+          <h3>Control Plane</h3>
+          <p>Docker socket access is limited to launcher whitelist actions</p>
+        </div>
+        <div class="facts">
+          <span id="control">Control services: -</span>
+          <span id="socket">Docker socket: -</span>
+          <span id="ops">Ops dir: -</span>
+        </div>
+      </section>
+
+      <p id="message" class="message"></p>
+    </main>
+    <script src="/app.js?v=20260514-auth-redirect"></script>
+  </body>
+</html>

@@ -83,6 +83,12 @@ export const endpoints = {
     nlCommand: `${API_BASE}/agent-batch/nl-command`,
     nlCommandDirect: `${API_BASE}/agent-batch/nl-command/direct`,
   },
+  agentChat: {
+    capabilities: `${API_BASE}/agent-chat/capabilities`,
+    turn: `${API_BASE}/agent-chat/turn`,
+    turnStream: `${API_BASE}/agent-chat/turn/stream`,
+    approvalContinue: (approvalId: string) => `${API_BASE}/agent-chat/approvals/${encodeURIComponent(approvalId)}/continue`,
+  },
   agentSessions: {
     root: `${API_BASE}/agent-sessions`,
     byId: (sessionId: string) => `${API_BASE}/agent-sessions/${encodeURIComponent(sessionId)}`,

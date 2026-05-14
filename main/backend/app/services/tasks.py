@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from importlib import import_module
 from contextlib import nullcontext
-from datetime import datetime
+from datetime import datetime, timezone
+import hashlib
+import json
 from math import ceil
 from typing import Any
 
@@ -61,6 +63,173 @@ def _map_control_status(status: str | None, default: str = "running") -> str:
     if value in {"failed", "failure", "error", "cancelled", "canceled"}:
         return "failed"
     return default
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _stable_hash(value: Any) -> str:
+    try:
+        encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    except Exception:
+        encoded = str(value)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _compact_agent_task_value(value: Any, *, max_items: int = 20, max_depth: int = 4) -> Any:
+    if max_depth <= 0:
+        return "..."
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for index, (key, item) in enumerate(value.items()):
+            if index >= max_items:
+                out["..."] = f"{len(value) - max_items} more"
+                break
+            out[str(key)] = _compact_agent_task_value(item, max_items=max_items, max_depth=max_depth - 1)
+        return out
+    if isinstance(value, list):
+        return [_compact_agent_task_value(item, max_items=max_items, max_depth=max_depth - 1) for item in value[:max_items]]
+    if isinstance(value, str) and len(value) > 1200:
+        return f"{value[:1200]}..."
+    return value
+
+
+def _agent_url_pool_marker(search_options: dict | None) -> dict[str, Any]:
+    if not isinstance(search_options, dict):
+        return {}
+    marker = search_options.get("_agent_core_url_pool_submission")
+    return dict(marker or {}) if isinstance(marker, dict) else {}
+
+
+def _agent_session_canceled(marker: dict[str, Any]) -> bool:
+    session_id = str(marker.get("session_id") or "").strip()
+    if not session_id:
+        return False
+    try:
+        from .agent_sessions.service import get_agent_session_service
+
+        session = get_agent_session_service().get_session(session_id)
+    except Exception:  # noqa: BLE001
+        return False
+    return str((session or {}).get("status") or "").strip().lower() == "canceled"
+
+
+def _record_agent_url_pool_task_event(
+    marker: dict[str, Any],
+    *,
+    status: str,
+    result: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> None:
+    session_id = str(marker.get("session_id") or "").strip()
+    if not session_id:
+        return
+    artifact_name = str(marker.get("artifact_name") or "ingest.url_pool_submissions.json").strip() or "ingest.url_pool_submissions.json"
+    task_id = str(marker.get("task_id") or "").strip()
+    url = str(marker.get("url") or "").strip()
+    idempotency_key = str(marker.get("idempotency_key") or "").strip()
+    event_payload = {
+        "event_id": _stable_hash({"session_id": session_id, "task_id": task_id, "url": url, "status": status}),
+        "contract_version": "ingest.url_pool.task_event.v1",
+        "project_key": str(marker.get("project_key") or "").strip(),
+        "url": url,
+        "task_id": task_id,
+        "status": status,
+        "idempotency_key": idempotency_key,
+        "candidate_review_key": str(marker.get("candidate_review_key") or "").strip(),
+        "source_call_id": str(marker.get("source_call_id") or "").strip(),
+        "recorded_at": _utcnow_iso(),
+        "result": _compact_agent_task_value(result or {}, max_items=18, max_depth=4),
+        "error": str(error or "").strip() or None,
+    }
+    try:
+        from .agent_sessions.service import get_agent_session_service
+
+        service = get_agent_session_service()
+        existing_events_artifact = next(
+            (item for item in service.list_artifacts(session_id) if item.get("name") == "ingest.url_pool_task_events.json"),
+            None,
+        )
+        events_content = dict((existing_events_artifact or {}).get("content_json") or {})
+        events = [dict(item) for item in list(events_content.get("events") or []) if isinstance(item, dict)]
+        events = [item for item in events if str(item.get("event_id") or "") != event_payload["event_id"]]
+        events.append(event_payload)
+        service.store.upsert_artifact(
+            {
+                "session_id": session_id,
+                "name": "ingest.url_pool_task_events.json",
+                "artifact_type": "url_pool_ingest_task_event_state",
+                "mime_type": "application/json",
+                "content_text": json.dumps(
+                    {
+                        "contract_version": "ingest.url_pool.task_event.v1",
+                        "updated_at": event_payload["recorded_at"],
+                        "events": events[-100:],
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    default=str,
+                ),
+                "content_json": {
+                    "contract_version": "ingest.url_pool.task_event.v1",
+                    "updated_at": event_payload["recorded_at"],
+                    "events": events[-100:],
+                },
+                "metadata": {
+                    "contract_version": "ingest.url_pool.task_event.v1",
+                    "auto_written_by": "task_ingest_url_via_source_library",
+                },
+            }
+        )
+
+        existing_submission_artifact = next((item for item in service.list_artifacts(session_id) if item.get("name") == artifact_name), None)
+        submission_content = dict((existing_submission_artifact or {}).get("content_json") or {})
+        submissions = [dict(item) for item in list(submission_content.get("submissions") or []) if isinstance(item, dict)]
+        for submission in submissions:
+            same_key = idempotency_key and str(submission.get("idempotency_key") or "") == idempotency_key
+            same_url = url and str(submission.get("url") or "").strip() == url
+            if not same_key and not same_url:
+                continue
+            task_events = [dict(item) for item in list(submission.get("task_events") or []) if isinstance(item, dict)]
+            task_events = [item for item in task_events if str(item.get("event_id") or "") != event_payload["event_id"]]
+            task_events.append(event_payload)
+            submission["task_events"] = task_events[-20:]
+            submission["latest_task_status"] = status
+            submission["latest_task_event_at"] = event_payload["recorded_at"]
+            if status == "completed":
+                submission["completed_at"] = event_payload["recorded_at"]
+                submission["task_result"] = event_payload["result"]
+            if status == "failed":
+                submission["failed_at"] = event_payload["recorded_at"]
+                submission["task_error"] = event_payload["error"]
+        if submissions:
+            updated_submission_content = {
+                **submission_content,
+                "updated_at": event_payload["recorded_at"],
+                "submissions": submissions[-100:],
+            }
+            service.store.upsert_artifact(
+                {
+                    "session_id": session_id,
+                    "name": artifact_name,
+                    "artifact_type": "url_pool_ingest_submission_state",
+                    "mime_type": "application/json",
+                    "content_text": json.dumps(updated_submission_content, ensure_ascii=False, sort_keys=True, default=str),
+                    "content_json": updated_submission_content,
+                    "metadata": {
+                        "contract_version": str(updated_submission_content.get("contract_version") or "ingest.url_pool.submit.v1"),
+                        "auto_updated_by": "task_ingest_url_via_source_library",
+                    },
+                }
+            )
+        service.store.append_event(
+            session_id,
+            event_type=f"ingest.url_pool.task.{status}",
+            payload=event_payload,
+        )
+    except Exception:  # noqa: BLE001
+        return
 
 
 def _load_crawlers_bridge_api():
@@ -230,19 +399,36 @@ def task_ingest_url_via_source_library(
 ) -> dict:
     from .ingest.url_pool import ingest_url_via_source_library_frontdoor
 
+    marker = _agent_url_pool_marker(search_options)
+    if _agent_session_canceled(marker):
+        result = {
+            "status": "canceled",
+            "abort_requested": True,
+            "url": url,
+            "project_key": project_key,
+            "reason": "agent_session_canceled_before_url_pool_ingest",
+        }
+        _record_agent_url_pool_task_event(marker, status="canceled", result=result)
+        return result
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
-        return ingest_url_via_source_library_frontdoor(
-            url=url,
-            project_key=project_key,
-            query_terms=query_terms,
-            strict_mode=strict_mode,
-            search_options=search_options,
-            frontdoor_options={"enabled": True},
-            entrypoint="ingest.url.single.async",
-            source_name="task_ingest_url_via_source_library",
-            enable_extraction=True,
-        )
+        try:
+            result = ingest_url_via_source_library_frontdoor(
+                url=url,
+                project_key=project_key,
+                query_terms=query_terms,
+                strict_mode=strict_mode,
+                search_options=search_options,
+                frontdoor_options={"enabled": True},
+                entrypoint="ingest.url.single.async",
+                source_name="task_ingest_url_via_source_library",
+                enable_extraction=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            _record_agent_url_pool_task_event(marker, status="failed", error=str(exc))
+            raise
+        _record_agent_url_pool_task_event(marker, status="completed", result=result if isinstance(result, dict) else {"result": result})
+        return result
 
 
 

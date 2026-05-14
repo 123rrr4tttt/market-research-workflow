@@ -1,0 +1,182 @@
+{
+  "created_at": "2026-05-12T23:01:57-0700",
+  "cases": [
+    {
+      "name": "capability_summary",
+      "elapsed_seconds": 16.413,
+      "event_count": 28,
+      "first_progress_event": "agent_core.assistant_delta",
+      "has_final_answer": true,
+      "final_answer_preview": "我现在可以做的是“读项目、看工具、给你判断”，不执行实际任务。结合当前项目数据和可用工具，能力边界大致如下：\n\n- 项目状态：`demo_proj` 当前是 conversation 阶段，任务 `task-623a69cb1f304b97` 仍 pending\n- 当前会话里已有：2 个 artifact、3 个事件、1 条消息、1 个任务\n- 现有 artifact：`memory.md`、`scratchpad.md`\n- 源库覆盖：共有 17 个可用 source-library 条目，包含如 `market.general.baseline`、`news.general.regula",
+      "tool_names": [],
+      "approval_id": null,
+      "session_id": "as-8b6e6f257e284ce2",
+      "event_prefix": [
+        "agent_core.stream_opened",
+        "agent_core.stream_started",
+        "agent_core.session_started",
+        "agent_core.user_message",
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.tool_call_requested",
+        "agent_core.tool_call_started"
+      ],
+      "event_suffix": [
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.turn_state",
+        "agent_core.assistant_message",
+        "agent_core.final_answer",
+        "agent_core.final_answer"
+      ],
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/capability_summary.sse.txt"
+    },
+    {
+      "name": "source_library_approval",
+      "elapsed_seconds": 14.147,
+      "event_count": 13,
+      "first_progress_event": "agent_core.assistant_delta",
+      "has_final_answer": true,
+      "final_answer_preview": "我需要先确认这个工具调用的执行边界，确认后会从同一会话继续。",
+      "tool_names": [],
+      "approval_id": "approval-12799d9bc11d48b9",
+      "session_id": "as-9093a79147094674",
+      "event_prefix": [
+        "agent_core.stream_opened",
+        "agent_core.stream_started",
+        "agent_core.session_started",
+        "agent_core.user_message",
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.turn_state"
+      ],
+      "event_suffix": [
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.turn_state",
+        "agent_core.tool_call_requested",
+        "agent_core.permission_requested",
+        "agent_core.final_answer"
+      ],
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/source_library_approval.sse.txt",
+      "continue_status_code": 200,
+      "continue_elapsed_seconds": 4.607,
+      "continue_final_answer_preview": "已为来源库 `market.general.baseline` 提交补证任务，并已进入队列。当前先不展开后续动作，等待你确认后我再继续。",
+      "continue_tool_names": [
+        "ingest.source_library.run"
+      ],
+      "continue_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/source_library_approval.continue.json"
+    },
+    {
+      "name": "long_investigation_trace",
+      "elapsed_seconds": 16.722,
+      "event_count": 29,
+      "first_progress_event": "agent_core.assistant_delta",
+      "has_final_answer": true,
+      "final_answer_preview": "已完成两步调查计划：\n1. 已先列出机器人市场的初始线索与来源方向（覆盖机器人行业、humanoid / industrial / service robot market 等主题）。\n2. 已读取线索追踪结果；当前还没有名为 `investigation.leads.json` 的追踪工件，因此暂时没有既有追踪链路可展开。\n\n如果你愿意，我可以继续基于这些线索做下一步检索或把追踪结果整理成口头摘要。",
+      "tool_names": [],
+      "approval_id": null,
+      "session_id": "as-21997302d78540ad",
+      "event_prefix": [
+        "agent_core.stream_opened",
+        "agent_core.stream_started",
+        "agent_core.session_started",
+        "agent_core.user_message",
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.tool_call_requested",
+        "agent_core.tool_call_started"
+      ],
+      "event_suffix": [
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.turn_state",
+        "agent_core.assistant_message",
+        "agent_core.final_answer",
+        "agent_core.final_answer"
+      ],
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/long_investigation_trace.sse.txt"
+    },
+    {
+      "name": "writing_writeback",
+      "elapsed_seconds": 18.688,
+      "event_count": 29,
+      "first_progress_event": "agent_core.assistant_delta",
+      "has_final_answer": true,
+      "final_answer_preview": "已在写作工作台新建文档《Robot Market Snapshot》，并追加了关于机器人市场数据的短段落，附带了来源引用。",
+      "tool_names": [],
+      "approval_id": null,
+      "session_id": "as-ed0296cf31584967",
+      "event_prefix": [
+        "agent_core.stream_opened",
+        "agent_core.stream_started",
+        "agent_core.session_started",
+        "agent_core.user_message",
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.tool_call_requested",
+        "agent_core.tool_call_started"
+      ],
+      "event_suffix": [
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.turn_state",
+        "agent_core.assistant_message",
+        "agent_core.final_answer",
+        "agent_core.final_answer"
+      ],
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/writing_writeback.sse.txt"
+    },
+    {
+      "name": "followup_summary",
+      "elapsed_seconds": 9.769,
+      "event_count": 18,
+      "first_progress_event": "agent_core.assistant_delta",
+      "has_final_answer": true,
+      "final_answer_preview": "我已根据项目里已经存储的数据做了检索和汇总。\n- 来源库/采集入口：17 个，启用 17 个。\n- 当前会话数据：1 个任务、3 个事件、2 个产物。\n- 结构化数据检索：关键词 `机器人` 匹配 40 条记录。\n- 命中的数据集：documents: 20、graph_nodes: 20、sources: 0、search_history: 0、keyword_history: 0。\n- 代表性记录：\n  - `documents` NBC4 Los Angeles – Southern California news, weather：if (typeof adInstance === '",
+      "tool_names": [],
+      "approval_id": null,
+      "session_id": "as-1a218274d1014e85",
+      "event_prefix": [
+        "agent_core.stream_opened",
+        "agent_core.stream_started",
+        "agent_core.session_started",
+        "agent_core.user_message",
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.tool_call_requested",
+        "agent_core.tool_call_started"
+      ],
+      "event_suffix": [
+        "agent_core.tool_result",
+        "agent_core.tool_call_requested",
+        "agent_core.tool_call_started",
+        "agent_core.tool_result",
+        "agent_core.turn_state",
+        "agent_core.assistant_message",
+        "agent_core.final_answer",
+        "agent_core.final_answer"
+      ],
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/followup_summary.sse.txt"
+    }
+  ]
+}

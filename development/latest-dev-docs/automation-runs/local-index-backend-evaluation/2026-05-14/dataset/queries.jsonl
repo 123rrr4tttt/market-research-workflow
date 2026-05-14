@@ -1,0 +1,30 @@
+{"query_id": "q001", "query": "source_library database boundary", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q002", "query": "SearXNG external search provider", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q003", "query": "YaCy local push search", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q004", "query": "agent retrieval metadata filter", "type": "semantic", "project_id": "latest-dev-docs"}
+{"query_id": "q005", "query": "workflow graph vector search", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q006", "query": "ingest source configuration", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q007", "query": "document material chunk retrieval", "type": "semantic", "project_id": "latest-dev-docs"}
+{"query_id": "q008", "query": "具身智能 政策", "type": "hybrid", "project_id": "latest-dev-docs"}
+{"query_id": "q009", "query": "robotics policy benchmark", "type": "hybrid", "project_id": "latest-dev-docs"}
+{"query_id": "q010", "query": "source candidate review", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q011", "query": "local index backend evaluation", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q012", "query": "Qdrant hybrid queries", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q013", "query": "LanceDB full text search", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q014", "query": "Meilisearch hybrid search", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q015", "query": "Typesense vector search", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q016", "query": "Weaviate BM25 hybrid", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q017", "query": "OpenSearch neural sparse search", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q018", "query": "Vespa nearest neighbor", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q019", "query": "agent source tool diagnostics", "type": "semantic", "project_id": "latest-dev-docs"}
+{"query_id": "q020", "query": "external search pipeline benchmark", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q021", "query": "project_id source_id metadata filter", "type": "hybrid", "project_id": "latest-dev-docs"}
+{"query_id": "q022", "query": "document delete by source project", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q023", "query": "incremental upsert index backend", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q024", "query": "source library approval", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q025", "query": "URL pool ingest submit", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q026", "query": "writing material source semantics", "type": "semantic", "project_id": "latest-dev-docs"}
+{"query_id": "q027", "query": "local corpus search backend", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q028", "query": "AI agent retrieval loop", "type": "semantic", "project_id": "latest-dev-docs"}
+{"query_id": "q029", "query": "reranking hook retrieval", "type": "keyword", "project_id": "latest-dev-docs"}
+{"query_id": "q030", "query": "中文 查询 metadata filter", "type": "hybrid", "project_id": "latest-dev-docs"}

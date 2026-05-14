@@ -31,6 +31,23 @@ export const apiClient = axios.create({
   withCredentials: true,
 })
 
+export function resolveApiUrl(url: string) {
+  const target = String(url || '')
+  if (/^https?:\/\//i.test(target)) return target
+
+  const base = String(import.meta.env.VITE_API_BASE_URL || '').trim()
+  if (!base) return target
+
+  const basePath = new URL(base, window.location.origin).pathname.replace(/\/+$/, '')
+  const targetPath = target.startsWith('/') ? target : `/${target}`
+  const normalizedTarget =
+    basePath && basePath !== '/' && (targetPath === basePath || targetPath.startsWith(`${basePath}/`))
+      ? targetPath.slice(basePath.length) || '/'
+      : targetPath
+
+  return `${base.replace(/\/+$/, '')}/${normalizedTarget.replace(/^\/+/, '')}`
+}
+
 export type ApiClientErrorShape = {
   status: ApiEnvelope<unknown>['status']
   code: string

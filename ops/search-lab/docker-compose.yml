@@ -1,0 +1,24 @@
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: mrw-search-lab-searxng
+    ports:
+      - "127.0.0.1:8088:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+      - searxng-cache:/var/cache/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://127.0.0.1:8088/
+    restart: unless-stopped
+
+  yacy:
+    image: yacy/yacy_search_server:latest
+    container_name: mrw-search-lab-yacy
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - ./yacy/DATA:/opt/yacy_search_server/DATA
+    restart: unless-stopped
+
+volumes:
+  searxng-cache:

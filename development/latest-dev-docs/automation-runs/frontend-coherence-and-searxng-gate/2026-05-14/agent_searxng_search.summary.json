@@ -1,0 +1,568 @@
+{
+  "status": "final_answer",
+  "final_answer": "已完成 SearXNG 外部搜索候选召回。",
+  "tool_result_count": 1,
+  "candidate_count": 14,
+  "accepted_candidate_count": 14,
+  "provider": "searxng",
+  "provider_diagnostics": {
+    "provider": "searxng",
+    "result_count": 14,
+    "ddg_requires_no_key": true,
+    "configured_paid_providers": [
+      "serper"
+    ],
+    "provider_readiness": {
+      "google": {
+        "configured": false,
+        "cse_configured": false,
+        "api_key_configured": false,
+        "oauth_credentials_file_configured": false,
+        "required": "GOOGLE_SEARCH_CSE_ID plus GOOGLE_SEARCH_API_KEY or a valid GOOGLE_APPLICATION_CREDENTIALS file"
+      },
+      "serper": {
+        "configured": true,
+        "required": "SERPER_API_KEY"
+      },
+      "serpstack": {
+        "configured": false,
+        "required": "SERPSTACK_KEY"
+      },
+      "serpapi": {
+        "configured": false,
+        "required": "SERPAPI_KEY or SERPAPI_API_KEY"
+      },
+      "ddg": {
+        "configured": true,
+        "required": "no key; public endpoint may rate-limit"
+      },
+      "searxng": {
+        "configured": true,
+        "required": "SEARXNG_BASE_URL; defaults to http://127.0.0.1:8088"
+      },
+      "yacy": {
+        "configured": true,
+        "required": "YACY_BASE_URL; defaults to http://127.0.0.1:8090"
+      }
+    },
+    "selected_provider_configured": true,
+    "missing_configured_paid_providers": [
+      "google",
+      "serpstack",
+      "serpapi"
+    ],
+    "recommended_provider_order": [
+      "serper",
+      "google",
+      "serpstack",
+      "serpapi",
+      "ddg"
+    ],
+    "explicit_experimental_providers": [
+      "searxng",
+      "yacy"
+    ],
+    "searxng_base_url": "http://127.0.0.1:8088",
+    "yacy_base_url": "http://127.0.0.1:8090",
+    "google_configured": false,
+    "google_api_key_configured": false,
+    "google_cse_configured": false,
+    "google_oauth_credentials_file_configured": false,
+    "serper_configured": true,
+    "serpstack_configured": false,
+    "serpapi_configured": false,
+    "empty_result_likely_causes": []
+  },
+  "candidates": [
+    {
+      "rank": 10,
+      "title": "H.R.7334 - 119th Congress (2025-2026): National Commission on Robotics Act",
+      "url": "https://www.congress.gov/bill/119th-congress/house-bill/7334",
+      "snippet": "Summary of H.R.7334 - 119th Congress (2025-2026): National Commission on Robotics Act.",
+      "source_provider": "searxng",
+      "keyword": "national commission on robotics standards",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 85.0,
+        "trust_level": "high",
+        "domain": "congress.gov",
+        "blocked_reason": null,
+        "url_checksum": "1540bb7df9a5323c0cb6d60aa24ab676286415f26c7e857e1b36564fed5a4e10",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 1,
+      "branch_count": 1
+    },
+    {
+      "rank": 4,
+      "title": "House lawmakers lay groundwork to create robotics commission",
+      "url": "https://fedscoop.com/robotics-commission-commerce-department-legislation",
+      "snippet": "Feb 5, 2026 · The potential independent, temporary commission is part of a bipartisan effort meant to better inform future legislation, ...Missing: market | Show results with:market",
+      "source_provider": "searxng",
+      "keyword": "robotics market regulation commission",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "fedscoop.com",
+        "blocked_reason": null,
+        "url_checksum": "ccb6507f194cb559f886394bfaf38dcbdafda2ad3da11a63b1d6d74f65767863",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 2,
+      "branch_count": 1
+    },
+    {
+      "rank": 7,
+      "title": "A Time to Act: Policies to Strengthen the US Robotics Industry",
+      "url": "https://itif.org/publications/2025/07/18/time-to-act-policies-to-strengthen-us-robotics-industry",
+      "snippet": "Robotics is a strategic industry the United States cannot afford to lose to China, which is making massive efforts to dominate the industry globally. Robotics will be a critical technology to improving labor productivity and wage growth. U.S. robotics adoption rates are anemic and are even behind China, a country with significantly lower labor ...",
+      "source_provider": "searxng",
+      "keyword": "robotics industry policy analysis",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "itif.org",
+        "blocked_reason": null,
+        "url_checksum": "4a72688bcc63d4e10f3f7ee792b6b3401fc70c4ae1fc717b6f3a7b92960bdfee",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 3,
+      "branch_count": 1
+    },
+    {
+      "rank": 5,
+      "title": "US Think Tank Launches National Security Commission on Robotics for ...",
+      "url": "https://theaiinsider.tech/2026/03/18/us-think-tank-launches-national-security-commission-on-robotics-for-advanced-manufacturing",
+      "snippet": "Mar 18, 2026 · “This commission will work across government, academia and industry to strengthen our national security, protect workers, and boost advanced and ...",
+      "source_provider": "searxng",
+      "keyword": "robotics market regulation commission",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "theaiinsider.tech",
+        "blocked_reason": null,
+        "url_checksum": "b670dee575bf604adfcba0383974fd3a3445b6b63a597e02b7a09470b098486b",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 4,
+      "branch_count": 1
+    },
+    {
+      "rank": 13,
+      "title": "The Global Robotics Market Outlook - abiresearch.com",
+      "url": "https://www.abiresearch.com/blog/global-robotics-market-outlook",
+      "snippet": "Jul 31, 2025 ... The global robotics market size is nearly US$50 billion in 2025. · Mobile robots dominate hardware and software sales. · China is a regional giant ...",
+      "source_provider": "searxng",
+      "keyword": "robotics market trends and policies",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "abiresearch.com",
+        "blocked_reason": null,
+        "url_checksum": "d7055613862f89731dd6a01341dc903d253916830c76571dcfcc7a60cf501ebf",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 5,
+      "branch_count": 1
+    },
+    {
+      "rank": 12,
+      "title": "Robotic Market Trends - Insights and Analysis",
+      "url": "https://www.automate.org/robotics/market-trends/market-trends-in-robotics",
+      "snippet": "Stay Ahead with In-Depth Insights and Analysis in Robotics ; Robot Orders Grow 6.6% in 2025 as General Industries Drive Broader Automation Adoption. 02/06/2026 | ...",
+      "source_provider": "searxng",
+      "keyword": "robotics market trends and policies",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "automate.org",
+        "blocked_reason": null,
+        "url_checksum": "0e627354fb6c3fe64be683bd016dde97b313c0692db5695b772e282d3042ee5b",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 6,
+      "branch_count": 1
+    },
+    {
+      "rank": 1,
+      "title": "News: A3 Releases Vision for a U.S. National Robotics Strategy",
+      "url": "https://www.automate.org/robotics/news/a3-releases-vision-for-a-u-s-national-robotics-strategy",
+      "snippet": "WASHINGTON, DC - The Association for Advancing Automation (A3) released its vision for a National Robotics Strategy and shared key policy recommendations with the U.S. Congress today to ensure the United States maintains its leadership in robotics and automation.",
+      "source_provider": "searxng",
+      "keyword": "national robotics policy framework",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "automate.org",
+        "blocked_reason": null,
+        "url_checksum": "553fe6ce818cbfc329bf7677acd3b3aef74fcfd8c67efccd384d223855ce8b84",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 7,
+      "branch_count": 1
+    },
+    {
+      "rank": 8,
+      "title": "White Paper - AUVSI",
+      "url": "https://www.auvsi.org/advocacy/advocacy-initiatives/partnership-for-robotics-competitiveness/white-paper",
+      "snippet": "Countering the PRC's Unfair Economic Practices · Forging Secure Supply Chains · Building the American Robotics Industry · Convening a National Robotics Council to ...",
+      "source_provider": "searxng",
+      "keyword": "robotics industry policy analysis",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "auvsi.org",
+        "blocked_reason": null,
+        "url_checksum": "1f21aa08f4665414a832e9767d598b634116d4e9fd8e3ebedd036ad9a6cbcba0",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 8,
+      "branch_count": 1
+    },
+    {
+      "rank": 11,
+      "title": "AUVSI Launches Bipartisan Partnership for Robotics ...",
+      "url": "https://www.auvsi.org/news/auvsi-launches-bipartisan-partnership-for-robotics-competitiveness-on-capitol-hill",
+      "snippet": "Feb 4, 2026 ... Held in the Cannon House Office Building, the launch highlighted the growing importance of advanced robotics to U.S. economic competitiveness ...",
+      "source_provider": "searxng",
+      "keyword": "national commission on robotics standards",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "auvsi.org",
+        "blocked_reason": null,
+        "url_checksum": "294b743e1eda4bf11ddd4a1686c9de0783f704fb674a09c21304c034304a1139",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 9,
+      "branch_count": 1
+    },
+    {
+      "rank": 2,
+      "title": "Robot Ready: The U.S. Needs a National Robotics Strategy Now",
+      "url": "https://www.auvsi.org/robot-ready-the-u-s-needs-a-national-robotics-strategy-now",
+      "snippet": "Feb 11, 2026 ... It frames robotics and autonomy as strategic infrastructure, emphasizing coordination over prescription and ensuring federal policy supports ...",
+      "source_provider": "searxng",
+      "keyword": "national robotics policy framework",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "auvsi.org",
+        "blocked_reason": null,
+        "url_checksum": "50fdcec9cbffb9c6ebfda9873f92ece2ea4773858028b3f33b3ec3feec5f1d3b",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 10,
+      "branch_count": 1
+    },
+    {
+      "rank": 3,
+      "title": "Robots for America Launches National Coalition to Advance U.S. ...",
+      "url": "https://www.businesswire.com/news/home/20260511908908/en/Robots-for-America-Launches-National-Coalition-to-Advance-U.S.-Robotics-Deployment-Policy",
+      "snippet": "3 days ago · Robots for America Launches National Coalition to Advance U.S. Robotics Deployment Policy ... Policy Framework for American Robotics Supremacy.",
+      "source_provider": "searxng",
+      "keyword": "national robotics policy framework",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "businesswire.com",
+        "blocked_reason": null,
+        "url_checksum": "81b7e666493fc97108892df021a4139bf7ea526d8353ef98530c9355d0ca8f7d",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 11,
+      "branch_count": 1
+    },
+    {
+      "rank": 14,
+      "title": "Industrial Robotics Market Size, Share | Industry Report, 2030",
+      "url": "https://www.grandviewresearch.com/industry-analysis/industrial-robotics-market",
+      "snippet": "This trend minimizes human exposure to dangerous conditions, improving workplace safety and compliance with stringent health regulations. Robotic systems ensure ...",
+      "source_provider": "searxng",
+      "keyword": "robotics market trends and policies",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "grandviewresearch.com",
+        "blocked_reason": null,
+        "url_checksum": "59f5aa07f02c07d88f4d43b39224971e7a19df64d854e984616d06397f41213e",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 12,
+      "branch_count": 1
+    },
+    {
+      "rank": 9,
+      "title": "Robotics stakeholders urge Congress to 'act now' to regain global ...",
+      "url": "https://www.manufacturingdive.com/news/robotics-experts-urge-congress-act-automation-policy-national-strategy/818431",
+      "snippet": "Apr 24, 2026 ... The United States must “act now” to regain its global leadership in the robotics industry, stakeholders urged lawmakers this week. They ...",
+      "source_provider": "searxng",
+      "keyword": "robotics industry policy analysis",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "manufacturingdive.com",
+        "blocked_reason": null,
+        "url_checksum": "567bd32920004c3aeb457af29689a2d9fef807b925d323ff9e41d17c6cf92e10",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 13,
+      "branch_count": 1
+    },
+    {
+      "rank": 6,
+      "title": "Bills introduced to strengthen U.S. robotics competitiveness, humanoid ...",
+      "url": "https://www.therobotreport.com/bills-introduced-strengthen-u-s-robotics-competitiveness-humanoid-security",
+      "snippet": "Feb 6, 2026 ... The National Commission on Robotics Act is the first piece of federal legislation in support of the robotics industry in the U.S., asserted ...",
+      "source_provider": "searxng",
+      "keyword": "robotics market regulation commission",
+      "published_at": null,
+      "trust": {
+        "status": "accepted",
+        "trust_score": 80.0,
+        "trust_level": "medium",
+        "domain": "therobotreport.com",
+        "blocked_reason": null,
+        "url_checksum": "1d46921bbb0054117c578ce6e3b81acd073e30e6b7d73f8a129e9d6104dfc998",
+        "pre_ingest_required_checks": [
+          "redirect_chain_validation",
+          "content_type_allowlist",
+          "content_length_limit",
+          "body_sha256",
+          "dedupe_against_existing_sources",
+          "rollback_log"
+        ]
+      },
+      "matrix_branches": [
+        {
+          "branch_id": "b1",
+          "query": "robotics policy national commission",
+          "provider": "searxng",
+          "query_purpose": "policy/regulatory evidence branch"
+        }
+      ],
+      "matrix_rank": 14,
+      "branch_count": 1
+    }
+  ]
+}

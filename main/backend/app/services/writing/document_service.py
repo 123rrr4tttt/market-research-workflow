@@ -98,6 +98,23 @@ def get_document(*, doc_id: int, project_key: str) -> dict[str, Any]:
         return _serialize_document(row)
 
 
+def delete_document(*, doc_id: int, project_key: str, updated_by_user_id: str | None = None) -> dict[str, Any]:
+    def _op(session) -> dict[str, Any]:
+        row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
+        if row is None:
+            raise KeyError(f"writing document not found: {doc_id}")
+
+        row.status = "archived"
+        row.deleted_at = datetime.now(timezone.utc)
+        row.updated_by_user_id = updated_by_user_id
+        session.add(row)
+        session.flush()
+        session.refresh(row)
+        return _serialize_document(row)
+
+    return run_with_session_retry(_op, log_context={"operation": "delete_writing_document", "doc_id": doc_id, "project_key": project_key})
+
+
 def save_document_with_conflict(
     *,
     doc_id: int,
@@ -107,6 +124,7 @@ def save_document_with_conflict(
     base_version: int | None = None,
     if_match: str | None = None,
     updated_by_user_id: str | None = None,
+    metadata_json: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     def _op(session) -> dict[str, Any]:
         row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
@@ -131,6 +149,8 @@ def save_document_with_conflict(
         row.body_md = body_md or ""
         if title is not None:
             row.title = str(title or "").strip() or row.title or "Untitled"
+        if metadata_json is not None:
+            row.metadata_json = dict(metadata_json or {})
         row.head_version = current_version + 1
         row.updated_by_user_id = updated_by_user_id
         row.etag = _compute_etag(body_md=row.body_md or "", version=int(row.head_version or current_version + 1))

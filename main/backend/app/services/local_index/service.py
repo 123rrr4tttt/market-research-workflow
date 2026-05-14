@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+from typing import Protocol
+
+from .schema import LocalIndexChunk, LocalIndexQuery, LocalIndexSearchResult
+
+
+class LocalIndexAdapter(Protocol):
+    def upsert_chunks(self, chunks: list[LocalIndexChunk]) -> dict[str, int | bool | str | None]:
+        ...
+
+    def search(self, query: LocalIndexQuery) -> list[LocalIndexSearchResult]:
+        ...
+
+
+class LocalIndexService:
+    """Thin retrieval-layer service for fetched document/material chunks.
+
+    This service deliberately does not know about source_library source
+    configuration records. It only indexes content chunks that upstream ingest
+    or writing-material storage has already produced.
+    """
+
+    def __init__(self, adapter: LocalIndexAdapter) -> None:
+        self._adapter = adapter
+
+    def upsert_chunks(self, chunks: list[LocalIndexChunk]) -> dict[str, int | bool | str | None]:
+        valid_chunks = [chunk for chunk in chunks if chunk.chunk_id and chunk.document_id and chunk.project_id and chunk.source_id]
+        return self._adapter.upsert_chunks(valid_chunks)
+
+    def search(self, query: LocalIndexQuery) -> list[LocalIndexSearchResult]:
+        if not query.query.strip() or not query.project_id.strip():
+            return []
+        return self._adapter.search(query)

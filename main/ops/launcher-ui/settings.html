@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Market Research Workflow API Settings</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="launcher settings-page">
+      <header class="topbar">
+        <div class="brand">
+          <div class="mark">API</div>
+          <div>
+            <h1>API Settings</h1>
+            <p>Docker launcher settings page</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <a class="ghost" href="/">Launcher</a>
+          <button id="refresh-settings" class="ghost" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <section class="summary settings-summary">
+        <div class="summary-copy">
+          <span id="settings-state" class="state">Checking backend...</span>
+          <h2>Provider and authentication configuration</h2>
+          <p>
+            This page belongs to the Docker launcher. It talks to the backend config API through the launcher proxy and
+            never redirects to the app frontend settings route.
+          </p>
+        </div>
+        <div class="summary-badges">
+          <span id="backend-state">Backend unknown</span>
+          <span id="settings-count">0 fields</span>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="settings shortcuts">
+        <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">API Docs</a>
+        <a href="http://127.0.0.1:5174" target="_blank" rel="noreferrer">App UI</a>
+        <button id="codex-auth" type="button">Codex Auth</button>
+        <button id="save-settings" type="button">Save Settings</button>
+        <button id="reload-settings" class="warn" type="button">Reload Backend Settings</button>
+        <div id="codex-device-panel" class="codex-panel" hidden>
+          <span>Device code</span>
+          <strong id="codex-device-code">-</strong>
+          <div class="codex-actions">
+            <button id="copy-codex-code" type="button">Copy Code</button>
+            <button id="open-codex-auth" type="button">Open Auth Page</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel codex-status-panel">
+        <div class="panel-title">
+          <h3>Codex Status</h3>
+          <p id="codex-updated">Checking...</p>
+        </div>
+        <div class="codex-status-grid">
+          <span id="codex-cli-state">CLI: unknown</span>
+          <span id="codex-auth-state">Auth: unknown</span>
+          <span id="codex-core-state">Core: unknown</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h3>Frontend Shortcuts</h3>
+          <p>These open the app frontend, not this API settings page</p>
+        </div>
+        <div class="provider-grid frontend-grid">
+          <a href="http://127.0.0.1:5174/#/admin/process" target="_blank" rel="noreferrer">Process</a>
+          <a href="http://127.0.0.1:5174/#/admin/ops" target="_blank" rel="noreferrer">Ops</a>
+          <a href="http://127.0.0.1:5174/#/visual/dashboard" target="_blank" rel="noreferrer">Dashboard</a>
+          <a href="http://127.0.0.1:5174/#/workbench/writing" target="_blank" rel="noreferrer">Writing</a>
+          <a href="http://127.0.0.1:5174/#/workbench/agent" target="_blank" rel="noreferrer">Agent Chat</a>
+          <a href="http://127.0.0.1:5174/#/admin/projects" target="_blank" rel="noreferrer">Projects</a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h3>LLM Providers</h3>
+          <p>Secrets are masked after loading</p>
+        </div>
+        <div class="settings-grid" data-group="llm"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h3>Search Providers</h3>
+          <p>External search and local open search adapters</p>
+        </div>
+        <div class="settings-grid" data-group="search"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h3>Runtime</h3>
+          <p>Docker service connection settings</p>
+        </div>
+        <div class="settings-grid" data-group="runtime"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h3>Provider Consoles</h3>
+          <p>Open external dashboards in a new tab</p>
+        </div>
+        <div class="provider-grid">
+          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">OpenAI</a>
+          <a href="https://portal.azure.com/" target="_blank" rel="noreferrer">Azure</a>
+          <a href="https://ollama.com/download" target="_blank" rel="noreferrer">Ollama</a>
+          <a href="https://serper.dev/api-key" target="_blank" rel="noreferrer">Serper</a>
+          <a href="https://programmablesearchengine.google.com/" target="_blank" rel="noreferrer">Google CSE</a>
+          <a href="https://serpapi.com/manage-api-key" target="_blank" rel="noreferrer">SerpApi</a>
+          <a href="https://serpstack.com/dashboard" target="_blank" rel="noreferrer">Serpstack</a>
+          <a href="https://www.microsoft.com/bing/apis/bing-web-search-api" target="_blank" rel="noreferrer">Bing</a>
+          <a href="https://legiscan.com/legiscan" target="_blank" rel="noreferrer">LegiScan</a>
+          <a href="https://developer.x.com/" target="_blank" rel="noreferrer">Twitter/X</a>
+        </div>
+      </section>
+
+      <p id="settings-message" class="message"></p>
+    </main>
+    <script src="/settings.js?v=20260514-auth-redirect"></script>
+  </body>
+</html>

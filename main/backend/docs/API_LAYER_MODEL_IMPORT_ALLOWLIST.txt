@@ -5,6 +5,8 @@
 admin.py|from ..models.base import SessionLocal
 admin.py|from ..models.base import engine
 admin.py|from ..models.entities import Document, MarketStat, SearchHistory, Source
+agent_chat.py|from ..models.base import SessionLocal
+agent_chat.py|from ..models.entities import Project
 dashboard.py|from ..models.base import SessionLocal
 dashboard.py|from ..models.base import engine
 dashboard.py|from ..models.entities import Document, EtlJobRun, MarketMetricPoint, MarketStat, PriceObservation, Product, SearchHistory, Source
@@ -21,6 +23,7 @@ products.py|from ..models.entities import Product
 projects.py|from ..models.base import Base
 projects.py|from ..models.base import SessionLocal, engine
 projects.py|from ..models.entities import ConfigState, Document, Embedding, EtlJobRun, IngestChannel, KeywordHistory, KeywordPrior, LlmServiceConfig, MarketMetricPoint, MarketStat, PriceObservation, Product, Project, ResourcePoolSiteEntry, ResourcePoolUrl, SearchHistory, Source, SourceLibraryItem, Topic
+projects.py|from ..models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 source_library.py|from ..models.base import SessionLocal
 source_library.py|from ..models.entities import SourceLibraryItem
 topics.py|from ..models.base import SessionLocal

@@ -1,0 +1,48 @@
+{
+  "contract_version": "agent_core.live_user_audit.v1",
+  "created_at": "2026-05-13",
+  "scenarios": [
+    {
+      "id": "free_chat_capm",
+      "message": "解释一下 CAPM 的核心假设",
+      "status": 200,
+      "error": "OSError('cannot read from timed out object')",
+      "first_byte_seconds": null,
+      "total_seconds": 10.032,
+      "event_count": 0,
+      "events": [],
+      "tool_names": [],
+      "stop_reason": null,
+      "final_answer": "",
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/free_chat_capm.sse"
+    },
+    {
+      "id": "project_data_inventory",
+      "message": "项目里有什么数据",
+      "status": null,
+      "error": "URLError(TimeoutError(60, 'Operation timed out'))",
+      "first_byte_seconds": null,
+      "total_seconds": 7.781,
+      "event_count": 0,
+      "events": [],
+      "tool_names": [],
+      "stop_reason": null,
+      "final_answer": "",
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/project_data_inventory.sse"
+    },
+    {
+      "id": "robot_structured_search",
+      "message": "帮我在项目已有数据里检索机器人相关内容，并总结主要发现",
+      "status": 200,
+      "error": "OSError('cannot read from timed out object')",
+      "first_byte_seconds": null,
+      "total_seconds": 13.632,
+      "event_count": 0,
+      "events": [],
+      "tool_names": [],
+      "stop_reason": null,
+      "final_answer": "",
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/robot_structured_search.sse"
+    }
+  ]
+}

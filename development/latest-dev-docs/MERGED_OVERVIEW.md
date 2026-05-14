@@ -1,6 +1,6 @@
 # 合并文档总览
 
-Updated: 2026-04-07 PST
+Updated: 2026-05-14 PST
 
 ## 目录级合并结果
 
@@ -20,6 +20,23 @@ Updated: 2026-04-07 PST
 
 ## 最近新增
 
+- 根目录：
+  - [2026-05-14 当前预发布说明：pre-release-2026-05-14-rc1](../../RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
+- `automation-runs`：
+  - [2026-05-14 pre-release-2026-05-14-rc1 completion audit](./automation-runs/pre-release-2026-05-14-rc1/completion_audit.md)
+  - [2026-05-14 pre-release-2026-05-14-rc1 release merge manifest](./automation-runs/pre-release-2026-05-14-rc1/release_package_manifest.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-05-14 AgentCore Session Diagnostic Breakpoints And Repair Plan](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-05-14 Agent Context Manifest And Demand-Read Synthesis（已实现并回归覆盖）](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-05-14 Agent High-Fidelity Migration Final Completion Audit](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-05-14 Claude Agent High-Fidelity Migration Process Records](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/INDEX.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-05-14 Optional Search / Index Enhancements Launcher Integration](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-04-07 Parallel Agent Wave Orchestration](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
   - [2026-04-07 Subagent Task Contract Template](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md)
@@ -46,8 +63,6 @@ Updated: 2026-04-07 PST
   - [2026-04-07 Current-Dev Status Audit](./development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
 - `development-plans/ARCHIVE_RETIRED`：
   - [2026-04-07 Retired Development Plans Index](./development-plans/ARCHIVE_RETIRED/INDEX.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-04-25 Claude Agent High-Fidelity Migration Mapping and Runtime Enforcement](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 - `backend-core`：

@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OPS_DIR="${ROOT_DIR}/main/ops"
+INSTALL_OPTIONAL_ENHANCEMENTS="${INSTALL_OPTIONAL_ENHANCEMENTS:-false}"
 
 # Standard observability environment
 setup_observability_env() {
@@ -22,6 +23,39 @@ setup_observability_env() {
   : "${ENV:=dev}"
   export SERVICE_NAME APP_VERSION DEPLOY_COLOR ENV
   echo "🔧 Observability env => SERVICE_NAME=${SERVICE_NAME} APP_VERSION=${APP_VERSION} DEPLOY_COLOR=${DEPLOY_COLOR} ENV=${ENV}"
+}
+
+normalize_optional_enhancement_args() {
+  local mode="$1"
+  shift
+  NORMALIZED_ARGS=()
+  local with_search_enhancements=false
+  local with_lancedb=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --with-searxng|--with-yacy)
+        with_search_enhancements=true
+        shift
+        ;;
+      --with-lancedb)
+        with_lancedb=true
+        shift
+        ;;
+      *)
+        NORMALIZED_ARGS+=("$1")
+        shift
+        ;;
+    esac
+  done
+  if [[ "$with_search_enhancements" == true ]]; then
+    NORMALIZED_ARGS+=(--profile search-enhancements)
+  fi
+  if [[ "$with_lancedb" == true ]]; then
+    export INSTALL_OPTIONAL_ENHANCEMENTS=true
+    if [[ "$mode" == "start" || "$mode" == "restart" ]]; then
+      NORMALIZED_ARGS+=(--build)
+    fi
+  fi
 }
 
 usage() {
@@ -101,6 +135,19 @@ preflight() {
       echo "✅ Found command: $cmd"
     fi
   done
+
+  if [[ "$(uname -s 2>/dev/null || true)" == "Linux" ]]; then
+    if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+      if command -v xdg-open >/dev/null 2>&1; then
+        echo "✅ Found command: xdg-open (package: xdg-utils)"
+      else
+        echo "❌ Missing command: xdg-open (install package: xdg-utils)"
+        missing=1
+      fi
+    else
+      echo "ℹ️ No Linux desktop display detected; xdg-utils is only required for auto-opening Docker Launcher UI"
+    fi
+  fi
 
   if command -v docker-compose >/dev/null 2>&1; then
     echo "✅ Compose command: docker-compose"
@@ -243,15 +290,18 @@ setup_observability_env
 case "$cmd" in
   start)
     require_ops_dir
-    exec "${OPS_DIR}/start-all.sh" "$@"
+    normalize_optional_enhancement_args start "$@"
+    exec "${OPS_DIR}/start-all.sh" "${NORMALIZED_ARGS[@]}"
     ;;
   stop)
     require_ops_dir
-    exec "${OPS_DIR}/stop-all.sh" "$@"
+    normalize_optional_enhancement_args stop "$@"
+    exec "${OPS_DIR}/stop-all.sh" "${NORMALIZED_ARGS[@]}"
     ;;
   restart)
     require_ops_dir
-    exec "${OPS_DIR}/restart.sh" "$@"
+    normalize_optional_enhancement_args restart "$@"
+    exec "${OPS_DIR}/restart.sh" "${NORMALIZED_ARGS[@]}"
     ;;
   status)
     require_ops_dir

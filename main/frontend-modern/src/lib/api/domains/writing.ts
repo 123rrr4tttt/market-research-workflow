@@ -1,5 +1,5 @@
 import { endpoints } from '../endpoints'
-import { apiClient, asList, httpGet as get, httpPatch as patch, httpPost as post, unwrapEnvelope } from '../client'
+import { apiClient, asList, httpDelete as del, httpGet as get, httpPatch as patch, httpPost as post, unwrapEnvelope } from '../client'
 
 export type WritingDocumentStatus = 'draft' | 'published' | 'archived' | string
 
@@ -182,6 +182,7 @@ export type UpdateWritingDocumentPayload = {
   body_md: string
   base_version?: number | null
   updated_by_user_id?: string | null
+  metadata_json?: Record<string, unknown> | null
 }
 
 export type AutosaveWritingDraftPayload = {
@@ -276,6 +277,12 @@ export async function createWritingDocument(payload: CreateWritingDocumentPayloa
 
 export async function getWritingDocument(docId: number) {
   return get<WritingDocument>(endpoints.writing.documentById(docId))
+}
+
+export async function deleteWritingDocument(docId: number, projectKey?: string) {
+  return del<{ deleted: boolean; document: WritingDocument }>(
+    withQuery(endpoints.writing.documentById(docId), { project_key: projectKey }),
+  )
 }
 
 export async function updateWritingDocument(

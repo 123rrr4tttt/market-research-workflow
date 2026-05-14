@@ -1,0 +1,127 @@
+{
+  "created_at": "2026-05-12T23:07:04-0700",
+  "cases": [
+    {
+      "name": "long_investigation_trace_after_guidance",
+      "elapsed_seconds": 70.73,
+      "event_count": 39,
+      "first_progress_event": "agent_core.assistant_delta",
+      "tools": [
+        "agent_task.plan.append",
+        "source.discovery.plan",
+        "agent_investigation.leads.append",
+        "agent_investigation.trace.read"
+      ],
+      "tool_results": [
+        {
+          "tool_name": "agent_task.plan.append",
+          "status": "completed",
+          "summary": "Appended 2 durable task(s) to the current agent session."
+        },
+        {
+          "tool_name": "source.discovery.plan",
+          "status": "completed",
+          "summary": "Planned 9 source search querie(s), 5 source direction(s), accepted_urls=0, rejected_urls=0, candidate_source_items=8."
+        },
+        {
+          "tool_name": "agent_investigation.leads.append",
+          "status": "completed",
+          "summary": "Recorded investigation state in investigation.leads.json: {'clue_nodes': 5, 'clue_edges': 4, 'pending_questions': 3, 'followed_leads': 2, 'rejected_leads': 1, '"
+        },
+        {
+          "tool_name": "agent_investigation.trace.read",
+          "status": "completed",
+          "summary": "Read investigation trace from investigation.leads.json: 5 node(s), 4 edge(s)."
+        }
+      ],
+      "has_final_answer": true,
+      "final_answer_preview": "已完成两步调查流程：\n1. 已列出机器人市场相关线索并保存到会话调查记录中。\n2. 已读取线索追踪结果，当前记录包含 5 个线索节点、4 条关联边。\n\n补充：已按要求未写入文件。",
+      "session_id": "as-0dd76fb5f6b54b0b",
+      "noise_markers_in_raw": [],
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix_after_fix/long_investigation_trace_after_guidance.sse.txt",
+      "event_prefix": [
+        "agent_core.stream_opened",
+        "agent_core.stream_started",
+        "agent_core.session_started",
+        "agent_core.user_message",
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.keepalive",
+        "agent_core.keepalive",
+        "agent_core.keepalive"
+      ],
+      "event_suffix": [
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.keepalive",
+        "agent_core.turn_state",
+        "agent_core.turn_state",
+        "agent_core.assistant_message",
+        "agent_core.final_answer",
+        "agent_core.final_answer"
+      ]
+    },
+    {
+      "name": "followup_summary_after_noise_filter",
+      "elapsed_seconds": 4.956,
+      "event_count": 23,
+      "first_progress_event": "agent_core.assistant_delta",
+      "tools": [
+        "project.summary.read",
+        "project.structured_graph.query",
+        "project.structured_data.search",
+        "source_library.item.list"
+      ],
+      "tool_results": [
+        {
+          "tool_name": "project.summary.read",
+          "status": "completed",
+          "summary": "read project summary for demo_proj"
+        },
+        {
+          "tool_name": "project.structured_graph.query",
+          "status": "completed",
+          "summary": "Read structured/graph investigation context: matches=0, stored_rows=0."
+        },
+        {
+          "tool_name": "project.structured_data.search",
+          "status": "completed",
+          "summary": "searched structured project data: matches=0, datasets=12, stored_rows=0, returned_inventory_fallback=12"
+        },
+        {
+          "tool_name": "source_library.item.list",
+          "status": "completed",
+          "summary": "discovered 17 source-library items for project demo_proj"
+        }
+      ],
+      "has_final_answer": true,
+      "final_answer_preview": "我已根据项目里已经存储的数据做了检索和汇总。\n- 来源库/采集入口：17 个，启用 17 个。\n- 当前会话数据：1 个任务、3 个事件、2 个产物。\n- 结构化数据检索：关键词 `基于项目里已有的机器人相关数据，帮我总结三点，并说明用了哪些本地数据。` 匹配 0 条记录。\n- 命中的数据集：documents: 0、graph_nodes: 0、market_stats: 0、metric_points: 0、products: 0、price_observations: 0。\n- 代表性记录：\n  - `documents` CalMatters - California Politics, Policy, and Political News：Citing Iran crisis, Trump orders Santa Barbara oil pipeline restart. California will fight it Alejandro Lazo .entry-content{grid-template-rows: repeat(14,auto);\n  - `docum",
+      "session_id": "as-0a77ab97f50048b6",
+      "noise_markers_in_raw": [],
+      "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix_after_fix/followup_summary_after_noise_filter.sse.txt",
+      "event_prefix": [
+        "agent_core.stream_opened",
+        "agent_core.stream_started",
+        "agent_core.session_started",
+        "agent_core.user_message",
+        "agent_core.turn_state",
+        "agent_core.assistant_delta",
+        "agent_core.turn_state",
+        "agent_core.tool_call_requested",
+        "agent_core.tool_call_started",
+        "agent_core.tool_result"
+      ],
+      "event_suffix": [
+        "agent_core.tool_result",
+        "agent_core.tool_call_requested",
+        "agent_core.tool_call_started",
+        "agent_core.tool_result",
+        "agent_core.turn_state",
+        "agent_core.assistant_message",
+        "agent_core.final_answer",
+        "agent_core.final_answer"
+      ]
+    }
+  ]
+}

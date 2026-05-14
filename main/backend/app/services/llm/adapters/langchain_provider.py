@@ -38,7 +38,12 @@ class LangChainProviderAdapter(ChatPort, EmbeddingPort):
 
         if provider == "openai":
             if not settings.openai_api_key and codex_cli_llm_available():
-                return CodexCliChatModel(model=options.model)
+                timeout = None
+                reasoning_effort = None
+                if options.extra:
+                    timeout = options.extra.pop("codex_cli_timeout_seconds", None) or options.extra.pop("timeout_seconds", None)
+                    reasoning_effort = options.extra.pop("codex_cli_reasoning_effort", None)
+                return CodexCliChatModel(model=options.model, timeout_seconds=timeout, reasoning_effort=reasoning_effort)
             return ChatOpenAI(
                 model=options.model or "gpt-4o-mini",
                 api_key=_ensure(settings.openai_api_key, "OPENAI_API_KEY"),

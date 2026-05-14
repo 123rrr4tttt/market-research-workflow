@@ -30,6 +30,7 @@
 - [2026-03-06 Handler-Cluster Frontdoor Middle-Layer Alignment](./2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/)
 - [2026-03-11 Source Library Three-Lane Architecture](./2026-03-11-source-library-three-lane-architecture/)
 - [2026-04-06 Repo Logic Gap Assessment](./2026-04-06-repo-logic-gap-assessment/)
+- [2026-04-02 Claude Agent High-Fidelity Migration Process Records](./2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
 
 ## 返回
 

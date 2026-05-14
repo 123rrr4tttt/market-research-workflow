@@ -47,7 +47,7 @@
 | 目录 | 状态 | 时效标签 | 说明 |
 |---|---|---|---|
 | `2026-03-01-open-source-platform-integration` | `partial` | `doc_aligned` | 有大量落地，但验收记录仍存在 skip / 未完成项 |
-| `2026-03-02-global-vectorization-general-foundation` | `partial` | `doc_aligned` | 仅部分向量化链路落地，未形成全局底座 |
+| `2026-05-14-global-vectorization-general-foundation` | `partial` | `doc_aligned` | 2026-05-14 已做实效性更新，仍未形成全局底座 |
 | `2026-03-02-graph-3d-force-engine-parallel-migration` | `partial` | `doc_drift` | 双引擎和懒加载成立，但 chunk / 类型文件陈述漂移 |
 | `2026-03-02-graph-node-standardization-a-then-b-plan` | `no_closure_claim` | `doc_drift` | 方案文档为主，且目标模型与当前表结构不完全一致 |
 | `2026-03-02-ingest-platformization-assessment` | `partial` | `doc_aligned` | 平台化主链已落地，但仍不是生产级闭环 |

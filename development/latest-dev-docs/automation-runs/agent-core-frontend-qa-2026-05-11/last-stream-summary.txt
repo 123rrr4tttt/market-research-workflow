@@ -1,0 +1,5 @@
+free_chat=true
+project_data_tools=true
+source_run_approval=true
+project_stream_has_tool_events=true
+approval_stream_has_permission=true

@@ -1,0 +1,98 @@
+{
+  "provider": "yacy",
+  "base_url": "http://127.0.0.1:8090",
+  "global_query": "embodied ai",
+  "local_query": "marketworkflow sentinel",
+  "root_status": 200,
+  "global_status": 200,
+  "push_status": 200,
+  "local_status": 200,
+  "ok": true,
+  "global_result_count": 10,
+  "local_result_count": 6,
+  "local_push_record": {
+    "count": "1",
+    "successall": "true",
+    "item-0": {
+      "item": "0",
+      "url": "http://nowhere.cc/mrw-search-lab-local-test.txt",
+      "success": "true",
+      "message": "http://127.0.0.1:8090/solr/select?q=sku:%22http://nowhere.cc/mrw-search-lab-local-test.txt%22"
+    },
+    "countsuccess": 1,
+    "countfail": 0
+  },
+  "local_push_success": true,
+  "local_hit": true,
+  "latency_ms": 729.19,
+  "error_type": null,
+  "error": null,
+  "global_results": [
+    {
+      "title": "What is Embodied AI? | NVIDIA Glossary",
+      "link": "https://www.nvidia.com/en-in/glossary/embodied-ai/?ref=itsfoss.com"
+    },
+    {
+      "title": "AI Research: Introducing Muse Spark - New Foundation Model | AI at Meta",
+      "link": "https://ai.meta.com/research/"
+    },
+    {
+      "title": "[2508.10399] Large Model Empowered Embodied AI: A Survey on Decision-Making and Embodied Learning",
+      "link": "https://arxiv.org/abs/2508.10399"
+    },
+    {
+      "title": "Wayve Technology: Solving Self-Driving with Embodied AI",
+      "link": "https://wayve.ai/technology/"
+    },
+    {
+      "title": "Genesis-Embodied-AI",
+      "link": "https://discord.com/invite/nukCuhB47p"
+    },
+    {
+      "title": "AI Is a 5-Layer Cake | NVIDIA Blog",
+      "link": "https://blogs.nvidia.com/blog/ai-5-layer-cake/"
+    },
+    {
+      "title": "Embodied AI Research Takes Center Stage at San Diego Robotics Forum",
+      "link": "https://jacobsschool.ucsd.edu/news/release/4066?id=4066"
+    },
+    {
+      "title": "The rise of AI denialism - Big Think",
+      "link": "https://bigthink.com/the-present/the-rise-of-ai-denialism/"
+    },
+    {
+      "title": "Skynet Starter Kit - media.ccc.de",
+      "link": "https://media.ccc.de/v/39c3-skynet-starter-kit-from-embodied-ai-jailbreak-to-remote-takeover-of-humanoid-robots"
+    },
+    {
+      "title": "Gemini 3 — Google DeepMind",
+      "link": "https://deepmind.google/models/gemini/"
+    }
+  ],
+  "local_results": [
+    {
+      "title": "mrw-search-lab-local-test.txt",
+      "link": "http://nowhere.cc/mrw-search-lab-local-test.txt"
+    },
+    {
+      "title": "Cloud Computing Services | Microsoft Azure",
+      "link": "https://azure.microsoft.com/en-us"
+    },
+    {
+      "title": "Azure Quantum Computing | Microsoft Azure",
+      "link": "https://azure.microsoft.com/en-us/solutions/quantum-computing/"
+    },
+    {
+      "title": "feed.xml",
+      "link": "https://dtsbourg.me/feed.xml"
+    },
+    {
+      "title": "feed.xml",
+      "link": "https://alexzhang13.github.io/feed.xml"
+    },
+    {
+      "title": "AI Controversies",
+      "link": "https://www.wu.ac.at/en/the-university/events-archive/detail/ai-controversies"
+    }
+  ]
+}

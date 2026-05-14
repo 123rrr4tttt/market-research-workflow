@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-05-13T05:23:45Z",
+  "results": [
+    {
+      "name": "robot_structured_search_auto_summary_newbackend",
+      "returncode": 0,
+      "duration_seconds": 8.289,
+      "bytes": 75851,
+      "has_final_bundle": true,
+      "first_answer_event_index": 14,
+      "tool_event_count": 4,
+      "keepalive_count": 1,
+      "answer_excerpt": "我已根据项目里已经存储的数据做了检索和汇总。\n- 结构化数据检索：关键词 `机器人` 匹配 30 条记录。\n- 命中的数据集：documents: 10、graph_nodes: 10、market_stats: 0、metric_points: 0、products: 0、price_observations: 0。\n- 代表性记录：\n  - `documents` NBC4 Los Angeles – Southern California news, weather：if (typeof adInstance === 'undefined') { adInstance = new AdLayersAPI(); adInstance.lazyLoadAd({ slotName: 'logo_header', format: 'logo', targeting: {\"tags\":\"ho\n  - `documents` WPTA | 21Alive | Fort Wayne, IN：News Livestream Weather On Your Side Lifestyle Speci",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/robot_structured_search_auto_summary_newbackend.sse.txt"
+    }
+  ]
+}

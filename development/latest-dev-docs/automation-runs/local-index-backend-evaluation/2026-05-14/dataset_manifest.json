@@ -1,0 +1,17 @@
+{
+  "document_count": 40,
+  "chunk_count": 232,
+  "query_count": 30,
+  "judgment_count": 30,
+  "source_root": "development/latest-dev-docs",
+  "schema": {
+    "required_filter_fields": [
+      "project_id",
+      "source_id"
+    ],
+    "id_fields": [
+      "document_id",
+      "chunk_id"
+    ]
+  }
+}

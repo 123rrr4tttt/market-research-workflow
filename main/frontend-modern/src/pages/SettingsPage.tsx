@@ -232,7 +232,9 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
     onSuccess: async () => {
       setSaveMessage('环境配置已更新')
       setEnvDraft(null)
+      removeLocal(draftStorageKey)
       await queryClient.invalidateQueries({ queryKey: queryKeys.settings.env() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.config.envStatus() })
     },
     onError: (error) => {
       setSaveMessage(`环境配置更新失败: ${formatActionError(error)}`)

@@ -21,7 +21,7 @@ from .store import build_agent_session_store
 
 SESSION_STATUSES = frozenset({"pending", "active", "blocked", "completed", "failed", "canceled"})
 TASK_STATUSES = frozenset({"pending", "claimed", "in_progress", "blocked", "completed", "failed", "canceled", "expired"})
-TASK_PHASES = frozenset({"research", "synthesis", "implementation", "verification", "maintenance"})
+TASK_PHASES = frozenset({"conversation", "research", "synthesis", "implementation", "verification", "maintenance"})
 EXECUTION_MODES = frozenset({"coordinator", "worker", "system"})
 FINAL_TASK_STATUSES = frozenset({"completed", "failed", "canceled", "expired"})
 
@@ -253,6 +253,37 @@ class AgentSessionService:
         )
         self._maybe_refresh_memory(session_id)
         return row
+
+    def append_task_blueprints(
+        self,
+        session_id: str,
+        *,
+        goal: str | None = None,
+        task_blueprints: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        session = self.store.get_session(session_id)
+        materialized = self._materialize_blueprints(
+            goal=str(goal or session.get("goal") or "").strip(),
+            blueprints=list(task_blueprints or []),
+        )
+        created: list[dict[str, Any]] = []
+        for blueprint in materialized:
+            task = self.store.create_task({"session_id": session_id, **blueprint})
+            self.store.append_event(
+                session_id,
+                event_type="task.created",
+                task_id=task["task_id"],
+                payload={
+                    "phase": task["phase"],
+                    "task_type": task["task_type"],
+                    "blocked_by": list(task["blocked_by"] or []),
+                    "write_set": list(task["write_set"] or []),
+                },
+            )
+            created.append(self._decorate_task(task))
+        self._sync_session_state(session_id)
+        self._refresh_memory_artifacts(session_id, force=True)
+        return created
 
     def claim_task(self, session_id: str, task_id: str, *, owner: str, lease_seconds: int = 300) -> dict[str, Any]:
         self.reclaim_expired_tasks(session_id)

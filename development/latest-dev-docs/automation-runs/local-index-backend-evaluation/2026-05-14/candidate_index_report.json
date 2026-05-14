@@ -1,0 +1,20 @@
+[
+  {
+    "candidate": "sqlite_fts_baseline",
+    "document_count": 40,
+    "chunk_count": 232,
+    "index_size_mb": null,
+    "build_time_ms": 7.02,
+    "upsert_time_ms": 7.02,
+    "delete_test_ok": true
+  },
+  {
+    "candidate": "lancedb_fts",
+    "document_count": 40,
+    "chunk_count": 232,
+    "index_size_mb": null,
+    "build_time_ms": 147.74,
+    "upsert_time_ms": 147.74,
+    "delete_test_ok": null
+  }
+]

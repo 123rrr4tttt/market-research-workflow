@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { hashByMode } from '../app/navigation'
+import { isReservedProjectKey } from '../app/kernel/projectKeys'
+import AgentWritingAssistantPanel, {
+  type WritingAgentPanelMessage,
+  type WritingAgentToolAction,
+  type WritingAgentWorkbenchTool,
+} from '../components/writing/AgentWritingAssistantPanel'
 import CitationBasket from '../components/writing/CitationBasket'
 import { toDraggedCardPreview, type WritingDraggedCardPayload } from '../components/writing/dragPayload'
 import KeywordInsightSidebar from '../components/writing/KeywordInsightSidebar'
-import LlmAssistantPanel from '../components/writing/LlmAssistantPanel'
-import MarkdownEditor from '../components/writing/MarkdownEditor'
+import MarkdownEditor, { type MarkdownSelectionState } from '../components/writing/MarkdownEditor'
 import WritingInsightCard from '../components/writing/WritingInsightCard'
 import MarkdownPreview from '../components/writing/MarkdownPreview'
 import TemplateLibraryPanel from '../components/writing/TemplateLibraryPanel'
@@ -18,24 +23,23 @@ import {
   getWritingCardDetail,
   getWritingDocument,
   getWritingKeywordCards,
-  getWritingLlmActionDetail,
   getWritingSuggest,
   listWritingCitations,
   listWritingDocuments,
-  listWritingLlmActionHistory,
   listWritingTemplates,
   previewWritingKeywordCard,
-  runWritingLlmAction,
+  runAgentChatTurnStreaming,
   updateWritingDocument,
   upsertWritingCitations,
   validateWritingTemplate,
+  type WritingDocument,
   type WritingKeywordCard,
   type WritingKeywordCardPreview,
   type WritingCitation,
-  type WritingLlmActionId,
   type WritingTemplateValidation,
 } from '../lib/api'
 import { queryKeys } from '../lib/queryKeys'
+import type { AgentEventItem, AgentSessionEventStreamStatus } from '../lib/types'
 
 export type WritingWorkbenchPageProps = {
   projectKey: string
@@ -75,10 +79,56 @@ type FloatingRect = {
   width: number
   height: number
 }
+type FloatingPoint = {
+  left: number
+  top: number
+}
 type CitationMutationSource =
   | { kind: 'selected' }
   | { kind: 'pinned'; pinnedCardId: string }
   | { kind: 'external' }
+
+type WritingAgentUpdateLocator = {
+  anchorId: string
+  anchorText: string
+  anchorHeading: string
+  anchorLine: number | null
+  rangeStart: number | null
+  rangeEnd: number | null
+  cursorOffset: number | null
+  contentHash: string
+}
+
+type WritingAgentReviewStatus = 'pending' | 'accepted' | 'rejected'
+
+type WritingAgentUpdate = {
+  id: string
+  callId: string
+  toolName: string
+  actor: string
+  operation: string
+  createdAt: string
+  summary: string
+  oldVersion: number | null
+  newVersion: number | null
+  insertedText: string
+  insertedTextTruncated: boolean
+  replacedText: string
+  replacedTextTruncated: boolean
+  reviewStatus: WritingAgentReviewStatus
+  reviewedAt: string
+  sourceRefs: string[]
+  provenance: Record<string, unknown>
+  locator: WritingAgentUpdateLocator
+}
+
+type WritingAgentUpdateAnchor = {
+  update: WritingAgentUpdate
+  range: { start: number; end: number } | null
+  lineStart: number | null
+  lineEnd: number | null
+  preview: string
+}
 
 const EMPTY_MARKDOWN = `## 摘要
 
@@ -91,6 +141,7 @@ const DESKTOP_FLOATING_BREAKPOINT = 1280
 const FLOATING_PANEL_TOP_INSET = 58
 const FLOATING_PANEL_MARGIN = 12
 const FLOATING_PANEL_MAX_HEIGHT = 520
+const WRITING_TOOLBAR_MARGIN = 12
 const CITATION_BAR_MARGIN = 10
 const CITATION_BAR_HORIZONTAL_WIDTH = 820
 const CITATION_BAR_SIDE_WIDTH = 300
@@ -120,6 +171,222 @@ function readViewport(): ViewportSize {
 function formatUpdatedAt(value?: string | null) {
   if (!value) return 'new'
   return value.replace('T', ' ').slice(0, 16)
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function asText(value: unknown) {
+  return typeof value === 'string' ? value : ''
+}
+
+function boundedText(value: string, limit: number) {
+  const text = String(value || '').trim()
+  if (text.length <= limit) return text
+  return `${text.slice(0, limit)}\n...[truncated ${text.length - limit} chars]`
+}
+
+function extractWritingAgentChunk(event: AgentEventItem) {
+  const eventType = String(event.event_type || '').toLowerCase()
+  const payload =
+    event.payload && typeof event.payload === 'object'
+      ? (event.payload as Record<string, unknown>)
+      : {}
+  const firstText = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = payload[key]
+      if (typeof value === 'string' && value.length) return value
+    }
+    return ''
+  }
+  if (eventType.includes('assistant_delta')) return { mode: 'append' as const, text: firstText('delta', 'text', 'content') }
+  if (eventType.includes('assistant_message')) return { mode: 'replace' as const, text: firstText('content', 'text', 'message').trim() }
+  if (eventType.includes('final_answer')) return { mode: 'replace' as const, text: firstText('final_answer', 'answer', 'content', 'text').trim() }
+  return null
+}
+
+function findHeadingBefore(markdown: string, offset: number) {
+  const before = String(markdown || '').slice(0, Math.max(0, offset))
+  const lines = before.split('\n').reverse()
+  const heading = lines.find((line) => /^#{1,6}\s+\S/.test(line.trim()))
+  return heading ? heading.replace(/^#{1,6}\s+/, '').trim() : ''
+}
+
+function asNumberOrNull(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function asTextList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const out: string[] = []
+  for (const item of value) {
+    const normalized = String(item || '').trim()
+    if (normalized && !out.includes(normalized)) out.push(normalized)
+  }
+  return out
+}
+
+function normalizeAgentUpdate(value: unknown, fallbackIndex: number): WritingAgentUpdate | null {
+  if (!isPlainRecord(value)) return null
+  const locator = isPlainRecord(value.locator) ? value.locator : {}
+  const fallbackId = asText(value.anchor_id) || asText(locator.anchor_id) || `agent-update-${fallbackIndex}`
+  return {
+    id: asText(value.id) || fallbackId,
+    callId: asText(value.call_id),
+    toolName: asText(value.tool_name),
+    actor: asText(value.actor) || 'agent_core',
+    operation: asText(value.operation) || 'append',
+    createdAt: asText(value.created_at),
+    summary: asText(value.summary),
+    oldVersion: asNumberOrNull(value.old_version),
+    newVersion: asNumberOrNull(value.new_version),
+    insertedText: asText(value.inserted_text),
+    insertedTextTruncated: Boolean(value.inserted_text_truncated),
+    replacedText: asText(value.replaced_text),
+    replacedTextTruncated: Boolean(value.replaced_text_truncated),
+    reviewStatus: normalizeAgentReviewStatus(value.review_status),
+    reviewedAt: asText(value.reviewed_at),
+    sourceRefs: asTextList(value.source_refs),
+    provenance: isPlainRecord(value.provenance) ? value.provenance : {},
+    locator: {
+      anchorId: asText(locator.anchor_id) || fallbackId,
+      anchorText: asText(locator.anchor_text),
+      anchorHeading: asText(locator.anchor_heading),
+      anchorLine: asNumberOrNull(locator.anchor_line),
+      rangeStart: asNumberOrNull(locator.range_start),
+      rangeEnd: asNumberOrNull(locator.range_end),
+      cursorOffset: asNumberOrNull(locator.cursor_offset),
+      contentHash: asText(locator.content_hash) || asText(value.content_hash),
+    },
+  }
+}
+
+function readAgentUpdates(metadata: WritingDocument['metadata_json'] | null | undefined): WritingAgentUpdate[] {
+  if (!isPlainRecord(metadata)) return []
+  const raw = Array.isArray(metadata.agent_updates)
+    ? metadata.agent_updates
+    : isPlainRecord(metadata.last_agent_update)
+      ? [metadata.last_agent_update]
+      : []
+  return raw
+    .map((item, index) => normalizeAgentUpdate(item, index))
+    .filter((item): item is WritingAgentUpdate => Boolean(item))
+    .reverse()
+}
+
+function findAgentUpdateRange(markdown: string, update: WritingAgentUpdate): { start: number; end: number } | null {
+  const rangeStart = update.locator.rangeStart
+  const insertedText = update.insertedText.trim()
+  if (rangeStart != null && rangeStart >= 0 && rangeStart <= markdown.length && insertedText) {
+    const insertedEnd = Math.min(markdown.length, rangeStart + insertedText.length)
+    if (markdown.slice(rangeStart, insertedEnd) === insertedText) {
+      return { start: rangeStart, end: insertedEnd }
+    }
+  }
+  if (
+    rangeStart != null &&
+    update.locator.rangeEnd != null &&
+    rangeStart >= 0 &&
+    update.locator.rangeEnd >= rangeStart &&
+    update.locator.rangeEnd <= markdown.length
+  ) {
+    return { start: rangeStart, end: update.locator.rangeEnd }
+  }
+
+  const candidates = [
+    update.insertedText,
+    update.locator.anchorText,
+    update.summary,
+  ]
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  for (const candidate of candidates) {
+    const start = markdown.indexOf(candidate)
+    if (start >= 0) return { start, end: start + candidate.length }
+  }
+  return null
+}
+
+function previewAgentUpdateText(update: WritingAgentUpdate) {
+  return update.insertedText || update.locator.anchorText || update.summary || '暂无可展示的正文片段'
+}
+
+function buildAgentUpdateRejectedMarkdown(markdown: string, update: WritingAgentUpdate): string | null {
+  const range = findAgentUpdateRange(markdown, update)
+  if (!range) return null
+  const shouldRestoreText = update.operation === 'replace_range' || update.operation === 'replace_text'
+  const replacementText = shouldRestoreText ? update.replacedText : ''
+  return `${markdown.slice(0, range.start)}${replacementText}${markdown.slice(range.end)}`.replace(/\n{3,}/g, '\n\n')
+}
+
+function buildAgentUpdateAnchors(markdown: string, updates: WritingAgentUpdate[]): WritingAgentUpdateAnchor[] {
+  return updates.map((update) => {
+    const range = findAgentUpdateRange(markdown, update)
+    const lineStart = range ? markdown.slice(0, range.start).split('\n').length : update.locator.anchorLine
+    const lineEnd = range ? (lineStart || 1) + Math.max(0, markdown.slice(range.start, range.end).split('\n').length - 1) : update.locator.anchorLine
+    return {
+      update,
+      range,
+      lineStart,
+      lineEnd,
+      preview: previewAgentUpdateText(update),
+    }
+  })
+}
+
+function agentUpdateVersionLabel(update: WritingAgentUpdate) {
+  const before = update.oldVersion ? `v${update.oldVersion}` : '原版本'
+  const after = update.newVersion ? `v${update.newVersion}` : 'Agent 写回'
+  return `${before} -> ${after}`
+}
+
+function normalizeAgentReviewStatus(value: unknown): WritingAgentReviewStatus {
+  const normalized = asText(value).trim().toLowerCase()
+  if (normalized === 'accepted' || normalized === 'rejected') return normalized
+  return 'pending'
+}
+
+function agentUpdateRawMatches(value: unknown, update: WritingAgentUpdate) {
+  if (!isPlainRecord(value)) return false
+  const locator = isPlainRecord(value.locator) ? value.locator : {}
+  const ids = [
+    asText(value.id),
+    asText(value.anchor_id),
+    asText(value.call_id),
+    asText(locator.anchor_id),
+  ].filter(Boolean)
+  return ids.includes(update.id) || ids.includes(update.callId) || ids.includes(update.locator.anchorId)
+}
+
+function withAgentUpdateReviewStatus(
+  metadata: WritingDocument['metadata_json'] | null | undefined,
+  update: WritingAgentUpdate,
+  reviewStatus: WritingAgentReviewStatus,
+) {
+  const next: Record<string, unknown> = isPlainRecord(metadata) ? { ...metadata } : {}
+  const reviewedAt = new Date().toISOString()
+  const applyStatus = (value: unknown) => {
+    if (!isPlainRecord(value) || !agentUpdateRawMatches(value, update)) return value
+    return {
+      ...value,
+      review_status: reviewStatus,
+      reviewed_at: reviewedAt,
+    }
+  }
+  if (Array.isArray(next.agent_updates)) {
+    next.agent_updates = next.agent_updates.map(applyStatus)
+  }
+  if (isPlainRecord(next.last_agent_update)) {
+    next.last_agent_update = applyStatus(next.last_agent_update)
+  }
+  return next
 }
 
 function panelButtonClass(active: boolean) {
@@ -275,6 +542,7 @@ function buildCitationDockedStyle(
 
 export default function WritingWorkbenchPage({ projectKey, standalone = false }: WritingWorkbenchPageProps) {
   const queryClient = useQueryClient()
+  const canUseWritingProject = Boolean(projectKey && !isReservedProjectKey(projectKey))
   const initialViewport = readViewport()
   const initialPanelHeight = Math.max(PANEL_MIN_HEIGHT, initialViewport.height - 148)
   const initialCenteredSideOffset = Math.max(
@@ -286,15 +554,21 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false)
   const [insightsPanelOpen, setInsightsPanelOpen] = useState(false)
   const [llmPanelOpen, setLlmPanelOpen] = useState(false)
+  const [agentUpdatesPanelOpen, setAgentUpdatesPanelOpen] = useState(false)
+  const [expandedAgentUpdateId, setExpandedAgentUpdateId] = useState<string | null>(null)
   const [activeDocumentId, setActiveDocumentId] = useState<number | null>(null)
   const [isCreatingDraft, setIsCreatingDraft] = useState(false)
   const [draftByKey, setDraftByKey] = useState<Record<string, { title: string; markdown: string }>>({})
   const [selectionText, setSelectionText] = useState('')
+  const [selectionState, setSelectionState] = useState<MarkdownSelectionState | null>(null)
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
   const [pinnedInsightCards, setPinnedInsightCards] = useState<PinnedInsightCard[]>([])
-  const [selectedJobId, setSelectedJobId] = useState<number | null>(null)
   const [templateValidation, setTemplateValidation] = useState<WritingTemplateValidation | null>(null)
-  const [llmOutput, setLlmOutput] = useState('')
+  const [writingAgentDraft, setWritingAgentDraft] = useState('')
+  const [writingAgentMessages, setWritingAgentMessages] = useState<WritingAgentPanelMessage[]>([])
+  const [writingAgentSessionId, setWritingAgentSessionId] = useState<string | null>(null)
+  const [writingAgentStreamStatus, setWritingAgentStreamStatus] = useState<AgentSessionEventStreamStatus>('idle')
+  const [writingAgentBusy, setWritingAgentBusy] = useState(false)
   const [citationTrayVisible, setCitationTrayVisible] = useState(true)
   const [citationTrayCollapsed, setCitationTrayCollapsed] = useState(false)
   const [citationTrayDragOver, setCitationTrayDragOver] = useState(false)
@@ -349,7 +623,10 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const [insightsPanelDragRect, setInsightsPanelDragRect] = useState<FloatingRect | null>(null)
   const [llmPanelDragRect, setLlmPanelDragRect] = useState<FloatingRect | null>(null)
   const [citationTrayDragRect, setCitationTrayDragRect] = useState<FloatingRect | null>(null)
+  const [toolbarPosition, setToolbarPosition] = useState<FloatingPoint | null>(null)
   const [insightCardAnchor, setInsightCardAnchor] = useState<InsightCardAnchor | null>(null)
+  const canvasShellRef = useRef<HTMLDivElement | null>(null)
+  const toolbarRef = useRef<HTMLDivElement | null>(null)
   const documentsPanelRef = useRef<HTMLElement | null>(null)
   const templatesPanelRef = useRef<HTMLElement | null>(null)
   const insightsPanelRef = useRef<HTMLElement | null>(null)
@@ -363,27 +640,27 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const documentsQuery = useQuery({
     queryKey: queryKeys.writing.documents(projectKey),
     queryFn: () => listWritingDocuments(),
+    enabled: canUseWritingProject,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
   })
   const effectiveDocumentId = isCreatingDraft ? null : activeDocumentId ?? documentsQuery.data?.[0]?.id ?? null
   const documentDetailQuery = useQuery({
     queryKey: queryKeys.writing.documentDetail(projectKey, effectiveDocumentId),
     queryFn: () => getWritingDocument(effectiveDocumentId as number),
-    enabled: effectiveDocumentId != null,
+    enabled: canUseWritingProject && effectiveDocumentId != null,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   })
   const citationsQuery = useQuery({
     queryKey: queryKeys.writing.citations(projectKey, effectiveDocumentId),
     queryFn: () => listWritingCitations(effectiveDocumentId as number),
-    enabled: effectiveDocumentId != null,
+    enabled: canUseWritingProject && effectiveDocumentId != null,
   })
   const templatesQuery = useQuery({
     queryKey: queryKeys.writing.templates(projectKey),
     queryFn: () => listWritingTemplates(),
   })
-  const llmHistoryQuery = useQuery({
-    queryKey: queryKeys.writing.llmHistory(projectKey),
-    queryFn: () => listWritingLlmActionHistory(),
-  })
-
   const draftKey = effectiveDocumentId == null ? '__new__' : String(effectiveDocumentId)
   const persistedTitle = documentDetailQuery.data?.title || ''
   const persistedMarkdown = documentDetailQuery.data?.body_md || EMPTY_MARKDOWN
@@ -394,14 +671,24 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     effectiveDocumentId == null
       ? title.trim().length > 0 || markdown.trim().length > 0
       : title !== persistedTitle || markdown !== persistedMarkdown
+  const agentUpdates = useMemo(
+    () => readAgentUpdates(documentDetailQuery.data?.metadata_json),
+    [documentDetailQuery.data?.metadata_json],
+  )
+  const agentUpdateAnchors = useMemo(
+    () => buildAgentUpdateAnchors(markdown, agentUpdates),
+    [agentUpdates, markdown],
+  )
+  const latestAgentUpdate = agentUpdates[0] || null
 
   const resetContextPanels = () => {
     dismissInsightCard()
     setPinnedInsightCards([])
-    setSelectedJobId(null)
     setSelectionText('')
+    setSelectionState(null)
     setTemplateValidation(null)
-    setLlmOutput('')
+    setAgentUpdatesPanelOpen(false)
+    setExpandedAgentUpdateId(null)
   }
 
   const saveDocumentMutation = useMutation({
@@ -462,26 +749,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     onSuccess: setTemplateValidation,
   })
 
-  const llmActionMutation = useMutation({
-    mutationFn: (actionId: WritingLlmActionId) =>
-      runWritingLlmAction({
-        action_id: actionId,
-        document_id: effectiveDocumentId == null ? undefined : String(effectiveDocumentId),
-        input_markdown: markdown,
-        selection_text: selectionText || undefined,
-      }),
-    onSuccess: async (result) => {
-      setLlmOutput(result.content || '')
-      setLlmPanelOpen(true)
-      activateFloatingWindow('llm')
-      dismissInsightCard()
-      await queryClient.invalidateQueries({ queryKey: queryKeys.writing.llmHistory(projectKey) })
-    },
-  })
-
   const selectionLookup = useSelectionLookup({
     selectionText,
-    enabled: viewMode !== 'preview',
+    enabled: canUseWritingProject && viewMode !== 'preview',
     lookup: async (nextSelection, selectionHash) => {
       const [cardsResult, suggestResult] = await Promise.all([
         getWritingKeywordCards({
@@ -523,7 +793,6 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       pinnedInsightCards.some((item) => item.cardId === selectedCardId))
       ? selectedCardId
       : null
-  const effectiveSelectedJobId = selectedJobId ?? llmHistoryQuery.data?.[0]?.job_id ?? null
   const selectedPreview: WritingKeywordCardPreview | null =
     (visibleCards.find((item) => item.card_id === effectiveSelectedCardId) as WritingKeywordCard | undefined) || null
 
@@ -531,7 +800,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     queries: pinnedInsightCards.map((item) => ({
       queryKey: queryKeys.writing.keywordCardDetail(projectKey, item.cardId),
       queryFn: () => getWritingCardDetail(item.cardId, { include_provenance: true, max_provenance_items: 12 }),
-      enabled: true,
+      enabled: canUseWritingProject,
     })),
   })
   const pinnedCardsWithDetail = useMemo(
@@ -677,7 +946,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const selectedPreviewQuery = useQuery({
     queryKey: queryKeys.writing.keywordCardPreview(projectKey, effectiveSelectedCardId || '__none__'),
     queryFn: () => previewWritingKeywordCard({ card_id: effectiveSelectedCardId as string, query: selectionText || undefined }),
-    enabled: Boolean(effectiveSelectedCardId),
+    enabled: canUseWritingProject && Boolean(effectiveSelectedCardId),
   })
   const resolvedSelectedPreview =
     selectedPreview ||
@@ -686,12 +955,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const selectedDetailQuery = useQuery({
     queryKey: queryKeys.writing.keywordCardDetail(projectKey, effectiveSelectedCardId || '__none__'),
     queryFn: () => getWritingCardDetail(effectiveSelectedCardId as string, { include_provenance: true, max_provenance_items: 12 }),
-    enabled: Boolean(effectiveSelectedCardId),
-  })
-  const selectedLlmDetailQuery = useQuery({
-    queryKey: queryKeys.writing.llmDetail(projectKey, effectiveSelectedJobId),
-    queryFn: () => getWritingLlmActionDetail(effectiveSelectedJobId as number),
-    enabled: effectiveSelectedJobId != null,
+    enabled: canUseWritingProject && Boolean(effectiveSelectedCardId),
   })
   const toolbarStatus = exportMessage || saveMessage || (autosaveMessage !== 'idle' ? autosaveMessage : '')
   const isDesktopFloating = viewport.width > DESKTOP_FLOATING_BREAKPOINT
@@ -796,6 +1060,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         status: item.status,
         updatedAt: formatUpdatedAt(item.updated_at),
         active: item.id === effectiveDocumentId,
+        agentUpdateCount: readAgentUpdates(item.metadata_json).length,
       })),
     [documentsQuery.data, effectiveDocumentId],
   )
@@ -941,6 +1206,56 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       setPosition(resolveDockFromRect(droppedRect, viewport))
     })
   }
+
+  const clampToolbarPosition = useCallback((position: FloatingPoint): FloatingPoint => {
+    const shellRect = canvasShellRef.current?.getBoundingClientRect()
+    const toolbarRect = toolbarRef.current?.getBoundingClientRect()
+    if (!shellRect || !toolbarRect) return position
+
+    return {
+      left: clampValue(
+        position.left,
+        WRITING_TOOLBAR_MARGIN,
+        Math.max(WRITING_TOOLBAR_MARGIN, shellRect.width - toolbarRect.width - WRITING_TOOLBAR_MARGIN),
+      ),
+      top: clampValue(
+        position.top,
+        WRITING_TOOLBAR_MARGIN,
+        Math.max(WRITING_TOOLBAR_MARGIN, shellRect.height - toolbarRect.height - WRITING_TOOLBAR_MARGIN),
+      ),
+    }
+  }, [])
+
+  const handleToolbarDragStart = (event: ReactMouseEvent<HTMLSpanElement>) => {
+    if (!isDesktopFloating || event.button !== 0) return
+    const shellRect = canvasShellRef.current?.getBoundingClientRect()
+    const toolbarRect = toolbarRef.current?.getBoundingClientRect()
+    if (!shellRect || !toolbarRect) return
+
+    const startPosition = {
+      left: toolbarRect.left - shellRect.left,
+      top: toolbarRect.top - shellRect.top,
+    }
+
+    beginMouseSession(event, (deltaX, deltaY) => {
+      setToolbarPosition(clampToolbarPosition({
+        left: startPosition.left + deltaX,
+        top: startPosition.top + deltaY,
+      }))
+    })
+  }
+
+  const resetToolbarPosition = () => {
+    setToolbarPosition(null)
+  }
+
+  useEffect(() => {
+    if (!toolbarPosition) return
+    const nextPosition = clampToolbarPosition(toolbarPosition)
+    if (nextPosition.left !== toolbarPosition.left || nextPosition.top !== toolbarPosition.top) {
+      setToolbarPosition(nextPosition)
+    }
+  }, [clampToolbarPosition, toolbarPosition, viewport])
 
   const handleDocumentsPanelResizeStart = (edge: 'e' | 's' | 'se') =>
     beginPanelResize(edge, effectiveDocumentsPanelSize, setDocumentsPanelSize)
@@ -1304,6 +1619,14 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           zIndex: resolveFloatingWindowZIndex('citations'),
         }
     : undefined
+  const toolbarStyle = toolbarPosition
+    ? {
+        left: Math.round(toolbarPosition.left),
+        top: Math.round(toolbarPosition.top),
+        right: 'auto',
+        transform: 'none',
+      }
+    : undefined
 
   const insightCardStyle = effectiveSelectedCardId ? buildInsightCardStyle(resolvedInsightCardAnchor, 96) : undefined
 
@@ -1403,18 +1726,320 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     [activateFloatingWindow, movePinnedCardToFront, pinnedInsightCards],
   )
 
-  const handleSelectionTextChange = (nextSelectionText: string) => {
+  const handleSelectionTextChange = (nextSelectionText: string, nextSelectionState?: MarkdownSelectionState) => {
     setSelectionText(nextSelectionText)
+    setSelectionState(nextSelectionState || null)
     setSelectedCardId(null)
     if (!nextSelectionText.trim()) return
     setInsightsPanelOpen(true)
     activateFloatingWindow('insights')
   }
 
+  const handleRefreshWritingState = useCallback(async () => {
+    setAutosaveMessage('refreshing...')
+    const refreshes: Array<Promise<unknown>> = [documentsQuery.refetch()]
+    if (effectiveDocumentId != null) {
+      refreshes.push(documentDetailQuery.refetch())
+      refreshes.push(citationsQuery.refetch())
+    }
+    try {
+      await Promise.all(refreshes)
+      setAutosaveMessage('refreshed')
+      setSaveMessage('已刷新工作台')
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : '刷新失败')
+    }
+  }, [citationsQuery, documentDetailQuery, documentsQuery, effectiveDocumentId])
+
+  const buildWritingAgentCommand = useCallback(
+    (userCommand: string) => {
+      const selection = selectionState
+      const activeHeading = selection ? findHeadingBefore(markdown, selection.start) : ''
+      const documentContext = {
+        project_key: projectKey,
+        doc_id: effectiveDocumentId,
+        title: title || 'Untitled report',
+        version: documentDetailQuery.data?.version ?? null,
+        etag: documentDetailQuery.data?.etag ?? null,
+        dirty_in_browser: isDirty,
+        selected_text: boundedText(selectionText, 1400),
+        selection_start: selection?.start ?? null,
+        selection_end: selection?.end ?? null,
+        cursor_offset: selection?.end ?? null,
+        selection_line: selection?.line ?? null,
+        active_heading: activeHeading,
+        before_selection: boundedText(selection?.before || '', 900),
+        after_selection: boundedText(selection?.after || '', 900),
+        visible_markdown_excerpt: effectiveDocumentId == null ? boundedText(markdown, 2200) : boundedText(markdown.slice(0, 1600), 1600),
+        citation_count: citationsQuery.data?.length ?? 0,
+        pinned_materials: pinnedInsightCards.slice(-5).map((item) => ({
+          card_id: item.cardId,
+          title: item.preview.title,
+          snippet: boundedText(item.preview.snippet || '', 360),
+          source_type: item.preview.source_type,
+        })),
+      }
+      return [
+        '你正在写作工作台中作为 AgentCore 写作协作核心工作。不要调用旧的 writing/llm-actions；需要资料、文档读取或写回时使用 AgentCore 可见工具。',
+        '如果用户要求修改文档，优先先调用 writing.document.read 获取 version/etag，然后调用 writing.document.insert_paragraph。',
+        '定位规则：有 selected_text 且 selection_start/selection_end 可用时，替换优先用 operation=replace_range + range_start + range_end + selection_snapshot；在光标处续写优先用 operation=insert_at_offset + cursor_offset；锚点文本只作为 range 不可用时的 fallback，使用 replace_text/insert_after_text/insert_before_text + anchor_text=selected_text；无选区但有 active_heading 时，用 operation=after_heading。',
+        '如果当前文档 dirty_in_browser=true，先提醒用户保存，除非用户明确要求以服务器最新版 allow_latest=true 写回。',
+        `用户请求：${userCommand}`,
+        `写作工作台上下文 JSON：${JSON.stringify(documentContext, null, 2)}`,
+      ].join('\n\n')
+    },
+    [
+      citationsQuery.data?.length,
+      documentDetailQuery.data?.etag,
+      documentDetailQuery.data?.version,
+      effectiveDocumentId,
+      isDirty,
+      markdown,
+      pinnedInsightCards,
+      projectKey,
+      selectionState,
+      selectionText,
+      title,
+    ],
+  )
+
+  const runWritingAgentCommand = useCallback(
+    async (rawCommand: string) => {
+      const command = rawCommand.trim()
+      if (!command || writingAgentBusy) return
+      if (!canUseWritingProject) {
+        setWritingAgentMessages((prev) => [
+          ...prev,
+          {
+            id: `writing-agent-system-${Date.now()}`,
+            role: 'system',
+            content: '当前项目仍在解析中，等顶部项目切换到真实 project_key 后再调用写作 Agent。',
+          },
+        ])
+        return
+      }
+      const loadingId = `writing-agent-loading-${Date.now()}`
+      setWritingAgentDraft('')
+      setWritingAgentBusy(true)
+      setWritingAgentStreamStatus('connecting')
+      setWritingAgentMessages((prev) => [
+        ...prev,
+        { id: `writing-agent-user-${Date.now()}`, role: 'user', content: command },
+        { id: loadingId, role: 'assistant', content: '正在处理写作上下文...', pending: true },
+      ])
+
+      let streamedText = ''
+      const updateLoading = (content: string, pending = true) => {
+        setWritingAgentMessages((prev) =>
+          prev.map((message) =>
+            message.id === loadingId
+              ? {
+                  ...message,
+                  content,
+                  pending,
+                }
+              : message,
+          ),
+        )
+      }
+
+      try {
+        const result = await runAgentChatTurnStreaming(
+          {
+            message: buildWritingAgentCommand(command),
+            project_key: projectKey || null,
+            session_id: writingAgentSessionId || null,
+            enable_model_tool_loop: true,
+            require_high_risk_approval: false,
+          },
+          {
+            onStatus: setWritingAgentStreamStatus,
+            onEvent: (event) => {
+              const chunk = extractWritingAgentChunk(event)
+              if (!chunk?.text) return
+              streamedText = chunk.mode === 'append' ? `${streamedText}${chunk.text}` : chunk.text
+              updateLoading(streamedText || '正在处理写作上下文...')
+            },
+          },
+        )
+        const nextSessionId = String(result?.session?.session_id || result?.stream?.session_id || '').trim()
+        if (nextSessionId) setWritingAgentSessionId(nextSessionId)
+        updateLoading(String(result?.final_answer || streamedText || '写作 Agent 已完成本轮处理。').trim(), false)
+        setWritingAgentStreamStatus('closed')
+        await handleRefreshWritingState()
+      } catch (error) {
+        setWritingAgentStreamStatus('error')
+        updateLoading(`写作 Agent 调用失败：${error instanceof Error ? error.message : String(error)}`, false)
+      } finally {
+        setWritingAgentBusy(false)
+      }
+    },
+    [buildWritingAgentCommand, canUseWritingProject, handleRefreshWritingState, projectKey, writingAgentBusy, writingAgentSessionId],
+  )
+
+  const handleLocateAgentUpdate = (update: WritingAgentUpdate) => {
+    const range = findAgentUpdateRange(markdown, update)
+    if (!range) {
+      setSaveMessage('未在当前正文中找到该 Agent 块')
+      return
+    }
+
+    setViewMode('write')
+    setSaveMessage(`已定位 ${update.locator.anchorId}`)
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const textarea = canvasShellRef.current?.querySelector<HTMLTextAreaElement>('.writing-editor__textarea')
+        if (!textarea) return
+        textarea.focus()
+        textarea.setSelectionRange(range.start, range.end)
+        const lineCountBefore = markdown.slice(0, range.start).split('\n').length - 1
+        const lineHeight = Number.parseFloat(window.getComputedStyle(textarea).lineHeight || '') || 30
+        textarea.scrollTop = Math.max(0, lineCountBefore * lineHeight - textarea.clientHeight / 3)
+      })
+    })
+  }
+
+  const persistAgentUpdateReview = async (
+    update: WritingAgentUpdate,
+    reviewStatus: WritingAgentReviewStatus,
+    nextMarkdown = persistedMarkdown,
+  ) => {
+    if (effectiveDocumentId == null || !documentDetailQuery.data) {
+      setSaveMessage('当前没有可更新的文档')
+      return
+    }
+    if (isDirty) {
+      setSaveMessage('请先保存当前草稿，再处理 Agent 写回')
+      return
+    }
+    const nextMetadata = withAgentUpdateReviewStatus(documentDetailQuery.data.metadata_json, update, reviewStatus)
+    try {
+      const document = await updateWritingDocument(
+        effectiveDocumentId,
+        {
+          title: persistedTitle || title,
+          body_md: nextMarkdown,
+          base_version: documentDetailQuery.data.version,
+          metadata_json: nextMetadata,
+        },
+        { ifMatch: documentDetailQuery.data.etag },
+      )
+      setDraftByKey((prev) => {
+        const next = { ...prev }
+        delete next[draftKey]
+        return next
+      })
+      setAutosaveMessage('saved')
+      setSaveMessage(reviewStatus === 'accepted' ? '已采纳 Agent 写回' : '已撤回 Agent 写回')
+      await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documents(projectKey) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documentDetail(projectKey, document.id || effectiveDocumentId) })
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : 'Agent 写回状态更新失败')
+    }
+  }
+
+  const handleAcceptAgentUpdate = (update: WritingAgentUpdate) => {
+    void persistAgentUpdateReview(update, 'accepted')
+  }
+
+  const handleRejectAgentUpdate = (update: WritingAgentUpdate) => {
+    if (isDirty) {
+      setSaveMessage('请先保存当前草稿，再撤回 Agent 写回')
+      return
+    }
+    const nextMarkdown = buildAgentUpdateRejectedMarkdown(persistedMarkdown, update)
+    if (nextMarkdown == null) {
+      setSaveMessage('未在服务器正文中找到可撤回的 Agent 块')
+      return
+    }
+    void persistAgentUpdateReview(update, 'rejected', nextMarkdown)
+  }
+
+  const writingAgentToolActions: WritingAgentToolAction[] = [
+    {
+      id: 'rewrite-selection',
+      label: '改写选区',
+      description: '将当前划词和精确 range 交给 Agent 改写。',
+      prompt: '改写当前选区，保持原论证含义但让表达更清晰；请写回当前文档，优先使用 replace_range。',
+      disabled: !selectionText,
+    },
+    {
+      id: 'continue-after-selection',
+      label: '选区后续写',
+      description: '从当前划词后继续扩写一段。',
+      prompt: '在当前选区后续写一段，承接上下文并写回当前文档，优先使用 insert_at_offset。',
+      disabled: !selectionText,
+    },
+    {
+      id: 'insert-before-selection',
+      label: '选区前补桥段',
+      description: '在当前划词前补一段过渡或定义。',
+      prompt: '在当前选区前补一段必要的过渡、定义或论证铺垫，写回当前文档，使用 insert_before_text。',
+      disabled: !selectionText,
+    },
+    {
+      id: 'expand-section',
+      label: '扩写当前节',
+      description: '根据当前标题和附近上下文扩写当前小节。',
+      prompt: '扩写当前标题下的小节，先读取文档，再在当前标题后插入一段结构化内容。',
+      disabled: effectiveDocumentId == null,
+    },
+    {
+      id: 'material-search',
+      label: '按选区找资料',
+      description: '围绕当前选区检索项目内结构化、图谱和资料库信息。',
+      prompt: '围绕当前选区检索项目内 documents、graph_nodes、resource_pool 等资料，给出可用于写作的证据点，不要先写回。',
+      disabled: !selectionText,
+    },
+    {
+      id: 'evidence-to-paragraph',
+      label: '证据转段落',
+      description: '把当前资料上下文整理成可写入段落。',
+      prompt: '基于当前选区、引用和已钉住资料，生成一段带证据指向的写作段落，并询问或在明确可定位时写回。',
+    },
+    {
+      id: 'outline',
+      label: '生成提纲',
+      description: '读取当前文档后生成或补全提纲。',
+      prompt: '读取当前文档，生成一份可以继续写作的分层提纲；如果文档为空，创建一个适合当前标题的提纲。',
+    },
+    {
+      id: 'review-structure',
+      label: '结构审阅',
+      description: '检查论证结构、断裂点和需要补证据的位置。',
+      prompt: '审阅当前文档结构，指出论证断裂、重复、需要补证据的位置，并给出下一步写作操作建议。',
+    },
+  ]
+
+  const writingAgentWorkbenchTools: WritingAgentWorkbenchTool[] = [
+    { id: 'documents', label: '文档', active: documentsPanelOpen, onClick: toggleDocumentsPanel },
+    { id: 'templates', label: '模板', active: templatesPanelOpen, onClick: toggleTemplatesPanel },
+    { id: 'insights', label: '资料', active: insightsPanelOpen, onClick: toggleInsightsPanel },
+    {
+      id: 'citations',
+      label: '引用',
+      active: citationTrayVisible,
+      onClick: () => {
+        activateFloatingWindow('citations')
+        setCitationTrayVisible((prev) => !prev)
+      },
+    },
+    { id: 'updates', label: '写回', active: agentUpdatesPanelOpen, onClick: () => setAgentUpdatesPanelOpen((prev) => !prev) },
+    { id: 'save', label: '保存', disabled: saveDocumentMutation.isPending, onClick: () => saveDocumentMutation.mutate() },
+    { id: 'refresh', label: '刷新', onClick: () => void handleRefreshWritingState() },
+  ]
+
   return (
-    <div className={`writing-workbench-page${standalone ? ' is-standalone' : ''}`}>
-      <div className="writing-canvas-shell">
-        <div className="writing-floating-toolbar">
+    <div className={`writing-workbench-page${standalone ? ' is-standalone' : ''}`} data-testid="writing-workbench-page">
+      <div ref={canvasShellRef} className="writing-canvas-shell" data-testid="writing-canvas-shell">
+        <div ref={toolbarRef} className="writing-floating-toolbar" style={toolbarStyle} data-testid="writing-workbench-toolbar">
+          <span
+            className="writing-toolbar-drag-handle"
+            onMouseDown={handleToolbarDragStart}
+            onDoubleClick={resetToolbarPosition}
+            aria-label="拖动写作条"
+            title="拖动写作条，双击恢复默认位置"
+          />
           <div className="writing-toolbar-cluster writing-toolbar-cluster--title">
             {standalone ? (
               <button type="button" className="button-secondary" onClick={handleBackToWorkspace}>
@@ -1423,6 +2048,8 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
             ) : null}
             <input
               className="writing-title-input"
+              data-testid="writing-title-input"
+              aria-label="writing document title"
               value={title}
               onChange={(event) =>
                 setDraftByKey((prev) => ({
@@ -1435,44 +2062,58 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           </div>
 
           <div className="writing-toolbar-cluster writing-toolbar-cluster--panels">
-            <button type="button" className={panelButtonClass(documentsPanelOpen)} onClick={toggleDocumentsPanel}>
+            <button type="button" className={panelButtonClass(documentsPanelOpen)} data-testid="writing-panel-documents" onClick={toggleDocumentsPanel}>
               文档
             </button>
-            <button type="button" className={panelButtonClass(templatesPanelOpen)} onClick={toggleTemplatesPanel}>
+            <button type="button" className={panelButtonClass(templatesPanelOpen)} data-testid="writing-panel-templates" onClick={toggleTemplatesPanel}>
               模板
             </button>
-            <button type="button" className={panelButtonClass(insightsPanelOpen)} onClick={toggleInsightsPanel}>
+            <button type="button" className={panelButtonClass(insightsPanelOpen)} data-testid="writing-panel-insights" onClick={toggleInsightsPanel}>
               资料
             </button>
-            <button type="button" className={panelButtonClass(citationTrayVisible)} onClick={() => { activateFloatingWindow('citations'); setCitationTrayVisible((prev) => !prev) }}>
+            <button type="button" className={panelButtonClass(citationTrayVisible)} data-testid="writing-panel-citations" onClick={() => { activateFloatingWindow('citations'); setCitationTrayVisible((prev) => !prev) }}>
               引用
             </button>
-            <button type="button" className={panelButtonClass(llmPanelOpen)} onClick={toggleLlmPanel}>
-              AI
+            <button type="button" className={panelButtonClass(llmPanelOpen)} data-testid="writing-panel-llm" onClick={toggleLlmPanel}>
+              Agent
+            </button>
+            <button
+              type="button"
+              className={panelButtonClass(agentUpdatesPanelOpen)}
+              data-testid="writing-panel-agent-updates"
+              onClick={() => setAgentUpdatesPanelOpen((prev) => !prev)}
+            >
+              Agent{agentUpdates.length ? ` ${agentUpdates.length}` : ''}
             </button>
           </div>
 
           <div className="writing-toolbar-cluster writing-toolbar-cluster--actions">
-            <button type="button" className={panelButtonClass(viewMode === 'write')} onClick={() => setViewMode('write')}>
+            <button type="button" className={panelButtonClass(viewMode === 'write')} data-testid="writing-mode-write" onClick={() => setViewMode('write')}>
               写
             </button>
-            <button type="button" className={panelButtonClass(viewMode === 'preview')} onClick={() => setViewMode('preview')}>
+            <button type="button" className={panelButtonClass(viewMode === 'preview')} data-testid="writing-mode-preview" onClick={() => setViewMode('preview')}>
               预
             </button>
-            <button type="button" className={panelButtonClass(viewMode === 'split')} onClick={() => setViewMode('split')}>
+            <button type="button" className={panelButtonClass(viewMode === 'split')} data-testid="writing-mode-split" onClick={() => setViewMode('split')}>
               分
             </button>
-            <button type="button" className="button-secondary" onClick={startNewDraft}>
+            <button type="button" className="button-secondary" data-testid="writing-new-draft" onClick={startNewDraft}>
               新建
             </button>
-            <button type="button" className="button-primary" onClick={() => saveDocumentMutation.mutate()} disabled={saveDocumentMutation.isPending}>
+            <button type="button" className="button-primary" data-testid="writing-save" onClick={() => saveDocumentMutation.mutate()} disabled={saveDocumentMutation.isPending}>
               保存
             </button>
-            <button type="button" className="button-secondary" onClick={() => void handleExportMarkdown()} disabled={effectiveDocumentId == null || isDirty}>
+            <button type="button" className="button-secondary" data-testid="writing-export" onClick={() => void handleExportMarkdown()} disabled={effectiveDocumentId == null || isDirty}>
               导出
+            </button>
+            <button type="button" className="button-secondary" data-testid="writing-refresh" onClick={() => void handleRefreshWritingState()}>
+              刷新
             </button>
           </div>
           <div className="writing-toolbar-cluster writing-toolbar-cluster--meta">
+            {latestAgentUpdate ? (
+              <span className="chip chip-ok">Agent v{latestAgentUpdate.newVersion || documentDetailQuery.data?.version || '-'}</span>
+            ) : null}
             {toolbarStatus ? <span className="writing-toolbar-status">{toolbarStatus}</span> : null}
             {effectiveDocumentId != null ? <span className="chip chip-warn">doc {effectiveDocumentId}</span> : null}
           </div>
@@ -1513,6 +2154,8 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                     key={item.id}
                     type="button"
                     className={`writing-list-card${item.active ? ' is-active' : ''}`}
+                    data-testid="writing-document-card"
+                    data-document-id={item.id}
                     onClick={() => handleSelectDocument(item.id)}
                   >
                     <div className="writing-list-card__header">
@@ -1521,7 +2164,10 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                     </div>
                     <div className="writing-list-card__footer">
                       <span className="text-muted">{item.updatedAt}</span>
-                      {item.active ? <span className="chip chip-ok">当前</span> : null}
+                      <span className="writing-list-card__badges">
+                        {item.agentUpdateCount ? <span className="chip chip-ok">Agent {item.agentUpdateCount}</span> : null}
+                        {item.active ? <span className="chip chip-ok">当前</span> : null}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -1619,9 +2265,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           onMouseDown={() => activateFloatingWindow('llm')}
         >
           <div className="writing-floating-panel__chrome">
-            <span className="writing-floating-drag-handle" onMouseDown={handleLlmPanelDragStart} aria-label="拖动 AI 面板" />
+            <span className="writing-floating-drag-handle" onMouseDown={handleLlmPanelDragStart} aria-label="拖动 Agent 面板" />
             <div className="writing-floating-panel__tabs">
-              <span className="chip chip-warn">AI</span>
+              <span className="chip chip-warn">Agent</span>
             </div>
             <button type="button" className="button-secondary" onClick={() => setLlmPanelOpen(false)}>
               收起
@@ -1629,14 +2275,20 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           </div>
 
           <div className="writing-floating-panel__body">
-            <LlmAssistantPanel
-              history={llmHistoryQuery.data || []}
-              selectedJobId={effectiveSelectedJobId}
-              detail={selectedLlmDetailQuery.data || null}
-              busy={llmActionMutation.isPending}
-              generatedContent={llmOutput}
-              onRunAction={(actionId) => llmActionMutation.mutate(actionId)}
-              onSelectHistory={setSelectedJobId}
+            <AgentWritingAssistantPanel
+              messages={writingAgentMessages}
+              draft={writingAgentDraft}
+              busy={writingAgentBusy}
+              streamStatus={writingAgentStreamStatus}
+              sessionId={writingAgentSessionId}
+              documentLabel={effectiveDocumentId == null ? '未保存草稿' : `doc ${effectiveDocumentId} · v${documentDetailQuery.data?.version || '-'}`}
+              selectionText={selectionText}
+              selectionLine={selectionState?.line || null}
+              actions={writingAgentToolActions}
+              workbenchTools={writingAgentWorkbenchTools}
+              onDraftChange={setWritingAgentDraft}
+              onSend={(message) => void runWritingAgentCommand(message)}
+              onRunAction={(action) => void runWritingAgentCommand(action.prompt)}
             />
           </div>
           {isDesktopFloating ? (
@@ -1648,31 +2300,190 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           ) : null}
         </aside>
 
-        <main className={`writing-canvas-stage is-${viewMode}`}>
+        {agentUpdatesPanelOpen ? (
+          <aside className="writing-agent-updates-panel" aria-label="Agent 更新" data-testid="writing-agent-updates-panel">
+            <div className="writing-agent-updates-panel__header">
+              <div>
+                <span className="chip chip-ok">Agent 更新</span>
+                <p className="writing-panel-subtitle">
+                  {agentUpdates.length ? `当前文档 ${agentUpdates.length} 条` : '当前文档暂无 Agent 写回记录'}
+                </p>
+              </div>
+              <div className="writing-agent-updates-panel__actions">
+                <button type="button" className="button-secondary" onClick={() => void handleRefreshWritingState()}>
+                  刷新
+                </button>
+                <button type="button" className="button-secondary" onClick={() => setAgentUpdatesPanelOpen(false)}>
+                  收起
+                </button>
+              </div>
+            </div>
+
+            <div className="writing-agent-update-list">
+              {agentUpdates.map((update, index) => {
+                const provenanceKeys = Object.keys(update.provenance).slice(0, 4)
+                return (
+                  <article key={`${update.id}-${update.callId || 'call'}-${index}`} className="writing-agent-update-card" data-testid="writing-agent-update-card">
+	                    <div className="writing-agent-update-card__head">
+	                      <span className="chip chip-warn">{update.operation}</span>
+	                      <span className={update.reviewStatus === 'accepted' ? 'chip chip-ok' : update.reviewStatus === 'rejected' ? 'chip chip-danger' : 'chip'}>
+	                        {update.reviewStatus === 'accepted' ? '已采纳' : update.reviewStatus === 'rejected' ? '已撤回' : '待处理'}
+	                      </span>
+	                      <span className="writing-score">{formatUpdatedAt(update.createdAt)}</span>
+	                    </div>
+                    <strong>{update.summary || update.locator.anchorText || update.callId || update.id}</strong>
+                    {update.locator.anchorText ? <p>{update.locator.anchorText}</p> : null}
+                    <div className="writing-agent-update-card__meta">
+                      {update.locator.anchorLine ? <span>line {update.locator.anchorLine}</span> : null}
+                      {update.newVersion ? <span>v{update.newVersion}</span> : null}
+                      {update.sourceRefs.length ? <span>{update.sourceRefs.length} refs</span> : null}
+                      {provenanceKeys.length ? <span>{provenanceKeys.join(', ')}</span> : null}
+                    </div>
+	                    <div className="writing-agent-update-card__actions">
+	                      <button type="button" className="button-primary" data-testid="writing-agent-update-locate" onClick={() => handleLocateAgentUpdate(update)}>
+	                        定位
+	                      </button>
+	                      <button type="button" className="button-secondary" data-testid="writing-agent-update-accept" onClick={() => handleAcceptAgentUpdate(update)}>
+	                        采纳
+	                      </button>
+	                      <button type="button" className="button-secondary" data-testid="writing-agent-update-reject" onClick={() => handleRejectAgentUpdate(update)}>
+	                        撤回
+	                      </button>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        data-testid="writing-agent-update-diff"
+                        onClick={() => setExpandedAgentUpdateId((current) => (current === update.id ? null : update.id))}
+                      >
+                        差异
+                      </button>
+                      {update.insertedTextTruncated ? <span className="writing-score">正文片段已截断</span> : null}
+                      {update.replacedTextTruncated ? <span className="writing-score">原选区已截断</span> : null}
+	                    </div>
+                    {expandedAgentUpdateId === update.id ? (
+                      <div className="writing-agent-update-diff" data-testid="writing-agent-update-diff-panel">
+                        {update.replacedText ? (
+                          <div className="writing-agent-update-diff__pane">
+                            <small>原选区</small>
+                            <strong>rollback source</strong>
+                            <pre>{update.replacedText}</pre>
+                          </div>
+                        ) : null}
+                        <div className="writing-agent-update-diff__pane">
+                          <small>定位</small>
+                          <strong>{agentUpdateVersionLabel(update)}</strong>
+                          <p>{update.locator.anchorHeading || update.locator.anchorId || '未提供标题定位'}</p>
+                          {update.locator.anchorLine ? <span>line {update.locator.anchorLine}</span> : null}
+                        </div>
+                        <div className="writing-agent-update-diff__pane is-added">
+                          <small>Agent 写入</small>
+                          <strong>{update.operation}</strong>
+                          <pre>{previewAgentUpdateText(update)}</pre>
+                        </div>
+                        <div className="writing-agent-update-diff__meta">
+                          {update.sourceRefs.length ? <span>refs: {update.sourceRefs.slice(0, 3).join(', ')}</span> : null}
+                          {provenanceKeys.length ? <span>provenance: {provenanceKeys.join(', ')}</span> : null}
+                          {update.callId ? <span>call: {update.callId}</span> : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                )
+              })}
+              {!agentUpdates.length ? (
+                <div className="empty-cell">AgentCore 写回后会在这里显示 provenance 和定位入口。</div>
+              ) : null}
+            </div>
+          </aside>
+        ) : null}
+
+        <main className={`writing-canvas-stage is-${viewMode}`} data-testid="writing-canvas-stage">
           {(viewMode === 'write' || viewMode === 'split') ? (
-            <section className="writing-canvas-pane writing-canvas-pane--editor">
-              <MarkdownEditor
-                value={markdown}
-                autosaveLabel={
-                  saveDocumentMutation.isPending
-                    ? 'saving...'
-                    : effectiveDocumentId == null
-                      ? 'new draft'
-                      : autosaveMessage
-                }
-                onChange={(nextMarkdown) =>
-                  setDraftByKey((prev) => ({
-                    ...prev,
-                    [draftKey]: { title, markdown: nextMarkdown },
-                  }))
-                }
-                onSelectionChange={handleSelectionTextChange}
-              />
+            <section className="writing-canvas-pane writing-canvas-pane--editor" data-testid="writing-editor-pane">
+              <div className={`writing-editor-collab${agentUpdateAnchors.length ? ' has-agent-anchors' : ''}`}>
+                <MarkdownEditor
+                  value={markdown}
+                  autosaveLabel={
+                    saveDocumentMutation.isPending
+                      ? 'saving...'
+                      : effectiveDocumentId == null
+                        ? 'new draft'
+                        : autosaveMessage
+                  }
+                  onChange={(nextMarkdown) =>
+                    setDraftByKey((prev) => ({
+                      ...prev,
+                      [draftKey]: { title, markdown: nextMarkdown },
+                    }))
+                  }
+                  onSelectionChange={handleSelectionTextChange}
+                />
+                {agentUpdateAnchors.length ? (
+                  <aside className="writing-agent-collab-rail" aria-label="Agent 段落协作" data-testid="writing-agent-collab-rail">
+                    <div className="writing-agent-collab-rail__header">
+                      <span className="chip chip-ok">Agent 段落</span>
+                      <span className="writing-score">{agentUpdateAnchors.length}</span>
+                    </div>
+                    <div className="writing-agent-collab-rail__list">
+                      {agentUpdateAnchors.map(({ update, lineStart, lineEnd, range, preview }, index) => {
+                        const lineLabel =
+                          lineStart && lineEnd && lineEnd !== lineStart
+                            ? `L${lineStart}-${lineEnd}`
+                            : lineStart
+                              ? `L${lineStart}`
+                              : '未定位'
+                        return (
+                          <article
+                            key={`rail-${update.id}-${update.callId || 'call'}-${index}`}
+                            className={`writing-agent-anchor-card is-${update.reviewStatus}${range ? '' : ' is-unresolved'}`}
+                            data-testid="writing-agent-anchor-card"
+                          >
+                            <div className="writing-agent-anchor-card__head">
+                              <span className="chip chip-warn">{lineLabel}</span>
+                              <span className={update.reviewStatus === 'accepted' ? 'chip chip-ok' : update.reviewStatus === 'rejected' ? 'chip chip-danger' : 'chip'}>
+                                {update.reviewStatus === 'accepted' ? '已采纳' : update.reviewStatus === 'rejected' ? '已撤回' : '待处理'}
+                              </span>
+                            </div>
+                            <strong>{update.summary || update.operation || update.id}</strong>
+                            <p>{preview}</p>
+                            <div className="writing-agent-anchor-card__meta">
+                              {update.sourceRefs.length ? <span>{update.sourceRefs.length} refs</span> : null}
+                              {update.callId ? <span>{update.callId}</span> : null}
+                            </div>
+                            <div className="writing-agent-anchor-card__actions">
+                              <button type="button" className="button-primary" data-testid="writing-agent-anchor-locate" onClick={() => handleLocateAgentUpdate(update)}>
+                                定位
+                              </button>
+                              <button type="button" className="button-secondary" data-testid="writing-agent-anchor-accept" onClick={() => handleAcceptAgentUpdate(update)}>
+                                采纳
+                              </button>
+                              <button type="button" className="button-secondary" data-testid="writing-agent-anchor-reject" onClick={() => handleRejectAgentUpdate(update)}>
+                                撤回
+                              </button>
+                              <button
+                                type="button"
+                                className="button-secondary"
+                                data-testid="writing-agent-anchor-diff"
+                                onClick={() => {
+                                  setAgentUpdatesPanelOpen(true)
+                                  setExpandedAgentUpdateId((current) => (current === update.id ? null : update.id))
+                                }}
+                              >
+                                差异
+                              </button>
+                            </div>
+                          </article>
+                        )
+                      })}
+                    </div>
+                  </aside>
+                ) : null}
+              </div>
             </section>
           ) : null}
 
           {(viewMode === 'preview' || viewMode === 'split') ? (
-            <section className="writing-canvas-pane writing-canvas-pane--preview">
+            <section className="writing-canvas-pane writing-canvas-pane--preview" data-testid="writing-preview-pane">
               <MarkdownPreview markdown={`# ${title}\n\n${markdown}`} />
             </section>
           ) : null}

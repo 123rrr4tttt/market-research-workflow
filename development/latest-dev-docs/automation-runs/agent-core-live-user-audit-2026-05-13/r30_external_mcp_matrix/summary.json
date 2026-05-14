@@ -1,0 +1,79 @@
+{
+  "created_at": "2026-05-13",
+  "turn_final_answer": "当前 MCP 服务状态如下：\n\n- project-database：已配置，可达，认证正常\n- workflow-graph：已配置，可达，认证正常\n- source-library-ingest：已配置，可达，认证正常\n- browser-playwright：未配置，不可达\n- external-search：未配置，不可达\n\n可用的 MCP 相关工具目前包括：\n- mcp.service.catalog\n- mcp.tools.list\n\n其中 browser-playwright 和 external-search 目前只是占位状态，尚未挂载为可执行服务。",
+  "capability_calls": [
+    {
+      "capability_id": "mcp.service.catalog",
+      "status": "completed",
+      "summary": "listed MCP service catalog"
+    },
+    {
+      "capability_id": "mcp.tools.list",
+      "status": "completed",
+      "summary": "Listed 4 MCP-compatible tool(s)."
+    }
+  ],
+  "mcp_capabilities": [
+    {
+      "group": "core",
+      "capability_id": "mcp.service.catalog",
+      "implemented": true,
+      "implementation_state": "implemented",
+      "enabled": true,
+      "configured": null,
+      "reachable": null,
+      "auth_ok": null,
+      "mounted_tool_count": null,
+      "disabled_reason": null
+    },
+    {
+      "group": "core",
+      "capability_id": "mcp.tools.list",
+      "implemented": true,
+      "implementation_state": "implemented",
+      "enabled": true,
+      "configured": null,
+      "reachable": null,
+      "auth_ok": null,
+      "mounted_tool_count": null,
+      "disabled_reason": null
+    },
+    {
+      "group": "core",
+      "capability_id": "mcp.tool.call",
+      "implemented": true,
+      "implementation_state": "implemented",
+      "enabled": true,
+      "configured": null,
+      "reachable": null,
+      "auth_ok": null,
+      "mounted_tool_count": null,
+      "disabled_reason": null
+    },
+    {
+      "group": "disabled",
+      "capability_id": "mcp.service.browser-playwright",
+      "implemented": false,
+      "implementation_state": "not_configured",
+      "enabled": false,
+      "configured": false,
+      "reachable": false,
+      "auth_ok": null,
+      "mounted_tool_count": 0,
+      "disabled_reason": "Browser automation requires a concrete local MCP/browser server before it is executable."
+    },
+    {
+      "group": "disabled",
+      "capability_id": "mcp.service.external-search",
+      "implemented": false,
+      "implementation_state": "not_configured",
+      "enabled": false,
+      "configured": false,
+      "reachable": false,
+      "auth_ok": null,
+      "mounted_tool_count": 0,
+      "disabled_reason": "External search is available as source-discovery planning until a concrete search MCP service is mounted."
+    }
+  ],
+  "conclusion": "project-database/workflow-graph/source-library-ingest are available as project/skill surfaces; browser-playwright and external-search are not configured or mounted as concrete external MCP services in this local runtime."
+}

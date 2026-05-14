@@ -1,0 +1,64 @@
+{
+  "provider": "searxng",
+  "base_url": "http://127.0.0.1:8088",
+  "query": "embodied ai",
+  "root_status": 200,
+  "search_status": 200,
+  "ok": true,
+  "result_count": 17,
+  "latency_ms": 8019.63,
+  "error_type": null,
+  "error": null,
+  "results": [
+    {
+      "title": "What is Embodied AI? | NVIDIA Glossary",
+      "link": "https://www.nvidia.com/en-us/glossary/embodied-ai/",
+      "engine": "google"
+    },
+    {
+      "title": "Embodied AI: A Foundation for Intelligent and Autonomous Manufacturing ...",
+      "link": "https://www.sciencedirect.com/science/article/pii/S209580992500815X",
+      "engine": "google"
+    },
+    {
+      "title": "Embodied AI",
+      "link": "https://embodiedai.ch/",
+      "engine": "google"
+    },
+    {
+      "title": "[2509.20021] Embodied AI: From LLMs to World Models - arXiv.org",
+      "link": "https://arxiv.org/abs/2509.20021",
+      "engine": "duckduckgo"
+    },
+    {
+      "title": "Embodied AI | Ai2 - Allen Institute for Artificial Intelligence",
+      "link": "https://allenai.org/embodied-ai",
+      "engine": "google"
+    },
+    {
+      "title": "What is embodied AI? How it powers autonomous systems",
+      "link": "https://www.techtarget.com/searchenterpriseai/definition/embodied-AI",
+      "engine": "duckduckgo"
+    },
+    {
+      "title": "From embodied intelligence to physical AI - Nature",
+      "link": "https://www.nature.com/articles/s42256-026-01239-3",
+      "engine": "duckduckgo"
+    },
+    {
+      "title": "China's Embodied AI: A Path to AGI | Center for Security and Emerging ...",
+      "link": "https://cset.georgetown.edu/publication/chinas-embodied-ai-a-path-to-agi/",
+      "engine": "google"
+    },
+    {
+      "title": "Embodied Intelligence | Springer Nature Link",
+      "link": "https://link.springer.com/rwe/10.1007/978-981-97-8440-0_8-1",
+      "engine": "duckduckgo"
+    },
+    {
+      "title": "Embodied AI Explained: Principles, Applications, and Future Perspectives",
+      "link": "https://lamarr-institute.org/blog/embodied-ai-explained/",
+      "engine": "google"
+    }
+  ]
+}

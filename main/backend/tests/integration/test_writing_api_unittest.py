@@ -83,6 +83,26 @@ class WritingApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.NOT_FOUND.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.NOT_FOUND.value)
 
+    def test_delete_document_soft_deletes_with_project_context(self):
+        deleted = {
+            "id": 101,
+            "project_key": "demo_proj",
+            "title": "Draft",
+            "body_md": "",
+            "status": "archived",
+            "version": 1,
+            "etag": "abc",
+        }
+        with patch("app.api.writing.delete_document", return_value=deleted) as mocked_delete:
+            response = self.client.delete("/api/v1/writing/documents/101", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertTrue(body["data"]["deleted"])
+        self.assertEqual(body["data"]["document"]["status"], "archived")
+        mocked_delete.assert_called_once_with(doc_id=101, project_key="demo_proj", updated_by_user_id=None)
+
     def test_autosave_not_found_returns_structured_error(self):
         with patch("app.api.writing.save_draft_autosave", side_effect=KeyError("document not found")):
             response = self.client.post(

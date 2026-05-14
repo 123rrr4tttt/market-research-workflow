@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Activity,
   Bot,
@@ -10,6 +11,7 @@ import {
   Workflow,
   type LucideIcon,
 } from 'lucide-react'
+import { bootstrapCodexCliLogin } from '../../lib/api'
 import { translate, useAppLocale } from '../platform/i18n'
 import { getKernelModuleContract } from './contracts'
 import LayerSwitch from './LayerSwitch'
@@ -78,57 +80,140 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
   const activeContract = getKernelModuleContract(activeModule)
   const activeLabel = translate(locale, activeContract.navLabelKey, activeModule)
   const loadedProjects = runtime.projects.data?.length || 0
+  const [codexActionPending, setCodexActionPending] = useState(false)
+  const codexLabel = runtime.status.codexReady ? 'ready' : codexActionPending ? 'starting' : 'login'
+
+  const handleCodexAuthClick = async () => {
+    if (codexActionPending) return
+
+    if (runtime.status.codexReady) {
+      await runtime.codexAuth.refetch()
+      runtime.setMessage('Codex 认证状态已刷新')
+      return
+    }
+
+    let deviceTab: Window | null = null
+    try {
+      setCodexActionPending(true)
+      runtime.setMessage('正在启动 Codex CLI 设备认证...')
+      deviceTab = window.open('about:blank', '_blank')
+      const result = await bootstrapCodexCliLogin()
+      await runtime.codexAuth.refetch()
+
+      if (result.authenticated) {
+        deviceTab?.close()
+        runtime.setMessage('Codex 已通过本机 token sink 认证')
+        return
+      }
+
+      if (result.device_url) {
+        if (deviceTab) {
+          deviceTab.location.assign(result.device_url)
+        } else {
+          window.location.assign(result.device_url)
+        }
+        const code = result.device_code ? `，设备码: ${result.device_code}` : ''
+        const hint = result.hint ? `；${result.hint}` : ''
+        runtime.setMessage(`请在打开的 OpenAI 设备认证页完成 Codex 登录${code}${hint}`)
+        return
+      }
+
+      deviceTab?.close()
+      if (runtime.status.codexOauthEnabled) {
+        runtime.setMessage(`Codex CLI 设备认证不可用: ${result.hint || '未返回设备认证地址'}；可在设置中显式强制 OAuth`)
+        return
+      }
+      runtime.setMessage(`Codex CLI 认证未启动: ${result.hint || '未返回设备认证地址'}`)
+    } catch (error) {
+      deviceTab?.close()
+      runtime.setMessage(`Codex 认证启动失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    } finally {
+      setCodexActionPending(false)
+    }
+  }
 
   return (
     <div className="kernel-admin">
-      <header className="kernel-admin__rail">
-        <div className="kernel-admin__rail-control">
-          <div className="kernel-admin__rail-heading">
-            <span>project control</span>
-            <strong>{loadedProjects} projects loaded</strong>
+      <header className="kernel-admin__topbar">
+        <div className="kernel-admin__topbar-heading">
+          <p>{runtime.projectKey} / management surface / {activeContract.entryRoute}</p>
+          <div className="kernel-admin__title-row">
+            <h1>{activeLabel}</h1>
+            <span>{loadedProjects} projects loaded</span>
           </div>
+        </div>
+
+        <div className="kernel-admin__topbar-diagnostics">
           <LayerSwitch activeLayer="C" runtime={runtime} />
-          <div className="kernel-admin__rail-actions">
-            <label className="kernel-admin__control-field">
-              <span>target project</span>
-              <select
-                value={runtime.pendingProjectKey}
-                onChange={(event) => {
-                  runtime.setPendingProjectKey(event.target.value)
-                  runtime.setMessage('')
+          <section className="kernel-admin__status-strip" aria-label="status matrix">
+            <span className="kernel-admin__status-strip-label">status matrix</span>
+            <div className="kernel-admin__status-strip-chips">
+              <button className={statusChipClass(runtime.status.api)} onClick={() => runtime.navigateToModule('sysBackend')}>
+                API {runtime.status.api}
+              </button>
+              <button className={statusChipClass(runtime.status.llmReady)} onClick={() => runtime.navigateToModule('sysLlm')}>
+                LLM {runtime.status.llmReady ? 'ready' : 'missing'}
+              </button>
+              <button className={statusChipClass(runtime.status.searchReady)} onClick={() => runtime.navigateToModule('sysSettings')}>
+                SEARCH {runtime.status.searchReady ? 'ready' : 'missing'}
+              </button>
+              <button className={statusChipClass(runtime.status.newsReady)} onClick={() => runtime.navigateToModule('sysSettings')}>
+                NEWS {runtime.status.newsReady ? 'ready' : 'missing'}
+              </button>
+              <button className={statusChipClass(runtime.status.dbReady)} onClick={() => runtime.navigateToModule('sysBackend')}>
+                DB {runtime.status.dbReady ? 'ready' : 'missing'}
+              </button>
+              <button
+                className={statusChipClass(runtime.status.codexReady)}
+                onClick={() => {
+                  void handleCodexAuthClick()
                 }}
-                disabled={runtime.activateMutation.isPending}
+                disabled={codexActionPending}
+                title={runtime.status.codexOauthEnabled ? 'Open Codex OAuth authentication' : 'Start Codex CLI device authentication'}
               >
-                {!runtime.projects.data?.find((item) => item.project_key === runtime.projectKey) ? (
-                  <option value={runtime.projectKey}>{runtime.projectKey}</option>
-                ) : null}
-                {(runtime.projects.data || []).map((item) => (
-                  <option key={item.project_key} value={item.project_key}>{item.project_key}</option>
-                ))}
-              </select>
-            </label>
-            <button
-              onClick={() => runtime.activateMutation.mutate(runtime.pendingProjectKey)}
-              disabled={runtime.activateMutation.isPending || !runtime.pendingProjectKey || runtime.pendingProjectKey === runtime.projectKey}
-            >
-              {runtime.activateMutation.isPending ? 'switching' : 'activate project'}
-            </button>
-            <button
-              onClick={() => {
-                const target = String(runtime.pendingProjectKey || '').trim()
-                if (!target) return
-                const ok = window.confirm(`将从 demo_proj 注入初始化到项目 ${target}（覆盖模式）并激活，是否继续？`)
-                if (!ok) return
-                runtime.injectInitialMutation.mutate(target)
+                CODEX {codexLabel}
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <div className="kernel-admin__project-bar">
+          <label className="kernel-admin__control-field">
+            <span>target project</span>
+            <select
+              value={runtime.pendingProjectKey}
+              onChange={(event) => {
+                runtime.setPendingProjectKey(event.target.value)
+                runtime.setMessage('')
               }}
-              disabled={runtime.injectInitialMutation.isPending || !runtime.pendingProjectKey}
+              disabled={runtime.activateMutation.isPending}
             >
-              {runtime.injectInitialMutation.isPending ? 'injecting' : 'inject template'}
-            </button>
-            <button type="button" onClick={() => runtime.navigateToModule('overviewTasks')}>
-              process home
-            </button>
-          </div>
+              {runtime.projectOptions.map((item) => (
+                <option key={item.project_key} value={item.project_key}>{item.project_key}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            onClick={() => runtime.activateMutation.mutate(runtime.pendingProjectKey)}
+            disabled={runtime.activateMutation.isPending || !runtime.canActivatePendingProject || runtime.pendingProjectKey === runtime.projectKey}
+          >
+            {runtime.activateMutation.isPending ? 'switching' : 'activate project'}
+          </button>
+          <button
+            onClick={() => {
+              const target = String(runtime.pendingProjectKey || '').trim()
+              if (!target) return
+              const ok = window.confirm(`将从 demo_proj 注入初始化到项目 ${target}（覆盖模式）并激活，是否继续？`)
+              if (!ok) return
+              runtime.injectInitialMutation.mutate(target)
+            }}
+            disabled={runtime.injectInitialMutation.isPending || !runtime.pendingProjectKey}
+          >
+            {runtime.injectInitialMutation.isPending ? 'injecting' : 'inject template'}
+          </button>
+          <button type="button" onClick={() => runtime.navigateToModule('overviewTasks')}>
+            process home
+          </button>
           {runtime.message ? <p className="kernel-admin__message">{runtime.message}</p> : null}
         </div>
       </header>
@@ -165,32 +250,6 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
         </aside>
 
         <section className="kernel-admin__main">
-          <header className="kernel-admin__hero">
-            <p>{runtime.projectKey} / management surface / {activeContract.entryRoute}</p>
-            <h1>{activeLabel}</h1>
-          </header>
-
-          <section className="kernel-admin__status-strip">
-            <span className="kernel-admin__status-strip-label">status matrix</span>
-            <div className="kernel-admin__status-strip-chips">
-              <button className={statusChipClass(runtime.status.api)} onClick={() => runtime.navigateToModule('sysBackend')}>
-                API {runtime.status.api}
-              </button>
-              <button className={statusChipClass(runtime.status.llmReady)} onClick={() => runtime.navigateToModule('sysLlm')}>
-                LLM {runtime.status.llmReady ? 'ready' : 'missing'}
-              </button>
-              <button className={statusChipClass(runtime.status.searchReady)} onClick={() => runtime.navigateToModule('sysSettings')}>
-                SEARCH {runtime.status.searchReady ? 'ready' : 'missing'}
-              </button>
-              <button className={statusChipClass(runtime.status.newsReady)} onClick={() => runtime.navigateToModule('sysSettings')}>
-                NEWS {runtime.status.newsReady ? 'ready' : 'missing'}
-              </button>
-              <button className={statusChipClass(runtime.status.dbReady)} onClick={() => runtime.navigateToModule('sysBackend')}>
-                DB {runtime.status.dbReady ? 'ready' : 'missing'}
-              </button>
-            </div>
-          </section>
-
           <section className="kernel-admin__panels">
             <section className="kernel-admin__stage">
               <ModuleRenderer moduleKey={activeModule} projectKey={runtime.projectKey} onProjectChange={runtime.setProjectKey} />

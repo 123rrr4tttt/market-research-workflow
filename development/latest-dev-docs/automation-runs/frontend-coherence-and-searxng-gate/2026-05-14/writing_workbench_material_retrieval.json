@@ -1,0 +1,210 @@
+{
+  "backend_replay_status": "passed",
+  "frontend_status": "blocked_by_env",
+  "frontend_blocker": "No frontend dev server/e2e session was started in this replay; backend material retrieval evidence is provided.",
+  "query": "source_library database boundary",
+  "upsert_status": {
+    "ok": true,
+    "chunk_count": 80,
+    "created_table": true,
+    "adapter": "lancedb"
+  },
+  "result_count": 10,
+  "results": [
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0008",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- `development-plans/CURRENT_DEV`： - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md) - [2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md) - [2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md) - [2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md)",
+      "score": 16.380403518676758,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0005",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- `development-plans/CURRENT_DEV`： - [2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md) - [2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md) - [2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md) - [2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md) - [2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md)",
+      "score": 16.32851219177246,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0011",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- `development-plans/ARCHIVE_RETIRED`： - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md) - `development-plans/CURRENT_DEV`： - [2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md) - [2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md) - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md) - [2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md)",
+      "score": 16.106966018676758,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0009",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- [2026-03-14-source-library-adapter-capability-remediation/04_site-search-open-source-capability-matrix-and-execution-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/04_site-search-open-source-capability-matrix-and-execution-2026-03-15.md) - [2026-03-14-source-library-adapter-capability-remediation/05_search-contract-discovery-service-and-storage-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/05_search-contract-discovery-service-and-storage-2026-03-15.md) - [2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md) - [2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md) - [2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md)",
+      "score": 15.490053176879883,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0006",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- [2026-03-25-source-library-ingest-minimal-migration/06_atomic-tasklist-item-layering-migration-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/06_atomic-tasklist-item-layering-migration-2026-03-27.md) - [2026-03-25-source-library-ingest-minimal-migration/07_validation-closure-item-layering-migration-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/07_validation-closure-item-layering-migration-2026-03-27.md) - [2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md) - [2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md) - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md)",
+      "score": 10.819761276245117,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0007",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md) - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md) - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md) - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md) - [2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md)",
+      "score": 10.754303932189941,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0010",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- [2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md) - [2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md) - [2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md) - [2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md) - [2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md)",
+      "score": 10.56259822845459,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "64057aabfd388e28_chunk_0008",
+      "document_id": "64057aabfd388e28",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "README.md",
+      "content": "- [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md) - `development-plans/CURRENT_DEV` 新增 source-library / ingest 参考资料包（2026-03-26）： - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md) - `development-plans/CURRENT_DEV` 补充 source-library / ingest batch helper 输入边界契约（2026-03-26）： - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md) - `development-plans/CURRENT_DEV` 补充 source-library / ingest 开关优先级矩阵（2026-03-26）： - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md)",
+      "score": 10.56259822845459,
+      "url": "development/latest-dev-docs/README.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0013",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- [2026-03-09-agent-symbolic-batch-search-architecture/15_multi-agent-wave-execution-order-search-brief-critic-retry-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/15_multi-agent-wave-execution-order-search-brief-critic-retry-2026-03-25.md) - [2026-03-12-data-structured-service-modularization/01_terminal-structured-ingest-output-standardization-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/01_terminal-structured-ingest-output-standardization-plan-2026-03-12.md) - [2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md) - [2026-03-12-data-structured-service-modularization/03_discrete-retained-modules-and-preprocess-frontdoor-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/03_discrete-retained-modules-and-preprocess-frontdoor-plan-2026-03-12.md) - [2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md)",
+      "score": 10.500205993652344,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "64057aabfd388e28_chunk_0009",
+      "document_id": "64057aabfd388e28",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "README.md",
+      "content": "- `development-plans/CURRENT_DEV` 补充 item / execution / runtime 分层边界约束（2026-03-26）： - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md) - `backend-core` 新增 frontdoor 内容抽取 / 清洗最佳实践文档（2026-03-14）： - [backend-core/F_PLAN/2026-03-14-frontdoor-content-extraction-cleaning-best-practices.md](./backend-core/F_PLAN/2026-03-14-frontdoor-content-extraction-cleaning-best-practices.md) - `backend-core` 新增来源库 frontdoor 清洗样本临时验证文档（2026-03-14）： - [backend-core/D_TEST/2026-03-14-source-library-frontdoor-cleaning-sample-validation-temp.md](./backend-core/D_TEST/2026-03-14-source-library-frontdoor-cleaning-sample-validation-temp.md) - 2026-03-14 最新口径： - 历史 `single_url.py`、`task_ingest_single_url` 与 `single_url_*` 参数兼容层已删除。 - 单 URL 与 URL 池正式写入主链已统一为 `url_routing/source_library -> postprocess_frontdoor`。 - `development-plans/CURRENT_DEV` 补充来源库三车道与 clean terminal output 实现状态同步（2026-03-14）： - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md)",
+      "score": 10.500205993652344,
+      "url": "development/latest-dev-docs/README.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    }
+  ],
+  "selected_context": [
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0008",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- `development-plans/CURRENT_DEV`： - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md) - [2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md) - [2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md) - [2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md)",
+      "score": 16.380403518676758,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0005",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- `development-plans/CURRENT_DEV`： - [2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md) - [2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md) - [2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md) - [2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md) - [2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md)",
+      "score": 16.32851219177246,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    },
+    {
+      "chunk_id": "8ff27a27ddf0b330_chunk_0011",
+      "document_id": "8ff27a27ddf0b330",
+      "project_id": "latest-dev-docs",
+      "source_id": "latest-dev-docs",
+      "title": "MERGED_OVERVIEW.md",
+      "content": "- `development-plans/ARCHIVE_RETIRED`： - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md) - `development-plans/CURRENT_DEV`： - [2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md) - [2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md) - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md) - [2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md)",
+      "score": 16.106966018676758,
+      "url": "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "source_type": "markdown",
+      "metadata": {
+        "adapter": "lancedb"
+      }
+    }
+  ],
+  "boundary": {
+    "source_library_schema_modified": false,
+    "indexed_records": "fetched document/material chunks only",
+    "required_fields": [
+      "document_id",
+      "chunk_id",
+      "source_id",
+      "title",
+      "content"
+    ]
+  }
+}

@@ -3,6 +3,7 @@ from .citation_service import list_citations, rebuild_markdown_with_citations, u
 from .document_service import (
     WritingVersionConflictError,
     create_document,
+    delete_document,
     export_document_markdown,
     get_document,
     list_documents,
@@ -17,6 +18,7 @@ from .template_service import list_templates, validate_template_payload
 __all__ = [
     "aggregate_cards",
     "create_document",
+    "delete_document",
     "dispatch_action",
     "evaluate_primary_loop_state",
     "export_document_markdown",

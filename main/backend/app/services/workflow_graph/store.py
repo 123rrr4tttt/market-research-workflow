@@ -148,6 +148,11 @@ class InMemoryCompiledGraphStore:
             raise KeyError(f"compiled graph not found: {graph_id}")
         return deepcopy(row)
 
+    def list_compiled(self, limit: int = 20) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = list(self._compiled.values())
+        return [deepcopy(row) for row in rows[: max(1, int(limit or 20))]]
+
 
 class SqlRunStore:
     """DB-backed store for workflow graph runs/events/results."""
@@ -385,6 +390,22 @@ class SqlCompiledGraphStore:
         if row is None:
             raise KeyError(f"compiled graph not found: {graph_id}")
         return _normalize_compiled_payload(row.get("payload_json"))
+
+    def list_compiled(self, limit: int = 20) -> list[dict[str, Any]]:
+        with engine.connect() as conn:
+            conn.execute(text('SET search_path TO "public"'))
+            rows = conn.execute(
+                text(
+                    f"""
+                    SELECT payload_json
+                    FROM {self._TABLE_NAME}
+                    ORDER BY updated_at DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"limit": max(1, int(limit or 20))},
+            ).mappings().all()
+        return [_normalize_compiled_payload(row.get("payload_json")) for row in rows]
 
 
 def build_run_store() -> InMemoryRunStore | SqlRunStore:

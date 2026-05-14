@@ -43,6 +43,9 @@ FORCE=false
 MAX_WAIT=60
 PROFILE_ARGS=()
 SERVICE_ARGS=()
+COMPOSE_FILE_ARGS=(-f docker-compose.yml)
+INTERNAL_DEPS_OVERRIDE_FILE=""
+BUILD_IMAGES=false
 
 usage() {
     cat <<'EOF'
@@ -53,6 +56,7 @@ Options:
   --force                 非交互模式，端口冲突时继续执行
   --profile <name>        透传给 docker compose --profile，可重复
   --services <list>       仅启动指定服务，逗号分隔（如 "db,backend"）
+  --build                 启动前重建镜像（用于 LanceDB 等可选增强依赖）
   -h, --help              显示帮助
 EOF
 }
@@ -103,6 +107,10 @@ while [ $# -gt 0 ]; do
             parse_services "$2"
             shift 2
             ;;
+        --build)
+            BUILD_IMAGES=true
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -122,13 +130,38 @@ done
 
 compose() {
     if command -v docker-compose >/dev/null 2>&1; then
-        docker-compose "${COMPOSE_FLAGS[@]}" "$@"
+        docker-compose "${COMPOSE_FILE_ARGS[@]}" "${COMPOSE_FLAGS[@]}" "$@"
     elif docker compose version >/dev/null 2>&1; then
-        docker compose "${COMPOSE_FLAGS[@]}" "$@"
+        docker compose "${COMPOSE_FILE_ARGS[@]}" "${COMPOSE_FLAGS[@]}" "$@"
     else
         echo "❌ 未找到 docker-compose 或 docker compose"
         return 127
     fi
+}
+
+cleanup_override() {
+    if [ -n "${INTERNAL_DEPS_OVERRIDE_FILE}" ] && [ -f "${INTERNAL_DEPS_OVERRIDE_FILE}" ]; then
+        rm -f "${INTERNAL_DEPS_OVERRIDE_FILE}"
+    fi
+}
+trap cleanup_override EXIT
+
+enable_internal_dependency_ports() {
+    if [ -n "${INTERNAL_DEPS_OVERRIDE_FILE}" ]; then
+        return 0
+    fi
+    INTERNAL_DEPS_OVERRIDE_FILE="$(mktemp "${TMPDIR:-/tmp}/mrw-compose-internal-deps.XXXXXX.yml")"
+    cat >"${INTERNAL_DEPS_OVERRIDE_FILE}" <<'YAML'
+services:
+  db:
+    ports: !override []
+  es:
+    ports: !override []
+  redis:
+    ports: !override []
+YAML
+    COMPOSE_FILE_ARGS+=(-f "${INTERNAL_DEPS_OVERRIDE_FILE}")
+    echo "   使用内部依赖端口模式：db/es/redis 不绑定宿主机端口，backend/frontend 仍对外开放"
 }
 
 service_selected() {
@@ -171,7 +204,7 @@ echo "===================="
 echo ""
 echo "这将启动当前独立项目的主服务："
 echo "  ✅ PostgreSQL, Elasticsearch, Redis, Backend API, Celery Worker"
-echo "  ℹ️ 可选服务: Scrapyd（需 --profile scrapyd）"
+echo "  ℹ️ 可选服务: Scrapyd（--profile scrapyd）, SearXNG/YaCy（--profile search-enhancements）"
 echo ""
 
 # Export and log observability env for this run
@@ -181,11 +214,25 @@ setup_observability_env
 if ! docker info >/dev/null 2>&1; then
     echo "❌ Docker 未运行，正在尝试启动 Docker Desktop..."
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        open -a Docker 2>/dev/null || true
+        if open -a Docker 2>/dev/null; then
+            echo "✅ 已请求打开 Docker Desktop"
+        else
+            echo "⚠️  无法自动打开 Docker Desktop，请确认已安装 Docker Desktop"
+        fi
     fi
-    echo "⏳ 请等待 Docker Desktop 完全启动（约30秒）"
-    echo "   然后重新运行此脚本: ./start-all.sh"
-    exit 1
+    echo "⏳ 等待 Docker daemon 就绪..."
+    waited=0
+    while [ "$waited" -lt "$MAX_WAIT" ]; do
+        if docker info >/dev/null 2>&1; then
+            break
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+    if ! docker info >/dev/null 2>&1; then
+        echo "❌ Docker Desktop 在 ${MAX_WAIT} 秒内未就绪，请打开 Docker Desktop 后重试"
+        exit 1
+    fi
 fi
 
 echo "✅ Docker 已运行"
@@ -195,10 +242,16 @@ echo ""
 check_port() {
     local port=$1
     local service=$2
+    local compose_service=${3:-}
     if lsof -i :"$port" >/dev/null 2>&1; then
         echo "⚠️  警告: 端口 $port ($service) 已被占用"
         if [ "$FORCE" = true ]; then
-            echo "   --force 已启用，忽略端口冲突继续执行"
+            if [ "$compose_service" = "db" ] || [ "$compose_service" = "es" ] || [ "$compose_service" = "redis" ]; then
+                enable_internal_dependency_ports
+                echo "   --force 已启用，${service} 将仅使用容器内部网络端口"
+            else
+                echo "   --force 已启用，忽略端口冲突继续执行"
+            fi
             return 0
         fi
         if [ "$NON_INTERACTIVE" = true ]; then
@@ -215,11 +268,13 @@ check_port() {
 }
 
 echo "🔍 检查端口占用..."
-service_selected db && check_port 5432 "PostgreSQL"
-service_selected es && check_port 9200 "Elasticsearch"
-service_selected redis && check_port 6379 "Redis"
-service_selected backend && check_port 8000 "Backend API"
-service_selected scrapyd && check_port 6800 "Scrapyd"
+service_selected db && check_port 5432 "PostgreSQL" "db"
+service_selected es && check_port 9200 "Elasticsearch" "es"
+service_selected redis && check_port 6379 "Redis" "redis"
+service_selected backend && check_port 8000 "Backend API" "backend"
+service_selected scrapyd && check_port 6800 "Scrapyd" "scrapyd"
+service_selected searxng && check_port 8088 "SearXNG" "searxng"
+service_selected yacy && check_port 8090 "YaCy" "yacy"
 echo "✅ 端口检查完成"
 echo ""
 
@@ -240,9 +295,17 @@ echo "   包括: PostgreSQL, Elasticsearch, Redis, Backend API, Celery Worker"
 # Pre-start hook (may be overridden via OPS_HOOK_FILE)
 pre_start
 if [ ${#SERVICE_ARGS[@]} -gt 0 ]; then
-    compose up -d "${SERVICE_ARGS[@]}"
+    if [ "$BUILD_IMAGES" = true ]; then
+        compose up -d --build "${SERVICE_ARGS[@]}"
+    else
+        compose up -d "${SERVICE_ARGS[@]}"
+    fi
 else
-    compose up -d
+    if [ "$BUILD_IMAGES" = true ]; then
+        compose up -d --build
+    else
+        compose up -d
+    fi
 fi
 
 echo ""
@@ -273,6 +336,12 @@ if service_selected celery-worker; then
 fi
 if service_selected scrapyd; then
     wait_for "Scrapyd" "curl -sf http://localhost:6800/daemonstatus.json >/dev/null 2>&1" || FAILED=1
+fi
+if service_selected searxng; then
+    wait_for "SearXNG" "curl -sf 'http://localhost:8088/search?q=health&format=json' >/dev/null 2>&1" || FAILED=1
+fi
+if service_selected yacy; then
+    wait_for "YaCy" "curl -sf 'http://localhost:8090/yacysearch.json?query=health&resource=local&maximumRecords=1' >/dev/null 2>&1" || FAILED=1
 fi
 
 echo ""
@@ -323,6 +392,28 @@ if service_selected scrapyd; then
     echo ""
 fi
 
+if service_selected searxng; then
+    echo -n "SearXNG: "
+    if curl -sf 'http://localhost:8088/search?q=health&format=json' >/dev/null 2>&1; then
+        echo "✅ 运行中"
+        echo "   API: http://localhost:8088/search?q=health&format=json"
+    else
+        echo "❌ 未就绪"
+    fi
+    echo ""
+fi
+
+if service_selected yacy; then
+    echo -n "YaCy: "
+    if curl -sf 'http://localhost:8090/yacysearch.json?query=health&resource=local&maximumRecords=1' >/dev/null 2>&1; then
+        echo "✅ 运行中"
+        echo "   API: http://localhost:8090/yacysearch.json"
+    else
+        echo "❌ 未就绪"
+    fi
+    echo ""
+fi
+
 if [ "$FAILED" -ne 0 ]; then
     echo "❌ 启动完成但有服务在超时内未就绪"
     exit 1
@@ -340,4 +431,7 @@ echo "   停止所有服务: cd ops && ./stop-all.sh"
 echo ""
 echo "🌐 服务访问地址:"
 echo "   Backend API: http://localhost:8000/docs"
+if profile_selected modern-ui || service_selected frontend-modern; then
+    echo "   Docker Frontend UI: http://localhost:5174"
+fi
 echo ""

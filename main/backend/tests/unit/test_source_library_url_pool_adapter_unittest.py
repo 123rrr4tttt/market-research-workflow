@@ -64,6 +64,49 @@ class SourceLibraryUrlPoolAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(result["records"][0]["title"], "Example A")
         self.assertEqual(result["by_url"][0]["result"]["execution_layer"], "terminal_output_only")
 
+    def test_rejects_local_urls_before_fetch(self) -> None:
+        with patch(
+            "app.services.source_library.adapters.url_pool.fetch_html",
+            return_value=("<html><title>Example A</title><body>Hello World</body></html>", SimpleNamespace(status_code=200)),
+        ) as fetch_html, patch(
+            "app.services.source_library.adapters.url_pool._extract_text_preview",
+            return_value=("Example A", "Hello World"),
+        ):
+            result = handle_url_pool(
+                {
+                    "urls": ["http://127.0.0.1/admin", "https://example.com/a"],
+                    "source_library_execution_layer": "terminal_output_only",
+                    "source_library_terminal_output_only": True,
+                },
+                project_key="demo_proj",
+            )
+
+        fetch_html.assert_called_once_with("https://example.com/a", timeout=8.0, retries=1)
+        self.assertEqual(result["requested"], 1)
+        self.assertEqual(result["fetched"], 1)
+        self.assertEqual(len(result["rejected_urls"]), 1)
+        self.assertIn("cannot target localhost", result["rejected_urls"][0])
+
+    def test_does_not_fallback_to_pool_when_explicit_urls_are_all_rejected(self) -> None:
+        with patch("app.services.source_library.adapters.url_pool.fetch_html") as fetch_html, patch(
+            "app.services.source_library.adapters.url_pool.list_urls",
+            return_value=([{"url": "https://example.com/from-pool"}], 1),
+        ) as list_urls:
+            result = handle_url_pool(
+                {
+                    "urls": ["http://localhost/admin"],
+                    "source_library_execution_layer": "terminal_output_only",
+                    "source_library_terminal_output_only": True,
+                },
+                project_key="demo_proj",
+            )
+
+        fetch_html.assert_not_called()
+        list_urls.assert_not_called()
+        self.assertEqual(result["requested"], 0)
+        self.assertEqual(result["fetched"], 0)
+        self.assertEqual(len(result["rejected_urls"]), 1)
+
     def test_arxiv_abs_record_includes_pdf_artifact_ref(self) -> None:
         with patch(
             "app.services.source_library.adapters.url_pool.fetch_html",

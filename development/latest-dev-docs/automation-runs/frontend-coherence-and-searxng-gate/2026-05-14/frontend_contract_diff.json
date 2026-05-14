@@ -1,0 +1,40 @@
+{
+  "contract_version": "frontend.backend.material_retrieval_contract_diff.v1",
+  "status": "aligned",
+  "backend_required_fields": [
+    "document_id",
+    "chunk_id",
+    "source_id",
+    "title",
+    "content"
+  ],
+  "backend_result_count": 10,
+  "frontend_agent_material_search_tools": [
+    "project.context.bundle",
+    "writing.document.list"
+  ],
+  "frontend_selection_context_fields": [
+    "project_key",
+    "doc_id",
+    "title",
+    "version",
+    "etag",
+    "selected_text",
+    "selection_start",
+    "selection_end",
+    "active_heading",
+    "pinned_materials"
+  ],
+  "source_library_boundary": {
+    "source_library_schema_modified": false,
+    "indexed_records": "fetched document/material chunks only",
+    "required_fields": [
+      "document_id",
+      "chunk_id",
+      "source_id",
+      "title",
+      "content"
+    ]
+  },
+  "diffs": []
+}

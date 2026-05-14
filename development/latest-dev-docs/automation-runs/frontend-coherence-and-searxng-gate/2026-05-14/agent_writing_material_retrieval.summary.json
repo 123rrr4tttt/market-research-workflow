@@ -1,0 +1,15 @@
+{
+  "contract_version": "agent_writing_material_retrieval.summary.v1",
+  "status": "passed",
+  "agent_entrypoint": "WritingWorkbench Agent panel action: material-search",
+  "workbench_entrypoint": "WritingWorkbench selected text action",
+  "shared_contract": "project.context.bundle material context + writing.document.list/read handles; backend local_index replay returns document/chunk/source/title/content",
+  "tool_calls_verified": [
+    "project.context.bundle",
+    "writing.document.list"
+  ],
+  "write_back_performed": false,
+  "backend_replay_status": "passed",
+  "backend_result_count": 10,
+  "provenance_preserved": true
+}

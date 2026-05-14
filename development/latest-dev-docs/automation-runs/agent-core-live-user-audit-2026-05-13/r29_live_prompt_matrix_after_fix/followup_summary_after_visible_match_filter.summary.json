@@ -1,0 +1,31 @@
+{
+  "name": "followup_summary_after_visible_match_filter",
+  "elapsed_seconds": 6.844,
+  "tools": [
+    "project.structured_data.search",
+    "project.summary.read"
+  ],
+  "tool_results": [
+    {
+      "tool_name": "project.structured_data.search",
+      "status": "completed",
+      "summary": "searched structured project data: matches=30, datasets=12, stored_rows=0",
+      "query": null,
+      "total_matches": null,
+      "fallback_used": null,
+      "first_items": []
+    },
+    {
+      "tool_name": "project.summary.read",
+      "status": "completed",
+      "summary": "read project summary for demo_proj"
+    }
+  ],
+  "has_final_answer": true,
+  "final_answer_preview": "我已根据项目里已经存储的数据做了检索和汇总。\n- 结构化数据检索：关键词 `机器人` 匹配 30 条记录。\n- 命中的数据集：documents: 10、graph_nodes: 10、market_stats: 0、metric_points: 0、products: 0、price_observations: 0。\n- 代表性记录：\n  - `documents` 770亿美元市场引爆：中国具身智能机器人从“秀肌肉”到“真干活”：从全球视角出发，重点跟踪商用服务机器人、家用清洁机器人、通用人形机器人和四足机器人，帮助中国厂商洞察国际趋势并把握全球机会。同时，AI与机器人结合 ...\n  - `documents` IDC发布《全球人形机器人市场分析》报告2025年全球人形 ... - 证券时报：1月23日，知名市场研究机构IDC发布《全球人形机器人市场分析》报告指出，2025年人形机器人市场迎来爆发式增长，中国厂商整体在引领行业的规模化商用进程 ...\n  - `documents` 具身智能（智能体通过身体将感知、行动与认知深度融合‌的智能系统）_百度百科：百度首页 进入词条 全站搜索 国际版 秒懂百科 特色百科 知识专题 加入百科 百科团队 权威合作 个人中心 具身智能 上传视频 智能体通过身体将感知、行动与认知深度融合‌的智能系统 4个同名词条 我的收藏 有用+1 本词条由 中国科学院大学人工智能学院 参与编辑并审核，经 科普中国·科学百科 认证 。 具身智能（Emb\n  - `documents` 什么是人工智能 (AI)？ | Google Cloud：页面内容 什么是人工智能？ 人工智能 (AI)：简明指南 你是否曾好奇过，手机如何识别你的脸？流媒体服务如何准确知道你接下来会喜欢哪部电影？汽车又是如何实现自动驾驶？答案是人工智能 (AI)。 AI 绝非科幻小说中的情节，也不仅仅是我们所熟知和喜爱的聊天机器人，它已经以无数种方式融入了我们的日常生活。它是当今时代最具变\n  - `documents` 人工智能（智能科学与技术专业术语）_百度百科：百度首页 ",
+  "noise_or_known_bad_markers_in_raw": [
+    "ESPN - Serving Sports Fans",
+    "NBC4 Los Angeles"
+  ],
+  "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix_after_fix/followup_summary_after_visible_match_filter.sse.txt"
+}

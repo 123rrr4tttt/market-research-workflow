@@ -1,7 +1,8 @@
 # 市场研究工作流
 
-> 最后更新：`2026-04-07`
+> 最后更新：`2026-05-14`
 > 当前状态：持续开发中，默认按 Docker 链路运行
+> 最新预发布：[`pre-release-2026-05-14-rc1`](./RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
 
 这是一个面向市场研究 / 情报采集 / 结构化分析的全栈工作流仓库。仓库核心目标不是只提供一个 API 服务，而是把采集、抽取、索引、检索、项目隔离、异步任务、运维入口和现代化操作前端放在一套统一工程里。
 
@@ -43,17 +44,20 @@
 - `backend`：FastAPI，端口 `8000`
 - `celery-worker`：异步任务 worker
 - `frontend-modern`：可选 profile，端口 `5174`
+- `launcher-ui`：Docker 启动器 UI，端口 `5176`
+- `launcher-agent`：启动器控制代理，端口 `8787`
 - `scrapyd`：可选 profile，端口 `6800`
 
 ## 快速开始
 
-### 推荐方式：Docker
+### 推荐方式：Docker 启动器 UI
 
 首次 clone 后，先确认本机满足这些前置条件：
 
 - 已安装并启动 `Docker Desktop` 或 `Docker Engine`
 - 已安装 `docker compose` 或 `docker-compose`
 - 已安装 `curl`
+- Linux 桌面环境若需要 Docker 启动器自动弹出浏览器，需安装 `xdg-utils`（提供 `xdg-open`）
 - 当前 shell 位于仓库根目录
 
 1. 准备环境文件：
@@ -70,7 +74,41 @@ cp main/backend/.env.example main/backend/.env
 ./scripts/docker-deploy.sh preflight --profile scrapyd
 ```
 
-3. 启动服务：
+3. 优先启动 Docker 启动器 UI：
+
+```bash
+# macOS
+./scripts/platform-macos.sh docker-start
+
+# Linux
+./scripts/platform-linux.sh docker-start
+
+# Windows PowerShell
+.\scripts\platform-windows.ps1 docker-start
+```
+
+`docker-start` 的优先级最高。它不会直接拉起完整应用栈，而是先启动并打开 Docker 控制台：
+
+- 启动 `launcher-agent` 和 `launcher-ui`
+- 打开 [http://127.0.0.1:5176](http://127.0.0.1:5176)
+- 后续由启动器 UI 控制完整应用、可选搜索增强、停止、重启和状态查看
+
+这个路径适合日常团队协作和非命令行用户。它会先确认 Docker daemon 可用；macOS 下如果 Docker 没启动，会尝试打开 Docker Desktop。
+
+4. 如需跳过启动器 UI，直接启动完整 Docker 栈：
+
+```bash
+# macOS / Linux 跨平台封装
+./scripts/platform-macos.sh docker-full-start
+./scripts/platform-linux.sh docker-full-start
+
+# 或直接调用部署脚本
+./scripts/docker-deploy.sh start --profile modern-ui
+```
+
+`docker-full-start` 等价于直接执行 `docker-deploy.sh start --profile modern-ui`。这会按 compose 直接拉起 `db`、`es`、`redis`、`backend`、`celery-worker`、`frontend-modern`，并包含 `modern-ui` profile 下的 `launcher-ui` / `launcher-agent`，但它不是“先进入启动器再启动应用”的交互模式。
+
+5. 低层命令行启动服务：
 
 ```bash
 # 核心后端链路
@@ -83,7 +121,7 @@ cp main/backend/.env.example main/backend/.env
 ./scripts/docker-deploy.sh start --profile modern-ui --profile scrapyd
 ```
 
-4. 常用操作：
+6. 常用操作：
 
 ```bash
 ./scripts/docker-deploy.sh status
@@ -97,6 +135,7 @@ cp main/backend/.env.example main/backend/.env
 - OpenAPI: [http://localhost:8000/docs](http://localhost:8000/docs)
 - 健康检查: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
 - 深度健康检查: [http://localhost:8000/api/v1/health/deep](http://localhost:8000/api/v1/health/deep)
+- Docker 启动器 UI: [http://127.0.0.1:5176](http://127.0.0.1:5176)
 - modern 前端（启用对应 profile 时）: [http://localhost:5174](http://localhost:5174)
 
 ## 本地开发
@@ -137,6 +176,29 @@ cp main/backend/.env.example main/backend/.env
 - [`scripts/platform-macos.sh`](./scripts/platform-macos.sh)
 - [`scripts/platform-linux.sh`](./scripts/platform-linux.sh)
 - [`scripts/platform-windows.ps1`](./scripts/platform-windows.ps1)
+
+这些脚本提供一致的跨平台入口：
+
+```bash
+python3 scripts/launch.py
+./scripts/platform-macos.sh start
+./scripts/platform-macos.sh docker-start
+./scripts/platform-macos.sh docker-full-start
+./scripts/platform-macos.sh configure
+./scripts/platform-macos.sh doctor
+```
+
+Windows 可通过 PowerShell 调用：
+
+```powershell
+python scripts\launch.py
+.\scripts\platform-windows.ps1 docker-start
+.\scripts\platform-windows.ps1 docker-full-start
+.\scripts\platform-windows.ps1 configure
+```
+
+外部服务 key 会写入本地 `main/backend/.env`，不会提交到仓库。
+`configure` 会打开图形化设置窗口，不进入命令行配置流程。
 
 ### 前端单独开发
 
@@ -217,6 +279,7 @@ pytest -m "contract and not external and not flaky" -q
 统一脚本入口：
 
 ```bash
+./scripts/pre_release_min_gate.sh
 ./scripts/test-standardize.sh unit
 ./scripts/test-standardize.sh integration
 ./scripts/test-standardize.sh contract
@@ -228,6 +291,7 @@ pytest -m "contract and not external and not flaky" -q
 
 - [`scripts/run_repo_runtime_smoke.sh`](./scripts/run_repo_runtime_smoke.sh)
 - [`scripts/local-smoke-all-stages.sh`](./scripts/local-smoke-all-stages.sh)
+- [`scripts/pre_release_min_gate.sh`](./scripts/pre_release_min_gate.sh)
 - [`scripts/verify/`](./scripts/verify)
 
 ### 仓库内现有 GitHub Actions

@@ -1,0 +1,131 @@
+{
+  "created_at": "2026-05-13T00:00:00-0700",
+  "gate": "agent_core_contentfulness_gate.v1",
+  "purpose": "Reject purely formal assistant replies: each live scenario must provide user-usable content, concrete evidence/object names, or a real next state in addition to tool status.",
+  "overall_status": "fail",
+  "checks": [
+    {
+      "case": "capability_summary",
+      "status": "pass",
+      "anti_formal_status": "pass",
+      "visible_noise_status": "pass",
+      "failures": [],
+      "requirements": [
+        {
+          "requirement": "names concrete project/session/source capabilities",
+          "status": "pass",
+          "evidence": "我现在可以做的是“读项目、看工具、给你判断”，不执行实际任务。结合当前项目数据和可用工具，能力边界大致如下：\n\n- 项目状态：`demo_proj` 当前是 conversation 阶段，任务 `task-623a69cb1f304b97` 仍 pending\n- 当前会话里已有：2 个 artifact、3 个事件、1 条消息、1 个任务\n- 现有 artifact：`memory.md`、`scratchpad.md`\n- 源库覆"
+        },
+        {
+          "requirement": "not routed as agent_batch execution",
+          "status": "pass",
+          "evidence": "[]"
+        }
+      ],
+      "final_answer_preview": "我现在可以做的是“读项目、看工具、给你判断”，不执行实际任务。结合当前项目数据和可用工具，能力边界大致如下：\n\n- 项目状态：`demo_proj` 当前是 conversation 阶段，任务 `task-623a69cb1f304b97` 仍 pending\n- 当前会话里已有：2 个 artifact、3 个事件、1 条消息、1 个任务\n- 现有 artifact：`memory.md`、`scratchpad.md`\n- 源库覆盖：共有 17 个可用 source-library 条目，包含如 `market.general.baseline`、`news.general.regula"
+    },
+    {
+      "case": "source_library_approval_continue",
+      "status": "fail",
+      "anti_formal_status": "fail",
+      "visible_noise_status": "pass",
+      "failures": [
+        "answer_too_short_for_content_gate"
+      ],
+      "requirements": [
+        {
+          "requirement": "approval id exists for high-risk boundary",
+          "status": "pass",
+          "evidence": "approval-12799d9bc11d48b9"
+        },
+        {
+          "requirement": "continue executed source-library run",
+          "status": "pass",
+          "evidence": "['ingest.source_library.run']"
+        },
+        {
+          "requirement": "continue answer names the affected source item",
+          "status": "pass",
+          "evidence": "已为来源库 `market.general.baseline` 提交补证任务，并已进入队列。当前先不展开后续动作，等待你确认后我再继续。"
+        }
+      ],
+      "final_answer_preview": "已为来源库 `market.general.baseline` 提交补证任务，并已进入队列。当前先不展开后续动作，等待你确认后我再继续。"
+    },
+    {
+      "case": "long_investigation_trace_after_guidance",
+      "status": "pass",
+      "anti_formal_status": "pass",
+      "visible_noise_status": "pass",
+      "failures": [],
+      "requirements": [
+        {
+          "requirement": "tool chain persisted leads before trace read",
+          "status": "pass",
+          "evidence": "['agent_task.plan.append', 'source.discovery.plan', 'agent_investigation.leads.append', 'agent_investigation.trace.read']"
+        },
+        {
+          "requirement": "answer contains trace substance",
+          "status": "pass",
+          "evidence": "已完成两步调查流程：\n1. 已列出机器人市场相关线索并保存到会话调查记录中。\n2. 已读取线索追踪结果，当前记录包含 5 个线索节点、4 条关联边。\n\n补充：已按要求未写入文件。"
+        }
+      ],
+      "final_answer_preview": "已完成两步调查流程：\n1. 已列出机器人市场相关线索并保存到会话调查记录中。\n2. 已读取线索追踪结果，当前记录包含 5 个线索节点、4 条关联边。\n\n补充：已按要求未写入文件。"
+    },
+    {
+      "case": "writing_writeback",
+      "status": "fail",
+      "anti_formal_status": "fail",
+      "visible_noise_status": "pass",
+      "failures": [
+        "answer_too_short_for_content_gate"
+      ],
+      "requirements": [
+        {
+          "requirement": "answer names concrete document",
+          "status": "pass",
+          "evidence": "已在写作工作台新建文档《Robot Market Snapshot》，并追加了关于机器人市场数据的短段落，附带了来源引用。"
+        },
+        {
+          "requirement": "answer names writeback action",
+          "status": "pass",
+          "evidence": "已在写作工作台新建文档《Robot Market Snapshot》，并追加了关于机器人市场数据的短段落，附带了来源引用。"
+        }
+      ],
+      "final_answer_preview": "已在写作工作台新建文档《Robot Market Snapshot》，并追加了关于机器人市场数据的短段落，附带了来源引用。"
+    },
+    {
+      "case": "followup_summary_after_visible_match_filter",
+      "status": "pass",
+      "anti_formal_status": "pass",
+      "visible_noise_status": "pass",
+      "failures": [],
+      "requirements": [
+        {
+          "requirement": "answer uses normalized robot topic",
+          "status": "pass",
+          "evidence": "我已根据项目里已经存储的数据做了检索和汇总。\n- 结构化数据检索：关键词 `机器人` 匹配 30 条记录。\n- 命中的数据集：documents: 10、graph_nodes: 10、market_stats: 0、metric_points: 0、products: 0、price_observations: 0。\n- 代表性记录：\n  - `documents` 770亿美元市场引爆：中国具身智能机器人从“秀肌肉”到“真干活”：从"
+        },
+        {
+          "requirement": "answer includes concrete representative records",
+          "status": "pass",
+          "evidence": "我已根据项目里已经存储的数据做了检索和汇总。\n- 结构化数据检索：关键词 `机器人` 匹配 30 条记录。\n- 命中的数据集：documents: 10、graph_nodes: 10、market_stats: 0、metric_points: 0、products: 0、price_observations: 0。\n- 代表性记录：\n  - `documents` 770亿美元市场引爆：中国具身智能机器人从“秀肌肉”到“真干活”：从全球视角出发，重点跟踪商用服务机器人、家用清洁机器人、通用人形机器人和四足机器人，帮助中国厂商洞察国际趋势并把握全球机会。同时，AI与机器人结合 ...\n  - `documents` IDC发布《全球人形机器人市场分析》报告2025年全球人形 ... - 证券时报：1月23日，知名市场研究机构IDC发布《全球人形机器人市场分析》报告指出，2025年人形机器人市场迎来爆发式增长，中国厂商整体在引领"
+        },
+        {
+          "requirement": "answer ran project data tool",
+          "status": "pass",
+          "evidence": "['project.structured_data.search', 'project.summary.read']"
+        }
+      ],
+      "final_answer_preview": "我已根据项目里已经存储的数据做了检索和汇总。\n- 结构化数据检索：关键词 `机器人` 匹配 30 条记录。\n- 命中的数据集：documents: 10、graph_nodes: 10、market_stats: 0、metric_points: 0、products: 0、price_observations: 0。\n- 代表性记录：\n  - `documents` 770亿美元市场引爆：中国具身智能机器人从“秀肌肉”到“真干活”：从全球视角出发，重点跟踪商用服务机器人、家用清洁机器人、通用人形机器人和四足机器人，帮助中国厂商洞察国际趋势并把握全球机会。同时，AI与机器人结合 ...\n  - `documents` IDC发布《全球人形机器人市场分析》报告2025年全球人形 ... - 证券时报：1月23日，知名市场研究机构IDC发布《全球人形机器人市场分析》报告指出，2025年人形机器人市场迎来爆发式增长，中国厂商整体在引领行业的规模化商用进程 ...\n  - `documents` 具身智能（智能体通过身体将感知、行动与认知深度融合‌的智能系统）_百度百科：百度首页 进入词条 全站搜索 国际版 秒懂百科 特色百科 知识专题 加入百科 百科团队 权威合作 个人中心 具身智能 上传视频 智能体通过身体将感知、行动与认知深度融合‌的智能系统 4个同名词条 我的收藏 有用+1 本词条由 中国科学院大学人工智能学院 参与编辑并审核，经 科普中国·科学百科 认证 。 具身智能（Emb\n  - `documents` 什么是人工智能 (AI)？ | Google Cloud：页面内容 什么是人工智能？ 人工智能 (AI)：简明指南 你是否曾好奇过，手机如何识别你的脸？流媒体服务如何准确知道你接下来会喜欢哪部电影？汽车又是如何实现自动驾驶？答案是人工智能 (AI)。 AI 绝非科幻小说中的情节，也不仅仅是我们所熟知和喜爱的聊天机器人，它已经以无数种方式融入了我们的日常生活。它是当今时代最具变\n  - `documents` 人工智能（智能科学与技术专业术语）_百度百科：百度首页 "
+    }
+  ],
+  "source_artifacts": [
+    "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/summary.json",
+    "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix_after_fix/summary.json",
+    "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix_after_fix/followup_summary_after_visible_match_filter.summary.json"
+  ],
+  "known_debt": [
+    "Raw stored web records still contain historical noisy items; user-visible answer filtering now suppresses them, but R33 remains needed for source data cleanup.",
+    "External browser/search service execution remains blocked until a concrete service is mounted; truthful disabled-state reporting is covered by R30."
+  ]
+}

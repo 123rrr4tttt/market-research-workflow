@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-05-13T05:06:03Z",
+  "results": [
+    {
+      "name": "free_chat_hello",
+      "message": "你好，直接简短回答",
+      "returncode": 0,
+      "duration_seconds": 3.969,
+      "bytes": 15102,
+      "first_event": "agent_core.stream_opened",
+      "has_final_bundle": true,
+      "first_answer_event_index": 7,
+      "tool_event_count": 0,
+      "keepalive_count": 0,
+      "answer_excerpt": "你好！",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/free_chat_hello.sse.txt"
+    },
+    {
+      "name": "free_chat_capm",
+      "message": "解释一下 CAPM 的核心假设",
+      "returncode": 0,
+      "duration_seconds": 61.381,
+      "bytes": 31729,
+      "first_event": "agent_core.stream_opened",
+      "has_final_bundle": true,
+      "first_answer_event_index": 18,
+      "tool_event_count": 0,
+      "keepalive_count": 11,
+      "answer_excerpt": "CAPM（资本资产定价模型）的核心假设主要有这些：\n\n1. 投资者是理性的、风险厌恶的\n- 投资者会在相同预期收益下选择更低风险的组合。\n- 决策只关注收益的均值和方差。\n\n2. 投资者持有相同的预期与信息\n- 所有投资者对资产收益率、风险、相关性等有一致预期。\n- 市场参与者拥有相同信息，并以相同方式解读信息。\n\n3. 可以以无风险利率自由借贷\n- 投资者能按同一无风险利率借入和贷出资金。\n- 这使得最优组合可以在无风险资产和市场组合之间线性搭配。\n\n4. 市场是完全竞争且",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/free_chat_capm.sse.txt"
+    },
+    {
+      "name": "project_data_inventory",
+      "message": "项目里有什么数据",
+      "returncode": 28,
+      "duration_seconds": 75.021,
+      "bytes": 46075,
+      "first_event": "agent_core.stream_opened",
+      "has_final_bundle": false,
+      "first_answer_event_index": -1,
+      "tool_event_count": 10,
+      "keepalive_count": 14,
+      "answer_excerpt": "",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/project_data_inventory.sse.txt"
+    },
+    {
+      "name": "robot_structured_search",
+      "message": "帮我在项目已有数据里检索机器人相关内容，并总结主要发现",
+      "returncode": 28,
+      "duration_seconds": 75.023,
+      "bytes": 58783,
+      "first_event": "agent_core.stream_opened",
+      "has_final_bundle": false,
+      "first_answer_event_index": -1,
+      "tool_event_count": 6,
+      "keepalive_count": 14,
+      "answer_excerpt": "",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/robot_structured_search.sse.txt"
+    }
+  ]
+}

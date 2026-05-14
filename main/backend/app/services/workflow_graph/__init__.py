@@ -111,6 +111,22 @@ class WorkflowGraphCompilerService:
                 self._compiled[str(graph_id)] = row
         return row
 
+    def list_compiled(self, limit: int = 20) -> list[dict[str, Any]]:
+        merged: dict[str, dict[str, Any]] = {}
+        try:
+            for row in self._store.list_compiled(limit=limit):
+                graph_id = str(row.get("graph_id") or "").strip()
+                if graph_id:
+                    merged[graph_id] = dict(row)
+        except Exception:  # noqa: BLE001
+            merged = {}
+        with self._lock:
+            for row in self._compiled.values():
+                graph_id = str(row.get("graph_id") or "").strip()
+                if graph_id:
+                    merged.setdefault(graph_id, dict(row))
+        return list(merged.values())[: max(1, int(limit or 20))]
+
     def list_templates(self) -> dict[str, Any]:
         return self._templates.list_templates()
 

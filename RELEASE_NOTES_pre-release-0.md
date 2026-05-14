@@ -1,5 +1,8 @@
 # 预发布说明：pre-release-0（2026-03-02）
 
+> 历史版本说明（归档）。
+> 最新预发布请查看：`RELEASE_NOTES_pre-release-2026-05-14-rc1.md`。
+
 - 版本类型：`预发布（Pre-release）`
 - 版本名称：`pre-release-0`
 - 适用场景：开发联调、端到端流程验证、发布前回归

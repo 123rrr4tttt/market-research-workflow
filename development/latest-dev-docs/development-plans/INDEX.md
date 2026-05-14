@@ -1,6 +1,6 @@
 # Development Plans Index
 
-更新时间：2026-04-07（PST）
+更新时间：2026-05-14（PST）
 范围：`development/latest-dev-docs/development-plans`
 
 ## Main Entry
@@ -16,8 +16,13 @@
 - [ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md](./ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)
 - [ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md](./ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
 - [CURRENT_DEV/STATUS_AUDIT_2026-04-07.md](./CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
+- [CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md](./CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md)
+- [CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md](./CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md)
+- [CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md](./CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
+- [ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/](./ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
+- [CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/](./CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/INDEX.md)
+- [CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md](./CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md)
 - [CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md](./CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
-- [CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md](./CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 - [CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 - [F_PLAN/12_static-temporal-decoupling-platformization-plan-2026-03-01.md](./F_PLAN/12_static-temporal-decoupling-platformization-plan-2026-03-01.md)
 - [F_PLAN/13_open-source-source-platform-integration-plan-2026-03-01.md](./F_PLAN/13_open-source-source-platform-integration-plan-2026-03-01.md)
@@ -28,9 +33,8 @@
 - [CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md](./CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/02_execution-plan-source-time-window-smart-timestamp-2026-03-02.md)
 - [CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md](./CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/03_decoupled-implementation-plan-source-time-window-and-noun-density-2026-03-02.md)
 - [CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md](./CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
-- [CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-03.md](./CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-03-03.md)
-- [CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/02_atomic-vectorization-tasklist-2026-03-03.md](./CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/02_atomic-vectorization-tasklist-2026-03-03.md)
-- [CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/03_vectorization-atomic-execution-report-2026-03-03.md](./CURRENT_DEV/2026-03-03-global-vectorization-general-foundation/03_vectorization-atomic-execution-report-2026-03-03.md)
+- [CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-05-14.md](./CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-05-14.md)
+- [CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14.md](./CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14.md)
 - [CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md](./CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
 - [ARCHIVE_CLOSED/2026-03-03-platformization-first-vectorization/](./ARCHIVE_CLOSED/2026-03-03-platformization-first-vectorization/)
 - [ARCHIVE_CLOSED/2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md](./ARCHIVE_CLOSED/2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md)

@@ -34,6 +34,7 @@ env/
 ENV/
 .venv
 .venv*/
+main/backend/.venv311/
 
 # -----------------------------------------------------------------------------
 # Environment & Secrets (CRITICAL: never commit .env or credentials)
@@ -77,10 +78,14 @@ reference_pool/
 
 # Cloned repos / reference code (same content as reference_pool, do not re-add)
 main/github/
+tmp/open-source-references/
+tmp/open-source-references/**
 
 # Agent / IDE planning artifacts
 plans/
 *.plan.md
+.autonomous/
+.playwright-mcp/
 
 # Local symlink/copy targets (real 信息源库 is at project root)
 main/backend/信息源库/

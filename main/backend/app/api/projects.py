@@ -35,6 +35,7 @@ from ..models.entities import (
     Source,
     Topic,
 )
+from ..models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 from ..services.llm.config_service import LlmConfigService
 from ..services.llm.provider import get_chat_model
 from ..services.projects.context import bind_project, bind_schema, project_schema_name, _normalize_project_key
@@ -116,6 +117,15 @@ class AutoCreateProjectPayload(BaseModel):
     llm_configs: list[AutoLlmConfigPayload] = Field(default_factory=list)
 
 
+def _resolve_inject_target_key(raw_project_key: str | None, *, source_key: str, overwrite: bool) -> str:
+    target_key = _normalize_project_key(raw_project_key or f"{source_key}_{int(time.time())}")
+    if target_key == "public":
+        _raise_invalid_input("project_key is reserved", status_code=409)
+    if target_key == "default" and not overwrite:
+        _raise_invalid_input("project_key is reserved (set overwrite=true to replace default)", status_code=409)
+    return target_key
+
+
 TENANT_TABLES = [
     Source.__table__,
     Document.__table__,
@@ -135,6 +145,9 @@ TENANT_TABLES = [
     PriceObservation.__table__,
     ResourcePoolUrl.__table__,
     ResourcePoolSiteEntry.__table__,
+    WritingDocument.__table__,
+    WritingDocumentDraft.__table__,
+    WritingDocumentCitation.__table__,
 ]
 
 # Seed/inject path uses a safe subset of tenant tables (exclude embeddings/vector + llm configs).
@@ -154,6 +167,9 @@ INITIAL_PROJECT_TABLES = [
     PriceObservation.__table__,
     ResourcePoolUrl.__table__,
     ResourcePoolSiteEntry.__table__,
+    WritingDocument.__table__,
+    WritingDocumentDraft.__table__,
+    WritingDocumentCitation.__table__,
 ]
 
 llm_config_service = LlmConfigService()
@@ -192,6 +208,37 @@ def _demo_schema_has_seed_data(schema_name: str) -> bool:
         return int(count or 0) > 0
 
 
+def _execute_seed_sql(conn, sql: str) -> None:
+    """
+    Execute pg_dump data SQL without passing SQLAlchemy's empty parameter mapping.
+
+    The bundled seed can contain literal percent signs in crawled page bodies.
+    Passing it through exec_driver_sql can make psycopg2 interpret SQLAlchemy's
+    immutable empty mapping as DBAPI parameters and raise "dict is not a sequence".
+    """
+    raw_connection = conn.connection
+    driver_connection = getattr(raw_connection, "driver_connection", raw_connection)
+    cursor = driver_connection.cursor()
+    try:
+        cursor.execute(sql)
+    finally:
+        cursor.close()
+
+
+def _filter_seed_sql_text(sql_text: str) -> str:
+    filtered_lines: list[str] = []
+    for line in sql_text.splitlines():
+        stripped = line.strip()
+        if re.search(r"pg_catalog\.setval", line, re.IGNORECASE):
+            continue
+        if re.match(r"\\(?:un)?restrict\b", stripped):
+            continue
+        if re.match(r"SET\s+transaction_timeout\b", stripped, re.IGNORECASE):
+            continue
+        filtered_lines.append(line)
+    return "\n".join(filtered_lines)
+
+
 def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
     if source_key != "demo_proj":
         return
@@ -204,14 +251,13 @@ def _bootstrap_demo_seed_if_needed(source_key: str) -> None:
         _raise_internal_error("demo seed file not found under backend/seed_data")
 
     sql_text = seed_file.read_text(encoding="utf-8")
-    # Data-only dumps may include sequence setval statements that can fail on fresh schemas.
-    filtered_sql = "\n".join(
-        line for line in sql_text.splitlines() if not re.search(r"pg_catalog\.setval", line, re.IGNORECASE)
-    )
+    filtered_sql = _filter_seed_sql_text(sql_text)
+
+    _create_tenant_tables_best_effort(source_schema)
 
     with engine.begin() as conn:
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{source_schema}"'))
-        conn.exec_driver_sql(filtered_sql)
+        _execute_seed_sql(conn, filtered_sql)
 
     # Ensure full tenant table structure + schema-local id sequence defaults.
     _create_tenant_tables_best_effort(source_schema)
@@ -540,9 +586,11 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
     if not source_project_key_raw:
         _raise_invalid_input("source_project_key is required")
     source_key = _normalize_project_key(source_project_key_raw)
-    target_key = _normalize_project_key(payload.project_key or f"{source_key}_{int(__import__('time').time())}")
-    if target_key in ("public", "default"):
-        _raise_invalid_input("project_key is reserved", status_code=409)
+    target_key = _resolve_inject_target_key(
+        payload.project_key,
+        source_key=source_key,
+        overwrite=bool(payload.overwrite),
+    )
     source_schema = project_schema_name(source_key)
     target_schema = project_schema_name(target_key)
     target_name = (payload.name or f"{source_key}（初始注入）").strip()

@@ -63,10 +63,7 @@ export default function WorkbenchLayerShell({ activeModule, runtime }: Props) {
               }}
               disabled={runtime.activateMutation.isPending}
             >
-              {!runtime.projects.data?.find((item) => item.project_key === runtime.projectKey) ? (
-                <option value={runtime.projectKey}>{runtime.projectKey}</option>
-              ) : null}
-              {(runtime.projects.data || []).map((item) => (
+              {runtime.projectOptions.map((item) => (
                 <option key={item.project_key} value={item.project_key}>{item.project_key}</option>
               ))}
             </select>
@@ -74,7 +71,7 @@ export default function WorkbenchLayerShell({ activeModule, runtime }: Props) {
           <button
             type="button"
             onClick={() => runtime.activateMutation.mutate(runtime.pendingProjectKey)}
-            disabled={runtime.activateMutation.isPending || !runtime.pendingProjectKey || runtime.pendingProjectKey === runtime.projectKey}
+            disabled={runtime.activateMutation.isPending || !runtime.canActivatePendingProject || runtime.pendingProjectKey === runtime.projectKey}
           >
             {runtime.activateMutation.isPending ? 'switching' : 'activate'}
           </button>

@@ -1,0 +1,24 @@
+{
+  "url": "http://127.0.0.1:5173/#agent-chat.html",
+  "generated_at": "2026-05-11T12:56:28.701Z",
+  "results": [
+    {
+      "scenario": "free_chat",
+      "ok": true,
+      "stream_has_core_final": true,
+      "notes": "normal explanation without execution chrome"
+    },
+    {
+      "scenario": "project_data_tools",
+      "ok": true,
+      "stream_has_tool_events": true,
+      "notes": "project fact question uses model-selected read-only project tools"
+    },
+    {
+      "scenario": "source_run_approval",
+      "ok": true,
+      "stream_has_permission": true,
+      "notes": "execution request pauses at governed approval card"
+    }
+  ]
+}

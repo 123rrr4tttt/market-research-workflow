@@ -13,24 +13,40 @@ import requests
 from ...ingest.adapters.http_utils import fetch_html, make_html_parser
 from ...resource_pool.article_extraction_service import extract_article_content_from_html
 from ...resource_pool import list_urls
+from ..external_project import validate_external_http_url
 
 
-def _normalize_urls_from_params(params: Dict[str, Any]) -> List[str]:
+def _normalize_urls_from_params(params: Dict[str, Any]) -> tuple[List[str], List[str], bool]:
     raw = params.get("urls")
     out: List[str] = []
+    rejected: List[str] = []
+    explicit_input = False
+
+    def add(raw_value: Any) -> None:
+        nonlocal explicit_input
+        s = str(raw_value or "").strip()
+        if not s:
+            return
+        explicit_input = True
+        if not s.startswith(("http://", "https://")):
+            rejected.append(f"{s}: url_pool.url must use http or https")
+            return
+        try:
+            normalized = validate_external_http_url(s, field_name="url_pool.url")
+        except ValueError as exc:
+            rejected.append(f"{s}: {exc}")
+            return
+        if normalized not in out:
+            out.append(normalized)
+
     if isinstance(raw, list):
         for x in raw:
-            s = str(x or "").strip()
-            if s.startswith(("http://", "https://")) and s not in out:
-                out.append(s)
+            add(x)
     elif isinstance(raw, str):
-        s = raw.strip()
-        if s.startswith(("http://", "https://")):
-            out.append(s)
-    single = str(params.get("url") or "").strip()
-    if single.startswith(("http://", "https://")) and single not in out:
-        out.append(single)
-    return out
+        add(raw)
+    if "url" in params:
+        add(params.get("url"))
+    return out, rejected, explicit_input
 
 
 def _extract_text_preview(html: str, *, max_chars: int = 50000) -> tuple[str | None, str]:
@@ -124,12 +140,12 @@ def handle_url_pool(params: Dict[str, Any], project_key: str | None) -> Dict[str
     terminal_output_only = bool(merged_params.get("source_library_terminal_output_only")) or str(
         merged_params.get("source_library_execution_layer") or ""
     ).strip().lower() == "terminal_output_only"
-    urls = _normalize_urls_from_params(merged_params)
+    urls, rejected_url_errors, explicit_url_input = _normalize_urls_from_params(merged_params)
     limit = max(1, int(merged_params.get("limit") or merged_params.get("max_items") or 50))
     timeout = float(merged_params.get("probe_timeout") or 8.0)
     retries = max(0, int(merged_params.get("fetch_retries") or 1))
 
-    if not urls:
+    if not urls and not explicit_url_input:
         pool_rows, _total = list_urls(
             scope=str(merged_params.get("scope") or "effective"),
             project_key=str(project_key or ""),
@@ -140,8 +156,15 @@ def handle_url_pool(params: Dict[str, Any], project_key: str | None) -> Dict[str
         )
         for row in pool_rows:
             u = str((row or {}).get("url") or "").strip()
-            if u.startswith(("http://", "https://")) and u not in urls:
-                urls.append(u)
+            if not u:
+                continue
+            try:
+                normalized = validate_external_http_url(u, field_name="url_pool.url")
+            except ValueError as exc:
+                rejected_url_errors.append(f"{u}: {exc}")
+                continue
+            if normalized not in urls:
+                urls.append(normalized)
             if len(urls) >= limit:
                 break
     else:
@@ -149,7 +172,7 @@ def handle_url_pool(params: Dict[str, Any], project_key: str | None) -> Dict[str
 
     by_url: list[dict[str, Any]] = []
     records: list[dict[str, Any]] = []
-    errors: list[str] = []
+    errors: list[str] = list(rejected_url_errors)
     fetched = 0
     for url in urls:
         try:
@@ -212,6 +235,7 @@ def handle_url_pool(params: Dict[str, Any], project_key: str | None) -> Dict[str
         "updated": 0,
         "skipped": max(len(urls) - fetched, 0),
         "errors": errors,
+        "rejected_urls": list(rejected_url_errors),
         "by_url": by_url,
         "records": records,
         "fetched": fetched,

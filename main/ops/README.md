@@ -1,6 +1,6 @@
 # Docker 启动指南
 
-> 最后更新：2026-02 | 首次运行请确保 `../backend/.env` 存在（可复制 `.env.example`）
+> 最后更新：2026-05-14 | 首次运行请确保 `../backend/.env` 存在（可复制 `.env.example`）
 
 ## ⚠️ 重要提示
 
@@ -11,6 +11,8 @@
 - `./stop-all.sh`
 - `./restart.sh`
 - 仓库根目录 `./scripts/docker-deploy.sh start|stop|restart|status|logs|health|preflight|checkpoint|rollback|rollback-list`
+- 发布前门禁：仓库根目录 `./scripts/pre_release_min_gate.sh`
+- 跨平台启动与外部服务配置：仓库根目录 `./scripts/platform-macos.sh|platform-linux.sh|platform-windows.ps1`
 
 `docker compose` / `docker-compose` 可用于排障与临时操作，但日常启动与停机建议走统一脚本入口。
 
@@ -19,6 +21,31 @@
 > ```bash
 > export PROJECT_DIR="main"
 > ```
+
+## 外部服务配置
+
+本项目的 LLM、搜索、社交和部分数据源能力依赖本地 `main/backend/.env` 中的 key。推荐使用图形化配置入口，不手工复制到聊天或提交记录中：
+
+```bash
+python3 scripts/launch.py
+```
+
+跨平台入口：
+
+```bash
+python3 scripts/launch.py
+./scripts/platform-macos.sh configure
+./scripts/platform-linux.sh configure
+```
+
+Windows：
+
+```powershell
+python scripts\launch.py
+.\scripts\platform-windows.ps1 configure
+```
+
+macOS 桌面小窗口中可点击 `Configure Keys` 打开同一个图形化设置窗口。保存后会写入本地 `main/backend/.env`。
 
 ## 快速启动
 
@@ -42,6 +69,12 @@ cd "$PROJECT_DIR/ops"
 ```bash
 ./scripts/docker-deploy.sh preflight
 ./scripts/docker-deploy.sh preflight --profile scrapyd
+```
+
+Linux 桌面环境若需要 Docker Launcher 在容器启动后自动弹出浏览器，还需要安装宿主机包 `xdg-utils`：
+
+```bash
+sudo apt-get install -y xdg-utils
 ```
 
 发布前建议先创建回滚检查点：

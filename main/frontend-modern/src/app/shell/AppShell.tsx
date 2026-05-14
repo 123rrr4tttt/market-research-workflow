@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import FigmaSideNav from '../../components/FigmaSideNav'
-import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKey, injectInitialProject, listProjects } from '../../lib/api'
+import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKey, injectInitialProject, listProjects, setProjectKey as persistProjectKey } from '../../lib/api'
 import { getLocalJson, setLocalJson } from '../../lib/localStore'
 import { queryKeys } from '../../lib/queryKeys'
 import type { NavMode } from '../kernel/types'
@@ -11,6 +11,7 @@ import { getModuleDescriptor, verifyRegistryHashCompatibility } from '../platfor
 import { applyThemeTokens, useAppTheme } from '../platform/theme'
 import { renderKernelModuleContent } from '../kernel/renderKernelModuleContent'
 import { resolveKernelRoute } from '../kernel/routes'
+import { buildProjectOptions, hasProject, isReservedProjectKey, resolveBootstrapTarget, resolveEffectiveProjectKey } from '../kernel/projectKeys'
 import { resolveInteractionSurface } from '../topology/contracts'
 import { resolveSurfaceSwitchTarget, updateLastModeBySurface, type SurfaceLastModeMap } from '../topology/navigationSwitching'
 import { SHARED_CONTRACT_NOTE, SURFACE_SWITCH_RULES } from '../topology/sharedPlatformContract'
@@ -46,7 +47,7 @@ export default function AppShell() {
   const locale = useAppLocale()
   const appTheme = useAppTheme()
   const [projectKey, setProjectKeyState] = useState(getProjectKey())
-  const [pendingProjectKey, setPendingProjectKey] = useState(() => shellPrefs.pendingProjectKey || projectKey)
+  const [pendingProjectKey, setPendingProjectKey] = useState(() => resolveBootstrapTarget(shellPrefs.pendingProjectKey || projectKey))
   const [switchMessage, setSwitchMessage] = useState('')
 
   const health = useQuery({ queryKey: queryKeys.health.all, queryFn: getHealth })
@@ -63,6 +64,12 @@ export default function AppShell() {
     refetchIntervalInBackground: true,
   })
   const projects = useQuery({ queryKey: queryKeys.projects.all(), queryFn: listProjects })
+  const projectOptions = buildProjectOptions({
+    activeProjectKey: projectKey,
+    pendingProjectKey,
+    projects: projects.data,
+  })
+  const canActivatePendingProject = hasProject(projects.data, pendingProjectKey)
 
   const activateMutation = useMutation({
     mutationFn: activateProject,
@@ -78,7 +85,7 @@ export default function AppShell() {
 
   const injectInitialMutation = useMutation({
     mutationFn: async (targetProjectKey: string) => {
-      const target = String(targetProjectKey || '').trim()
+      const target = resolveBootstrapTarget(targetProjectKey)
       if (!target) throw new Error('请选择目标项目')
       if (target === 'demo_proj') throw new Error('demo_proj 是模板项目，不允许作为注入目标')
       return injectInitialProject({
@@ -104,6 +111,24 @@ export default function AppShell() {
 
   const pageTitle = translate(locale, getModuleDescriptor(viewMode).titleKey, viewMode)
   const isLlmDesignerMode = viewMode === 'flowLlmNodeDesign'
+
+  useEffect(() => {
+    if (!projects.data) return
+    const effectiveProjectKey = resolveEffectiveProjectKey({
+      projects: projects.data,
+      currentProjectKey: projectKey,
+      pendingProjectKey,
+    })
+    if (effectiveProjectKey && effectiveProjectKey !== projectKey) {
+      const next = persistProjectKey(effectiveProjectKey)
+      setProjectKeyState(next)
+      setPendingProjectKey(next)
+      return
+    }
+    if (!projects.data.length && isReservedProjectKey(pendingProjectKey)) {
+      setPendingProjectKey(resolveBootstrapTarget(pendingProjectKey))
+    }
+  }, [pendingProjectKey, projectKey, projects.data])
 
   const keyReady = (key: string) => Boolean(String(envSettings.data?.[key] || '').trim())
   const llmKeyReady = keyReady('OPENAI_API_KEY') || keyReady('AZURE_API_KEY')
@@ -238,15 +263,14 @@ export default function AppShell() {
               }}
               disabled={activateMutation.isPending}
             >
-              {!projects.data?.find((item) => item.project_key === projectKey) ? <option value={projectKey}>{projectKey}</option> : null}
-              {(projects.data || []).map((item) => (
+              {projectOptions.map((item) => (
                 <option key={item.project_key} value={item.project_key}>{item.project_key}</option>
               ))}
             </select>
           </label>
           <button
             onClick={() => activateMutation.mutate(pendingProjectKey)}
-            disabled={activateMutation.isPending || !pendingProjectKey || pendingProjectKey === projectKey}
+            disabled={activateMutation.isPending || !canActivatePendingProject || pendingProjectKey === projectKey}
           >
             {activateMutation.isPending ? '切换中...' : '确认切换项目'}
           </button>

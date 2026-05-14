@@ -46,6 +46,27 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
         self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
+    def test_codex_auth_login_prefers_existing_token_sink(self):
+        with (
+            patch("app.api.codex_auth.codex_oauth_enabled", return_value=True),
+            patch("app.api.codex_auth.has_valid_token_sink", return_value=True),
+        ):
+            response = codex_auth_login(next_url="http://localhost:5173")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["location"], "http://localhost:5173")
+
+    def test_codex_auth_login_can_force_browser_oauth(self):
+        with (
+            patch("app.api.codex_auth.codex_oauth_enabled", return_value=True),
+            patch("app.api.codex_auth.has_valid_token_sink", return_value=True),
+            patch("app.api.codex_auth.build_authorize_url", return_value="https://auth.openai.com/oauth/authorize"),
+        ):
+            response = codex_auth_login(next_url="http://localhost:5173", force_oauth=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["location"], "https://auth.openai.com/oauth/authorize")
+
     def test_skills_invoke_success_returns_ok_envelope(self):
         with patch(
             "app.api.skills.invoke_skill",

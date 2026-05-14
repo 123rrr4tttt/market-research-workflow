@@ -5,6 +5,7 @@
 
 ## 快速入口
 
+- [当前预发布说明：pre-release-2026-05-14-rc1](../../RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
 - [合并总览](./MERGED_OVERVIEW.md)
 - [同步状态](./SYNC_STATUS.md)
 - [来源台账](./index.md)
@@ -24,6 +25,24 @@
 
 ## 最新补充
 
+- 根目录新增当前完整预发布说明（2026-05-14）：
+  - [RELEASE_NOTES_pre-release-2026-05-14-rc1.md](../../RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
+- 当前预发布门禁与完成审计（2026-05-14）：
+  - [automation-runs/pre-release-2026-05-14-rc1/completion_audit.md](./automation-runs/pre-release-2026-05-14-rc1/completion_audit.md)
+  - [automation-runs/pre-release-2026-05-14-rc1/release_package_manifest.md](./automation-runs/pre-release-2026-05-14-rc1/release_package_manifest.md) - 预发布版本合并清单
+  - [automation-runs/pre-release-2026-05-14-rc1/min-gate-strict.json](./automation-runs/pre-release-2026-05-14-rc1/min-gate-strict.json)
+- `development-plans/CURRENT_DEV` 新增 AgentCore session 诊断断点与修复计划（2026-05-14）：
+  - [development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
+- `development-plans/CURRENT_DEV` 更新 Agent context manifest / demand-read 综合回答规格为已实现并记录回归证据（2026-05-14）：
+  - [development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md)
+- `development-plans/CURRENT_DEV` 新增 Agent high-fidelity migration 最终完成审计（2026-05-14）：
+  - [development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md)
+- `development-plans/ARCHIVE_CLOSED` 归档 Agent high-fidelity migration 过程记录（2026-05-14）：
+  - [development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
+- `development-plans/CURRENT_DEV` 新增 SearXNG / YaCy 隔离部署与搜索 provider 接入计划（2026-05-14）：
+  - [development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/INDEX.md)
+- `development-plans/CURRENT_DEV` 补充 SearXNG / YaCy / LanceDB 可选增强启动器集成（2026-05-14）：
+  - [development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md)
 - `development-plans/CURRENT_DEV` 新增并行开发编排主入口与子 agent 契约模板（2026-04-07）：
   - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/README.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/README.md)
   - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)

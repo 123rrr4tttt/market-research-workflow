@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-05-13T05:11:37Z",
+  "results": [
+    {
+      "name": "project_data_inventory_after_compact",
+      "returncode": 0,
+      "duration_seconds": 56.412,
+      "bytes": 87317,
+      "has_final_bundle": true,
+      "first_answer_event_index": 29,
+      "tool_event_count": 6,
+      "keepalive_count": 11,
+      "answer_excerpt": "项目里目前能看到这几类数据：\n\n- `session` 信息：当前会话是 `conversation`，项目键是 `demo_proj`，总共有 1 个任务、3 个事件、1 条消息。\n- `source library` 项：共 17 个已启用项，包含共享基线和项目自定义项。\n- `structured data`：共 12 个数据集、112 条匹配记录、6618 条已存储行。\n- 主要数据集示例：\n  - `documents`：20 个样本，201 行\n  - `graph_nodes`：20 个样本，3942 行\n  - `resource_poo",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/project_data_inventory_after_compact.sse.txt"
+    },
+    {
+      "name": "robot_structured_search_after_compact",
+      "returncode": 28,
+      "duration_seconds": 75.017,
+      "bytes": 2874,
+      "has_final_bundle": false,
+      "first_answer_event_index": -1,
+      "tool_event_count": 0,
+      "keepalive_count": 14,
+      "answer_excerpt": "",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/robot_structured_search_after_compact.sse.txt"
+    }
+  ]
+}

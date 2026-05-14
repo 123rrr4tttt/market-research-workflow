@@ -6,11 +6,12 @@ import os
 import logging
 import time
 import re
+import math
 
 from duckduckgo_search import DDGS
 from duckduckgo_search.exceptions import RatelimitException
 from ..http.client import default_http_client
-from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
+from urllib.parse import urljoin, urlparse, parse_qsl, urlencode, urlunparse
 from sqlalchemy import select
 
 from ..llm.provider import get_chat_model
@@ -374,6 +375,8 @@ def search_sources(
             - "serper": 仅使用 Serper.dev（推荐）
             - "serpstack": 仅使用 Serpstack
             - "serpapi": 仅使用 SerpAPI
+            - "searxng": 仅使用本地/自托管 SearXNG（显式 provider，不进入 auto）
+            - "yacy": 仅使用本地/自托管 YaCy（显式 provider，不进入 auto）
         days_back: 可选，只搜索最近N天的内容（添加到关键词中）
         exclude_existing: 是否排除已入库的文档（默认True）
     """
@@ -531,6 +534,35 @@ def search_sources(
                     logger.info("search_sources: serpapi keyword=%s got %d", keyword, len(items))
                 except Exception as e:
                     logger.warning("search_sources: serpapi keyword=%s failed: %s", keyword, e, exc_info=True)
+                    continue
+
+        elif provider == "searxng":
+            base_url = os.getenv("SEARXNG_BASE_URL", "http://127.0.0.1:8088").strip()
+            per_kw = max(1, max_results // max(1, len(keywords)))
+            for keyword in keywords:
+                try:
+                    items = _searxng_search(keyword, base_url, per_kw, language=language)
+                    for it in items:
+                        it["keyword"] = keyword
+                        _add_result_dedup(results, seen_links, it)
+                    logger.info("search_sources: searxng keyword=%s got %d", keyword, len(items))
+                except Exception as e:
+                    logger.warning("search_sources: searxng keyword=%s failed: %s", keyword, e, exc_info=True)
+                    continue
+
+        elif provider == "yacy":
+            base_url = os.getenv("YACY_BASE_URL", "http://127.0.0.1:8090").strip()
+            resource_mode = os.getenv("YACY_RESOURCE_MODE", "local").strip() or "local"
+            per_kw = max(1, max_results // max(1, len(keywords)))
+            for keyword in keywords:
+                try:
+                    items = _yacy_search(keyword, base_url, per_kw, resource_mode=resource_mode)
+                    for it in items:
+                        it["keyword"] = keyword
+                        _add_result_dedup(results, seen_links, it)
+                    logger.info("search_sources: yacy keyword=%s resource=%s got %d", keyword, resource_mode, len(items))
+                except Exception as e:
+                    logger.warning("search_sources: yacy keyword=%s failed: %s", keyword, e, exc_info=True)
                     continue
         
         logger.info("search_sources: provider=%s total=%d", provider, len(results))
@@ -784,6 +816,95 @@ def _serper_search(keyword: str, api_key: str, limit: int, *, language: str = "e
                 "link": r.get("link"),
                 "snippet": r.get("snippet") or r.get("description"),
                 "source": "serper",
+            }
+        )
+    return items
+
+
+def _searxng_search(keyword: str, base_url: str, limit: int, *, language: str = "en") -> List[dict]:
+    url = urljoin(base_url.rstrip("/") + "/", "search")
+    try:
+        max_pages = max(1, min(10, int(os.getenv("SEARXNG_MAX_PAGES", "5"))))
+    except ValueError:
+        max_pages = 5
+    desired_pages = max(1, min(max_pages, math.ceil(max(1, limit) / 10)))
+    items: List[dict] = []
+    for page_no in range(1, desired_pages + 1):
+        params = {
+            "q": keyword,
+            "format": "json",
+            "pageno": page_no,
+            "language": _base_language(language),
+        }
+        data = default_http_client.get_json(url, params=params)
+        rows = list(data.get("results") or [])
+        if not rows:
+            break
+        for row in rows:
+            link = str(row.get("url") or row.get("link") or row.get("parsed_url") or "").strip()
+            if not link:
+                continue
+            items.append(
+                {
+                    "title": row.get("title"),
+                    "link": link,
+                    "snippet": row.get("content") or row.get("snippet") or row.get("description"),
+                    "source": "searxng",
+                    "rank": len(items) + 1,
+                    "raw": {
+                        "engine": row.get("engine"),
+                        "engines": row.get("engines"),
+                        "category": row.get("category"),
+                        "publishedDate": row.get("publishedDate"),
+                        "pageno": page_no,
+                    },
+                }
+            )
+            if len(items) >= limit:
+                break
+        if len(items) >= limit:
+            break
+    return items
+
+
+def _yacy_search(keyword: str, base_url: str, limit: int, *, resource_mode: str = "local") -> List[dict]:
+    url = urljoin(base_url.rstrip("/") + "/", "yacysearch.json")
+    resource = resource_mode if resource_mode in {"local", "global"} else "local"
+    params = {
+        "query": keyword,
+        "resource": resource,
+        "maximumRecords": max(1, limit),
+    }
+    data = default_http_client.get_json(url, params=params)
+    rows: list[Any] = []
+    channels = data.get("channels")
+    if isinstance(channels, list) and channels:
+        first = channels[0]
+        if isinstance(first, dict):
+            rows = list(first.get("items") or first.get("results") or [])
+    if not rows:
+        rows = list(data.get("items") or data.get("results") or [])
+
+    items: List[dict] = []
+    for rank, row in enumerate(rows[:limit], start=1):
+        if not isinstance(row, dict):
+            continue
+        link = str(row.get("link") or row.get("url") or row.get("sku") or "").strip()
+        if not link:
+            continue
+        items.append(
+            {
+                "title": row.get("title"),
+                "link": link,
+                "snippet": row.get("description") or row.get("snippet") or row.get("text"),
+                "source": "yacy",
+                "rank": rank,
+                "raw": {
+                    "resource": resource,
+                    "origin": row.get("publisher") or row.get("host") or row.get("domain"),
+                    "pubDate": row.get("pubDate"),
+                    "size": row.get("size"),
+                },
             }
         )
     return items

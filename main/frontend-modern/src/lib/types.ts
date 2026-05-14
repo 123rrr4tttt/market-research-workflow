@@ -436,6 +436,128 @@ export type AgentBatchNlCommandResult = {
   session?: AgentSessionItem | null
 }
 
+export type AgentChatTurnPayload = {
+  message: string
+  project_key?: string | null
+  session_id?: string | null
+  idempotency_key?: string | null
+  dry_run?: boolean | null
+  enable_bounded_retry?: boolean | null
+  enable_limited_branching?: boolean | null
+  enable_model_tool_loop?: boolean | null
+  require_high_risk_approval?: boolean | null
+  runtime_variant?: 'agent_runtime_v2' | 'legacy_batch' | 'legacy' | 'v2' | string | null
+}
+
+export type AgentChatCapabilityCall = {
+  call_id?: string | null
+  capability_id?: string | null
+  tool_name?: string | null
+  protocol?: string | null
+  stream_state?: string | null
+  status?: string | null
+  summary?: string | null
+  approval_id?: string | null
+  run_id?: string | null
+  job_id?: string | null
+  accepted_count?: number | null
+  rejected_count?: number | null
+  loop_id?: string | null
+  result?: Record<string, unknown> | null
+  error?: Record<string, unknown> | null
+  material_category?: {
+    category?: string | null
+    label?: string | null
+  } | null
+}
+
+export type AgentChatCapabilityItem = {
+  capability_id?: string | null
+  name?: string | null
+  description?: string | null
+  domain?: string | null
+  approval_level?: string | null
+  concurrency_class?: string | null
+  call_pattern?: string | null
+  risk_level?: string | null
+  tool_group?: string | null
+  deferred?: boolean | null
+  implemented?: boolean | null
+  implementation_state?: string | null
+  enabled?: boolean | null
+  disabled_reason?: string | null
+  configured?: boolean | null
+  reachable?: boolean | null
+  auth_ok?: boolean | null
+  server_error?: string | null
+  service_status?: string | null
+  mounted_tool_count?: number | null
+  mounted_tools?: string[] | null
+  risks?: string[] | null
+  required_input?: string[] | null
+}
+
+export type AgentChatToolPool = {
+  tools?: AgentChatCapabilityItem[] | null
+  groups?: Record<string, AgentChatCapabilityItem[] | null | undefined> | null
+  counts?: Record<string, number> | null
+  feature_flags?: Record<string, boolean> | null
+  project_key?: string | null
+  agent_mode?: string | null
+}
+
+export type AgentChatCapabilitiesResult = {
+  items?: AgentChatCapabilityItem[] | null
+  feature_flags?: Record<string, boolean> | null
+  tool_pool?: AgentChatToolPool | null
+}
+
+export type AgentChatTurnResult = {
+  contract_version?: string | null
+  turn?: Record<string, unknown> | null
+  session?: AgentSessionItem | null
+  tasks?: AgentTaskItem[] | null
+  messages?: AgentMessageItem[] | null
+  events?: AgentEventItem[] | null
+  artifacts?: AgentArtifactItem[] | null
+  approvals?: AgentApprovalItem[] | null
+  agent_mode?: string | null
+  plan?: Record<string, unknown> | null
+  capability_calls?: AgentChatCapabilityCall[] | null
+  suggested_next_actions?: string[] | null
+  loop_result?: AgentBatchNlCommandResult | Record<string, unknown> | null
+  run_loop?: Record<string, unknown> | null
+  approval_requests?: Record<string, unknown>[] | null
+  stream?: {
+    protocol_version?: string | null
+    session_id?: string | null
+    url?: string | null
+    since_seq?: number | null
+    event_format?: string | null
+  } | null
+  final_answer?: string | null
+}
+
+export type AgentChatApprovalContinuePayload = {
+  approved_by?: string | null
+  binding_payload_overrides?: Record<string, unknown> | null
+}
+
+export type AgentChatApprovalContinueResult = {
+  contract_version?: string | null
+  approval?: AgentApprovalItem | Record<string, unknown> | null
+  session?: AgentSessionItem | null
+  tasks?: AgentTaskItem[] | null
+  messages?: AgentMessageItem[] | null
+  events?: AgentEventItem[] | null
+  artifacts?: AgentArtifactItem[] | null
+  approvals?: AgentApprovalItem[] | null
+  capability_call?: AgentChatCapabilityCall | Record<string, unknown> | null
+  continued?: boolean | null
+  stream?: Record<string, unknown> | null
+  final_answer?: string | null
+}
+
 export type AgentSessionStatus = 'pending' | 'active' | 'blocked' | 'completed' | 'failed' | 'canceled' | string
 
 export type AgentTaskStatus = 'pending' | 'claimed' | 'in_progress' | 'blocked' | 'completed' | 'failed' | 'canceled' | 'expired' | string
@@ -496,6 +618,8 @@ export type AgentTaskItem = {
 export type AgentEventItem = {
   event_id: string
   session_id?: string | null
+  turn_id?: string | null
+  call_id?: string | null
   seq?: number | null
   task_id?: string | null
   event_type?: string | null
@@ -504,6 +628,8 @@ export type AgentEventItem = {
   message?: string | null
   payload?: Record<string, unknown> | null
 }
+
+export type AgentSessionEventStreamStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 
 export type AgentArtifactItem = {
   artifact_id: string
@@ -545,6 +671,7 @@ export type AgentApprovalItem = {
   expires_at?: string | null
   audit_log?: string[] | null
   binding_payload?: Record<string, unknown> | null
+  metadata?: Record<string, unknown> | null
 }
 
 export type AgentSessionDetail = AgentSessionItem & {

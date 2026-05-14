@@ -18,6 +18,7 @@ try:
 
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from app.api.projects import _execute_seed_sql, _filter_seed_sql_text, _resolve_inject_target_key
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -108,6 +109,47 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
+    def test_inject_target_allows_default_only_in_overwrite_mode(self):
+        self.assertEqual(
+            _resolve_inject_target_key("default", source_key="demo_proj", overwrite=True),
+            "default",
+        )
+        with self.assertRaises(Exception) as ctx:
+            _resolve_inject_target_key("default", source_key="demo_proj", overwrite=False)
+        self.assertEqual(getattr(ctx.exception, "status_code", None), 409)
+
+    def test_seed_sql_executes_via_driver_cursor_without_parameter_mapping(self):
+        cursor = Mock()
+        driver_connection = Mock()
+        driver_connection.cursor.return_value = cursor
+        conn = SimpleNamespace(connection=SimpleNamespace(driver_connection=driver_connection))
+        seed_sql = "INSERT INTO project_demo_proj.documents (content) VALUES ('87% success');"
+
+        _execute_seed_sql(conn, seed_sql)
+
+        cursor.execute.assert_called_once_with(seed_sql)
+        cursor.close.assert_called_once()
+
+    def test_seed_sql_filter_removes_psql_meta_and_version_specific_lines(self):
+        filtered = _filter_seed_sql_text(
+            "\n".join(
+                [
+                    r"\restrict abc",
+                    "SET transaction_timeout = 0;",
+                    "SELECT pg_catalog.setval('project_demo_proj.documents_id_seq', 146, true);",
+                    "INSERT INTO project_demo_proj.documents (id, doc_type) VALUES (1, 'market_info');",
+                    r"\&gt; quoted html entity inside a seed string should stay",
+                    r"\unrestrict abc",
+                ]
+            )
+        )
+
+        self.assertEqual(
+            filtered,
+            "INSERT INTO project_demo_proj.documents (id, doc_type) VALUES (1, 'market_info');\n"
+            r"\&gt; quoted html entity inside a seed string should stay",
+        )
+
     def test_create_project_duplicate_key_maps_to_invalid_input_error_code(self):
         result = Mock()
         result.scalar_one_or_none.return_value = SimpleNamespace(id=1, project_key="demo_proj")
@@ -128,6 +170,14 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         self.assertEqual(payload["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+
+    def test_create_project_table_set_includes_writing_workbench_tables(self):
+        from app.api.projects import TENANT_TABLES
+
+        table_names = {table.name for table in TENANT_TABLES}
+        self.assertIn("writing_documents", table_names)
+        self.assertIn("writing_document_drafts", table_names)
+        self.assertIn("writing_document_citations", table_names)
 
     def test_projects_auto_create_missing_template_maps_to_not_found_error_code(self):
         with patch("app.api.projects._project_exists", return_value=False):

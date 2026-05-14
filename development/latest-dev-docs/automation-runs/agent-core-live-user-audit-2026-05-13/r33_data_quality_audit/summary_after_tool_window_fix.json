@@ -1,0 +1,14 @@
+{
+  "created_at": "2026-05-12T23:53:00-0700",
+  "elapsed_seconds": 9.716,
+  "event_count": 18,
+  "tools": [
+    "project.structured_data.quality_audit"
+  ],
+  "has_quality_audit_tool": true,
+  "has_final_answer": true,
+  "final_answer_preview": "有，审计已经发现明显的噪声，但这次没有做任何修改。\n\n结果概览：\n- 扫描范围：documents 201、graph_nodes 3942\n- 命中噪声记录：303\n- 分布：documents 117、graph_nodes 186\n\n这说明结构化数据里确实混入了脚本/CSS/导航一类的噪声内容，且主要分布在 graph_nodes 和 documents 两侧。\n\n如果你要，我下一步可以继续帮你把噪声类型细分成：脚本、CSS、导航文本、样式片段、模板残留，并给出只读的清理建议清单。",
+  "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r33_data_quality_audit/quality_audit_after_tool_window_fix.sse.txt",
+  "contentful_quality_answer": true,
+  "contentfulness_criteria": "quality tool called, final answer includes audit action, noisy record count, and affected datasets"
+}

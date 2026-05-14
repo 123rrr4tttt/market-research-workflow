@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-05-13T05:15:43Z",
+  "results": [
+    {
+      "name": "robot_structured_search_fresh_thread",
+      "returncode": 28,
+      "duration_seconds": 75.018,
+      "bytes": 29740,
+      "first_event": "agent_core.stream_opened",
+      "has_final_bundle": false,
+      "first_answer_event_index": -1,
+      "tool_event_count": 4,
+      "keepalive_count": 14,
+      "answer_excerpt": "",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/robot_structured_search_fresh_thread.sse.txt"
+    },
+    {
+      "name": "project_data_inventory_fresh_thread",
+      "returncode": 28,
+      "duration_seconds": 75.026,
+      "bytes": 83373,
+      "first_event": "agent_core.stream_opened",
+      "has_final_bundle": false,
+      "first_answer_event_index": -1,
+      "tool_event_count": 8,
+      "keepalive_count": 14,
+      "answer_excerpt": "",
+      "artifact": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/project_data_inventory_fresh_thread.sse.txt"
+    }
+  ]
+}

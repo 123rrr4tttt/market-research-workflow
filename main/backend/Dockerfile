@@ -14,8 +14,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+ARG INSTALL_OPTIONAL_ENHANCEMENTS=false
+
 COPY ./backend/requirements.txt /app/requirements.txt
+COPY ./backend/requirements-optional-enhancements.txt /app/requirements-optional-enhancements.txt
 RUN pip install -r /app/requirements.txt
+RUN if [ "$INSTALL_OPTIONAL_ENHANCEMENTS" = "true" ]; then \
+      pip install -r /app/requirements-optional-enhancements.txt; \
+    fi
 
 COPY ./backend /app
 
@@ -28,4 +34,3 @@ EXPOSE 8000
 # 使用entrypoint脚本处理初始化
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-

@@ -40,7 +40,9 @@ REDIS_HOST="${REDIS_HOST:-localhost}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 VENV_DIR=".venv311"
 REQ_FILE="requirements.txt"
+OPTIONAL_REQ_FILE="requirements-optional-enhancements.txt"
 REQ_HASH_FILE="${VENV_DIR}/.requirements.sha256"
+OPTIONAL_REQ_HASH_FILE="${VENV_DIR}/.requirements-optional-enhancements.sha256"
 
 cd "$SCRIPT_DIR"
 
@@ -62,6 +64,7 @@ FORCE=0
 WITH_LOCAL_WORKER=1
 AUTO_INSTALL_DEPS=1
 KEEP_DOCKER_DEPS=0
+WITH_LANCEDB=0
 
 usage() {
     cat <<'EOF'
@@ -76,6 +79,7 @@ Options:
   --with-local-worker   同时启动本机 Celery worker（默认已开启）
   --no-local-worker     不启动本机 Celery worker
   --no-auto-install     不自动安装缺失依赖（Homebrew/Node/PostgreSQL/Redis/pgvector）
+  --with-lancedb        安装并启用 LanceDB 本地索引增强（可选依赖）
   -h, --help            显示帮助
 
 初始化时自动：安装 Python 依赖、PostgreSQL/Redis（Homebrew）、pgvector、Node.js、
@@ -116,6 +120,10 @@ while [ $# -gt 0 ]; do
             ;;
         --no-auto-install)
             AUTO_INSTALL_DEPS=0
+            shift
+            ;;
+        --with-lancedb)
+            WITH_LANCEDB=1
             shift
             ;;
         -h|--help)
@@ -508,6 +516,31 @@ ensure_backend_venv() {
         echo "$cur_hash" > "$REQ_HASH_FILE"
     else
         echo "✅ 后端 Python 依赖已是最新"
+    fi
+
+    if [ "$WITH_LANCEDB" -eq 1 ]; then
+        if [ ! -f "$OPTIONAL_REQ_FILE" ]; then
+            echo "⚠️  未找到 $OPTIONAL_REQ_FILE，跳过 LanceDB 可选依赖安装"
+            return 0
+        fi
+        local optional_hash
+        optional_hash="$(shasum -a 256 "$OPTIONAL_REQ_FILE" | awk '{print $1}')"
+        local old_optional_hash=""
+        if [ -f "$OPTIONAL_REQ_HASH_FILE" ]; then
+            old_optional_hash="$(cat "$OPTIONAL_REQ_HASH_FILE" 2>/dev/null || true)"
+        fi
+        if python - <<'PY' >/dev/null 2>&1 && [ "$optional_hash" = "$old_optional_hash" ]; then
+import lancedb
+PY
+            echo "✅ LanceDB 本地索引增强已安装"
+        else
+            echo "📦 安装 LanceDB 本地索引增强（$OPTIONAL_REQ_FILE）..."
+            if ! python -m pip install -r "$OPTIONAL_REQ_FILE"; then
+                echo "❌ LanceDB 可选依赖安装失败。"
+                return 1
+            fi
+            echo "$optional_hash" > "$OPTIONAL_REQ_HASH_FILE"
+        fi
     fi
 }
 

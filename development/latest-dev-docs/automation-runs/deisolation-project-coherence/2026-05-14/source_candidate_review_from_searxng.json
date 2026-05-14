@@ -1,0 +1,560 @@
+{
+  "contract_version": "source_library.source_candidate_plan.v1",
+  "project_key": "demo_proj",
+  "query": "robotics policy national commission",
+  "search_queries": [
+    "robotics policy national commission",
+    "robotics policy national commission report data news"
+  ],
+  "candidate_urls": [
+    {
+      "original_url": "https://www.congress.gov/bill/119th-congress/house-bill/7334",
+      "normalized_url": "https://www.congress.gov/bill/119th-congress/house-bill/7334",
+      "domain": "congress.gov",
+      "status": "accepted",
+      "trust_score": 85.0,
+      "trust_level": "high",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "1540bb7df9a5323c0cb6d60aa24ab676286415f26c7e857e1b36564fed5a4e10",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.congress.gov",
+          "path": "/bill/119th-congress/house-bill/7334"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "public_interest_domain"
+      ]
+    },
+    {
+      "original_url": "https://fedscoop.com/robotics-commission-commerce-department-legislation",
+      "normalized_url": "https://fedscoop.com/robotics-commission-commerce-department-legislation",
+      "domain": "fedscoop.com",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "ccb6507f194cb559f886394bfaf38dcbdafda2ad3da11a63b1d6d74f65767863",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "fedscoop.com",
+          "path": "/robotics-commission-commerce-department-legislation"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://itif.org/publications/2025/07/18/time-to-act-policies-to-strengthen-us-robotics-industry",
+      "normalized_url": "https://itif.org/publications/2025/07/18/time-to-act-policies-to-strengthen-us-robotics-industry",
+      "domain": "itif.org",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "4a72688bcc63d4e10f3f7ee792b6b3401fc70c4ae1fc717b6f3a7b92960bdfee",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "itif.org",
+          "path": "/publications/2025/07/18/time-to-act-policies-to-strengthen-us-robotics-industry"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://mwcllc.com/2026/04/27/congress-may-be-building-a-new-incentive-framework-for-domestic-robotics-manufacturing-heres-what-it-could-look-like",
+      "normalized_url": "https://mwcllc.com/2026/04/27/congress-may-be-building-a-new-incentive-framework-for-domestic-robotics-manufacturing-heres-what-it-could-look-like",
+      "domain": "mwcllc.com",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "af44bcf2e8981260b3960a4f784b8e34fbb505297158651a09d6fa3e6adcaa6c",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "mwcllc.com",
+          "path": "/2026/04/27/congress-may-be-building-a-new-incentive-framework-for-domestic-robotics-manufacturing-heres-what-it-could-look-like"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://theaiinsider.tech/2026/03/18/us-think-tank-launches-national-security-commission-on-robotics-for-advanced-manufacturing",
+      "normalized_url": "https://theaiinsider.tech/2026/03/18/us-think-tank-launches-national-security-commission-on-robotics-for-advanced-manufacturing",
+      "domain": "theaiinsider.tech",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "b670dee575bf604adfcba0383974fd3a3445b6b63a597e02b7a09470b098486b",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "theaiinsider.tech",
+          "path": "/2026/03/18/us-think-tank-launches-national-security-commission-on-robotics-for-advanced-manufacturing"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://www.automate.org/robotics/market-trends/market-trends-in-robotics",
+      "normalized_url": "https://www.automate.org/robotics/market-trends/market-trends-in-robotics",
+      "domain": "automate.org",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "0e627354fb6c3fe64be683bd016dde97b313c0692db5695b772e282d3042ee5b",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.automate.org",
+          "path": "/robotics/market-trends/market-trends-in-robotics"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://www.auvsi.org/advocacy/advocacy-initiatives/partnership-for-robotics-competitiveness/white-paper",
+      "normalized_url": "https://www.auvsi.org/advocacy/advocacy-initiatives/partnership-for-robotics-competitiveness/white-paper",
+      "domain": "auvsi.org",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "1f21aa08f4665414a832e9767d598b634116d4e9fd8e3ebedd036ad9a6cbcba0",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.auvsi.org",
+          "path": "/advocacy/advocacy-initiatives/partnership-for-robotics-competitiveness/white-paper"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://www.auvsi.org/news/auvsi-launches-bipartisan-partnership-for-robotics-competitiveness-on-capitol-hill",
+      "normalized_url": "https://www.auvsi.org/news/auvsi-launches-bipartisan-partnership-for-robotics-competitiveness-on-capitol-hill",
+      "domain": "auvsi.org",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "294b743e1eda4bf11ddd4a1686c9de0783f704fb674a09c21304c034304a1139",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.auvsi.org",
+          "path": "/news/auvsi-launches-bipartisan-partnership-for-robotics-competitiveness-on-capitol-hill"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://www.auvsi.org/robot-ready-the-u-s-needs-a-national-robotics-strategy-now",
+      "normalized_url": "https://www.auvsi.org/robot-ready-the-u-s-needs-a-national-robotics-strategy-now",
+      "domain": "auvsi.org",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "50fdcec9cbffb9c6ebfda9873f92ece2ea4773858028b3f33b3ec3feec5f1d3b",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.auvsi.org",
+          "path": "/robot-ready-the-u-s-needs-a-national-robotics-strategy-now"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://www.businesswire.com/news/home/20260511908908/en/Robots-for-America-Launches-National-Coalition-to-Advance-U.S.-Robotics-Deployment-Policy",
+      "normalized_url": "https://www.businesswire.com/news/home/20260511908908/en/Robots-for-America-Launches-National-Coalition-to-Advance-U.S.-Robotics-Deployment-Policy",
+      "domain": "businesswire.com",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "81b7e666493fc97108892df021a4139bf7ea526d8353ef98530c9355d0ca8f7d",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.businesswire.com",
+          "path": "/news/home/20260511908908/en/robots-for-america-launches-national-coalition-to-advance-u.s.-robotics-deployment-policy"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://www.grandviewresearch.com/industry-analysis/industrial-robotics-market",
+      "normalized_url": "https://www.grandviewresearch.com/industry-analysis/industrial-robotics-market",
+      "domain": "grandviewresearch.com",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "59f5aa07f02c07d88f4d43b39224971e7a19df64d854e984616d06397f41213e",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.grandviewresearch.com",
+          "path": "/industry-analysis/industrial-robotics-market"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://www.manufacturingdive.com/news/robotics-experts-urge-congress-act-automation-policy-national-strategy/818431",
+      "normalized_url": "https://www.manufacturingdive.com/news/robotics-experts-urge-congress-act-automation-policy-national-strategy/818431",
+      "domain": "manufacturingdive.com",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "567bd32920004c3aeb457af29689a2d9fef807b925d323ff9e41d17c6cf92e10",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.manufacturingdive.com",
+          "path": "/news/robotics-experts-urge-congress-act-automation-policy-national-strategy/818431"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://www.statista.com/outlook/tmo/robotics/worldwide",
+      "normalized_url": "https://www.statista.com/outlook/tmo/robotics/worldwide",
+      "domain": "statista.com",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "f10217fb06deec8f0fcb40c16f7f3d54e68fe480d484af74210c2e667d8ddd69",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.statista.com",
+          "path": "/outlook/tmo/robotics/worldwide"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    },
+    {
+      "original_url": "https://www.therobotreport.com/bills-introduced-strengthen-u-s-robotics-competitiveness-humanoid-security",
+      "normalized_url": "https://www.therobotreport.com/bills-introduced-strengthen-u-s-robotics-competitiveness-humanoid-security",
+      "domain": "therobotreport.com",
+      "status": "accepted",
+      "trust_score": 80.0,
+      "trust_level": "medium",
+      "blocked_reason": null,
+      "normalization_steps": [],
+      "url_checksum": "1d46921bbb0054117c578ce6e3b81acd073e30e6b7d73f8a129e9d6104dfc998",
+      "content_sha256": null,
+      "pre_ingest_required_checks": [
+        "redirect_chain_validation",
+        "content_type_allowlist",
+        "content_length_limit",
+        "body_sha256",
+        "dedupe_against_existing_sources",
+        "rollback_log"
+      ],
+      "scheme": "https",
+      "url_policy": {
+        "accepted": true,
+        "blocked": false,
+        "reason": "disabled",
+        "quality_score": 100.0,
+        "diagnostics": {
+          "domain": "www.therobotreport.com",
+          "path": "/bills-introduced-strengthen-u-s-robotics-competitiveness-humanoid-security"
+        }
+      },
+      "trust_reasons": [
+        "http_url_public_host_validated",
+        "https",
+        "url_policy_ok",
+        "query_token_in_url"
+      ]
+    }
+  ],
+  "rejected_urls": [],
+  "duplicate_urls": [],
+  "candidate_source_items": [],
+  "trust_policy": {
+    "network_fetch_performed": false,
+    "external_write_performed": false,
+    "min_trust_score": 40.0,
+    "url_public_host_validation": "external_project.validate_external_http_url",
+    "wrapper_normalization": "ingest.url_unwrap.unwrap_url:no_network_redirect",
+    "url_quality_gate": "ingest.meaningful_gate.url_policy_check",
+    "source_score": "0_to_100_trust_score",
+    "duplicate_detection": "normalized_url_dedupe",
+    "stale_source_handling": "record publication dates during ingest and down-rank stale evidence during synthesis",
+    "source_conflict_notes": "record conflicting claims and preserve source locator before synthesis",
+    "pre_ingest_required_checks": [
+      "redirect_chain_validation",
+      "content_type_allowlist",
+      "content_length_limit",
+      "body_sha256",
+      "dedupe_against_existing_sources",
+      "rollback_log"
+    ]
+  },
+  "counts": {
+    "candidate_urls": 14,
+    "rejected_urls": 0,
+    "duplicate_urls": 0,
+    "candidate_source_items": 0,
+    "search_queries": 2
+  },
+  "next_gate": "approval_governed_ingest_or_source_library_run"
+}

@@ -23,6 +23,7 @@ FRONTEND_PID_FILE="/tmp/frontend-modern-dev.pid"
 WORKER_PID_FILE="/tmp/celery-local-worker.pid"
 USE_DOCKER_DEPS=0
 WITH_LOCAL_WORKER=1
+LOCAL_ONLY=0
 
 for arg in "$@"; do
     case "$arg" in
@@ -34,6 +35,9 @@ for arg in "$@"; do
             ;;
         --no-local-worker)
             WITH_LOCAL_WORKER=0
+            ;;
+        --local-only)
+            LOCAL_ONLY=1
             ;;
     esac
 done
@@ -49,11 +53,15 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
     fi
 
     if [ -n "${DOCKER_BACKEND_RUNNING}" ]; then
-        echo "检测到 Docker backend 占用 8000，停止容器 backend..."
-        cd "$OPS_DIR"
-        compose stop backend 2>/dev/null || true
-        cd "$SCRIPT_DIR"
-        echo "✅ Docker backend 已停止"
+        if [ "$LOCAL_ONLY" = "1" ]; then
+            echo "检测到 Docker backend 占用 8000，--local-only 已启用，跳过容器 backend"
+        else
+            echo "检测到 Docker backend 占用 8000，停止容器 backend..."
+            cd "$OPS_DIR"
+            compose stop backend 2>/dev/null || true
+            cd "$SCRIPT_DIR"
+            echo "✅ Docker backend 已停止"
+        fi
     else
         echo "停止本机后端服务（端口8000）..."
         lsof -ti:8000 | xargs kill -9 2>/dev/null || true

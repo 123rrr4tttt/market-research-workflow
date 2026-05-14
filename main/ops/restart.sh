@@ -41,6 +41,7 @@ Start options (透传给 start-all.sh):
   --force
   --profile <name>
   --services <list>
+  --build
 
 Stop options (透传给 stop-all.sh):
   --remove-orphans
@@ -57,7 +58,7 @@ STOP_ARGS=()
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --non-interactive|--force)
+        --non-interactive|--force|--build)
             START_ARGS+=("$1")
             shift
             ;;

@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-05-12T23:41:59-0700",
+  "elapsed_seconds": 7.786,
+  "event_count": 18,
+  "tools": [
+    "project.structured_data.quality_audit",
+    "project.summary.read"
+  ],
+  "has_quality_audit_tool": true,
+  "has_final_answer": true,
+  "final_answer_preview": "我已根据项目里已经存储的数据做了检索和汇总。\n- 来源库/采集入口：17 个，启用 17 个。\n- 当前会话数据：1 个任务、3 个事件、2 个产物。\n可以继续让我按某个数据集、来源或实体线索展开。",
+  "raw_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r33_data_quality_audit/quality_audit.sse.txt"
+}

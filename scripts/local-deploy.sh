@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BACKEND_DIR="${ROOT_DIR}/main/backend"
+OPTIONAL_ENHANCEMENTS_SCRIPT="${ROOT_DIR}/scripts/optional-enhancements.sh"
 WORKER_PID_FILE="/tmp/celery-local-worker.pid"
 
 usage() {
@@ -19,8 +20,8 @@ Commands:
   health     Check local backend health endpoints
 
 Examples:
-  local-deploy.sh start
-  local-deploy.sh stop
+  local-deploy.sh start --with-searxng --with-yacy --with-lancedb
+  local-deploy.sh stop --local-only
 USAGE
 }
 
@@ -43,23 +44,62 @@ fi
 
 cmd="$1"
 shift
+ENHANCEMENT_ARGS=()
+START_LOCAL_ARGS=()
+STOP_LOCAL_ARGS=()
+HELP_REQUESTED=0
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help)
+      HELP_REQUESTED=1
+      START_LOCAL_ARGS+=("$arg")
+      STOP_LOCAL_ARGS+=("$arg")
+      ;;
+    --with-searxng)
+      ENHANCEMENT_ARGS+=(--searxng)
+      ;;
+    --with-yacy)
+      ENHANCEMENT_ARGS+=(--yacy)
+      ;;
+    --with-lancedb)
+      ENHANCEMENT_ARGS+=(--lancedb)
+      START_LOCAL_ARGS+=(--with-lancedb)
+      ;;
+    *)
+      START_LOCAL_ARGS+=("$arg")
+      STOP_LOCAL_ARGS+=("$arg")
+      ;;
+  esac
+done
 
 case "$cmd" in
   start)
     require_backend_dir
+    if [[ "${HELP_REQUESTED}" -eq 1 ]]; then
+      cd "${BACKEND_DIR}"
+      exec ./start-local.sh --help
+    fi
+    if [[ ${#ENHANCEMENT_ARGS[@]} -gt 0 ]]; then
+      "${OPTIONAL_ENHANCEMENTS_SCRIPT}" start "${ENHANCEMENT_ARGS[@]}"
+    fi
     cd "${BACKEND_DIR}"
-    exec ./start-local.sh "$@"
+    exec ./start-local.sh "${START_LOCAL_ARGS[@]}"
     ;;
   stop)
+    "${OPTIONAL_ENHANCEMENTS_SCRIPT}" stop || true
     require_backend_dir
     cd "${BACKEND_DIR}"
-    exec ./stop-local.sh "$@"
+    exec ./stop-local.sh "${STOP_LOCAL_ARGS[@]}"
     ;;
   restart)
     require_backend_dir
+    "${OPTIONAL_ENHANCEMENTS_SCRIPT}" stop || true
     cd "${BACKEND_DIR}"
-    ./stop-local.sh "$@" || true
-    exec ./start-local.sh "$@"
+    ./stop-local.sh "${STOP_LOCAL_ARGS[@]}" || true
+    if [[ ${#ENHANCEMENT_ARGS[@]} -gt 0 ]]; then
+      "${OPTIONAL_ENHANCEMENTS_SCRIPT}" start "${ENHANCEMENT_ARGS[@]}"
+    fi
+    exec ./start-local.sh "${START_LOCAL_ARGS[@]}"
     ;;
   status)
     echo "Local status:"
@@ -83,6 +123,9 @@ case "$cmd" in
     else
       echo "❌ celery worker not running"
     fi
+    echo ""
+    echo "Optional enhancements:"
+    "${OPTIONAL_ENHANCEMENTS_SCRIPT}" status || true
     ;;
   health)
     curl -fsS http://localhost:8000/api/v1/health

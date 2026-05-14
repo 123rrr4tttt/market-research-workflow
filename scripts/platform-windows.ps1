@@ -5,10 +5,15 @@ param(
     [string[]]$ExtraArgs
 )
 
-$ValidActions = @("start", "stop", "restart", "status", "health", "local-start", "local-stop")
+$ValidActions = @(
+    "ui", "start", "stop", "restart", "status", "health",
+    "local-start", "local-stop",
+    "docker-start", "docker-full-start", "docker-stop", "docker-restart", "docker-status",
+    "configure", "doctor", "config-status"
+)
 
 function Show-Usage {
-    Write-Host "用法: .\scripts\platform-windows.ps1 {start|stop|restart|status|health|local-start|local-stop} [extra args...]"
+    Write-Host "用法: .\scripts\platform-windows.ps1 {ui|start|stop|restart|status|health|local-start|local-stop|docker-start|docker-full-start|docker-stop|docker-restart|docker-status|configure|doctor|config-status} [extra args...]"
 }
 
 if ([string]::IsNullOrWhiteSpace($Action) -or -not ($ValidActions -contains $Action)) {
@@ -17,6 +22,21 @@ if ([string]::IsNullOrWhiteSpace($Action) -or -not ($ValidActions -contains $Act
 }
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoDir = Split-Path -Parent $ScriptDir
+
+if ($Action -eq "ui" -or $Action -eq "configure") {
+    $PythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $PythonCommand) {
+        $PythonCommand = Get-Command python3 -ErrorAction SilentlyContinue
+    }
+    if (-not $PythonCommand) {
+        Write-Host "未检测到 Python。请先安装 Python 3。"
+        exit 1
+    }
+    & $PythonCommand.Source (Join-Path $ScriptDir "launch.py") @ExtraArgs
+    exit $LASTEXITCODE
+}
+
 $BashScriptPath = Join-Path $ScriptDir "platform-linux.sh"
 
 if (-not (Test-Path -Path $BashScriptPath -PathType Leaf)) {
