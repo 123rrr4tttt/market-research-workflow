@@ -1,0 +1,72 @@
+{
+  "schema": "docs-root-entry-manifest/v1",
+  "root": "docs/development",
+  "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
+  "generated_date": "2026-05-22",
+  "content_authority": "Mapped source files remain authoritative for document content. Target README files are authoritative only for migration entry mapping until a later content move updates shared navigation.",
+  "entries": [
+    {
+      "id": "development-plans-main-index",
+      "classification": "development",
+      "source": "development/latest-dev-docs/development-plans/main/index.md",
+      "source_role": "latest-dev-docs-main-entry",
+      "target": "docs/development/development-plans/README.md",
+      "target_role": "development-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "development-plans-main-merged",
+      "classification": "development",
+      "source": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+      "source_role": "latest-dev-docs-main-merged",
+      "target": "docs/development/development-plans/README.md",
+      "target_role": "development-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "development-plans-current-dev-root",
+      "classification": "development",
+      "source": "development/latest-dev-docs/development-plans/CURRENT_DEV",
+      "source_role": "active-development-plan-root",
+      "target": "docs/development/development-plans/README.md",
+      "target_role": "development-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "frontend-modern-main-index",
+      "classification": "development",
+      "source": "development/latest-dev-docs/frontend-modern/main/index.md",
+      "source_role": "latest-dev-docs-main-entry",
+      "target": "docs/development/frontend-modern/README.md",
+      "target_role": "development-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "frontend-modern-main-merged",
+      "classification": "development",
+      "source": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+      "source_role": "latest-dev-docs-main-merged",
+      "target": "docs/development/frontend-modern/README.md",
+      "target_role": "development-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "root-plans-f-plan-index",
+      "classification": "development",
+      "source": "development/latest-dev-docs/root-plans/F_PLAN/index.md",
+      "source_role": "explicit-plan-index",
+      "target": "docs/development/root-plans/README.md",
+      "target_role": "development-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "root-plans-main-index-mixed",
+      "classification": "development",
+      "source": "development/latest-dev-docs/root-plans/main/index.md",
+      "source_role": "mixed-latest-dev-docs-main-entry",
+      "target": "docs/development/root-plans/README.md",
+      "target_role": "mixed-entry-manifest",
+      "status": "mapped_not_moved"
+    }
+  ]
+}

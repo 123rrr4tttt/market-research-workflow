@@ -1,0 +1,54 @@
+{
+  "schema": "docs-root-entry-manifest/v1",
+  "root": "docs/architecture",
+  "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
+  "generated_date": "2026-05-22",
+  "content_authority": "Mapped source files remain authoritative for document content. Target README files are authoritative only for migration entry mapping until a later content move updates shared navigation.",
+  "entries": [
+    {
+      "id": "backend-core-architecture-tree",
+      "classification": "architecture",
+      "source": "development/latest-dev-docs/backend-core/A_ARCHITECTURE",
+      "source_role": "explicit-architecture-tree",
+      "target": "docs/architecture/backend-core/README.md",
+      "target_role": "architecture-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "backend-docs-architecture-tree",
+      "classification": "architecture",
+      "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE",
+      "source_role": "explicit-architecture-tree",
+      "target": "docs/architecture/backend-docs/README.md",
+      "target_role": "architecture-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "development-plans-architecture-tree",
+      "classification": "architecture",
+      "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE",
+      "source_role": "explicit-architecture-tree",
+      "target": "docs/architecture/development-plans/README.md",
+      "target_role": "architecture-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "ops-frontend-architecture-tree",
+      "classification": "architecture",
+      "source": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE",
+      "source_role": "explicit-architecture-tree",
+      "target": "docs/architecture/ops-frontend/README.md",
+      "target_role": "architecture-target-entry-manifest",
+      "status": "mapped_not_moved"
+    },
+    {
+      "id": "root-plans-architecture-tree",
+      "classification": "architecture",
+      "source": "development/latest-dev-docs/root-plans/A_ARCHITECTURE",
+      "source_role": "explicit-architecture-tree",
+      "target": "docs/architecture/root-plans/README.md",
+      "target_role": "architecture-target-entry-manifest",
+      "status": "mapped_not_moved"
+    }
+  ]
+}
