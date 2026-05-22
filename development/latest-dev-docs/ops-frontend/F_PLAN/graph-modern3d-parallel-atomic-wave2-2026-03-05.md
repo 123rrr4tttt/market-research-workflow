@@ -1,5 +1,23 @@
 # Graph Modern3D Parallel Atomic Wave2 (2026-03-05)
 
+## 2026-05-22 Worker Lane 5 Refresh
+
+Status: `需更新 / linked to CURRENT_DEV graph 3D closure`.
+
+The frontend graph 3D implementation still exists in the current worktree: `useGraphModeSwitch.ts` defaults to `force3d`, `useForceGraph3DLoader.ts` dynamically loads `react-force-graph-3d`, and `GraphPage.tsx` still exposes the force 3D canvas path plus fallback controls. The remaining closure evidence is validation, not a new broad implementation plan.
+
+Minimum linked validation:
+
+```bash
+cd /Users/wangyiliang/market-research-workflow.worktrees/graph-plan-refresh/main/frontend-modern
+npm run test:e2e -- tests/e2e/graphpage.spec.ts
+npm run build
+```
+
+Worker lane 5 result: frontend e2e could not run inside this worktree because local `node_modules` is absent; no dependency install was performed. The structural graph-mode `rg` smoke passed.
+
+Carry-over blocker: the mocked e2e path validates control reachability, but a final archive decision for the 3D force topic still needs real visual/canvas evidence or an explicit waiver for nonblank WebGL output and rapid engine-switch stress.
+
 ## Scope
 
 - Frontend only, limited to modern 3D graph related modules.
@@ -40,4 +58,3 @@
 
 - Default delayed apply (`120ms`) introduces minor visual lag by design to reduce stutter.
 - e2e selectors depend on current Chinese UI labels/title attributes; text changes require test updates.
-

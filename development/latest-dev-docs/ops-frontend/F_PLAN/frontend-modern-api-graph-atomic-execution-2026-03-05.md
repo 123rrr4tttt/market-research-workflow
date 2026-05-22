@@ -1,5 +1,27 @@
 # Frontend Modern API + Graph Atomic Execution (2026-03-05)
 
+## 2026-05-22 Worker Lane 5 Refresh
+
+Status: `需更新 / GraphPage curated-contract bridge not closed`.
+
+This frontend API split is still valid for graph read/config/query-key work, but it does not close the later graph-editing/reporting topic. Current `main/frontend-modern/src/lib/api/domains/graph-workflow.ts` exposes workflow graph compile/run/template/version operations and graph data fetches, while `main/frontend-modern/src/pages/GraphPage.tsx` imports graph read/config/structured-search APIs only. No frontend wrapper or GraphPage call path was found for the backend curated endpoints:
+
+- `/api/v1/workflow-graph/curated/{graph_id}/draft`
+- `/api/v1/workflow-graph/curated/{graph_id}/submit`
+- `/api/v1/workflow-graph/curated/{graph_id}/sync`
+- `/api/v1/workflow-graph/curated/{graph_id}/rollback`
+- `/api/v1/workflow-graph/curated/{graph_id}/evidence-pack`
+- `/api/v1/workflow-graph/curated/{graph_id}/handoff/{reporting|writing}`
+
+Closure blocker for the graph editing/reporting plan: either GraphPage must explicitly own those curated graph API calls, or the docs must name a different frontend owner/screen. Until then, backend handoff contracts should not be counted as user-facing GraphPage closure.
+
+Minimal smoke:
+
+```bash
+cd /Users/wangyiliang/market-research-workflow.worktrees/graph-plan-refresh
+rg -n "curated|evidence-pack|handoff|workflow-graph/curated" main/frontend-modern/src/lib main/frontend-modern/src/pages/GraphPage.tsx
+```
+
 ## Scope
 - Repo: `main/frontend-modern`
 - Focus: API layering, query key standardization, graph computation layering
@@ -46,4 +68,3 @@
 ## Non-Goal / Remaining
 - Deep interaction split in `GraphPage` (selection/hover/node-card state machine extraction) is not completed in this batch.
 - Performance warnings remain (large chunks / circular chunk warning), not a functional blocker.
-
