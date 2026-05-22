@@ -14,7 +14,10 @@ const files = {
   workbenchPage: 'src/pages/WritingWorkbenchPage.tsx',
   selectionLookup: 'src/components/writing/useSelectionLookup.ts',
   backendReadbackTest: path.join(repoRoot, 'main/backend/tests/unit/test_writing_keyword_card_service_unittest.py'),
-  backendKeywordService: path.join(repoRoot, 'main/backend/app/services/writing/keyword_card_service.py'),
+  evidenceDoc: path.join(
+    repoRoot,
+    'development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md',
+  ),
 }
 
 const failures = []
@@ -37,68 +40,50 @@ const apiBarrel = readFile(files.apiBarrel)
 const workbenchPage = readFile(files.workbenchPage)
 const selectionLookup = readFile(files.selectionLookup)
 const backendReadbackTest = readFile(files.backendReadbackTest)
-const backendKeywordService = readFile(files.backendKeywordService)
+const evidenceDoc = readFile(files.evidenceDoc)
 
-assertIncludesAll('writing API typed-context helper', writingDomain, [
-  "WRITING_TYPED_KNOWLEDGE_CONTEXT_VERSION = 'writing.typed_knowledge_context.v1'",
-  "WRITING_TYPED_KNOWLEDGE_HANDOFF_CONTRACT_VERSION = 'typed_knowledge.writing_handoff.v1'",
-  'readTypedKnowledgeWritingContextFromDocument',
-  'writingTypedKnowledgeContextKey',
-  'withTypedKnowledgeWritingContext',
+assertIncludesAll('persisted typed-card request helper', writingDomain, [
   'buildPersistedTypedKnowledgeKeywordCardRequest',
-  'typed_knowledge_context: context',
+  "document: Pick<WritingDocument, 'metadata_json'> | null | undefined",
+  'const typedContext = readTypedKnowledgeWritingContextFromDocument(document)',
   "sources = ['document', 'resource', 'graph']",
-])
-
-assertIncludesAll('writing API barrel exports', apiBarrel, [
-  'readTypedKnowledgeWritingContextFromDocument',
-  'writingTypedKnowledgeContextKey',
   'withTypedKnowledgeWritingContext',
-  'buildPersistedTypedKnowledgeKeywordCardRequest',
-  'TypedKnowledgeWritingContext',
-  'TypedKnowledgeWritingHandoff',
 ])
 
-assertIncludesAll('workbench consumer fetch wiring', workbenchPage, [
-  'readTypedKnowledgeWritingContextFromDocument',
-  'writingTypedKnowledgeContextKey',
+assertIncludesAll('API barrel export', apiBarrel, [
   'buildPersistedTypedKnowledgeKeywordCardRequest',
-  'const writingTypedContext = useMemo',
-  'const writingTypedContextKey = useMemo',
+])
+
+assertIncludesAll('workbench persisted UI consumer path', workbenchPage, [
+  'buildPersistedTypedKnowledgeKeywordCardRequest',
   'lookupScopeKey: writingTypedContextKey',
   'document: documentDetailQuery.data',
+  'getWritingKeywordCards(',
 ])
 
-assertIncludesAll('selection lookup scoped dedupe', selectionLookup, [
+assertIncludesAll('scoped selection readback trigger', selectionLookup, [
   'lookupScopeKey?: string',
   'scopedLookupKey',
   'seenLookupRef.current.get(scopedLookupKey)',
   'seenLookupRef.current.set(scopedLookupKey, Date.now())',
 ])
 
-assertIncludesAll('backend deterministic card readback', backendReadbackTest, [
+assertIncludesAll('backend preview/detail readback test remains wired', backendReadbackTest, [
   'test_typed_knowledge_card_preview_and_detail_readback_after_consumer_fetch',
   'get_card_preview',
   'get_card_detail',
-  'KeywordCardPreviewRequest',
-  'KeywordCardDetailRequest',
-  'wave16-worker5-readback',
+  'self.assertEqual(detail.provenance["raw_keys"], ["typed_knowledge_context"])',
 ])
 
-assertIncludesAll('backend typed context cache source', backendKeywordService, [
-  'parse_writing_knowledge_context_envelope',
-  'build_keyword_card_from_typed_knowledge_handoff',
-  'typed_knowledge_context_count=len(typed_knowledge_cards)',
-  '"typed_knowledge_boundary_rule": "consume_typed_knowledge_handoff_as_resource_card_only"',
+assertIncludesAll('Wave17 evidence doc', evidenceDoc, [
+  'Wave17 Worker6 Persisted Typed-Card UI Readback',
+  'buildPersistedTypedKnowledgeKeywordCardRequest',
+  'No live browser/UI persisted readback was claimed',
+  'persisted_typed_knowledge_cards_live_readback_not_verified',
 ])
 
-const deterministicRequest = {
-  project_key: 'demo_proj',
-  query: 'robotics investment',
-  selection_hash: 'sel_wave16',
-  sources: ['document', 'resource', 'graph'],
-  context: {
-    contract_version: 'writing.context_boundary.e3.v1',
+const deterministicPersistedDocument = {
+  metadata_json: {
     typed_knowledge_context: {
       contract_version: 'writing.typed_knowledge_context.v1',
       source: 'typed_knowledge',
@@ -117,7 +102,7 @@ const deterministicRequest = {
           locale: 'en',
           evidence_refs: ['doc:robotics:42'],
           visibility_scope: 'downstream_ready',
-          selection_hash: 'sel_wave16',
+          selection_hash: 'sel_wave17',
           selection_text: 'robotics investment',
           facets: {
             consumer_boundary: {
@@ -128,32 +113,30 @@ const deterministicRequest = {
         },
       ],
       boundary: {
+        boundary_rule: 'consume_typed_knowledge_handoff_as_resource_card_only',
         card_source_type: 'resource',
       },
     },
   },
 }
 
-if (deterministicRequest.context.typed_knowledge_context.consumer !== 'writing.keyword_card') {
-  failures.push('fixture consumer must stay writing.keyword_card')
-}
-if (deterministicRequest.context.typed_knowledge_context.handoffs[0].contract_version !== 'typed_knowledge.writing_handoff.v1') {
-  failures.push('fixture handoff version drifted')
-}
-if (!deterministicRequest.sources.includes('resource')) {
-  failures.push('fixture must request resource cards so typed knowledge can read back as a resource')
-}
+const typedContext = deterministicPersistedDocument.metadata_json.typed_knowledge_context
+if (typedContext.consumer !== 'writing.keyword_card') failures.push('fixture consumer drifted')
+if (typedContext.boundary.card_source_type !== 'resource') failures.push('fixture source type drifted')
+if (typedContext.handoffs.length !== 1) failures.push('fixture must have exactly one handoff')
+if (typedContext.handoffs[0].visibility_scope !== 'downstream_ready') failures.push('fixture must stay downstream_ready')
 
 const summary = {
   status: failures.length === 0 ? 'ok' : 'failed',
-  contract_version: 'writing_workbench_typed_fetch.wave16.worker5.v1',
+  contract_version: 'writing_workbench_persisted_typed_card_readback.wave17.worker6.v1',
   checked_files: Object.values(files),
   deterministic_fixture: {
-    consumer: deterministicRequest.context.typed_knowledge_context.consumer,
-    source_type: deterministicRequest.context.typed_knowledge_context.boundary.card_source_type,
-    handoff_count: deterministicRequest.context.typed_knowledge_context.handoffs.length,
+    persisted_document_metadata: true,
+    consumer: typedContext.consumer,
+    card_source_type: typedContext.boundary.card_source_type,
+    handoff_count: typedContext.handoffs.length,
   },
-  live_closure_claimed: false,
+  live_persisted_ui_closure_claimed: false,
   remaining_live_conditions: [
     'public_typed_knowledge_api_route_not_implemented',
     'live_db_persistence_not_implemented',

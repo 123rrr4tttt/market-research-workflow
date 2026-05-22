@@ -18,6 +18,7 @@ import { useSelectionLookup } from '../components/writing/useSelectionLookup'
 import '../components/writing/writing-workbench.css'
 import {
   autosaveWritingDraft,
+  buildPersistedTypedKnowledgeKeywordCardRequest,
   createWritingDocument,
   exportWritingMarkdown,
   getWritingCardDetail,
@@ -33,7 +34,6 @@ import {
   updateWritingDocument,
   upsertWritingCitations,
   validateWritingTemplate,
-  withTypedKnowledgeWritingContext,
   writingTypedKnowledgeContextKey,
   type WritingDocument,
   type WritingKeywordCard,
@@ -767,12 +767,12 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     lookup: async (nextSelection, selectionHash) => {
       const [cardsResult, suggestResult] = await Promise.all([
         getWritingKeywordCards(
-          withTypedKnowledgeWritingContext({
-            project_key: projectKey,
+          buildPersistedTypedKnowledgeKeywordCardRequest({
+            projectKey,
             query: nextSelection,
-            selection_hash: selectionHash,
-            sources: ['document', 'resource', 'graph'],
-          }, writingTypedContext),
+            selectionHash,
+            document: documentDetailQuery.data,
+          }),
         ),
         getWritingSuggest(nextSelection, { mode: 'material', limit: 6 }),
       ])

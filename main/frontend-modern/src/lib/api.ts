@@ -260,6 +260,7 @@ export type WorkflowGraphTemplateVersionMutationResponse = import('./types').Wor
 export type WorkflowGraphTemplateVersionPayload = import('./types').WorkflowGraphTemplateVersionPayload
 export {
   autosaveWritingDraft,
+  buildPersistedTypedKnowledgeKeywordCardRequest,
   createWritingDocument,
   deleteWritingDocument,
   exportWritingMarkdown,
