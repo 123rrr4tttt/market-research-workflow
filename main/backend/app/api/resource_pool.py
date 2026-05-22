@@ -8,7 +8,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from ..contracts import fail, ok, ok_page, task_result_response
+from ..contracts import ApiEnvelope, fail, ok, ok_page, task_result_response
 from ..contracts.errors import ErrorCode, map_exception_to_error
 from ..settings.config import get_effective_project_key_enforcement_mode
 from ..services.projects import current_project_key
@@ -34,6 +34,7 @@ from ..services.resource_pool import (
 ScopeType = Literal["shared", "project", "effective"]
 
 router = APIRouter(prefix="/resource_pool", tags=["resource_pool"])
+ResourcePoolAnyEnvelope = ApiEnvelope[Any]
 
 
 def _error_status_code(code: ErrorCode) -> int:
@@ -143,7 +144,7 @@ class ExtractFromDocumentsPayload(BaseModel):
     async_mode: bool = Field(default=False, description="Run via Celery")
 
 
-@router.post("/extract/from-documents")
+@router.post("/extract/from-documents", response_model=ResourcePoolAnyEnvelope)
 def extract_from_documents_api(payload: ExtractFromDocumentsPayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
@@ -198,7 +199,7 @@ def extract_from_documents_api(payload: ExtractFromDocumentsPayload, request: Re
         return _json_from_exception(exc)
 
 
-@router.get("/urls")
+@router.get("/urls", response_model=ResourcePoolAnyEnvelope)
 def list_urls_api(
     request: Request,
     project_key: str | None = Query(default=None),
@@ -260,12 +261,20 @@ class ImportOpenSourcePresetPayload(BaseModel):
     extra_tags: list[str] = Field(default_factory=list)
 
 
-@router.get("/open-source-presets", operation_id="resource_pool_list_open_source_presets")
+@router.get(
+    "/open-source-presets",
+    operation_id="resource_pool_list_open_source_presets",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def list_open_source_presets_api():
     return JSONResponse(status_code=200, content=ok({"items": list_open_source_preset_packs()}))
 
 
-@router.post("/import/open-source-presets", operation_id="resource_pool_import_open_source_presets")
+@router.post(
+    "/import/open-source-presets",
+    operation_id="resource_pool_import_open_source_presets",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def import_open_source_presets_api(payload: ImportOpenSourcePresetPayload, request: Request):
     project_key, error = _get_project_key_for_scope_or_error(payload.scope, payload.project_key, request=request)
     if error and payload.scope == "project":
@@ -295,7 +304,7 @@ def import_open_source_presets_api(payload: ImportOpenSourcePresetPayload, reque
         return _json_from_exception(exc)
 
 
-@router.post("/capture/enable")
+@router.post("/capture/enable", response_model=ResourcePoolAnyEnvelope)
 def capture_enable_api(payload: CaptureEnablePayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
@@ -312,7 +321,7 @@ def capture_enable_api(payload: CaptureEnablePayload, request: Request):
         return _json_from_exception(exc)
 
 
-@router.post("/capture/from-tasks")
+@router.post("/capture/from-tasks", response_model=ResourcePoolAnyEnvelope)
 def capture_from_tasks_api(payload: CaptureFromTasksPayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
@@ -376,8 +385,16 @@ class UpsertSiteEntryPayload(BaseModel):
     extra: dict[str, Any] | None = Field(default=None)
 
 
-@router.get("/site_entries", operation_id="resource_pool_list_site_entries")
-@router.get("/site-entries", operation_id="resource_pool_list_site_entries_dash")
+@router.get(
+    "/site_entries",
+    operation_id="resource_pool_list_site_entries",
+    response_model=ResourcePoolAnyEnvelope,
+)
+@router.get(
+    "/site-entries",
+    operation_id="resource_pool_list_site_entries_dash",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def list_site_entries_api(
     request: Request,
     project_key: str | None = Query(default=None),
@@ -416,8 +433,16 @@ def list_site_entries_api(
         return _json_from_exception(exc)
 
 
-@router.get("/site_entries/grouped", operation_id="resource_pool_group_site_entries")
-@router.get("/site-entries/grouped", operation_id="resource_pool_group_site_entries_dash")
+@router.get(
+    "/site_entries/grouped",
+    operation_id="resource_pool_group_site_entries",
+    response_model=ResourcePoolAnyEnvelope,
+)
+@router.get(
+    "/site-entries/grouped",
+    operation_id="resource_pool_group_site_entries_dash",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def group_site_entries_api(
     request: Request,
     project_key: str | None = Query(default=None),
@@ -454,8 +479,16 @@ def group_site_entries_api(
         return _json_from_exception(exc)
 
 
-@router.post("/site_entries", operation_id="resource_pool_upsert_site_entry")
-@router.post("/site-entries", operation_id="resource_pool_upsert_site_entry_dash")
+@router.post(
+    "/site_entries",
+    operation_id="resource_pool_upsert_site_entry",
+    response_model=ResourcePoolAnyEnvelope,
+)
+@router.post(
+    "/site-entries",
+    operation_id="resource_pool_upsert_site_entry_dash",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def upsert_site_entry_api(payload: UpsertSiteEntryPayload, request: Request):
     project_key, error = _get_project_key_for_scope_or_error(payload.scope, payload.project_key, request=request)
     if error and payload.scope == "project":
@@ -520,7 +553,11 @@ class DiscoverSearchContractPayload(BaseModel):
     persist: bool = Field(default=True)
 
 
-@router.post("/discover/search-contract", operation_id="resource_pool_discover_search_contract")
+@router.post(
+    "/discover/search-contract",
+    operation_id="resource_pool_discover_search_contract",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def discover_search_contract_api(payload: DiscoverSearchContractPayload, request: Request):
     project_key, error = _get_project_key_for_scope_or_error(payload.scope, payload.project_key, request=request)
     if error and payload.scope == "project":
@@ -567,7 +604,11 @@ def discover_search_contract_api(payload: DiscoverSearchContractPayload, request
         return _json_from_exception(exc)
 
 
-@router.post("/discover/site-entries", operation_id="resource_pool_discover_site_entries")
+@router.post(
+    "/discover/site-entries",
+    operation_id="resource_pool_discover_site_entries",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def discover_site_entries_api(payload: DiscoverSiteEntriesPayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
@@ -676,7 +717,11 @@ def discover_site_entries_api(payload: DiscoverSiteEntriesPayload, request: Requ
         return _json_from_exception(exc)
 
 
-@router.post("/site_entries/simplify", operation_id="resource_pool_simplify_site_entries")
+@router.post(
+    "/site_entries/simplify",
+    operation_id="resource_pool_simplify_site_entries",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def simplify_site_entries_api(payload: SimplifySiteEntriesPayload, request: Request):
     project_key, error = _get_project_key_for_scope_or_error(payload.scope, payload.project_key, request=request)
     if error and payload.scope == "project":
@@ -708,7 +753,11 @@ class BatchRecommendSiteEntriesPayload(BaseModel):
     llm_batch_size: int = Field(default=20, ge=1, le=100, description="Batch size for one LLM request")
 
 
-@router.post("/site_entries/recommend", operation_id="resource_pool_recommend_site_entry")
+@router.post(
+    "/site_entries/recommend",
+    operation_id="resource_pool_recommend_site_entry",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def recommend_site_entry_api(payload: RecommendSiteEntryPayload):
     """Recommend channel_key and entry_type for a site entry. Rule-first, LLM fallback when use_llm=True."""
     try:
@@ -735,7 +784,11 @@ def recommend_site_entry_api(payload: RecommendSiteEntryPayload):
         return _json_from_exception(exc)
 
 
-@router.post("/site_entries/recommend-batch", operation_id="resource_pool_recommend_site_entries_batch")
+@router.post(
+    "/site_entries/recommend-batch",
+    operation_id="resource_pool_recommend_site_entries_batch",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def recommend_site_entries_batch_api(payload: BatchRecommendSiteEntriesPayload):
     """Batch recommend channel/entry_type/template (+ capability/symbol-ready hints) for site entries."""
     try:
@@ -839,7 +892,11 @@ def _source_library_collect_response(result) -> dict[str, Any]:
     }
 
 
-@router.post("/unified-search", operation_id="resource_pool_unified_search")
+@router.post(
+    "/unified-search",
+    operation_id="resource_pool_unified_search",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def unified_search_api(payload: UnifiedSearchPayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
@@ -874,7 +931,11 @@ def unified_search_api(payload: UnifiedSearchPayload, request: Request):
         return _json_from_exception(exc)
 
 
-@router.post("/source-library/collect", operation_id="resource_pool_source_library_collect")
+@router.post(
+    "/source-library/collect",
+    operation_id="resource_pool_source_library_collect",
+    response_model=ResourcePoolAnyEnvelope,
+)
 def source_library_collect_api(payload: SourceLibraryCollectPayload, request: Request):
     project_key, error = _get_project_key_for_project_route_or_error(payload.project_key, request=request)
     if error:
