@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from ..contracts import ErrorCode, error_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.errors import map_exception_to_error
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
@@ -48,6 +48,7 @@ from .agent_batch import (
 )
 
 router = APIRouter(prefix="/agent-chat", tags=["agent_chat"])
+AgentChatEnvelope = ApiEnvelope[dict[str, Any]]
 
 
 class AgentChatTurnRequest(BaseModel):
@@ -1381,7 +1382,7 @@ def _sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {encoded}\n\n"
 
 
-@router.get("/capabilities")
+@router.get("/capabilities", response_model=AgentChatEnvelope)
 def list_agent_chat_capabilities(project_key: str | None = None) -> dict[str, Any]:
     runtime = InteractiveAgentRuntime()
     flags = _agent_runtime_feature_flags()
@@ -1396,7 +1397,7 @@ def list_agent_chat_capabilities(project_key: str | None = None) -> dict[str, An
     return ok({"items": runtime.list_capabilities(), "feature_flags": flags, "tool_pool": tool_pool})
 
 
-@router.post("/turn")
+@router.post("/turn", response_model=AgentChatEnvelope)
 def run_agent_chat_turn(payload: AgentChatTurnRequest) -> dict[str, Any]:
     try:
         out = _run_agent_chat_turn_payload(payload)
@@ -1405,7 +1406,17 @@ def run_agent_chat_turn(payload: AgentChatTurnRequest) -> dict[str, Any]:
     return ok(out)
 
 
-@router.post("/turn/stream")
+@router.post(
+    "/turn/stream",
+    response_class=StreamingResponse,
+    response_model=None,
+    responses={
+        200: {
+            "description": "Server-sent agent chat turn events",
+            "content": {"text/event-stream": {"schema": {"type": "string"}}},
+        }
+    },
+)
 def stream_agent_chat_turn(payload: AgentChatTurnRequest) -> StreamingResponse:
     def _iter():
         runtime_variant = _resolve_runtime_variant(payload)
@@ -1451,7 +1462,7 @@ def stream_agent_chat_turn(payload: AgentChatTurnRequest) -> StreamingResponse:
     return StreamingResponse(_iter(), media_type="text/event-stream")
 
 
-@router.post("/approvals/{approval_id}/continue")
+@router.post("/approvals/{approval_id}/continue", response_model=AgentChatEnvelope)
 def continue_agent_chat_approval(approval_id: str, payload: AgentChatApprovalContinueRequest) -> dict[str, Any]:
     runtime = InteractiveAgentRuntime()
     try:

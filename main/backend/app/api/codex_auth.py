@@ -18,7 +18,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from ..contracts import ErrorCode, error_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
 from ..settings.config import settings
 from ..services.llm.codex_app_server import codex_app_server_status
@@ -52,7 +52,16 @@ def _error_json(status_code: int, code: ErrorCode, message: str, *, details: dic
     return JSONResponse(status_code=status_code, content=payload, headers={"X-Error-Code": code.value})
 
 
-@router.get("/login", response_model=None)
+CodexAuthEnvelope = ApiEnvelope[dict[str, Any]]
+
+
+@router.get(
+    "/login",
+    response_class=RedirectResponse,
+    response_model=None,
+    status_code=302,
+    responses={400: {"description": "Codex auth is not configured or CLI auth is required"}},
+)
 def codex_auth_login(
     next_url: str | None = Query(default=None, max_length=2048),
     force_oauth: bool = Query(default=False),
@@ -83,7 +92,12 @@ def codex_auth_login(
         )
 
 
-@router.get("/callback", response_model=None)
+@router.get(
+    "/callback",
+    response_class=RedirectResponse,
+    response_model=None,
+    status_code=302,
+)
 async def codex_auth_callback(
     request: Request,
     code: str | None = Query(default=None),
@@ -120,7 +134,7 @@ async def codex_auth_callback(
     return response
 
 
-@router.get("/status")
+@router.get("/status", response_model=CodexAuthEnvelope)
 def codex_auth_status(request: Request) -> dict[str, Any]:
     sid = request.cookies.get(codex_cookie_name())
     session = get_session(sid)
@@ -145,7 +159,7 @@ def codex_auth_status(request: Request) -> dict[str, Any]:
     )
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=CodexAuthEnvelope)
 def codex_auth_logout(request: Request, response: Response) -> dict[str, Any]:
     sid = request.cookies.get(codex_cookie_name())
     revoke_session(sid)
@@ -153,7 +167,7 @@ def codex_auth_logout(request: Request, response: Response) -> dict[str, Any]:
     return ok({"logged_out": True})
 
 
-@router.post("/cli/bootstrap")
+@router.post("/cli/bootstrap", response_model=CodexAuthEnvelope)
 def codex_cli_bootstrap() -> dict[str, Any]:
     if has_valid_token_sink():
         return ok(
