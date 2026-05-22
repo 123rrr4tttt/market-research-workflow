@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Validate the Wave8 CURRENT_DEV support-lane plan.
 
-This is a read-only guardrail for supervisor integration. It checks that the
-Wave8 plan lists every expected worker/support branch, exposes machine-readable
-metadata, and that this support lane has not modified shared navigation indexes.
+This guardrail checks that the Wave8 plan lists every expected worker/support
+branch and exposes machine-readable metadata. On the support branch it also
+verifies that the support lane has not modified shared navigation indexes. On
+the integration branch the supervisor is allowed to update those indexes.
 """
 
 from __future__ import annotations
@@ -148,17 +149,19 @@ def main() -> int:
             problems.append(f"plan text does not mention {branch}")
 
     changed = unique_ordered(changed_files_against_base() + changed_files_in_worktree())
-    forbidden_changed = sorted(set(changed) & FORBIDDEN_SHARED_INDEXES)
-    if forbidden_changed:
-        problems.append(f"forbidden shared indexes changed: {forbidden_changed}")
+    enforce_support_allowlist = current_branch == SUPPORT_BRANCH
+    if enforce_support_allowlist:
+        forbidden_changed = sorted(set(changed) & FORBIDDEN_SHARED_INDEXES)
+        if forbidden_changed:
+            problems.append(f"forbidden shared indexes changed: {forbidden_changed}")
 
-    outside_allowed = [
-        path
-        for path in changed
-        if not any(path == prefix or path.startswith(prefix) for prefix in ALLOWED_CHANGED_PREFIXES)
-    ]
-    if outside_allowed:
-        problems.append(f"changed files outside support-lane allowlist: {outside_allowed}")
+        outside_allowed = [
+            path
+            for path in changed
+            if not any(path == prefix or path.startswith(prefix) for prefix in ALLOWED_CHANGED_PREFIXES)
+        ]
+        if outside_allowed:
+            problems.append(f"changed files outside support-lane allowlist: {outside_allowed}")
 
     if problems:
         for problem in problems:
@@ -167,7 +170,8 @@ def main() -> int:
 
     print(
         "OK wave8_current_dev_plan=passed "
-        f"branches={len(EXPECTED_BRANCHES)} changed_files={len(changed)} forbidden_shared_indexes=0"
+        f"mode={current_branch} branches={len(EXPECTED_BRANCHES)} "
+        f"changed_files={len(changed)} support_allowlist_enforced={str(enforce_support_allowlist).lower()}"
     )
     return 0
 

@@ -52,6 +52,17 @@
   - [ingest digestion long-cycle automation](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/03_wave7-7-ingest-digestion-long-cycle-automation-evidence-2026-05-22.md)
   - [frontend visual layering retirement](./development-plans/CURRENT_DEV/2026-03-24-frontend-visual-layering/INDEX.md)
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
+- Wave8 CURRENT_DEV 分支落地与外部阻塞归类（2026-05-22，9 个子代理分支已合并）：
+  - [Wave8 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave8-worktree-plan-2026-05-22.md)
+  - [crawler A7 validation pack](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave8-a7-validation-pack.md)
+  - [crawler A7 validation run](./automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/README.md)
+  - [fetch router gap closure](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/02_wave8-2-fetch-router-gap-closure-2026-05-22.md)
+  - [source-library adapter capability parser-profile gate](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/2026-05-22-wave8-3-adapter-capability-parser-profile-gate.md)
+  - [frontend topology/i18n/theme contract evidence](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/03_wave8-4-topology-i18n-theme-contract-evidence-2026-05-22.md)
+  - [graph projection rollout contract](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/04_wave8-5-projection-rollout-contract-note-2026-05-22.md)
+  - [typed knowledge writing handoff contract](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/03_wave8_6_writing-handoff-contract-evidence-2026-05-22.md)
+  - [time target-overlap priority evidence](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/07_wave8-target-overlap-priority-evidence-2026-05-22.md)
+  - [search/vectorization deterministic contract](./automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

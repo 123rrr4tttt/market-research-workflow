@@ -45,6 +45,9 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave4 Integration Risk Review](./automation-runs/dev-docs-folder-audit-2026-05-22/wave4-integration-risk-review-2026-05-22.md)
   - [2026-05-22 Wave7 CURRENT_DEV Status Evidence Gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
   - [2026-05-22 Crawler Provider Handoff Evidence](./automation-runs/crawler-provider-handoff/2026-05-22/README.md)
+  - [2026-05-22 Wave8 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave8-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Crawler Source Expansion Wave8 A7 Validation Pack](./automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/README.md)
+  - [2026-05-22 Wave8 Search / Vectorization Contract](./automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
 - `backend-docs`：
   - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：
@@ -79,6 +82,13 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Search Provider Trace Contract Closure Replay](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/10_search-provider-trace-contract-closure-replay-2026-05-22.md)
   - [2026-05-22 Wave6-9 Open Search Provider Isolation Status Evidence](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
+  - [2026-05-22 Wave8 Crawler A7 Validation Pack](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave8-a7-validation-pack.md)
+  - [2026-05-22 Wave8 Fetch Router Gap Closure](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/02_wave8-2-fetch-router-gap-closure-2026-05-22.md)
+  - [2026-05-22 Wave8 Source-Library Adapter Capability Gate](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/2026-05-22-wave8-3-adapter-capability-parser-profile-gate.md)
+  - [2026-05-22 Wave8 Frontend Topology / I18N / Theme Evidence](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/03_wave8-4-topology-i18n-theme-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave8 Graph Projection Rollout Contract](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/04_wave8-5-projection-rollout-contract-note-2026-05-22.md)
+  - [2026-05-22 Wave8 Typed Knowledge Writing Handoff](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/03_wave8_6_writing-handoff-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave8 Time Target-Overlap Priority Evidence](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/07_wave8-target-overlap-priority-evidence-2026-05-22.md)
   - [2026-05-22 Source Library Public Live Probes](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
