@@ -2,14 +2,14 @@
 
 ## Execution Status Snapshot
 
-- 2026-05-22 status: `未封口 / API handoff round-trip proven, frontend owner open`.
-- `A1`: partial. Backend code now names `template_graph`, `generated_graph_snapshot`, and `curated_business_graph`; GraphPage integration/ownership is still not frozen.
-- `A2`: partial. Backend edit-contract validation exists for nodes/edges, system-managed fields, temporary IDs, duplicates, and missing endpoints; frontend draft-to-contract mapping is not proven.
-- `A3`: partial. Backend submit/sync conflict semantics exist through revision checks; GraphPage does not currently show a verified curated submit/conflict path.
+- 2026-05-22 Wave6 status: `未封口 / GraphPage draft-submit-reporting handoff bridge proven; audit/rollback/writing UI open`.
+- `A1`: partial / needs update. Backend code now names `template_graph`, `generated_graph_snapshot`, and `curated_business_graph`; GraphPage owns a narrow curated bridge, but full data-source migration is out of scope.
+- `A2`: partial / needs update. Backend edit-contract validation exists for nodes/edges, system-managed fields, temporary IDs, duplicates, and missing endpoints; GraphPage draft-to-contract mapping is proven by the focused e2e.
+- `A3`: partial / needs update. Backend submit/sync conflict semantics exist through revision checks; GraphPage draft save/submit/sync exists, but conflict UX is still generic.
 - `A4`: partial. Backend audit, rollback, and curated revision semantics exist; frontend/template-version mapping remains explicitly open.
-- `A5`: partial. Backend graph evidence pack route is now proven through API-level round-trip evidence; raw GraphPage draft objects are not yet proven to pass through that pack.
-- `A6`: partial. Backend reporting/writing handoff routes now persist, list, and replay through the workflow graph run store; frontend first-consumer entry/owner remains unclosed.
-- `A7`: pending. Closure requires a user-facing GraphPage or dedicated workflow-graph UI owner plus the branch-local structural checks.
+- `A5`: partial / needs update. Backend graph evidence pack route is proven through API-level round-trip evidence; GraphPage reporting handoff now calls the backend evidence-pack-backed handoff route instead of passing raw UI objects downstream.
+- `A6`: partial / reporting path proven. Backend reporting/writing handoff routes persist, list, and replay through the workflow graph run store; GraphPage now triggers reporting handoff, while writing handoff remains backend/API-client only.
+- `A7`: pending. Closure requires audit/rollback UX decision, writing handoff owner decision, clue-chain mapping decision, and branch-local structural/e2e checks.
 
 ## Global Serial-Parallel Rules
 
@@ -52,7 +52,7 @@ Each task should leave behind:
 ## Task A1: Freeze Baseline and Editable Object Boundary
 
 - Goal: Confirm what the repository already supports and freeze which graph object class is editable in this theme.
-- status: partial, backend object kinds exist; frontend owner still open
+- status: partial / needs update, backend object kinds exist; GraphPage owns narrow curated bridge
 - depends_on: `[]`
 - blocks: `["A2","A7"]`
 - Input:
@@ -75,7 +75,7 @@ Each task should leave behind:
 ## Task A2: Define the Minimum Node and Edge Edit Contract
 
 - Goal: Freeze the minimum create/update/delete contract for nodes and edges.
-- status: partial, backend validation exists; frontend mapping still open
+- status: partial / needs update, backend validation exists; frontend draft-to-contract mapping proven by GraphPage e2e
 - depends_on: `["A1"]`
 - blocks: `["A3","A4","A5"]`
 - Input:
@@ -101,7 +101,7 @@ Each task should leave behind:
 ## Task A3: Define Draft, Submit, Sync, and Error Semantics
 
 - Goal: Turn the existing draft editor into a controlled submit contract with explicit feedback categories.
-- status: partial, backend revision/conflict semantics exist; GraphPage submit path unverified
+- status: partial / needs update, backend revision/conflict semantics exist; GraphPage submit path verified, conflict UX generic
 - depends_on: `["A2"]`
 - blocks: `["A4","A6"]`
 - Input:
@@ -153,7 +153,7 @@ Each task should leave behind:
 ## Task A5: Define the Graph Evidence Pack
 
 - Goal: Define the only approved graph-shaped payload that writing/reporting may consume.
-- status: partial, API evidence pack route proven; GraphPage consumer bridge unverified
+- status: partial / needs update, API evidence pack route proven; GraphPage reporting handoff uses backend pack route
 - depends_on: `["A2"]`
 - blocks: `["A6","A7"]`
 - Input:
@@ -181,7 +181,7 @@ Each task should leave behind:
 ## Task A6: Define the First Graph-to-Writing/Reporting Handoff Path
 
 - Goal: Document one minimum flow from edited graph output to a downstream writing/report consumer.
-- status: partial, backend handoff route/persistence/replay proven; frontend first-consumer owner unclosed
+- status: partial / reporting path proven, backend handoff route/persistence/replay proven; GraphPage reporting owner exists, writing owner open
 - depends_on: `["A3","A5"]`
 - blocks: `["A7"]`
 - Input:

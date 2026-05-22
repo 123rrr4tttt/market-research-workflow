@@ -189,6 +189,9 @@ export type ClueChainMutationResponse = import('./api/domains/clue-chains').Clue
 export type ClueChainStatus = import('./api/domains/clue-chains').ClueChainStatus
 export {
   activateWorkflowGraphTemplateVersion,
+  buildWorkflowGraphEvidencePack,
+  buildWorkflowGraphReportingHandoff,
+  buildWorkflowGraphWritingHandoff,
   compileWorkflowGraph,
   createWorkflowGraphTemplate,
   createWorkflowGraphTemplateVersion,
@@ -230,10 +233,15 @@ export type WorkflowGraphCuratedDsl = import('./api/domains/graph-workflow').Wor
 export type WorkflowGraphCuratedStateResponse = import('./api/domains/graph-workflow').WorkflowGraphCuratedStateResponse
 export type WorkflowGraphCuratedSubmitPayload = import('./api/domains/graph-workflow').WorkflowGraphCuratedSubmitPayload
 export type WorkflowGraphCuratedSyncPayload = import('./api/domains/graph-workflow').WorkflowGraphCuratedSyncPayload
+export type WorkflowGraphEvidencePackPayload = import('./api/domains/graph-workflow').WorkflowGraphEvidencePackPayload
+export type WorkflowGraphEvidencePackResponse = import('./api/domains/graph-workflow').WorkflowGraphEvidencePackResponse
+export type WorkflowGraphHandoffResponse = import('./api/domains/graph-workflow').WorkflowGraphHandoffResponse
+export type WorkflowGraphReportingHandoffPayload = import('./api/domains/graph-workflow').WorkflowGraphReportingHandoffPayload
 export type WorkflowGraphRunDetailResponse = import('./api/domains/graph-workflow').WorkflowGraphRunDetailResponse
 export type WorkflowGraphRunEventsResponse = import('./api/domains/graph-workflow').WorkflowGraphRunEventsResponse
 export type WorkflowGraphRunPayload = import('./api/domains/graph-workflow').WorkflowGraphRunPayload
 export type WorkflowGraphRunResponse = import('./api/domains/graph-workflow').WorkflowGraphRunResponse
+export type WorkflowGraphWritingHandoffPayload = import('./api/domains/graph-workflow').WorkflowGraphWritingHandoffPayload
 export type WorkflowGraphTemplateItem = import('./types').WorkflowGraphTemplateItem
 export type WorkflowGraphTemplateListResponse = import('./types').WorkflowGraphTemplateListResponse
 export type WorkflowGraphTemplateMutationResponse = import('./types').WorkflowGraphTemplateMutationResponse

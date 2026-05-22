@@ -14,6 +14,11 @@ type CuratedSubmitRequest = {
   object_scope?: string
 }
 
+type CuratedReportingHandoffRequest = {
+  topic?: string
+  selected_node_ids?: string[]
+}
+
 async function setupGraphPageMocks(page: Page) {
   let graphConfigHit = 0
   let marketGraphHit = 0
@@ -21,8 +26,10 @@ async function setupGraphPageMocks(page: Page) {
   let contentGraphHit = 0
   let curatedDraftHit = 0
   let curatedSubmitHit = 0
+  let curatedReportingHandoffHit = 0
   let lastCuratedDraftBody: CuratedDraftRequest | null = null
   let lastCuratedSubmitBody: CuratedSubmitRequest | null = null
+  let lastCuratedReportingHandoffBody: CuratedReportingHandoffRequest | null = null
 
   await page.route('**/api/v1/project-customization/graph-config**', async (route) => {
     graphConfigHit += 1
@@ -134,6 +141,54 @@ async function setupGraphPageMocks(page: Page) {
     })
   })
 
+  await page.route('**/workflow-graph/curated/**/handoff/reporting**', async (route) => {
+    curatedReportingHandoffHit += 1
+    lastCuratedReportingHandoffBody = route.request().postDataJSON() as CuratedReportingHandoffRequest
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          contract_version: 'graph_handoff.v1',
+          handoff_id: 'h-report-graphpage-e2e',
+          owner: 'workflow_graph.backend_bridge',
+          producer: 'workflow_graph.backend_bridge',
+          handoff_mode: 'pull_prepared_evidence',
+          consumer: 'llm_report.generate',
+          report_generate_request: {
+            topic: lastCuratedReportingHandoffBody?.topic,
+            sources: [
+              {
+                id: 'GRAPHNODE-n1',
+                title: '示例商品A',
+                url: 'https://example.com/graph-node-n1',
+                publisher: 'graph:product',
+                evidence: 'Graph node n1 selected from curated graph.',
+              },
+            ],
+            section_titles: [],
+          },
+          evidence_pack: {
+            contract_version: 'graph_evidence_pack.v1',
+            pack_id: 'gep-graphpage-e2e',
+            graph_id: 'cg-graphpage-e2e',
+            graph_scope: 'curated_business_graph',
+            selected_nodes: [{ node_id: 'n1', node_type: 'product' }],
+            relations: [],
+            provenance: { source: 'workflow_graph.curated' },
+          },
+          persistence: {
+            contract_version: 'workflow_graph.handoff.v1',
+            run_id: 'run-report-graphpage-e2e',
+            handoff_id: 'h-report-graphpage-e2e',
+            backend_marker: 'workflow_graph.run_store',
+          },
+        },
+      }),
+    })
+  })
+
   return {
     get graphConfigHit() {
       return graphConfigHit
@@ -153,11 +208,17 @@ async function setupGraphPageMocks(page: Page) {
     get curatedSubmitHit() {
       return curatedSubmitHit
     },
+    get curatedReportingHandoffHit() {
+      return curatedReportingHandoffHit
+    },
     get lastCuratedDraftBody() {
       return lastCuratedDraftBody
     },
     get lastCuratedSubmitBody() {
       return lastCuratedSubmitBody
+    },
+    get lastCuratedReportingHandoffBody() {
+      return lastCuratedReportingHandoffBody
     },
   }
 }
@@ -273,11 +334,16 @@ test('graph builder submits local draft to curated workflow graph API', async ({
   await page.getByTestId('graph-curated-submit').click()
   await expect(page.getByTestId('graph-curated-status')).toContainText('submitted r1')
 
+  await page.getByTestId('graph-curated-reporting-topic').fill('robotics reporting')
+  await page.getByTestId('graph-curated-reporting-handoff').click()
+  await expect(page.getByTestId('graph-curated-status')).toContainText('report_handoff_ready sources=1')
+
   expect(hits.policyGraphHit).toBeGreaterThan(0)
   expect(hits.contentGraphHit).toBeGreaterThan(0)
   expect(hits.marketGraphHit).toBeGreaterThan(0)
   expect(hits.curatedDraftHit).toBe(1)
   expect(hits.curatedSubmitHit).toBe(1)
+  expect(hits.curatedReportingHandoffHit).toBe(1)
 
   expect(hits.lastCuratedDraftBody?.actor_id).toBe('graphpage.curated-consumer')
   expect(hits.lastCuratedDraftBody?.dsl?.nodes).toEqual([
@@ -297,5 +363,8 @@ test('graph builder submits local draft to curated workflow graph API', async ({
     actor_id: 'graphpage.curated-consumer',
     base_revision: 0,
     object_scope: 'curated_business_graph',
+  }))
+  expect(hits.lastCuratedReportingHandoffBody).toEqual(expect.objectContaining({
+    topic: 'robotics reporting',
   }))
 })

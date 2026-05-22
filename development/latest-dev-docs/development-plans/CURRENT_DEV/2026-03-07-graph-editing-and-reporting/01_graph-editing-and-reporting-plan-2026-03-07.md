@@ -6,7 +6,7 @@
 
 ## 2026-05-22 Closure Refresh
 
-Status: `未封口 / API handoff round-trip 已验证，前端 graph page 集成仍是 blocker`.
+Status: `未封口 / GraphPage draft-submit-reporting handoff bridge 已验证，audit/rollback/writing UI 仍是 blocker`.
 
 Current evidence changes the baseline:
 
@@ -16,49 +16,52 @@ Current evidence changes the baseline:
 - Writing/reporting consumers have graph-context adapters through `main/backend/app/contracts/schemas/writing.py` and `main/backend/app/services/writing/keyword_card_service.py`.
 - Tests exist for curated service, workflow graph API handoffs, handoff store replay, and writing keyword-card graph context.
 - Wave3 F evidence proves one route-level flow through API endpoints, curated service payloads, handoff persistence, listing, and replay: [graph-handoff-evidence/2026-05-22](../../../automation-runs/graph-handoff-evidence/2026-05-22/README.md).
+- Wave4 evidence proves GraphPage owns a narrow curated consumer bridge for local draft -> curated draft -> curated submit -> sync: [graphpage-curated-consumer/2026-05-22](../../../automation-runs/graphpage-curated-consumer/2026-05-22/README.md).
+- Wave6 adds a GraphPage reporting handoff trigger and frontend API wrappers for evidence pack, reporting handoff, and writing handoff. The focused GraphPage e2e now verifies `topic` handoff payload delivery to `/curated/{graph_id}/handoff/reporting`.
 
-The remaining blocker is the boundary between the existing frontend graph page and these backend contracts. `main/frontend-modern/src/pages/GraphPage.tsx` still imports graph read/config/structured-search APIs only; no current frontend evidence shows that its local draft UI submits to the curated workflow-graph endpoints or consumes their conflict/audit/handoff responses. The API route contract is now proven; the user-facing owner and trigger are not.
+The old blocker statement that GraphPage had no curated workflow bridge is now outdated. The current remaining blocker is narrower: GraphPage can submit a local curated draft and trigger a reporting handoff, but it still does not expose audit/rollback controls, a writing handoff trigger, or a full curated graph data-source migration. Clue-chain graph UI is present, but it is still adjacent evidence and is not yet mapped as a curated graph governance path.
 
 Status by original layer:
 
-- Layer A editable object boundary: `partial`. Backend distinguishes `template_graph`, `generated_graph_snapshot`, and `curated_business_graph`; frontend GraphPage still mixes visual graph editing and template/version controls without a documented curated-submit bridge.
-- Layer B draft/sync contract: `partial`. Backend revision/conflict semantics exist; frontend GraphPage has local draft state but no verified curated submit flow.
-- Layer C audit/rollback/version semantics: `partial`. Backend supports revision, audit, rollback, and separate curated graph versions; frontend integration evidence is missing.
-- Layer D graph evidence handoff: `partial`. Backend evidence pack and writing/reporting handoff routes are now proven through persistence/list/replay; frontend entry/owner is not wired or documented as closed.
+- Layer A editable object boundary: `partial / needs update`. Backend distinguishes `template_graph`, `generated_graph_snapshot`, and `curated_business_graph`; GraphPage now owns a narrow curated bridge while template/version controls remain separate.
+- Layer B draft/sync contract: `partial / needs update`. Backend revision/conflict semantics exist and GraphPage draft-submit-sync is proven; conflict UX is still generic and not category-specific.
+- Layer C audit/rollback/version semantics: `partial`. Backend supports revision, audit, rollback, and separate curated graph versions; GraphPage audit/rollback controls are still not exposed.
+- Layer D graph evidence handoff: `partial / reporting path proven`. Backend evidence pack and writing/reporting handoff routes are proven through persistence/list/replay; GraphPage now triggers reporting handoff, while writing handoff remains backend/API-client only.
 
 Closure blockers:
 
-1. Decide whether GraphPage owns the curated graph bridge or whether a separate workflow-graph screen/API client owns it.
-2. Add or verify frontend API wrappers for the curated endpoints if GraphPage is the owner.
-3. Prove a user-facing flow from GraphPage local edit state into backend curated draft/save or submit.
+1. Keep GraphPage as the owner of the narrow local draft -> curated graph bridge; do not treat that as a full data-source migration.
+2. Add category-specific conflict/audit/rollback UX before claiming governance closure.
+3. Decide whether writing handoff needs a GraphPage button or remains a backend/writing-page pull path.
 4. Keep template/version actions separate from curated business graph governance unless a mapping is explicitly implemented and tested.
+5. Decide whether clue-chain graph output becomes a curated graph input, a separate investigation layer, or evidence attached downstream.
 
 Minimal validation steps for closure:
 
 ```bash
-cd /Users/wangyiliang/market-research-workflow.worktrees/graph-plan-refresh
+cd /Users/wangyiliang/market-research-workflow.worktrees/devdocs-wave6-graph-editing-reporting
 
 rg -n "GRAPH_OBJECT_KINDS|curated_business_graph|temporary node_id|system-managed" main/backend/app/services/workflow_graph/edit_contract.py
 rg -n "save_draft|submit_draft|sync_graph|rollback|build_evidence_pack|build_writing_handoff|build_reporting_handoff" main/backend/app/services/workflow_graph/curated_service.py
 rg -n "curated/.*/draft|curated/.*/submit|evidence-pack|handoff/writing|handoff/reporting" main/backend/app/api/workflow_graph.py
-rg -n "curated|evidence-pack|handoff|workflow-graph/curated" main/frontend-modern/src/lib main/frontend-modern/src/pages/GraphPage.tsx
+rg -n "buildWorkflowGraphReportingHandoff|curatedReportingHandoff|graph-curated-reporting-handoff|workflow-graph/curated" main/frontend-modern/src/lib main/frontend-modern/src/pages/GraphPage.tsx
 
 cd main/backend
 .venv311/bin/python -m pytest -q tests/unit/test_workflow_graph_curated_service_unittest.py tests/unit/test_workflow_graph_handoff_store_unittest.py tests/unit/test_writing_keyword_card_service_unittest.py tests/integration/test_workflow_graph_api_unittest.py
 
 cd ../frontend-modern
-npm run test:e2e -- tests/e2e/graphpage.spec.ts
+npm run test:e2e -- tests/e2e/graphpage.spec.ts -g "graph builder submits"
 ```
 
 Worker lane 5 validation result:
 
 - Passed backend graph/workflow/writing validation from this worktree's `main/backend` directory: `51 passed` for graph projection/exporter/persistence, admin graph standardization, curated workflow graph service, handoff store, writing keyword-card graph context, and workflow graph API tests.
-- Passed negative frontend ownership smoke: `rg -n "curated|evidence-pack|handoff|workflow-graph/curated" main/frontend-modern/src/lib main/frontend-modern/src/pages/GraphPage.tsx` returned no matches, confirming the documented frontend bridge blocker.
+- Superseded negative frontend ownership smoke: the earlier `rg -n "curated|evidence-pack|handoff|workflow-graph/curated"` no-match result is now stale after Wave4/Wave6. Current structural evidence must find GraphPage curated bridge and reporting handoff anchors.
 - Passed frontend GraphPage e2e in `codex/devdocs-graph-frontend-e2e`: `npm --prefix main/frontend-modern run test:e2e -- tests/e2e/graphpage.spec.ts` returned `3 passed`. The new e2e verifies either a real `react-force-graph-3d` canvas with data-backed scene node objects or, on this headless WebGL-limited runner, visible automatic fallback to `legacy-projection` without blanking the page.
 - Passed formatting gate: `git diff --check`.
 - Wave3 F route-level handoff validation passed in `codex/devdocs-wave3-graph-handoff-e2e`: backend focused pytest returned `31 passed` and proves `draft -> submit -> evidence-pack -> reporting/writing handoff -> persist -> list/replay` through API routes and the in-memory run store. Evidence: [graph-handoff-evidence/2026-05-22](../../../automation-runs/graph-handoff-evidence/2026-05-22/README.md).
 
-Closure decision: do not archive. This topic is no longer accurately described as fully pending, and the route-level handoff is proven, but the user-facing GraphPage-to-curated-contract bridge is not proven.
+Closure decision: do not archive. The topic is no longer accurately described as frontend-owner-open: the GraphPage-to-curated-contract bridge is proven for draft submit and reporting handoff. It remains unsealed because audit/rollback UX, writing handoff UI, conflict-specific frontend handling, and clue-chain-to-curated mapping are still open.
 
 ## 1. Goal
 
