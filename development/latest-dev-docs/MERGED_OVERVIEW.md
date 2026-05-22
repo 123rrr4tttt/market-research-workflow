@@ -22,6 +22,8 @@ Updated: 2026-05-22 PST
 ## 最近新增
 
 - `automation-runs`：
+  - [2026-05-22 Local Index LanceDB Runtime Smoke](./automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md)
+  - [2026-05-22 Local Index Runtime Contract Evidence](./automation-runs/local-index-runtime-contract/2026-05-22/README.md)
   - [2026-05-22 GraphPage Frontend E2E Evidence](./automation-runs/graph-frontend-e2e/2026-05-22/README.md)
   - [2026-05-22 Graph Visual Evidence](./automation-runs/graph-visual-evidence/2026-05-22/README.md)
   - [2026-05-22 Storybook / Launcher Gates Evidence](./automation-runs/storybook-launcher-gates/2026-05-22/README.md)

@@ -317,7 +317,7 @@
   - `test_local_index_service_unittest.py`
   - `test_agent_core_unittest.py` 中 matrix 相关测试。
 
-2026-05-22 lane 9 已完成 M0 的 `local_index` 子项：冻结 `keyword|vector|hybrid` mode contract，补齐 service normalization、LanceDB adapter dispatch、result `retrieval_mode/retrieval_family/trace`，并用 `test_local_index_service_unittest.py` 覆盖 fake-table dispatch 与 optional dependency boundary。当前环境未安装 `lancedb`，真实 LanceDB runtime smoke 仍是 M0 后续验证项。
+2026-05-22 lane 9 已完成 M0 的 `local_index` 子项：冻结 `keyword|vector|hybrid` mode contract，补齐 service normalization、LanceDB adapter dispatch、result `retrieval_mode/retrieval_family/trace`，并用 `test_local_index_service_unittest.py` 覆盖 fake-table dispatch 与 optional dependency boundary。Wave2 A/B 已补 [local-index-lancedb-runtime-smoke/2026-05-22](../../../automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md) 与 [local-index-runtime-contract/2026-05-22](../../../automation-runs/local-index-runtime-contract/2026-05-22/README.md) 证据：当前 optional dependency 环境可 import `lancedb`，keyword/vector/hybrid runtime smoke 均通过；因此 M0 的 `local_index` runtime smoke 已对齐，但 embedding/ranking 质量、benchmark 与全项目 evidence contract 仍是后续验证项。
 
 2. `M1`（基础落库）
 - 在不破坏 `Embedding` 表现有 contract 的前提下，扩展 ES/Qdrant payload 字段。

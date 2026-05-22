@@ -26,6 +26,10 @@
 
 ## 最新补充
 
+- `local_index` LanceDB runtime smoke 证据包（2026-05-22）：
+  - [automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md](./automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md)
+- `local_index` runtime contract 证据包（2026-05-22）：
+  - [automation-runs/local-index-runtime-contract/2026-05-22/README.md](./automation-runs/local-index-runtime-contract/2026-05-22/README.md)
 - GraphPage 前端 e2e 证据（2026-05-22）：
   - [automation-runs/graph-frontend-e2e/2026-05-22/README.md](./automation-runs/graph-frontend-e2e/2026-05-22/README.md)
 - Graph 可视化证据包（2026-05-22）：

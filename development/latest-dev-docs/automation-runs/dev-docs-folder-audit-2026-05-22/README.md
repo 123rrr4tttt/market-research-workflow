@@ -86,7 +86,7 @@ Landing completed in this run:
 | `2026-03-25-source-library-ingest-minimal-migration` | not closed | AT-SLIM/AT-ITEM evidence exists, AT-EXT remains pending | finish AT-EXT or document deferral |
 | `2026-04-02-claude-agent-high-fidelity-migration` | archived closed | completed migration/diagnostic records moved to `ARCHIVE_CLOSED`; no active current-entry diagnostic remains | if reopened, create a new D48+ `CURRENT_DEV` topic |
 | `2026-04-07-parallel-agent-wave-orchestration` | not closed | execution framework, not closure | keep as active orchestration entry |
-| `2026-05-14-global-vectorization-general-foundation` | not closed | first local-index mode contract slice landed; full vector/hybrid foundation still needs runtime validation | expand real LanceDB vector/hybrid runtime evidence next |
+| `2026-05-14-global-vectorization-general-foundation` | not closed | first local-index mode contract slice and real LanceDB keyword/vector/hybrid runtime smoke landed; full vectorization foundation still needs benchmark/evidence-contract validation | expand embedding quality, ranking benchmark, and Agent/WritingWorkbench evidence alignment next |
 | `2026-05-14-local-open-search-provider-isolation` | needs update | much is implemented; explicit provider trace/regression evidence now landed | use provider trace in next closure replay |
 | `MERGED_OVERVIEW` | outdated | summary-level drift | keep as navigation only or refresh from topic matrix |
 
@@ -109,6 +109,8 @@ Local index mode contract:
 - The LanceDB adapter now routes keyword to FTS, vector to vector search, and hybrid to hybrid/vector with keyword fallback.
 - Unit coverage verifies supported mode preservation, unknown-mode normalization, adapter dispatch, and keyword fallback.
 - Integration gate: `tests/unit/test_local_index_service_unittest.py` passed (`7 passed`).
+- Wave2 A evidence: [`../local-index-lancedb-runtime-smoke/2026-05-22/README.md`](../local-index-lancedb-runtime-smoke/2026-05-22/README.md) records real optional-dependency LanceDB runtime smoke for `keyword`, `vector`, and `hybrid`, all passing without fallback.
+- Wave2 B evidence: [`../local-index-runtime-contract/2026-05-22/README.md`](../local-index-runtime-contract/2026-05-22/README.md) records the schema/service/result/adapter contract and repeat commands; its earlier fallback observation is superseded by the integrated Wave2 A runtime fix.
 
 Backend-core route drift guard:
 
@@ -141,7 +143,7 @@ Documentation navigation:
 
 ## Next Landing Queue
 
-1. Validate LanceDB vector/hybrid against a real optional-dependency runtime and record benchmark evidence.
+1. Expand LanceDB vector/hybrid from passing runtime smoke into benchmark-quality evidence with embedding/ranking assertions.
 2. Rerun SearXNG / YaCy container replay and prove explicit provider trace in real replay output.
 3. Run GraphPage frontend e2e / visual canvas evidence for graph closure.
 4. Run Storybook build / MCP and launcher-first frontend gates.
