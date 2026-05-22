@@ -9,29 +9,29 @@
 
 | Check | Value |
 |---|---:|
-| active entries | 36 |
-| Markdown links checked | 68 |
-| placeholder entries recognized | 1 |
+| active entries | 35 |
+| Markdown links checked | 76 |
+| placeholder entries recognized | 0 |
 | empty directories recognized | 0 |
-| Wave5/Wave6 evidence rows checked | 10 |
+| Wave5/Wave6/Wave7 evidence rows checked | 12 |
 | problems | 0 |
 
 ## Count Gate
 
 | Status | Expected | Parsed |
 |---|---:|---:|
-| `partial` | 30 | 30 |
-| `not_closed` | 3 | 3 |
-| `no_closure_claim` | 3 | 3 |
+| `partial` | 34 | 34 |
+| `not_closed` | 1 | 1 |
+| `no_closure_claim` | 0 | 0 |
 
 ## Coverage Gate
 
 | Coverage source | Rows |
 |---|---:|
-| matching primary status tag | 36 |
-| additional evidence link | 16 |
+| matching primary status tag | 35 |
+| additional evidence link | 18 |
 | explicit blocker/gap text | 9 |
-| placeholder row | 1 |
+| placeholder row | 0 |
 
 A row passes when it has a matching primary status tag, an evidence link, or explicit blocker/gap text.
 
@@ -39,13 +39,15 @@ A row passes when it has a matching primary status tag, an evidence link, or exp
 
 | Line | Tag | Wave evidence links |
 |---:|---|---:|
-| 47 | `wave6_verified` | 1 |
-| 66 | `wave6_verified` | 1 |
-| 67 | `wave6_verified` | 1 |
-| 68 | `wave6_verified` | 1 |
-| 69 | `wave6_verified` | 1 |
-| 70 | `wave6_verified` | 1 |
-| 73 | `wave5_verified` | 2 |
-| 78 | `wave6_checked` | 1 |
-| 79 | `wave6_checked` | 1 |
-| 80 | `wave6_checked` | 1 |
+| 51 | `wave6_verified` | 1 |
+| 53 | `wave7_verified` | 1 |
+| 71 | `wave6_verified` | 1 |
+| 72 | `wave6_verified` | 1 |
+| 73 | `wave6_verified` | 1 |
+| 74 | `wave7_verified` | 1 |
+| 75 | `wave6_verified` | 1 |
+| 76 | `wave6_verified` | 1 |
+| 77 | `wave7_checked` | 1 |
+| 78 | `wave7_checked` | 1 |
+| 81 | `wave5_verified` | 2 |
+| 86 | `wave7_checked` | 2 |

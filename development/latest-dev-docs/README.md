@@ -42,6 +42,16 @@
   - [writing workbench evolution](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/03_wave6_7_status-evidence-and-minimum-plan-2026-05-22.md)
   - [后续安排 / abstract planning folderization](./development-plans/CURRENT_DEV/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md)
   - [local open search provider isolation](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
+- Wave7 CURRENT_DEV 集成状态证据与代码落地（2026-05-22，9 个子代理分支已合并）：
+  - [parallel-agent runtime contract](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md)
+  - [crawler policy matrix](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave7-crawler-policy-matrix.md)
+  - [crawler public replay A5 gate](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave7-a5-public-replay-evidence.md)
+  - [crawler provider handoff evidence](./automation-runs/crawler-provider-handoff/2026-05-22/README.md)
+  - [docs root target roots](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/03_wave7-5-docs-root-targets-evidence-2026-05-22.md)
+  - [graph node standardization](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/02_wave7-status-evidence-and-min-plan-2026-05-22.md)
+  - [ingest digestion long-cycle automation](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/03_wave7-7-ingest-digestion-long-cycle-automation-evidence-2026-05-22.md)
+  - [frontend visual layering retirement](./development-plans/CURRENT_DEV/2026-03-24-frontend-visual-layering/INDEX.md)
+  - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

@@ -1,6 +1,6 @@
 # CURRENT_DEV Status Audit
 
-更新时间：2026-04-07（PST）；2026-05-22 补充 `2026-03-24-frontend-visual-layering` 退场覆盖。
+更新时间：2026-04-07（PST）；2026-05-22 补充 Wave7 状态证据与 `2026-03-24-frontend-visual-layering` 退场覆盖。
 
 本审计基于对 `CURRENT_DEV` 一级目录的逐目录核对，判断标准同时参考：
 
@@ -15,6 +15,7 @@
 - `not_closed`：目录仍是未完成计划或明确未收口状态
 - `no_closure_claim`：目录本身没有收口声明，或只是占位 / 映射 / 规划材料
 - `retired_in_place`：原占位目录仅保留退场证据，现行入口已转交给其他专题或证据包
+- `external_blocked`：仓内确定性门禁已有证据，但真实公网 / 运行时 / 环境依赖仍需外部条件
 
 时效标签：
 
@@ -49,8 +50,10 @@
 |---|---|---|---|
 | `2026-03-01-open-source-platform-integration` | `partial` | `doc_aligned` | 有大量落地，但验收记录仍存在 skip / 未完成项 |
 | `2026-05-14-global-vectorization-general-foundation` | `partial` | `doc_aligned` | 2026-05-14 已做实效性更新，仍未形成全局底座 |
+| `2026-05-14-local-open-search-provider-isolation` | `partial` | `doc_aligned` | Wave6 已补 provider isolation / trace contract evidence，仍保留生产化范围 |
+| `2026-05-22-clue-chain-investigation-tool` | `partial` | `doc_aligned` | Wave5 已合并工具与实现证据，仍保留后续生产化和大范围验证 |
 | `2026-03-02-graph-3d-force-engine-parallel-migration` | `partial` | `doc_drift` | 双引擎和懒加载成立，但 chunk / 类型文件陈述漂移 |
-| `2026-03-02-graph-node-standardization-a-then-b-plan` | `no_closure_claim` | `doc_drift` | 方案文档为主，且目标模型与当前表结构不完全一致 |
+| `2026-03-02-graph-node-standardization-a-then-b-plan` | `partial` | `doc_drift` | Wave7 已补 storage canonical id 规范化与单测；DB-backed rollout / backfill 证据仍缺 |
 | `2026-03-02-ingest-platformization-assessment` | `partial` | `doc_aligned` | 平台化主链已落地，但仍不是生产级闭环 |
 | `2026-03-02-meaningful-ingest-guardrails-plan` | `partial` | `doc_drift` | 门禁与指标已落地，但开关与响应细节未完全对齐 |
 | `2026-03-02-single-url-first-ingest-allocation-plan` | `partial` | `doc_drift` | 后端三态基础存在，但前端消费和部分路径说明未闭环 |
@@ -58,17 +61,17 @@
 | `2026-03-04-r41-openclaw-autodispatch` | `partial` | `external_gap` | 文档自洽，但执行态工件不在当前仓库 |
 | `2026-03-05-oss-node-platform-io-plan` | `partial` | `doc_aligned` | runtime / replay 主线已存在，但整套平台目标未闭环 |
 | `2026-03-05-time-statistics-remediation-plan` | `partial` | `doc_stale` | 核心接口和 realcase 结果已落地，文档任务状态滞后 |
-| `2026-03-07-crawler-source-expansion` | `not_closed` | `doc_aligned` | 仍是规划和待办链条 |
-| `2026-04-07-parallel-agent-wave-orchestration` | `not_closed` | `doc_aligned` | 当前作为仓库级并行执行主入口，主文档、契约模板与 Wave 0 任务池均可直接复用 |
-| `2026-03-07-docs-root-restructuring` | `not_closed` | `doc_aligned` | 旧根路径仍是当前权威入口 |
-| `2026-03-07-dual-frontend-workbench-topology` | `not_closed` | `doc_stale` | 代码已有部分双交互面能力，文档仍停在规划态 |
-| `2026-03-07-frontend-i18n-theme-modularization` | `not_closed` | `doc_stale` | i18n/theme/registry 已落地，任务文档仍全 pending |
-| `2026-03-07-graph-editing-and-reporting` | `not_closed` | `doc_aligned` | 前端草稿能力存在，但后端编辑契约未闭环 |
-| `2026-03-07-ingest-digestion-and-long-cycle-automation` | `no_closure_claim` | `doc_aligned` | 规划文档，无收口声明 |
-| `2026-03-07-llm-service-and-agent-platformization` | `not_closed` | `doc_stale` | 平台化模块已不少，但文档仍全部 pending |
-| `2026-03-07-typed-knowledge-organization` | `not_closed` | `doc_aligned` | 组织层对象模型未在代码中闭环 |
-| `2026-03-07-writing-workbench-evolution` | `not_closed` | `doc_stale` | 现有写作工作台已可用，演进任务仍未闭环 |
-| `2026-03-07-后续安排` | `not_closed` | `doc_aligned` | 仍是抽象规划拆分方案 |
+| `2026-03-07-crawler-source-expansion` | `not_closed` | `doc_aligned / external_blocked` | Wave7 已封 A1-A4/A6，A5 受 45-site public replay 外部阻塞，A7 validation/document closure 仍未封口 |
+| `2026-04-07-parallel-agent-wave-orchestration` | `partial` | `doc_aligned / external_blocked` | repo 合同、fallback、任务模板和自检脚本可验证；子 worktree 记录的 runtime 仍未暴露 `spawn_agent` |
+| `2026-03-07-docs-root-restructuring` | `partial` | `doc_aligned` | `docs/development` 与 `docs/architecture` target roots 已准备；权威内容迁移批次仍未执行 |
+| `2026-03-07-dual-frontend-workbench-topology` | `partial` | `doc_aligned` | frontend topology contract evidence 已补，仍保留更大范围双交互面闭环 |
+| `2026-03-07-frontend-i18n-theme-modularization` | `partial` | `doc_aligned` | i18n/theme registry contract evidence 已补，仍保留全量主题迁移范围 |
+| `2026-03-07-graph-editing-and-reporting` | `partial` | `doc_aligned` | Wave6 已补 reporting handoff bridge 与 curated API evidence，后端编辑闭环仍未全封 |
+| `2026-03-07-ingest-digestion-and-long-cycle-automation` | `partial` | `doc_aligned` | Wave7 已补 digestion / long-cycle pre-dispatch contract 与单测；scheduler / persistent task table / end-to-end automation 仍未闭环 |
+| `2026-03-07-llm-service-and-agent-platformization` | `partial` | `doc_stale` | Wave6 已补 AgentCore schema inventory / platform contract evidence，仍需统一平台闭环 |
+| `2026-03-07-typed-knowledge-organization` | `partial` | `doc_aligned` | Wave6 已补 service-level contract evidence，组织层对象模型仍未全闭环 |
+| `2026-03-07-writing-workbench-evolution` | `partial` | `doc_stale` | Wave6 已补 writing contract evidence，演进任务仍未全闭环 |
+| `2026-03-07-后续安排` | `partial` | `doc_aligned` | Wave6 已补 folderization structure evidence，抽象规划后续迁档仍未结束 |
 | `2026-03-08-llm-crawler-unified-frontdoor` | `partial` | `doc_drift` | `AT-06/09/10` 有锚点，文档“全部实现”证据不够完整 |
 | `2026-03-09-agent-symbolic-batch-search-architecture` | `partial` | `doc_aligned` | brief / critic / retry 机制已在代码里，但目录仍标明未封口 |
 | `2026-03-11-source-library-three-lane-architecture` | `partial` | `doc_drift` | 三车道主线成立，但 legacy `410` 回退未见明确证据 |
@@ -80,7 +83,7 @@
 | `2026-03-15-frontend-three-layer-rewrite` | `partial` | `doc_aligned` | 文档与代码都表明目前是“半重构态” |
 | `2026-03-24-frontend-visual-layering` | `retired_in_place` | `doc_aligned` | 原空占位已补退场证据；现行入口转交 `2026-03-15-frontend-three-layer-rewrite` 与 Wave3/Wave4 frontend evidence |
 | `2026-03-25-source-library-ingest-minimal-migration` | `partial` | `doc_aligned` | `AT-SLIM` / `AT-ITEM` 已收口，但 `AT-EXT-*` 仍 pending |
-| `2026-04-02-claude-agent-high-fidelity-migration` | `no_closure_claim` | `doc_aligned` | 迁移映射文档，方向有代码支撑，但不是收口文档 |
+| `2026-04-02-claude-agent-high-fidelity-migration` | `clear_closed` | `doc_aligned` | 当前入口已拆分并迁入 `ARCHIVE_CLOSED`；如需新诊断应开 D48+ 新主题 |
 | `MERGED_OVERVIEW` | `partial` | `doc_drift` | 合并总结有参考价值，但部分映射文件和能力边界已漂移 |
 
 ## 使用建议
