@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from ..contracts import fail, ok, ok_page
+from ..contracts import ApiEnvelope, fail, ok, ok_page
 from ..contracts.errors import ErrorCode, map_exception_to_error
 from ..services.crawlers_mgmt import (
     CrawlerProjectNotFoundError,
@@ -90,7 +90,67 @@ class RollbackCrawlerProjectPayload(BaseModel):
     async_mode: bool = Field(default=False)
 
 
-@router.post("/projects/import")
+class CrawlerProjectData(BaseModel):
+    id: int
+    project_key: str
+    name: str
+    description: str | None = None
+    source_type: str | None = None
+    source_uri: str | None = None
+    provider: str | None = None
+    status: str | None = None
+    current_version: str | None = None
+    deployed_version: str | None = None
+    previous_version: str | None = None
+    analysis_plan: dict[str, Any] | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class CrawlerDeployRunData(BaseModel):
+    id: int
+    crawler_project_id: int
+    action: str | None = None
+    status: str | None = None
+    requested_version: str | None = None
+    from_version: str | None = None
+    to_version: str | None = None
+    planner_mode: str | None = None
+    plan: dict[str, Any] | None = None
+    external_provider: str | None = None
+    external_job_id: str | None = None
+    error: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    created_at: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class CrawlerProjectsData(BaseModel):
+    items: list[CrawlerProjectData]
+
+
+class CrawlerDeployRunsData(BaseModel):
+    items: list[CrawlerDeployRunData]
+
+
+class CrawlerDeployActionData(BaseModel):
+    project: CrawlerProjectData
+    run: CrawlerDeployRunData
+    task_id: str | None = None
+
+
+CrawlerProjectEnvelope = ApiEnvelope[CrawlerProjectData]
+CrawlerProjectsEnvelope = ApiEnvelope[CrawlerProjectsData]
+CrawlerDeployRunEnvelope = ApiEnvelope[CrawlerDeployRunData]
+CrawlerDeployRunsEnvelope = ApiEnvelope[CrawlerDeployRunsData]
+CrawlerDeployActionEnvelope = ApiEnvelope[CrawlerDeployActionData]
+
+
+@router.post("/projects/import", response_model=CrawlerProjectEnvelope)
 def import_crawler_project_api(payload: ImportCrawlerProjectPayload):
     try:
         saved = import_project(payload.model_dump())
@@ -99,7 +159,7 @@ def import_crawler_project_api(payload: ImportCrawlerProjectPayload):
         return _json_from_exception(exc)
 
 
-@router.get("/projects")
+@router.get("/projects", response_model=CrawlerProjectsEnvelope)
 def list_crawler_projects_api(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -121,7 +181,7 @@ def list_crawler_projects_api(
         return _json_from_exception(exc)
 
 
-@router.get("/projects/{project_key}")
+@router.get("/projects/{project_key}", response_model=CrawlerProjectEnvelope)
 def get_crawler_project_api(project_key: str):
     try:
         data = get_project(project_key=project_key)
@@ -132,7 +192,7 @@ def get_crawler_project_api(project_key: str):
         return _json_from_exception(exc)
 
 
-@router.post("/projects/{project_key}/deploy")
+@router.post("/projects/{project_key}/deploy", response_model=CrawlerDeployActionEnvelope)
 def deploy_crawler_project_api(
     project_key: str,
     payload: DeployCrawlerProjectPayload,
@@ -153,7 +213,7 @@ def deploy_crawler_project_api(
         return _json_from_exception(exc)
 
 
-@router.post("/projects/{project_key}/rollback")
+@router.post("/projects/{project_key}/rollback", response_model=CrawlerDeployActionEnvelope)
 def rollback_crawler_project_api(
     project_key: str,
     payload: RollbackCrawlerProjectPayload,
@@ -174,7 +234,7 @@ def rollback_crawler_project_api(
         return _json_from_exception(exc)
 
 
-@router.get("/deploy-runs/{run_id}")
+@router.get("/deploy-runs/{run_id}", response_model=CrawlerDeployRunEnvelope)
 def get_crawler_deploy_run_api(run_id: int):
     try:
         run = get_deploy_run(run_id)
@@ -185,7 +245,7 @@ def get_crawler_deploy_run_api(run_id: int):
         return _json_from_exception(exc)
 
 
-@router.get("/deploy-runs")
+@router.get("/deploy-runs", response_model=CrawlerDeployRunsEnvelope)
 def list_crawler_deploy_runs_api(
     limit: int = Query(default=50, ge=1, le=200),
 ):
@@ -198,7 +258,7 @@ def list_crawler_deploy_runs_api(
         return _json_from_exception(exc)
 
 
-@router.get("/projects/{project_key}/deploy-runs")
+@router.get("/projects/{project_key}/deploy-runs", response_model=CrawlerDeployRunsEnvelope)
 def list_crawler_project_deploy_runs_api(
     project_key: str,
     limit: int = Query(default=50, ge=1, le=200),

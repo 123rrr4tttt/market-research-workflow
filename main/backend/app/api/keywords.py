@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from ..contracts import ErrorCode, error_response, success_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response, success_response
 from ..contracts.errors import map_exception_to_error
 from ..services.keyword_memory import (
     keyword_memory_stats,
@@ -39,7 +39,94 @@ class KeywordPriorUpsertPayload(BaseModel):
     extra: dict[str, Any] | None = Field(default=None)
 
 
-@router.get("/stats")
+class KeywordHistoryItem(BaseModel):
+    id: int
+    keyword: str
+    normalized_keyword: str | None = None
+    search_count: int = 0
+    hit_count: int = 0
+    inserted_count: int = 0
+    rejected_count: int = 0
+    last_status: str | None = None
+    last_source: str | None = None
+    last_source_domain: str | None = None
+    last_filter_decision: str | None = None
+    first_seen_at: str | None = None
+    last_seen_at: str | None = None
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"extra": "allow"}
+
+
+class KeywordHistoryData(BaseModel):
+    items: list[KeywordHistoryItem]
+    total: int
+
+
+class KeywordPriorItem(BaseModel):
+    id: int
+    keyword: str
+    normalized_keyword: str | None = None
+    prior_score: float
+    confidence: float
+    source: str | None = None
+    enabled: bool
+    tags: list[str] = Field(default_factory=list)
+    notes: str | None = None
+    extra: dict[str, Any] = Field(default_factory=dict)
+    updated_at: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class KeywordPriorsData(BaseModel):
+    items: list[KeywordPriorItem]
+    total: int
+
+
+class KeywordPriorUpsertData(BaseModel):
+    id: int
+    keyword: str
+    prior_score: float
+    confidence: float
+    source: str | None = None
+    enabled: bool
+    tags: list[str] = Field(default_factory=list)
+    notes: str | None = None
+    updated_at: str | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class KeywordVectorizationCandidateItem(BaseModel):
+    keyword: str
+    prior_score: float
+    confidence: float
+    history_search_count: int = 0
+    history_hit_count: int = 0
+    history_inserted_count: int = 0
+    history_rejected_count: int = 0
+    vector_priority_score: float
+    last_seen_at: str | None = None
+    source_domain: str | None = None
+    tags: list[str] = Field(default_factory=list)
+
+    model_config = {"extra": "allow"}
+
+
+class KeywordVectorizationCandidatesData(BaseModel):
+    items: list[KeywordVectorizationCandidateItem]
+    total: int
+
+
+KeywordStatsEnvelope = ApiEnvelope[dict[str, Any]]
+KeywordHistoryEnvelope = ApiEnvelope[KeywordHistoryData]
+KeywordPriorsEnvelope = ApiEnvelope[KeywordPriorsData]
+KeywordPriorUpsertEnvelope = ApiEnvelope[KeywordPriorUpsertData]
+KeywordVectorizationCandidatesEnvelope = ApiEnvelope[KeywordVectorizationCandidatesData]
+
+
+@router.get("/stats", response_model=KeywordStatsEnvelope)
 def get_keyword_memory_stats():
     try:
         return success_response(keyword_memory_stats())
@@ -47,7 +134,7 @@ def get_keyword_memory_stats():
         _raise_mapped_error(exc)
 
 
-@router.get("/history")
+@router.get("/history", response_model=KeywordHistoryEnvelope)
 def get_keyword_history(
     limit: int = Query(default=200, ge=1, le=1000),
     q: str | None = Query(default=None),
@@ -78,7 +165,7 @@ def get_keyword_history(
     return success_response({"items": out, "total": len(out)})
 
 
-@router.get("/priors")
+@router.get("/priors", response_model=KeywordPriorsEnvelope)
 def get_keyword_priors(
     limit: int = Query(default=200, ge=1, le=1000),
     enabled_only: bool = Query(default=False),
@@ -106,7 +193,7 @@ def get_keyword_priors(
     return success_response({"items": out, "total": len(out)})
 
 
-@router.post("/priors/upsert")
+@router.post("/priors/upsert", response_model=KeywordPriorUpsertEnvelope)
 def post_keyword_prior_upsert(payload: KeywordPriorUpsertPayload):
     try:
         row = upsert_keyword_prior(
@@ -136,7 +223,7 @@ def post_keyword_prior_upsert(payload: KeywordPriorUpsertPayload):
     )
 
 
-@router.get("/vectorization/candidates")
+@router.get("/vectorization/candidates", response_model=KeywordVectorizationCandidatesEnvelope)
 def get_vectorization_candidates(limit: int = Query(default=200, ge=1, le=1000)):
     try:
         return success_response({"items": list_vectorization_candidates(limit=limit), "total": limit})

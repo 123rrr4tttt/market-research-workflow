@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
-from ..contracts import ErrorCode, fail, ok
+from ..contracts import ApiEnvelope, ErrorCode, fail, ok
 from ..services.stats import (
     query_prompt_time_density,
     query_prompt_time_density_cloud,
@@ -19,6 +20,98 @@ router = APIRouter(prefix="/stats", tags=["stats"])
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME_WINDOW_RE = re.compile(r"^\d+d$")
+
+
+class PromptTimeDensityItem(BaseModel):
+    source_domain: str
+    noun_group_id: str
+    prompt_group_id: str
+    bucket_time: str
+    effective_new_docs: int
+    density: float
+    baseline_density: float
+    norm_density: float
+    dup_ratio: float
+
+    model_config = {"extra": "allow"}
+
+
+class PromptTimeDensityData(BaseModel):
+    items: list[PromptTimeDensityItem]
+    total: int
+    start: str
+    end: str
+    bucket: str
+
+
+class PromptTimeDensityCloudPoint(BaseModel):
+    bucket_time: str
+    density: float
+    smoothed_density: float
+    norm_density: float
+    dup_ratio: float
+    effective_new_docs: int
+    is_peak: bool
+    uncertainty_lower: float
+    uncertainty_upper: float
+
+    model_config = {"extra": "allow"}
+
+
+class PromptTimeDensityCloudData(BaseModel):
+    cloud_points: list[PromptTimeDensityCloudPoint]
+    cloud_summary: dict[str, Any]
+    uncertainty_band: dict[str, Any]
+    cold_start_proxy: dict[str, Any] | None = None
+    start: str
+    end: str
+
+    model_config = {"extra": "allow"}
+
+
+class PromptTimeDensityPriorityItem(BaseModel):
+    source_domain: str | None = None
+    noun_group_id: str | None = None
+    prompt_group_id: str | None = None
+    window: str | None = None
+    density: float | None = None
+    norm_density: float | None = None
+    dup_ratio: float | None = None
+    peak_pressure: float | None = None
+    latent_density_score: float | None = None
+    vector_overlap: float | None = None
+    shift_signal: float | None = None
+    offpeak_confidence: float | None = None
+    collection_priority_score: float | None = None
+    freshness_penalty: float | None = None
+    target_overlap: float | None = None
+    p_base: float | None = None
+    p_new: float | None = None
+    kl_to_base: float | None = None
+    policy_decision_trace: dict[str, Any] | None = None
+    rank: int | None = None
+    request_id: str | None = None
+    chosen_window: str | None = None
+    is_chosen: bool | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class PromptTimeDensityPriorityData(BaseModel):
+    items: list[PromptTimeDensityPriorityItem]
+    total: int
+    end: str
+    candidate_windows: list[str]
+
+
+class PromptTimeDensityWindowSelectionData(PromptTimeDensityPriorityData):
+    max_windows: int
+
+
+PromptTimeDensityEnvelope = ApiEnvelope[PromptTimeDensityData]
+PromptTimeDensityCloudEnvelope = ApiEnvelope[PromptTimeDensityCloudData]
+PromptTimeDensityPriorityEnvelope = ApiEnvelope[PromptTimeDensityPriorityData]
+PromptTimeDensityWindowSelectionEnvelope = ApiEnvelope[PromptTimeDensityWindowSelectionData]
 
 
 def _json_error(status_code: int, code: ErrorCode, message: str) -> JSONResponse:
@@ -72,7 +165,7 @@ def _coalesce_noun_group_ids(
     return noun_group_ids if noun_group_ids is not None else prompt_group_ids
 
 
-@router.get("/prompt-time-density")
+@router.get("/prompt-time-density", response_model=PromptTimeDensityEnvelope)
 def get_prompt_time_density(
     start: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
@@ -112,7 +205,7 @@ def get_prompt_time_density(
         return _json_error(500, ErrorCode.INTERNAL_ERROR, str(exc))
 
 
-@router.get("/prompt-time-density/cloud")
+@router.get("/prompt-time-density/cloud", response_model=PromptTimeDensityCloudEnvelope)
 def get_prompt_time_density_cloud(
     keyword: str = Query(..., description="关键词"),
     start: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
@@ -158,7 +251,7 @@ def get_prompt_time_density_cloud(
         return _json_error(500, ErrorCode.INTERNAL_ERROR, str(exc))
 
 
-@router.get("/prompt-time-density/priority")
+@router.get("/prompt-time-density/priority", response_model=PromptTimeDensityPriorityEnvelope)
 def get_prompt_time_density_priority(
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD，默认今天"),
     candidate_windows: Optional[list[str]] = Query(None, description="候选窗口 Nd 列表"),
@@ -207,7 +300,7 @@ def get_prompt_time_density_priority(
         return _json_error(500, ErrorCode.INTERNAL_ERROR, str(exc))
 
 
-@router.get("/prompt-time-density/select-windows")
+@router.get("/prompt-time-density/select-windows", response_model=PromptTimeDensityWindowSelectionEnvelope)
 def select_prompt_time_windows(
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD，默认今天"),
     candidate_windows: Optional[list[str]] = Query(None, description="候选窗口 Nd 列表"),
