@@ -293,8 +293,33 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
                 "domain": "x.com",
                 "high_js": True,
                 "render_required": True,
+                "router_contract": {
+                    "contract_version": "ingest.frontdoor_fetch_router.v1",
+                    "tri_state_statuses": ["success", "degraded_success", "failed"],
+                    "dashboard_status": "degraded_success",
+                    "router_state": "needs_browser",
+                    "route_hint": "crawler_browse",
+                    "fetch_strategy": "browser_render",
+                    "reason_code": "needs_browser_runtime",
+                    "reason_category": "technical",
+                    "retryable": False,
+                    "render_required": True,
+                    "high_js": True,
+                    "search_like": True,
+                    "fallback_boundary": {
+                        "http_fetch_allowed": False,
+                        "browser_fetch_required": True,
+                        "crawler_provider_allowed": True,
+                        "http_fetch_fallback_allowed": False,
+                        "legacy_url_only_write_allowed": False,
+                        "public_browser_replay_performed": False,
+                        "boundary_reason": "body_only_after_fetch",
+                    },
+                    "diagnostics": {"source": "test"},
+                },
             },
         }
+        provider_handoff["router_contract"] = provider_handoff["frontdoor_route_profile"]["router_contract"]
         raw = {
             "item_key": "handler.cluster.high_js",
             "channel_key": "handler.cluster",
@@ -327,6 +352,7 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
                         "urls": ["https://x.com/search?q=robotics"],
                         "query_terms": ["robotics"],
                         "frontdoor_route_profile": provider_handoff["frontdoor_route_profile"],
+                        "frontdoor_router_contract": provider_handoff["router_contract"],
                     },
                 },
             },
@@ -339,6 +365,8 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(terminal_meta["provider_handoff"]["provider_type"], "scrapy")
         self.assertEqual(terminal_meta["provider_handoff"]["provider_job_id"], "job-high-js-1")
         self.assertEqual(terminal_meta["frontdoor_route_profile"]["fetch_strategy"], "browser_render")
+        self.assertEqual(terminal_meta["frontdoor_router_contract"]["router_state"], "needs_browser")
+        self.assertEqual(terminal_meta["frontdoor_router_contract"]["reason_code"], "needs_browser_runtime")
 
         frontdoor = response["frontdoor_ingress"]
         self.assertEqual(frontdoor["source_ref"]["provider_type"], "scrapy")
@@ -346,8 +374,11 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(frontdoor["source_ref"]["frontdoor_route_hint"], "crawler_browse")
         self.assertEqual(frontdoor["source_ref"]["fetch_strategy"], "browser_render")
         self.assertEqual(frontdoor["source_ref"]["render_required"], "True")
+        self.assertEqual(frontdoor["source_ref"]["router_state"], "needs_browser")
+        self.assertEqual(frontdoor["source_ref"]["router_reason_code"], "needs_browser_runtime")
         self.assertEqual(frontdoor["collection_payload"]["provider_handoff"]["provider_job_id"], "job-high-js-1")
         self.assertEqual(frontdoor["collection_payload"]["frontdoor_route_profile"]["domain"], "x.com")
+        self.assertEqual(frontdoor["collection_payload"]["frontdoor_router_contract"]["router_state"], "needs_browser")
 
         provider_summary = response["authority_output"]["summary"]["provider_handoff"]
         self.assertTrue(provider_summary["present"])
@@ -356,6 +387,9 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(provider_summary["provider_job_id"], "job-high-js-1")
         self.assertEqual(provider_summary["fetch_strategy"], "browser_render")
         self.assertTrue(provider_summary["render_required"])
+        self.assertEqual(provider_summary["router_state"], "needs_browser")
+        self.assertEqual(provider_summary["router_reason_code"], "needs_browser_runtime")
+        self.assertFalse(provider_summary["fallback_boundary"]["http_fetch_fallback_allowed"])
 
 
 if __name__ == "__main__":

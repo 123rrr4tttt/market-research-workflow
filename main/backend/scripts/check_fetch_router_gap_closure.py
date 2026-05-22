@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 
-CONTRACT_VERSION = "fetch_router_gap_closure.check.v1"
+CONTRACT_VERSION = "fetch_router_gap_closure.check.v2"
 CURRENT_DEV = Path("development/latest-dev-docs/development-plans/CURRENT_DEV")
 
 PROTECTED_SHARED_INDEXES = [
@@ -41,7 +41,7 @@ TOPICS: dict[str, dict[str, Any]] = {
         "legacy_gap": "frontdoor/router gap",
     },
     "2026-03-08-llm-crawler-unified-frontdoor": {
-        "title": "LLM crawler unified frontdoor provider handoff closure",
+        "title": "LLM crawler unified frontdoor provider handoff and tri-state router closure",
         "doc": CURRENT_DEV
         / "2026-03-08-llm-crawler-unified-frontdoor"
         / "04_wave8-2-fetch-router-gap-closure-2026-05-22.md",
@@ -117,6 +117,37 @@ ANCHORS: dict[str, Anchor] = {
             "frontdoor_admission",
         ),
     ),
+    "frontdoor_fetch_router_contract": Anchor(
+        Path("main/backend/app/services/ingest/frontdoor_router_contract.py"),
+        (
+            "ingest.frontdoor_fetch_router.v1",
+            "TRI_STATE_STATUSES",
+            "needs_browser_runtime",
+            "unsupported_fetch_strategy",
+            "public_browser_replay_performed",
+        ),
+    ),
+    "frontdoor_fetch_router_contract_test": Anchor(
+        Path("main/backend/tests/unit/test_frontdoor_fetch_router_contract_unittest.py"),
+        (
+            "test_high_js_profile_marks_needs_browser_without_public_replay",
+            "test_contract_exposes_unsupported_and_blocked_failures",
+            "test_frontdoor_status_projection_preserves_router_boundary",
+            "needs_browser",
+        ),
+    ),
+    "llm_crawler_wave10_tristate_evidence": Anchor(
+        CURRENT_DEV
+        / "2026-03-08-llm-crawler-unified-frontdoor"
+        / "05_wave10-tri-state-router-contract-2026-05-22.md",
+        (
+            "Wave10 Tri-State Router Contract Evidence",
+            "needs_browser_runtime",
+            "unsupported_fetch_strategy",
+            "public_browser_replay_performed: false",
+            "No public browser replay was executed",
+        ),
+    ),
 }
 
 
@@ -135,11 +166,14 @@ TOPIC_ANCHORS: dict[str, tuple[str, ...]] = {
         "tri_state_status_projection",
     ),
     "2026-03-08-llm-crawler-unified-frontdoor": (
+        "frontdoor_fetch_router_contract",
+        "frontdoor_fetch_router_contract_test",
         "high_js_ingest_route_intent",
         "provider_handoff_resolver_test",
         "provider_handoff_projection_test",
         "frontdoor_ingress_contract",
         "tri_state_status_projection",
+        "llm_crawler_wave10_tristate_evidence",
     ),
 }
 
@@ -228,6 +262,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
                     "anchors": topic_anchors,
                     "commands": [
                         "cd main/backend && python3.11 -m pytest -q tests/unit/test_ingest_frontdoor_context_unittest.py tests/unit/test_source_library_resolver_unittest.py tests/unit/test_collect_runtime_source_library_adapter_unittest.py tests/unit/test_fetch_router_gap_closure_check_unittest.py",
+                        "cd main/backend && python3.11 -m pytest -q tests/unit/test_frontdoor_fetch_router_contract_unittest.py",
                         "python3.11 main/backend/scripts/check_fetch_router_gap_closure.py",
                         "git diff --check",
                     ],
@@ -247,7 +282,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             "tri_state_blocker_wording": {
                 "status": "not_blocking_narrow_closure",
                 "states": ["success", "degraded_success", "failed"],
-                "source": str(ANCHORS["tri_state_status_projection"].path),
+                "source": str(ANCHORS["frontdoor_fetch_router_contract"].path),
             },
         },
     }

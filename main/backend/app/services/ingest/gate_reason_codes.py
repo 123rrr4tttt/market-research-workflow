@@ -13,6 +13,8 @@ REASON_CODE_CATALOG: dict[str, tuple[str, ...]] = {
         "url_policy_low_value_domain",
         "url_policy_low_value_endpoint",
         "url_policy_blocked",
+        "browser_runtime_blocked",
+        "router_policy_blocked",
     ),
     "quality": (
         "content_empty",
@@ -34,6 +36,9 @@ REASON_CODE_CATALOG: dict[str, tuple[str, ...]] = {
         "source_library_fetch_empty",
         "unexpected_exception",
         "crawler_pool_dispatch_failed",
+        "needs_browser_runtime",
+        "unsupported_fetch_strategy",
+        "browser_runtime_unavailable",
         "light_filter_rejected",
     ),
 }

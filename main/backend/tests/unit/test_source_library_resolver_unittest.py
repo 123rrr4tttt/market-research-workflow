@@ -535,6 +535,30 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
                 "render_required": True,
                 "fallback_fetch_strategy": "http_fetch",
             },
+            "frontdoor_router_contract": {
+                "contract_version": "ingest.frontdoor_fetch_router.v1",
+                "tri_state_statuses": ["success", "degraded_success", "failed"],
+                "dashboard_status": "degraded_success",
+                "router_state": "needs_browser",
+                "route_hint": "crawler_browse",
+                "fetch_strategy": "browser_render",
+                "reason_code": "needs_browser_runtime",
+                "reason_category": "technical",
+                "retryable": False,
+                "render_required": True,
+                "high_js": True,
+                "search_like": True,
+                "fallback_boundary": {
+                    "http_fetch_allowed": False,
+                    "browser_fetch_required": True,
+                    "crawler_provider_allowed": True,
+                    "http_fetch_fallback_allowed": False,
+                    "legacy_url_only_write_allowed": False,
+                    "public_browser_replay_performed": False,
+                    "boundary_reason": "body_only_after_fetch",
+                },
+                "diagnostics": {"source": "test"},
+            },
         }
         channel_map = {
             "crawler.demo_proj": {
@@ -584,6 +608,8 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(captured_params["arguments"]["frontdoor_fetch_strategy"], "browser_render")
         self.assertTrue(captured_params["arguments"]["frontdoor_render_required"])
         self.assertEqual(captured_params["arguments"]["frontdoor_route_profile"]["domain"], "x.com")
+        self.assertEqual(captured_params["arguments"]["frontdoor_router_contract"]["router_state"], "needs_browser")
+        self.assertEqual(captured_params["arguments"]["frontdoor_router_contract"]["reason_code"], "needs_browser_runtime")
 
         handoff = result["by_url"][0]["provider_handoff"]
         self.assertEqual(handoff["contract_version"], "source_library.provider_handoff.v1")
@@ -597,6 +623,10 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(handoff["fetch_strategy"], "browser_render")
         self.assertTrue(handoff["render_required"])
         self.assertEqual(handoff["frontdoor_route_profile"]["domain"], "x.com")
+        self.assertEqual(handoff["router_contract"]["router_state"], "needs_browser")
+        self.assertEqual(handoff["router_reason_code"], "needs_browser_runtime")
+        self.assertFalse(handoff["fallback_boundary"]["http_fetch_fallback_allowed"])
+        self.assertFalse(handoff["fallback_boundary"]["public_browser_replay_performed"])
         self.assertTrue(result["middle_layer_protocol"]["prefer_crawler_first"])
         resolve_channel.assert_called_once()
 

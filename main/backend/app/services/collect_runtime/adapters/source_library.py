@@ -213,6 +213,15 @@ def build_source_library_authority_output(
         if isinstance(terminal_meta.get("frontdoor_route_profile"), dict)
         else {}
     )
+    router_contract = (
+        terminal_meta.get("frontdoor_router_contract")
+        if isinstance(terminal_meta.get("frontdoor_router_contract"), dict)
+        else {}
+    )
+    if not router_contract and isinstance(route_profile.get("router_contract"), dict):
+        router_contract = dict(route_profile.get("router_contract") or {})
+    if not router_contract and isinstance(provider_handoff.get("router_contract"), dict):
+        router_contract = dict(provider_handoff.get("router_contract") or {})
     record_stats = terminal_results.get("stats") if isinstance(terminal_results.get("stats"), dict) else {}
     postprocess_data = (
         postprocess_frontdoor.get("data") if isinstance(postprocess_frontdoor.get("data"), dict) else {}
@@ -271,6 +280,11 @@ def build_source_library_authority_output(
                 "route_hint": route_profile.get("route_hint") or provider_handoff.get("route_hint"),
                 "fetch_strategy": route_profile.get("fetch_strategy") or provider_handoff.get("fetch_strategy"),
                 "render_required": bool(route_profile.get("render_required") or provider_handoff.get("render_required")),
+                "router_state": router_contract.get("router_state"),
+                "router_reason_code": router_contract.get("reason_code"),
+                "fallback_boundary": dict(router_contract.get("fallback_boundary") or {})
+                if isinstance(router_contract.get("fallback_boundary"), dict)
+                else {},
                 "source": "terminal_output.meta.provider_handoff",
             },
             "write_effects": {
