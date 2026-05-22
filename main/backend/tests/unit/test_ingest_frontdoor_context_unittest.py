@@ -309,6 +309,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
             captured["url"] = kwargs["url"]
             captured["search_options"] = dict(kwargs.get("search_options") or {})
             captured["frontdoor_options"] = dict(kwargs.get("frontdoor_options") or {})
+            router_contract = dict(captured["frontdoor_options"].get("router_contract") or {})
             return {
                 "status": "degraded_success",
                 "reason_code": "source_library_fetch_empty",
@@ -327,6 +328,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
                     "render_required": True,
                     "prefer_crawler_first": True,
                     "force_url_routing_flow": False,
+                    "router_contract": router_contract,
                 },
                 "postprocess_frontdoor": {
                     "data": {"admission": "defer"},
@@ -357,10 +359,19 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertTrue(captured["search_options"]["frontdoor_render_required"])
         self.assertTrue(captured["search_options"]["frontdoor_prefers_crawler"])
         self.assertTrue(captured["search_options"]["frontdoor_prefers_search_shell"])
+        self.assertEqual(captured["search_options"]["frontdoor_router_contract"]["router_state"], "needs_browser")
+        self.assertEqual(captured["search_options"]["frontdoor_router_contract"]["reason_code"], "needs_browser_runtime")
+        self.assertFalse(
+            captured["search_options"]["frontdoor_router_contract"]["fallback_boundary"]["http_fetch_fallback_allowed"]
+        )
+        self.assertFalse(
+            captured["search_options"]["frontdoor_router_contract"]["fallback_boundary"]["public_browser_replay_performed"]
+        )
         self.assertEqual(captured["frontdoor_options"]["route_hint"], "crawler_browse")
         self.assertEqual(captured["frontdoor_options"]["fetch_strategy"], "browser_render")
         self.assertTrue(captured["frontdoor_options"]["prefer_crawler"])
         self.assertTrue(captured["frontdoor_options"]["render_required"])
+        self.assertEqual(captured["frontdoor_options"]["router_contract"]["router_state"], "needs_browser")
 
         status_summary = result["meta"]["frontdoor_status_summary"]
         self.assertEqual(status_summary["sample_size"], 1)
@@ -369,6 +380,9 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         detail_status = result["debug"]["url_details"][0]["frontdoor_status"]
         self.assertEqual(detail_status["dashboard_status"], "degraded_success")
         self.assertEqual(detail_status["frontdoor_admission"], "defer")
+        self.assertEqual(detail_status["router_state"], "needs_browser")
+        self.assertEqual(detail_status["router_reason_code"], "needs_browser_runtime")
+        self.assertFalse(detail_status["fallback_boundary"]["http_fetch_fallback_allowed"])
 
 
 if __name__ == "__main__":

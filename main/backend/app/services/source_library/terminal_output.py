@@ -28,6 +28,11 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
         params=normalized_params,
         provider_handoff=provider_handoff,
     )
+    frontdoor_router_contract = _resolve_frontdoor_router_contract(
+        params=normalized_params,
+        provider_handoff=provider_handoff,
+        route_profile=frontdoor_route_profile,
+    )
 
     # Empty/invalid payload should be safe and observable in terminal output.
     if not payload and not errors:
@@ -66,6 +71,7 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
             "warnings": list(execution_request.get("warnings") or []),
             "provider_handoff": provider_handoff,
             "frontdoor_route_profile": frontdoor_route_profile,
+            "frontdoor_router_contract": frontdoor_router_contract,
             "raw_result_keys": sorted(result.keys()),
         },
         "raw_snapshot": deepcopy(payload),
@@ -432,6 +438,22 @@ def _resolve_frontdoor_route_profile(
         "render_required": bool(render_required),
     }
     return {key: value for key, value in out.items() if value is not None}
+
+
+def _resolve_frontdoor_router_contract(
+    *,
+    params: Dict[str, Any],
+    provider_handoff: Dict[str, Any] | None,
+    route_profile: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if isinstance(route_profile, dict) and isinstance(route_profile.get("router_contract"), dict):
+        return dict(route_profile.get("router_contract") or {})
+    if isinstance(provider_handoff, dict) and isinstance(provider_handoff.get("router_contract"), dict):
+        return dict(provider_handoff.get("router_contract") or {})
+    params_contract = params.get("frontdoor_router_contract")
+    if isinstance(params_contract, dict):
+        return dict(params_contract)
+    return None
 
 
 def _nullable_str(value: Any) -> str | None:

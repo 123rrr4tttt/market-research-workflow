@@ -257,8 +257,13 @@ def _inject_url_params_for_channel(
         arguments.setdefault("url", url_str)
         arguments.setdefault("urls", [url_str])
         route_profile = _as_dict(per_url_params.get("frontdoor_route_profile"))
+        router_contract = _as_dict(per_url_params.get("frontdoor_router_contract"))
+        if not router_contract and isinstance(route_profile.get("router_contract"), dict):
+            router_contract = _as_dict(route_profile.get("router_contract"))
         if route_profile:
             arguments.setdefault("frontdoor_route_profile", route_profile)
+        if router_contract:
+            arguments.setdefault("frontdoor_router_contract", router_contract)
         if per_url_params.get("frontdoor_route_hint") is not None:
             arguments.setdefault("frontdoor_route_hint", per_url_params.get("frontdoor_route_hint"))
         if per_url_params.get("frontdoor_fetch_strategy") is not None:
@@ -375,6 +380,9 @@ def _build_provider_handoff(
     provider_type = str(channel.get("provider_type") or "").strip().lower() or None
     provider = str(channel.get("provider") or "").strip().lower() or None
     route_profile = _as_dict(params.get("frontdoor_route_profile"))
+    router_contract = _as_dict(params.get("frontdoor_router_contract"))
+    if not router_contract and isinstance(route_profile.get("router_contract"), dict):
+        router_contract = _as_dict(route_profile.get("router_contract"))
     result_payload = result if isinstance(result, dict) else {}
     route_hint = (
         str(route_profile.get("route_hint") or params.get("frontdoor_route_hint") or "").strip()
@@ -408,6 +416,12 @@ def _build_provider_handoff(
     }
     if route_profile:
         out["frontdoor_route_profile"] = route_profile
+    if router_contract:
+        out["router_contract"] = router_contract
+        out["router_state"] = router_contract.get("router_state")
+        out["router_reason_code"] = router_contract.get("reason_code")
+        if isinstance(router_contract.get("fallback_boundary"), dict):
+            out["fallback_boundary"] = dict(router_contract.get("fallback_boundary") or {})
     return {key: value for key, value in out.items() if value is not None}
 
 

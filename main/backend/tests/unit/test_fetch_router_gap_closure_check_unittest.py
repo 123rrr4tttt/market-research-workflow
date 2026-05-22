@@ -49,7 +49,7 @@ class FetchRouterGapClosureCheckUnitTestCase(unittest.TestCase):
         tri_state = result["validation"]["tri_state_blocker_wording"]
         self.assertEqual(tri_state["status"], "not_blocking_narrow_closure")
         self.assertEqual(tri_state["states"], ["success", "degraded_success", "failed"])
-        self.assertEqual(tri_state["source"], "main/backend/app/services/ingest/url_pool.py")
+        self.assertEqual(tri_state["source"], "main/backend/app/services/ingest/frontdoor_router_contract.py")
         self.assertFalse(result["validation"]["shared_indexes_edited"])
         self.assertEqual(result["validation"]["protected_shared_indexes"], list(PROTECTED_SHARED_INDEXES))
 

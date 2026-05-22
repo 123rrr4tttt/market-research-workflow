@@ -66,6 +66,11 @@ def build_source_library_ingress_envelope(
     meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
     provider_handoff = meta.get("provider_handoff") if isinstance(meta.get("provider_handoff"), dict) else None
     route_profile = meta.get("frontdoor_route_profile") if isinstance(meta.get("frontdoor_route_profile"), dict) else None
+    router_contract = meta.get("frontdoor_router_contract") if isinstance(meta.get("frontdoor_router_contract"), dict) else None
+    if router_contract is None and isinstance((route_profile or {}).get("router_contract"), dict):
+        router_contract = (route_profile or {}).get("router_contract")
+    if router_contract is None and isinstance((provider_handoff or {}).get("router_contract"), dict):
+        router_contract = (provider_handoff or {}).get("router_contract")
     external_manifest = item.get("external_manifest") if isinstance(item.get("external_manifest"), dict) else {}
     records = ((terminal_output.get("results") or {}).get("records") if isinstance(terminal_output.get("results"), dict) else [])
     source_artifacts = _collect_source_artifacts(records)
@@ -90,6 +95,8 @@ def build_source_library_ingress_envelope(
             "frontdoor_route_hint": (route_profile or provider_handoff or {}).get("route_hint"),
             "fetch_strategy": (route_profile or provider_handoff or {}).get("fetch_strategy"),
             "render_required": True if bool((route_profile or provider_handoff or {}).get("render_required")) else None,
+            "router_state": (router_contract or {}).get("router_state"),
+            "router_reason_code": (router_contract or {}).get("reason_code"),
         },
         collection_payload={
             "terminal_output": dict(terminal_output or {}),
@@ -97,6 +104,7 @@ def build_source_library_ingress_envelope(
             "source_artifacts": source_artifacts,
             "provider_handoff": dict(provider_handoff or {}) if provider_handoff else None,
             "frontdoor_route_profile": dict(route_profile or {}) if route_profile else None,
+            "frontdoor_router_contract": dict(router_contract or {}) if router_contract else None,
             "legacy_result": dict(legacy_result or {}) if isinstance(legacy_result, dict) else None,
             "dispatch_plan": {
                 "run_extraction": False,
