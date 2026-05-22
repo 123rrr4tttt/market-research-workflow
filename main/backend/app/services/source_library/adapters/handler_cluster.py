@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from ..relevance_review import annotate_records_with_relevance_review_queue
+from ..relevance_review import merge_relevance_review_queues
+
 
 def _normalize_terms(value: Any) -> list[str]:
     if isinstance(value, list):
@@ -97,7 +100,10 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
 
     benign_markers = {"url_term_filter_empty_fallback_used", "url_term_filter_empty_no_fallback"}
     merged_site_entries = []
+    merged_runtime_diagnostics = []
+    merged_review_queues = []
     seen_entry = set()
+    seen_runtime = set()
     merged_candidates = []
     seen_cand = set()
     merged_error_details = []
@@ -117,6 +123,19 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
             if key and key not in seen_entry:
                 seen_entry.add(key)
                 merged_site_entries.append(e)
+        runtime_rows = list(getattr(us, "runtime_diagnostics", None) or [])
+        if not runtime_rows:
+            runtime_rows = [dict(entry) for entry in (us.site_entries_used or []) if isinstance(entry, dict)]
+        for diag in runtime_rows:
+            if not isinstance(diag, dict):
+                continue
+            key = str(diag.get("site_url") or diag.get("id") or "")
+            if key and key not in seen_runtime:
+                seen_runtime.add(key)
+                merged_runtime_diagnostics.append(diag)
+        review_queue = getattr(us, "relevance_review_queue", None)
+        if isinstance(review_queue, dict):
+            merged_review_queues.append(review_queue)
         for u in (us.candidates or []):
             s = str(u or "").strip()
             if s and s not in seen_cand:
@@ -171,6 +190,14 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
         for idx, url in enumerate(merged_candidates)
         if str(url or "").strip()
     ]
+    relevance_review_queue = merge_relevance_review_queues(
+        merged_review_queues,
+        project_key=project_key,
+        item_key=item_ctx.get("item_key") or item_key or "_anonymous_handler_cluster",
+        query_terms=q,
+        source_surface="source_library.handler_cluster_adapter",
+    )
+    records = annotate_records_with_relevance_review_queue(records, relevance_review_queue)
 
     response = {
         "record_stats": {
@@ -185,8 +212,10 @@ def handle_handler_cluster(params: Dict[str, Any], project_key: str | None) -> D
         "query_term_batches": term_batches,
         "batches_total": len(term_batches),
         "site_entries_used": merged_site_entries,
+        "runtime_diagnostics": merged_runtime_diagnostics,
         "candidates": merged_candidates,
         "records": records,
+        "relevance_review_queue": relevance_review_queue,
         "fetch_diagnostics": {
             "urls_new": written_urls_new,
             "urls_skipped": written_urls_skipped,
