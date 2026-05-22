@@ -50,6 +50,45 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
         self.assertFalse(content_check["blocked"])
         self.assertEqual(content_check["reason_code"], "disabled")
         self.assertEqual(content_check["diagnostics"]["min_semantic_len"], 640)
+        self.assertEqual(result["quality_gates"]["gate_config"]["enable_strict_gate"], False)
+        self.assertEqual(result["quality_gates"]["gate_config"]["strict_gate_source"], "disabled")
+
+    def test_frontdoor_quality_gate_strict_mode_forces_request_level_gate(self) -> None:
+        document_candidate = {
+            "uri": "https://example.com/search?q=robotics",
+            "title": "Search page",
+            "summary": "summary",
+            "content": "Robotics market update with enough meaningful context. " * 8,
+            "source_base_url": "example.com",
+            "doc_type": "market",
+        }
+        terminal_context = {
+            "strict_mode": True,
+            "meaningful_gate_config": {"min_semantic_len": 20},
+            "capability_profile": {"entry_type": "search_template"},
+            "content_extraction": {"page_family": "article"},
+            "http_status": 200,
+            "light_filter": {"filter_decision": "accept", "filter_reason_code": "ok", "filter_score": 92},
+        }
+
+        with patch("app.services.ingest.postprocess_frontdoor.settings.ingest_enable_strict_gate", False):
+            result = _evaluate_quality_frontdoor(
+                document_candidate=document_candidate,
+                terminal_context=terminal_context,
+            )
+
+        self.assertEqual(result["admission"], "reject")
+        self.assertEqual(result["reason_code"], "domain_blocked")
+        self.assertFalse(result["quality_assessment"]["meaningful"])
+        self.assertFalse(result["quality_assessment"]["provenance_ok"])
+        self.assertTrue(result["quality_assessment"]["content_ok"])
+        self.assertTrue(result["quality_assessment"]["strict_gate_enabled"])
+        self.assertEqual(result["quality_assessment"]["strict_gate_source"], "terminal_context.strict_mode")
+        gate_config = result["quality_gates"]["gate_config"]
+        self.assertTrue(gate_config["enable_strict_gate"])
+        self.assertEqual(gate_config["strict_gate_source"], "terminal_context.strict_mode")
+        self.assertEqual(gate_config["min_semantic_len"], 20)
+        self.assertEqual(result["quality_gates"]["url_gate"]["reason"], "url_policy_low_value_endpoint")
 
     def test_source_library_terminal_output_is_deferred_without_writer(self) -> None:
         terminal_output = {
