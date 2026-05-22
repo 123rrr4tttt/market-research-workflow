@@ -6,6 +6,7 @@ from typing import Any
 AGENT_BATCH_TASK_MANIFEST_VERSION = "agent_batch.task_manifest.v1"
 AGENT_BATCH_SEARCH_POLICY_CONTRACT_VERSION = "agent_batch.search_policy.v1"
 AGENT_BATCH_SEARCH_QUALITY_REPLAY_CONTRACT_VERSION = "agent_batch.search_quality_replay.v1"
+AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION = "agent_batch.provider_quality_readiness.v1"
 
 _TASK_OPTIONAL_KEYS = [
     "task_id",
@@ -214,6 +215,56 @@ _SEARCH_QUALITY_REPLAY_SCHEMA = {
     ],
 }
 
+_PROVIDER_QUALITY_READINESS_SCHEMA = {
+    "contract_version": AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION,
+    "artifact": "provider_quality_readiness",
+    "scope": "symbolic_search_provider_quality_readiness_fixture_quality_and_live_gap_boundary",
+    "required_keys": [
+        "scope",
+        "readiness_state",
+        "fixture_quality",
+        "provider_readiness",
+        "unsupported_live_provider_claims",
+        "remaining_live_gaps",
+        "gate_semantics",
+    ],
+    "fixture_quality_required_keys": [
+        "status",
+        "case_count",
+        "average_uplift",
+        "false_positive_retry_rate",
+        "quality_claim_allowed",
+        "live_provider_gap_state",
+    ],
+    "provider_readiness_required_keys": [
+        "probe_type",
+        "providers",
+        "quality_claim_allowed",
+        "auto_promotion_allowed",
+    ],
+    "provider_row_required_keys": [
+        "provider",
+        "live_probe_status",
+        "availability_state",
+        "result_quality_verified",
+        "quality_claim_allowed",
+        "fallback_reason",
+        "remaining_gap",
+    ],
+    "unsupported_claim_required_keys": [
+        "code",
+        "claim",
+        "reason",
+        "required_next_evidence",
+    ],
+    "remaining_live_gap_required_keys": [
+        "code",
+        "status",
+        "reason",
+        "required_next_evidence",
+    ],
+}
+
 _RETRY_ACTION_REQUIRED_REWRITE_FIELDS = {
     "expand_query_terms": ["query_terms"],
     "narrow_query_terms": ["query_terms"],
@@ -407,6 +458,10 @@ def build_search_quality_replay_schema() -> dict[str, Any]:
     return deepcopy(_SEARCH_QUALITY_REPLAY_SCHEMA)
 
 
+def build_provider_quality_readiness_schema() -> dict[str, Any]:
+    return deepcopy(_PROVIDER_QUALITY_READINESS_SCHEMA)
+
+
 def build_retry_action_schema() -> dict[str, Any]:
     return deepcopy(_RETRY_ACTION_SCHEMA)
 
@@ -534,6 +589,7 @@ def build_search_policy_contract() -> dict[str, Any]:
         "search_brief": build_search_brief_schema(),
         "search_critic": build_search_critic_schema(),
         "quality_replay": build_search_quality_replay_schema(),
+        "provider_quality_readiness": build_provider_quality_readiness_schema(),
         "retry_action": build_retry_action_schema(),
         "rewrite_eligible_fields_by_channel": get_rewrite_eligible_fields_by_channel(),
         "defaults": get_search_policy_defaults(),

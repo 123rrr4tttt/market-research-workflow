@@ -10,6 +10,7 @@ try:
     from app.services.agent_batch.search_quality_replay import (
         build_live_provider_gap_state,
         build_source_quality_signals,
+        build_symbolic_provider_quality_readiness,
         evaluate_quality_retry_boundary,
         score_quality_benchmark_replay,
         score_symbolic_search_quality_replay,
@@ -166,6 +167,55 @@ class AgentBatchSearchQualityReplayUnitTest(unittest.TestCase):
         self.assertEqual(result["false_positive_retry_rate"], 0.0)
         self.assertEqual(result["quality_claim"], "deterministic_replay_only_not_live_provider_quality")
         self.assertEqual(result["live_provider_gap_state"], build_live_provider_gap_state())
+
+    def test_provider_quality_readiness_records_fixture_quality_and_live_gaps(self) -> None:
+        readiness = build_symbolic_provider_quality_readiness(
+            fixture_cases=[
+                {
+                    "case_id": "robotics-source-gap",
+                    "category": "company_watchlist",
+                    "search_brief": _brief(),
+                    "baseline_records": _baseline_records(),
+                    "retry_records": _retry_records(),
+                    "retry_expected": True,
+                }
+            ],
+            provider_statuses={
+                "searxng": {
+                    "live_probe_status": "unavailable",
+                    "result_count": 0,
+                    "fallback_reason": "ConnectError",
+                },
+                "yacy": {
+                    "live_probe_status": "not_run",
+                    "result_count": 0,
+                    "fallback_reason": "live_probe_not_run",
+                },
+            },
+        )
+
+        self.assertEqual(readiness["contract_version"], "agent_batch.provider_quality_readiness.v1")
+        self.assertEqual(
+            readiness["readiness_state"],
+            "fixture_quality_ready_live_provider_gap_open",
+        )
+        self.assertEqual(readiness["fixture_quality"]["status"], "passed")
+        self.assertGreater(readiness["fixture_quality"]["average_uplift"], 0.0)
+        self.assertFalse(readiness["fixture_quality"]["quality_claim_allowed"])
+        self.assertFalse(readiness["provider_readiness"]["quality_claim_allowed"])
+        self.assertFalse(readiness["provider_readiness"]["auto_promotion_allowed"])
+        self.assertEqual(
+            readiness["provider_readiness"]["providers"]["searxng"]["remaining_gap"],
+            "live_provider_not_ready",
+        )
+        self.assertIn(
+            "fixture_replay_proves_live_provider_quality",
+            {item["code"] for item in readiness["unsupported_live_provider_claims"]},
+        )
+        self.assertIn(
+            "live_retry_uplift_replay_not_run",
+            {item["code"] for item in readiness["remaining_live_gaps"]},
+        )
 
 
 if __name__ == "__main__":
