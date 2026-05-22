@@ -319,6 +319,120 @@ test('graph page renders force3d canvas backed by graph scene nodes', async ({ p
   }
 })
 
+test('graph page survives rapid 3D engine switch with viewport evidence or fallback', async ({ page }) => {
+  await setupGraphPageMocks(page)
+
+  const response = await page.goto('/#graph.html?type=market')
+  expect(response?.ok()).toBeTruthy()
+
+  await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
+
+  const renderModeToggle = page.locator('button[title="轻量3D模型模式（中心锁定，非相机视角）"]').first()
+  await expect(renderModeToggle).toHaveText('3D模式')
+  await renderModeToggle.click()
+  await expect(renderModeToggle).toHaveText('回到2D')
+
+  const engineSelect = page.locator('label.gv2-control-chip', { hasText: '3D引擎' }).locator('select')
+  await expect(engineSelect).toBeVisible()
+
+  await engineSelect.selectOption('legacy')
+  await page.waitForTimeout(40)
+  await engineSelect.selectOption('force3d')
+  await page.waitForTimeout(40)
+  await engineSelect.selectOption('legacy')
+  await page.waitForTimeout(40)
+  await engineSelect.selectOption('force3d')
+
+  const outcomeHandle = await page.waitForFunction(() => {
+    type Graph3DStats = {
+      dataNodes: number
+      sceneNodeObjects: number
+    }
+    const debugWindow = window as Window & {
+      __graph3dDebug?: {
+        getVisibilityStats: () => Graph3DStats
+      }
+    }
+    const host = document.querySelector('[data-testid="graph-force3d-canvas-host"]') as HTMLElement | null
+    const canvas = host?.querySelector('canvas') as HTMLCanvasElement | null
+    const hostRect = host?.getBoundingClientRect()
+    const stats = debugWindow.__graph3dDebug?.getVisibilityStats()
+    if (
+      canvas &&
+      hostRect &&
+      hostRect.width >= 300 &&
+      hostRect.height >= 300 &&
+      canvas.width >= 300 &&
+      canvas.height >= 300 &&
+      stats &&
+      stats.dataNodes === 2 &&
+      stats.sceneNodeObjects >= 2
+    ) {
+      return {
+        mode: 'force3d',
+        stats,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        hostWidth: Math.round(hostRect.width),
+        hostHeight: Math.round(hostRect.height),
+      }
+    }
+    const fallbackText = Array.from(document.querySelectorAll('.gv2-loading'))
+      .map((node) => node.textContent || '')
+      .join('\n')
+    const engineValue = Array.from(document.querySelectorAll('label.gv2-control-chip'))
+      .find((node) => (node.textContent || '').includes('3D引擎'))
+      ?.querySelector<HTMLSelectElement>('select')
+      ?.value || ''
+    const legacyChart = document.querySelector('.gv2-chart:not(.gv2-chart--force3d)') as HTMLElement | null
+    const legacyChartRect = legacyChart?.getBoundingClientRect()
+    if (engineValue === 'legacy' && legacyChartRect && legacyChartRect.width >= 300 && legacyChartRect.height >= 300) {
+      return {
+        mode: fallbackText.includes('已自动降级到 legacy-projection') ? 'fallback' : 'legacy',
+        fallbackText,
+        engineValue,
+        chartWidth: Math.round(legacyChartRect.width),
+        chartHeight: Math.round(legacyChartRect.height),
+      }
+    }
+    return false
+  }, null, { timeout: 20000 })
+
+  const outcome = await outcomeHandle.jsonValue() as
+    | {
+      mode: 'force3d'
+      stats: { dataNodes: number; sceneNodeObjects: number }
+      canvasWidth: number
+      canvasHeight: number
+      hostWidth: number
+      hostHeight: number
+    }
+    | {
+      mode: 'fallback' | 'legacy'
+      fallbackText: string
+      engineValue: string
+      chartWidth: number
+      chartHeight: number
+    }
+
+  await expect(page.getByRole('heading', { level: 1, name: '市场图谱', exact: true })).toBeVisible()
+  await expect(engineSelect).toBeVisible()
+  if (outcome.mode === 'force3d') {
+    await expect(page.getByTestId('graph-force3d-canvas-host')).toBeVisible()
+    expect(outcome.stats.dataNodes).toBe(2)
+    expect(outcome.stats.sceneNodeObjects).toBeGreaterThanOrEqual(2)
+    expect(Math.abs(outcome.canvasWidth - outcome.hostWidth)).toBeLessThanOrEqual(4)
+    expect(Math.abs(outcome.canvasHeight - outcome.hostHeight)).toBeLessThanOrEqual(4)
+  } else {
+    if (outcome.mode === 'fallback') {
+      expect(outcome.fallbackText).toContain('3D引擎渲染失败')
+    }
+    expect(outcome.engineValue).toBe('legacy')
+    expect(outcome.chartWidth).toBeGreaterThanOrEqual(300)
+    expect(outcome.chartHeight).toBeGreaterThanOrEqual(300)
+  }
+})
+
 test('graph builder submits local draft to curated workflow graph API', async ({ page }) => {
   const hits = await setupGraphPageMocks(page)
 
