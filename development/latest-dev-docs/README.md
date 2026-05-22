@@ -57,6 +57,9 @@
 - Source library public live probes 证据包（2026-05-22）：
   - [automation-runs/source-library-live-probes/2026-05-22/README.md](./automation-runs/source-library-live-probes/2026-05-22/README.md)
   - [development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
+- Source library 45-site replay scaleout 证据包（2026-05-22）：
+  - [automation-runs/source-library-replay-scaleout/2026-05-22/README.md](./automation-runs/source-library-replay-scaleout/2026-05-22/README.md)
+  - [development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `backend-docs` 新增当前 OpenAPI schema surface inventory 与合同测试防漂移（2026-05-22）：
   - [backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - Wave2 工作树计划与集成状态（2026-05-22）：
@@ -159,6 +162,7 @@
   - [2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md)
   - [2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md)
   - [2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/11_agent-exposed-task-contract-completeness-audit-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/11_agent-exposed-task-contract-completeness-audit-2026-03-14.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/12_search-brief-critic-retry-policy-and-agent-strategy-selection-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/12_search-brief-critic-retry-policy-and-agent-strategy-selection-2026-03-25.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/13_reference-library-search-brief-critic-retry-implementation-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/13_reference-library-search-brief-critic-retry-implementation-2026-03-25.md)
