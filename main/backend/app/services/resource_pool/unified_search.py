@@ -15,6 +15,7 @@ from .auto_classify import infer_keyword_capabilities
 from .candidate_source_plan import build_candidate_source_plan, plan_to_metadata
 from ..source_library.resolver import list_effective_items
 from ..source_library.item_plan import build_item_execution_plan
+from ..source_library.relevance_review import build_relevance_review_queue
 from .extract import append_url
 from .resolver import list_urls
 from .search_capabilities import make_search_candidate
@@ -46,6 +47,7 @@ class UnifiedSearchResult:
     written: dict[str, int] | None
     ingest_result: dict[str, Any] | None
     errors: list[dict[str, str]]
+    relevance_review_queue: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -1430,6 +1432,21 @@ def unified_search_by_item_payload(
     for _, u, ref in selected_scored_candidates:
         _push(u, ref=ref)
 
+    relevance_review_queue = build_relevance_review_queue(
+        project_key=project_key,
+        item_key=item_key,
+        query_terms=terms,
+        candidates=candidates,
+        candidate_refs=candidate_refs,
+        runtime_diagnostics=runtime_diagnostics,
+        errors=errors,
+    )
+    review_entries_by_url = {
+        str((entry.get("reviewer_fields") or {}).get("url") or "").strip(): entry
+        for entry in relevance_review_queue.get("entries") or []
+        if isinstance(entry, dict)
+    }
+
     written: dict[str, int] | None = None
     if auto_ingest:
         try:
@@ -1451,6 +1468,17 @@ def unified_search_by_item_payload(
                     str(ref.get("entry_domain") or domain_from_url(str(ref.get("site_entry_url") or u)) or "").strip().lower()
                     or None
                 )
+            review_entry = review_entries_by_url.get(u)
+            if review_entry:
+                ref["candidate_review_state"] = "relevance_review"
+                ref["source_library_relevance_review"] = {
+                    "contract_version": relevance_review_queue["contract_version"],
+                    "queue_id": str(review_entry.get("queue_id") or "").strip(),
+                    "reason_codes": list(review_entry.get("reason_codes") or []),
+                    "auto_accept_allowed": False,
+                    "auto_ingest_allowed": False,
+                    "review_completed": False,
+                }
             ok = append_url(
                 url=u,
                 source=pool_source,
@@ -1471,6 +1499,17 @@ def unified_search_by_item_payload(
             from ..projects import bind_project
 
             ingest_candidates = [u for u in candidates if u not in history_pool_urls]
+            review_blocked = [u for u in ingest_candidates if u in review_entries_by_url]
+            if review_blocked:
+                errors.append(
+                    {
+                        "phase": "auto_ingest",
+                        "error": "relevance_review_required_auto_ingest_skipped",
+                        "error_class": "relevance_review_required",
+                        "skipped_count": str(len(review_blocked)),
+                    }
+                )
+            ingest_candidates = [u for u in ingest_candidates if u not in review_entries_by_url]
             ingest_candidates = ingest_candidates[: max(1, min(int(ingest_limit), len(ingest_candidates)))]
             with bind_project(project_key):
                 # Auto-ingest should consume current-run candidates directly, instead of
@@ -1502,4 +1541,5 @@ def unified_search_by_item_payload(
         written=written,
         ingest_result=ingest_result,
         errors=errors,
+        relevance_review_queue=relevance_review_queue,
     )

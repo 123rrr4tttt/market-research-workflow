@@ -35,6 +35,8 @@ from .orchestrators import (
     run_site_search_orchestrator,
     run_url_execution_orchestrator,
 )
+from .relevance_review import annotate_records_with_relevance_review_queue
+from .relevance_review import merge_relevance_review_queues
 from .loader import load_project_library_files
 from .runner import run_channel
 from .types import (
@@ -1873,6 +1875,7 @@ def _run_handler_cluster_item(
     benign_markers = {"url_term_filter_empty_fallback_used", "url_term_filter_empty_no_fallback"}
     merged_site_entries: list[dict[str, Any]] = []
     merged_runtime_diagnostics: list[dict[str, Any]] = []
+    merged_review_queues: list[dict[str, Any]] = []
     seen_entry: set[str] = set()
     seen_runtime: set[str] = set()
     merged_candidates: list[str] = []
@@ -1896,6 +1899,9 @@ def _run_handler_cluster_item(
             if key and key not in seen_runtime:
                 seen_runtime.add(key)
                 merged_runtime_diagnostics.append(diag)
+        review_queue = getattr(us, "relevance_review_queue", None)
+        if isinstance(review_queue, dict):
+            merged_review_queues.append(review_queue)
         for u in (us.candidates or []):
             s = str(u or "").strip()
             if s and s not in seen_cand:
@@ -2003,6 +2009,17 @@ def _run_handler_cluster_item(
             for idx, url in enumerate(merged_candidates)
             if str(url or "").strip()
         ]
+    relevance_review_queue = merge_relevance_review_queues(
+        merged_review_queues,
+        project_key=project_key,
+        item_key=str(item.get("item_key") or ""),
+        query_terms=q,
+        source_surface="source_library.handler_cluster_frontdoor",
+    )
+    result_records = annotate_records_with_relevance_review_queue(
+        list(result_records),
+        relevance_review_queue,
+    )
     result_stats = {
         "fetched": len(merged_candidates),
         "normalized": len(result_records),
@@ -2069,6 +2086,14 @@ def _run_handler_cluster_item(
             "slow_lane_deferred_count": slow_lane_deferred_count,
             "slow_lane_reasons": slow_lane_reasons,
         },
+        "relevance_review": {
+            "contract_version": relevance_review_queue["contract_version"],
+            "queue_state": relevance_review_queue["queue_state"],
+            "queued_count": relevance_review_queue["summary"]["queued_count"],
+            "fail_closed": relevance_review_queue["summary"]["fail_closed"],
+            "claims_human_relevance_review_complete": False,
+            "claims_live_public_replay_complete": False,
+        },
         "detail_fetch": {
             "enabled": bool(merged_candidates),
             "fetch_target_count": len(merged_candidates),
@@ -2096,6 +2121,7 @@ def _run_handler_cluster_item(
             "candidates": merged_candidates,
             "records": result_records,
             "stats": result_stats,
+            "relevance_review_queue": relevance_review_queue,
             "candidate_pipeline": candidate_pipeline,
             "single_write_workflow": protocol.write_mode,
             "channels_used": routed_summary["channels_used"],
