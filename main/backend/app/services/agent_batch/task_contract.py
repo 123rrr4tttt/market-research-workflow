@@ -5,6 +5,7 @@ from typing import Any
 
 AGENT_BATCH_TASK_MANIFEST_VERSION = "agent_batch.task_manifest.v1"
 AGENT_BATCH_SEARCH_POLICY_CONTRACT_VERSION = "agent_batch.search_policy.v1"
+AGENT_BATCH_SEARCH_QUALITY_REPLAY_CONTRACT_VERSION = "agent_batch.search_quality_replay.v1"
 
 _TASK_OPTIONAL_KEYS = [
     "task_id",
@@ -164,6 +165,52 @@ _SEARCH_CRITIC_SCHEMA = {
         "retry_with_source_library",
         "retry_with_time_shift",
         "stop",
+    ],
+}
+
+_SEARCH_QUALITY_REPLAY_SCHEMA = {
+    "contract_version": AGENT_BATCH_SEARCH_QUALITY_REPLAY_CONTRACT_VERSION,
+    "artifact": "search_quality_replay",
+    "scope": "deterministic_no_network_symbolic_search_quality_replay",
+    "required_keys": [
+        "scope",
+        "score",
+        "coverage",
+        "source_quality_signals",
+        "live_provider_gap_state",
+    ],
+    "source_quality_signal_required_keys": [
+        "record_id",
+        "domain",
+        "channel",
+        "provider",
+        "provider_trace_state",
+        "provider_live_verified",
+        "axis_hits",
+        "freshness_fit",
+        "domain_relevance",
+        "source_quality_score",
+    ],
+    "coverage_keys": [
+        "entity_coverage",
+        "source_diversity",
+        "freshness_fit",
+        "goal_alignment",
+        "novelty_gain",
+        "source_quality",
+    ],
+    "live_provider_gap_required_keys": [
+        "status",
+        "live_provider_probe_performed",
+        "providers_not_started",
+        "quality_claim_allowed",
+        "reason",
+    ],
+    "benchmark_uplift_required_keys": [
+        "average_baseline_score",
+        "average_retry_score",
+        "average_uplift",
+        "false_positive_retry_rate",
     ],
 }
 
@@ -356,6 +403,10 @@ def build_search_critic_schema() -> dict[str, Any]:
     return deepcopy(_SEARCH_CRITIC_SCHEMA)
 
 
+def build_search_quality_replay_schema() -> dict[str, Any]:
+    return deepcopy(_SEARCH_QUALITY_REPLAY_SCHEMA)
+
+
 def build_retry_action_schema() -> dict[str, Any]:
     return deepcopy(_RETRY_ACTION_SCHEMA)
 
@@ -482,6 +533,7 @@ def build_search_policy_contract() -> dict[str, Any]:
         "contract_version": AGENT_BATCH_SEARCH_POLICY_CONTRACT_VERSION,
         "search_brief": build_search_brief_schema(),
         "search_critic": build_search_critic_schema(),
+        "quality_replay": build_search_quality_replay_schema(),
         "retry_action": build_retry_action_schema(),
         "rewrite_eligible_fields_by_channel": get_rewrite_eligible_fields_by_channel(),
         "defaults": get_search_policy_defaults(),
