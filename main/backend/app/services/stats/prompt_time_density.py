@@ -217,6 +217,7 @@ def _persist_policy_decision_logs(
                     "peak_pressure": float(row.get("peak_pressure") or 0.0),
                     "latent_density_score": float(row.get("latent_density_score") or 0.0),
                     "target_overlap": float(row.get("target_overlap") or 0.0),
+                    "target_overlap_gap": float(row.get("target_overlap_gap") or 0.0),
                     "collection_priority_score": float(row.get("collection_priority_score") or 0.0),
                 },
             )
@@ -288,6 +289,8 @@ def build_policy_decision_trace(
     peak_pressure: float,
     latent_density: float,
     overlap: float,
+    target_overlap: float | None = None,
+    target_overlap_gap: float | None = None,
     freshness_cost: float,
     shift_signal: float,
     p_base: float,
@@ -302,6 +305,8 @@ def build_policy_decision_trace(
             "peak_pressure": peak_pressure,
             "latent_density": latent_density,
             "overlap": overlap,
+            "target_overlap": target_overlap,
+            "target_overlap_gap": target_overlap_gap,
             "freshness_cost": freshness_cost,
         },
         "shift_signal": shift_signal,
@@ -612,12 +617,15 @@ def query_prompt_time_density_priority(
             if overlap < min_overlap:
                 continue
             freshness_cost = min(1.0, float(window_days) / 365.0)
-            shift_signal = (0.40 * peak_pressure) + (0.20 * (1.0 - latent_density)) + (0.25 * (1.0 - overlap)) + (
+            target_overlap_gap = max(0.0, target_overlap - overlap)
+            shift_signal_base = (0.40 * peak_pressure) + (0.20 * (1.0 - latent_density)) + (0.25 * (1.0 - overlap)) + (
                 0.15 * freshness_cost
             )
+            shift_signal = min(1.0, shift_signal_base + (0.20 * target_overlap_gap))
             base_score = (0.6 * norm_density) + (0.3 * dup_ratio) + (0.1 * freshness_cost)
             if not prefer_low_density:
                 base_score = -base_score
+            base_score += 0.20 * target_overlap_gap
             per_window_rows[raw].append(
                 {
                     "source_domain": state["source_domain"],
@@ -630,6 +638,7 @@ def query_prompt_time_density_priority(
                     "peak_pressure": peak_pressure,
                     "latent_density_score": latent_density,
                     "vector_overlap": overlap,
+                    "target_overlap_gap": target_overlap_gap,
                     "shift_signal": shift_signal,
                     "offpeak_confidence": max(0.0, min(1.0, overlap * (1.0 - peak_pressure))),
                     "collection_priority_score": base_score,
@@ -663,6 +672,8 @@ def query_prompt_time_density_priority(
                 peak_pressure=float(item["peak_pressure"]),
                 latent_density=float(item["latent_density_score"]),
                 overlap=float(item["vector_overlap"]),
+                target_overlap=float(item["target_overlap"]),
+                target_overlap_gap=float(item["target_overlap_gap"]),
                 freshness_cost=float(item["freshness_penalty"]),
                 shift_signal=float(item["shift_signal"]),
                 p_base=float(item["p_base"]),
