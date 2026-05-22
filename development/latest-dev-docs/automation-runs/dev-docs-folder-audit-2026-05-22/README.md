@@ -10,6 +10,7 @@ Related execution plans:
 - [wave3-worktree-plan-2026-05-22.md](./wave3-worktree-plan-2026-05-22.md) - integrated Wave3 branch tree, supervisor reconciliation, and validation status.
 - [wave4-worktree-plan-2026-05-22.md](./wave4-worktree-plan-2026-05-22.md) - integrated Wave4 branch tree, supervisor reconciliation, and validation status.
 - [wave4-integration-risk-review-2026-05-22.md](./wave4-integration-risk-review-2026-05-22.md) - pre-merge risk review used as the Wave4 integration checklist.
+- [Clue Chain Wave5 worktree execution plan](../../development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md) - Wave5 branch plan tree and docs-status sync; code evidence remains pending until supervisor merge.
 
 ## Summary
 
