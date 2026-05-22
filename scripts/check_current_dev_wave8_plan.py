@@ -22,7 +22,8 @@ PLAN_PATH = Path(
 )
 BASE_BRANCH = "codex/devdocs-wave8-integration-2026-05-22"
 SUPPORT_BRANCH = "codex/devdocs-wave8-current-dev-audit"
-ALLOWED_RUN_BRANCHES = {BASE_BRANCH, SUPPORT_BRANCH}
+SUPERVISOR_BRANCH = "codex/devdocs-supervisor-seed"
+ALLOWED_RUN_BRANCHES = {BASE_BRANCH, SUPPORT_BRANCH, SUPERVISOR_BRANCH}
 
 EXPECTED_BRANCHES = [
     "codex/devdocs-wave8-crawler-external-closure",
