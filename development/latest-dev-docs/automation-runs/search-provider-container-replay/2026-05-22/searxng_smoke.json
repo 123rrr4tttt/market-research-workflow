@@ -1,0 +1,64 @@
+{
+  "provider": "searxng",
+  "base_url": "http://127.0.0.1:8088",
+  "query": "embodied ai",
+  "root_status": 200,
+  "search_status": 200,
+  "ok": true,
+  "result_count": 18,
+  "latency_ms": 783.93,
+  "error_type": null,
+  "error": null,
+  "results": [
+    {
+      "title": "What is Embodied AI? | NVIDIA Glossary",
+      "link": "https://www.nvidia.com/en-us/glossary/embodied-ai/",
+      "engine": "google"
+    },
+    {
+      "title": "Embodied AI: A Foundation for Intelligent and Autonomous Manufacturing ...",
+      "link": "https://www.sciencedirect.com/science/article/pii/S209580992500815X",
+      "engine": "google"
+    },
+    {
+      "title": "Embodied AI | Ai2",
+      "link": "https://allenai.org/embodied-ai",
+      "engine": "google"
+    },
+    {
+      "title": "[2509.20021] Embodied AI: From LLMs to World Models - arXiv.org",
+      "link": "https://arxiv.org/abs/2509.20021",
+      "engine": "duckduckgo"
+    },
+    {
+      "title": "Embodied AI",
+      "link": "https://embodiedai.ch/",
+      "engine": "google"
+    },
+    {
+      "title": "TianxingChen/Embodied-AI-Guide - GitHub",
+      "link": "https://github.com/tianxingchen/Embodied-AI-Guide",
+      "engine": "duckduckgo"
+    },
+    {
+      "title": "China's Embodied AI: A Path to AGI | Center for Security and Emerging ...",
+      "link": "https://cset.georgetown.edu/publication/chinas-embodied-ai-a-path-to-agi/",
+      "engine": "google"
+    },
+    {
+      "title": "What is embodied AI? How it powers autonomous systems",
+      "link": "https://www.techtarget.com/searchenterpriseai/definition/embodied-AI",
+      "engine": "duckduckgo"
+    },
+    {
+      "title": "Genesis-Embodied-AI/genesis-world: A generative world for ... - GitHub",
+      "link": "https://github.com/Genesis-Embodied-AI/genesis-world",
+      "engine": "google"
+    },
+    {
+      "title": "Embodied agent - Wikipedia",
+      "link": "https://en.wikipedia.org/wiki/Embodied_agent",
+      "engine": "duckduckgo"
+    }
+  ]
+}

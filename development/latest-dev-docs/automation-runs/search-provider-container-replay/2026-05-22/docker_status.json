@@ -1,0 +1,136 @@
+{
+  "compose_file": "ops/search-lab/docker-compose.yml",
+  "compose_ps": {
+    "cmd": [
+      "docker",
+      "compose",
+      "-f",
+      "ops/search-lab/docker-compose.yml",
+      "ps",
+      "--format",
+      "json"
+    ],
+    "returncode": 0,
+    "latency_ms": 494.25,
+    "stdout": "{\"Command\":\"\\\"/usr/local/searxng/…\\\"\",\"CreatedAt\":\"2026-05-21 21:15:18 -0700 PDT\",\"ExitCode\":0,\"Health\":\"\",\"ID\":\"b5d05bf69cc8\",\"Image\":\"searxng/searxng:latest\",\"Labels\":\"org.opencontainers.image.version=2026.5.13-8e5aa9d39,com.docker.compose.container-number=1,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab,desktop.docker.io/binds/0/Target=/etc/searxng,org.opencontainers.image.description=SearXNG is a metasearch engine. Users are neither tracked nor profiled.,org.opencontainers.image.revision=8e5aa9d3945cc3cf8ab65dfc60ae4b69d5e53cf8,com.docker.compose.oneoff=False,com.docker.compose.project=search-lab,com.docker.compose.version=5.0.2,desktop.docker.io/ports.scheme=v2,org.opencontainers.image.created=2026-05-13T12:00:48Z,com.docker.compose.config-hash=07244a35917ff91e4e21cc9a4fd60066d34e465231b351f215ff6de12c0773eb,com.docker.compose.image=sha256:e37c25170d9f5947b16713af33e0ab41f0e6e6e73685e19c30fc6bb63562f801,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/docker-compose.yml,desktop.docker.io/ports/8080/tcp=127.0.0.1:8088,org.opencontainers.image.source=https://github.com/searxng/searxng,org.opencontainers.image.title=SearXNG,org.opencontainers.image.url=https://searxng.org,com.docker.compose.depends_on=,com.docker.compose.service=searxng,desktop.docker.io/binds/0/Source=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/searxng,desktop.docker.io/binds/0/SourceKind=hostFile,org.opencontainers.image.documentation=https://docs.searxng.org/admin/installation-docker,org.opencontainers.image.licenses=AGPL-3.0-or-later\",\"LocalVolumes\":\"1\",\"Mounts\":\"/host_mnt/User…,search-lab_sea…\",\"Name\":\"mrw-search-lab-searxng\",\"Names\":\"mrw-search-lab-searxng\",\"Networks\":\"search-lab_default\",\"Ports\":\"127.0.0.1:8088-\\u003e8080/tcp\",\"Project\":\"search-lab\",\"Publishers\":[{\"URL\":\"127.0.0.1\",\"TargetPort\":8080,\"PublishedPort\":8088,\"Protocol\":\"tcp\"}],\"RunningFor\":\"About a minute ago\",\"Service\":\"searxng\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up About a minute\"}\n{\"Command\":\"\\\"/__cacert_entrypoin…\\\"\",\"CreatedAt\":\"2026-05-21 21:15:18 -0700 PDT\",\"ExitCode\":0,\"Health\":\"\",\"ID\":\"15719537464e\",\"Image\":\"yacy/yacy_search_server:latest\",\"Labels\":\"desktop.docker.io/ports.scheme=v2,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.project=search-lab,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/docker-compose.yml,com.docker.compose.version=5.0.2,org.opencontainers.image.description=Distributed Peer-to-Peer Web Search Engine and Intranet Search Appliance,com.docker.compose.image=sha256:798d4910211c7eebcf52e843448eadc981767f72039ce613ffed6e0f4a6ffc24,desktop.docker.io/binds/0/SourceKind=hostFile,desktop.docker.io/binds/0/Target=/opt/yacy_search_server/DATA,org.opencontainers.image.ref.name=ubuntu,org.opencontainers.image.title=yacy_search_server,com.docker.compose.oneoff=False,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab,desktop.docker.io/binds/0/Source=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/yacy/DATA,desktop.docker.io/ports/8090/tcp=127.0.0.1:8090,maintainer=Michael Peter Christen \\u003cmc@yacy.net\\u003e,org.opencontainers.image.revision=f9b0ced1af2e2c4af2904b43a0704b4be8101dbf,org.opencontainers.image.url=https://github.com/yacy/yacy_search_server,org.opencontainers.image.version=latest-ubuntu,com.docker.compose.config-hash=88c92923a5e3d40079d93fc3622c485102393faf5e535368a34f18e64c00a531,com.docker.compose.service=yacy,org.opencontainers.image.created=2026-04-21T09:15:06.092Z,org.opencontainers.image.licenses=NOASSERTION,org.opencontainers.image.source=https://github.com/yacy/yacy_search_server\",\"LocalVolumes\":\"0\",\"Mounts\":\"/host_mnt/User…\",\"Name\":\"mrw-search-lab-yacy\",\"Names\":\"mrw-search-lab-yacy\",\"Networks\":\"search-lab_default\",\"Ports\":\"127.0.0.1:8090-\\u003e8090/tcp\",\"Project\":\"search-lab\",\"Publishers\":[{\"URL\":\"127.0.0.1\",\"TargetPort\":8090,\"PublishedPort\":8090,\"Protocol\":\"tcp\"}],\"RunningFor\":\"About a minute ago\",\"Service\":\"yacy\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up About a minute\"}",
+    "stderr": "",
+    "ok": true,
+    "parsed": [
+      {
+        "Command": "\"/usr/local/searxng/…\"",
+        "CreatedAt": "2026-05-21 21:15:18 -0700 PDT",
+        "ExitCode": 0,
+        "Health": "",
+        "ID": "b5d05bf69cc8",
+        "Image": "searxng/searxng:latest",
+        "Labels": "org.opencontainers.image.version=2026.5.13-8e5aa9d39,com.docker.compose.container-number=1,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab,desktop.docker.io/binds/0/Target=/etc/searxng,org.opencontainers.image.description=SearXNG is a metasearch engine. Users are neither tracked nor profiled.,org.opencontainers.image.revision=8e5aa9d3945cc3cf8ab65dfc60ae4b69d5e53cf8,com.docker.compose.oneoff=False,com.docker.compose.project=search-lab,com.docker.compose.version=5.0.2,desktop.docker.io/ports.scheme=v2,org.opencontainers.image.created=2026-05-13T12:00:48Z,com.docker.compose.config-hash=07244a35917ff91e4e21cc9a4fd60066d34e465231b351f215ff6de12c0773eb,com.docker.compose.image=sha256:e37c25170d9f5947b16713af33e0ab41f0e6e6e73685e19c30fc6bb63562f801,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/docker-compose.yml,desktop.docker.io/ports/8080/tcp=127.0.0.1:8088,org.opencontainers.image.source=https://github.com/searxng/searxng,org.opencontainers.image.title=SearXNG,org.opencontainers.image.url=https://searxng.org,com.docker.compose.depends_on=,com.docker.compose.service=searxng,desktop.docker.io/binds/0/Source=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/searxng,desktop.docker.io/binds/0/SourceKind=hostFile,org.opencontainers.image.documentation=https://docs.searxng.org/admin/installation-docker,org.opencontainers.image.licenses=AGPL-3.0-or-later",
+        "LocalVolumes": "1",
+        "Mounts": "/host_mnt/User…,search-lab_sea…",
+        "Name": "mrw-search-lab-searxng",
+        "Names": "mrw-search-lab-searxng",
+        "Networks": "search-lab_default",
+        "Ports": "127.0.0.1:8088->8080/tcp",
+        "Project": "search-lab",
+        "Publishers": [
+          {
+            "URL": "127.0.0.1",
+            "TargetPort": 8080,
+            "PublishedPort": 8088,
+            "Protocol": "tcp"
+          }
+        ],
+        "RunningFor": "About a minute ago",
+        "Service": "searxng",
+        "Size": "0B",
+        "State": "running",
+        "Status": "Up About a minute"
+      },
+      {
+        "Command": "\"/__cacert_entrypoin…\"",
+        "CreatedAt": "2026-05-21 21:15:18 -0700 PDT",
+        "ExitCode": 0,
+        "Health": "",
+        "ID": "15719537464e",
+        "Image": "yacy/yacy_search_server:latest",
+        "Labels": "desktop.docker.io/ports.scheme=v2,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.project=search-lab,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/docker-compose.yml,com.docker.compose.version=5.0.2,org.opencontainers.image.description=Distributed Peer-to-Peer Web Search Engine and Intranet Search Appliance,com.docker.compose.image=sha256:798d4910211c7eebcf52e843448eadc981767f72039ce613ffed6e0f4a6ffc24,desktop.docker.io/binds/0/SourceKind=hostFile,desktop.docker.io/binds/0/Target=/opt/yacy_search_server/DATA,org.opencontainers.image.ref.name=ubuntu,org.opencontainers.image.title=yacy_search_server,com.docker.compose.oneoff=False,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab,desktop.docker.io/binds/0/Source=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/yacy/DATA,desktop.docker.io/ports/8090/tcp=127.0.0.1:8090,maintainer=Michael Peter Christen <mc@yacy.net>,org.opencontainers.image.revision=f9b0ced1af2e2c4af2904b43a0704b4be8101dbf,org.opencontainers.image.url=https://github.com/yacy/yacy_search_server,org.opencontainers.image.version=latest-ubuntu,com.docker.compose.config-hash=88c92923a5e3d40079d93fc3622c485102393faf5e535368a34f18e64c00a531,com.docker.compose.service=yacy,org.opencontainers.image.created=2026-04-21T09:15:06.092Z,org.opencontainers.image.licenses=NOASSERTION,org.opencontainers.image.source=https://github.com/yacy/yacy_search_server",
+        "LocalVolumes": "0",
+        "Mounts": "/host_mnt/User…",
+        "Name": "mrw-search-lab-yacy",
+        "Names": "mrw-search-lab-yacy",
+        "Networks": "search-lab_default",
+        "Ports": "127.0.0.1:8090->8090/tcp",
+        "Project": "search-lab",
+        "Publishers": [
+          {
+            "URL": "127.0.0.1",
+            "TargetPort": 8090,
+            "PublishedPort": 8090,
+            "Protocol": "tcp"
+          }
+        ],
+        "RunningFor": "About a minute ago",
+        "Service": "yacy",
+        "Size": "0B",
+        "State": "running",
+        "Status": "Up About a minute"
+      }
+    ]
+  },
+  "container_ps": {
+    "cmd": [
+      "docker",
+      "ps",
+      "--filter",
+      "name=mrw-search-lab-",
+      "--format",
+      "{{json .}}"
+    ],
+    "returncode": 0,
+    "latency_ms": 211.48,
+    "stdout": "{\"Command\":\"\\\"/__cacert_entrypoin…\\\"\",\"CreatedAt\":\"2026-05-21 21:15:18 -0700 PDT\",\"ID\":\"15719537464e\",\"Image\":\"yacy/yacy_search_server:latest\",\"Labels\":\"com.docker.compose.config-hash=88c92923a5e3d40079d93fc3622c485102393faf5e535368a34f18e64c00a531,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:798d4910211c7eebcf52e843448eadc981767f72039ce613ffed6e0f4a6ffc24,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/docker-compose.yml,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab,com.docker.compose.project=search-lab,com.docker.compose.service=yacy,com.docker.compose.version=5.0.2,desktop.docker.io/binds/0/Source=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/yacy/DATA,desktop.docker.io/binds/0/SourceKind=hostFile,desktop.docker.io/binds/0/Target=/opt/yacy_search_server/DATA,desktop.docker.io/ports.scheme=v2,desktop.docker.io/ports/8090/tcp=127.0.0.1:8090,maintainer=Michael Peter Christen \\u003cmc@yacy.net\\u003e,org.opencontainers.image.created=2026-04-21T09:15:06.092Z,org.opencontainers.image.description=Distributed Peer-to-Peer Web Search Engine and Intranet Search Appliance,org.opencontainers.image.licenses=NOASSERTION,org.opencontainers.image.ref.name=ubuntu,org.opencontainers.image.revision=f9b0ced1af2e2c4af2904b43a0704b4be8101dbf,org.opencontainers.image.source=https://github.com/yacy/yacy_search_server,org.opencontainers.image.title=yacy_search_server,org.opencontainers.image.url=https://github.com/yacy/yacy_search_server,org.opencontainers.image.version=latest-ubuntu\",\"LocalVolumes\":\"0\",\"Mounts\":\"/host_mnt/User…\",\"Names\":\"mrw-search-lab-yacy\",\"Networks\":\"search-lab_default\",\"Platform\":{\"architecture\":\"arm64\",\"os\":\"linux\"},\"Ports\":\"127.0.0.1:8090-\\u003e8090/tcp\",\"RunningFor\":\"About a minute ago\",\"Size\":\"53.2kB (virtual 1.07GB)\",\"State\":\"running\",\"Status\":\"Up About a minute\"}\n{\"Command\":\"\\\"/usr/local/searxng/…\\\"\",\"CreatedAt\":\"2026-05-21 21:15:18 -0700 PDT\",\"ID\":\"b5d05bf69cc8\",\"Image\":\"searxng/searxng:latest\",\"Labels\":\"com.docker.compose.config-hash=07244a35917ff91e4e21cc9a4fd60066d34e465231b351f215ff6de12c0773eb,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:e37c25170d9f5947b16713af33e0ab41f0e6e6e73685e19c30fc6bb63562f801,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/docker-compose.yml,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab,com.docker.compose.project=search-lab,com.docker.compose.service=searxng,com.docker.compose.version=5.0.2,desktop.docker.io/binds/0/Source=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/searxng,desktop.docker.io/binds/0/SourceKind=hostFile,desktop.docker.io/binds/0/Target=/etc/searxng,desktop.docker.io/ports.scheme=v2,desktop.docker.io/ports/8080/tcp=127.0.0.1:8088,org.opencontainers.image.created=2026-05-13T12:00:48Z,org.opencontainers.image.description=SearXNG is a metasearch engine. Users are neither tracked nor profiled.,org.opencontainers.image.documentation=https://docs.searxng.org/admin/installation-docker,org.opencontainers.image.licenses=AGPL-3.0-or-later,org.opencontainers.image.revision=8e5aa9d3945cc3cf8ab65dfc60ae4b69d5e53cf8,org.opencontainers.image.source=https://github.com/searxng/searxng,org.opencontainers.image.title=SearXNG,org.opencontainers.image.url=https://searxng.org,org.opencontainers.image.version=2026.5.13-8e5aa9d39\",\"LocalVolumes\":\"1\",\"Mounts\":\"/host_mnt/User…,search-lab_sea…\",\"Names\":\"mrw-search-lab-searxng\",\"Networks\":\"search-lab_default\",\"Platform\":{\"architecture\":\"arm64\",\"os\":\"linux\"},\"Ports\":\"127.0.0.1:8088-\\u003e8080/tcp\",\"RunningFor\":\"About a minute ago\",\"Size\":\"524kB (virtual 275MB)\",\"State\":\"running\",\"Status\":\"Up About a minute\"}",
+    "stderr": "",
+    "ok": true,
+    "parsed": [
+      {
+        "Command": "\"/__cacert_entrypoin…\"",
+        "CreatedAt": "2026-05-21 21:15:18 -0700 PDT",
+        "ID": "15719537464e",
+        "Image": "yacy/yacy_search_server:latest",
+        "Labels": "com.docker.compose.config-hash=88c92923a5e3d40079d93fc3622c485102393faf5e535368a34f18e64c00a531,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:798d4910211c7eebcf52e843448eadc981767f72039ce613ffed6e0f4a6ffc24,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/docker-compose.yml,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab,com.docker.compose.project=search-lab,com.docker.compose.service=yacy,com.docker.compose.version=5.0.2,desktop.docker.io/binds/0/Source=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/yacy/DATA,desktop.docker.io/binds/0/SourceKind=hostFile,desktop.docker.io/binds/0/Target=/opt/yacy_search_server/DATA,desktop.docker.io/ports.scheme=v2,desktop.docker.io/ports/8090/tcp=127.0.0.1:8090,maintainer=Michael Peter Christen <mc@yacy.net>,org.opencontainers.image.created=2026-04-21T09:15:06.092Z,org.opencontainers.image.description=Distributed Peer-to-Peer Web Search Engine and Intranet Search Appliance,org.opencontainers.image.licenses=NOASSERTION,org.opencontainers.image.ref.name=ubuntu,org.opencontainers.image.revision=f9b0ced1af2e2c4af2904b43a0704b4be8101dbf,org.opencontainers.image.source=https://github.com/yacy/yacy_search_server,org.opencontainers.image.title=yacy_search_server,org.opencontainers.image.url=https://github.com/yacy/yacy_search_server,org.opencontainers.image.version=latest-ubuntu",
+        "LocalVolumes": "0",
+        "Mounts": "/host_mnt/User…",
+        "Names": "mrw-search-lab-yacy",
+        "Networks": "search-lab_default",
+        "Platform": {
+          "architecture": "arm64",
+          "os": "linux"
+        },
+        "Ports": "127.0.0.1:8090->8090/tcp",
+        "RunningFor": "About a minute ago",
+        "Size": "53.2kB (virtual 1.07GB)",
+        "State": "running",
+        "Status": "Up About a minute"
+      },
+      {
+        "Command": "\"/usr/local/searxng/…\"",
+        "CreatedAt": "2026-05-21 21:15:18 -0700 PDT",
+        "ID": "b5d05bf69cc8",
+        "Image": "searxng/searxng:latest",
+        "Labels": "com.docker.compose.config-hash=07244a35917ff91e4e21cc9a4fd60066d34e465231b351f215ff6de12c0773eb,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:e37c25170d9f5947b16713af33e0ab41f0e6e6e73685e19c30fc6bb63562f801,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/docker-compose.yml,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab,com.docker.compose.project=search-lab,com.docker.compose.service=searxng,com.docker.compose.version=5.0.2,desktop.docker.io/binds/0/Source=/Users/wangyiliang/market-research-workflow.worktrees/search-provider-container-replay/ops/search-lab/searxng,desktop.docker.io/binds/0/SourceKind=hostFile,desktop.docker.io/binds/0/Target=/etc/searxng,desktop.docker.io/ports.scheme=v2,desktop.docker.io/ports/8080/tcp=127.0.0.1:8088,org.opencontainers.image.created=2026-05-13T12:00:48Z,org.opencontainers.image.description=SearXNG is a metasearch engine. Users are neither tracked nor profiled.,org.opencontainers.image.documentation=https://docs.searxng.org/admin/installation-docker,org.opencontainers.image.licenses=AGPL-3.0-or-later,org.opencontainers.image.revision=8e5aa9d3945cc3cf8ab65dfc60ae4b69d5e53cf8,org.opencontainers.image.source=https://github.com/searxng/searxng,org.opencontainers.image.title=SearXNG,org.opencontainers.image.url=https://searxng.org,org.opencontainers.image.version=2026.5.13-8e5aa9d39",
+        "LocalVolumes": "1",
+        "Mounts": "/host_mnt/User…,search-lab_sea…",
+        "Names": "mrw-search-lab-searxng",
+        "Networks": "search-lab_default",
+        "Platform": {
+          "architecture": "arm64",
+          "os": "linux"
+        },
+        "Ports": "127.0.0.1:8088->8080/tcp",
+        "RunningFor": "About a minute ago",
+        "Size": "524kB (virtual 275MB)",
+        "State": "running",
+        "Status": "Up About a minute"
+      }
+    ]
+  }
+}

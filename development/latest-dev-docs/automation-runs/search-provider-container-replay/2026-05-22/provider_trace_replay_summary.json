@@ -1,0 +1,22 @@
+{
+  "out_dir": "development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22",
+  "ok": true,
+  "rows": 2,
+  "passed_rows": 2,
+  "failed_rows": 0,
+  "env": {
+    "SEARXNG_BASE_URL": "http://127.0.0.1:8088",
+    "YACY_BASE_URL": "http://127.0.0.1:8090",
+    "YACY_RESOURCE_MODE": "local",
+    "SEARXNG_MAX_PAGES": "5",
+    "PYTHONPATH_NOTE": "script prepends main/backend to sys.path"
+  },
+  "docker_compose_ok": true,
+  "docker_container_count": 2,
+  "commands": [
+    "docker compose -f ops/search-lab/docker-compose.yml up -d searxng yacy",
+    "SEARCH_LAB_OUT_DIR=development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22 bash ops/search-lab/scripts/smoke_searxng.sh",
+    "SEARCH_LAB_OUT_DIR=development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22 YACY_ADMIN_USER=admin YACY_ADMIN_PASSWORD=\"${YACY_ADMIN_PASSWORD:-mrwlabpass}\" bash ops/search-lab/scripts/smoke_yacy.sh",
+    "SEARXNG_BASE_URL=http://127.0.0.1:8088 YACY_BASE_URL=http://127.0.0.1:8090 YACY_RESOURCE_MODE=local main/backend/.venv311/bin/python ops/search-lab/scripts/replay_provider_trace.py --out-dir development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22"
+  ]
+}
