@@ -129,6 +129,48 @@ class AgentCoreUnitTest(unittest.TestCase):
         second_transcript = provider.calls[1]["transcript"]
         self.assertEqual(second_transcript[-1]["tool_result"]["tool_name"], "project.summary.read")
 
+    def test_tool_registry_schema_inventory_is_deterministic_and_schema_complete(self):
+        registry = self._registry()
+        registry.register(
+            CoreToolSpec(
+                name="write.note",
+                description_for_model="Write a shared note.",
+                input_schema={
+                    "type": "object",
+                    "properties": {"body": {"type": "string"}},
+                    "required": ["body"],
+                    "additionalProperties": False,
+                },
+                output_schema={"type": "object", "properties": {"note_id": {"type": "string"}}},
+                source="project",
+                risk="write_shared",
+                permission="ask",
+                concurrency="serial",
+            ),
+            lambda tool_call, tool_spec, request, emit: registry.simple_result(call=tool_call, model_summary="ok"),
+        )
+        registry.register(
+            CoreToolSpec(
+                name="read.project",
+                description_for_model="Read project data.",
+                input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+                source="project",
+                risk="read_only",
+                permission="allow",
+            ),
+            lambda tool_call, tool_spec, request, emit: registry.simple_result(call=tool_call, model_summary="ok"),
+        )
+
+        inventory = registry.schema_inventory()
+
+        self.assertEqual(inventory["contract_version"], "agent_core.tool_schema_inventory.v1")
+        self.assertEqual(inventory["tool_count"], 2)
+        self.assertEqual([tool["name"] for tool in inventory["tools"]], ["read.project", "write.note"])
+        self.assertEqual(inventory["summary"]["by_permission"], {"allow": 1, "ask": 1})
+        self.assertEqual(inventory["summary"]["by_risk"], {"read_only": 1, "write_shared": 1})
+        self.assertEqual(inventory["tools"][0]["input_schema"]["type"], "object")
+        self.assertIn("output_schema", inventory["tools"][0])
+
     def test_insubstantial_final_answer_after_tools_is_replaced_with_tool_summary(self):
         registry = self._registry()
         spec = CoreToolSpec(

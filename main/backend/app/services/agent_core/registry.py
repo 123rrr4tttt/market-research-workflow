@@ -7,6 +7,7 @@ from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolExecut
 
 
 ToolHandler = Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]
+TOOL_SCHEMA_INVENTORY_CONTRACT_VERSION = "agent_core.tool_schema_inventory.v1"
 
 
 class CoreToolRegistry(CoreToolExecutor):
@@ -33,6 +34,21 @@ class CoreToolRegistry(CoreToolExecutor):
 
     def list_specs(self) -> list[CoreToolSpec]:
         return [self._specs[name] for name in sorted(self._specs)]
+
+    def schema_inventory(self) -> dict[str, Any]:
+        specs = self.list_specs()
+        tools = [spec.to_dict() for spec in specs]
+        return {
+            "contract_version": TOOL_SCHEMA_INVENTORY_CONTRACT_VERSION,
+            "tool_count": len(tools),
+            "summary": {
+                "by_source": _count_by(tools, "source"),
+                "by_risk": _count_by(tools, "risk"),
+                "by_permission": _count_by(tools, "permission"),
+                "by_concurrency": _count_by(tools, "concurrency"),
+            },
+            "tools": tools,
+        }
 
     def execute_tool(
         self,
@@ -70,3 +86,11 @@ class CoreToolRegistry(CoreToolExecutor):
             model_summary=model_summary,
             structured_content=dict(structured_content or {}),
         )
+
+
+def _count_by(items: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        value = str(item.get(key) or "unknown").strip() or "unknown"
+        counts[value] = counts.get(value, 0) + 1
+    return {name: counts[name] for name in sorted(counts)}
