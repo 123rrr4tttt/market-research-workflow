@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from ..schema import LocalIndexChunk, LocalIndexQuery, LocalIndexSearchResult
+from ..schema import LocalIndexChunk, LocalIndexQuery, LocalIndexSearchResult, normalize_local_index_mode
 
 
 def is_lancedb_available() -> bool:
@@ -55,23 +55,48 @@ class LanceDBLocalIndexAdapter:
     def search(self, query: LocalIndexQuery) -> list[LocalIndexSearchResult]:
         if self._table is None:
             return []
+        mode = normalize_local_index_mode(query.mode)
         predicate = f"project_id = '{_escape_lancedb_literal(query.project_id)}'"
         if query.source_id:
             predicate += f" AND source_id = '{_escape_lancedb_literal(query.source_id)}'"
-        rows = (
-            self._table.search(query.query, query_type="fts")
-            .where(predicate)
-            .limit(max(1, min(50, int(query.top_k or 10))))
-            .to_list()
-        )
-        return [_result_from_record(row) for row in rows]
+        limit = max(1, min(50, int(query.top_k or 10)))
+        executed_mode = mode
+        trace: dict[str, Any] = {
+            "adapter": "lancedb",
+            "requested_mode": mode,
+            "executed_mode": mode,
+            "query_family": "local_material",
+        }
+        try:
+            rows = _search_rows(self._table, query=query, predicate=predicate, limit=limit, mode=mode)
+        except (RuntimeError, TypeError, ValueError) as exc:
+            if mode == "keyword":
+                raise
+            executed_mode = "keyword"
+            trace["executed_mode"] = executed_mode
+            trace["fallback_from"] = mode
+            trace["fallback_reason"] = exc.__class__.__name__
+            rows = _search_rows(self._table, query=query, predicate=predicate, limit=limit, mode=executed_mode)
+        return [_result_from_record(row, retrieval_mode=executed_mode, trace=trace) for row in rows]
 
 
 def _escape_lancedb_literal(value: str) -> str:
     return str(value or "").replace("'", "''")
 
 
-def _result_from_record(row: dict[str, Any]) -> LocalIndexSearchResult:
+def _search_rows(table: Any, *, query: LocalIndexQuery, predicate: str, limit: int, mode: str) -> list[dict[str, Any]]:
+    if mode == "keyword":
+        builder = table.search(query.query, query_type="fts")
+    elif mode == "vector":
+        builder = table.search(_deterministic_vector(query.query))
+    elif mode == "hybrid":
+        builder = table.search(query.query, query_type="hybrid")
+    else:
+        builder = table.search(query.query, query_type="fts")
+    return builder.where(predicate).limit(limit).to_list()
+
+
+def _result_from_record(row: dict[str, Any], *, retrieval_mode: str, trace: dict[str, Any]) -> LocalIndexSearchResult:
     return LocalIndexSearchResult(
         chunk_id=str(row.get("chunk_id") or ""),
         document_id=str(row.get("document_id") or ""),
@@ -83,4 +108,7 @@ def _result_from_record(row: dict[str, Any]) -> LocalIndexSearchResult:
         url=str(row.get("url") or "") or None,
         source_type=str(row.get("source_type") or "material"),
         metadata={"adapter": "lancedb"},
+        retrieval_mode=retrieval_mode,
+        retrieval_family="local_index",
+        trace=dict(trace or {}),
     )

@@ -89,6 +89,13 @@ local open search provider isolation 线继续负责：
 - 不把 FTS prototype 宣称为 vector/hybrid 已完成。
 - 新增 vector/hybrid 前，先补 `test_local_index_service_unittest.py` 或新增 contract test 覆盖 optional dependency、keyword/vector/hybrid mode、project/source/document filters。
 
+## 2026-05-22 lane 9 落地状态
+
+- 已落地 `local_index` mode contract：`keyword|vector|hybrid` 合法值、service 规范化、LanceDB adapter mode dispatch。
+- 已补 `test_local_index_service_unittest.py` 覆盖 optional dependency boundary、service mode normalization、adapter keyword/vector/hybrid dispatch 和 vector fallback。
+- 已为 result contract 增加 `retrieval_mode/retrieval_family/trace`，避免只在 metadata 中隐式表达检索语义。
+- 当前 lane 环境 `lancedb_available=False`，真实 LanceDB optional runtime smoke 未执行；这仍是后续验证项，不应把 fake-table dispatch 单测等同于真实 LanceDB runtime 完成。
+
 ## 4. 本次不做
 
 本文件只完成归属定位，不实施：

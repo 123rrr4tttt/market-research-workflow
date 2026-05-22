@@ -3,6 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+LOCAL_INDEX_QUERY_MODES = {"keyword", "vector", "hybrid"}
+
+
+def normalize_local_index_mode(mode: str | None) -> str:
+    normalized = str(mode or "keyword").strip().lower()
+    return normalized if normalized in LOCAL_INDEX_QUERY_MODES else "keyword"
+
 
 @dataclass(frozen=True)
 class LocalIndexChunk:
@@ -57,6 +64,9 @@ class LocalIndexSearchResult:
     url: str | None = None
     source_type: str = "material"
     metadata: dict[str, Any] = field(default_factory=dict)
+    retrieval_mode: str = "keyword"
+    retrieval_family: str = "local_index"
+    trace: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -70,4 +80,7 @@ class LocalIndexSearchResult:
             "url": self.url,
             "source_type": self.source_type,
             "metadata": dict(self.metadata or {}),
+            "retrieval_mode": self.retrieval_mode,
+            "retrieval_family": self.retrieval_family,
+            "trace": dict(self.trace or {}),
         }
