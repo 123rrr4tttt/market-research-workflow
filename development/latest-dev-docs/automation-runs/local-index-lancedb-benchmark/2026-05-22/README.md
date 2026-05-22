@@ -1,10 +1,10 @@
 # LanceDB Local Index Benchmark Quality
 
 - status: `passed`
-- generated_at: `2026-05-22T04:49:39.068203+00:00`
+- generated_at: `2026-05-22T05:00:19.723034+00:00`
 - lancedb: `0.24.2`
 - pyarrow: `24.0.0`
-- db_path: `/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-benchmark-ytr9s5cf`
+- db_path: `/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-benchmark-_fqnh5p1`
 
 ## Scope
 
@@ -14,9 +14,9 @@ This is a controlled LanceDB benchmark-quality gate for the optional `local_inde
 
 | mode | case | passed | expected_top_order | stable_top_order | latency_ms_by_repeat |
 |---|---|---:|---|---|---|
-| keyword | keyword_source_top2 | True | kw-primary, kw-secondary | kw-primary, kw-secondary | 46.23, 6.05, 10.38 |
-| vector | vector_source_top2 | True | vec-primary, vec-secondary | vec-primary, vec-secondary | 17.84, 6.97, 6.95 |
-| hybrid | hybrid_source_top2 | True | hybrid-primary, hybrid-secondary | hybrid-primary, hybrid-secondary | 44.66, 21.63, 19.25 |
+| keyword | keyword_source_top2 | True | kw-primary, kw-secondary | kw-primary, kw-secondary | 34.9, 5.86, 4.31 |
+| vector | vector_source_top2 | True | vec-primary, vec-secondary | vec-primary, vec-secondary | 12.36, 4.67, 4.47 |
+| hybrid | hybrid_source_top2 | True | hybrid-primary, hybrid-secondary | hybrid-primary, hybrid-secondary | 23.21, 7.73, 8.57 |
 
 ## Filter Guards
 
