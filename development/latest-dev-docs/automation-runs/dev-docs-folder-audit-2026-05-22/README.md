@@ -1,6 +1,6 @@
 # Development Docs Folder Audit And Landing Report
 
-Run date: 2026-05-22 PST  
+Run date: 2026-05-22 PST
 Scope: `development/latest-dev-docs`, with emphasis on folder status, stale/current closure state, and development-plan landing candidates.
 
 Related execution plan: [worktree-branch-plan.md](./worktree-branch-plan.md).

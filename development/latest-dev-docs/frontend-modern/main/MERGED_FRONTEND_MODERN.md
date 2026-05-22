@@ -1,7 +1,7 @@
 # Frontend Modern Merged Current-State Document
 
-> Updated: 2026-05-22 (US/Pacific)  
-> Scope: `main/frontend-modern` README, package scripts, Storybook configuration, and Playwright E2E layout.  
+> Updated: 2026-05-22 (US/Pacific)
+> Scope: `main/frontend-modern` README, package scripts, Storybook configuration, and Playwright E2E layout.
 > Write boundary: documentation index only; no frontend source files were changed in this lane.
 
 ## 1. Canonical App Surface

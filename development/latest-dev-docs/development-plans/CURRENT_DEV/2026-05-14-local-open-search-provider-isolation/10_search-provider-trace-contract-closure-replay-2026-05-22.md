@@ -1,6 +1,6 @@
 # Search Provider Trace Contract Closure Replay
 
-日期：2026-05-22 PST  
+日期：2026-05-22 PST
 状态：已落地最小兼容补丁并通过 lane 10 验证
 
 ## 1. 目标

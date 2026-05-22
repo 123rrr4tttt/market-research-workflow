@@ -1,7 +1,7 @@
 # Dev Docs Lane 9 Local Index Runtime Evidence
 
-日期：2026-05-22 PST  
-分支：`codex/devdocs-local-index-runtime`  
+日期：2026-05-22 PST
+分支：`codex/devdocs-local-index-runtime`
 工作树：`/Users/wangyiliang/market-research-workflow.worktrees/local-index-runtime`
 
 ## 目标

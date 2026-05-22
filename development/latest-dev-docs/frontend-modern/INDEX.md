@@ -1,6 +1,6 @@
 # Frontend Modern Docs Index
 
-> Last updated: 2026-05-22 (US/Pacific)  
+> Last updated: 2026-05-22 (US/Pacific)
 > Entry rule: `main/` is the canonical entry surface. Supporting or historical materials stay in archive category directories.
 
 ## Main Entry

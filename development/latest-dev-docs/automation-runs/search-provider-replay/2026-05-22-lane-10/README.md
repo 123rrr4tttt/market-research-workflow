@@ -1,7 +1,7 @@
 # Search Provider Replay Lane 10 Evidence
 
-日期：2026-05-22 PST  
-worktree：`/Users/wangyiliang/market-research-workflow.worktrees/search-provider-replay`  
+日期：2026-05-22 PST
+worktree：`/Users/wangyiliang/market-research-workflow.worktrees/search-provider-replay`
 分支：`codex/devdocs-search-provider-replay`
 
 ## 1. 任务
