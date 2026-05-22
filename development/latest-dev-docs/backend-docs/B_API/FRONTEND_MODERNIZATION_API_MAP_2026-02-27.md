@@ -1,5 +1,7 @@
 # Frontend Modernization API Map (2026-02-27)
 
+> Status: PARTIAL HISTORICAL MIGRATION MAP. Keep the P0 frontend intent, but validate every route against [`API_ROUTE_MAP_2026-05-22.md`](./API_ROUTE_MAP_2026-05-22.md) before using this as implementation input.
+
 目标：在前端换栈前，固定与后端通信的最小契约，避免 UI 重做后接口反复返工。
 
 ## 1. 全局约定
@@ -21,7 +23,8 @@
 
 ## 2. 路由总览来源
 
-- 全量路由盘点：`main/backend/docs/API_ROUTE_INVENTORY_2026-02-27.md`（自动解析，135 条）
+- 当前全量路由盘点：[`API_ROUTE_MAP_2026-05-22.md`](./API_ROUTE_MAP_2026-05-22.md)（自动解析，250 条）
+- 历史路由盘点：[`API_ROUTE_INVENTORY_2026-02-27.md`](./API_ROUTE_INVENTORY_2026-02-27.md)（自动解析，135 条；仅作历史证据）
 - 路由源码目录：`main/backend/app/api/*.py`
 
 ## 3. 前端换栈优先接入（P0）
