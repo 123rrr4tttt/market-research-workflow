@@ -45,7 +45,7 @@ class StructuredSqlHelperMigrationCheckUnitTestCase(unittest.TestCase):
         self.assertEqual(covered["search_endpoint_document_query_projection"]["endpoint"], "/api/v1/search")
         self.assertEqual(covered["api_search_endpoint_uses_projection"]["endpoint"], "/api/v1/search")
 
-    def test_checker_keeps_admin_structured_sql_predicates_as_deferred_boundaries(self) -> None:
+    def test_checker_tracks_admin_structured_sql_predicate_boundaries(self) -> None:
         result = build_check(REPO_ROOT)
         boundaries = {item["boundary_id"]: item for item in result["remaining_migration_boundaries"]}
 
@@ -57,11 +57,15 @@ class StructuredSqlHelperMigrationCheckUnitTestCase(unittest.TestCase):
             "admin_policy_graph_structured_filters",
         ):
             self.assertIn(boundary_id, boundaries)
-            self.assertEqual(boundaries[boundary_id]["migration_status"], "deferred", boundaries[boundary_id])
-            self.assertGreater(boundaries[boundary_id]["direct_sql_json_expression_count"], 0)
+            self.assertIn(
+                boundaries[boundary_id]["migration_status"],
+                {"deferred", "covered_or_removed"},
+                boundaries[boundary_id],
+            )
+            self.assertEqual(boundaries[boundary_id]["direct_sql_json_expression_count"], 0)
 
         self.assertEqual(boundaries["admin_policy_graph_structured_filters"]["endpoint"], "/api/v1/admin/policy-graph")
-        self.assertGreaterEqual(result["validation"]["deferred_boundary_count"], 5)
+        self.assertEqual(result["validation"]["deferred_boundary_count"], 0)
 
 
 if __name__ == "__main__":

@@ -353,8 +353,8 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
                 "time helper consumption, writing material query helpers, and /api/v1/search projection."
             ),
             "deferred_scope": (
-                "Admin/dashboard structured JSON SQL predicates remain migration inventory items; "
-                "this gate records them but does not claim they are moved behind query helpers."
+                "Admin/dashboard structured JSON SQL predicates remain inventory items until the "
+                "consumer predicate facade checker confirms they are covered or removed."
             ),
         },
         "covered_query_helpers": covered,

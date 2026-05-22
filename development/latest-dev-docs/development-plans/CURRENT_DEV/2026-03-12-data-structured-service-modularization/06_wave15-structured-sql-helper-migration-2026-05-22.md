@@ -6,7 +6,7 @@
 - Branch: `codex/devdocs-wave15-structured-sql-helper-migration`
 - Worktree: `/Users/wangyiliang/market-research-workflow.worktrees/devdocs-wave15-structured-sql-helper-migration`
 - Scope: add a small deterministic SQL/query helper migration inventory gate without editing shared navigation indexes.
-- Result: `main/backend/scripts/check_structured_sql_helper_migration.py` now verifies the covered `document_queries.v1` helper surfaces and records the remaining admin structured SQL predicate migration boundary.
+- Result: `main/backend/scripts/check_structured_sql_helper_migration.py` now verifies the covered `document_queries.v1` helper surfaces and tracks the admin structured SQL predicate boundary. After the Wave15 consumer facade merge, those selected admin/dashboard predicates are `covered_or_removed` with zero direct `Document.extracted_data` reads in the checked API functions.
 
 ## Implemented
 
@@ -19,13 +19,13 @@ Code:
   - Verifies prompt-time-density consumes `prompt_time_density_time_expr()` instead of owning its local SQL JSON time expression.
   - Verifies writing material query helpers build document query envelopes before returning legacy rows.
   - Verifies `/api/v1/search` still uses `build_search_endpoint_document_query_envelope()` and emits the `document_query_*` projection fields.
-  - Inventories admin endpoints whose structured JSON SQL predicates remain inline and deferred.
+  - Inventories admin endpoints whose structured JSON SQL predicates were candidates for migration and now reports whether each is still deferred or covered/removed.
 
 Tests:
 
 - `main/backend/tests/unit/test_structured_sql_helper_migration_check_unittest.py`
   - Confirms all covered helper and endpoint surfaces pass.
-  - Confirms deferred admin SQL predicate boundaries remain explicit rather than silently claimed as migrated.
+  - Confirms admin SQL predicate boundaries remain explicit, and that selected migrated predicates report `covered_or_removed` instead of being silently treated as deferred.
 
 ## Covered Boundary
 
@@ -58,25 +58,25 @@ The checker treats these surfaces as covered and regression-gated:
 
 ## Remaining Migration Boundary
 
-The checker does not claim full SQL helper migration. It records these admin endpoint/query predicate surfaces as deferred:
+The checker does not claim full SQL helper migration. It records these admin endpoint/query predicate surfaces as tracked migration boundaries. After the Wave15 consumer facade merge, the checked functions below have `direct_sql_json_expression_count=0` and `migration_status=covered_or_removed`:
 
 - `/api/v1/admin/documents/list`
   - `main/backend/app/api/admin.py::list_documents`
-  - Reason: `has_extracted_data` still builds `Document.extracted_data` predicates inline.
+  - Previous reason: `has_extracted_data` built `Document.extracted_data` predicates inline; now covered by `document_queries.consumer_predicates`.
 - `/api/v1/admin/social-data/list`
   - `main/backend/app/api/admin.py::list_social_data`
-  - Reason: platform and sentiment filters still read structured JSON fields inline.
+  - Previous reason: platform and sentiment filters read structured JSON fields inline; now covered by `document_queries.consumer_predicates`.
 - `/api/v1/admin/content-graph`
   - `main/backend/app/api/admin.py::get_content_graph`
-  - Reason: graph filters still check sentiment/entities structured JSON keys inline.
+  - Previous reason: graph filters checked sentiment/entities structured JSON keys inline; now covered by `document_queries.consumer_predicates`.
 - `/api/v1/admin/market-graph`
   - `main/backend/app/api/admin.py::get_market_graph`
-  - Reason: market graph filters still check market/company/product/operation structured JSON keys inline.
+  - Previous reason: market graph filters checked market/company/product/operation structured JSON keys inline; now covered by `document_queries.consumer_predicates`.
 - `/api/v1/admin/policy-graph`
   - `main/backend/app/api/admin.py::get_policy_graph`
-  - Reason: policy graph state/type predicates still read policy JSON fields inline.
+  - Previous reason: policy graph state/type predicates read policy JSON fields inline; now covered by `document_queries.consumer_predicates`.
 
-These are next-step candidates for a narrower `document_queries` SQL predicate facade or endpoint-specific statement builders. This worker only adds the inventory gate and does not rewrite those endpoint queries.
+Remaining scope is outside these selected admin/dashboard API functions: non-admin/dashboard consumers, Python instance-level writer/governance paths, and live DB/API smoke remain separate follow-up boundaries.
 
 ## Validation
 
@@ -86,7 +86,7 @@ Commands run from the Wave15 worker worktree:
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_structured_sql_helper_migration.py
 ```
 
-Result: passed; `covered_surface_count=6`, `covered_surface_gap_count=0`, `deferred_boundary_count=5`.
+Result after integration: passed; `covered_surface_count=6`, `covered_surface_gap_count=0`, `deferred_boundary_count=0`.
 
 ```bash
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 -m pytest -q main/backend/tests/unit/test_structured_sql_helper_migration_check_unittest.py
@@ -115,7 +115,7 @@ Result: `OK wave15_current_dev_plan=passed ... worker_boundary_enforced=true`.
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 scripts/check_current_dev_status_evidence.py
 ```
 
-Result: `OK current_dev_status_evidence=passed entries=35 counts=partial:35,not_closed:0,no_closure_claim:0 links=184 placeholders=0 empty_dirs=0 wave_rows=117`.
+Result after integration: `OK current_dev_status_evidence=passed entries=34 counts=partial:34,not_closed:0,no_closure_claim:0 links=191 placeholders=0 empty_dirs=0 wave_rows=124`.
 
 ```bash
 git diff --check
@@ -127,4 +127,4 @@ Result: passed.
 
 - Shared indexes remain supervisor-owned and were not edited by this worker.
 - `main/backend/scripts/workflow_graph_smoke_local.py` was not modified.
-- This lane advances the SQL/query helper migration boundary by making the covered/deferred split executable; it does not close the broader structured service modularization topic.
+- This lane advances the SQL/query helper migration boundary by making the covered/deferred split executable. The paired Wave15 consumer facade then closed the selected admin/dashboard direct-predicate slice, but this does not close the broader structured service modularization topic.

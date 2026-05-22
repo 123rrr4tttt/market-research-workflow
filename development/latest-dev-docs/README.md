@@ -40,7 +40,7 @@
   - [LLM service and Agent platformization](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/03_wave6-5-status-evidence-and-min-plan-2026-05-22.md)
   - [typed knowledge organization](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/03_wave6-6-status-evidence-and-minimal-plan-2026-05-22.md)
   - [writing workbench evolution](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/03_wave6_7_status-evidence-and-minimum-plan-2026-05-22.md)
-  - [后续安排 / abstract planning folderization](./development-plans/CURRENT_DEV/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md)
+  - [后续安排 / abstract planning folderization](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md)
   - [local open search provider isolation](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
 - Wave7 CURRENT_DEV 集成状态证据与代码落地（2026-05-22，9 个子代理分支已合并）：
   - [parallel-agent runtime contract](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md)
@@ -136,7 +136,7 @@
   - [long-cycle scheduler readiness](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/06_wave13-long-cycle-scheduler-readiness-2026-05-22.md)
   - [crawler public replay gate](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave13-worker7-crawler-public-replay-gate.md)
   - [crawler public replay gate artifact](./automation-runs/crawler-public-replay-gate/2026-05-22/README.md)
-  - [abstract folderization current-entry evidence](./development-plans/CURRENT_DEV/2026-03-07-后续安排/05_wave13-abstract-folderization-current-entry-evidence-2026-05-22.md)
+  - [abstract folderization current-entry evidence](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/05_wave13-abstract-folderization-current-entry-evidence-2026-05-22.md)
   - [CURRENT_DEV MERGED_OVERVIEW drift gate](./development-plans/CURRENT_DEV/MERGED_OVERVIEW/03_wave13-current-merged-overview-rag-drift-gate-2026-05-22.md)
 - Wave14 CURRENT_DEV readiness / boundary gates（2026-05-22，9 个子代理分支已合并）：
   - [Wave14 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave14-worktree-plan-2026-05-22.md)
@@ -156,8 +156,21 @@
   - [dual frontend migration boundary](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/06_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
   - [frontend i18n/theme migration boundary](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/06_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
   - [frontend three-layer migration boundary](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/07_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
-  - [abstract content gaps evidence](./development-plans/CURRENT_DEV/2026-03-07-后续安排/06_wave14-abstract-content-gaps-evidence-2026-05-22.md)
+  - [abstract content gaps evidence](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/06_wave14-abstract-content-gaps-evidence-2026-05-22.md)
   - [AgentCore tool-calling quality gate](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/07_wave14-agentcore-tool-calling-quality-2026-05-22.md)
+- Wave15 CURRENT_DEV runtime / migration / closure gates（2026-05-22，9 个子代理分支已合并，1 个目录已迁入 `ARCHIVE_CLOSED`）：
+  - [Wave15 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave15-worktree-plan-2026-05-22.md)
+  - [open search runtime boundary](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/13_wave15-open-search-runtime-boundary-2026-05-22.md)
+  - [source time production readiness](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/06_wave15-source-time-production-readiness-2026-05-22.md)
+  - [R41 OpenClaw runtime handoff](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
+  - [LLM crawler high-JS replay manifest](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md)
+  - [symbolic search live quality threshold](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/19_wave15-symbolic-live-quality-threshold-2026-05-22.md)
+  - [structured SQL helper migration](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_wave15-structured-sql-helper-migration-2026-05-22.md)
+  - [consumer SQL predicate facade](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/05_wave15-consumer-sql-predicate-facade-2026-05-22.md)
+  - [graph editing audit durability](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/07_wave15-graph-editing-audit-durability-2026-05-22.md)
+  - [typed knowledge live boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/06_wave15-typed-writing-live-boundary-2026-05-22.md)
+  - [writing workbench live boundary](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/07_wave15-typed-writing-live-boundary-2026-05-22.md)
+  - [abstract planning final closure audit](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：
@@ -350,9 +363,9 @@
   - [2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md)
   - [2026-03-07-dual-frontend-workbench-topology/02_atomic-tasklist-dual-frontend-workbench-topology-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/02_atomic-tasklist-dual-frontend-workbench-topology-2026-03-07.md)
 - `development-plans/CURRENT_DEV` 新增抽象规划子文件夹拆分计划：
-  - [2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md)
+  - [2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md)
 - `development-plans/CURRENT_DEV` 新增抽象规划子文件夹拆分原子任务：
-  - [2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md)
+  - [2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md)
 - `development-plans/CURRENT_DEV` 新增 docs 根目录重构迁移映射表：
   - [2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
 - `development-plans/ARCHIVE_RETIRED` 已退场早期内置写作工作台设计稿：

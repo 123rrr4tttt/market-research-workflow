@@ -71,9 +71,22 @@ def one_file(files: list[Path], label: str) -> tuple[str | None, str | None]:
     return None, f"ambiguous {label}: {', '.join(path.name for path in files)}"
 
 
+def resolve_coordination_dir(root: Path) -> tuple[Path, str]:
+    current_dev = root / "development/latest-dev-docs/development-plans/CURRENT_DEV"
+    current_coordination_dir = current_dev / "2026-03-07-后续安排"
+    if current_coordination_dir.is_dir():
+        return current_coordination_dir, "current_dev"
+    archive_coordination_dir = (
+        root / "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排"
+    )
+    if archive_coordination_dir.is_dir():
+        return archive_coordination_dir, "archive_closed"
+    return current_coordination_dir, "missing"
+
+
 def build_report(root: Path) -> dict:
     current_dev = root / "development/latest-dev-docs/development-plans/CURRENT_DEV"
-    coordination_dir = current_dev / "2026-03-07-后续安排"
+    coordination_dir, coordination_location = resolve_coordination_dir(root)
 
     hard_failures: list[str] = []
     content_gaps: list[str] = []
@@ -82,6 +95,7 @@ def build_report(root: Path) -> dict:
         hard_failures.append(f"missing coordination directory: {coordination_dir.as_posix()}")
         return {
             "coordination_dir": coordination_dir.as_posix(),
+            "coordination_location": coordination_location,
             "hard_failures": hard_failures,
             "content_gaps": content_gaps,
             "topics": [],
@@ -136,6 +150,7 @@ def build_report(root: Path) -> dict:
 
     return {
         "coordination_dir": coordination_dir.as_posix(),
+        "coordination_location": coordination_location,
         "coordination_files": [
             (coordination_dir / name).as_posix() for name in COORDINATION_FILES
         ],
@@ -149,6 +164,7 @@ def print_markdown(report: dict) -> None:
     print("# Abstract Planning Folderization Check")
     print()
     print(f"- coordination_dir: `{report['coordination_dir']}`")
+    print(f"- coordination_location: `{report['coordination_location']}`")
     print(f"- hard_failures: {len(report['hard_failures'])}")
     print(f"- content_gaps: {len(report['content_gaps'])}")
     print()
