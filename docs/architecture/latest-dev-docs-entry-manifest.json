@@ -3,7 +3,7 @@
   "root": "docs/architecture",
   "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-22",
-  "content_authority": "Mapped source files remain authoritative for document content. Target README files are authoritative only for migration entry mapping until a later content move updates shared navigation.",
+  "content_authority": "Mapped source files remain authoritative for document content. Target README files are content shims that point readers from docs/architecture into the current compatibility entries until a later content move updates shared navigation.",
   "entries": [
     {
       "id": "backend-core-architecture-tree",
@@ -11,8 +11,11 @@
       "source": "development/latest-dev-docs/backend-core/A_ARCHITECTURE",
       "source_role": "explicit-architecture-tree",
       "target": "docs/architecture/backend-core/README.md",
+      "target_root": "docs/architecture/backend-core",
+      "shim": "docs/architecture/backend-core/README.md",
       "target_role": "architecture-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md",
+      "status": "content_shim"
     },
     {
       "id": "backend-docs-architecture-tree",
@@ -20,8 +23,11 @@
       "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE",
       "source_role": "explicit-architecture-tree",
       "target": "docs/architecture/backend-docs/README.md",
+      "target_root": "docs/architecture/backend-docs",
+      "shim": "docs/architecture/backend-docs/README.md",
       "target_role": "architecture-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE",
+      "status": "content_shim"
     },
     {
       "id": "development-plans-architecture-tree",
@@ -29,8 +35,11 @@
       "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE",
       "source_role": "explicit-architecture-tree",
       "target": "docs/architecture/development-plans/README.md",
+      "target_root": "docs/architecture/development-plans",
+      "shim": "docs/architecture/development-plans/README.md",
       "target_role": "architecture-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/INDEX.md",
+      "status": "content_shim"
     },
     {
       "id": "ops-frontend-architecture-tree",
@@ -38,8 +47,11 @@
       "source": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE",
       "source_role": "explicit-architecture-tree",
       "target": "docs/architecture/ops-frontend/README.md",
+      "target_root": "docs/architecture/ops-frontend",
+      "shim": "docs/architecture/ops-frontend/README.md",
       "target_role": "architecture-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/DIR_MAP.md",
+      "status": "content_shim"
     },
     {
       "id": "root-plans-architecture-tree",
@@ -47,8 +59,11 @@
       "source": "development/latest-dev-docs/root-plans/A_ARCHITECTURE",
       "source_role": "explicit-architecture-tree",
       "target": "docs/architecture/root-plans/README.md",
+      "target_root": "docs/architecture/root-plans",
+      "shim": "docs/architecture/root-plans/README.md",
       "target_role": "architecture-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/README.md",
+      "status": "content_shim"
     }
   ]
 }

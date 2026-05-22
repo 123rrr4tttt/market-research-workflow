@@ -1,7 +1,7 @@
 # Development Documentation Root
 
 > Date: 2026-05-22
-> Status: target root prepared; compatibility entry still lives at `development/latest-dev-docs`
+> Status: target root prepared; first content shim batch points to `development/latest-dev-docs`
 
 ## Purpose
 
@@ -20,7 +20,7 @@ The current readable entrypoint remains [development/latest-dev-docs](../../deve
 
 The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuring](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md).
 
-The first mapped-entry batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries are mapping authority only; the mapped `development/latest-dev-docs` paths remain the content authority until a later migration batch moves or shims content and updates shared navigation.
+The first content shim batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries keep `development/latest-dev-docs` as the content authority while the README shims under this root provide readable pointers to the current compatibility entries. Shared navigation still belongs to the integration lane.
 
 ## Target Routing
 

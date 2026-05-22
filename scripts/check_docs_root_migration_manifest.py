@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the first docs-root migration manifests."""
+"""Validate docs-root migration manifests and content shims."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ MANIFESTS = (
     Path("docs/architecture/latest-dev-docs-entry-manifest.json"),
 )
 EXPECTED_SCHEMA = "docs-root-entry-manifest/v1"
-ALLOWED_STATUSES = {"mapped_not_moved"}
+ALLOWED_STATUSES = {"mapped_not_moved", "content_shim"}
 EXPECTED_CLASSIFICATION_BY_ROOT = {
     "docs/development": "development",
     "docs/architecture": "architecture",
@@ -47,6 +47,77 @@ def is_relative_to(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def same_path(left: Path, right: Path) -> bool:
+    return left.resolve() == right.resolve()
+
+
+def validate_content_shim(
+    repo_root: Path,
+    entry_path: Path,
+    root: Path,
+    root_raw: str,
+    source: Path,
+    source_raw: str,
+    target: Path,
+    target_raw: str,
+    target_text: str,
+    entry: dict[str, Any],
+) -> list[Problem]:
+    problems: list[Problem] = []
+
+    target_root_raw = entry.get("target_root")
+    shim_raw = entry.get("shim")
+    compatibility_entry_raw = entry.get("compatibility_entry")
+
+    if not isinstance(target_root_raw, str):
+        problems.append(Problem(entry_path, "content_shim entry target_root is missing"))
+    elif not target_root_raw.startswith(f"{root_raw}/"):
+        problems.append(Problem(entry_path, "content_shim target_root is outside manifest root"))
+    else:
+        target_root = repo_root / target_root_raw
+        if not target_root.is_dir():
+            problems.append(Problem(target_root, "content_shim target_root directory is missing"))
+        if not is_relative_to(target_root, root):
+            problems.append(Problem(target_root, "content_shim target_root is outside manifest root"))
+        if not same_path(target, target_root / "README.md"):
+            problems.append(Problem(target, "content_shim target must be target_root/README.md"))
+        if target_root_raw not in target_text:
+            problems.append(Problem(target, f"content_shim README does not mention target_root: {target_root_raw}"))
+
+    if shim_raw != target_raw:
+        problems.append(Problem(entry_path, "content_shim shim must match target README path"))
+    elif shim_raw not in target_text:
+        problems.append(Problem(target, f"content_shim README does not mention shim path: {shim_raw}"))
+
+    if not isinstance(compatibility_entry_raw, str):
+        problems.append(Problem(entry_path, "content_shim compatibility_entry is missing"))
+    else:
+        compatibility_entry = repo_root / compatibility_entry_raw
+        if not compatibility_entry.exists():
+            problems.append(Problem(compatibility_entry, "content_shim compatibility_entry does not exist"))
+        elif source.exists() and not is_relative_to(compatibility_entry, source):
+            problems.append(
+                Problem(
+                    compatibility_entry,
+                    f"content_shim compatibility_entry is not within source path: {source_raw}",
+                )
+            )
+        if source.is_file() and not same_path(compatibility_entry, source):
+            problems.append(Problem(entry_path, "content_shim file source must use the source as compatibility_entry"))
+        if compatibility_entry_raw not in target_text:
+            problems.append(
+                Problem(
+                    target,
+                    f"content_shim README does not mention compatibility_entry: {compatibility_entry_raw}",
+                )
+            )
+
+    if "content shim" not in target_text.lower():
+        problems.append(Problem(target, "content_shim README must identify itself as a content shim"))
+
+    return problems
 
 
 def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Problem], int]:
@@ -99,8 +170,9 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Proble
 
         if entry.get("classification") != expected_classification:
             problems.append(Problem(entry_path, "entry classification does not match root"))
-        if entry.get("status") not in ALLOWED_STATUSES:
-            problems.append(Problem(entry_path, "entry status must be mapped_not_moved"))
+        status = entry.get("status")
+        if status not in ALLOWED_STATUSES:
+            problems.append(Problem(entry_path, f"entry status must be one of {sorted(ALLOWED_STATUSES)}"))
 
         source_raw = entry.get("source")
         target_raw = entry.get("target")
@@ -128,6 +200,21 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Proble
         target_text = target.read_text(encoding="utf-8")
         if source_raw not in target_text:
             problems.append(Problem(target, f"target README does not mention mapped source: {source_raw}"))
+        if status == "content_shim":
+            problems.extend(
+                validate_content_shim(
+                    repo_root=repo_root,
+                    entry_path=entry_path,
+                    root=root,
+                    root_raw=root_raw,
+                    source=source,
+                    source_raw=source_raw,
+                    target=target,
+                    target_raw=target_raw,
+                    target_text=target_text,
+                    entry=entry,
+                )
+            )
 
     missing_roles = required_source_roles - seen_source_roles
     if missing_roles:

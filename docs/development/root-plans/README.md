@@ -1,17 +1,19 @@
 # Root Plans Migration Entry
 
 > Date: 2026-05-22
-> Status: mapped, not moved
+> Status: content shim; source content remains in `development/latest-dev-docs`
 > Manifest: [latest-dev-docs-entry-manifest.json](../latest-dev-docs-entry-manifest.json)
+> Target root: `docs/development/root-plans`
+> Shim: `docs/development/root-plans/README.md`
 
-This entry maps the lowest-risk root-plans development entrypoints while keeping mixed `main/` content under the compatibility root.
+This content shim maps the lowest-risk root-plans development entrypoints while keeping mixed `main/` content under the compatibility root.
 
-## Mapped Sources
+## Compatibility Entries
 
-| Source | Target role | Authority status |
-|---|---|---|
-| [development/latest-dev-docs/root-plans/F_PLAN/index.md](../../../development/latest-dev-docs/root-plans/F_PLAN/index.md) | explicit plan index mapping | mapped, not moved |
-| [development/latest-dev-docs/root-plans/main/index.md](../../../development/latest-dev-docs/root-plans/main/index.md) | mixed main entry mapping | mapped, not moved |
+| Source path | Readable compatibility entry | Target role | Authority status |
+|---|---|---|---|
+| [development/latest-dev-docs/root-plans/F_PLAN/index.md](../../../development/latest-dev-docs/root-plans/F_PLAN/index.md) | [development/latest-dev-docs/root-plans/F_PLAN/index.md](../../../development/latest-dev-docs/root-plans/F_PLAN/index.md) | explicit plan index shim | content shim; source authoritative |
+| [development/latest-dev-docs/root-plans/main/index.md](../../../development/latest-dev-docs/root-plans/main/index.md) | [development/latest-dev-docs/root-plans/main/index.md](../../../development/latest-dev-docs/root-plans/main/index.md) | mixed main entry shim | content shim; source authoritative |
 
 ## Compatibility Rule
 
