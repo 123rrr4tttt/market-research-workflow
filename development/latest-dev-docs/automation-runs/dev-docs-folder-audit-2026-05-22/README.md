@@ -16,6 +16,8 @@ Related execution plans:
 - [wave17-agent-roster-2026-05-22.md](./wave17-agent-roster-2026-05-22.md) - Wave17 subagent branch roster; all 9 workers are closed after merge.
 - [wave18-worktree-plan-2026-05-22.md](./wave18-worktree-plan-2026-05-22.md) - Wave18 ten-agent readback / health / migration tree, supervisor reconciliation, and status evidence gate.
 - [wave18-agent-roster-2026-05-22.md](./wave18-agent-roster-2026-05-22.md) - Wave18 subagent branch roster; all 10 workers are closed after merge.
+- [wave19-worktree-plan-2026-05-22.md](./wave19-worktree-plan-2026-05-22.md) - Wave19 ten-agent provider manifest / health schema / rollout / migration tree, supervisor reconciliation, and status evidence gate.
+- [wave19-agent-roster-2026-05-22.md](./wave19-agent-roster-2026-05-22.md) - Wave19 subagent branch roster; all 10 workers are closed after merge.
 
 ## Wave16 Addendum
 
@@ -44,6 +46,15 @@ Wave18 keeps the Wave17 `CURRENT_DEV` count shape and advances another repo-loca
 - No new directory was moved to `ARCHIVE_CLOSED`; `CURRENT_DEV` remains `partial:33`, `not_closed:0`, `no_closure_claim:0`.
 - Landed gates include vectorization hybrid readback, open-search health artifact, LLM crawler browser replay fixture, symbolic quality regression, long-cycle scheduler handoff trace, graph audit readback, AgentCore provider trace, source-library review closure batch 2, Catalog page i18n migration, and docs-root content move batch 3.
 - Docs-root content-plan unsafe moves dropped from 8 to 7 after the third real moved-file batch.
+
+## Wave19 Addendum
+
+Wave19 keeps the Wave18 `CURRENT_DEV` count shape and advances another repo-local implementation batch without over-claiming external closure.
+
+- 10 worker branches were merged into the Wave19 integration branch and all completed subagents are marked `closed` in the roster.
+- No new directory was moved to `ARCHIVE_CLOSED`; `CURRENT_DEV` remains `partial:33`, `not_closed:0`, `no_closure_claim:0`.
+- Landed gates include vectorization provider manifest readback, open-search health schema/readback, graph rollout readback, ingest 24h metrics artifact, crawler public replay shards, AgentCore provider trace redaction, source-library review closure batch 3, Dashboard page i18n migration, docs-root content move batch 4, and typed/writing persisted-card API boundary.
+- Docs-root content-plan unsafe moves dropped from 7 to 6 after the fourth real moved-file batch.
 
 ## Summary
 

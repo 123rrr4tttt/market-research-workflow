@@ -65,6 +65,12 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave14 Vectorization Provider Capability](./automation-runs/wave14-vectorization-provider-capability/2026-05-22/README.md)
   - [2026-05-22 Wave14 AgentCore Tool Calling Quality](./automation-runs/agent-core-tool-calling-quality/2026-05-22/agent_core_tool_calling_quality.json)
   - [2026-05-22 Wave14 CURRENT_DEV Status Evidence Gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
+  - [2026-05-22 Wave19 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Wave19 Agent Roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-agent-roster-2026-05-22.md)
+  - [2026-05-22 Wave19 Vectorization Provider Manifest](./automation-runs/wave19-vectorization-provider-manifest/2026-05-22/README.md)
+  - [2026-05-22 Wave19 Crawler Public Replay Shards](./automation-runs/crawler-public-replay-shards/2026-05-22/README.md)
+  - [2026-05-22 Wave19 Source-Library Review Batch 3](./automation-runs/source-library-review-closure-batch3/2026-05-22/README.md)
+  - [2026-05-22 Wave19 AgentCore Provider Trace Redaction](./automation-runs/agent-core-provider-trace-redaction/2026-05-22/agent_core_provider_trace_redaction.json)
 - `backend-docs`：
   - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：
@@ -238,6 +244,19 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave18 Source-Library Review Batch 2](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/11_wave18-review-closure-batch2-2026-05-22.md)
   - [2026-05-22 Wave18 Catalog Page I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/10_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md)
   - [2026-05-22 Wave18 Docs Root Content Move Batch 3](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/10_wave18-docs-root-content-move-batch3-evidence-2026-05-22.md)
+- `development-plans` Wave19 provider manifest / rollout / migration gates:
+  - [2026-05-22 Wave19 Worktree Plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Wave19 Agent Roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-agent-roster-2026-05-22.md)
+  - [2026-05-22 Wave19 Vectorization Provider Manifest](./development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md)
+  - [2026-05-22 Wave19 Open Search Health Schema](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md)
+  - [2026-05-22 Wave19 Graph Rollout Readback](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/08_wave19-graph-rollout-readback-gate-2026-05-22.md)
+  - [2026-05-22 Wave19 Ingest Canary 24h Metrics](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md)
+  - [2026-05-22 Wave19 Crawler Public Replay Shards](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md)
+  - [2026-05-22 Wave19 AgentCore Provider Trace Redaction](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/09_wave19-agentcore-provider-trace-redaction-2026-05-22.md)
+  - [2026-05-22 Wave19 Source-Library Review Batch 3](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/12_wave19-review-closure-batch3-2026-05-22.md)
+  - [2026-05-22 Wave19 Dashboard Page I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
+  - [2026-05-22 Wave19 Docs Root Content Move Batch 4](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/11_wave19-docs-root-content-move-batch4-evidence-2026-05-22.md)
+  - [2026-05-22 Wave19 Typed Knowledge Persisted-Card API Boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
 - [2026-05-22 Source Library Public Live Probes](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：

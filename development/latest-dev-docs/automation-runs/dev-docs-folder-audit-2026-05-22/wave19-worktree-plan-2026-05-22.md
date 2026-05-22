@@ -51,4 +51,8 @@ Worker 分支也不得修改当前主工作树已有脏项：
 
 ## 集成结果
 
-待 worker 分支完成后由 supervisor 更新。若 worker 无安全代码改动，必须记录 no-op 原因并关闭对应子 agent；不得保留 stopped agent。
+- 10 个 worker 分支已合并到 `codex/devdocs-wave19-integration-2026-05-22`。
+- 10 个完成子 agent 已在 roster 中标记为 `closed`。
+- 本轮新增 provider manifest readback、open-search health schema/readback、graph rollout readback、ingest 24h metrics artifact、crawler public replay shards、AgentCore provider trace redaction、source-library review closure batch 3、Dashboard page i18n slice、docs-root content move batch 4、typed/writing persisted-card API boundary。
+- `CURRENT_DEV` 仍保持 `partial:33`、`not_closed:0`、`no_closure_claim:0`；所有 live provider、public replay、live scheduler、live DB/API/UI、production data、human review 和全量迁移边界仍显式保留。
+- Docs-root content-plan unsafe moves 从 `7` 降到 `6`，剩余 `development-plans-architecture-tree` 仍需后续批次处理。

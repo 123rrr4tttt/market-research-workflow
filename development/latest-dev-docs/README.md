@@ -206,6 +206,19 @@
   - [AgentCore provider trace readback](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/08_wave18-agentcore-provider-trace-readback-2026-05-22.md)
   - [Catalog page i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/10_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md)
   - [docs root content move batch 3](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/10_wave18-docs-root-content-move-batch3-evidence-2026-05-22.md)
+- Wave19 CURRENT_DEV provider manifest / rollout / migration gates（2026-05-22，10 个子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
+  - [Wave19 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-worktree-plan-2026-05-22.md)
+  - [Wave19 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-agent-roster-2026-05-22.md)
+  - [vectorization provider manifest readback](./development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md)
+  - [open-search health schema/readback](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md)
+  - [graph rollout readback](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/08_wave19-graph-rollout-readback-gate-2026-05-22.md)
+  - [ingest 24h metrics artifact](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md)
+  - [crawler public replay shards](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md)
+  - [AgentCore provider trace redaction](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/09_wave19-agentcore-provider-trace-redaction-2026-05-22.md)
+  - [source-library review closure batch 3](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/12_wave19-review-closure-batch3-2026-05-22.md)
+  - [Dashboard page i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
+  - [docs root content move batch 4](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/11_wave19-docs-root-content-move-batch4-evidence-2026-05-22.md)
+  - [typed/writing persisted-card API boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：
