@@ -36,7 +36,100 @@
       "shim": "docs/architecture/backend-docs/README.md",
       "target_role": "architecture-target-entry-manifest",
       "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE",
-      "status": "content_shim"
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/API_CONTRACT_STANDARD.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/API_CONTRACT_STANDARD.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/API_CONTRACT_STANDARD.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/INGEST_ARCHITECTURE.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/INGEST_ARCHITECTURE.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/INGEST_ARCHITECTURE.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/LOTTERY_DECOUPLING_INVENTORY.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/LOTTERY_DECOUPLING_INVENTORY.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/LOTTERY_DECOUPLING_INVENTORY.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/NUMERIC_DATA_HOMOGENIZATION_ROADMAP.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/NUMERIC_DATA_HOMOGENIZATION_ROADMAP.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/NUMERIC_DATA_HOMOGENIZATION_ROADMAP.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/PHASE5_LLM_SYMBOLIZATION_MVP.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/PHASE5_LLM_SYMBOLIZATION_MVP.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/PHASE5_LLM_SYMBOLIZATION_MVP.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/RESOURCE_LIBRARY_DEFINITION.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/RESOURCE_LIBRARY_DEFINITION.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/RESOURCE_LIBRARY_DEFINITION.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/STRUCTURED_VS_GRAPH_ALIGNMENT.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/STRUCTURED_VS_GRAPH_ALIGNMENT.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/STRUCTURED_VS_GRAPH_ALIGNMENT.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/UNIFIED_COLLECT_ARCHITECTURE.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/UNIFIED_COLLECT_ARCHITECTURE.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/UNIFIED_COLLECT_ARCHITECTURE.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/政策数据结构说明.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/政策数据结构说明.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/政策数据结构说明.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/数据库说明文档.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/数据库说明文档.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/数据库说明文档.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/文档去重逻辑说明.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/文档去重逻辑说明.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/文档去重逻辑说明.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/社交平台图谱生成标准文档.md",
+          "target": "docs/architecture/backend-docs/A_ARCHITECTURE/社交平台图谱生成标准文档.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE/社交平台图谱生成标准文档.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "development-plans-architecture-tree",
