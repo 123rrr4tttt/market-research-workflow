@@ -1,6 +1,7 @@
 import copy
 import pathlib
 import sys
+import tempfile
 import unittest
 
 
@@ -95,6 +96,37 @@ class TypedKnowledgePersistenceBoundaryTests(unittest.TestCase):
         self.assertEqual(stored.visibility_scope, contracts.VISIBILITY_SCOPE_DOWNSTREAM_READY)
         self.assertFalse(second.live_db_write)
 
+    def test_jsonl_repository_survives_reopen_without_claiming_live_db(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repository = boundary.JsonlTypedKnowledgeRepository(
+                storage_dir=tmp_dir,
+                repository_ref="jsonl://unit-test-typed-knowledge-readback",
+            )
+            envelope = boundary.build_sample_boundary_envelope()
+            records = tuple(
+                boundary.deserialize_persistence_boundary_record(record)
+                for record in envelope["data"]["records"]
+            )
+            for record in records:
+                repository.upsert_record(record, write_time="2026-05-22T00:00:00Z")
+
+            reopened = repository.reopen()
+            readback = boundary.build_persistence_api_envelope(repository=reopened, project_key="demo_proj")
+
+        self.assertEqual(
+            readback["data"]["repository"]["persistence_mode"],
+            "jsonl_durable_contract",
+        )
+        self.assertFalse(readback["data"]["repository"]["live_db_write"])
+        self.assertEqual(len(readback["data"]["records"]), 4)
+        self.assertEqual(len(readback["data"]["writes"]), 0)
+        self.assertEqual(len(reopened.list_writes()), 4)
+        self.assertTrue(all(write.live_db_write is False for write in reopened.list_writes()))
+        self.assertEqual(
+            sorted(record["identity_ref"] for record in readback["data"]["records"]),
+            sorted(record.identity_ref for record in records),
+        )
+
     def test_api_envelope_rejects_live_db_or_ui_completion_overclaim(self):
         envelope = boundary.build_sample_boundary_envelope()
         envelope["meta"]["readiness"]["live_db_persistence"] = True
@@ -169,6 +201,32 @@ class TypedKnowledgePersistenceBoundaryTests(unittest.TestCase):
             "public_api_route_live_completion_overclaim",
         ):
             boundary.validate_public_api_route_contract_envelope(overclaim)
+
+    def test_durable_repository_readback_contract_keeps_live_boundaries_open(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repository = boundary.JsonlTypedKnowledgeRepository(
+                storage_dir=tmp_dir,
+                repository_ref="jsonl://unit-test-typed-knowledge-readback",
+            )
+            check = boundary.check_durable_repository_readback_contract(repository=repository)
+            replay = boundary.check_durable_repository_readback_contract(repository=repository)
+
+        self.assertEqual(
+            check["contract_version"],
+            boundary.DURABLE_REPOSITORY_READBACK_CONTRACT_VERSION,
+        )
+        self.assertEqual(check["status"], "pass")
+        self.assertEqual(replay["status"], "pass")
+        self.assertTrue(check["durable_readback"])
+        self.assertFalse(check["live_db_write"])
+        self.assertFalse(check["live_db_persistence"])
+        self.assertTrue(check["public_api_route"])
+        self.assertFalse(check["governance_ui"])
+        self.assertIn("jsonl_repository_write_readback", check["closed_slice"])
+        self.assertIn(
+            "live_db_backed_typed_knowledge_readback_not_verified",
+            check["remaining_live_gaps"],
+        )
 
 
 if __name__ == "__main__":
