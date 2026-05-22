@@ -47,6 +47,8 @@
   WritingWorkbench 前端融贯性与 SearXNG candidate approval gate 执行收口：验证选区材料检索、agent / 写作工作台 contract 对齐、候选来源 approval / rejection gate 和 source_library 写边界。
 - [09_optional-search-index-enhancements-launcher-integration-2026-05-14.md](./09_optional-search-index-enhancements-launcher-integration-2026-05-14.md)  
   SearXNG / YaCy / LanceDB 去实验化为可选增强：主 compose profile、跨平台启动窗口勾选项、本地 / Docker 启动参数、Docker Web Launcher / launcher-agent 和可选依赖边界。
+- [10_search-provider-trace-contract-closure-replay-2026-05-22.md](./10_search-provider-trace-contract-closure-replay-2026-05-22.md)
+  SearXNG / YaCy explicit provider trace contract closure replay，记录 `provider_route`、`provider_family`、`provider_auto_included`、`backend_trace` 的代码与单测落地证据。
 
 ## 当前状态
 
@@ -63,4 +65,4 @@
 | 解除隔离与项目融贯性 | 后端 replay 完成；前端 e2e blocked_by_env | `automation-runs/deisolation-project-coherence/2026-05-14/`：agent SearXNG 调用 14 条候选、source candidate review 14 条 URL、writing material retrieval 10 条结果、LanceDB FTS prototype 通过，`provider=auto` 未接入 SearXNG |
 | 前端融贯性与候选门禁 | 完成 | `automation-runs/frontend-coherence-and-searxng-gate/2026-05-14/`：WritingWorkbench e2e 6 passed，选区材料检索调用 `project.context.bundle` + `writing.document.list` 且未写回，SearXNG gate 14 candidates / 1 approved / 1 rejected / 12 pending，裸搜索结果未写入 source_library |
 | 可选增强启动器 | 完成 | `09_...launcher-integration...md`：SearXNG / YaCy 主 compose profile、LanceDB optional requirements、跨平台窗口勾选项、macOS 包装窗口、独立 Docker Web Launcher / launcher-agent 控制面和启动脚本透传均已完成 |
-| Explicit provider trace | 完成 | `main/backend/app/services/search/web.py` 现在为 SearXNG / YaCy 返回 `provider_route`、`provider_family`、`provider_auto_included`、`backend_trace`；`main/backend/tests/unit/test_search_web_provider_adapters_unittest.py` 已覆盖 |
+| Explicit provider trace contract | 完成 | `10_...closure-replay...md`：SearXNG / YaCy 结果新增 explicit route trace；adapter 单测 `4 passed`，`git diff --check` 与 `py_compile` 通过 |
