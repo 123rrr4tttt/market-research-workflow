@@ -1,6 +1,6 @@
 # Wave6-5 Status Evidence and Minimum Plan
 
-Date: 2026-05-21 PDT
+Date: 2026-05-22 PST
 Status: status evidence plus one minimal agent-core schema-inventory patch
 Scope: `2026-03-07-llm-service-and-agent-platformization`, backend LLM platformization, AgentCore tool registry, focused unit/contract tests
 

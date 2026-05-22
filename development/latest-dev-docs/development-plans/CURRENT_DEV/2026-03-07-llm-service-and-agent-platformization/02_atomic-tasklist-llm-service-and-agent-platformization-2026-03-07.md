@@ -8,7 +8,7 @@
 - `A7`: needs-update; long-horizon framework evaluation should be deferred behind current AgentCore/LLM contract deltas.
 - `A8`: closed-minimal for the current validation pack; topic stays in `CURRENT_DEV` until the A7 update and any shared-index integration are handled separately.
 
-Wave6-5 status evidence: `03_wave6-5-status-evidence-and-min-plan-2026-05-21.md`.
+Wave6-5 status evidence: `03_wave6-5-status-evidence-and-min-plan-2026-05-22.md`.
 
 ## Global Serial-Parallel Rules
 

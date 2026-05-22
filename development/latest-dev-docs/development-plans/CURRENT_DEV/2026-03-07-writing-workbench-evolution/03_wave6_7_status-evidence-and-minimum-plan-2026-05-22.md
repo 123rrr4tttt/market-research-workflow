@@ -1,4 +1,4 @@
-# Wave6-7 Writing Workbench Evolution Status Evidence and Minimum Plan (2026-05-21)
+# Wave6-7 Writing Workbench Evolution Status Evidence and Minimum Plan (2026-05-22)
 
 > Scope: evidence pass for `2026-03-07-writing-workbench-evolution`.
 > Output mode: topic-local evidence only; no shared index edits.
