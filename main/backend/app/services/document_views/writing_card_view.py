@@ -5,6 +5,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ...contracts.schemas.writing import KeywordCardItem
+from ..typed_knowledge.contracts import (
+    WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
+    WritingKnowledgeHandoff,
+    validate_writing_knowledge_handoff,
+)
 
 
 def now_iso() -> str:
@@ -131,5 +136,39 @@ def build_keyword_card_from_graph_node(
             "context_boundary": "graph_context",
             "graph_contract_version": graph_context.get("contract_version"),
             "graph_revision": graph_context.get("revision"),
+        },
+    )
+
+
+def build_keyword_card_from_typed_knowledge_handoff(
+    handoff: WritingKnowledgeHandoff,
+    *,
+    normalized_query: str,
+) -> KeywordCardItem:
+    validate_writing_knowledge_handoff(handoff)
+    typed_knowledge_uri = f"typed-knowledge://{handoff.knowledge_item_key}"
+    return build_keyword_card(
+        source_type="resource",
+        title=handoff.canonical_statement,
+        snippet=handoff.canonical_statement,
+        url=typed_knowledge_uri,
+        score=0.78,
+        publisher="typed_knowledge",
+        published_at=None,
+        evidence=handoff.canonical_statement,
+        normalized_query=normalized_query,
+        extra={
+            "handoff_source": "typed_knowledge",
+            "typed_knowledge_contract_version": WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
+            "knowledge_item_key": handoff.knowledge_item_key,
+            "primary_type_node_key": handoff.primary_type_node_key,
+            "topic_cluster_keys": list(handoff.topic_cluster_keys),
+            "booklet_keys": list(handoff.booklet_keys),
+            "review_state": handoff.review_state,
+            "quality_grade": handoff.quality_grade,
+            "locale": handoff.locale,
+            "evidence_refs": list(handoff.evidence_refs),
+            "visibility_scope": handoff.visibility_scope,
+            "selection_hash": handoff.selection_hash,
         },
     )
