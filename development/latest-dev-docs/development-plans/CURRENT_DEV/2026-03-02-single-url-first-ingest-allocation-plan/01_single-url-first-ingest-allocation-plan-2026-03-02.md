@@ -1,5 +1,24 @@
 # Single-URL First Ingestion Allocation Plan (2026-03-02)
 
+## 0. 2026-05-22 Current Code Mapping
+
+Status: `需更新 -> 已完成当前入口重映射` for this lane.
+
+The original plan uses `single_url` as the conceptual primitive. In the current codebase, that primitive is implemented as a source-library/frontdoor compatibility chain, not as `main/backend/app/services/ingest/single_url.py`.
+
+Current URL-execution write chain:
+
+```text
+url_pool.collect_urls_from_list / ingest_url_via_source_library_frontdoor
+  -> source_library synthetic item: url_pool.single_url_compat
+  -> source_library.resolver.run_item_with_url_routing(..., execution_layer="terminal_output_only")
+  -> ingest.frontdoor_ingress.build_frontdoor_ingress_envelope
+  -> ingest.postprocess_frontdoor.run_postprocess_frontdoor(run_writer=True)
+  -> ingest.meaningful_gate + ingest.terminal_writer
+```
+
+Read `single_url` below as the legacy contract name for this current chain. New implementation and tests should target `url_pool.py`, `source_library/resolver.py`, `frontdoor_ingress.py`, `postprocess_frontdoor.py`, `meaningful_gate.py`, and the related frontdoor tests.
+
 ## 1. Goal
 
 Build a stable ingestion path where users input general task params from frontend, and backend consistently outputs meaningful, schema-consistent documents.
@@ -7,7 +26,7 @@ Build a stable ingestion path where users input general task params from fronten
 Execution strategy:
 - Phase 1: make single URL pipeline deterministic and high quality.
 - Phase 2+: add aggregation strategies on top of validated single URL primitives.
-- Platformization rule: `single_url` is the only ingestion workflow for document writes.
+- Platformization rule: the current `source_library_frontdoor` URL-execution compatibility path is the only URL ingest workflow that may perform document writes.
 
 ## 2. End-to-End Layers (Frontend -> Document)
 
@@ -23,7 +42,7 @@ Execution strategy:
 2. Task Planning Layer
 - Build `ExecutionPlan` from user intent.
 - Split into URL candidates + execution budget + quality thresholds.
-- All candidates must be routed to `single_url` for final write decision.
+- All candidates must be routed to the current source-library/frontdoor compatibility chain for final write decision.
 
 3. Entry Capability Profiling Layer
 - For each URL, compute:
@@ -38,8 +57,8 @@ Execution strategy:
   - `native_http`
   - `browser_render`
   - `crawler_provider`
-  - `official_api`
-- Note: handler choice is internal to `single_url`, not a separate ingest workflow.
+- `official_api`
+- Note: handler choice is internal to the source-library/url-routing layer, not a separate write workflow.
 
 5. Fetch + Anti-Bot Execution Layer
 - Execute with retries, rate limit, user-agent and timeout policy.
@@ -112,7 +131,7 @@ After single URL quality is stable, add aggregation strategies:
 - Strategy S3: mixed-source hybrid (API + crawler + web fallback).
 
 Aggregation uses single URL pipeline as the only ingestion primitive.
-No new workflow is allowed to bypass `single_url` for direct `Document` insertion.
+No new workflow is allowed to bypass `frontdoor_ingress -> postprocess_frontdoor -> terminal_writer` for direct `Document` insertion.
 
 ## 5. Milestones
 
@@ -176,4 +195,3 @@ Control:
 - Single URL ingestion plan and execution checklist (this doc).
 - Implementation tasks (next document in CURRENT_DEV).
 - Test matrix and rollout checklist.
-

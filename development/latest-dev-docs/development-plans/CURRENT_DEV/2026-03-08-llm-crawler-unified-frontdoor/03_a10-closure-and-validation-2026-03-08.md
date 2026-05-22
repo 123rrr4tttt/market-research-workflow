@@ -4,6 +4,17 @@ Date: 2026-03-08 (PST)
 Owner: backend ingest / crawler pipeline
 Scope: `main/backend/app/services/ingest/*`
 
+## 0. 2026-05-22 Refresh Note
+
+Status: `需更新 -> 已完成当前入口重映射` for this lane.
+
+The old closure note mentioned `single_url.py` and `test_single_url_ingest_unittest.py`; neither exists in the current worktree. Current validation should treat `single_url` as the legacy contract name for `url_pool.single_url_compat -> source_library URL routing -> frontdoor_ingress -> postprocess_frontdoor`.
+
+Lane-6 validation after this refresh:
+- `python3.11 -m pytest -q tests/unit/test_ingest_frontdoor_context_unittest.py tests/unit/test_frontdoor_orchestrator_unittest.py tests/unit/test_postprocess_frontdoor_unittest.py` -> `17 passed`.
+- `python3.11 -m pytest -q tests/core_business/test_ingest_core_contract.py tests/unit/test_source_library_handler_cluster_frontdoor_unittest.py` -> `27 passed`.
+- `git diff --check` -> passed.
+
 ## 1. Closure Summary
 
 This iteration closes remaining AT items up to `AT-10` in the atomic tasklist:
@@ -23,8 +34,11 @@ This iteration closes remaining AT items up to `AT-10` in the atomic tasklist:
 - `main/backend/app/services/ingest/frontdoor_rollout.py`
 - `main/backend/app/services/ingest/retry_policy.py`
 - `main/backend/app/services/ingest/metrics_payload.py`
-- `main/backend/app/services/ingest/single_url.py`
 - `main/backend/app/services/ingest/url_pool.py`
+- `main/backend/app/services/ingest/frontdoor_ingress.py`
+- `main/backend/app/services/ingest/postprocess_frontdoor.py`
+- `main/backend/app/services/ingest/terminal_writer.py`
+- `main/backend/app/services/source_library/resolver.py`
 - `main/backend/app/settings/config.py`
 
 Related tests:
@@ -33,7 +47,7 @@ Related tests:
 - `main/backend/tests/unit/test_ingest_retry_policy_unittest.py`
 - `main/backend/tests/unit/test_ingest_metrics_payload_unittest.py`
 - `main/backend/tests/unit/test_frontdoor_orchestrator_unittest.py`
-- `main/backend/tests/unit/test_single_url_ingest_unittest.py`
+- `main/backend/tests/unit/test_ingest_frontdoor_context_unittest.py`
 
 ## 3. Rollout Controls (AT-10)
 
@@ -49,8 +63,8 @@ New config keys:
 
 Routing behavior:
 
-- `url_pool` and `single_url` now both use the same rollout gate.
-- Request-level `single_url_frontdoor_enabled=true` no longer bypasses global rollback mode.
+- `url_pool` and the legacy single-URL compatibility path now use the same rollout/frontdoor route context.
+- Request-level frontdoor enablement no longer bypasses global rollback mode.
 
 ## 4. Validation Evidence
 
@@ -67,7 +81,6 @@ cd main/backend
   tests/unit/test_frontdoor_orchestrator_unittest.py \
   tests/unit/test_url_unwrap_unittest.py \
   tests/unit/test_ingest_frontdoor_context_unittest.py \
-  tests/unit/test_single_url_ingest_unittest.py \
   tests/core_business/test_ingest_core_contract.py \
   tests/core_business/test_api_group_b_core_contract.py
 ```
@@ -103,7 +116,7 @@ Observed:
 
 Additional rollout smoke:
 
-- `rollout_mode=off` => `workflow=single_url`, `frontdoor_enabled=false`.
+- `rollout_mode=off` => legacy URL execution compatibility falls back according to rollout config.
 - `rollout_mode=canary` + allowlisted project => frontdoor enabled.
 - `rollout_mode=canary` + non-allowlisted project => frontdoor disabled.
 

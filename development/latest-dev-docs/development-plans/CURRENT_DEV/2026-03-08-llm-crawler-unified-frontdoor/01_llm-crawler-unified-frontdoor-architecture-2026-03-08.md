@@ -4,6 +4,16 @@ Date: 2026-03-08 (PST)
 Owner: backend ingest / crawler pipeline
 Scope: `main/backend/app/services/ingest/*`
 
+## 0. 2026-05-22 Current Code Mapping
+
+Status: `需更新 -> 已完成当前入口重映射` for this lane.
+
+Current frontdoor implementation names differ from this draft:
+- Draft name `FrontDoorIngestOrchestrator` maps to `main/backend/app/services/ingest/frontdoor_orchestrator.py::FrontDoorOrchestrator`.
+- Legacy `single_url` maps to `main/backend/app/services/ingest/url_pool.py::ingest_url_via_source_library_frontdoor` and synthetic source-library item `url_pool.single_url_compat`.
+- Current authority path is `source_library terminal output -> frontdoor_ingress -> postprocess_frontdoor`; URL execution uses `run_postprocess_frontdoor(..., run_writer=True)`, while source-library terminal display uses `run_writer=False`.
+- New targeted regression: `main/backend/tests/unit/test_ingest_frontdoor_context_unittest.py::test_ingest_url_via_source_library_frontdoor_uses_source_library_bridge_and_postprocess_writer`.
+
 ## 1. Background and Goal
 
 Current direction is correct: `mechanical flow + adapter + crawler`.
@@ -22,7 +32,7 @@ Non-goal:
 ## 2. Architecture Overview
 
 Unified chain:
-1. `FrontDoorIngestOrchestrator`
+1. `FrontDoorOrchestrator` / source-library frontdoor ingress bridge
 2. `URL Normalize + Unwrap Adapter Pool`
 3. `Policy/Safety Gate`
 4. `Fetch Router` (`http_fetch | browser_fetch | crawler_pool`)
@@ -133,7 +143,7 @@ Operational SLO proposal:
 ## 10. Integration Plan (phased)
 
 Phase 1: front door and contract hardening
-- add `FrontDoorIngestOrchestrator`
+- add `FrontDoorOrchestrator`
 - force body-only documents policy
 - unify status/reason envelope
 
@@ -155,12 +165,15 @@ Phase 4: observability and rollout
 
 Primary files:
 - `main/backend/app/services/ingest/url_unwrap.py`
-- `main/backend/app/services/ingest/single_url.py`
 - `main/backend/app/services/ingest/url_pool.py`
 - `main/backend/app/services/ingest/news.py`
 - `main/backend/app/services/ingest/market_web.py`
+- `main/backend/app/services/ingest/frontdoor_ingress.py`
+- `main/backend/app/services/ingest/postprocess_frontdoor.py`
+- `main/backend/app/services/ingest/terminal_writer.py`
+- `main/backend/app/services/source_library/resolver.py`
 
-New recommended module:
+Implemented orchestrator module:
 - `main/backend/app/services/ingest/frontdoor_orchestrator.py`
 
 ## 12. Acceptance Criteria
@@ -171,4 +184,3 @@ Must pass:
 3. adapter steps are observable in result diagnostics
 4. failure reasons are explainable and aggregatable
 5. existing core ingest contract tests remain green
-
