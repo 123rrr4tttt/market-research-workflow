@@ -20,6 +20,8 @@ The current readable entrypoint remains [development/latest-dev-docs](../../deve
 
 The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuring](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md).
 
+The first mapped-entry batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries are mapping authority only; the mapped `development/latest-dev-docs` paths remain the content authority until a later migration batch moves or shims content and updates shared navigation.
+
 ## Target Routing
 
 | Source family | Target under this root | Notes |
