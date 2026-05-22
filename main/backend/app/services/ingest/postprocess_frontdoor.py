@@ -23,10 +23,44 @@ from ...settings.config import settings
 _EXTRACTION_APP = ExtractionApplicationService()
 
 
-def _frontdoor_gate_config() -> dict[str, Any]:
+def _coerce_bool(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        raw = value.strip().lower()
+        if raw in {"1", "true", "yes", "on"}:
+            return True
+        if raw in {"0", "false", "no", "off"}:
+            return False
+    if value is None:
+        return bool(default)
+    return bool(value)
+
+
+def _frontdoor_gate_config(*, terminal_context: dict[str, Any] | None = None) -> dict[str, Any]:
+    context = terminal_context if isinstance(terminal_context, dict) else {}
+    request_gate_config = context.get("meaningful_gate_config")
+    if not isinstance(request_gate_config, dict):
+        request_gate_config = {}
+
+    settings_enabled = bool(getattr(settings, "ingest_enable_strict_gate", False))
+    request_enabled = _coerce_bool(request_gate_config.get("enable_strict_gate"), False)
+    strict_mode_enabled = _coerce_bool(context.get("strict_mode"), False)
+    enabled = bool(settings_enabled or request_enabled or strict_mode_enabled)
+    if settings_enabled:
+        source = "settings.ingest_enable_strict_gate"
+    elif request_enabled:
+        source = "terminal_context.meaningful_gate_config"
+    elif strict_mode_enabled:
+        source = "terminal_context.strict_mode"
+    else:
+        source = "disabled"
+
+    raw_min_len = request_gate_config.get("min_semantic_len", getattr(settings, "ingest_min_semantic_len", 500))
     return {
-        "enable_strict_gate": bool(getattr(settings, "ingest_enable_strict_gate", False)),
-        "min_semantic_len": int(getattr(settings, "ingest_min_semantic_len", 500) or 500),
+        "enable_strict_gate": enabled,
+        "strict_gate_source": source,
+        "min_semantic_len": int(raw_min_len or 500),
     }
 
 
@@ -517,7 +551,7 @@ def _evaluate_quality_frontdoor(
             "gate_plus": {"checks": [], "blocked": True, "blocked_stage": "light_filter", "blocked_reason": light_reason},
         }
 
-    gate_cfg = _frontdoor_gate_config()
+    gate_cfg = _frontdoor_gate_config(terminal_context=context)
     url_gate = url_policy_check(uri, config=gate_cfg) if uri else None
     content_gate = content_quality_check(
         uri=uri,
@@ -531,6 +565,8 @@ def _evaluate_quality_frontdoor(
         url_gate=url_gate,
         content_gate=content_gate,
     )
+    provenance_ok = bool(url_gate is None or not url_gate.blocked)
+    content_ok = bool(not content_gate.blocked)
     cleanup_actions: list[str] = []
     degradation_flags: list[str] = []
     admission = "accept"
@@ -579,11 +615,13 @@ def _evaluate_quality_frontdoor(
         "cleaning": dict(context.get("frontdoor_cleaning") or {}),
         "quality_assessment": {
             "quality_score": quality_score,
-            "meaningful": bool(not content_gate.blocked),
-            "provenance_ok": bool(url_gate is None or not url_gate.blocked),
-            "content_ok": bool(not content_gate.blocked),
+            "meaningful": bool(provenance_ok and content_ok),
+            "provenance_ok": provenance_ok,
+            "content_ok": content_ok,
             "readerable": bool(content_profile.get("readerable")),
             "page_family": str(content_profile.get("page_family") or "unknown"),
+            "strict_gate_enabled": bool(gate_cfg.get("enable_strict_gate")),
+            "strict_gate_source": str(gate_cfg.get("strict_gate_source") or "disabled"),
         },
         "quality_gates": {
             "light_filter": dict(light_filter),
@@ -591,6 +629,11 @@ def _evaluate_quality_frontdoor(
             "content_gate": content_gate.to_dict(),
             "gate_plus": gate_plus,
             "content_profile": deepcopy(content_profile),
+            "gate_config": {
+                "enable_strict_gate": bool(gate_cfg.get("enable_strict_gate")),
+                "strict_gate_source": str(gate_cfg.get("strict_gate_source") or "disabled"),
+                "min_semantic_len": int(gate_cfg.get("min_semantic_len") or 500),
+            },
         },
         "degradation_flags": degradation_flags,
         "light_filter": dict(light_filter),

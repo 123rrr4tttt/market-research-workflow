@@ -737,6 +737,7 @@ def _run_source_library_frontdoor_ingress(
                 "platform": source_name,
                 "ingestion_entrypoint": entrypoint,
                 "source_mode": "url_execution",
+                "strict_mode": bool(strict_mode),
                 "quality_score": 0.0,
                 "degradation_flags": [],
                 "http_status": (record.get("record_meta") or {}).get("http_status")

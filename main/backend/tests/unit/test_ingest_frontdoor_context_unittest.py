@@ -133,6 +133,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
                 url="https://example.com/article",
                 project_key=None,
                 query_terms=["market"],
+                strict_mode=True,
                 frontdoor_options={"route_hint": "static_detail", "prefer_crawler": True},
                 enable_extraction=False,
             )
@@ -143,6 +144,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(captured["execution_layer"], "terminal_output_only")
         self.assertEqual(captured["params"]["urls"], ["https://example.com/article"])
         self.assertEqual(captured["params"]["query_terms"], ["market"])
+        self.assertEqual(captured["params"]["strict_mode"], True)
         self.assertEqual(captured["params"]["prefer_crawler_first"], True)
         self.assertEqual(captured["params"]["force_url_routing_flow"], False)
         self.assertEqual(captured["params"]["frontdoor_route_hint"], "static_detail")
@@ -157,6 +159,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(ingress["source_ref"]["ingress_type"], "source_library")
         self.assertEqual(ingress["source_ref"]["source_mode"], "url_execution")
         self.assertEqual(ingress["collection_payload"]["document_candidate"]["uri"], "https://example.com/article")
+        self.assertEqual(ingress["collection_payload"]["terminal_context"]["strict_mode"], True)
         self.assertEqual(ingress["collection_payload"]["extraction_plan"]["enabled"], False)
         self.assertEqual(captured["run_writer"], True)
 
