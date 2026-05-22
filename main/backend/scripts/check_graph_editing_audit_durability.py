@@ -20,7 +20,10 @@ FRONTEND_ROOT = REPO_ROOT / "main" / "frontend-modern"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.services.workflow_graph.curated_service import WorkflowGraphCuratedService  # noqa: E402
+from app.services.workflow_graph.curated_service import (  # noqa: E402
+    WorkflowGraphCuratedService,
+    WorkflowGraphSyncConflictError,
+)
 from app.services.workflow_graph.handoff_store import WorkflowGraphHandoffStore  # noqa: E402
 from app.services.workflow_graph.store import InMemoryRunStore  # noqa: E402
 
@@ -51,6 +54,10 @@ GRAPHPAGE_AUDIT_UI_EVIDENCE_FIELDS = (
 TENANT_LIKE_PROJECT_KEY = "tenant_like_graph_audit_fixture"
 TENANT_LIKE_GRAPH_ID = "cg-wave18-tenant-like-audit"
 TENANT_LIKE_ACTOR_ID = "wave18.worker6"
+
+CONFLICT_READBACK_PROJECT_KEY = "tenant_like_graph_audit_conflict_fixture"
+CONFLICT_READBACK_GRAPH_ID = "cg-wave20-audit-conflict"
+CONFLICT_READBACK_ACTOR_ID = "wave20.worker3"
 
 
 def _read_file(path: Path) -> str:
@@ -452,6 +459,218 @@ def _exercise_tenant_like_fixture_audit_trace() -> dict[str, Any]:
     return {"failures": failures, "metrics": metrics}
 
 
+def _exercise_conflict_rollback_readback_fixture() -> dict[str, Any]:
+    failures: list[str] = []
+    metrics: dict[str, Any] = {}
+    state_store: dict[str, Any] = {"payload": {"base_version": 0, "graphs": {}}}
+    rollback_reason = "wave20 rollback intent after stale conflict marker"
+    conflict_details: dict[str, Any] = {}
+    conflict_error_message = ""
+    audit_count_after_conflict = -1
+
+    def fake_get_config(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {"payload": deepcopy(state_store["payload"])}
+
+    def fake_upsert_config(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        state_store["payload"] = deepcopy(kwargs.get("payload"))
+        return {"payload": deepcopy(state_store["payload"])}
+
+    try:
+        with patch(
+            "app.services.workflow_graph.curated_service.current_project_key",
+            return_value=CONFLICT_READBACK_PROJECT_KEY,
+        ), patch(
+            "app.services.workflow_graph.curated_service.get_ingest_config",
+            side_effect=fake_get_config,
+        ), patch(
+            "app.services.workflow_graph.curated_service.upsert_ingest_config",
+            side_effect=fake_upsert_config,
+        ):
+            writer = WorkflowGraphCuratedService()
+            writer.save_draft(
+                CONFLICT_READBACK_GRAPH_ID,
+                {
+                    "actor_id": CONFLICT_READBACK_ACTOR_ID,
+                    "dsl": _curated_dsl("node-wave20-baseline", source_uri="https://example.com/wave20/baseline"),
+                },
+            )
+            submit_1 = writer.submit_draft(
+                CONFLICT_READBACK_GRAPH_ID,
+                {
+                    "base_revision": 0,
+                    "actor_id": CONFLICT_READBACK_ACTOR_ID,
+                    "version_id": "cver-wave20-baseline",
+                },
+            )
+            writer.save_draft(
+                CONFLICT_READBACK_GRAPH_ID,
+                {
+                    "base_revision": 1,
+                    "actor_id": CONFLICT_READBACK_ACTOR_ID,
+                    "dsl": _curated_dsl(
+                        "node-wave20-candidate",
+                        source_uri="https://example.com/wave20/candidate",
+                    ),
+                },
+            )
+            submit_2 = writer.submit_draft(
+                CONFLICT_READBACK_GRAPH_ID,
+                {
+                    "base_revision": 1,
+                    "actor_id": CONFLICT_READBACK_ACTOR_ID,
+                    "version_id": "cver-wave20-candidate",
+                },
+            )
+
+            try:
+                writer.rollback(
+                    CONFLICT_READBACK_GRAPH_ID,
+                    {
+                        "base_revision": 1,
+                        "actor_id": CONFLICT_READBACK_ACTOR_ID,
+                        "target_version_id": "cver-wave20-baseline",
+                        "reason": rollback_reason,
+                    },
+                )
+            except WorkflowGraphSyncConflictError as exc:
+                conflict_details = exc.to_details()
+                conflict_error_message = str(exc)
+            else:
+                failures.append("stale rollback base_revision did not raise WorkflowGraphSyncConflictError")
+
+            persisted_after_conflict = state_store["payload"].get("graphs", {}).get(CONFLICT_READBACK_GRAPH_ID, {})
+            raw_after_conflict = (
+                persisted_after_conflict.get("audits") if isinstance(persisted_after_conflict, dict) else []
+            )
+            audit_count_after_conflict = len(raw_after_conflict) if isinstance(raw_after_conflict, list) else -1
+
+            rollback = writer.rollback(
+                CONFLICT_READBACK_GRAPH_ID,
+                {
+                    "base_revision": 2,
+                    "actor_id": CONFLICT_READBACK_ACTOR_ID,
+                    "target_version_id": "cver-wave20-baseline",
+                    "reason": rollback_reason,
+                },
+            )
+
+            reader = WorkflowGraphCuratedService()
+            graph = reader.get_graph(CONFLICT_READBACK_GRAPH_ID)
+            audits = reader.list_audits(CONFLICT_READBACK_GRAPH_ID, limit=10)
+            sync_readback = reader.sync_graph(CONFLICT_READBACK_GRAPH_ID, {"since_revision": 2})
+    except Exception as exc:  # noqa: BLE001
+        return {"failures": [*failures, f"conflict rollback readback fixture raised: {exc}"], "metrics": metrics}
+
+    persisted_graph = state_store["payload"].get("graphs", {}).get(CONFLICT_READBACK_GRAPH_ID, {})
+    raw_audits = persisted_graph.get("audits") if isinstance(persisted_graph, dict) else []
+    raw_audits = raw_audits if isinstance(raw_audits, list) else []
+    items = audits.get("items") if isinstance(audits.get("items"), list) else []
+    raw_actions = [str(item.get("action") or "") for item in raw_audits if isinstance(item, dict)]
+    readback_actions = [str(item.get("action") or "") for item in items]
+    rollback_audit = items[0] if items else {}
+    rollback_context = rollback_audit.get("context") if isinstance(rollback_audit.get("context"), dict) else {}
+    rollback_contract = rollback_context.get("rollback_contract") if isinstance(rollback_context, dict) else {}
+    rollback_contract = rollback_contract if isinstance(rollback_contract, dict) else {}
+
+    snapshot = sync_readback.get("server_snapshot") if isinstance(sync_readback, dict) else {}
+    snapshot_dsl = snapshot.get("dsl") if isinstance(snapshot, dict) else {}
+    snapshot_nodes = snapshot_dsl.get("nodes") if isinstance(snapshot_dsl, dict) else []
+    snapshot_node_ids = {
+        str(node.get("id") or node.get("node_id") or "").strip()
+        for node in snapshot_nodes
+        if isinstance(node, dict)
+    }
+    current = persisted_graph.get("current") if isinstance(persisted_graph, dict) else {}
+    current = current if isinstance(current, dict) else {}
+
+    _expect(failures, submit_1.get("revision") == 1, "conflict fixture first submit did not create revision 1")
+    _expect(failures, submit_2.get("revision") == 2, "conflict fixture second submit did not create revision 2")
+    _expect(
+        failures,
+        conflict_details == {"category": "version_conflict", "expected_revision": 1, "actual_revision": 2},
+        f"conflict marker mismatch: {conflict_details}",
+    )
+    _expect(
+        failures,
+        "revision mismatch expected=1 actual=2" in conflict_error_message,
+        "conflict error message did not preserve expected/actual revisions",
+    )
+    _expect(
+        failures,
+        audit_count_after_conflict == 2,
+        "stale conflict should not append an audit event before accepted rollback",
+    )
+    _expect(failures, rollback.get("revision") == 3, "accepted rollback did not create revision 3")
+    _expect(failures, graph.get("revision") == 3, "fresh graph readback did not expose rollback revision 3")
+    _expect(failures, raw_actions == ["submit", "submit", "rollback"], f"raw audit actions mismatch: {raw_actions}")
+    _expect(
+        failures,
+        readback_actions == ["rollback", "submit", "submit"],
+        f"readback audit actions mismatch: {readback_actions}",
+    )
+    _expect(
+        failures,
+        rollback_audit.get("contract_version") == AUDIT_CONTRACT_VERSION
+        and rollback_audit.get("action") == "rollback"
+        and rollback_audit.get("status") == "succeeded"
+        and rollback_audit.get("project_key") == CONFLICT_READBACK_PROJECT_KEY
+        and rollback_audit.get("actor_id") == CONFLICT_READBACK_ACTOR_ID,
+        "rollback audit event did not preserve audit/project/actor status metadata",
+    )
+    _expect(
+        failures,
+        rollback_contract.get("contract_version") == ROLLBACK_CONTRACT_VERSION
+        and rollback_contract.get("rollback_scope") == "snapshot_restore"
+        and rollback_contract.get("target_version_id") == "cver-wave20-baseline"
+        and rollback_contract.get("current_revision") == 2
+        and rollback_contract.get("base_revision") == 2
+        and rollback_contract.get("requires_base_revision_match") is True
+        and rollback_contract.get("reason") == rollback_reason,
+        "rollback intent did not preserve scope/target/revision/reason metadata",
+    )
+    _expect(
+        failures,
+        current.get("audit_id") == rollback_audit.get("audit_id")
+        and current.get("rollback_from_version_id") == "cver-wave20-baseline",
+        "readback current snapshot does not point to the rollback audit event",
+    )
+    _expect(
+        failures,
+        "node-wave20-baseline" in snapshot_node_ids and "node-wave20-candidate" not in snapshot_node_ids,
+        "rollback readback summary did not restore baseline and remove candidate node",
+    )
+
+    rollback_intent = {
+        "target_version_id": rollback_contract.get("target_version_id"),
+        "reason": rollback_contract.get("reason"),
+        "rollback_scope": rollback_contract.get("rollback_scope"),
+        "requires_base_revision_match": rollback_contract.get("requires_base_revision_match"),
+        "base_revision": rollback_contract.get("base_revision"),
+    }
+    readback_summary = {
+        "graph_revision": graph.get("revision"),
+        "audit_actions": readback_actions,
+        "active_version_id": graph.get("active_version_id"),
+        "restored_node_ids": sorted(snapshot_node_ids),
+        "current_audit_id": current.get("audit_id"),
+    }
+    metrics.update(
+        {
+            "conflict_readback_project_key": CONFLICT_READBACK_PROJECT_KEY,
+            "conflict_readback_graph_id": CONFLICT_READBACK_GRAPH_ID,
+            "audit_event_validated": not failures,
+            "conflict_marker": conflict_details,
+            "conflict_did_not_append_audit_event": audit_count_after_conflict == 2,
+            "rollback_intent": rollback_intent,
+            "readback_summary": readback_summary,
+            "raw_audit_actions": raw_actions,
+            "readback_audit_actions": readback_actions,
+            "live_tenant_db_audit_open": True,
+        }
+    )
+    return {"failures": failures, "metrics": metrics}
+
+
 def _exercise_handoff_audit_readback() -> dict[str, Any]:
     failures: list[str] = []
     metrics: dict[str, Any] = {}
@@ -676,6 +895,24 @@ def _build_tenant_like_fixture_stage() -> dict[str, Any]:
     )
 
 
+def _build_conflict_rollback_readback_stage() -> dict[str, Any]:
+    fixture = _exercise_conflict_rollback_readback_fixture()
+    failures = list(fixture["failures"])
+    return _stage(
+        name="conflict_rollback_readback_fixture",
+        status="validated" if not failures else "failed",
+        passed=not failures,
+        validated=not failures,
+        detail=(
+            "deterministic fixture validates stale revision conflict marker, no audit append on rejected "
+            "rollback, accepted rollback intent, rollback audit event, and fresh readback summary"
+        ),
+        gaps=[] if not failures else ["conflict marker / rollback intent / readback summary fixture is broken"],
+        failures=failures,
+        metrics=fixture["metrics"],
+    )
+
+
 def _build_graphpage_ui_stage(
     *,
     static_checks: dict[str, bool],
@@ -817,6 +1054,7 @@ def build_gate_snapshot(
 ) -> dict[str, Any]:
     repo_stage = _build_repo_local_stage(static_checks=repo_local_static_checks(repo_root))
     tenant_like_stage = _build_tenant_like_fixture_stage()
+    conflict_stage = _build_conflict_rollback_readback_stage()
     ui_stage = _build_graphpage_ui_stage(
         static_checks=graphpage_audit_ui_static_checks(repo_root),
         evidence=graphpage_ui_evidence,
@@ -825,9 +1063,9 @@ def build_gate_snapshot(
         database_url=database_url,
         evidence=live_db_audit_evidence,
     )
-    stages = [repo_stage, tenant_like_stage, ui_stage, live_db_stage]
+    stages = [repo_stage, tenant_like_stage, conflict_stage, ui_stage, live_db_stage]
     hard_failures = [failure for stage in stages if not stage["passed"] for failure in stage["failures"]]
-    if not repo_stage["validated"] or not tenant_like_stage["validated"]:
+    if not repo_stage["validated"] or not tenant_like_stage["validated"] or not conflict_stage["validated"]:
         readiness_state = "failed"
     elif ui_stage["validated"] and live_db_stage["validated"]:
         readiness_state = "live_audit_evidence_recorded_non_closing"
@@ -836,6 +1074,7 @@ def build_gate_snapshot(
     boundary = (
         "repo-local audit/readback contract is deterministic and validated; "
         f"tenant-like fixture audit trace={tenant_like_stage['status']}; "
+        f"conflict rollback readback fixture={conflict_stage['status']}; "
         f"GraphPage audit/rollback UI={ui_stage['status']}; "
         f"live DB audit durability={live_db_stage['status']}; "
         "live_tenant_db_audit_open=true; "
@@ -848,6 +1087,7 @@ def build_gate_snapshot(
         "closure_claim": False,
         "repo_local_audit_readback_validated": repo_stage["validated"],
         "tenant_like_fixture_audit_trace_validated": tenant_like_stage["validated"],
+        "conflict_rollback_readback_validated": conflict_stage["validated"],
         "graphpage_audit_controls_validated": ui_stage["validated"],
         "live_db_audit_durability_validated": live_db_stage["validated"],
         "live_tenant_db_audit_open": True,
@@ -868,6 +1108,8 @@ def validate_gate_snapshot(snapshot: dict[str, Any]) -> list[str]:
         failures.append("repo-local audit/readback contract must be validated")
     if snapshot.get("tenant_like_fixture_audit_trace_validated") is not True:
         failures.append("tenant-like fixture audit trace must be validated")
+    if snapshot.get("conflict_rollback_readback_validated") is not True:
+        failures.append("conflict rollback readback fixture must be validated")
     if snapshot.get("live_tenant_db_audit_open") is not True:
         failures.append("live_tenant_db_audit_open must remain true")
     if (
@@ -879,6 +1121,7 @@ def validate_gate_snapshot(snapshot: dict[str, Any]) -> list[str]:
     if (
         "repo-local audit/readback contract" not in boundary
         or "tenant-like fixture audit trace" not in boundary
+        or "conflict rollback readback fixture" not in boundary
         or "live_tenant_db_audit_open=true" not in boundary
         or "closure_claim=false" not in boundary
     ):
@@ -915,6 +1158,7 @@ def main() -> int:
         print(f"closure_claim={snapshot['closure_claim']}")
         print(f"repo_local_audit_readback_validated={snapshot['repo_local_audit_readback_validated']}")
         print(f"tenant_like_fixture_audit_trace_validated={snapshot['tenant_like_fixture_audit_trace_validated']}")
+        print(f"conflict_rollback_readback_validated={snapshot['conflict_rollback_readback_validated']}")
         print(f"graphpage_audit_controls_validated={snapshot['graphpage_audit_controls_validated']}")
         print(f"live_db_audit_durability_validated={snapshot['live_db_audit_durability_validated']}")
         print(f"live_tenant_db_audit_open={snapshot['live_tenant_db_audit_open']}")

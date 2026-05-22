@@ -9,6 +9,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.check_graph_editing_audit_durability import (  # noqa: E402
+    CONFLICT_READBACK_GRAPH_ID,
+    CONFLICT_READBACK_PROJECT_KEY,
     TENANT_LIKE_GRAPH_ID,
     TENANT_LIKE_PROJECT_KEY,
     build_gate_snapshot,
@@ -49,6 +51,7 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         self.assertFalse(snapshot["closure_claim"])
         self.assertTrue(snapshot["repo_local_audit_readback_validated"])
         self.assertTrue(snapshot["tenant_like_fixture_audit_trace_validated"])
+        self.assertTrue(snapshot["conflict_rollback_readback_validated"])
         self.assertTrue(snapshot["live_tenant_db_audit_open"])
         self.assertFalse(snapshot["graphpage_audit_controls_validated"])
         self.assertFalse(snapshot["live_db_audit_durability_validated"])
@@ -56,6 +59,7 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         stages = {stage["name"]: stage for stage in snapshot["stages"]}
         self.assertEqual(stages["repo_local_audit_readback_contract"]["status"], "validated")
         self.assertEqual(stages["tenant_like_fixture_audit_trace"]["status"], "validated")
+        self.assertEqual(stages["conflict_rollback_readback_fixture"]["status"], "validated")
         self.assertEqual(stages["live_db_audit_durability"]["status"], "configured_not_run")
         self.assertIn(
             stages["graphpage_audit_rollback_readback_ui"]["status"],
@@ -63,6 +67,7 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         )
         self.assertIn("repo-local audit/readback contract", snapshot["boundary"])
         self.assertIn("tenant-like fixture audit trace", snapshot["boundary"])
+        self.assertIn("conflict rollback readback fixture", snapshot["boundary"])
         self.assertIn("live_tenant_db_audit_open=true", snapshot["boundary"])
         self.assertIn("live backend", " ".join(snapshot["remaining_gaps"]))
         self.assertIn("tenant DB", " ".join(snapshot["remaining_gaps"]))
@@ -86,6 +91,33 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         self.assertTrue(metrics["live_tenant_db_audit_open"])
         self.assertTrue(snapshot["live_tenant_db_audit_open"])
 
+    def test_conflict_rollback_fixture_validates_marker_intent_and_readback(self) -> None:
+        snapshot = build_gate_snapshot()
+        stages = {stage["name"]: stage for stage in snapshot["stages"]}
+        fixture_stage = stages["conflict_rollback_readback_fixture"]
+        metrics = fixture_stage["metrics"]
+
+        self.assertEqual(validate_gate_snapshot(snapshot), [])
+        self.assertEqual(fixture_stage["status"], "validated")
+        self.assertEqual(metrics["conflict_readback_project_key"], CONFLICT_READBACK_PROJECT_KEY)
+        self.assertEqual(metrics["conflict_readback_graph_id"], CONFLICT_READBACK_GRAPH_ID)
+        self.assertTrue(metrics["audit_event_validated"])
+        self.assertTrue(metrics["conflict_did_not_append_audit_event"])
+        self.assertEqual(
+            metrics["conflict_marker"],
+            {"category": "version_conflict", "expected_revision": 1, "actual_revision": 2},
+        )
+        self.assertEqual(metrics["raw_audit_actions"], ["submit", "submit", "rollback"])
+        self.assertEqual(metrics["readback_audit_actions"], ["rollback", "submit", "submit"])
+        self.assertEqual(metrics["rollback_intent"]["target_version_id"], "cver-wave20-baseline")
+        self.assertEqual(metrics["rollback_intent"]["rollback_scope"], "snapshot_restore")
+        self.assertTrue(metrics["rollback_intent"]["requires_base_revision_match"])
+        self.assertEqual(metrics["readback_summary"]["graph_revision"], 3)
+        self.assertIn("node-wave20-baseline", metrics["readback_summary"]["restored_node_ids"])
+        self.assertNotIn("node-wave20-candidate", metrics["readback_summary"]["restored_node_ids"])
+        self.assertTrue(snapshot["conflict_rollback_readback_validated"])
+        self.assertTrue(snapshot["live_tenant_db_audit_open"])
+
     def test_incomplete_live_db_evidence_fails_closed(self) -> None:
         snapshot = build_gate_snapshot(
             live_db_audit_evidence={"live_db_audit_durability_validated": True}
@@ -107,6 +139,7 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         self.assertEqual(snapshot["status"], "passed")
         self.assertTrue(snapshot["repo_local_audit_readback_validated"])
         self.assertTrue(snapshot["tenant_like_fixture_audit_trace_validated"])
+        self.assertTrue(snapshot["conflict_rollback_readback_validated"])
         self.assertTrue(snapshot["live_tenant_db_audit_open"])
         self.assertTrue(snapshot["live_db_audit_durability_validated"])
         self.assertFalse(snapshot["graphpage_audit_controls_validated"])
