@@ -8,7 +8,8 @@ Related execution plans:
 - [worktree-branch-plan.md](./worktree-branch-plan.md)
 - [parallel-plan-tree-2026-05-22.md](./parallel-plan-tree-2026-05-22.md)
 - [wave3-worktree-plan-2026-05-22.md](./wave3-worktree-plan-2026-05-22.md) - integrated Wave3 branch tree, supervisor reconciliation, and validation status.
-- [wave4-worktree-plan-2026-05-22.md](./wave4-worktree-plan-2026-05-22.md) - planned/pending Wave4 branch tree and status skeleton; not a completion record.
+- [wave4-worktree-plan-2026-05-22.md](./wave4-worktree-plan-2026-05-22.md) - integrated Wave4 branch tree, supervisor reconciliation, and validation status.
+- [wave4-integration-risk-review-2026-05-22.md](./wave4-integration-risk-review-2026-05-22.md) - pre-merge risk review used as the Wave4 integration checklist.
 
 ## Summary
 

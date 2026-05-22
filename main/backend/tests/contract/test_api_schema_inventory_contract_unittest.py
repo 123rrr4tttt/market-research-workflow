@@ -55,7 +55,7 @@ class ApiSchemaInventoryContractTestCase(unittest.TestCase):
         self.assertEqual(summary["app_level_operations"], 3)
         self.assertEqual(summary["request_body_operations"], 114)
         self.assertGreaterEqual(summary["component_schemas"], 100)
-        self.assertGreater(summary["untyped_openapi_200_operations"], 0)
+        self.assertEqual(summary["untyped_openapi_200_operations"], 0)
 
     def test_major_request_and_response_schema_surfaces_are_visible(self):
         operations = {
@@ -85,7 +85,7 @@ class ApiSchemaInventoryContractTestCase(unittest.TestCase):
         )
         self.assertEqual(
             operations[("POST", "/api/v1/workflow-graph/compile")]["response_200_schema"],
-            "untyped",
+            "ApiEnvelope_dict_str__Any__",
         )
 
 

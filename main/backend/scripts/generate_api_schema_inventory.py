@@ -274,7 +274,7 @@ def render_markdown(inventory: dict[str, Any]) -> str:
 
 This inventory records the request-body models, visible response models, OpenAPI 200-response schema labels, parameters, operation IDs, and response status-code sets that clients can infer from the current FastAPI application.
 
-It does not prove runtime envelope conformance for every handler. The current gap is explicit: many routes are runtime-wrapped by middleware or return legacy dict payloads while their OpenAPI 200 response is still `untyped`. Closing that gap needs per-module `response_model` work and runtime envelope tests beyond this schema-surface inventory.
+It does not prove runtime envelope conformance for every handler. A typed OpenAPI surface can still use conservative `dict[str, Any]`, `Any`, `object`, `non-json`, or `missing` response labels where handlers return legacy payloads, redirects, static/non-JSON content, or status-code-specific responses. Tightening those internals needs per-route runtime envelope tests beyond this schema-surface inventory.
 
 ## Source Summary
 
