@@ -1,8 +1,28 @@
 import { expect, test, type Page } from '@playwright/test'
 
+type CuratedDraftRequest = {
+  actor_id?: string
+  dsl?: {
+    nodes?: unknown[]
+    edges?: unknown[]
+  }
+}
+
+type CuratedSubmitRequest = {
+  actor_id?: string
+  base_revision?: number
+  object_scope?: string
+}
+
 async function setupGraphPageMocks(page: Page) {
   let graphConfigHit = 0
   let marketGraphHit = 0
+  let policyGraphHit = 0
+  let contentGraphHit = 0
+  let curatedDraftHit = 0
+  let curatedSubmitHit = 0
+  let lastCuratedDraftBody: CuratedDraftRequest | null = null
+  let lastCuratedSubmitBody: CuratedSubmitRequest | null = null
 
   await page.route('**/api/v1/project-customization/graph-config**', async (route) => {
     graphConfigHit += 1
@@ -51,12 +71,93 @@ async function setupGraphPageMocks(page: Page) {
     })
   })
 
+  await page.route('**/api/v1/admin/policy-graph**', async (route) => {
+    policyGraphHit += 1
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', data: { nodes: [], edges: [] } }),
+    })
+  })
+
+  await page.route('**/api/v1/admin/content-graph**', async (route) => {
+    contentGraphHit += 1
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', data: { nodes: [], edges: [] } }),
+    })
+  })
+
+  await page.route('**/api/v1/workflow-graph/templates', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', data: { items: [], total: 0 } }),
+    })
+  })
+
+  await page.route('**/workflow-graph/curated/**/draft**', async (route) => {
+    curatedDraftHit += 1
+    lastCuratedDraftBody = route.request().postDataJSON() as CuratedDraftRequest
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          graph_id: 'cg-graphpage-e2e',
+          sync_status: 'draft_saved',
+          revision: 0,
+          base_version: 1,
+        },
+      }),
+    })
+  })
+
+  await page.route('**/workflow-graph/curated/**/submit**', async (route) => {
+    curatedSubmitHit += 1
+    lastCuratedSubmitBody = route.request().postDataJSON() as CuratedSubmitRequest
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          graph_id: 'cg-graphpage-e2e',
+          submit_status: 'submitted',
+          revision: 1,
+          active_version_id: 'cver_graphpage_e2e',
+          audit_id: 'audit_graphpage_e2e',
+        },
+      }),
+    })
+  })
+
   return {
     get graphConfigHit() {
       return graphConfigHit
     },
     get marketGraphHit() {
       return marketGraphHit
+    },
+    get policyGraphHit() {
+      return policyGraphHit
+    },
+    get contentGraphHit() {
+      return contentGraphHit
+    },
+    get curatedDraftHit() {
+      return curatedDraftHit
+    },
+    get curatedSubmitHit() {
+      return curatedSubmitHit
+    },
+    get lastCuratedDraftBody() {
+      return lastCuratedDraftBody
+    },
+    get lastCuratedSubmitBody() {
+      return lastCuratedSubmitBody
     },
   }
 }
@@ -155,4 +256,46 @@ test('graph page renders force3d canvas backed by graph scene nodes', async ({ p
     expect(outcome.fallbackText).toContain('3D引擎渲染失败')
     expect(outcome.engineValue).toBe('legacy')
   }
+})
+
+test('graph builder submits local draft to curated workflow graph API', async ({ page }) => {
+  const hits = await setupGraphPageMocks(page)
+
+  const response = await page.goto('/#graph-template-new.html')
+  expect(response?.ok()).toBeTruthy()
+
+  await expect(page.getByRole('heading', { level: 1, name: '新建图谱', exact: true })).toBeVisible()
+  await expect(page.getByTestId('graph-curated-panel')).toBeVisible()
+
+  await page.getByTestId('graph-curated-graph-id').fill('cg-graphpage-e2e')
+  await expect(page.getByText(/Draft: nodes=2 edges=1/)).toBeVisible()
+
+  await page.getByTestId('graph-curated-submit').click()
+  await expect(page.getByTestId('graph-curated-status')).toContainText('submitted r1')
+
+  expect(hits.policyGraphHit).toBeGreaterThan(0)
+  expect(hits.contentGraphHit).toBeGreaterThan(0)
+  expect(hits.marketGraphHit).toBeGreaterThan(0)
+  expect(hits.curatedDraftHit).toBe(1)
+  expect(hits.curatedSubmitHit).toBe(1)
+
+  expect(hits.lastCuratedDraftBody?.actor_id).toBe('graphpage.curated-consumer')
+  expect(hits.lastCuratedDraftBody?.dsl?.nodes).toEqual([
+    expect.objectContaining({ id: 'n1', type: 'product', node_id: 'n1', node_type: 'product', title: '示例商品A' }),
+    expect.objectContaining({ id: 'n2', type: 'company', node_id: 'n2', node_type: 'company', title: '示例公司B' }),
+  ])
+  expect(hits.lastCuratedDraftBody?.dsl?.edges).toEqual([
+    expect.objectContaining({
+      from_node_id: 'n1',
+      to_node_id: 'n2',
+      edge_type: 'related_to',
+      from: { id: 'n1', type: 'product' },
+      to: { id: 'n2', type: 'company' },
+    }),
+  ])
+  expect(hits.lastCuratedSubmitBody).toEqual(expect.objectContaining({
+    actor_id: 'graphpage.curated-consumer',
+    base_revision: 0,
+    object_scope: 'curated_business_graph',
+  }))
 })
