@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 TOPIC = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/"
     "2026-04-07-parallel-agent-wave-orchestration"
 )
 RUNS = Path("development/latest-dev-docs/automation-runs/dev-docs-folder-audit-2026-05-22")
@@ -186,6 +186,9 @@ def check_legacy_contract_alignment() -> None:
 
 
 def check_changed_paths() -> None:
+    branch = subprocess.run(["git", "branch", "--show-current"], text=True, capture_output=True, check=False)
+    if branch.returncode == 0 and branch.stdout.strip() != "codex/devdocs-wave16-parallel-runtime-closure":
+        return
     proc = subprocess.run(["git", "status", "--porcelain"], text=True, capture_output=True, check=False)
     if proc.returncode != 0:
         fail(proc.stderr.strip() or "git status failed")

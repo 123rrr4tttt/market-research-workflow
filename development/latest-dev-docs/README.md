@@ -27,13 +27,13 @@
 ## 最新补充
 
 - 线索追查 `Chain` / 链条工具开发计划（2026-05-22）：
-  - [development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/INDEX.md](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/INDEX.md)
-  - [development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/INDEX.md](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/INDEX.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md)
 - Clue Chain Wave5 工作树执行计划（2026-05-22，已合并 / 验证通过）：
-  - [development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md)
-  - [development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md)
 - Wave6 CURRENT_DEV 并行状态证据与最小落地计划（2026-05-22，9 个子代理分支已合并）：
-  - [parallel-agent orchestration](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md)
+  - [parallel-agent orchestration](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md)
   - [crawler source expansion](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave6-closure-gap-and-min-plan.md)
   - [docs root restructuring](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/02_wave6-docs-root-restructuring-evidence-closure-gap-2026-05-22.md)
   - [graph editing/reporting](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md)
@@ -43,7 +43,7 @@
   - [后续安排 / abstract planning folderization](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md)
   - [local open search provider isolation](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
 - Wave7 CURRENT_DEV 集成状态证据与代码落地（2026-05-22，9 个子代理分支已合并）：
-  - [parallel-agent runtime contract](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md)
+  - [parallel-agent runtime contract](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md)
   - [crawler policy matrix](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave7-crawler-policy-matrix.md)
   - [crawler public replay A5 gate](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave7-a5-public-replay-evidence.md)
   - [crawler provider handoff evidence](./automation-runs/crawler-provider-handoff/2026-05-22/README.md)
@@ -85,7 +85,7 @@
   - [vectorization quality gate](./automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
   - [typed knowledge writing context envelope](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/04_wave10-worker7-writing-context-envelope-evidence-2026-05-22.md)
   - [docs root content shim evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/05_wave10-8-docs-root-content-shim-evidence-2026-05-22.md)
-  - [parallel agent runtime contract refresh](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md)
+  - [parallel agent runtime contract refresh](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md)
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - Wave11 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave11 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave11-worktree-plan-2026-05-22.md)
@@ -171,6 +171,18 @@
   - [typed knowledge live boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/06_wave15-typed-writing-live-boundary-2026-05-22.md)
   - [writing workbench live boundary](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/07_wave15-typed-writing-live-boundary-2026-05-22.md)
   - [abstract planning final closure audit](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md)
+- Wave16 CURRENT_DEV closure split / implementation gates（2026-05-22，9 个子代理分支已合并，2 个目录已迁入 `ARCHIVE_CLOSED`，CURRENT_DEV 剩余 `partial:33`）：
+  - [Wave16 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave16-worktree-plan-2026-05-22.md)
+  - [parallel-agent runtime boundary closure](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md)
+  - [Clue Chain closure split](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md)
+  - [Clue Chain successor scopes](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-successor-scopes/INDEX.md)
+  - [graph editing UI audit controls](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/08_wave16-graph-editing-ui-audit-controls-2026-05-22.md)
+  - [typed knowledge API route contract](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/07_wave16-typed-knowledge-api-route-contract-2026-05-22.md)
+  - [writing workbench typed fetch readback](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/08_wave16-worker5-typed-knowledge-fetch-readback-2026-05-22.md)
+  - [long-cycle durable repository readback](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/07_wave16-long-cycle-durable-repository-readback-2026-05-22.md)
+  - [docs root content move batch](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/08_wave16-docs-root-content-move-batch-evidence-2026-05-22.md)
+  - [frontend Agent Chat i18n slice](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/07_wave16-agent-chat-i18n-slice-evidence-2026-05-22.md)
+  - [source-library review closure batch](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/10_wave16-review-closure-batch-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：
@@ -247,10 +259,10 @@
 - `development-plans/CURRENT_DEV` 补充 SearXNG / YaCy / LanceDB 可选增强启动器集成（2026-05-14）：
   - [development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md)
 - `development-plans/CURRENT_DEV` 新增并行开发编排主入口与子 agent 契约模板（2026-04-07）：
-  - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/README.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/README.md)
-  - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
-  - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md)
-  - [development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/README.md](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/README.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md)
+  - [development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md)
 - `development-plans/ARCHIVE_CLOSED` 已迁入仓库级收口计划整包（2026-04-07）：
   - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md)
   - [development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md](./development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md)

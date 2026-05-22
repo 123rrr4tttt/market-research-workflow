@@ -86,9 +86,9 @@ condition:
 Minimum repeatable checks:
 
 ```bash
-python3 development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/verify_wave16_runtime_contract.py
-python3 development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/verify_wave10_runtime_contract.py
-bash development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh
+python3 development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave16_runtime_contract.py
+python3 development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave10_runtime_contract.py
+bash development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh
 python3 scripts/check_current_dev_wave16_plan.py
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 scripts/check_current_dev_status_evidence.py
 git diff --check

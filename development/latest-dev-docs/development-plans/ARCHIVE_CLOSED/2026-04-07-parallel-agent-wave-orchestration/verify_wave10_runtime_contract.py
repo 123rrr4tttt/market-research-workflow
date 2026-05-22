@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 TOPIC = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/"
     "2026-04-07-parallel-agent-wave-orchestration"
 )
 README = TOPIC / "README.md"

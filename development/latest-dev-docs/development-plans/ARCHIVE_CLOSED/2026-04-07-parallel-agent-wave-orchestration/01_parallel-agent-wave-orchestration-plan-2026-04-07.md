@@ -22,7 +22,7 @@ Every subagent must inherit these entrypoints:
 
 - [../../../README.md](../../../README.md)
 - [../INDEX.md](../INDEX.md)
-- [../STATUS_AUDIT_2026-04-07.md](../STATUS_AUDIT_2026-04-07.md)
+- [../../CURRENT_DEV/STATUS_AUDIT_2026-04-07.md](../../CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
 - `/Users/wangyiliang/market-research-workflow/README.md`
 - `/Users/wangyiliang/market-research-workflow/main/backend/app`
 - `/Users/wangyiliang/market-research-workflow/main/frontend-modern/src`

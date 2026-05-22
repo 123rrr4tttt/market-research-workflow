@@ -10,7 +10,18 @@ Related execution plans:
 - [wave3-worktree-plan-2026-05-22.md](./wave3-worktree-plan-2026-05-22.md) - integrated Wave3 branch tree, supervisor reconciliation, and validation status.
 - [wave4-worktree-plan-2026-05-22.md](./wave4-worktree-plan-2026-05-22.md) - integrated Wave4 branch tree, supervisor reconciliation, and validation status.
 - [wave4-integration-risk-review-2026-05-22.md](./wave4-integration-risk-review-2026-05-22.md) - pre-merge risk review used as the Wave4 integration checklist.
-- [Clue Chain Wave5 worktree execution plan](../../development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md) - Wave5 branch plan tree and docs-status sync; code evidence remains pending until supervisor merge.
+- [Clue Chain Wave5 worktree execution plan](../../development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md) - Wave5 branch plan tree and docs-status sync; Wave16 archived the closed repo-local implementation slice and split remaining live-provider / production-conflict / UI-matrix work into a successor topic.
+- [wave16-worktree-plan-2026-05-22.md](./wave16-worktree-plan-2026-05-22.md) - Wave16 nine-agent implementation / closure split tree, supervisor reconciliation, and status evidence gate.
+
+## Wave16 Addendum
+
+Wave16 supersedes the original `CURRENT_DEV` counts in this report.
+
+- 9 worker branches were merged into the Wave16 integration branch and the completed subagents were closed.
+- The parallel-agent wave orchestration topic moved to [`ARCHIVE_CLOSED`](../../development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md) after the repo-local runtime/fallback boundary was closed.
+- The Clue Chain investigation topic moved to [`ARCHIVE_CLOSED`](../../development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md); only live-provider reliability, production graph-submit conflict handling, and broader UI / visual regression remain in [`CURRENT_DEV/2026-05-22-clue-chain-successor-scopes`](../../development-plans/CURRENT_DEV/2026-05-22-clue-chain-successor-scopes/INDEX.md).
+- `CURRENT_DEV` status evidence now reports `partial:33`, `not_closed:0`, `no_closure_claim:0`.
+- The Wave16 implementation slices landed graph audit controls, typed-knowledge API contract, writing-workbench typed fetch readback, long-cycle durable readback, docs-root content move evidence, frontend Agent Chat i18n slice, and source-library deterministic review closure batches.
 
 ## Summary
 

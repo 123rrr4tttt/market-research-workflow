@@ -74,8 +74,8 @@ returning `结果`, `改动文件`, `验证状态`, and `风险`.
 Minimum repeatable checks:
 
 ```bash
-python3 development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/verify_wave10_runtime_contract.py
-bash development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh
+python3 development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave10_runtime_contract.py
+bash development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh
 python3 scripts/check_current_dev_wave10_plan.py
 git diff --check
 ```

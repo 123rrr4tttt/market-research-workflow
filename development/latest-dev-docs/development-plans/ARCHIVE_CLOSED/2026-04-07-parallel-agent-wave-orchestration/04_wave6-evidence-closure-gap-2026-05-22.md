@@ -19,7 +19,7 @@ Inputs checked:
 - [01_parallel-agent-wave-orchestration-plan-2026-04-07.md](./01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
 - [02_subagent-task-contract-template-2026-04-07.md](./02_subagent-task-contract-template-2026-04-07.md)
 - [03_wave0-baseline-freeze-task-pool-2026-04-07.md](./03_wave0-baseline-freeze-task-pool-2026-04-07.md)
-- [../STATUS_AUDIT_2026-04-07.md](../STATUS_AUDIT_2026-04-07.md)
+- [../../CURRENT_DEV/STATUS_AUDIT_2026-04-07.md](../../CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
 - [../../../automation-runs/dev-docs-folder-audit-2026-05-22/README.md](../../../automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
 - [../../../automation-runs/dev-docs-folder-audit-2026-05-22/parallel-plan-tree-2026-05-22.md](../../../automation-runs/dev-docs-folder-audit-2026-05-22/parallel-plan-tree-2026-05-22.md)
 - [../../../automation-runs/dev-docs-folder-audit-2026-05-22/worktree-branch-plan.md](../../../automation-runs/dev-docs-folder-audit-2026-05-22/worktree-branch-plan.md)
@@ -90,7 +90,7 @@ Minimum checks for this lane:
 ```bash
 git diff --check
 bash codex_settings/scripts/swarm_file_bootstrap.sh \
-  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md
+  development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md
 ```
 
 Changed-doc link check should include this topic directory and

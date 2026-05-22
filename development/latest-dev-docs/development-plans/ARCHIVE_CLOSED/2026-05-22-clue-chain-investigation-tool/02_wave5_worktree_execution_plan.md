@@ -82,4 +82,4 @@ The supervisor merged implementation branches and reran the following gates. Det
 
 ## Canonical-Copy Rule
 
-The Clue Chain plan and Wave5 status live under `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/`. Any branch-specific evidence created later should be linked from this directory and from the top-level `latest-dev-docs` indexes. No Clue Chain planning document should remain as an unindexed unique copy outside `development/latest-dev-docs`.
+The Clue Chain plan and Wave5 status live under `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/`. Any branch-specific evidence created later should be linked from this directory and from the top-level `latest-dev-docs` indexes. No Clue Chain planning document should remain as an unindexed unique copy outside `development/latest-dev-docs`.

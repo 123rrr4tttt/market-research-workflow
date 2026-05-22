@@ -108,7 +108,7 @@ Archive decision:
 Minimum repeatable checks:
 
 ```bash
-bash development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh
+bash development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh
 git diff --check
 ```
 
@@ -116,7 +116,7 @@ Focused fallback check:
 
 ```bash
 bash codex_settings/scripts/swarm_file_bootstrap.sh \
-  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md
+  development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md
 ```
 
 Expected result:
