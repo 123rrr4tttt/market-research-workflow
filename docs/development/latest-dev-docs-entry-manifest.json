@@ -3,7 +3,7 @@
   "root": "docs/development",
   "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-22",
-  "content_authority": "Mapped source files remain authoritative for document content. Target README files are authoritative only for migration entry mapping until a later content move updates shared navigation.",
+  "content_authority": "Mapped source files remain authoritative for document content. Target README files are content shims that point readers from docs/development into the current compatibility entries until a later content move updates shared navigation.",
   "entries": [
     {
       "id": "development-plans-main-index",
@@ -11,8 +11,11 @@
       "source": "development/latest-dev-docs/development-plans/main/index.md",
       "source_role": "latest-dev-docs-main-entry",
       "target": "docs/development/development-plans/README.md",
+      "target_root": "docs/development/development-plans",
+      "shim": "docs/development/development-plans/README.md",
       "target_role": "development-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/development-plans/main/index.md",
+      "status": "content_shim"
     },
     {
       "id": "development-plans-main-merged",
@@ -20,8 +23,11 @@
       "source": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
       "source_role": "latest-dev-docs-main-merged",
       "target": "docs/development/development-plans/README.md",
+      "target_root": "docs/development/development-plans",
+      "shim": "docs/development/development-plans/README.md",
       "target_role": "development-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+      "status": "content_shim"
     },
     {
       "id": "development-plans-current-dev-root",
@@ -29,8 +35,11 @@
       "source": "development/latest-dev-docs/development-plans/CURRENT_DEV",
       "source_role": "active-development-plan-root",
       "target": "docs/development/development-plans/README.md",
+      "target_root": "docs/development/development-plans",
+      "shim": "docs/development/development-plans/README.md",
       "target_role": "development-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+      "status": "content_shim"
     },
     {
       "id": "frontend-modern-main-index",
@@ -38,8 +47,11 @@
       "source": "development/latest-dev-docs/frontend-modern/main/index.md",
       "source_role": "latest-dev-docs-main-entry",
       "target": "docs/development/frontend-modern/README.md",
+      "target_root": "docs/development/frontend-modern",
+      "shim": "docs/development/frontend-modern/README.md",
       "target_role": "development-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/index.md",
+      "status": "content_shim"
     },
     {
       "id": "frontend-modern-main-merged",
@@ -47,8 +59,11 @@
       "source": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
       "source_role": "latest-dev-docs-main-merged",
       "target": "docs/development/frontend-modern/README.md",
+      "target_root": "docs/development/frontend-modern",
+      "shim": "docs/development/frontend-modern/README.md",
       "target_role": "development-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+      "status": "content_shim"
     },
     {
       "id": "root-plans-f-plan-index",
@@ -56,8 +71,11 @@
       "source": "development/latest-dev-docs/root-plans/F_PLAN/index.md",
       "source_role": "explicit-plan-index",
       "target": "docs/development/root-plans/README.md",
+      "target_root": "docs/development/root-plans",
+      "shim": "docs/development/root-plans/README.md",
       "target_role": "development-target-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/root-plans/F_PLAN/index.md",
+      "status": "content_shim"
     },
     {
       "id": "root-plans-main-index-mixed",
@@ -65,8 +83,11 @@
       "source": "development/latest-dev-docs/root-plans/main/index.md",
       "source_role": "mixed-latest-dev-docs-main-entry",
       "target": "docs/development/root-plans/README.md",
+      "target_root": "docs/development/root-plans",
+      "shim": "docs/development/root-plans/README.md",
       "target_role": "mixed-entry-manifest",
-      "status": "mapped_not_moved"
+      "compatibility_entry": "development/latest-dev-docs/root-plans/main/index.md",
+      "status": "content_shim"
     }
   ]
 }
