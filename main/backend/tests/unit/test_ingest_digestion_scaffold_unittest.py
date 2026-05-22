@@ -534,6 +534,57 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
         self.assertIn("live_scheduler_handoff_not_validated", check["remaining_runtime_gaps"])
         self.assertIn("end_to_end_automation_run_not_executed", check["remaining_runtime_gaps"])
 
+    def test_long_cycle_scheduler_queue_replay_gate_validates_intent_queue_readback_and_replay_summary(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repository = scaffold.JsonlLongCycleTaskRepository(
+                storage_dir=tmp_dir,
+                repository_ref="jsonl://unit-test-long-cycle-queue-replay",
+            )
+            kwargs = _valid_scheduler_kwargs()
+            kwargs["persistent_ref"] = repository.repository_ref
+            check = scaffold.check_long_cycle_scheduler_queue_handoff_replay_contract(
+                **kwargs,
+                repository=repository,
+            )
+
+        self.assertEqual(check["contract_version"], "ingest.long_cycle_scheduler_queue_replay_check.v1")
+        self.assertEqual(check["status"], "pass")
+        self.assertTrue(check["scheduler_intent_validated"])
+        self.assertTrue(check["queue_item_validated"])
+        self.assertTrue(check["repository_write_readback_validated"])
+        self.assertTrue(check["event_replay_summary_validated"])
+        self.assertFalse(check["live_dispatch"])
+        self.assertFalse(check["live_enqueue"])
+        self.assertFalse(check["live_db_write"])
+        self.assertFalse(check["closure_claim"])
+        self.assertFalse(check["live_scheduler_closure_validated"])
+
+        intent = check["dispatch_intent"]
+        queue_item = check["queue_item"]
+        replay = check["event_replay_summary"]
+        self.assertEqual(queue_item["contract_version"], "ingest.long_cycle_scheduler_queue_item.v1")
+        self.assertEqual(queue_item["dispatch_key"], intent["dispatch_key"])
+        self.assertEqual(queue_item["idempotency_key"], intent["idempotency_key"])
+        self.assertEqual(queue_item["task_key"], intent["task_key"])
+        self.assertEqual(queue_item["queue_state"], "queued_contract_only")
+        self.assertFalse(queue_item["payload"]["live_enqueue"])
+        self.assertEqual(queue_item["payload"]["queue_handoff_mode"], "durable_repository_replay_contract_only")
+        self.assertEqual(queue_item["dispatch_ref"], f"contract-dispatch://{intent['dispatch_key']}")
+
+        self.assertEqual(replay["contract_version"], "ingest.long_cycle_repository_event_replay_summary.v1")
+        self.assertTrue(replay["replay_complete"])
+        self.assertTrue(replay["repository_write_readback"])
+        self.assertEqual(replay["queue_item_key"], queue_item["queue_item_key"])
+        self.assertEqual(replay["dispatch_ref"], queue_item["dispatch_ref"])
+        self.assertEqual(replay["event_sequence"], ["mark_ready", "dispatch", "succeed"])
+        self.assertEqual(replay["status_sequence"], ["ready", "running", "succeeded"])
+        self.assertEqual(replay["write_status_sequence"], ["ready", "running", "succeeded"])
+        self.assertEqual(replay["terminal_status"], contracts.LongCycleTaskStatus.SUCCEEDED.value)
+        self.assertIn("scheduler_intent_to_queue_item_handoff", check["closed_slice"])
+        self.assertIn("repository_write_readback_replay_summary", check["closed_slice"])
+        self.assertIn("live_scheduler_queue_enqueue_not_executed", check["remaining_runtime_gaps"])
+        self.assertIn("live_db_persistent_task_table_not_validated", check["remaining_runtime_gaps"])
+
 
 if __name__ == "__main__":
     unittest.main()

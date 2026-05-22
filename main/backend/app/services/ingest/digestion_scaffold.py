@@ -19,11 +19,14 @@ from app.contracts.ingest_digestion import (
     LongCycleLifecycleTransition,
     LongCyclePersistenceWriteResult,
     LongCyclePersistentTaskRecord,
+    LongCycleRepositoryEventReplaySummary,
     LongCycleRepositoryReadbackCheck,
     LongCycleSchedulerDispatchIntent,
     LongCycleSchedulerE2EContractCheck,
     LongCycleSchedulerHandoffTraceCheck,
     LongCycleSchedulerHandoffTraceEntry,
+    LongCycleSchedulerQueueItem,
+    LongCycleSchedulerQueueReplayCheck,
     LongCycleSchedulerReadinessCheck,
     LongCycleSchedulerReadinessStage,
     LongCycleTaskObject,
@@ -1549,5 +1552,259 @@ def check_long_cycle_scheduler_handoff_trace_contract(
         live_db_write=readback.live_db_write,
         closure_claim=readiness.closure_claim,
         live_scheduler_closure_validated=readiness.live_scheduler_closure_validated,
+    )
+    return check.model_dump(mode="json")
+
+
+def build_long_cycle_scheduler_queue_item(
+    dispatch_intent: LongCycleSchedulerDispatchIntent | dict[str, Any],
+    *,
+    repository_ref: str,
+    dispatch_ref: str | None = None,
+    enqueue_after: datetime | str | None = None,
+) -> LongCycleSchedulerQueueItem:
+    """Build a deterministic queue handoff item without enqueueing a live scheduler."""
+
+    intent = (
+        dispatch_intent
+        if isinstance(dispatch_intent, LongCycleSchedulerDispatchIntent)
+        else LongCycleSchedulerDispatchIntent.model_validate(dispatch_intent)
+    )
+    normalized_repository_ref = str(repository_ref or "").strip()
+    if not normalized_repository_ref:
+        raise ValueError("repository_ref is required for long-cycle scheduler queue item")
+    normalized_dispatch_ref = str(dispatch_ref or "").strip() or f"contract-dispatch://{intent.dispatch_key}"
+    normalized_enqueue_after = _parse_datetime(enqueue_after) or intent.run_at
+    queue_key_payload = {
+        "dispatch_key": intent.dispatch_key,
+        "idempotency_key": intent.idempotency_key,
+        "task_key": intent.task_key,
+        "queue_name": intent.queue_name,
+        "run_at": intent.run_at.isoformat(),
+    }
+    queue_item_key = f"ingest-lc-queue-{_stable_json_hash(queue_key_payload)[:24]}"
+    payload = {
+        **dict(intent.payload or {}),
+        "dispatch_key": intent.dispatch_key,
+        "idempotency_key": intent.idempotency_key,
+        "scheduler_ref": intent.scheduler_ref,
+        "queue_name": intent.queue_name,
+        "worker_task_name": intent.worker_task_name,
+        "run_at": intent.run_at.isoformat(),
+        "repository_ref": normalized_repository_ref,
+        "dispatch_ref": normalized_dispatch_ref,
+        "queue_handoff_mode": "durable_repository_replay_contract_only",
+        "live_enqueue": False,
+    }
+    return LongCycleSchedulerQueueItem(
+        queue_item_key=queue_item_key,
+        queue_state="queued_contract_only",
+        dispatch_key=intent.dispatch_key,
+        idempotency_key=intent.idempotency_key,
+        scheduler_ref=intent.scheduler_ref,
+        queue_name=intent.queue_name,
+        worker_task_name=intent.worker_task_name,
+        task_key=intent.task_key,
+        selected_window=intent.selected_window,
+        cadence=intent.cadence,
+        run_at=intent.run_at,
+        enqueue_after=normalized_enqueue_after,
+        persistent_ref=str(intent.payload.get("persistent_ref") or "").strip() or None,
+        repository_ref=normalized_repository_ref,
+        dispatch_ref=normalized_dispatch_ref,
+        payload=payload,
+        live_enqueue=False,
+    )
+
+
+def summarize_long_cycle_repository_event_replay(
+    repository_readback: LongCycleRepositoryReadbackCheck | dict[str, Any],
+    queue_item: LongCycleSchedulerQueueItem | dict[str, Any],
+) -> LongCycleRepositoryEventReplaySummary:
+    readback = (
+        repository_readback
+        if isinstance(repository_readback, LongCycleRepositoryReadbackCheck)
+        else LongCycleRepositoryReadbackCheck.model_validate(repository_readback)
+    )
+    item = queue_item if isinstance(queue_item, LongCycleSchedulerQueueItem) else LongCycleSchedulerQueueItem.model_validate(queue_item)
+    writes = [
+        write
+        for write in readback.scheduler_readiness.scheduler_e2e_contract.persistence_writes
+        if write.record_key == item.task_key
+    ]
+    events = list(readback.readback_events)
+    dispatch_event = _find_lifecycle_event(
+        events,
+        transition=LongCycleLifecycleTransition.DISPATCH,
+        dispatch_ref=item.dispatch_ref,
+    )
+    terminal_record = readback.readback_record
+    event_sequence = [event.transition.value for event in events]
+    status_sequence = [event.to_status.value for event in events]
+    write_status_sequence = [write.status_after.value for write in writes]
+    expected_event_sequence = [
+        LongCycleLifecycleTransition.MARK_READY.value,
+        LongCycleLifecycleTransition.DISPATCH.value,
+        LongCycleLifecycleTransition.SUCCEED.value,
+    ]
+    replay_complete = (
+        readback.status == "pass"
+        and readback.durable_readback
+        and event_sequence == expected_event_sequence
+        and write_status_sequence[-3:] == ["ready", "running", "succeeded"]
+        and terminal_record is not None
+        and terminal_record.status == LongCycleTaskStatus.SUCCEEDED
+        and dispatch_event is not None
+    )
+    return LongCycleRepositoryEventReplaySummary(
+        event_replay_ref=f"{readback.repository_ref}/event-replay/{item.queue_item_key}",
+        repository_ref=readback.repository_ref,
+        task_key=item.task_key,
+        queue_item_key=item.queue_item_key,
+        dispatch_key=item.dispatch_key,
+        dispatch_ref=item.dispatch_ref,
+        event_sequence=event_sequence,
+        status_sequence=status_sequence,
+        write_status_sequence=write_status_sequence,
+        event_count=len(events),
+        write_count=len(writes),
+        terminal_status=terminal_record.status if terminal_record else None,
+        terminal_output_ref=terminal_record.output_ref if terminal_record else None,
+        dispatch_event_time=dispatch_event.event_time if dispatch_event else None,
+        replay_complete=replay_complete,
+        repository_write_readback=bool(readback.status == "pass" and readback.durable_readback),
+        live_db_write=readback.live_db_write,
+        live_scheduler_closure_validated=readback.scheduler_readiness.live_scheduler_closure_validated,
+    )
+
+
+def check_long_cycle_scheduler_queue_handoff_replay_contract(
+    *,
+    repository: JsonlLongCycleTaskRepository,
+    scheduler_runtime_configured: bool = False,
+    live_scheduler_evidence: dict[str, Any] | None = None,
+    **scheduler_e2e_kwargs: Any,
+) -> dict[str, Any]:
+    """Validate scheduler intent -> queue item -> durable repository replay without live closure."""
+
+    scheduler_e2e_kwargs.setdefault("persistent_ref", repository.repository_ref)
+    handoff_payload = check_long_cycle_scheduler_handoff_trace_contract(
+        repository=repository,
+        scheduler_runtime_configured=scheduler_runtime_configured,
+        live_scheduler_evidence=live_scheduler_evidence,
+        **scheduler_e2e_kwargs,
+    )
+    handoff = LongCycleSchedulerHandoffTraceCheck.model_validate(handoff_payload)
+    intent = handoff.dispatch_intent
+    readback = handoff.repository_readback
+    queue_item = build_long_cycle_scheduler_queue_item(
+        intent,
+        repository_ref=repository.repository_ref,
+        dispatch_ref=handoff.dispatch_ref,
+    )
+    event_replay_summary = summarize_long_cycle_repository_event_replay(readback, queue_item)
+
+    intent_payload = dict(intent.payload or {})
+    queue_payload = dict(queue_item.payload or {})
+    expected_dispatch_ref = f"contract-dispatch://{intent.dispatch_key}"
+    expected_event_sequence = [
+        LongCycleLifecycleTransition.MARK_READY.value,
+        LongCycleLifecycleTransition.DISPATCH.value,
+        LongCycleLifecycleTransition.SUCCEED.value,
+    ]
+    scheduler_intent_validated = (
+        handoff.status == "pass"
+        and intent.live_dispatch is False
+        and intent.dispatch_key.startswith("ingest-lc-dispatch-")
+        and intent.idempotency_key.startswith("ingest-lc-idem-")
+        and intent_payload.get("task_key") == intent.task_key
+        and intent_payload.get("selected_window") == intent.selected_window
+        and intent_payload.get("dispatch_mode") == "contract_only"
+        and intent_payload.get("live_dispatch") is False
+    )
+    queue_item_validated = (
+        queue_item.queue_state == "queued_contract_only"
+        and queue_item.live_enqueue is False
+        and queue_item.dispatch_key == intent.dispatch_key
+        and queue_item.idempotency_key == intent.idempotency_key
+        and queue_item.task_key == intent.task_key
+        and queue_item.queue_name == intent.queue_name
+        and queue_item.worker_task_name == intent.worker_task_name
+        and queue_item.repository_ref == readback.repository_ref
+        and queue_item.dispatch_ref == expected_dispatch_ref
+        and queue_payload.get("queue_handoff_mode") == "durable_repository_replay_contract_only"
+        and queue_payload.get("live_enqueue") is False
+        and queue_payload.get("dispatch_ref") == expected_dispatch_ref
+    )
+    repository_write_readback_validated = (
+        readback.status == "pass"
+        and readback.durable_readback
+        and readback.live_db_write is False
+        and readback.readback_record is not None
+        and readback.readback_record.task_key == queue_item.task_key
+        and readback.readback_record.dispatch_ref == queue_item.dispatch_ref
+        and readback.readback_event_sequence == expected_event_sequence
+    )
+    event_replay_summary_validated = (
+        event_replay_summary.replay_complete
+        and event_replay_summary.repository_write_readback
+        and event_replay_summary.event_sequence == expected_event_sequence
+        and event_replay_summary.write_status_sequence[-3:] == ["ready", "running", "succeeded"]
+        and event_replay_summary.dispatch_ref == queue_item.dispatch_ref
+        and event_replay_summary.live_db_write is False
+        and event_replay_summary.live_scheduler_closure_validated is False
+    )
+
+    blockers: list[str] = []
+    if handoff.status != "pass":
+        blockers.append(f"scheduler_handoff_trace_not_passed:{handoff.status}")
+    if not scheduler_intent_validated:
+        blockers.append("scheduler_intent_not_validated")
+    if not queue_item_validated:
+        blockers.append("scheduler_queue_item_not_validated")
+    if not repository_write_readback_validated:
+        blockers.append("repository_write_readback_not_validated")
+    if not event_replay_summary_validated:
+        blockers.append("event_replay_summary_not_validated")
+    if intent.live_dispatch is not False:
+        blockers.append("queue_replay_must_not_claim_live_dispatch")
+    if queue_item.live_enqueue is not False:
+        blockers.append("queue_replay_must_not_claim_live_enqueue")
+    if readback.live_db_write is not False:
+        blockers.append("queue_replay_must_not_claim_live_db_write")
+    if handoff.closure_claim or handoff.live_scheduler_closure_validated:
+        blockers.append("queue_replay_must_not_claim_live_scheduler_closure")
+
+    check = LongCycleSchedulerQueueReplayCheck(
+        status="fail" if blockers else "pass",
+        blockers=blockers,
+        closed_slice=[
+            "scheduler_intent_to_queue_item_handoff",
+            "queue_item_to_durable_repository_binding",
+            "repository_write_readback_replay_summary",
+            "event_replay_sequence_summary",
+            "live_scheduler_and_live_db_boundaries_preserved",
+        ],
+        remaining_runtime_gaps=[
+            *handoff.remaining_runtime_gaps,
+            "live_scheduler_queue_enqueue_not_executed",
+            "live_queue_worker_consumption_not_validated",
+            "live_db_persistent_task_table_not_validated",
+            "live_downstream_handoff_not_validated",
+        ],
+        scheduler_intent_validated=scheduler_intent_validated,
+        queue_item_validated=queue_item_validated,
+        repository_write_readback_validated=repository_write_readback_validated,
+        event_replay_summary_validated=event_replay_summary_validated,
+        dispatch_intent=intent,
+        queue_item=queue_item,
+        repository_readback=readback,
+        handoff_trace=handoff,
+        event_replay_summary=event_replay_summary,
+        live_dispatch=intent.live_dispatch,
+        live_enqueue=queue_item.live_enqueue,
+        live_db_write=readback.live_db_write,
+        closure_claim=handoff.closure_claim,
+        live_scheduler_closure_validated=handoff.live_scheduler_closure_validated,
     )
     return check.model_dump(mode="json")
