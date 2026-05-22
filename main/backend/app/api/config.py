@@ -1,14 +1,38 @@
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..contracts import ErrorCode, error_response
-from ..settings.config import settings
+from ..contracts import ApiEnvelope, ErrorCode, error_response, success_response
+from ..settings.config import reload_settings, settings
 from ..services.settings_manager import load_env_settings, update_env_settings, ENV_KEY_MAPPING
-from ..settings.config import reload_settings
-from ..contracts import success_response
 
 
 router = APIRouter(prefix="/config", tags=["config"])
+
+
+class RuntimeConfigData(BaseModel):
+    env: str | None = None
+    llm_provider: str | None = None
+    embedding_model: str | None = None
+    es_url: str | None = None
+    active_project_key: str | None = None
+    project_key_enforcement_mode: str | None = None
+    project_schema_prefix: str | None = None
+
+
+class EnvSettingsUpdateData(BaseModel):
+    updated: dict[str, Any]
+
+
+class ReloadConfigData(BaseModel):
+    status: str
+
+
+RuntimeConfigEnvelope = ApiEnvelope[RuntimeConfigData]
+EnvSettingsEnvelope = ApiEnvelope[dict[str, Any]]
+EnvSettingsUpdateEnvelope = ApiEnvelope[EnvSettingsUpdateData]
+ReloadConfigEnvelope = ApiEnvelope[ReloadConfigData]
 
 
 def _raise_invalid_input(message: str) -> None:
@@ -31,7 +55,7 @@ def _raise_internal_error(message: str) -> None:
     )
 
 
-@router.get("")
+@router.get("", response_model=RuntimeConfigEnvelope)
 def get_config():
     """Return selected runtime configuration (safe subset)."""
     return success_response({
@@ -82,7 +106,7 @@ class EnvSettingsPayload(BaseModel):
     TWITTER_ACCESS_TOKEN_SECRET: str | None = None
 
 
-@router.get("/env")
+@router.get("/env", response_model=EnvSettingsEnvelope)
 def get_env_settings():
     try:
         return success_response(load_env_settings())
@@ -90,7 +114,7 @@ def get_env_settings():
         _raise_internal_error(str(exc) or "加载环境配置失败")
 
 
-@router.post("/env")
+@router.post("/env", response_model=EnvSettingsUpdateEnvelope)
 def update_env(payload: EnvSettingsPayload):
     payload_dict = {k: v for k, v in payload.dict().items() if v is not None}
     if not payload_dict:
@@ -104,7 +128,7 @@ def update_env(payload: EnvSettingsPayload):
     return success_response({"updated": updated})
 
 
-@router.post("/reload")
+@router.post("/reload", response_model=ReloadConfigEnvelope)
 def reload_env_settings():
     try:
         reload_settings()

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from ..contracts import ErrorCode, error_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..models.base import SessionLocal, get_db
 from ..models.entities import LlmServiceConfig, Project
 from ..services.llm.config_service import LlmConfigService
@@ -107,6 +107,42 @@ class LlmServiceConfigResponse(BaseModel):
         return cls(**data)
 
 
+class LlmConfigMessageData(BaseModel):
+    message: str
+
+
+class ProjectLlmConfigListData(BaseModel):
+    project_key: str
+    items: list[LlmServiceConfigResponse]
+
+
+class ProjectLlmConfigItemData(BaseModel):
+    project_key: str
+    item: LlmServiceConfigResponse
+
+
+class ProjectLlmConfigMessageData(BaseModel):
+    project_key: str
+    message: str
+
+
+class CopyLlmConfigsData(BaseModel):
+    source_project_key: str
+    target_project_key: str
+    copied: int
+    skipped: int
+    overwrite: bool
+
+
+LlmConfigListEnvelope = ApiEnvelope[list[LlmServiceConfigResponse]]
+LlmConfigItemEnvelope = ApiEnvelope[LlmServiceConfigResponse]
+LlmConfigMessageEnvelope = ApiEnvelope[LlmConfigMessageData]
+ProjectLlmConfigListEnvelope = ApiEnvelope[ProjectLlmConfigListData]
+ProjectLlmConfigItemEnvelope = ApiEnvelope[ProjectLlmConfigItemData]
+ProjectLlmConfigMessageEnvelope = ApiEnvelope[ProjectLlmConfigMessageData]
+CopyLlmConfigsEnvelope = ApiEnvelope[CopyLlmConfigsData]
+
+
 class CopyLlmConfigsRequest(BaseModel):
     source_project_key: str
     overwrite: bool = False
@@ -175,14 +211,14 @@ def _copy_configs_between_projects(
     }
 
 
-@router.get("")
+@router.get("", response_model=LlmConfigListEnvelope)
 def list_llm_configs(db: Session = Depends(get_db)):
     """获取所有LLM服务配置"""
     configs = llm_config_service.list_configs(db)
     return success_response([LlmServiceConfigResponse.from_orm(c).model_dump() for c in configs])
 
 
-@router.get("/service/{service_name}")
+@router.get("/service/{service_name}", response_model=LlmConfigItemEnvelope)
 def get_llm_config(service_name: str, db: Session = Depends(get_db)):
     """获取指定服务配置"""
     config = llm_config_service.get_config(db, service_name)
@@ -191,7 +227,7 @@ def get_llm_config(service_name: str, db: Session = Depends(get_db)):
     return success_response(LlmServiceConfigResponse.from_orm(config).model_dump())
 
 
-@router.post("")
+@router.post("", response_model=LlmConfigItemEnvelope)
 def create_llm_config(config: LlmServiceConfigCreate, db: Session = Depends(get_db)):
     """创建新的LLM服务配置"""
     # 检查是否已存在
@@ -202,7 +238,7 @@ def create_llm_config(config: LlmServiceConfigCreate, db: Session = Depends(get_
     return success_response(LlmServiceConfigResponse.from_orm(db_config).model_dump())
 
 
-@router.put("/service/{service_name}")
+@router.put("/service/{service_name}", response_model=LlmConfigItemEnvelope)
 def update_llm_config(
     service_name: str,
     config: LlmServiceConfigUpdate,
@@ -217,7 +253,7 @@ def update_llm_config(
     return success_response(LlmServiceConfigResponse.from_orm(db_config).model_dump())
 
 
-@router.delete("/service/{service_name}")
+@router.delete("/service/{service_name}", response_model=LlmConfigMessageEnvelope)
 def delete_llm_config(service_name: str, db: Session = Depends(get_db)):
     """删除LLM服务配置"""
     db_config = llm_config_service.get_config(db, service_name)
@@ -227,7 +263,7 @@ def delete_llm_config(service_name: str, db: Session = Depends(get_db)):
     return success_response({"message": f"服务配置 '{service_name}' 已删除"})
 
 
-@router.get("/projects/{project_key}")
+@router.get("/projects/{project_key}", response_model=ProjectLlmConfigListEnvelope)
 def list_llm_configs_by_project(project_key: str):
     normalized = _assert_project_exists(project_key)
     with bind_project(normalized):
@@ -241,7 +277,7 @@ def list_llm_configs_by_project(project_key: str):
             )
 
 
-@router.get("/projects/{project_key}/{service_name}")
+@router.get("/projects/{project_key}/{service_name}", response_model=ProjectLlmConfigItemEnvelope)
 def get_llm_config_by_project(project_key: str, service_name: str):
     normalized = _assert_project_exists(project_key)
     with bind_project(normalized):
@@ -257,7 +293,7 @@ def get_llm_config_by_project(project_key: str, service_name: str):
             )
 
 
-@router.post("/projects/{project_key}")
+@router.post("/projects/{project_key}", response_model=ProjectLlmConfigItemEnvelope)
 def create_llm_config_by_project(project_key: str, config: LlmServiceConfigCreate):
     normalized = _assert_project_exists(project_key)
     with bind_project(normalized):
@@ -274,7 +310,7 @@ def create_llm_config_by_project(project_key: str, config: LlmServiceConfigCreat
             )
 
 
-@router.put("/projects/{project_key}/{service_name}")
+@router.put("/projects/{project_key}/{service_name}", response_model=ProjectLlmConfigItemEnvelope)
 def upsert_llm_config_by_project(project_key: str, service_name: str, config: LlmServiceConfigUpdate):
     normalized = _assert_project_exists(project_key)
     with bind_project(normalized):
@@ -288,7 +324,7 @@ def upsert_llm_config_by_project(project_key: str, service_name: str, config: Ll
             )
 
 
-@router.delete("/projects/{project_key}/{service_name}")
+@router.delete("/projects/{project_key}/{service_name}", response_model=ProjectLlmConfigMessageEnvelope)
 def delete_llm_config_by_project(project_key: str, service_name: str):
     normalized = _assert_project_exists(project_key)
     with bind_project(normalized):
@@ -305,7 +341,7 @@ def delete_llm_config_by_project(project_key: str, service_name: str):
             )
 
 
-@router.post("/projects/{project_key}/copy-from")
+@router.post("/projects/{project_key}/copy-from", response_model=CopyLlmConfigsEnvelope)
 def copy_llm_configs_to_project(project_key: str, payload: CopyLlmConfigsRequest):
     result = _copy_configs_between_projects(
         source_project_key=payload.source_project_key,
@@ -316,16 +352,16 @@ def copy_llm_configs_to_project(project_key: str, payload: CopyLlmConfigsRequest
 
 
 # Backward-compatible aliases for legacy endpoints
-@router.get("/{service_name}")
+@router.get("/{service_name}", response_model=LlmConfigItemEnvelope)
 def get_llm_config_legacy(service_name: str, db: Session = Depends(get_db)):
     return get_llm_config(service_name=service_name, db=db)
 
 
-@router.put("/{service_name}")
+@router.put("/{service_name}", response_model=LlmConfigItemEnvelope)
 def update_llm_config_legacy(service_name: str, config: LlmServiceConfigUpdate, db: Session = Depends(get_db)):
     return update_llm_config(service_name=service_name, config=config, db=db)
 
 
-@router.delete("/{service_name}")
+@router.delete("/{service_name}", response_model=LlmConfigMessageEnvelope)
 def delete_llm_config_legacy(service_name: str, db: Session = Depends(get_db)):
     return delete_llm_config(service_name=service_name, db=db)
