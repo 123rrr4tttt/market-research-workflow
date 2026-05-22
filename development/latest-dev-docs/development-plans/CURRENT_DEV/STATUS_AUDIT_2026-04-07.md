@@ -1,6 +1,6 @@
 # CURRENT_DEV Status Audit
 
-更新时间：2026-04-07（PST）
+更新时间：2026-04-07（PST）；2026-05-22 补充 `2026-03-24-frontend-visual-layering` 退场覆盖。
 
 本审计基于对 `CURRENT_DEV` 一级目录的逐目录核对，判断标准同时参考：
 
@@ -14,6 +14,7 @@
 - `partial`：存在明显落地或局部收口，但整目录仍未闭环
 - `not_closed`：目录仍是未完成计划或明确未收口状态
 - `no_closure_claim`：目录本身没有收口声明，或只是占位 / 映射 / 规划材料
+- `retired_in_place`：原占位目录仅保留退场证据，现行入口已转交给其他专题或证据包
 
 时效标签：
 
@@ -77,7 +78,7 @@
 | `2026-03-14-source-library-adapter-capability-remediation` | `partial` | `doc_drift` | parser / policy / routing 能力已有落地，目录仍在 in-review / pending |
 | `2026-03-14-time-semantics-density-merged-plan` | `partial` | `doc_aligned` | 主入口有效，但 `target_overlap` 与 OPE 强门禁尚未闭环 |
 | `2026-03-15-frontend-three-layer-rewrite` | `partial` | `doc_aligned` | 文档与代码都表明目前是“半重构态” |
-| `2026-03-24-frontend-visual-layering` | `no_closure_claim` | `placeholder` | 空目录，无可审计材料 |
+| `2026-03-24-frontend-visual-layering` | `retired_in_place` | `doc_aligned` | 原空占位已补退场证据；现行入口转交 `2026-03-15-frontend-three-layer-rewrite` 与 Wave3/Wave4 frontend evidence |
 | `2026-03-25-source-library-ingest-minimal-migration` | `partial` | `doc_aligned` | `AT-SLIM` / `AT-ITEM` 已收口，但 `AT-EXT-*` 仍 pending |
 | `2026-04-02-claude-agent-high-fidelity-migration` | `no_closure_claim` | `doc_aligned` | 迁移映射文档，方向有代码支撑，但不是收口文档 |
 | `MERGED_OVERVIEW` | `partial` | `doc_drift` | 合并总结有参考价值，但部分映射文件和能力边界已漂移 |

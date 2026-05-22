@@ -13,7 +13,14 @@ Wave3 I 补充了 topology / i18n / theme / module manifest 的静态合同门�
 - evidence: [../../../automation-runs/frontend-topology-theme/2026-05-22/README.md](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
 - command: `npm --prefix main/frontend-modern run check:topology-platform`
 
+Wave4 H 随后补充了三层 shell 的运行态视觉证据：
+
+- evidence: [../../../automation-runs/frontend-runtime-visual/2026-05-22/README.md](../../../automation-runs/frontend-runtime-visual/2026-05-22/README.md)
+- command: `npm --prefix main/frontend-modern run check:runtime-visual`
+
 该证据说明三层重写里的 shared platform kernel 基础合同已经具备可重复检查：31 个模块都进入 `moduleManifest`，placement baseline 与 baseline inventory 完整，`zh-CN` / `en-US` shell/nav catalog 完整，`light` / `dark` / `brand` token groups 完整，`AppShell` 与 `FigmaSideNav` 均消费当前平台合同。
+
+`2026-03-24-frontend-visual-layering` 已退场为本专题的证据映射，不再作为独立实施入口；退场记录见 [../2026-03-24-frontend-visual-layering/01_retirement-evidence-frontend-visual-layering-2026-05-22.md](../2026-03-24-frontend-visual-layering/01_retirement-evidence-frontend-visual-layering-2026-05-22.md)。
 
 因此后续收口不要再把 S1/S2/S3 当成未开始项；剩余重点是 `AppShell` compatibility-only retirement、`WritingWorkbenchPage` / `GraphPage` 等重页面的 container/view 封边、以及更完整的运行态 E2E。
 
