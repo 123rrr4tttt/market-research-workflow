@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 from app.services.document_views import (
+    build_social_data_item,
     build_keyword_card_from_graph_node,
     build_keyword_card_from_hybrid_row,
     build_policy_detail,
@@ -21,6 +22,9 @@ from app.services.document_views import (
     get_market_data,
     get_social_entities,
     get_social_keywords,
+    get_social_platform_label,
+    get_social_sentiment_orientation,
+    get_social_sentiment_terms,
     serialize_writing_document,
 )
 
@@ -78,14 +82,38 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
 
     def test_social_view_falls_back_to_entities_relations_and_key_phrases(self):
         doc = SimpleNamespace(
+            id=12,
+            title="Social post",
+            uri="https://example.org/social",
+            publish_date=date(2026, 3, 6),
+            created_at=datetime(2026, 3, 6, 12, 0, tzinfo=timezone.utc),
+            content="post body",
             extracted_data={
-                "sentiment": {"key_phrases": ["jackpot", "", 2]},
+                "platform": " Reddit ",
+                "username": " user-a ",
+                "sentiment": {
+                    "sentiment_orientation": "positive",
+                    "key_phrases": ["jackpot", "", 2],
+                    "topic": "Lottery",
+                    "sentiment_tags": ["win", 3],
+                },
                 "entities_relations": {"entities": [{"name": "Mega Millions"}]},
             }
         )
 
         self.assertEqual(get_social_keywords(doc), ["jackpot"])
         self.assertEqual(get_social_entities(doc), [{"name": "Mega Millions"}])
+        self.assertEqual(get_social_platform_label(doc), "Reddit")
+        self.assertEqual(get_social_sentiment_orientation(doc), "positive")
+        self.assertEqual(get_social_sentiment_terms(doc), ["jackpot", "Lottery", "win"])
+
+        item = build_social_data_item(doc)
+
+        self.assertEqual(item["platform"], "Reddit")
+        self.assertEqual(item["username"], "user-a")
+        self.assertEqual(item["sentiment_orientation"], "positive")
+        self.assertEqual(item["key_phrases"], ["jackpot"])
+        self.assertEqual(item["entities"], [{"name": "Mega Millions"}])
 
     def test_writing_view_serializes_document_and_conflict_snapshot(self):
         row = SimpleNamespace(
