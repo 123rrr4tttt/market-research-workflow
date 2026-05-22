@@ -41,16 +41,34 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
             {
                 "deterministic_source_time_contract": "passed",
                 "decision_log_provenance": "passed",
+                "deterministic_sample_readback_chain": "passed",
                 "production_data_semantic_chain": "ready_not_run",
             },
         )
         self.assertTrue(result["checks"]["deterministic_source_time_contract_verified"])
         self.assertTrue(result["checks"]["decision_log_provenance_verified"])
+        self.assertTrue(result["checks"]["deterministic_sample_readback_chain_verified"])
         self.assertFalse(result["checks"]["production_data_semantic_chain_live_verified"])
         self.assertTrue(result["checks"]["production_data_semantic_chain_live_gap_retained"])
         self.assertIn(
             "production_data_semantic_chain_live_validation_not_run",
             result["remaining_live_gaps"],
+        )
+        sample_stage = {
+            stage["name"]: stage for stage in result["stages"]
+        }["deterministic_sample_readback_chain"]
+        self.assertEqual(sample_stage["status"], "passed")
+        self.assertFalse(sample_stage["production_live_verified"])
+        self.assertEqual(sample_stage["evidence"]["source_time"], "2026-03-02T12:00:00Z")
+        self.assertEqual(sample_stage["evidence"]["processed_time"], "2026-03-10T12:00:00Z")
+        self.assertGreater(float(sample_stage["evidence"]["target_overlap_gap_90d"]), 0.0)
+        self.assertEqual(
+            sample_stage["evidence"]["target_overlap_gap_90d"],
+            sample_stage["evidence"]["features_json_target_overlap_gap_90d"],
+        )
+        self.assertIn(
+            "production_freshness_probe_not_run",
+            sample_stage["evidence"]["live_gap_markers_90d"],
         )
 
     def test_incomplete_live_evidence_fails_without_conflating_prior_contracts(self) -> None:
@@ -66,6 +84,7 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["readiness_boundaries"]["deterministic_source_time_contract"], "passed")
         self.assertEqual(result["readiness_boundaries"]["decision_log_provenance"], "passed")
+        self.assertEqual(result["readiness_boundaries"]["deterministic_sample_readback_chain"], "passed")
         self.assertEqual(result["readiness_boundaries"]["production_data_semantic_chain"], "failed_evidence")
         production_stage = {
             stage["name"]: stage for stage in result["stages"]
