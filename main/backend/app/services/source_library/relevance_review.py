@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 
 CONTRACT_VERSION = "source_library.relevance_review_queue.v1"
+TAXONOMY_REVIEW_READINESS_CONTRACT_VERSION = "source_library.taxonomy_review_readiness.v1"
 
 REASON_CODE_ORDER = (
     "fallback_anchor_only_profile",
@@ -37,6 +38,18 @@ REVIEWER_FIELD_KEYS = (
     "adapter_capability_status",
     "adapter_capability_reason",
 )
+TAXONOMY_REQUIRED_FIELDS = (
+    "source_mode",
+    "taxonomy.channel_family",
+    "taxonomy.item_type",
+    "taxonomy.managed_by",
+    "taxonomy.site_search_authoritative",
+)
+SOURCE_MODE_VALUES = {"protocol_search", "provider_harvest", "site_search", "url_execution"}
+ITEM_TYPE_VALUES = {"user_defined", "service_aggregated"}
+MANAGED_BY_VALUES = {"user", "system"}
+HUMAN_REVIEW_EVIDENCE_REQUIRED_FIELDS = ("queue_id", "reviewed_by", "reviewed_at", "decision")
+HUMAN_REVIEW_COMPLETED_STATES = {"completed", "review_completed"}
 
 
 def build_relevance_review_queue(
@@ -169,6 +182,68 @@ def annotate_records_with_relevance_review_queue(
     return annotated
 
 
+def build_taxonomy_review_readiness(
+    *,
+    taxonomy_cases: list[dict[str, Any]],
+    review_queue: dict[str, Any] | None,
+    human_review_evidence: list[dict[str, Any]] | None = None,
+    source_surface: str = "source_library.taxonomy_review_readiness",
+) -> dict[str, Any]:
+    """Summarize deterministic taxonomy readiness without claiming review closure."""
+
+    taxonomy_rows = [_taxonomy_case_readiness(row, position=index) for index, row in enumerate(taxonomy_cases)]
+    taxonomy_ready = bool(taxonomy_rows) and all(row["ready"] for row in taxonomy_rows)
+    review = _review_queue_readiness(review_queue)
+    human_review = _human_review_readiness(
+        queue_ids=review["queue_ids"],
+        human_review_evidence=human_review_evidence or [],
+    )
+    human_review_completed = bool(review["ready"] and human_review["completed"])
+
+    return {
+        "contract_version": TAXONOMY_REVIEW_READINESS_CONTRACT_VERSION,
+        "source_surface": _clean(source_surface),
+        "taxonomy": {
+            "status": "ready" if taxonomy_ready else "blocked",
+            "ready": taxonomy_ready,
+            "case_count": len(taxonomy_rows),
+            "required_fields": list(TAXONOMY_REQUIRED_FIELDS),
+            "cases": taxonomy_rows,
+        },
+        "review_queue": {
+            "state": review["state"],
+            "ready": review["ready"],
+            "ready_for_review": review["ready"],
+            "queued_count": review["queued_count"],
+            "reviewer_ready_count": review["reviewer_ready_count"],
+            "queue_ids": review["queue_ids"],
+            "entries_missing_reviewer_fields": review["entries_missing_reviewer_fields"],
+        },
+        "human_review": {
+            "completed": human_review_completed,
+            "evidence_count": human_review["evidence_count"],
+            "valid_evidence_count": human_review["valid_evidence_count"],
+            "completed_queue_ids": human_review["completed_queue_ids"],
+            "missing_queue_ids": human_review["missing_queue_ids"],
+            "invalid_evidence": human_review["invalid_evidence"],
+            "completion_claim": "evidence_complete" if human_review_completed else "not_claimed",
+        },
+        "readiness": {
+            "status": "ready_for_human_review" if taxonomy_ready and review["ready"] else "blocked",
+            "taxonomy_readiness": "ready" if taxonomy_ready else "blocked",
+            "review_queue_ready": review["ready"],
+            "human_review_completed": human_review_completed,
+        },
+        "gap_markers": {
+            "taxonomy_ready": taxonomy_ready,
+            "review_queue_ready": review["ready"],
+            "human_review_completed": human_review_completed,
+            "review_queue_claim": "ready_for_review" if review["ready"] else "not_ready",
+            "review_completion_claim": "evidence_complete" if human_review_completed else "not_claimed",
+        },
+    }
+
+
 def _queue_envelope(
     *,
     project_key: str,
@@ -197,6 +272,142 @@ def _queue_envelope(
             "auto_ingest_allowed": False,
         },
         "gap_markers": _gap_markers(),
+    }
+
+
+def _taxonomy_case_readiness(row: dict[str, Any], *, position: int) -> dict[str, Any]:
+    source_mode = _clean(row.get("source_mode"))
+    taxonomy = row.get("taxonomy") if isinstance(row.get("taxonomy"), dict) else {}
+    case_id = _clean(row.get("case_id")) or _clean(row.get("item_key")) or f"case_{position}"
+    channel_family = _clean(taxonomy.get("channel_family"))
+    item_type = _clean(taxonomy.get("item_type"))
+    managed_by = _clean(taxonomy.get("managed_by"))
+    site_search_authoritative = taxonomy.get("site_search_authoritative")
+
+    missing: list[str] = []
+    invalid: list[str] = []
+    if not source_mode:
+        missing.append("source_mode")
+    elif source_mode not in SOURCE_MODE_VALUES:
+        invalid.append(f"source_mode:{source_mode}")
+    if not channel_family:
+        missing.append("taxonomy.channel_family")
+    if not item_type:
+        missing.append("taxonomy.item_type")
+    elif item_type not in ITEM_TYPE_VALUES:
+        invalid.append(f"taxonomy.item_type:{item_type}")
+    if not managed_by:
+        missing.append("taxonomy.managed_by")
+    elif managed_by not in MANAGED_BY_VALUES:
+        invalid.append(f"taxonomy.managed_by:{managed_by}")
+    if site_search_authoritative is None:
+        missing.append("taxonomy.site_search_authoritative")
+    elif not isinstance(site_search_authoritative, bool):
+        invalid.append(f"taxonomy.site_search_authoritative:{site_search_authoritative}")
+
+    ready = not missing and not invalid
+    return {
+        "case_id": case_id,
+        "item_key": _clean(row.get("item_key")) or None,
+        "item_channel_key": _clean(row.get("item_channel_key")) or None,
+        "source_mode": source_mode or None,
+        "taxonomy": {
+            "channel_family": channel_family or None,
+            "item_type": item_type or None,
+            "managed_by": managed_by or None,
+            "expected_entry_type": taxonomy.get("expected_entry_type"),
+            "internal_adapter_only": bool(taxonomy.get("internal_adapter_only")),
+            "site_search_authoritative": site_search_authoritative if isinstance(site_search_authoritative, bool) else None,
+        },
+        "live_source_taxonomy": ":".join(
+            part
+            for part in (
+                source_mode,
+                channel_family,
+                item_type,
+                managed_by,
+            )
+            if part
+        )
+        or None,
+        "warnings": list(row.get("warnings") or []),
+        "ready": ready,
+        "missing_fields": missing,
+        "invalid_fields": invalid,
+    }
+
+
+def _review_queue_readiness(queue: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(queue, dict):
+        return {
+            "state": "missing",
+            "ready": False,
+            "queued_count": 0,
+            "reviewer_ready_count": 0,
+            "queue_ids": [],
+            "entries_missing_reviewer_fields": [],
+        }
+
+    entries = [entry for entry in queue.get("entries") or [] if isinstance(entry, dict)]
+    queue_ids = [_clean(entry.get("queue_id")) for entry in entries if _clean(entry.get("queue_id"))]
+    missing_rows = [
+        {
+            "queue_id": _clean(entry.get("queue_id")) or None,
+            "missing_fields": list(entry.get("reviewer_fields_missing") or []),
+        }
+        for entry in entries
+        if entry.get("reviewer_ready") is not True or entry.get("reviewer_fields_missing")
+    ]
+    reviewer_ready_count = sum(1 for entry in entries if entry.get("reviewer_ready") is True)
+    ready = (
+        queue.get("contract_version") == CONTRACT_VERSION
+        and queue.get("queue_state") == "ready_for_review"
+        and bool(entries)
+        and reviewer_ready_count == len(entries)
+        and len(queue_ids) == len(entries)
+    )
+    return {
+        "state": _clean(queue.get("queue_state")) or "missing",
+        "ready": ready,
+        "queued_count": len(entries),
+        "reviewer_ready_count": reviewer_ready_count,
+        "queue_ids": queue_ids,
+        "entries_missing_reviewer_fields": missing_rows,
+    }
+
+
+def _human_review_readiness(
+    *,
+    queue_ids: list[str],
+    human_review_evidence: list[dict[str, Any]],
+) -> dict[str, Any]:
+    required_ids = set(queue_ids)
+    completed_ids: set[str] = set()
+    invalid: list[dict[str, Any]] = []
+    for index, evidence in enumerate(human_review_evidence):
+        if not isinstance(evidence, dict):
+            invalid.append({"index": index, "reason": "not_object"})
+            continue
+        missing = [key for key in HUMAN_REVIEW_EVIDENCE_REQUIRED_FIELDS if not _clean(evidence.get(key))]
+        state = _clean(evidence.get("state") or evidence.get("review_state"))
+        queue_id = _clean(evidence.get("queue_id"))
+        if state not in HUMAN_REVIEW_COMPLETED_STATES:
+            missing.append("state")
+        if queue_id not in required_ids:
+            missing.append("queue_id_in_review_queue")
+        if missing:
+            invalid.append({"index": index, "queue_id": queue_id or None, "missing_or_invalid": missing})
+            continue
+        completed_ids.add(queue_id)
+
+    missing_queue_ids = sorted(required_ids - completed_ids)
+    return {
+        "completed": bool(required_ids) and not missing_queue_ids,
+        "evidence_count": len(human_review_evidence),
+        "valid_evidence_count": len(completed_ids),
+        "completed_queue_ids": sorted(completed_ids),
+        "missing_queue_ids": missing_queue_ids,
+        "invalid_evidence": invalid,
     }
 
 
