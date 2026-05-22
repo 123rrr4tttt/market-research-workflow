@@ -20,31 +20,39 @@ evidence: `settings.project_key_enforcement_mode` (`warn|require`)
 
 4. Add backend automated tests for project key policy and middleware headers
 status: done
-evidence: `tests/test_project_key_policy_unittest.py`
+evidence: `tests/integration/test_project_key_policy_unittest.py`
 
 5. Add API-level tests for structured-search and source-library run
 status: done
-evidence: `tests/test_project_key_policy_unittest.py` includes:
+evidence: `tests/integration/test_project_key_policy_unittest.py` includes:
 - `/api/v1/ingest/graph/structured-search` explicit key success + require-mode missing key failure
-- `/api/v1/source_library/items/{item_key}/run` explicit key success + require-mode missing key failure
+- `/api/v1/ingest/source-library/run` explicit key success + require-mode missing key failure
+- legacy `/api/v1/source_library/items/{item_key}/run` route removed from current APIRoute table
 
-6. Run backend test suite
+6. Add API route drift contract guard
+status: done
+evidence: `tests/contract/test_api_route_drift_contract_unittest.py` covers:
+- hyphenated `/api/v1/project-customization/*` prefix
+- `/api/v1/ingest/source-library/run` as the only source-library run frontdoor
+- `/api/v1/ingest/graph/structured-search` and `/api/v1/projects/auto-create`
+
+7. Run backend test suite
 status: done
 evidence: `python -m unittest discover -s main/backend/tests -p '*_unittest.py'`
 
-7. Add ingest baseline matrix tests for all core ingest modes
+8. Add ingest baseline matrix tests for all core ingest modes
 status: done
-evidence: `tests/test_ingest_baseline_matrix_unittest.py`
+evidence: `tests/integration/test_ingest_baseline_matrix_unittest.py`
 
-8. Add frontend-modern heterogeneous entry baseline tests
+9. Add frontend-modern heterogeneous entry baseline tests
 status: done
-evidence: `tests/test_frontend_modern_entry_baseline_unittest.py`
+evidence: `tests/integration/test_frontend_modern_entry_baseline_unittest.py`
 
-9. Fix project initialization for tenant table completeness and schema-local id sequences
+10. Fix project initialization for tenant table completeness and schema-local id sequences
 status: done
 evidence: `app/api/projects.py` (`_create_tenant_tables_best_effort`, `_ensure_tenant_id_sequences`, inject path follow-up ensure)
 
-10. Create new project and validate raw import end-to-end on initialized schema
+11. Create new project and validate raw import end-to-end on initialized schema
 status: done
 evidence: project `init_fix_0301095525` created; `etl_job_runs` default sequence bound to project schema; raw import inserted document and job record
 

@@ -1,6 +1,6 @@
 # 市场情报系统 API 接口文档
 
-> 最后更新：2026-02 | 交互式文档：`http://localhost:8000/docs`
+> 最后更新：2026-05-22 | 交互式文档：`http://localhost:8000/docs` | 当前路由快照：[`API_ROUTE_INVENTORY_2026-05-22.backend-core.md`](API_ROUTE_INVENTORY_2026-05-22.backend-core.md)
 
 ## 概述
 
@@ -1362,13 +1362,24 @@
 
 ### 13.5 信息源库 (`/source_library`)
 
+> 运行入口已收敛到 `POST /api/v1/ingest/source-library/run`；`/source_library` 当前保留频道、条目、外部项目注册、刷新和同步等管理接口。
+
 | Method | Path | 说明 |
 |--------|------|------|
 | GET | `/api/v1/source_library/channels` | 频道列表 |
 | GET | `/api/v1/source_library/items` | 条目列表 |
 | POST | `/api/v1/source_library/items` | 创建条目 |
-| POST | `/api/v1/source_library/items/{item_key}/run` | 执行条目 |
+| PUT | `/api/v1/source_library/items/{item_key}` | 更新条目 |
+| POST | `/api/v1/source_library/items/{item_key}/refresh` | 刷新条目 |
+| POST | `/api/v1/source_library/external-projects/register` | 注册外部项目来源配置 |
 | POST | `/api/v1/source_library/sync_shared_from_files` | 从文件同步共享配置 |
+
+执行入口：
+
+| Method | Path | 说明 |
+|--------|------|------|
+| POST | `/api/v1/ingest/source-library/run` | 执行来源库条目（当前主入口） |
+| POST | `/api/v1/ingest/source-library/sync` | 同步来源库到采集链 |
 
 ### 13.6 项目定制 (`/project-customization`)
 
@@ -1459,6 +1470,7 @@
 
 ## 更新日志
 
+- **2026-05-22**: 刷新 backend-core route/API drift：当前 `/api/v1` APIRoute 快照为 253 条；确认 `project-customization` 连字符前缀、来源库运行主入口 `/ingest/source-library/run`、`/ingest/graph/structured-search` 与 `/projects/auto-create` 已纳入 route inventory。
 - **2026-02**: 补充规范遵守现状（0.5）、Direct Fetch 现状；修正 project-customization 路径（下划线→连字符）
 - **2026-02**: 合并 API 规范（第 0 节），补充项目/主题/进程/信息源库/LLM 配置/治理等接口（第 13 节）
 - **2024-01**: 初始版本，包含所有基础接口

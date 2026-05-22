@@ -1,6 +1,6 @@
 # backend-core Documentation Index
 
-Last updated: 2026-03-25
+Last updated: 2026-05-22
 
 ## Main Entry
 
@@ -9,6 +9,7 @@ Last updated: 2026-03-25
 - [main/MERGED_BACKEND_CORE.md](main/MERGED_BACKEND_CORE.md)
 - [main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md](main/STANDARD_INGEST_WORKFLOWS_2026-03-02.md): 当前标准采集工作流打包文档（entry/解析/回退/入库/状态口径）
 - [main/TEST_AUTOMATION_STANDARDIZATION.md](main/TEST_AUTOMATION_STANDARDIZATION.md): test automation boundary, gaps, and completion checklist
+- [B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md](B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md): 当前 runtime APIRoute 快照（253 条 `/api/v1` routes，32 个 endpoint modules）
 
 ## Archived Category Directories
 
@@ -22,6 +23,8 @@ Last updated: 2026-03-25
 
 ## Recent Additions
 
+- [B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md](B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md): route/API drift refresh; confirms hyphenated project-customization prefix, source-library ingest frontdoor, graph structured-search, and projects auto-create
+- [G_REVIEW/MERGED_BACKEND_CORE_REVIEW.md](G_REVIEW/MERGED_BACKEND_CORE_REVIEW.md): 2026-05-22 refresh addendum for backend-core route/API/project-key drift
 - [../development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md](../development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md): source-library / ingest 预期总图对应的最小迁移计划，已移至 `development-plans/CURRENT_DEV` 作为当前开发计划维护
 - [../development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-25-ingest-structure-clarification-log.md](../development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-25-ingest-structure-clarification-log.md): ingest / source-library / frontdoor 架构澄清迭代记录，已移至 `development-plans/CURRENT_DEV` 与迁移计划同目录维护
 - [../development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-25-source-library-to-db-service-flow-investigation.md](../development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-25-source-library-to-db-service-flow-investigation.md): 来源库定义入库、source-library 运行、资源池候选层、frontdoor 落库与最终表写入的全链路调查与流程图，已移至 `development-plans/CURRENT_DEV`

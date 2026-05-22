@@ -17,6 +17,13 @@
   - 接口模块统计与路由清单未覆盖 2026-03-01 后新增接口
   - 个别脚本/测试路径已迁移，文档仍保留旧路径
 
+### 2026-05-22 刷新结论
+
+- 已新增当前 runtime APIRoute 快照：[`../B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md`](../B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md)，当前 `/api/v1` 路由为 `253` 条、endpoint 模块为 `32` 个、`app.api` 聚合 router 模块为 `30` 个。
+- 已回补 `project_customization.py` 的当前公共前缀：`/api/v1/project-customization/*`。
+- 已回补来源库运行入口：当前主入口为 `POST /api/v1/ingest/source-library/run`，`POST /api/v1/source_library/items/{item_key}/run` 不在当前 APIRoute 表中。
+- 已补最小 contract guard：`main/backend/tests/contract/test_api_route_drift_contract_unittest.py`。
+
 ## 3. 详细核对结果
 
 ### 3.1 日期一致性

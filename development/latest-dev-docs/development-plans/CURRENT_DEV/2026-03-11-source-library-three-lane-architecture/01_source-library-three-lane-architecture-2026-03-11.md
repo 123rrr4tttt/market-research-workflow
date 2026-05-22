@@ -16,7 +16,9 @@
 ### 2.1 入口事实
 
 - 前端“来源库运行”当前主要走 `POST /api/v1/ingest/source-library/run`。
-- `POST /api/v1/source_library/items/{item_key}/run` 已收口为弃用入口（`410`），统一引导到 `POST /api/v1/ingest/source-library/run`。
+- `POST /api/v1/source_library/items/{item_key}/run` 不在当前 APIRoute 表中；当前应用对该历史入口返回 `404`，统一运行入口为 `POST /api/v1/ingest/source-library/run`。
+
+> 2026-05-22 backend-core refresh: route surface is guarded by `main/backend/tests/contract/test_api_route_drift_contract_unittest.py`, and the current route snapshot is `development/latest-dev-docs/backend-core/B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md`.
 
 ### 2.2 主执行事实
 

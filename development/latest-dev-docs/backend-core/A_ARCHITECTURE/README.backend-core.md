@@ -1,6 +1,6 @@
 # 市场情报（market-intel）后端数据采集扩展说明
 
-> 最后更新：2026-02 | API 文档：`API接口文档.md` | 文档索引：`docs/README.md`
+> 最后更新：2026-05-22 | API 文档：`../B_API/API接口文档.md` | 文档索引：`../docs/README.md` | 当前路由快照：`../B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md`
 > 合并校对文档：`MERGED_BACKEND_CORE_REVIEW.md`（2026-03-01）
 
 ## 配置项（`.env`）

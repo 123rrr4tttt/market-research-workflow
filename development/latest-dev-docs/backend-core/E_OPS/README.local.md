@@ -1,6 +1,6 @@
 # 本地开发环境配置指南
 
-> 最后更新：2026-02 | 首次运行请复制 `.env.example` 为 `.env`
+> 最后更新：2026-05-22 | 首次运行请复制 `.env.example` 为 `.env`
 
 ## 依赖要求
 
@@ -131,7 +131,7 @@ uvicorn app.main:app --port 8000
 
 ### 低内存参数（Docker Compose）
 
-`ops/docker-compose.yml` 支持以下环境变量（未设置时使用默认值）：
+`main/ops/docker-compose.yml` 支持以下环境变量（未设置时使用默认值）：
 
 - `ES_JAVA_OPTS`（默认 `-Xms512m -Xmx512m`）
 - `CELERY_LOG_LEVEL`（默认 `info`）

@@ -68,6 +68,8 @@ curl http://localhost:8000/api/v1/health/deep
 - Base URL: `http://localhost:8000/api/v1`
 - Swagger: `http://localhost:8000/docs`
 - API Version: `v1`
+- Current route inventory: [`../B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md`](../B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md)
+- Current `/api/v1` runtime APIRoute snapshot: `253` routes across `32` endpoint modules; `main/backend/app/api/__init__.py` aggregates `30` router modules.
 
 ### 2.2 响应规范（Envelope）
 
@@ -118,6 +120,15 @@ curl http://localhost:8000/api/v1/health/deep
 - `POST /discovery/smart`
 - `POST /discovery/deep`
 - `POST /discovery/generate-keywords`
+
+来源库执行：
+- `POST /ingest/source-library/run`
+- `POST /ingest/source-library/sync`
+
+项目定制：
+- `GET /project-customization/menu`
+- `GET /project-customization/workflows`
+- `POST /project-customization/workflows/{workflow_name}/run`
 
 多数摄取/发现接口支持 `async_mode=true`，返回 `task_id` 用于异步任务跟踪。
 

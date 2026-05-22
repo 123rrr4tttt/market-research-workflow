@@ -35,6 +35,8 @@
 3. `resource_pool/unified-search` 目前是能力接口，不是前端默认主运行入口。
 4. 来源库三车道（`protocol_search/provider_harvest/site_search/url_execution`）已落在 `ItemResolver + run_item_payload`。
 
+2026-05-22 backend-core refresh 补充：当前 runtime APIRoute 快照见 `development/latest-dev-docs/backend-core/B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md`；`main/backend/tests/contract/test_api_route_drift_contract_unittest.py` 已固定来源库运行主入口、`project-customization` 连字符前缀、`graph/structured-search` 与 `projects/auto-create` route guard。
+
 ## 4. 实际挂载路径（后端）
 
 ### 4.1 API 主挂载
