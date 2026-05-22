@@ -1,0 +1,123 @@
+{
+  "status": "ok",
+  "date": "2026-05-22",
+  "gate": "npm --prefix main/frontend-modern run check:runtime-visual",
+  "mocked_backend": true,
+  "coverage": [
+    "runtime theme token application",
+    "settings-driven locale and theme switch",
+    "Layer C admin shell layout",
+    "Layer A workbench shell layout",
+    "Layer B visualization shell layout",
+    "cross-layer route navigation"
+  ],
+  "probes": {
+    "admin": {
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "boxes": {
+        "topbar": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 165
+        },
+        "nav": {
+          "x": 0,
+          "y": 165,
+          "width": 160,
+          "height": 1333
+        },
+        "stage": {
+          "x": 180,
+          "y": 183,
+          "width": 1240,
+          "height": 1295
+        },
+        "layerSwitch": {
+          "x": 592,
+          "y": 12,
+          "width": 246.515625,
+          "height": 29
+        }
+      },
+      "theme": "brand",
+      "backgroundToken": "#f5f8ff",
+      "surfaceToken": "#ffffff",
+      "activeLayer": "C"
+    },
+    "workbench": {
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "boxes": {
+        "nav": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 123
+        },
+        "stage": {
+          "x": 0,
+          "y": 123,
+          "width": 1440,
+          "height": 70
+        },
+        "layerSwitch": {
+          "x": 22,
+          "y": 56,
+          "width": 1012.109375,
+          "height": 29
+        }
+      },
+      "theme": "brand",
+      "backgroundToken": "#f5f8ff",
+      "surfaceToken": "#ffffff",
+      "activeLayer": "A"
+    },
+    "visual": {
+      "viewport": {
+        "width": 1440,
+        "height": 960
+      },
+      "boxes": {
+        "masthead": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 238.875
+        },
+        "nav": {
+          "x": 0,
+          "y": 238.875,
+          "width": 220,
+          "height": 790
+        },
+        "stage": {
+          "x": 240,
+          "y": 258.875,
+          "width": 1180,
+          "height": 740
+        },
+        "layerSwitch": {
+          "x": 24,
+          "y": 49,
+          "width": 1392,
+          "height": 29
+        }
+      },
+      "theme": "brand",
+      "backgroundToken": "#f5f8ff",
+      "surfaceToken": "#ffffff",
+      "activeLayer": "B"
+    }
+  },
+  "screenshots": [
+    "admin-settings-brand-en.png",
+    "workbench-writing-brand-en.png",
+    "visual-dashboard-brand-en.png"
+  ]
+}
