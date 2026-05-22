@@ -1,0 +1,463 @@
+{
+  "closure_claim_allowed": false,
+  "compose_expectations": {
+    "backend_environment": {
+      "checks": {
+        "SEARXNG_BASE_URL": true,
+        "YACY_BASE_URL": true,
+        "YACY_RESOURCE_MODE": true
+      },
+      "path": "main/ops/docker-compose.yml",
+      "values": {
+        "SEARXNG_BASE_URL": "${SEARXNG_BASE_URL:-http://searxng:8080}",
+        "YACY_BASE_URL": "${YACY_BASE_URL:-http://yacy:8090}",
+        "YACY_RESOURCE_MODE": "${YACY_RESOURCE_MODE:-local}"
+      }
+    },
+    "compose_files": {
+      "main_ops": "main/ops/docker-compose.yml",
+      "search_lab": "ops/search-lab/docker-compose.yml"
+    },
+    "failures": [],
+    "providers": {
+      "searxng": {
+        "all_expected_surfaces_present": true,
+        "failures": [],
+        "main_ops": {
+          "environment": {
+            "SEARXNG_BASE_URL": "http://127.0.0.1:8088/"
+          },
+          "expected_public_endpoint": "http://127.0.0.1:8088",
+          "expected_query_path": "/search",
+          "failures": [],
+          "image": "searxng/searxng:latest",
+          "port_expectation_met": true,
+          "ports": [
+            "127.0.0.1:8088:8080"
+          ],
+          "profiles": [
+            "search-enhancements"
+          ],
+          "service": "searxng",
+          "service_present": true
+        },
+        "provider": "searxng",
+        "search_lab": {
+          "environment": {
+            "SEARXNG_BASE_URL": "http://127.0.0.1:8088/"
+          },
+          "expected_public_endpoint": "http://127.0.0.1:8088",
+          "expected_query_path": "/search",
+          "failures": [],
+          "image": "searxng/searxng:latest",
+          "port_expectation_met": true,
+          "ports": [
+            "127.0.0.1:8088:8080"
+          ],
+          "profiles": [],
+          "service": "searxng",
+          "service_present": true
+        }
+      },
+      "yacy": {
+        "all_expected_surfaces_present": true,
+        "failures": [],
+        "main_ops": {
+          "environment": {},
+          "expected_public_endpoint": "http://127.0.0.1:8090",
+          "expected_query_path": "/yacysearch.json",
+          "failures": [],
+          "image": "yacy/yacy_search_server:latest",
+          "port_expectation_met": true,
+          "ports": [
+            "127.0.0.1:8090:8090"
+          ],
+          "profiles": [
+            "search-enhancements"
+          ],
+          "service": "yacy",
+          "service_present": true
+        },
+        "provider": "yacy",
+        "search_lab": {
+          "environment": {},
+          "expected_public_endpoint": "http://127.0.0.1:8090",
+          "expected_query_path": "/yacysearch.json",
+          "failures": [],
+          "image": "yacy/yacy_search_server:latest",
+          "port_expectation_met": true,
+          "ports": [
+            "127.0.0.1:8090:8090"
+          ],
+          "profiles": [],
+          "service": "yacy",
+          "service_present": true
+        }
+      }
+    }
+  },
+  "contract_version": "wave18-open-search-health-artifact.v1",
+  "current_service_status": {
+    "collector": "docker compose ps --format json; read-only, does not start services",
+    "compose": {
+      "main_ops": {
+        "command": {
+          "cmd": [
+            "docker",
+            "compose",
+            "-f",
+            "main/ops/docker-compose.yml",
+            "ps",
+            "--format",
+            "json"
+          ],
+          "latency_ms": 278.9,
+          "ok": false,
+          "returncode": 1,
+          "stderr": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+        },
+        "path": "main/ops/docker-compose.yml",
+        "providers": {
+          "searxng": {
+            "observed": false,
+            "provider": "searxng",
+            "running": false,
+            "state": "unknown",
+            "status_reason": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+          },
+          "yacy": {
+            "observed": false,
+            "provider": "yacy",
+            "running": false,
+            "state": "unknown",
+            "status_reason": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+          }
+        },
+        "raw_count": 0
+      },
+      "search_lab": {
+        "command": {
+          "cmd": [
+            "docker",
+            "compose",
+            "-f",
+            "ops/search-lab/docker-compose.yml",
+            "ps",
+            "--format",
+            "json"
+          ],
+          "latency_ms": 278.69,
+          "ok": false,
+          "returncode": 1,
+          "stderr": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+        },
+        "path": "ops/search-lab/docker-compose.yml",
+        "providers": {
+          "searxng": {
+            "observed": false,
+            "provider": "searxng",
+            "running": false,
+            "state": "unknown",
+            "status_reason": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+          },
+          "yacy": {
+            "observed": false,
+            "provider": "yacy",
+            "running": false,
+            "state": "unknown",
+            "status_reason": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+          }
+        },
+        "raw_count": 0
+      }
+    }
+  },
+  "failures": [],
+  "generated_at": "2026-05-22T13:07:25.996352+00:00",
+  "generated_by": "main/backend/scripts/check_open_search_health_artifact.py",
+  "health_state": "partial",
+  "inputs": {
+    "topic_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/14_wave18-open-search-health-artifact-2026-05-22.md",
+    "wave12_provider_readiness": {
+      "path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "readiness_state": "partial",
+      "status": "passed"
+    },
+    "wave15_runtime_boundary": {
+      "boundary_state": "partial",
+      "closure_claim_allowed": false,
+      "external_runtime_gap": "retained",
+      "generated_by": "main/backend/scripts/check_open_search_runtime_boundary.py",
+      "status": "passed"
+    }
+  },
+  "launcher_and_provider_surfaces": {
+    "backend_env_example": {
+      "exists": true,
+      "has_explicit_searxng_provider": false,
+      "has_explicit_yacy_provider": false,
+      "has_searxng_base_url": true,
+      "has_yacy_base_url": true,
+      "mentions_local_open_search": false,
+      "path": "main/backend/.env.example"
+    },
+    "configure_external_services": {
+      "exists": true,
+      "has_explicit_searxng_provider": false,
+      "has_explicit_yacy_provider": false,
+      "has_searxng_base_url": true,
+      "has_yacy_base_url": true,
+      "mentions_local_open_search": false,
+      "path": "scripts/configure-external-services.py"
+    },
+    "launcher_ui_settings": {
+      "exists": true,
+      "has_explicit_searxng_provider": false,
+      "has_explicit_yacy_provider": false,
+      "has_searxng_base_url": true,
+      "has_yacy_base_url": true,
+      "mentions_local_open_search": false,
+      "path": "main/ops/launcher-ui/settings.js"
+    },
+    "local_launcher": {
+      "exists": true,
+      "has_explicit_searxng_provider": false,
+      "has_explicit_yacy_provider": false,
+      "has_searxng_base_url": true,
+      "has_yacy_base_url": true,
+      "mentions_local_open_search": false,
+      "path": "scripts/launch.py"
+    },
+    "search_provider_code": {
+      "exists": true,
+      "has_explicit_searxng_provider": true,
+      "has_explicit_yacy_provider": true,
+      "has_searxng_base_url": true,
+      "has_yacy_base_url": true,
+      "mentions_local_open_search": true,
+      "path": "main/backend/app/services/search/web.py"
+    }
+  },
+  "live_probe": {
+    "does_not_start_services": true,
+    "open": true,
+    "timeout_seconds": 0.2
+  },
+  "provider_auto_promotion_allowed": false,
+  "provider_health": {
+    "searxng": {
+      "compose_expectations": {
+        "all_expected_surfaces_present": true,
+        "failures": [],
+        "main_ops": {
+          "environment": {
+            "SEARXNG_BASE_URL": "http://127.0.0.1:8088/"
+          },
+          "expected_public_endpoint": "http://127.0.0.1:8088",
+          "expected_query_path": "/search",
+          "failures": [],
+          "image": "searxng/searxng:latest",
+          "port_expectation_met": true,
+          "ports": [
+            "127.0.0.1:8088:8080"
+          ],
+          "profiles": [
+            "search-enhancements"
+          ],
+          "service": "searxng",
+          "service_present": true
+        },
+        "provider": "searxng",
+        "search_lab": {
+          "environment": {
+            "SEARXNG_BASE_URL": "http://127.0.0.1:8088/"
+          },
+          "expected_public_endpoint": "http://127.0.0.1:8088",
+          "expected_query_path": "/search",
+          "failures": [],
+          "image": "searxng/searxng:latest",
+          "port_expectation_met": true,
+          "ports": [
+            "127.0.0.1:8088:8080"
+          ],
+          "profiles": [],
+          "service": "searxng",
+          "service_present": true
+        }
+      },
+      "configured_endpoint": {
+        "base_url": "http://127.0.0.1:8088",
+        "configured": true,
+        "default_base_url": "http://127.0.0.1:8088",
+        "endpoint_state": "configured_endpoint",
+        "env_key": "SEARXNG_BASE_URL",
+        "provider": "searxng",
+        "query_path": "/search",
+        "source": "repo_default"
+      },
+      "current_service_status": {
+        "main_ops": {
+          "observed": false,
+          "provider": "searxng",
+          "running": false,
+          "state": "unknown",
+          "status_reason": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+        },
+        "search_lab": {
+          "observed": false,
+          "provider": "searxng",
+          "running": false,
+          "state": "unknown",
+          "status_reason": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+        }
+      },
+      "facts": {
+        "compose_service_expected": true,
+        "configured_endpoint_valid": true,
+        "current_service_running": false,
+        "live_probe_open": true,
+        "live_query_unsealed": false,
+        "no_live_closure_claim": true,
+        "no_provider_auto_promotion": true,
+        "search_provider_explicit_only": true,
+        "service_not_started_connect_error": true
+      },
+      "provider": "searxng",
+      "provider_auto_included": false,
+      "provider_family": "local_open_search",
+      "provider_route": "explicit:searxng",
+      "wave12_readiness": {
+        "live_fallback_reason": "ConnectError",
+        "live_probe_status": "unavailable",
+        "live_result_count": 0,
+        "provider_auto_included": false,
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:searxng",
+        "readiness_state": "partial",
+        "status": "passed"
+      },
+      "wave15_runtime_boundary": {
+        "boundary_classification": "service_not_started_connect_error",
+        "error_type": "ConnectError",
+        "fallback_reason": "ConnectError",
+        "live_closure_claim_allowed": false,
+        "live_probe_status": "unavailable",
+        "live_result_count": 0,
+        "provider_auto_promotion_allowed": false,
+        "runtime_state": "service_not_started"
+      }
+    },
+    "yacy": {
+      "compose_expectations": {
+        "all_expected_surfaces_present": true,
+        "failures": [],
+        "main_ops": {
+          "environment": {},
+          "expected_public_endpoint": "http://127.0.0.1:8090",
+          "expected_query_path": "/yacysearch.json",
+          "failures": [],
+          "image": "yacy/yacy_search_server:latest",
+          "port_expectation_met": true,
+          "ports": [
+            "127.0.0.1:8090:8090"
+          ],
+          "profiles": [
+            "search-enhancements"
+          ],
+          "service": "yacy",
+          "service_present": true
+        },
+        "provider": "yacy",
+        "search_lab": {
+          "environment": {},
+          "expected_public_endpoint": "http://127.0.0.1:8090",
+          "expected_query_path": "/yacysearch.json",
+          "failures": [],
+          "image": "yacy/yacy_search_server:latest",
+          "port_expectation_met": true,
+          "ports": [
+            "127.0.0.1:8090:8090"
+          ],
+          "profiles": [],
+          "service": "yacy",
+          "service_present": true
+        }
+      },
+      "configured_endpoint": {
+        "base_url": "http://127.0.0.1:8090",
+        "configured": true,
+        "default_base_url": "http://127.0.0.1:8090",
+        "endpoint_state": "configured_endpoint",
+        "env_key": "YACY_BASE_URL",
+        "provider": "yacy",
+        "query_path": "/yacysearch.json",
+        "source": "repo_default"
+      },
+      "current_service_status": {
+        "main_ops": {
+          "observed": false,
+          "provider": "yacy",
+          "running": false,
+          "state": "unknown",
+          "status_reason": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+        },
+        "search_lab": {
+          "observed": false,
+          "provider": "yacy",
+          "running": false,
+          "state": "unknown",
+          "status_reason": "Cannot connect to the Docker daemon at unix:///Users/wangyiliang/.docker/run/docker.sock. Is the docker daemon running?"
+        }
+      },
+      "facts": {
+        "compose_service_expected": true,
+        "configured_endpoint_valid": true,
+        "current_service_running": false,
+        "live_probe_open": true,
+        "live_query_unsealed": false,
+        "no_live_closure_claim": true,
+        "no_provider_auto_promotion": true,
+        "search_provider_explicit_only": true,
+        "service_not_started_connect_error": true
+      },
+      "provider": "yacy",
+      "provider_auto_included": false,
+      "provider_family": "local_open_search",
+      "provider_route": "explicit:yacy",
+      "wave12_readiness": {
+        "live_fallback_reason": "ConnectError",
+        "live_probe_status": "unavailable",
+        "live_result_count": 0,
+        "provider_auto_included": false,
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:yacy",
+        "readiness_state": "partial",
+        "status": "passed"
+      },
+      "wave15_runtime_boundary": {
+        "boundary_classification": "service_not_started_connect_error",
+        "error_type": "ConnectError",
+        "fallback_reason": "ConnectError",
+        "live_closure_claim_allowed": false,
+        "live_probe_status": "unavailable",
+        "live_result_count": 0,
+        "provider_auto_promotion_allowed": false,
+        "runtime_state": "service_not_started"
+      }
+    }
+  },
+  "scope": "configured_endpoints_compose_expectations_current_service_status_live_probe_no_container_start",
+  "status": "passed",
+  "unsupported_claims": [
+    {
+      "claim": "Configured compose services prove current SearXNG/YaCy live availability.",
+      "code": "service_status_not_live_closure",
+      "reason": "Compose expectations prove repo wiring only; Docker may be stopped and endpoint probes may fail."
+    },
+    {
+      "claim": "A bounded live probe proves provider quality or provider=auto promotion.",
+      "code": "live_probe_not_quality_closure",
+      "reason": "A probe is a runtime fact only; quality, freshness, latency stability, and approval policy remain unclosed."
+    }
+  ]
+}
