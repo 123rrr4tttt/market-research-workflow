@@ -1,0 +1,220 @@
+{
+  "assertions": [
+    "search provider trace keeps local open-search providers explicit-only and provider=auto excludes them",
+    "local_index keyword, vector, and hybrid runtime evidence executed without fallback in captured LanceDB smoke",
+    "benchmark fixture meets deterministic case/repeat thresholds for keyword, vector, and hybrid modes",
+    "benchmark fixture trace includes project/source/top_k and mode fields for all result rows",
+    "vector and hybrid runtime exceptions fall back to keyword with explicit fallback_from and fallback_reason metadata",
+    "fixture benchmark is not treated as production embedding semantic quality evidence"
+  ],
+  "contract_version": "wave10-vectorization-quality-gate.v1",
+  "evidence": {
+    "local_index_benchmark_quality": {
+      "failures": [],
+      "filter_case_count": 3,
+      "filter_modes": [
+        "hybrid",
+        "keyword",
+        "vector"
+      ],
+      "packages": {
+        "lancedb": "0.24.2",
+        "pyarrow": "24.0.0"
+      },
+      "path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/benchmark_quality_results.json",
+      "quality_thresholds": {
+        "max_failures": 0,
+        "min_filter_cases": 3,
+        "min_ranking_cases": 3,
+        "min_repeats_per_ranking_case": 3,
+        "required_modes": [
+          "keyword",
+          "vector",
+          "hybrid"
+        ]
+      },
+      "ranking_case_count": 3,
+      "ranking_modes": [
+        "hybrid",
+        "keyword",
+        "vector"
+      ],
+      "remaining_blockers": [
+        {
+          "code": "semantic_embedding_quality_not_proven",
+          "message": "This benchmark uses deterministic vectors to prove LanceDB ranking wiring and stable top-k behavior. It does not prove production embedding model relevance quality."
+        },
+        {
+          "code": "global_vector_contract_not_closed",
+          "message": "Unified vector object schema, embedding model/version provenance, and main search evidence contract alignment remain open in CURRENT_DEV."
+        }
+      ],
+      "status": "passed",
+      "threshold_status": "passed"
+    },
+    "local_index_fallback_contract": {
+      "failures": [],
+      "fallback_cases": [
+        {
+          "failures": [],
+          "query_types": [
+            "vector",
+            "fts"
+          ],
+          "requested_mode": "vector",
+          "retrieval_mode": "keyword",
+          "status": "passed",
+          "trace": {
+            "adapter": "lancedb",
+            "executed_mode": "keyword",
+            "fallback_from": "vector",
+            "fallback_reason": "RuntimeError",
+            "project_id": "quality-gate",
+            "query_family": "local_material",
+            "requested_mode": "vector",
+            "source_id": "fallback-source",
+            "top_k": 1
+          }
+        },
+        {
+          "failures": [],
+          "query_types": [
+            "hybrid",
+            "fts"
+          ],
+          "requested_mode": "hybrid",
+          "retrieval_mode": "keyword",
+          "status": "passed",
+          "trace": {
+            "adapter": "lancedb",
+            "executed_mode": "keyword",
+            "fallback_from": "hybrid",
+            "fallback_reason": "RuntimeError",
+            "project_id": "quality-gate",
+            "query_family": "local_material",
+            "requested_mode": "hybrid",
+            "source_id": "fallback-source",
+            "top_k": 1
+          }
+        }
+      ],
+      "modes": [
+        "keyword",
+        "vector",
+        "hybrid"
+      ],
+      "status": "passed"
+    },
+    "local_index_runtime_smoke": {
+      "failures": [],
+      "modes": {
+        "hybrid": {
+          "executed_mode": "hybrid",
+          "expected_chunk_id": "chunk-hybrid",
+          "failures": [],
+          "retrieval_mode": "hybrid",
+          "top_chunk_id": "chunk-hybrid",
+          "trace": {
+            "adapter": "lancedb",
+            "executed_mode": "hybrid",
+            "query_family": "local_material",
+            "requested_mode": "hybrid"
+          }
+        },
+        "keyword": {
+          "executed_mode": "keyword",
+          "expected_chunk_id": "chunk-keyword",
+          "failures": [],
+          "retrieval_mode": "keyword",
+          "top_chunk_id": "chunk-keyword",
+          "trace": {
+            "adapter": "lancedb",
+            "executed_mode": "keyword",
+            "query_family": "local_material",
+            "requested_mode": "keyword"
+          }
+        },
+        "vector": {
+          "executed_mode": "vector",
+          "expected_chunk_id": "chunk-vector",
+          "failures": [],
+          "retrieval_mode": "vector",
+          "top_chunk_id": "chunk-vector",
+          "trace": {
+            "adapter": "lancedb",
+            "executed_mode": "vector",
+            "query_family": "local_material",
+            "requested_mode": "vector"
+          }
+        }
+      },
+      "packages": {
+        "lancedb": "0.24.2",
+        "pyarrow": "24.0.0"
+      },
+      "path": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/runtime_smoke_results.json",
+      "status": "passed"
+    },
+    "search_provider_trace": {
+      "auto_local_open_search_called": false,
+      "contract_version": "search-provider-trace-artifacts.v1",
+      "explicit_providers": [
+        "searxng",
+        "yacy"
+      ],
+      "failures": [],
+      "path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+      "required_result_fields": [
+        "provider_route",
+        "provider_family",
+        "provider_auto_included",
+        "backend_trace"
+      ],
+      "scope": "offline_unit_contract_no_containers",
+      "status": "passed"
+    }
+  },
+  "failures": [],
+  "generated_by": "ops/search-lab/scripts/wave10_vectorization_quality_gate.py",
+  "quality_thresholds": {
+    "max_failures": 0,
+    "min_filter_cases": 3,
+    "min_ranking_cases": 3,
+    "min_repeats_per_ranking_case": 3,
+    "required_modes": [
+      "keyword",
+      "vector",
+      "hybrid"
+    ]
+  },
+  "remaining_gaps": [
+    {
+      "code": "current_container_availability_not_replayed",
+      "message": "This gate reads recorded provider evidence and does not start or probe SearXNG/YaCy containers."
+    },
+    {
+      "code": "semantic_embedding_quality_not_proven",
+      "message": "The benchmark fixture uses deterministic vectors and does not prove production embedding relevance quality."
+    },
+    {
+      "code": "global_vector_contract_not_closed",
+      "message": "Unified vector object schema, embedding provenance, and main search evidence contract remain CURRENT_DEV work."
+    }
+  ],
+  "scope": "deterministic_local_fixture_no_network_no_container_start",
+  "status": "passed",
+  "target_topics": [
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation"
+    }
+  ]
+}

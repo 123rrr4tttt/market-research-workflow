@@ -216,6 +216,20 @@ class LocalIndexServiceTest(unittest.TestCase):
         self.assertEqual(results[0].trace["fallback_from"], "vector")
         self.assertEqual(results[0].trace["fallback_reason"], "RuntimeError")
 
+    def test_lancedb_adapter_falls_back_to_keyword_when_hybrid_runtime_is_unavailable(self) -> None:
+        adapter = object.__new__(LanceDBLocalIndexAdapter)
+        table = FakeLanceTable(fail_modes={"hybrid"})
+        adapter._table = table
+
+        results = adapter.search(LocalIndexQuery(query="robotics", project_id="demo_proj", mode="hybrid"))
+
+        self.assertEqual([call["query_type"] for call in table.calls], ["hybrid", "fts"])
+        self.assertEqual(results[0].retrieval_mode, "keyword")
+        self.assertEqual(results[0].trace["requested_mode"], "hybrid")
+        self.assertEqual(results[0].trace["executed_mode"], "keyword")
+        self.assertEqual(results[0].trace["fallback_from"], "hybrid")
+        self.assertEqual(results[0].trace["fallback_reason"], "RuntimeError")
+
     def test_lancedb_adapter_has_clear_optional_dependency_boundary(self) -> None:
         if is_lancedb_available():
             self.assertIsNotNone(LanceDBLocalIndexAdapter)
