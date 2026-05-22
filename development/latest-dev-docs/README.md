@@ -87,6 +87,18 @@
   - [docs root content shim evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/05_wave10-8-docs-root-content-shim-evidence-2026-05-22.md)
   - [parallel agent runtime contract refresh](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md)
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
+- Wave11 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
+  - [Wave11 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave11-worktree-plan-2026-05-22.md)
+  - [meaningful ingest guardrails rollout](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/03_wave11-ingest-guardrails-rollout-evidence-2026-05-22.md)
+  - [long-cycle scheduler E2E contract](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/05_wave11-long-cycle-scheduler-e2e-evidence-2026-05-22.md)
+  - [AgentCore provider matrix](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/05_wave11-agentcore-provider-matrix-evidence-2026-05-22.md)
+  - [graph editing audit / rollback contract](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/05_wave11-graph-editing-audit-rollback-evidence-2026-05-22.md)
+  - [source-library article extraction runner](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/11_wave11-source-library-extraction-runner-evidence-2026-05-22.md)
+  - [agent symbolic search quality replay](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/17_wave11-symbolic-search-quality-replay-evidence-2026-05-22.md)
+  - [structured consumer query extraction](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/08_wave11-structured-consumer-query-extraction-evidence-2026-05-22.md)
+  - [consumer-side query extraction](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/03_wave11-consumer-query-extraction-evidence-2026-05-22.md)
+  - [frontend layer-shell topology contract](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/04_wave11-layer-shell-topology-contract-evidence-2026-05-22.md)
+  - [docs root navigation promotion](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/06_wave11-docs-root-navigation-promotion-evidence-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

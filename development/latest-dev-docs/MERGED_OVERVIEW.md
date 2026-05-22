@@ -53,6 +53,7 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave10 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave10-worktree-plan-2026-05-22.md)
   - [2026-05-22 Wave10 Source Library Search Governance](./automation-runs/source-library-search-governance/2026-05-22/README.md)
   - [2026-05-22 Wave10 Vectorization Quality Gate](./automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
+  - [2026-05-22 Wave11 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave11-worktree-plan-2026-05-22.md)
 - `backend-docs`：
   - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：
@@ -116,6 +117,16 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave10 Writing Workbench Typed Knowledge Consumer](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/05_wave10-worker7-typed-knowledge-context-consumer-evidence-2026-05-22.md)
   - [2026-05-22 Wave10 Docs Root Content Shim](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/05_wave10-8-docs-root-content-shim-evidence-2026-05-22.md)
   - [2026-05-22 Wave10 Parallel Agent Runtime Contract Refresh](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md)
+  - [2026-05-22 Wave11 Meaningful Ingest Guardrails Rollout](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/03_wave11-ingest-guardrails-rollout-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 Long-Cycle Scheduler E2E](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/05_wave11-long-cycle-scheduler-e2e-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 AgentCore Provider Matrix](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/05_wave11-agentcore-provider-matrix-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 Graph Editing Audit / Rollback](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/05_wave11-graph-editing-audit-rollback-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 Source-Library Extraction Runner](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/11_wave11-source-library-extraction-runner-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 Symbolic Search Quality Replay](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/17_wave11-symbolic-search-quality-replay-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 Structured Consumer Query Extraction](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/08_wave11-structured-consumer-query-extraction-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 Consumer-Side Query Extraction](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/03_wave11-consumer-query-extraction-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 Frontend Layer-Shell Topology](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/04_wave11-layer-shell-topology-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 Docs Root Navigation Promotion](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/06_wave11-docs-root-navigation-promotion-evidence-2026-05-22.md)
   - [2026-05-22 Source Library Public Live Probes](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：

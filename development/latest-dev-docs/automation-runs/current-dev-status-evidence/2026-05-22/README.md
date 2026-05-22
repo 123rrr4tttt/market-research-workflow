@@ -10,10 +10,10 @@
 | Check | Value |
 |---|---:|
 | active entries | 35 |
-| Markdown links checked | 121 |
+| Markdown links checked | 133 |
 | placeholder entries recognized | 0 |
 | empty directories recognized | 0 |
-| Wave5/Wave6/Wave7/Wave8/Wave9/Wave10 evidence rows checked | 55 |
+| Wave5/Wave6/Wave7/Wave8/Wave9/Wave10/Wave11 evidence rows checked | 67 |
 | problems | 0 |
 
 ## Count Gate
@@ -30,7 +30,7 @@
 |---|---:|
 | matching primary status tag | 35 |
 | additional evidence link | 33 |
-| explicit blocker/gap text | 17 |
+| explicit blocker/gap text | 20 |
 | placeholder row | 0 |
 
 A row passes when it has a matching primary status tag, an evidence link, or explicit blocker/gap text.
@@ -39,58 +39,70 @@ A row passes when it has a matching primary status tag, an evidence link, or exp
 
 | Line | Tag | Wave evidence links |
 |---:|---|---:|
-| 55 | `wave8_checked` | 1 |
-| 55 | `wave10_checked` | 1 |
-| 56 | `wave8_checked` | 1 |
-| 56 | `wave10_checked` | 1 |
-| 57 | `wave6_verified` | 1 |
 | 57 | `wave8_checked` | 1 |
+| 57 | `wave10_checked` | 1 |
 | 58 | `wave8_checked` | 1 |
-| 58 | `wave10_verified` | 1 |
-| 59 | `wave7_verified` | 1 |
+| 58 | `wave10_checked` | 1 |
+| 59 | `wave6_verified` | 1 |
 | 59 | `wave8_checked` | 1 |
-| 59 | `wave10_verified` | 1 |
-| 60 | `wave8_verified` | 1 |
-| 61 | `wave9_verified` | 1 |
+| 60 | `wave8_checked` | 1 |
+| 60 | `wave10_verified` | 1 |
+| 61 | `wave7_verified` | 1 |
+| 61 | `wave8_checked` | 1 |
+| 61 | `wave10_verified` | 1 |
 | 62 | `wave8_verified` | 1 |
-| 63 | `wave8_checked` | 1 |
-| 63 | `wave10_verified` | 1 |
+| 63 | `wave9_verified` | 1 |
+| 63 | `wave11_verified` | 1 |
+| 64 | `wave8_verified` | 1 |
 | 65 | `wave8_checked` | 1 |
-| 65 | `wave10_checked` | 1 |
-| 66 | `wave8_checked` | 1 |
-| 66 | `wave10_verified` | 1 |
-| 67 | `wave8_verified` | 1 |
-| 67 | `wave10_verified` | 1 |
-| 68 | `wave9_verified` | 1 |
-| 69 | `wave9_verified` | 1 |
+| 65 | `wave10_verified` | 1 |
+| 67 | `wave8_checked` | 1 |
+| 67 | `wave10_checked` | 1 |
+| 68 | `wave8_checked` | 1 |
+| 68 | `wave10_verified` | 1 |
+| 69 | `wave8_verified` | 1 |
+| 69 | `wave10_verified` | 1 |
 | 70 | `wave9_verified` | 1 |
+| 70 | `wave11_verified` | 1 |
 | 71 | `wave9_verified` | 1 |
-| 72 | `wave10_checked` | 1 |
-| 73 | `wave8_verified` | 1 |
-| 73 | `wave10_checked` | 1 |
-| 74 | `wave8_verified` | 1 |
-| 74 | `wave10_verified` | 1 |
+| 72 | `wave9_verified` | 1 |
+| 72 | `wave11_verified` | 1 |
+| 73 | `wave9_verified` | 1 |
+| 73 | `wave11_verified` | 1 |
+| 74 | `wave10_checked` | 1 |
 | 75 | `wave8_verified` | 1 |
+| 75 | `wave10_checked` | 1 |
 | 76 | `wave8_verified` | 1 |
-| 77 | `wave6_verified` | 1 |
+| 76 | `wave10_verified` | 1 |
 | 77 | `wave8_verified` | 1 |
-| 78 | `wave6_verified` | 1 |
-| 78 | `wave9_verified` | 1 |
+| 77 | `wave11_verified` | 1 |
+| 78 | `wave8_verified` | 1 |
+| 78 | `wave11_verified` | 1 |
 | 79 | `wave6_verified` | 1 |
 | 79 | `wave8_verified` | 1 |
-| 79 | `wave10_verified` | 1 |
-| 80 | `wave7_verified` | 1 |
+| 79 | `wave11_verified` | 1 |
+| 80 | `wave6_verified` | 1 |
 | 80 | `wave9_verified` | 1 |
+| 80 | `wave11_verified` | 1 |
 | 81 | `wave6_verified` | 1 |
 | 81 | `wave8_verified` | 1 |
 | 81 | `wave10_verified` | 1 |
-| 82 | `wave6_verified` | 1 |
-| 83 | `wave7_checked` | 1 |
-| 83 | `wave9_checked` | 1 |
-| 83 | `wave10_checked` | 1 |
-| 84 | `wave7_checked` | 1 |
-| 84 | `wave10_checked` | 1 |
-| 85 | `wave8_verified` | 1 |
-| 86 | `wave9_checked` | 1 |
-| 87 | `wave5_verified` | 2 |
-| 90 | `wave8_checked` | 2 |
+| 82 | `wave7_verified` | 1 |
+| 82 | `wave9_verified` | 1 |
+| 82 | `wave11_verified` | 1 |
+| 83 | `wave6_verified` | 1 |
+| 83 | `wave8_verified` | 1 |
+| 83 | `wave10_verified` | 1 |
+| 84 | `wave6_verified` | 1 |
+| 85 | `wave7_checked` | 1 |
+| 85 | `wave9_checked` | 1 |
+| 85 | `wave10_checked` | 1 |
+| 85 | `wave11_checked` | 1 |
+| 86 | `wave7_checked` | 1 |
+| 86 | `wave10_checked` | 1 |
+| 87 | `wave8_verified` | 1 |
+| 87 | `wave11_verified` | 1 |
+| 88 | `wave9_checked` | 1 |
+| 88 | `wave11_verified` | 1 |
+| 89 | `wave5_verified` | 2 |
+| 92 | `wave8_checked` | 2 |
