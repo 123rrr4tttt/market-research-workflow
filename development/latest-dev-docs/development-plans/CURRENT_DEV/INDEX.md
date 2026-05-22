@@ -55,7 +55,7 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 - `[partial][doc_aligned]` [2026-03-12 Data Structured Service Modularization](./2026-03-12-data-structured-service-modularization/01_terminal-structured-ingest-output-standardization-plan-2026-03-12.md)
 - `[partial][doc_aligned]` [2026-03-14 Consumer-Side Modularization](./2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
 - `[partial][doc_aligned]` [2026-03-14 Search Chain Source-Library Mounting Audit](./2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md)
-- `[partial][doc_drift]` [2026-03-14 Source-Library Adapter Capability Remediation](./2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md)
+- `[partial][doc_aligned]` [2026-03-14 Source-Library Adapter Capability Remediation](./2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md) - public live probe evidence: [source-library-live-probes/2026-05-22](../../automation-runs/source-library-live-probes/2026-05-22/README.md)
 - `[partial][doc_aligned]` [2026-03-14 Time Semantics Density Merged Plan](./2026-03-14-time-semantics-density-merged-plan/README.md)
 - `[partial][doc_aligned]` [2026-03-15 Frontend Three-Layer Rewrite](./2026-03-15-frontend-three-layer-rewrite/README.md)
 - `[partial][doc_aligned]` [2026-03-25 Source-Library Ingest Minimal Migration](./2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md)

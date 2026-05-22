@@ -1,0 +1,11 @@
+probe_id=source_library_public_live_probes_2026_05_22
+started_at=2026-05-22T04:48:37Z
+finished_at=2026-05-22T04:48:40Z
+allow_public_network=True
+target_count=4
+target=commercialobserver_parser_weak status=candidate_ready_with_term_fallback candidates=21 elapsed_ms=775 reason=Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.
+target=pymnts_parser_weak status=candidate_ready candidates=2 elapsed_ms=924 reason=Public search-template execution returned selected candidates.
+target=investopedia_validated_query status=candidate_ready candidates=17 elapsed_ms=408 reason=Public search-template execution returned selected candidates.
+target=hai_stanford_mixed_shell status=candidate_ready_with_term_fallback candidates=6 elapsed_ms=799 reason=Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.
+blocker target=commercialobserver_parser_weak blocker_type=relevance_review status=candidate_ready_with_term_fallback
+blocker target=hai_stanford_mixed_shell blocker_type=relevance_review status=candidate_ready_with_term_fallback

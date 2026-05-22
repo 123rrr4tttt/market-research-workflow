@@ -1,0 +1,449 @@
+{
+  "closure_status": {
+    "AT-AC-06": "public live probe produced candidate-ready evidence",
+    "AT-AC-10": "public replay produced a dirty-source shortlist; unresolved blockers remain classified per target"
+  },
+  "finished_at": "2026-05-22T04:48:40Z",
+  "inputs": {
+    "probe_timeout": 6.0,
+    "project_key": "demo_proj",
+    "target_count": 4,
+    "targets": [
+      {
+        "category": "parser_weak",
+        "query_terms": [
+          "openai"
+        ],
+        "reason": "Wave2 parser-enhanced dirty-source candidate; verifies public card extraction or records anti-bot/source blocker.",
+        "target_id": "commercialobserver_parser_weak",
+        "template": "https://commercialobserver.com/?s={{q}}"
+      },
+      {
+        "category": "parser_weak",
+        "query_terms": [
+          "openai"
+        ],
+        "reason": "Wave2 parser-enhanced candidate; verifies public article-card extraction or records source semantics blocker.",
+        "target_id": "pymnts_parser_weak",
+        "template": "https://www.pymnts.com/?s={{q}}"
+      },
+      {
+        "category": "validated_query_capable",
+        "query_terms": [
+          "inflation"
+        ],
+        "reason": "Validated query-capable baseline used to separate environment/network failures from dirty-source failures.",
+        "target_id": "investopedia_validated_query",
+        "template": "https://www.investopedia.com/search?q={{q}}"
+      },
+      {
+        "category": "mixed_dynamic_shell",
+        "query_terms": [
+          "openai"
+        ],
+        "reason": "Previously mixed dynamic-shell/parser target; records whether current public route is still source-side blocked.",
+        "target_id": "hai_stanford_mixed_shell",
+        "template": "https://hai.stanford.edu/search?keyword={{q}}"
+      }
+    ]
+  },
+  "mode": {
+    "allow_public_network": true,
+    "public_network_env": "",
+    "skip_safe": true
+  },
+  "outputs": {
+    "candidate_ready_targets": [
+      "commercialobserver_parser_weak",
+      "pymnts_parser_weak",
+      "investopedia_validated_query",
+      "hai_stanford_mixed_shell"
+    ],
+    "dirty_source_shortlist": [
+      {
+        "blocker_type": "relevance_review",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "commercialobserver_parser_weak",
+        "template": "https://commercialobserver.com/?s={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "hai_stanford_mixed_shell",
+        "template": "https://hai.stanford.edu/search?keyword={{q}}"
+      }
+    ],
+    "status_counts": {
+      "candidate_ready": 2,
+      "candidate_ready_with_term_fallback": 2
+    },
+    "target_results": [
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.commercialobserver_card",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1,
+            "search_service": "resilient"
+          },
+          "parser_profile": "site_adaptive.commercialobserver_card",
+          "reason": "Commercial Observer has a validated card parser and should avoid the generic fallback chain."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 21,
+          "candidates": [
+            "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development",
+            "https://commercialobserver.com/2025/05/ai-real-estate-documents",
+            "https://commercialobserver.com/2025/06/handoff-construction-tech",
+            "https://commercialobserver.com/2025/09/ai-firms-san-francisco-office-demand",
+            "https://commercialobserver.com/2025/09/midtown-south-office-market-rents-availability-conversions-2025",
+            "https://commercialobserver.com/2025/10/rei-closing-soho-puck-building",
+            "https://commercialobserver.com/2025/11/jp-morgan-michelle-herrick-and-brian-baker-cre-lending-2025",
+            "https://commercialobserver.com/2025/12/new-york-city-multifamily-foreign-investors",
+            "https://commercialobserver.com/2025/12/newmark-hires-cbres-jenny-haeg-to-grow-its-ai-platform",
+            "https://commercialobserver.com/2026/01/data-centers-return-investment-2026"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "commercialobserver.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 524,
+            "parser_container_hit": 21,
+            "parser_global_anchor_hit": 0,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive.commercialobserver_card",
+            "parser_structured_hit": 0,
+            "raw_candidates": 21,
+            "search_service": "resilient",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 21,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 21,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://commercialobserver.com/?s=openai&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 775,
+        "entry_domain": "commercialobserver.com",
+        "target": {
+          "category": "parser_weak",
+          "query_terms": [
+            "openai"
+          ],
+          "reason": "Wave2 parser-enhanced dirty-source candidate; verifies public card extraction or records anti-bot/source blocker.",
+          "target_id": "commercialobserver_parser_weak",
+          "template": "https://commercialobserver.com/?s={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.pymnts_card",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1,
+            "search_service": "resilient"
+          },
+          "parser_profile": "site_adaptive.pymnts_card",
+          "reason": "PYMNTS has a validated parser profile and should stay on the parser-enhanced path."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 2,
+          "candidates": [
+            "https://www.pymnts.com/news/ipo/2026/openai-eyes-september-ipo-despite-14-billion-projected-loss",
+            "https://www.pymnts.com/artificial-intelligence-2/2026/openais-codex-helps-drive-nearly-6-billion-quarter"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "selected",
+            "entry_domain": "pymnts.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 24,
+            "parser_container_hit": 39,
+            "parser_global_anchor_hit": 9,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container",
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive.pymnts_card",
+            "parser_structured_hit": 0,
+            "raw_candidates": 48,
+            "search_service": "resilient",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 2,
+            "transport_errors": 0,
+            "used_term_fallback": false
+          },
+          "errors": [],
+          "inserted": 2,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://www.pymnts.com/?s=openai&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": false
+        },
+        "classification": {
+          "blocker_type": null,
+          "reason": "Public search-template execution returned selected candidates.",
+          "status": "candidate_ready"
+        },
+        "elapsed_ms": 924,
+        "entry_domain": "pymnts.com",
+        "target": {
+          "category": "parser_weak",
+          "query_terms": [
+            "openai"
+          ],
+          "reason": "Wave2 parser-enhanced candidate; verifies public article-card extraction or records source semantics blocker.",
+          "target_id": "pymnts_parser_weak",
+          "template": "https://www.pymnts.com/?s={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.query_native",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive.investopedia_cards",
+          "reason": "Investopedia query search should remain on a single native search result page."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 17,
+          "candidates": [
+            "https://www.investopedia.com/articles/markets/081515/how-inflation-and-unemployment-are-related.asp",
+            "https://www.investopedia.com/articles/personal-finance/081514/how-inflation-affects-your-cost-living.asp",
+            "https://www.investopedia.com/cpi-april-inflation-11972367",
+            "https://www.investopedia.com/experts-warn-against-holding-excess-cash-because-inflation-can-erode-your-wealth-11965474",
+            "https://www.investopedia.com/fed-holds-interest-rates-steady-as-iran-war-stokes-inflation-and-clouds-outlook-fomc-april-2026-jerome-powell-update-11961290",
+            "https://www.investopedia.com/fed-s-inflation-scars-give-rate-cuts-a-higher-bar-11953293",
+            "https://www.investopedia.com/home-depot-warns-americans-are-delaying-big-home-improvement-projects-as-inflation-squeezes-budgets-11978320",
+            "https://www.investopedia.com/inflation-is-above-3-but-your-cash-can-still-beat-it-in-safe-accounts-paying-up-to-5-11958619",
+            "https://www.investopedia.com/inflation-just-surged-to-3-8-heres-how-savers-can-still-stay-ahead-11972410",
+            "https://www.investopedia.com/investing/introduction-treasury-inflation-protected-securities-tips"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "selected",
+            "entry_domain": "investopedia.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 143,
+            "parser_container_hit": 17,
+            "parser_global_anchor_hit": 0,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive.investopedia_cards",
+            "parser_structured_hit": 0,
+            "raw_candidates": 17,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 17,
+            "transport_errors": 0,
+            "used_term_fallback": false
+          },
+          "errors": [],
+          "inserted": 17,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://www.investopedia.com/search?q=inflation&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": false
+        },
+        "classification": {
+          "blocker_type": null,
+          "reason": "Public search-template execution returned selected candidates.",
+          "status": "candidate_ready"
+        },
+        "elapsed_ms": 408,
+        "entry_domain": "investopedia.com",
+        "target": {
+          "category": "validated_query_capable",
+          "query_terms": [
+            "inflation"
+          ],
+          "reason": "Validated query-capable baseline used to separate environment/network failures from dirty-source failures.",
+          "target_id": "investopedia_validated_query",
+          "template": "https://www.investopedia.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 6,
+          "candidates": [
+            "https://hai.stanford.edu/policy/publications",
+            "https://hai.stanford.edu/research/publications",
+            "https://hai.stanford.edu/ai-index/2026-ai-index-report",
+            "https://hai.stanford.edu/ai-index/global-vibrancy-tool",
+            "https://hai.stanford.edu/research/fellowship-programs",
+            "https://hai.stanford.edu/research/student-affinity-groups"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "hai.stanford.edu",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 45,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 6,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive.hai_research_shell",
+            "parser_structured_hit": 0,
+            "raw_candidates": 6,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 6,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 6,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://hai.stanford.edu/search?keyword=openai&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 799,
+        "entry_domain": "hai.stanford.edu",
+        "target": {
+          "category": "mixed_dynamic_shell",
+          "query_terms": [
+            "openai"
+          ],
+          "reason": "Previously mixed dynamic-shell/parser target; records whether current public route is still source-side blocked.",
+          "target_id": "hai_stanford_mixed_shell",
+          "template": "https://hai.stanford.edu/search?keyword={{q}}"
+        }
+      }
+    ]
+  },
+  "probe_id": "source_library_public_live_probes_2026_05_22",
+  "started_at": "2026-05-22T04:48:37Z",
+  "validation": {
+    "errors": [],
+    "live_evidence_sufficient": true,
+    "passed": true,
+    "skipped": false,
+    "warnings": [
+      "public live evidence is environment-dependent; rerun before using it as closure proof"
+    ]
+  }
+}

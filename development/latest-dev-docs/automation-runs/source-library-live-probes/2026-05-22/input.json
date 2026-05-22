@@ -1,0 +1,35 @@
+{
+  "description": "Wave3 source_library public live probe target set. Public network is opt-in; default command is skip-safe.",
+  "project_key": "demo_proj",
+  "probe_timeout": 6.0,
+  "targets": [
+    {
+      "target_id": "commercialobserver_parser_weak",
+      "template": "https://commercialobserver.com/?s={{q}}",
+      "query_terms": ["openai"],
+      "category": "parser_weak",
+      "reason": "Wave2 parser-enhanced dirty-source candidate; verifies public card extraction or records anti-bot/source blocker."
+    },
+    {
+      "target_id": "pymnts_parser_weak",
+      "template": "https://www.pymnts.com/?s={{q}}",
+      "query_terms": ["openai"],
+      "category": "parser_weak",
+      "reason": "Wave2 parser-enhanced candidate; verifies public article-card extraction or records source semantics blocker."
+    },
+    {
+      "target_id": "investopedia_validated_query",
+      "template": "https://www.investopedia.com/search?q={{q}}",
+      "query_terms": ["inflation"],
+      "category": "validated_query_capable",
+      "reason": "Validated query-capable baseline used to separate environment/network failures from dirty-source failures."
+    },
+    {
+      "target_id": "hai_stanford_mixed_shell",
+      "template": "https://hai.stanford.edu/search?keyword={{q}}",
+      "query_terms": ["openai"],
+      "category": "mixed_dynamic_shell",
+      "reason": "Previously mixed dynamic-shell/parser target; records whether current public route is still source-side blocked."
+    }
+  ]
+}
