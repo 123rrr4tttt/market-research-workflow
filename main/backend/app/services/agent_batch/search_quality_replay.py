@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .task_contract import (
+    AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION,
     AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION,
     AGENT_BATCH_SEARCH_QUALITY_REPLAY_CONTRACT_VERSION,
     get_search_policy_defaults,
@@ -16,7 +17,21 @@ QUALITY_REPLAY_SCOPE = "deterministic_no_network_symbolic_search_quality_replay"
 PROVIDER_QUALITY_READINESS_SCOPE = (
     "symbolic_search_provider_quality_readiness_fixture_quality_and_live_gap_boundary"
 )
+LIVE_QUALITY_THRESHOLD_SCOPE = "symbolic_search_live_provider_quality_threshold_contract"
 _DEFAULT_LIVE_PROVIDER_KEYS = ["searxng", "yacy", "web"]
+_DEFAULT_LIVE_QUALITY_THRESHOLDS: dict[str, Any] = {
+    "threshold_version": "symbolic_live_quality_thresholds.v1",
+    "min_case_count": 1,
+    "min_results_per_provider": 3,
+    "min_source_domains": 2,
+    "min_relevance_score": 0.72,
+    "min_freshness_score": 0.65,
+    "max_duplicate_rate": 0.25,
+    "max_timeout_rate": 0.10,
+    "max_p95_latency_ms": 4000,
+    "min_review_sample_count": 3,
+    "require_trace_success": True,
+}
 
 _AXIS_HINTS = {
     "products": ("product", "products", "device", "devices", "terminal", "sku", "launch", "产品", "终端", "发布"),
@@ -95,6 +110,95 @@ def build_symbolic_provider_quality_readiness(
             "status_passed_does_not_mean": "live provider quality, provider=auto promotion, or production ranking quality",
             "live_provider_claims_are": "reported as unsupported until a separate live quality replay supplies result quality, latency, timeout, and review evidence",
         },
+        "failures": failures,
+    }
+
+
+def build_symbolic_live_quality_threshold_contract(
+    *,
+    fixture_quality: dict[str, Any] | None = None,
+    live_provider_replay: dict[str, Any] | None = None,
+    required_live_providers: list[str] | None = None,
+    thresholds: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    threshold_config = _merge_live_quality_thresholds(
+        thresholds=thresholds,
+        required_live_providers=required_live_providers,
+    )
+    providers = list(threshold_config["required_providers"])
+    replay_payload = dict(live_provider_replay or {})
+    replay_type = str(replay_payload.get("replay_type") or "not_run").strip() or "not_run"
+    live_replay_performed = (
+        bool(replay_payload.get("live_replay_performed"))
+        or replay_type == "live_provider_quality_replay"
+    )
+    provider_inputs = dict(replay_payload.get("providers") or {})
+    provider_rows = {
+        provider: _evaluate_live_provider_thresholds(
+            provider=provider,
+            payload=dict(provider_inputs.get(provider) or {}),
+            thresholds=threshold_config,
+            replay_type=replay_type,
+            live_replay_performed=live_replay_performed,
+        )
+        for provider in providers
+    }
+    operator_review_status = str(replay_payload.get("operator_review_status") or "not_run").strip() or "not_run"
+    all_provider_thresholds_met = bool(provider_rows) and all(
+        bool(row.get("thresholds_met")) for row in provider_rows.values()
+    )
+    live_provider_replay_closed = (
+        live_replay_performed
+        and replay_type == "live_provider_quality_replay"
+        and all_provider_thresholds_met
+        and operator_review_status == "approved"
+    )
+    fixture_boundary = _build_fixture_quality_boundary(fixture_quality or {})
+    unsupported_claims = _build_live_threshold_unsupported_claims(
+        fixture_quality_boundary=fixture_boundary,
+        replay_payload=replay_payload,
+    )
+    remaining_gaps = _build_live_threshold_remaining_gaps(
+        provider_rows=provider_rows,
+        live_replay_performed=live_replay_performed,
+        operator_review_status=operator_review_status,
+    )
+
+    failures: list[str] = []
+    if fixture_boundary["quality_claim_allowed"]:
+        failures.append("fixture quality boundary unexpectedly allowed live-provider quality claim")
+    if not providers:
+        failures.append("live quality threshold has no required providers")
+    if not threshold_config.get("threshold_version"):
+        failures.append("live quality threshold version missing")
+
+    if live_provider_replay_closed:
+        threshold_status = "live_quality_thresholds_met"
+    elif live_replay_performed:
+        threshold_status = "live_replay_present_thresholds_unmet"
+    else:
+        threshold_status = "threshold_contract_ready_live_replay_gap_open"
+
+    return {
+        "contract_version": AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION,
+        "scope": LIVE_QUALITY_THRESHOLD_SCOPE,
+        "status": "passed" if not failures else "failed",
+        "threshold_version": str(threshold_config["threshold_version"]),
+        "threshold_status": threshold_status,
+        "closure_claim": "live_quality_threshold_defined_provider_replay_not_closed",
+        "fixture_quality_boundary": fixture_boundary,
+        "quality_thresholds": threshold_config,
+        "replay_evaluation": {
+            "replay_type": replay_type,
+            "live_replay_performed": live_replay_performed,
+            "operator_review_status": operator_review_status,
+            "providers": provider_rows,
+        },
+        "live_provider_replay_closed": live_provider_replay_closed,
+        "quality_claim_allowed": live_provider_replay_closed,
+        "provider_auto_promotion_allowed": False,
+        "unsupported_live_provider_claims": unsupported_claims,
+        "remaining_live_gaps": remaining_gaps,
         "failures": failures,
     }
 
@@ -450,6 +554,280 @@ def _build_remaining_live_gaps(
         ]
     )
     return gaps
+
+
+def _merge_live_quality_thresholds(
+    *,
+    thresholds: dict[str, Any] | None,
+    required_live_providers: list[str] | None,
+) -> dict[str, Any]:
+    merged = dict(_DEFAULT_LIVE_QUALITY_THRESHOLDS)
+    for key, value in dict(thresholds or {}).items():
+        if key in merged and value is not None:
+            merged[key] = value
+    providers = (
+        _normalize_string_list(required_live_providers)
+        or _normalize_string_list((thresholds or {}).get("required_providers"))
+        or list(_DEFAULT_LIVE_PROVIDER_KEYS)
+    )
+    merged["required_providers"] = providers
+    merged["min_case_count"] = max(1, int(merged["min_case_count"]))
+    merged["min_results_per_provider"] = max(1, int(merged["min_results_per_provider"]))
+    merged["min_source_domains"] = max(1, int(merged["min_source_domains"]))
+    merged["min_review_sample_count"] = max(0, int(merged["min_review_sample_count"]))
+    merged["max_p95_latency_ms"] = max(1, int(merged["max_p95_latency_ms"]))
+    merged["min_relevance_score"] = float(merged["min_relevance_score"])
+    merged["min_freshness_score"] = float(merged["min_freshness_score"])
+    merged["max_duplicate_rate"] = float(merged["max_duplicate_rate"])
+    merged["max_timeout_rate"] = float(merged["max_timeout_rate"])
+    merged["require_trace_success"] = bool(merged["require_trace_success"]) is True
+    return merged
+
+
+def _build_fixture_quality_boundary(fixture_quality: dict[str, Any]) -> dict[str, Any]:
+    live_gap = dict(fixture_quality.get("live_provider_gap_state") or build_live_provider_gap_state())
+    return {
+        "source": str(fixture_quality.get("source") or "fixture_quality_missing"),
+        "status": str(fixture_quality.get("status") or "missing"),
+        "case_count": int(fixture_quality.get("case_count") or 0),
+        "average_uplift": float(fixture_quality.get("average_uplift") or 0.0),
+        "false_positive_retry_rate": float(fixture_quality.get("false_positive_retry_rate") or 0.0),
+        "quality_claim": str(
+            fixture_quality.get("quality_claim")
+            or "fixture_quality_uplift_is_not_live_provider_quality"
+        ),
+        "quality_claim_allowed": bool(fixture_quality.get("quality_claim_allowed")) is True,
+        "live_provider_quality_equivalent": False,
+        "live_provider_gap_state": live_gap,
+    }
+
+
+def _evaluate_live_provider_thresholds(
+    *,
+    provider: str,
+    payload: dict[str, Any],
+    thresholds: dict[str, Any],
+    replay_type: str,
+    live_replay_performed: bool,
+) -> dict[str, Any]:
+    samples = [dict(item or {}) for item in list(payload.get("result_samples") or payload.get("samples") or [])]
+    replay_status = str(payload.get("replay_status") or payload.get("live_probe_status") or "not_run").strip() or "not_run"
+    case_count = _optional_int(payload.get("case_count"))
+    if case_count is None:
+        case_count = len(_normalize_string_list(payload.get("case_ids"))) or (1 if samples else 0)
+    result_count = _optional_int(payload.get("result_count"))
+    if result_count is None:
+        result_count = len(samples)
+    source_domains = _normalize_string_list(payload.get("source_domains")) or _sample_domains(samples)
+    relevance_score = _metric_float(payload=payload, samples=samples, key="relevance_score")
+    freshness_score = _metric_float(payload=payload, samples=samples, key="freshness_score")
+    duplicate_rate = _metric_float(payload=payload, samples=samples, key="duplicate_rate")
+    if duplicate_rate is None:
+        duplicate_rate = _sample_duplicate_rate(samples)
+    timeout_rate = _metric_float(payload=payload, samples=samples, key="timeout_rate")
+    if timeout_rate is None:
+        timeout_rate = 0.0 if payload.get("timeout_count") in (0, "0") else 1.0
+    p95_latency_ms = _metric_float(payload=payload, samples=samples, key="p95_latency_ms")
+    if p95_latency_ms is None:
+        p95_latency_ms = _sample_p95_latency(samples)
+    review_sample_count = _optional_int(payload.get("review_sample_count"))
+    if review_sample_count is None:
+        review_sample_count = sum(1 for sample in samples if bool(sample.get("review_visible")) is True)
+    trace_failures = _normalize_string_list(payload.get("trace_failures"))
+    trace_success = bool(payload.get("trace_success")) is True or (
+        not trace_failures
+        and bool(payload.get("provider_live_verified")) is True
+        and replay_status in {"ready", "passed", "available"}
+    )
+    live_replay_attached = (
+        live_replay_performed
+        and replay_type == "live_provider_quality_replay"
+        and bool(payload.get("provider_live_verified")) is True
+    )
+    checks = {
+        "live_replay_attached": live_replay_attached,
+        "case_count": case_count >= int(thresholds["min_case_count"]),
+        "result_count": result_count >= int(thresholds["min_results_per_provider"]),
+        "source_domain_count": len(source_domains) >= int(thresholds["min_source_domains"]),
+        "relevance_score": relevance_score is not None
+        and relevance_score >= float(thresholds["min_relevance_score"]),
+        "freshness_score": freshness_score is not None
+        and freshness_score >= float(thresholds["min_freshness_score"]),
+        "duplicate_rate": duplicate_rate <= float(thresholds["max_duplicate_rate"]),
+        "timeout_rate": timeout_rate <= float(thresholds["max_timeout_rate"]),
+        "p95_latency_ms": p95_latency_ms is not None
+        and p95_latency_ms <= float(thresholds["max_p95_latency_ms"]),
+        "review_sample_count": review_sample_count >= int(thresholds["min_review_sample_count"]),
+        "trace_success": trace_success if bool(thresholds["require_trace_success"]) else True,
+    }
+    threshold_failures = [name for name, passed in checks.items() if not passed]
+    if not live_replay_attached:
+        remaining_gap = "live_provider_replay_not_attached"
+    elif threshold_failures:
+        remaining_gap = "live_quality_threshold_not_met"
+    else:
+        remaining_gap = None
+    return {
+        "provider": provider,
+        "replay_status": replay_status,
+        "case_count": case_count,
+        "result_count": result_count,
+        "source_domain_count": len(source_domains),
+        "source_domains": source_domains,
+        "relevance_score": relevance_score,
+        "freshness_score": freshness_score,
+        "duplicate_rate": duplicate_rate,
+        "timeout_rate": timeout_rate,
+        "p95_latency_ms": p95_latency_ms,
+        "review_sample_count": review_sample_count,
+        "trace_success": trace_success,
+        "threshold_checks": checks,
+        "threshold_failures": threshold_failures,
+        "thresholds_met": not threshold_failures,
+        "quality_claim_allowed": False,
+        "input_quality_claim_allowed": bool(payload.get("quality_claim_allowed")) is True,
+        "remaining_gap": remaining_gap,
+    }
+
+
+def _build_live_threshold_unsupported_claims(
+    *,
+    fixture_quality_boundary: dict[str, Any],
+    replay_payload: dict[str, Any],
+) -> list[dict[str, str]]:
+    claims = [
+        {
+            "code": "fixture_quality_uplift_meets_live_quality_threshold",
+            "claim": "Fixture replay uplift can satisfy the live provider quality threshold.",
+            "reason": (
+                "Fixture uplift is deterministic replay only: "
+                f"average_uplift={fixture_quality_boundary.get('average_uplift')} "
+                f"quality_claim_allowed={fixture_quality_boundary.get('quality_claim_allowed')}."
+            ),
+            "required_next_evidence": "Attach a live provider replay artifact evaluated against this threshold contract.",
+        },
+        {
+            "code": "provider_availability_meets_live_quality_threshold",
+            "claim": "Provider availability or result count alone proves live symbolic search quality.",
+            "reason": "The threshold requires relevance, freshness, source diversity, latency, timeout, trace, and review samples.",
+            "required_next_evidence": "Per-provider threshold rows with reviewer-visible samples and trace success.",
+        },
+        {
+            "code": "live_quality_closed_without_threshold_replay",
+            "claim": "Live provider quality can be closed without a threshold replay artifact.",
+            "reason": "No quality claim is allowed until replay_type=live_provider_quality_replay passes all thresholds.",
+            "required_next_evidence": "Run the real provider replay and record threshold pass/fail rows.",
+        },
+        {
+            "code": "provider_auto_promotion_supported_by_threshold",
+            "claim": "Passing this threshold contract automatically promotes providers into provider=auto.",
+            "reason": "Provider auto-promotion remains blocked by a separate operator rollout policy.",
+            "required_next_evidence": "Provider=auto rollout gate with approval, rollback, and production monitoring policy.",
+        },
+    ]
+    if (
+        bool(replay_payload.get("quality_claim_allowed")) is True
+        or bool(replay_payload.get("live_provider_replay_closed")) is True
+    ):
+        claims.append(
+            {
+                "code": "input_live_provider_quality_claim_rejected",
+                "claim": "Caller-supplied replay payload may mark live provider quality as closed.",
+                "reason": "The threshold contract recomputes closure and ignores input quality claims.",
+                "required_next_evidence": "Use computed threshold output instead of caller-owned closure flags.",
+            }
+        )
+    return claims
+
+
+def _build_live_threshold_remaining_gaps(
+    *,
+    provider_rows: dict[str, dict[str, Any]],
+    live_replay_performed: bool,
+    operator_review_status: str,
+) -> list[dict[str, str]]:
+    gaps: list[dict[str, str]] = []
+    if not live_replay_performed:
+        gaps.append(
+            {
+                "code": "live_provider_replay_not_run",
+                "status": "open",
+                "reason": "This contract defines thresholds but does not start SearXNG, YaCy, browser, or web providers.",
+                "required_next_evidence": "Run real provider replay and attach threshold-evaluated provider rows.",
+            }
+        )
+    for provider, row in provider_rows.items():
+        remaining_gap = row.get("remaining_gap")
+        if remaining_gap:
+            gaps.append(
+                {
+                    "code": f"{provider}_{remaining_gap}",
+                    "status": "open",
+                    "reason": (
+                        f"{provider} replay_status={row.get('replay_status')} "
+                        f"threshold_failures={row.get('threshold_failures')}"
+                    ),
+                    "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+                }
+            )
+    if operator_review_status != "approved":
+        gaps.append(
+            {
+                "code": "operator_review_not_approved",
+                "status": "open",
+                "reason": f"operator_review_status={operator_review_status}",
+                "required_next_evidence": "Reviewer-visible result samples and explicit operator approval for live quality closure.",
+            }
+        )
+    return gaps
+
+
+def _metric_float(*, payload: dict[str, Any], samples: list[dict[str, Any]], key: str) -> float | None:
+    metrics = dict(payload.get("metrics") or {})
+    value = payload.get(key, metrics.get(key))
+    try:
+        return float(value)
+    except Exception:
+        pass
+    sample_values: list[float] = []
+    for sample in samples:
+        try:
+            sample_values.append(float(sample.get(key)))
+        except Exception:
+            continue
+    return round(mean(sample_values), 2) if sample_values else None
+
+
+def _sample_domains(samples: list[dict[str, Any]]) -> list[str]:
+    domains: list[str] = []
+    for sample in samples:
+        domain = str(sample.get("domain") or "").strip().lower()
+        if not domain:
+            domain = _domain_from_url(str(sample.get("url") or ""))
+        if domain and domain not in domains:
+            domains.append(domain)
+    return domains
+
+
+def _sample_duplicate_rate(samples: list[dict[str, Any]]) -> float:
+    if not samples:
+        return 0.0
+    duplicate_count = sum(1 for sample in samples if bool(sample.get("duplicate") or sample.get("is_duplicate")))
+    return round(_ratio(duplicate_count, len(samples)), 2)
+
+
+def _sample_p95_latency(samples: list[dict[str, Any]]) -> float | None:
+    values: list[float] = []
+    for sample in samples:
+        try:
+            values.append(float(sample.get("latency_ms")))
+        except Exception:
+            continue
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = min(len(ordered) - 1, int(round((len(ordered) - 1) * 0.95)))
+    return round(ordered[index], 2)
 
 
 def _resolve_days_back_limit(search_brief: dict[str, Any]) -> int | None:
