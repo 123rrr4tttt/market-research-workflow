@@ -1,0 +1,191 @@
+{
+  "baseline": {
+    "wave10_contract_version": "wave10-vectorization-quality-gate.v1",
+    "wave10_remaining_gaps": [
+      {
+        "code": "current_container_availability_not_replayed",
+        "message": "This gate reads recorded provider evidence and does not start or probe SearXNG/YaCy containers."
+      },
+      {
+        "code": "semantic_embedding_quality_not_proven",
+        "message": "The benchmark fixture uses deterministic vectors and does not prove production embedding relevance quality."
+      },
+      {
+        "code": "global_vector_contract_not_closed",
+        "message": "Unified vector object schema, embedding provenance, and main search evidence contract remain CURRENT_DEV work."
+      }
+    ],
+    "wave10_status": "passed"
+  },
+  "contract_version": "wave12-provider-readiness-gate.v1",
+  "failures": [],
+  "gate_semantics": {
+    "live_probe_failures_are": "reported as readiness gaps unless recorded contract evidence is missing or malformed",
+    "status_passed_does_not_mean": "live provider quality, provider=auto promotion, semantic embedding quality, or OSS node SLA closure",
+    "status_passed_means": "required recorded contracts and report shape are valid"
+  },
+  "generated_at": "2026-05-22T09:42:26.570113+00:00",
+  "generated_by": "ops/search-lab/scripts/wave12_provider_readiness_gate.py",
+  "mode_availability": {
+    "live_probe": {
+      "failures": [],
+      "modes": {
+        "hybrid": {
+          "fallback_reason": "missing_optional_dependency",
+          "live_probe_status": "blocked",
+          "message": "lancedb and pyarrow must both be importable before live local-index mode readiness can be claimed"
+        },
+        "keyword": {
+          "fallback_reason": "missing_optional_dependency",
+          "live_probe_status": "blocked",
+          "message": "lancedb and pyarrow must both be importable before live local-index mode readiness can be claimed"
+        },
+        "vector": {
+          "fallback_reason": "missing_optional_dependency",
+          "live_probe_status": "blocked",
+          "message": "lancedb and pyarrow must both be importable before live local-index mode readiness can be claimed"
+        }
+      },
+      "packages": {
+        "lancedb": null,
+        "pyarrow": null
+      },
+      "probe_type": "current_local_lancedb_temp_table_no_network",
+      "status": "blocked"
+    },
+    "modes": {
+      "hybrid": {
+        "availability_state": "recorded_only",
+        "fallback_contract_executed_mode": "keyword",
+        "fallback_contract_reason": "RuntimeError",
+        "fallback_contract_visible": true,
+        "live_executed_mode": null,
+        "live_fallback_from": null,
+        "live_fallback_reason": "missing_optional_dependency",
+        "live_probe_status": "blocked",
+        "mode": "hybrid",
+        "recorded_benchmark_available": true,
+        "recorded_runtime_available": true,
+        "unsupported_claim": "current live mode readiness is not proven by this run"
+      },
+      "keyword": {
+        "availability_state": "recorded_only",
+        "fallback_contract_executed_mode": null,
+        "fallback_contract_reason": null,
+        "fallback_contract_visible": true,
+        "live_executed_mode": null,
+        "live_fallback_from": null,
+        "live_fallback_reason": "missing_optional_dependency",
+        "live_probe_status": "blocked",
+        "mode": "keyword",
+        "recorded_benchmark_available": true,
+        "recorded_runtime_available": true,
+        "unsupported_claim": "current live mode readiness is not proven by this run"
+      },
+      "vector": {
+        "availability_state": "recorded_only",
+        "fallback_contract_executed_mode": "keyword",
+        "fallback_contract_reason": "RuntimeError",
+        "fallback_contract_visible": true,
+        "live_executed_mode": null,
+        "live_fallback_from": null,
+        "live_fallback_reason": "missing_optional_dependency",
+        "live_probe_status": "blocked",
+        "mode": "vector",
+        "recorded_benchmark_available": true,
+        "recorded_runtime_available": true,
+        "unsupported_claim": "current live mode readiness is not proven by this run"
+      }
+    },
+    "source": "wave10_recorded_evidence_plus_wave12_current_probe"
+  },
+  "platform": "macOS-26.3-arm64-arm-64bit",
+  "provider_availability": {
+    "probe_type": "backend_adapter_to_current_local_endpoint_no_container_start",
+    "providers": {
+      "searxng": {
+        "auto_route_excluded": true,
+        "availability_state": "explicit_recorded_only",
+        "live_error": "[Errno 61] Connection refused",
+        "live_fallback_reason": "ConnectError",
+        "live_probe_status": "unavailable",
+        "live_result_count": 0,
+        "provider": "searxng",
+        "provider_auto_included": false,
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:searxng",
+        "recorded_trace_status": "passed",
+        "unsupported_claim": "current provider availability is not proven by this run"
+      },
+      "yacy": {
+        "auto_route_excluded": true,
+        "availability_state": "explicit_recorded_only",
+        "live_error": "[Errno 61] Connection refused",
+        "live_fallback_reason": "ConnectError",
+        "live_probe_status": "unavailable",
+        "live_result_count": 0,
+        "provider": "yacy",
+        "provider_auto_included": false,
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:yacy",
+        "recorded_trace_status": "passed",
+        "unsupported_claim": "current provider availability is not proven by this run"
+      }
+    },
+    "source": "search_provider_trace_contract_plus_wave12_current_probe"
+  },
+  "python": "3.11.14",
+  "readiness_state": "partial",
+  "scope": "bounded_repo_controlled_current_probe_no_container_start_no_auto_promotion",
+  "status": "passed",
+  "target_topics": [
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation"
+    }
+  ],
+  "unsupported_claims": [
+    {
+      "claim": "SearXNG and YaCy can be promoted into provider=auto.",
+      "code": "provider_auto_quality_not_closed",
+      "reason": "The accepted contract still keeps local open-search providers explicit-only pending quality, timeout, approval-gate, and operator policy evidence.",
+      "required_next_evidence": "A separate provider=auto rollout gate with live success rate, latency, timeout, and review policy thresholds."
+    },
+    {
+      "claim": "Current SearXNG and YaCy live provider quality is proven.",
+      "code": "current_provider_live_quality_not_closed",
+      "reason": "Wave12 only records current probe status without starting containers: {'searxng': 'unavailable', 'yacy': 'unavailable'}.",
+      "required_next_evidence": "Fresh container replay with result quality assertions and zero trace failures."
+    },
+    {
+      "claim": "Current keyword/vector/hybrid local-index quality is fully proven.",
+      "code": "current_local_index_live_quality_not_closed",
+      "reason": "Wave12 mode probes are bounded local readiness checks, not production corpus relevance tests: {'keyword': 'blocked', 'vector': 'blocked', 'hybrid': 'blocked'}.",
+      "required_next_evidence": "Production-like corpus benchmark with embedding provenance, ranking relevance, and fallback-rate thresholds."
+    },
+    {
+      "claim": "Deterministic vector fixtures prove production embedding semantic quality.",
+      "code": "semantic_embedding_quality_not_closed",
+      "reason": "Wave8/Wave10 fixtures prove adapter wiring, mode routing, filter behavior, and trace visibility only.",
+      "required_next_evidence": "Embedding model/version contract and human-reviewable relevance benchmark."
+    },
+    {
+      "claim": "OSS node platform IO can consume search/vector outputs as a live SLA-backed primitive.",
+      "code": "oss_node_platform_io_not_closed",
+      "reason": "Node IO can consume explicit trace fields, but live provider readiness and global vector object provenance remain partial.",
+      "required_next_evidence": "Node-level IO contract replay that includes provider live status, mode fallback metadata, and unsupported-claim propagation."
+    }
+  ]
+}
