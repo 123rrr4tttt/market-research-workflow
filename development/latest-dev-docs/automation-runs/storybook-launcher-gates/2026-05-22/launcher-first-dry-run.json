@@ -1,0 +1,48 @@
+{
+  "status": "passed",
+  "gate": "launcher_first_dry_run",
+  "dry_run": true,
+  "destructive_actions": [],
+  "checks": [
+    {
+      "name": "platform_macos_routes_docker_start_to_launcher_ui",
+      "passed": true,
+      "evidence": "scripts/platform-macos.sh"
+    },
+    {
+      "name": "platform_macos_exposes_docker_status",
+      "passed": true,
+      "evidence": "scripts/platform-macos.sh"
+    },
+    {
+      "name": "launcher_ui_starts_only_launcher_services",
+      "passed": true,
+      "evidence": "scripts/docker-launcher-ui.sh"
+    },
+    {
+      "name": "docker_status_is_read_only_ps",
+      "passed": true,
+      "evidence": "scripts/docker-app-control.sh"
+    },
+    {
+      "name": "gui_launcher_exposes_docker_launcher_action",
+      "passed": true,
+      "evidence": "scripts/launch.py"
+    },
+    {
+      "name": "compose_defines_launcher_services",
+      "passed": true,
+      "evidence": "main/ops/docker-compose.yml"
+    },
+    {
+      "name": "macos_swift_launcher_build_entry_exists",
+      "passed": true,
+      "evidence": "scripts/build-macos-launcher.sh + tools/macos/Launcher.swift"
+    }
+  ],
+  "runtime_fingerprint": {
+    "generated_at_utc": "2026-05-22T04:19:15.998133Z",
+    "python_version": "3.9.6",
+    "git_head": "9a9bcd195c3cf83926f1dc6ad3b12dde6e8ab677"
+  }
+}

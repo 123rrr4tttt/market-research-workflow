@@ -6,6 +6,7 @@
 ## Main
 - [main/index.md](./main/index.md) - 主入口索引
 - [main/MERGED_OPS_FRONTEND.md](./main/MERGED_OPS_FRONTEND.md) - 主合并文档（统一主视图）
+- [../automation-runs/storybook-launcher-gates/2026-05-22/README.md](../automation-runs/storybook-launcher-gates/2026-05-22/README.md) - Storybook / launcher-first gate 证据包
 
 ## 归档目录（单列）
 - [A_ARCHITECTURE/](./A_ARCHITECTURE/)

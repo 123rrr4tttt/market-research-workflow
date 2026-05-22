@@ -22,6 +22,7 @@ Updated: 2026-05-14 PST
 ## 最近新增
 
 - `automation-runs`：
+  - [2026-05-22 Storybook / Launcher Gates Evidence](./automation-runs/storybook-launcher-gates/2026-05-22/README.md)
   - [2026-05-22 Development Docs Folder Audit And Landing Report](./automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
 - `frontend-modern`：
   - [2026-05-22 frontend-modern standard docs entry](./frontend-modern/INDEX.md)
