@@ -39,12 +39,12 @@ Updated: 2026-05-14 PST
 - `automation-runs`：
   - [2026-05-14 pre-release-2026-05-14-rc1 completion audit](./automation-runs/pre-release-2026-05-14-rc1/completion_audit.md)
   - [2026-05-14 pre-release-2026-05-14-rc1 release merge manifest](./automation-runs/pre-release-2026-05-14-rc1/release_package_manifest.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-05-14 AgentCore Session Diagnostic Breakpoints And Repair Plan](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-05-14 Agent Context Manifest And Demand-Read Synthesis（已实现并回归覆盖）](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md)
-- `development-plans/CURRENT_DEV`：
-  - [2026-05-14 Agent High-Fidelity Migration Final Completion Audit](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-05-14 AgentCore Session Diagnostic Breakpoints And Repair Plan](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-05-14 Agent Context Manifest And Demand-Read Synthesis（已实现并回归覆盖）](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md)
+- `development-plans/ARCHIVE_CLOSED`：
+  - [2026-05-14 Agent High-Fidelity Migration Final Completion Audit](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md)
 - `development-plans/ARCHIVE_CLOSED`：
   - [2026-05-14 Claude Agent High-Fidelity Migration Process Records](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
 - `development-plans/CURRENT_DEV`：

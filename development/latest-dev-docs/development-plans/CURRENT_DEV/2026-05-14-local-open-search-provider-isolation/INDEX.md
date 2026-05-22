@@ -19,7 +19,7 @@
 - SearXNG / YaCy / LanceDB 从隔离实验入口提升为项目级可选启动增强。
 - Docker 模式跨平台 Web Launcher：通过独立 `launcher-ui` + 受控 `launcher-agent` 连接 Docker socket，只暴露当前 compose project 的白名单 start / stop / restart / status；控制面运行在 `5176`，业务前端继续运行在 `5174`。
 
-本目录不覆盖 Claude Agent 高保真迁移、URL-pool、source history、long-task stage 等主题；这些主题仍属于 `../2026-04-02-claude-agent-high-fidelity-migration/`。
+本目录不覆盖 Claude Agent 高保真迁移、URL-pool、source history、long-task stage 等主题；这些主题的已封口主记录归档于 `../../ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/`。
 
 本目录也不继续推进 LanceDB vector / hybrid retrieval；该任务已定位到全项目数据向量化 / 标准化目录：
 

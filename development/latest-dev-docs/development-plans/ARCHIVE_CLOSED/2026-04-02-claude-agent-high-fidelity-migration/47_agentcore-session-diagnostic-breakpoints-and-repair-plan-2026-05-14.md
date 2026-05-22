@@ -5,6 +5,8 @@ Status: convergence repair landed + closure audit green
 Mainline: Claude Code level AgentCore reconstruction
 Scope: session diagnostics, AgentCore final-answer substance, keyword follow-up search, E2E/fake session isolation, writing workbench intent/tool stability.
 
+2026-05-22 archive split: this D47 diagnostic is retained here as closed diagnostic evidence. It is no longer an active `CURRENT_DEV` entry; any reopened AgentCore diagnostic should start as a new D48-or-later topic under `CURRENT_DEV`.
+
 ## 背景
 
 `45` 和 `46` 已经把 AgentCore 的高保真迁移、manifest-first context、demand-read synthesis 收口到可回归状态。但最新实测暴露的风险不再只是“工具是否能被调用”，而是 session、stream、工具回接、项目上下文和长任务状态之间的边界是否足够硬。

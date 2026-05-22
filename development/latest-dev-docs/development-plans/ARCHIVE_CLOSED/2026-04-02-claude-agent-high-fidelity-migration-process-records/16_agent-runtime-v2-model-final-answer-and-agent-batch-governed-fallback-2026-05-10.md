@@ -24,7 +24,7 @@ Implemented:
 - `main/backend/tests/unit/test_agent_run_loop_unittest.py`
 - `main/backend/tests/unit/test_interactive_agent_runtime_unittest.py`
 - `main/backend/tests/integration/test_agent_chat_api_unittest.py`
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/02_claude-code-level-agent-interaction-todo-2026-05-10.md`
+- `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/02_claude-code-level-agent-interaction-todo-2026-05-10.md`
 
 ## Validation
 

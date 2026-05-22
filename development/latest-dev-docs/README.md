@@ -46,12 +46,12 @@
   - [automation-runs/pre-release-2026-05-14-rc1/completion_audit.md](./automation-runs/pre-release-2026-05-14-rc1/completion_audit.md)
   - [automation-runs/pre-release-2026-05-14-rc1/release_package_manifest.md](./automation-runs/pre-release-2026-05-14-rc1/release_package_manifest.md) - 预发布版本合并清单
   - [automation-runs/pre-release-2026-05-14-rc1/min-gate-strict.json](./automation-runs/pre-release-2026-05-14-rc1/min-gate-strict.json)
-- `development-plans/CURRENT_DEV` 新增 AgentCore session 诊断断点与修复计划（2026-05-14）：
-  - [development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
-- `development-plans/CURRENT_DEV` 更新 Agent context manifest / demand-read 综合回答规格为已实现并记录回归证据（2026-05-14）：
-  - [development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md)
-- `development-plans/CURRENT_DEV` 新增 Agent high-fidelity migration 最终完成审计（2026-05-14）：
-  - [development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md)
+- `development-plans/ARCHIVE_CLOSED` 归档 AgentCore session 诊断断点与修复计划（2026-05-14）：
+  - [development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
+- `development-plans/ARCHIVE_CLOSED` 归档 Agent context manifest / demand-read 已实现回归证据（2026-05-14）：
+  - [development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md)
+- `development-plans/ARCHIVE_CLOSED` 归档 Agent high-fidelity migration 最终完成审计（2026-05-14）：
+  - [development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md)
 - `development-plans/ARCHIVE_CLOSED` 归档 Agent high-fidelity migration 过程记录（2026-05-14）：
   - [development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
 - `development-plans/CURRENT_DEV` 新增 SearXNG / YaCy 隔离部署与搜索 provider 接入计划（2026-05-14）：
@@ -77,8 +77,8 @@
   - [development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md](./development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
 - `development-plans/ARCHIVE_RETIRED` 新增已退场文档索引（2026-04-07）：
   - [development-plans/ARCHIVE_RETIRED/INDEX.md](./development-plans/ARCHIVE_RETIRED/INDEX.md)
-- `development-plans/CURRENT_DEV` 新增 Claude Agent 高保真迁移映射文档，已补 runtime enforcement 契约（2026-04-25）：
-  - [development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md](./development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
+- `development-plans/ARCHIVE_CLOSED` 归档 Claude Agent 高保真迁移映射文档与 runtime enforcement 契约（2026-04-25）：
+  - [development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
 - `development-plans/CURRENT_DEV` 新增前端三层重写专题的收口差距评估与建议推进顺序（2026-04-02）：
   - [development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 - `development-plans/CURRENT_DEV` 新增 source-library / ingest 最小迁移计划（2026-03-25）：

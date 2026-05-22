@@ -5,9 +5,9 @@ Status: archived process records
 
 This directory preserves implementation notes, scenario evidence, audits, and closure sub-records from the Claude Agent high-fidelity migration lane.
 
-The current working entry keeps only the overall/current documents under:
+The main closed entry and final diagnostic closure now live under:
 
-- [`CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration`](../../CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration/)
+- [`ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration`](../2026-04-02-claude-agent-high-fidelity-migration/INDEX.md)
 
 ## Archived Records
 
