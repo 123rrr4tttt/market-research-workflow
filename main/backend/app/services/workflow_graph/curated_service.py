@@ -9,6 +9,10 @@ from app.services.ingest_config.service import get_config as get_ingest_config
 from app.services.ingest_config.service import upsert_config as upsert_ingest_config
 from app.services.projects import current_project_key
 from app.services.workflow_graph.edit_contract import parse_graph_edit_draft_contract
+from app.services.workflow_graph.governance_contract import (
+    build_graph_edit_audit_record,
+    build_graph_rollback_contract,
+)
 
 CONFIG_KEY = "workflow_graph_curated_v1"
 CONFIG_TYPE = "workflow_graph_curated"
@@ -115,6 +119,18 @@ class WorkflowGraphCuratedService:
             if version_id in graph["versions"]:
                 raise ValueError(f"version already exists: {version_id}")
             audit_id = f"audit_{uuid4().hex[:12]}"
+            audit_record = build_graph_edit_audit_record(
+                audit_id=audit_id,
+                action="submit",
+                actor_id=actor_id,
+                project_key=current_project_key(),
+                graph_id=gid,
+                object_scope=object_scope,
+                timestamp=now,
+                from_revision=current_revision,
+                to_revision=new_revision,
+                version_id=version_id,
+            )
 
             graph["revision"] = new_revision
             graph["active_version_id"] = version_id
@@ -136,21 +152,7 @@ class WorkflowGraphCuratedService:
                 "action": "submit",
                 "audit_id": audit_id,
             }
-            graph["audits"].append(
-                {
-                    "audit_id": audit_id,
-                    "action": "submit",
-                    "actor_id": actor_id,
-                    "project_key": current_project_key(),
-                    "graph_id": gid,
-                    "object_scope": object_scope,
-                    "timestamp": now,
-                    "from_revision": current_revision,
-                    "to_revision": new_revision,
-                    "version_id": version_id,
-                    "status": "succeeded",
-                }
-            )
+            graph["audits"].append(audit_record)
             graph["updated_at"] = now
             graph["last_sync_status"] = "submitted"
             return state
@@ -219,6 +221,31 @@ class WorkflowGraphCuratedService:
             rollback_version_id = f"cver_{new_revision}_{uuid4().hex[:8]}"
             audit_id = f"audit_{uuid4().hex[:12]}"
             rolled_dsl = deepcopy(target.get("dsl") or {})
+            project_key = current_project_key()
+            rollback_contract = build_graph_rollback_contract(
+                actor_id=actor_id,
+                project_key=project_key,
+                graph_id=gid,
+                target_version_id=target_version_id,
+                current_revision=current_revision,
+                base_revision=base_revision,
+                requested_at=now,
+                reason=str(payload.get("reason") or "").strip() or None,
+            )
+            audit_record = build_graph_edit_audit_record(
+                audit_id=audit_id,
+                action="rollback",
+                actor_id=actor_id,
+                project_key=project_key,
+                graph_id=gid,
+                object_scope="curated_business_graph",
+                timestamp=now,
+                from_revision=current_revision,
+                to_revision=new_revision,
+                version_id=rollback_version_id,
+                rollback_from_version_id=target_version_id,
+                context={"rollback_contract": rollback_contract},
+            )
             graph["revision"] = new_revision
             graph["active_version_id"] = rollback_version_id
             graph["current"] = {
@@ -230,6 +257,7 @@ class WorkflowGraphCuratedService:
                 "object_scope": "curated_business_graph",
                 "audit_id": audit_id,
                 "rollback_from_version_id": target_version_id,
+                "rollback_contract": rollback_contract,
             }
             graph["versions"][rollback_version_id] = {
                 "version_id": rollback_version_id,
@@ -240,23 +268,9 @@ class WorkflowGraphCuratedService:
                 "action": "rollback",
                 "rollback_from_version_id": target_version_id,
                 "audit_id": audit_id,
+                "rollback_contract": rollback_contract,
             }
-            graph["audits"].append(
-                {
-                    "audit_id": audit_id,
-                    "action": "rollback",
-                    "actor_id": actor_id,
-                    "project_key": current_project_key(),
-                    "graph_id": gid,
-                    "object_scope": "curated_business_graph",
-                    "timestamp": now,
-                    "from_revision": current_revision,
-                    "to_revision": new_revision,
-                    "version_id": rollback_version_id,
-                    "rollback_from_version_id": target_version_id,
-                    "status": "succeeded",
-                }
-            )
+            graph["audits"].append(audit_record)
             graph["updated_at"] = now
             graph["last_sync_status"] = "rolled_back"
             return state
@@ -270,6 +284,7 @@ class WorkflowGraphCuratedService:
             "revision": int(graph.get("revision") or 0),
             "active_version_id": graph.get("active_version_id"),
             "rollback_from_version_id": current.get("rollback_from_version_id"),
+            "rollback_contract": current.get("rollback_contract") or {},
             "audit_id": current.get("audit_id"),
             "base_version": state["base_version"],
         }
@@ -514,6 +529,9 @@ def _normalize_state(payload: Any) -> dict[str, Any]:
                         "action": str(raw_version.get("action") or "submit").strip(),
                         "audit_id": str(raw_version.get("audit_id") or "").strip() or None,
                         "rollback_from_version_id": str(raw_version.get("rollback_from_version_id") or "").strip() or None,
+                        "rollback_contract": dict(raw_version.get("rollback_contract"))
+                        if isinstance(raw_version.get("rollback_contract"), Mapping)
+                        else {},
                     }
             raw_audits = raw_graph.get("audits")
             audits = [dict(item) for item in raw_audits] if isinstance(raw_audits, list) else []
@@ -538,6 +556,9 @@ def _normalize_state(payload: Any) -> dict[str, Any]:
                     "object_scope": str(current.get("object_scope") or "curated_business_graph").strip(),
                     "audit_id": str(current.get("audit_id") or "").strip() or None,
                     "rollback_from_version_id": str(current.get("rollback_from_version_id") or "").strip() or None,
+                    "rollback_contract": dict(current.get("rollback_contract"))
+                    if isinstance(current.get("rollback_contract"), Mapping)
+                    else {},
                 }
                 if current
                 else {},

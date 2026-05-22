@@ -72,6 +72,68 @@ class WorkflowGraphCuratedServiceUnitTest(unittest.TestCase):
             self.assertEqual(submit["revision"], 1)
             audits = service.list_audits("cg-1")
             self.assertEqual(audits["items"][0]["action"], "submit")
+            self.assertEqual(audits["items"][0]["contract_version"], "workflow_graph.governance_audit.v1")
+            self.assertEqual(
+                audits["items"][0]["version_semantics"],
+                "curated_graph_revision_separate_from_template_versions",
+            )
+
+    def test_rollback_uses_bounded_contract_and_audit_record(self):
+        state = self._state()
+        store = {"payload": state}
+        service = WorkflowGraphCuratedService()
+        with patch("app.services.workflow_graph.curated_service.current_project_key", return_value="demo_proj"), patch(
+            "app.services.workflow_graph.curated_service.get_ingest_config",
+            side_effect=lambda *_args, **_kwargs: {"payload": store["payload"]},
+        ), patch(
+            "app.services.workflow_graph.curated_service.upsert_ingest_config",
+            side_effect=lambda *_args, **kwargs: (
+                store.update({"payload": kwargs.get("payload")}),
+                {"payload": store["payload"]},
+            )[1],
+        ):
+            service.save_draft(
+                "cg-1",
+                {
+                    "dsl": {
+                        "nodes": [{"id": "node-a", "type": "Entity"}, {"id": "node-b", "type": "Entity"}],
+                        "edges": [{"from": "node-a", "to": "node-b", "predicate": "relates_to"}],
+                    },
+                },
+            )
+            service.submit_draft("cg-1", {"base_revision": 0, "actor_id": "tester", "version_id": "cver-1"})
+            service.save_draft(
+                "cg-1",
+                {
+                    "base_revision": 1,
+                    "dsl": {
+                        "nodes": [{"id": "node-a", "type": "Entity"}, {"id": "node-c", "type": "Entity"}],
+                        "edges": [{"from": "node-a", "to": "node-c", "predicate": "relates_to"}],
+                    },
+                },
+            )
+            service.submit_draft("cg-1", {"base_revision": 1, "actor_id": "tester", "version_id": "cver-2"})
+
+            rollback = service.rollback(
+                "cg-1",
+                {"base_revision": 2, "actor_id": "tester", "target_version_id": "cver-1", "reason": "bad merge"},
+            )
+
+            self.assertEqual(rollback["rollback_status"], "succeeded")
+            self.assertEqual(rollback["revision"], 3)
+            self.assertEqual(rollback["rollback_from_version_id"], "cver-1")
+            self.assertEqual(rollback["rollback_contract"]["contract_version"], "workflow_graph.rollback.v1")
+            self.assertEqual(rollback["rollback_contract"]["rollback_scope"], "snapshot_restore")
+            self.assertEqual(rollback["rollback_contract"]["target_version_id"], "cver-1")
+
+            audits = service.list_audits("cg-1")
+            self.assertEqual(audits["items"][0]["action"], "rollback")
+            self.assertEqual(audits["items"][0]["contract_version"], "workflow_graph.governance_audit.v1")
+            self.assertEqual(audits["items"][0]["rollback_from_version_id"], "cver-1")
+            self.assertEqual(
+                audits["items"][0]["context"]["rollback_contract"]["version_semantics"],
+                "curated_graph_revision_separate_from_template_versions",
+            )
 
     def test_save_draft_rejects_cycle_before_submit(self):
         state = self._state()
