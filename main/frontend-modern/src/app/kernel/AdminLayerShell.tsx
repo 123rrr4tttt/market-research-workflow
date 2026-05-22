@@ -252,7 +252,12 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
         <section className="kernel-admin__main">
           <section className="kernel-admin__panels">
             <section className="kernel-admin__stage">
-              <ModuleRenderer moduleKey={activeModule} projectKey={runtime.projectKey} onProjectChange={runtime.setProjectKey} />
+              <ModuleRenderer
+                moduleKey={activeModule}
+                projectKey={runtime.projectKey}
+                onProjectChange={runtime.setProjectKey}
+                shellMode="admin"
+              />
             </section>
           </section>
         </section>
