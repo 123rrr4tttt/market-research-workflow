@@ -1,0 +1,307 @@
+{
+  "assertions": [
+    "provider manifest contains keyword, vector, and hybrid rows",
+    "vector and hybrid rows record keyword fallback mode and RuntimeError fallback reason",
+    "trace quality includes required score components and provider_live_verified=false",
+    "external provider boundary remains unsealed",
+    "closure_claim_allowed=false"
+  ],
+  "closure_claim_allowed": false,
+  "contract_version": "wave19-vectorization-provider-manifest.v1",
+  "external_provider_boundary": {
+    "embedding_provider_branches": [
+      {
+        "config_required": [
+          "OPENAI_API_KEY"
+        ],
+        "live_verified_by_gate": false,
+        "provider": "openai"
+      },
+      {
+        "config_required": [
+          "AZURE_API_BASE",
+          "AZURE_API_KEY",
+          "AZURE_API_VERSION",
+          "AZURE_EMBEDDING_DEPLOYMENT"
+        ],
+        "live_verified_by_gate": false,
+        "provider": "azure"
+      },
+      {
+        "config_required": [
+          "OLLAMA_BASE_URL"
+        ],
+        "live_verified_by_gate": false,
+        "provider": "ollama"
+      },
+      {
+        "config_required": [
+          "LITELLM_API_BASE",
+          "LITELLM_API_KEY"
+        ],
+        "live_verified_by_gate": false,
+        "provider": "litellm"
+      }
+    ],
+    "external_provider_sealed": false,
+    "gap_codes": [
+      "external_embedding_provider_live_not_verified",
+      "local_open_search_live_quality_not_sealed",
+      "oss_node_platform_io_sla_not_closed",
+      "provider_auto_promotion_not_allowed",
+      "semantic_embedding_quality_not_proven"
+    ],
+    "local_open_search_providers": {
+      "searxng": {
+        "auto_route_excluded": true,
+        "current_live_fallback_reason": "ConnectError",
+        "current_live_probe_status": "unavailable",
+        "current_live_result_count": 0,
+        "external_provider_claim_allowed": false,
+        "provider": "searxng",
+        "provider_auto_included": false,
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:searxng",
+        "recorded_trace_status": "passed"
+      },
+      "yacy": {
+        "auto_route_excluded": true,
+        "current_live_fallback_reason": "ConnectError",
+        "current_live_probe_status": "unavailable",
+        "current_live_result_count": 0,
+        "external_provider_claim_allowed": false,
+        "provider": "yacy",
+        "provider_auto_included": false,
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:yacy",
+        "recorded_trace_status": "passed"
+      }
+    },
+    "provider_auto_promotion_allowed": false,
+    "required_next_evidence": [
+      "live external embedding provider probes with configured credentials or local model endpoint",
+      "fresh SearXNG/YaCy replay with quality, latency, timeout, and approval-gate thresholds before provider=auto promotion",
+      "embedding model/version/provenance contract plus production-like semantic relevance benchmark",
+      "OSS node IO replay that propagates provider live status, fallback metadata, unsupported claims, and closure_claim_allowed=false"
+    ],
+    "status": "passed"
+  },
+  "failures": [],
+  "gate_semantics": {
+    "status_passed_does_not_mean": "live embedding providers, local open-search quality, provider=auto promotion, semantic relevance quality, or OSS node SLA are closed",
+    "status_passed_means": "keyword/vector/hybrid capability, fallback, and trace-quality manifest fields can be read back deterministically from repo-controlled artifacts"
+  },
+  "generated_by": "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py",
+  "inputs": {
+    "wave14": {
+      "capability_state": "partial",
+      "closure_claim_allowed": false,
+      "contract_version": "wave14-vectorization-provider-capability.v1",
+      "failures": [],
+      "input_status": "passed",
+      "label": "wave14",
+      "path": "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22/provider_capability_summary.json",
+      "status": "passed"
+    },
+    "wave18": {
+      "capability_state": null,
+      "closure_claim_allowed": false,
+      "contract_version": "wave18-vectorization-hybrid-readback.v1",
+      "failures": [],
+      "input_status": "passed",
+      "label": "wave18",
+      "path": "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json",
+      "status": "passed"
+    }
+  },
+  "manifest_state": "partial",
+  "oss_node_platform_io": {
+    "can_consume_manifest_fields": [
+      "provider_id",
+      "mode",
+      "capabilities.keyword",
+      "capabilities.vector",
+      "capabilities.hybrid",
+      "fallback.fallback_mode",
+      "fallback.fallback_reason",
+      "trace_quality.required_components",
+      "trace_quality.component_coverage",
+      "trace_quality.provider_live_verified=false"
+    ],
+    "closure_claim_allowed": false,
+    "must_propagate_gap_fields": [
+      "closure_claim_allowed=false",
+      "live_provider_verified=false",
+      "semantic_quality_claim_allowed=false",
+      "external_provider_boundary.gap_codes"
+    ]
+  },
+  "provider_live_closure_claim_allowed": false,
+  "provider_manifest": {
+    "modes": [
+      {
+        "capabilities": {
+          "deterministic_repo_manifest_only": true,
+          "hybrid": false,
+          "keyword": true,
+          "live_provider_verified": false,
+          "recorded_benchmark_available": true,
+          "recorded_runtime_available": true,
+          "semantic_quality_claim_allowed": false,
+          "vector": false
+        },
+        "closure_claim_allowed": false,
+        "fallback": {
+          "current_live_fallback_reason": "missing_optional_dependency",
+          "current_live_probe_status": "blocked",
+          "fallback_mode": "none",
+          "fallback_reason": null,
+          "fallback_visible": true
+        },
+        "mode": "keyword",
+        "provider_family": "local_index",
+        "provider_id": "local_index.keyword",
+        "trace_quality": {
+          "component_coverage": {
+            "keyword_score": true
+          },
+          "provider_live_verified": false,
+          "provider_live_verified_all_false": true,
+          "required_components": [
+            "keyword_score"
+          ],
+          "semantic_quality_claim_allowed": false,
+          "semantic_quality_claims_all_false": true,
+          "source_case_id": "keyword_identity_readback",
+          "source_chunk_order": [
+            "kw-primary",
+            "kw-secondary"
+          ],
+          "status": "passed",
+          "trace_row_count": 2
+        }
+      },
+      {
+        "capabilities": {
+          "deterministic_repo_manifest_only": true,
+          "hybrid": false,
+          "keyword": false,
+          "live_provider_verified": false,
+          "recorded_benchmark_available": true,
+          "recorded_runtime_available": true,
+          "semantic_quality_claim_allowed": false,
+          "vector": true
+        },
+        "closure_claim_allowed": false,
+        "fallback": {
+          "current_live_fallback_reason": "missing_optional_dependency",
+          "current_live_probe_status": "blocked",
+          "fallback_mode": "keyword",
+          "fallback_reason": "RuntimeError",
+          "fallback_visible": true
+        },
+        "mode": "vector",
+        "provider_family": "local_index",
+        "provider_id": "local_index.vector",
+        "trace_quality": {
+          "component_coverage": {
+            "vector_score": true
+          },
+          "provider_live_verified": false,
+          "provider_live_verified_all_false": true,
+          "required_components": [
+            "vector_score"
+          ],
+          "semantic_quality_claim_allowed": false,
+          "semantic_quality_claims_all_false": true,
+          "source_case_id": "vector_identity_readback",
+          "source_chunk_order": [
+            "vec-primary",
+            "vec-secondary"
+          ],
+          "status": "passed",
+          "trace_row_count": 2
+        }
+      },
+      {
+        "capabilities": {
+          "deterministic_repo_manifest_only": true,
+          "hybrid": true,
+          "keyword": true,
+          "live_provider_verified": false,
+          "recorded_benchmark_available": true,
+          "recorded_runtime_available": true,
+          "semantic_quality_claim_allowed": false,
+          "vector": true
+        },
+        "closure_claim_allowed": false,
+        "fallback": {
+          "current_live_fallback_reason": "missing_optional_dependency",
+          "current_live_probe_status": "blocked",
+          "fallback_mode": "keyword",
+          "fallback_reason": "RuntimeError",
+          "fallback_visible": true
+        },
+        "mode": "hybrid",
+        "provider_family": "local_index",
+        "provider_id": "local_index.hybrid",
+        "trace_quality": {
+          "component_coverage": {
+            "hybrid_score": true,
+            "keyword_score": true,
+            "vector_score": true
+          },
+          "provider_live_verified": false,
+          "provider_live_verified_all_false": true,
+          "required_components": [
+            "keyword_score",
+            "vector_score",
+            "hybrid_score"
+          ],
+          "semantic_quality_claim_allowed": false,
+          "semantic_quality_claims_all_false": true,
+          "source_case_id": "hybrid_identity_readback",
+          "source_chunk_order": [
+            "hybrid-primary",
+            "hybrid-secondary"
+          ],
+          "status": "passed",
+          "trace_row_count": 2
+        }
+      }
+    ],
+    "provider_family": "local_index",
+    "status": "passed"
+  },
+  "remaining_gaps": [
+    {
+      "code": "live_provider_quality_not_closed",
+      "message": "No external embedding provider, SearXNG, YaCy, or production search service is called."
+    },
+    {
+      "code": "semantic_embedding_quality_not_proven",
+      "message": "Trace-quality manifest proves fields and deterministic scoring components, not production semantic relevance."
+    },
+    {
+      "code": "oss_node_platform_io_sla_not_closed",
+      "message": "OSS nodes can consume the manifest but still need live node-level replay and SLA evidence."
+    }
+  ],
+  "scope": "deterministic_repo_manifest_no_network_no_container_no_live_provider_closure",
+  "semantic_quality_claim_allowed": false,
+  "status": "passed",
+  "target_topics": [
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan"
+    }
+  ]
+}
