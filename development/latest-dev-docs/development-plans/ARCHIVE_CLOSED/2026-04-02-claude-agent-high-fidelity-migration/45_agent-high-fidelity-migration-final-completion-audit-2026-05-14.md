@@ -6,6 +6,8 @@ Mainline: Claude Code level AgentCore reconstruction
 
 2026-05-14 addendum: the later local-data contentfulness gap is closed by [`46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md`](./46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md). The final decision below now includes manifest-first context, demand-read tools, tool-aware compaction, and model-owned synthesis after project data access.
 
+2026-05-22 archive split: this final audit is archived as closure evidence. The original `CURRENT_DEV` path named below is historical.
+
 ## Objective Restatement
 
 Objective: complete the requirements and internal gaps in `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-02-claude-agent-high-fidelity-migration`.

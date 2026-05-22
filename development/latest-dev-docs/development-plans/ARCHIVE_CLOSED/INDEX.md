@@ -28,7 +28,7 @@
 - [2026-03-04 CD R5 D Provenance Enforcement](./2026-03-04-cd-r5-d-provenance-enforcement/)
 - [2026-03-04 SA3-R3-F LLM Report Must Minset](./2026-03-04-sa3-r3-f-llm-report-must-minset/)
 - [2026-03-06 Handler-Cluster Frontdoor Middle-Layer Alignment](./2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/)
-- [2026-03-11 Source Library Three-Lane Architecture](./2026-03-11-source-library-three-lane-architecture/)
+- [2026-04-02 Claude Agent High-Fidelity Migration](./2026-04-02-claude-agent-high-fidelity-migration/INDEX.md)
 - [2026-04-06 Repo Logic Gap Assessment](./2026-04-06-repo-logic-gap-assessment/)
 - [2026-04-02 Claude Agent High-Fidelity Migration Process Records](./2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
 

@@ -4,7 +4,7 @@
 
 状态：代码范围已完成收口审计，作为 `2026-04-02-claude-agent-high-fidelity-migration` 专题的历史推进主表。
 
-2026-05-14 收口审计：本文 P0-P6 与 S-01-S-10 的实现状态已经由归档过程记录 [`41_agent-high-fidelity-migration-closure-audit-2026-05-14.md`](../../ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/41_agent-high-fidelity-migration-closure-audit-2026-05-14.md) 重新核对。旧文中的“未封口”与后续章节的 `Remaining Gap` 只作为历史推进记录；随后追加的本地资料综合缺口已在 [`46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md`](./46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md) 落地并记录回归证据。
+2026-05-14 收口审计：本文 P0-P6 与 S-01-S-10 的实现状态已经由归档过程记录 [`41_agent-high-fidelity-migration-closure-audit-2026-05-14.md`](../2026-04-02-claude-agent-high-fidelity-migration-process-records/41_agent-high-fidelity-migration-closure-audit-2026-05-14.md) 重新核对。旧文中的“未封口”与后续章节的 `Remaining Gap` 只作为历史推进记录；随后追加的本地资料综合缺口已在 [`46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md`](./46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md) 落地并记录回归证据。
 
 2026-05-11 主线重置：用户端实测证明当前实现仍然被机械分类构架限制，`enable_model_tool_loop` 也只是局部入口决策，不是 Claude Code 式模型拥有工具循环。本文中已勾选的 P0/P1/P4/P5/P6 项只代表 Agent Runtime V2 补丁层曾实现过相应能力，不再代表最终封口。新的代码级复原规范以 [`17_claude-code-core-reconstruction-spec-2026-05-11.md`](./17_claude-code-core-reconstruction-spec-2026-05-11.md) 为准：先建立可替换 `AgentCore`，再把项目能力投影为 tool/skill/MCP，最后以用户端自由对话和项目能力调用实测为验收。
 
@@ -257,7 +257,7 @@ Claude Code 本地参考基线：
 
 主线推进时必须同步检查本表 P0-P6 与 S-01-S-10，不只处理当前阶段标题。当前已落地记录：
 
-下列实现记录已经归档到 [`ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records`](../../ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)。
+下列实现记录已经归档到 [`ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records`](../2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)。
 
 - `03_claude-code-level-agent-m1-implementation-status-2026-05-10.md`：M1 自由对话与只读工具首批实现。
 - `04_agent-runtime-v2-tool-loop-and-approval-status-2026-05-10.md`：M2/M3 工具循环、审批等待与批准继续。

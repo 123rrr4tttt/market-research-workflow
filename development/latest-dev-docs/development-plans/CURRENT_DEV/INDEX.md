@@ -1,6 +1,6 @@
 # CURRENT_DEV Index（当前入口 / 未封口 / 待迁档）
 
-更新时间：2026-05-14（PST）
+更新时间：2026-05-22（PST）
 
 本目录优先保留尚未封口且仍可作为现行入口的开发计划；少量总体性完成审计和当前主入口文档可暂留，过程记录已迁入 [`ARCHIVE_CLOSED`](../ARCHIVE_CLOSED/INDEX.md)，已被后续代码事实或更新主入口覆盖的早期文档已迁入 [`ARCHIVE_RETIRED`](../ARCHIVE_RETIRED/INDEX.md)。
 
@@ -8,6 +8,7 @@
 
 - `clear_closed` [2026-03-02 Ingest Chain Full Branch Map](../ARCHIVE_CLOSED/2026-03-02-ingest-chain-full-branch-map/)
 - `clear_closed` [2026-04-06 Repo Logic Gap Assessment](../ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/)
+- `clear_closed` [2026-04-02 Claude Agent High-Fidelity Migration](../ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/INDEX.md)
 - `process_records` [2026-04-02 Claude Agent High-Fidelity Migration Process Records](../ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
 
 ## 本次已退场
@@ -28,20 +29,13 @@
 
 - `partial`: 21
 - `not_closed`: 10
-- `no_closure_claim`: 5
+- `no_closure_claim`: 4
 
-## Agent High-Fidelity Migration Current Entry
+## Agent High-Fidelity Migration Split Result
 
-`2026-04-02-claude-agent-high-fidelity-migration` now keeps only overall, current-entry, and closure-evidence documents in `CURRENT_DEV`; process records are archived.
+`2026-04-02-claude-agent-high-fidelity-migration` no longer has an active `CURRENT_DEV` entry. Completed current-entry specs, final closure evidence, and the D47 diagnostic closure are archived at [ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration](../ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/INDEX.md); numbered process records remain in [ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records](../ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md).
 
-- [Overall mapping and runtime enforcement](./2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
-- [Claude Code level interaction todo](./2026-04-02-claude-agent-high-fidelity-migration/02_claude-code-level-agent-interaction-todo-2026-05-10.md)
-- [Claude Code core reconstruction spec](./2026-04-02-claude-agent-high-fidelity-migration/17_claude-code-core-reconstruction-spec-2026-05-11.md)
-- [Architecture deepening spec](./2026-04-02-claude-agent-high-fidelity-migration/18_agent-architecture-deepening-writing-investigation-spec-2026-05-11.md)
-- [Final completion audit](./2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md)
-- [Implemented closure evidence: context manifest and demand-read synthesis](./2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md)
-- [Session diagnostic breakpoints and repair plan](./2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
-- Archived process records: [ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records](../ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
+If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `CURRENT_DEV`; do not append fresh diagnostic work to the closed `2026-04-02` archive.
 
 ## Partial
 
@@ -82,17 +76,10 @@
 
 ## No Closure Claim / Retained Current Evidence
 
-- `[diagnostic_plan][not_closed]` [2026-05-14 AgentCore Session Diagnostic Breakpoints And Repair Plan](./2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
-- `[implemented][regression_covered]` [2026-05-14 Agent Context Manifest And Demand-Read Synthesis](./2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md)
-- `[implemented][final_completion_audit]` [2026-05-14 Agent High-Fidelity Migration Final Completion Audit](./2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md)
 - `[no_closure_claim][planned_ready]` [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./2026-05-14-local-open-search-provider-isolation/INDEX.md)
-- `[implemented][doc_aligned]` [2026-05-11 Agent Architecture Deepening: Writing, Investigation, Data/Graph Tools](./2026-04-02-claude-agent-high-fidelity-migration/18_agent-architecture-deepening-writing-investigation-spec-2026-05-11.md)
-- `[implemented][doc_aligned]` [2026-05-11 Claude Code Core Reconstruction Spec](./2026-04-02-claude-agent-high-fidelity-migration/17_claude-code-core-reconstruction-spec-2026-05-11.md)
-- `[implemented][doc_aligned]` [2026-05-10 Claude Code Level Agent Interaction Todo](./2026-04-02-claude-agent-high-fidelity-migration/02_claude-code-level-agent-interaction-todo-2026-05-10.md)
 - `[no_closure_claim][doc_drift]` [2026-03-02 Graph Node Standardization A Then B Plan](./2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
 - `[no_closure_claim][doc_aligned]` [2026-03-07 Ingest Digestion And Long-Cycle Automation](./2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md)
-- `[no_closure_claim][placeholder]` [2026-03-24 Frontend Visual Layering](./2026-03-24-frontend-visual-layering)
-- `[implemented][doc_aligned]` [2026-04-25 Claude Agent High-Fidelity Migration + Runtime Enforcement](./2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md)
+- `[no_closure_claim][placeholder]` `2026-03-24 Frontend Visual Layering`（placeholder path is not present in this snapshot）
 
 ## 说明
 
