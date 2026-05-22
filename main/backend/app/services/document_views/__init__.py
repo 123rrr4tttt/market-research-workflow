@@ -5,6 +5,15 @@ from .common_view import (
     get_platform,
     get_relations,
 )
+from .consumer_boundary import (
+    CONSUMER_FACADE_BOUNDARY_RULE,
+    CONSUMER_FACADE_CONTRACT_VERSION,
+    get_consumer_boundary_snapshot,
+    get_document_source_label,
+    get_social_identity,
+    get_structured_field,
+    has_structured_data,
+)
 from .market_view import get_market_data, get_market_entities
 from .policy_view import (
     build_policy_detail,
@@ -43,6 +52,10 @@ from .writing_view import (
 __all__ = [
     "build_policy_detail",
     "build_policy_summary",
+    "CONSUMER_FACADE_BOUNDARY_RULE",
+    "CONSUMER_FACADE_CONTRACT_VERSION",
+    "get_consumer_boundary_snapshot",
+    "get_document_source_label",
     "get_entities",
     "get_entities_relations",
     "get_extracted_data",
@@ -58,10 +71,13 @@ __all__ = [
     "get_policy_type",
     "get_relations",
     "get_social_entities",
+    "get_social_identity",
     "get_social_keywords",
     "get_social_platform",
     "get_social_sentiment",
     "get_social_text",
+    "get_structured_field",
+    "has_structured_data",
     "build_keyword_card",
     "build_keyword_card_from_graph_node",
     "build_keyword_card_from_hybrid_row",

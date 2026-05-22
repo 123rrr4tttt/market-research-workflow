@@ -8,7 +8,12 @@ from datetime import datetime
 from ....models.entities import Document
 from ..models import NormalizedMarketData
 from ...extraction.numeric import normalize_market_payload
-from ...document_views import get_market_data, get_market_entities
+from ...document_views import (
+    get_document_source_label,
+    get_market_data,
+    get_market_entities,
+    has_structured_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +37,9 @@ class MarketAdapter:
         - source_name: doc.source.name (如果存在)
         - source_uri: doc.uri
         """
-        if not doc.extracted_data:
+        if not has_structured_data(doc):
             return None
         
-        extracted = doc.extracted_data
         market = get_market_data(doc)
         
         # 提取基础字段
@@ -77,11 +81,7 @@ class MarketAdapter:
         # 获取数据源名称
         # Avoid lazy-loading doc.source here: imported demo schemas may not include sources table,
         # and a single UndefinedTable can poison the whole transaction.
-        source_name = (
-            str(extracted.get("platform") or "").strip()
-            or str(extracted.get("source") or "").strip()
-            or None
-        )
+        source_name = get_document_source_label(doc)
         
         # 提取实体信息
         entities = get_market_entities(doc)

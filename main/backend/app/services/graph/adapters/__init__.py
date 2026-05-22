@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Dict, Type, Protocol, Optional
 from ..models import NormalizedSocialPost
 from ....models.entities import Document
-from ...document_views import get_social_platform
+from ...document_views import get_social_platform, has_structured_data
 
 
 class PlatformAdapter(Protocol):
@@ -30,7 +30,7 @@ def get_adapter(platform: str) -> Optional[Type[PlatformAdapter]]:
 
 def normalize_document(doc: Document) -> Optional[NormalizedSocialPost]:
     """将文档转换为规范化格式（自动选择适配器）"""
-    if not doc.extracted_data:
+    if not has_structured_data(doc):
         return None
 
     platform = get_social_platform(doc)

@@ -15,6 +15,7 @@ from ...document_views import (
     get_policy_state,
     get_policy_summary_text,
     get_policy_type,
+    has_structured_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,11 +42,10 @@ class PolicyAdapter:
     """政策数据适配器"""
 
     def to_normalized(self, doc: Document) -> Optional[NormalizedPolicyData]:
-        if not doc.extracted_data:
+        if not has_structured_data(doc):
             logger.debug("Document %s 缺少 extracted_data，跳过", doc.id)
             return None
 
-        extracted = doc.extracted_data
         policy_data: Dict[str, Any] = get_policy_data(doc)
 
         # 如果既没有 policy 数据也没有基本信息，则跳过
