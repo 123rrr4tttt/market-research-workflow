@@ -39,6 +39,19 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
         self.assertEqual(results[0]["title"], "Robotics policy")
         self.assertEqual(results[0]["snippet"], "Policy snippet")
         self.assertEqual(results[0]["link"], "https://example.com/page?keep=1")
+        self.assertEqual(results[0]["provider_route"], "explicit:searxng")
+        self.assertEqual(results[0]["provider_family"], "local_open_search")
+        self.assertFalse(results[0]["provider_auto_included"])
+        self.assertEqual(
+            results[0]["backend_trace"],
+            {
+                "provider": "searxng",
+                "provider_route": "explicit:searxng",
+                "provider_family": "local_open_search",
+                "auto_included": False,
+                "pageno": 1,
+            },
+        )
         self.assertEqual(results[0]["raw"]["engine"], "bing")
         get_json.assert_called_once()
         self.assertTrue(get_json.call_args.args[0].endswith("/search"))
@@ -75,6 +88,19 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
         self.assertEqual(results[0]["title"], "Local robotics note")
         self.assertEqual(results[0]["snippet"], "Local corpus snippet")
         self.assertEqual(results[0]["link"], "https://example.org/local")
+        self.assertEqual(results[0]["provider_route"], "explicit:yacy")
+        self.assertEqual(results[0]["provider_family"], "local_open_search")
+        self.assertFalse(results[0]["provider_auto_included"])
+        self.assertEqual(
+            results[0]["backend_trace"],
+            {
+                "provider": "yacy",
+                "provider_route": "explicit:yacy",
+                "provider_family": "local_open_search",
+                "auto_included": False,
+                "resource": "local",
+            },
+        )
         self.assertEqual(results[0]["raw"]["resource"], "local")
         get_json.assert_called_once()
         self.assertTrue(get_json.call_args.args[0].endswith("/yacysearch.json"))
@@ -127,6 +153,8 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
         self.assertEqual(get_json.call_args_list[0].kwargs["params"]["pageno"], 1)
         self.assertEqual(get_json.call_args_list[1].kwargs["params"]["pageno"], 2)
         self.assertEqual(results[-1]["raw"]["pageno"], 2)
+        self.assertEqual(results[-1]["backend_trace"]["pageno"], 2)
+        self.assertEqual(results[-1]["provider_route"], "explicit:searxng")
 
 
 if __name__ == "__main__":
