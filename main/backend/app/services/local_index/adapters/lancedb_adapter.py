@@ -105,6 +105,11 @@ def _vector_search(table: Any, text: str) -> Any:
 
 
 def _hybrid_search(table: Any, text: str) -> Any:
+    vector = _deterministic_vector(text)
+    try:
+        return table.search(None, query_type="hybrid", vector_column_name="vector").text(text).vector(vector)
+    except (AttributeError, TypeError):
+        pass
     try:
         return table.search(text, query_type="hybrid", vector_column_name="vector")
     except TypeError:
@@ -115,6 +120,11 @@ def _hybrid_search(table: Any, text: str) -> Any:
 
 
 def _result_from_record(row: dict[str, Any], *, retrieval_mode: str, trace: dict[str, Any]) -> LocalIndexSearchResult:
+    score = row.get("_score")
+    if score is None:
+        score = row.get("_relevance_score")
+    if score is None:
+        score = row.get("_distance")
     return LocalIndexSearchResult(
         chunk_id=str(row.get("chunk_id") or ""),
         document_id=str(row.get("document_id") or ""),
@@ -122,7 +132,7 @@ def _result_from_record(row: dict[str, Any], *, retrieval_mode: str, trace: dict
         source_id=str(row.get("source_id") or ""),
         title=str(row.get("title") or ""),
         content=str(row.get("content") or ""),
-        score=float(row["_score"]) if row.get("_score") is not None else None,
+        score=float(score) if score is not None else None,
         url=str(row.get("url") or "") or None,
         source_type=str(row.get("source_type") or "material"),
         metadata={"adapter": "lancedb"},

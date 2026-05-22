@@ -1,0 +1,155 @@
+{
+  "generated_at": "2026-05-22T04:15:57.810050+00:00",
+  "status": "passed",
+  "python": "3.11.14",
+  "platform": "macOS-26.3-arm64-arm-64bit",
+  "packages": {
+    "lancedb": "0.24.2",
+    "pyarrow": "24.0.0"
+  },
+  "db_path": "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-runtime-duaqzn83",
+  "out_dir": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22",
+  "rerun_command": "main/backend/.venv311/bin/python ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py --out-dir development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22",
+  "blockers": [],
+  "upsert": {
+    "ok": true,
+    "chunk_count": 4,
+    "created_table": true,
+    "adapter": "lancedb"
+  },
+  "modes": {
+    "keyword": {
+      "query": "rare-lancedb-keyword-proof",
+      "expected_chunk_id": "chunk-keyword",
+      "expected_source_id": "source-keyword",
+      "latency_ms": 65.33,
+      "top_k": 1,
+      "top_chunk_id": "chunk-keyword",
+      "top_source_id": "source-keyword",
+      "top_score": 2.6520416736602783,
+      "executed_mode": "keyword",
+      "retrieval_mode": "keyword",
+      "trace": {
+        "adapter": "lancedb",
+        "requested_mode": "keyword",
+        "executed_mode": "keyword",
+        "query_family": "local_material"
+      },
+      "results": [
+        {
+          "chunk_id": "chunk-keyword",
+          "document_id": "doc-keyword",
+          "project_id": "runtime-smoke",
+          "source_id": "source-keyword",
+          "title": "Keyword runtime proof",
+          "content": "rare-lancedb-keyword-proof appears in this real table row for FTS validation.",
+          "score": 2.6520416736602783,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "keyword",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "keyword",
+            "executed_mode": "keyword",
+            "query_family": "local_material"
+          }
+        }
+      ]
+    },
+    "vector": {
+      "query": "semantic vector target robotics benchmark",
+      "expected_chunk_id": "chunk-vector",
+      "expected_source_id": "source-vector",
+      "latency_ms": 30.86,
+      "top_k": 1,
+      "top_chunk_id": "chunk-vector",
+      "top_source_id": "source-vector",
+      "top_score": 0.0,
+      "executed_mode": "vector",
+      "retrieval_mode": "vector",
+      "trace": {
+        "adapter": "lancedb",
+        "requested_mode": "vector",
+        "executed_mode": "vector",
+        "query_family": "local_material"
+      },
+      "results": [
+        {
+          "chunk_id": "chunk-vector",
+          "document_id": "doc-vector",
+          "project_id": "runtime-smoke",
+          "source_id": "source-vector",
+          "title": "Vector runtime proof",
+          "content": "A row for semantic vector target robotics benchmark validation.",
+          "score": 0.0,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "vector",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "vector",
+            "executed_mode": "vector",
+            "query_family": "local_material"
+          }
+        }
+      ]
+    },
+    "hybrid": {
+      "query": "hybrid retrieval fusion robotics policy",
+      "expected_chunk_id": "chunk-hybrid",
+      "expected_source_id": "source-hybrid",
+      "latency_ms": 41.27,
+      "top_k": 1,
+      "top_chunk_id": "chunk-hybrid",
+      "top_source_id": "source-hybrid",
+      "top_score": 0.032786883413791656,
+      "executed_mode": "hybrid",
+      "retrieval_mode": "hybrid",
+      "trace": {
+        "adapter": "lancedb",
+        "requested_mode": "hybrid",
+        "executed_mode": "hybrid",
+        "query_family": "local_material"
+      },
+      "results": [
+        {
+          "chunk_id": "chunk-hybrid",
+          "document_id": "doc-hybrid",
+          "project_id": "runtime-smoke",
+          "source_id": "source-hybrid",
+          "title": "Hybrid runtime proof",
+          "content": "hybrid retrieval fusion robotics policy appears in the text and uses a matching vector.",
+          "score": 0.032786883413791656,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "hybrid",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "hybrid",
+            "executed_mode": "hybrid",
+            "query_family": "local_material"
+          }
+        }
+      ]
+    }
+  },
+  "assertions": [
+    "lancedb and pyarrow importable",
+    "real LanceDB table created through LanceDBLocalIndexAdapter",
+    "project_id and source_id filters applied through LanceDB where predicate",
+    "keyword, vector, and hybrid modes each returned the expected top row without fallback"
+  ],
+  "duration_ms": 1796.98
+}

@@ -56,10 +56,21 @@ class FakeLocalIndexAdapter:
 
 
 class FakeLanceQuery:
-    def __init__(self, rows: list[dict[str, Any]]) -> None:
+    def __init__(self, rows: list[dict[str, Any]], call: dict[str, Any] | None = None) -> None:
         self.rows = rows
+        self.call = call
         self.predicate: str | None = None
         self.limit_value: int | None = None
+
+    def text(self, value: str) -> "FakeLanceQuery":
+        if self.call is not None:
+            self.call["builder_text"] = value
+        return self
+
+    def vector(self, value: list[float]) -> "FakeLanceQuery":
+        if self.call is not None:
+            self.call["builder_vector"] = value
+        return self
 
     def where(self, predicate: str) -> "FakeLanceQuery":
         self.predicate = predicate
@@ -89,12 +100,13 @@ class FakeLanceTable:
             }
         ]
 
-    def search(self, query: str | list[float], **kwargs: Any) -> FakeLanceQuery:
+    def search(self, query: str | list[float] | None, **kwargs: Any) -> FakeLanceQuery:
         query_type = str(kwargs.get("query_type") or "vector")
-        self.calls.append({"query": query, "kwargs": kwargs, "query_type": query_type})
+        call = {"query": query, "kwargs": kwargs, "query_type": query_type}
+        self.calls.append(call)
         if query_type in self.fail_modes:
             raise RuntimeError(f"{query_type} unavailable")
-        return FakeLanceQuery(self.rows)
+        return FakeLanceQuery(self.rows, call)
 
 
 class LocalIndexServiceTest(unittest.TestCase):
@@ -180,7 +192,10 @@ class LocalIndexServiceTest(unittest.TestCase):
         self.assertEqual(table.calls[0]["kwargs"]["query_type"], "fts")
         self.assertIsInstance(table.calls[1]["query"], list)
         self.assertEqual(table.calls[1]["query_type"], "vector")
+        self.assertIsNone(table.calls[2]["query"])
         self.assertEqual(table.calls[2]["kwargs"]["query_type"], "hybrid")
+        self.assertEqual(table.calls[2]["builder_text"], "robotics")
+        self.assertIsInstance(table.calls[2]["builder_vector"], list)
         self.assertEqual(keyword_results[0].retrieval_mode, "keyword")
         self.assertEqual(vector_results[0].retrieval_mode, "vector")
         self.assertEqual(hybrid_results[0].retrieval_mode, "hybrid")
