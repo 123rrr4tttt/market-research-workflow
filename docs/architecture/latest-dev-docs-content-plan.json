@@ -4,7 +4,7 @@
   "source_authority": "development/latest-dev-docs",
   "migration_manifest": "docs/architecture/latest-dev-docs-entry-manifest.json",
   "generated_date": "2026-05-22",
-  "status": "wave16_moved_file_batch_partial",
+  "status": "wave17_second_moved_file_batch_partial",
   "checker": "scripts/checkers/check_docs_root_content_plan.py",
   "entries": [
     {
@@ -72,14 +72,30 @@
       "source_authority": "development/latest-dev-docs",
       "target_root": "docs/architecture/ops-frontend",
       "shim": "docs/architecture/ops-frontend/README.md",
-      "mode": "shim_only",
-      "source_remains_authoritative": true,
-      "move_allowed": false,
+      "mode": "moved_file_batch",
+      "source_remains_authoritative": false,
+      "move_allowed": true,
       "blocked_by": [
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ],
-      "next_gate": "Move selected ops-frontend architecture files only after the mixed frontend docs are classified and link-checked."
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/DIR_MAP.md",
+          "target": "docs/architecture/ops-frontend/A_ARCHITECTURE/DIR_MAP.md",
+          "compatibility_entry": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/DIR_MAP.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/frontend-modern-README.md",
+          "target": "docs/architecture/ops-frontend/A_ARCHITECTURE/frontend-modern-README.md",
+          "compatibility_entry": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/frontend-modern-README.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ],
+      "next_gate": "Supervisor integration still needs to update shared navigation and MERGED_OVERVIEW references, but the ops-frontend architecture files are now target-authoritative."
     },
     {
       "id": "root-plans-architecture-tree-content-plan",
@@ -120,18 +136,6 @@
       "reason": "Development-plan architecture is tied to CURRENT_DEV status and shared development-plan indexes.",
       "required_gates": [
         "topic_status_sync",
-        "shared_navigation_sync",
-        "MERGED_OVERVIEW_drift"
-      ]
-    },
-    {
-      "id": "ops-frontend-architecture-tree",
-      "source": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE",
-      "target_root": "docs/architecture/ops-frontend",
-      "mode": "blocked_broad_move",
-      "reason": "ops-frontend is a mixed lifecycle tree and needs link-checked file selection before content movement.",
-      "required_gates": [
-        "file_level_classification",
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ]
