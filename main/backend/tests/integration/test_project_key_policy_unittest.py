@@ -189,7 +189,18 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
             "/api/v1/source_library/items/demo-item/run",
             json={"project_key": "demo_proj", "async_mode": False, "override_params": {}},
         )
-        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.status_code, 410)
+        self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.INVALID_INPUT.value)
+        self.assertEqual(body["meta"]["deprecated"], "source_library.legacy_item_run.v1")
+        self.assertEqual(body["detail"]["error"]["details"]["item_key"], "demo-item")
+        self.assertEqual(
+            body["detail"]["error"]["details"]["replacement_endpoint"],
+            "/api/v1/ingest/source-library/run",
+        )
+        self.assertFalse(body["detail"]["error"]["details"]["runs_source_library_item"])
 
     def test_ingest_source_library_run_explicit_project_key_success(self):
         client = TestClient(backend_app)
