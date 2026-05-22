@@ -38,7 +38,7 @@ from app.services.typed_knowledge import persistence_boundary  # noqa: E402
 
 CONTRACT_VERSION = "typed_writing.live_boundary_inventory.v1"
 READINESS_STATE = "partial"
-CLOSURE_POSITION = "deterministic_persistence_api_boundary_covered_live_db_api_ui_not_closed"
+CLOSURE_POSITION = "typed_knowledge_public_route_contract_available_live_db_ui_not_closed"
 
 EVIDENCE_DOCS = (
     Path(
@@ -92,6 +92,8 @@ WAVE15_DOC_MARKERS = (
 SOURCE_FILES = {
     "typed_contracts": Path("main/backend/app/services/typed_knowledge/contracts.py"),
     "typed_persistence_boundary": Path("main/backend/app/services/typed_knowledge/persistence_boundary.py"),
+    "typed_api": Path("main/backend/app/api/typed_knowledge.py"),
+    "api_init": Path("main/backend/app/api/__init__.py"),
     "writing_schema": Path("main/backend/app/contracts/schemas/writing.py"),
     "writing_api": Path("main/backend/app/api/writing.py"),
     "writing_keyword_service": Path("main/backend/app/services/writing/keyword_card_service.py"),
@@ -105,6 +107,7 @@ REQUIRED_DETERMINISTIC_COVERAGE = (
     "typed_knowledge_status_data_error_meta_envelope",
     "in_memory_repository_readback",
     "writing_handoff_reference_preservation",
+    "typed_knowledge_public_api_route_contract",
     "writing_context_envelope_schema_parity",
     "writing_keyword_card_resource_consumer",
     "writing_api_contract_surface",
@@ -113,7 +116,7 @@ REQUIRED_DETERMINISTIC_COVERAGE = (
 )
 REQUIRED_OPEN_GAPS = (
     "live_db_persistence_not_implemented",
-    "public_typed_knowledge_api_route_not_implemented",
+    "live_db_backed_typed_knowledge_api_readback_not_verified",
     "governance_ui_not_implemented",
     "migration_and_backfill_not_executed",
     "writing_live_typed_knowledge_fetch_not_available",
@@ -177,6 +180,8 @@ def _build_handoff() -> contracts.WritingKnowledgeHandoff:
 def _deterministic_coverage(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
     envelope = persistence_boundary.build_sample_boundary_envelope()
     persistence_boundary.validate_persistence_api_envelope(envelope)
+    route_envelope = persistence_boundary.build_public_api_route_contract_envelope()
+    persistence_boundary.validate_public_api_route_contract_envelope(route_envelope)
 
     records = envelope["data"]["records"]
     writes = envelope["data"]["writes"]
@@ -184,6 +189,7 @@ def _deterministic_coverage(root: Path, sources: Mapping[str, Mapping[str, Any]]
     item_record = next(record for record in records if record["object_type"] == "knowledge_item")
     writing_refs = envelope["data"]["writing_handoff_refs"]
     readiness = envelope["meta"]["readiness"]
+    route_meta = route_envelope["meta"]
 
     handoff = _build_handoff()
     typed_context = contracts.build_writing_knowledge_context_envelope((handoff,))
@@ -194,6 +200,8 @@ def _deterministic_coverage(root: Path, sources: Mapping[str, Mapping[str, Any]]
     card = build_keyword_card_from_typed_knowledge_handoff(parsed_handoffs[0], normalized_query="robotics investment")
 
     writing_api = str(sources["writing_api"]["text"])
+    typed_api = str(sources["typed_api"]["text"])
+    api_init = str(sources["api_init"]["text"])
     writing_schema = str(sources["writing_schema"]["text"])
     keyword_service = str(sources["writing_keyword_service"]["text"])
     frontend_domain = str(sources["frontend_writing_domain"]["text"])
@@ -230,6 +238,21 @@ def _deterministic_coverage(root: Path, sources: Mapping[str, Mapping[str, Any]]
             and writing_refs[0]["card_source_type"] == "resource",
             ["main/backend/app/services/typed_knowledge/persistence_boundary.py"],
             "knowledge-item persistence records preserve the writing keyword-card handoff reference",
+        ),
+        _coverage_row(
+            "typed_knowledge_public_api_route_contract",
+            route_envelope["data"]["route"]["path"] == persistence_boundary.PUBLIC_API_ROUTE_PATH
+            and route_meta["readiness"]["public_api_route"] is True
+            and route_meta["readiness"]["live_db_persistence"] is False
+            and "public_typed_knowledge_api_route_not_implemented" not in route_meta["remaining_live_gaps"]
+            and "get_typed_knowledge_persistence_boundary" in typed_api
+            and "typed_knowledge_router" in api_init,
+            [
+                "main/backend/app/api/typed_knowledge.py",
+                "main/backend/app/api/__init__.py",
+                "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+            ],
+            "typed-knowledge now exposes a public contract route without claiming live DB persistence",
         ),
         _coverage_row(
             "writing_context_envelope_schema_parity",
@@ -312,6 +335,19 @@ def _public_typed_knowledge_api_exists(root: Path) -> bool:
     return False
 
 
+def _writing_live_typed_knowledge_fetch_exists(sources: Mapping[str, Mapping[str, Any]]) -> bool:
+    writing_api = str(sources["writing_api"]["text"])
+    frontend_domain = str(sources["frontend_writing_domain"]["text"])
+    frontend_workbench = str(sources["frontend_writing_workbench"]["text"])
+    route_markers = (
+        "/typed-knowledge/persistence-boundary",
+        "getTypedKnowledge",
+        "fetchTypedKnowledge",
+        "typedKnowledgeApi",
+    )
+    return any(marker in writing_api or marker in frontend_domain or marker in frontend_workbench for marker in route_markers)
+
+
 def _typed_knowledge_db_model_exists(root: Path) -> bool:
     model_dir = root / "main/backend/app/models"
     if not model_dir.is_dir():
@@ -325,8 +361,10 @@ def _typed_knowledge_db_model_exists(root: Path) -> bool:
 
 def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
     envelope = persistence_boundary.build_sample_boundary_envelope()
+    route_envelope = persistence_boundary.build_public_api_route_contract_envelope()
     readiness = envelope["meta"]["readiness"]
     remaining = set(envelope["meta"]["remaining_live_gaps"])
+    route_remaining = set(route_envelope["meta"]["remaining_live_gaps"])
     frontend_workbench = str(sources["frontend_writing_workbench"]["text"])
 
     return [
@@ -339,12 +377,14 @@ def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> li
             "required_to_close": "add live typed-knowledge DB model/table, migration, write/readback smoke, and rollout evidence",
         },
         {
-            "code": "public_typed_knowledge_api_route_not_implemented",
-            "area": "typed_knowledge.public_api",
-            "closed": bool(readiness.get("public_api_route")) and _public_typed_knowledge_api_exists(root),
-            "evidence": ["main/backend/app/api"],
-            "gap_recorded": "public_typed_knowledge_api_route_not_implemented" in remaining,
-            "required_to_close": "add public typed-knowledge API routes and schema inventory coverage",
+            "code": "live_db_backed_typed_knowledge_api_readback_not_verified",
+            "area": "typed_knowledge.live_db_backed_api",
+            "closed": bool(readiness.get("live_db_persistence"))
+            and _typed_knowledge_db_model_exists(root)
+            and _public_typed_knowledge_api_exists(root),
+            "evidence": ["main/backend/app/api/typed_knowledge.py"],
+            "gap_recorded": "live_db_backed_typed_knowledge_readback_not_verified" in route_remaining,
+            "required_to_close": "back the typed-knowledge route with live DB persistence and durable readback evidence",
         },
         {
             "code": "governance_ui_not_implemented",
@@ -366,7 +406,7 @@ def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> li
         {
             "code": "writing_live_typed_knowledge_fetch_not_available",
             "area": "writing.public_typed_knowledge_fetch",
-            "closed": _public_typed_knowledge_api_exists(root),
+            "closed": _writing_live_typed_knowledge_fetch_exists(sources),
             "evidence": ["main/backend/app/api/writing.py", "main/frontend-modern/src/lib/api/domains/writing.ts"],
             "gap_recorded": True,
             "required_to_close": "wire writing workbench to a live typed-knowledge fetch API instead of envelope-only context injection",

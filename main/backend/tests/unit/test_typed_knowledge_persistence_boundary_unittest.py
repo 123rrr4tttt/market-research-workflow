@@ -1,3 +1,4 @@
+import copy
 import pathlib
 import sys
 import unittest
@@ -142,6 +143,32 @@ class TypedKnowledgePersistenceBoundaryTests(unittest.TestCase):
             "writing_handoff_ref_consumer_mismatch",
         ):
             boundary.validate_persistence_boundary_record(record)
+
+    def test_public_api_route_contract_closes_route_gap_without_claiming_live_db(self):
+        envelope = boundary.build_public_api_route_contract_envelope(project_key="route_proj")
+        boundary.validate_public_api_route_contract_envelope(envelope)
+
+        self.assertEqual(envelope["data"]["contract_version"], boundary.PUBLIC_API_ROUTE_CONTRACT_VERSION)
+        self.assertEqual(envelope["data"]["route"]["path"], boundary.PUBLIC_API_ROUTE_PATH)
+        self.assertTrue(envelope["meta"]["readiness"]["public_api_route"])
+        self.assertFalse(envelope["meta"]["readiness"]["live_db_persistence"])
+        self.assertNotIn(
+            "public_typed_knowledge_api_route_not_implemented",
+            envelope["meta"]["remaining_live_gaps"],
+        )
+
+        records = envelope["data"]["persistence_boundary"]["records"]
+        item_record = next(record for record in records if record["object_type"] == "knowledge_item")
+        self.assertEqual(item_record["project_key"], "route_proj")
+        self.assertEqual(item_record["identity_ref"], "route_proj:knowledge_item:ki:robotics-policy")
+
+        overclaim = copy.deepcopy(envelope)
+        overclaim["meta"]["readiness"]["live_db_persistence"] = True
+        with self.assertRaisesRegex(
+            boundary.TypedKnowledgePersistenceBoundaryError,
+            "public_api_route_live_completion_overclaim",
+        ):
+            boundary.validate_public_api_route_contract_envelope(overclaim)
 
 
 if __name__ == "__main__":
