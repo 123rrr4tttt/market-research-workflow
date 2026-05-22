@@ -435,7 +435,7 @@ def validate_case(case: dict[str, Any], records: list[dict[str, Any]]) -> list[s
     scores = [record.get("score") for record in records]
     if any(score is None for score in scores):
         failures.append("all records must include numeric scores")
-    elif any(float(left) < float(right) for left, right in zip(scores, scores[1:], strict=False)):
+    elif any(float(left) < float(right) for left, right in zip(scores, scores[1:])):
         failures.append(f"scores are not nonincreasing: {scores!r}")
     for record in records:
         failures.extend(validate_record_trace(case, record))
