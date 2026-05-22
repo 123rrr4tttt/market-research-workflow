@@ -59,6 +59,13 @@ Current source inventory contains 39 `*.stories.tsx` files. The README describes
 
 The current README also names high-value page surfaces for Storybook/MCP consumption, including `IngestPage`, `WritingWorkbenchPage`, `GraphPage`, `SettingsPage`, `ProcessPage`, and `LlmDesignerPage`.
 
+Current gate evidence was refreshed on 2026-05-22:
+
+- `npm --prefix main/frontend-modern run storybook:build` completed successfully.
+- `@storybook/addon-mcp` is declared in `package.json` and enabled in `.storybook/main.ts` with `dev=true`, `docs=true`, and `test=false`.
+- `curl -I http://127.0.0.1:6006/mcp` returned `405 Method Not Allowed` with `allow: GET, POST, DELETE, OPTIONS`, proving the MCP endpoint is mounted.
+- Evidence package: [../../automation-runs/storybook-launcher-gates/2026-05-22/README.md](../../automation-runs/storybook-launcher-gates/2026-05-22/README.md).
+
 ## 4. E2E Status
 
 Playwright is configured by `main/frontend-modern/playwright.config.ts`:
@@ -84,7 +91,7 @@ Current source inventory contains 8 E2E specs:
 
 - The previous `frontend-modern/main/LLM_DESIGNER_UI_REPLICA_BRIEF.md` file was moved to `frontend-modern/F_PLAN/LLM_DESIGNER_UI_REPLICA_BRIEF.md` so `main/` keeps the standard entry shape.
 - `main/frontend-modern/README.md` remains the source-facing operational README. It includes the current Storybook, E2E, Docker, and API alignment notes, but its docker-compose example section appears to keep explanatory prose inside a fenced `yaml` block. This lane did not edit that source README because the write boundary is the latest-dev-docs index surface.
-- This document records current source state and navigation status. It does not claim that frontend runtime gates were executed in this lane.
+- This document records current source state and navigation status. Storybook/MCP gates were executed in the 2026-05-22 `storybook-launcher-gates` lane; broader frontend build and Playwright runtime gates remain separate.
 
 ## 6. Recommended Merge Check
 

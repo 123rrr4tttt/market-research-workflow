@@ -1,54 +1,48 @@
 # Ops + Frontend 合并草案
 
-> 文档日期: 2026-03-01  
+> 文档日期: 2026-05-22
 > 范围: 部署、前端、Figma 同步、快速启动  
-> 来源: `ops-README.md`、`frontend-modern-README.md`、`frontend-modern-figma-sync-PULL_STATUS_2026-02-27.md`、`QUICKSTART.md`
+> 来源: `ops-README.md`、`frontend-modern-README.md`、`frontend-modern-figma-sync-PULL_STATUS_2026-02-27.md`、`QUICKSTART.md`、`automation-runs/storybook-launcher-gates/2026-05-22/README.md`
 
-## 1. 部署（Docker-first）
+## 1. 部署（Launcher-first / Docker-first）
 
 ### 1.1 推荐入口与约定
 
-- 推荐使用统一脚本，而非日常直接使用 `docker compose`：
-  - `main/ops/start-all.sh`
-  - `main/ops/stop-all.sh`
-  - `main/ops/restart.sh`
-  - 仓库根目录 `./scripts/docker-deploy.sh start|stop|restart|status|logs|health|preflight`
+- 推荐从仓库根目录使用平台脚本，而非日常直接使用 `docker compose`：
+  - `bash scripts/platform-macos.sh docker-start`：启动 Docker Web Launcher。
+  - `bash scripts/platform-macos.sh docker-status`：只读查看 Docker 应用服务状态。
+  - `bash scripts/platform-macos.sh docker-full-start`：直接启动完整 modern-ui 栈。
+  - `bash scripts/platform-macos.sh docker-stop|docker-restart`：停止或重启 Docker 应用服务。
+  - `bash scripts/platform-macos.sh local-start|local-stop|status|health`：本地非 Docker 路径。
+  - 仓库根目录 `./scripts/docker-deploy.sh start|stop|restart|status|logs|health|preflight` 仍可作为底层部署入口。
 - 首次运行需确保 `main/backend/.env` 存在（可由 `.env.example` 复制）。
-- 团队协作约定：命令在仓库根目录执行，并先设置：
-
-```bash
-export PROJECT_DIR="main"
-```
+- `main/ops/start-all.sh`、`stop-all.sh`、`restart.sh` 保留为兼容路径，但不再是快速启动首选入口。
 
 ### 1.2 一键启动与停止
 
 ```bash
-cd "$PROJECT_DIR/ops"
-./start-all.sh
+bash scripts/platform-macos.sh docker-start
 ```
 
-默认启动主服务：
-- PostgreSQL
-- Elasticsearch
-- Redis
-- Backend API
-- Celery Worker
+默认启动 Docker Web Launcher，随后可在 Launcher 中选择启动或管理完整应用栈。直接启动完整 modern-ui 栈可运行：
+
+```bash
+bash scripts/platform-macos.sh docker-full-start
+```
 
 停止：
 
 ```bash
-cd "$PROJECT_DIR/ops"
-./stop-all.sh
+bash scripts/platform-macos.sh docker-stop
 ```
 
 重启：
 
 ```bash
-cd "$PROJECT_DIR/ops"
-./restart.sh
+bash scripts/platform-macos.sh docker-restart
 ```
 
-### 1.3 启动机制（关键点）
+### 1.3 完整栈启动机制（关键点）
 
 - 启动顺序：数据库服务 -> Backend -> Celery Worker。
 - Backend 启动脚本包含依赖等待和失败即停策略（fail-fast）。
@@ -58,12 +52,12 @@ cd "$PROJECT_DIR/ops"
 ### 1.4 常用排障命令
 
 ```bash
-cd "$PROJECT_DIR/ops"
-docker-compose ps
-docker-compose logs -f backend
-docker-compose logs -f celery-worker
-docker-compose exec backend alembic current
-docker-compose exec backend alembic history
+cd main/ops
+docker compose ps
+docker compose logs -f backend
+docker compose logs -f celery-worker
+docker compose exec backend alembic current
+docker compose exec backend alembic history
 ```
 
 ## 2. 前端（frontend-modern）
@@ -146,21 +140,19 @@ docker compose -f main/ops/docker-compose.yml --profile modern-ui up -d frontend
 ## 4. 快速启动（最短路径）
 
 ```bash
-export PROJECT_DIR="main"
-cd "$PROJECT_DIR/ops"
-./start-all.sh
+bash scripts/platform-macos.sh docker-start
 ```
 
 启动成功后访问：
 - API 文档：<http://localhost:8000/docs>
 - 健康检查：<http://localhost:8000/api/v1/health>
 - Modern 前端（若启用）：<http://localhost:5174>
+- Docker Web Launcher：<http://127.0.0.1:5176>
 
 停止：
 
 ```bash
-cd "$PROJECT_DIR/ops"
-./stop-all.sh
+bash scripts/platform-macos.sh docker-stop
 ```
 
 ## 5. 参考文档
@@ -178,7 +170,7 @@ cd "$PROJECT_DIR/ops"
 | --- | --- | --- |
 | Graph rendering and interaction | `需更新` | `npm run test:e2e -- tests/e2e/graphpage.spec.ts`，并补 graph lint/screenshot 证据 |
 | Frontend API facade and graph query keys | `需更新` | API/query-key 目标文件 lint，依赖可用后跑 `npm run build` |
-| Storybook and Storybook MCP | `未封口` | `npm run storybook:build`，再验证 `http://127.0.0.1:6006/mcp` |
-| Launcher-first ops flow | `过时` | `bash scripts/platform-macos.sh docker-start` 或 `docker-full-start` smoke；macOS app 路径需跑 `bash scripts/build-macos-launcher.sh` |
+| Storybook and Storybook MCP | `已封口` | 2026-05-22 已通过 `npm --prefix main/frontend-modern run storybook:build` 与 `/mcp` HEAD 端点验证 |
+| Launcher-first ops flow | `已封口` | 2026-05-22 已通过只读 dry-run gate 与 `bash scripts/platform-macos.sh docker-status`；app bundle build 仍留给显式 packaging lane |
 
-本快照只回写 ops-frontend 文档状态，不改 backend，也不改 frontend 代码。
+本快照回写 ops-frontend 文档状态，并新增只读 launcher dry-run gate；未改 backend 或 frontend 运行时代码。

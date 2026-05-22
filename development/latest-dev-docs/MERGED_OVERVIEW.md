@@ -23,6 +23,8 @@ Updated: 2026-05-22 PST
 
 - `automation-runs`：
   - [2026-05-22 GraphPage Frontend E2E Evidence](./automation-runs/graph-frontend-e2e/2026-05-22/README.md)
+  - [2026-05-22 Graph Visual Evidence](./automation-runs/graph-visual-evidence/2026-05-22/README.md)
+  - [2026-05-22 Storybook / Launcher Gates Evidence](./automation-runs/storybook-launcher-gates/2026-05-22/README.md)
   - [2026-05-22 Development Docs Folder Audit And Landing Report](./automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
   - [2026-05-22 Search Provider Trace Offline Artifact Contract](./automation-runs/search-provider-trace-artifacts/2026-05-22/README.md)
 - `frontend-modern`：

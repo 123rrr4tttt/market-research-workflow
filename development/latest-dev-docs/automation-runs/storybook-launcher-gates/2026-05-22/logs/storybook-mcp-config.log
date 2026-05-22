@@ -1,0 +1,8 @@
+# Storybook MCP config check
+command: rg -n "@storybook/addon-mcp|toolsets|dev: true|docs: true|test: false" main/frontend-modern/.storybook/main.ts main/frontend-modern/package.json
+main/frontend-modern/package.json:32:    "@storybook/addon-mcp": "^0.5.0",
+main/frontend-modern/.storybook/main.ts:9:      name: '@storybook/addon-mcp',
+main/frontend-modern/.storybook/main.ts:11:        toolsets: {
+main/frontend-modern/.storybook/main.ts:12:          dev: true,
+main/frontend-modern/.storybook/main.ts:13:          docs: true,
+main/frontend-modern/.storybook/main.ts:14:          test: false,

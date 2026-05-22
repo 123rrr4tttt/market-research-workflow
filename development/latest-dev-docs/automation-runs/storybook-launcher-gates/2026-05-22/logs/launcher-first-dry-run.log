@@ -1,0 +1,4 @@
+# Launcher dry-run gate rerun
+command: bash -n scripts/gates/run_launcher_first_dry_run_gate.sh
+command: scripts/gates/run_launcher_first_dry_run_gate.sh
+[launcher-first-dry-run] status=passed artifact=/Users/wangyiliang/market-research-workflow.worktrees/storybook-launcher-gates/development/latest-dev-docs/automation-runs/storybook-launcher-gates/2026-05-22/launcher-first-dry-run.json

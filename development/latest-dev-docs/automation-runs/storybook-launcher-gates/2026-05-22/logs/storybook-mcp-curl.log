@@ -1,0 +1,11 @@
+# Storybook MCP endpoint probe
+command: curl -i -sS --max-time 5 http://127.0.0.1:6006/mcp
+
+command: curl -I -sS --max-time 5 http://127.0.0.1:6006/mcp
+HTTP/1.1 405 Method Not Allowed
+Cache-Control: no-store
+allow: GET, POST, DELETE, OPTIONS
+content-type: application/json
+Date: Fri, 22 May 2026 04:12:15 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5

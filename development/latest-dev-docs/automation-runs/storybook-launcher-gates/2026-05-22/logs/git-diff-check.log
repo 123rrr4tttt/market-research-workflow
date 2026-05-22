@@ -1,0 +1,3 @@
+# Git diff whitespace check
+command: git diff --check
+GIT_DIFF_CHECK_OK

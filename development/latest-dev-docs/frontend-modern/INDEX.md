@@ -7,6 +7,7 @@
 
 - [main/index.md](./main/index.md) - canonical entry index
 - [main/MERGED_FRONTEND_MODERN.md](./main/MERGED_FRONTEND_MODERN.md) - merged current-state document for `main/frontend-modern`
+- [../automation-runs/storybook-launcher-gates/2026-05-22/README.md](../automation-runs/storybook-launcher-gates/2026-05-22/README.md) - Storybook build and MCP endpoint gate evidence
 
 ## Archive Category Directories
 

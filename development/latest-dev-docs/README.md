@@ -28,6 +28,10 @@
 
 - GraphPage 前端 e2e 证据（2026-05-22）：
   - [automation-runs/graph-frontend-e2e/2026-05-22/README.md](./automation-runs/graph-frontend-e2e/2026-05-22/README.md)
+- Graph 可视化证据包（2026-05-22）：
+  - [automation-runs/graph-visual-evidence/2026-05-22/README.md](./automation-runs/graph-visual-evidence/2026-05-22/README.md)
+- Storybook / Launcher gates 证据包（2026-05-22）：
+  - [automation-runs/storybook-launcher-gates/2026-05-22/README.md](./automation-runs/storybook-launcher-gates/2026-05-22/README.md)
 - 开发文档逐文件夹状态审查与落地报告（2026-05-22）：
   - [automation-runs/dev-docs-folder-audit-2026-05-22/README.md](./automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
 - Search provider trace 离线 artifact 合同（2026-05-22）：
