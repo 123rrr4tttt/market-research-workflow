@@ -425,6 +425,152 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(writing_resp.status_code, 200)
         self.assertEqual(writing_resp.json()["data"]["consumer"], "writing.keyword_cards")
 
+    def test_curated_api_handoff_round_trip_uses_service_pack_and_run_store(self):
+        from app.services.workflow_graph.curated_service import WorkflowGraphCuratedService
+        from app.services.workflow_graph.handoff_store import WorkflowGraphHandoffStore
+        from app.services.workflow_graph.store import InMemoryRunStore
+
+        state_ref = {"payload": {"base_version": 0, "graphs": {}}}
+        service = WorkflowGraphCuratedService()
+        api_handoff_store = WorkflowGraphHandoffStore(store=InMemoryRunStore())
+
+        def get_config(*_args, **_kwargs):
+            return {"payload": state_ref["payload"]}
+
+        def upsert_config(*_args, **kwargs):
+            state_ref["payload"] = kwargs.get("payload")
+            return {"payload": state_ref["payload"]}
+
+        dsl = {
+            "nodes": [
+                {
+                    "node_id": "company-acme",
+                    "node_type": "Company",
+                    "title": "Acme Robotics",
+                    "summary": "Acme is expanding robotics supply contracts.",
+                    "source_uri": "https://example.com/acme-robotics",
+                    "provenance": {"document_id": "doc-acme"},
+                },
+                {
+                    "node_id": "market-robotics",
+                    "node_type": "Market",
+                    "title": "Robotics Market",
+                    "summary": "Robotics demand remains a tracked market signal.",
+                },
+            ],
+            "edges": [
+                {
+                    "from_node_id": "company-acme",
+                    "to_node_id": "market-robotics",
+                    "edge_type": "in_market",
+                    "evidence": "Acme contract backlog maps to robotics demand.",
+                    "confidence": 0.91,
+                }
+            ],
+        }
+
+        with patch("app.services.workflow_graph.curated_service.current_project_key", return_value="demo_proj"), patch(
+            "app.services.workflow_graph.curated_service.get_ingest_config",
+            side_effect=get_config,
+        ), patch(
+            "app.services.workflow_graph.curated_service.upsert_ingest_config",
+            side_effect=upsert_config,
+        ), patch(
+            "app.api.workflow_graph._invoke_save_curated_draft",
+            side_effect=service.save_draft,
+        ), patch(
+            "app.api.workflow_graph._invoke_submit_curated_draft",
+            side_effect=service.submit_draft,
+        ), patch(
+            "app.api.workflow_graph._invoke_build_evidence_pack",
+            side_effect=service.build_evidence_pack,
+        ), patch(
+            "app.api.workflow_graph._invoke_reporting_handoff",
+            side_effect=service.build_reporting_handoff,
+        ), patch(
+            "app.api.workflow_graph._invoke_writing_handoff",
+            side_effect=service.build_writing_handoff,
+        ), patch(
+            "app.api.workflow_graph.handoff_store",
+            api_handoff_store,
+        ):
+            draft_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-contract/draft",
+                json={"dsl": dsl, "actor_id": "frontend-contract"},
+                headers=self.headers,
+            )
+            self.assertEqual(draft_resp.status_code, 200)
+            self.assertEqual(draft_resp.json()["data"]["sync_status"], "draft_saved")
+
+            submit_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-contract/submit",
+                json={"base_revision": 0, "actor_id": "frontend-contract"},
+                headers=self.headers,
+            )
+            self.assertEqual(submit_resp.status_code, 200)
+            self.assertEqual(submit_resp.json()["data"]["submit_status"], "submitted")
+
+            pack_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-contract/evidence-pack",
+                json={"selected_node_ids": ["company-acme", "market-robotics"]},
+                headers=self.headers,
+            )
+            self.assertEqual(pack_resp.status_code, 200)
+            pack_data = pack_resp.json()["data"]
+            self.assertEqual(pack_data["contract_version"], "graph_evidence_pack.v1")
+            self.assertEqual(pack_data["provenance"]["source"], "workflow_graph.curated")
+            self.assertEqual(pack_data["selected_nodes"][0]["node_id"], "company-acme")
+            self.assertEqual(pack_data["relations"][0]["edge_type"], "in_market")
+
+            reporting_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-contract/handoff/reporting",
+                json={"topic": "robotics", "selected_node_ids": ["company-acme", "market-robotics"]},
+                headers=self.headers,
+            )
+            self.assertEqual(reporting_resp.status_code, 200)
+            reporting_data = reporting_resp.json()["data"]
+            self.assertEqual(reporting_data["contract_version"], "graph_handoff.v1")
+            self.assertEqual(reporting_data["owner"], "workflow_graph.backend_bridge")
+            self.assertEqual(reporting_data["producer"], "workflow_graph.backend_bridge")
+            self.assertEqual(reporting_data["consumer"], "llm_report.generate")
+            self.assertEqual(reporting_data["evidence_pack"]["contract_version"], "graph_evidence_pack.v1")
+            self.assertEqual(reporting_data["report_generate_request"]["sources"][0]["publisher"], "graph:Company")
+            self.assertEqual(reporting_data["persistence"]["backend_marker"], "workflow_graph.run_store")
+
+            writing_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-contract/handoff/writing",
+                json={"query": "robotics", "selected_node_ids": ["company-acme"]},
+                headers=self.headers,
+            )
+            self.assertEqual(writing_resp.status_code, 200)
+            writing_data = writing_resp.json()["data"]
+            self.assertEqual(writing_data["consumer"], "writing.keyword_cards")
+            self.assertEqual(writing_data["keyword_card_request"]["sources"], ["graph"])
+            self.assertEqual(
+                writing_data["keyword_card_request"]["context"]["graph_context"]["contract_version"],
+                "graph_evidence_pack.v1",
+            )
+
+            run_id = reporting_data["persistence"]["run_id"]
+            handoff_id = reporting_data["handoff_id"]
+            list_resp = self.client.get(f"/api/v1/workflow-graph/runs/{run_id}/handoff", headers=self.headers)
+            self.assertEqual(list_resp.status_code, 200)
+            list_data = list_resp.json()["data"]
+            self.assertEqual(list_data["total"], 2)
+            self.assertEqual(list_data["items"][0]["producer"], "workflow_graph.backend_bridge")
+            self.assertEqual(list_data["items"][0]["contract_version"], "graph_handoff.v1")
+
+            replay_resp = self.client.get(
+                f"/api/v1/workflow-graph/runs/{run_id}/handoff/{handoff_id}/replay",
+                headers=self.headers,
+            )
+            self.assertEqual(replay_resp.status_code, 200)
+            replay_data = replay_resp.json()["data"]
+            self.assertEqual(replay_data["result"]["handoff_id"], handoff_id)
+            self.assertEqual(replay_data["result"]["producer"], "workflow_graph.backend_bridge")
+            self.assertEqual(replay_data["result"]["evidence_pack"]["contract_version"], "graph_evidence_pack.v1")
+            self.assertTrue(any(event.get("type") == "handoff.replayed" for event in replay_data["events"]))
+
     def test_handoff_list_replay_and_observability_success(self):
         with patch(
             "app.api.workflow_graph.handoff_store.list_handoffs",

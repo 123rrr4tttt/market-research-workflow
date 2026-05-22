@@ -6,7 +6,7 @@
 
 ## 2026-05-22 Closure Refresh
 
-Status: `未封口 / 后端合同已部分落地，前端 graph page 集成仍是 blocker`.
+Status: `未封口 / API handoff round-trip 已验证，前端 graph page 集成仍是 blocker`.
 
 Current evidence changes the baseline:
 
@@ -15,21 +15,22 @@ Current evidence changes the baseline:
 - API endpoints exist in `main/backend/app/api/workflow_graph.py` for `/curated/{graph_id}/draft`, `/submit`, `/sync`, `/rollback`, `/audit`, `/evidence-pack`, and `/handoff/{reporting|writing}`.
 - Writing/reporting consumers have graph-context adapters through `main/backend/app/contracts/schemas/writing.py` and `main/backend/app/services/writing/keyword_card_service.py`.
 - Tests exist for curated service, workflow graph API handoffs, handoff store replay, and writing keyword-card graph context.
+- Wave3 F evidence proves one route-level flow through API endpoints, curated service payloads, handoff persistence, listing, and replay: [graph-handoff-evidence/2026-05-22](../../../automation-runs/graph-handoff-evidence/2026-05-22/README.md).
 
-The remaining blocker is the boundary between the existing frontend graph page and these backend contracts. `main/frontend-modern/src/pages/GraphPage.tsx` still imports graph read/config/structured-search APIs only; no current frontend evidence shows that its local draft UI submits to the curated workflow-graph endpoints or consumes their conflict/audit/handoff responses.
+The remaining blocker is the boundary between the existing frontend graph page and these backend contracts. `main/frontend-modern/src/pages/GraphPage.tsx` still imports graph read/config/structured-search APIs only; no current frontend evidence shows that its local draft UI submits to the curated workflow-graph endpoints or consumes their conflict/audit/handoff responses. The API route contract is now proven; the user-facing owner and trigger are not.
 
 Status by original layer:
 
 - Layer A editable object boundary: `partial`. Backend distinguishes `template_graph`, `generated_graph_snapshot`, and `curated_business_graph`; frontend GraphPage still mixes visual graph editing and template/version controls without a documented curated-submit bridge.
 - Layer B draft/sync contract: `partial`. Backend revision/conflict semantics exist; frontend GraphPage has local draft state but no verified curated submit flow.
 - Layer C audit/rollback/version semantics: `partial`. Backend supports revision, audit, rollback, and separate curated graph versions; frontend integration evidence is missing.
-- Layer D graph evidence handoff: `partial`. Backend evidence pack and writing/reporting handoffs exist; frontend entry/owner is not wired or documented as closed.
+- Layer D graph evidence handoff: `partial`. Backend evidence pack and writing/reporting handoff routes are now proven through persistence/list/replay; frontend entry/owner is not wired or documented as closed.
 
 Closure blockers:
 
 1. Decide whether GraphPage owns the curated graph bridge or whether a separate workflow-graph screen/API client owns it.
 2. Add or verify frontend API wrappers for the curated endpoints if GraphPage is the owner.
-3. Prove one branch-local flow: local graph edit -> backend curated draft/save or submit -> conflict/success response -> evidence pack -> writing or reporting handoff.
+3. Prove a user-facing flow from GraphPage local edit state into backend curated draft/save or submit.
 4. Keep template/version actions separate from curated business graph governance unless a mapping is explicitly implemented and tested.
 
 Minimal validation steps for closure:
@@ -55,8 +56,9 @@ Worker lane 5 validation result:
 - Passed negative frontend ownership smoke: `rg -n "curated|evidence-pack|handoff|workflow-graph/curated" main/frontend-modern/src/lib main/frontend-modern/src/pages/GraphPage.tsx` returned no matches, confirming the documented frontend bridge blocker.
 - Passed frontend GraphPage e2e in `codex/devdocs-graph-frontend-e2e`: `npm --prefix main/frontend-modern run test:e2e -- tests/e2e/graphpage.spec.ts` returned `3 passed`. The new e2e verifies either a real `react-force-graph-3d` canvas with data-backed scene node objects or, on this headless WebGL-limited runner, visible automatic fallback to `legacy-projection` without blanking the page.
 - Passed formatting gate: `git diff --check`.
+- Wave3 F route-level handoff validation passed in `codex/devdocs-wave3-graph-handoff-e2e`: backend focused pytest returned `31 passed` and proves `draft -> submit -> evidence-pack -> reporting/writing handoff -> persist -> list/replay` through API routes and the in-memory run store. Evidence: [graph-handoff-evidence/2026-05-22](../../../automation-runs/graph-handoff-evidence/2026-05-22/README.md).
 
-Closure decision: do not archive. This topic is no longer accurately described as fully pending, but the user-facing GraphPage-to-curated-contract bridge is not proven.
+Closure decision: do not archive. This topic is no longer accurately described as fully pending, and the route-level handoff is proven, but the user-facing GraphPage-to-curated-contract bridge is not proven.
 
 ## 1. Goal
 
