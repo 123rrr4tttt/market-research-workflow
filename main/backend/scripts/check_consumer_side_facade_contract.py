@@ -49,9 +49,11 @@ PROHIBITED_IMPORT_TOKENS = {
 }
 
 DEFERRED_QUERY_SURFACES = (
-    "main/backend/app/services/document_queries/policy_filters.py",
     "main/backend/app/api/admin.py",
     "main/backend/app/api/dashboard.py",
+)
+
+EXTRACTED_QUERY_SURFACES = (
     "main/backend/app/services/stats/prompt_time_density.py",
 )
 
@@ -163,9 +165,10 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             "checked_python_read_surface_count": len(surfaces),
             "direct_extracted_data_read_count": sum(len(item["direct_extracted_data_reads"]) for item in surfaces),
             "deferred_query_surfaces": list(DEFERRED_QUERY_SURFACES),
+            "extracted_query_surfaces": list(EXTRACTED_QUERY_SURFACES),
             "deferred_query_scope": (
-                "SQL JSON predicates, admin/dashboard/stats migration, and document_queries core extraction "
-                "remain outside worker5 and are left for worker4/integration."
+                "Remaining admin/dashboard SQL JSON predicates are outside worker5 and are left for later "
+                "worker/integration slices; prompt_time_density query-time extraction is now guarded separately."
             ),
         },
     }

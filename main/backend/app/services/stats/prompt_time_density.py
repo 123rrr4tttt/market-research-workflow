@@ -9,34 +9,15 @@ from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from sqlalchemy import Date, String, case, cast, func, select
+from sqlalchemy import select
 
 from ...models.base import SessionLocal
 from ...models.entities import Document, PromptTimePolicyDecisionLog
-from ..document_queries import policy_effective_date_expr
+from ..document_queries import prompt_time_density_time_expr
 
 _EPSILON = 1e-9
 _DEFAULT_WINDOWS = ["7d", "30d", "90d"]
 _LOG = logging.getLogger(__name__)
-
-
-def _json_iso_date_expr(key: str):
-    raw = cast(Document.extracted_data[key], String)
-    text = func.replace(raw, '"', "")
-    return case(
-        (text.op("~")(r"^\d{4}-\d{2}-\d{2}"), cast(func.substr(text, 1, 10), Date)),
-        else_=None,
-    )
-
-
-def _effective_date_expr():
-    return func.coalesce(
-        _json_iso_date_expr("effective_time"),
-        _json_iso_date_expr("source_time"),
-        policy_effective_date_expr(),
-        Document.publish_date,
-        func.date(Document.created_at),
-    )
 
 
 def _parse_iso_day(value: Any) -> date | None:
@@ -370,7 +351,7 @@ def query_prompt_time_density(
 
     normalized_domains = {x.strip().lower() for x in (source_domains or []) if str(x).strip()}
     normalized_groups = _resolve_group_filters(noun_group_ids=noun_group_ids, prompt_group_ids=prompt_group_ids)
-    policy_time = _effective_date_expr()
+    policy_time = prompt_time_density_time_expr()
 
     with SessionLocal() as session:
         docs = session.execute(

@@ -145,6 +145,14 @@ class ConsumerSideFacadeContractUnitTestCase(unittest.TestCase):
         self.assertEqual(result["status"], "passed")
         self.assertTrue(result["validation"]["passed"])
         self.assertEqual(result["validation"]["direct_extracted_data_read_count"], 0)
+        self.assertIn(
+            "main/backend/app/services/stats/prompt_time_density.py",
+            result["validation"]["extracted_query_surfaces"],
+        )
+        self.assertNotIn(
+            "main/backend/app/services/stats/prompt_time_density.py",
+            result["validation"]["deferred_query_surfaces"],
+        )
 
         surfaces = {item["path"]: item for item in result["surfaces"]}
         self.assertFalse(
