@@ -329,8 +329,10 @@ def validate_remaining_unsafe_moves(
     raw_moves: Any,
 ) -> tuple[list[Problem], int]:
     problems: list[Problem] = []
-    if not isinstance(raw_moves, list) or not raw_moves:
-        return [Problem(plan_path, "remaining_unsafe_moves must be a non-empty list")], 0
+    if not isinstance(raw_moves, list):
+        return [Problem(plan_path, "remaining_unsafe_moves must be a list")], 0
+    if not raw_moves:
+        return [], 0
 
     root = repo_root / root_raw
     seen_ids: set[str] = set()
