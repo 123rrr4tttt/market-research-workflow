@@ -8,7 +8,7 @@
 - `AT-AC-04`: completed, `unified_search` capability gate relaxed to stop excluding valid `filter` entries.
 - `AT-AC-05`: phase-1 implementation boundary refined to “extract shared search_template service first”.
 - `AT-AC-05/07/08`: 2026-05-22 lane-7 minimum assertion slice landed; see `09_lane7-capability-fallback-assertions-2026-05-22.md`.
-- `AT-AC-06/10`: still blocked for full closure pending deterministic anti-bot / real-site probe evidence.
+- `AT-AC-06/10`: partially advanced on 2026-05-22 by deterministic local fixture and Wave3 public live probe evidence. Full closure still requires either expanding the public replay beyond the selected four-target set or replaying the full historical `demo_proj` site-entry set in a controlled environment.
 
 ## Serial-Parallel Rules
 
