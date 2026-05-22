@@ -1,8 +1,12 @@
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
+from ..services.document_queries import (
+    DOCUMENT_QUERY_CONTRACT_VERSION,
+    build_search_endpoint_document_query_envelope,
+)
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
 from ..services.search.hybrid import hybrid_search, get_last_used_backends
@@ -40,6 +44,7 @@ SearchEnvelope = ApiEnvelope[dict[str, Any]]
 
 @router.get("", response_model=SearchEnvelope)
 def search(
+    request: Request,
     q: str = Query("market trend"),
     state: str | None = None,
     modality: str = Query("any"),
@@ -66,6 +71,19 @@ def search(
             else:
                 used_backends.append(b)
 
+        project_key = getattr(request.state, "project_key_resolved", None)
+        document_query_envelope = build_search_endpoint_document_query_envelope(
+            query=q,
+            state=state,
+            modality=modality,
+            rank=rank,
+            top_k=top_k,
+            results=results,
+            project_key=project_key,
+            used_backends=used_backends,
+        )
+        document_query_data = document_query_envelope["data"]
+
         return ok(
             {
                 "query": q,
@@ -74,6 +92,11 @@ def search(
                 "rank": rank,
                 "top_k": top_k,
                 "results": results,
+                "document_query_contract_version": DOCUMENT_QUERY_CONTRACT_VERSION,
+                "document_query": document_query_data["query"],
+                "document_query_results": document_query_data["results"],
+                "document_query_pagination": document_query_data["pagination"],
+                "document_query_meta": document_query_envelope["meta"],
                 "search_fallback_order": fallback_order,
                 "search_backends_used": used_backends,
             }
