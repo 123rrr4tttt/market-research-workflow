@@ -1,3 +1,14 @@
+from .contracts import (
+    DOCUMENT_QUERY_CONTRACT_VERSION,
+    DocumentQuery,
+    DocumentQueryFilter,
+    DocumentQuerySort,
+    build_document_query,
+    build_document_query_result_envelope,
+    build_document_query_result_item,
+    rows_for_document_views,
+    validate_document_query_result_envelope,
+)
 from .policy_filters import (
     policy_effective_date_expr,
     policy_has_data_condition,
@@ -14,12 +25,22 @@ from .writing_documents import (
     require_active_document,
 )
 from .writing_material_queries import (
+    query_hybrid_document_envelope,
     query_hybrid_document_rows,
+    query_report_source_envelope,
     query_report_source_rows,
+    query_source_library_material_envelope,
     query_source_library_material_rows,
 )
 
 __all__ = [
+    "DOCUMENT_QUERY_CONTRACT_VERSION",
+    "DocumentQuery",
+    "DocumentQueryFilter",
+    "DocumentQuerySort",
+    "build_document_query",
+    "build_document_query_result_envelope",
+    "build_document_query_result_item",
     "fetch_active_document",
     "fetch_draft_by_autosave_token",
     "list_active_documents",
@@ -30,8 +51,13 @@ __all__ = [
     "policy_time_expr",
     "policy_type_condition",
     "policy_type_order_expr",
+    "query_hybrid_document_envelope",
     "query_hybrid_document_rows",
+    "query_report_source_envelope",
     "query_report_source_rows",
+    "query_source_library_material_envelope",
     "query_source_library_material_rows",
     "require_active_document",
+    "rows_for_document_views",
+    "validate_document_query_result_envelope",
 ]

@@ -29,8 +29,8 @@
 
 原因很直接：
 
-1. [postprocess_frontdoor.py](/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/app/services/ingest/postprocess_frontdoor.py) 已经直接编排结构化调用
-2. [unified_structured_extraction_service.py](/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/app/services/ingest/unified_structured_extraction_service.py) 目前只是对现有 extraction 能力的一层薄包装
+1. [postprocess_frontdoor.py](../../../../../main/backend/app/services/ingest/postprocess_frontdoor.py) 已经直接编排结构化调用
+2. `unified_structured_extraction_service.py` 目前只是对现有 extraction 能力的一层薄包装（历史迁移期文件，当前代码树已回收）
 3. 如果继续把它当作长期并列模块，会让 frontdoor 和 structured orchestration 都承担“统一调度”的语义，边界变糊
 
 因此本文后续口径调整为：
