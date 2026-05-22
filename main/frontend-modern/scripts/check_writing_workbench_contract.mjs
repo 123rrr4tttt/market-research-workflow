@@ -206,6 +206,9 @@ assertIncludesAll('WritingKeywordCardRequest', extractTypePropertyKeys(writingDo
   'context',
   'graph_context',
 ])
+assertIncludesAll('WritingContextEnvelope', extractTypePropertyKeys(writingDomainFile, 'WritingContextEnvelope'), [
+  'typed_knowledge_context',
+])
 assertIncludesAll('WritingKeywordCardListResponse', extractTypePropertyKeys(writingDomainFile, 'WritingKeywordCardListResponse'), [
   'context_boundary',
   'dependency_gate',
@@ -221,6 +224,9 @@ assertIncludesAll('WritingLlmActionResponse', extractTypePropertyKeys(writingDom
 
 assertIncludesAll('backend writing schema', backendSchemaSource, [
   'class WritingContextEnvelope',
+  'class TypedKnowledgeWritingHandoffData',
+  'class TypedKnowledgeWritingContext',
+  'typed_knowledge_context',
   'context_boundary',
   'dependency_gate',
   'action_boundary',

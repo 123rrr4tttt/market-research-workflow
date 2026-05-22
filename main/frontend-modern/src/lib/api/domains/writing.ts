@@ -61,12 +61,39 @@ export type WritingTemplateValidation = {
   observability: Record<string, unknown>
 }
 
+export type TypedKnowledgeWritingHandoff = {
+  contract_version: 'typed_knowledge.writing_handoff.v1'
+  knowledge_item_key: string
+  project_key: string
+  canonical_statement: string
+  primary_type_node_key: string
+  topic_cluster_keys: string[]
+  booklet_keys: string[]
+  review_state: string
+  quality_grade?: string | null
+  locale?: string | null
+  evidence_refs: string[]
+  visibility_scope: string
+  selection_hash?: string | null
+  selection_text?: string | null
+  facets: Record<string, unknown>
+}
+
+export type TypedKnowledgeWritingContext = {
+  contract_version: 'writing.typed_knowledge_context.v1'
+  source: 'typed_knowledge'
+  consumer: 'writing.keyword_card'
+  handoffs: TypedKnowledgeWritingHandoff[]
+  boundary: Record<string, unknown>
+}
+
 export type WritingContextEnvelope = {
   contract_version?: string
   selection_context?: Record<string, unknown>
   evidence_context?: Record<string, unknown>
   accepted_citation_context?: Record<string, unknown>
   graph_context?: Record<string, unknown> | null
+  typed_knowledge_context?: TypedKnowledgeWritingContext | null
 }
 
 export type WritingKeywordCardSource = 'document' | 'resource' | 'graph'

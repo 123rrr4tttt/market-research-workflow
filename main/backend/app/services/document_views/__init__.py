@@ -39,6 +39,7 @@ from .writing_card_view import (
     build_keyword_card_from_hybrid_row,
     build_keyword_card_from_material_item,
     build_keyword_card_from_source_row,
+    build_keyword_card_from_typed_knowledge_handoff,
     make_card_id,
     now_iso,
 )
@@ -83,6 +84,7 @@ __all__ = [
     "build_keyword_card_from_hybrid_row",
     "build_keyword_card_from_material_item",
     "build_keyword_card_from_source_row",
+    "build_keyword_card_from_typed_knowledge_handoff",
     "build_writing_conflict_details",
     "make_card_id",
     "now_iso",

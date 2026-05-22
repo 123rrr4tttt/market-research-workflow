@@ -24,8 +24,10 @@ from ..document_views import (
     build_keyword_card_from_hybrid_row,
     build_keyword_card_from_material_item,
     build_keyword_card_from_source_row,
+    build_keyword_card_from_typed_knowledge_handoff,
 )
 from ..search.hybrid import get_last_used_backends
+from ..typed_knowledge.contracts import parse_writing_knowledge_context_envelope
 
 _CARD_CACHE: dict[str, dict[str, Any]] = {}
 _SELECTION_CACHE: dict[str, KeywordCardListResponse] = {}
@@ -101,6 +103,22 @@ def _extract_graph_context(payload: KeywordCardRequest) -> dict[str, Any]:
     return payload.graph_context if isinstance(payload.graph_context, dict) else {}
 
 
+def _extract_typed_knowledge_context(payload: KeywordCardRequest) -> dict[str, Any]:
+    context = getattr(payload, "context", None)
+    if isinstance(context, dict):
+        nested = context.get("typed_knowledge_context")
+    elif context is not None:
+        nested = getattr(context, "typed_knowledge_context", None)
+    else:
+        nested = None
+    if nested is None:
+        return {}
+    if hasattr(nested, "model_dump"):
+        dumped = nested.model_dump()
+        return dumped if isinstance(dumped, dict) else {}
+    return nested if isinstance(nested, dict) else {}
+
+
 def _cards_from_graph_context(payload: KeywordCardRequest, limit: int) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
     graph_context = _extract_graph_context(payload)
     selected_nodes = graph_context.get("selected_nodes") if isinstance(graph_context.get("selected_nodes"), list) else []
@@ -122,6 +140,23 @@ def _cards_from_graph_context(payload: KeywordCardRequest, limit: int) -> list[t
     return cards
 
 
+def _cards_from_typed_knowledge_context(
+    payload: KeywordCardRequest,
+    limit: int,
+) -> list[tuple[KeywordCardItem, dict[str, Any]]]:
+    typed_context = _extract_typed_knowledge_context(payload)
+    if not typed_context:
+        return []
+    normalized_query = normalize_and_rewrite_query(payload.query)
+    cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
+    for handoff in parse_writing_knowledge_context_envelope(typed_context):
+        card = build_keyword_card_from_typed_knowledge_handoff(handoff, normalized_query=normalized_query)
+        cards.append((card, {"typed_knowledge_context": typed_context}))
+        if len(cards) >= limit:
+            break
+    return cards
+
+
 def dedupe_and_score(
     cards: list[tuple[KeywordCardItem, dict[str, Any]]],
     query: str,
@@ -129,11 +164,13 @@ def dedupe_and_score(
     *,
     graph_context_attached: bool = False,
     accepted_citation_count: int = 0,
+    typed_knowledge_context_count: int = 0,
 ) -> KeywordCardListResponse:
     normalized_query = normalize_and_rewrite_query(query)
     selection_hash = _selection_hash(project_key, query)
-    if selection_hash in _SELECTION_CACHE:
-        cached = _SELECTION_CACHE[selection_hash]
+    cache_key = f"{selection_hash}:{int(graph_context_attached)}:{int(accepted_citation_count)}:{typed_knowledge_context_count}"
+    if cache_key in _SELECTION_CACHE:
+        cached = _SELECTION_CACHE[cache_key]
         cached.cache_hit = True
         return cached
 
@@ -169,14 +206,23 @@ def dedupe_and_score(
             "graph_context_attached": graph_context_attached,
             "graph_context_optional": True,
             "graph_boundary_rule": "consume_graph_context_adapter_only",
+            "typed_knowledge_context_attached": typed_knowledge_context_count > 0,
+            "typed_knowledge_context_count": max(0, int(typed_knowledge_context_count or 0)),
+            "typed_knowledge_boundary_rule": "consume_typed_knowledge_handoff_as_resource_card_only",
         },
         dependency_gate={
             "contract_version": "writing.cross_theme_gate.e8.v1",
             "passed": True,
-            "topology": ["writing<->graph", "writing<->llm", "writing<->frontend"],
+            "topology": ["writing<->graph", "writing<->typed_knowledge", "writing<->llm", "writing<->frontend"],
             "graph": {
                 "mode": "optional_consume_only",
                 "attached": graph_context_attached,
+            },
+            "typed_knowledge": {
+                "mode": "optional_consume_only",
+                "attached": typed_knowledge_context_count > 0,
+                "consumer": "writing.keyword_card",
+                "card_source_type": "resource",
             },
             "llm": {
                 "mode": "consume_only",
@@ -190,7 +236,7 @@ def dedupe_and_score(
         cache_hit=False,
         cache_ttl_ms=_CACHE_TTL_MS,
     )
-    _SELECTION_CACHE[selection_hash] = response
+    _SELECTION_CACHE[cache_key] = response
     return response
 
 
@@ -207,6 +253,10 @@ def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
             accepted_citation_count = len(citation_items)
     if graph_context_attached and (not requested_sources or "graph" in requested_sources):
         cards.extend(_cards_from_graph_context(payload, payload.limit))
+    typed_knowledge_cards: list[tuple[KeywordCardItem, dict[str, Any]]] = []
+    if not requested_sources or "resource" in requested_sources:
+        typed_knowledge_cards = _cards_from_typed_knowledge_context(payload, payload.limit)
+        cards.extend(typed_knowledge_cards)
     if not requested_sources or "document" in requested_sources:
         cards.extend(_cards_from_hybrid(query, payload.limit))
     if not requested_sources or bool({"resource", "graph"} & requested_sources):
@@ -221,6 +271,7 @@ def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
         payload.project_key,
         graph_context_attached=graph_context_attached,
         accepted_citation_count=accepted_citation_count,
+        typed_knowledge_context_count=len(typed_knowledge_cards),
     )
 
 

@@ -119,6 +119,17 @@ WRITING_KNOWLEDGE_HANDOFF_FIELDS: Final[tuple[str, ...]] = (
     "selection_text",
     "facets",
 )
+WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION: Final[str] = "writing.typed_knowledge_context.v1"
+WRITING_KNOWLEDGE_HANDOFF_CONSUMER_BOUNDARY: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "source_domain": "typed_knowledge",
+        "consumer_domain": "writing",
+        "consumer": "writing.keyword_card",
+        "card_source_type": "resource",
+        "boundary_rule": "consume_typed_knowledge_handoff_as_resource_card_only",
+        "non_goal": "graph_projection_or_persistence_writeback",
+    }
+)
 
 ACTOR_AUTOMATION = "automation"
 ACTOR_HUMAN = "human"
@@ -488,6 +499,7 @@ def build_writing_knowledge_handoff(
             "locale": contract.locale,
             "review_state": contract.review_state,
             "source_contract_fields": DOWNSTREAM_CONTRACT_FIELDS,
+            "consumer_boundary": WRITING_KNOWLEDGE_HANDOFF_CONSUMER_BOUNDARY,
         }
     )
     handoff = WritingKnowledgeHandoff(
@@ -529,6 +541,105 @@ def validate_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> None
     _validate_quality_grade(handoff.quality_grade)
     _validate_locale(handoff.locale, {})
     _validate_review_state(handoff.review_state, object_name="writing_handoff")
+
+
+def serialize_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> dict[str, Any]:
+    validate_writing_knowledge_handoff(handoff)
+    return {field: _json_safe(getattr(handoff, field)) for field in WRITING_KNOWLEDGE_HANDOFF_FIELDS}
+
+
+def parse_writing_knowledge_handoff_payload(payload: Mapping[str, Any]) -> WritingKnowledgeHandoff:
+    if not isinstance(payload, Mapping):
+        raise TypedKnowledgeContractError("writing_handoff_payload_not_mapping")
+    handoff = WritingKnowledgeHandoff(
+        contract_version=str(payload.get("contract_version") or ""),
+        knowledge_item_key=str(payload.get("knowledge_item_key") or ""),
+        project_key=str(payload.get("project_key") or ""),
+        canonical_statement=str(payload.get("canonical_statement") or ""),
+        primary_type_node_key=str(payload.get("primary_type_node_key") or ""),
+        topic_cluster_keys=_tuple_of_nonblank_strings(payload.get("topic_cluster_keys"), "topic_cluster_keys"),
+        booklet_keys=_tuple_of_nonblank_strings(payload.get("booklet_keys"), "booklet_keys"),
+        review_state=str(payload.get("review_state") or ""),
+        quality_grade=_optional_string(payload.get("quality_grade")),
+        locale=_optional_string(payload.get("locale")),
+        evidence_refs=_tuple_of_nonblank_strings(payload.get("evidence_refs"), "evidence_refs"),
+        visibility_scope=str(payload.get("visibility_scope") or ""),
+        selection_hash=_optional_string(payload.get("selection_hash")),
+        selection_text=_optional_string(payload.get("selection_text")),
+        facets=dict(payload.get("facets") or {}) if isinstance(payload.get("facets") or {}, Mapping) else {},
+    )
+    validate_writing_knowledge_handoff(handoff)
+    return handoff
+
+
+def build_writing_knowledge_context_envelope(handoffs: tuple[WritingKnowledgeHandoff, ...]) -> dict[str, Any]:
+    if not handoffs:
+        raise TypedKnowledgeContractError("writing_context_envelope_missing_handoffs")
+    envelope = {
+        "contract_version": WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION,
+        "source": "typed_knowledge",
+        "consumer": "writing.keyword_card",
+        "handoffs": [serialize_writing_knowledge_handoff(handoff) for handoff in handoffs],
+        "boundary": _json_safe(WRITING_KNOWLEDGE_HANDOFF_CONSUMER_BOUNDARY),
+    }
+    validate_writing_knowledge_context_envelope(envelope)
+    return envelope
+
+
+def validate_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> None:
+    _parse_writing_knowledge_context_envelope(envelope)
+
+
+def parse_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> tuple[WritingKnowledgeHandoff, ...]:
+    return _parse_writing_knowledge_context_envelope(envelope)
+
+
+def _parse_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> tuple[WritingKnowledgeHandoff, ...]:
+    if not isinstance(envelope, Mapping):
+        raise TypedKnowledgeContractError("writing_context_envelope_not_mapping")
+    if envelope.get("contract_version") != WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION:
+        raise TypedKnowledgeContractError("writing_context_envelope_version_mismatch")
+    if envelope.get("source") != "typed_knowledge":
+        raise TypedKnowledgeContractError("writing_context_envelope_source_mismatch")
+    if envelope.get("consumer") != "writing.keyword_card":
+        raise TypedKnowledgeContractError("writing_context_envelope_consumer_mismatch")
+    boundary = envelope.get("boundary")
+    if not isinstance(boundary, Mapping):
+        raise TypedKnowledgeContractError("writing_context_envelope_missing_boundary")
+    if boundary.get("card_source_type") != "resource":
+        raise TypedKnowledgeContractError("writing_context_envelope_card_source_type_mismatch")
+    raw_handoffs = envelope.get("handoffs")
+    if not isinstance(raw_handoffs, list) or not raw_handoffs:
+        raise TypedKnowledgeContractError("writing_context_envelope_missing_handoffs")
+    return tuple(parse_writing_knowledge_handoff_payload(item) for item in raw_handoffs)
+
+
+def _optional_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
+def _tuple_of_nonblank_strings(value: Any, field_name: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str) or not isinstance(value, (list, tuple)):
+        raise TypedKnowledgeContractError(f"writing_handoff_invalid_{field_name}")
+    normalized: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise TypedKnowledgeContractError(f"writing_handoff_invalid_{field_name}")
+        normalized.append(item.strip())
+    return tuple(normalized)
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_json_safe(item) for item in value]
+    return value
 
 
 def apply_review_state_transition(*, current_state: str, target_state: str, actor: str) -> str:
