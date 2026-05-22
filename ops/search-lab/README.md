@@ -26,6 +26,19 @@ YACY_RESOURCE_MODE=global python3 ops/search-lab/scripts/compare_keyword_search.
 docker compose -f ops/search-lab/docker-compose.yml down
 ```
 
+For backend explicit provider trace replay against the running containers:
+
+```bash
+OUT_DIR=development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22
+PYTHON_BIN="${PYTHON_BIN:-main/backend/.venv311/bin/python}"
+docker compose -f ops/search-lab/docker-compose.yml up -d searxng yacy
+SEARCH_LAB_OUT_DIR="$OUT_DIR" bash ops/search-lab/scripts/smoke_searxng.sh
+SEARCH_LAB_OUT_DIR="$OUT_DIR" YACY_ADMIN_USER=admin YACY_ADMIN_PASSWORD="${YACY_ADMIN_PASSWORD:-mrwlabpass}" bash ops/search-lab/scripts/smoke_yacy.sh
+SEARXNG_BASE_URL=http://127.0.0.1:8088 YACY_BASE_URL=http://127.0.0.1:8090 YACY_RESOURCE_MODE=local "$PYTHON_BIN" ops/search-lab/scripts/replay_provider_trace.py --out-dir "$OUT_DIR"
+```
+
+`replay_provider_trace.py` calls the backend `search_sources(provider="searxng"|"yacy")` adapters against the real local endpoints and records `provider_route`, `provider_family`, `provider_auto_included`, and `backend_trace` in `provider_trace_replay.jsonl`.
+
 For a fresh YaCy data directory, set a lab-only admin password before running authenticated push smoke:
 
 ```bash

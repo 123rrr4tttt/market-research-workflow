@@ -1,0 +1,78 @@
+{
+  "provider": "yacy",
+  "base_url": "http://127.0.0.1:8090",
+  "global_query": "embodied ai",
+  "local_query": "marketworkflow sentinel",
+  "root_status": 200,
+  "global_status": 200,
+  "push_status": 200,
+  "local_status": 200,
+  "ok": true,
+  "global_result_count": 10,
+  "local_result_count": 1,
+  "local_push_record": {
+    "count": "1",
+    "successall": "true",
+    "item-0": {
+      "item": "0",
+      "url": "http://nowhere.cc/mrw-search-lab-local-test.txt",
+      "success": "true",
+      "message": "http://127.0.0.1:8090/solr/select?q=sku:%22http://nowhere.cc/mrw-search-lab-local-test.txt%22"
+    },
+    "countsuccess": 1,
+    "countfail": 0
+  },
+  "local_push_success": true,
+  "local_hit": true,
+  "latency_ms": 3208.45,
+  "error_type": null,
+  "error": null,
+  "global_results": [
+    {
+      "title": "Artificial Intelligence",
+      "link": "https://www.wpk.de/english/profession/ai/"
+    },
+    {
+      "title": "Carbon dioxide emissions embodied in international trade - OECD",
+      "link": "https://www.oecd.org/greengrowth/carbondioxideemissionsembodiedininternationaltrade.htm"
+    },
+    {
+      "title": "525: Some Sort of Metal",
+      "link": "https://embedded.fm/episodes/525"
+    },
+    {
+      "title": "How to See the Past Seeing the Past",
+      "link": "http://sonjadrimmer.com/blog-1/2025/12/6/how-to-see-the-past-seeing-the-past"
+    },
+    {
+      "title": "Home | Computer Science",
+      "link": "https://cse.ucsd.edu/"
+    },
+    {
+      "title": "Hard Drives Have Less Environmental Impact Than SSDs, Seagate Says - Slashdot",
+      "link": "https://hardware.slashdot.org/story/25/04/18/127212/hard-drives-have-less-environmental-impact-than-ssds-seagate-says?utm_source=rss1.0mainlinkanon&amp;utm_medium=feed"
+    },
+    {
+      "title": "AI-China field signal synthesis: Unitree is moving from robot hardware into an embodied data loop",
+      "link": "https://cronfeed.work/ai-china-field-signal-synthesis-unitree-unifolm-vla-humanoid-data-loop-2026q2/"
+    },
+    {
+      "title": "atom.xml",
+      "link": "https://www.michaelnygard.com/atom.xml"
+    },
+    {
+      "title": "GitHub - zli12321/VLM-surveys: A most Frontend Collection and survey of vision-language model papers, and models GitHub repository",
+      "link": "https://github.com/zli12321/VLM-surveys"
+    },
+    {
+      "title": "Sustainability AI - Google AI",
+      "link": "https://ai.google/applied-ai/sustainability/"
+    }
+  ],
+  "local_results": [
+    {
+      "title": "mrw-search-lab-local-test.txt",
+      "link": "http://nowhere.cc/mrw-search-lab-local-test.txt"
+    }
+  ]
+}
