@@ -96,6 +96,16 @@ def _parse_iso_date_or_error(value: Optional[str], *, field: str) -> tuple[date 
         )
 
 
+def _rollback_quietly(session, *, context: str) -> None:
+    rollback = getattr(session, "rollback", None)
+    if not callable(rollback):
+        return
+    try:
+        rollback()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("%s rollback_failed err=%s", context, exc)
+
+
 def _finalize_graph_response(
     graph,
     *,
@@ -177,6 +187,7 @@ def _finalize_graph_response(
                 summary.skipped,
             )
         except Exception as exc:  # noqa: BLE001
+            _rollback_quietly(session, context="graph_b_write")
             logger.warning("graph_b_write_failed project=%s kind=%s mode=%s err=%s", project_key, graph_kind, write_mode, exc)
 
     if use_b_read and session is not None:
@@ -195,6 +206,7 @@ def _finalize_graph_response(
                 )
                 graph = b_graph
         except Exception as exc:  # noqa: BLE001
+            _rollback_quietly(session, context="graph_b_read")
             logger.warning("graph_b_read_fallback_to_a project=%s kind=%s err=%s", project_key, graph_kind, exc)
 
     try:

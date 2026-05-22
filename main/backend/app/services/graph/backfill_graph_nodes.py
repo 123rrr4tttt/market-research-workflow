@@ -20,6 +20,15 @@ class BackfillResult:
     next_resume_token: Optional[int] = None
 
 
+def _rollback_quietly(session: Session) -> None:
+    rollback = getattr(session, "rollback", None)
+    if callable(rollback):
+        try:
+            rollback()
+        except Exception:
+            pass
+
+
 def run_graph_node_backfill(
     session: Session,
     *,
@@ -55,7 +64,11 @@ def run_graph_node_backfill(
         return result
 
     writer = GraphNodeWriter(session)
-    summary = writer.persist_graph_nodes(graph)
-    result.written_nodes = summary.inserted_or_updated
-    session.commit()
+    try:
+        summary = writer.persist_graph_nodes(graph)
+        result.written_nodes = summary.inserted_or_updated
+        session.commit()
+    except Exception:
+        _rollback_quietly(session)
+        raise
     return result
