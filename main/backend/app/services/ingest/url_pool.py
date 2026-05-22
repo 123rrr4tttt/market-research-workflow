@@ -805,13 +805,14 @@ def _run_source_library_frontdoor_ingress(
     quality_gates = data.get("quality_gates") if isinstance(data.get("quality_gates"), dict) else {}
     gate_config = quality_gates.get("gate_config") if isinstance(quality_gates.get("gate_config"), dict) else {}
     guardrail_rollout = gate_config.get("guardrail_rollout") if isinstance(gate_config.get("guardrail_rollout"), dict) else {}
+    canary_handoff = data.get("canary_handoff") if isinstance(data.get("canary_handoff"), dict) else {}
     admission = str(data.get("admission") or "").strip().lower()
     inserted = int(writer_result.get("inserted") or 0)
     skipped = int(writer_result.get("skipped") or (0 if inserted > 0 else 1))
     rejected_count = 0 if admission in {"", "accept"} else 1
     reason_code = str(meta.get("reason_code") or "").strip().lower()
     degradation_flags = [reason_code] if reason_code and reason_code != "ok" else []
-    return {
+    result = {
         "status": "success" if inserted > 0 else ("failed" if admission == "reject" else "degraded_success"),
         "inserted": inserted,
         "inserted_valid": inserted,
@@ -831,6 +832,9 @@ def _run_source_library_frontdoor_ingress(
         "single_write_workflow": "source_library_frontdoor",
         "source_library_collect_only": True,
     }
+    if canary_handoff:
+        result["canary_handoff"] = dict(canary_handoff)
+    return result
 
 
 def ingest_url_via_source_library_frontdoor(
