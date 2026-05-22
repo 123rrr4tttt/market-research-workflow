@@ -1,6 +1,7 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { EChartsType } from 'echarts/core'
+import { GitBranchPlus, LoaderCircle } from 'lucide-react'
 import * as THREE from 'three'
 import * as graphApi from '../lib/api'
 import {
@@ -39,6 +40,14 @@ import { useGraphSelectionState } from './graph/hooks/useGraphSelectionState'
 import { useGraphModeSwitch, type ProjectionEngine } from './graph/hooks/useGraphModeSwitch'
 import { useGraphDraft } from './graph/hooks/useGraphDraft'
 import type { RenderNode } from './graph/renderers/types'
+import { ClueChainInspector } from './graph/ClueChainInspector'
+import {
+  createClueChain,
+  decideClueChainCandidate,
+  expandClueChain,
+  type ClueChainDetail,
+  type ClueChainSeedNode,
+} from './graph/clueChainClient'
 
 type Variant = 'graphMarket' | 'graphPolicy' | 'graphSocial' | 'graphCompany' | 'graphProduct' | 'graphOperation' | 'graphDeep'
 
@@ -870,7 +879,7 @@ function readOptionalString(row: Record<string, unknown>, keys: string[]) {
 function buildCuratedWorkflowGraphDsl(nodes: GraphNodeItem[], edges: GraphEdgeItem[]): WorkflowGraphCuratedDsl {
   const nodeById = new Map<string, { node_id: string; node_type: string }>()
   const normalizedNodes = nodes
-    .map((node) => {
+    .map<WorkflowGraphCuratedDsl['nodes'][number] | null>((node) => {
       const row = node as Record<string, unknown>
       const node_id = curatedNodeId(node)
       if (!node_id) return null
@@ -895,7 +904,7 @@ function buildCuratedWorkflowGraphDsl(nodes: GraphNodeItem[], edges: GraphEdgeIt
         provenance,
       }
     })
-    .filter((node): node is WorkflowGraphCuratedDsl['nodes'][number] => Boolean(node))
+    .filter((node): node is WorkflowGraphCuratedDsl['nodes'][number] => node !== null)
 
   const edgeByKey = new Map<string, WorkflowGraphCuratedDsl['edges'][number]>()
   edges.forEach((edge) => {
@@ -1229,6 +1238,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     collect: null,
     source_collect: null,
   })
+  const [clueChainOpen, setClueChainOpen] = useState(false)
+  const [clueChainBusy, setClueChainBusy] = useState(false)
+  const [clueChainStatus, setClueChainStatus] = useState('')
+  const [activeClueChain, setActiveClueChain] = useState<ClueChainDetail | null>(null)
+  const [selectedClueEvidenceId, setSelectedClueEvidenceId] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState({
     language: 'en',
     provider: 'auto',
@@ -2218,6 +2232,118 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       edges: selectedEdges,
     }
   }, [selectedNodeKeys, connectedNodeMap, visibleEdges, topology.edgeResolvedKeyMap, projectKey, graphKind, dashboardParams, dashboard.llmAssist])
+
+  const clueChainSeedNodes = useMemo<ClueChainSeedNode[]>(() => {
+    const selectedSeeds = selectedExportPayload.selected_nodes.map((node) => ({
+      node_id: String(node.id || node.entry_id || '').trim(),
+      node_type: String(node.type || '').trim() || 'Entity',
+      entry_id: String(node.entry_id || node.id || '').trim(),
+      label: String(node.label || node.id || '').trim() || '未命名节点',
+    })).filter((node) => node.node_id)
+    if (selectedSeeds.length) return selectedSeeds
+    return topology.visibleNodes.slice(0, 3).map((node) => ({
+      node_id: String(node.id || '').trim(),
+      node_type: String(node.type || '').trim() || 'Entity',
+      entry_id: String(node.entry_id || node.id || '').trim(),
+      label: nodeName(node),
+    })).filter((node) => node.node_id)
+  }, [selectedExportPayload.selected_nodes, topology.visibleNodes])
+
+  const handleCreateClueChain = useCallback(async () => {
+    if (!clueChainSeedNodes.length) {
+      window.alert('当前图谱没有可用于创建 Chain 的节点')
+      return
+    }
+    setClueChainBusy(true)
+    setClueChainStatus('正在创建 Chain...')
+    try {
+      const chain = await createClueChain({
+        project_key: projectKey,
+        graph_type: graphKind,
+        title: `${TYPE_LABEL[variant]} · ${clueChainSeedNodes[0]?.label || 'Clue Chain'}`,
+        seed_nodes: clueChainSeedNodes,
+        selected_edges: selectedExportPayload.selected_edges,
+        graph_context: {
+          variant,
+          selected_count: selectedExportPayload.selected_count,
+          edge_count: selectedExportPayload.edge_count,
+          visible_nodes: topology.visibleNodes.length,
+          visible_edges: topology.visibleEdges.length,
+        },
+      })
+      setActiveClueChain(chain)
+      setSelectedClueEvidenceId(chain.evidence?.[0]?.evidence_id || null)
+      setClueChainOpen(true)
+      setClueChainStatus(`已创建 ${chain.chain_id}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '创建失败'
+      setClueChainStatus(`创建失败: ${message}`)
+      window.alert(`Clue Chain 创建失败: ${message}`)
+    } finally {
+      setClueChainBusy(false)
+    }
+  }, [
+    clueChainSeedNodes,
+    graphKind,
+    projectKey,
+    selectedExportPayload.edge_count,
+    selectedExportPayload.selected_count,
+    selectedExportPayload.selected_edges,
+    topology.visibleEdges.length,
+    topology.visibleNodes.length,
+    variant,
+  ])
+
+  const handleRunClueChainExpand = useCallback(async (mode: 'source_library' | 'external_search') => {
+    if (!activeClueChain) return
+    setClueChainBusy(true)
+    setClueChainStatus(`正在运行 ${mode === 'source_library' ? 'Source Library' : 'External Search'} hop...`)
+    try {
+      const frontierNodeIds = (activeClueChain.frontier || [])
+        .map((item) => String(item.node_id || '').trim())
+        .filter(Boolean)
+      const chain = await expandClueChain(activeClueChain.chain_id, {
+        mode,
+        project_key: projectKey,
+        graph_type: graphKind,
+        frontier_node_ids: frontierNodeIds.length ? frontierNodeIds : clueChainSeedNodes.map((node) => node.node_id),
+      })
+      setActiveClueChain(chain)
+      setSelectedClueEvidenceId((current) => current || chain.evidence?.[0]?.evidence_id || null)
+      setClueChainOpen(true)
+      setClueChainStatus(`${mode === 'source_library' ? 'Source Library' : 'External Search'} hop 完成`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '展开失败'
+      setClueChainStatus(`展开失败: ${message}`)
+      window.alert(`Clue Chain 展开失败: ${message}`)
+    } finally {
+      setClueChainBusy(false)
+    }
+  }, [activeClueChain, clueChainSeedNodes, graphKind, projectKey])
+
+  const handleReviewClueChainCandidate = useCallback(async (candidateId: string, decision: 'promote' | 'reject') => {
+    if (!activeClueChain) return
+    setClueChainBusy(true)
+    setClueChainStatus(decision === 'promote' ? '正在记录 Promote decision...' : '正在记录 Reject decision...')
+    try {
+      const chain = await decideClueChainCandidate(activeClueChain.chain_id, candidateId, {
+        decision,
+        actor_id: 'graphpage.clue-chain-ui',
+        reason: decision === 'promote'
+          ? 'reviewed_from_graphpage_candidate_queue'
+          : 'rejected_from_graphpage_candidate_queue',
+      })
+      setActiveClueChain(chain)
+      setClueChainOpen(true)
+      setClueChainStatus(decision === 'promote' ? '已记录 Promote decision' : '已记录 Reject decision')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '审核失败'
+      setClueChainStatus(`审核失败: ${message}`)
+      window.alert(`Clue Chain 候选审核失败: ${message}`)
+    } finally {
+      setClueChainBusy(false)
+    }
+  }, [activeClueChain])
 
   const copyStructuredPayload = async () => {
     const text = JSON.stringify(selectedExportPayload, null, 2)
@@ -4545,6 +4671,17 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               >
                 结构化任务（{selectedNodeKeys.size}）
               </button>
+              <button
+                type="button"
+                className="gv2-select-mode-btn"
+                data-testid="graph-create-clue-chain"
+                onClick={() => void handleCreateClueChain()}
+                disabled={clueChainBusy || !clueChainSeedNodes.length}
+                title="从当前选中节点创建 Clue Chain；未选中时使用当前图谱上下文"
+              >
+                {clueChainBusy ? <LoaderCircle size={14} className="spinning" /> : <GitBranchPlus size={14} />}
+                Chain（{selectedNodeKeys.size || clueChainSeedNodes.length}）
+              </button>
               <button onClick={async () => { await graphData.refetch() }} disabled={graphData.isFetching}>刷新</button>
               <button
                 onClick={async () => {
@@ -5494,6 +5631,19 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 </div>
               </div>
             ) : null}
+
+          {clueChainOpen && activeClueChain ? (
+            <ClueChainInspector
+              chain={activeClueChain}
+              busy={clueChainBusy}
+              status={clueChainStatus}
+              selectedEvidenceId={selectedClueEvidenceId}
+              onClose={() => setClueChainOpen(false)}
+              onRunExpand={(mode) => void handleRunClueChainExpand(mode)}
+              onReviewCandidate={(candidateId, decision) => void handleReviewClueChainCandidate(candidateId, decision)}
+              onOpenEvidence={setSelectedClueEvidenceId}
+            />
+          ) : null}
 
           {selectedNode ? (
             <article

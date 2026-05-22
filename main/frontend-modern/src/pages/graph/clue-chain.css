@@ -1,0 +1,310 @@
+.clue-chain-panel {
+  position: absolute;
+  z-index: 9;
+  right: 14px;
+  bottom: 14px;
+  width: min(460px, calc(100% - 28px));
+  max-height: min(72vh, 720px);
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(76, 111, 156, 0.8);
+  background: linear-gradient(180deg, rgba(6, 13, 24, 0.94), rgba(3, 8, 16, 0.9));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(9px);
+}
+
+.clue-chain-head,
+.clue-chain-row-head,
+.clue-chain-section-title,
+.clue-chain-actions,
+.clue-chain-candidate-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clue-chain-head {
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(63, 91, 128, 0.78);
+  padding-bottom: 8px;
+}
+
+.clue-chain-head > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.clue-chain-head span,
+.clue-chain-section-title,
+.clue-chain-meta,
+.clue-chain-muted,
+.clue-chain-empty {
+  color: var(--gv2-text-soft);
+  font-size: 11px;
+}
+
+.clue-chain-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--gv2-accent-soft);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clue-chain-head small {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(148, 172, 200, 0.75);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clue-chain-close,
+.clue-chain-icon-btn {
+  min-width: 0;
+  border: 1px solid rgba(60, 88, 124, 0.86);
+  background: rgba(7, 14, 26, 0.84);
+  color: var(--gv2-text-soft);
+}
+
+.clue-chain-close {
+  width: 28px;
+  height: 28px;
+  justify-content: center;
+  padding: 0;
+}
+
+.clue-chain-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.clue-chain-summary div,
+.clue-chain-section,
+.clue-chain-hop,
+.clue-chain-candidate,
+.clue-chain-evidence-drawer,
+.clue-chain-blocker,
+.clue-chain-frontier-item {
+  border: 1px solid rgba(46, 68, 98, 0.84);
+  background: rgba(5, 11, 20, 0.72);
+}
+
+.clue-chain-summary div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+}
+
+.clue-chain-summary span {
+  color: var(--gv2-text-soft);
+  font-size: 10px;
+}
+
+.clue-chain-summary strong {
+  color: var(--gv2-text);
+  font-size: 16px;
+}
+
+.clue-chain-actions {
+  flex-wrap: wrap;
+}
+
+.clue-chain-actions button,
+.clue-chain-candidate-actions button {
+  min-width: 0;
+  justify-content: center;
+  border-color: rgba(88, 130, 185, 0.54);
+  background: rgba(13, 28, 47, 0.84);
+  color: #dbeafe;
+  font-size: 12px;
+}
+
+.clue-chain-actions button {
+  flex: 1 1 150px;
+}
+
+.clue-chain-candidate-actions button {
+  flex: 1 1 110px;
+}
+
+.clue-chain-candidate-actions button.is-danger {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(64, 12, 18, 0.66);
+  color: #fecaca;
+}
+
+.clue-chain-status {
+  min-height: 24px;
+  border: 1px solid rgba(42, 70, 103, 0.8);
+  background: rgba(3, 9, 18, 0.78);
+  color: var(--gv2-accent-soft);
+  font-size: 11px;
+  padding: 5px 7px;
+}
+
+.clue-chain-section {
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+}
+
+.clue-chain-section-title {
+  justify-content: space-between;
+}
+
+.clue-chain-section-title strong {
+  flex: 1;
+  color: #dbeafe;
+  font-size: 12px;
+}
+
+.clue-chain-frontier,
+.clue-chain-hop-list,
+.clue-chain-candidates,
+.clue-chain-blockers {
+  display: grid;
+  gap: 6px;
+}
+
+.clue-chain-frontier-item,
+.clue-chain-hop,
+.clue-chain-candidate,
+.clue-chain-blocker,
+.clue-chain-evidence-drawer {
+  min-width: 0;
+  padding: 7px;
+}
+
+.clue-chain-frontier-item {
+  display: grid;
+  gap: 3px;
+}
+
+.clue-chain-frontier-item strong,
+.clue-chain-row-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--gv2-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clue-chain-frontier-item span,
+.clue-chain-hop p,
+.clue-chain-candidate p,
+.clue-chain-evidence-drawer p,
+.clue-chain-evidence-drawer a {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--gv2-text-soft);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.clue-chain-row-head {
+  justify-content: space-between;
+}
+
+.clue-chain-row-head span {
+  flex: 0 0 auto;
+  border: 1px solid rgba(83, 121, 166, 0.66);
+  background: rgba(19, 38, 64, 0.68);
+  color: var(--gv2-accent-soft);
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.clue-chain-hop,
+.clue-chain-candidate,
+.clue-chain-evidence-drawer {
+  display: grid;
+  gap: 6px;
+}
+
+.clue-chain-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.clue-chain-meta span {
+  border: 1px solid rgba(60, 88, 124, 0.7);
+  background: rgba(9, 18, 31, 0.76);
+  padding: 2px 6px;
+}
+
+.clue-chain-evidence-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.clue-chain-icon-btn {
+  max-width: 100%;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.clue-chain-icon-btn span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clue-chain-blocker {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+  color: #fde68a;
+}
+
+.clue-chain-blocker div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.clue-chain-blocker strong {
+  font-size: 11px;
+}
+
+.clue-chain-blocker span,
+.clue-chain-blocker small {
+  overflow-wrap: anywhere;
+  color: var(--gv2-text-soft);
+  font-size: 11px;
+}
+
+.clue-chain-evidence-drawer {
+  border-color: rgba(125, 211, 252, 0.45);
+  background: rgba(5, 18, 30, 0.86);
+}
+
+.clue-chain-evidence-drawer a {
+  color: #93c5fd;
+  text-decoration: none;
+}
+
+@media (max-width: 980px) {
+  .clue-chain-panel {
+    right: 10px;
+    bottom: 10px;
+    width: calc(100% - 20px);
+    max-height: 48vh;
+  }
+
+  .clue-chain-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
