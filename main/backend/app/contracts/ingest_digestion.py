@@ -423,3 +423,43 @@ class LongCycleSchedulerReadinessCheck(BaseModel):
             seen.add(normalized)
             out.append(normalized)
         return out
+
+
+class LongCycleRepositoryReadbackCheck(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_repository_readback_check.v1", max_length=96)
+    status: str = Field(..., max_length=32)
+    blockers: list[str] = Field(default_factory=list)
+    closed_slice: list[str] = Field(default_factory=list)
+    remaining_runtime_gaps: list[str] = Field(default_factory=list)
+    repository_ref: str = Field(..., min_length=1, max_length=256)
+    logical_table: str = Field(..., min_length=1, max_length=128)
+    storage_kind: str = Field(default="jsonl", min_length=1, max_length=64)
+    durable_readback: bool
+    live_db_write: bool = False
+    readback_record: LongCyclePersistentTaskRecord | None = None
+    readback_event_sequence: list[str] = Field(default_factory=list)
+    readback_events: list[LongCycleTaskLifecycleEvent] = Field(default_factory=list)
+    scheduler_readiness: LongCycleSchedulerReadinessCheck
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("status", "repository_ref", "logical_table", "storage_kind")
+    @classmethod
+    def _normalize_text(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("value must not be empty")
+        return normalized
+
+    @field_validator("blockers", "closed_slice", "remaining_runtime_gaps", "readback_event_sequence")
+    @classmethod
+    def _normalize_string_list(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+        return out
