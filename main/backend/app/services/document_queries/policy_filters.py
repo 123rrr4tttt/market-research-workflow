@@ -5,6 +5,15 @@ from sqlalchemy import Date, String, and_, case, cast, func, or_
 from ...models.entities import Document
 
 
+def _json_iso_date_expr(key: str):
+    raw = cast(Document.extracted_data[key], String)
+    text = func.replace(raw, '"', "")
+    return case(
+        (text.op("~")(r"^\d{4}-\d{2}-\d{2}"), cast(func.substr(text, 1, 10), Date)),
+        else_=None,
+    )
+
+
 def policy_effective_date_expr():
     effective_raw = cast(Document.extracted_data["policy"]["effective_date"], String)
     effective_text = func.replace(effective_raw, '"', "")
@@ -15,7 +24,13 @@ def policy_effective_date_expr():
 
 
 def policy_time_expr():
-    return func.coalesce(policy_effective_date_expr(), Document.publish_date, func.date(Document.created_at))
+    return func.coalesce(
+        _json_iso_date_expr("effective_time"),
+        _json_iso_date_expr("source_time"),
+        policy_effective_date_expr(),
+        Document.publish_date,
+        func.date(Document.created_at),
+    )
 
 
 def policy_has_data_condition():

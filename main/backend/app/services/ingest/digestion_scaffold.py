@@ -26,6 +26,7 @@ from app.contracts.ingest_digestion import (
 
 DEFAULT_DOWNSTREAM_TARGETS = ("resource_pool", "report_generation", "writing")
 DEFAULT_CANDIDATE_WINDOWS = ("7d", "30d", "90d")
+SOURCE_TIME_FUTURE_TOLERANCE = timedelta(days=1)
 _WINDOW_RE = re.compile(r"^\d+d$")
 
 
@@ -292,13 +293,21 @@ def build_time_semantics(
     normalized_processed = _parse_datetime(processed_time) or _utcnow()
     normalized_source = _parse_datetime(source_time)
     normalized_window = str(task_window or "").strip().lower() or None
+    if normalized_source and normalized_source <= normalized_processed + SOURCE_TIME_FUTURE_TOLERANCE:
+        effective_time = normalized_source
+        time_confidence = 0.95
+        time_provenance = "source_time"
+    else:
+        effective_time = normalized_processed
+        time_confidence = 0.5 if normalized_source is None else 0.2
+        time_provenance = "processed_time_fallback" if normalized_source is None else "source_time_future_rejected"
 
     start = task_window_start
     end = task_window_end
     if (start is None) != (end is None):
         raise ValueError("task_window_start and task_window_end must be provided together")
     if start is None and end is None and normalized_window:
-        derived = _derive_window_bounds(normalized_window, anchor_day=normalized_processed.date())
+        derived = _derive_window_bounds(normalized_window, anchor_day=effective_time.date())
         if derived:
             start, end = derived
     if start and end and start > end:
@@ -307,6 +316,10 @@ def build_time_semantics(
     return IngestTimeSemantics(
         source_time=normalized_source,
         processed_time=normalized_processed,
+        effective_time=effective_time,
+        time_confidence=time_confidence,
+        time_provenance=time_provenance,
+        time_parse_version="source-time-window-v1",
         task_window=normalized_window,
         task_window_start=start,
         task_window_end=end,
@@ -353,6 +366,10 @@ def build_normalized_ingest_envelope(
         content_format=normalized_format,
         source_time=times.source_time,
         processed_time=times.processed_time,
+        effective_time=times.effective_time,
+        time_confidence=times.time_confidence,
+        time_provenance=times.time_provenance,
+        time_parse_version=times.time_parse_version,
         lineage_ref=lineage_ref,
         requested_downstream_targets=targets,
         task_window=times.task_window,

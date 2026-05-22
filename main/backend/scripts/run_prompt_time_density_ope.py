@@ -28,6 +28,51 @@ def _to_float(v: Any, default: float = 0.0) -> float:
         return default
 
 
+def _parse_created_at(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _freshness_summary(
+    rows: list[dict[str, Any]],
+    *,
+    now: datetime | None = None,
+    stale_after_hours: float = 48.0,
+) -> dict[str, Any]:
+    timestamps = [_parse_created_at(row.get("created_at")) for row in rows]
+    timestamps = [ts for ts in timestamps if ts is not None]
+    if now is None:
+        now = datetime.now(timezone.utc)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    if not timestamps:
+        return {
+            "status": "no_timestamp",
+            "min_created_at": None,
+            "max_created_at": None,
+            "latest_age_hours": None,
+            "stale_after_hours": float(stale_after_hours),
+        }
+    latest = max(timestamps)
+    earliest = min(timestamps)
+    latest_age_hours = max(0.0, (now - latest).total_seconds() / 3600.0)
+    return {
+        "status": "fresh" if latest_age_hours <= stale_after_hours else "stale",
+        "min_created_at": earliest.isoformat(),
+        "max_created_at": latest.isoformat(),
+        "latest_age_hours": latest_age_hours,
+        "stale_after_hours": float(stale_after_hours),
+    }
+
+
 def _reward_proxy(row: dict[str, Any]) -> float:
     features = row.get("features_json") or {}
     dup_ratio = _to_float(features.get("dup_ratio"), 0.0)
@@ -135,6 +180,8 @@ def evaluate_ope(
     switch_lambda: float = 10.0,
     dros_lambda: float = 1.0,
     n_bootstrap: int = 300,
+    now: datetime | None = None,
+    stale_after_hours: float = 48.0,
 ) -> dict[str, Any]:
     grouped = _group_contexts(rows)
     replay_vals: list[float] = []
@@ -144,9 +191,12 @@ def evaluate_ope(
     dr_vals: list[float] = []
     switch_dr_vals: list[float] = []
     dros_vals: list[float] = []
+    importance_weights: list[float] = []
+    reward_proxy_count = 0
 
     contexts_used = 0
     replay_matches = 0
+    propensity_missing = 0
     for _, actions in grouped.items():
         if not actions:
             continue
@@ -159,11 +209,17 @@ def evaluate_ope(
         reward = _to_float(behavior_row.get("observed_reward"), float("nan"))
         if math.isnan(reward):
             reward = _reward_proxy(behavior_row)
+            reward_proxy_count += 1
         reward = max(0.0, min(1.0, reward))
 
-        p_b = max(EPS, _to_float(behavior_row.get("p_base"), 0.0))
+        raw_p_b = _to_float(behavior_row.get("p_base"), 0.0)
+        raw_p_e = _to_float(behavior_row.get("p_new"), 0.0)
+        if raw_p_b <= 0.0 or raw_p_e < 0.0:
+            propensity_missing += 1
+        p_b = max(EPS, raw_p_b)
         p_e = max(0.0, _to_float(behavior_row.get("p_new"), 0.0))
         w = p_e / p_b
+        importance_weights.append(w)
 
         q_hat_by_action: dict[str, float] = {w_name: _reward_proxy(row) for w_name, row in by_window.items()}
         q_pi_e = 0.0
@@ -196,6 +252,15 @@ def evaluate_ope(
     dros = _bootstrap_ci(dros_vals, n_bootstrap=n_bootstrap) if dros_vals else {"mean": 0.0, "ci_low": 0.0, "ci_high": 0.0}
     snips_mean = snips_num / max(EPS, snips_den)
     snips = {"mean": snips_mean, "ci_low": snips_mean, "ci_high": snips_mean}
+    weight_sum = sum(importance_weights)
+    weight_sq_sum = sum(w * w for w in importance_weights)
+    ess = (weight_sum * weight_sum / max(EPS, weight_sq_sum)) if importance_weights else 0.0
+    mean_weight = weight_sum / float(max(1, len(importance_weights)))
+    if len(importance_weights) <= 1 or mean_weight <= EPS:
+        weight_cv = 0.0
+    else:
+        variance = sum((w - mean_weight) ** 2 for w in importance_weights) / float(len(importance_weights))
+        weight_cv = math.sqrt(variance) / mean_weight
 
     return {
         "summary": {
@@ -203,6 +268,14 @@ def evaluate_ope(
             "contexts_used": contexts_used,
             "replay_match_rate": (float(replay_matches) / float(max(1, contexts_used))),
         },
+        "diagnostics": {
+            "effective_sample_size": ess,
+            "effective_sample_size_ratio": ess / float(max(1, contexts_used)),
+            "weight_cv": weight_cv,
+            "propensity_missing_rate": float(propensity_missing) / float(max(1, contexts_used)),
+            "reward_proxy_rate": float(reward_proxy_count) / float(max(1, contexts_used)),
+        },
+        "freshness": _freshness_summary(rows, now=now, stale_after_hours=stale_after_hours),
         "estimators": {
             "replay": replay,
             "ips": ips,
@@ -222,6 +295,7 @@ def main() -> int:
     parser.add_argument("--switch-lambda", type=float, default=10.0)
     parser.add_argument("--dros-lambda", type=float, default=1.0)
     parser.add_argument("--bootstrap", type=int, default=300)
+    parser.add_argument("--stale-after-hours", type=float, default=48.0)
     parser.add_argument("--output", default=".artifacts/prompt_time_density_ope.json")
     args = parser.parse_args()
 
@@ -231,11 +305,14 @@ def main() -> int:
         switch_lambda=max(EPS, args.switch_lambda),
         dros_lambda=max(EPS, args.dros_lambda),
         n_bootstrap=max(50, args.bootstrap),
+        stale_after_hours=max(EPS, args.stale_after_hours),
     )
     report["meta"] = {
         "rows": len(rows),
         "days": int(args.days),
         "policy_version": str(args.policy_version or "").strip() or None,
+        "data_source": "input_json" if args.input_json else "database",
+        "production_data_verified": False,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 

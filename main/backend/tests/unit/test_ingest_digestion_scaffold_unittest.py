@@ -50,8 +50,32 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
             processed_time="2026-03-08T10:00:00Z",
             task_window="30d",
         )
+        self.assertEqual(semantics.effective_time.isoformat(), "2026-03-08T10:00:00+00:00")
+        self.assertEqual(semantics.time_provenance, "processed_time_fallback")
         self.assertEqual(semantics.task_window_start, date(2026, 2, 7))
         self.assertEqual(semantics.task_window_end, date(2026, 3, 8))
+
+    def test_build_time_semantics_prefers_source_time_and_anchors_window(self):
+        semantics = scaffold.build_time_semantics(
+            source_time="2026-03-01T08:00:00Z",
+            processed_time="2026-03-10T10:00:00Z",
+            task_window="7d",
+        )
+        self.assertEqual(semantics.effective_time.isoformat(), "2026-03-01T08:00:00+00:00")
+        self.assertEqual(semantics.time_provenance, "source_time")
+        self.assertEqual(semantics.task_window_start, date(2026, 2, 23))
+        self.assertEqual(semantics.task_window_end, date(2026, 3, 1))
+
+    def test_build_time_semantics_rejects_far_future_source_time(self):
+        semantics = scaffold.build_time_semantics(
+            source_time="2026-03-20T08:00:00Z",
+            processed_time="2026-03-10T10:00:00Z",
+            task_window="7d",
+        )
+        self.assertEqual(semantics.effective_time.isoformat(), "2026-03-10T10:00:00+00:00")
+        self.assertEqual(semantics.time_provenance, "source_time_future_rejected")
+        self.assertEqual(semantics.task_window_start, date(2026, 3, 4))
+        self.assertEqual(semantics.task_window_end, date(2026, 3, 10))
 
     def test_build_normalized_ingest_envelope_sets_defaults(self):
         envelope = scaffold.build_normalized_ingest_envelope(
