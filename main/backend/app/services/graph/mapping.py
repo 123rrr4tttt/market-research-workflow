@@ -35,6 +35,10 @@ def normalize_node_id(node_id: Any) -> str:
     return _normalize_text(node_id)
 
 
+def normalize_canonical_node_id(node_id: Any) -> str:
+    return _normalize_text(node_id).casefold()
+
+
 def normalize_node_properties(properties: Dict[str, Any] | None) -> Dict[str, Any]:
     if not isinstance(properties, dict):
         return {}
@@ -69,4 +73,3 @@ def map_edge_for_interface(edge: GraphEdge) -> Dict[str, Any]:
         },
         **edge_props,
     }
-
