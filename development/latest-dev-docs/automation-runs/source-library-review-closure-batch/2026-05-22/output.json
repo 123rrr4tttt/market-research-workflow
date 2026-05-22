@@ -1,0 +1,154 @@
+{
+  "artifact_check": {
+    "batch_state": "closed_for_deterministic_fixture_batch",
+    "closed_queue_ids": [
+      "sl_review:d51932bd5cbe9a87"
+    ],
+    "contract_version": "source_library.review_closure_batch.v1",
+    "decision_count": 1,
+    "exists": true,
+    "path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch/2026-05-22/review_batch.json"
+  },
+  "contract_version": "source_library.review_closure_batch.v1",
+  "expected_artifact": {
+    "artifact_kind": "deterministic_fixture_review_batch",
+    "batch_id": "wave16-source-library-review-closure-batch-2026-05-22",
+    "contract_version": "source_library.review_closure_batch.v1",
+    "input_contracts": {
+      "review_queue": {
+        "contract_version": "source_library.relevance_review_queue.v1",
+        "queue_state": "ready_for_review",
+        "queued_count": 1,
+        "validation_passed": true
+      },
+      "search_chain_governance": {
+        "claims_full_45_site_public_replay": false,
+        "claims_human_relevance_review_complete": false,
+        "contract_version": "source_library.search_chain_governance.v1",
+        "public_network_attempted": false,
+        "validation_passed": true
+      },
+      "taxonomy_review_readiness": {
+        "contract_version": "source_library.taxonomy_review_readiness.v1",
+        "human_review_completed": false,
+        "review_queue_ready": true,
+        "taxonomy_readiness": "ready",
+        "validation_passed": true
+      }
+    },
+    "non_closure_markers": {
+      "claims_current_dev_topic_archived": false,
+      "claims_full_45_site_public_replay": false,
+      "claims_human_relevance_review_complete": false,
+      "claims_live_public_replay_complete": false,
+      "shared_indexes_edited": false
+    },
+    "remaining_boundaries": [
+      "Full human relevance review for live Current Dev candidates remains open.",
+      "Opt-in 45-site public replay remains open and environment-dependent.",
+      "Integration branch must update shared indexes after worker merge."
+    ],
+    "review_batch": {
+      "closed_queue_ids": [
+        "sl_review:d51932bd5cbe9a87"
+      ],
+      "decision_count": 1,
+      "decisions": [
+        {
+          "decision": "reject_low_confidence_fixture_candidate",
+          "decision_basis": [
+            "fallback_anchor_only_profile",
+            "term_fallback_candidates",
+            "low_confidence_candidate",
+            "adapter_capability_review"
+          ],
+          "domain": "example.com",
+          "effect": {
+            "auto_accept_allowed": false,
+            "auto_ingest_allowed": false,
+            "closed_for_fixture_batch": true,
+            "human_relevance_review_completed": false,
+            "live_public_replay_completed": false
+          },
+          "queue_id": "sl_review:d51932bd5cbe9a87",
+          "review_scope": "deterministic_fixture_batch_only",
+          "source_library_item_key": "handler.cluster.search_template",
+          "url": "https://example.com/posts/robotics-review"
+        }
+      ],
+      "deterministic_batch_closed": true,
+      "state": "closed_for_deterministic_fixture_batch"
+    },
+    "scope": {
+      "applies_to_full_current_dev_review": false,
+      "fixture_only": true,
+      "public_network_attempted": false,
+      "public_network_required": false,
+      "source": "Wave12 review queue + Wave14 taxonomy readiness + Search Governance no-network gate"
+    },
+    "topic_coverage": {
+      "adapter_capability": {
+        "wave16_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/16_wave16-review-closure-batch-2026-05-22.md"
+      },
+      "minimal_migration": {
+        "wave16_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/13_wave16-review-closure-batch-2026-05-22.md"
+      },
+      "search_chain": {
+        "wave16_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/06_wave16-review-closure-batch-2026-05-22.md"
+      },
+      "three_lane": {
+        "wave16_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/10_wave16-review-closure-batch-2026-05-22.md"
+      }
+    }
+  },
+  "governance_scope": {
+    "claims_full_45_site_public_replay": false,
+    "claims_human_relevance_review_complete": false,
+    "claims_live_public_replay_complete": false,
+    "deterministic_batch_closed": true,
+    "public_network_attempted": false,
+    "public_network_required": false,
+    "shared_indexes_edited": false
+  },
+  "repo_root": "/Users/wangyiliang/market-research-workflow.worktrees/devdocs-wave16-source-library-review-closure-batch",
+  "topic_evidence": {
+    "docs": [
+      {
+        "exists": true,
+        "missing_markers": [],
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/16_wave16-review-closure-batch-2026-05-22.md",
+        "topic": "adapter_capability"
+      },
+      {
+        "exists": true,
+        "missing_markers": [],
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/13_wave16-review-closure-batch-2026-05-22.md",
+        "topic": "minimal_migration"
+      },
+      {
+        "exists": true,
+        "missing_markers": [],
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/06_wave16-review-closure-batch-2026-05-22.md",
+        "topic": "search_chain"
+      },
+      {
+        "exists": true,
+        "missing_markers": [],
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/10_wave16-review-closure-batch-2026-05-22.md",
+        "topic": "three_lane"
+      }
+    ],
+    "forbidden_shared_indexes": [
+      "development/latest-dev-docs/MERGED_OVERVIEW.md",
+      "development/latest-dev-docs/README.md",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md",
+      "development/latest-dev-docs/development-plans/INDEX.md"
+    ]
+  },
+  "validation": {
+    "errors": [],
+    "passed": true,
+    "public_network_attempted": false
+  }
+}
