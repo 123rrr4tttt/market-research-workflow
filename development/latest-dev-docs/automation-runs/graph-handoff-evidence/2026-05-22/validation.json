@@ -1,0 +1,36 @@
+{
+  "date": "2026-05-22",
+  "worktree": "/Users/wangyiliang/market-research-workflow.worktrees/graph-handoff-e2e",
+  "branch": "codex/devdocs-wave3-graph-handoff-e2e",
+  "status": "partial_closure_api_route_handoff_proven",
+  "tests": [
+    {
+      "name": "workflow_graph focused pytest",
+      "command": ".venv311/bin/python -m pytest -q tests/unit/test_workflow_graph_curated_service_unittest.py tests/unit/test_workflow_graph_handoff_store_unittest.py tests/integration/test_workflow_graph_api_unittest.py",
+      "cwd": "/Users/wangyiliang/market-research-workflow.worktrees/graph-handoff-e2e/main/backend",
+      "result": "passed",
+      "summary": "31 passed, 11 warnings"
+    }
+  ],
+  "frontend_e2e": {
+    "result": "not_run",
+    "reason": "no frontend files changed in this lane; GraphPage UI ownership remains open"
+  },
+  "contracts_proven": [
+    "curated draft route accepts a backend-safe graph edit contract",
+    "curated submit route creates a current graph revision",
+    "evidence-pack route returns graph_evidence_pack.v1 selected nodes, relations, and provenance",
+    "reporting handoff route returns graph_handoff.v1 and report_generate_request sources",
+    "writing handoff route returns graph_handoff.v1 and keyword_card_request graph_context",
+    "handoff routes persist into workflow_graph.run_store and replay through run handoff APIs"
+  ],
+  "remaining_blockers": [
+    "GraphPage local draft submit path is not wired to curated workflow-graph endpoints",
+    "frontend first-consumer owner is not decided",
+    "topic remains CURRENT_DEV and is not archived"
+  ],
+  "gates": {
+    "git_diff_check": "passed",
+    "changed_doc_links": "passed"
+  }
+}

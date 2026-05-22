@@ -68,7 +68,7 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 - `[not_closed][doc_aligned]` [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
 - `[not_closed][doc_stale]` [2026-03-07 Dual Frontend Workbench Topology](./2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md)
 - `[not_closed][doc_stale]` [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md)
-- `[not_closed][doc_aligned]` [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md)
+- `[not_closed][doc_aligned]` [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md) - API handoff evidence: [graph-handoff-evidence/2026-05-22](../../automation-runs/graph-handoff-evidence/2026-05-22/README.md)
 - `[not_closed][doc_stale]` [2026-03-07 LLM Service And Agent Platformization](./2026-03-07-llm-service-and-agent-platformization/01_llm-service-and-agent-platformization-plan-2026-03-07.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)
 - `[not_closed][doc_stale]` [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)

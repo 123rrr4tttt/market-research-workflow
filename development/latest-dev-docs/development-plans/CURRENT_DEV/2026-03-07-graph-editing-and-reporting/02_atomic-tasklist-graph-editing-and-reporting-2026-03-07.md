@@ -2,14 +2,14 @@
 
 ## Execution Status Snapshot
 
-- 2026-05-22 status: `未封口 / partial backend landing`.
+- 2026-05-22 status: `未封口 / API handoff round-trip proven, frontend owner open`.
 - `A1`: partial. Backend code now names `template_graph`, `generated_graph_snapshot`, and `curated_business_graph`; GraphPage integration/ownership is still not frozen.
 - `A2`: partial. Backend edit-contract validation exists for nodes/edges, system-managed fields, temporary IDs, duplicates, and missing endpoints; frontend draft-to-contract mapping is not proven.
 - `A3`: partial. Backend submit/sync conflict semantics exist through revision checks; GraphPage does not currently show a verified curated submit/conflict path.
 - `A4`: partial. Backend audit, rollback, and curated revision semantics exist; frontend/template-version mapping remains explicitly open.
-- `A5`: partial. Backend graph evidence pack and writing/reporting adapters exist; raw GraphPage draft objects are not yet proven to pass through that pack.
-- `A6`: partial. Backend writing/reporting handoff endpoints and tests exist; frontend first-consumer entry/owner remains unclosed.
-- `A7`: pending. Closure requires the branch-local structural checks plus at least one verified flow from graph edit to evidence handoff.
+- `A5`: partial. Backend graph evidence pack route is now proven through API-level round-trip evidence; raw GraphPage draft objects are not yet proven to pass through that pack.
+- `A6`: partial. Backend reporting/writing handoff routes now persist, list, and replay through the workflow graph run store; frontend first-consumer entry/owner remains unclosed.
+- `A7`: pending. Closure requires a user-facing GraphPage or dedicated workflow-graph UI owner plus the branch-local structural checks.
 
 ## Global Serial-Parallel Rules
 
@@ -153,7 +153,7 @@ Each task should leave behind:
 ## Task A5: Define the Graph Evidence Pack
 
 - Goal: Define the only approved graph-shaped payload that writing/reporting may consume.
-- status: partial, backend evidence pack exists; GraphPage consumer bridge unverified
+- status: partial, API evidence pack route proven; GraphPage consumer bridge unverified
 - depends_on: `["A2"]`
 - blocks: `["A6","A7"]`
 - Input:
@@ -176,11 +176,12 @@ Each task should leave behind:
 - Minimum verification:
   - `rg -n "source_type: Literal\\[\"document\", \"resource\", \"graph\"\\]" main/backend/app/contracts/schemas/writing.py`
   - `rg -n "source_type=.*graph|source_type == \\\"graph\\\"" main/backend/app/services/writing/keyword_card_service.py`
+  - Wave3 F route evidence: [graph-handoff-evidence/2026-05-22](../../../automation-runs/graph-handoff-evidence/2026-05-22/README.md)
 
 ## Task A6: Define the First Graph-to-Writing/Reporting Handoff Path
 
 - Goal: Document one minimum flow from edited graph output to a downstream writing/report consumer.
-- status: partial, backend handoff path exists; frontend first-consumer owner unclosed
+- status: partial, backend handoff route/persistence/replay proven; frontend first-consumer owner unclosed
 - depends_on: `["A3","A5"]`
 - blocks: `["A7"]`
 - Input:
@@ -205,6 +206,7 @@ Each task should leave behind:
     - confirm `api/writing.py` and `api/llm_report.py` remain the downstream entry anchors
   - flow:
     - describe one `graph selection -> evidence pack -> writing/report input` path
+    - verify `draft -> submit -> evidence pack -> reporting/writing handoff -> persist -> list/replay` via API route test
 
 ## Task A7: Close with Minimum Validation and Phase-1 Readiness
 

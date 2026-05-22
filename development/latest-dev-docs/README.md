@@ -36,6 +36,8 @@
   - [automation-runs/graph-frontend-e2e/2026-05-22/README.md](./automation-runs/graph-frontend-e2e/2026-05-22/README.md)
 - Graph 可视化证据包（2026-05-22）：
   - [automation-runs/graph-visual-evidence/2026-05-22/README.md](./automation-runs/graph-visual-evidence/2026-05-22/README.md)
+- Graph curated handoff API 证据包（2026-05-22）：
+  - [automation-runs/graph-handoff-evidence/2026-05-22/README.md](./automation-runs/graph-handoff-evidence/2026-05-22/README.md)
 - Storybook / Launcher gates 证据包（2026-05-22）：
   - [automation-runs/storybook-launcher-gates/2026-05-22/README.md](./automation-runs/storybook-launcher-gates/2026-05-22/README.md)
 - 开发文档逐文件夹状态审查与落地报告（2026-05-22）：

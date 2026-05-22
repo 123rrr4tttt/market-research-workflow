@@ -14,6 +14,7 @@ CONFIG_KEY = "workflow_graph_curated_v1"
 CONFIG_TYPE = "workflow_graph_curated"
 EVIDENCE_PACK_CONTRACT_VERSION = "graph_evidence_pack.v1"
 HANDOFF_CONTRACT_VERSION = "graph_handoff.v1"
+HANDOFF_PRODUCER = "workflow_graph.backend_bridge"
 
 
 class WorkflowGraphSyncConflictError(ValueError):
@@ -406,7 +407,8 @@ class WorkflowGraphCuratedService:
         return {
             "contract_version": HANDOFF_CONTRACT_VERSION,
             "handoff_id": f"handoff_report_{uuid4().hex[:12]}",
-            "owner": "workflow_graph.backend_bridge",
+            "owner": HANDOFF_PRODUCER,
+            "producer": HANDOFF_PRODUCER,
             "handoff_mode": "pull_prepared_evidence",
             "consumer": "llm_report.generate",
             "report_generate_request": {
@@ -425,7 +427,8 @@ class WorkflowGraphCuratedService:
         return {
             "contract_version": HANDOFF_CONTRACT_VERSION,
             "handoff_id": f"handoff_writing_{uuid4().hex[:12]}",
-            "owner": "workflow_graph.backend_bridge",
+            "owner": HANDOFF_PRODUCER,
+            "producer": HANDOFF_PRODUCER,
             "handoff_mode": "pull_prepared_evidence",
             "consumer": "writing.keyword_cards",
             "keyword_card_request": {
