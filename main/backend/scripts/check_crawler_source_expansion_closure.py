@@ -16,6 +16,11 @@ TOPIC_DIR = Path(
 WAVE6_DOC = TOPIC_DIR / "2026-05-22-wave6-closure-gap-and-min-plan.md"
 WAVE7_POLICY_MATRIX_DOC = TOPIC_DIR / "2026-05-22-wave7-crawler-policy-matrix.md"
 WAVE7_A5_DOC = TOPIC_DIR / "2026-05-22-wave7-a5-public-replay-evidence.md"
+WAVE8_A7_DOC = TOPIC_DIR / "2026-05-22-wave8-a7-validation-pack.md"
+WAVE8_A7_RUN_DIR = Path(
+    "development/latest-dev-docs/automation-runs/"
+    "crawler-source-expansion-wave8-a7-validation-pack/2026-05-22"
+)
 
 PROTECTED_SHARED_INDEXES = [
     "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
@@ -42,6 +47,26 @@ ANCHORS: dict[str, Anchor] = {
     "wave7_a5_public_replay_doc": Anchor(
         WAVE7_A5_DOC,
         ("A5 Gate Decision", "Deterministic Gate", "External Blocker"),
+    ),
+    "wave8_a7_validation_pack_doc": Anchor(
+        WAVE8_A7_DOC,
+        ("A7 Validation Pack", "External Blocker Boundary", "Repeatable Commands", "Overall Status"),
+    ),
+    "wave8_a7_validation_pack_run": Anchor(
+        WAVE8_A7_RUN_DIR / "README.md",
+        ("Wave8-1 A7 Validation Pack", "A5 remains `blocked_external`", "`external_blocked`"),
+    ),
+    "wave8_a7_closure_check_output": Anchor(
+        WAVE8_A7_RUN_DIR / "crawler_source_expansion_closure_check.json",
+        ("crawler_source_expansion.closure_check.v1",),
+    ),
+    "wave8_a7_a5_gate_output": Anchor(
+        WAVE8_A7_RUN_DIR / "a5_public_replay_gate_check.json",
+        (
+            "source_library.public_replay_a5_gate.v1",
+            "deterministic_replay_gate_closed_external_public_replay_blocked",
+            "external_public_network_or_site_stability",
+        ),
     ),
     "crawler_api": Anchor(Path("main/backend/app/api/crawler.py")),
     "source_library_api": Anchor(Path("main/backend/app/api/source_library.py")),
@@ -229,6 +254,17 @@ def _task(
     }
 
 
+def _overall_status(tasks: list[dict[str, Any]]) -> str:
+    blockers = [task for task in tasks if task["status"] != "closed"]
+    if not blockers:
+        return "closed"
+    if all(task["status"] == "blocked_external" for task in blockers):
+        return "external_blocked"
+    if any(task["status"] == "blocked_external" for task in blockers):
+        return "partial"
+    return "not_closed"
+
+
 def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
@@ -284,7 +320,16 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "test_collect_adapter",
         "test_provider_handoff",
     ]
-    a7_keys = ["wave6_closure_doc", "test_clue_chain_source_expansion", "clue_chain_source_expansion"]
+    a7_keys = [
+        "wave6_closure_doc",
+        "wave8_a7_validation_pack_doc",
+        "wave8_a7_validation_pack_run",
+        "wave8_a7_closure_check_output",
+        "wave8_a7_a5_gate_output",
+        "test_clue_chain_source_expansion",
+        "clue_chain_source_expansion",
+        "test_source_library_public_replay_a5_gate",
+    ]
 
     tasks = [
         _task(
@@ -344,11 +389,11 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         _task(
             "A7",
             "Validation pack and documentation closure",
-            "not_closed" if _passed(anchor_results, a7_keys) else "needs_update",
+            "closed" if _passed(anchor_results, a7_keys) else "needs_update",
             a7_keys,
             anchor_results,
-            "A Wave6 closure-gap document and fixture-replay clue-chain assertions provide a repeatable status baseline.",
-            "Do not move the topic or edit shared indexes until A4-A6 blockers close.",
+            "Wave8 stores a repeatable validation pack tying the closure checker, A5 external-blocker gate, clue-chain fixture replay, and no-shared-index boundary together.",
+            "" if _passed(anchor_results, a7_keys) else "Refresh the Wave8 validation pack artifacts before downgrading the overall topic state.",
         ),
     ]
 
@@ -365,15 +410,14 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     if not anchor_results["wave6_closure_doc"]["exists"]:
         errors.append("wave6_closure_doc: missing Wave6 closure-gap document")
 
-    blockers = [task for task in tasks if task["status"] != "closed"]
     return {
         "contract_version": CONTRACT_VERSION,
         "repo_root": str(root),
         "topic_dir": str(TOPIC_DIR),
-        "overall_status": "not_closed" if blockers else "closed",
+        "overall_status": _overall_status(tasks),
         "doc_drift": {
             "status": "outdated_snapshot",
-            "reason": "The 2026-03-07 tasklist still marks A1-A7 pending, while A1-A3 now have code/test evidence.",
+            "reason": "The 2026-03-07 tasklist still marks A1-A7 pending, while Wave6-Wave8 evidence now records task-level closure and the A5 external blocker.",
         },
         "tasks": tasks,
         "minimum_development_plan": [
@@ -381,6 +425,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             "Keep A4 closed by preserving the Wave7 allow/downgrade/block matrix and executable coverage check.",
             "Treat A5 as deterministic-gate sealed but externally blocked until an opt-in 45-site public replay can be rerun and stored.",
             "Keep A6 as evidence-closed after focused crawler/provider-specific handoff tests and Wave7 evidence stay green.",
+            "Keep A7 closed through the Wave8 validation pack while preserving A5 as the only external blocker.",
             "Update shared navigation only in a later integration lane.",
         ],
         "protected_shared_indexes": PROTECTED_SHARED_INDEXES,

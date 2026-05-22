@@ -23,7 +23,7 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         result = build_check(REPO_ROOT)
 
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
-        self.assertEqual(result["overall_status"], "not_closed")
+        self.assertEqual(result["overall_status"], "external_blocked")
         self.assertTrue(result["validation"]["passed"], result["validation"]["errors"])
         self.assertEqual(result["doc_drift"]["status"], "outdated_snapshot")
 
@@ -34,7 +34,7 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         self.assertEqual(statuses["A4"], "closed")
         self.assertEqual(statuses["A5"], "blocked_external")
         self.assertEqual(statuses["A6"], "closed")
-        self.assertEqual(statuses["A7"], "not_closed")
+        self.assertEqual(statuses["A7"], "closed")
 
         a4 = next(task for task in result["tasks"] if task["task_id"] == "A4")
         self.assertEqual(a4["gap"], "")
@@ -45,6 +45,17 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         a6 = next(task for task in result["tasks"] if task["task_id"] == "A6")
         self.assertEqual(a6["gap"], "")
         self.assertIn("provider-specific crawler dispatch", a6["evidence"])
+        a7 = next(task for task in result["tasks"] if task["task_id"] == "A7")
+        self.assertEqual(a7["gap"], "")
+        self.assertIn("Wave8 stores a repeatable validation pack", a7["evidence"])
+
+    def test_overall_status_preserves_external_blocker_semantics(self) -> None:
+        result = build_check(REPO_ROOT)
+
+        non_closed = [task for task in result["tasks"] if task["status"] != "closed"]
+        self.assertEqual([task["task_id"] for task in non_closed], ["A5"])
+        self.assertEqual(non_closed[0]["status"], "blocked_external")
+        self.assertEqual(result["overall_status"], "external_blocked")
 
     def test_closure_check_keeps_shared_navigation_out_of_this_lane(self) -> None:
         result = build_check(REPO_ROOT)
@@ -64,6 +75,10 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         )
         self.assertIn(
             "Keep A6 as evidence-closed after focused crawler/provider-specific handoff tests and Wave7 evidence stay green.",
+            result["minimum_development_plan"],
+        )
+        self.assertIn(
+            "Keep A7 closed through the Wave8 validation pack while preserving A5 as the only external blocker.",
             result["minimum_development_plan"],
         )
         for protected_path in PROTECTED_SHARED_INDEXES:
