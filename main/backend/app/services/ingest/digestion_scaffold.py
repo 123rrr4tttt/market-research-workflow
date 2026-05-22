@@ -20,6 +20,8 @@ from app.contracts.ingest_digestion import (
     LongCyclePersistentTaskRecord,
     LongCycleSchedulerDispatchIntent,
     LongCycleSchedulerE2EContractCheck,
+    LongCycleSchedulerReadinessCheck,
+    LongCycleSchedulerReadinessStage,
     LongCycleTaskObject,
     LongCycleTaskLifecycleEvent,
     LongCycleTaskSnapshot,
@@ -31,6 +33,15 @@ DEFAULT_DOWNSTREAM_TARGETS = ("resource_pool", "report_generation", "writing")
 DEFAULT_CANDIDATE_WINDOWS = ("7d", "30d", "90d")
 SOURCE_TIME_FUTURE_TOLERANCE = timedelta(days=1)
 _WINDOW_RE = re.compile(r"^\d+d$")
+
+LONG_CYCLE_LIVE_SCHEDULER_EVIDENCE_FIELDS = (
+    "live_scheduler_dispatch_executed",
+    "recurring_schedule_registered",
+    "production_worker_task_executed",
+    "live_persistent_task_table_write",
+    "digestion_output_readback",
+    "downstream_handoff_observed",
+)
 
 
 def taxonomy_baseline_contract() -> dict[str, list[str]]:
@@ -940,5 +951,222 @@ def check_long_cycle_scheduler_e2e_contract(
         persistent_task=initial_record,
         completed_record=completed,
         persistence_writes=writes,
+    )
+    return check.model_dump(mode="json")
+
+
+def _missing_evidence_fields(evidence: dict[str, Any] | None, fields: tuple[str, ...]) -> list[str]:
+    if not evidence:
+        return list(fields)
+    return [field for field in fields if not bool(evidence.get(field))]
+
+
+def _long_cycle_status_values(writes: list[LongCyclePersistenceWriteResult]) -> list[str]:
+    return [write.status_after.value for write in writes]
+
+
+def _build_long_cycle_deterministic_readiness_stage(
+    check: LongCycleSchedulerE2EContractCheck,
+) -> LongCycleSchedulerReadinessStage:
+    expected_closed = {
+        "scheduler_dispatch_intent",
+        "fake_repository_db_table_write_abstraction",
+        "persistent_task_ready_running_succeeded_lifecycle",
+        "dispatch_output_refs_recorded",
+    }
+    expected_write_statuses = ["ready", "running", "succeeded"]
+    closed_slice = set(check.closed_slice)
+    write_statuses = _long_cycle_status_values(check.persistence_writes)
+    fake_writes_only = all(write.live_db_write is False for write in check.persistence_writes)
+    dispatch_contract_only = check.dispatch_intent.live_dispatch is False
+    passed = (
+        check.status == "pass"
+        and expected_closed.issubset(closed_slice)
+        and write_statuses == expected_write_statuses
+        and fake_writes_only
+        and dispatch_contract_only
+    )
+    gaps: list[str] = []
+    if check.status != "pass":
+        gaps.append(f"scheduler E2E contract did not pass: {','.join(check.blockers) or check.status}")
+    missing_closed = sorted(expected_closed - closed_slice)
+    if missing_closed:
+        gaps.append(f"deterministic scheduler E2E closed-slice fields missing: {','.join(missing_closed)}")
+    if write_statuses != expected_write_statuses:
+        gaps.append(f"fake repository write lifecycle drifted: {write_statuses}")
+    if not fake_writes_only:
+        gaps.append("deterministic readiness must not include live DB writes")
+    if not dispatch_contract_only:
+        gaps.append("deterministic readiness must keep dispatch_intent.live_dispatch=false")
+
+    return LongCycleSchedulerReadinessStage(
+        name="deterministic_scheduler_e2e_contract",
+        status="passed" if passed else "blocked",
+        passed=passed,
+        validated=passed,
+        detail=(
+            f"e2e_status={check.status} dispatch_key={check.dispatch_intent.dispatch_key} "
+            f"write_statuses={','.join(write_statuses) or '-'}"
+        ),
+        gaps=gaps,
+        evidence_required=[],
+    )
+
+
+def _build_long_cycle_scheduler_dry_run_stage(
+    check: LongCycleSchedulerE2EContractCheck,
+) -> LongCycleSchedulerReadinessStage:
+    intent = check.dispatch_intent
+    payload = dict(intent.payload or {})
+    required_payload_keys = {
+        "task_key",
+        "task_goal",
+        "input_selector",
+        "selected_window",
+        "cadence",
+        "output_target",
+        "persistent_ref",
+        "dispatch_mode",
+        "live_dispatch",
+    }
+    missing_payload_keys = sorted(key for key in required_payload_keys if key not in payload)
+    gaps: list[str] = []
+    if missing_payload_keys:
+        gaps.append(f"dispatch dry-run payload missing keys: {','.join(missing_payload_keys)}")
+    if payload.get("dispatch_mode") != "contract_only":
+        gaps.append("dispatch dry-run payload must use dispatch_mode=contract_only")
+    if payload.get("live_dispatch") is not False or intent.live_dispatch is not False:
+        gaps.append("dry-run dispatch must not claim live scheduler enqueue")
+    if not intent.idempotency_key.startswith("ingest-lc-idem-"):
+        gaps.append("dry-run dispatch idempotency key is missing stable ingest-lc-idem prefix")
+    if payload.get("task_key") != intent.task_key:
+        gaps.append("dry-run dispatch payload task_key does not match dispatch intent")
+    if payload.get("selected_window") != intent.selected_window:
+        gaps.append("dry-run dispatch payload selected_window does not match dispatch intent")
+    passed = not gaps and check.status == "pass"
+    if check.status != "pass":
+        gaps.insert(0, "dry-run dispatch requires a passing deterministic scheduler E2E contract")
+
+    return LongCycleSchedulerReadinessStage(
+        name="scheduler_dry_run_dispatch_plan",
+        status="ready" if passed else "blocked",
+        passed=passed,
+        validated=passed,
+        detail=(
+            f"queue={intent.queue_name} worker_task={intent.worker_task_name} "
+            f"selected_window={intent.selected_window} live_dispatch={intent.live_dispatch}"
+        ),
+        gaps=gaps,
+        evidence_required=[],
+    )
+
+
+def _build_long_cycle_live_scheduler_closure_stage(
+    *,
+    scheduler_runtime_configured: bool,
+    live_scheduler_evidence: dict[str, Any] | None,
+) -> LongCycleSchedulerReadinessStage:
+    evidence_required = list(LONG_CYCLE_LIVE_SCHEDULER_EVIDENCE_FIELDS)
+    missing = _missing_evidence_fields(live_scheduler_evidence, LONG_CYCLE_LIVE_SCHEDULER_EVIDENCE_FIELDS)
+    if not missing:
+        return LongCycleSchedulerReadinessStage(
+            name="live_scheduler_closure",
+            status="validated",
+            passed=True,
+            validated=True,
+            detail="live scheduler, worker execution, live persistence, output readback, and downstream handoff evidence were provided",
+            gaps=[],
+            evidence_required=evidence_required,
+        )
+    if live_scheduler_evidence is not None:
+        return LongCycleSchedulerReadinessStage(
+            name="live_scheduler_closure",
+            status="failed_evidence",
+            passed=False,
+            validated=False,
+            detail=f"live scheduler evidence is present but missing required fields: {', '.join(missing)}",
+            gaps=[
+                "live scheduler evidence is incomplete",
+                "do not claim long-cycle live scheduler closure from this run",
+            ],
+            evidence_required=evidence_required,
+        )
+    if scheduler_runtime_configured:
+        return LongCycleSchedulerReadinessStage(
+            name="live_scheduler_closure",
+            status="configured_not_run",
+            passed=True,
+            validated=False,
+            detail="scheduler runtime is configured, but this bounded gate did not enqueue or execute a live recurring task",
+            gaps=[
+                "run the long-cycle scheduler dry-run against the configured runtime",
+                "prove production worker consumption of the dispatch intent",
+                "prove live persistent-task table write/readback",
+                "prove digestion output readback and downstream handoff",
+            ],
+            evidence_required=evidence_required,
+        )
+    return LongCycleSchedulerReadinessStage(
+        name="live_scheduler_closure",
+        status="not_configured",
+        passed=True,
+        validated=False,
+        detail="scheduler runtime evidence is absent; only local deterministic readiness is in scope for this gate",
+        gaps=[
+            "configure and start the scheduler runtime before live closure",
+            "run a bounded live scheduler dry-run with worker and persistence evidence",
+            "capture dispatch, live table readback, digestion output, and downstream handoff evidence",
+        ],
+        evidence_required=evidence_required,
+    )
+
+
+def check_long_cycle_scheduler_readiness_contract(
+    *,
+    scheduler_runtime_configured: bool = False,
+    live_scheduler_evidence: dict[str, Any] | None = None,
+    **scheduler_e2e_kwargs: Any,
+) -> dict[str, Any]:
+    """Classify local dry-run readiness separately from live scheduler closure."""
+
+    e2e_payload = check_long_cycle_scheduler_e2e_contract(**scheduler_e2e_kwargs)
+    e2e_check = LongCycleSchedulerE2EContractCheck.model_validate(e2e_payload)
+    stages = [
+        _build_long_cycle_deterministic_readiness_stage(e2e_check),
+        _build_long_cycle_scheduler_dry_run_stage(e2e_check),
+        _build_long_cycle_live_scheduler_closure_stage(
+            scheduler_runtime_configured=bool(scheduler_runtime_configured),
+            live_scheduler_evidence=live_scheduler_evidence,
+        ),
+    ]
+    stage_by_name = {stage.name: stage for stage in stages}
+    local_ready = stage_by_name["deterministic_scheduler_e2e_contract"].validated
+    dry_run_ready = stage_by_name["scheduler_dry_run_dispatch_plan"].validated
+    live_closure = stage_by_name["live_scheduler_closure"].validated
+    required_passed = all(stage.passed for stage in stages)
+    remaining_runtime_gaps = [
+        gap
+        for stage in stages
+        if not stage.validated
+        for gap in stage.gaps
+    ]
+    if live_closure:
+        readiness_state = "live_scheduler_closure_validated"
+    elif local_ready and dry_run_ready:
+        readiness_state = "local_deterministic_dry_run_ready"
+    else:
+        readiness_state = "blocked"
+
+    check = LongCycleSchedulerReadinessCheck(
+        status="pass" if required_passed else "fail",
+        readiness_state=readiness_state,
+        closure_claim=live_closure,
+        local_deterministic_readiness=local_ready,
+        dry_run_dispatch_ready=dry_run_ready,
+        live_scheduler_closure_validated=live_closure,
+        scheduler_runtime_configured=bool(scheduler_runtime_configured),
+        stages=stages,
+        remaining_runtime_gaps=remaining_runtime_gaps,
+        scheduler_e2e_contract=e2e_check,
     )
     return check.model_dump(mode="json")

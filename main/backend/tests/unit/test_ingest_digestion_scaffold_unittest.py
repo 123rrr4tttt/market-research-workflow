@@ -19,6 +19,25 @@ contracts = _load_module("ingest_digestion_contracts", "app/contracts/ingest_dig
 scaffold = _load_module("ingest_digestion_scaffold", "app/services/ingest/digestion_scaffold.py")
 
 
+def _valid_scheduler_kwargs():
+    return {
+        "task_goal": "Digest weekly report inputs",
+        "project_key": "demo_proj",
+        "entrypoint": "ingest.raw_import",
+        "source_locator": "file:///tmp/weekly-report.md",
+        "content_format": "markdown",
+        "content_length": 8000,
+        "processed_time": "2026-03-08T11:00:00Z",
+        "candidate_windows": ["7d", "30d"],
+        "selected_window": "7d",
+        "cadence": "weekly",
+        "scheduler_ref": "contract.scheduler.ingest-long-cycle",
+        "persistent_ref": "fake-db://long_cycle_persistent_tasks",
+        "event_time": "2026-03-08T11:00:00Z",
+        "run_at": "2026-03-08T11:02:00Z",
+    }
+
+
 class IngestDigestionScaffoldTests(unittest.TestCase):
     def test_classify_input_kind_for_derived_and_raw_import(self):
         kind_report = scaffold.classify_input_kind(artifact_source="llm_report")
@@ -335,6 +354,58 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
         self.assertIsNone(check["persistence_writes"][0]["status_before"])
         self.assertEqual(check["persistence_writes"][1]["status_before"], contracts.LongCycleTaskStatus.READY.value)
         self.assertEqual(check["persistence_writes"][2]["status_before"], contracts.LongCycleTaskStatus.RUNNING.value)
+
+    def test_long_cycle_scheduler_readiness_marks_local_ready_without_live_closure(self):
+        check = scaffold.check_long_cycle_scheduler_readiness_contract(**_valid_scheduler_kwargs())
+
+        self.assertEqual(check["contract_version"], "ingest.long_cycle_scheduler_readiness_check.v1")
+        self.assertEqual(check["status"], "pass")
+        self.assertEqual(check["readiness_state"], "local_deterministic_dry_run_ready")
+        self.assertTrue(check["local_deterministic_readiness"])
+        self.assertTrue(check["dry_run_dispatch_ready"])
+        self.assertFalse(check["live_scheduler_closure_validated"])
+        self.assertFalse(check["closure_claim"])
+        self.assertEqual(check["scheduler_e2e_contract"]["status"], "pass")
+        stages = {stage["name"]: stage for stage in check["stages"]}
+        self.assertEqual(stages["deterministic_scheduler_e2e_contract"]["status"], "passed")
+        self.assertEqual(stages["scheduler_dry_run_dispatch_plan"]["status"], "ready")
+        self.assertEqual(stages["live_scheduler_closure"]["status"], "not_configured")
+        self.assertIn("configure and start the scheduler runtime", " ".join(check["remaining_runtime_gaps"]))
+
+    def test_long_cycle_scheduler_readiness_blocks_incomplete_live_evidence(self):
+        check = scaffold.check_long_cycle_scheduler_readiness_contract(
+            **_valid_scheduler_kwargs(),
+            scheduler_runtime_configured=True,
+            live_scheduler_evidence={"live_scheduler_dispatch_executed": True},
+        )
+
+        self.assertEqual(check["status"], "fail")
+        self.assertEqual(check["readiness_state"], "local_deterministic_dry_run_ready")
+        self.assertFalse(check["closure_claim"])
+        stages = {stage["name"]: stage for stage in check["stages"]}
+        self.assertEqual(stages["live_scheduler_closure"]["status"], "failed_evidence")
+        self.assertIn("production_worker_task_executed", stages["live_scheduler_closure"]["detail"])
+        self.assertIn("do not claim long-cycle live scheduler closure", " ".join(check["remaining_runtime_gaps"]))
+
+    def test_long_cycle_scheduler_readiness_can_record_complete_live_scheduler_evidence(self):
+        check = scaffold.check_long_cycle_scheduler_readiness_contract(
+            **_valid_scheduler_kwargs(),
+            scheduler_runtime_configured=True,
+            live_scheduler_evidence={
+                "live_scheduler_dispatch_executed": True,
+                "recurring_schedule_registered": True,
+                "production_worker_task_executed": True,
+                "live_persistent_task_table_write": True,
+                "digestion_output_readback": True,
+                "downstream_handoff_observed": True,
+            },
+        )
+
+        self.assertEqual(check["status"], "pass")
+        self.assertEqual(check["readiness_state"], "live_scheduler_closure_validated")
+        self.assertTrue(check["live_scheduler_closure_validated"])
+        self.assertTrue(check["closure_claim"])
+        self.assertEqual(check["remaining_runtime_gaps"], [])
 
 
 if __name__ == "__main__":

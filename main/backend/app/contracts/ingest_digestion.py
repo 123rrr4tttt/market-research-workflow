@@ -359,3 +359,67 @@ class LongCycleSchedulerE2EContractCheck(BaseModel):
             seen.add(normalized)
             out.append(normalized)
         return out
+
+
+class LongCycleSchedulerReadinessStage(BaseModel):
+    name: str = Field(..., min_length=1, max_length=96)
+    status: str = Field(..., min_length=1, max_length=64)
+    passed: bool
+    validated: bool
+    detail: str = Field(default="", max_length=1024)
+    gaps: list[str] = Field(default_factory=list)
+    evidence_required: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("name", "status", "detail")
+    @classmethod
+    def _normalize_text(cls, value: str) -> str:
+        return str(value or "").strip()
+
+    @field_validator("gaps", "evidence_required")
+    @classmethod
+    def _normalize_string_list(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+        return out
+
+
+class LongCycleSchedulerReadinessCheck(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_scheduler_readiness_check.v1", max_length=96)
+    status: str = Field(..., max_length=32)
+    readiness_state: str = Field(..., max_length=64)
+    closure_claim: bool = False
+    local_deterministic_readiness: bool
+    dry_run_dispatch_ready: bool
+    live_scheduler_closure_validated: bool
+    scheduler_runtime_configured: bool
+    stages: list[LongCycleSchedulerReadinessStage] = Field(default_factory=list)
+    remaining_runtime_gaps: list[str] = Field(default_factory=list)
+    scheduler_e2e_contract: LongCycleSchedulerE2EContractCheck
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("status", "readiness_state")
+    @classmethod
+    def _normalize_text(cls, value: str) -> str:
+        return str(value or "").strip()
+
+    @field_validator("remaining_runtime_gaps")
+    @classmethod
+    def _normalize_string_list(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+        return out
