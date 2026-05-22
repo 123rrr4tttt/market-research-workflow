@@ -127,6 +127,45 @@ def validate_contract_snapshot(snapshot: dict[str, Any]) -> list[str]:
         "tool result evidence contract missing",
     )
 
+    matrix = snapshot.get("provider_capability_matrix") or {}
+    _expect(
+        matrix.get("contract_version") == "agent_core.provider_capability_matrix.v1",
+        errors,
+        "provider capability matrix version drift",
+    )
+    _expect(matrix.get("evaluation_mode") == "static_contract_not_live_probe", errors, "provider matrix evaluation mode drift")
+    _expect(matrix.get("live_provider_claims") is False, errors, "provider matrix made a live provider claim")
+    entries = [item for item in matrix.get("entries") or [] if isinstance(item, dict)]
+    by_status = (matrix.get("summary") or {}).get("by_status") or {}
+    for status in {
+        "repo_native_supported",
+        "missing_config",
+        "blocked_permissions",
+        "deferred_external_framework",
+    }:
+        _expect(by_status.get(status, 0) >= 1, errors, f"provider matrix missing status {status}")
+    fake_entry = _entry_by_provider(entries, "fake_core_provider")
+    _expect(fake_entry.get("status") == "repo_native_supported", errors, "fake provider contract baseline drift")
+    _expect(fake_entry.get("live_provider_claim") is False, errors, "fake provider row claimed live provider availability")
+    json_entry = _entry_by_provider(entries, "json_core_provider")
+    _expect(json_entry.get("status") == "missing_config", errors, "json provider should remain config-gated in the checker")
+    native_entry = _entry_by_provider(entries, "native_tool_calling_provider")
+    _expect(native_entry.get("status") == "missing_config", errors, "native provider should remain config-gated in the checker")
+    blocked_entry = _entry_by_provider(entries, "agent_core.permission_boundary")
+    _expect(blocked_entry.get("status") == "blocked_permissions", errors, "permission boundary row drift")
+    _expect(
+        "cross_consumer.invoke" in (blocked_entry.get("denied_permissions") or []),
+        errors,
+        "blocked permission row did not preserve cross_consumer denial",
+    )
+    framework_boundary = matrix.get("external_framework_boundary") or {}
+    _expect(
+        framework_boundary.get("contract_version") == "agent_core.external_framework_boundary.v1",
+        errors,
+        "external framework boundary version drift",
+    )
+    _expect(framework_boundary.get("adoption_status") == "deferred", errors, "external framework adoption should remain deferred")
+
     evidence = snapshot.get("evidence_envelope") or {}
     trace_audit = evidence.get("trace_audit") or {}
     _expect(evidence.get("contract_version") == "agent_core.platform_evidence.v1", errors, "evidence envelope version drift")
@@ -164,6 +203,13 @@ def main() -> int:
 def _expect(condition: bool, errors: list[str], message: str) -> None:
     if not condition:
         errors.append(message)
+
+
+def _entry_by_provider(entries: list[dict[str, Any]], provider_key: str) -> dict[str, Any]:
+    for entry in entries:
+        if entry.get("provider_key") == provider_key:
+            return entry
+    return {}
 
 
 if __name__ == "__main__":
