@@ -50,6 +50,9 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave8 Search / Vectorization Contract](./automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
   - [2026-05-22 Wave9 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave9-worktree-plan-2026-05-22.md)
   - [2026-05-22 Wave9 CURRENT_DEV Status Evidence Gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
+  - [2026-05-22 Wave10 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave10-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Wave10 Source Library Search Governance](./automation-runs/source-library-search-governance/2026-05-22/README.md)
+  - [2026-05-22 Wave10 Vectorization Quality Gate](./automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
 - `backend-docs`：
   - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：
@@ -101,6 +104,18 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave9 AgentCore Platform Contract](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/04_wave9-7-agent-core-platform-contract-evidence-2026-05-22.md)
   - [2026-05-22 Wave9 Docs Root Migration Manifest Evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/04_wave9-8-docs-root-migration-manifest-evidence-2026-05-22.md)
   - [2026-05-22 Wave9 Source-Library Ingest AT-EXT Current Contract](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-05-22 Wave10 Graph Force3D Frontend Contract](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/03_wave10-frontend-visual-engine-switch-contract-2026-05-22.md)
+  - [2026-05-22 Wave10 Graph Node DB Rollout Readiness](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/04_wave10-db-rollout-readiness-contract-2026-05-22.md)
+  - [2026-05-22 Wave10 Source Time Window Contract](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/04_wave10-source-time-window-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave10 Prompt Time-Density OPE Freshness](./development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/07_wave10-prompt-time-density-ope-freshness-evidence-2026-05-22.md)
+  - [2026-05-22 Wave10 LLM Crawler Tri-State Router Contract](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/05_wave10-tri-state-router-contract-2026-05-22.md)
+  - [2026-05-22 Wave10 Source-Library Search Governance](./development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/03_wave10-source-library-search-governance-2026-05-22.md)
+  - [2026-05-22 Wave10 Time Semantics OPE Contract](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/08_wave10-time-semantics-ope-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave10 Typed Knowledge Writing Context Envelope](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/04_wave10-worker7-writing-context-envelope-evidence-2026-05-22.md)
+  - [2026-05-22 Wave10 Writing Workbench Typed Knowledge Consumer](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/05_wave10-worker7-typed-knowledge-context-consumer-evidence-2026-05-22.md)
+  - [2026-05-22 Wave10 Docs Root Content Shim](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/05_wave10-8-docs-root-content-shim-evidence-2026-05-22.md)
+  - [2026-05-22 Wave10 Parallel Agent Runtime Contract Refresh](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md)
   - [2026-05-22 Source Library Public Live Probes](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：

@@ -75,6 +75,18 @@
   - [docs root migration manifest evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/04_wave9-8-docs-root-migration-manifest-evidence-2026-05-22.md)
   - [source-library ingest AT-EXT current contract](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md)
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
+- Wave10 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
+  - [Wave10 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave10-worktree-plan-2026-05-22.md)
+  - [graph frontend force3d / engine-switch contract](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/03_wave10-frontend-visual-engine-switch-contract-2026-05-22.md)
+  - [graph node DB rollout readiness contract](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/04_wave10-db-rollout-readiness-contract-2026-05-22.md)
+  - [time semantics OPE contract](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/08_wave10-time-semantics-ope-contract-evidence-2026-05-22.md)
+  - [LLM crawler tri-state router contract](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/05_wave10-tri-state-router-contract-2026-05-22.md)
+  - [source-library search governance](./automation-runs/source-library-search-governance/2026-05-22/README.md)
+  - [vectorization quality gate](./automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
+  - [typed knowledge writing context envelope](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/04_wave10-worker7-writing-context-envelope-evidence-2026-05-22.md)
+  - [docs root content shim evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/05_wave10-8-docs-root-content-shim-evidence-2026-05-22.md)
+  - [parallel agent runtime contract refresh](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md)
+  - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：
