@@ -1,7 +1,7 @@
 # Global Vectorization General Foundation Index
 
 更新时间：2026-05-22 PST<br>
-状态：全项目数据向量化 / 标准化开发入口；2026-05-22 lane 9 已落地 `local_index` keyword/vector/hybrid mode contract；Wave2 A 已补真实 LanceDB keyword/vector/hybrid runtime smoke；Wave3 A 已补受控 benchmark-quality evidence；仍未封口的是真实 embedding model 语义质量、统一 vector object schema 和主搜索 evidence contract 对齐
+状态：全项目数据向量化 / 标准化开发入口；2026-05-22 lane 9 已落地 `local_index` keyword/vector/hybrid mode contract；Wave2 A 已补真实 LanceDB keyword/vector/hybrid runtime smoke；Wave3 A 已补受控 benchmark-quality evidence；Wave10 worker6 已补 deterministic quality gate 与 fallback reason contract；仍未封口的是真实 embedding model 语义质量、统一 vector object schema 和主搜索 evidence contract 对齐
 
 ## 文件
 
@@ -10,6 +10,9 @@
 
 - [02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14.md](./02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14.md)  
   LanceDB vector / hybrid retrieval 的归属定位文档：2026-05-22 已补 `local_index` optional runtime smoke 与受控 benchmark-quality evidence，但真实 embedding model 语义质量和全项目 evidence contract 仍归本开发线继续推进。
+
+- [03_wave10-vectorization-quality-gate-2026-05-22.md](./03_wave10-vectorization-quality-gate-2026-05-22.md)
+  Wave10 worker6 deterministic quality gate：复核 provider trace、`keyword|vector|hybrid` runtime/benchmark evidence、benchmark threshold 与 vector/hybrid fallback reason；继续保留真实 embedding semantic quality 与全局 vector contract 缺口。
 
 ## 2026-05-22 lane 9 落地
 
@@ -43,6 +46,14 @@
 - 已落地：`ops/search-lab/scripts/wave8_search_vectorization_contract.py` 将 search provider trace、SearXNG/YaCy container replay 摘要、LanceDB runtime smoke、LanceDB benchmark 串成一个无外网、无容器启动的 deterministic gate。
 - 已验证：`local_index` 的 `keyword|vector|hybrid` runtime smoke 与 benchmark evidence 均为 `passed`，且 checker 继续保留真实 embedding 语义质量、全局 vector contract、当前容器可用性未复跑三个缺口。
 - 状态判定：本 slice 关闭的是 evidence 漂移与 contract 复核缺口，不改变本目录 `partial` 状态。
+
+## 2026-05-22 Wave10 worker6 quality gate
+
+- 分支：`codex/devdocs-wave10-vectorization-quality`
+- Evidence：[wave10-vectorization-quality-gate/2026-05-22](../../../automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
+- 已落地：`ops/search-lab/scripts/wave10_vectorization_quality_gate.py` 对 provider trace、runtime smoke、benchmark fixture threshold 与 fallback reason 做统一 deterministic 检查；新增 unit gate 覆盖 contract 输出。
+- 已验证：`quality_thresholds.required_modes=keyword, vector, hybrid`；ranking/filter case 数与 repeat 数达标；`vector` / `hybrid` runtime exception fallback 到 keyword 时保留 `fallback_from` 与 `fallback_reason=RuntimeError`。
+- 状态判定：这是质量门槛与 trace 可解释性推进，不把受控 fixture benchmark 宣称为生产 embedding 语义质量封口。
 
 ## 当前边界
 
