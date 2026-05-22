@@ -3,11 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from ...http.client import default_http_client
+from ...resource_pool.article_extraction_service import extract_article_content_from_html
 from ...resource_pool.search_template_service import execute_feed_probe, execute_sitemap_probe
 from ..external_project import (
     build_external_project_summary,
     get_external_project_manifest,
     resolve_runner_url,
+    validate_external_http_url,
 )
 from ..external_project_registry import resolve_external_project_provider_binding
 
@@ -16,6 +18,7 @@ _RUNNER_BY_PROVIDER_KEY = {
     "external_project.rss_feed": lambda *, manifest, params: _run_rss_feed_manifest(manifest=manifest, params=params),
     "external_project.sitemap": lambda *, manifest, params: _run_sitemap_manifest(manifest=manifest, params=params),
     "external_project.http_api": lambda *, manifest, params: _run_http_api_manifest(manifest=manifest, params=params),
+    "external_project.article_extractor": lambda *, manifest, params: _run_article_extractor_manifest(manifest=manifest, params=params),
 }
 
 
@@ -191,10 +194,102 @@ def _run_http_api_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) 
     )
 
 
+def _run_article_extractor_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    runtime = _resolve_runtime_inputs(manifest=manifest, params=params)
+    runtime_config = manifest.get("runtime_config") if isinstance(manifest.get("runtime_config"), dict) else {}
+    request_headers = dict(runtime_config.get("headers") or {})
+    timeout_seconds = float(runtime["request_timeout_ms"]) / 1000.0
+    parser_capability = _build_parser_capability(manifest=manifest, runtime_config=runtime_config)
+
+    target_urls = list(runtime.get("urls") or [])[: runtime["max_items"]]
+    if not target_urls:
+        target_urls = [
+            resolve_runner_url(
+                manifest,
+                query_terms=runtime["query_terms"],
+                domains=runtime["domains"],
+                max_items=runtime["max_items"],
+                date_from=runtime["date_from"],
+                date_to=runtime["date_to"],
+            )
+        ]
+
+    records: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    fallback_states: list[dict[str, Any]] = []
+    for index, url in enumerate(target_urls):
+        try:
+            html = default_http_client.get_text(
+                url,
+                headers=request_headers,
+                timeout=timeout_seconds,
+            )
+        except Exception as exc:  # noqa: BLE001 - runner diagnostics must preserve fallback state.
+            state = {
+                "url": url,
+                "state": "fetch_error_fallback",
+                "error": str(exc),
+            }
+            fallback_states.append(state)
+            errors.append({"url": url, "error": str(exc), "fallback_state": state["state"]})
+            records.append(
+                _build_record(
+                    manifest=manifest,
+                    url=url,
+                    title=None,
+                    summary=None,
+                    index=index,
+                    record_meta_extra={"article_extraction": _article_extraction_meta(state=state, parser_capability=parser_capability)},
+                )
+            )
+            continue
+
+        extraction = extract_article_content_from_html(html=html, url=url, title=None)
+        content_text = str(getattr(extraction, "content", "") or "").strip()
+        state_name = "article_body_extracted" if content_text else "metadata_only_fallback"
+        state = {
+            "url": url,
+            "state": state_name,
+            "extractor": str(getattr(extraction, "extractor", "") or parser_capability["parser"]),
+            "confidence": str(getattr(extraction, "confidence", "") or "unknown"),
+            "content_chars": len(content_text),
+        }
+        fallback_states.append(state)
+        records.append(
+            _build_record(
+                manifest=manifest,
+                url=url,
+                title=str(getattr(extraction, "title", "") or "").strip() or None,
+                summary=content_text[:800] if content_text else None,
+                content_text=content_text or None,
+                index=index,
+                record_meta_extra={"article_extraction": _article_extraction_meta(state=state, parser_capability=parser_capability)},
+            )
+        )
+
+    extracted_count = sum(1 for state in fallback_states if state.get("state") == "article_body_extracted")
+    status_override = "ok" if extracted_count == len(target_urls) and not errors else ("error" if not records else "partial")
+    return _build_probe_result(
+        manifest=manifest,
+        runtime=runtime,
+        records=records,
+        errors=errors,
+        diagnostics={
+            "target_urls": target_urls,
+            "parser_capability": parser_capability,
+            "fallback_states": fallback_states,
+            "article_body_extracted": extracted_count,
+            "records_total": len(records),
+        },
+        status_override=status_override,
+    )
+
+
 def _resolve_runtime_inputs(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     accepted = manifest.get("accepted_inputs") if isinstance(manifest.get("accepted_inputs"), dict) else {}
     limits = manifest.get("limits") if isinstance(manifest.get("limits"), dict) else {}
     query_terms = _normalize_terms(params.get("query_terms")) if accepted.get("query_terms", True) else []
+    urls = _normalize_runtime_urls(params.get("urls")) if accepted.get("urls") else []
     domains = _normalize_terms(params.get("domains")) if accepted.get("domains") else []
     requested_max_items = _to_optional_int(params.get("max_items")) if accepted.get("max_items", True) else None
     default_max_items = int(limits.get("default_max_items") or 20)
@@ -209,6 +304,7 @@ def _resolve_runtime_inputs(*, manifest: dict[str, Any], params: dict[str, Any])
         date_to = _normalize_date(params.get("date_to") or params.get("end_time"))
     return {
         "query_terms": query_terms,
+        "urls": urls,
         "domains": domains,
         "max_items": max_items,
         "date_from": date_from,
@@ -224,10 +320,11 @@ def _build_probe_result(
     records: list[dict[str, Any]],
     errors: list[dict[str, Any]] | list[str],
     diagnostics: dict[str, Any],
+    status_override: str | None = None,
 ) -> dict[str, Any]:
     messages = [_stringify_error(entry) for entry in errors]
     candidates = [str(record.get("url") or "").strip() for record in records if str(record.get("url") or "").strip()]
-    result_status = "ok" if records else ("error" if messages else "partial")
+    result_status = status_override or ("partial" if records and messages else ("ok" if records else ("error" if messages else "partial")))
     return {
         "status": result_status,
         "inserted": len(records),
@@ -261,11 +358,14 @@ def _build_record(
     author: str | None = None,
     language: str | None = None,
     artifact_url: str | None = None,
+    record_meta_extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     record_meta: dict[str, Any] = {
         "origin": "external_project_manifest",
         "external_project": build_external_project_summary(manifest) or {},
     }
+    if isinstance(record_meta_extra, dict):
+        record_meta.update({str(key): value for key, value in record_meta_extra.items() if value not in (None, "", [], {})})
     if artifact_url:
         record_meta["artifact_ref"] = {
             "artifact_source": "external_project",
@@ -426,6 +526,50 @@ def _normalize_terms(value: Any) -> list[str]:
         if normalized and normalized not in out:
             out.append(normalized)
     return out
+
+
+def _normalize_runtime_urls(value: Any) -> list[str]:
+    if isinstance(value, str):
+        raw_values = [value]
+    elif isinstance(value, list):
+        raw_values = value
+    else:
+        raw_values = []
+    out: list[str] = []
+    for entry in raw_values:
+        raw = str(entry or "").strip()
+        if not raw:
+            continue
+        normalized = validate_external_http_url(raw, field_name="runtime url")
+        if normalized not in out:
+            out.append(normalized)
+    return out
+
+
+def _build_parser_capability(*, manifest: dict[str, Any], runtime_config: dict[str, Any]) -> dict[str, Any]:
+    capabilities = manifest.get("capabilities") if isinstance(manifest.get("capabilities"), dict) else {}
+    return {
+        "contract_version": "external_project.article_extraction_runner.v1",
+        "parser": str(runtime_config.get("parser") or "trafilatura_or_heuristic").strip().lower(),
+        "article_body": bool(capabilities.get("article_body")),
+        "fallback_states": [
+            "article_body_extracted",
+            "metadata_only_fallback",
+            "fetch_error_fallback",
+        ],
+    }
+
+
+def _article_extraction_meta(*, state: dict[str, Any], parser_capability: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "contract_version": "external_project.article_body_extraction.v1",
+        "parser_capability": dict(parser_capability),
+        "state": str(state.get("state") or "").strip(),
+        "extractor": str(state.get("extractor") or parser_capability.get("parser") or "").strip() or None,
+        "confidence": str(state.get("confidence") or "").strip() or None,
+        "content_chars": int(state.get("content_chars") or 0),
+        "error": str(state.get("error") or "").strip() or None,
+    }
 
 
 def _normalize_date(value: Any) -> str | None:

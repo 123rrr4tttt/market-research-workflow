@@ -24,6 +24,12 @@ _PROVIDER_BINDINGS: dict[str, dict[str, str]] = {
         "capability_family": "record_materialization",
         "adapter_ref": "source_library.adapters.external_project.http_api",
     },
+    "article_extractor": {
+        "provider_key": "external_project.article_extractor",
+        "provider_family": "article_extraction_stack",
+        "capability_family": "article_body_extraction",
+        "adapter_ref": "source_library.adapters.external_project.article_extractor",
+    },
 }
 
 
@@ -48,6 +54,7 @@ def resolve_external_project_provider_binding(manifest: dict[str, Any] | None) -
     capabilities = payload.get("capabilities") if isinstance(payload.get("capabilities"), dict) else {}
     accepted_inputs = payload.get("accepted_inputs") if isinstance(payload.get("accepted_inputs"), dict) else {}
     normalization = payload.get("normalization") if isinstance(payload.get("normalization"), dict) else {}
+    runtime_config = payload.get("runtime_config") if isinstance(payload.get("runtime_config"), dict) else {}
     return {
         "registry_version": EXTERNAL_PROJECT_PROVIDER_REGISTRY_VERSION,
         "execution_mode": execution_mode,
@@ -59,4 +66,14 @@ def resolve_external_project_provider_binding(manifest: dict[str, Any] | None) -
         "accepts_query_terms": bool(accepted_inputs.get("query_terms")),
         "accepts_domains": bool(accepted_inputs.get("domains")),
         "accepts_date_range": bool(accepted_inputs.get("date_range")),
+        "accepts_urls": bool(accepted_inputs.get("urls")),
+        "parser_capability": {
+            "parser": str(runtime_config.get("parser") or "trafilatura_or_heuristic").strip().lower(),
+            "article_body": bool(capabilities.get("article_body")) or execution_mode == "article_extractor",
+            "fallback_states": [
+                "article_body_extracted",
+                "metadata_only_fallback",
+                "fetch_error_fallback",
+            ],
+        },
     }

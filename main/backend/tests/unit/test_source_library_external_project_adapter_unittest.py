@@ -16,32 +16,49 @@ from app.services.source_library.adapters.external_project import handle_externa
 
 
 def _build_manifest(*, execution_mode: str = "rss_feed") -> dict[str, object]:
+    runner_ref = "https://example.com/feed.xml"
+    source_kind = "feed_aggregator"
+    capabilities = {
+        "candidate_urls": True,
+        "article_metadata": True,
+        "article_body": False,
+        "pdf_artifact": False,
+    }
+    accepted_inputs = {
+        "query_terms": True,
+        "urls": False,
+        "domains": False,
+        "date_range": False,
+        "max_items": True,
+    }
+    normalization = {
+        "record_kind": "article_metadata",
+        "frontdoor_strategy": "records_only_defer",
+    }
+    if execution_mode == "http_api":
+        runner_ref = "https://api.example.com/search"
+    elif execution_mode == "article_extractor":
+        runner_ref = "article-extractor://trafilatura-or-heuristic"
+        source_kind = "article_extraction_stack"
+        capabilities["article_body"] = True
+        accepted_inputs["urls"] = True
+        normalization = {
+            "record_kind": "document_candidate",
+            "frontdoor_strategy": "records_allow_extract",
+        }
+
     manifest: dict[str, object] = {
         "contract_version": "external_item.manifest.v1",
         "item_key": "external.demo.item",
         "display_name": "External Demo Item",
         "project_link": "https://github.com/example/external-demo",
-        "source_kind": "feed_aggregator",
+        "source_kind": source_kind,
         "source_scope": "finance_news",
-        "capabilities": {
-            "candidate_urls": True,
-            "article_metadata": True,
-            "article_body": False,
-            "pdf_artifact": False,
-        },
-        "accepted_inputs": {
-            "query_terms": True,
-            "urls": False,
-            "domains": False,
-            "date_range": False,
-            "max_items": True,
-        },
+        "capabilities": capabilities,
+        "accepted_inputs": accepted_inputs,
         "execution_mode": execution_mode,
-        "runner_ref": "https://example.com/feed.xml" if execution_mode != "http_api" else "https://api.example.com/search",
-        "normalization": {
-            "record_kind": "article_metadata",
-            "frontdoor_strategy": "records_only_defer",
-        },
+        "runner_ref": runner_ref,
+        "normalization": normalization,
         "limits": {
             "default_max_items": 20,
             "max_items_cap": 100,
@@ -67,6 +84,10 @@ def _build_manifest(*, execution_mode: str = "rss_feed") -> dict[str, object]:
                 "summary": "summary",
                 "artifact_url": "pdf_url",
             },
+        }
+    elif execution_mode == "article_extractor":
+        manifest["runtime_config"] = {
+            "parser": "heuristic.main_content.v1",
         }
     return manifest
 
@@ -138,6 +159,81 @@ class ExternalProjectAdapterUnitTestCase(unittest.TestCase):
             result["records"][0]["record_meta"]["artifact_ref"]["source_locator"],
             "https://example.com/posts/api-1.pdf",
         )
+
+    def test_article_extractor_manifest_materializes_body_and_diagnostics(self) -> None:
+        params = {
+            "_source_library_item": {
+                "item_key": "external.demo.item",
+                "name": "External Demo Item",
+                "extra": {"external_project_manifest": _build_manifest(execution_mode="article_extractor")},
+            },
+            "urls": ["https://example.com/articles/body"],
+            "max_items": 1,
+        }
+
+        extraction = SimpleNamespace(
+            title="Article Body",
+            content="Body paragraph with deterministic article text.",
+            extractor="heuristic.main_content.v1",
+            confidence="medium",
+            meta={"fixture": True},
+        )
+        with (
+            patch("app.services.source_library.adapters.external_project.default_http_client.get_text", return_value="<article>body</article>") as get_text,
+            patch("app.services.source_library.adapters.external_project.extract_article_content_from_html", return_value=extraction) as extractor,
+        ):
+            result = handle_external_project_manifest(params, project_key="demo_proj")
+
+        get_text.assert_called_once()
+        extractor.assert_called_once()
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["execution_mode"], "article_extractor")
+        self.assertEqual(result["provider_binding"]["provider_key"], "external_project.article_extractor")
+        self.assertEqual(result["records"][0]["content_text"], "Body paragraph with deterministic article text.")
+        article_meta = result["records"][0]["record_meta"]["article_extraction"]
+        self.assertEqual(article_meta["contract_version"], "external_project.article_body_extraction.v1")
+        self.assertEqual(article_meta["state"], "article_body_extracted")
+        self.assertEqual(article_meta["parser_capability"]["parser"], "heuristic.main_content.v1")
+        self.assertEqual(
+            result["runtime_diagnostics"]["diagnostics"]["fallback_states"][0]["state"],
+            "article_body_extracted",
+        )
+
+    def test_article_extractor_manifest_reports_metadata_and_fetch_fallback_states(self) -> None:
+        params = {
+            "_source_library_item": {
+                "item_key": "external.demo.item",
+                "name": "External Demo Item",
+                "extra": {"external_project_manifest": _build_manifest(execution_mode="article_extractor")},
+            },
+            "urls": ["https://example.com/articles/empty", "https://example.com/articles/error"],
+            "max_items": 2,
+        }
+
+        def _fake_get_text(url: str, **kwargs):  # noqa: ANN001
+            if url.endswith("/error"):
+                raise RuntimeError("fixture fetch failed")
+            return "<html><body>metadata only</body></html>"
+
+        extraction = SimpleNamespace(
+            title=None,
+            content="",
+            extractor="heuristic.main_content.v1",
+            confidence="low",
+            meta={"fixture": True},
+        )
+        with (
+            patch("app.services.source_library.adapters.external_project.default_http_client.get_text", side_effect=_fake_get_text),
+            patch("app.services.source_library.adapters.external_project.extract_article_content_from_html", return_value=extraction),
+        ):
+            result = handle_external_project_manifest(params, project_key="demo_proj")
+
+        self.assertEqual(result["status"], "partial")
+        states = [row["state"] for row in result["runtime_diagnostics"]["diagnostics"]["fallback_states"]]
+        self.assertEqual(states, ["metadata_only_fallback", "fetch_error_fallback"])
+        self.assertEqual(result["records"][0]["record_meta"]["article_extraction"]["state"], "metadata_only_fallback")
+        self.assertEqual(result["records"][1]["record_meta"]["article_extraction"]["state"], "fetch_error_fallback")
+        self.assertEqual(result["error_details"][0]["fallback_state"], "fetch_error_fallback")
 
 
 if __name__ == "__main__":
