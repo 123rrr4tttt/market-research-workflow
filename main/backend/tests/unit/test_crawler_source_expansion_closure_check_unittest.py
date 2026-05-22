@@ -32,7 +32,7 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         self.assertEqual(statuses["A2"], "closed")
         self.assertEqual(statuses["A3"], "closed")
         self.assertEqual(statuses["A4"], "needs_update")
-        self.assertEqual(statuses["A5"], "not_closed")
+        self.assertEqual(statuses["A5"], "blocked_external")
         self.assertEqual(statuses["A6"], "needs_update")
         self.assertEqual(statuses["A7"], "not_closed")
 
@@ -42,6 +42,10 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         self.assertEqual(result["protected_shared_indexes"], PROTECTED_SHARED_INDEXES)
         self.assertIn(
             "Update shared navigation only in a later integration lane.",
+            result["minimum_development_plan"],
+        )
+        self.assertIn(
+            "Treat A5 as deterministic-gate sealed but externally blocked until an opt-in 45-site public replay can be rerun and stored.",
             result["minimum_development_plan"],
         )
         for protected_path in PROTECTED_SHARED_INDEXES:
