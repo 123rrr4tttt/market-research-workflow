@@ -9,7 +9,14 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.graph.models import Graph, GraphEdge, GraphNode
-from app.services.graph.persistence.graph_projection_contract import build_graph_projection_dry_run
+from app.services.graph.persistence.graph_projection_contract import (
+    build_graph_projection_dry_run,
+    build_graph_projection_rollout_readiness,
+)
+
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MIGRATION_ROOT = BACKEND_ROOT / "migrations" / "versions"
 
 
 def _fixture_graph() -> Graph:
@@ -83,14 +90,81 @@ def _validate(report: dict) -> list[str]:
     return failures
 
 
+def _split_projects(raw: str) -> list[str]:
+    return [item.strip() for item in str(raw or "").split(",") if item.strip()]
+
+
+def _read_file(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _migration_checks(migration_root: Path) -> dict[str, bool]:
+    node_migration = _read_file(migration_root / "20260303_000004_add_graph_node_projection_tables.py")
+    edge_migration = _read_file(migration_root / "20260303_000005_add_graph_edge_projection_table.py")
+    return {
+        "graph_nodes_table": "graph_nodes" in node_migration and "uq_graph_nodes_type_canonical" in node_migration,
+        "graph_node_aliases_table": "graph_node_aliases" in node_migration
+        and "uq_graph_node_aliases_norm_type" in node_migration,
+        "graph_edges_table": "graph_edges" in edge_migration and "uq_graph_edges_type_from_to" in edge_migration,
+        "edge_depends_on_node_migration": 'down_revision = "20260303_000004"' in edge_migration,
+    }
+
+
+def _failure_isolation_checks() -> dict[str, bool]:
+    admin_source = _read_file(BACKEND_ROOT / "app" / "api" / "admin.py")
+    backfill_source = _read_file(BACKEND_ROOT / "app" / "services" / "graph" / "backfill_graph_nodes.py")
+    return {
+        "admin_shadow_write_rollback_and_continue": "_rollback_quietly(session, context=\"graph_b_write\")" in admin_source
+        and "graph_b_write_failed" in admin_source,
+        "admin_b_read_fallback_to_a": "_rollback_quietly(session, context=\"graph_b_read\")" in admin_source
+        and "graph_b_read_fallback_to_a" in admin_source,
+        "backfill_apply_rollback_on_failure": "_rollback_quietly(session)" in backfill_source
+        and "except Exception:" in backfill_source
+        and "raise" in backfill_source,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check graph projection canonical and edge contract without a DB")
     parser.add_argument("--format", choices=("json", "text"), default="json")
+    parser.add_argument("--read-mode", default="a_only", help="planned graph_node_projection_read_mode")
+    parser.add_argument("--write-mode", default="shadow", help="planned graph_node_projection_write_mode")
+    parser.add_argument("--canary-projects", default="demo_proj", help="comma-separated canary project keys")
+    parser.add_argument("--backfill-limit", type=int, default=10, help="bounded dry-run document limit")
+    parser.add_argument("--max-dry-run-limit", type=int, default=1000)
+    parser.add_argument("--backfill-apply", action="store_true", help="validate apply-mode readiness; should fail pre-live")
+    parser.add_argument("--migration-root", default=str(DEFAULT_MIGRATION_ROOT))
     args = parser.parse_args()
 
     report = build_graph_projection_dry_run(_fixture_graph()).to_dict()
+    readiness = build_graph_projection_rollout_readiness(
+        read_mode=args.read_mode,
+        write_mode=args.write_mode,
+        canary_projects=_split_projects(args.canary_projects),
+        backfill_dry_run=not args.backfill_apply,
+        backfill_limit=args.backfill_limit,
+        migration_checks=_migration_checks(Path(args.migration_root)),
+        failure_isolation_checks=_failure_isolation_checks(),
+        max_dry_run_limit=args.max_dry_run_limit,
+    ).to_dict()
     failures = _validate(report)
-    payload = {"status": "ok" if not failures else "failed", "failures": failures, "report": report}
+    failures.extend(
+        f"readiness.{check['name']}: {check['detail']}"
+        for check in readiness.get("checks", [])
+        if not check.get("passed")
+    )
+    if readiness.get("closure_claim") is not False or readiness.get("live_db_validated") is not False:
+        failures.append("readiness must not claim live DB validation or closure")
+
+    payload = {
+        "status": "ok" if not failures else "failed",
+        "failures": failures,
+        "report": report,
+        "readiness": readiness,
+    }
 
     if args.format == "json":
         print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
@@ -105,6 +179,8 @@ def main() -> int:
             "unresolved_edge_count",
         ):
             print(f"{key}={report.get(key)}")
+        print(f"ready_for_live_db_dry_run={readiness.get('ready_for_live_db_dry_run')}")
+        print(f"closure_claim={readiness.get('closure_claim')}")
         if failures:
             print("failures:")
             for failure in failures:

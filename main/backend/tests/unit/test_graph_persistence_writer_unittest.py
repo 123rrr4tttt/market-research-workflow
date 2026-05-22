@@ -16,7 +16,10 @@ from app.services.graph.models import Graph, GraphEdge, GraphNode
 from app.services.graph.mapping import normalize_canonical_node_id, normalize_node_id
 from app.services.graph.persistence.graph_node_alias_resolver import GraphNodeAliasResolver
 from app.services.graph.persistence.graph_node_writer import GraphNodeWriter
-from app.services.graph.persistence.graph_projection_contract import build_graph_projection_dry_run
+from app.services.graph.persistence.graph_projection_contract import (
+    build_graph_projection_dry_run,
+    build_graph_projection_rollout_readiness,
+)
 
 
 class _FakeExecResult:
@@ -160,6 +163,58 @@ class GraphPersistenceWriterUnitTestCase(unittest.TestCase):
         self.assertEqual(report.unresolved_edge_count, 1)
         self.assertEqual(report.edges[0].skip_reason, "missing_to_endpoint")
         self.assertIn("b_primary read-mode parity", " ".join(report.live_db_gap))
+
+    def test_projection_rollout_readiness_allows_bounded_pre_live_dry_run_only(self):
+        report = build_graph_projection_rollout_readiness(
+            read_mode="b_canary",
+            write_mode="shadow",
+            canary_projects=["demo_proj"],
+            backfill_dry_run=True,
+            backfill_limit=10,
+            migration_checks={
+                "graph_nodes_table": True,
+                "graph_node_aliases_table": True,
+                "graph_edges_table": True,
+                "edge_depends_on_node_migration": True,
+            },
+            failure_isolation_checks={
+                "admin_shadow_write_rollback_and_continue": True,
+                "admin_b_read_fallback_to_a": True,
+                "backfill_apply_rollback_on_failure": True,
+            },
+        )
+
+        self.assertTrue(report.ready_for_live_db_dry_run)
+        self.assertFalse(report.live_db_validated)
+        self.assertFalse(report.closure_claim)
+        self.assertIn("backfill_graph_nodes.py --dry-run", " ".join(report.live_db_gap))
+
+    def test_projection_rollout_readiness_blocks_b_primary_apply_before_live_db(self):
+        report = build_graph_projection_rollout_readiness(
+            read_mode="b_primary",
+            write_mode="on",
+            canary_projects=[],
+            backfill_dry_run=False,
+            backfill_limit=None,
+            migration_checks={
+                "graph_nodes_table": True,
+                "graph_node_aliases_table": True,
+                "graph_edges_table": True,
+                "edge_depends_on_node_migration": True,
+            },
+            failure_isolation_checks={
+                "admin_shadow_write_rollback_and_continue": True,
+                "admin_b_read_fallback_to_a": True,
+                "backfill_apply_rollback_on_failure": True,
+            },
+        )
+
+        self.assertFalse(report.ready_for_live_db_dry_run)
+        failed = {check.name for check in report.checks if not check.passed}
+        self.assertIn("read_mode_pre_live_safe", failed)
+        self.assertIn("write_mode_pre_live_safe", failed)
+        self.assertIn("backfill_dry_run_required", failed)
+        self.assertIn("backfill_limit_bounded", failed)
 
 
 if __name__ == "__main__":

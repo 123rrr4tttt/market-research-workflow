@@ -62,12 +62,16 @@ class _FakeResult:
 class _FakeSession:
     def __init__(self, docs):
         self._docs = docs
+        self.rollbacks = 0
 
     def execute(self, _query):  # noqa: ANN001
         return _FakeResult(self._docs)
 
     def commit(self):
         return None
+
+    def rollback(self):
+        self.rollbacks += 1
 
     def __enter__(self):
         return self
@@ -355,6 +359,39 @@ class AdminGraphStandardizationIntegrationTestCase(unittest.TestCase):
             node_ids = {str(n.get("id")) for n in body["data"]["nodes"]}
             self.assertIn("canary-1", node_ids)
             self.assertEqual(len(body["data"]["edges"]), 0)
+
+    def test_admin_graph_shadow_write_failure_keeps_a_path_response(self):
+        with patch("app.settings.config.settings.graph_node_projection_write_mode", "shadow"), patch(
+            "app.settings.config.settings.graph_node_projection_read_mode", "a_only"
+        ), patch(
+            "app.services.graph.persistence.graph_node_writer.GraphNodeWriter.persist_graph_nodes",
+            side_effect=RuntimeError("projection write failed"),
+        ):
+            resp = self._call("/api/v1/admin/content-graph?limit=20")
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self._assert_contract(body)
+        node_ids = {str(n.get("id")) for n in body["data"]["nodes"]}
+        self.assertIn("1", node_ids)
+
+    def test_admin_graph_b_canary_read_failure_falls_back_to_a_path_response(self):
+        with patch("app.settings.config.settings.graph_node_projection_write_mode", "off"), patch(
+            "app.settings.config.settings.graph_node_projection_read_mode", "b_canary"
+        ), patch(
+            "app.settings.config.settings.graph_node_projection_canary_projects", "demo_proj"
+        ), patch(
+            "app.services.graph.persistence.graph_node_reader.GraphNodeReader.load_graph",
+            side_effect=RuntimeError("projection read failed"),
+        ):
+            resp = self._call("/api/v1/admin/content-graph?limit=20")
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self._assert_contract(body)
+        node_ids = {str(n.get("id")) for n in body["data"]["nodes"]}
+        self.assertIn("1", node_ids)
+        self.assertNotIn("canary-1", node_ids)
 
     def test_admin_content_graph_build_failure_returns_error_envelope(self):
         patches = self._patch_common()
