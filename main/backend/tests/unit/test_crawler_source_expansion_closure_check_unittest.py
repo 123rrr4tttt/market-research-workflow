@@ -32,13 +32,16 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         self.assertEqual(statuses["A2"], "closed")
         self.assertEqual(statuses["A3"], "closed")
         self.assertEqual(statuses["A4"], "closed")
-        self.assertEqual(statuses["A5"], "not_closed")
+        self.assertEqual(statuses["A5"], "blocked_external")
         self.assertEqual(statuses["A6"], "needs_update")
         self.assertEqual(statuses["A7"], "not_closed")
 
         a4 = next(task for task in result["tasks"] if task["task_id"] == "A4")
         self.assertEqual(a4["gap"], "")
         self.assertIn("Wave7 policy matrix", a4["evidence"])
+        a5 = next(task for task in result["tasks"] if task["task_id"] == "A5")
+        self.assertEqual(a5["status"], "blocked_external")
+        self.assertIn("external", a5["gap"])
 
     def test_closure_check_keeps_shared_navigation_out_of_this_lane(self) -> None:
         result = build_check(REPO_ROOT)
@@ -50,6 +53,10 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         )
         self.assertIn(
             "Update shared navigation only in a later integration lane.",
+            result["minimum_development_plan"],
+        )
+        self.assertIn(
+            "Treat A5 as deterministic-gate sealed but externally blocked until an opt-in 45-site public replay can be rerun and stored.",
             result["minimum_development_plan"],
         )
         for protected_path in PROTECTED_SHARED_INDEXES:

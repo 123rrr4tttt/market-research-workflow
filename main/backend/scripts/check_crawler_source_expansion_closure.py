@@ -15,6 +15,7 @@ TOPIC_DIR = Path(
 )
 WAVE6_DOC = TOPIC_DIR / "2026-05-22-wave6-closure-gap-and-min-plan.md"
 WAVE7_POLICY_MATRIX_DOC = TOPIC_DIR / "2026-05-22-wave7-crawler-policy-matrix.md"
+WAVE7_A5_DOC = TOPIC_DIR / "2026-05-22-wave7-a5-public-replay-evidence.md"
 
 PROTECTED_SHARED_INDEXES = [
     "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
@@ -37,6 +38,10 @@ ANCHORS: dict[str, Anchor] = {
     "wave7_policy_matrix_doc": Anchor(
         WAVE7_POLICY_MATRIX_DOC,
         ("source_policy_action", "`allow`", "`downgrade`", "`block`", "Executable Check"),
+    ),
+    "wave7_a5_public_replay_doc": Anchor(
+        WAVE7_A5_DOC,
+        ("A5 Gate Decision", "Deterministic Gate", "External Blocker"),
     ),
     "crawler_api": Anchor(Path("main/backend/app/api/crawler.py")),
     "source_library_api": Anchor(Path("main/backend/app/api/source_library.py")),
@@ -106,6 +111,10 @@ ANCHORS: dict[str, Anchor] = {
         Path("main/backend/scripts/source_library_public_live_probes.py"),
         ("def run_probe", "live_evidence_sufficient", "allow_public_network"),
     ),
+    "source_public_replay_a5_gate_script": Anchor(
+        Path("main/backend/scripts/check_source_library_public_replay_a5_gate.py"),
+        ("CONTRACT_VERSION", "def build_check", "external_public_network_or_site_stability"),
+    ),
     "source_replay_scaleout_evidence": Anchor(
         Path("development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md"),
         ("45-site", "not closed"),
@@ -149,6 +158,10 @@ ANCHORS: dict[str, Anchor] = {
     "test_source_candidate_trust": Anchor(
         Path("main/backend/tests/unit/test_source_candidate_trust_unittest.py"),
         ("source_policy_action", "test_plan_marks_medium_trust_candidates_as_downgraded_review_path"),
+    ),
+    "test_source_library_public_replay_a5_gate": Anchor(
+        Path("main/backend/tests/unit/test_source_library_public_replay_a5_gate_unittest.py"),
+        ("deterministic_replay_gate_closed_external_public_replay_blocked", "review_required_not_full_closure"),
     ),
 }
 
@@ -243,8 +256,11 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     a5_keys = [
         "source_replay_script",
         "source_public_live_probe_script",
+        "source_public_replay_a5_gate_script",
         "source_replay_scaleout_evidence",
         "source_live_probe_evidence",
+        "wave7_a5_public_replay_doc",
+        "test_source_library_public_replay_a5_gate",
     ]
     a6_keys = [
         "collect_source_library_adapter",
@@ -295,11 +311,11 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         _task(
             "A5",
             "Define directed-source onboarding strategy",
-            "not_closed" if _passed(anchor_results, a5_keys) else "needs_update",
+            "blocked_external" if _passed(anchor_results, a5_keys) else "needs_update",
             a5_keys,
             anchor_results,
-            "The 45-site historical manifest and public-live subset are represented by scripts and 2026-05-22 artifacts.",
-            "The 45-site public replay and term-fallback relevance review are still explicit blockers.",
+            "The 45-site historical manifest, no-network replay gate, public-live fixture, A5 checker, and term-fallback relevance-review test are represented.",
+            "Full 45-site public replay remains an external public-network/site-stability blocker; term-fallback rows stay review evidence, not clean closure.",
         ),
         _task(
             "A6",
@@ -348,7 +364,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "minimum_development_plan": [
             "Keep A1-A3 as evidence-closed and update only topic-local documentation until integration.",
             "Keep A4 closed by preserving the Wave7 allow/downgrade/block matrix and executable coverage check.",
-            "Close A5 only after an opt-in 45-site public replay records pass/fail/anti-bot/relevance-review outcomes.",
+            "Treat A5 as deterministic-gate sealed but externally blocked until an opt-in 45-site public replay can be rerun and stored.",
             "Close A6 after crawler/provider-specific handoff cases are covered by focused source_library/ingest tests.",
             "Update shared navigation only in a later integration lane.",
         ],
