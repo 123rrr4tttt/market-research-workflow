@@ -717,6 +717,26 @@ def update_project_item(
     return upsert_project_item(payload=payload, request=request, project_key=project_key)
 
 
+@router.post("/items/{item_key}/run")
+def run_project_item_legacy_endpoint(item_key: str) -> None:
+    raise HTTPException(
+        status_code=410,
+        detail=error_response(
+            ErrorCode.INVALID_INPUT,
+            "POST /api/v1/source_library/items/{item_key}/run is deprecated; use POST /api/v1/ingest/source-library/run.",
+            details={
+                "item_key": item_key,
+                "deprecated_endpoint": "/api/v1/source_library/items/{item_key}/run",
+                "replacement_endpoint": "/api/v1/ingest/source-library/run",
+                "replacement_payload": {"item_key": item_key, "project_key": "<project_key>", "override_params": {}},
+                "legacy_status": "410_gone",
+                "runs_source_library_item": False,
+            },
+            meta={"deprecated": "source_library.legacy_item_run.v1"},
+        ),
+    )
+
+
 @router.post("/items/{item_key}/refresh")
 def refresh_item(item_key: str, payload: RefreshItemPayload, request: Request) -> dict:
     try:
