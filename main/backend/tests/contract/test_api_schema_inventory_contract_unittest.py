@@ -50,10 +50,10 @@ class ApiSchemaInventoryContractTestCase(unittest.TestCase):
         current = build_inventory(backend_app)
         summary = current["summary"]
 
-        self.assertEqual(summary["api_v1_operations"], 253)
-        self.assertEqual(summary["api_router_operations"], 250)
+        self.assertEqual(summary["api_v1_operations"], 259)
+        self.assertEqual(summary["api_router_operations"], 256)
         self.assertEqual(summary["app_level_operations"], 3)
-        self.assertEqual(summary["request_body_operations"], 114)
+        self.assertEqual(summary["request_body_operations"], 118)
         self.assertGreaterEqual(summary["component_schemas"], 100)
         self.assertEqual(summary["untyped_openapi_200_operations"], 0)
 

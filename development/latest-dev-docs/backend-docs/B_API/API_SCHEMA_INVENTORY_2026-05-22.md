@@ -2,21 +2,21 @@
 
 > Status: CURRENT as of 2026-05-22. Generated from the running FastAPI app OpenAPI surface by `main/backend/scripts/generate_api_schema_inventory.py`.
 >
-> Scope: every `/api/v1` OpenAPI operation exposed by `app.main.app`, including the 250 router operations covered by `API_ROUTE_MAP_2026-05-22.md` plus 3 non-`app.api` operations (`/api/v1/health`, `/api/v1/health/deep`, `/api/v1/maps/usa`).
+> Scope: every `/api/v1` OpenAPI operation exposed by `app.main.app`, including the 256 router operations covered by `API_ROUTE_MAP_2026-05-22.md` plus 3 non-`app.api` operations (`/api/v1/health`, `/api/v1/health/deep`, `/api/v1/maps/usa`).
 >
 > Drift guard: `main/backend/tests/contract/test_api_schema_inventory_contract_unittest.py` regenerates this document from the current FastAPI OpenAPI schema and compares it byte-for-byte.
 
 ## Summary
 
-- OpenAPI `/api/v1` operations: **253**.
-- API router operations also covered by `API_ROUTE_MAP_2026-05-22.md`: **250**.
+- OpenAPI `/api/v1` operations: **259**.
+- API router operations also covered by `API_ROUTE_MAP_2026-05-22.md`: **256**.
 - App-level `/api/v1` operations outside `main/backend/app/api/*.py`: **3**.
-- Component schemas advertised by OpenAPI: **219**.
-- Method distribution: `DELETE` 9, `GET` 118, `PATCH` 3, `POST` 117, `PUT` 6.
-- Operations with JSON request bodies: **114**.
-- Operations with explicit FastAPI `response_model`: **248**.
+- Component schemas advertised by OpenAPI: **238**.
+- Method distribution: `DELETE` 9, `GET` 120, `PATCH` 3, `POST` 121, `PUT` 6.
+- Operations with JSON request bodies: **118**.
+- Operations with explicit FastAPI `response_model`: **254**.
 - Operations whose OpenAPI 200 response schema is still untyped: **0**.
-- 200 response schema distribution: `ApiEnvelope_Any_` 38, `ApiEnvelope_CopyLlmConfigsData_` 1, `ApiEnvelope_CrawlerDeployActionData_` 2, `ApiEnvelope_CrawlerDeployRunData_` 1, `ApiEnvelope_CrawlerDeployRunsData_` 2, `ApiEnvelope_CrawlerProjectData_` 2, `ApiEnvelope_CrawlerProjectsData_` 1, `ApiEnvelope_EnvSettingsUpdateData_` 1, `ApiEnvelope_KeywordCardDetailResponse_` 1, `ApiEnvelope_KeywordCardListResponse_` 1, `ApiEnvelope_KeywordCardPreviewResponse_` 1, `ApiEnvelope_KeywordHistoryData_` 1, `ApiEnvelope_KeywordPriorUpsertData_` 1, `ApiEnvelope_KeywordPriorsData_` 1, `ApiEnvelope_KeywordVectorizationCandidatesData_` 1, `ApiEnvelope_LlmActionHistoryItem_` 1, `ApiEnvelope_LlmActionHistoryListData_` 1, `ApiEnvelope_LlmActionResponse_` 1, `ApiEnvelope_LlmConfigMessageData_` 2, `ApiEnvelope_LlmServiceConfigResponse_` 5, `ApiEnvelope_PoliciesListData_` 1, `ApiEnvelope_PolicyDetail_` 1, `ApiEnvelope_PolicyStateDetail_` 1, `ApiEnvelope_PolicyStats_` 1, `ApiEnvelope_ProjectLlmConfigItemData_` 3, `ApiEnvelope_ProjectLlmConfigListData_` 1, `ApiEnvelope_ProjectLlmConfigMessageData_` 1, `ApiEnvelope_PromptTimeDensityCloudData_` 1, `ApiEnvelope_PromptTimeDensityData_` 1, `ApiEnvelope_PromptTimeDensityPriorityData_` 1, `ApiEnvelope_PromptTimeDensityWindowSelectionData_` 1, `ApiEnvelope_ReloadConfigData_` 1, `ApiEnvelope_RuntimeConfigData_` 1, `ApiEnvelope_SuggestResponse_` 1, `ApiEnvelope_TemplateValidateResponse_` 1, `ApiEnvelope_WorkflowGraphAuditListData_` 1, `ApiEnvelope_WorkflowGraphCuratedStateData_` 5, `ApiEnvelope_WorkflowGraphEvidencePackData_` 1, `ApiEnvelope_WorkflowGraphHandoffData_` 2, `ApiEnvelope_WorkflowGraphHandoffListData_` 1, `ApiEnvelope_WorkflowGraphHandoffReplayData_` 1, `ApiEnvelope_WritingCitationListData_` 2, `ApiEnvelope_WritingDocumentData_` 3, `ApiEnvelope_WritingDocumentDeleteData_` 1, `ApiEnvelope_WritingDocumentDraftData_` 1, `ApiEnvelope_WritingDocumentListData_` 1, `ApiEnvelope_WritingTemplateListData_` 1, `ApiEnvelope_dict_str__Any__` 86, `ApiEnvelope_list_LlmServiceConfigResponse__` 1, `missing` 2, `non-json` 3, `object` 59.
+- 200 response schema distribution: `ApiEnvelope_Any_` 38, `ApiEnvelope_ClueChainCloseData_` 1, `ApiEnvelope_ClueChainDecisionResponseData_` 1, `ApiEnvelope_ClueChainDetailData_` 2, `ApiEnvelope_ClueChainExpansionData_` 1, `ApiEnvelope_ClueChainListData_` 1, `ApiEnvelope_CopyLlmConfigsData_` 1, `ApiEnvelope_CrawlerDeployActionData_` 2, `ApiEnvelope_CrawlerDeployRunData_` 1, `ApiEnvelope_CrawlerDeployRunsData_` 2, `ApiEnvelope_CrawlerProjectData_` 2, `ApiEnvelope_CrawlerProjectsData_` 1, `ApiEnvelope_EnvSettingsUpdateData_` 1, `ApiEnvelope_KeywordCardDetailResponse_` 1, `ApiEnvelope_KeywordCardListResponse_` 1, `ApiEnvelope_KeywordCardPreviewResponse_` 1, `ApiEnvelope_KeywordHistoryData_` 1, `ApiEnvelope_KeywordPriorUpsertData_` 1, `ApiEnvelope_KeywordPriorsData_` 1, `ApiEnvelope_KeywordVectorizationCandidatesData_` 1, `ApiEnvelope_LlmActionHistoryItem_` 1, `ApiEnvelope_LlmActionHistoryListData_` 1, `ApiEnvelope_LlmActionResponse_` 1, `ApiEnvelope_LlmConfigMessageData_` 2, `ApiEnvelope_LlmServiceConfigResponse_` 5, `ApiEnvelope_PoliciesListData_` 1, `ApiEnvelope_PolicyDetail_` 1, `ApiEnvelope_PolicyStateDetail_` 1, `ApiEnvelope_PolicyStats_` 1, `ApiEnvelope_ProjectLlmConfigItemData_` 3, `ApiEnvelope_ProjectLlmConfigListData_` 1, `ApiEnvelope_ProjectLlmConfigMessageData_` 1, `ApiEnvelope_PromptTimeDensityCloudData_` 1, `ApiEnvelope_PromptTimeDensityData_` 1, `ApiEnvelope_PromptTimeDensityPriorityData_` 1, `ApiEnvelope_PromptTimeDensityWindowSelectionData_` 1, `ApiEnvelope_ReloadConfigData_` 1, `ApiEnvelope_RuntimeConfigData_` 1, `ApiEnvelope_SuggestResponse_` 1, `ApiEnvelope_TemplateValidateResponse_` 1, `ApiEnvelope_WorkflowGraphAuditListData_` 1, `ApiEnvelope_WorkflowGraphCuratedStateData_` 5, `ApiEnvelope_WorkflowGraphEvidencePackData_` 1, `ApiEnvelope_WorkflowGraphHandoffData_` 2, `ApiEnvelope_WorkflowGraphHandoffListData_` 1, `ApiEnvelope_WorkflowGraphHandoffReplayData_` 1, `ApiEnvelope_WritingCitationListData_` 2, `ApiEnvelope_WritingDocumentData_` 3, `ApiEnvelope_WritingDocumentDeleteData_` 1, `ApiEnvelope_WritingDocumentDraftData_` 1, `ApiEnvelope_WritingDocumentListData_` 1, `ApiEnvelope_WritingTemplateListData_` 1, `ApiEnvelope_dict_str__Any__` 86, `ApiEnvelope_list_LlmServiceConfigResponse__` 1, `missing` 2, `non-json` 3, `object` 59.
 
 ## Contract Meaning
 
@@ -33,6 +33,7 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | agent_chat.py | 4 | 3 | 3 | 0 |
 | agent_sessions.py | 16 | 5 | 15 | 0 |
 | app.web_ui_routes | 1 | 0 | 1 | 0 |
+| clue_chains.py | 6 | 4 | 6 | 0 |
 | codex_auth.py | 5 | 0 | 3 | 0 |
 | config.py | 4 | 1 | 4 | 0 |
 | crawler.py | 8 | 3 | 8 | 0 |
@@ -318,3 +319,9 @@ It does not prove runtime envelope conformance for every handler. A typed OpenAP
 | GET | `/api/v1/codex-auth/status` | `codex_auth_status` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
 | POST | `/api/v1/codex-auth/logout` | `codex_auth_logout` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
 | POST | `/api/v1/codex-auth/cli/bootstrap` | `codex_cli_bootstrap` | `codex_auth.py` | - | - | `-` | `ApiEnvelope[dict[str, Any]]` | `ApiEnvelope_dict_str__Any__` | 200 |
+| GET | `/api/v1/clue-chains` | `list_clue_chains` | `clue_chains.py` | - | project_key?, graph_id?, status?, limit? | `-` | `ApiEnvelope[ClueChainListData]` | `ApiEnvelope_ClueChainListData_` | 200, 422 |
+| POST | `/api/v1/clue-chains` | `create_clue_chain` | `clue_chains.py` | - | - | `ClueChainCreateRequest` | `ApiEnvelope[ClueChainDetailData]` | `ApiEnvelope_ClueChainDetailData_` | 200, 422 |
+| GET | `/api/v1/clue-chains/{chain_id}` | `get_clue_chain` | `clue_chains.py` | chain_id | - | `-` | `ApiEnvelope[ClueChainDetailData]` | `ApiEnvelope_ClueChainDetailData_` | 200, 422 |
+| POST | `/api/v1/clue-chains/{chain_id}/expand` | `expand_clue_chain` | `clue_chains.py` | chain_id | - | `ClueChainExpandRequest` | `ApiEnvelope[ClueChainExpansionData]` | `ApiEnvelope_ClueChainExpansionData_` | 200, 422 |
+| POST | `/api/v1/clue-chains/{chain_id}/candidates/{candidate_id}/decision` | `decide_clue_chain_candidate` | `clue_chains.py` | chain_id, candidate_id | - | `ClueChainDecisionRequest` | `ApiEnvelope[ClueChainDecisionResponseData]` | `ApiEnvelope_ClueChainDecisionResponseData_` | 200, 422 |
+| POST | `/api/v1/clue-chains/{chain_id}/close` | `close_clue_chain` | `clue_chains.py` | chain_id | - | `ClueChainCloseRequest` | `ApiEnvelope[ClueChainCloseData]` | `ApiEnvelope_ClueChainCloseData_` | 200, 422 |
