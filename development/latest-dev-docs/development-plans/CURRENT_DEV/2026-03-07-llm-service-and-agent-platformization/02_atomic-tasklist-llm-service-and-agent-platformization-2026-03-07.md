@@ -5,10 +5,11 @@
 - `A1`: closed-minimal by Wave6-5 evidence; baseline repo anchors are real and no longer greenfield.
 - `A2-A4`: closed-minimal by `main/backend/app/services/llm/platformization.py` plus writing/report/workflow consumers.
 - `A5-A6`: closed-minimal by the platform consumer boundary table and agent permission boundary.
-- `A7`: needs-update; long-horizon framework evaluation should be deferred behind current AgentCore/LLM contract deltas.
-- `A8`: closed-minimal for the current validation pack; topic stays in `CURRENT_DEV` until the A7 update and any shared-index integration are handled separately.
+- `A7`: closed-minimal by Wave9-7 AgentCore platform contract delta; external frameworks remain deferred unless they prove a gap beyond the repo-native contract.
+- `A8`: closed-minimal for the current validation pack; topic stays in `CURRENT_DEV` until a separate shared-index integration pass handles navigation/archive status.
 
 Wave6-5 status evidence: `03_wave6-5-status-evidence-and-min-plan-2026-05-22.md`.
+Wave9-7 platform contract evidence: `04_wave9-7-agent-core-platform-contract-evidence-2026-05-22.md`.
 
 ## Global Serial-Parallel Rules
 
@@ -206,7 +207,7 @@ Each task must declare:
 ## Task A7: Define Long-Horizon Framework Evaluation Gate
 
 - goal: Convert long-horizon framework discussion into explicit entry criteria instead of vague roadmap language.
-- status: needs-update; defer external framework evaluation behind repo-native contract deltas
+- status: closed-minimal by Wave9-7 AgentCore platform contract evidence; defer external framework evaluation behind repo-native contract deltas
 - depends_on: `["A2","A3","A5","A6"]`
 - blocks: `["A8"]`
 - input:
@@ -216,16 +217,19 @@ Each task must declare:
 - output:
   - one evaluation checklist for external framework fit
   - one reject/defer rule for premature integration
+  - one deterministic repo-native platform contract proving the minimum AgentCore baseline before framework comparison
 - acceptance:
   - the document states when an external framework is additive versus duplicative relative to the existing facade and workflow graph runtime
   - the document does not commit to immediate adoption without a proven contract gap
+  - AgentCore has a reusable contract envelope linking schema inventory, runtime dispatch, permission boundary, and trace/audit evidence
 - minimum_validation:
   - compare one required framework capability against one repo-native capability and document the delta
+  - run `main/backend/scripts/check_agent_core_platform_contract.py` plus the focused unit gate
 
 ## Task A8: Close the Minimum Validation Pack
 
 - goal: Produce the smallest validation set that later implementation work can execute to confirm the plan still matches the repo.
-- status: closed-minimal by Wave6-5 validation pack
+- status: closed-minimal by Wave6-5 validation pack plus Wave9-7 AgentCore platform contract gate
 - depends_on: `["A4","A5","A6","A7"]`
 - blocks: `[]`
 - input:

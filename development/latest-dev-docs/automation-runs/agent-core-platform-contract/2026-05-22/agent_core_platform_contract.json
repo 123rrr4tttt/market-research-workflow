@@ -1,0 +1,211 @@
+{
+  "agent_permission_boundary": {
+    "agent_role": "orchestration_runtime",
+    "allowed": true,
+    "consumer": "agent_core.tool_dispatch",
+    "denied_permissions": [],
+    "denied_reasons": [],
+    "requested_permissions": [
+      "llm.invoke",
+      "project.read"
+    ],
+    "unknown_permissions": []
+  },
+  "consumer": "agent_core.tool_dispatch",
+  "consumer_boundary": {
+    "adapter_kind": "orchestration_adapter",
+    "allowed_agent_roles": [
+      "orchestration_runtime",
+      "user_facing_assistant"
+    ],
+    "allowed_permissions": [
+      "llm.invoke",
+      "project.read",
+      "project.write",
+      "provider.route_override"
+    ],
+    "business_validation_owner": "agent_core.schema_validation",
+    "capability": "agent_tool_dispatch",
+    "consumer": "agent_core.tool_dispatch",
+    "default_agent_role": "orchestration_runtime",
+    "observability_owner": "agent_core.events_and_tool_results",
+    "routing_owner": "agent_core.runtime_dispatcher"
+  },
+  "contract_version": "agent_core.platform_contract.v1",
+  "evidence_envelope": {
+    "contract_version": "agent_core.platform_evidence.v1",
+    "event_type_counts": {
+      "assistant_message": 1,
+      "final_answer": 1,
+      "session_started": 1,
+      "tool_call_requested": 1,
+      "tool_call_started": 1,
+      "tool_result": 1,
+      "user_message": 1
+    },
+    "tool_result_status_counts": {
+      "completed": 1
+    },
+    "trace_audit": {
+      "actor_id": "wave9-worker-7",
+      "capability": "agent_tool_dispatch",
+      "consumer": "agent_core.tool_dispatch",
+      "degraded": false,
+      "error_code": null,
+      "error_detail": null,
+      "model": "fake-core-provider",
+      "project_key": "demo_proj",
+      "provider": "fake",
+      "request_id": "req-agent-core-platform-contract",
+      "route_kind": "provider_default",
+      "service_name": "agent_core.runtime_dispatcher",
+      "status": "ok",
+      "trace_id": "trace-agent-core-platform-contract"
+    }
+  },
+  "request_identity": {
+    "actor_id": "wave9-worker-7",
+    "consumer": "agent_core.tool_dispatch",
+    "project_key": "demo_proj",
+    "request_id": "req-agent-core-platform-contract",
+    "trace_id": "trace-agent-core-platform-contract"
+  },
+  "routing": {
+    "capability": "agent_tool_dispatch",
+    "field_sources": {
+      "max_tokens": "derived",
+      "model": "default",
+      "provider": "default",
+      "temperature": "derived",
+      "top_p": "derived"
+    },
+    "max_tokens": null,
+    "model": "fake-core-provider",
+    "provider": "fake",
+    "provider_hint_unapplied": false,
+    "route_kind": "provider_default",
+    "service_name": "agent_core.runtime_dispatcher",
+    "temperature": null,
+    "top_p": null
+  },
+  "runtime_dispatch": {
+    "contract_version": "agent_core.runtime_dispatch.v1",
+    "permission_request": null,
+    "session_id": "agent-core-platform-contract-session",
+    "stop_reason": "final_answer",
+    "tool_event_sequence": [
+      {
+        "call_id": "call-agent-core-platform-contract",
+        "event_type": "tool_call_requested",
+        "permission": "allow",
+        "status": null,
+        "tool_name": "agent.platform_contract.echo",
+        "validation": null
+      },
+      {
+        "call_id": "call-agent-core-platform-contract",
+        "event_type": "tool_call_started",
+        "permission": null,
+        "status": null,
+        "tool_name": "agent.platform_contract.echo",
+        "validation": null
+      },
+      {
+        "call_id": "call-agent-core-platform-contract",
+        "event_type": "tool_result",
+        "permission": null,
+        "status": "completed",
+        "tool_name": "agent.platform_contract.echo",
+        "validation": null
+      }
+    ],
+    "tool_results": [
+      {
+        "artifact_refs": [],
+        "call_id": "call-agent-core-platform-contract",
+        "model_summary": "AgentCore platform contract probe completed.",
+        "status": "completed",
+        "structured_content": {
+          "contract_version": "agent.platform_contract.echo.result.v1",
+          "echo": "agent-core-platform-contract",
+          "project_key": "demo_proj"
+        },
+        "tool_name": "agent.platform_contract.echo",
+        "ui_summary": "AgentCore platform contract probe completed."
+      }
+    ],
+    "turn_id": "turn-agent-core-platform-contract"
+  },
+  "tool_schema_inventory": {
+    "contract_version": "agent_core.tool_schema_inventory.v1",
+    "summary": {
+      "by_concurrency": {
+        "serial": 1
+      },
+      "by_permission": {
+        "allow": 1
+      },
+      "by_risk": {
+        "read_only": 1
+      },
+      "by_source": {
+        "project": 1
+      }
+    },
+    "tool_count": 1,
+    "tools": [
+      {
+        "concurrency": "serial",
+        "description_for_model": "Deterministic read-only probe for AgentCore platform dispatch.",
+        "input_schema": {
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "mcp_server": null,
+        "metadata": {
+          "contract_version": "agent.platform_contract.echo.v1"
+        },
+        "name": "agent.platform_contract.echo",
+        "output_schema": {
+          "additionalProperties": false,
+          "properties": {
+            "contract_version": {
+              "type": "string"
+            },
+            "echo": {
+              "type": "string"
+            },
+            "project_key": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "contract_version",
+            "echo",
+            "project_key"
+          ],
+          "type": "object"
+        },
+        "permission": "allow",
+        "project_service_id": "agent.platform_contract.echo",
+        "result_budget": 4000,
+        "risk": "read_only",
+        "skill_id": null,
+        "source": "project",
+        "timeout_seconds": 10,
+        "title": "Agent platform contract echo"
+      }
+    ]
+  }
+}

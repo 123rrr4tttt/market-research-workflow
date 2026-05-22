@@ -6,6 +6,7 @@ from typing import Any, Literal, Mapping
 
 CapabilityName = Literal[
     "general_chat",
+    "agent_tool_dispatch",
     "writing_action",
     "report_generation",
     "workflow_llm_call",
@@ -23,6 +24,7 @@ AgentPermission = Literal[
 _KNOWN_CAPABILITIES = frozenset(
     {
         "general_chat",
+        "agent_tool_dispatch",
         "writing_action",
         "report_generation",
         "workflow_llm_call",
@@ -95,6 +97,17 @@ class AgentBoundaryDecision:
 
 
 _CONSUMER_BOUNDARY_TABLE: dict[str, LlmConsumerAdapterBoundary] = {
+    "agent_core.tool_dispatch": LlmConsumerAdapterBoundary(
+        consumer="agent_core.tool_dispatch",
+        capability="agent_tool_dispatch",
+        adapter_kind="orchestration_adapter",
+        business_validation_owner="agent_core.schema_validation",
+        routing_owner="agent_core.runtime_dispatcher",
+        observability_owner="agent_core.events_and_tool_results",
+        default_agent_role="orchestration_runtime",
+        allowed_agent_roles=("orchestration_runtime", "user_facing_assistant"),
+        allowed_permissions=("llm.invoke", "project.read", "project.write", "provider.route_override"),
+    ),
     "writing.llm_action": LlmConsumerAdapterBoundary(
         consumer="writing.llm_action",
         capability="writing_action",
