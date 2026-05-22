@@ -14,6 +14,7 @@ const files = {
   loader: 'src/pages/graph/hooks/useForceGraph3DLoader.ts',
   viewport: 'src/pages/graph/hooks/useForceGraphViewport.ts',
   e2e: 'tests/e2e/graphpage.spec.ts',
+  runtimePixelGate: 'tests/e2e/graph-runtime-pixel-gate.spec.ts',
   css: 'src/index.css',
 }
 
@@ -41,6 +42,7 @@ const modeSwitch = readFile(files.modeSwitch)
 const loader = readFile(files.loader)
 const viewport = readFile(files.viewport)
 const e2e = readFile(files.e2e)
+const runtimePixelGate = readFile(files.runtimePixelGate)
 const css = readFile(files.css)
 
 if (!packageJson.dependencies?.['react-force-graph-3d']) {
@@ -91,6 +93,22 @@ assertIncludes(e2e, '__graph3dDebug', files.e2e)
 assertIncludes(e2e, '已自动降级到 legacy-projection', files.e2e)
 assertIncludes(e2e, "selectOption('legacy')", files.e2e)
 assertIncludes(e2e, "selectOption('force3d')", files.e2e)
+
+assertIncludes(
+  packageJson.scripts?.['check:graph-runtime-pixel-gate'] || '',
+  'tests/e2e/graph-runtime-pixel-gate.spec.ts',
+  files.packageJson,
+)
+assertIncludes(runtimePixelGate, 'graph runtime pixel gate proves force3d pixels or shape framing without tenant DB', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, 'wave17-graph-runtime-pixel-gate', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, 'inspectPixelDiversity', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, 'nonblank-pixels', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, 'shape-framing', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, 'fallback-data-framing', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, 'externalGpuRequired: false', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, 'tenantDbRequired: false', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, 'stats.sceneNodeObjects >= expectedNodes', files.runtimePixelGate)
+assertIncludes(runtimePixelGate, "metrics['节点总数'] === String(expectedNodes)", files.runtimePixelGate)
 
 assertRegex(css, /\.gv2-chart--force3d\s*\{[\s\S]*position:\s*absolute;[\s\S]*inset:\s*0;[\s\S]*min-height:\s*0;/, files.css)
 assertRegex(css, /\.gv2-chart--force3d canvas\s*\{[\s\S]*display:\s*block;/, files.css)
