@@ -1,0 +1,95 @@
+{
+  "a5_gate": {
+    "artifact_input": {
+      "enabled_target_count": 40,
+      "policy_skipped_target_count": 5,
+      "target_count": 45,
+      "target_ids_match_embedded_manifest": true
+    },
+    "embedded_manifest": {
+      "enabled_target_count": 40,
+      "errors": [],
+      "passed": true,
+      "policy_skipped_target_count": 5,
+      "target_count": 45
+    },
+    "fresh_no_network_dry_run": {
+      "full_historical_manifest": true,
+      "public_targets_attempted": 0,
+      "skipped": true,
+      "status_counts": {
+        "skipped_public_network_disabled": 45
+      },
+      "validation_passed": true
+    },
+    "replay_artifact": {
+      "full_historical_manifest": true,
+      "public_targets_attempted": 0,
+      "skipped": true,
+      "status_counts": {
+        "skipped_public_network_disabled": 45
+      },
+      "validation_passed": true
+    }
+  },
+  "a5_status": "deterministic_replay_gate_closed_external_public_replay_blocked",
+  "contract_version": "source_library.public_replay_a5_gate.v1",
+  "evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave7-a5-public-replay-evidence.md",
+  "external_blocker": {
+    "blocker_type": "external_public_network_or_site_stability",
+    "path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+    "reason": "Full 45-site public replay output is absent from this worktree; public site availability, anti-bot, rate-limit, and parser volatility remain outside the deterministic CI gate.",
+    "status": "recorded"
+  },
+  "public_live_fixture": {
+    "candidate_ready_targets": [
+      "commercialobserver_parser_weak",
+      "pymnts_parser_weak",
+      "investopedia_validated_query",
+      "hai_stanford_mixed_shell"
+    ],
+    "live_evidence_sufficient": true,
+    "relevance_review_targets": [
+      {
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "commercialobserver_parser_weak"
+      },
+      {
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "hai_stanford_mixed_shell"
+      }
+    ],
+    "status_counts": {
+      "candidate_ready": 2,
+      "candidate_ready_with_term_fallback": 2
+    },
+    "target_count": 4,
+    "validation_passed": true
+  },
+  "repo_root": "/Users/wangyiliang/market-research-workflow.worktrees/devdocs-wave8-crawler-external-closure",
+  "term_fallback_relevance_review": {
+    "review_target_count": 2,
+    "rule": "candidate_ready_with_term_fallback is evidence for parser reachability, but remains a relevance-review blocker.",
+    "status": "review_required_not_full_closure",
+    "targets": [
+      {
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "commercialobserver_parser_weak"
+      },
+      {
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "hai_stanford_mixed_shell"
+      }
+    ]
+  },
+  "validation": {
+    "errors": [],
+    "passed": true,
+    "public_network_attempted": false,
+    "shared_indexes_edited": false
+  }
+}
