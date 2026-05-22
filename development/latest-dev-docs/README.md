@@ -183,6 +183,18 @@
   - [docs root content move batch](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/08_wave16-docs-root-content-move-batch-evidence-2026-05-22.md)
   - [frontend Agent Chat i18n slice](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/07_wave16-agent-chat-i18n-slice-evidence-2026-05-22.md)
   - [source-library review closure batch](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/10_wave16-review-closure-batch-2026-05-22.md)
+- Wave17 CURRENT_DEV readback / runtime / migration gates（2026-05-22，9 个子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
+  - [Wave17 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave17-worktree-plan-2026-05-22.md)
+  - [Wave17 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave17-agent-roster-2026-05-22.md)
+  - [source-time sample readback](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/07_wave17-source-time-production-sample-readback-gate-2026-05-22.md)
+  - [ingest canary metrics readback](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/05_wave17-ingest-canary-metrics-readback-2026-05-22.md)
+  - [graph runtime pixel / shape gate](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/06_wave17-runtime-pixel-shape-gate-2026-05-22.md)
+  - [graph node rollout manifest readback](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/07_wave17-rollout-manifest-readback-2026-05-22.md)
+  - [typed knowledge durable readback](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/08_wave17-typed-knowledge-durable-readback-2026-05-22.md)
+  - [writing workbench persisted typed-card readback](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md)
+  - [frontend Projects page i18n slice](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/08_wave17-projects-page-i18n-slice-evidence-2026-05-22.md)
+  - [policy-state query boundary](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/10_wave17-policy-state-query-boundary-2026-05-22.md)
+  - [docs root content move batch 2](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/09_wave17-docs-root-content-move-batch2-evidence-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

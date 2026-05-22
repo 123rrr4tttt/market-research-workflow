@@ -315,11 +315,15 @@ def _deterministic_coverage(root: Path, sources: Mapping[str, Mapping[str, Any]]
                 (
                     "getWritingKeywordCards",
                     "WritingWorkbenchPage",
-                    "sources: ['document', 'resource', 'graph']",
+                    "buildPersistedTypedKnowledgeKeywordCardRequest",
                 ),
-            ),
-            ["main/frontend-modern/src/pages/WritingWorkbenchPage.tsx"],
-            "workbench remains a writing API consumer surface, not typed-knowledge governance UI",
+            )
+            and "sources = ['document', 'resource', 'graph']" in frontend_domain,
+            [
+                "main/frontend-modern/src/pages/WritingWorkbenchPage.tsx",
+                "main/frontend-modern/src/lib/api/domains/writing.ts",
+            ],
+            "workbench remains a writing API consumer surface, with persisted typed-card request defaults kept in the API domain helper",
         ),
     ]
 

@@ -12,6 +12,8 @@ Related execution plans:
 - [wave4-integration-risk-review-2026-05-22.md](./wave4-integration-risk-review-2026-05-22.md) - pre-merge risk review used as the Wave4 integration checklist.
 - [Clue Chain Wave5 worktree execution plan](../../development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md) - Wave5 branch plan tree and docs-status sync; Wave16 archived the closed repo-local implementation slice and split remaining live-provider / production-conflict / UI-matrix work into a successor topic.
 - [wave16-worktree-plan-2026-05-22.md](./wave16-worktree-plan-2026-05-22.md) - Wave16 nine-agent implementation / closure split tree, supervisor reconciliation, and status evidence gate.
+- [wave17-worktree-plan-2026-05-22.md](./wave17-worktree-plan-2026-05-22.md) - Wave17 nine-agent readback / runtime / migration tree, supervisor reconciliation, and status evidence gate.
+- [wave17-agent-roster-2026-05-22.md](./wave17-agent-roster-2026-05-22.md) - Wave17 subagent branch roster; all 9 workers are closed after merge.
 
 ## Wave16 Addendum
 
@@ -22,6 +24,15 @@ Wave16 supersedes the original `CURRENT_DEV` counts in this report.
 - The Clue Chain investigation topic moved to [`ARCHIVE_CLOSED`](../../development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md); only live-provider reliability, production graph-submit conflict handling, and broader UI / visual regression remain in [`CURRENT_DEV/2026-05-22-clue-chain-successor-scopes`](../../development-plans/CURRENT_DEV/2026-05-22-clue-chain-successor-scopes/INDEX.md).
 - `CURRENT_DEV` status evidence now reports `partial:33`, `not_closed:0`, `no_closure_claim:0`.
 - The Wave16 implementation slices landed graph audit controls, typed-knowledge API contract, writing-workbench typed fetch readback, long-cycle durable readback, docs-root content move evidence, frontend Agent Chat i18n slice, and source-library deterministic review closure batches.
+
+## Wave17 Addendum
+
+Wave17 keeps the Wave16 `CURRENT_DEV` count shape but advances more repo-local implementation gates.
+
+- 9 worker branches were merged into the Wave17 integration branch and all completed subagents are marked `closed` in the roster.
+- No new directory was moved to `ARCHIVE_CLOSED`; the live / external / production boundaries remain explicit, so `CURRENT_DEV` remains `partial:33`, `not_closed:0`, `no_closure_claim:0`.
+- Landed gates include source-time deterministic sample readback, ingest canary metrics readback, graph runtime pixel/shape fallback, graph-node rollout manifest readback, typed-knowledge durable JSONL readback, writing-workbench persisted typed-card readback, Projects page i18n migration, policy-state query boundary, and docs-root content move batch 2.
+- Docs-root content-plan unsafe moves dropped from 9 to 8 after the second real moved-file batch.
 
 ## Summary
 

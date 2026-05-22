@@ -213,6 +213,18 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave16 Docs Root Content Move Batch](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/08_wave16-docs-root-content-move-batch-evidence-2026-05-22.md)
   - [2026-05-22 Wave16 Frontend Agent Chat I18N Slice](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/07_wave16-agent-chat-i18n-slice-evidence-2026-05-22.md)
   - [2026-05-22 Wave16 Source-Library Review Closure Batch](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/10_wave16-review-closure-batch-2026-05-22.md)
+- `development-plans` Wave17 readback / runtime / migration gates:
+  - [2026-05-22 Wave17 Worktree Plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave17-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Wave17 Agent Roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave17-agent-roster-2026-05-22.md)
+  - [2026-05-22 Wave17 Source-Time Sample Readback](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/07_wave17-source-time-production-sample-readback-gate-2026-05-22.md)
+  - [2026-05-22 Wave17 Ingest Canary Metrics Readback](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/05_wave17-ingest-canary-metrics-readback-2026-05-22.md)
+  - [2026-05-22 Wave17 Graph Runtime Pixel / Shape Gate](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/06_wave17-runtime-pixel-shape-gate-2026-05-22.md)
+  - [2026-05-22 Wave17 Graph Node Rollout Manifest Readback](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/07_wave17-rollout-manifest-readback-2026-05-22.md)
+  - [2026-05-22 Wave17 Typed Knowledge Durable Readback](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/08_wave17-typed-knowledge-durable-readback-2026-05-22.md)
+  - [2026-05-22 Wave17 Writing Workbench Persisted Typed-Card Readback](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md)
+  - [2026-05-22 Wave17 Frontend Projects Page I18N Slice](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/08_wave17-projects-page-i18n-slice-evidence-2026-05-22.md)
+  - [2026-05-22 Wave17 Policy-State Query Boundary](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/10_wave17-policy-state-query-boundary-2026-05-22.md)
+  - [2026-05-22 Wave17 Docs Root Content Move Batch 2](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/09_wave17-docs-root-content-move-batch2-evidence-2026-05-22.md)
 - [2026-05-22 Source Library Public Live Probes](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
