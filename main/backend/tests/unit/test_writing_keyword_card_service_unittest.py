@@ -156,6 +156,50 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(card.extra["booklet_keys"], ["booklet:q2-review"])
         self.assertEqual(card.extra["visibility_scope"], typed_knowledge_contracts.VISIBILITY_SCOPE_DOWNSTREAM_READY)
         self.assertEqual(card.extra["selection_hash"], "selection:robotics")
+        self.assertEqual(card.extra["selection_text"], "robotics investment")
+        self.assertEqual(card.extra["facets"]["consumer_boundary"]["card_source_type"], "resource")
+
+    def test_typed_knowledge_context_envelope_is_consumed_as_resource_card(self):
+        item = typed_knowledge_contracts.KnowledgeItem(
+            key="ki:robotics-policy",
+            project_key="demo_proj",
+            canonical_statement="Humanoid robotics investment is shifting toward industrial pilots.",
+            primary_type_node_key="type:market_signal",
+            evidence_refs=("doc:robotics:42",),
+            topic_cluster_keys=("topic:robotics",),
+            booklet_keys=("booklet:q2-review",),
+            review_state=typed_knowledge_contracts.REVIEW_STATE_HUMAN_CONFIRMED,
+            quality_grade=typed_knowledge_contracts.QUALITY_GRADE_GOLD,
+            locale="en",
+        )
+        handoff = typed_knowledge_contracts.build_writing_knowledge_handoff(
+            typed_knowledge_contracts.build_downstream_contract_draft(item),
+            selection_hash="selection:robotics",
+            selection_text="robotics investment",
+        )
+        envelope = typed_knowledge_contracts.build_writing_knowledge_context_envelope((handoff,))
+        payload = KeywordCardRequest(
+            project_key="demo_proj",
+            query="robotics investment",
+            sources=["resource"],
+            context=WritingContextEnvelope(typed_knowledge_context=envelope),
+        )
+
+        with (
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=[]),
+            patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
+        ):
+            response = aggregate_cards(payload)
+
+        self.assertEqual(len(response.cards), 1)
+        self.assertEqual(response.cards[0].source_type, "resource")
+        self.assertEqual(response.cards[0].publisher, "typed_knowledge")
+        self.assertEqual(response.cards[0].extra["handoff_payload"]["contract_version"], handoff.contract_version)
+        self.assertTrue(response.context_boundary["typed_knowledge_context_attached"])
+        self.assertEqual(response.context_boundary["typed_knowledge_context_count"], 1)
+        self.assertFalse(response.context_boundary["graph_context_attached"])
+        self.assertTrue(response.dependency_gate["typed_knowledge"]["attached"])
+        self.assertEqual(response.dependency_gate["typed_knowledge"]["card_source_type"], "resource")
 
 
 if __name__ == "__main__":

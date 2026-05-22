@@ -8,6 +8,7 @@ from ...contracts.schemas.writing import KeywordCardItem
 from ..typed_knowledge.contracts import (
     WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
     WritingKnowledgeHandoff,
+    serialize_writing_knowledge_handoff,
     validate_writing_knowledge_handoff,
 )
 
@@ -146,6 +147,7 @@ def build_keyword_card_from_typed_knowledge_handoff(
     normalized_query: str,
 ) -> KeywordCardItem:
     validate_writing_knowledge_handoff(handoff)
+    handoff_payload = serialize_writing_knowledge_handoff(handoff)
     typed_knowledge_uri = f"typed-knowledge://{handoff.knowledge_item_key}"
     return build_keyword_card(
         source_type="resource",
@@ -170,5 +172,8 @@ def build_keyword_card_from_typed_knowledge_handoff(
             "evidence_refs": list(handoff.evidence_refs),
             "visibility_scope": handoff.visibility_scope,
             "selection_hash": handoff.selection_hash,
+            "selection_text": handoff.selection_text,
+            "facets": handoff_payload["facets"],
+            "handoff_payload": handoff_payload,
         },
     )

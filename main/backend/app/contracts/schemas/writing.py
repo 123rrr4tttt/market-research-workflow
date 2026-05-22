@@ -364,11 +364,42 @@ class WritingPrimaryLoopState(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class TypedKnowledgeWritingHandoffData(BaseModel):
+    contract_version: Literal["typed_knowledge.writing_handoff.v1"] = "typed_knowledge.writing_handoff.v1"
+    knowledge_item_key: str = Field(..., min_length=1, max_length=256)
+    project_key: str = Field(..., min_length=1, max_length=64)
+    canonical_statement: str = Field(..., min_length=1, max_length=2000)
+    primary_type_node_key: str = Field(..., min_length=1, max_length=256)
+    topic_cluster_keys: list[str] = Field(default_factory=list)
+    booklet_keys: list[str] = Field(default_factory=list)
+    review_state: str = Field(..., min_length=1, max_length=64)
+    quality_grade: str | None = Field(default=None, max_length=64)
+    locale: str | None = Field(default=None, max_length=64)
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    visibility_scope: str = Field(..., min_length=1, max_length=64)
+    selection_hash: str | None = Field(default=None, max_length=128)
+    selection_text: str | None = Field(default=None, max_length=5000)
+    facets: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TypedKnowledgeWritingContext(BaseModel):
+    contract_version: Literal["writing.typed_knowledge_context.v1"] = "writing.typed_knowledge_context.v1"
+    source: Literal["typed_knowledge"] = "typed_knowledge"
+    consumer: Literal["writing.keyword_card"] = "writing.keyword_card"
+    handoffs: list[TypedKnowledgeWritingHandoffData] = Field(default_factory=list, min_length=1)
+    boundary: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class WritingContextEnvelope(BaseModel):
     contract_version: str = Field(default="writing.context_boundary.e3.v1", min_length=1, max_length=64)
     selection_context: dict[str, Any] = Field(default_factory=dict)
     evidence_context: dict[str, Any] = Field(default_factory=dict)
     accepted_citation_context: dict[str, Any] = Field(default_factory=dict)
     graph_context: dict[str, Any] | None = None
+    typed_knowledge_context: TypedKnowledgeWritingContext | None = None
 
     model_config = ConfigDict(extra="forbid")

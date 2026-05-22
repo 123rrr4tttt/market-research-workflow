@@ -231,6 +231,38 @@ class TypedKnowledgeK1K2ContractsTests(unittest.TestCase):
         with self.assertRaisesRegex(contracts.TypedKnowledgeContractError, "writing_handoff_requires_downstream_ready"):
             contracts.build_writing_knowledge_handoff(draft_contract, selection_hash="selection:1")
 
+    def test_writing_handoff_payload_and_context_envelope_round_trip(self):
+        item = contracts.KnowledgeItem(
+            key="ki:robotics-policy",
+            project_key="demo_proj",
+            canonical_statement="Humanoid robotics investment is shifting toward industrial pilots.",
+            primary_type_node_key="type:market_signal",
+            evidence_refs=("doc:robotics:42",),
+            topic_cluster_keys=("topic:robotics",),
+            booklet_keys=("booklet:q2-review",),
+            review_state=contracts.REVIEW_STATE_HUMAN_CONFIRMED,
+            quality_grade=contracts.QUALITY_GRADE_GOLD,
+            locale="en",
+        )
+        draft = contracts.build_downstream_contract_draft(item)
+        handoff = contracts.build_writing_knowledge_handoff(
+            draft,
+            selection_hash="selection:robotics",
+            selection_text="robotics investment",
+        )
+
+        payload = contracts.serialize_writing_knowledge_handoff(handoff)
+        parsed = contracts.parse_writing_knowledge_handoff_payload(payload)
+        envelope = contracts.build_writing_knowledge_context_envelope((handoff,))
+        parsed_from_envelope = contracts.parse_writing_knowledge_context_envelope(envelope)
+
+        self.assertEqual(payload["topic_cluster_keys"], ["topic:robotics"])
+        self.assertEqual(payload["facets"]["consumer_boundary"]["card_source_type"], "resource")
+        self.assertEqual(contracts.serialize_writing_knowledge_handoff(parsed), payload)
+        self.assertEqual(envelope["contract_version"], contracts.WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION)
+        self.assertEqual(envelope["boundary"]["consumer"], "writing.keyword_card")
+        self.assertEqual([item.knowledge_item_key for item in parsed_from_envelope], [handoff.knowledge_item_key])
+
     def test_apply_review_state_transition_enforces_manual_gate(self):
         updated = contracts.apply_review_state_transition(
             current_state=contracts.REVIEW_STATE_DRAFT_CANDIDATE,
