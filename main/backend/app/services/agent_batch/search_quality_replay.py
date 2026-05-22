@@ -18,6 +18,9 @@ PROVIDER_QUALITY_READINESS_SCOPE = (
     "symbolic_search_provider_quality_readiness_fixture_quality_and_live_gap_boundary"
 )
 LIVE_QUALITY_THRESHOLD_SCOPE = "symbolic_search_live_provider_quality_threshold_contract"
+QUALITY_REGRESSION_EVALUATOR_SCOPE = (
+    "symbolic_search_quality_regression_fixture_threshold_live_gap_boundary"
+)
 _DEFAULT_LIVE_PROVIDER_KEYS = ["searxng", "yacy", "web"]
 _DEFAULT_LIVE_QUALITY_THRESHOLDS: dict[str, Any] = {
     "threshold_version": "symbolic_live_quality_thresholds.v1",
@@ -31,6 +34,15 @@ _DEFAULT_LIVE_QUALITY_THRESHOLDS: dict[str, Any] = {
     "max_p95_latency_ms": 4000,
     "min_review_sample_count": 3,
     "require_trace_success": True,
+}
+_DEFAULT_QUALITY_REGRESSION_THRESHOLDS: dict[str, Any] = {
+    "threshold_version": "symbolic_quality_regression_thresholds.v1",
+    "min_fixture_case_count": 1,
+    "min_average_uplift": 0.0,
+    "max_false_positive_retry_rate": 0.25,
+    "require_retry_allowed_trace": True,
+    "require_retry_blocked_trace": True,
+    "require_live_provider_quality_open": True,
 }
 
 _AXIS_HINTS = {
@@ -199,6 +211,104 @@ def build_symbolic_live_quality_threshold_contract(
         "provider_auto_promotion_allowed": False,
         "unsupported_live_provider_claims": unsupported_claims,
         "remaining_live_gaps": remaining_gaps,
+        "failures": failures,
+    }
+
+
+def build_symbolic_quality_regression_evaluator(
+    *,
+    fixture_cases: list[dict[str, Any]],
+    provider_statuses: dict[str, dict[str, Any]] | None = None,
+    live_provider_replay: dict[str, Any] | None = None,
+    required_live_providers: list[str] | None = None,
+    live_quality_thresholds: dict[str, Any] | None = None,
+    regression_thresholds: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    cases = [dict(case or {}) for case in list(fixture_cases or [])]
+    provider_inputs = {
+        str(provider): dict(status or {})
+        for provider, status in dict(provider_statuses or {}).items()
+    }
+    regression_config = _merge_quality_regression_thresholds(
+        thresholds=regression_thresholds,
+    )
+    provider_readiness = build_symbolic_provider_quality_readiness(
+        fixture_cases=cases,
+        provider_statuses=provider_inputs,
+        required_live_providers=required_live_providers,
+    )
+    fixture_quality = dict(provider_readiness.get("fixture_quality") or {})
+    replay_payload = dict(
+        live_provider_replay
+        if live_provider_replay is not None
+        else {"replay_type": "not_run", "providers": provider_inputs}
+    )
+    if provider_inputs and not replay_payload.get("providers"):
+        replay_payload["providers"] = provider_inputs
+    live_threshold = build_symbolic_live_quality_threshold_contract(
+        fixture_quality=fixture_quality,
+        live_provider_replay=replay_payload,
+        required_live_providers=required_live_providers,
+        thresholds=live_quality_thresholds,
+    )
+    fixture_quality_threshold = _evaluate_fixture_quality_regression_threshold(
+        fixture_quality=fixture_quality,
+        thresholds=regression_config,
+        live_provider_quality_open=True,
+    )
+    critic_retry_trace = _build_quality_regression_retry_trace(
+        cases=cases,
+        thresholds=regression_config,
+    )
+
+    threshold_status = str(live_threshold.get("threshold_status") or "missing")
+    live_provider_quality_open = True
+    failures: list[str] = []
+    if provider_readiness.get("status") != "passed":
+        failures.append("provider quality readiness input did not pass")
+    if fixture_quality_threshold.get("status") != "passed":
+        failures.append("fixture quality regression threshold did not pass")
+    if critic_retry_trace.get("status") != "passed":
+        failures.append("critic bounded-retry trace did not pass")
+    if live_threshold.get("status") != "passed":
+        failures.append("live quality threshold contract did not pass")
+    if threshold_status != "threshold_contract_ready_live_replay_gap_open":
+        failures.append("live quality threshold status did not preserve replay gap")
+    if bool(live_threshold.get("live_provider_replay_closed")) is True:
+        failures.append("live provider replay unexpectedly closed")
+    if bool(live_threshold.get("quality_claim_allowed")) is True:
+        failures.append("live quality threshold unexpectedly allowed quality claim")
+    if bool(provider_readiness.get("provider_readiness", {}).get("quality_claim_allowed")) is True:
+        failures.append("provider readiness unexpectedly allowed quality claim")
+    if bool(regression_config.get("require_live_provider_quality_open")) and not live_provider_quality_open:
+        failures.append("live provider quality was not kept open")
+
+    return {
+        "contract_version": "agent_batch.symbolic_quality_regression_evaluator.v1",
+        "scope": QUALITY_REGRESSION_EVALUATOR_SCOPE,
+        "status": "passed" if not failures else "failed",
+        "regression_state": "fixture_quality_regression_passed_live_provider_quality_open"
+        if not failures
+        else "fixture_quality_regression_failed",
+        "closure_claim": "provider_independent_quality_regression_passed_live_provider_quality_not_closed",
+        "live_provider_quality_open": live_provider_quality_open,
+        "live_provider_quality_closed_by_evaluator": False,
+        "quality_claim_allowed": False,
+        "provider_auto_promotion_allowed": False,
+        "threshold_status": threshold_status,
+        "regression_thresholds": regression_config,
+        "fixture_quality_threshold": fixture_quality_threshold,
+        "critic_bounded_retry_trace": critic_retry_trace,
+        "provider_readiness": provider_readiness,
+        "live_quality_threshold": live_threshold,
+        "unsupported_live_provider_claims": _merge_code_rows(
+            provider_readiness.get("unsupported_live_provider_claims", []),
+            live_threshold.get("unsupported_live_provider_claims", []),
+        ),
+        "remaining_live_gaps": _merge_code_rows(
+            provider_readiness.get("remaining_live_gaps", []),
+            live_threshold.get("remaining_live_gaps", []),
+        ),
         "failures": failures,
     }
 
@@ -554,6 +664,170 @@ def _build_remaining_live_gaps(
         ]
     )
     return gaps
+
+
+def _merge_quality_regression_thresholds(
+    *,
+    thresholds: dict[str, Any] | None,
+) -> dict[str, Any]:
+    merged = dict(_DEFAULT_QUALITY_REGRESSION_THRESHOLDS)
+    for key, value in dict(thresholds or {}).items():
+        if key in merged and value is not None:
+            merged[key] = value
+    merged["min_fixture_case_count"] = max(1, int(merged["min_fixture_case_count"]))
+    merged["min_average_uplift"] = float(merged["min_average_uplift"])
+    merged["max_false_positive_retry_rate"] = float(merged["max_false_positive_retry_rate"])
+    merged["require_retry_allowed_trace"] = bool(merged["require_retry_allowed_trace"]) is True
+    merged["require_retry_blocked_trace"] = bool(merged["require_retry_blocked_trace"]) is True
+    merged["require_live_provider_quality_open"] = bool(merged["require_live_provider_quality_open"]) is True
+    return merged
+
+
+def _evaluate_fixture_quality_regression_threshold(
+    *,
+    fixture_quality: dict[str, Any],
+    thresholds: dict[str, Any],
+    live_provider_quality_open: bool,
+) -> dict[str, Any]:
+    case_count = int(fixture_quality.get("case_count") or 0)
+    average_uplift = float(fixture_quality.get("average_uplift") or 0.0)
+    false_positive_retry_rate = float(fixture_quality.get("false_positive_retry_rate") or 0.0)
+    checks = {
+        "fixture_status_passed": str(fixture_quality.get("status") or "") == "passed",
+        "case_count": case_count >= int(thresholds["min_fixture_case_count"]),
+        "average_uplift": average_uplift >= float(thresholds["min_average_uplift"]),
+        "false_positive_retry_rate": false_positive_retry_rate
+        <= float(thresholds["max_false_positive_retry_rate"]),
+        "fixture_quality_claim_blocked": bool(fixture_quality.get("quality_claim_allowed")) is False,
+        "live_provider_quality_open": live_provider_quality_open
+        if bool(thresholds["require_live_provider_quality_open"])
+        else True,
+    }
+    threshold_failures = [name for name, passed in checks.items() if not passed]
+    return {
+        "threshold_version": str(thresholds["threshold_version"]),
+        "status": "passed" if not threshold_failures else "failed",
+        "case_count": case_count,
+        "average_uplift": average_uplift,
+        "false_positive_retry_rate": false_positive_retry_rate,
+        "threshold_checks": checks,
+        "threshold_failures": threshold_failures,
+    }
+
+
+def _build_quality_regression_retry_trace(
+    *,
+    cases: list[dict[str, Any]],
+    thresholds: dict[str, Any],
+) -> dict[str, Any]:
+    traces: list[dict[str, Any]] = []
+    allowed_count = 0
+    blocked_count = 0
+    for index, case in enumerate(cases, start=1):
+        payload = dict(case or {})
+        search_brief = dict(payload.get("search_brief") or {})
+        baseline = score_symbolic_search_quality_replay(
+            search_brief=search_brief,
+            records=[dict(record or {}) for record in list(payload.get("baseline_records") or [])],
+        )
+        retry = score_symbolic_search_quality_replay(
+            search_brief=search_brief,
+            records=[dict(record or {}) for record in list(payload.get("retry_records") or [])],
+        )
+        critic = _case_search_critic(payload=payload)
+        boundary = evaluate_quality_retry_boundary(
+            search_critic=critic,
+            quality_replay=baseline,
+            enable_bounded_retry=bool(payload.get("enable_bounded_retry", True)),
+        )
+        decision = str(boundary.get("decision") or "")
+        if decision == "retry_allowed":
+            allowed_count += 1
+        if decision == "retry_blocked":
+            blocked_count += 1
+        retry_expected = bool(payload.get("retry_expected", True))
+        expected_decision = "retry_allowed" if retry_expected else "retry_blocked"
+        uplift = round(float(retry.get("score") or 0.0) - float(baseline.get("score") or 0.0), 2)
+        trace_failures: list[str] = []
+        if decision != expected_decision:
+            trace_failures.append("critic_boundary_decision_mismatch")
+        if retry_expected and uplift < 0.0:
+            trace_failures.append("retry_quality_regressed")
+        if bool(boundary.get("replay_score_is_observational")) is not True:
+            trace_failures.append("replay_score_not_observational")
+        if bool(boundary.get("live_provider_quality_claim_allowed")) is True:
+            trace_failures.append("live_provider_quality_claim_allowed")
+        traces.append(
+            {
+                "case_id": str(payload.get("case_id") or f"case_{index}"),
+                "retry_expected": retry_expected,
+                "expected_decision": expected_decision,
+                "status": "passed" if not trace_failures else "failed",
+                "baseline_score": baseline.get("score"),
+                "retry_score": retry.get("score"),
+                "uplift": uplift,
+                "search_critic": critic,
+                "boundary": boundary,
+                "failures": trace_failures,
+            }
+        )
+
+    aggregate_failures: list[str] = []
+    if not traces:
+        aggregate_failures.append("retry_trace_cases_missing")
+    if any(trace.get("status") != "passed" for trace in traces):
+        aggregate_failures.append("retry_trace_case_failed")
+    if bool(thresholds["require_retry_allowed_trace"]) and allowed_count < 1:
+        aggregate_failures.append("retry_allowed_trace_missing")
+    if bool(thresholds["require_retry_blocked_trace"]) and blocked_count < 1:
+        aggregate_failures.append("retry_blocked_trace_missing")
+    return {
+        "status": "passed" if not aggregate_failures else "failed",
+        "trace_count": len(traces),
+        "retry_allowed_count": allowed_count,
+        "retry_blocked_count": blocked_count,
+        "traces": traces,
+        "failures": aggregate_failures,
+    }
+
+
+def _case_search_critic(*, payload: dict[str, Any]) -> dict[str, Any]:
+    explicit = dict(payload.get("search_critic") or {})
+    if explicit:
+        return {
+            "score": float(explicit.get("score") or 0.0),
+            "next_action": str(explicit.get("next_action") or "stop").strip() or "stop",
+            "reason_codes": _normalize_string_list(explicit.get("reason_codes")),
+            "diagnosis": str(explicit.get("diagnosis") or "fixture supplied critic").strip()
+            or "fixture supplied critic",
+        }
+    if bool(payload.get("retry_expected", True)):
+        return {
+            "score": 0.64,
+            "next_action": "retry_with_precision_query",
+            "reason_codes": ["coverage_gap"],
+            "diagnosis": "fixture baseline is below bounded retry quality threshold",
+        }
+    return {
+        "score": 0.91,
+        "next_action": "stop",
+        "reason_codes": ["coverage_sufficient"],
+        "diagnosis": "fixture baseline is sufficient; bounded retry should stop",
+    }
+
+
+def _merge_code_rows(*row_groups: Any) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for group in row_groups:
+        for row in list(group or []):
+            payload = dict(row or {})
+            code = str(payload.get("code") or f"row_{len(merged) + 1}").strip()
+            if code in seen:
+                continue
+            seen.add(code)
+            merged.append(payload)
+    return merged
 
 
 def _merge_live_quality_thresholds(
