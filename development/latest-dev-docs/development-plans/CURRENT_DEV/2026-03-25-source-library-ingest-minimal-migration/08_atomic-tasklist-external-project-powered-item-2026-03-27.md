@@ -1,6 +1,6 @@
 # Atomic Task List: External Project Powered Item (2026-03-27)
 
-## Execution Status Snapshot
+## Original Execution Status Snapshot
 
 - `AT-EXT-01`: pending, external-item scope and boundary freeze.
 - `AT-EXT-02`: pending, manifest contract freeze.
@@ -11,6 +11,34 @@
 - `AT-EXT-07`: pending, item registration and listing exposure.
 - `AT-EXT-08`: pending, runtime execution path.
 - `AT-EXT-09`: pending, validation closure.
+
+## Wave9 Current Status Overlay (2026-05-22)
+
+Current deterministic evidence is tracked in
+[10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md](./10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md).
+This overlay does not claim full external-project closure; it records the
+narrow current implementation state proven by the Wave9 checker.
+
+- `AT-EXT-01`: `closed_narrow_v1`, external project items require
+  `channel_key=external_project.manifest` plus `extra.external_project_manifest`.
+- `AT-EXT-02`: `closed_narrow_v1`, `external_item.manifest.v1` normalizes
+  `rss_feed`, `sitemap`, and `http_api` manifests.
+- `AT-EXT-03`: `closed_narrow_v1`, provider registry exposes bounded
+  `rss_feed` / `sitemap` / `http_api` bindings.
+- `AT-EXT-04`: `closed_narrow_v1`, high-confidence endpoint evidence can build
+  a stable manifest without per-query LLM routing.
+- `AT-EXT-05`: `partial_narrow_v1`, provider runner exists for the bounded
+  v1 modes, but article-extraction-stack and python/CLI/container runners are
+  not closed.
+- `AT-EXT-06`: `closed_narrow_v1`, runner records map through
+  `terminal_output -> frontdoor_ingress -> postprocess_frontdoor`.
+- `AT-EXT-07`: `closed_narrow_v1`, generated external items preserve
+  definition-first listing semantics and expose execution plans only by opt-in.
+- `AT-EXT-08`: `partial_narrow_v1`, registered manifest-backed items are
+  runnable through deterministic patched runtime evidence; no live external
+  project replay is claimed.
+- `AT-EXT-09`: `partial_pending_external_replay`, closure note now has current
+  evidence plus explicit blockers.
 
 ## Reference Pack
 
