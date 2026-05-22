@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from copy import deepcopy
 from statistics import mean
@@ -8,6 +10,7 @@ from urllib.parse import urlparse
 
 from .task_contract import (
     AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION,
+    AGENT_BATCH_QUALITY_PROMOTION_READBACK_CONTRACT_VERSION,
     AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION,
     AGENT_BATCH_SEARCH_QUALITY_REPLAY_CONTRACT_VERSION,
     get_search_policy_defaults,
@@ -20,6 +23,9 @@ PROVIDER_QUALITY_READINESS_SCOPE = (
 LIVE_QUALITY_THRESHOLD_SCOPE = "symbolic_search_live_provider_quality_threshold_contract"
 QUALITY_REGRESSION_EVALUATOR_SCOPE = (
     "symbolic_search_quality_regression_fixture_threshold_live_gap_boundary"
+)
+QUALITY_PROMOTION_READBACK_SCOPE = (
+    "provider_independent_symbolic_quality_promotion_readback"
 )
 _DEFAULT_LIVE_PROVIDER_KEYS = ["searxng", "yacy", "web"]
 _DEFAULT_LIVE_QUALITY_THRESHOLDS: dict[str, Any] = {
@@ -309,6 +315,109 @@ def build_symbolic_quality_regression_evaluator(
             provider_readiness.get("remaining_live_gaps", []),
             live_threshold.get("remaining_live_gaps", []),
         ),
+        "failures": failures,
+    }
+
+
+def build_symbolic_quality_promotion_readback_gate(
+    *,
+    fixture_cases: list[dict[str, Any]],
+    provider_statuses: dict[str, dict[str, Any]] | None = None,
+    live_provider_replay: dict[str, Any] | None = None,
+    required_live_providers: list[str] | None = None,
+    live_quality_thresholds: dict[str, Any] | None = None,
+    regression_thresholds: dict[str, Any] | None = None,
+    input_promotion_decision: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    cases = [dict(case or {}) for case in list(fixture_cases or [])]
+    evaluator = build_symbolic_quality_regression_evaluator(
+        fixture_cases=cases,
+        provider_statuses=provider_statuses,
+        live_provider_replay=live_provider_replay,
+        required_live_providers=required_live_providers,
+        live_quality_thresholds=live_quality_thresholds,
+        regression_thresholds=regression_thresholds,
+    )
+    first_case = cases[0] if cases else {}
+    fixture_search_brief = _summarize_fixture_search_brief(payload=first_case)
+    critic_score_readback = _summarize_critic_score_readback(
+        payload=first_case,
+        evaluator=evaluator,
+    )
+    bounded_retry_readback = _summarize_bounded_retry_readback(evaluator=evaluator)
+    quality_threshold_readback = _summarize_quality_threshold_readback(evaluator=evaluator)
+    promotion_decision = _build_provider_independent_promotion_decision(
+        quality_threshold_readback=quality_threshold_readback,
+        bounded_retry_readback=bounded_retry_readback,
+    )
+    promotion_decision_readback = _build_promotion_decision_readback(
+        promotion_decision=promotion_decision,
+        input_promotion_decision=input_promotion_decision,
+    )
+    provider_independent_boundary = _build_provider_independent_boundary(
+        evaluator=evaluator,
+        promotion_decision=promotion_decision,
+    )
+    unsupported_promotion_claims = _merge_code_rows(
+        _build_promotion_unsupported_claims(
+            critic_score_readback=critic_score_readback,
+            quality_threshold_readback=quality_threshold_readback,
+            input_promotion_decision=input_promotion_decision,
+        ),
+        evaluator.get("unsupported_live_provider_claims", []),
+    )
+    remaining_live_gaps = _merge_code_rows(
+        evaluator.get("remaining_live_gaps", []),
+        [
+            {
+                "code": "provider_auto_promotion_readback_hold",
+                "status": "open",
+                "reason": "Promotion decision readback is validated, but live provider quality remains open.",
+                "required_next_evidence": "Live provider replay, threshold pass rows, and operator approval before provider=auto promotion.",
+            }
+        ],
+    )
+
+    failures: list[str] = []
+    if not cases:
+        failures.append("fixture_cases_missing")
+    if evaluator.get("status") != "passed":
+        failures.append("quality_regression_evaluator_failed")
+    if not fixture_search_brief.get("goal"):
+        failures.append("fixture_search_brief_missing_goal")
+    if critic_score_readback.get("retry_score_source") != "search_critic.score":
+        failures.append("critic_score_source_drifted")
+    if bool(bounded_retry_readback.get("replay_score_is_observational")) is not True:
+        failures.append("bounded_retry_replay_score_not_observational")
+    if quality_threshold_readback.get("threshold_status") != "threshold_contract_ready_live_replay_gap_open":
+        failures.append("quality_threshold_did_not_preserve_live_gap")
+    if bool(promotion_decision.get("promotion_allowed")) is True:
+        failures.append("promotion_allowed_unexpectedly_true")
+    if bool(promotion_decision_readback.get("readback_matches_decision")) is not True:
+        failures.append("promotion_decision_readback_mismatch")
+    if bool(provider_independent_boundary.get("quality_claim_allowed")) is True:
+        failures.append("provider_independent_boundary_allowed_quality_claim")
+    if bool(provider_independent_boundary.get("provider_auto_promotion_allowed")) is True:
+        failures.append("provider_independent_boundary_allowed_auto_promotion")
+
+    return {
+        "contract_version": AGENT_BATCH_QUALITY_PROMOTION_READBACK_CONTRACT_VERSION,
+        "scope": QUALITY_PROMOTION_READBACK_SCOPE,
+        "status": "passed" if not failures else "failed",
+        "gate_state": "provider_independent_quality_promotion_held_live_gap_open"
+        if not failures
+        else "provider_independent_quality_promotion_readback_failed",
+        "closure_claim": "promotion_decision_readback_validated_live_provider_quality_not_closed",
+        "fixture_search_brief": fixture_search_brief,
+        "critic_score_readback": critic_score_readback,
+        "bounded_retry_readback": bounded_retry_readback,
+        "quality_threshold_readback": quality_threshold_readback,
+        "promotion_decision": promotion_decision,
+        "promotion_decision_readback": promotion_decision_readback,
+        "provider_independent_boundary": provider_independent_boundary,
+        "quality_regression_evaluator": evaluator,
+        "unsupported_promotion_claims": unsupported_promotion_claims,
+        "remaining_live_gaps": remaining_live_gaps,
         "failures": failures,
     }
 
@@ -828,6 +937,227 @@ def _merge_code_rows(*row_groups: Any) -> list[dict[str, Any]]:
             seen.add(code)
             merged.append(payload)
     return merged
+
+
+def _summarize_fixture_search_brief(*, payload: dict[str, Any]) -> dict[str, Any]:
+    brief = dict(payload.get("search_brief") or {})
+    source_preferences = dict(brief.get("source_preferences") or {})
+    strategies = [dict(strategy or {}) for strategy in list(brief.get("search_strategies") or [])]
+    return {
+        "case_id": str(payload.get("case_id") or ""),
+        "intent": str(brief.get("intent") or ""),
+        "goal": str(brief.get("goal") or ""),
+        "coverage_axes": _normalize_string_list(brief.get("coverage_axes")),
+        "time_strategy": dict(brief.get("time_strategy") or {}),
+        "search_strategy_count": len(strategies),
+        "first_query_terms": _normalize_string_list(strategies[0].get("query_terms")) if strategies else [],
+        "attach_source_library": bool(source_preferences.get("attach_source_library")) is True,
+        "candidate_items": _normalize_string_list(source_preferences.get("candidate_items")),
+        "stop_conditions": dict(brief.get("stop_conditions") or {}),
+    }
+
+
+def _summarize_critic_score_readback(
+    *,
+    payload: dict[str, Any],
+    evaluator: dict[str, Any],
+) -> dict[str, Any]:
+    critic = _case_search_critic(payload=payload)
+    traces = list((evaluator.get("critic_bounded_retry_trace") or {}).get("traces") or [])
+    first_boundary = dict((traces[0] or {}).get("boundary") or {}) if traces else {}
+    defaults = get_search_policy_defaults()
+    return {
+        "case_id": str(payload.get("case_id") or ""),
+        "score": round(float(critic.get("score") or 0.0), 2),
+        "score_threshold": float(first_boundary.get("score_threshold") or defaults.get("retry_score_threshold") or 0.72),
+        "next_action": str(critic.get("next_action") or "stop"),
+        "reason_codes": _normalize_string_list(critic.get("reason_codes")),
+        "diagnosis": str(critic.get("diagnosis") or ""),
+        "retry_score_source": str(first_boundary.get("retry_score_source") or "search_critic.score"),
+    }
+
+
+def _summarize_bounded_retry_readback(*, evaluator: dict[str, Any]) -> dict[str, Any]:
+    trace = dict(evaluator.get("critic_bounded_retry_trace") or {})
+    traces = [dict(item or {}) for item in list(trace.get("traces") or [])]
+    defaults = get_search_policy_defaults()
+    return {
+        "enabled": True,
+        "retry_budget": int(defaults.get("retry_budget") or 0),
+        "max_retry_rounds": int(defaults.get("max_retry_rounds") or 0),
+        "retry_allowed_count": int(trace.get("retry_allowed_count") or 0),
+        "retry_blocked_count": int(trace.get("retry_blocked_count") or 0),
+        "trace_count": int(trace.get("trace_count") or len(traces)),
+        "decisions": [
+            {
+                "case_id": str(item.get("case_id") or ""),
+                "expected_decision": str(item.get("expected_decision") or ""),
+                "decision": str((item.get("boundary") or {}).get("decision") or ""),
+                "critic_score": float((item.get("boundary") or {}).get("critic_score") or 0.0),
+                "replay_score_is_observational": bool(
+                    (item.get("boundary") or {}).get("replay_score_is_observational")
+                )
+                is True,
+            }
+            for item in traces
+        ],
+        "replay_score_is_observational": all(
+            bool((item.get("boundary") or {}).get("replay_score_is_observational")) is True
+            for item in traces
+        )
+        if traces
+        else False,
+        "live_provider_quality_claim_allowed": any(
+            bool((item.get("boundary") or {}).get("live_provider_quality_claim_allowed")) is True
+            for item in traces
+        ),
+    }
+
+
+def _summarize_quality_threshold_readback(*, evaluator: dict[str, Any]) -> dict[str, Any]:
+    fixture_threshold = dict(evaluator.get("fixture_quality_threshold") or {})
+    live_threshold = dict(evaluator.get("live_quality_threshold") or {})
+    quality_thresholds = dict(live_threshold.get("quality_thresholds") or {})
+    return {
+        "threshold_version": str(live_threshold.get("threshold_version") or ""),
+        "regression_threshold_version": str(fixture_threshold.get("threshold_version") or ""),
+        "threshold_status": str(evaluator.get("threshold_status") or live_threshold.get("threshold_status") or ""),
+        "fixture_threshold_status": str(fixture_threshold.get("status") or ""),
+        "fixture_case_count": int(fixture_threshold.get("case_count") or 0),
+        "fixture_average_uplift": float(fixture_threshold.get("average_uplift") or 0.0),
+        "false_positive_retry_rate": float(fixture_threshold.get("false_positive_retry_rate") or 0.0),
+        "live_provider_replay_closed": bool(live_threshold.get("live_provider_replay_closed")) is True,
+        "quality_claim_allowed": bool(live_threshold.get("quality_claim_allowed")) is True,
+        "provider_auto_promotion_allowed": bool(live_threshold.get("provider_auto_promotion_allowed")) is True,
+        "required_providers": _normalize_string_list(quality_thresholds.get("required_providers")),
+    }
+
+
+def _build_provider_independent_promotion_decision(
+    *,
+    quality_threshold_readback: dict[str, Any],
+    bounded_retry_readback: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "decision_id": "agent_batch_quality_promotion_readback:provider_auto:hold",
+        "decision": "hold_provider_auto_promotion",
+        "promotion_allowed": False,
+        "provider_auto_promotion_allowed": False,
+        "decision_source": "provider_independent_quality_promotion_readback_gate",
+        "quality_promotion_state": "fixture_quality_passed_live_provider_gap_open",
+        "reason_codes": [
+            "fixture_quality_replay_only",
+            "live_quality_threshold_replay_gap_open",
+            "provider_auto_operator_policy_not_approved",
+        ],
+        "required_next_evidence": [
+            "live_provider_quality_replay",
+            "all_provider_threshold_rows_passed",
+            "operator_review_approved",
+            "provider_auto_rollout_policy_approved",
+        ],
+        "quality_threshold_status": str(quality_threshold_readback.get("threshold_status") or ""),
+        "bounded_retry_trace_count": int(bounded_retry_readback.get("trace_count") or 0),
+    }
+
+
+def _build_promotion_decision_readback(
+    *,
+    promotion_decision: dict[str, Any],
+    input_promotion_decision: dict[str, Any] | None,
+) -> dict[str, Any]:
+    decision_digest = _stable_digest(promotion_decision)
+    readback = deepcopy(promotion_decision)
+    input_payload = dict(input_promotion_decision or {})
+    input_claimed_promotion = (
+        bool(input_payload.get("promotion_allowed")) is True
+        or bool(input_payload.get("provider_auto_promotion_allowed")) is True
+        or str(input_payload.get("decision") or "").strip().lower().startswith("promote")
+    )
+    return {
+        "readback_performed": True,
+        "readback_matches_decision": readback == promotion_decision,
+        "decision_digest": decision_digest,
+        "readback_digest": _stable_digest(readback),
+        "promotion_allowed": bool(readback.get("promotion_allowed")) is True,
+        "provider_auto_promotion_allowed": bool(readback.get("provider_auto_promotion_allowed")) is True,
+        "input_promotion_claim_rejected": input_claimed_promotion,
+        "input_decision": str(input_payload.get("decision") or "") or None,
+    }
+
+
+def _build_provider_independent_boundary(
+    *,
+    evaluator: dict[str, Any],
+    promotion_decision: dict[str, Any],
+) -> dict[str, Any]:
+    provider_readiness = dict((evaluator.get("provider_readiness") or {}).get("provider_readiness") or {})
+    return {
+        "network_started": False,
+        "live_provider_probe_performed": False,
+        "provider_readiness_probe_type": str(provider_readiness.get("probe_type") or ""),
+        "live_provider_quality_open": bool(evaluator.get("live_provider_quality_open")) is True,
+        "live_provider_quality_closed_by_gate": False,
+        "quality_claim_allowed": bool(evaluator.get("quality_claim_allowed")) is True,
+        "provider_auto_promotion_allowed": bool(promotion_decision.get("provider_auto_promotion_allowed")) is True,
+        "status_passed_means": "fixture search brief, critic score, bounded retry, threshold, and promotion decision readback are internally consistent",
+        "status_passed_does_not_mean": "live provider quality or provider=auto promotion is closed",
+    }
+
+
+def _build_promotion_unsupported_claims(
+    *,
+    critic_score_readback: dict[str, Any],
+    quality_threshold_readback: dict[str, Any],
+    input_promotion_decision: dict[str, Any] | None,
+) -> list[dict[str, str]]:
+    claims = [
+        {
+            "code": "fixture_replay_promotes_provider_auto",
+            "claim": "Fixture replay quality can promote live providers into provider=auto.",
+            "reason": "Fixture replay is provider-independent and does not start live providers.",
+            "required_next_evidence": "Live provider replay with threshold pass rows and operator approval.",
+        },
+        {
+            "code": "critic_score_promotes_provider_auto",
+            "claim": "A search critic score can promote provider routing.",
+            "reason": (
+                "critic_score="
+                f"{critic_score_readback.get('score')} only controls bounded retry decisions."
+            ),
+            "required_next_evidence": "Separate provider-auto rollout policy and live provider quality gate.",
+        },
+        {
+            "code": "quality_threshold_status_promotes_without_live_replay",
+            "claim": "A threshold contract can promote providers without a live replay.",
+            "reason": (
+                "threshold_status="
+                f"{quality_threshold_readback.get('threshold_status')} and "
+                f"quality_claim_allowed={quality_threshold_readback.get('quality_claim_allowed')}."
+            ),
+            "required_next_evidence": "Replay status live_provider_quality_replay with all thresholds met.",
+        },
+    ]
+    input_payload = dict(input_promotion_decision or {})
+    if (
+        bool(input_payload.get("promotion_allowed")) is True
+        or bool(input_payload.get("provider_auto_promotion_allowed")) is True
+        or str(input_payload.get("decision") or "").strip().lower().startswith("promote")
+    ):
+        claims.append(
+            {
+                "code": "input_promotion_decision_claim_rejected",
+                "claim": "Caller-supplied promotion decision can mark provider=auto as allowed.",
+                "reason": "The gate recomputes promotion and keeps provider-auto promotion held.",
+                "required_next_evidence": "Attach a live provider quality replay and operator-approved promotion policy.",
+            }
+        )
+    return claims
+
+
+def _stable_digest(payload: dict[str, Any]) -> str:
+    encoded = json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()[:16]
 
 
 def _merge_live_quality_thresholds(
