@@ -1,7 +1,7 @@
 # Local Index Runtime Contract Evidence
 
-日期：2026-05-22 PST  
-分支：`codex/devdocs-local-index-runtime-artifacts`  
+日期：2026-05-22 PST<br>
+分支：`codex/devdocs-local-index-runtime-artifacts`<br>
 工作树：`/Users/wangyiliang/market-research-workflow.worktrees/local-index-runtime-artifacts`
 
 ## Scope
