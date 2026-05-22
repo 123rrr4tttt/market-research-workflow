@@ -46,6 +46,8 @@ WAVE_TAGS = {
     "wave14_checked": "wave14",
     "wave15_verified": "wave15",
     "wave15_checked": "wave15",
+    "wave16_verified": "wave16",
+    "wave16_checked": "wave16",
 }
 ABSENT_TERMS = ("not present", "missing", "absent")
 BLOCKER_TERMS = ("blocker", "blocked", "gap", "absent", "missing", "not present", "still", "remain")
