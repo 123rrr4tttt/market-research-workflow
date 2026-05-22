@@ -45,6 +45,8 @@
   - [automation-runs/source-library-real-probes/2026-05-22/README.md](./automation-runs/source-library-real-probes/2026-05-22/README.md)
 - `backend-docs` 新增当前 OpenAPI schema surface inventory 与合同测试防漂移（2026-05-22）：
   - [backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
+- Wave2 工作树计划与集成状态（2026-05-22）：
+  - [automation-runs/dev-docs-folder-audit-2026-05-22/wave2-worktree-plan-2026-05-22.md](./automation-runs/dev-docs-folder-audit-2026-05-22/wave2-worktree-plan-2026-05-22.md)
 - `frontend-modern` 补齐标准文档入口（2026-05-22）：
   - [frontend-modern/INDEX.md](./frontend-modern/INDEX.md)
   - [frontend-modern/main/MERGED_FRONTEND_MODERN.md](./frontend-modern/main/MERGED_FRONTEND_MODERN.md)
