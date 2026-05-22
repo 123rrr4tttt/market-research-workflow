@@ -404,6 +404,34 @@ export function withTypedKnowledgeWritingContext(
   }
 }
 
+export function buildPersistedTypedKnowledgeKeywordCardRequest({
+  projectKey,
+  query,
+  selectionHash,
+  document,
+  limit,
+  sources = ['document', 'resource', 'graph'],
+}: {
+  projectKey: string
+  query: string
+  selectionHash?: string | null
+  document: Pick<WritingDocument, 'metadata_json'> | null | undefined
+  limit?: number
+  sources?: WritingKeywordCardSource[]
+}): WritingKeywordCardRequest {
+  const typedContext = readTypedKnowledgeWritingContextFromDocument(document)
+  return withTypedKnowledgeWritingContext(
+    {
+      project_key: projectKey,
+      query,
+      selection_hash: selectionHash || undefined,
+      limit,
+      sources,
+    },
+    typedContext,
+  )
+}
+
 function withQuery(path: string, params: Record<string, string | number | boolean | null | undefined>) {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {

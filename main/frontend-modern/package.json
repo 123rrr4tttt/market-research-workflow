@@ -14,6 +14,7 @@
     "check:topology-platform": "node scripts/check_topology_platform_contract.mjs",
     "check:writing-workbench-contract": "node scripts/check_writing_workbench_contract.mjs",
     "check:writing-workbench-typed-fetch": "node scripts/check_writing_workbench_typed_fetch_contract.mjs",
+    "check:writing-workbench-persisted-typed-card-readback": "node scripts/check_writing_workbench_persisted_typed_card_readback.mjs",
     "check:runtime-visual": "playwright test tests/e2e/frontend-runtime-visual.spec.ts --reporter=line",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006 --host 0.0.0.0",
