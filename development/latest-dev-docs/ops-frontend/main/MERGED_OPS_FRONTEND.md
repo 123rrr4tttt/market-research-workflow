@@ -169,3 +169,16 @@ cd "$PROJECT_DIR/ops"
 - `./frontend-modern-README.md`
 - `./frontend-modern-figma-sync-PULL_STATUS_2026-02-27.md`
 - `./QUICKSTART.md`
+
+## 6. 当前封口快照（2026-05-22）
+
+详见 [F_PLAN/INDEX.md](../F_PLAN/INDEX.md)。
+
+| Track | 当前状态 | 下一轮门禁 |
+| --- | --- | --- |
+| Graph rendering and interaction | `需更新` | `npm run test:e2e -- tests/e2e/graphpage.spec.ts`，并补 graph lint/screenshot 证据 |
+| Frontend API facade and graph query keys | `需更新` | API/query-key 目标文件 lint，依赖可用后跑 `npm run build` |
+| Storybook and Storybook MCP | `未封口` | `npm run storybook:build`，再验证 `http://127.0.0.1:6006/mcp` |
+| Launcher-first ops flow | `过时` | `bash scripts/platform-macos.sh docker-start` 或 `docker-full-start` smoke；macOS app 路径需跑 `bash scripts/build-macos-launcher.sh` |
+
+本快照只回写 ops-frontend 文档状态，不改 backend，也不改 frontend 代码。
