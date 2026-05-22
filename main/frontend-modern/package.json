@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "check:topology-platform": "node scripts/check_topology_platform_contract.mjs",
+    "check:runtime-visual": "playwright test tests/e2e/frontend-runtime-visual.spec.ts --reporter=line",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006 --host 0.0.0.0",
     "storybook:build": "storybook build",

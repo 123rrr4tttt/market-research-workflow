@@ -26,6 +26,7 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Ingest / Frontdoor Closure Evidence](./automation-runs/ingest-frontdoor-closure/2026-05-22/README.md)
   - [2026-05-22 Frontdoor Router Hardening Evidence](./automation-runs/frontdoor-router-hardening/2026-05-22/README.md)
   - [2026-05-22 Frontend Topology / I18N / Theme Contract Evidence](./automation-runs/frontend-topology-theme/2026-05-22/README.md)
+  - [2026-05-22 Frontend Runtime Visual Evidence](./automation-runs/frontend-runtime-visual/2026-05-22/README.md)
   - [2026-05-22 Local Index LanceDB Runtime Smoke](./automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md)
   - [2026-05-22 Local Index Runtime Contract Evidence](./automation-runs/local-index-runtime-contract/2026-05-22/README.md)
   - [2026-05-22 GraphPage Frontend E2E Evidence](./automation-runs/graph-frontend-e2e/2026-05-22/README.md)
