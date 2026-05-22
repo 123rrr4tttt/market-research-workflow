@@ -4,6 +4,15 @@ Date: 2026-03-08 (PST)
 Owner: backend ingest / crawler pipeline
 Parent: `01_llm-crawler-unified-frontdoor-architecture-2026-03-08.md`
 
+## 0. 2026-05-22 Current Code Mapping
+
+Status: `需更新 -> 已完成当前入口重映射` for this lane.
+
+Implementation note:
+- `single_url` in this tasklist is a legacy contract name. Current code uses `url_pool.single_url_compat` plus source-library URL routing and `postprocess_frontdoor`.
+- `frontdoor_orchestrator.py` exists as `FrontDoorOrchestrator`; the URL-execution writer path is currently exercised through `ingest_url_via_source_library_frontdoor -> frontdoor_ingress -> run_postprocess_frontdoor(run_writer=True)`.
+- The focused compatibility contract is now pinned by `main/backend/tests/unit/test_ingest_frontdoor_context_unittest.py`.
+
 ## 1. Scope and Deliverable
 
 Goal:
@@ -19,8 +28,8 @@ Final deliverable:
 
 ### AT-01 FrontDoor orchestrator skeleton
 - Target: create orchestration entrypoint and stage flow scaffold.
-- Input: existing `single_url`, `url_pool`, `news`, `market_web` flows.
-- Output: `frontdoor_orchestrator.py` with deterministic stage sequence.
+- Input: existing URL-execution compatibility path, `url_pool`, `news`, `market_web`, and source-library terminal output flows.
+- Output: `frontdoor_orchestrator.py` / frontdoor ingress-postprocess chain with deterministic stage sequence.
 - Acceptance:
   - entrypoint callable from existing ingest services
   - stage order fixed and traceable
@@ -145,4 +154,3 @@ cd main/backend
 .venv311/bin/pytest -q tests/core_business/test_ingest_core_contract.py tests/core_business/test_api_group_b_core_contract.py
 .venv311/bin/pytest -q tests/unit/test_url_unwrap_unittest.py
 ```
-

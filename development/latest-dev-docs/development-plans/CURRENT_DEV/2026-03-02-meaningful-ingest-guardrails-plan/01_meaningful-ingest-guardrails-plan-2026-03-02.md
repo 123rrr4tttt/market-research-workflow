@@ -1,13 +1,31 @@
 # Meaningful Ingest Guardrails Plan (2026-03-02)
 
+## 0. 2026-05-22 Current Code Mapping
+
+Status: `需更新 -> 已完成当前入口重映射` for this document lane.
+
+The original plan used `single_url` as the name of the only write-capable ingest workflow. In the current codebase there is no `main/backend/app/services/ingest/single_url.py`; the compatible single-URL write path is now:
+
+1. `main/backend/app/services/ingest/url_pool.py::ingest_url_via_source_library_frontdoor`
+2. synthetic source-library item `url_pool.single_url_compat`
+3. `main/backend/app/services/source_library/resolver.py::run_item_with_url_routing(..., execution_layer="terminal_output_only")`
+4. `main/backend/app/services/ingest/frontdoor_ingress.py::build_frontdoor_ingress_envelope`
+5. `main/backend/app/services/ingest/postprocess_frontdoor.py::run_postprocess_frontdoor(..., run_writer=True)`
+6. `main/backend/app/services/ingest/meaningful_gate.py` + `terminal_writer.py`
+
+Current invariant:
+- `single_url` below should be read as the legacy contract name for the current `source_library_frontdoor` write path.
+- `url_pool`, `news`, `market_web`, and source-library terminal outputs must remain candidate/terminal-output producers until they enter `frontdoor_ingress -> postprocess_frontdoor`.
+- The refreshed contract is covered by `main/backend/tests/unit/test_ingest_frontdoor_context_unittest.py::test_ingest_url_via_source_library_frontdoor_uses_source_library_bridge_and_postprocess_writer`.
+
 ## 1. Goal
 
 Build a strict ingestion guardrail so workflow outputs are meaningful by default, and shell/noise pages are rejected before document write.
 
 Primary outcome:
 - Stop producing low-value records such as navigation/login/search shell pages, JS hydration payloads, and binary PDF raw bytes.
-- Treat `single_url` as the only ingestion workflow, and enforce one shared acceptance gate there.
-- Other flows (`url_pool`, `source_library`) only produce candidates and must route final writes to `single_url`.
+- Treat the current `source_library_frontdoor` path as the only URL-execution write path, and enforce one shared acceptance gate there.
+- Other flows (`url_pool`, `source_library`, `news`, `market_web`) only produce candidates/terminal output and must route final writes through `frontdoor_ingress -> postprocess_frontdoor`.
 
 ## 2. Problem Patterns Observed
 
@@ -31,14 +49,20 @@ Based on recent runtime cleanup in `project_demo_proj`, meaningless outputs fall
 ## 3. Design Principle
 
 One write rule for all ingest entries:
-- No direct `Document` write without passing the same `meaningful_document_gate`.
+- No URL-execution `Document` write without passing the current frontdoor quality path: `frontdoor_ingress -> postprocess_frontdoor -> meaningful_gate -> terminal_writer`.
 
 Two-step safety for operations:
 - Dry-run first, then apply by explicit IDs only.
 
 ## 4. Workflow Changes
 
-### 4.1 WF-1 `single_url` (mandatory gate)
+### 4.1 WF-1 URL-execution frontdoor (legacy `single_url` contract)
+
+Current mapping:
+- Legacy plan name: `single_url`.
+- Current compatibility item: `url_pool.single_url_compat`.
+- Current write workflow marker: `source_library_frontdoor`.
+- Current entrypoint: `ingest_url_via_source_library_frontdoor` in `app/services/ingest/url_pool.py`.
 
 Add two gates:
 
@@ -56,8 +80,8 @@ Add two gates:
   - semantic text length below threshold (`min_semantic_len`)
 - Output: `accepted/rejected`, `rejection_reason`, `quality_score`.
 
-Search-template alignment (new):
-- `single_url` supports configurable search fan-out and fallback inside the same workflow:
+Search-template alignment:
+- The current source-library/url-pool frontdoor path supports configurable search fan-out and fallback inside the same workflow family:
   - `search_expand`, `search_expand_limit`
   - `search_provider`, `search_fallback_provider`, `fallback_on_insufficient`
   - `target_candidates`, `min_results_required`
@@ -69,13 +93,13 @@ Search-template alignment (new):
 
 ### 4.2 WF-2 `url_pool` (candidate-only, no bypass)
 
-- Every target URL must call WF-1 (`single_url`) core path and inherit both gates.
+- Every target URL must call WF-1 (`source_library_frontdoor` compatibility path) and inherit both gates.
 - Remove any shortcut direct write branch.
 - Aggregate rejection counters in result payload.
 
 ### 4.3 WF-3 `source_library` (candidate-only, no bypass)
 
-- Auto-ingest branch must route to WF-1 (`single_url`) per URL.
+- Auto-ingest branch must route to WF-1 (`source_library_frontdoor`) per URL.
 - Keep candidate parse/write-to-pool behavior, but final `Document` insertion requires gate pass.
 
 ### 4.4 WF-4 post-ingest sanitation (already introduced)
@@ -95,7 +119,13 @@ Search-template alignment (new):
 
 ### 5.2 Integrate WF-1
 
-- Modify: `app/services/ingest/single_url.py`
+- Current files:
+  - `app/services/ingest/url_pool.py`
+  - `app/services/ingest/frontdoor_ingress.py`
+  - `app/services/ingest/postprocess_frontdoor.py`
+  - `app/services/ingest/meaningful_gate.py`
+  - `app/services/ingest/terminal_writer.py`
+- Legacy file reference `app/services/ingest/single_url.py` is obsolete in the current tree.
 - Changes:
   - call `url_policy_check` before handler allocation/fetch
   - call `content_quality_check` before `Document` write
@@ -230,4 +260,3 @@ Risk:
 - Over-blocking can reduce insert volume.
 Control:
 - Conservative v1 rules + explicit rejection telemetry + fast config tuning.
-
