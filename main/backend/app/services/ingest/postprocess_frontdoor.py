@@ -5,6 +5,7 @@ from typing import Any
 from uuid import uuid4
 
 from ..extraction.application import ExtractionApplicationService
+from .canary_handoff import build_single_url_canary_handoff
 from .cleanup_executor import execute_frontdoor_cleanup
 from .content_cleaner import clean_frontdoor_document_candidate
 from .content_extraction import apply_main_content_extraction
@@ -88,6 +89,7 @@ def run_postprocess_frontdoor(
             "content_extraction": {},
             "quality_assessment": {},
             "quality_gates": {},
+            "canary_handoff": {},
             "cleanup_actions": [],
             "normalized_payload": {},
             "raw_snapshot_ref": None,
@@ -213,6 +215,7 @@ def run_postprocess_frontdoor(
             if admission == "return_for_cleanup":
                 envelope["data"]["rollback_token"] = envelope["data"]["raw_snapshot_ref"]
                 _stage(envelope, "returned_for_cleanup")
+            _attach_canary_handoff(envelope=envelope, ingress=ingress)
             return envelope
 
     terminal_context = _merge_terminal_context(
@@ -268,6 +271,7 @@ def run_postprocess_frontdoor(
         writer_result = persist_terminal_document(normalized_payload)
         envelope["data"]["writer_result"] = writer_result
         _stage(envelope, "writer_completed")
+    _attach_canary_handoff(envelope=envelope, ingress=ingress)
     return envelope
 
 
@@ -341,6 +345,20 @@ def _validate_ingress(ingress_envelope: Any) -> str | None:
     if not isinstance(ingress_envelope.get("collection_payload"), dict):
         return "collection_payload must be dict"
     return None
+
+
+def _attach_canary_handoff(
+    *,
+    envelope: dict[str, Any],
+    ingress: dict[str, Any],
+) -> None:
+    data = envelope.get("data") if isinstance(envelope.get("data"), dict) else {}
+    writer_result = data.get("writer_result") if isinstance(data.get("writer_result"), dict) else {}
+    data["canary_handoff"] = build_single_url_canary_handoff(
+        ingress_envelope=ingress,
+        postprocess_frontdoor=envelope,
+        writer_result=writer_result,
+    )
 
 
 def _normalize_existing_extraction_outcome(extraction_outcome: dict[str, Any]) -> dict[str, Any]:
