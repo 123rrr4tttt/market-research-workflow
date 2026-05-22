@@ -7,6 +7,9 @@
 3. [03_wave0-baseline-freeze-task-pool-2026-04-07.md](./03_wave0-baseline-freeze-task-pool-2026-04-07.md)
 4. [04_wave6-evidence-closure-gap-2026-05-22.md](./04_wave6-evidence-closure-gap-2026-05-22.md)
 5. [05_wave7-runtime-closure-evidence-2026-05-22.md](./05_wave7-runtime-closure-evidence-2026-05-22.md)
+6. [06_wave10-runtime-contract-refresh-2026-05-22.md](./06_wave10-runtime-contract-refresh-2026-05-22.md)
+7. [runtime_contract_refresh_2026-05-22.json](./runtime_contract_refresh_2026-05-22.json)
+8. [verify_wave10_runtime_contract.py](./verify_wave10_runtime_contract.py)
 
 ## 阅读顺序
 
@@ -15,6 +18,7 @@
 3. 最后读 `03_wave0-baseline-freeze-task-pool-2026-04-07.md`，直接启动 Wave 0 的基线冻结与任务归属核对。
 4. 若是在 2026-05-22 之后继续并行开发，先读 `04_wave6-evidence-closure-gap-2026-05-22.md`，确认哪些内容已被后续 worktree 波次替代、哪些仍是未封口能力差距。
 5. 若需要判断本专题能否封口，读 `05_wave7-runtime-closure-evidence-2026-05-22.md`，以 `partial` 结论区分 repo 合约已闭合与当前 Codex 运行时未暴露 `multi_agent_v1.spawn_agent` 的剩余缺口。
+6. 若需要判断 Wave10 之后的 runtime contract，读 `06_wave10-runtime-contract-refresh-2026-05-22.md` 与 `runtime_contract_refresh_2026-05-22.json`，区分 parent runtime 可用、worker runtime 仍需实际工具暴露验证、fallback 规则可检查这三层边界。
 
 ## 使用说明
 
@@ -24,9 +28,11 @@
 4. 若后续并行编排需要新增示例任务包或参考材料，可在本目录下追加 `references/`，但不应把实际实现文档迁出原专题。
 5. 本目录的 2026-05-22 Wave6 证据只更新专题内状态；共享总索引由主代理统一合并。
 6. 本目录的 2026-05-22 Wave7 证据把专题状态推进为 `partial`；共享总索引仍需后续 supervisor lane 按统一导航规则同步。
+7. 本目录的 2026-05-22 Wave10 证据把 `external_blocked` 收窄为 worker/subagent runtime proof：parent runtime 可用可以记录，但每个 worker 仍必须以自身实际可调用工具为准，不能伪造子代理能力。
 
 ## 本地验证
 
 ```bash
+python3 development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/verify_wave10_runtime_contract.py
 bash development/latest-dev-docs/development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh
 ```

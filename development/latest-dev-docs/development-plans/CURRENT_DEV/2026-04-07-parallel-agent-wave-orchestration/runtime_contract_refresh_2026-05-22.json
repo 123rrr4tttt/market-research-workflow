@@ -1,0 +1,47 @@
+{
+  "schema": "parallel_agent_runtime_contract_refresh.v1",
+  "run_date": "2026-05-22",
+  "topic": "2026-04-07-parallel-agent-wave-orchestration",
+  "status": "partial",
+  "status_tags": [
+    "external_blocked",
+    "wave10_checked"
+  ],
+  "parent_runtime": {
+    "tool": "multi_agent_v1.spawn_agent",
+    "available": true,
+    "discovery": "tool_search exposed multi_agent_v1.spawn_agent in the parent/supervisor runtime before this worker task was issued",
+    "claim_scope": "parent_runtime_only"
+  },
+  "worker_boundary": {
+    "worker_runtime_must_verify_tool_exposure": true,
+    "subagent_capability_claimed_by_this_worker": false,
+    "current_worker_tool_observation": "this worker searched for multi-agent spawn_agent but did not receive a callable multi_agent_v1 namespace in its tool list",
+    "claim_requires": [
+      "multi_agent_v1.spawn_agent is callable in the worker runtime that makes the claim",
+      "each spawned subagent returns result, changed files, validation status, and risk",
+      "fallback use is recorded when the runtime does not expose the tool"
+    ]
+  },
+  "fallback_contract": {
+    "tool_search_required_when_missing": true,
+    "search_phrases": [
+      "multi-agent spawn_agent",
+      "subagent parallel agent"
+    ],
+    "if_still_missing": [
+      "record runtime tool unavailable",
+      "use normal single-agent workflow",
+      "use parallel shell/tool reads only for read-only exploration"
+    ],
+    "no_fabricated_subagent_capability": true,
+    "not_runtime_spawn_evidence": [
+      "codex_settings/scripts/swarm_file_bootstrap.sh",
+      "codex_settings/scripts/swarm.sh"
+    ]
+  },
+  "verification": {
+    "checker": "verify_wave10_runtime_contract.py",
+    "expected_marker": "WAVE10_RUNTIME_CONTRACT_OK"
+  }
+}
