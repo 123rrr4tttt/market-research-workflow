@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from ..contracts import ErrorCode, error_response, map_exception_to_error, success_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response, map_exception_to_error, success_response
 from ..services.ingest_config import get_config, upsert_config
 from ..project_customization import get_project_customization
 from ..services.graph.doc_types import (
@@ -25,6 +27,7 @@ from ..services.projects.workflow import (
 )
 
 router = APIRouter(prefix="/project-customization", tags=["project-customization"])
+ProjectCustomizationDictEnvelope = ApiEnvelope[dict[str, Any]]
 
 
 def _raise_invalid_input(message: str, *, details: dict | None = None) -> None:
@@ -179,7 +182,7 @@ def _normalize_board_layout(board_layout: dict, steps: list[dict]) -> dict:
     }
 
 
-@router.get("/menu")
+@router.get("/menu", response_model=ProjectCustomizationDictEnvelope)
 def get_menu_config(project_key: str | None = Query(default=None)):
     customization = get_project_customization(project_key)
     return success_response(
@@ -190,7 +193,7 @@ def get_menu_config(project_key: str | None = Query(default=None)):
     )
 
 
-@router.get("/workflows")
+@router.get("/workflows", response_model=ProjectCustomizationDictEnvelope)
 def list_workflows(project_key: str | None = Query(default=None)):
     customization = get_project_customization(project_key)
     workflow_mapping = customization.get_workflow_mapping()
@@ -250,7 +253,7 @@ def _read_workflow_template(project_key: str | None, workflow_name: str) -> tupl
     )
 
 
-@router.get("/workflows/{workflow_name}/template")
+@router.get("/workflows/{workflow_name}/template", response_model=ProjectCustomizationDictEnvelope)
 def get_workflow_template(workflow_name: str, project_key: str | None = Query(default=None)):
     effective_project_key, steps, meta, board_layout = _read_workflow_template(project_key, workflow_name)
     return success_response(
@@ -264,7 +267,7 @@ def get_workflow_template(workflow_name: str, project_key: str | None = Query(de
     )
 
 
-@router.post("/workflows/{workflow_name}/template")
+@router.post("/workflows/{workflow_name}/template", response_model=ProjectCustomizationDictEnvelope)
 def upsert_workflow_template(workflow_name: str, payload: WorkflowTemplatePayload):
     effective_project_key = (payload.project_key or "").strip() or get_project_customization().project_key
     if not effective_project_key:
@@ -333,7 +336,7 @@ def upsert_workflow_template(workflow_name: str, payload: WorkflowTemplatePayloa
     )
 
 
-@router.delete("/workflows/{workflow_name}/template")
+@router.delete("/workflows/{workflow_name}/template", response_model=ProjectCustomizationDictEnvelope)
 def delete_workflow_template(workflow_name: str, project_key: str | None = Query(default=None)):
     effective_project_key = (project_key or "").strip() or get_project_customization().project_key
     if not effective_project_key:
@@ -376,7 +379,7 @@ def delete_workflow_template(workflow_name: str, project_key: str | None = Query
     )
 
 
-@router.get("/llm-mapping")
+@router.get("/llm-mapping", response_model=ProjectCustomizationDictEnvelope)
 def get_llm_mapping(project_key: str | None = Query(default=None)):
     customization = get_project_customization(project_key)
     return success_response(
@@ -387,7 +390,7 @@ def get_llm_mapping(project_key: str | None = Query(default=None)):
     )
 
 
-@router.get("/graph-config")
+@router.get("/graph-config", response_model=ProjectCustomizationDictEnvelope)
 def get_graph_config(project_key: str | None = Query(default=None)):
     customization = get_project_customization(project_key)
     return success_response(
@@ -405,7 +408,7 @@ def get_graph_config(project_key: str | None = Query(default=None)):
     )
 
 
-@router.post("/workflows/{workflow_name}/run")
+@router.post("/workflows/{workflow_name}/run", response_model=ProjectCustomizationDictEnvelope)
 def run_workflow(workflow_name: str, payload: WorkflowRunPayload):
     try:
         project_key = (payload.project_key or "").strip()

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Any, Optional
 
 from ..project_customization.service import get_project_customization
 from ..services.search.web import generate_keywords, generate_topic_keywords
@@ -8,7 +8,7 @@ from ..services.discovery.application import DiscoveryApplicationService
 from ..services.keyword_generation import generate_social_keywords, generate_subreddit_keywords
 from ..services.job_logger import start_job, complete_job, fail_job
 from fastapi.responses import JSONResponse
-from ..contracts import ErrorCode, error_response, map_exception_to_error, success_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response, map_exception_to_error, success_response
 
 
 class DiscoveryRequest(BaseModel):
@@ -23,6 +23,7 @@ class DiscoveryRequest(BaseModel):
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
 discovery_app = DiscoveryApplicationService.build_default()
+DiscoveryDictEnvelope = ApiEnvelope[dict[str, Any]]
 DISCOVERY_ERROR_RESPONSES = {
     400: {"description": "Invalid input"},
     404: {"description": "Not found"},
@@ -73,7 +74,7 @@ def _project_unified_discovery_params(topic: str, max_results: int) -> dict:
     }
 
 
-@router.post("/search", responses=DISCOVERY_ERROR_RESPONSES)
+@router.post("/search", response_model=DiscoveryDictEnvelope, responses=DISCOVERY_ERROR_RESPONSES)
 def discovery_search(payload: DiscoveryRequest, debug: bool = Query(False), persist: bool = Query(True)):
     unified_params = _project_unified_discovery_params(payload.topic, payload.max_results)
     job_params = {
@@ -126,7 +127,7 @@ class SmartDiscoveryRequest(BaseModel):
     days_back: int = Field(default=30, ge=1, le=365, description="首次搜索时，回溯多少天")
 
 
-@router.post("/smart", responses=DISCOVERY_ERROR_RESPONSES)
+@router.post("/smart", response_model=DiscoveryDictEnvelope, responses=DISCOVERY_ERROR_RESPONSES)
 def discovery_smart(payload: SmartDiscoveryRequest, persist: bool = Query(True)):
     """智能搜索：自动增量搜索，只返回新信息"""
     unified_params = _project_unified_discovery_params(payload.topic, payload.max_results)
@@ -177,7 +178,7 @@ class DeepDiscoveryRequest(BaseModel):
 
 
 
-@router.post("/deep", responses=DISCOVERY_ERROR_RESPONSES)
+@router.post("/deep", response_model=DiscoveryDictEnvelope, responses=DISCOVERY_ERROR_RESPONSES)
 def discovery_deep(payload: DeepDiscoveryRequest, persist: bool = Query(True)):
     unified_params = _project_unified_discovery_params(payload.topic, payload.max_results)
     job_params = {
@@ -224,7 +225,7 @@ class KeywordGenerationRequest(BaseModel):
     topic_focus: Optional[str] = Field(default=None, description="专题焦点 company/product/operation（可选）")
 
 
-@router.post("/generate-keywords", responses=DISCOVERY_ERROR_RESPONSES)
+@router.post("/generate-keywords", response_model=DiscoveryDictEnvelope, responses=DISCOVERY_ERROR_RESPONSES)
 def generate_keywords_api(payload: KeywordGenerationRequest):
     """Keyword suggestion for collection workflow.
 
@@ -323,7 +324,7 @@ class SubredditKeywordGenerationRequest(BaseModel):
     base_keywords: Optional[list[str]] = Field(default=None, description="基础关键词列表（可选），用于生成更多相关关键词")
 
 
-@router.post("/generate-subreddit-keywords", responses=DISCOVERY_ERROR_RESPONSES)
+@router.post("/generate-subreddit-keywords", response_model=DiscoveryDictEnvelope, responses=DISCOVERY_ERROR_RESPONSES)
 def generate_subreddit_keywords_api(payload: SubredditKeywordGenerationRequest):
     """生成Reddit子论坛关键词：基于主题使用LLM生成专门用于发现Reddit子论坛的关键词
     
