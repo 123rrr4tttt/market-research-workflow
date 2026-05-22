@@ -31,6 +31,7 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Search Provider Trace Offline Artifact Contract](./automation-runs/search-provider-trace-artifacts/2026-05-22/README.md)
   - [2026-05-22 Source Library Real Probes](./automation-runs/source-library-real-probes/2026-05-22/README.md)
   - [2026-05-22 Wave2 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave2-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Wave3 Worktree Plan Skeleton - pending/planned](./automation-runs/dev-docs-folder-audit-2026-05-22/wave3-worktree-plan-2026-05-22.md)
 - `backend-docs`：
   - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：

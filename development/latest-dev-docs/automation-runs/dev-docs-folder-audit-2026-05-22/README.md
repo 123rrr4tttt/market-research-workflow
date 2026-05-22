@@ -7,6 +7,7 @@ Related execution plans:
 
 - [worktree-branch-plan.md](./worktree-branch-plan.md)
 - [parallel-plan-tree-2026-05-22.md](./parallel-plan-tree-2026-05-22.md)
+- [wave3-worktree-plan-2026-05-22.md](./wave3-worktree-plan-2026-05-22.md) - planned / pending skeleton only; does not claim Wave3 lane completion.
 
 ## Summary
 
