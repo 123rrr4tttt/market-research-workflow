@@ -562,6 +562,25 @@ def _resolve_candidate_scoring_config(params: dict[str, Any] | None) -> dict[str
     return params.get("candidate_scoring_config") or params.get("candidate_selection_config")
 
 
+def _candidate_filter_state(
+    *,
+    raw_count: int,
+    selected_count: int,
+    query_terms: list[str],
+    allow_term_fallback: bool,
+    used_term_fallback: bool,
+) -> str:
+    if raw_count <= 0:
+        return "empty_no_raw_candidates"
+    if used_term_fallback:
+        return "term_filter_empty_fallback_used" if allow_term_fallback else "term_filter_empty_no_fallback"
+    if selected_count > 0:
+        return "selected"
+    if query_terms:
+        return "term_filter_empty_no_fallback"
+    return "selected_without_query_filter" if selected_count > 0 else "empty_without_query_filter"
+
+
 def build_search_template_urls(template: str, query_terms: list[str], params: dict[str, Any]) -> tuple[list[str], int]:
     normalized_template = normalize_search_template_placeholders(template)
     if not normalized_template or "{{q}}" not in normalized_template:
@@ -722,6 +741,15 @@ def execute_search_template(
         "pages_scanned": pages_scanned,
         "search_service": active_service,
         "search_service_fallbacks": search_service_fallbacks,
+        "fallback_allowed": bool(allow_term_fallback),
+        "used_term_fallback": bool(used_term_fallback),
+        "candidate_filter_state": _candidate_filter_state(
+            raw_count=len(merged_candidates),
+            selected_count=len(selected_candidates),
+            query_terms=query_terms,
+            allow_term_fallback=allow_term_fallback,
+            used_term_fallback=used_term_fallback,
+        ),
     }
     diagnostics.update(parser_diagnostics_acc)
     return SearchTemplateExecutionResult(
@@ -854,6 +882,15 @@ def execute_external_site_search(
             "search_service": "external_search_slowlane" if slowlane_used else "external_search",
             "search_service_fallbacks": 0,
             "slowlane_used": slowlane_used,
+            "fallback_allowed": bool(allow_term_fallback),
+            "used_term_fallback": bool(used_term_fallback),
+            "candidate_filter_state": _candidate_filter_state(
+                raw_count=len(raw_candidates),
+                selected_count=len(selected_candidates),
+                query_terms=query_terms,
+                allow_term_fallback=allow_term_fallback,
+                used_term_fallback=used_term_fallback,
+            ),
         },
     )
 
@@ -959,6 +996,15 @@ def execute_feed_probe(
             "selected_candidates": len(selected_candidates),
             "transport_errors": sum(1 for row in errors if row.get("error_class") == "transport_failure"),
             "pages_scanned": 1,
+            "fallback_allowed": bool(allow_term_fallback),
+            "used_term_fallback": bool(used_term_fallback),
+            "candidate_filter_state": _candidate_filter_state(
+                raw_count=len(raw_candidates),
+                selected_count=len(selected_candidates),
+                query_terms=query_terms,
+                allow_term_fallback=allow_term_fallback,
+                used_term_fallback=used_term_fallback,
+            ),
         },
     )
 
@@ -1085,5 +1131,14 @@ def execute_sitemap_probe(
             "selected_candidates": len(selected_candidates),
             "transport_errors": sum(1 for row in errors if row.get("error_class") == "transport_failure"),
             "pages_scanned": 1,
+            "fallback_allowed": bool(allow_term_fallback),
+            "used_term_fallback": bool(used_term_fallback),
+            "candidate_filter_state": _candidate_filter_state(
+                raw_count=len(raw_candidates),
+                selected_count=len(selected_candidates),
+                query_terms=query_terms,
+                allow_term_fallback=allow_term_fallback,
+                used_term_fallback=used_term_fallback,
+            ),
         },
     )

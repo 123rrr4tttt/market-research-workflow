@@ -105,6 +105,55 @@ class SearchTemplateServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(result.diagnostics["search_service_fallbacks"], 1)
         self.assertEqual([decision.url for decision in result.selected_candidates], ["https://example.com/posts/123"])
 
+    def test_execute_search_template_reports_filter_empty_without_fallback(self) -> None:
+        html = """
+        <html><body>
+          <a href="/posts/market-outlook">Market outlook</a>
+        </body></html>
+        """
+
+        with patch("app.services.resource_pool.search_template_service.fetch_html", return_value=(html, object())), patch(
+            "app.services.resource_pool.search_capabilities._expand_semantic_query_terms_with_llm",
+            return_value=[],
+        ):
+            result = execute_search_template(
+                template="https://example.com/search?q={{q}}",
+                query_terms=["robotics"],
+                params={},
+                probe_timeout=5.0,
+                allow_term_fallback=False,
+                entry_domain="example.com",
+            )
+
+        self.assertEqual(result.selected_candidates, [])
+        self.assertTrue(result.used_term_fallback)
+        self.assertFalse(result.diagnostics["fallback_allowed"])
+        self.assertTrue(result.diagnostics["used_term_fallback"])
+        self.assertEqual(result.diagnostics["candidate_filter_state"], "term_filter_empty_no_fallback")
+
+    def test_execute_search_template_reports_filter_fallback_used(self) -> None:
+        html = """
+        <html><body>
+          <a href="/posts/market-outlook">Market outlook</a>
+        </body></html>
+        """
+
+        with patch("app.services.resource_pool.search_template_service.fetch_html", return_value=(html, object())):
+            result = execute_search_template(
+                template="https://example.com/search?q={{q}}",
+                query_terms=["robotics"],
+                params={},
+                probe_timeout=5.0,
+                allow_term_fallback=True,
+                entry_domain="example.com",
+            )
+
+        self.assertEqual([decision.url for decision in result.selected_candidates], ["https://example.com/posts/market-outlook"])
+        self.assertTrue(result.used_term_fallback)
+        self.assertTrue(result.diagnostics["fallback_allowed"])
+        self.assertTrue(result.diagnostics["used_term_fallback"])
+        self.assertEqual(result.diagnostics["candidate_filter_state"], "term_filter_empty_fallback_used")
+
     def test_extract_link_candidates_from_html_filters_navigation_noise(self) -> None:
         html = """
         <html><body>
@@ -395,6 +444,7 @@ class SearchTemplateServiceUnitTestCase(unittest.TestCase):
             ["https://example.com/posts/robotics-weekly"],
         )
         self.assertFalse(result.used_term_fallback)
+        self.assertEqual(result.diagnostics["candidate_filter_state"], "selected")
 
     def test_execute_external_site_search_uses_search_sources_results(self) -> None:
         with patch(
