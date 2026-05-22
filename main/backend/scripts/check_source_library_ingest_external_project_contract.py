@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -30,13 +31,13 @@ from app.services.source_library.item_plan import build_item_definition_view, bu
 
 
 CONTRACT_VERSION = "source-library-ingest-at-ext-current-contract.v1"
-SUPPORTED_NARROW_MODES = ("rss_feed", "sitemap", "http_api")
+SUPPORTED_NARROW_MODES = ("rss_feed", "sitemap", "http_api", "article_extractor")
 
 REMAINING_GAPS = [
     {
-        "code": "article_extraction_stack_runtime_not_closed",
+        "code": "live_article_extraction_stack_replay_not_run",
         "at_ext": ["AT-EXT-05", "AT-EXT-06", "AT-EXT-08", "AT-EXT-09"],
-        "reason": "Current deterministic runtime closes candidate/article-metadata records, but does not prove Fundus/news-please style article-body extraction.",
+        "reason": "Fixture-backed article-body extraction runner and fallback states are proven, but no live Fundus/news-please style third-party replay is claimed.",
     },
     {
         "code": "python_library_cli_container_runners_not_enabled",
@@ -99,6 +100,17 @@ def _manifest(*, execution_mode: str = "http_api") -> dict[str, Any]:
         accepted_inputs["domains"] = False
         accepted_inputs["date_range"] = False
         runtime_config = {}
+    elif execution_mode == "article_extractor":
+        runner_ref = "article-extractor://trafilatura-or-heuristic"
+        source_kind = "article_extraction_stack"
+        capabilities["article_body"] = True
+        capabilities["pdf_artifact"] = False
+        accepted_inputs["urls"] = True
+        accepted_inputs["domains"] = False
+        accepted_inputs["date_range"] = False
+        runtime_config = {
+            "parser": "heuristic.main_content.v1",
+        }
 
     payload: dict[str, Any] = {
         "contract_version": EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION,
@@ -131,6 +143,11 @@ def _manifest(*, execution_mode: str = "http_api") -> dict[str, Any]:
     }
     if runtime_config:
         payload["runtime_config"] = runtime_config
+    if execution_mode == "article_extractor":
+        payload["normalization"] = {
+            "record_kind": "document_candidate",
+            "frontdoor_strategy": "records_allow_extract",
+        }
     return payload
 
 
@@ -295,6 +312,66 @@ def _prove_runner_and_frontdoor_contract() -> dict[str, Any]:
     }
 
 
+def _prove_article_extraction_runner_contract() -> dict[str, Any]:
+    item = _external_item(manifest=_manifest(execution_mode="article_extractor"))
+    params = {
+        "_source_library_item": item,
+        "urls": ["https://example.invalid/article/body", "https://example.invalid/article/empty"],
+        "max_items": 2,
+    }
+    body_text = " ".join(["Deterministic article body"] * 50)
+    extraction_results = [
+        SimpleNamespace(
+            title="Fixture Body",
+            content=body_text,
+            extractor="heuristic.main_content.v1",
+            confidence="medium",
+            meta={"fixture": True},
+        ),
+        SimpleNamespace(
+            title=None,
+            content="",
+            extractor="heuristic.main_content.v1",
+            confidence="low",
+            meta={"fixture": True},
+        ),
+    ]
+    with (
+        patch(
+            "app.services.source_library.adapters.external_project.default_http_client.get_text",
+            return_value="<article>fixture</article>",
+        ) as get_text,
+        patch(
+            "app.services.source_library.adapters.external_project.extract_article_content_from_html",
+            side_effect=extraction_results,
+        ) as extractor,
+    ):
+        result = handle_external_project_manifest(params, project_key="demo_proj")
+
+    legacy_result = {
+        **item,
+        "project_key": "demo_proj",
+        "params": {"urls": params["urls"], "max_items": 2},
+        "result": result,
+    }
+    response = to_source_library_response(CollectResult(channel="source_library", meta={"raw": legacy_result}))
+    diagnostics = result["runtime_diagnostics"]["diagnostics"]
+    states = [entry["state"] for entry in diagnostics["fallback_states"]]
+    return {
+        "http_text_called": get_text.call_count,
+        "parser_called": extractor.call_count,
+        "runner_status": result["status"],
+        "provider_key": result["provider_binding"]["provider_key"],
+        "parser_capability": diagnostics["parser_capability"],
+        "fallback_states": states,
+        "article_body_record_state": result["records"][0]["record_meta"]["article_extraction"]["state"],
+        "metadata_fallback_record_state": result["records"][1]["record_meta"]["article_extraction"]["state"],
+        "frontdoor_has_document_candidate": bool(response["frontdoor_ingress"]["collection_payload"].get("document_candidate")),
+        "frontdoor_dispatch_reason": response["frontdoor_ingress"]["collection_payload"]["dispatch_plan"]["reason"],
+        "frontdoor_run_extraction": response["frontdoor_ingress"]["collection_payload"]["dispatch_plan"]["run_extraction"],
+    }
+
+
 def build_contract() -> dict[str, Any]:
     failures: list[str] = []
     evidence: dict[str, Any] = {}
@@ -305,6 +382,7 @@ def build_contract() -> dict[str, Any]:
         "manifest_builder": _prove_manifest_builder_contract,
         "item_surface": _prove_item_surface_contract,
         "runner_frontdoor": _prove_runner_and_frontdoor_contract,
+        "article_extraction_runner": _prove_article_extraction_runner_contract,
     }
     for name, check in checks.items():
         try:
@@ -324,13 +402,13 @@ def build_contract() -> dict[str, Any]:
         at_ext_status,
         "AT-EXT-02",
         "closed_narrow_v1",
-        ["external_item.manifest.v1 is normalized for rss_feed, sitemap, and http_api"],
+        ["external_item.manifest.v1 is normalized for rss_feed, sitemap, http_api, and article_extractor"],
     )
     _record_step(
         at_ext_status,
         "AT-EXT-03",
         "closed_narrow_v1",
-        ["provider registry exposes bounded rss_feed/sitemap/http_api adapter bindings"],
+        ["provider registry exposes bounded rss_feed/sitemap/http_api/article_extractor adapter bindings"],
     )
     _record_step(
         at_ext_status,
@@ -342,13 +420,13 @@ def build_contract() -> dict[str, Any]:
         at_ext_status,
         "AT-EXT-05",
         "partial_narrow_v1",
-        ["bounded provider runner executes http_api and has registered rss_feed/sitemap runners"],
+        ["bounded provider runner executes http_api/article_extractor and has registered rss_feed/sitemap runners"],
     )
     _record_step(
         at_ext_status,
         "AT-EXT-06",
         "closed_narrow_v1",
-        ["runner records map into terminal_output -> frontdoor_ingress -> postprocess_frontdoor authority path"],
+        ["runner records and article-body document candidates map into terminal_output -> frontdoor_ingress -> postprocess_frontdoor authority path"],
     )
     _record_step(
         at_ext_status,
@@ -381,6 +459,15 @@ def build_contract() -> dict[str, Any]:
         failures.append("runner_frontdoor: artifact_ref was not preserved")
     if evidence.get("runner_frontdoor", {}).get("frontdoor_execution_mode") != "http_api":
         failures.append("runner_frontdoor: frontdoor execution_mode was not preserved")
+    article_runner = evidence.get("article_extraction_runner", {})
+    if article_runner.get("provider_key") != "external_project.article_extractor":
+        failures.append("article_extraction_runner: provider binding missing")
+    if article_runner.get("fallback_states") != ["article_body_extracted", "metadata_only_fallback"]:
+        failures.append("article_extraction_runner: fallback states mismatch")
+    if article_runner.get("frontdoor_has_document_candidate") is not True:
+        failures.append("article_extraction_runner: frontdoor document candidate missing")
+    if article_runner.get("frontdoor_run_extraction") is not False:
+        failures.append("article_extraction_runner: frontdoor structured extraction should remain disabled")
 
     return {
         "contract_version": CONTRACT_VERSION,

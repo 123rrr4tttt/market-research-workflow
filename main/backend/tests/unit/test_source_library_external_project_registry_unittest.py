@@ -22,9 +22,10 @@ class ExternalProjectRegistryUnitTestCase(unittest.TestCase):
         bindings = list_external_project_provider_bindings()
 
         by_mode = {entry["execution_mode"]: entry for entry in bindings}
-        self.assertEqual(set(by_mode), {"rss_feed", "sitemap", "http_api"})
+        self.assertEqual(set(by_mode), {"rss_feed", "sitemap", "http_api", "article_extractor"})
         self.assertEqual(by_mode["rss_feed"]["registry_version"], EXTERNAL_PROJECT_PROVIDER_REGISTRY_VERSION)
         self.assertEqual(by_mode["http_api"]["provider_family"], "api_provider")
+        self.assertEqual(by_mode["article_extractor"]["capability_family"], "article_body_extraction")
 
     def test_resolve_provider_binding_derives_runtime_traits_from_manifest(self) -> None:
         binding = resolve_external_project_provider_binding(
@@ -41,6 +42,28 @@ class ExternalProjectRegistryUnitTestCase(unittest.TestCase):
         self.assertTrue(binding["supports_pdf_artifact"])
         self.assertTrue(binding["accepts_domains"])
         self.assertEqual(binding["record_kind"], "article_metadata")
+        self.assertFalse(binding["parser_capability"]["article_body"])
+
+    def test_article_extractor_binding_exposes_parser_fallback_contract(self) -> None:
+        binding = resolve_external_project_provider_binding(
+            {
+                "execution_mode": "article_extractor",
+                "capabilities": {"article_body": True},
+                "accepted_inputs": {"urls": True, "max_items": True},
+                "normalization": {"record_kind": "document_candidate", "frontdoor_strategy": "records_allow_extract"},
+                "runtime_config": {"parser": "heuristic.main_content.v1"},
+            }
+        )
+
+        self.assertEqual(binding["provider_key"], "external_project.article_extractor")
+        self.assertEqual(binding["provider_family"], "article_extraction_stack")
+        self.assertTrue(binding["supports_article_body"])
+        self.assertTrue(binding["accepts_urls"])
+        self.assertEqual(binding["parser_capability"]["parser"], "heuristic.main_content.v1")
+        self.assertEqual(
+            binding["parser_capability"]["fallback_states"],
+            ["article_body_extracted", "metadata_only_fallback", "fetch_error_fallback"],
+        )
 
     def test_resolve_provider_binding_rejects_unsupported_execution_mode(self) -> None:
         with self.assertRaisesRegex(ValueError, "unsupported external project execution_mode"):

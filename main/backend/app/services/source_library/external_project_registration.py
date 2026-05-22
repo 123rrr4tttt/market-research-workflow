@@ -222,6 +222,13 @@ def _build_manifest_from_context(
 
 
 def _default_capabilities_for_mode(execution_mode: str) -> dict[str, bool]:
+    if execution_mode == "article_extractor":
+        return {
+            "candidate_urls": True,
+            "article_metadata": True,
+            "article_body": True,
+            "pdf_artifact": False,
+        }
     if execution_mode == "http_api":
         return {
             "candidate_urls": True,
@@ -242,6 +249,7 @@ def _infer_source_kind(execution_mode: str) -> str:
         "rss_feed": "feed_aggregator",
         "sitemap": "site_extractor",
         "http_api": "api_provider",
+        "article_extractor": "article_extraction_stack",
     }
     return mapping.get(execution_mode, "external_project")
 

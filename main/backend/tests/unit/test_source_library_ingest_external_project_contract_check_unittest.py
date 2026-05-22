@@ -48,8 +48,8 @@ class SourceLibraryIngestExternalProjectContractCheckTest(unittest.TestCase):
         self.assertEqual(at_ext_status["AT-EXT-09"]["status"], "partial_pending_external_replay")
 
         manifest_registry = contract["evidence"]["manifest_registry"]
-        self.assertEqual(manifest_registry["supported_modes"], ["http_api", "rss_feed", "sitemap"])
-        self.assertEqual(manifest_registry["provider_registry_modes"], ["http_api", "rss_feed", "sitemap"])
+        self.assertEqual(manifest_registry["supported_modes"], ["article_extractor", "http_api", "rss_feed", "sitemap"])
+        self.assertEqual(manifest_registry["provider_registry_modes"], ["article_extractor", "http_api", "rss_feed", "sitemap"])
         self.assertTrue(manifest_registry["http_api_supports_pdf_artifact"])
 
         runner_frontdoor = contract["evidence"]["runner_frontdoor"]
@@ -59,10 +59,17 @@ class SourceLibraryIngestExternalProjectContractCheckTest(unittest.TestCase):
         self.assertEqual(runner_frontdoor["frontdoor_execution_mode"], "http_api")
         self.assertEqual(runner_frontdoor["authority_normalized_records"], 1)
 
+        article_runner = contract["evidence"]["article_extraction_runner"]
+        self.assertEqual(article_runner["provider_key"], "external_project.article_extractor")
+        self.assertEqual(article_runner["runner_status"], "partial")
+        self.assertEqual(article_runner["fallback_states"], ["article_body_extracted", "metadata_only_fallback"])
+        self.assertTrue(article_runner["frontdoor_has_document_candidate"])
+        self.assertFalse(article_runner["frontdoor_run_extraction"])
+
         self.assertEqual(
             sorted(gap["code"] for gap in contract["remaining_gaps"]),
             [
-                "article_extraction_stack_runtime_not_closed",
+                "live_article_extraction_stack_replay_not_run",
                 "live_external_project_replay_not_run",
                 "python_library_cli_container_runners_not_enabled",
             ],

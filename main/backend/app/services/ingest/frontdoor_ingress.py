@@ -74,6 +74,40 @@ def build_source_library_ingress_envelope(
     external_manifest = item.get("external_manifest") if isinstance(item.get("external_manifest"), dict) else {}
     records = ((terminal_output.get("results") or {}).get("records") if isinstance(terminal_output.get("results"), dict) else [])
     source_artifacts = _collect_source_artifacts(records)
+    article_body_record = _select_article_body_record(records, external_manifest)
+    if article_body_record is not None:
+        collection_payload = {
+            "document_candidate": _build_document_candidate_from_record(article_body_record, external_manifest=external_manifest),
+            "records": list(records or []),
+            "source_artifacts": source_artifacts,
+            "terminal_context": {
+                "platform": "source_library",
+                "ingestion_entrypoint": "ingest.source_library.run",
+                "source_mode": str(terminal_output.get("source_mode") or "protocol_search"),
+                "article_extraction": _record_article_extraction_meta(article_body_record),
+            },
+            "extraction_plan": {"enabled": False},
+            "dispatch_plan": {
+                "run_extraction": False,
+                "run_writer": False,
+                "reason": "external_project_article_body_materialized",
+            },
+        }
+    else:
+        collection_payload = {
+            "terminal_output": dict(terminal_output or {}),
+            "records": list(records or []),
+            "source_artifacts": source_artifacts,
+            "provider_handoff": dict(provider_handoff or {}) if provider_handoff else None,
+            "frontdoor_route_profile": dict(route_profile or {}) if route_profile else None,
+            "frontdoor_router_contract": dict(router_contract or {}) if router_contract else None,
+            "legacy_result": dict(legacy_result or {}) if isinstance(legacy_result, dict) else None,
+            "dispatch_plan": {
+                "run_extraction": False,
+                "run_writer": False,
+                "reason": "records_require_downstream_url_execution",
+            },
+        }
     return build_frontdoor_ingress_envelope(
         ingress_type="source_library",
         entrypoint="ingest.source_library.run",
@@ -98,20 +132,7 @@ def build_source_library_ingress_envelope(
             "router_state": (router_contract or {}).get("router_state"),
             "router_reason_code": (router_contract or {}).get("reason_code"),
         },
-        collection_payload={
-            "terminal_output": dict(terminal_output or {}),
-            "records": list(records or []),
-            "source_artifacts": source_artifacts,
-            "provider_handoff": dict(provider_handoff or {}) if provider_handoff else None,
-            "frontdoor_route_profile": dict(route_profile or {}) if route_profile else None,
-            "frontdoor_router_contract": dict(router_contract or {}) if router_contract else None,
-            "legacy_result": dict(legacy_result or {}) if isinstance(legacy_result, dict) else None,
-            "dispatch_plan": {
-                "run_extraction": False,
-                "run_writer": False,
-                "reason": "records_require_downstream_url_execution",
-            },
-        },
+        collection_payload=collection_payload,
         raw_snapshot=terminal_output,
         trace_id=meta.get("trace_id"),
         retryable=bool(meta.get("retryable")),
@@ -205,6 +226,58 @@ def _first_record_url(records: Any) -> str | None:
             if url:
                 return url
     return None
+
+
+def _select_article_body_record(records: Any, external_manifest: Any) -> dict[str, Any] | None:
+    if not isinstance(records, list) or not isinstance(external_manifest, dict):
+        return None
+    capabilities = external_manifest.get("capabilities") if isinstance(external_manifest.get("capabilities"), dict) else {}
+    normalization = external_manifest.get("normalization") if isinstance(external_manifest.get("normalization"), dict) else {}
+    if not bool(capabilities.get("article_body")):
+        return None
+    if str(normalization.get("frontdoor_strategy") or "").strip().lower() == "records_only_defer":
+        return None
+    for row in records:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("content_text") or "").strip():
+            return dict(row)
+    return None
+
+
+def _record_article_extraction_meta(record: dict[str, Any]) -> dict[str, Any]:
+    record_meta = record.get("record_meta") if isinstance(record.get("record_meta"), dict) else {}
+    article_extraction = record_meta.get("article_extraction")
+    return dict(article_extraction or {}) if isinstance(article_extraction, dict) else {}
+
+
+def _build_document_candidate_from_record(record: dict[str, Any], *, external_manifest: dict[str, Any]) -> dict[str, Any]:
+    url = str(record.get("url") or "").strip()
+    record_meta = dict(record.get("record_meta") or {}) if isinstance(record.get("record_meta"), dict) else {}
+    external_summary = record_meta.get("external_project") if isinstance(record_meta.get("external_project"), dict) else {}
+    return {
+        "source_name": str(record.get("source_label") or external_manifest.get("display_name") or "source_library"),
+        "source_kind": str(external_manifest.get("source_kind") or "source_library"),
+        "source_base_url": str(external_manifest.get("project_link") or "").strip() or None,
+        "state": None,
+        "doc_type": "source_library_article",
+        "title": str(record.get("title") or "").strip() or None,
+        "summary": str(record.get("summary") or "").strip() or None,
+        "publish_date": record.get("published_at"),
+        "content": str(record.get("content_text") or "").strip(),
+        "text_hash": None,
+        "uri": url or None,
+        "status": None,
+        "extracted_data_base": {
+            "source_label": record.get("source_label"),
+            "record_meta": record_meta,
+            "external_project": external_summary or {
+                "project_link": external_manifest.get("project_link"),
+                "execution_mode": external_manifest.get("execution_mode"),
+                "runner_ref": external_manifest.get("runner_ref"),
+            },
+        },
+    }
 
 
 def _collect_source_artifacts(records: Any) -> list[dict[str, Any]]:

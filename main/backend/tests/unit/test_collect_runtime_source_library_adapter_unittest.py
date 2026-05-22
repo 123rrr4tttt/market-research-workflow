@@ -268,6 +268,90 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(response["frontdoor_ingress"]["source_ref"]["execution_mode"], "rss_feed")
         self.assertEqual(response["authority_output"]["summary"]["record_stats"]["normalized"], 1)
 
+    def test_to_source_library_response_promotes_external_article_body_record_to_document_candidate(self) -> None:
+        body = " ".join(["Materialized article body paragraph"] * 40)
+        raw = {
+            "item_key": "external.demo.article",
+            "channel_key": "external_project.manifest",
+            "name": "External Demo Article",
+            "item_type": "user_defined",
+            "managed_by": "user",
+            "extra": {
+                "external_project_manifest": {
+                    "contract_version": "external_item.manifest.v1",
+                    "item_key": "external.demo.article",
+                    "display_name": "External Demo Article",
+                    "project_link": "https://github.com/example/external-demo",
+                    "source_kind": "article_extraction_stack",
+                    "source_scope": "finance_news",
+                    "capabilities": {
+                        "candidate_urls": True,
+                        "article_metadata": True,
+                        "article_body": True,
+                        "pdf_artifact": False,
+                    },
+                    "accepted_inputs": {
+                        "query_terms": True,
+                        "urls": True,
+                        "domains": False,
+                        "date_range": False,
+                        "max_items": True,
+                    },
+                    "execution_mode": "article_extractor",
+                    "runner_ref": "article-extractor://trafilatura-or-heuristic",
+                    "normalization": {
+                        "record_kind": "document_candidate",
+                        "frontdoor_strategy": "records_allow_extract",
+                    },
+                    "limits": {
+                        "default_max_items": 2,
+                        "max_items_cap": 10,
+                        "request_timeout_ms": 5000,
+                    },
+                    "refresh_policy": {
+                        "manifest_ttl_minutes": 60,
+                        "probe_ttl_minutes": 1440,
+                    },
+                    "provenance": {
+                        "discovered_by": "manual_registration",
+                        "source_refs": ["https://github.com/example/external-demo"],
+                    },
+                    "runtime_config": {"parser": "heuristic.main_content.v1"},
+                }
+            },
+            "params": {"urls": ["https://example.com/article"]},
+            "result": {
+                "records": [
+                    {
+                        "record_id": "r1",
+                        "url": "https://example.com/article",
+                        "title": "Article",
+                        "content_text": body,
+                        "record_meta": {
+                            "article_extraction": {
+                                "contract_version": "external_project.article_body_extraction.v1",
+                                "state": "article_body_extracted",
+                                "content_chars": len(body),
+                            }
+                        },
+                    }
+                ],
+                "errors": [],
+            },
+        }
+        collect_result = CollectResult(channel="source_library", meta={"raw": raw})
+
+        response = to_source_library_response(collect_result)
+
+        payload = response["frontdoor_ingress"]["collection_payload"]
+        self.assertEqual(payload["document_candidate"]["uri"], "https://example.com/article")
+        self.assertEqual(payload["document_candidate"]["content"], body)
+        self.assertEqual(payload["dispatch_plan"]["reason"], "external_project_article_body_materialized")
+        self.assertFalse(payload["dispatch_plan"]["run_extraction"])
+        self.assertFalse(payload["dispatch_plan"]["run_writer"])
+        self.assertEqual(payload["terminal_context"]["article_extraction"]["state"], "article_body_extracted")
+        self.assertEqual(response["frontdoor_ingress"]["source_ref"]["execution_mode"], "article_extractor")
+
     def test_to_source_library_response_preserves_provider_handoff_contract(self) -> None:
         provider_handoff = {
             "contract_version": "source_library.provider_handoff.v1",
