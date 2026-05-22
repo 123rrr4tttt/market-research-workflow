@@ -23,6 +23,7 @@ Updated: 2026-05-14 PST
 
 - `automation-runs`：
   - [2026-05-22 Development Docs Folder Audit And Landing Report](./automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
+  - [2026-05-22 Wave2 Worktree Plan Skeleton](./automation-runs/dev-docs-folder-audit-2026-05-22/wave2-worktree-plan-2026-05-22.md)
 - `frontend-modern`：
   - [2026-05-22 frontend-modern standard docs entry](./frontend-modern/INDEX.md)
 - `development-plans`：

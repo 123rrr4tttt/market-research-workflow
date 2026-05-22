@@ -28,6 +28,7 @@
 
 - 开发文档逐文件夹状态审查与落地报告（2026-05-22）：
   - [automation-runs/dev-docs-folder-audit-2026-05-22/README.md](./automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
+  - [automation-runs/dev-docs-folder-audit-2026-05-22/wave2-worktree-plan-2026-05-22.md](./automation-runs/dev-docs-folder-audit-2026-05-22/wave2-worktree-plan-2026-05-22.md) - Wave2 工作树计划骨架，结果待主代理合并后填充
 - `frontend-modern` 补齐标准文档入口（2026-05-22）：
   - [frontend-modern/INDEX.md](./frontend-modern/INDEX.md)
   - [frontend-modern/main/MERGED_FRONTEND_MODERN.md](./frontend-modern/main/MERGED_FRONTEND_MODERN.md)
