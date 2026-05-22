@@ -1,5 +1,43 @@
 # Graph 3D Force Engine Parallel Migration (2026-03-02)
 
+## 2026-05-22 Closure Refresh
+
+Status: `需更新 / 封口待验证`.
+
+The implementation is no longer plan-only. Current repo evidence shows the force 3D path is present and still wired:
+
+- `main/frontend-modern/package.json` includes `react-force-graph-3d`.
+- `main/frontend-modern/src/pages/graph/hooks/useGraphModeSwitch.ts` defaults the projection engine to `force3d` and keeps a switch guard.
+- `main/frontend-modern/src/pages/graph/hooks/useForceGraph3DLoader.ts` dynamically imports `react-force-graph-3d`, retries load failures, and exposes a manual retry hook.
+- `main/frontend-modern/src/pages/GraphPage.tsx` still renders the force 3D canvas path, engine selector, fallback notice, and 2D/3D mode toggle.
+- `main/frontend-modern/tests/e2e/graphpage.spec.ts` covers the mocked graph page load plus 2D/3D switch and slider interaction.
+
+Closure blocker:
+
+1. The current branch still needs fresh graph-specific validation before this topic can move to `ARCHIVE_CLOSED`.
+2. The existing e2e proves UI reachability with mocked graph APIs, but it does not by itself prove nonblank WebGL canvas output, rapid engine-switch stress, or fallback recovery on a real data set.
+3. Treat `react-force-graph-3d` upstream/runtime warnings as a retained risk until a visual/canvas smoke or browser debug check confirms that `window.__graph3dDebug` reports expected scene stats in 3D mode.
+
+Minimal validation steps for closure:
+
+```bash
+cd /Users/wangyiliang/market-research-workflow.worktrees/graph-plan-refresh/main/frontend-modern
+npm run test:e2e -- tests/e2e/graphpage.spec.ts
+npm run build
+
+rg -n "initialProjectionEngine = 'force3d'|requestProjectionEngineChange|DEFAULT_ENGINE_SWITCH_GUARD_MS" src/pages/graph/hooks/useGraphModeSwitch.ts
+rg -n "import\\('react-force-graph-3d'\\)|MAX_RETRY|retry" src/pages/graph/hooks/useForceGraph3DLoader.ts
+rg -n "__graph3dDebug|ForceGraph3DComp|gv2-chart--force3d|react-force-graph-3d" src/pages/GraphPage.tsx
+```
+
+Worker lane 5 validation result:
+
+- Passed structural smoke: `rg -n "initialProjectionEngine = 'force3d'|requestProjectionEngineChange|DEFAULT_ENGINE_SWITCH_GUARD_MS" main/frontend-modern/src/pages/graph/hooks/useGraphModeSwitch.ts`.
+- Blocked frontend e2e in this worktree: local `node_modules` is absent, and the borrowed Playwright CLI from the main workspace cannot resolve `@playwright/test` from this worktree's `playwright.config.ts`.
+- No dependency install was performed in this parallel worktree.
+
+Closure decision: keep this topic in `CURRENT_DEV` as `需更新` until the validation above is run on the current graph branch and the visual/canvas blocker is either passed or explicitly waived.
+
 ## Background
 
 This task migrated graph 3D rendering from a single legacy projection path to a parallel dual-engine setup:
@@ -72,4 +110,3 @@ At the same time, 2D behavior was restored/optimized to avoid unintended regress
 影响文件：
 
 - `main/frontend-modern/src/pages/GraphPage.tsx`
-

@@ -4,6 +4,60 @@
 > 范围：graph editing, sync semantics, audit/version minimums, and graph-to-writing/reporting handoff
 > 状态：theme plan, used to freeze requirement shape and execution order before implementation
 
+## 2026-05-22 Closure Refresh
+
+Status: `未封口 / 后端合同已部分落地，前端 graph page 集成仍是 blocker`.
+
+Current evidence changes the baseline:
+
+- Backend workflow graph edit-contract code exists in `main/backend/app/services/workflow_graph/edit_contract.py`.
+- Backend curated graph lifecycle exists in `main/backend/app/services/workflow_graph/curated_service.py`, including draft save, submit, sync, rollback, audit listing, evidence pack, and writing/reporting handoff construction.
+- API endpoints exist in `main/backend/app/api/workflow_graph.py` for `/curated/{graph_id}/draft`, `/submit`, `/sync`, `/rollback`, `/audit`, `/evidence-pack`, and `/handoff/{reporting|writing}`.
+- Writing/reporting consumers have graph-context adapters through `main/backend/app/contracts/schemas/writing.py` and `main/backend/app/services/writing/keyword_card_service.py`.
+- Tests exist for curated service, workflow graph API handoffs, handoff store replay, and writing keyword-card graph context.
+
+The remaining blocker is the boundary between the existing frontend graph page and these backend contracts. `main/frontend-modern/src/pages/GraphPage.tsx` still imports graph read/config/structured-search APIs only; no current frontend evidence shows that its local draft UI submits to the curated workflow-graph endpoints or consumes their conflict/audit/handoff responses.
+
+Status by original layer:
+
+- Layer A editable object boundary: `partial`. Backend distinguishes `template_graph`, `generated_graph_snapshot`, and `curated_business_graph`; frontend GraphPage still mixes visual graph editing and template/version controls without a documented curated-submit bridge.
+- Layer B draft/sync contract: `partial`. Backend revision/conflict semantics exist; frontend GraphPage has local draft state but no verified curated submit flow.
+- Layer C audit/rollback/version semantics: `partial`. Backend supports revision, audit, rollback, and separate curated graph versions; frontend integration evidence is missing.
+- Layer D graph evidence handoff: `partial`. Backend evidence pack and writing/reporting handoffs exist; frontend entry/owner is not wired or documented as closed.
+
+Closure blockers:
+
+1. Decide whether GraphPage owns the curated graph bridge or whether a separate workflow-graph screen/API client owns it.
+2. Add or verify frontend API wrappers for the curated endpoints if GraphPage is the owner.
+3. Prove one branch-local flow: local graph edit -> backend curated draft/save or submit -> conflict/success response -> evidence pack -> writing or reporting handoff.
+4. Keep template/version actions separate from curated business graph governance unless a mapping is explicitly implemented and tested.
+
+Minimal validation steps for closure:
+
+```bash
+cd /Users/wangyiliang/market-research-workflow.worktrees/graph-plan-refresh
+
+rg -n "GRAPH_OBJECT_KINDS|curated_business_graph|temporary node_id|system-managed" main/backend/app/services/workflow_graph/edit_contract.py
+rg -n "save_draft|submit_draft|sync_graph|rollback|build_evidence_pack|build_writing_handoff|build_reporting_handoff" main/backend/app/services/workflow_graph/curated_service.py
+rg -n "curated/.*/draft|curated/.*/submit|evidence-pack|handoff/writing|handoff/reporting" main/backend/app/api/workflow_graph.py
+rg -n "curated|evidence-pack|handoff|workflow-graph/curated" main/frontend-modern/src/lib main/frontend-modern/src/pages/GraphPage.tsx
+
+cd main/backend
+.venv311/bin/python -m pytest -q tests/unit/test_workflow_graph_curated_service_unittest.py tests/unit/test_workflow_graph_handoff_store_unittest.py tests/unit/test_writing_keyword_card_service_unittest.py tests/integration/test_workflow_graph_api_unittest.py
+
+cd ../frontend-modern
+npm run test:e2e -- tests/e2e/graphpage.spec.ts
+```
+
+Worker lane 5 validation result:
+
+- Passed backend graph/workflow/writing validation from this worktree's `main/backend` directory: `51 passed` for graph projection/exporter/persistence, admin graph standardization, curated workflow graph service, handoff store, writing keyword-card graph context, and workflow graph API tests.
+- Passed negative frontend ownership smoke: `rg -n "curated|evidence-pack|handoff|workflow-graph/curated" main/frontend-modern/src/lib main/frontend-modern/src/pages/GraphPage.tsx` returned no matches, confirming the documented frontend bridge blocker.
+- Blocked frontend GraphPage e2e in this worktree: local `node_modules` is absent, and the borrowed Playwright CLI from the main workspace cannot resolve `@playwright/test` from this worktree's `playwright.config.ts`.
+- Passed formatting gate: `git diff --check`.
+
+Closure decision: do not archive. This topic is no longer accurately described as fully pending, but the user-facing GraphPage-to-curated-contract bridge is not proven.
+
 ## 1. Goal
 
 This theme should turn graph work from a mostly visual/template-oriented editor into a controlled business workflow that can be:

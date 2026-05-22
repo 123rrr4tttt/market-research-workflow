@@ -2,11 +2,14 @@
 
 ## Execution Status Snapshot
 
-- `A1`: pending, freeze current baseline and editable object boundary.
-- `A2-A3`: pending, minimum edit contract and sync/error contract are the first serial core.
-- `A4-A5`: pending, governance track and evidence-pack track can start only after the core contract is frozen.
-- `A6`: pending, first graph-to-writing/reporting handoff path depends on the evidence pack shape.
-- `A7`: pending, minimum validation and closure happens after `A1-A6` are aligned.
+- 2026-05-22 status: `未封口 / partial backend landing`.
+- `A1`: partial. Backend code now names `template_graph`, `generated_graph_snapshot`, and `curated_business_graph`; GraphPage integration/ownership is still not frozen.
+- `A2`: partial. Backend edit-contract validation exists for nodes/edges, system-managed fields, temporary IDs, duplicates, and missing endpoints; frontend draft-to-contract mapping is not proven.
+- `A3`: partial. Backend submit/sync conflict semantics exist through revision checks; GraphPage does not currently show a verified curated submit/conflict path.
+- `A4`: partial. Backend audit, rollback, and curated revision semantics exist; frontend/template-version mapping remains explicitly open.
+- `A5`: partial. Backend graph evidence pack and writing/reporting adapters exist; raw GraphPage draft objects are not yet proven to pass through that pack.
+- `A6`: partial. Backend writing/reporting handoff endpoints and tests exist; frontend first-consumer entry/owner remains unclosed.
+- `A7`: pending. Closure requires the branch-local structural checks plus at least one verified flow from graph edit to evidence handoff.
 
 ## Global Serial-Parallel Rules
 
@@ -49,7 +52,7 @@ Each task should leave behind:
 ## Task A1: Freeze Baseline and Editable Object Boundary
 
 - Goal: Confirm what the repository already supports and freeze which graph object class is editable in this theme.
-- status: pending
+- status: partial, backend object kinds exist; frontend owner still open
 - depends_on: `[]`
 - blocks: `["A2","A7"]`
 - Input:
@@ -72,7 +75,7 @@ Each task should leave behind:
 ## Task A2: Define the Minimum Node and Edge Edit Contract
 
 - Goal: Freeze the minimum create/update/delete contract for nodes and edges.
-- status: pending
+- status: partial, backend validation exists; frontend mapping still open
 - depends_on: `["A1"]`
 - blocks: `["A3","A4","A5"]`
 - Input:
@@ -98,7 +101,7 @@ Each task should leave behind:
 ## Task A3: Define Draft, Submit, Sync, and Error Semantics
 
 - Goal: Turn the existing draft editor into a controlled submit contract with explicit feedback categories.
-- status: pending
+- status: partial, backend revision/conflict semantics exist; GraphPage submit path unverified
 - depends_on: `["A2"]`
 - blocks: `["A4","A6"]`
 - Input:
@@ -124,7 +127,7 @@ Each task should leave behind:
 ## Task A4: Define Minimum Audit, Rollback, and Version Semantics
 
 - Goal: Add the minimum governance layer required for trusted graph edits.
-- status: pending
+- status: partial, backend audit/rollback exists; template-version mapping still open
 - depends_on: `["A3"]`
 - blocks: `["A7"]`
 - Input:
@@ -150,7 +153,7 @@ Each task should leave behind:
 ## Task A5: Define the Graph Evidence Pack
 
 - Goal: Define the only approved graph-shaped payload that writing/reporting may consume.
-- status: pending
+- status: partial, backend evidence pack exists; GraphPage consumer bridge unverified
 - depends_on: `["A2"]`
 - blocks: `["A6","A7"]`
 - Input:
@@ -177,7 +180,7 @@ Each task should leave behind:
 ## Task A6: Define the First Graph-to-Writing/Reporting Handoff Path
 
 - Goal: Document one minimum flow from edited graph output to a downstream writing/report consumer.
-- status: pending
+- status: partial, backend handoff path exists; frontend first-consumer owner unclosed
 - depends_on: `["A3","A5"]`
 - blocks: `["A7"]`
 - Input:

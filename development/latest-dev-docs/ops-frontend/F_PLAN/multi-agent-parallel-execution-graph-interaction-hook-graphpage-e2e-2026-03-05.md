@@ -1,5 +1,22 @@
 # Multi-Agent Parallel Execution: Graph Interaction Hook + GraphPage E2E (2026-03-05)
 
+## 2026-05-22 Worker Lane 5 Refresh
+
+Status: `需更新 / validation anchor retained`.
+
+This record remains the relevant frontend validation anchor for graph interaction smoke coverage. It should stay linked to the 3D force and graph-editing CURRENT_DEV topics, but it does not by itself close either topic:
+
+- It validates GraphPage reachability and key interaction controls through `tests/e2e/graphpage.spec.ts`.
+- It does not prove curated graph submit/sync/audit/handoff integration.
+- It does not fully prove nonblank WebGL rendering or rapid engine-switch stress.
+
+Current closure smoke remains:
+
+```bash
+cd /Users/wangyiliang/market-research-workflow.worktrees/graph-plan-refresh/main/frontend-modern
+npm run test:e2e -- tests/e2e/graphpage.spec.ts
+```
+
 ## Scope
 - Repo: `main/frontend-modern`
 - Focus:

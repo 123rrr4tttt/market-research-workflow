@@ -1,5 +1,53 @@
 # Graph Node Standardization A-Then-B Plan (2026-03-02)
 
+## 2026-05-22 Closure Refresh
+
+Status: `需更新 / 部分落地，不能按原文封口`.
+
+The original baseline is now stale: the repo no longer matches the statement that no independent `graph_nodes` / `graph_edges` persistence layer is visible. Current implementation evidence:
+
+- `main/backend/app/models/entities.py` defines `GraphNodeRecord`, `GraphNodeAliasRecord`, and `GraphEdgeRecord`.
+- `main/backend/migrations/versions/20260303_000004_add_graph_node_projection_tables.py` and `20260303_000005_add_graph_edge_projection_table.py` add the projection tables.
+- `main/backend/app/services/graph/persistence/graph_node_writer.py` upserts normalized nodes, aliases, and edges.
+- `main/backend/app/services/graph/persistence/graph_node_reader.py` reads projected graph facts back into graph models.
+- `main/backend/scripts/backfill_graph_nodes.py` and `main/backend/app/services/graph/backfill_graph_nodes.py` provide a dry-run capable backfill path.
+- `main/backend/app/api/admin.py` has shadow/on write mode plus `a_only` / `b_canary` / `b_primary` read mode gates.
+- `main/backend/tests/integration/test_admin_graph_standardization_unittest.py` covers shadow writer calls and canary read behavior.
+
+Current status by phase:
+
+- Phase A: substantially implemented through read-time graph normalization, export schema versioning, and projection filtering, but should still be treated as open until the three admin graph endpoints are rerun in this branch.
+- Phase B: partially implemented. Tables, migrations, writer/reader, feature flags, and backfill script exist, but branch-local evidence does not yet prove real DB migration, dry-run backfill, and canary/primary endpoint behavior against a live tenant schema.
+
+Closure blockers:
+
+1. Reconcile the documented target uniqueness rule `(project_key, node_type, canonical_id)` with the current tenant-schema implementation, where table uniqueness is `(node_type, canonical_id)` and project isolation is implicit in schema selection.
+2. Run the graph projection and admin graph standardization tests in this worktree.
+3. Run or record a live DB validation for Alembic upgrade/current plus `backfill_graph_nodes.py --dry-run`.
+4. Confirm whether `graph_node_projection_read_mode=b_primary` is allowed for any project, or whether this remains shadow/canary only.
+
+Minimal validation steps for closure:
+
+```bash
+cd /Users/wangyiliang/market-research-workflow.worktrees/graph-plan-refresh/main/backend
+.venv311/bin/python -m pytest -q tests/unit/test_graph_projection_unittest.py tests/unit/test_graph_exporter_interface_unittest.py tests/unit/test_graph_persistence_writer_unittest.py tests/integration/test_admin_graph_standardization_unittest.py
+
+rg -n "GraphNodeRecord|GraphEdgeRecord|node_schema_version|edge_schema_version" app/models/entities.py
+rg -n "graph_node_projection_write_mode|graph_node_projection_read_mode|GraphNodeWriter|GraphNodeReader" app/api/admin.py app/settings/config.py
+rg -n "dry_run|run_graph_node_backfill|persist_graph_nodes" scripts/backfill_graph_nodes.py app/services/graph/backfill_graph_nodes.py app/services/graph/persistence/graph_node_writer.py
+
+# Requires a configured local DB before this can be closure evidence:
+.venv311/bin/alembic current
+.venv311/bin/python scripts/backfill_graph_nodes.py --dry-run --limit 10
+```
+
+Worker lane 5 validation result:
+
+- Passed: `/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python -m pytest -q tests/unit/test_graph_projection_unittest.py tests/unit/test_graph_exporter_interface_unittest.py tests/unit/test_graph_persistence_writer_unittest.py tests/integration/test_admin_graph_standardization_unittest.py tests/unit/test_workflow_graph_curated_service_unittest.py tests/unit/test_workflow_graph_handoff_store_unittest.py tests/unit/test_writing_keyword_card_service_unittest.py tests/integration/test_workflow_graph_api_unittest.py` from this worktree's `main/backend` directory (`51 passed`).
+- Not run as closure evidence: `alembic current` and live `backfill_graph_nodes.py --dry-run`, because this lane did not assume a configured local DB in the parallel worktree.
+
+Closure decision: keep this topic in `CURRENT_DEV` as `需更新`. It is not a pure open plan anymore, but it also lacks enough live DB/canary evidence to archive as closed.
+
 ## 1. Goal
 
 仅聚焦“图谱节点本身”的入库与存储标准化，采用两阶段策略：
