@@ -8,8 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 ClueChainStatus = Literal["open", "closed"]
 ClueChainHopStatus = Literal["queued", "running", "completed", "failed"]
 ClueChainCandidateStatus = Literal["pending", "accepted", "rejected", "merged"]
-ClueChainExpansionMode = Literal["source_library_search", "external_search", "agent_tool"]
-ClueChainDecisionAction = Literal["promote", "reject", "merge"]
+ClueChainExpansionMode = Literal["source_library_search", "external_search", "external_search_fixture", "agent_tool", "manual"]
+ClueChainDecisionAction = Literal["promote", "reject", "merge", "defer", "pause", "close"]
 
 
 class ClueChainCreateRequest(BaseModel):
@@ -97,7 +97,7 @@ class ClueChainEvidenceData(BaseModel):
     hop_id: str
     candidate_id: str | None = None
     source_type: str
-    source_ref: str | None = None
+    source_ref: dict[str, Any] | str | None = None
     title: str | None = None
     url: str | None = None
     snippet: str | None = None
