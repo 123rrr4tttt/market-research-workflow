@@ -10,12 +10,14 @@ from .contracts import (
     validate_document_query_result_envelope,
 )
 from .policy_filters import (
+    document_json_iso_date_expr,
     policy_effective_date_expr,
     policy_has_data_condition,
     policy_state_condition,
     policy_time_expr,
     policy_type_condition,
     policy_type_order_expr,
+    prompt_time_density_time_expr,
 )
 from .writing_documents import (
     fetch_active_document,
@@ -41,6 +43,7 @@ __all__ = [
     "build_document_query",
     "build_document_query_result_envelope",
     "build_document_query_result_item",
+    "document_json_iso_date_expr",
     "fetch_active_document",
     "fetch_draft_by_autosave_token",
     "list_active_documents",
@@ -51,6 +54,7 @@ __all__ = [
     "policy_time_expr",
     "policy_type_condition",
     "policy_type_order_expr",
+    "prompt_time_density_time_expr",
     "query_hybrid_document_envelope",
     "query_hybrid_document_rows",
     "query_report_source_envelope",
