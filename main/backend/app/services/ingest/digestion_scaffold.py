@@ -22,6 +22,8 @@ from app.contracts.ingest_digestion import (
     LongCycleRepositoryReadbackCheck,
     LongCycleSchedulerDispatchIntent,
     LongCycleSchedulerE2EContractCheck,
+    LongCycleSchedulerHandoffTraceCheck,
+    LongCycleSchedulerHandoffTraceEntry,
     LongCycleSchedulerReadinessCheck,
     LongCycleSchedulerReadinessStage,
     LongCycleTaskObject,
@@ -1386,5 +1388,166 @@ def check_long_cycle_repository_readback_contract(
         readback_event_sequence=event_sequence,
         readback_events=readback_events,
         scheduler_readiness=readiness,
+    )
+    return check.model_dump(mode="json")
+
+
+def _find_lifecycle_event(
+    events: list[LongCycleTaskLifecycleEvent],
+    *,
+    transition: LongCycleLifecycleTransition,
+    dispatch_ref: str | None = None,
+) -> LongCycleTaskLifecycleEvent | None:
+    normalized_dispatch_ref = str(dispatch_ref or "").strip() or None
+    for event in events:
+        if event.transition != transition:
+            continue
+        if normalized_dispatch_ref and event.dispatch_ref != normalized_dispatch_ref:
+            continue
+        return event
+    return None
+
+
+def check_long_cycle_scheduler_handoff_trace_contract(
+    *,
+    repository: JsonlLongCycleTaskRepository,
+    scheduler_runtime_configured: bool = False,
+    live_scheduler_evidence: dict[str, Any] | None = None,
+    **scheduler_e2e_kwargs: Any,
+) -> dict[str, Any]:
+    """Trace dispatch intent handoff through durable JSONL lifecycle event readback."""
+
+    scheduler_e2e_kwargs.setdefault("persistent_ref", repository.repository_ref)
+    configured_dispatch_ref = str(scheduler_e2e_kwargs.get("dispatch_ref") or "").strip() or None
+    readback_payload = check_long_cycle_repository_readback_contract(
+        repository=repository,
+        scheduler_runtime_configured=scheduler_runtime_configured,
+        live_scheduler_evidence=live_scheduler_evidence,
+        **scheduler_e2e_kwargs,
+    )
+    readback = LongCycleRepositoryReadbackCheck.model_validate(readback_payload)
+    readiness = readback.scheduler_readiness
+    e2e_check = readiness.scheduler_e2e_contract
+    intent = e2e_check.dispatch_intent
+    expected_dispatch_ref = configured_dispatch_ref or f"contract-dispatch://{intent.dispatch_key}"
+    readback_record = readback.readback_record
+    dispatch_event = _find_lifecycle_event(
+        readback.readback_events,
+        transition=LongCycleLifecycleTransition.DISPATCH,
+        dispatch_ref=expected_dispatch_ref,
+    )
+
+    event_sequence_ok = readback.readback_event_sequence == [
+        LongCycleLifecycleTransition.MARK_READY.value,
+        LongCycleLifecycleTransition.DISPATCH.value,
+        LongCycleLifecycleTransition.SUCCEED.value,
+    ]
+    dispatch_intent_matches_readback = (
+        dispatch_event is not None
+        and readback_record is not None
+        and readback_record.task_key == intent.task_key
+        and readback_record.dispatch_ref == expected_dispatch_ref
+        and dispatch_event.event_time == intent.run_at
+        and dispatch_event.to_status == LongCycleTaskStatus.RUNNING
+        and (readback_record.task.last_run_snapshot is not None)
+        and readback_record.task.last_run_snapshot.selected_window == intent.selected_window
+    )
+    durable_event_readback = bool(readback.durable_readback and event_sequence_ok and dispatch_event is not None)
+
+    trace = [
+        LongCycleSchedulerHandoffTraceEntry(
+            stage="dispatch_intent_created",
+            status="traced",
+            trace_ref=intent.dispatch_key,
+            task_key=intent.task_key,
+            dispatch_key=intent.dispatch_key,
+            dispatch_ref=expected_dispatch_ref,
+            live_dispatch=intent.live_dispatch,
+            durable_readback=False,
+            detail=(
+                f"queue={intent.queue_name} worker_task={intent.worker_task_name} "
+                f"idempotency_key={intent.idempotency_key}"
+            ),
+        ),
+        LongCycleSchedulerHandoffTraceEntry(
+            stage="scheduler_handoff_recorded",
+            status="traced" if dispatch_event else "missing",
+            trace_ref=expected_dispatch_ref,
+            task_key=intent.task_key,
+            dispatch_key=intent.dispatch_key,
+            dispatch_ref=expected_dispatch_ref,
+            event_transition=LongCycleLifecycleTransition.DISPATCH if dispatch_event else None,
+            live_dispatch=intent.live_dispatch,
+            durable_readback=dispatch_event is not None,
+            detail="dispatch lifecycle event read back from durable repository",
+        ),
+        LongCycleSchedulerHandoffTraceEntry(
+            stage="durable_event_readback",
+            status="traced" if durable_event_readback else "blocked",
+            trace_ref=readback.repository_ref,
+            task_key=intent.task_key,
+            dispatch_key=intent.dispatch_key,
+            dispatch_ref=expected_dispatch_ref,
+            event_transition=LongCycleLifecycleTransition.DISPATCH if dispatch_event else None,
+            live_dispatch=False,
+            durable_readback=durable_event_readback,
+            detail=f"readback_event_sequence={','.join(readback.readback_event_sequence) or '-'}",
+        ),
+        LongCycleSchedulerHandoffTraceEntry(
+            stage="terminal_output_readback",
+            status="traced" if readback_record and readback_record.status == LongCycleTaskStatus.SUCCEEDED else "blocked",
+            trace_ref=(readback_record.output_ref if readback_record and readback_record.output_ref else readback.repository_ref),
+            task_key=intent.task_key,
+            dispatch_key=intent.dispatch_key,
+            dispatch_ref=expected_dispatch_ref,
+            event_transition=LongCycleLifecycleTransition.SUCCEED,
+            live_dispatch=False,
+            durable_readback=readback_record is not None,
+            detail="terminal succeeded task record read back after scheduler handoff",
+        ),
+    ]
+
+    blockers: list[str] = []
+    if readback.status != "pass":
+        blockers.append(f"repository_readback_not_passed:{readback.status}")
+    if intent.live_dispatch is not False:
+        blockers.append("handoff_trace_must_keep_dispatch_intent_live_dispatch_false")
+    if readback.live_db_write is not False:
+        blockers.append("handoff_trace_must_not_claim_live_db_write")
+    if readiness.closure_claim or readiness.live_scheduler_closure_validated:
+        blockers.append("handoff_trace_must_not_claim_live_scheduler_closure")
+    if not durable_event_readback:
+        blockers.append("handoff_trace_missing_durable_dispatch_event_readback")
+    if not dispatch_intent_matches_readback:
+        blockers.append("dispatch_intent_does_not_match_durable_event_readback")
+
+    check = LongCycleSchedulerHandoffTraceCheck(
+        status="fail" if blockers else "pass",
+        blockers=blockers,
+        closed_slice=[
+            "scheduler_dispatch_intent_to_durable_event_trace",
+            "dispatch_ref_readback_matches_intent",
+            "jsonl_lifecycle_event_handoff_readback",
+            "live_scheduler_boundary_preserved",
+        ],
+        remaining_runtime_gaps=[
+            *readback.remaining_runtime_gaps,
+            "live_scheduler_handoff_not_validated",
+            "live_scheduler_dispatch_not_executed",
+            "live_persistent_task_table_write_not_executed",
+            "production_worker_task_not_executed",
+            "end_to_end_automation_run_not_executed",
+        ],
+        dispatch_intent=intent,
+        repository_readback=readback,
+        handoff_trace=trace,
+        handoff_trace_sequence=[entry.stage for entry in trace],
+        dispatch_ref=expected_dispatch_ref,
+        durable_event_readback=durable_event_readback,
+        dispatch_intent_matches_readback=dispatch_intent_matches_readback,
+        live_dispatch=intent.live_dispatch,
+        live_db_write=readback.live_db_write,
+        closure_claim=readiness.closure_claim,
+        live_scheduler_closure_validated=readiness.live_scheduler_closure_validated,
     )
     return check.model_dump(mode="json")

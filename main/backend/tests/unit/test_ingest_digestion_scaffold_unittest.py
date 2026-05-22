@@ -482,6 +482,58 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
         self.assertIn("live_persistent_task_table_write_not_executed", check["remaining_runtime_gaps"])
         self.assertIn("live_db_persistent_task_table_not_validated", check["remaining_runtime_gaps"])
 
+    def test_long_cycle_scheduler_handoff_trace_binds_dispatch_intent_to_durable_event_readback(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repository = scaffold.JsonlLongCycleTaskRepository(
+                storage_dir=tmp_dir,
+                repository_ref="jsonl://unit-test-long-cycle-handoff",
+            )
+            kwargs = _valid_scheduler_kwargs()
+            kwargs["persistent_ref"] = repository.repository_ref
+            check = scaffold.check_long_cycle_scheduler_handoff_trace_contract(
+                **kwargs,
+                repository=repository,
+            )
+
+        self.assertEqual(check["contract_version"], "ingest.long_cycle_scheduler_handoff_trace_check.v1")
+        self.assertEqual(check["status"], "pass")
+        self.assertTrue(check["durable_event_readback"])
+        self.assertTrue(check["dispatch_intent_matches_readback"])
+        self.assertFalse(check["live_dispatch"])
+        self.assertFalse(check["live_db_write"])
+        self.assertFalse(check["closure_claim"])
+        self.assertFalse(check["live_scheduler_closure_validated"])
+        self.assertEqual(
+            check["handoff_trace_sequence"],
+            [
+                "dispatch_intent_created",
+                "scheduler_handoff_recorded",
+                "durable_event_readback",
+                "terminal_output_readback",
+            ],
+        )
+        self.assertEqual(
+            check["dispatch_ref"],
+            f"contract-dispatch://{check['dispatch_intent']['dispatch_key']}",
+        )
+        self.assertEqual(
+            check["repository_readback"]["readback_event_sequence"],
+            [
+                contracts.LongCycleLifecycleTransition.MARK_READY.value,
+                contracts.LongCycleLifecycleTransition.DISPATCH.value,
+                contracts.LongCycleLifecycleTransition.SUCCEED.value,
+            ],
+        )
+        trace_by_stage = {entry["stage"]: entry for entry in check["handoff_trace"]}
+        self.assertEqual(
+            trace_by_stage["scheduler_handoff_recorded"]["event_transition"],
+            contracts.LongCycleLifecycleTransition.DISPATCH.value,
+        )
+        self.assertTrue(trace_by_stage["scheduler_handoff_recorded"]["durable_readback"])
+        self.assertIn("scheduler_dispatch_intent_to_durable_event_trace", check["closed_slice"])
+        self.assertIn("live_scheduler_handoff_not_validated", check["remaining_runtime_gaps"])
+        self.assertIn("end_to_end_automation_run_not_executed", check["remaining_runtime_gaps"])
+
 
 if __name__ == "__main__":
     unittest.main()
