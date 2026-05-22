@@ -7,7 +7,8 @@
 - `AT-AC-03`: completed, `source_library` concurrency budget and URL timeout isolation already landed.
 - `AT-AC-04`: completed, `unified_search` capability gate relaxed to stop excluding valid `filter` entries.
 - `AT-AC-05`: phase-1 implementation boundary refined to “extract shared search_template service first”.
-- `AT-AC-05 ~ AT-AC-10`: pending in this round.
+- `AT-AC-05/07/08`: 2026-05-22 lane-7 minimum assertion slice landed; see `09_lane7-capability-fallback-assertions-2026-05-22.md`.
+- `AT-AC-06/10`: still blocked for full closure pending deterministic anti-bot / real-site probe evidence.
 
 ## Serial-Parallel Rules
 

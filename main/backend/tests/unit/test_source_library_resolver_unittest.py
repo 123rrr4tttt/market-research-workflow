@@ -294,6 +294,32 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(used_channel_keys, ["generic_web.rss"])
         resolve_channel.assert_called_once()
 
+    def test_url_router_prefers_keyword_aware_search_template_before_url_pool_default(self):
+        self.assertEqual(
+            resolver.resolve_channel_for_url(
+                "https://example.com/search?q=robotics",
+                None,
+                has_query_terms=True,
+            ),
+            "generic_web.search_template",
+        )
+        self.assertEqual(
+            resolver.resolve_channel_for_url(
+                "https://example.com/sitemap.xml",
+                None,
+                has_query_terms=True,
+            ),
+            "generic_web.sitemap",
+        )
+        self.assertEqual(
+            resolver.resolve_channel_for_url(
+                "https://example.com/articles/robotics",
+                None,
+                has_query_terms=True,
+            ),
+            "url_pool",
+        )
+
     def test_default_url_routing_prefers_mechanical_channel_before_crawler(self):
         item = {"item_key": "report1.root_site_search", "channel_key": "handler.cluster"}
         params = {

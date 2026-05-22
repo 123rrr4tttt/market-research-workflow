@@ -252,6 +252,40 @@ class GenericWebSearchTemplateAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(result["adapter_taxonomy"]["lane"], "site_search_internal_adapter")
         self.assertTrue(result["adapter_taxonomy"]["internal_adapter_only"])
         self.assertEqual(result["adapter_taxonomy"]["item_type"], "service_aggregated")
+        self.assertEqual(result["capability_profile"]["fallback_policy"], "term_match_then_search_template_fallback")
+
+    def test_search_template_surfaces_filter_fallback_diagnostics(self) -> None:
+        with patch("app.services.source_library.adapters.generic_web.execute_search_template") as execute:
+            execute.return_value = SimpleNamespace(
+                template="https://example.com/search?q={{q}}",
+                search_urls=["https://example.com/search?q=robotics"],
+                pages_scanned=1,
+                raw_candidates=[],
+                selected_candidates=[],
+                used_term_fallback=True,
+                errors=[],
+                diagnostics={
+                    "raw_candidates": 1,
+                    "selected_candidates": 0,
+                    "fallback_allowed": False,
+                    "used_term_fallback": True,
+                    "candidate_filter_state": "term_filter_empty_no_fallback",
+                },
+            )
+            result = handle_generic_web_search_template(
+                {
+                    "template": "https://example.com/search?q={{q}}",
+                    "query_terms": ["robotics"],
+                    "allow_term_fallback": False,
+                },
+                project_key=None,
+            )
+
+        execute.assert_called_once()
+        self.assertEqual(result["candidates"], [])
+        self.assertTrue(result["used_term_fallback"])
+        self.assertEqual(result["diagnostics"]["candidate_filter_state"], "term_filter_empty_no_fallback")
+        self.assertFalse(result["diagnostics"]["fallback_allowed"])
 
 
 if __name__ == "__main__":
