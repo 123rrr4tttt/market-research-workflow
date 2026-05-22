@@ -1,0 +1,7 @@
+# Frontend Modern Main Entry
+
+- [MERGED_FRONTEND_MODERN.md](./MERGED_FRONTEND_MODERN.md)
+
+## Related Archive Material
+
+- [../F_PLAN/LLM_DESIGNER_UI_REPLICA_BRIEF.md](../F_PLAN/LLM_DESIGNER_UI_REPLICA_BRIEF.md)

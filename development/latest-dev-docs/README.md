@@ -16,6 +16,7 @@
 - [backend-core](./backend-core/INDEX.md)
 - [backend-docs](./backend-docs/INDEX.md)
 - [ops-frontend](./ops-frontend/INDEX.md)
+- [frontend-modern](./frontend-modern/INDEX.md)
 - [development-plans](./development-plans/INDEX.md)
 
 ## 命名日期规则
@@ -25,6 +26,9 @@
 
 ## 最新补充
 
+- `frontend-modern` 新增标准入口与当前状态合并主文档（2026-05-22）：
+  - [frontend-modern/INDEX.md](./frontend-modern/INDEX.md)
+  - [frontend-modern/main/MERGED_FRONTEND_MODERN.md](./frontend-modern/main/MERGED_FRONTEND_MODERN.md)
 - 根目录新增当前完整预发布说明（2026-05-14）：
   - [RELEASE_NOTES_pre-release-2026-05-14-rc1.md](../../RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
 - 当前预发布门禁与完成审计（2026-05-14）：
@@ -138,7 +142,6 @@
   - [2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md)
-  - [2026-03-09-agent-symbolic-batch-search-architecture/05_p1-delivery-checklist-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/05_p1-delivery-checklist-2026-03-10.md)
 - `development-plans/CURRENT_DEV` 新增写作工作台演进主题文档：
   - [2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
   - [2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
