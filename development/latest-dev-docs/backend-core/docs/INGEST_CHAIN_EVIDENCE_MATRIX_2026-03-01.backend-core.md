@@ -29,10 +29,11 @@
 - File: `main/backend/app/api/source_library.py`
 - Change:
   - Added `_require_project_key()` with same stage policy as ingest
-  - Applied to `/items/{item_key}/run` and `/sync_shared_from_files`
+  - Current run frontdoor is `POST /api/v1/ingest/source-library/run`; `source_library.py` keeps management, refresh, external-project, and sync endpoints
+  - Applied project-key policy to the source-library write path through ingest/source-library frontdoor and sync paths
   - Preserved `HTTPException` without re-wrapping
 - Acceptance:
-  - `run_item` supports fallback in warn mode, rejects in require mode
+  - ingest source-library run supports fallback in warn mode, rejects in require mode
   - sync endpoint reports resolved project key in response
 
 ## Contract Error Code
@@ -50,7 +51,7 @@
   - Behavior switches with settings patch/environment override
 
 ## Automated Tests
-- File: `main/backend/tests/test_project_key_policy_unittest.py`
+- File: `main/backend/tests/integration/test_project_key_policy_unittest.py`
 - Added:
   - Error code existence test
   - Ingest explicit and fallback behavior tests
@@ -59,10 +60,21 @@
   - Middleware project-context header test
   - API contract-like route tests:
     - `/api/v1/ingest/graph/structured-search` explicit key success + strict mode failure
-    - `/api/v1/source_library/items/{item_key}/run` explicit key success + strict mode failure
+    - `/api/v1/ingest/source-library/run` explicit key success + strict mode failure
+    - legacy `/api/v1/source_library/items/{item_key}/run` is absent from the current route surface
+
+## API Route Drift Contract (2026-05-22 refresh)
+- File: `main/backend/tests/contract/test_api_route_drift_contract_unittest.py`
+- Coverage:
+  - `project-customization` hyphenated public prefix exists and underscore prefix is absent
+  - source-library run uses `/api/v1/ingest/source-library/run` only
+  - `/api/v1/ingest/graph/structured-search` and `/api/v1/projects/auto-create` remain in the public route surface
+- Route inventory:
+  - `development/latest-dev-docs/backend-core/B_API/API_ROUTE_INVENTORY_2026-05-22.backend-core.md`
+  - `development/latest-dev-docs/backend-core/docs/API_ROUTE_INVENTORY_2026-05-22.backend-core.md`
 
 ## Ingest Baseline Matrix Tests (core modes)
-- File: `main/backend/tests/test_ingest_baseline_matrix_unittest.py`
+- File: `main/backend/tests/integration/test_ingest_baseline_matrix_unittest.py`
 - Coverage:
   - Route inventory assertions (OpenAPI contains core ingest paths)
   - Strict mode (`project_key_enforcement_mode=require`) missing-key failures for:
@@ -73,7 +85,7 @@
   - All matrix cases pass; confirms baseline completeness of core ingest entrypoints.
 
 ## Frontend-Modern Heterogeneous Entry Baseline
-- File: `main/backend/tests/test_frontend_modern_entry_baseline_unittest.py`
+- File: `main/backend/tests/integration/test_frontend_modern_entry_baseline_unittest.py`
 - Source of truth:
   - `main/frontend-modern/src/pages/IngestPage.tsx`
   - `main/frontend-modern/src/pages/GraphPage.tsx`
