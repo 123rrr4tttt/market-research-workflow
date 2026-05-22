@@ -109,6 +109,7 @@ Local index mode contract:
 - The LanceDB adapter now routes keyword to FTS, vector to vector search, and hybrid to hybrid/vector with keyword fallback.
 - Unit coverage verifies supported mode preservation, unknown-mode normalization, adapter dispatch, and keyword fallback.
 - Integration gate: `tests/unit/test_local_index_service_unittest.py` passed (`7 passed`).
+- Wave2 B evidence: [`../local-index-runtime-contract/2026-05-22/README.md`](../local-index-runtime-contract/2026-05-22/README.md) records optional-dependency runtime smoke. Keyword passes, vector path is reachable, and true hybrid runtime remains unclosed because the current smoke falls back to keyword with trace.
 
 Backend-core route drift guard:
 

@@ -40,7 +40,7 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 ## Partial
 
 - `[partial][doc_aligned]` [2026-03-01 Open Source Platform Integration](./2026-03-01-open-source-platform-integration/01_multi-agent-taskboard-open-source-platform-integration-2026-03-01.md)
-- `[partial][doc_aligned]` [2026-05-14 Global Vectorization General Foundation](./2026-05-14-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-05-14.md)
+- `[partial][doc_aligned]` [2026-05-14 Global Vectorization General Foundation](./2026-05-14-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-05-14.md) - local_index runtime evidence: [local-index-runtime-contract/2026-05-22](../../automation-runs/local-index-runtime-contract/2026-05-22/README.md)
 - `[partial][doc_drift]` [2026-03-02 Graph 3D Force Engine Parallel Migration](./2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
 - `[partial][doc_aligned]` [2026-03-02 Ingest Platformization Assessment](./2026-03-02-ingest-platformization-assessment/01_ingest-platformization-assessment-and-roadmap-2026-03-02.md)
 - `[partial][doc_drift]` [2026-03-02 Meaningful Ingest Guardrails Plan](./2026-03-02-meaningful-ingest-guardrails-plan/01_meaningful-ingest-guardrails-plan-2026-03-02.md)

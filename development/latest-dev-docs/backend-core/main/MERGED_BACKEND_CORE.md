@@ -173,3 +173,17 @@ Markers（`pytest.ini`）：
 - `contract-check`
 - `e2e-check`
 - `docker-check`
+
+### 3.4 Focused Local Index Contract
+
+The current `local_index` runtime contract is tracked as an optional LanceDB material-index prototype, not as a required backend dependency.
+
+- Current evidence: [`../../automation-runs/local-index-runtime-contract/2026-05-22/README.md`](../../automation-runs/local-index-runtime-contract/2026-05-22/README.md)
+- Contract: `LocalIndexQuery.mode` is normalized to `keyword|vector|hybrid`; `LocalIndexSearchResult.to_dict()` exposes `retrieval_mode`, `retrieval_family`, and `trace`.
+- Runtime evidence: keyword FTS smoke passes in the optional dependency environment; vector path is reachable; hybrid currently falls back to keyword with trace and remains unclosed.
+- Regression gate:
+
+```bash
+cd main/backend
+.venv311/bin/python -m pytest tests/unit/test_local_index_service_unittest.py
+```

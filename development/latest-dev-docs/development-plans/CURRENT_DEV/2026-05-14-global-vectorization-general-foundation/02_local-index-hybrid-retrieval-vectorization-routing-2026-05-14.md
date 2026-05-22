@@ -96,6 +96,17 @@ local open search provider isolation 线继续负责：
 - 已为 result contract 增加 `retrieval_mode/retrieval_family/trace`，避免只在 metadata 中隐式表达检索语义。
 - 当前 lane 环境 `lancedb_available=False`，真实 LanceDB optional runtime smoke 未执行；这仍是后续验证项，不应把 fake-table dispatch 单测等同于真实 LanceDB runtime 完成。
 
+## 2026-05-22 Wave2 B 文档证据状态
+
+- 新证据包：[local-index-runtime-contract/2026-05-22](../../../automation-runs/local-index-runtime-contract/2026-05-22/README.md)。
+- 当前 B 线 worktree 的 optional dependency 环境 `lancedb_available=True`，已用现有 `LanceDBLocalIndexAdapter` 执行真实 upsert/search smoke。
+- 结果口径：
+  - `keyword`：可执行 FTS runtime path，并返回 `retrieval_mode=keyword` 与 trace。
+  - `vector`：可执行 runtime path，并返回 `retrieval_mode=vector`；但 score/ranking 质量、embedding 语义和 benchmark 未验证。
+  - `hybrid`：当前 runtime smoke fallback 到 keyword，trace 记录 `fallback_from=hybrid` 与 `fallback_reason=ValueError`；这不是 true hybrid runtime completion。
+- 因此，本文件状态从“只剩未安装依赖环境补跑”更新为“依赖可用时已证明 keyword/vector path 可达，但 hybrid 真实执行仍未封口”。
+- 本目录仍保留在 `CURRENT_DEV`，不迁入 `ARCHIVE_CLOSED`。
+
 ## 4. 本次不做
 
 本文件只完成归属定位，不实施：
