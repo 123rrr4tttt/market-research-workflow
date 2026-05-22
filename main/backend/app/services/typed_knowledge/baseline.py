@@ -18,8 +18,8 @@ K1_GLOSSARY: Final[dict[str, str]] = {
 }
 
 K1_GAP_LIST: Final[tuple[str, ...]] = (
-    "No dedicated typed-knowledge organization domain contract currently exists.",
+    "No dedicated typed-knowledge persistence or public API surface currently exists.",
     "Topic object exists but does not yet express typed hierarchy and governance state boundaries.",
-    "No shared typed read model currently freezes taxonomy/topic/booklet semantics for downstream consumers.",
+    "No integrated source-library or graph write-back path currently materializes typed knowledge items.",
 )
 

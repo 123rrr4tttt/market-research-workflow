@@ -90,6 +90,7 @@ DOWNSTREAM_CONTRACT_FIELDS: Final[tuple[str, ...]] = (
     "locale_variants",
     "evidence_refs",
     "visibility_scope",
+    "updated_at",
 )
 DOWNSTREAM_CONSUMER_FACETS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(
     {
@@ -190,6 +191,7 @@ class KnowledgeItem:
     quality_grade: str | None = None
     locale: str | None = None
     locale_variants: Mapping[str, str] = field(default_factory=dict)
+    updated_at: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +230,7 @@ class DownstreamKnowledgeContractDraft:
     locale_variants: Mapping[str, str]
     evidence_refs: tuple[str, ...]
     visibility_scope: str
+    updated_at: str | None = None
 
 
 def _validate_review_state(review_state: str, *, object_name: str) -> None:
@@ -254,6 +257,11 @@ def _validate_locale(locale: str | None, locale_variants: Mapping[str, str]) -> 
             raise TypedKnowledgeContractError("knowledge_item_invalid_locale_variants")
 
 
+def _validate_updated_at(updated_at: str | None, *, object_name: str) -> None:
+    if updated_at is not None and not updated_at.strip():
+        raise TypedKnowledgeContractError(f"{object_name}_invalid_updated_at")
+
+
 def validate_type_node(node: TypeNode) -> None:
     if not node.key or not node.project_key:
         raise TypedKnowledgeContractError("type_node_missing_identity")
@@ -273,6 +281,7 @@ def validate_knowledge_item(item: KnowledgeItem) -> None:
         raise TypedKnowledgeContractError("knowledge_item_missing_provenance")
     _validate_quality_grade(item.quality_grade)
     _validate_locale(item.locale, item.locale_variants)
+    _validate_updated_at(item.updated_at, object_name="knowledge_item")
     _validate_review_state(item.review_state, object_name="knowledge_item")
 
 
@@ -399,6 +408,7 @@ def build_downstream_contract_draft(item: KnowledgeItem) -> DownstreamKnowledgeC
         locale_variants=MappingProxyType(dict(item.locale_variants)),
         evidence_refs=tuple(item.evidence_refs),
         visibility_scope=visibility_scope,
+        updated_at=item.updated_at.strip() if item.updated_at is not None else None,
     )
 
 
@@ -413,6 +423,7 @@ def validate_downstream_contract_draft(contract: DownstreamKnowledgeContractDraf
         raise TypedKnowledgeContractError("downstream_contract_missing_provenance")
     _validate_quality_grade(contract.quality_grade)
     _validate_locale(contract.locale, contract.locale_variants)
+    _validate_updated_at(contract.updated_at, object_name="downstream_contract")
     _validate_review_state(contract.review_state, object_name="downstream_contract")
     expected_scope = REVIEW_STATE_VISIBILITY_SCOPE[contract.review_state]
     if contract.visibility_scope != expected_scope:
