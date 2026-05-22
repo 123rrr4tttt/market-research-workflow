@@ -21,6 +21,7 @@ from app.services.agent_batch.task_contract import build_agent_batch_submit_item
 from app.services.agent_batch.task_contract import build_retry_action_schema
 from app.services.agent_batch.task_contract import build_search_brief_schema
 from app.services.agent_batch.task_contract import build_search_critic_schema
+from app.services.agent_batch.task_contract import build_search_quality_replay_schema
 from app.services.agent_batch.task_contract import build_search_policy_contract
 from app.services.agent_batch.task_contract import build_source_library_override_params
 from app.services.agent_batch.task_contract import get_retry_action_allowed_fields
@@ -171,6 +172,12 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         self.assertIn("retry_with_source_library", critic_schema["next_action_allowed_values"])
         self.assertIn("novelty_gain", critic_schema["coverage_keys"])
 
+        quality_replay_schema = build_search_quality_replay_schema()
+        self.assertEqual(quality_replay_schema["artifact"], "search_quality_replay")
+        self.assertIn("source_quality_signals", quality_replay_schema["required_keys"])
+        self.assertIn("source_quality", quality_replay_schema["coverage_keys"])
+        self.assertIn("quality_claim_allowed", quality_replay_schema["live_provider_gap_required_keys"])
+
         retry_schema = build_retry_action_schema()
         self.assertEqual(retry_schema["artifact"], "retry_action")
         self.assertTrue(retry_schema["fail_closed"])
@@ -209,6 +216,7 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         policy_contract = build_search_policy_contract()
         self.assertEqual(policy_contract["search_brief"], brief_schema)
         self.assertEqual(policy_contract["search_critic"], critic_schema)
+        self.assertEqual(policy_contract["quality_replay"], quality_replay_schema)
         self.assertEqual(policy_contract["retry_action"], retry_schema)
         self.assertEqual(policy_contract["rewrite_eligible_fields_by_channel"], rewrite_fields)
         self.assertEqual(policy_contract["defaults"], defaults)
