@@ -27,10 +27,14 @@ from .policy_view import (
     get_policy_type,
 )
 from .social_view import (
+    build_social_data_item,
     get_social_entities,
     get_social_keywords,
     get_social_platform,
+    get_social_platform_label,
     get_social_sentiment,
+    get_social_sentiment_orientation,
+    get_social_sentiment_terms,
     get_social_text,
 )
 from .writing_card_view import (
@@ -53,6 +57,7 @@ from .writing_view import (
 __all__ = [
     "build_policy_detail",
     "build_policy_summary",
+    "build_social_data_item",
     "CONSUMER_FACADE_BOUNDARY_RULE",
     "CONSUMER_FACADE_CONTRACT_VERSION",
     "get_consumer_boundary_snapshot",
@@ -75,7 +80,10 @@ __all__ = [
     "get_social_identity",
     "get_social_keywords",
     "get_social_platform",
+    "get_social_platform_label",
     "get_social_sentiment",
+    "get_social_sentiment_orientation",
+    "get_social_sentiment_terms",
     "get_social_text",
     "get_structured_field",
     "has_structured_data",

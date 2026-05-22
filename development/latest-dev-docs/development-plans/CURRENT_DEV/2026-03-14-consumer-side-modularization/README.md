@@ -4,6 +4,8 @@
 
 1. [01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
 2. [02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md](./02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md)
+3. [03_wave11-consumer-query-extraction-evidence-2026-05-22.md](./03_wave11-consumer-query-extraction-evidence-2026-05-22.md)
+4. [04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md](./04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md)
 
 ## 使用说明
 

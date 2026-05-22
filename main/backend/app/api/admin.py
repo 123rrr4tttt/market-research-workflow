@@ -29,6 +29,14 @@ from ..services.ingest.adapters.http_utils import fetch_html
 from ..services.ingest.postprocess_frontdoor import run_frontdoor_extraction
 from ..services.ingest.raw_import import run_raw_import_documents
 from ..services.ingest.url_pool import _extract_text_from_html
+from ..services.document_views import (
+    build_social_data_item,
+    get_extracted_data,
+    get_market_data,
+    get_policy_data,
+    get_social_platform_label,
+    get_social_sentiment,
+)
 from ..project_customization import get_project_customization
 
 
@@ -703,7 +711,7 @@ def _augment_market_graph_with_topic_structured(
         market_node = graph.nodes.get(market_key)
         if market_node is None:
             continue
-        ex = doc.extracted_data if isinstance(doc.extracted_data, dict) else {}
+        ex = get_extracted_data(doc)
         # Unified entity registry per document+topic-group: one node per normalized text.
         entity_registry: dict[tuple[str, str], tuple[str, str]] = {}
 
@@ -1715,30 +1723,7 @@ def list_social_data(payload: SocialDataListRequest):
         
         items = []
         for doc in documents:
-            extracted = doc.extracted_data or {}
-            sentiment = extracted.get("sentiment", {})
-            
-            items.append({
-                "id": doc.id,
-                "title": doc.title,
-                "platform": extracted.get("platform"),
-                "username": extracted.get("username"),
-                "subreddit": extracted.get("subreddit"),
-                "likes": extracted.get("likes"),
-                "comments": extracted.get("comments"),
-                "text": extracted.get("text") or doc.content or doc.summary,
-                "sentiment_orientation": sentiment.get("sentiment_orientation"),
-                "sentiment_tags": sentiment.get("sentiment_tags", []),
-                "topic": sentiment.get("topic"),
-                "key_phrases": sentiment.get("key_phrases", []),
-                "emotion_words": sentiment.get("emotion_words", []),
-                "keywords": extracted.get("keywords", []),
-                "entities": extracted.get("entities", []),
-                "uri": doc.uri,
-                "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
-                "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                "extracted_data": doc.extracted_data,
-            })
+            items.append(build_social_data_item(doc))
         
         return success_response({
             "items": items,
@@ -1862,16 +1847,14 @@ def get_content_graph(
                 skipped_count = 0
                 for doc in documents:
                     if platform:
-                        extracted = doc.extracted_data or {}
-                        doc_platform = extracted.get("platform", "").lower()
+                        doc_platform = str(get_social_platform_label(doc, default="") or "").lower()
                         if doc_platform != platform.lower():
                             skipped_count += 1
                             continue
 
                     if topic:
-                        extracted = doc.extracted_data or {}
-                        sentiment = extracted.get("sentiment", {})
-                        doc_topic = sentiment.get("topic", "").lower()
+                        sentiment = get_social_sentiment(doc)
+                        doc_topic = str(sentiment.get("topic") or "").lower()
                         if topic.lower() not in doc_topic:
                             skipped_count += 1
                             continue
@@ -2036,9 +2019,8 @@ def get_market_graph(
                 skipped_count = 0
                 for doc in documents:
                     if game:
-                        extracted = doc.extracted_data or {}
-                        market = extracted.get("market", {})
-                        doc_game = market.get("game", "").lower()
+                        market = get_market_data(doc)
+                        doc_game = str(market.get("game") or "").lower()
                         if game.lower() not in doc_game:
                             skipped_count += 1
                             continue
@@ -2147,8 +2129,7 @@ def get_policy_graph(
                 skipped_count = 0
 
                 for doc in documents:
-                    extracted = doc.extracted_data or {}
-                    policy_info = extracted.get("policy") or {}
+                    policy_info = get_policy_data(doc)
 
                     def _collect_dates() -> List[date]:
                         dates: List[date] = []

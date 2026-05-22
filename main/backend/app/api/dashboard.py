@@ -23,6 +23,11 @@ from ..models.entities import (
     PriceObservation,
 )
 from ..services.graph.doc_types import resolve_graph_doc_types
+from ..services.document_views import (
+    get_social_platform_label,
+    get_social_sentiment_orientation,
+    get_social_sentiment_terms,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -537,15 +542,14 @@ def get_sentiment_analysis(
         keyword_counts = {}  # 关键词统计
         
         for doc in docs:
-            extracted = doc.extracted_data or {}
-            sentiment = extracted.get("sentiment", {}).get("sentiment_orientation")
+            sentiment = get_social_sentiment_orientation(doc)
             if sentiment in ["positive", "negative", "neutral"]:
                 sentiment_counts[sentiment] = sentiment_counts.get(sentiment, 0) + 1
             else:
                 sentiment_counts["unknown"] = sentiment_counts.get("unknown", 0) + 1
             
             # 平台统计
-            platform = extracted.get("platform", "unknown")
+            platform = get_social_platform_label(doc)
             platform_counts[platform] = platform_counts.get(platform, 0) + 1
             
             # 平台情感分布统计
@@ -566,32 +570,10 @@ def get_sentiment_analysis(
                     sentiment_trend[date_key][sentiment] = sentiment_trend[date_key].get(sentiment, 0) + 1
             
             # 关键词统计（从key_phrases、topic、sentiment_tags中提取）
-            sentiment_data = extracted.get("sentiment", {})
-            
-            # 统计key_phrases
-            key_phrases = sentiment_data.get("key_phrases", [])
-            if isinstance(key_phrases, list):
-                for phrase in key_phrases:
-                    if phrase and isinstance(phrase, str):
-                        phrase_lower = phrase.lower().strip()
-                        if phrase_lower:
-                            keyword_counts[phrase_lower] = keyword_counts.get(phrase_lower, 0) + 1
-            
-            # 统计topic
-            topic = sentiment_data.get("topic", "")
-            if topic and isinstance(topic, str):
-                topic_lower = topic.lower().strip()
-                if topic_lower:
-                    keyword_counts[topic_lower] = keyword_counts.get(topic_lower, 0) + 1
-            
-            # 统计sentiment_tags
-            sentiment_tags = sentiment_data.get("sentiment_tags", [])
-            if isinstance(sentiment_tags, list):
-                for tag in sentiment_tags:
-                    if tag and isinstance(tag, str):
-                        tag_lower = tag.lower().strip()
-                        if tag_lower:
-                            keyword_counts[tag_lower] = keyword_counts.get(tag_lower, 0) + 1
+            for term in get_social_sentiment_terms(doc):
+                term_lower = term.lower().strip()
+                if term_lower:
+                    keyword_counts[term_lower] = keyword_counts.get(term_lower, 0) + 1
         
         # 转换趋势数据为列表格式
         trend_series = []
@@ -676,9 +658,8 @@ def get_sentiment_sources(
         # 根据情感和平台筛选
         filtered_docs = []
         for doc in docs:
-            extracted = doc.extracted_data or {}
-            doc_sentiment = extracted.get("sentiment", {}).get("sentiment_orientation")
-            doc_platform = extracted.get("platform", "unknown")
+            doc_sentiment = get_social_sentiment_orientation(doc)
+            doc_platform = get_social_platform_label(doc)
             
             # 情感筛选
             if sentiment:
@@ -702,13 +683,12 @@ def get_sentiment_sources(
         # 构建返回数据
         sources = []
         for doc in filtered_docs:
-            extracted = doc.extracted_data or {}
             sources.append({
                 "id": doc.id,
                 "title": doc.title or "无标题",
                 "uri": doc.uri,
-                "platform": extracted.get("platform", "unknown"),
-                "sentiment": extracted.get("sentiment", {}).get("sentiment_orientation", "unknown"),
+                "platform": get_social_platform_label(doc),
+                "sentiment": get_social_sentiment_orientation(doc, default="unknown"),
                 "created_at": doc.created_at.isoformat() if doc.created_at else None,
                 "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
                 "summary": doc.summary or "",
