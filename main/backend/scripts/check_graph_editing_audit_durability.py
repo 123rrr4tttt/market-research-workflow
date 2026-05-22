@@ -48,6 +48,10 @@ GRAPHPAGE_AUDIT_UI_EVIDENCE_FIELDS = (
     "handoff_replay_visible_or_linked",
 )
 
+TENANT_LIKE_PROJECT_KEY = "tenant_like_graph_audit_fixture"
+TENANT_LIKE_GRAPH_ID = "cg-wave18-tenant-like-audit"
+TENANT_LIKE_ACTOR_ID = "wave18.worker6"
+
 
 def _read_file(path: Path) -> str:
     try:
@@ -266,6 +270,188 @@ def _exercise_curated_audit_readback() -> dict[str, Any]:
     return {"failures": failures, "metrics": metrics}
 
 
+def _exercise_tenant_like_fixture_audit_trace() -> dict[str, Any]:
+    failures: list[str] = []
+    metrics: dict[str, Any] = {}
+    state_store: dict[str, Any] = {"payload": {"base_version": 0, "graphs": {}}}
+    rollback_reason = "wave18 tenant-like rollback trace fixture"
+
+    def fake_get_config(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {"payload": deepcopy(state_store["payload"])}
+
+    def fake_upsert_config(*_args: Any, **kwargs: Any) -> dict[str, Any]:
+        state_store["payload"] = deepcopy(kwargs.get("payload"))
+        return {"payload": deepcopy(state_store["payload"])}
+
+    try:
+        with patch(
+            "app.services.workflow_graph.curated_service.current_project_key",
+            return_value=TENANT_LIKE_PROJECT_KEY,
+        ), patch(
+            "app.services.workflow_graph.curated_service.get_ingest_config",
+            side_effect=fake_get_config,
+        ), patch(
+            "app.services.workflow_graph.curated_service.upsert_ingest_config",
+            side_effect=fake_upsert_config,
+        ):
+            writer = WorkflowGraphCuratedService()
+            writer.save_draft(
+                TENANT_LIKE_GRAPH_ID,
+                {
+                    "actor_id": TENANT_LIKE_ACTOR_ID,
+                    "dsl": _curated_dsl("node-wave18-baseline", source_uri="https://example.com/wave18/baseline"),
+                },
+            )
+            submit_1 = writer.submit_draft(
+                TENANT_LIKE_GRAPH_ID,
+                {
+                    "base_revision": 0,
+                    "actor_id": TENANT_LIKE_ACTOR_ID,
+                    "version_id": "cver-wave18-baseline",
+                },
+            )
+            writer.save_draft(
+                TENANT_LIKE_GRAPH_ID,
+                {
+                    "base_revision": 1,
+                    "actor_id": TENANT_LIKE_ACTOR_ID,
+                    "dsl": _curated_dsl(
+                        "node-wave18-experimental",
+                        source_uri="https://example.com/wave18/experimental",
+                    ),
+                },
+            )
+            submit_2 = writer.submit_draft(
+                TENANT_LIKE_GRAPH_ID,
+                {
+                    "base_revision": 1,
+                    "actor_id": TENANT_LIKE_ACTOR_ID,
+                    "version_id": "cver-wave18-experimental",
+                },
+            )
+            rollback = writer.rollback(
+                TENANT_LIKE_GRAPH_ID,
+                {
+                    "base_revision": 2,
+                    "actor_id": TENANT_LIKE_ACTOR_ID,
+                    "target_version_id": "cver-wave18-baseline",
+                    "reason": rollback_reason,
+                },
+            )
+
+            reader = WorkflowGraphCuratedService()
+            graph = reader.get_graph(TENANT_LIKE_GRAPH_ID)
+            audits = reader.list_audits(TENANT_LIKE_GRAPH_ID, limit=10)
+            sync_readback = reader.sync_graph(TENANT_LIKE_GRAPH_ID, {"since_revision": 2})
+    except Exception as exc:  # noqa: BLE001
+        return {"failures": [f"tenant-like audit fixture raised: {exc}"], "metrics": metrics}
+
+    persisted_graph = state_store["payload"].get("graphs", {}).get(TENANT_LIKE_GRAPH_ID, {})
+    raw_audits = persisted_graph.get("audits") if isinstance(persisted_graph, dict) else []
+    raw_audits = raw_audits if isinstance(raw_audits, list) else []
+    items = audits.get("items") if isinstance(audits.get("items"), list) else []
+    raw_actions = [str(item.get("action") or "") for item in raw_audits if isinstance(item, dict)]
+    readback_actions = [str(item.get("action") or "") for item in items]
+    raw_audit_ids = [str(item.get("audit_id") or "") for item in raw_audits if isinstance(item, dict)]
+    readback_audit_ids = [str(item.get("audit_id") or "") for item in items]
+
+    rollback_audit = items[0] if items else {}
+    rollback_context = rollback_audit.get("context") if isinstance(rollback_audit.get("context"), dict) else {}
+    rollback_contract = rollback_context.get("rollback_contract") if isinstance(rollback_context, dict) else {}
+    rollback_contract = rollback_contract if isinstance(rollback_contract, dict) else {}
+
+    snapshot = sync_readback.get("server_snapshot") if isinstance(sync_readback, dict) else {}
+    snapshot_dsl = snapshot.get("dsl") if isinstance(snapshot, dict) else {}
+    snapshot_nodes = snapshot_dsl.get("nodes") if isinstance(snapshot_dsl, dict) else []
+    snapshot_node_ids = {
+        str(node.get("id") or node.get("node_id") or "").strip()
+        for node in snapshot_nodes
+        if isinstance(node, dict)
+    }
+
+    current = persisted_graph.get("current") if isinstance(persisted_graph, dict) else {}
+    current = current if isinstance(current, dict) else {}
+
+    _expect(failures, submit_1.get("revision") == 1, "tenant-like first submit did not create revision 1")
+    _expect(failures, submit_2.get("revision") == 2, "tenant-like second submit did not create revision 2")
+    _expect(failures, rollback.get("revision") == 3, "tenant-like rollback did not create revision 3")
+    _expect(failures, graph.get("revision") == 3, "fresh graph readback did not expose rollback revision 3")
+    _expect(failures, audits.get("total") == 3, "tenant-like audit list did not report three events")
+    _expect(failures, raw_actions == ["submit", "submit", "rollback"], f"raw audit write order mismatch: {raw_actions}")
+    _expect(
+        failures,
+        readback_actions == ["rollback", "submit", "submit"],
+        f"audit readback order mismatch: {readback_actions}",
+    )
+    _expect(
+        failures,
+        readback_audit_ids == list(reversed(raw_audit_ids)) and all(readback_audit_ids),
+        "audit readback ids do not match persisted audit trace",
+    )
+    _expect(
+        failures,
+        all(item.get("project_key") == TENANT_LIKE_PROJECT_KEY for item in items),
+        "tenant-like project_key was not preserved in audit readback",
+    )
+    _expect(
+        failures,
+        all(item.get("graph_id") == TENANT_LIKE_GRAPH_ID for item in items),
+        "tenant-like graph_id was not preserved in audit readback",
+    )
+    _expect(
+        failures,
+        all(item.get("actor_id") == TENANT_LIKE_ACTOR_ID for item in items),
+        "tenant-like actor_id was not preserved in audit readback",
+    )
+    _expect(
+        failures,
+        all(item.get("contract_version") == AUDIT_CONTRACT_VERSION for item in items),
+        "tenant-like audit contract version mismatch",
+    )
+    _expect(
+        failures,
+        rollback_audit.get("rollback_from_version_id") == "cver-wave18-baseline",
+        "rollback audit did not preserve target version id",
+    )
+    _expect(
+        failures,
+        rollback_contract.get("contract_version") == ROLLBACK_CONTRACT_VERSION
+        and rollback_contract.get("project_key") == TENANT_LIKE_PROJECT_KEY
+        and rollback_contract.get("actor_id") == TENANT_LIKE_ACTOR_ID
+        and rollback_contract.get("target_version_id") == "cver-wave18-baseline"
+        and rollback_contract.get("current_revision") == 2
+        and rollback_contract.get("base_revision") == 2
+        and rollback_contract.get("requires_base_revision_match") is True
+        and rollback_contract.get("reason") == rollback_reason,
+        "rollback trace contract did not preserve tenant-like target/project/revision/reason metadata",
+    )
+    _expect(
+        failures,
+        current.get("audit_id") == rollback_audit.get("audit_id")
+        and current.get("rollback_from_version_id") == "cver-wave18-baseline",
+        "persisted current snapshot does not point back to rollback audit trace",
+    )
+    _expect(
+        failures,
+        "node-wave18-baseline" in snapshot_node_ids and "node-wave18-experimental" not in snapshot_node_ids,
+        "tenant-like rollback readback did not restore the target version snapshot",
+    )
+
+    metrics.update(
+        {
+            "tenant_like_project_key": TENANT_LIKE_PROJECT_KEY,
+            "tenant_like_graph_id": TENANT_LIKE_GRAPH_ID,
+            "tenant_like_audit_count": len(items),
+            "tenant_like_raw_audit_actions": raw_actions,
+            "tenant_like_readback_audit_actions": readback_actions,
+            "tenant_like_rollback_revision": rollback.get("revision"),
+            "tenant_like_restored_node_ids": sorted(snapshot_node_ids),
+            "live_tenant_db_audit_open": True,
+        }
+    )
+    return {"failures": failures, "metrics": metrics}
+
+
 def _exercise_handoff_audit_readback() -> dict[str, Any]:
     failures: list[str] = []
     metrics: dict[str, Any] = {}
@@ -472,6 +658,24 @@ def _build_repo_local_stage(*, static_checks: dict[str, bool]) -> dict[str, Any]
     )
 
 
+def _build_tenant_like_fixture_stage() -> dict[str, Any]:
+    fixture = _exercise_tenant_like_fixture_audit_trace()
+    failures = list(fixture["failures"])
+    return _stage(
+        name="tenant_like_fixture_audit_trace",
+        status="validated" if not failures else "failed",
+        passed=not failures,
+        validated=not failures,
+        detail=(
+            "tenant-like in-memory fixture validates audit event write/readback order, "
+            "project-scoped metadata, and rollback trace integrity while leaving live tenant DB open"
+        ),
+        gaps=[] if not failures else ["tenant-like fixture audit/readback/rollback trace is broken"],
+        failures=failures,
+        metrics=fixture["metrics"],
+    )
+
+
 def _build_graphpage_ui_stage(
     *,
     static_checks: dict[str, bool],
@@ -612,6 +816,7 @@ def build_gate_snapshot(
     live_db_audit_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     repo_stage = _build_repo_local_stage(static_checks=repo_local_static_checks(repo_root))
+    tenant_like_stage = _build_tenant_like_fixture_stage()
     ui_stage = _build_graphpage_ui_stage(
         static_checks=graphpage_audit_ui_static_checks(repo_root),
         evidence=graphpage_ui_evidence,
@@ -620,9 +825,9 @@ def build_gate_snapshot(
         database_url=database_url,
         evidence=live_db_audit_evidence,
     )
-    stages = [repo_stage, ui_stage, live_db_stage]
+    stages = [repo_stage, tenant_like_stage, ui_stage, live_db_stage]
     hard_failures = [failure for stage in stages if not stage["passed"] for failure in stage["failures"]]
-    if not repo_stage["validated"]:
+    if not repo_stage["validated"] or not tenant_like_stage["validated"]:
         readiness_state = "failed"
     elif ui_stage["validated"] and live_db_stage["validated"]:
         readiness_state = "live_audit_evidence_recorded_non_closing"
@@ -630,8 +835,10 @@ def build_gate_snapshot(
         readiness_state = "repo_local_validated_live_gaps_open"
     boundary = (
         "repo-local audit/readback contract is deterministic and validated; "
+        f"tenant-like fixture audit trace={tenant_like_stage['status']}; "
         f"GraphPage audit/rollback UI={ui_stage['status']}; "
         f"live DB audit durability={live_db_stage['status']}; "
+        "live_tenant_db_audit_open=true; "
         "closure_claim=false because UI/live tenant durability must be sealed by separate live evidence"
     )
     return {
@@ -640,8 +847,10 @@ def build_gate_snapshot(
         "readiness_state": readiness_state,
         "closure_claim": False,
         "repo_local_audit_readback_validated": repo_stage["validated"],
+        "tenant_like_fixture_audit_trace_validated": tenant_like_stage["validated"],
         "graphpage_audit_controls_validated": ui_stage["validated"],
         "live_db_audit_durability_validated": live_db_stage["validated"],
+        "live_tenant_db_audit_open": True,
         "boundary": boundary,
         "stages": stages,
         "remaining_gaps": [gap for stage in stages if not stage["validated"] for gap in stage["gaps"]],
@@ -657,13 +866,22 @@ def validate_gate_snapshot(snapshot: dict[str, Any]) -> list[str]:
         failures.append("closure_claim must remain false")
     if snapshot.get("repo_local_audit_readback_validated") is not True:
         failures.append("repo-local audit/readback contract must be validated")
+    if snapshot.get("tenant_like_fixture_audit_trace_validated") is not True:
+        failures.append("tenant-like fixture audit trace must be validated")
+    if snapshot.get("live_tenant_db_audit_open") is not True:
+        failures.append("live_tenant_db_audit_open must remain true")
     if (
         snapshot.get("graphpage_audit_controls_validated") is not True
         or snapshot.get("live_db_audit_durability_validated") is not True
     ) and snapshot.get("readiness_state") != "repo_local_validated_live_gaps_open":
         failures.append("unvalidated UI/live DB audit durability must keep readiness_state open")
     boundary = str(snapshot.get("boundary") or "")
-    if "repo-local audit/readback contract" not in boundary or "closure_claim=false" not in boundary:
+    if (
+        "repo-local audit/readback contract" not in boundary
+        or "tenant-like fixture audit trace" not in boundary
+        or "live_tenant_db_audit_open=true" not in boundary
+        or "closure_claim=false" not in boundary
+    ):
         failures.append("boundary must distinguish repo-local audit/readback from live closure")
     for failure in snapshot.get("hard_failures") or []:
         failures.append(str(failure))
@@ -696,8 +914,10 @@ def main() -> int:
         print(f"readiness_state={snapshot['readiness_state']}")
         print(f"closure_claim={snapshot['closure_claim']}")
         print(f"repo_local_audit_readback_validated={snapshot['repo_local_audit_readback_validated']}")
+        print(f"tenant_like_fixture_audit_trace_validated={snapshot['tenant_like_fixture_audit_trace_validated']}")
         print(f"graphpage_audit_controls_validated={snapshot['graphpage_audit_controls_validated']}")
         print(f"live_db_audit_durability_validated={snapshot['live_db_audit_durability_validated']}")
+        print(f"live_tenant_db_audit_open={snapshot['live_tenant_db_audit_open']}")
         print(snapshot["boundary"])
         for stage in snapshot["stages"]:
             print(f"{stage['name']}={stage['status']} passed={stage['passed']} validated={stage['validated']}")
