@@ -7,6 +7,7 @@ Included:
 - orchestration entry (`line-autodispatch-2026-03-04-scout-r41.md`)
 - reference pool batch (`2026-03-04-scout-r41`)
 - extracted version interface contract (`R41_INTERFACE_CONTRACT.md`)
+- Wave12 repo-local autodispatch gate evidence (`implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md`)
 
 Source:
 - `/Users/wangyiliang/Desktop/openclaw`
