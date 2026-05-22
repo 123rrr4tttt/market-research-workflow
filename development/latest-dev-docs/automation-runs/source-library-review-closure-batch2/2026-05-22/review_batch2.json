@@ -1,0 +1,155 @@
+{
+  "artifact_kind": "deterministic_fixture_review_batch2",
+  "batch_id": "wave18-source-library-review-closure-batch2-2026-05-22",
+  "contract_version": "source_library.review_closure_batch2.v1",
+  "input_contracts": {
+    "batch2_fixture_queue": {
+      "contract_version": "source_library.relevance_review_queue.v1",
+      "queue_ids": [
+        "sl_review:c0c1432491bef26a",
+        "sl_review:d7422e089cf7a1a9"
+      ],
+      "queue_state": "ready_for_review",
+      "queued_count": 2
+    },
+    "review_queue": {
+      "contract_version": "source_library.relevance_review_queue.v1",
+      "queue_state": "ready_for_review",
+      "queued_count": 1,
+      "validation_passed": true
+    },
+    "search_chain_governance": {
+      "claims_full_45_site_public_replay": false,
+      "claims_human_relevance_review_complete": false,
+      "contract_version": "source_library.search_chain_governance.v1",
+      "public_network_attempted": false,
+      "validation_passed": true
+    },
+    "taxonomy_review_readiness": {
+      "contract_version": "source_library.taxonomy_review_readiness.v1",
+      "human_review_completed": false,
+      "review_queue_ready": true,
+      "taxonomy_readiness": "ready",
+      "validation_passed": true
+    },
+    "wave16_review_batch": {
+      "artifact_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch/2026-05-22/review_batch.json",
+      "batch_state": "closed_for_deterministic_fixture_batch",
+      "contract_version": "source_library.review_closure_batch.v1",
+      "decision_count": 1,
+      "validation_passed": true
+    }
+  },
+  "non_closure_markers": {
+    "claims_current_dev_topic_archived": false,
+    "claims_full_45_site_public_replay": false,
+    "claims_human_relevance_review_complete": false,
+    "claims_human_review_complete": false,
+    "claims_live_public_replay_complete": false,
+    "claims_live_source_collection_complete": false,
+    "claims_public_replay_complete": false,
+    "shared_indexes_edited": false
+  },
+  "remaining_boundaries": [
+    "Human review remains open until live Current Dev candidate evidence is supplied.",
+    "Public replay remains open until the opt-in public replay lane is executed.",
+    "Live source collection remains open until live source collection artifacts are produced.",
+    "Integration branch must update shared indexes after worker merge."
+  ],
+  "remaining_gaps": {
+    "human_review": {
+      "completion_claim": "not_claimed",
+      "reason": "Batch2 fixture decisions are generated; live Current Dev human review evidence is absent.",
+      "status": "open"
+    },
+    "live_source_collection": {
+      "completion_claim": "not_claimed",
+      "reason": "The source-marked fixture records a live collection gap without running live source collection.",
+      "status": "open"
+    },
+    "public_replay": {
+      "completion_claim": "not_claimed",
+      "reason": "The checker is no-network and does not execute the opt-in public replay lane.",
+      "status": "open"
+    }
+  },
+  "review_batch": {
+    "closed_queue_ids": [
+      "sl_review:c0c1432491bef26a",
+      "sl_review:d7422e089cf7a1a9"
+    ],
+    "decision_count": 2,
+    "decisions": [
+      {
+        "decision": "reject_low_confidence_fixture_candidate",
+        "decision_basis": [
+          "fallback_anchor_only_profile",
+          "term_fallback_candidates",
+          "low_confidence_candidate",
+          "adapter_capability_review"
+        ],
+        "domain": "example.org",
+        "effect": {
+          "auto_accept_allowed": false,
+          "auto_ingest_allowed": false,
+          "closed_for_fixture_batch": true,
+          "human_review_completed": false,
+          "live_source_collection_completed": false,
+          "public_replay_completed": false
+        },
+        "queue_id": "sl_review:c0c1432491bef26a",
+        "review_scope": "deterministic_fixture_batch2_only",
+        "source_library_item_key": "handler.cluster.search_template.batch2",
+        "url": "https://example.org/posts/robotics-procurement-roundup"
+      },
+      {
+        "decision": "defer_source_marked_candidate_pending_human_review",
+        "decision_basis": [
+          "source_marked_review_required"
+        ],
+        "domain": "registry.example",
+        "effect": {
+          "auto_accept_allowed": false,
+          "auto_ingest_allowed": false,
+          "closed_for_fixture_batch": true,
+          "human_review_completed": false,
+          "live_source_collection_completed": false,
+          "public_replay_completed": false
+        },
+        "queue_id": "sl_review:d7422e089cf7a1a9",
+        "review_scope": "deterministic_fixture_batch2_only",
+        "source_library_item_key": "handler.cluster.search_template.batch2",
+        "url": "https://registry.example/source/robotics-supplier-directory"
+      }
+    ],
+    "deterministic_batch2_closed": true,
+    "previous_batch_dependency": {
+      "artifact_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch/2026-05-22/review_batch.json",
+      "contract_version": "source_library.review_closure_batch.v1",
+      "validation_passed": true
+    },
+    "state": "closed_for_second_deterministic_fixture_batch"
+  },
+  "scope": {
+    "applies_to_full_current_dev_review": false,
+    "applies_to_live_source_collection": false,
+    "fixture_only": true,
+    "public_network_attempted": false,
+    "public_network_required": false,
+    "source": "Wave12 review queue + Wave14 taxonomy readiness + Wave16 deterministic batch + batch2 fixture queue"
+  },
+  "topic_coverage": {
+    "adapter_capability": {
+      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/17_wave18-review-closure-batch2-2026-05-22.md"
+    },
+    "minimal_migration": {
+      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/14_wave18-review-closure-batch2-2026-05-22.md"
+    },
+    "search_chain": {
+      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/07_wave18-review-closure-batch2-2026-05-22.md"
+    },
+    "three_lane": {
+      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/11_wave18-review-closure-batch2-2026-05-22.md"
+    }
+  }
+}
