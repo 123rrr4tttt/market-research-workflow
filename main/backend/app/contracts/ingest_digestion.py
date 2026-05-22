@@ -463,3 +463,79 @@ class LongCycleRepositoryReadbackCheck(BaseModel):
             seen.add(normalized)
             out.append(normalized)
         return out
+
+
+class LongCycleSchedulerHandoffTraceEntry(BaseModel):
+    stage: str = Field(..., min_length=1, max_length=96)
+    status: str = Field(..., min_length=1, max_length=64)
+    trace_ref: str = Field(..., min_length=1, max_length=512)
+    task_key: str = Field(..., min_length=1, max_length=96)
+    dispatch_key: str = Field(..., min_length=1, max_length=96)
+    dispatch_ref: str | None = Field(default=None, max_length=256)
+    event_transition: LongCycleLifecycleTransition | None = None
+    live_dispatch: bool = False
+    durable_readback: bool = False
+    detail: str = Field(default="", max_length=1024)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("stage", "status", "trace_ref", "task_key", "dispatch_key")
+    @classmethod
+    def _normalize_required_text(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("value must not be empty")
+        return normalized
+
+    @field_validator("detail")
+    @classmethod
+    def _normalize_detail(cls, value: str) -> str:
+        return str(value or "").strip()
+
+    @field_validator("dispatch_ref")
+    @classmethod
+    def _normalize_optional_text(cls, value: str | None) -> str | None:
+        normalized = str(value or "").strip()
+        return normalized or None
+
+
+class LongCycleSchedulerHandoffTraceCheck(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_scheduler_handoff_trace_check.v1", max_length=96)
+    status: str = Field(..., max_length=32)
+    blockers: list[str] = Field(default_factory=list)
+    closed_slice: list[str] = Field(default_factory=list)
+    remaining_runtime_gaps: list[str] = Field(default_factory=list)
+    dispatch_intent: LongCycleSchedulerDispatchIntent
+    repository_readback: LongCycleRepositoryReadbackCheck
+    handoff_trace: list[LongCycleSchedulerHandoffTraceEntry] = Field(default_factory=list)
+    handoff_trace_sequence: list[str] = Field(default_factory=list)
+    dispatch_ref: str = Field(..., min_length=1, max_length=256)
+    durable_event_readback: bool
+    dispatch_intent_matches_readback: bool
+    live_dispatch: bool = False
+    live_db_write: bool = False
+    closure_claim: bool = False
+    live_scheduler_closure_validated: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("status", "dispatch_ref")
+    @classmethod
+    def _normalize_text(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("value must not be empty")
+        return normalized
+
+    @field_validator("blockers", "closed_slice", "remaining_runtime_gaps", "handoff_trace_sequence")
+    @classmethod
+    def _normalize_string_list(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+        return out
