@@ -15,7 +15,7 @@ MANIFESTS = (
     Path("docs/architecture/latest-dev-docs-entry-manifest.json"),
 )
 EXPECTED_SCHEMA = "docs-root-entry-manifest/v1"
-ALLOWED_STATUSES = {"mapped_not_moved", "content_shim"}
+ALLOWED_STATUSES = {"mapped_not_moved", "content_shim", "content_moved_batch"}
 EXPECTED_CLASSIFICATION_BY_ROOT = {
     "docs/development": "development",
     "docs/architecture": "architecture",
@@ -116,6 +116,130 @@ def validate_content_shim(
 
     if "content shim" not in target_text.lower():
         problems.append(Problem(target, "content_shim README must identify itself as a content shim"))
+
+    return problems
+
+
+def validate_content_moved_batch(
+    repo_root: Path,
+    entry_path: Path,
+    root: Path,
+    root_raw: str,
+    source: Path,
+    source_raw: str,
+    target: Path,
+    target_raw: str,
+    target_text: str,
+    entry: dict[str, Any],
+) -> list[Problem]:
+    problems: list[Problem] = []
+
+    target_root_raw = entry.get("target_root")
+    shim_raw = entry.get("shim")
+    compatibility_entry_raw = entry.get("compatibility_entry")
+    moved_files_raw = entry.get("moved_files")
+
+    if not isinstance(target_root_raw, str):
+        problems.append(Problem(entry_path, "content_moved_batch entry target_root is missing"))
+        target_root = None
+    elif not target_root_raw.startswith(f"{root_raw}/"):
+        problems.append(Problem(entry_path, "content_moved_batch target_root is outside manifest root"))
+        target_root = None
+    else:
+        target_root = repo_root / target_root_raw
+        if not target_root.is_dir():
+            problems.append(Problem(target_root, "content_moved_batch target_root directory is missing"))
+        elif not is_relative_to(target_root, root):
+            problems.append(Problem(target_root, "content_moved_batch target_root is outside manifest root"))
+        if not same_path(target, target_root / "README.md"):
+            problems.append(Problem(target, "content_moved_batch target must remain target_root/README.md"))
+        if target_root_raw not in target_text:
+            problems.append(Problem(target, f"content_moved_batch README does not mention target_root: {target_root_raw}"))
+
+    if shim_raw != target_raw:
+        problems.append(Problem(entry_path, "content_moved_batch shim must match target README path"))
+    elif shim_raw not in target_text:
+        problems.append(Problem(target, f"content_moved_batch README does not mention shim path: {shim_raw}"))
+
+    if not isinstance(compatibility_entry_raw, str):
+        problems.append(Problem(entry_path, "content_moved_batch compatibility_entry is missing"))
+    else:
+        compatibility_entry = repo_root / compatibility_entry_raw
+        if not compatibility_entry.exists():
+            problems.append(Problem(compatibility_entry, "content_moved_batch compatibility_entry does not exist"))
+        elif source.exists() and not is_relative_to(compatibility_entry, source):
+            problems.append(
+                Problem(
+                    compatibility_entry,
+                    f"content_moved_batch compatibility_entry is not within source path: {source_raw}",
+                )
+            )
+        if compatibility_entry_raw not in target_text:
+            problems.append(
+                Problem(
+                    target,
+                    f"content_moved_batch README does not mention compatibility_entry: {compatibility_entry_raw}",
+                )
+            )
+
+    if not isinstance(moved_files_raw, list) or not moved_files_raw:
+        return problems + [Problem(entry_path, "content_moved_batch moved_files must be a non-empty list")]
+
+    if "content moved" not in target_text.lower():
+        problems.append(Problem(target, "content_moved_batch README must identify moved content"))
+
+    for file_index, moved_file in enumerate(moved_files_raw):
+        file_path = Path(f"{entry_path}#moved_files[{file_index}]")
+        if not isinstance(moved_file, dict):
+            problems.append(Problem(file_path, "moved file entry must be an object"))
+            continue
+
+        moved_source_raw = moved_file.get("source")
+        moved_target_raw = moved_file.get("target")
+        moved_compatibility_raw = moved_file.get("compatibility_entry")
+
+        if not isinstance(moved_source_raw, str) or not moved_source_raw.startswith(f"{source_raw}/"):
+            problems.append(Problem(file_path, "moved file source must be inside the manifest source"))
+            moved_source = None
+        else:
+            moved_source = repo_root / moved_source_raw
+            if not moved_source.is_file():
+                problems.append(Problem(moved_source, "moved file source compatibility shim is missing"))
+
+        if not isinstance(moved_target_raw, str) or not isinstance(target_root_raw, str) or not moved_target_raw.startswith(f"{target_root_raw}/"):
+            problems.append(Problem(file_path, "moved file target must be inside target_root"))
+            moved_target = None
+        else:
+            moved_target = repo_root / moved_target_raw
+            if not moved_target.is_file():
+                problems.append(Problem(moved_target, "moved file target is missing"))
+            elif not is_relative_to(moved_target, root):
+                problems.append(Problem(moved_target, "moved file target is outside manifest root"))
+
+        if moved_compatibility_raw != moved_source_raw:
+            problems.append(Problem(file_path, "moved file compatibility_entry must equal moved source"))
+        if moved_file.get("authority") != "target_authoritative":
+            problems.append(Problem(file_path, "moved file authority must be target_authoritative"))
+        if moved_file.get("source_status") != "compatibility_shim":
+            problems.append(Problem(file_path, "moved file source_status must be compatibility_shim"))
+
+        for required in (moved_source_raw, moved_target_raw):
+            if isinstance(required, str) and required and required not in target_text:
+                problems.append(Problem(target, f"content_moved_batch README does not mention moved path: {required}"))
+
+        if moved_source is not None and moved_source.is_file() and isinstance(moved_target_raw, str):
+            source_text = moved_source.read_text(encoding="utf-8")
+            if "compatibility shim" not in source_text.lower():
+                problems.append(Problem(moved_source, "moved source must identify itself as a compatibility shim"))
+            if moved_target_raw not in source_text:
+                problems.append(Problem(moved_source, f"moved source does not point at target: {moved_target_raw}"))
+
+        if moved_target is not None and moved_target.is_file() and isinstance(moved_source_raw, str):
+            moved_target_text = moved_target.read_text(encoding="utf-8")
+            if moved_source_raw not in moved_target_text:
+                problems.append(Problem(moved_target, f"moved target does not mention compatibility source: {moved_source_raw}"))
+            if "content moved" not in moved_target_text.lower():
+                problems.append(Problem(moved_target, "moved target must identify content moved status"))
 
     return problems
 
@@ -355,6 +479,21 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Proble
         if status == "content_shim":
             problems.extend(
                 validate_content_shim(
+                    repo_root=repo_root,
+                    entry_path=entry_path,
+                    root=root,
+                    root_raw=root_raw,
+                    source=source,
+                    source_raw=source_raw,
+                    target=target,
+                    target_raw=target_raw,
+                    target_text=target_text,
+                    entry=entry,
+                )
+            )
+        elif status == "content_moved_batch":
+            problems.extend(
+                validate_content_moved_batch(
                     repo_root=repo_root,
                     entry_path=entry_path,
                     root=root,

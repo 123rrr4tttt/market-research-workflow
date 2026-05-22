@@ -22,7 +22,13 @@ The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuri
 
 The first content shim batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries keep `development/latest-dev-docs` as the content authority while the README shims under this root provide readable pointers to the current compatibility entries. Shared navigation still belongs to the integration lane.
 
-The bounded content-plan gate is recorded in [latest-dev-docs-content-plan.json](./latest-dev-docs-content-plan.json) and checked by [scripts/checkers/check_docs_root_content_plan.py](../../scripts/checkers/check_docs_root_content_plan.py). That gate keeps every current architecture entry in `shim_only` mode and records the remaining unsafe moves blocked by shared navigation and `MERGED_OVERVIEW` drift.
+The bounded content-plan gate is recorded in [latest-dev-docs-content-plan.json](./latest-dev-docs-content-plan.json) and checked by [scripts/checkers/check_docs_root_content_plan.py](../../scripts/checkers/check_docs_root_content_plan.py). Wave16 now allows a validated `moved_file_batch` for the low-ambiguity backend-core architecture README while keeping remaining broad moves blocked by shared navigation and `MERGED_OVERVIEW` drift.
+
+## Wave16 Moved Content Batch
+
+| Target root | Authoritative content | Compatibility shim | Manifest entry |
+|---|---|---|---|
+| `docs/architecture/backend-core` | [docs/architecture/backend-core/A_ARCHITECTURE/README.backend-core.md](./backend-core/A_ARCHITECTURE/README.backend-core.md) | [development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md](../../development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md) | `backend-core-architecture-tree` |
 
 ## Target Routing
 

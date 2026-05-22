@@ -12,7 +12,7 @@
 - Development content plan: [docs/development/latest-dev-docs-content-plan.json](../../../../../docs/development/latest-dev-docs-content-plan.json)
 - Architecture content plan: [docs/architecture/latest-dev-docs-content-plan.json](../../../../../docs/architecture/latest-dev-docs-content-plan.json)
 - Content-plan checker: [scripts/checkers/check_docs_root_content_plan.py](../../../../../scripts/checkers/check_docs_root_content_plan.py)
-- Follow-up folderization evidence: [04_status-evidence-and-minimum-dev-plan-2026-05-22.md](../2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md)
+- Follow-up folderization evidence: [04_status-evidence-and-minimum-dev-plan-2026-05-22.md](../../ARCHIVE_CLOSED/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md)
 
 ## Result
 
@@ -70,6 +70,6 @@ python3 scripts/check_latest_dev_docs_structure.py \
   --link-path docs/development \
   --link-path docs/architecture \
   --link-path development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring \
-  --link-path development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md
+  --link-path development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md
 git diff --check
 ```
