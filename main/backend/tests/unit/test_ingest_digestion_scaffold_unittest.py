@@ -1,5 +1,6 @@
 import importlib.util
 import pathlib
+import tempfile
 import unittest
 from datetime import date
 
@@ -406,6 +407,80 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
         self.assertTrue(check["live_scheduler_closure_validated"])
         self.assertTrue(check["closure_claim"])
         self.assertEqual(check["remaining_runtime_gaps"], [])
+
+    def test_jsonl_long_cycle_repository_survives_reopen_with_event_readback(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repository = scaffold.JsonlLongCycleTaskRepository(
+                storage_dir=tmp_dir,
+                repository_ref="jsonl://unit-test-long-cycle-readback",
+            )
+            kwargs = _valid_scheduler_kwargs()
+            kwargs["persistent_ref"] = repository.repository_ref
+            check = scaffold.check_long_cycle_scheduler_e2e_contract(
+                **kwargs,
+                repository=repository,
+            )
+            reopened = repository.reopen()
+            task_key = check["persistent_task"]["task_key"]
+            stored = reopened.get_task_record(task_key)
+
+            self.assertIsNotNone(stored)
+            self.assertEqual(stored.status.value, contracts.LongCycleTaskStatus.SUCCEEDED.value)
+            self.assertEqual(
+                [event.transition.value for event in reopened.list_lifecycle_events(task_key)],
+                [
+                    contracts.LongCycleLifecycleTransition.MARK_READY.value,
+                    contracts.LongCycleLifecycleTransition.DISPATCH.value,
+                    contracts.LongCycleLifecycleTransition.SUCCEED.value,
+                ],
+            )
+            self.assertEqual(
+                [write.status_after.value for write in reopened.list_writes()],
+                [
+                    contracts.LongCycleTaskStatus.READY.value,
+                    contracts.LongCycleTaskStatus.RUNNING.value,
+                    contracts.LongCycleTaskStatus.SUCCEEDED.value,
+                ],
+            )
+            self.assertTrue(all(write.live_db_write is False for write in reopened.list_writes()))
+
+    def test_long_cycle_repository_readback_contract_keeps_live_boundaries_open(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repository = scaffold.JsonlLongCycleTaskRepository(
+                storage_dir=tmp_dir,
+                repository_ref="jsonl://unit-test-long-cycle-readback",
+            )
+            kwargs = _valid_scheduler_kwargs()
+            kwargs["persistent_ref"] = repository.repository_ref
+            check = scaffold.check_long_cycle_repository_readback_contract(
+                **kwargs,
+                repository=repository,
+            )
+            replay = scaffold.check_long_cycle_repository_readback_contract(
+                **kwargs,
+                repository=repository,
+            )
+
+        self.assertEqual(check["contract_version"], "ingest.long_cycle_repository_readback_check.v1")
+        self.assertEqual(check["status"], "pass")
+        self.assertEqual(replay["status"], "pass")
+        self.assertTrue(check["durable_readback"])
+        self.assertFalse(check["live_db_write"])
+        self.assertEqual(check["readback_record"]["status"], contracts.LongCycleTaskStatus.SUCCEEDED.value)
+        self.assertEqual(
+            check["readback_event_sequence"],
+            [
+                contracts.LongCycleLifecycleTransition.MARK_READY.value,
+                contracts.LongCycleLifecycleTransition.DISPATCH.value,
+                contracts.LongCycleLifecycleTransition.SUCCEED.value,
+            ],
+        )
+        self.assertEqual(check["scheduler_readiness"]["status"], "pass")
+        self.assertFalse(check["scheduler_readiness"]["closure_claim"])
+        self.assertFalse(check["scheduler_readiness"]["live_scheduler_closure_validated"])
+        self.assertIn("jsonl_repository_write_readback", check["closed_slice"])
+        self.assertIn("live_persistent_task_table_write_not_executed", check["remaining_runtime_gaps"])
+        self.assertIn("live_db_persistent_task_table_not_validated", check["remaining_runtime_gaps"])
 
 
 if __name__ == "__main__":

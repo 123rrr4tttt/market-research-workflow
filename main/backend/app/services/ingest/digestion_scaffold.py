@@ -4,7 +4,8 @@ import hashlib
 import json
 import re
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
+from pathlib import Path
+from typing import Any, Protocol
 from urllib.parse import urlparse
 
 from app.contracts.ingest_digestion import (
@@ -18,6 +19,7 @@ from app.contracts.ingest_digestion import (
     LongCycleLifecycleTransition,
     LongCyclePersistenceWriteResult,
     LongCyclePersistentTaskRecord,
+    LongCycleRepositoryReadbackCheck,
     LongCycleSchedulerDispatchIntent,
     LongCycleSchedulerE2EContractCheck,
     LongCycleSchedulerReadinessCheck,
@@ -780,6 +782,23 @@ def build_long_cycle_scheduler_dispatch_intent(
     )
 
 
+class LongCycleTaskRepository(Protocol):
+    repository_ref: str
+    logical_table: str
+
+    def upsert_task_record(
+        self,
+        record: LongCyclePersistentTaskRecord | dict[str, Any],
+        *,
+        write_time: datetime | str | None = None,
+        operation: str = "upsert",
+    ) -> LongCyclePersistenceWriteResult: ...
+
+    def get_task_record(self, task_key: str) -> LongCyclePersistentTaskRecord | None: ...
+
+    def list_writes(self) -> list[LongCyclePersistenceWriteResult]: ...
+
+
 class InMemoryLongCycleTaskRepository:
     def __init__(
         self,
@@ -822,6 +841,129 @@ class InMemoryLongCycleTaskRepository:
 
     def list_writes(self) -> list[LongCyclePersistenceWriteResult]:
         return list(self._writes)
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        raw = line.strip()
+        if not raw:
+            continue
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid JSONL row in {path}:{line_no}: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise ValueError(f"invalid JSONL row in {path}:{line_no}: expected object")
+        rows.append(payload)
+    return rows
+
+
+def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+        handle.write("\n")
+
+
+class JsonlLongCycleTaskRepository:
+    """Small durable repository used by contract tests without claiming live DB writes."""
+
+    def __init__(
+        self,
+        *,
+        storage_dir: str | Path,
+        repository_ref: str | None = None,
+        logical_table: str = "long_cycle_persistent_tasks",
+    ) -> None:
+        self.storage_dir = Path(storage_dir)
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+        self.repository_ref = str(repository_ref or f"jsonl://{self.storage_dir.as_posix()}").strip()
+        self.logical_table = str(logical_table or "").strip() or "long_cycle_persistent_tasks"
+        self._records_path = self.storage_dir / "long_cycle_records.jsonl"
+        self._writes_path = self.storage_dir / "long_cycle_writes.jsonl"
+        self._events_path = self.storage_dir / "long_cycle_lifecycle_events.jsonl"
+        self._records: dict[str, LongCyclePersistentTaskRecord] = {}
+        self._writes: list[LongCyclePersistenceWriteResult] = []
+        self._events: dict[str, list[LongCycleTaskLifecycleEvent]] = {}
+        self._event_counts: dict[str, int] = {}
+        self._load()
+
+    def _load(self) -> None:
+        for row in _read_jsonl(self._records_path):
+            record = LongCyclePersistentTaskRecord.model_validate(row)
+            self._records[record.task_key] = record
+        for row in _read_jsonl(self._writes_path):
+            self._writes.append(LongCyclePersistenceWriteResult.model_validate(row))
+        for row in _read_jsonl(self._events_path):
+            task_key = str(row.get("task_key") or "").strip()
+            event_payload = row.get("event")
+            if not task_key or not isinstance(event_payload, dict):
+                raise ValueError(f"invalid lifecycle event row in {self._events_path}")
+            event = LongCycleTaskLifecycleEvent.model_validate(event_payload)
+            self._events.setdefault(task_key, []).append(event)
+        self._event_counts = {task_key: len(events) for task_key, events in self._events.items()}
+
+    def reopen(self) -> "JsonlLongCycleTaskRepository":
+        return JsonlLongCycleTaskRepository(
+            storage_dir=self.storage_dir,
+            repository_ref=self.repository_ref,
+            logical_table=self.logical_table,
+        )
+
+    def upsert_task_record(
+        self,
+        record: LongCyclePersistentTaskRecord | dict[str, Any],
+        *,
+        write_time: datetime | str | None = None,
+        operation: str = "upsert",
+    ) -> LongCyclePersistenceWriteResult:
+        current = record if isinstance(record, LongCyclePersistentTaskRecord) else LongCyclePersistentTaskRecord.model_validate(record)
+        previous = self._records.get(current.task_key)
+        now = _parse_datetime(write_time) or current.updated_at
+        self._records[current.task_key] = current
+        result = LongCyclePersistenceWriteResult(
+            repository_ref=self.repository_ref,
+            logical_table=self.logical_table,
+            operation=operation,
+            record_key=current.task_key,
+            status_before=previous.status if previous else None,
+            status_after=current.status,
+            write_time=now,
+            payload_ref=f"{self.repository_ref}/{self.logical_table}/{current.task_key}",
+            live_db_write=False,
+        )
+        self._writes.append(result)
+        _append_jsonl(self._records_path, current.model_dump(mode="json"))
+        _append_jsonl(self._writes_path, result.model_dump(mode="json"))
+
+        existing_event_keys = {
+            json.dumps(event.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
+            for event in self._events.get(current.task_key, [])
+        }
+        for event in current.lifecycle_events:
+            event_key = json.dumps(event.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
+            if event_key in existing_event_keys:
+                continue
+            existing_event_keys.add(event_key)
+            self._events.setdefault(current.task_key, []).append(event)
+            _append_jsonl(
+                self._events_path,
+                {"task_key": current.task_key, "event": event.model_dump(mode="json")},
+            )
+        self._event_counts[current.task_key] = len(self._events.get(current.task_key, []))
+        return result
+
+    def get_task_record(self, task_key: str) -> LongCyclePersistentTaskRecord | None:
+        return self._records.get(str(task_key or "").strip())
+
+    def list_writes(self) -> list[LongCyclePersistenceWriteResult]:
+        return list(self._writes)
+
+    def list_lifecycle_events(self, task_key: str) -> list[LongCycleTaskLifecycleEvent]:
+        return list(self._events.get(str(task_key or "").strip(), []))
 
 
 def check_long_cycle_lifecycle_contract(
@@ -869,7 +1011,7 @@ def check_long_cycle_lifecycle_contract(
 
 def check_long_cycle_scheduler_e2e_contract(
     *,
-    repository: InMemoryLongCycleTaskRepository | None = None,
+    repository: LongCycleTaskRepository | None = None,
     scheduler_ref: str = "contract.scheduler.ingest_long_cycle",
     persistent_ref: str = "fake-db://long_cycle_persistent_tasks",
     queue_name: str = "ingest.long_cycle.contract",
@@ -1168,5 +1310,81 @@ def check_long_cycle_scheduler_readiness_contract(
         stages=stages,
         remaining_runtime_gaps=remaining_runtime_gaps,
         scheduler_e2e_contract=e2e_check,
+    )
+    return check.model_dump(mode="json")
+
+
+def check_long_cycle_repository_readback_contract(
+    *,
+    repository: JsonlLongCycleTaskRepository,
+    scheduler_runtime_configured: bool = False,
+    live_scheduler_evidence: dict[str, Any] | None = None,
+    **scheduler_e2e_kwargs: Any,
+) -> dict[str, Any]:
+    """Validate durable local repository readback without claiming live scheduler or DB closure."""
+
+    scheduler_e2e_kwargs.setdefault("persistent_ref", repository.repository_ref)
+    readiness_payload = check_long_cycle_scheduler_readiness_contract(
+        repository=repository,
+        scheduler_runtime_configured=scheduler_runtime_configured,
+        live_scheduler_evidence=live_scheduler_evidence,
+        **scheduler_e2e_kwargs,
+    )
+    readiness = LongCycleSchedulerReadinessCheck.model_validate(readiness_payload)
+    e2e_check = readiness.scheduler_e2e_contract
+    task_key = e2e_check.persistent_task.task_key
+    reopened = repository.reopen()
+    readback_record = reopened.get_task_record(task_key)
+    readback_events = reopened.list_lifecycle_events(task_key)
+    event_sequence = [event.transition.value for event in readback_events]
+    expected_event_sequence = [
+        LongCycleLifecycleTransition.MARK_READY.value,
+        LongCycleLifecycleTransition.DISPATCH.value,
+        LongCycleLifecycleTransition.SUCCEED.value,
+    ]
+    task_writes = [write for write in reopened.list_writes() if write.record_key == task_key]
+    write_statuses = [write.status_after.value for write in task_writes[-3:]]
+    live_db_write = any(write.live_db_write for write in e2e_check.persistence_writes)
+
+    blockers: list[str] = []
+    if readiness.status != "pass":
+        blockers.append(f"scheduler_readiness_not_passed:{readiness.status}")
+    if readback_record is None:
+        blockers.append("durable_repository_missing_task_readback")
+    elif readback_record.model_dump(mode="json") != e2e_check.completed_record.model_dump(mode="json"):
+        blockers.append("durable_repository_readback_record_mismatch")
+    if event_sequence != expected_event_sequence:
+        blockers.append(f"durable_repository_lifecycle_event_sequence_mismatch:{event_sequence}")
+    if write_statuses != ["ready", "running", "succeeded"]:
+        blockers.append(f"durable_repository_write_status_sequence_mismatch:{write_statuses}")
+    if live_db_write:
+        blockers.append("durable_repository_contract_must_not_claim_live_db_write")
+    if readiness.closure_claim or readiness.live_scheduler_closure_validated:
+        blockers.append("durable_repository_readback_slice_must_not_claim_live_scheduler_closure")
+
+    remaining_runtime_gaps = [
+        *e2e_check.remaining_runtime_gaps,
+        *readiness.remaining_runtime_gaps,
+        "live_db_persistent_task_table_not_validated",
+    ]
+    check = LongCycleRepositoryReadbackCheck(
+        status="fail" if blockers else "pass",
+        blockers=blockers,
+        closed_slice=[
+            "jsonl_repository_write_readback",
+            "persistent_task_reopen_readback",
+            "lifecycle_event_sequence_readback",
+            "scheduler_readiness_boundary_preserved",
+        ],
+        remaining_runtime_gaps=remaining_runtime_gaps,
+        repository_ref=repository.repository_ref,
+        logical_table=repository.logical_table,
+        storage_kind="jsonl",
+        durable_readback=not blockers,
+        live_db_write=live_db_write,
+        readback_record=readback_record,
+        readback_event_sequence=event_sequence,
+        readback_events=readback_events,
+        scheduler_readiness=readiness,
     )
     return check.model_dump(mode="json")
