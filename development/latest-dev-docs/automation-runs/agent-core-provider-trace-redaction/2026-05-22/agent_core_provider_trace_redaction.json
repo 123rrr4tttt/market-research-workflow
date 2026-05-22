@@ -1,0 +1,522 @@
+{
+  "contract_version": "agent_core.provider_trace_readback.v1",
+  "deterministic_provider_trace_ready": true,
+  "external_model_calls": 0,
+  "failures": [],
+  "input_contract_readbacks": {
+    "wave11_provider_matrix": {
+      "contract_version": "agent_core.provider_capability_matrix.v1",
+      "evaluation_mode": "static_contract_not_live_probe",
+      "external_framework_adoption_status": "deferred",
+      "fake_core_provider_status": "repo_native_supported",
+      "live_provider_claims": false,
+      "native_tool_calling_provider_status": "missing_config"
+    },
+    "wave13_live_provider_readiness": {
+      "contract_version": "agent_core.provider_live_readiness.v1",
+      "readiness_state": "partial",
+      "selected_live_probe_status": "blocked",
+      "selected_provider": "openai",
+      "status": "passed",
+      "unsupported_claim_codes": [
+        "all_agentcore_providers_live_not_closed",
+        "external_framework_live_adoption_not_closed",
+        "native_tool_calling_quality_not_closed",
+        "selected_provider_live_availability_not_closed"
+      ]
+    },
+    "wave14_tool_calling_quality": {
+      "contract_version": "agent_core.tool_calling_quality.v1",
+      "deterministic_tool_calling_ready": true,
+      "external_provider_live_gap": "external_provider_live_gap",
+      "live_model_calls": 0,
+      "status": "passed",
+      "unsupported_claim_codes": [
+        "deterministic_fixture_proves_external_provider_quality",
+        "native_tool_calling_quality_closed_without_live_replay"
+      ]
+    }
+  },
+  "provider_trace": {
+    "call_count": 2,
+    "calls": [
+      {
+        "call_index": 1,
+        "context": {
+          "default_model": "fake-core-provider",
+          "default_provider": "fake_core_provider",
+          "request_id": "req-agent-core-provider-trace-readback",
+          "trace_id": "trace-agent-core-provider-trace-readback"
+        },
+        "message": "[REDACTED]",
+        "message_redaction": {
+          "length": 181,
+          "marker": "[REDACTED]",
+          "redacted": true,
+          "sha256": "e29c2d2fa56c213b9a0ed85b770b6d5ec162b306cd819daeabc90e3ded5bd156",
+          "type": "string"
+        },
+        "remaining_budget": {
+          "iteration": 1,
+          "max_iterations": 4,
+          "max_tool_calls": 2,
+          "remaining_tool_calls": 2
+        },
+        "status_data_error_meta_seen_in_transcript": false,
+        "tool_names": [
+          "agent.provider_trace.echo"
+        ],
+        "tool_result_seen": false,
+        "transcript_roles": [
+          "user"
+        ]
+      },
+      {
+        "call_index": 2,
+        "context": {
+          "default_model": "fake-core-provider",
+          "default_provider": "fake_core_provider",
+          "request_id": "req-agent-core-provider-trace-readback",
+          "trace_id": "trace-agent-core-provider-trace-readback"
+        },
+        "message": "[REDACTED]",
+        "message_redaction": {
+          "length": 181,
+          "marker": "[REDACTED]",
+          "redacted": true,
+          "sha256": "e29c2d2fa56c213b9a0ed85b770b6d5ec162b306cd819daeabc90e3ded5bd156",
+          "type": "string"
+        },
+        "remaining_budget": {
+          "iteration": 2,
+          "max_iterations": 4,
+          "max_tool_calls": 2,
+          "remaining_tool_calls": 1
+        },
+        "status_data_error_meta_seen_in_transcript": true,
+        "tool_names": [
+          "agent.provider_trace.echo"
+        ],
+        "tool_result_seen": true,
+        "transcript_roles": [
+          "user",
+          "tool"
+        ]
+      }
+    ],
+    "contract_version": "agent_core.fake_provider_trace.v1",
+    "provider_key": "fake_core_provider",
+    "provider_path": "app.services.agent_core.fake_provider.FakeCoreProvider",
+    "trace_status": "passed"
+  },
+  "provider_trace_redaction_ready": true,
+  "readiness_state": "deterministic_provider_trace_redaction_ready_real_external_provider_call_open",
+  "real_external_provider_call_open": true,
+  "redaction_replay": {
+    "contract_version": "agent_core.provider_trace_redaction_replay.v1",
+    "external_model_calls": 0,
+    "provider_call_replay": [
+      {
+        "call_index": 1,
+        "context_keys": [
+          "actor_id",
+          "agent_role",
+          "default_model",
+          "default_provider",
+          "request_id",
+          "requested_permissions",
+          "trace_id"
+        ],
+        "message": {
+          "length": 181,
+          "marker": "[REDACTED]",
+          "redacted": true,
+          "sha256": "e29c2d2fa56c213b9a0ed85b770b6d5ec162b306cd819daeabc90e3ded5bd156",
+          "type": "string"
+        },
+        "tool_names": [
+          "agent.provider_trace.echo"
+        ],
+        "transcript_roles": [
+          "user"
+        ]
+      },
+      {
+        "call_index": 2,
+        "context_keys": [
+          "actor_id",
+          "agent_role",
+          "default_model",
+          "default_provider",
+          "request_id",
+          "requested_permissions",
+          "trace_id"
+        ],
+        "message": {
+          "length": 181,
+          "marker": "[REDACTED]",
+          "redacted": true,
+          "sha256": "e29c2d2fa56c213b9a0ed85b770b6d5ec162b306cd819daeabc90e3ded5bd156",
+          "type": "string"
+        },
+        "tool_names": [
+          "agent.provider_trace.echo"
+        ],
+        "transcript_roles": [
+          "user",
+          "tool"
+        ]
+      }
+    ],
+    "provider_messages_redacted": true,
+    "raw_request_body_persisted": false,
+    "raw_sensitive_values_absent": true,
+    "raw_tool_arguments_persisted": false,
+    "redaction_marker": "[REDACTED]",
+    "request_body": {
+      "length": 181,
+      "marker": "[REDACTED]",
+      "redacted": true,
+      "sha256": "e29c2d2fa56c213b9a0ed85b770b6d5ec162b306cd819daeabc90e3ded5bd156",
+      "type": "string"
+    },
+    "request_context_keys": [
+      "actor_id",
+      "agent_role",
+      "default_model",
+      "default_provider",
+      "request_id",
+      "requested_permissions",
+      "trace_id"
+    ],
+    "status": "passed",
+    "tool_call_arguments_redacted": true,
+    "tool_call_envelope_replay": {
+      "call_id": "call-agent-provider-trace-readback",
+      "event_sequence": [
+        {
+          "call_id": "call-agent-provider-trace-readback",
+          "contract_version": "agent_core.provider_trace_redacted_tool_event.v1",
+          "event_type": "tool_call_requested",
+          "permission": "allow",
+          "status": null,
+          "structured_content": {
+            "present": false
+          },
+          "tool_call_arguments": {
+            "keys": [
+              "query",
+              "request_body",
+              "trace_id"
+            ],
+            "raw_values_persisted": false,
+            "redacted": true,
+            "type": "object",
+            "value_fingerprints": {
+              "query": {
+                "length": 114,
+                "marker": "[REDACTED]",
+                "redacted": true,
+                "sha256": "304a385801e7fc3e0cd8f3fa9fd881b675c4fa66fbe546997276487342774e43",
+                "type": "string"
+              },
+              "request_body": {
+                "length": 122,
+                "marker": "[REDACTED]",
+                "redacted": true,
+                "sha256": "b15f60eb7dca81bee2b1258bf43fbc8656d8a7671208b8b6a8b53ddd3ae5dd0c",
+                "type": "string"
+              },
+              "trace_id": {
+                "length": 40,
+                "marker": "[REDACTED]",
+                "redacted": true,
+                "sha256": "9899932e1ad8c6dcdc03b98572f2adba1f5a0203c5b32dbb362c945597e7e16d",
+                "type": "string"
+              }
+            }
+          },
+          "tool_name": "agent.provider_trace.echo"
+        },
+        {
+          "call_id": "call-agent-provider-trace-readback",
+          "contract_version": "agent_core.provider_trace_redacted_tool_event.v1",
+          "event_type": "tool_call_started",
+          "permission": null,
+          "status": null,
+          "structured_content": {
+            "present": false
+          },
+          "tool_call_arguments": {
+            "keys": [
+              "query",
+              "request_body",
+              "trace_id"
+            ],
+            "raw_values_persisted": false,
+            "redacted": true,
+            "type": "object",
+            "value_fingerprints": {
+              "query": {
+                "length": 114,
+                "marker": "[REDACTED]",
+                "redacted": true,
+                "sha256": "304a385801e7fc3e0cd8f3fa9fd881b675c4fa66fbe546997276487342774e43",
+                "type": "string"
+              },
+              "request_body": {
+                "length": 122,
+                "marker": "[REDACTED]",
+                "redacted": true,
+                "sha256": "b15f60eb7dca81bee2b1258bf43fbc8656d8a7671208b8b6a8b53ddd3ae5dd0c",
+                "type": "string"
+              },
+              "trace_id": {
+                "length": 40,
+                "marker": "[REDACTED]",
+                "redacted": true,
+                "sha256": "9899932e1ad8c6dcdc03b98572f2adba1f5a0203c5b32dbb362c945597e7e16d",
+                "type": "string"
+              }
+            }
+          },
+          "tool_name": "agent.provider_trace.echo"
+        },
+        {
+          "call_id": "call-agent-provider-trace-readback",
+          "contract_version": "agent_core.provider_trace_redacted_tool_event.v1",
+          "event_type": "tool_result",
+          "permission": null,
+          "status": "completed",
+          "structured_content": {
+            "data_keys": [
+              "contract_version",
+              "project_key",
+              "query",
+              "request_body",
+              "tool_call_id",
+              "tool_name"
+            ],
+            "has_status_data_error_meta": true,
+            "meta_keys": [
+              "contract_version",
+              "external_model_calls",
+              "provider_key",
+              "real_external_provider_call_open",
+              "request_id",
+              "trace_id"
+            ],
+            "present": true,
+            "present_keys": [
+              "data",
+              "error",
+              "meta",
+              "status"
+            ],
+            "raw_values_persisted": false,
+            "status": "ok"
+          },
+          "tool_call_arguments": {
+            "keys": [],
+            "raw_values_persisted": false,
+            "redacted": true,
+            "type": "NoneType",
+            "value_fingerprints": {}
+          },
+          "tool_name": "agent.provider_trace.echo"
+        }
+      ],
+      "tool_call_arguments": {
+        "keys": [
+          "query",
+          "request_body",
+          "trace_id"
+        ],
+        "raw_values_persisted": false,
+        "redacted": true,
+        "type": "object",
+        "value_fingerprints": {
+          "query": {
+            "length": 114,
+            "marker": "[REDACTED]",
+            "redacted": true,
+            "sha256": "304a385801e7fc3e0cd8f3fa9fd881b675c4fa66fbe546997276487342774e43",
+            "type": "string"
+          },
+          "request_body": {
+            "length": 122,
+            "marker": "[REDACTED]",
+            "redacted": true,
+            "sha256": "b15f60eb7dca81bee2b1258bf43fbc8656d8a7671208b8b6a8b53ddd3ae5dd0c",
+            "type": "string"
+          },
+          "trace_id": {
+            "length": 40,
+            "marker": "[REDACTED]",
+            "redacted": true,
+            "sha256": "9899932e1ad8c6dcdc03b98572f2adba1f5a0203c5b32dbb362c945597e7e16d",
+            "type": "string"
+          }
+        }
+      },
+      "tool_name": "agent.provider_trace.echo"
+    }
+  },
+  "scope": "fake_provider_trace_redaction_tool_call_envelope_readback_no_external_model_call",
+  "status": "passed",
+  "status_data_error_meta_compatibility": {
+    "compatible": true,
+    "contract_version": "agent_core.status_data_error_meta.compat.v1",
+    "data_contract_version": "agent.provider_trace.echo.result.v1",
+    "error_is_null": true,
+    "meta": {
+      "contract_version": "agent.provider_trace.echo.meta.v1",
+      "external_model_calls": 0,
+      "provider_key": "fake_core_provider",
+      "real_external_provider_call_open": true,
+      "request_id": "req-agent-core-provider-trace-readback",
+      "trace_id": "trace-agent-core-provider-trace-readback"
+    },
+    "present_keys": [
+      "data",
+      "error",
+      "meta",
+      "status"
+    ],
+    "required_keys": [
+      "data",
+      "error",
+      "meta",
+      "status"
+    ],
+    "status": "ok"
+  },
+  "tool_call_envelope": {
+    "contract_version": "agent_core.provider_trace_tool_call_envelope.v1",
+    "event_type_counts": {
+      "assistant_message": 1,
+      "final_answer": 1,
+      "session_started": 1,
+      "tool_call_requested": 1,
+      "tool_call_started": 1,
+      "tool_result": 1,
+      "user_message": 1
+    },
+    "runtime_dispatch": {
+      "contract_version": "agent_core.runtime_dispatch.v1",
+      "final_answer_present": true,
+      "session_id": "agent-core-provider-trace-readback-session",
+      "stop_reason": "final_answer",
+      "turn_id": "turn-agent-core-provider-trace-readback"
+    },
+    "tool_call_contract": {
+      "arguments": {
+        "keys": [
+          "query",
+          "request_body",
+          "trace_id"
+        ],
+        "raw_values_persisted": false,
+        "redacted": true,
+        "type": "object",
+        "value_fingerprints": {
+          "query": {
+            "length": 114,
+            "marker": "[REDACTED]",
+            "redacted": true,
+            "sha256": "304a385801e7fc3e0cd8f3fa9fd881b675c4fa66fbe546997276487342774e43",
+            "type": "string"
+          },
+          "request_body": {
+            "length": 122,
+            "marker": "[REDACTED]",
+            "redacted": true,
+            "sha256": "b15f60eb7dca81bee2b1258bf43fbc8656d8a7671208b8b6a8b53ddd3ae5dd0c",
+            "type": "string"
+          },
+          "trace_id": {
+            "length": 40,
+            "marker": "[REDACTED]",
+            "redacted": true,
+            "sha256": "9899932e1ad8c6dcdc03b98572f2adba1f5a0203c5b32dbb362c945597e7e16d",
+            "type": "string"
+          }
+        }
+      },
+      "arguments_redacted": true,
+      "arguments_type": "object",
+      "call_id": "call-agent-provider-trace-readback",
+      "contract_version": "agent_core.tool_call_shape.v1",
+      "missing_keys": [],
+      "present_keys": [
+        "arguments",
+        "call_id",
+        "reason",
+        "tool_name"
+      ],
+      "provider_key": "fake_core_provider",
+      "raw_arguments_persisted": false,
+      "reason_present": true,
+      "required_keys": [
+        "call_id",
+        "tool_name",
+        "arguments",
+        "reason"
+      ],
+      "shape_status": "valid",
+      "tool_name": "agent.provider_trace.echo"
+    },
+    "tool_event_sequence": [
+      {
+        "call_id": "call-agent-provider-trace-readback",
+        "contract_version": "agent_core.provider_trace_tool_event.v1",
+        "event_type": "tool_call_requested",
+        "has_status_data_error_meta": false,
+        "has_tool_call": true,
+        "has_tool_spec": false,
+        "permission": "allow",
+        "status": null,
+        "tool_name": "agent.provider_trace.echo"
+      },
+      {
+        "call_id": "call-agent-provider-trace-readback",
+        "contract_version": "agent_core.provider_trace_tool_event.v1",
+        "event_type": "tool_call_started",
+        "has_status_data_error_meta": false,
+        "has_tool_call": true,
+        "has_tool_spec": true,
+        "permission": null,
+        "status": null,
+        "tool_name": "agent.provider_trace.echo"
+      },
+      {
+        "call_id": "call-agent-provider-trace-readback",
+        "contract_version": "agent_core.provider_trace_tool_event.v1",
+        "event_type": "tool_result",
+        "has_status_data_error_meta": true,
+        "has_tool_call": false,
+        "has_tool_spec": false,
+        "permission": null,
+        "status": "completed",
+        "tool_name": "agent.provider_trace.echo"
+      }
+    ],
+    "tool_result_status_counts": {
+      "completed": 1
+    }
+  },
+  "unsupported_closure_claims": [
+    {
+      "claim": "The selected real external provider has completed a live AgentCore tool-call probe.",
+      "code": "real_external_provider_call_open",
+      "reason": "This Wave18 checker spends zero external model calls and only reads back the fake provider trace envelope.",
+      "required_next_evidence": "Bounded live provider invocation with timeout, model id, raw response shape, latency, and failure classification."
+    },
+    {
+      "claim": "A deterministic fake provider trace proves production provider quality.",
+      "code": "fake_provider_trace_does_not_close_live_provider_quality",
+      "reason": "The fake provider proves runtime trace and envelope preservation only.",
+      "required_next_evidence": "Live replay against the configured provider while preserving the same status/data/error/meta readback."
+    }
+  ]
+}

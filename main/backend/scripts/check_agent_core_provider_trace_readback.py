@@ -50,11 +50,14 @@ def main(argv: list[str] | None = None) -> int:
     else:
         trace = snapshot.get("provider_trace") if isinstance(snapshot.get("provider_trace"), dict) else {}
         envelope = snapshot.get("status_data_error_meta_compatibility") if isinstance(snapshot.get("status_data_error_meta_compatibility"), dict) else {}
+        redaction = snapshot.get("redaction_replay") if isinstance(snapshot.get("redaction_replay"), dict) else {}
         print(
             "OK agent_core_provider_trace_readback=passed "
             f"provider={trace.get('provider_key')} "
             f"provider_calls={trace.get('call_count')} "
             f"status_data_error_meta={str(envelope.get('compatible')).lower()} "
+            f"provider_trace_redaction={str(redaction.get('raw_sensitive_values_absent')).lower()} "
+            f"tool_call_arguments_redacted={str(redaction.get('tool_call_arguments_redacted')).lower()} "
             f"real_external_provider_call_open={str(snapshot.get('real_external_provider_call_open')).lower()} "
             f"external_model_calls={snapshot.get('external_model_calls')}"
         )
