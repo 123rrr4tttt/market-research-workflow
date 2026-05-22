@@ -32,6 +32,16 @@
 - Clue Chain Wave5 工作树执行计划（2026-05-22，已合并 / 验证通过）：
   - [development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md)
   - [development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md)
+- Wave6 CURRENT_DEV 并行状态证据与最小落地计划（2026-05-22，9 个子代理分支已合并）：
+  - [parallel-agent orchestration](./development-plans/CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md)
+  - [crawler source expansion](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave6-closure-gap-and-min-plan.md)
+  - [docs root restructuring](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/02_wave6-docs-root-restructuring-evidence-closure-gap-2026-05-22.md)
+  - [graph editing/reporting](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md)
+  - [LLM service and Agent platformization](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/03_wave6-5-status-evidence-and-min-plan-2026-05-22.md)
+  - [typed knowledge organization](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/03_wave6-6-status-evidence-and-minimal-plan-2026-05-22.md)
+  - [writing workbench evolution](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/03_wave6_7_status-evidence-and-minimum-plan-2026-05-22.md)
+  - [后续安排 / abstract planning folderization](./development-plans/CURRENT_DEV/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md)
+  - [local open search provider isolation](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

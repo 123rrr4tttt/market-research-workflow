@@ -24,13 +24,15 @@
 - `not_closed`：仍处于未完成计划或明确未收口状态
 - `no_closure_claim`：目录没有收口声明，或只是映射 / 占位 / 规划材料
 - `wave5_verified`：当前并行实现波次已合并并通过聚焦门禁，仍保留后续生产化或更大范围验证项
+- `wave6_verified`：Wave6 分支已合并并通过聚焦门禁，已有代码 / 契约 / 状态证据落地，但整专题仍保留后续范围
+- `wave6_checked`：Wave6 已完成专题核查或最小门禁，但结论仍是整体未封口
 - 时效标签详见 [`STATUS_AUDIT_2026-04-07.md`](./STATUS_AUDIT_2026-04-07.md)
 
 ## 剩余状态分布
 
-- `partial`: 24
-- `not_closed`: 8
-- `no_closure_claim`: 4
+- `partial`: 30
+- `not_closed`: 3
+- `no_closure_claim`: 3
 
 ## Agent High-Fidelity Migration Split Result
 
@@ -42,6 +44,7 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 
 - `[partial][doc_aligned]` [2026-03-01 Open Source Platform Integration](./2026-03-01-open-source-platform-integration/01_multi-agent-taskboard-open-source-platform-integration-2026-03-01.md)
 - `[partial][doc_aligned]` [2026-05-14 Global Vectorization General Foundation](./2026-05-14-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-05-14.md) - local_index evidence: [runtime-contract](../../automation-runs/local-index-runtime-contract/2026-05-22/README.md), [benchmark-quality](../../automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
+- `[partial][wave6_verified]` [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./2026-05-14-local-open-search-provider-isolation/INDEX.md) - Wave6 provider isolation evidence: [11_wave6-9-status-evidence-and-min-plan-2026-05-22.md](./2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
 - `[partial][doc_drift]` [2026-03-02 Graph 3D Force Engine Parallel Migration](./2026-03-02-graph-3d-force-engine-parallel-migration/01_graph-3d-force-engine-parallel-migration-2026-03-02.md)
 - `[partial][doc_aligned][fetch_router_gap]` [2026-03-02 Ingest Platformization Assessment](./2026-03-02-ingest-platformization-assessment/01_ingest-platformization-assessment-and-roadmap-2026-03-02.md) - ingest/frontdoor evidence: [ingest-frontdoor-closure/2026-05-22](../../automation-runs/ingest-frontdoor-closure/2026-05-22/README.md)
 - `[partial][doc_drift]` [2026-03-02 Meaningful Ingest Guardrails Plan](./2026-03-02-meaningful-ingest-guardrails-plan/01_meaningful-ingest-guardrails-plan-2026-03-02.md)
@@ -60,6 +63,11 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 - `[partial][doc_aligned]` [2026-03-14 Time Semantics Density Merged Plan](./2026-03-14-time-semantics-density-merged-plan/README.md)
 - `[partial][doc_aligned]` [2026-03-07 Dual Frontend Workbench Topology](./2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md) - topology contract evidence: [frontend-topology-theme/2026-05-22](../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
 - `[partial][doc_aligned]` [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md) - i18n/theme contract evidence: [frontend-topology-theme/2026-05-22](../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
+- `[partial][wave6_verified]` [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md) - reporting handoff bridge evidence: [03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md](./2026-03-07-graph-editing-and-reporting/03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md); prior API handoff evidence: [graph-handoff-evidence/2026-05-22](../../automation-runs/graph-handoff-evidence/2026-05-22/README.md)
+- `[partial][wave6_verified]` [2026-03-07 LLM Service And Agent Platformization](./2026-03-07-llm-service-and-agent-platformization/01_llm-service-and-agent-platformization-plan-2026-03-07.md) - AgentCore schema inventory / platform contract evidence: [03_wave6-5-status-evidence-and-min-plan-2026-05-22.md](./2026-03-07-llm-service-and-agent-platformization/03_wave6-5-status-evidence-and-min-plan-2026-05-22.md)
+- `[partial][wave6_verified]` [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md) - service-level contract evidence: [03_wave6-6-status-evidence-and-minimal-plan-2026-05-22.md](./2026-03-07-typed-knowledge-organization/03_wave6-6-status-evidence-and-minimal-plan-2026-05-22.md)
+- `[partial][wave6_verified]` [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md) - writing contract evidence: [03_wave6_7_status-evidence-and-minimum-plan-2026-05-22.md](./2026-03-07-writing-workbench-evolution/03_wave6_7_status-evidence-and-minimum-plan-2026-05-22.md)
+- `[partial][wave6_verified]` [2026-03-07 后续安排](./2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md) - folderization structure evidence: [04_status-evidence-and-minimum-dev-plan-2026-05-22.md](./2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md)
 - `[partial][doc_aligned]` [2026-03-15 Frontend Three-Layer Rewrite](./2026-03-15-frontend-three-layer-rewrite/README.md)
 - `[partial][doc_aligned]` [2026-03-25 Source-Library Ingest Minimal Migration](./2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md)
 - `[partial][wave5_verified]` [2026-05-22 Clue Chain Investigation Tool](./2026-05-22-clue-chain-investigation-tool/INDEX.md) - Wave5 plan: [02_wave5_worktree_execution_plan.md](./2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md); implementation evidence: [04_wave5_implementation_evidence-2026-05-22.md](./2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md)
@@ -67,18 +75,12 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 
 ## Not Closed
 
-- `[not_closed][doc_aligned]` [2026-04-07 Parallel Agent Wave Orchestration](./2026-04-07-parallel-agent-wave-orchestration/README.md)
-- `[not_closed][doc_aligned]` [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)
-- `[not_closed][doc_aligned]` [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
-- `[not_closed][doc_aligned]` [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md) - API handoff evidence: [graph-handoff-evidence/2026-05-22](../../automation-runs/graph-handoff-evidence/2026-05-22/README.md)
-- `[not_closed][doc_stale]` [2026-03-07 LLM Service And Agent Platformization](./2026-03-07-llm-service-and-agent-platformization/01_llm-service-and-agent-platformization-plan-2026-03-07.md)
-- `[not_closed][doc_aligned]` [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)
-- `[not_closed][doc_stale]` [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
-- `[not_closed][doc_aligned]` [2026-03-07 后续安排](./2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md)
+- `[not_closed][wave6_checked]` [2026-04-07 Parallel Agent Wave Orchestration](./2026-04-07-parallel-agent-wave-orchestration/README.md) - Wave6 orchestration evidence: [04_wave6-evidence-closure-gap-2026-05-22.md](./2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md)
+- `[not_closed][wave6_checked]` [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md) - overall status remains `not_closed`; evidence/check gate: [2026-05-22-wave6-closure-gap-and-min-plan.md](./2026-03-07-crawler-source-expansion/2026-05-22-wave6-closure-gap-and-min-plan.md)
+- `[not_closed][wave6_checked]` [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md) - structure gate added; migration batch still absent: [02_wave6-docs-root-restructuring-evidence-closure-gap-2026-05-22.md](./2026-03-07-docs-root-restructuring/02_wave6-docs-root-restructuring-evidence-closure-gap-2026-05-22.md)
 
 ## No Closure Claim / Retained Current Evidence
 
-- `[no_closure_claim][planned_ready]` [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./2026-05-14-local-open-search-provider-isolation/INDEX.md)
 - `[no_closure_claim][doc_drift]` [2026-03-02 Graph Node Standardization A Then B Plan](./2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
 - `[no_closure_claim][doc_aligned]` [2026-03-07 Ingest Digestion And Long-Cycle Automation](./2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md)
 - `[no_closure_claim][placeholder]` `2026-03-24 Frontend Visual Layering`（placeholder path is not present in this snapshot）
