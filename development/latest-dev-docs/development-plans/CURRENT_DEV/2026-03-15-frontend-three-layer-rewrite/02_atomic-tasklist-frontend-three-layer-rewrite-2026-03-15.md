@@ -9,6 +9,13 @@
 - `T4`: in_progress; visualization shell has landed and graph shell stories exist, but B-layer object/view contracts remain concentrated in `GraphPage`.
 - `T5`: in_progress; compatibility adapter is extracted and retirement criteria are documented, but `AppShell` has not yet been reduced to compatibility-only duties.
 
+2026-05-22 Wave3 I refresh:
+
+- topology, module manifest, shell i18n, and theme token contracts are now covered by `npm --prefix main/frontend-modern run check:topology-platform`;
+- evidence is stored at [../../../automation-runs/frontend-topology-theme/2026-05-22/README.md](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md);
+- do not treat the single manifest, legacy hash adapter, B-layer shell existence, locale catalog, or theme token groups as open existence gaps;
+- remaining `T1-T5` risk is about retirement depth and page boundary depth, not missing platform contract primitives.
+
 ## Global Serial-Parallel Rules
 
 - `L0` serial bootstrap:

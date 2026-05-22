@@ -2,12 +2,10 @@
 
 ## Execution Status Snapshot
 
-- `A1`: pending, freeze terminology, scope, and non-goals before topology expansion.
-- `A2`: pending, capture the actual `frontend-modern` shell/navigation/page baseline.
-- `A3-A5`: pending, classification rubric, page placement, and shared-platform boundary are the core planning tranche.
-- `A6`: pending, navigation and context-switch rules depend on `A4-A5`.
-- `A7`: pending, phased rollout packages depend on the topology decisions being frozen.
-- `A8`: pending, close with a minimal validation matrix that future implementation tasks can reuse.
+- 2026-05-22 status: `A1-A8` are contract-closed for the modern-only dual-interaction topology. The current implementation stores scope, baseline inventory, classification, page placement, shared platform boundary, navigation switching, and validation in source code.
+- Evidence: [../../../automation-runs/frontend-topology-theme/2026-05-22/README.md](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md).
+- Current gate: `npm --prefix main/frontend-modern run check:topology-platform`.
+- Residual work: do not reopen this topic as a legacy coexistence plan. Remaining UI architecture work belongs to the three-layer rewrite closure lane, especially `AppShell` retirement and heavy page container/view boundaries.
 
 ## Global Serial-Parallel Rules
 

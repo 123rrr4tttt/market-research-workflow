@@ -1,8 +1,8 @@
 # Frontend Modern Merged Current-State Document
 
 > Updated: 2026-05-22 (US/Pacific)
-> Scope: `main/frontend-modern` README, package scripts, Storybook configuration, and Playwright E2E layout.
-> Write boundary: documentation index only; no frontend source files were changed in this lane.
+> Scope: `main/frontend-modern` README, package scripts, Storybook configuration, Playwright E2E layout, topology contracts, i18n contracts, and theme token contracts.
+> Write boundary: current-state document plus linked evidence. Wave3 I added a focused frontend static gate; no broad UI rewrite was performed.
 
 ## 1. Canonical App Surface
 
@@ -32,6 +32,7 @@ Current scripts from `main/frontend-modern/package.json`:
 | `dev` | `vite` | local development server |
 | `build` | `tsc -b && vite build` | production build gate |
 | `lint` | `eslint .` | static lint gate |
+| `check:topology-platform` | `node scripts/check_topology_platform_contract.mjs` | topology/i18n/theme static contract gate |
 | `preview` | `vite preview` | local production preview |
 | `storybook` | `storybook dev -p 6006 --host 0.0.0.0` | Storybook dev server |
 | `storybook:build` | `storybook build` | static Storybook build |
@@ -41,6 +42,8 @@ Current scripts from `main/frontend-modern/package.json`:
 | `test:ingest-smoke` | `../backend/scripts/run_ingest_flow_smoke.sh` | backend-assisted ingest smoke |
 
 There is no generic `npm test` script in this package. The current frontend validation surface is therefore lint/build, Storybook, and Playwright E2E.
+
+Wave3 I added `check:topology-platform` on 2026-05-22. This gate is intentionally static and fast: it reads TypeScript source with the TypeScript compiler API and verifies module manifest coverage, topology placement coverage, i18n catalog coverage, theme token coverage, and shell/sidenav contract usage.
 
 ## 3. Storybook And MCP Status
 
@@ -87,13 +90,32 @@ Current source inventory contains 8 E2E specs:
 - `runtime-smoke.spec.ts`
 - `writing-workbench.spec.ts`
 
-## 5. Documentation Accuracy Notes
+## 5. Topology / I18N / Theme Contract Status
+
+Current source state now has explicit contracts for the older frontend planning topics:
+
+- topology scope and placement live under `main/frontend-modern/src/app/topology/`;
+- the canonical module list lives in `main/frontend-modern/src/app/kernel/moduleManifest.ts`;
+- legacy hash compatibility is isolated in `main/frontend-modern/src/app/kernel/legacyHashAdapter.ts`;
+- i18n catalogs, locale store, and translation access live under `main/frontend-modern/src/app/platform/i18n/`;
+- theme state and token application live under `main/frontend-modern/src/app/platform/theme/`;
+- `AppShell` consumes `useAppLocale`, `useAppTheme`, `applyThemeTokens`, and module descriptors;
+- `FigmaSideNav` consumes the module registry, filters by interaction surface, and resolves nav labels through i18n keys.
+
+Contract gate evidence was refreshed on 2026-05-22:
+
+- `npm --prefix main/frontend-modern run check:topology-platform` completed successfully.
+- Evidence package: [../../automation-runs/frontend-topology-theme/2026-05-22/README.md](../../automation-runs/frontend-topology-theme/2026-05-22/README.md).
+
+This evidence removes the stale assumption that `dual-frontend topology` and `frontend i18n/theme modularization` are still only planning docs. Remaining frontend architecture work should focus on `AppShell` retirement and heavy page container/view splits, not on re-inventing topology, theme, locale, or module registry basics.
+
+## 6. Documentation Accuracy Notes
 
 - The previous `frontend-modern/main/LLM_DESIGNER_UI_REPLICA_BRIEF.md` file was moved to `frontend-modern/F_PLAN/LLM_DESIGNER_UI_REPLICA_BRIEF.md` so `main/` keeps the standard entry shape.
 - `main/frontend-modern/README.md` remains the source-facing operational README. It includes the current Storybook, E2E, Docker, and API alignment notes, but its docker-compose example section appears to keep explanatory prose inside a fenced `yaml` block. This lane did not edit that source README because the write boundary is the latest-dev-docs index surface.
-- This document records current source state and navigation status. Storybook/MCP gates were executed in the 2026-05-22 `storybook-launcher-gates` lane; broader frontend build and Playwright runtime gates remain separate.
+- This document records current source state and navigation status. Storybook/MCP gates were executed in the 2026-05-22 `storybook-launcher-gates` lane. The topology/i18n/theme contract gate was executed in the 2026-05-22 `frontend-topology-theme` lane. Broader frontend build and Playwright runtime gates remain separate.
 
-## 6. Recommended Merge Check
+## 7. Recommended Merge Check
 
 Before merging this branch into a shared integration branch, run:
 
@@ -106,5 +128,6 @@ and a Markdown link check over:
 - `development/latest-dev-docs/frontend-modern/INDEX.md`
 - `development/latest-dev-docs/frontend-modern/main/index.md`
 - `development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md`
+- `development/latest-dev-docs/automation-runs/frontend-topology-theme/2026-05-22/README.md`
 - `development/latest-dev-docs/README.md`
 - `development/latest-dev-docs/MERGED_OVERVIEW.md`

@@ -370,3 +370,33 @@
 1. 先处理 `WritingWorkbenchPage` 的多浮窗 contract。
 2. 再处理 `GraphPage` 的对象详情与模板编排拆分。
 3. 最后回收 `AppShell` 的 legacy wrapper 边界。
+
+## 10. Wave3 I Contract Gate Refresh (2026-05-22)
+
+Wave3 I added a source-backed static gate for the topology, i18n, theme, and module-manifest contracts:
+
+- Evidence: [../../../automation-runs/frontend-topology-theme/2026-05-22/README.md](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
+- Command: `npm --prefix main/frontend-modern run check:topology-platform`
+
+The gate currently verifies:
+
+1. `KernelModuleKey` and `moduleManifest` both cover 31 modules.
+2. `PAGE_PLACEMENT_BASELINE` and `BASELINE_PAGE_INVENTORY` cover every module exactly once.
+3. topology placement surfaces and baseline inventory surfaces agree.
+4. shell title, nav label, and nav group keys exist with non-empty `zh-CN` and `en-US` catalog values.
+5. `light`, `dark`, and `brand` themes expose the shared token groups.
+6. `AppShell` consumes locale/theme contracts and applies theme tokens.
+7. `FigmaSideNav` consumes the module registry, filters by interaction surface, and resolves labels through i18n keys.
+
+This changes the 2026-04-02 gap interpretation:
+
+- S1 single module manifest: source-backed and statically gated.
+- S2 legacy compatibility adapter: source-backed through `kernel/legacyHashAdapter.ts` and static manifest/hash checks.
+- S3 B-layer shell existence: no longer an open existence gap; remaining B-layer work is object/view contract depth, especially in `GraphPage`.
+- i18n/theme platform basics: no longer an open planning gap; remaining work is business-content localization and legacy CSS cleanup.
+
+Still open:
+
+1. `AppShell` is not yet compatibility-only.
+2. `WritingWorkbenchPage` and `GraphPage` remain heavy container pages.
+3. The new static gate complements but does not replace runtime E2E and visual evidence.

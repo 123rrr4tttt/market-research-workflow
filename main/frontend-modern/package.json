@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "check:topology-platform": "node scripts/check_topology_platform_contract.mjs",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006 --host 0.0.0.0",
     "storybook:build": "storybook build",

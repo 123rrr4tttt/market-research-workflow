@@ -6,6 +6,17 @@
 2. [02_atomic-tasklist-frontend-three-layer-rewrite-2026-03-15.md](./02_atomic-tasklist-frontend-three-layer-rewrite-2026-03-15.md)
 3. [03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 
+## 2026-05-22 状态刷新
+
+Wave3 I 补充了 topology / i18n / theme / module manifest 的静态合同门禁：
+
+- evidence: [../../../automation-runs/frontend-topology-theme/2026-05-22/README.md](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
+- command: `npm --prefix main/frontend-modern run check:topology-platform`
+
+该证据说明三层重写里的 shared platform kernel 基础合同已经具备可重复检查：31 个模块都进入 `moduleManifest`，placement baseline 与 baseline inventory 完整，`zh-CN` / `en-US` shell/nav catalog 完整，`light` / `dark` / `brand` token groups 完整，`AppShell` 与 `FigmaSideNav` 均消费当前平台合同。
+
+因此后续收口不要再把 S1/S2/S3 当成未开始项；剩余重点是 `AppShell` compatibility-only retirement、`WritingWorkbenchPage` / `GraphPage` 等重页面的 container/view 封边、以及更完整的运行态 E2E。
+
 ## 阅读顺序
 
 1. 先读 `01_frontend-three-layer-rewrite-architecture-2026-03-15.md`，冻结三层重写的目标形态、保留闭环、跨层契约、设计信息获取方法。
