@@ -17,6 +17,8 @@ from .search_result_parser_service import SearchResultParserModule
 from .search_result_parser_service import parse_search_result_candidates
 from .search_result_parser_service import resolve_search_result_parser_modules
 from .search_result_parser_service import resolve_search_result_parser_profile
+from .search_result_parser_profiles import ParserProfileCapability
+from .search_result_parser_profiles import resolve_parser_profile_capability
 
 __all__ = [
     "SearchTemplateExecutionResult",
@@ -36,4 +38,6 @@ __all__ = [
     "resolve_search_template_pagination",
     "SearchResultParserModule",
     "SearchResultParserProfile",
+    "ParserProfileCapability",
+    "resolve_parser_profile_capability",
 ]

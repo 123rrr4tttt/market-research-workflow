@@ -145,6 +145,32 @@ class SearchResultParserProfile:
     default_route_kind: str = "page"
 
 
+@dataclass(frozen=True)
+class ParserProfileCapability:
+    requested_profile: str
+    resolved_profile: str
+    status: str
+    reason: str
+    review_required: bool = False
+
+
+_GENERIC_PROFILE_KEYS = {"", "default", "site_adaptive"}
+_REVIEW_PROFILE_ALIASES = {
+    "anchor_only": "fallback_anchor_only",
+    "fallback_anchor_only": "fallback_anchor_only",
+}
+_KNOWN_PROFILE_ALIASES = {
+    "site_adaptive.commercialobserver_card",
+    "commercialobserver.card",
+    "site_adaptive.pymnts_card",
+    "pymnts.card",
+    "site_adaptive.investopedia_cards",
+    "investopedia.cards",
+    "site_adaptive.hai_research_shell",
+    "hai.research_shell",
+}
+
+
 def _base_profile(*, profile_key: str, entry_domain: str) -> SearchResultParserProfile:
     return SearchResultParserProfile(
         profile_key=profile_key,
@@ -355,3 +381,56 @@ def build_search_result_parser_profile(
     if requested in {"default", "site_adaptive", ""}:
         return _base_profile(profile_key=requested or "default", entry_domain=domain)
     return _base_profile(profile_key=requested, entry_domain=domain)
+
+
+def resolve_parser_profile_capability(
+    entry_domain: str | None,
+    *,
+    parser_profile: str | None = None,
+    default_profile: str | None = None,
+) -> ParserProfileCapability:
+    domain = (entry_domain or "").strip().lower()
+    requested = str(parser_profile or "").strip().lower()
+    fallback = str(default_profile or "").strip().lower()
+    effective = requested or fallback or "site_adaptive"
+
+    if effective in _REVIEW_PROFILE_ALIASES:
+        resolved = _REVIEW_PROFILE_ALIASES[effective]
+        return ParserProfileCapability(
+            requested_profile=requested,
+            resolved_profile=resolved,
+            status="review",
+            reason="low_confidence_anchor_only_profile",
+            review_required=True,
+        )
+
+    if effective in _GENERIC_PROFILE_KEYS:
+        resolved = build_search_result_parser_profile(domain, parser_profile=effective).profile_key
+        return ParserProfileCapability(
+            requested_profile=requested,
+            resolved_profile=resolved,
+            status="allow",
+            reason="known_generic_or_domain_profile",
+        )
+
+    if effective in _KNOWN_PROFILE_ALIASES:
+        resolved = build_search_result_parser_profile(domain, parser_profile=effective).profile_key
+        return ParserProfileCapability(
+            requested_profile=requested,
+            resolved_profile=resolved,
+            status="allow",
+            reason="known_parser_profile",
+        )
+
+    downgraded_to = (
+        fallback
+        if fallback in _KNOWN_PROFILE_ALIASES or fallback in _GENERIC_PROFILE_KEYS
+        else "site_adaptive"
+    )
+    resolved = build_search_result_parser_profile(domain, parser_profile=downgraded_to).profile_key
+    return ParserProfileCapability(
+        requested_profile=requested,
+        resolved_profile=resolved,
+        status="downgrade",
+        reason="unknown_parser_profile_downgraded",
+    )

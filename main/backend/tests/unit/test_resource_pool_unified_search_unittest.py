@@ -913,6 +913,55 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
 
         self.assertEqual(execute.call_args.kwargs["params"]["parser_profile"], "fallback_anchor_only")
 
+    def test_unified_search_marks_anchor_only_parser_candidates_for_review(self) -> None:
+        item = {
+            "item_key": "search-item",
+            "params": {
+                "site_entries": ["https://example.com/search?q={{q}}"],
+            },
+        }
+
+        with patch(
+            "app.services.resource_pool.unified_search.get_site_entry_by_url",
+            return_value={
+                "site_url": "https://example.com/search?q={{q}}",
+                "domain": "example.com",
+                "entry_type": "search_template",
+                "channel_key": "generic_web.search_template",
+                "template": "https://example.com/search?q={{q}}",
+                "capabilities": {"supports_query_terms": True, "keyword_mode": "search"},
+                "extra": {"remediation": {"parser_profile": "fallback_anchor_only"}},
+            },
+        ), patch(
+            "app.services.resource_pool.unified_search.execute_search_template",
+            return_value=SimpleNamespace(
+                selected_candidates=[
+                    SimpleNamespace(
+                        url="https://example.com/posts/robotics-review",
+                        matched_by="title",
+                        candidate_quality="high",
+                        usable_for_search=True,
+                        score=0.9,
+                        route_kind="article",
+                    )
+                ],
+                used_term_fallback=False,
+                errors=[],
+                diagnostics={"search_service": "basic"},
+            ),
+        ):
+            result = unified_search_by_item_payload(
+                project_key="demo",
+                item=item,
+                query_terms=["robotics"],
+                allow_term_fallback=False,
+            )
+
+        self.assertEqual(result.candidates, ["https://example.com/posts/robotics-review"])
+        self.assertEqual(result.runtime_diagnostics[0]["adapter_capability_status"], "review")
+        self.assertTrue(result.runtime_diagnostics[0]["relevance_review_required"])
+        self.assertEqual(result.runtime_diagnostics[0]["parser_profile_resolved"], "fallback_anchor_only")
+
     def test_unified_search_policy_skips_social_sites(self) -> None:
         item = {
             "item_key": "reddit-search",
