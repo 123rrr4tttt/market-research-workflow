@@ -10,6 +10,7 @@ import {
   getPolicyGraph,
   getSocialGraph,
   listSourceItems,
+  buildWorkflowGraphReportingHandoff,
   saveWorkflowGraphCuratedDraft,
   submitGraphStructuredSearchTasks,
   submitWorkflowGraphCuratedDraft,
@@ -1121,6 +1122,7 @@ const SPECIAL_PREFIX_BY_KIND: Partial<Record<GraphKind, string>> = {
 
 export default function GraphPage({ projectKey, variant, templateBuilder = false }: Props) {
   const graphKind = TYPE_TO_KIND[variant]
+  const defaultCuratedHandoffTopic = TYPE_LABEL[variant]
   const defaultCuratedGraphId = useMemo(() => buildDefaultCuratedGraphId(projectKey, graphKind), [projectKey, graphKind])
   const chartRef = useRef<HTMLDivElement | null>(null)
   const forceChartRef = useRef<HTMLDivElement | null>(null)
@@ -1202,6 +1204,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [curatedBusy, setCuratedBusy] = useState(false)
   const [curatedRevision, setCuratedRevision] = useState<number | null>(null)
   const [curatedStatus, setCuratedStatus] = useState('')
+  const [curatedHandoffTopic, setCuratedHandoffTopic] = useState(defaultCuratedHandoffTopic)
   const [newNodeType, setNewNodeType] = useState('Entity')
   const [newNodeName, setNewNodeName] = useState('')
   const [edgeDraft, setEdgeDraft] = useState({ sourceKey: '', targetKey: '', relation: '' })
@@ -2084,6 +2087,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setCuratedGraphId((prev) => (prev.trim() ? prev : defaultCuratedGraphId))
   }, [defaultCuratedGraphId])
 
+  useEffect(() => {
+    setCuratedHandoffTopic((prev) => (prev.trim() ? prev : defaultCuratedHandoffTopic))
+  }, [defaultCuratedHandoffTopic])
+
   const applyCuratedState = useCallback((state: WorkflowGraphCuratedStateResponse, fallbackLabel: string) => {
     if (typeof state.revision === 'number') setCuratedRevision(state.revision)
     const status = String(state.sync_status || state.submit_status || state.rollback_status || fallbackLabel)
@@ -2195,6 +2202,44 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       setCuratedBusy(false)
     }
   }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved])
+
+  const handleBuildCuratedReportingHandoff = useCallback(async () => {
+    const graphId = curatedGraphId.trim()
+    if (!graphId) {
+      window.alert('请填写 Curated graph_id')
+      return
+    }
+    const topic = curatedHandoffTopic.trim()
+    if (!topic) {
+      window.alert('请填写 Reporting topic')
+      return
+    }
+    const selected_node_ids = selectedEditableNodes
+      .map((node) => curatedNodeId(node))
+      .filter(Boolean)
+
+    setCuratedBusy(true)
+    try {
+      const handoff = await buildWorkflowGraphReportingHandoff(graphId, {
+        topic,
+        ...(selected_node_ids.length ? { selected_node_ids } : {}),
+      })
+      const reportRequest = handoff.report_generate_request || {}
+      const sourceCount = Array.isArray(reportRequest.sources) ? reportRequest.sources.length : 0
+      const persistence = handoff.persistence || {}
+      const runId = String(persistence.run_id || '').trim()
+      const handoffId = String(handoff.handoff_id || '').trim()
+      setCuratedStatus(`report_handoff_ready${sourceCount ? ` sources=${sourceCount}` : ''}${runId ? ` ${runId}` : ''}`)
+      setGraphEditStatus(`Curated reporting handoff 已生成: ${handoffId || graphId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'handoff 生成失败'
+      setCuratedStatus(`report_handoff_failed: ${message}`)
+      setGraphEditStatus(`Curated reporting handoff 生成失败: ${message}`)
+      window.alert(`Curated reporting handoff 生成失败: ${message}`)
+    } finally {
+      setCuratedBusy(false)
+    }
+  }, [curatedGraphId, curatedHandoffTopic, selectedEditableNodes])
 
   const selectedExportPayload = useMemo(() => {
     const scopedTopicFocus = graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
@@ -4961,6 +5006,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         disabled={!editMode || curatedBusy}
                       >
                         同步 Curated
+                      </button>
+                    </div>
+                    <label className="gv2-control-chip">
+                      Reporting topic
+                      <input
+                        data-testid="graph-curated-reporting-topic"
+                        value={curatedHandoffTopic}
+                        onChange={(e) => setCuratedHandoffTopic(e.target.value)}
+                        disabled={!editMode || curatedBusy}
+                      />
+                    </label>
+                    <div className="gv2-control-chip">
+                      <button
+                        type="button"
+                        className="secondary"
+                        data-testid="graph-curated-reporting-handoff"
+                        onClick={() => void handleBuildCuratedReportingHandoff()}
+                        disabled={!editMode || curatedBusy || !curatedHandoffTopic.trim()}
+                      >
+                        生成 Reporting Handoff
                       </button>
                     </div>
                     <div className="status-line" data-testid="graph-curated-status">

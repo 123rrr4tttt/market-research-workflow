@@ -145,6 +145,50 @@ export type WorkflowGraphCuratedSyncPayload = {
   base_version?: number
 }
 
+export type WorkflowGraphEvidencePackPayload = {
+  selected_node_ids?: string[]
+  version_id?: string
+}
+
+export type WorkflowGraphReportingHandoffPayload = WorkflowGraphEvidencePackPayload & {
+  topic: string
+  section_titles?: string[]
+}
+
+export type WorkflowGraphWritingHandoffPayload = WorkflowGraphEvidencePackPayload & {
+  query?: string
+  topic?: string
+}
+
+export type WorkflowGraphEvidencePackResponse = {
+  contract_version?: string
+  pack_id?: string
+  graph_id?: string
+  graph_scope?: string
+  revision?: number
+  version_id?: string | null
+  generated_at?: string
+  selected_nodes?: Array<Record<string, unknown>>
+  relations?: Array<Record<string, unknown>>
+  provenance?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export type WorkflowGraphHandoffResponse = {
+  contract_version?: string
+  handoff_id?: string
+  owner?: string
+  producer?: string
+  handoff_mode?: string
+  consumer?: string
+  report_generate_request?: Record<string, unknown>
+  keyword_card_request?: Record<string, unknown>
+  evidence_pack?: WorkflowGraphEvidencePackResponse | Record<string, unknown>
+  graph_context?: WorkflowGraphEvidencePackResponse | Record<string, unknown>
+  persistence?: Record<string, unknown>
+  [key: string]: unknown
+}
+
 export type WorkflowGraphRunEventsResponse = {
   items?: unknown[]
   total?: number
@@ -235,6 +279,18 @@ export async function submitWorkflowGraphCuratedDraft(graphId: string, payload: 
 
 export async function syncWorkflowGraphCuratedState(graphId: string, payload: WorkflowGraphCuratedSyncPayload = {}) {
   return post<WorkflowGraphCuratedStateResponse>(endpoints.workflowGraph.curatedSync(graphId), payload)
+}
+
+export async function buildWorkflowGraphEvidencePack(graphId: string, payload: WorkflowGraphEvidencePackPayload = {}) {
+  return post<WorkflowGraphEvidencePackResponse>(endpoints.workflowGraph.curatedEvidencePack(graphId), payload)
+}
+
+export async function buildWorkflowGraphReportingHandoff(graphId: string, payload: WorkflowGraphReportingHandoffPayload) {
+  return post<WorkflowGraphHandoffResponse>(endpoints.workflowGraph.curatedReportingHandoff(graphId), payload)
+}
+
+export async function buildWorkflowGraphWritingHandoff(graphId: string, payload: WorkflowGraphWritingHandoffPayload) {
+  return post<WorkflowGraphHandoffResponse>(endpoints.workflowGraph.curatedWritingHandoff(graphId), payload)
 }
 
 export async function exportGraph(docIds: number[] | string) {
