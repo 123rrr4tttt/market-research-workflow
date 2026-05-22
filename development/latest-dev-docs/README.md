@@ -26,6 +26,8 @@
 
 ## 最新补充
 
+- 线索追查 `Chain` / 链条工具开发计划（2026-05-22）：
+  - [development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

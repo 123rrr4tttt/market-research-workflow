@@ -28,7 +28,7 @@
 ## 剩余状态分布
 
 - `partial`: 23
-- `not_closed`: 8
+- `not_closed`: 9
 - `no_closure_claim`: 4
 
 ## Agent High-Fidelity Migration Split Result
@@ -66,6 +66,7 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 ## Not Closed
 
 - `[not_closed][doc_aligned]` [2026-04-07 Parallel Agent Wave Orchestration](./2026-04-07-parallel-agent-wave-orchestration/README.md)
+- `[not_closed][planned_ready]` [2026-05-22 Clue Chain Investigation Tool](./2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md) - API handoff evidence: [graph-handoff-evidence/2026-05-22](../../automation-runs/graph-handoff-evidence/2026-05-22/README.md)
