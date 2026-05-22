@@ -15,6 +15,12 @@ Lane-6 validation after this refresh:
 - `python3.11 -m pytest -q tests/core_business/test_ingest_core_contract.py tests/unit/test_source_library_handler_cluster_frontdoor_unittest.py` -> `27 passed`.
 - `git diff --check` -> passed.
 
+Wave3-H follow-up:
+- `collect_urls_from_pool` now passes the current pool target into sync/thread frontdoor execution. This prevents search-template/source-search contracts from drifting to the last target in the pool batch.
+- Added focused regression in `main/backend/tests/unit/test_ingest_frontdoor_context_unittest.py`.
+- Evidence: [automation-runs/ingest-frontdoor-closure/2026-05-22/README.md](../../../automation-runs/ingest-frontdoor-closure/2026-05-22/README.md).
+- Still not closed here: high-JS crawler/browser-first router completeness and frontend/dashboard tri-state display.
+
 ## 1. Closure Summary
 
 This iteration closes remaining AT items up to `AT-10` in the atomic tasklist:

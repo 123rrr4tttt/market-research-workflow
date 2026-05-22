@@ -1509,7 +1509,7 @@ def collect_urls_from_pool(
         queued = 0
         queued_tasks: List[Dict[str, Any]] = []
 
-        def _run_single_target(target_url: str) -> Dict[str, Any]:
+        def _run_single_target(target_url: str, target: Dict[str, Any]) -> Dict[str, Any]:
             try:
                 search_options = _search_options_for_target(
                     target_url,
@@ -1656,12 +1656,12 @@ def collect_urls_from_pool(
             for batch in _batch_slice(runtime_targets, parallel_batch_size):
                 if parallel_workers <= 1 or len(batch) <= 1:
                     for target_url, target, pool_item in batch:
-                        item_result = _run_single_target(target_url)
+                        item_result = _run_single_target(target_url, target)
                         _collect_item_result(target_url, target, pool_item, item_result)
                     continue
                 with ThreadPoolExecutor(max_workers=min(parallel_workers, len(batch))) as executor:
                     future_to_target = {
-                        executor.submit(copy_context().run, _run_single_target, tu): (tu, t, p)
+                        executor.submit(copy_context().run, _run_single_target, tu, t): (tu, t, p)
                         for tu, t, p in batch
                     }
                     for future in as_completed(future_to_target):

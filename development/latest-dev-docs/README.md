@@ -26,6 +26,8 @@
 
 ## 最新补充
 
+- Ingest / frontdoor closure 证据包（2026-05-22）：
+  - [automation-runs/ingest-frontdoor-closure/2026-05-22/README.md](./automation-runs/ingest-frontdoor-closure/2026-05-22/README.md)
 - `local_index` LanceDB runtime smoke 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md](./automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md)
 - `local_index` runtime contract 证据包（2026-05-22）：

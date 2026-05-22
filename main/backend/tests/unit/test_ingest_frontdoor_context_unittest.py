@@ -206,6 +206,93 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(captured["extra_params"].get("frontdoor_write_mode"), "front_door_url_routing")
         self.assertEqual(captured["extra_params"].get("frontdoor_execution_mode"), "url_routing")
 
+    def test_collect_urls_from_pool_preserves_target_specific_search_contracts(self):
+        captured: list[dict] = []
+        targets = [
+            {
+                "url": "https://alpha.example/search?q={{q}}",
+                "entry_type": "search_template",
+                "domain": "alpha.example",
+                "from_url": "https://alpha.example/search?q={{q}}",
+                "is_site_seed": True,
+                "source_search_contract": {
+                    "param_key": "term",
+                    "max_candidates": 2,
+                    "min_results_required": 2,
+                },
+            },
+            {
+                "url": "https://beta.example/search?q={{q}}",
+                "entry_type": "search_template",
+                "domain": "beta.example",
+                "from_url": "https://beta.example/search?q={{q}}",
+                "is_site_seed": True,
+                "source_search_contract": {
+                    "param_key": "query",
+                    "max_candidates": 5,
+                    "min_results_required": 5,
+                },
+            },
+        ]
+        pool_items = [
+            {"url": "https://alpha.example/search?q={{q}}", "scope": "effective", "source": "alpha"},
+            {"url": "https://beta.example/search?q={{q}}", "scope": "effective", "source": "beta"},
+        ]
+
+        def _fake_frontdoor_ingress(**kwargs):
+            captured.append(
+                {
+                    "url": kwargs["url"],
+                    "search_options": dict(kwargs.get("search_options") or {}),
+                    "frontdoor_options": dict(kwargs.get("frontdoor_options") or {}),
+                }
+            )
+            return {
+                "status": "degraded_success",
+                "inserted": 0,
+                "inserted_valid": 0,
+                "skipped": 1,
+                "rejected_count": 0,
+                "rejection_breakdown": {},
+                "degradation_flags": ["empty_records"],
+                "document_id": None,
+                "quality_score": 0.0,
+            }
+
+        def _fake_unwrap(url, *, enable_network_redirect=True):
+            return SimpleNamespace(url=url, redirected=False, network_attempted=enable_network_redirect)
+
+        with patch.object(url_pool_module, "list_urls", return_value=(pool_items, len(pool_items))), patch.object(
+            url_pool_module, "_resolve_runtime_targets", return_value=(targets, "site_only")
+        ), patch.object(url_pool_module, "unwrap_url", side_effect=_fake_unwrap), patch.object(
+            url_pool_module, "is_ingest_frontdoor_enabled", return_value=True
+        ), patch.object(
+            url_pool_module, "start_job", return_value=101
+        ), patch.object(
+            url_pool_module, "complete_job"
+        ), patch.object(
+            url_pool_module, "_run_source_library_frontdoor_ingress", side_effect=_fake_frontdoor_ingress
+        ):
+            result = url_pool_module.collect_urls_from_pool(
+                project_key="demo_proj",
+                query_terms=["robotics"],
+                extra_params={
+                    "url_routing_frontdoor_enabled": True,
+                    "url_parallel_workers": 1,
+                    "url_parallel_batch_size": 1,
+                },
+            )
+
+        self.assertEqual(result["debug"]["target_mode"], "site_only")
+        self.assertEqual(result["debug"]["frontdoor_enabled"], True)
+        self.assertEqual(len(captured), 2)
+        self.assertEqual(captured[0]["search_options"]["source_search_contract"]["param_key"], "term")
+        self.assertEqual(captured[0]["search_options"]["target_candidates"], 2)
+        self.assertEqual(captured[0]["frontdoor_options"]["route_hint"], "search_shell")
+        self.assertEqual(captured[1]["search_options"]["source_search_contract"]["param_key"], "query")
+        self.assertEqual(captured[1]["search_options"]["target_candidates"], 5)
+        self.assertEqual(captured[1]["frontdoor_options"]["route_hint"], "search_shell")
+
 
 if __name__ == "__main__":
     unittest.main()
