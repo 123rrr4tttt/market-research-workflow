@@ -70,6 +70,8 @@
   - [automation-runs/dev-docs-folder-audit-2026-05-22/wave2-worktree-plan-2026-05-22.md](./automation-runs/dev-docs-folder-audit-2026-05-22/wave2-worktree-plan-2026-05-22.md)
 - Wave3 工作树计划与集成状态（2026-05-22）：
   - [automation-runs/dev-docs-folder-audit-2026-05-22/wave3-worktree-plan-2026-05-22.md](./automation-runs/dev-docs-folder-audit-2026-05-22/wave3-worktree-plan-2026-05-22.md)
+- Wave4 工作树计划与状态骨架（2026-05-22，planned/pending）：
+  - [automation-runs/dev-docs-folder-audit-2026-05-22/wave4-worktree-plan-2026-05-22.md](./automation-runs/dev-docs-folder-audit-2026-05-22/wave4-worktree-plan-2026-05-22.md)
 - `frontend-modern` 补齐标准文档入口（2026-05-22）：
   - [frontend-modern/INDEX.md](./frontend-modern/INDEX.md)
   - [frontend-modern/main/MERGED_FRONTEND_MODERN.md](./frontend-modern/main/MERGED_FRONTEND_MODERN.md)
