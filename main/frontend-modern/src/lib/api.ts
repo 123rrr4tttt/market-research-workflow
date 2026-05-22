@@ -266,11 +266,17 @@ export {
   listWritingLlmActionHistory,
   listWritingTemplates,
   previewWritingKeywordCard,
+  readTypedKnowledgeWritingContext,
+  readTypedKnowledgeWritingContextFromDocument,
   runWritingLlmAction,
   updateWritingDocument,
   upsertWritingCitations,
   validateWritingTemplate,
+  withTypedKnowledgeWritingContext,
+  writingTypedKnowledgeContextKey,
 } from './api/domains/writing'
+export type TypedKnowledgeWritingContext = import('./api/domains/writing').TypedKnowledgeWritingContext
+export type TypedKnowledgeWritingHandoff = import('./api/domains/writing').TypedKnowledgeWritingHandoff
 export type AutosaveWritingDraftPayload = import('./api/domains/writing').AutosaveWritingDraftPayload
 export type CreateWritingDocumentPayload = import('./api/domains/writing').CreateWritingDocumentPayload
 export type UpdateWritingDocumentPayload = import('./api/domains/writing').UpdateWritingDocumentPayload

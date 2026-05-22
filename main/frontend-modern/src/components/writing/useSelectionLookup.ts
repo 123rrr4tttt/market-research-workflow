@@ -5,6 +5,7 @@ export type SelectionLookupStatus = 'idle' | 'loading' | 'success' | 'error'
 export type UseSelectionLookupOptions<T> = {
   selectionText: string
   enabled?: boolean
+  lookupScopeKey?: string
   debounceMs?: number
   dedupeWindowMs?: number
   minLength?: number
@@ -33,6 +34,7 @@ function hashSelection(value: string) {
 export function useSelectionLookup<T>({
   selectionText,
   enabled = true,
+  lookupScopeKey = '',
   debounceMs = 250,
   dedupeWindowMs = 10_000,
   minLength = 2,
@@ -46,12 +48,13 @@ export function useSelectionLookup<T>({
 
   const normalizedSelection = normalizeSelection(selectionText)
   const selectionHash = normalizedSelection ? hashSelection(normalizedSelection) : ''
+  const scopedLookupKey = lookupScopeKey ? `${selectionHash}:${lookupScopeKey}` : selectionHash
   const shouldLookup = enabled && normalizedSelection.length >= minLength && Boolean(selectionHash)
 
   useEffect(() => {
     if (!shouldLookup) return
 
-    const lastLookupAt = seenLookupRef.current.get(selectionHash)
+    const lastLookupAt = seenLookupRef.current.get(scopedLookupKey)
     if (lastLookupAt && Date.now() - lastLookupAt < dedupeWindowMs) {
       return
     }
@@ -63,7 +66,7 @@ export function useSelectionLookup<T>({
       try {
         const nextData = await runLookup(normalizedSelection, selectionHash)
         if (!active) return
-        seenLookupRef.current.set(selectionHash, Date.now())
+        seenLookupRef.current.set(scopedLookupKey, Date.now())
         setData(nextData)
         setStatus('success')
       } catch (cause) {
@@ -77,7 +80,7 @@ export function useSelectionLookup<T>({
       active = false
       window.clearTimeout(timer)
     }
-  }, [debounceMs, dedupeWindowMs, normalizedSelection, selectionHash, shouldLookup])
+  }, [debounceMs, dedupeWindowMs, normalizedSelection, scopedLookupKey, selectionHash, shouldLookup])
 
   return {
     data: shouldLookup ? data : null,

@@ -291,6 +291,119 @@ export type WritingLlmActionPayload = {
   gate_mode?: string | null
 }
 
+export const WRITING_CONTEXT_BOUNDARY_CONTRACT_VERSION = 'writing.context_boundary.e3.v1' as const
+export const WRITING_TYPED_KNOWLEDGE_CONTEXT_VERSION = 'writing.typed_knowledge_context.v1' as const
+export const WRITING_TYPED_KNOWLEDGE_HANDOFF_CONTRACT_VERSION = 'typed_knowledge.writing_handoff.v1' as const
+export const WRITING_TYPED_KNOWLEDGE_CONSUMER = 'writing.keyword_card' as const
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function stringList(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => stringValue(item)).filter(Boolean)
+}
+
+function typedKnowledgeContextCandidate(value: unknown): unknown {
+  if (!isRecord(value)) return null
+  if (value.contract_version === WRITING_TYPED_KNOWLEDGE_CONTEXT_VERSION) return value
+  for (const key of ['typed_knowledge_context', 'writing_typed_knowledge_context']) {
+    if (key in value) return value[key]
+  }
+  for (const key of ['writing_context', 'context', 'metadata_json']) {
+    const nested = value[key]
+    if (isRecord(nested)) {
+      const candidate = typedKnowledgeContextCandidate(nested)
+      if (candidate) return candidate
+    }
+  }
+  return null
+}
+
+function normalizeTypedKnowledgeWritingHandoff(value: unknown): TypedKnowledgeWritingHandoff | null {
+  if (!isRecord(value) || value.contract_version !== WRITING_TYPED_KNOWLEDGE_HANDOFF_CONTRACT_VERSION) return null
+  const knowledge_item_key = stringValue(value.knowledge_item_key)
+  const project_key = stringValue(value.project_key)
+  const canonical_statement = stringValue(value.canonical_statement)
+  const primary_type_node_key = stringValue(value.primary_type_node_key)
+  const evidence_refs = stringList(value.evidence_refs)
+  const review_state = stringValue(value.review_state)
+  const visibility_scope = stringValue(value.visibility_scope)
+  if (!knowledge_item_key || !project_key || !canonical_statement || !primary_type_node_key || !review_state || !visibility_scope || !evidence_refs.length) {
+    return null
+  }
+  return {
+    contract_version: WRITING_TYPED_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
+    knowledge_item_key,
+    project_key,
+    canonical_statement,
+    primary_type_node_key,
+    topic_cluster_keys: stringList(value.topic_cluster_keys),
+    booklet_keys: stringList(value.booklet_keys),
+    review_state,
+    quality_grade: stringValue(value.quality_grade) || null,
+    locale: stringValue(value.locale) || null,
+    evidence_refs,
+    visibility_scope,
+    selection_hash: stringValue(value.selection_hash) || null,
+    selection_text: stringValue(value.selection_text) || null,
+    facets: isRecord(value.facets) ? value.facets : {},
+  }
+}
+
+export function readTypedKnowledgeWritingContext(value: unknown): TypedKnowledgeWritingContext | null {
+  const candidate = typedKnowledgeContextCandidate(value)
+  if (!isRecord(candidate)) return null
+  if (candidate.contract_version !== WRITING_TYPED_KNOWLEDGE_CONTEXT_VERSION) return null
+  if (candidate.source !== 'typed_knowledge' || candidate.consumer !== WRITING_TYPED_KNOWLEDGE_CONSUMER) return null
+  const handoffs = Array.isArray(candidate.handoffs)
+    ? candidate.handoffs.map((item) => normalizeTypedKnowledgeWritingHandoff(item)).filter((item): item is TypedKnowledgeWritingHandoff => Boolean(item))
+    : []
+  if (!handoffs.length) return null
+  return {
+    contract_version: WRITING_TYPED_KNOWLEDGE_CONTEXT_VERSION,
+    source: 'typed_knowledge',
+    consumer: WRITING_TYPED_KNOWLEDGE_CONSUMER,
+    handoffs,
+    boundary: isRecord(candidate.boundary) ? candidate.boundary : {},
+  }
+}
+
+export function readTypedKnowledgeWritingContextFromDocument(document: Pick<WritingDocument, 'metadata_json'> | null | undefined) {
+  return readTypedKnowledgeWritingContext(document?.metadata_json)
+}
+
+export function writingTypedKnowledgeContextKey(context: TypedKnowledgeWritingContext | null | undefined) {
+  if (!context) return 'typed_knowledge:none'
+  const handoffKeys = context.handoffs.map((handoff) => [
+    handoff.knowledge_item_key,
+    handoff.selection_hash || '',
+    handoff.visibility_scope,
+  ].join(':'))
+  return `typed_knowledge:${handoffKeys.join('|')}`
+}
+
+export function withTypedKnowledgeWritingContext(
+  payload: WritingKeywordCardRequest,
+  context: TypedKnowledgeWritingContext | null | undefined,
+): WritingKeywordCardRequest {
+  if (!context) return payload
+  const existingContext: WritingContextEnvelope = isRecord(payload.context) ? (payload.context as WritingContextEnvelope) : {}
+  return {
+    ...payload,
+    context: {
+      ...existingContext,
+      contract_version: existingContext.contract_version || WRITING_CONTEXT_BOUNDARY_CONTRACT_VERSION,
+      typed_knowledge_context: context,
+    },
+  }
+}
+
 function withQuery(path: string, params: Record<string, string | number | boolean | null | undefined>) {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
