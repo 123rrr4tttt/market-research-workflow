@@ -38,6 +38,8 @@ WAVE_TAGS = {
     "wave10_checked": "wave10",
     "wave11_verified": "wave11",
     "wave11_checked": "wave11",
+    "wave12_verified": "wave12",
+    "wave12_checked": "wave12",
 }
 ABSENT_TERMS = ("not present", "missing", "absent")
 BLOCKER_TERMS = ("blocker", "blocked", "gap", "absent", "missing", "not present", "still", "remain")
@@ -280,7 +282,7 @@ def write_report(result: Result, report_path: Path) -> None:
         f"| Markdown links checked | {len(result.links)} |",
         f"| placeholder entries recognized | {len(result.placeholders)} |",
         f"| empty directories recognized | {len(result.empty_dirs)} |",
-        f"| Wave5/Wave6/Wave7/Wave8/Wave9/Wave10/Wave11 evidence rows checked | {len(result.wave_rows)} |",
+        f"| Wave5/Wave6/Wave7/Wave8/Wave9/Wave10/Wave11/Wave12 evidence rows checked | {len(result.wave_rows)} |",
         f"| problems | {len(result.problems)} |",
         "",
         "## Count Gate",

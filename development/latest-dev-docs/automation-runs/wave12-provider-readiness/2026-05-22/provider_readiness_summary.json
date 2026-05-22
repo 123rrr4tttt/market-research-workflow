@@ -24,7 +24,7 @@
     "status_passed_does_not_mean": "live provider quality, provider=auto promotion, semantic embedding quality, or OSS node SLA closure",
     "status_passed_means": "required recorded contracts and report shape are valid"
   },
-  "generated_at": "2026-05-22T09:42:26.570113+00:00",
+  "generated_at": "2026-05-22T09:59:41.626288+00:00",
   "generated_by": "ops/search-lab/scripts/wave12_provider_readiness_gate.py",
   "mode_availability": {
     "live_probe": {
