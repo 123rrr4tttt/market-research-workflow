@@ -1,0 +1,114 @@
+{
+  "checks": {
+    "deterministic_sample_readback_gate": true,
+    "production_boundary_gate": true,
+    "provenance_readback_gate": true,
+    "wave20_topic_evidence_gate": true
+  },
+  "closure_claim": false,
+  "contract_version": "time-semantics.sample-provenance-readback.v1",
+  "failures": [],
+  "full_closure_allowed": false,
+  "production_data_semantic_chain_live_verified": false,
+  "protected_shared_indexes": [
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md",
+    "development/latest-dev-docs/development-plans/INDEX.md",
+    "development/latest-dev-docs/README.md",
+    "development/latest-dev-docs/MERGED_OVERVIEW.md"
+  ],
+  "readiness_boundaries": {
+    "decision_log_provenance": "passed",
+    "deterministic_sample_readback_chain": "passed",
+    "deterministic_source_time_contract": "passed",
+    "production_data_semantic_chain": "ready_not_run"
+  },
+  "remaining_live_gaps": [
+    "production_data_semantic_chain_live_validation_not_run",
+    "live_source_time_coverage_distribution_not_measured",
+    "live_decision_log_features_readback_not_verified"
+  ],
+  "sample_evidence": {
+    "document_effective_day": "2026-03-02",
+    "effective_time": "2026-03-02T12:00:00+00:00",
+    "features_json_target_overlap_gap_90d": 0.21666666666666667,
+    "live_gap_markers_90d": [
+      "effective_time_gap:effective_time_missing",
+      "production_freshness_probe_not_run",
+      "prompt_time_window_feedback_pending"
+    ],
+    "processed_time": "2026-03-10T12:00:00Z",
+    "project_key": "wave17_sample",
+    "row_windows": [
+      "30d",
+      "7d",
+      "90d"
+    ],
+    "sample_id": "wave17_source_time_density_chain_sample",
+    "source_time": "2026-03-02T12:00:00Z",
+    "target_overlap": 0.95,
+    "target_overlap_gap_90d": 0.21666666666666667,
+    "time_provenance": "source_time"
+  },
+  "scope": "repo_local_deterministic_sample_provenance_readback_no_live_production_probe",
+  "status": "passed_with_known_gaps",
+  "topic_evidence": {
+    "source_time_window": {
+      "exists": true,
+      "label": "Source Time Window",
+      "markers_checked": [
+        "Wave20 Time Semantics Sample/Provenance Readback",
+        "check_time_semantics_sample_provenance_readback.py",
+        "contract_version=time-semantics.sample-provenance-readback.v1",
+        "status=passed_with_known_gaps",
+        "deterministic_sample_readback_gate=true",
+        "provenance_readback_gate=true",
+        "production_data_semantic_chain_live_verified=false",
+        "production_data_semantic_chain_live_validation_not_run",
+        "closure_claim=false",
+        "Source Time Window"
+      ],
+      "missing_markers": [],
+      "passed": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+    },
+    "time_semantics_density": {
+      "exists": true,
+      "label": "Time Semantics Density",
+      "markers_checked": [
+        "Wave20 Time Semantics Sample/Provenance Readback",
+        "check_time_semantics_sample_provenance_readback.py",
+        "contract_version=time-semantics.sample-provenance-readback.v1",
+        "status=passed_with_known_gaps",
+        "deterministic_sample_readback_gate=true",
+        "provenance_readback_gate=true",
+        "production_data_semantic_chain_live_verified=false",
+        "production_data_semantic_chain_live_validation_not_run",
+        "closure_claim=false",
+        "Time Semantics Density"
+      ],
+      "missing_markers": [],
+      "passed": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+    },
+    "time_statistics": {
+      "exists": true,
+      "label": "Time Statistics",
+      "markers_checked": [
+        "Wave20 Time Semantics Sample/Provenance Readback",
+        "check_time_semantics_sample_provenance_readback.py",
+        "contract_version=time-semantics.sample-provenance-readback.v1",
+        "status=passed_with_known_gaps",
+        "deterministic_sample_readback_gate=true",
+        "provenance_readback_gate=true",
+        "production_data_semantic_chain_live_verified=false",
+        "production_data_semantic_chain_live_validation_not_run",
+        "closure_claim=false",
+        "Time Statistics"
+      ],
+      "missing_markers": [],
+      "passed": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+    }
+  }
+}
