@@ -6,13 +6,14 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from ..contracts import ErrorCode, error_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.errors import map_exception_to_error
 from ..contracts.responses import ok
 from ..services.agent_runtime import iter_session_events
 from ..services.agent_sessions import get_agent_session_service
 
 router = APIRouter(tags=["agent_sessions"])
+AgentSessionEnvelope = ApiEnvelope[dict[str, Any]]
 
 
 def _raise_invalid_input(message: str) -> None:
@@ -106,7 +107,7 @@ class AgentApprovalRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-@router.post("/agent-sessions")
+@router.post("/agent-sessions", response_model=AgentSessionEnvelope)
 def create_agent_session(payload: AgentSessionCreateRequest) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -126,13 +127,13 @@ def create_agent_session(payload: AgentSessionCreateRequest) -> dict[str, Any]:
     return ok(out)
 
 
-@router.get("/agent-sessions")
+@router.get("/agent-sessions", response_model=AgentSessionEnvelope)
 def list_agent_sessions(limit: int = 50) -> dict[str, Any]:
     service = get_agent_session_service()
     return ok({"items": service.list_sessions(limit=max(1, min(limit, 200)))})
 
 
-@router.get("/agent-sessions/{session_id}")
+@router.get("/agent-sessions/{session_id}", response_model=AgentSessionEnvelope)
 def get_agent_session(session_id: str) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -141,7 +142,7 @@ def get_agent_session(session_id: str) -> dict[str, Any]:
         _raise_not_found("session not found")
 
 
-@router.get("/agent-sessions/{session_id}/tasks")
+@router.get("/agent-sessions/{session_id}/tasks", response_model=AgentSessionEnvelope)
 def get_agent_session_tasks(session_id: str) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -150,7 +151,7 @@ def get_agent_session_tasks(session_id: str) -> dict[str, Any]:
         _raise_not_found("session not found")
 
 
-@router.get("/agent-sessions/{session_id}/events")
+@router.get("/agent-sessions/{session_id}/events", response_model=AgentSessionEnvelope)
 def get_agent_session_events(session_id: str) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -159,7 +160,7 @@ def get_agent_session_events(session_id: str) -> dict[str, Any]:
         _raise_not_found("session not found")
 
 
-@router.get("/agent-sessions/{session_id}/artifacts")
+@router.get("/agent-sessions/{session_id}/artifacts", response_model=AgentSessionEnvelope)
 def get_agent_session_artifacts(session_id: str) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -168,7 +169,7 @@ def get_agent_session_artifacts(session_id: str) -> dict[str, Any]:
         _raise_not_found("session not found")
 
 
-@router.get("/agent-sessions/{session_id}/messages")
+@router.get("/agent-sessions/{session_id}/messages", response_model=AgentSessionEnvelope)
 def get_agent_session_messages(session_id: str) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -177,7 +178,7 @@ def get_agent_session_messages(session_id: str) -> dict[str, Any]:
         _raise_not_found("session not found")
 
 
-@router.post("/agent-sessions/{session_id}/messages")
+@router.post("/agent-sessions/{session_id}/messages", response_model=AgentSessionEnvelope)
 def create_agent_session_message(session_id: str, payload: AgentMessageCreateRequest) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -194,13 +195,23 @@ def create_agent_session_message(session_id: str, payload: AgentMessageCreateReq
     return ok(out)
 
 
-@router.get("/agent-approvals")
+@router.get("/agent-approvals", response_model=AgentSessionEnvelope)
 def list_agent_approvals(session_id: str | None = None) -> dict[str, Any]:
     service = get_agent_session_service()
     return ok({"items": service.list_approvals(session_id=session_id)})
 
 
-@router.get("/agent-sessions/{session_id}/stream")
+@router.get(
+    "/agent-sessions/{session_id}/stream",
+    response_class=StreamingResponse,
+    response_model=None,
+    responses={
+        200: {
+            "description": "Server-sent agent session events",
+            "content": {"text/event-stream": {"schema": {"type": "string"}}},
+        }
+    },
+)
 def stream_agent_session_events(
     session_id: str,
     since_seq: int = 0,
@@ -224,7 +235,7 @@ def stream_agent_session_events(
     )
 
 
-@router.post("/agent-sessions/{session_id}/actions/retry-task")
+@router.post("/agent-sessions/{session_id}/actions/retry-task", response_model=AgentSessionEnvelope)
 def retry_agent_session_task(session_id: str, payload: AgentTaskRetryRequest) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -236,7 +247,7 @@ def retry_agent_session_task(session_id: str, payload: AgentTaskRetryRequest) ->
     return ok(out)
 
 
-@router.post("/agent-sessions/{session_id}/actions/cancel")
+@router.post("/agent-sessions/{session_id}/actions/cancel", response_model=AgentSessionEnvelope)
 def cancel_agent_session(session_id: str) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -246,7 +257,7 @@ def cancel_agent_session(session_id: str) -> dict[str, Any]:
     return ok(out)
 
 
-@router.post("/agent-sessions/{session_id}/actions/reclaim-expired")
+@router.post("/agent-sessions/{session_id}/actions/reclaim-expired", response_model=AgentSessionEnvelope)
 def reclaim_agent_session_expired_tasks(session_id: str) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -256,7 +267,7 @@ def reclaim_agent_session_expired_tasks(session_id: str) -> dict[str, Any]:
     return ok({"items": out})
 
 
-@router.post("/agent-sessions/{session_id}/actions/coordinator-pass")
+@router.post("/agent-sessions/{session_id}/actions/coordinator-pass", response_model=AgentSessionEnvelope)
 def run_agent_session_coordinator_pass(session_id: str) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -266,7 +277,7 @@ def run_agent_session_coordinator_pass(session_id: str) -> dict[str, Any]:
     return ok(out)
 
 
-@router.post("/agent-sessions/{session_id}/actions/request-approval")
+@router.post("/agent-sessions/{session_id}/actions/request-approval", response_model=AgentSessionEnvelope)
 def request_agent_session_approval(session_id: str, payload: AgentApprovalRequest) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
@@ -282,7 +293,7 @@ def request_agent_session_approval(session_id: str, payload: AgentApprovalReques
     return ok(out)
 
 
-@router.post("/agent-approvals/{approval_id}/resolve")
+@router.post("/agent-approvals/{approval_id}/resolve", response_model=AgentSessionEnvelope)
 def resolve_agent_approval(approval_id: str, payload: AgentApprovalResolveRequest) -> dict[str, Any]:
     service = get_agent_session_service()
     try:

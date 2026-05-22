@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import FastAPI, HTTPException, Request
@@ -415,7 +416,7 @@ def register_ui_routes(
         return _redirect_or_archive(request=request, route_target="graph.html")
 
 
-    @app.get("/api/v1/maps/usa")
+    @app.get("/api/v1/maps/usa", response_model=dict[str, Any])
     def get_usa_map() -> JSONResponse:
         """提供美国地图GeoJSON供前端使用。"""
         if not usa_map_path.exists():
