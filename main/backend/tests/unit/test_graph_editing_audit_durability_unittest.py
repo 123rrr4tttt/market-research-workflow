@@ -57,7 +57,7 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
             {"not_exposed", "ready_not_run"},
         )
         self.assertIn("repo-local audit/readback contract", snapshot["boundary"])
-        self.assertIn("GraphPage still needs", " ".join(snapshot["remaining_gaps"]))
+        self.assertIn("live backend", " ".join(snapshot["remaining_gaps"]))
         self.assertIn("tenant DB", " ".join(snapshot["remaining_gaps"]))
 
     def test_incomplete_live_db_evidence_fails_closed(self) -> None:
@@ -85,17 +85,28 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         self.assertFalse(snapshot["closure_claim"])
         self.assertEqual(snapshot["readiness_state"], "repo_local_validated_live_gaps_open")
 
-    def test_ui_evidence_without_static_controls_fails_closed(self) -> None:
+    def test_complete_ui_evidence_can_be_recorded_without_live_db_closure(self) -> None:
         snapshot = build_gate_snapshot(graphpage_ui_evidence=_graphpage_ui_evidence())
+
+        self.assertEqual(validate_gate_snapshot(snapshot), [])
+        self.assertEqual(snapshot["status"], "passed")
+        self.assertTrue(snapshot["repo_local_audit_readback_validated"])
+        self.assertTrue(snapshot["graphpage_audit_controls_validated"])
+        self.assertFalse(snapshot["live_db_audit_durability_validated"])
+        self.assertFalse(snapshot["closure_claim"])
+        self.assertEqual(snapshot["readiness_state"], "repo_local_validated_live_gaps_open")
+
+    def test_incomplete_ui_evidence_fails_closed(self) -> None:
+        evidence = _graphpage_ui_evidence()
+        evidence.pop("handoff_replay_visible_or_linked")
+        snapshot = build_gate_snapshot(graphpage_ui_evidence=evidence)
 
         self.assertEqual(snapshot["status"], "failed")
         stages = {stage["name"]: stage for stage in snapshot["stages"]}
         self.assertEqual(stages["graphpage_audit_rollback_readback_ui"]["status"], "failed_evidence")
-        self.assertTrue(
-            any(
-                failure.startswith("missing_static:frontend_curated_audit_readback_api_wrapper_exists")
-                for failure in stages["graphpage_audit_rollback_readback_ui"]["failures"]
-            )
+        self.assertIn(
+            "missing_true:handoff_replay_visible_or_linked",
+            stages["graphpage_audit_rollback_readback_ui"]["failures"],
         )
 
 
