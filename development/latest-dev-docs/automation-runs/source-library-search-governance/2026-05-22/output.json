@@ -1,0 +1,220 @@
+{
+  "adapter_capability": {
+    "cases": {
+      "anchor_only_requires_review": {
+        "adapter_capability_reason": "low_confidence_anchor_only_profile",
+        "adapter_capability_status": "review",
+        "adapter_key": "search_template.generic",
+        "candidate_relevance_review_required": true,
+        "entry_domain": "example.com",
+        "parser_profile_requested": "fallback_anchor_only",
+        "parser_profile_resolved": "fallback_anchor_only",
+        "site_url": "https://example.com/search?q={{q}}"
+      },
+      "unknown_profile_downgraded": {
+        "adapter_capability_reason": "unknown_parser_profile_downgraded",
+        "adapter_capability_status": "downgrade",
+        "adapter_key": "search_template.generic",
+        "candidate_relevance_review_required": false,
+        "entry_domain": "example.com",
+        "parser_profile_requested": "site_adaptive.missing_custom_profile",
+        "parser_profile_resolved": "site_adaptive",
+        "site_url": "https://example.com/search?q={{q}}"
+      },
+      "validated_domain_profile": {
+        "adapter_capability_reason": "known_parser_profile",
+        "adapter_capability_status": "allow",
+        "adapter_key": "search_template.pymnts_card",
+        "candidate_relevance_review_required": false,
+        "entry_domain": "www.pymnts.com",
+        "parser_profile_requested": "site_adaptive.pymnts_card",
+        "parser_profile_resolved": "site_adaptive.pymnts_card",
+        "site_url": "https://www.pymnts.com/?s={{q}}"
+      }
+    },
+    "handler_registry_contracts": {
+      "generic_adapter_emits_capability_profile": true,
+      "generic_web_search_template_registered": true,
+      "handler_cluster_emits_capability_profile": true,
+      "handler_cluster_registered": true
+    }
+  },
+  "contract_version": "source_library.search_chain_governance.v1",
+  "governance_scope": {
+    "claims_full_45_site_public_replay": false,
+    "claims_human_relevance_review_complete": false,
+    "public_network_required": false,
+    "shared_indexes_edited": false
+  },
+  "mount_routes": {
+    "api_prefix_present": true,
+    "router_includes": {
+      "agent_batch": true,
+      "ingest": true,
+      "process": true,
+      "resource_pool": true,
+      "source_library": true
+    },
+    "routes": [
+      {
+        "evidence_snippets": [
+          "@router.post(\"/source-library/run\"",
+          "run_source_library_item_compat"
+        ],
+        "expected_status": "active",
+        "governance_role": "authoritative_sync_frontdoor",
+        "method": "POST",
+        "present": true,
+        "public_path": "/api/v1/ingest/source-library/run",
+        "route_id": "source_library_authoritative_sync",
+        "source_file": "main/backend/app/api/ingest.py"
+      },
+      {
+        "evidence_snippets": [
+          "@router.post(\"/items/{item_key}/run\")",
+          "\"legacy_status\": \"410_gone\"",
+          "\"runs_source_library_item\": False",
+          "\"/api/v1/ingest/source-library/run\""
+        ],
+        "expected_status": "410_gone_no_execution",
+        "governance_role": "deprecated_guard",
+        "method": "POST",
+        "present": true,
+        "public_path": "/api/v1/source_library/items/{item_key}/run",
+        "route_id": "source_library_legacy_item_run",
+        "source_file": "main/backend/app/api/source_library.py"
+      },
+      {
+        "evidence_snippets": [
+          "@router.post(\"/jobs\")",
+          "build_source_library_override_params",
+          "_submit_source_library_job",
+          "_submit_source_item"
+        ],
+        "expected_status": "active",
+        "governance_role": "async_orchestration_entry",
+        "method": "POST",
+        "present": true,
+        "public_path": "/api/v1/agent-batch/jobs",
+        "route_id": "agent_batch_source_library_async",
+        "source_file": "main/backend/app/api/agent_batch.py"
+      },
+      {
+        "evidence_snippets": [
+          "@router.post(\"/{task_id}/retry\")",
+          "\"source_library_run\"",
+          "\"agent_batch.dispatch.source_library_item\"",
+          "\"process.retry_task.api\""
+        ],
+        "expected_status": "active_bypass_requires_metadata_governance",
+        "governance_role": "known_bypass_entry",
+        "method": "POST",
+        "present": true,
+        "public_path": "/api/v1/process/{task_id}/retry",
+        "route_id": "process_retry_source_library_bypass",
+        "source_file": "main/backend/app/api/process.py"
+      },
+      {
+        "evidence_snippets": [
+          "\"/unified-search\"",
+          "def unified_search_api",
+          "unified_search_by_item"
+        ],
+        "expected_status": "capability_only",
+        "governance_role": "capability_endpoint_not_source_library_frontdoor",
+        "method": "POST",
+        "present": true,
+        "public_path": "/api/v1/resource_pool/unified-search",
+        "route_id": "resource_pool_unified_search",
+        "source_file": "main/backend/app/api/resource_pool.py"
+      }
+    ]
+  },
+  "public_replay_gaps": {
+    "a5_status": "deterministic_replay_gate_closed_external_public_replay_blocked",
+    "external_blocker": {
+      "blocker_type": "external_public_network_or_site_stability",
+      "path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+      "status": "recorded"
+    },
+    "public_network_attempted": false,
+    "term_fallback_relevance_review": {
+      "review_target_count": 2,
+      "rule": "candidate_ready_with_term_fallback is evidence for parser reachability, but remains a relevance-review blocker.",
+      "status": "review_required_not_full_closure",
+      "targets": [
+        {
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback",
+          "target_id": "commercialobserver_parser_weak"
+        },
+        {
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback",
+          "target_id": "hai_stanford_mixed_shell"
+        }
+      ]
+    },
+    "validation_errors": []
+  },
+  "repo_root": "/Users/wangyiliang/market-research-workflow.worktrees/devdocs-wave10-source-library-governance",
+  "resolver": {
+    "cases": {
+      "candidate_urls_override_to_url_execution": {
+        "item_channel_key": "handler.cluster",
+        "source_mode": "url_execution",
+        "taxonomy": {
+          "channel_family": "handler_cluster",
+          "expected_entry_type": "search_template",
+          "internal_adapter_only": false,
+          "item_type": "service_aggregated",
+          "managed_by": "system",
+          "site_search_authoritative": true
+        },
+        "warnings": []
+      },
+      "generic_web_stays_internal_site_search": {
+        "item_channel_key": "generic_web.search_template",
+        "source_mode": "site_search",
+        "taxonomy": {
+          "channel_family": "generic_web",
+          "expected_entry_type": "search_template",
+          "internal_adapter_only": true,
+          "item_type": "user_defined",
+          "managed_by": "user",
+          "site_search_authoritative": true
+        },
+        "warnings": [
+          "site_search_forced_handler_cluster:generic_web.search_template",
+          "generic_web_internal_adapter_detected"
+        ]
+      },
+      "handler_cluster_forces_site_search": {
+        "item_channel_key": "handler.cluster",
+        "source_mode": "site_search",
+        "taxonomy": {
+          "channel_family": "handler_cluster",
+          "expected_entry_type": "search_template",
+          "internal_adapter_only": false,
+          "item_type": "service_aggregated",
+          "managed_by": "system",
+          "site_search_authoritative": true
+        },
+        "warnings": [
+          "source_mode_coerced_by_site_search_taxonomy:protocol_search->site_search"
+        ]
+      }
+    },
+    "static_contracts": {
+      "collect_runtime_source_library_adapter_registered": true,
+      "generic_web_direct_item_execution_blocked": true,
+      "handler_cluster_uses_unified_search": true,
+      "site_search_orchestrator_forces_handler_cluster": true
+    }
+  },
+  "validation": {
+    "errors": [],
+    "passed": true,
+    "public_network_attempted": false
+  }
+}
