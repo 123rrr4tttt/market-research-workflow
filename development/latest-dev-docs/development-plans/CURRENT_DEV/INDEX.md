@@ -27,8 +27,8 @@
 
 ## 剩余状态分布
 
-- `partial`: 21
-- `not_closed`: 10
+- `partial`: 23
+- `not_closed`: 8
 - `no_closure_claim`: 4
 
 ## Agent High-Fidelity Migration Split Result
@@ -57,6 +57,8 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 - `[partial][doc_aligned]` [2026-03-14 Search Chain Source-Library Mounting Audit](./2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md)
 - `[partial][doc_drift]` [2026-03-14 Source-Library Adapter Capability Remediation](./2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md)
 - `[partial][doc_aligned]` [2026-03-14 Time Semantics Density Merged Plan](./2026-03-14-time-semantics-density-merged-plan/README.md)
+- `[partial][doc_aligned]` [2026-03-07 Dual Frontend Workbench Topology](./2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md) - topology contract evidence: [frontend-topology-theme/2026-05-22](../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
+- `[partial][doc_aligned]` [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md) - i18n/theme contract evidence: [frontend-topology-theme/2026-05-22](../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
 - `[partial][doc_aligned]` [2026-03-15 Frontend Three-Layer Rewrite](./2026-03-15-frontend-three-layer-rewrite/README.md)
 - `[partial][doc_aligned]` [2026-03-25 Source-Library Ingest Minimal Migration](./2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md)
 - `[partial][doc_drift]` [MERGED_OVERVIEW](./MERGED_OVERVIEW/index.md)
@@ -66,8 +68,6 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 - `[not_closed][doc_aligned]` [2026-04-07 Parallel Agent Wave Orchestration](./2026-04-07-parallel-agent-wave-orchestration/README.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
-- `[not_closed][doc_stale]` [2026-03-07 Dual Frontend Workbench Topology](./2026-03-07-dual-frontend-workbench-topology/01_dual-frontend-workbench-topology-plan-2026-03-07.md)
-- `[not_closed][doc_stale]` [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md)
 - `[not_closed][doc_stale]` [2026-03-07 LLM Service And Agent Platformization](./2026-03-07-llm-service-and-agent-platformization/01_llm-service-and-agent-platformization-plan-2026-03-07.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)

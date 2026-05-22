@@ -2,12 +2,11 @@
 
 ## Execution Status Snapshot
 
-- `A1`: pending, freeze the verified baseline and remove ambiguity about current shell ownership.
-- `A2-A4`: pending, define the three foundation contracts for locale, theme, and module registration.
-- `A5`: pending, align shell integration points so the contracts land on real files instead of abstract diagrams.
-- `A6-A8`: pending, migrate shell surfaces and settings entrypoints as the first visible implementation wave.
-- `A9`: pending, onboard representative pages from both interaction shapes.
-- `A10`: pending, close with the minimum regression pack and residual-risk log.
+- 2026-05-22 status: `A1-A8` are implemented for the first-wave shell/platform scope. Locale, theme, module registration, shell title consumption, navigation label consumption, and settings controls are present in source.
+- `A9` is contract-covered rather than full-page localized: the static gate verifies shell/nav/module contracts across all registered modes; full business-content localization remains out of scope.
+- `A10` now has a repeatable minimum gate: `npm --prefix main/frontend-modern run check:topology-platform`, plus `npm --prefix main/frontend-modern run lint`.
+- Evidence: [../../../automation-runs/frontend-topology-theme/2026-05-22/README.md](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md).
+- Residual work: reduce old shell orchestration and split heavy pages in the three-layer rewrite lane; do not treat missing full business-content localization as a blocker for this platform contract.
 
 ## Global Serial-Parallel Rules
 

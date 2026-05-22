@@ -1,0 +1,44 @@
+{
+  "status": "ok",
+  "modules": 31,
+  "manifest_entries": 31,
+  "placement_records": 15,
+  "baseline_inventory_records": 15,
+  "topology_surfaces": {
+    "management": 20,
+    "workbench": 11
+  },
+  "i18n_locales": [
+    "zh-CN",
+    "en-US"
+  ],
+  "nav_groups": 5,
+  "themes": [
+    "light",
+    "dark",
+    "brand"
+  ],
+  "theme_token_groups": [
+    "background",
+    "surface",
+    "border",
+    "text",
+    "accent",
+    "status",
+    "interactive"
+  ],
+  "checked_files": [
+    "src/app/shell/AppShell.tsx",
+    "src/app/topology/baselineInventory.ts",
+    "src/app/platform/i18n/catalog.ts",
+    "src/components/FigmaSideNav.tsx",
+    "src/app/kernel/types.ts",
+    "src/app/kernel/moduleManifest.ts",
+    "src/app/topology/pagePlacementMatrix.ts",
+    "src/app/topology/sharedPlatformContract.ts",
+    "src/app/platform/theme/tokens.ts",
+    "src/app/platform/theme/types.ts",
+    "src/app/topology/contracts.ts"
+  ],
+  "failures": []
+}

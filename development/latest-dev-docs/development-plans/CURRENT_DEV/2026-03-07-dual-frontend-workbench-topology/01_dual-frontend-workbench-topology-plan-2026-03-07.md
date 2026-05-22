@@ -2,7 +2,29 @@
 
 > 日期：2026-03-07
 > 范围：`main/frontend-modern` 内的 dual-interaction topology planning
-> 状态：planning document, used to freeze scope, baseline, topology recommendation, and delivery order
+> 状态：2026-05-22 refreshed; original planning scope is now backed by current source contracts and a static contract gate
+
+## 0. 2026-05-22 Current Status Refresh
+
+The March 2026 plan should no longer be read as an unimplemented topology proposal.
+
+Current code anchors now cover the main decisions:
+
+- `main/frontend-modern/src/app/topology/contracts.ts` freezes the topic as `modern-only` and explicitly excludes legacy coexistence, dual-codebase migration, and multi-app deployment split.
+- `main/frontend-modern/src/app/topology/pagePlacementMatrix.ts` stores the current page placement matrix and the revisit list.
+- `main/frontend-modern/src/app/topology/baselineInventory.ts` mirrors the current baseline inventory used by the static gate.
+- `main/frontend-modern/src/app/topology/navigationSwitching.ts` stores surface default entries and last-mode retention behavior.
+- `main/frontend-modern/src/app/topology/sharedPlatformContract.ts` stores shared platform capabilities, surface-owned capabilities, retain/reset rules, and immersive exceptions.
+- `main/frontend-modern/src/components/FigmaSideNav.tsx` exposes a first-level `Management` / `Workbench` switch and filters visible modules by interaction surface.
+
+Validation evidence:
+
+- [../../../automation-runs/frontend-topology-theme/2026-05-22/README.md](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
+
+Current closure statement:
+
+- The topology contract, page placement, shared boundary, and switching rules are implemented and statically checked.
+- Remaining frontend work should not reopen the dual-codebase interpretation. It should focus on later three-layer retirement work, especially reducing old `AppShell` duties and splitting heavy pages where needed.
 
 ## 1. Goal
 

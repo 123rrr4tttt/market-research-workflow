@@ -2,8 +2,30 @@
 
 > Date: 2026-03-07
 > Scope: `main/frontend-modern`
-> Status: planning document for frontend infrastructure, not direct code implementation
+> Status: 2026-05-22 refreshed; shell-level i18n/theme/module contracts are implemented and statically gated
 > Constraint: keep the plan aligned with the current `main/frontend-modern` entrypoints instead of inventing a second frontend shell
+
+## 0. 2026-05-22 Current Status Refresh
+
+This topic is no longer only a planning document. The first-wave infrastructure described here has landed in current source:
+
+- i18n catalog and translation access: `main/frontend-modern/src/app/platform/i18n/`
+- locale persistence: `main/frontend-modern/src/app/platform/i18n/store.ts`
+- theme persistence and token application: `main/frontend-modern/src/app/platform/theme/`
+- shared storage keys and persisted store helper: `main/frontend-modern/src/app/platform/storageKeys.ts`, `main/frontend-modern/src/app/platform/state/createPersistedStore.ts`
+- module descriptor registry: `main/frontend-modern/src/app/platform/modules/`
+- canonical module manifest: `main/frontend-modern/src/app/kernel/moduleManifest.ts`
+- settings controls for locale/theme: `main/frontend-modern/src/pages/SettingsPage.tsx`
+- shell/nav consumers: `main/frontend-modern/src/app/shell/AppShell.tsx`, `main/frontend-modern/src/components/FigmaSideNav.tsx`
+
+Validation evidence:
+
+- [../../../automation-runs/frontend-topology-theme/2026-05-22/README.md](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
+
+Current closure statement:
+
+- Shell titles, navigation labels, settings labels, locale/theme persistence, module registry labels, and theme token groups are implemented and checked.
+- Full business-content translation for every page remains out of scope for this topic and should not block the first-wave infrastructure closure.
 
 ## 1. Objective
 
@@ -44,16 +66,25 @@ Several reusable patterns already exist in the current repo:
 - `SettingsPage.tsx` already acts as a configuration surface and already persists local draft state, so it is a credible home for language/theme preferences.
 - The modern frontend already contains both management-style pages and heavier interaction pages such as `GraphPage.tsx`, `WritingWorkbenchPage.tsx`, and `LlmDesignerPage.tsx`. That is enough evidence to plan around shared infrastructure for more than one interaction shape.
 
-### 2.3 Verified gaps
+### 2.3 2026-05-22 resolved and residual gaps
 
-The current baseline still has clear infrastructure gaps:
+The earlier baseline gaps above are now split into resolved first-wave infrastructure and residual architecture work.
 
-- No shared frontend i18n provider, locale catalog, or translation accessor was found in `main/frontend-modern/src`.
-- `FigmaSideNav.tsx` stores navigation group titles and item labels inline in Chinese.
-- `AppShell.tsx` stores page titles inline in Chinese through `titleMap`.
-- `AppShell.tsx` defines `figmaTheme` state but currently fixes it to `'dark'`, so there is no user-facing theme switching path yet.
-- Theme styling is still expressed as component-specific CSS variants such as `.figma-top-nav.is-dark`, `.figma-top-nav.is-brand`, `.figma-side-nav.is-dark`, and `.figma-side-nav.is-brand`, rather than a documented token contract consumed across the app.
-- Page mounting still depends on a long `if` chain inside `AppShell.tsx`, while navigation metadata is also duplicated in `FigmaSideNav.tsx` and route mapping in `app/navigation/index.ts`.
+Resolved in current source:
+
+- shared frontend i18n catalog, locale store, and translation accessor exist under `main/frontend-modern/src/app/platform/i18n/`;
+- `FigmaSideNav.tsx` reads groups and module labels from the module registry plus i18n keys;
+- `AppShell.tsx` resolves page titles through `getModuleDescriptor(viewMode).titleKey`;
+- theme is no longer fixed to a single local shell value; it is persisted through `useAppTheme`, `setAppTheme`, and settings controls;
+- shared token groups are defined in `THEME_TOKENS` and applied through `applyThemeTokens(appTheme)`;
+- navigation metadata now derives from `moduleManifest` through `platform/modules/registry.ts` and `kernel/legacyHashAdapter.ts`.
+
+Residual work that remains outside this lane:
+
+- page-level business content is not fully localized;
+- some legacy CSS selectors still exist as compatibility styling, even though the shared token boundary exists;
+- the old `AppShell` still participates in runtime shell orchestration and should be reduced in the broader three-layer rewrite closure;
+- heavy page container/view splitting remains a three-layer rewrite follow-up, not an i18n/theme prerequisite.
 
 ## 3. Requirement Clarification
 

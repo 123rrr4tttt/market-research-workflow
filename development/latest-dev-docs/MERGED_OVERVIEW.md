@@ -22,6 +22,7 @@ Updated: 2026-05-22 PST
 ## 最近新增
 
 - `automation-runs`：
+  - [2026-05-22 Frontend Topology / I18N / Theme Contract Evidence](./automation-runs/frontend-topology-theme/2026-05-22/README.md)
   - [2026-05-22 Local Index LanceDB Runtime Smoke](./automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md)
   - [2026-05-22 Local Index Runtime Contract Evidence](./automation-runs/local-index-runtime-contract/2026-05-22/README.md)
   - [2026-05-22 GraphPage Frontend E2E Evidence](./automation-runs/graph-frontend-e2e/2026-05-22/README.md)
@@ -34,6 +35,7 @@ Updated: 2026-05-22 PST
 - `backend-docs`：
   - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：
+  - [2026-05-22 frontend-modern topology/i18n/theme contract status](./frontend-modern/main/MERGED_FRONTEND_MODERN.md)
   - [2026-05-22 frontend-modern standard docs entry](./frontend-modern/INDEX.md)
 - `development-plans`：
   - [2026-05-22 A_ARCHITECTURE index](./development-plans/A_ARCHITECTURE/INDEX.md)
