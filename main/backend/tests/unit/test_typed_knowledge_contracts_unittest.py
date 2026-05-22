@@ -217,6 +217,20 @@ class TypedKnowledgeK1K2ContractsTests(unittest.TestCase):
         with self.assertRaisesRegex(contracts.TypedKnowledgeContractError, "downstream_contract_visibility_scope_mismatch"):
             contracts.validate_downstream_contract_draft(draft)
 
+    def test_writing_handoff_requires_downstream_ready_knowledge_item(self):
+        draft_item = contracts.KnowledgeItem(
+            key="ki:draft",
+            project_key="demo_proj",
+            canonical_statement="Draft typed knowledge should not leak into writing.",
+            primary_type_node_key="type:policy",
+            evidence_refs=("doc:1",),
+            review_state=contracts.REVIEW_STATE_DRAFT_CANDIDATE,
+        )
+        draft_contract = contracts.build_downstream_contract_draft(draft_item)
+
+        with self.assertRaisesRegex(contracts.TypedKnowledgeContractError, "writing_handoff_requires_downstream_ready"):
+            contracts.build_writing_knowledge_handoff(draft_contract, selection_hash="selection:1")
+
     def test_apply_review_state_transition_enforces_manual_gate(self):
         updated = contracts.apply_review_state_transition(
             current_state=contracts.REVIEW_STATE_DRAFT_CANDIDATE,

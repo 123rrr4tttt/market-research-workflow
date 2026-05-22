@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Final, Mapping
+from typing import Any, Final, Mapping
 
 REVIEW_STATE_DRAFT_CANDIDATE = "draft_candidate"
 REVIEW_STATE_HUMAN_CONFIRMED = "human_confirmed"
@@ -99,6 +99,25 @@ DOWNSTREAM_CONSUMER_FACETS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyT
         "writing": ("knowledge_item_key", "canonical_statement", "evidence_refs", "locale", "quality_grade"),
         "reporting": ("project_key", "topic_cluster_keys", "booklet_keys", "quality_grade", "review_state"),
     }
+)
+
+WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION: Final[str] = "typed_knowledge.writing_handoff.v1"
+WRITING_KNOWLEDGE_HANDOFF_FIELDS: Final[tuple[str, ...]] = (
+    "contract_version",
+    "knowledge_item_key",
+    "project_key",
+    "canonical_statement",
+    "primary_type_node_key",
+    "topic_cluster_keys",
+    "booklet_keys",
+    "review_state",
+    "quality_grade",
+    "locale",
+    "evidence_refs",
+    "visibility_scope",
+    "selection_hash",
+    "selection_text",
+    "facets",
 )
 
 ACTOR_AUTOMATION = "automation"
@@ -231,6 +250,25 @@ class DownstreamKnowledgeContractDraft:
     evidence_refs: tuple[str, ...]
     visibility_scope: str
     updated_at: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WritingKnowledgeHandoff:
+    contract_version: str
+    knowledge_item_key: str
+    project_key: str
+    canonical_statement: str
+    primary_type_node_key: str
+    topic_cluster_keys: tuple[str, ...]
+    booklet_keys: tuple[str, ...]
+    review_state: str
+    quality_grade: str | None
+    locale: str | None
+    evidence_refs: tuple[str, ...]
+    visibility_scope: str
+    selection_hash: str | None = None
+    selection_text: str | None = None
+    facets: Mapping[str, Any] = field(default_factory=dict)
 
 
 def _validate_review_state(review_state: str, *, object_name: str) -> None:
@@ -428,6 +466,69 @@ def validate_downstream_contract_draft(contract: DownstreamKnowledgeContractDraf
     expected_scope = REVIEW_STATE_VISIBILITY_SCOPE[contract.review_state]
     if contract.visibility_scope != expected_scope:
         raise TypedKnowledgeContractError("downstream_contract_visibility_scope_mismatch")
+
+
+def build_writing_knowledge_handoff(
+    contract: DownstreamKnowledgeContractDraft,
+    *,
+    selection_hash: str | None = None,
+    selection_text: str | None = None,
+) -> WritingKnowledgeHandoff:
+    validate_downstream_contract_draft(contract)
+    if contract.visibility_scope != VISIBILITY_SCOPE_DOWNSTREAM_READY:
+        raise TypedKnowledgeContractError("writing_handoff_requires_downstream_ready")
+    normalized_selection_hash = str(selection_hash or "").strip() or None
+    normalized_selection_text = str(selection_text or "").strip() or None
+    facets = MappingProxyType(
+        {
+            "primary_type_node_key": contract.primary_type_node_key,
+            "topic_cluster_keys": tuple(contract.topic_cluster_keys),
+            "booklet_keys": tuple(contract.booklet_keys),
+            "quality_grade": contract.quality_grade,
+            "locale": contract.locale,
+            "review_state": contract.review_state,
+            "source_contract_fields": DOWNSTREAM_CONTRACT_FIELDS,
+        }
+    )
+    handoff = WritingKnowledgeHandoff(
+        contract_version=WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
+        knowledge_item_key=contract.knowledge_item_key,
+        project_key=contract.project_key,
+        canonical_statement=contract.canonical_statement.strip(),
+        primary_type_node_key=contract.primary_type_node_key,
+        topic_cluster_keys=tuple(contract.topic_cluster_keys),
+        booklet_keys=tuple(contract.booklet_keys),
+        review_state=contract.review_state,
+        quality_grade=contract.quality_grade,
+        locale=contract.locale,
+        evidence_refs=tuple(contract.evidence_refs),
+        visibility_scope=contract.visibility_scope,
+        selection_hash=normalized_selection_hash,
+        selection_text=normalized_selection_text,
+        facets=facets,
+    )
+    validate_writing_knowledge_handoff(handoff)
+    return handoff
+
+
+def validate_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> None:
+    if handoff.contract_version != WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION:
+        raise TypedKnowledgeContractError("writing_handoff_contract_version_mismatch")
+    if not handoff.knowledge_item_key or not handoff.project_key:
+        raise TypedKnowledgeContractError("writing_handoff_missing_identity")
+    if not handoff.canonical_statement.strip():
+        raise TypedKnowledgeContractError("writing_handoff_missing_statement")
+    if not handoff.primary_type_node_key.strip():
+        raise TypedKnowledgeContractError("writing_handoff_missing_primary_type")
+    if not handoff.evidence_refs:
+        raise TypedKnowledgeContractError("writing_handoff_missing_provenance")
+    if handoff.visibility_scope != VISIBILITY_SCOPE_DOWNSTREAM_READY:
+        raise TypedKnowledgeContractError("writing_handoff_requires_downstream_ready")
+    if handoff.selection_hash is not None and not handoff.selection_hash.strip():
+        raise TypedKnowledgeContractError("writing_handoff_invalid_selection_hash")
+    _validate_quality_grade(handoff.quality_grade)
+    _validate_locale(handoff.locale, {})
+    _validate_review_state(handoff.review_state, object_name="writing_handoff")
 
 
 def apply_review_state_transition(*, current_state: str, target_state: str, actor: str) -> str:

@@ -13,6 +13,8 @@ pytestmark = pytest.mark.unit
 
 try:
     from app.contracts.schemas.writing import KeywordCardItem, KeywordCardRequest, WritingContextEnvelope
+    from app.services.document_views.writing_card_view import build_keyword_card_from_typed_knowledge_handoff
+    from app.services.typed_knowledge import contracts as typed_knowledge_contracts
     from app.services.writing.keyword_card_service import _CARD_CACHE, _SELECTION_CACHE, aggregate_cards
 
     _IMPORT_ERROR = None
@@ -118,6 +120,42 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(len(response.cards), 1)
         self.assertEqual(response.cards[0].source_type, "resource")
         self.assertEqual(response.cards[0].extra["item_key"], "robotics_feed")
+
+    def test_typed_knowledge_handoff_builds_stable_writing_card_selection_contract(self):
+        item = typed_knowledge_contracts.KnowledgeItem(
+            key="ki:robotics-policy",
+            project_key="demo_proj",
+            canonical_statement="Humanoid robotics investment is shifting toward industrial pilots.",
+            primary_type_node_key="type:market_signal",
+            evidence_refs=("doc:robotics:42",),
+            topic_cluster_keys=("topic:robotics",),
+            booklet_keys=("booklet:q2-review",),
+            review_state=typed_knowledge_contracts.REVIEW_STATE_HUMAN_CONFIRMED,
+            quality_grade=typed_knowledge_contracts.QUALITY_GRADE_GOLD,
+            locale="en",
+        )
+        draft = typed_knowledge_contracts.build_downstream_contract_draft(item)
+        handoff = typed_knowledge_contracts.build_writing_knowledge_handoff(
+            draft,
+            selection_hash="selection:robotics",
+            selection_text="robotics investment",
+        )
+
+        card = build_keyword_card_from_typed_knowledge_handoff(handoff, normalized_query="robotics investment")
+
+        self.assertEqual(handoff.contract_version, "typed_knowledge.writing_handoff.v1")
+        self.assertIn("selection_hash", typed_knowledge_contracts.WRITING_KNOWLEDGE_HANDOFF_FIELDS)
+        self.assertEqual(handoff.selection_hash, "selection:robotics")
+        self.assertEqual(card.source_type, "resource")
+        self.assertEqual(card.publisher, "typed_knowledge")
+        self.assertEqual(card.extra["handoff_source"], "typed_knowledge")
+        self.assertEqual(card.extra["typed_knowledge_contract_version"], handoff.contract_version)
+        self.assertEqual(card.extra["knowledge_item_key"], "ki:robotics-policy")
+        self.assertEqual(card.extra["primary_type_node_key"], "type:market_signal")
+        self.assertEqual(card.extra["topic_cluster_keys"], ["topic:robotics"])
+        self.assertEqual(card.extra["booklet_keys"], ["booklet:q2-review"])
+        self.assertEqual(card.extra["visibility_scope"], typed_knowledge_contracts.VISIBILITY_SCOPE_DOWNSTREAM_READY)
+        self.assertEqual(card.extra["selection_hash"], "selection:robotics")
 
 
 if __name__ == "__main__":
