@@ -116,6 +116,121 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
         self.assertIn("selected_window_not_in_candidate_windows", status["blockers"])
         self.assertIn("missing_input_scope", status["blockers"])
 
+    def test_long_cycle_lifecycle_contract_builds_stable_persistent_record(self):
+        first = scaffold.check_long_cycle_lifecycle_contract(
+            task_goal="Digest weekly report inputs",
+            project_key="demo_proj",
+            entrypoint="ingest.raw_import",
+            source_locator="file:///tmp/weekly-report.md",
+            content_format="markdown",
+            content_length=8000,
+            processed_time="2026-03-08T11:00:00Z",
+            candidate_windows=["7d", "30d"],
+            selected_window="7d",
+            cadence="weekly",
+            event_time="2026-03-08T11:00:00Z",
+        )
+        second = scaffold.check_long_cycle_lifecycle_contract(
+            task_goal="Digest weekly report inputs",
+            project_key="demo_proj",
+            entrypoint="ingest.raw_import",
+            source_locator="file:///tmp/weekly-report.md",
+            content_format="markdown",
+            content_length=8000,
+            processed_time="2026-03-08T11:00:00Z",
+            candidate_windows=["30d", "7d"],
+            selected_window="7d",
+            cadence="weekly",
+            event_time="2026-03-09T11:00:00Z",
+        )
+        self.assertEqual(first["status"], "pass")
+        self.assertEqual(first["persistent_task"]["status"], contracts.LongCycleTaskStatus.READY.value)
+        self.assertTrue(first["persistent_task"]["task_key"].startswith("ingest-lc-"))
+        self.assertEqual(first["persistent_task"]["task_key"], second["persistent_task"]["task_key"])
+        self.assertIn("persistent_task_record_shape", first["closed_slice"])
+        self.assertEqual(
+            first["remaining_runtime_gaps"],
+            [
+                "live_scheduler_dispatch_not_executed",
+                "persistent_task_table_write_not_executed",
+                "end_to_end_automation_run_not_executed",
+            ],
+        )
+
+    def test_long_cycle_lifecycle_contract_requires_selected_window_for_dispatch(self):
+        status = scaffold.check_long_cycle_lifecycle_contract(
+            task_goal="Digest weekly report inputs",
+            project_key="demo_proj",
+            entrypoint="ingest.raw_import",
+            source_locator="file:///tmp/weekly-report.md",
+            content_format="markdown",
+            content_length=8000,
+            processed_time="2026-03-08T11:00:00Z",
+            candidate_windows=["7d", "30d"],
+            cadence="weekly",
+        )
+        self.assertEqual(status["status"], "fail")
+        self.assertIn("missing_selected_window_for_lifecycle_dispatch", status["blockers"])
+        self.assertEqual(status["persistent_task"]["status"], contracts.LongCycleTaskStatus.BLOCKED.value)
+
+    def test_long_cycle_persistent_task_record_transitions_through_dry_run_lifecycle(self):
+        status = scaffold.check_long_cycle_lifecycle_contract(
+            task_goal="Digest weekly report inputs",
+            project_key="demo_proj",
+            entrypoint="ingest.raw_import",
+            source_locator="file:///tmp/weekly-report.md",
+            content_format="markdown",
+            content_length=8000,
+            processed_time="2026-03-08T11:00:00Z",
+            candidate_windows=["7d", "30d"],
+            selected_window="7d",
+            cadence="weekly",
+        )
+        running = scaffold.transition_long_cycle_persistent_task_record(
+            status["persistent_task"],
+            transition="dispatch",
+            dispatch_ref="dry-run-dispatch-001",
+            event_time="2026-03-08T11:02:00Z",
+            reason="dispatch accepted",
+        )
+        completed = scaffold.transition_long_cycle_persistent_task_record(
+            running,
+            transition="succeed",
+            output_ref="dry-run://digestion/status/demo_proj/2026-03-08",
+            event_time="2026-03-08T11:05:00Z",
+            reason="digestion status snapshot written",
+        )
+        self.assertEqual(running.status.value, contracts.LongCycleTaskStatus.RUNNING.value)
+        self.assertEqual(completed.status.value, contracts.LongCycleTaskStatus.SUCCEEDED.value)
+        self.assertEqual(completed.attempt_count, 1)
+        self.assertEqual([event.transition.value for event in completed.lifecycle_events], ["mark_ready", "dispatch", "succeed"])
+        self.assertEqual(completed.task.last_run_snapshot.output_ref, "dry-run://digestion/status/demo_proj/2026-03-08")
+
+    def test_long_cycle_persistent_task_record_rejects_invalid_transitions(self):
+        status = scaffold.check_long_cycle_lifecycle_contract(
+            task_goal="Digest weekly report inputs",
+            project_key="demo_proj",
+            entrypoint="ingest.raw_import",
+            source_locator="file:///tmp/weekly-report.md",
+            content_format="markdown",
+            content_length=8000,
+            processed_time="2026-03-08T11:00:00Z",
+            candidate_windows=["7d", "30d"],
+            selected_window="7d",
+            cadence="weekly",
+        )
+        with self.assertRaisesRegex(ValueError, "dispatch_ref is required"):
+            scaffold.transition_long_cycle_persistent_task_record(
+                status["persistent_task"],
+                transition="dispatch",
+            )
+        with self.assertRaisesRegex(ValueError, "invalid long-cycle transition"):
+            scaffold.transition_long_cycle_persistent_task_record(
+                status["persistent_task"],
+                transition="succeed",
+                output_ref="dry-run://already-complete",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
