@@ -1,7 +1,7 @@
 # MERGED_BACKEND_DOCS
 
 > Scope: Consolidated draft for `development/latest-dev-docs/backend-docs`  
-> Updated: 2026-03-01
+> Updated: 2026-05-22
 
 ## 0. 使用说明
 
@@ -82,10 +82,12 @@
 ### 2.2 路由盘点与分层
 
 当前自动解析路由库存量：
-- `API_ROUTE_INVENTORY_2026-02-27.md` 标注总计 135 条路由。
-- 接口层调查文档提供了 API 文件、应用级路由、前端调用封装与内部 contracts 的分层视图。
+- `B_API/API_ROUTE_MAP_2026-05-22.md` 基于当前 `main/backend/app/api/*.py` 静态解析，标注总计 250 条 `/api/v1` router 路由，覆盖 30 个 API 模块。
+- `API_ROUTE_INVENTORY_2026-02-27.md` 标注总计 135 条路由，现仅保留为历史快照。
+- 接口层调查文档提供了 API 文件、应用级路由、前端调用封装与内部 contracts 的分层视图；其中路由数量和行号为 2026-02 口径，当前数量以 `API_ROUTE_MAP_2026-05-22.md` 为准。
 
 对应文档：
+- `API_ROUTE_MAP_2026-05-22.md`
 - `API_ROUTE_INVENTORY_2026-02-27.md`
 - `接口层调查文档.md`
 
@@ -230,8 +232,9 @@ API 的主要数据承载对象：
 | `DOC_MERGE_PLAN.md` | 路线图/文档治理 | 合并与归档策略依据 |
 | `接口层调查文档.md` | 架构/API | 接口分层、模块职责与路由结构 |
 | `API_CONTRACT_STANDARD.md` | API | 统一响应与错误契约 |
-| `API_ROUTE_INVENTORY_2026-02-27.md` | API | 路由总量与模块分布依据 |
-| `FRONTEND_MODERNIZATION_API_MAP_2026-02-27.md` | API | 前端换栈最小接口集合 |
+| `API_ROUTE_MAP_2026-05-22.md` | API | 当前路由总量与模块分布依据 |
+| `API_ROUTE_INVENTORY_2026-02-27.md` | API | 历史路由快照 |
+| `FRONTEND_MODERNIZATION_API_MAP_2026-02-27.md` | API | 前端换栈最小接口集合；需按当前路由图复核 |
 | `INGEST_ARCHITECTURE.md` | 架构/采集 | 摄取分层与主流程骨架 |
 | `UNIFIED_COLLECT_ARCHITECTURE.md` | 架构/采集 | 横向/纵向统一采集设计 |
 | `COLLECT_RUNTIME_SOCIAL_PHASE2_NOTE.md` | 架构/采集 | social 通道迁移边界与验收条件 |

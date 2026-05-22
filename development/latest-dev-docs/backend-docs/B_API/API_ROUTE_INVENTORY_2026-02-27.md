@@ -1,5 +1,7 @@
 # API Route Inventory (Auto-Parsed)
 
+> Status: HISTORICAL SNAPSHOT. This file only reflects the 2026-02-27 AST parse and is no longer the current API source of truth. Use [`API_ROUTE_MAP_2026-05-22.md`](./API_ROUTE_MAP_2026-05-22.md), which currently finds 250 routes under `main/backend/app/api/*.py`.
+
 Generated on 2026-02-27 from `main/backend/app/api/*.py` via AST static parsing.
 
 Total routes: **135**

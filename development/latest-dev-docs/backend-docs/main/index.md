@@ -1,3 +1,4 @@
 # main
 
 - 主文档：[`MERGED_BACKEND_DOCS.md`](./MERGED_BACKEND_DOCS.md)
+- 当前 API 路由图：[`../B_API/API_ROUTE_MAP_2026-05-22.md`](../B_API/API_ROUTE_MAP_2026-05-22.md)
