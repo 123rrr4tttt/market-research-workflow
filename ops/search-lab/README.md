@@ -23,6 +23,7 @@ docker compose -f ops/search-lab/docker-compose.yml up -d searxng yacy
 bash ops/search-lab/scripts/smoke_searxng.sh
 YACY_ADMIN_USER=admin YACY_ADMIN_PASSWORD="${YACY_ADMIN_PASSWORD:-mrwlabpass}" bash ops/search-lab/scripts/smoke_yacy.sh
 YACY_RESOURCE_MODE=global python3 ops/search-lab/scripts/compare_keyword_search.py --keywords "embodied ai" "robotics policy" --providers serper,searxng,yacy --out development/latest-dev-docs/automation-runs/search-provider-lab/2026-05-14/results.jsonl
+PYTHONPATH=main/backend main/backend/.venv311/bin/python ops/search-lab/scripts/search_provider_trace_contract.py --out development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json
 docker compose -f ops/search-lab/docker-compose.yml down
 ```
 
@@ -48,6 +49,8 @@ SEARXNG_MAX_PAGES=5
 `searxng` and `yacy` are explicit providers only. They are not part of `provider="auto"`.
 
 SearXNG result volume is increased by paging the official `/search` API with `pageno=1..N`. The backend and compare script derive page count from `max_results`, cap it with `SEARXNG_MAX_PAGES`, and hard-limit it to 10 pages to avoid overloading the local metasearch instance or upstream engines.
+
+The trace contract artifact command above is intentionally offline: it uses mocked SearXNG / YaCy payloads, does not start Docker, and records the required result keys `provider_route`, `provider_family`, `provider_auto_included`, and `backend_trace`. It also asserts that `provider="auto"` does not call SearXNG or YaCy. Use the Docker smoke / compare commands separately when runtime replay evidence is needed.
 
 ## Official references used
 

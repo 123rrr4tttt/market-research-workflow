@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import importlib.util
+import json
 import os
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -9,6 +12,22 @@ import pytest
 from app.services.search import web
 
 pytestmark = pytest.mark.unit
+
+
+def _load_trace_contract_module():
+    module_path = (
+        Path(__file__).resolve().parents[4]
+        / "ops"
+        / "search-lab"
+        / "scripts"
+        / "search_provider_trace_contract.py"
+    )
+    spec = importlib.util.spec_from_file_location("search_provider_trace_contract", module_path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"cannot load trace contract module: {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class SearchWebProviderAdaptersTest(unittest.TestCase):
@@ -155,6 +174,46 @@ class SearchWebProviderAdaptersTest(unittest.TestCase):
         self.assertEqual(results[-1]["raw"]["pageno"], 2)
         self.assertEqual(results[-1]["backend_trace"]["pageno"], 2)
         self.assertEqual(results[-1]["provider_route"], "explicit:searxng")
+
+    def test_offline_provider_trace_artifact_contract_matches_adapters(self) -> None:
+        module = _load_trace_contract_module()
+        artifact = module.build_contract()
+
+        self.assertEqual(artifact["contract_version"], "search-provider-trace-artifacts.v1")
+        self.assertEqual(artifact["scope"], "offline_unit_contract_no_containers")
+        self.assertEqual(
+            artifact["provider_auto_policy"]["excluded_local_open_search_providers"],
+            ["searxng", "yacy"],
+        )
+        self.assertFalse(artifact["auto_route"]["searxng_called"])
+        self.assertFalse(artifact["auto_route"]["yacy_called"])
+        self.assertFalse(artifact["auto_route"]["local_open_search_called"])
+        self.assertNotIn("searxng", artifact["auto_route"]["result_sources"])
+        self.assertNotIn("yacy", artifact["auto_route"]["result_sources"])
+
+        for provider in ("searxng", "yacy"):
+            result = artifact["explicit_results"][provider]
+            expected_route = f"explicit:{provider}"
+            self.assertEqual(result["source"], provider)
+            self.assertEqual(result["provider_route"], expected_route)
+            self.assertEqual(result["provider_family"], "local_open_search")
+            self.assertFalse(result["provider_auto_included"])
+            self.assertEqual(result["backend_trace"]["provider"], provider)
+            self.assertEqual(result["backend_trace"]["provider_route"], expected_route)
+            self.assertEqual(result["backend_trace"]["provider_family"], "local_open_search")
+            self.assertFalse(result["backend_trace"]["auto_included"])
+
+        artifact_path = (
+            Path(__file__).resolve().parents[4]
+            / "development"
+            / "latest-dev-docs"
+            / "automation-runs"
+            / "search-provider-trace-artifacts"
+            / "2026-05-22"
+            / "search_provider_trace_contract.json"
+        )
+        if artifact_path.exists():
+            self.assertEqual(json.loads(artifact_path.read_text(encoding="utf-8")), artifact)
 
 
 if __name__ == "__main__":

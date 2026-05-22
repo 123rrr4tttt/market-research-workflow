@@ -23,6 +23,7 @@ Updated: 2026-05-14 PST
 
 - `automation-runs`：
   - [2026-05-22 Development Docs Folder Audit And Landing Report](./automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
+  - [2026-05-22 Search Provider Trace Offline Artifact Contract](./automation-runs/search-provider-trace-artifacts/2026-05-22/README.md)
 - `frontend-modern`：
   - [2026-05-22 frontend-modern standard docs entry](./frontend-modern/INDEX.md)
 - `development-plans`：
@@ -47,6 +48,7 @@ Updated: 2026-05-14 PST
   - [2026-05-14 Claude Agent High-Fidelity Migration Process Records](./development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/INDEX.md)
+  - [2026-05-22 Search Provider Trace Contract Closure Replay](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/10_search-provider-trace-contract-closure-replay-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-05-14 Optional Search / Index Enhancements Launcher Integration](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md)
 - `development-plans/CURRENT_DEV`：

@@ -55,8 +55,33 @@ YaCy 结果新增：
 |---|---|
 | `main/backend/app/services/search/web.py` | `_searxng_search` 和 `_yacy_search` 返回 explicit provider trace 字段；SearXNG trace 保留 `pageno`，YaCy trace 保留规范化后的 `resource` |
 | `main/backend/tests/unit/test_search_web_provider_adapters_unittest.py` | adapter 单测断言 `provider_route`、`provider_family`、`provider_auto_included`、`backend_trace`；分页测试断言最后一条结果的 `backend_trace.pageno=2` |
+| `ops/search-lab/scripts/search_provider_trace_contract.py` | 不启动容器，使用离线 fixture 生成 provider trace contract artifact，并断言 `provider="auto"` 未调用 SearXNG / YaCy |
+| `development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/README.md` | 记录 Wave2 D 离线 artifact 范围、合同和复跑命令 |
+| `development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json` | 记录可复跑 artifact：显式 `searxng` / `yacy` 结果 trace 字段、`auto` 排除策略和本地 open-search provider 未被 auto 调用 |
 
-## 4. 验证
+## 4. 离线 Artifact 复跑
+
+离线 contract 不替代真实容器 replay；它只固定 adapter 层输出形状和 `provider="auto"` 隔离策略，避免 Docker replay 分支与 unit contract 分支互相阻塞。
+
+```bash
+PYTHONPATH=main/backend main/backend/.venv311/bin/python ops/search-lab/scripts/search_provider_trace_contract.py --out development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json
+PYTHONPATH=main/backend main/backend/.venv311/bin/python -m pytest main/backend/tests/unit/test_search_web_provider_adapters_unittest.py
+```
+
+artifact 必须包含：
+
+- `explicit_results.searxng.provider_route=explicit:searxng`
+- `explicit_results.searxng.provider_family=local_open_search`
+- `explicit_results.searxng.provider_auto_included=false`
+- `explicit_results.searxng.backend_trace`
+- `explicit_results.yacy.provider_route=explicit:yacy`
+- `explicit_results.yacy.provider_family=local_open_search`
+- `explicit_results.yacy.provider_auto_included=false`
+- `explicit_results.yacy.backend_trace`
+- `auto_route.searxng_called=false`
+- `auto_route.yacy_called=false`
+
+## 5. 验证
 
 在 worktree `market-research-workflow.worktrees/search-provider-replay`，分支 `codex/devdocs-search-provider-replay` 执行：
 
@@ -72,6 +97,15 @@ PYTHONPATH=main/backend /Users/wangyiliang/market-research-workflow/main/backend
 - `py_compile`：通过。
 - `test_search_web_provider_adapters_unittest.py`：`4 passed in 1.40s`。
 
-## 5. 关闭判定
+Wave2 D 复跑：
+
+```bash
+PYTHONPATH=main/backend main/backend/.venv311/bin/python ops/search-lab/scripts/search_provider_trace_contract.py --out development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json
+PYTHONPATH=main/backend main/backend/.venv311/bin/python -m pytest main/backend/tests/unit/test_search_web_provider_adapters_unittest.py
+```
+
+预期结果：trace artifact 生成成功，adapter 单测包含离线 artifact 合同。
+
+## 6. 关闭判定
 
 本次 closure replay 只关闭 explicit provider trace contract 的最小代码与单测缺口。SearXNG / YaCy 是否进入 `provider="auto"` 仍维持本目录原判定：不进入默认链，除非后续人工质量、稳定性和超时策略证据另行达标。
