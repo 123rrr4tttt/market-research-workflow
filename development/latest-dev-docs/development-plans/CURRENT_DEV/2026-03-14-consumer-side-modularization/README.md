@@ -6,6 +6,7 @@
 2. [02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md](./02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md)
 3. [03_wave11-consumer-query-extraction-evidence-2026-05-22.md](./03_wave11-consumer-query-extraction-evidence-2026-05-22.md)
 4. [04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md](./04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md)
+5. [05_wave15-consumer-sql-predicate-facade-2026-05-22.md](./05_wave15-consumer-sql-predicate-facade-2026-05-22.md)
 
 ## 使用说明
 

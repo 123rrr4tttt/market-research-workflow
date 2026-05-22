@@ -15,7 +15,7 @@ CONTRACT_VERSION = "consumer.admin_dashboard_boundary.wave13.v1"
 TOPIC_ID = "2026-03-14-consumer-side-modularization"
 BOUNDARY_RULE = (
     "Selected admin/dashboard Python consumer reads must route through document_views; "
-    "Document.extracted_data SQL JSON predicates remain query-layer work and are tracked as deferred scope."
+    "Document.extracted_data SQL JSON predicates are checked by the Wave15 document_queries facade gate."
 )
 
 CHECKED_FUNCTIONS = {
@@ -244,8 +244,8 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             "direct_instance_extracted_data_read_count": direct_read_count,
             "allowed_sql_json_expression_count": sql_json_count,
             "query_layer_deferred_scope": (
-                "Document.extracted_data SQL JSON predicates in admin/dashboard are counted here "
-                "but are not claimed as extracted by this Wave13 Python-read slice."
+                "Wave13 only guards Python instance reads. Wave15 owns the admin/dashboard SQL JSON predicate "
+                "facade gate and should keep this count at zero for selected functions."
             ),
         },
     }
