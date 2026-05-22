@@ -60,7 +60,23 @@
       "shim": "docs/architecture/ops-frontend/README.md",
       "target_role": "architecture-target-entry-manifest",
       "compatibility_entry": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/DIR_MAP.md",
-      "status": "content_shim"
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/DIR_MAP.md",
+          "target": "docs/architecture/ops-frontend/A_ARCHITECTURE/DIR_MAP.md",
+          "compatibility_entry": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/DIR_MAP.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/frontend-modern-README.md",
+          "target": "docs/architecture/ops-frontend/A_ARCHITECTURE/frontend-modern-README.md",
+          "compatibility_entry": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/frontend-modern-README.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "root-plans-architecture-tree",
