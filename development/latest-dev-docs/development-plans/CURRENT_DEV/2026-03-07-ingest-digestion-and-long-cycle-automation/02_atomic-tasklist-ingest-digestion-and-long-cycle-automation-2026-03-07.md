@@ -28,7 +28,7 @@
   - tasks editing `01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md` must run serially by task id;
   - tasks editing `02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md` must run serially by task id.
 
-## Global Module Boundaries
+## Global Module Boundary Rules
 
 - Intake boundary:
   - read `main/backend/app/api/ingest.py`

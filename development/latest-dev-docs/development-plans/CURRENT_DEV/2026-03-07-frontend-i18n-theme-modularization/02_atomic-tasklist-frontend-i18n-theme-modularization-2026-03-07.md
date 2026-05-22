@@ -24,7 +24,7 @@ File-conflict rule:
 - tasks touching `main/frontend-modern/src/pages/SettingsPage.tsx` must run serially;
 - tasks touching `main/frontend-modern/src/index.css` must run serially.
 
-## Global Module Boundaries
+## Global Module Boundary Rules
 
 The implementation should keep five module boundaries explicit:
 

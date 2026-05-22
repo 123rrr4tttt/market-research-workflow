@@ -107,7 +107,9 @@ The actual problem is that shell text, theme behavior, and module wiring are cur
 - every new mode will require touching multiple places by hand;
 - workbench pages and standard admin pages will diverge in infrastructure even when they should share platform rules.
 
-### 3.3 In-scope for the first wave
+## 4. Scope and Non-Goals
+
+### 4.1 In-scope for the first wave
 
 The first wave should freeze and then implement only the minimum platform layer:
 
@@ -118,7 +120,7 @@ The first wave should freeze and then implement only the minimum platform layer:
 - settings entrypoints for language and theme preferences;
 - onboarding rules for both standard pages and high-interaction pages.
 
-### 3.4 Non-goals
+### 4.2 Non-goals
 
 This topic does not try to complete any of the following in the same wave:
 
@@ -128,9 +130,9 @@ This topic does not try to complete any of the following in the same wave:
 - replacement of all shell rendering logic in one step;
 - a forced decision that every future interaction shape must share the exact same shell layout.
 
-## 4. Recommended Architecture
+## 5. Recommended Architecture
 
-### 4.1 Localization layer
+### 5.1 Localization layer
 
 Recommended direction: introduce a shell-owned locale contract first, then let pages consume that contract.
 
@@ -155,7 +157,7 @@ Recommended catalog partition for the first wave:
 
 This document intentionally does not lock the repo to a specific third-party i18n runtime. The repo currently has no established frontend i18n stack, so the first decision should optimize for low-friction adoption in `main/frontend-modern`.
 
-### 4.2 Theme layer
+### 5.2 Theme layer
 
 Recommended direction: keep theme ownership at shell scope first, but document a token contract instead of expanding ad hoc variant CSS.
 
@@ -180,7 +182,7 @@ Minimum token groups for the first wave:
 
 The important design decision is not the exact token names; it is the boundary. Shared shell surfaces should consume shared tokens, while page-local workbench styling may extend them without forking the global contract.
 
-### 4.3 Module registration layer
+### 5.3 Module registration layer
 
 Recommended direction: introduce module metadata as the shared source for navigation, page title, and visibility rules.
 
@@ -203,7 +205,7 @@ This layer is needed because current behavior is split across:
 
 The first wave does not have to eliminate every branch immediately, but it should establish one registration contract that later refactors can converge toward.
 
-### 4.4 Dual-interaction boundary
+### 5.4 Dual-interaction boundary
 
 For this topic, “dual interaction” should mean:
 
@@ -212,9 +214,9 @@ For this topic, “dual interaction” should mean:
 
 This topic should therefore define shared infrastructure, not force all pages into one identical presentation model.
 
-## 5. Implementation Order
+## 6. Implementation Order
 
-### 5.1 Stage 0: Freeze baseline and contracts
+### 6.1 Stage 0: Freeze baseline and contracts
 
 First freeze the current baseline and contract boundaries:
 
@@ -225,7 +227,7 @@ First freeze the current baseline and contract boundaries:
 
 This step is serial. Without it, later tasks will keep re-deriving different assumptions.
 
-### 5.2 Stage 1: Introduce shell-level i18n and theme contracts
+### 6.2 Stage 1: Introduce shell-level i18n and theme contracts
 
 Once the baseline is frozen, define:
 
@@ -236,13 +238,13 @@ Once the baseline is frozen, define:
 
 This stage should be implemented before migrating page-level consumers, because otherwise multiple pages will invent incompatible access patterns.
 
-### 5.3 Stage 2: Introduce module registration metadata
+### 6.3 Stage 2: Introduce module registration metadata
 
 After locale/theme contracts exist, define module registration metadata so shell text and navigation can consume translation keys and module descriptors from a common source.
 
 This is the point where route metadata, page titles, navigation groups, and visibility rules should stop drifting independently.
 
-### 5.4 Stage 3: Migrate shell entrypoints
+### 6.4 Stage 3: Migrate shell entrypoints
 
 Then migrate the highest-value shell surfaces first:
 
@@ -252,7 +254,7 @@ Then migrate the highest-value shell surfaces first:
 
 This is the minimum user-visible slice that proves the infrastructure is real.
 
-### 5.5 Stage 4: Onboard representative pages
+### 6.5 Stage 4: Onboard representative pages
 
 After shell entrypoints are stable, onboard representative pages from both interaction shapes:
 
@@ -261,9 +263,9 @@ After shell entrypoints are stable, onboard representative pages from both inter
 
 The purpose is to verify that the infrastructure works across both simple and dense pages before larger-scale migration.
 
-## 6. Serial and Parallel Relationships
+## 7. Serial and Parallel Relationships
 
-### 6.1 Serial dependencies
+### 7.1 Serial dependencies
 
 The following order should remain serial:
 
@@ -276,7 +278,7 @@ The following order should remain serial:
 
 This order matters because module registration should consume translation/theme conventions, not invent them independently.
 
-### 6.2 Safe parallel slices
+### 7.2 Safe parallel slices
 
 Once Stage 0 is complete, some work can proceed in parallel:
 
@@ -290,7 +292,7 @@ After those contracts are frozen, the following can also run in parallel:
 - navigation label migration in `FigmaSideNav.tsx`;
 - settings integration for locale/theme controls.
 
-### 6.3 File-conflict hotspots
+### 7.3 File-conflict hotspots
 
 The likely conflict hotspots are:
 
@@ -302,9 +304,9 @@ The likely conflict hotspots are:
 
 Any implementation plan that assigns multiple contributors to this topic should treat those files as serial merge points.
 
-## 7. Minimal Validation
+## 8. Minimal Validation
 
-### 7.1 Structural validation
+### 8.1 Structural validation
 
 At minimum, later implementation must verify:
 
@@ -312,7 +314,7 @@ At minimum, later implementation must verify:
 - a theme switch changes shell surfaces through shared token usage rather than one-off class edits;
 - one new or existing module can be represented through module metadata without adding yet another disconnected label map.
 
-### 7.2 Flow validation
+### 8.2 Flow validation
 
 At minimum, later implementation must verify:
 
@@ -321,7 +323,7 @@ At minimum, later implementation must verify:
 3. switch between at least two navigation modes and confirm locale/theme state remains stable;
 4. open one standard page and one high-interaction page and confirm both still render under the same shell contract.
 
-### 7.3 Minimum command-level check
+### 8.3 Minimum command-level check
 
 If code changes are made for this topic, the minimum verification pack should include:
 
@@ -331,16 +333,16 @@ cd main/frontend-modern && npm run -s lint
 
 If a lightweight frontend smoke script exists later, it should be added on top of lint rather than replacing the structural checks above.
 
-## 8. Risks and Open Questions
+## 9. Risks and Open Questions
 
-### 8.1 Main risks
+### 9.1 Main risks
 
 - If locale state is introduced without first extracting shell strings, the app will end up with mixed translated and hardcoded shell surfaces.
 - If theme work only adds toggles without a token boundary, workbench pages will fork visual semantics immediately.
 - If module registration is postponed too long, every new mode will keep expanding hardcoded maps and `if` chains.
 - If high-interaction pages are ignored during onboarding, the resulting infrastructure may fit dashboards but fail on workbench-style screens.
 
-### 8.2 Open questions to settle before implementation
+### 9.2 Open questions to settle before implementation
 
 - Should the first-wave locale preference remain frontend-local only, or later sync with project-level/user-level settings?
 - Is `brand` a supported end-user theme in the first wave, or only an internal styling branch that should remain non-default?
