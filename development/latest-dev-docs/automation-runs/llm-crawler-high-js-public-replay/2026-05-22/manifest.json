@@ -1,0 +1,112 @@
+{
+  "contract_version": "llm_crawler.high_js_replay_manifest.v1",
+  "execution_policy": {
+    "closure_without_real_public_evidence_allowed": false,
+    "default_browser_runtime_allowed": false,
+    "default_public_network_allowed": false,
+    "deterministic_gate_allowed_without_network": true,
+    "http_fetch_fallback_allowed_for_high_js": false,
+    "live_public_replay_default_status": "not_closed_missing_real_evidence",
+    "real_public_replay_requires_explicit_opt_in": true
+  },
+  "operator_opt_in_schema": {
+    "contract_version": "llm_crawler.high_js_public_replay.opt_in_request.v1",
+    "evidence_output_contract_version": "llm_crawler.high_js_public_replay.v1",
+    "required_list_fields": [
+      "target_ids"
+    ],
+    "required_string_fields": [
+      "operator",
+      "run_id",
+      "requested_at",
+      "browser_runtime",
+      "evidence_output",
+      "output_contract_version"
+    ],
+    "required_true_fields": [
+      "allow_public_network",
+      "allow_browser_runtime",
+      "allow_high_js_targets",
+      "acknowledge_external_site_terms",
+      "acknowledge_rate_limits",
+      "acknowledge_no_shared_index_edits"
+    ],
+    "target_ids_must_match_manifest": true
+  },
+  "protected_shared_indexes": [
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md",
+    "development/latest-dev-docs/development-plans/INDEX.md",
+    "development/latest-dev-docs/README.md",
+    "development/latest-dev-docs/MERGED_OVERVIEW.md"
+  ],
+  "public_replay_contract_version": "llm_crawler.high_js_public_replay.v1",
+  "readiness_contract_version": "llm_crawler.high_js_replay_readiness.v1",
+  "real_evidence_requires": [
+    "contract_version=llm_crawler.high_js_public_replay.v1",
+    "operator_opt_in.contract_version=llm_crawler.high_js_public_replay.opt_in_request.v1",
+    "operator_opt_in.allow_public_network=true",
+    "operator_opt_in.allow_browser_runtime=true",
+    "operator_opt_in.allow_high_js_targets=true",
+    "validation.real_public_high_js_replay_proven=true",
+    "validation.public_network_attempted=true",
+    "inputs.target_count=3",
+    "outputs.public_targets_attempted=3",
+    "outputs.high_js_success_count=3",
+    "outputs.target_results[].status=success",
+    "outputs.target_results[].browser_rendered=true"
+  ],
+  "required_artifacts": {
+    "frontdoor_router_contract": "main/backend/app/services/ingest/frontdoor_router_contract.py",
+    "live_public_output": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/output.public.json",
+    "manifest": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+    "provider_handoff_checker": "main/backend/scripts/check_crawler_provider_handoff_contract.py",
+    "readiness_checker": "main/backend/scripts/check_llm_crawler_high_js_replay_readiness.py",
+    "url_pool_route_profiles": "main/backend/app/services/ingest/url_pool.py",
+    "wave13_readiness_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md",
+    "wave15_manifest_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md"
+  },
+  "scope": "Wave15 LLM crawler high-JS public replay manifest. This manifest validates target, opt-in, and evidence schema boundaries only; it does not execute public browser replay.",
+  "target_set": {
+    "target_count": 3,
+    "target_kind": "high_js_public_replay",
+    "targets": [
+      {
+        "expected_domain": "x.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "http_fetch_fallback_allowed": false,
+        "public_replay_opt_in_required": true,
+        "public_site": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "expected_domain": "instagram.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "http_fetch_fallback_allowed": false,
+        "public_replay_opt_in_required": true,
+        "public_site": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "expected_domain": "youtube.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "http_fetch_fallback_allowed": false,
+        "public_replay_opt_in_required": true,
+        "public_site": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ]
+  }
+}
