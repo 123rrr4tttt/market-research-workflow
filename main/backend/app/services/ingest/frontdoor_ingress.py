@@ -75,6 +75,7 @@ def build_source_library_ingress_envelope(
     records = ((terminal_output.get("results") or {}).get("records") if isinstance(terminal_output.get("results"), dict) else [])
     source_artifacts = _collect_source_artifacts(records)
     article_body_record = _select_article_body_record(records, external_manifest)
+    collection_payload: dict[str, Any]
     if article_body_record is not None:
         collection_payload = {
             "document_candidate": _build_document_candidate_from_record(article_body_record, external_manifest=external_manifest),
@@ -84,7 +85,11 @@ def build_source_library_ingress_envelope(
                 "platform": "source_library",
                 "ingestion_entrypoint": "ingest.source_library.run",
                 "source_mode": str(terminal_output.get("source_mode") or "protocol_search"),
-                "article_extraction": _record_article_extraction_meta(article_body_record),
+                "article_extraction": dict(
+                    ((article_body_record.get("record_meta") or {}).get("article_extraction") or {})
+                    if isinstance(article_body_record.get("record_meta"), dict)
+                    else {}
+                ),
             },
             "extraction_plan": {"enabled": False},
             "dispatch_plan": {
@@ -240,15 +245,10 @@ def _select_article_body_record(records: Any, external_manifest: Any) -> dict[st
     for row in records:
         if not isinstance(row, dict):
             continue
-        if str(row.get("content_text") or "").strip():
+        content_text = str(row.get("content_text") or "").strip()
+        if content_text:
             return dict(row)
     return None
-
-
-def _record_article_extraction_meta(record: dict[str, Any]) -> dict[str, Any]:
-    record_meta = record.get("record_meta") if isinstance(record.get("record_meta"), dict) else {}
-    article_extraction = record_meta.get("article_extraction")
-    return dict(article_extraction or {}) if isinstance(article_extraction, dict) else {}
 
 
 def _build_document_candidate_from_record(record: dict[str, Any], *, external_manifest: dict[str, Any]) -> dict[str, Any]:
