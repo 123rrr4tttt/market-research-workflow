@@ -145,6 +145,40 @@ export type WorkflowGraphCuratedSyncPayload = {
   base_version?: number
 }
 
+export type WorkflowGraphCuratedRollbackPayload = {
+  target_version_id: string
+  reason?: string
+  actor_id?: string
+  user_id?: string
+  base_revision?: number
+  base_version?: number
+}
+
+export type WorkflowGraphAuditRecord = {
+  audit_id?: string
+  action?: string
+  actor_id?: string
+  graph_id?: string
+  object_scope?: string
+  project_key?: string
+  status?: string
+  timestamp?: string
+  from_revision?: number
+  to_revision?: number
+  version_id?: string
+  rollback_from_version_id?: string
+  context?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export type WorkflowGraphAuditListResponse = {
+  graph_id?: string
+  items?: WorkflowGraphAuditRecord[]
+  total?: number
+  base_version?: number
+  [key: string]: unknown
+}
+
 export type WorkflowGraphEvidencePackPayload = {
   selected_node_ids?: string[]
   version_id?: string
@@ -186,6 +220,15 @@ export type WorkflowGraphHandoffResponse = {
   evidence_pack?: WorkflowGraphEvidencePackResponse | Record<string, unknown>
   graph_context?: WorkflowGraphEvidencePackResponse | Record<string, unknown>
   persistence?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export type WorkflowGraphHandoffReplayResponse = {
+  run_id?: string
+  handoff_id?: string
+  events?: Array<Record<string, unknown>>
+  result?: Record<string, unknown>
+  contract_version?: string
   [key: string]: unknown
 }
 
@@ -281,6 +324,16 @@ export async function syncWorkflowGraphCuratedState(graphId: string, payload: Wo
   return post<WorkflowGraphCuratedStateResponse>(endpoints.workflowGraph.curatedSync(graphId), payload)
 }
 
+export async function rollbackWorkflowGraphCuratedState(graphId: string, payload: WorkflowGraphCuratedRollbackPayload) {
+  return post<WorkflowGraphCuratedStateResponse>(endpoints.workflowGraph.curatedRollback(graphId), payload)
+}
+
+export async function listWorkflowGraphCuratedAudits(graphId: string, limit = 50) {
+  const query = new URLSearchParams()
+  query.set('limit', String(Math.max(1, Math.min(200, Math.trunc(Number(limit) || 50)))))
+  return get<WorkflowGraphAuditListResponse>(`${endpoints.workflowGraph.curatedAudit(graphId)}?${query.toString()}`)
+}
+
 export async function buildWorkflowGraphEvidencePack(graphId: string, payload: WorkflowGraphEvidencePackPayload = {}) {
   return post<WorkflowGraphEvidencePackResponse>(endpoints.workflowGraph.curatedEvidencePack(graphId), payload)
 }
@@ -291,6 +344,10 @@ export async function buildWorkflowGraphReportingHandoff(graphId: string, payloa
 
 export async function buildWorkflowGraphWritingHandoff(graphId: string, payload: WorkflowGraphWritingHandoffPayload) {
   return post<WorkflowGraphHandoffResponse>(endpoints.workflowGraph.curatedWritingHandoff(graphId), payload)
+}
+
+export async function replayWorkflowGraphHandoff(runId: string, handoffId: string) {
+  return get<WorkflowGraphHandoffReplayResponse>(endpoints.workflowGraph.handoffReplay(runId, handoffId))
 }
 
 export async function exportGraph(docIds: number[] | string) {

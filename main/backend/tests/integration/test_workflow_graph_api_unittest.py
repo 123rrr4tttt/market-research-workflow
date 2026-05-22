@@ -350,6 +350,59 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(sync_resp.status_code, 200)
         self.assertEqual(sync_resp.json()["data"]["sync_status"], "in_sync")
 
+    def test_curated_rollback_and_audit_readback_success(self):
+        with patch(
+            "app.api.workflow_graph._invoke_rollback_curated_graph",
+            return_value={
+                "graph_id": "cg-1",
+                "rollback_status": "succeeded",
+                "revision": 4,
+                "active_version_id": "cver-rollback-4",
+                "rollback_from_version_id": "cver-1",
+                "audit_id": "audit-rollback-1",
+                "rollback_contract": {
+                    "contract_version": "workflow_graph.rollback.v1",
+                    "target_version_id": "cver-1",
+                },
+            },
+        ) as rollback_mock:
+            rollback_resp = self.client.post(
+                "/api/v1/workflow-graph/curated/cg-1/rollback",
+                json={"base_revision": 3, "target_version_id": "cver-1", "reason": "restore tested snapshot"},
+                headers=self.headers,
+            )
+        self.assertEqual(rollback_resp.status_code, 200)
+        rollback_mock.assert_called_once_with(
+            "cg-1",
+            {"base_revision": 3, "target_version_id": "cver-1", "reason": "restore tested snapshot"},
+        )
+        rollback_data = rollback_resp.json()["data"]
+        self.assertEqual(rollback_data["rollback_status"], "succeeded")
+        self.assertEqual(rollback_data["rollback_contract"]["contract_version"], "workflow_graph.rollback.v1")
+
+        with patch(
+            "app.api.workflow_graph._invoke_list_curated_audits",
+            return_value={
+                "graph_id": "cg-1",
+                "items": [
+                    {
+                        "audit_id": "audit-rollback-1",
+                        "action": "rollback",
+                        "version_id": "cver-rollback-4",
+                        "rollback_from_version_id": "cver-1",
+                    }
+                ],
+                "total": 1,
+                "base_version": 7,
+            },
+        ) as audit_mock:
+            audit_resp = self.client.get("/api/v1/workflow-graph/curated/cg-1/audit?limit=10", headers=self.headers)
+        self.assertEqual(audit_resp.status_code, 200)
+        audit_mock.assert_called_once_with("cg-1", 10)
+        audit_data = audit_resp.json()["data"]
+        self.assertEqual(audit_data["items"][0]["action"], "rollback")
+        self.assertEqual(audit_data["items"][0]["rollback_from_version_id"], "cver-1")
+
     def test_curated_conflict_returns_validation_error_category(self):
         from app.services.workflow_graph.curated_service import WorkflowGraphSyncConflictError
 

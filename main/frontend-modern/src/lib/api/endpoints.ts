@@ -169,11 +169,15 @@ export const endpoints = {
     curatedDraft: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/draft`,
     curatedSubmit: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/submit`,
     curatedSync: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/sync`,
+    curatedRollback: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/rollback`,
+    curatedAudit: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/audit`,
     curatedEvidencePack: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/evidence-pack`,
     curatedReportingHandoff: (graphId: string) =>
       `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/handoff/reporting`,
     curatedWritingHandoff: (graphId: string) =>
       `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/handoff/writing`,
+    handoffReplay: (runId: string, handoffId: string) =>
+      `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}/handoff/${encodeURIComponent(handoffId)}/replay`,
     templates: `${API_BASE}/workflow-graph/templates`,
     templateById: (templateId: string) => `${API_BASE}/workflow-graph/templates/${encodeURIComponent(templateId)}`,
     templateVersions: (templateId: string) =>

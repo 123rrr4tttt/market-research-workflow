@@ -14,6 +14,13 @@ type CuratedSubmitRequest = {
   object_scope?: string
 }
 
+type CuratedRollbackRequest = {
+  actor_id?: string
+  base_revision?: number
+  target_version_id?: string
+  reason?: string
+}
+
 type CuratedReportingHandoffRequest = {
   topic?: string
   selected_node_ids?: string[]
@@ -26,9 +33,13 @@ async function setupGraphPageMocks(page: Page) {
   let contentGraphHit = 0
   let curatedDraftHit = 0
   let curatedSubmitHit = 0
+  let curatedAuditHit = 0
+  let curatedRollbackHit = 0
   let curatedReportingHandoffHit = 0
+  let handoffReplayHit = 0
   let lastCuratedDraftBody: CuratedDraftRequest | null = null
   let lastCuratedSubmitBody: CuratedSubmitRequest | null = null
+  let lastCuratedRollbackBody: CuratedRollbackRequest | null = null
   let lastCuratedReportingHandoffBody: CuratedReportingHandoffRequest | null = null
 
   await page.route('**/api/v1/project-customization/graph-config**', async (route) => {
@@ -141,6 +152,71 @@ async function setupGraphPageMocks(page: Page) {
     })
   })
 
+  await page.route('**/workflow-graph/curated/**/audit**', async (route) => {
+    curatedAuditHit += 1
+    const items = curatedRollbackHit > 0
+      ? [
+          {
+            audit_id: 'audit_rollback_graphpage_e2e',
+            action: 'rollback',
+            version_id: 'cver_rollback_graphpage_e2e',
+            rollback_from_version_id: 'cver_graphpage_e2e',
+            to_revision: 2,
+          },
+          {
+            audit_id: 'audit_graphpage_e2e',
+            action: 'submit',
+            version_id: 'cver_graphpage_e2e',
+            to_revision: 1,
+          },
+        ]
+      : [
+          {
+            audit_id: 'audit_graphpage_e2e',
+            action: 'submit',
+            version_id: 'cver_graphpage_e2e',
+            to_revision: 1,
+          },
+        ]
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          graph_id: 'cg-graphpage-e2e',
+          items,
+          total: items.length,
+          base_version: 2,
+        },
+      }),
+    })
+  })
+
+  await page.route('**/workflow-graph/curated/**/rollback**', async (route) => {
+    curatedRollbackHit += 1
+    lastCuratedRollbackBody = route.request().postDataJSON() as CuratedRollbackRequest
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          graph_id: 'cg-graphpage-e2e',
+          rollback_status: 'succeeded',
+          revision: 2,
+          active_version_id: 'cver_rollback_graphpage_e2e',
+          rollback_from_version_id: lastCuratedRollbackBody?.target_version_id,
+          audit_id: 'audit_rollback_graphpage_e2e',
+          rollback_contract: {
+            contract_version: 'workflow_graph.rollback.v1',
+            target_version_id: lastCuratedRollbackBody?.target_version_id,
+          },
+        },
+      }),
+    })
+  })
+
   await page.route('**/workflow-graph/curated/**/handoff/reporting**', async (route) => {
     curatedReportingHandoffHit += 1
     lastCuratedReportingHandoffBody = route.request().postDataJSON() as CuratedReportingHandoffRequest
@@ -189,6 +265,30 @@ async function setupGraphPageMocks(page: Page) {
     })
   })
 
+  await page.route('**/workflow-graph/runs/**/handoff/**/replay**', async (route) => {
+    handoffReplayHit += 1
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          contract_version: 'workflow_graph.handoff.v1',
+          run_id: 'run-report-graphpage-e2e',
+          handoff_id: 'h-report-graphpage-e2e',
+          events: [
+            { seq: 1, type: 'handoff.persisted' },
+            { seq: 2, type: 'handoff.replayed' },
+          ],
+          result: {
+            handoff_id: 'h-report-graphpage-e2e',
+            producer: 'workflow_graph.backend_bridge',
+          },
+        },
+      }),
+    })
+  })
+
   return {
     get graphConfigHit() {
       return graphConfigHit
@@ -208,14 +308,26 @@ async function setupGraphPageMocks(page: Page) {
     get curatedSubmitHit() {
       return curatedSubmitHit
     },
+    get curatedAuditHit() {
+      return curatedAuditHit
+    },
+    get curatedRollbackHit() {
+      return curatedRollbackHit
+    },
     get curatedReportingHandoffHit() {
       return curatedReportingHandoffHit
+    },
+    get handoffReplayHit() {
+      return handoffReplayHit
     },
     get lastCuratedDraftBody() {
       return lastCuratedDraftBody
     },
     get lastCuratedSubmitBody() {
       return lastCuratedSubmitBody
+    },
+    get lastCuratedRollbackBody() {
+      return lastCuratedRollbackBody
     },
     get lastCuratedReportingHandoffBody() {
       return lastCuratedReportingHandoffBody
@@ -448,16 +560,31 @@ test('graph builder submits local draft to curated workflow graph API', async ({
   await page.getByTestId('graph-curated-submit').click()
   await expect(page.getByTestId('graph-curated-status')).toContainText('submitted r1')
 
+  await page.getByTestId('graph-curated-audit').click()
+  await expect(page.getByTestId('graph-curated-status')).toContainText('audit_readback items=1')
+  await expect(page.getByTestId('graph-curated-audit-list')).toContainText('submit#cver_graphpage_e2e')
+  await expect(page.getByTestId('graph-curated-rollback-version')).toHaveValue('cver_graphpage_e2e')
+
+  await page.getByTestId('graph-curated-rollback-reason').fill('restore graphpage e2e version')
+  await page.getByTestId('graph-curated-rollback').click()
+  await expect(page.getByTestId('graph-curated-status')).toContainText('rollback_succeeded r2 audits=2')
+  await expect(page.getByTestId('graph-curated-audit-list')).toContainText('rollback#cver_rollback_graphpage_e2e')
+
   await page.getByTestId('graph-curated-reporting-topic').fill('robotics reporting')
   await page.getByTestId('graph-curated-reporting-handoff').click()
   await expect(page.getByTestId('graph-curated-status')).toContainText('report_handoff_ready sources=1')
+  await page.getByTestId('graph-curated-handoff-replay').click()
+  await expect(page.getByTestId('graph-curated-status')).toContainText('handoff_replay_ready events=2')
 
   expect(hits.policyGraphHit).toBeGreaterThan(0)
   expect(hits.contentGraphHit).toBeGreaterThan(0)
   expect(hits.marketGraphHit).toBeGreaterThan(0)
   expect(hits.curatedDraftHit).toBe(1)
   expect(hits.curatedSubmitHit).toBe(1)
+  expect(hits.curatedAuditHit).toBe(2)
+  expect(hits.curatedRollbackHit).toBe(1)
   expect(hits.curatedReportingHandoffHit).toBe(1)
+  expect(hits.handoffReplayHit).toBe(1)
 
   expect(hits.lastCuratedDraftBody?.actor_id).toBe('graphpage.curated-consumer')
   expect(hits.lastCuratedDraftBody?.dsl?.nodes).toEqual([
@@ -477,6 +604,12 @@ test('graph builder submits local draft to curated workflow graph API', async ({
     actor_id: 'graphpage.curated-consumer',
     base_revision: 0,
     object_scope: 'curated_business_graph',
+  }))
+  expect(hits.lastCuratedRollbackBody).toEqual(expect.objectContaining({
+    actor_id: 'graphpage.curated-consumer',
+    base_revision: 1,
+    target_version_id: 'cver_graphpage_e2e',
+    reason: 'restore graphpage e2e version',
   }))
   expect(hits.lastCuratedReportingHandoffBody).toEqual(expect.objectContaining({
     topic: 'robotics reporting',

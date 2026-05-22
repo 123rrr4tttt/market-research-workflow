@@ -11,12 +11,15 @@ import {
   getSocialGraph,
   listSourceItems,
   buildWorkflowGraphReportingHandoff,
+  listWorkflowGraphCuratedAudits,
+  replayWorkflowGraphHandoff,
+  rollbackWorkflowGraphCuratedState,
   saveWorkflowGraphCuratedDraft,
   submitGraphStructuredSearchTasks,
   submitWorkflowGraphCuratedDraft,
   syncWorkflowGraphCuratedState,
 } from '../lib/api'
-import type { WorkflowGraphCuratedDsl, WorkflowGraphCuratedStateResponse } from '../lib/api'
+import type { WorkflowGraphAuditRecord, WorkflowGraphCuratedDsl, WorkflowGraphCuratedStateResponse } from '../lib/api'
 import type {
   GraphEdgeItem,
   GraphNodeItem,
@@ -1205,6 +1208,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [curatedRevision, setCuratedRevision] = useState<number | null>(null)
   const [curatedStatus, setCuratedStatus] = useState('')
   const [curatedHandoffTopic, setCuratedHandoffTopic] = useState(defaultCuratedHandoffTopic)
+  const [curatedRollbackVersionId, setCuratedRollbackVersionId] = useState('')
+  const [curatedRollbackReason, setCuratedRollbackReason] = useState('')
+  const [curatedAuditItems, setCuratedAuditItems] = useState<WorkflowGraphAuditRecord[]>([])
+  const [curatedHandoffReplay, setCuratedHandoffReplay] = useState({ runId: '', handoffId: '' })
   const [newNodeType, setNewNodeType] = useState('Entity')
   const [newNodeName, setNewNodeName] = useState('')
   const [edgeDraft, setEdgeDraft] = useState({ sourceKey: '', targetKey: '', relation: '' })
@@ -2099,6 +2106,106 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setCuratedStatus(`${status}${revision}${version}`)
   }, [])
 
+  const readCuratedAudits = useCallback(async (graphId: string) => {
+    const auditList = await listWorkflowGraphCuratedAudits(graphId, 10)
+    const items = Array.isArray(auditList.items) ? auditList.items : []
+    setCuratedAuditItems(items)
+    const rollbackCandidate = items.find((item) => item.action === 'submit' && typeof item.version_id === 'string')?.version_id
+    if (rollbackCandidate) {
+      setCuratedRollbackVersionId((prev) => (prev.trim() ? prev : String(rollbackCandidate)))
+    }
+    return items
+  }, [])
+
+  const handleListCuratedAudits = useCallback(async () => {
+    const graphId = curatedGraphId.trim()
+    if (!graphId) {
+      window.alert('请填写 Curated graph_id')
+      return
+    }
+    setCuratedBusy(true)
+    try {
+      const items = await readCuratedAudits(graphId)
+      const latest = items[0]
+      const latestText = latest ? ` latest=${String(latest.action || 'unknown')} ${String(latest.version_id || '')}`.trimEnd() : ''
+      setCuratedStatus(`audit_readback items=${items.length}${latestText ? ` ${latestText}` : ''}`)
+      setGraphEditStatus(`Curated audit readback 已读取: ${graphId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'audit 读取失败'
+      setCuratedStatus(`audit_failed: ${message}`)
+      setGraphEditStatus(`Curated audit 读取失败: ${message}`)
+      window.alert(`Curated audit 读取失败: ${message}`)
+    } finally {
+      setCuratedBusy(false)
+    }
+  }, [curatedGraphId, readCuratedAudits])
+
+  const handleRollbackCuratedGraph = useCallback(async () => {
+    const graphId = curatedGraphId.trim()
+    const targetVersionId = curatedRollbackVersionId.trim()
+    if (!graphId) {
+      window.alert('请填写 Curated graph_id')
+      return
+    }
+    if (!targetVersionId) {
+      window.alert('请填写 rollback target version_id')
+      return
+    }
+    setCuratedBusy(true)
+    try {
+      const state = await rollbackWorkflowGraphCuratedState(graphId, {
+        target_version_id: targetVersionId,
+        actor_id: 'graphpage.curated-consumer',
+        reason: curatedRollbackReason.trim() || undefined,
+        ...(curatedRevision == null ? {} : { base_revision: curatedRevision }),
+      })
+      applyCuratedState(state, 'rollback')
+      const items = await readCuratedAudits(graphId)
+      const revision = typeof state.revision === 'number' ? ` r${state.revision}` : ''
+      setCuratedStatus(`rollback_succeeded${revision} audits=${items.length}`)
+      markDraftSaved()
+      setGraphEditStatus(`Curated rollback 已提交: ${targetVersionId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'rollback 失败'
+      setCuratedStatus(`rollback_failed: ${message}`)
+      setGraphEditStatus(`Curated rollback 失败: ${message}`)
+      window.alert(`Curated rollback 失败: ${message}`)
+    } finally {
+      setCuratedBusy(false)
+    }
+  }, [
+    applyCuratedState,
+    curatedGraphId,
+    curatedRevision,
+    curatedRollbackReason,
+    curatedRollbackVersionId,
+    markDraftSaved,
+    readCuratedAudits,
+  ])
+
+  const handleReplayCuratedHandoff = useCallback(async () => {
+    const runId = curatedHandoffReplay.runId.trim()
+    const handoffId = curatedHandoffReplay.handoffId.trim()
+    if (!runId || !handoffId) {
+      window.alert('请先生成带 persistence 的 handoff')
+      return
+    }
+    setCuratedBusy(true)
+    try {
+      const replay = await replayWorkflowGraphHandoff(runId, handoffId)
+      const events = Array.isArray(replay.events) ? replay.events : []
+      setCuratedStatus(`handoff_replay_ready events=${events.length}`)
+      setGraphEditStatus(`Curated handoff replay 已读取: ${handoffId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'handoff replay 失败'
+      setCuratedStatus(`handoff_replay_failed: ${message}`)
+      setGraphEditStatus(`Curated handoff replay 失败: ${message}`)
+      window.alert(`Curated handoff replay 失败: ${message}`)
+    } finally {
+      setCuratedBusy(false)
+    }
+  }, [curatedHandoffReplay])
+
   const handleSyncCuratedGraph = useCallback(async () => {
     const graphId = curatedGraphId.trim()
     if (!graphId) {
@@ -2229,6 +2336,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       const persistence = handoff.persistence || {}
       const runId = String(persistence.run_id || '').trim()
       const handoffId = String(handoff.handoff_id || '').trim()
+      if (runId && handoffId) {
+        setCuratedHandoffReplay({ runId, handoffId })
+      }
       setCuratedStatus(`report_handoff_ready${sourceCount ? ` sources=${sourceCount}` : ''}${runId ? ` ${runId}` : ''}`)
       setGraphEditStatus(`Curated reporting handoff 已生成: ${handoffId || graphId}`)
     } catch (error) {
@@ -5007,7 +5117,51 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       >
                         同步 Curated
                       </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        data-testid="graph-curated-audit"
+                        onClick={() => void handleListCuratedAudits()}
+                        disabled={!editMode || curatedBusy}
+                      >
+                        读取 Audit
+                      </button>
                     </div>
+                    <div className="gv2-control-chip">
+                      <label>
+                        Rollback version
+                        <input
+                          data-testid="graph-curated-rollback-version"
+                          value={curatedRollbackVersionId}
+                          onChange={(e) => setCuratedRollbackVersionId(e.target.value)}
+                          disabled={!editMode || curatedBusy}
+                        />
+                      </label>
+                      <input
+                        aria-label="Rollback reason"
+                        data-testid="graph-curated-rollback-reason"
+                        value={curatedRollbackReason}
+                        onChange={(e) => setCuratedRollbackReason(e.target.value)}
+                        placeholder="reason"
+                        disabled={!editMode || curatedBusy}
+                      />
+                      <button
+                        type="button"
+                        className="secondary"
+                        data-testid="graph-curated-rollback"
+                        onClick={() => void handleRollbackCuratedGraph()}
+                        disabled={!editMode || curatedBusy || !curatedRollbackVersionId.trim()}
+                      >
+                        执行 Rollback
+                      </button>
+                    </div>
+                    {curatedAuditItems.length ? (
+                      <div className="status-line" data-testid="graph-curated-audit-list">
+                        Audit: {curatedAuditItems.slice(0, 3).map((item) => (
+                          `${String(item.action || 'unknown')}#${String(item.version_id || item.audit_id || 'n/a')}`
+                        )).join(' / ')}
+                      </div>
+                    ) : null}
                     <label className="gv2-control-chip">
                       Reporting topic
                       <input
@@ -5026,6 +5180,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         disabled={!editMode || curatedBusy || !curatedHandoffTopic.trim()}
                       >
                         生成 Reporting Handoff
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        data-testid="graph-curated-handoff-replay"
+                        onClick={() => void handleReplayCuratedHandoff()}
+                        disabled={!editMode || curatedBusy || !curatedHandoffReplay.runId || !curatedHandoffReplay.handoffId}
+                      >
+                        回放 Handoff
                       </button>
                     </div>
                     <div className="status-line" data-testid="graph-curated-status">

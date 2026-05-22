@@ -209,11 +209,14 @@ export {
   normalizeGraphQueryParams,
   getWorkflowGraphRun,
   getWorkflowGraphRunEvents,
+  listWorkflowGraphCuratedAudits,
   listWorkflowGraphTemplates,
   listWorkflowGraphTemplateVersions,
+  replayWorkflowGraphHandoff,
   replayWorkflowGraphRun,
   getWorkflowTemplate,
   listWorkflows,
+  rollbackWorkflowGraphCuratedState,
   runWorkflow,
   runWorkflowGraph,
   saveWorkflowGraphCuratedDraft,
@@ -228,13 +231,17 @@ export type GraphQueryParams = import('./api/domains/graph-workflow').GraphQuery
 export type NormalizedGraphQueryParams = import('./api/domains/graph-workflow').NormalizedGraphQueryParams
 export type WorkflowGraphCompilePayload = import('./api/domains/graph-workflow').WorkflowGraphCompilePayload
 export type WorkflowGraphCompileResponse = import('./api/domains/graph-workflow').WorkflowGraphCompileResponse
+export type WorkflowGraphAuditListResponse = import('./api/domains/graph-workflow').WorkflowGraphAuditListResponse
+export type WorkflowGraphAuditRecord = import('./api/domains/graph-workflow').WorkflowGraphAuditRecord
 export type WorkflowGraphCuratedDraftPayload = import('./api/domains/graph-workflow').WorkflowGraphCuratedDraftPayload
 export type WorkflowGraphCuratedDsl = import('./api/domains/graph-workflow').WorkflowGraphCuratedDsl
+export type WorkflowGraphCuratedRollbackPayload = import('./api/domains/graph-workflow').WorkflowGraphCuratedRollbackPayload
 export type WorkflowGraphCuratedStateResponse = import('./api/domains/graph-workflow').WorkflowGraphCuratedStateResponse
 export type WorkflowGraphCuratedSubmitPayload = import('./api/domains/graph-workflow').WorkflowGraphCuratedSubmitPayload
 export type WorkflowGraphCuratedSyncPayload = import('./api/domains/graph-workflow').WorkflowGraphCuratedSyncPayload
 export type WorkflowGraphEvidencePackPayload = import('./api/domains/graph-workflow').WorkflowGraphEvidencePackPayload
 export type WorkflowGraphEvidencePackResponse = import('./api/domains/graph-workflow').WorkflowGraphEvidencePackResponse
+export type WorkflowGraphHandoffReplayResponse = import('./api/domains/graph-workflow').WorkflowGraphHandoffReplayResponse
 export type WorkflowGraphHandoffResponse = import('./api/domains/graph-workflow').WorkflowGraphHandoffResponse
 export type WorkflowGraphReportingHandoffPayload = import('./api/domains/graph-workflow').WorkflowGraphReportingHandoffPayload
 export type WorkflowGraphRunDetailResponse = import('./api/domains/graph-workflow').WorkflowGraphRunDetailResponse
