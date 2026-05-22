@@ -16,7 +16,10 @@ from app.contracts.ingest_digestion import (
     LongCycleAutomationStatus,
     LongCycleLifecycleContractCheck,
     LongCycleLifecycleTransition,
+    LongCyclePersistenceWriteResult,
     LongCyclePersistentTaskRecord,
+    LongCycleSchedulerDispatchIntent,
+    LongCycleSchedulerE2EContractCheck,
     LongCycleTaskObject,
     LongCycleTaskLifecycleEvent,
     LongCycleTaskSnapshot,
@@ -712,6 +715,104 @@ def transition_long_cycle_persistent_task_record(
     )
 
 
+def build_long_cycle_scheduler_dispatch_intent(
+    record: LongCyclePersistentTaskRecord | dict[str, Any],
+    *,
+    scheduler_ref: str = "contract.scheduler.ingest_long_cycle",
+    queue_name: str = "ingest.long_cycle.contract",
+    worker_task_name: str = "ingest.long_cycle.digest.contract_only",
+    run_at: datetime | str | None = None,
+) -> LongCycleSchedulerDispatchIntent:
+    current = record if isinstance(record, LongCyclePersistentTaskRecord) else LongCyclePersistentTaskRecord.model_validate(record)
+    if current.status != LongCycleTaskStatus.READY:
+        raise ValueError("scheduler dispatch intent requires a ready persistent task")
+    snapshot = current.task.last_run_snapshot
+    selected_window = snapshot.selected_window if snapshot else None
+    if not selected_window:
+        raise ValueError("scheduler dispatch intent requires selected_window")
+
+    normalized_scheduler_ref = str(scheduler_ref or "").strip()
+    if not normalized_scheduler_ref:
+        raise ValueError("scheduler_ref is required for scheduler dispatch intent")
+    dispatch_time = _parse_datetime(run_at) or current.updated_at
+    idempotency_payload = {
+        "task_key": current.task_key,
+        "selected_window": selected_window,
+        "cadence": current.task.cadence,
+        "output_target": current.task.output_target,
+    }
+    idempotency_key = f"ingest-lc-idem-{_stable_json_hash(idempotency_payload)[:24]}"
+    dispatch_key = f"ingest-lc-dispatch-{_stable_json_hash(idempotency_payload | {'run_at': dispatch_time.isoformat()})[:20]}"
+    payload = {
+        "task_key": current.task_key,
+        "task_goal": current.task.task_goal,
+        "input_selector": current.task.input_selector,
+        "selected_window": selected_window,
+        "cadence": current.task.cadence,
+        "output_target": current.task.output_target,
+        "persistent_ref": current.persistent_ref,
+        "dispatch_mode": "contract_only",
+        "live_dispatch": False,
+    }
+    return LongCycleSchedulerDispatchIntent(
+        dispatch_key=dispatch_key,
+        idempotency_key=idempotency_key,
+        scheduler_ref=normalized_scheduler_ref,
+        queue_name=queue_name,
+        worker_task_name=worker_task_name,
+        task_key=current.task_key,
+        selected_window=selected_window,
+        cadence=current.task.cadence,
+        run_at=dispatch_time,
+        payload=payload,
+        live_dispatch=False,
+    )
+
+
+class InMemoryLongCycleTaskRepository:
+    def __init__(
+        self,
+        *,
+        repository_ref: str = "fake-db://ingest-long-cycle-task-repository",
+        logical_table: str = "long_cycle_persistent_tasks",
+    ) -> None:
+        self.repository_ref = str(repository_ref or "").strip() or "fake-db://ingest-long-cycle-task-repository"
+        self.logical_table = str(logical_table or "").strip() or "long_cycle_persistent_tasks"
+        self._records: dict[str, LongCyclePersistentTaskRecord] = {}
+        self._writes: list[LongCyclePersistenceWriteResult] = []
+
+    def upsert_task_record(
+        self,
+        record: LongCyclePersistentTaskRecord | dict[str, Any],
+        *,
+        write_time: datetime | str | None = None,
+        operation: str = "upsert",
+    ) -> LongCyclePersistenceWriteResult:
+        current = record if isinstance(record, LongCyclePersistentTaskRecord) else LongCyclePersistentTaskRecord.model_validate(record)
+        previous = self._records.get(current.task_key)
+        now = _parse_datetime(write_time) or current.updated_at
+        self._records[current.task_key] = current
+        result = LongCyclePersistenceWriteResult(
+            repository_ref=self.repository_ref,
+            logical_table=self.logical_table,
+            operation=operation,
+            record_key=current.task_key,
+            status_before=previous.status if previous else None,
+            status_after=current.status,
+            write_time=now,
+            payload_ref=f"{self.repository_ref}/{self.logical_table}/{current.task_key}",
+            live_db_write=False,
+        )
+        self._writes.append(result)
+        return result
+
+    def get_task_record(self, task_key: str) -> LongCyclePersistentTaskRecord | None:
+        return self._records.get(str(task_key or "").strip())
+
+    def list_writes(self) -> list[LongCyclePersistenceWriteResult]:
+        return list(self._writes)
+
+
 def check_long_cycle_lifecycle_contract(
     *,
     scheduler_ref: str | None = None,
@@ -751,5 +852,93 @@ def check_long_cycle_lifecycle_contract(
         remaining_runtime_gaps=list(record.remaining_external_bindings),
         automation_status=automation,
         persistent_task=record,
+    )
+    return check.model_dump(mode="json")
+
+
+def check_long_cycle_scheduler_e2e_contract(
+    *,
+    repository: InMemoryLongCycleTaskRepository | None = None,
+    scheduler_ref: str = "contract.scheduler.ingest_long_cycle",
+    persistent_ref: str = "fake-db://long_cycle_persistent_tasks",
+    queue_name: str = "ingest.long_cycle.contract",
+    worker_task_name: str = "ingest.long_cycle.digest.contract_only",
+    dispatch_ref: str | None = None,
+    output_ref: str | None = None,
+    event_time: datetime | str | None = None,
+    run_at: datetime | str | None = None,
+    **automation_kwargs: Any,
+) -> dict[str, Any]:
+    lifecycle_payload = check_long_cycle_lifecycle_contract(
+        scheduler_ref=scheduler_ref,
+        persistent_ref=persistent_ref,
+        event_time=event_time,
+        **automation_kwargs,
+    )
+    lifecycle = LongCycleLifecycleContractCheck.model_validate(lifecycle_payload)
+    blockers = list(lifecycle.blockers)
+    if lifecycle.status != "pass":
+        blockers.append("lifecycle_contract_not_passed")
+
+    initial_record = lifecycle.persistent_task
+    base_time = _parse_datetime(event_time) or initial_record.updated_at
+    dispatch_time = _parse_datetime(run_at) or base_time + timedelta(minutes=1)
+    complete_time = dispatch_time + timedelta(minutes=3)
+    dispatch_intent = build_long_cycle_scheduler_dispatch_intent(
+        initial_record,
+        scheduler_ref=scheduler_ref,
+        queue_name=queue_name,
+        worker_task_name=worker_task_name,
+        run_at=dispatch_time,
+    )
+
+    repo = repository or InMemoryLongCycleTaskRepository()
+    writes: list[LongCyclePersistenceWriteResult] = [
+        repo.upsert_task_record(initial_record, write_time=base_time),
+    ]
+    normalized_dispatch_ref = str(dispatch_ref or "").strip() or f"contract-dispatch://{dispatch_intent.dispatch_key}"
+    running = transition_long_cycle_persistent_task_record(
+        initial_record,
+        transition=LongCycleLifecycleTransition.DISPATCH,
+        dispatch_ref=normalized_dispatch_ref,
+        event_time=dispatch_time,
+        actor="ingest_long_cycle_scheduler_e2e_contract",
+        reason="dispatch intent recorded without live scheduler execution",
+    )
+    writes.append(repo.upsert_task_record(running, write_time=dispatch_time))
+
+    normalized_output_ref = str(output_ref or "").strip() or (
+        f"fake-db://digestion_status_snapshots/{initial_record.task_key}/{dispatch_intent.selected_window}"
+    )
+    completed = transition_long_cycle_persistent_task_record(
+        running,
+        transition=LongCycleLifecycleTransition.SUCCEED,
+        output_ref=normalized_output_ref,
+        event_time=complete_time,
+        actor="ingest_long_cycle_scheduler_e2e_contract",
+        reason="fake repository write completed contract-only lifecycle",
+    )
+    writes.append(repo.upsert_task_record(completed, write_time=complete_time))
+
+    check = LongCycleSchedulerE2EContractCheck(
+        status="fail" if blockers else "pass",
+        blockers=blockers,
+        closed_slice=[
+            "scheduler_dispatch_intent",
+            "fake_repository_db_table_write_abstraction",
+            "persistent_task_ready_running_succeeded_lifecycle",
+            "dispatch_output_refs_recorded",
+        ],
+        remaining_runtime_gaps=[
+            "live_scheduler_dispatch_not_executed",
+            "live_persistent_task_table_write_not_executed",
+            "production_worker_task_not_executed",
+            "end_to_end_automation_run_not_executed",
+        ],
+        automation_status=lifecycle.automation_status,
+        dispatch_intent=dispatch_intent,
+        persistent_task=initial_record,
+        completed_record=completed,
+        persistence_writes=writes,
     )
     return check.model_dump(mode="json")

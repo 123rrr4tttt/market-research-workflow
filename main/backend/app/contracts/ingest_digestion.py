@@ -254,6 +254,60 @@ class LongCyclePersistentTaskRecord(BaseModel):
         return out
 
 
+class LongCycleSchedulerDispatchIntent(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_scheduler_dispatch_intent.v1", max_length=96)
+    dispatch_key: str = Field(..., min_length=1, max_length=96)
+    idempotency_key: str = Field(..., min_length=1, max_length=128)
+    scheduler_ref: str = Field(..., min_length=1, max_length=256)
+    queue_name: str = Field(default="ingest.long_cycle.contract", max_length=128)
+    worker_task_name: str = Field(default="ingest.long_cycle.digest.contract_only", max_length=128)
+    task_key: str = Field(..., min_length=1, max_length=96)
+    selected_window: str = Field(..., min_length=1, max_length=32)
+    cadence: str = Field(..., min_length=1, max_length=64)
+    run_at: datetime
+    payload: dict[str, Any] = Field(default_factory=dict)
+    live_dispatch: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("scheduler_ref", "queue_name", "worker_task_name", "task_key", "selected_window", "cadence")
+    @classmethod
+    def _normalize_required_text(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("value must not be empty")
+        return normalized
+
+
+class LongCyclePersistenceWriteResult(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_persistence_write_result.v1", max_length=96)
+    repository_ref: str = Field(..., min_length=1, max_length=256)
+    logical_table: str = Field(..., min_length=1, max_length=128)
+    operation: str = Field(default="upsert", max_length=32)
+    record_key: str = Field(..., min_length=1, max_length=96)
+    status_before: LongCycleTaskStatus | None = None
+    status_after: LongCycleTaskStatus
+    write_time: datetime
+    payload_ref: str | None = Field(default=None, max_length=256)
+    live_db_write: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("repository_ref", "logical_table", "operation", "record_key")
+    @classmethod
+    def _normalize_required_text(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("value must not be empty")
+        return normalized
+
+    @field_validator("payload_ref")
+    @classmethod
+    def _normalize_payload_ref(cls, value: str | None) -> str | None:
+        normalized = str(value or "").strip()
+        return normalized or None
+
+
 class LongCycleLifecycleContractCheck(BaseModel):
     contract_version: str = Field(default="ingest.long_cycle_lifecycle_contract_check.v1", max_length=96)
     status: str = Field(..., max_length=32)
@@ -262,6 +316,34 @@ class LongCycleLifecycleContractCheck(BaseModel):
     remaining_runtime_gaps: list[str] = Field(default_factory=list)
     automation_status: LongCycleAutomationStatus
     persistent_task: LongCyclePersistentTaskRecord
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("blockers", "closed_slice", "remaining_runtime_gaps")
+    @classmethod
+    def _normalize_string_list(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+        return out
+
+
+class LongCycleSchedulerE2EContractCheck(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_scheduler_e2e_contract_check.v1", max_length=96)
+    status: str = Field(..., max_length=32)
+    blockers: list[str] = Field(default_factory=list)
+    closed_slice: list[str] = Field(default_factory=list)
+    remaining_runtime_gaps: list[str] = Field(default_factory=list)
+    automation_status: LongCycleAutomationStatus
+    dispatch_intent: LongCycleSchedulerDispatchIntent
+    persistent_task: LongCyclePersistentTaskRecord
+    completed_record: LongCyclePersistentTaskRecord
+    persistence_writes: list[LongCyclePersistenceWriteResult] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
 

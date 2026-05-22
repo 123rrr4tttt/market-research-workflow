@@ -255,6 +255,87 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
                 output_ref="dry-run://already-complete",
             )
 
+    def test_long_cycle_scheduler_e2e_contract_records_dispatch_intent_and_fake_db_writes(self):
+        check = scaffold.check_long_cycle_scheduler_e2e_contract(
+            task_goal="Digest weekly report inputs",
+            project_key="demo_proj",
+            entrypoint="ingest.raw_import",
+            source_locator="file:///tmp/weekly-report.md",
+            content_format="markdown",
+            content_length=8000,
+            processed_time="2026-03-08T11:00:00Z",
+            candidate_windows=["7d", "30d"],
+            selected_window="7d",
+            cadence="weekly",
+            scheduler_ref="contract.scheduler.ingest-long-cycle",
+            persistent_ref="fake-db://long_cycle_persistent_tasks",
+            event_time="2026-03-08T11:00:00Z",
+            run_at="2026-03-08T11:02:00Z",
+        )
+        self.assertEqual(check["contract_version"], "ingest.long_cycle_scheduler_e2e_contract_check.v1")
+        self.assertEqual(check["status"], "pass")
+        self.assertEqual(check["dispatch_intent"]["task_key"], check["persistent_task"]["task_key"])
+        self.assertEqual(check["dispatch_intent"]["selected_window"], "7d")
+        self.assertFalse(check["dispatch_intent"]["live_dispatch"])
+        self.assertEqual(check["completed_record"]["status"], contracts.LongCycleTaskStatus.SUCCEEDED.value)
+        self.assertEqual(
+            [write["status_after"] for write in check["persistence_writes"]],
+            [
+                contracts.LongCycleTaskStatus.READY.value,
+                contracts.LongCycleTaskStatus.RUNNING.value,
+                contracts.LongCycleTaskStatus.SUCCEEDED.value,
+            ],
+        )
+        self.assertTrue(all(write["live_db_write"] is False for write in check["persistence_writes"]))
+        self.assertIn("scheduler_dispatch_intent", check["closed_slice"])
+        self.assertIn("fake_repository_db_table_write_abstraction", check["closed_slice"])
+        self.assertEqual(
+            check["remaining_runtime_gaps"],
+            [
+                "live_scheduler_dispatch_not_executed",
+                "live_persistent_task_table_write_not_executed",
+                "production_worker_task_not_executed",
+                "end_to_end_automation_run_not_executed",
+            ],
+        )
+
+    def test_long_cycle_scheduler_e2e_contract_persists_to_fake_repository_for_readback(self):
+        repository = scaffold.InMemoryLongCycleTaskRepository(
+            repository_ref="fake-db://unit-test-long-cycle",
+            logical_table="long_cycle_persistent_tasks",
+        )
+        check = scaffold.check_long_cycle_scheduler_e2e_contract(
+            repository=repository,
+            task_goal="Digest weekly report inputs",
+            project_key="demo_proj",
+            entrypoint="ingest.raw_import",
+            source_locator="file:///tmp/weekly-report.md",
+            content_format="markdown",
+            content_length=8000,
+            processed_time="2026-03-08T11:00:00Z",
+            candidate_windows=["30d", "7d"],
+            selected_window="7d",
+            cadence="weekly",
+            scheduler_ref="contract.scheduler.ingest-long-cycle",
+            persistent_ref="fake-db://long_cycle_persistent_tasks",
+            event_time="2026-03-08T11:00:00Z",
+            run_at="2026-03-08T11:02:00Z",
+        )
+        stored = repository.get_task_record(check["persistent_task"]["task_key"])
+        self.assertIsNotNone(stored)
+        self.assertEqual(stored.status.value, contracts.LongCycleTaskStatus.SUCCEEDED.value)
+        self.assertEqual(
+            [write.status_after.value for write in repository.list_writes()],
+            [
+                contracts.LongCycleTaskStatus.READY.value,
+                contracts.LongCycleTaskStatus.RUNNING.value,
+                contracts.LongCycleTaskStatus.SUCCEEDED.value,
+            ],
+        )
+        self.assertIsNone(check["persistence_writes"][0]["status_before"])
+        self.assertEqual(check["persistence_writes"][1]["status_before"], contracts.LongCycleTaskStatus.READY.value)
+        self.assertEqual(check["persistence_writes"][2]["status_before"], contracts.LongCycleTaskStatus.RUNNING.value)
+
 
 if __name__ == "__main__":
     unittest.main()
