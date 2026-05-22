@@ -27,7 +27,7 @@ Future implementation conflict rule:
 - any later implementation task touching `main/frontend-modern/src/app/shell/AppShell.tsx`, `main/frontend-modern/src/components/FigmaSideNav.tsx`, or `main/frontend-modern/src/app/navigation/index.ts` should run serially;
 - page-local workbench container tasks may run in parallel only after the shell/navigation contract is frozen.
 
-## Global Module Boundaries
+## Global Module Boundary Rules
 
 | Module | Purpose | Read boundary | Output boundary |
 | --- | --- | --- | --- |

@@ -25,7 +25,7 @@
 - `L4` serial closure:
   - `A7` runs after `A1-A6`
 
-## Global Module Boundaries
+## Global Module Boundary Rules
 
 - graph UI boundary:
   - owns draft state, editing affordances, and local user feedback;
