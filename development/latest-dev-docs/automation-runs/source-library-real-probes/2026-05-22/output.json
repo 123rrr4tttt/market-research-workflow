@@ -1,0 +1,299 @@
+{
+  "closure_status": {
+    "AT-AC-06": "deterministic local anti-bot/transport fallback evidence added; live public anti-bot runtime remains environment-dependent",
+    "AT-AC-10": "local site-entry probe evidence added; dirty-source shortlist still requires live demo_proj public-site replay"
+  },
+  "fixture": {
+    "base_url": "http://127.0.0.1:62196",
+    "kind": "local_http_server",
+    "public_network_required": false,
+    "simulated_conditions": [
+      "site_entry_sitemap",
+      "site_entry_rss",
+      "site_entry_search_path",
+      "anti_bot_429_then_success"
+    ]
+  },
+  "inputs": {
+    "probe_timeout": 1.0,
+    "project_key": "demo_proj",
+    "query_terms": [
+      "robotics",
+      "market"
+    ],
+    "rss_url": "http://127.0.0.1:62196/feed.xml",
+    "search_template": "http://127.0.0.1:62196/blocked-search?q={{q}}",
+    "site_entry_domain": "127.0.0.1:62196",
+    "sitemap_url": "http://127.0.0.1:62196/sitemap.xml"
+  },
+  "outputs": {
+    "adapter_results": {
+      "rss": {
+        "adapter_taxonomy": {
+          "entry_type": "rss",
+          "internal_adapter_only": true,
+          "item_key": null,
+          "item_type": null,
+          "lane": "site_search_internal_adapter",
+          "managed_by": null,
+          "source_family": "generic_web"
+        },
+        "candidates": [
+          "http://127.0.0.1:62196/articles/robotics-feed"
+        ],
+        "capability_profile": {
+          "entry_type": "rss",
+          "extractor_kind": "rss_candidate_extractor",
+          "fallback_policy": "term_match_then_feed_fallback",
+          "source_mode": "site_search",
+          "supports_pagination": false,
+          "supports_query_terms": true
+        },
+        "diagnostics": {
+          "candidate_filter_state": "selected",
+          "entry_domain": "127.0.0.1:62196",
+          "fallback_allowed": false,
+          "pages_scanned": 1,
+          "raw_candidates": 1,
+          "selected_candidates": 1,
+          "transport_errors": 0,
+          "used_term_fallback": false
+        },
+        "errors": [],
+        "inserted": 1,
+        "pages_scanned": 1,
+        "search_urls": [],
+        "skipped": 0,
+        "source_mode": "site_search",
+        "used_term_fallback": false
+      },
+      "search_template": {
+        "adapter_taxonomy": {
+          "entry_type": "search_template",
+          "internal_adapter_only": true,
+          "item_key": "handler.cluster.search_template.fixture",
+          "item_type": "service_aggregated",
+          "lane": "site_search_internal_adapter",
+          "managed_by": "system",
+          "source_family": "generic_web"
+        },
+        "candidates": [
+          "http://127.0.0.1:62196/articles/robotics-market"
+        ],
+        "capability_profile": {
+          "entry_type": "search_template",
+          "extractor_kind": "html_link_extractor",
+          "fallback_policy": "term_match_then_search_template_fallback",
+          "source_mode": "site_search",
+          "supports_pagination": true,
+          "supports_query_terms": true
+        },
+        "diagnostics": {
+          "candidate_filter_state": "selected",
+          "entry_domain": "127.0.0.1:62196",
+          "fallback_allowed": false,
+          "pages_scanned": 1,
+          "parser_candidate_rejected_low_value": 2,
+          "parser_container_hit": 1,
+          "parser_global_anchor_hit": 0,
+          "parser_json_ld_hit": 0,
+          "parser_parser_module_used": "container",
+          "parser_parser_modules_tried": [
+            "container"
+          ],
+          "parser_parser_profile_resolved": "default",
+          "parser_structured_hit": 0,
+          "raw_candidates": 1,
+          "search_service": "resilient",
+          "search_service_fallbacks": 1,
+          "selected_candidates": 1,
+          "transport_errors": 0,
+          "used_term_fallback": false
+        },
+        "errors": [],
+        "inserted": 1,
+        "pages_scanned": 1,
+        "search_urls": [
+          "http://127.0.0.1:62196/blocked-search?q=robotics+market&page_size=20"
+        ],
+        "skipped": 0,
+        "source_mode": "site_search",
+        "used_term_fallback": false
+      },
+      "sitemap": {
+        "adapter_taxonomy": {
+          "entry_type": "sitemap",
+          "internal_adapter_only": true,
+          "item_key": null,
+          "item_type": null,
+          "lane": "site_search_internal_adapter",
+          "managed_by": null,
+          "source_family": "generic_web"
+        },
+        "candidates": [
+          "http://127.0.0.1:62196/articles/robotics-sitemap"
+        ],
+        "capability_profile": {
+          "entry_type": "sitemap",
+          "extractor_kind": "sitemap_candidate_extractor",
+          "fallback_policy": "term_match_then_tree_fallback",
+          "source_mode": "site_search",
+          "supports_pagination": true,
+          "supports_query_terms": true
+        },
+        "diagnostics": {
+          "candidate_filter_state": "selected",
+          "entry_domain": "127.0.0.1:62196",
+          "fallback_allowed": false,
+          "pages_scanned": 1,
+          "raw_candidates": 1,
+          "selected_candidates": 1,
+          "transport_errors": 0,
+          "used_term_fallback": false
+        },
+        "errors": [],
+        "inserted": 1,
+        "pages_scanned": 1,
+        "search_urls": [],
+        "skipped": 0,
+        "source_mode": "site_search",
+        "used_term_fallback": false
+      }
+    },
+    "site_entry_discovery": {
+      "candidate_count": 4,
+      "candidates": [
+        {
+          "entry_type": "domain_root",
+          "site_url": "https://127.0.0.1:62196/",
+          "source_ref": {
+            "probe": "domain_root"
+          },
+          "template": null
+        },
+        {
+          "entry_type": "sitemap",
+          "site_url": "http://127.0.0.1:62196/sitemap.xml",
+          "source_ref": {
+            "content_type": "application/xml; charset=utf-8",
+            "probe": "sitemap"
+          },
+          "template": null
+        },
+        {
+          "entry_type": "rss",
+          "site_url": "http://127.0.0.1:62196/feed.xml",
+          "source_ref": {
+            "content_type": "application/xml; charset=utf-8",
+            "probe": "rss"
+          },
+          "template": null
+        },
+        {
+          "entry_type": "search_template",
+          "site_url": "http://127.0.0.1:62196/search?q=%7B%7Bq%7D%7D",
+          "source_ref": {
+            "base": "http://127.0.0.1:62196/",
+            "path": "/search",
+            "probe": "search_path"
+          },
+          "template": "http://127.0.0.1:62196/search?q={{q}}"
+        }
+      ],
+      "entry_types": [
+        "domain_root",
+        "rss",
+        "search_template",
+        "sitemap"
+      ],
+      "errors": [],
+      "probe_stats": {
+        "domain_root": 1,
+        "link_alternate": 0,
+        "rss": 1,
+        "search_form": 0,
+        "search_path": 1,
+        "sitemap": 1
+      }
+    },
+    "transport_resilience": {
+      "blocked_search_attempts": 2,
+      "request_counts": {
+        "/blocked-search": 2,
+        "/feed.xml": 2,
+        "/search": 1,
+        "/sitemap.xml": 2
+      },
+      "requests": [
+        {
+          "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "method": "GET",
+          "path": "/sitemap.xml",
+          "query": {},
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+        },
+        {
+          "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "method": "GET",
+          "path": "/feed.xml",
+          "query": {},
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+        },
+        {
+          "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "method": "GET",
+          "path": "/search",
+          "query": {},
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+        },
+        {
+          "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "method": "GET",
+          "path": "/blocked-search",
+          "query": {
+            "page_size": [
+              "20"
+            ],
+            "q": [
+              "robotics market"
+            ]
+          },
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+        },
+        {
+          "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "method": "GET",
+          "path": "/blocked-search",
+          "query": {
+            "page_size": [
+              "20"
+            ],
+            "q": [
+              "robotics market"
+            ]
+          },
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+        },
+        {
+          "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "method": "GET",
+          "path": "/feed.xml",
+          "query": {},
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+        },
+        {
+          "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "method": "GET",
+          "path": "/sitemap.xml",
+          "query": {},
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
+        }
+      ]
+    }
+  },
+  "probe_id": "source_library_real_probes_2026_05_22_local_http_fixture",
+  "validation": {
+    "errors": [],
+    "passed": true
+  }
+}
