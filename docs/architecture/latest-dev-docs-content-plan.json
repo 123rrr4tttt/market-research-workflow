@@ -4,7 +4,7 @@
   "source_authority": "development/latest-dev-docs",
   "migration_manifest": "docs/architecture/latest-dev-docs-entry-manifest.json",
   "generated_date": "2026-05-22",
-  "status": "wave17_second_moved_file_batch_partial",
+  "status": "wave18_third_moved_file_batch_partial",
   "checker": "scripts/checkers/check_docs_root_content_plan.py",
   "entries": [
     {
@@ -104,15 +104,31 @@
       "source_authority": "development/latest-dev-docs",
       "target_root": "docs/architecture/root-plans",
       "shim": "docs/architecture/root-plans/README.md",
-      "mode": "shim_only",
-      "source_remains_authoritative": true,
-      "move_allowed": false,
+      "mode": "moved_file_batch",
+      "source_remains_authoritative": false,
+      "move_allowed": true,
       "blocked_by": [
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift",
         "file_level_classification"
       ],
-      "next_gate": "Do not move root-plans architecture as a broad package until mixed root-plans references are classified."
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/README.md",
+          "target": "docs/architecture/root-plans/A_ARCHITECTURE/README.md",
+          "compatibility_entry": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/README.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/project-standardization-development-directions-2026-03-01.md",
+          "target": "docs/architecture/root-plans/A_ARCHITECTURE/project-standardization-development-directions-2026-03-01.md",
+          "compatibility_entry": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/project-standardization-development-directions-2026-03-01.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ],
+      "next_gate": "Supervisor integration still needs to update shared navigation and MERGED_OVERVIEW references, but the root-plans architecture files are now target-authoritative."
     }
   ],
   "remaining_unsafe_moves": [
@@ -136,18 +152,6 @@
       "reason": "Development-plan architecture is tied to CURRENT_DEV status and shared development-plan indexes.",
       "required_gates": [
         "topic_status_sync",
-        "shared_navigation_sync",
-        "MERGED_OVERVIEW_drift"
-      ]
-    },
-    {
-      "id": "root-plans-architecture-tree",
-      "source": "development/latest-dev-docs/root-plans/A_ARCHITECTURE",
-      "target_root": "docs/architecture/root-plans",
-      "mode": "blocked_broad_move",
-      "reason": "root-plans architecture is coupled to mixed root-plans references and cannot be moved as a broad package.",
-      "required_gates": [
-        "file_level_classification",
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ]

@@ -88,7 +88,23 @@
       "shim": "docs/architecture/root-plans/README.md",
       "target_role": "architecture-target-entry-manifest",
       "compatibility_entry": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/README.md",
-      "status": "content_shim"
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/README.md",
+          "target": "docs/architecture/root-plans/A_ARCHITECTURE/README.md",
+          "compatibility_entry": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/README.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/project-standardization-development-directions-2026-03-01.md",
+          "target": "docs/architecture/root-plans/A_ARCHITECTURE/project-standardization-development-directions-2026-03-01.md",
+          "compatibility_entry": "development/latest-dev-docs/root-plans/A_ARCHITECTURE/project-standardization-development-directions-2026-03-01.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     }
   ]
 }
