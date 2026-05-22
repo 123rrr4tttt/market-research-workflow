@@ -1,0 +1,33 @@
+{
+  "date": "2026-05-22",
+  "lane": "Wave2 H source_library real probes",
+  "worktree": "/Users/wangyiliang/market-research-workflow.worktrees/source-library-real-probes",
+  "branch": "codex/devdocs-source-library-real-probes",
+  "source_inputs": [
+    "main/backend/app/services/source_library/",
+    "main/backend/app/services/resource_pool/search_template_service.py",
+    "main/backend/app/services/resource_pool/site_entry_discovery.py",
+    "main/backend/tests/",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/"
+  ],
+  "probe_design": {
+    "fixture": "local HTTP server",
+    "public_network_required": false,
+    "site_entry_paths": [
+      "/sitemap.xml",
+      "/feed.xml",
+      "/search"
+    ],
+    "transport_resilience_path": "/blocked-search",
+    "anti_bot_simulation": "first /blocked-search request returns 429; resilient retry returns search result HTML"
+  },
+  "expected_assertions": [
+    "site-entry discovery sees sitemap/rss/search_template",
+    "generic_web.sitemap returns one candidate",
+    "generic_web.rss returns one candidate",
+    "generic_web.search_template records search_service=resilient after 429",
+    "generic_web.search_template records search_service_fallbacks=1",
+    "blocked-search fixture receives exactly two requests",
+    "final search_template result has zero transport_errors"
+  ]
+}
