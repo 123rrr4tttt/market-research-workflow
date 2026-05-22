@@ -21,6 +21,7 @@ PLAN_PATH = Path(
 )
 BASE_BRANCH = "codex/devdocs-wave8-integration-2026-05-22"
 SUPPORT_BRANCH = "codex/devdocs-wave8-current-dev-audit"
+ALLOWED_RUN_BRANCHES = {BASE_BRANCH, SUPPORT_BRANCH}
 
 EXPECTED_BRANCHES = [
     "codex/devdocs-wave8-crawler-external-closure",
@@ -82,7 +83,7 @@ def changed_files_in_worktree() -> list[str]:
     for line in output.splitlines():
         if not line:
             continue
-        path = line[3:]
+        path = line[2:].strip()
         if " -> " in path:
             path = path.split(" -> ", 1)[1]
         paths.append(path)
@@ -104,8 +105,8 @@ def main() -> int:
     problems: list[str] = []
 
     current_branch = run_git(["branch", "--show-current"])
-    if current_branch != SUPPORT_BRANCH:
-        problems.append(f"current branch is {current_branch!r}, expected {SUPPORT_BRANCH!r}")
+    if current_branch not in ALLOWED_RUN_BRANCHES:
+        problems.append(f"current branch is {current_branch!r}, expected one of {sorted(ALLOWED_RUN_BRANCHES)!r}")
 
     if not PLAN_PATH.is_file():
         problems.append(f"missing plan file: {PLAN_PATH}")

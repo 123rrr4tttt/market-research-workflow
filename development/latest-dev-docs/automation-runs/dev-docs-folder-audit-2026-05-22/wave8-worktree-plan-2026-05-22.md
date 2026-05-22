@@ -16,6 +16,7 @@ Status: support lane seeded. This file is a low-conflict Wave8 supervisor handof
   - `development/latest-dev-docs/README.md`
   - `development/latest-dev-docs/MERGED_OVERVIEW.md`
 - This support lane may add only standalone evidence under this audit run and the read-only checker script.
+- `scripts/check_current_dev_wave8_plan.py` is expected to pass both on the support branch and after merge into the Wave8 integration branch.
 
 ## Wave8 Branch Matrix
 
