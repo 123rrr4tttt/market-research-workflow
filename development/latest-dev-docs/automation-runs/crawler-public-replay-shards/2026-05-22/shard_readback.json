@@ -1,0 +1,129 @@
+{
+  "browser_fixture_path": "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json",
+  "closure": {
+    "claim": "repo_local_shard_readback_passed_real_public_browser_fleet_replay_still_external_blocked",
+    "full_closure_allowed": false,
+    "real_public_browser_fleet_replay_complete": false,
+    "status": "external_blocked"
+  },
+  "contract_version": "crawler_source_expansion.public_replay_shards_readback.v1",
+  "readback": {
+    "enabled_public_target_count": 40,
+    "full_closure_allowed": false,
+    "missing_public_output_count": 5,
+    "missing_public_output_status": "external_blocked",
+    "policy_disabled_target_count": 5,
+    "real_public_browser_fleet_replay_complete": false,
+    "shard_count": 5,
+    "target_count": 45
+  },
+  "runtime": {
+    "browser_runtime_started": false,
+    "deterministic": true,
+    "mode": "repo_local_public_replay_shard_readback",
+    "public_browser_replay_performed": false,
+    "public_network_attempted": false,
+    "real_public_replay_claimed": false,
+    "repo_local_fixture": true
+  },
+  "scope": "crawler_public_replay_shards_missing_output_readback",
+  "shard_manifest_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+  "shards": [
+    {
+      "evidence_present": false,
+      "public_output": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-01.json",
+      "public_output_status": "external_blocked",
+      "shard_id": "crawler_public_replay_shard_01",
+      "shard_index": 1,
+      "target_count": 9,
+      "target_ids": [
+        "demo_proj_33_news_google_com",
+        "demo_proj_34_actiontoaction_ai",
+        "demo_proj_35_hai_stanford_edu",
+        "demo_proj_37_iyiou_com",
+        "demo_proj_38_news_cn",
+        "demo_proj_39_x_com",
+        "demo_proj_40_github_com",
+        "demo_proj_41_arxiv_org",
+        "demo_proj_43_stcn_com"
+      ]
+    },
+    {
+      "evidence_present": false,
+      "public_output": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-02.json",
+      "public_output_status": "external_blocked",
+      "shard_id": "crawler_public_replay_shard_02",
+      "shard_index": 2,
+      "target_count": 9,
+      "target_ids": [
+        "demo_proj_49_slashgear_com",
+        "demo_proj_59_arstechnica_com",
+        "demo_proj_62_linkedin_com",
+        "demo_proj_66_laptopmag_com",
+        "demo_proj_70_theverge_com",
+        "demo_proj_75_howtogeek_com",
+        "demo_proj_79_cosmopolitan_com",
+        "demo_proj_83_moorinsightsstrategy_com",
+        "demo_proj_93_androidpolice_com"
+      ]
+    },
+    {
+      "evidence_present": false,
+      "public_output": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-03.json",
+      "public_output_status": "external_blocked",
+      "shard_id": "crawler_public_replay_shard_03",
+      "shard_index": 3,
+      "target_count": 9,
+      "target_ids": [
+        "demo_proj_99_supernote_com",
+        "demo_proj_106_gizmodo_com",
+        "demo_proj_110_reddit_com",
+        "demo_proj_113_youtube_com",
+        "demo_proj_116_cybernews_com",
+        "demo_proj_119_thequalityedit_com",
+        "demo_proj_123_dcrainmaker_com",
+        "demo_proj_130_serverman_co_uk",
+        "demo_proj_148_news_google_com"
+      ]
+    },
+    {
+      "evidence_present": false,
+      "public_output": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-04.json",
+      "public_output_status": "external_blocked",
+      "shard_id": "crawler_public_replay_shard_04",
+      "shard_index": 4,
+      "target_count": 9,
+      "target_ids": [
+        "demo_proj_150_actiontoaction_ai",
+        "demo_proj_152_github_com",
+        "demo_proj_154_x_com",
+        "demo_proj_156_arxiv_org",
+        "demo_proj_159_hai_stanford_edu",
+        "demo_proj_163_stcn_com",
+        "demo_proj_166_iyiou_com",
+        "demo_proj_168_news_cn",
+        "demo_proj_170_docs_github_com"
+      ]
+    },
+    {
+      "evidence_present": false,
+      "public_output": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-05.json",
+      "public_output_status": "external_blocked",
+      "shard_id": "crawler_public_replay_shard_05",
+      "shard_index": 5,
+      "target_count": 9,
+      "target_ids": [
+        "demo_proj_171_developer_mozilla_org",
+        "demo_proj_172_docs_anthropic_com",
+        "demo_proj_173_cloud_google_com",
+        "demo_proj_174_help_openai_com",
+        "demo_proj_175_venturebeat_com",
+        "demo_proj_176_www_pymnts_com",
+        "demo_proj_177_www_finextra_com",
+        "demo_proj_178_commercialobserver_com",
+        "demo_proj_179_www_investopedia_com"
+      ]
+    }
+  ],
+  "source_manifest_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json"
+}
