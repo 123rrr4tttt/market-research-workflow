@@ -63,6 +63,18 @@
   - [typed knowledge writing handoff contract](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/03_wave8_6_writing-handoff-contract-evidence-2026-05-22.md)
   - [time target-overlap priority evidence](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/07_wave8-target-overlap-priority-evidence-2026-05-22.md)
   - [search/vectorization deterministic contract](./automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
+- Wave9 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
+  - [Wave9 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave9-worktree-plan-2026-05-22.md)
+  - [meaningful ingest guardrails contract](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/02_wave9-1-meaningful-ingest-guardrails-contract-evidence-2026-05-22.md)
+  - [agent symbolic batch search contract](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/16_wave9-agent-symbolic-batch-search-contract-evidence-2026-05-22.md)
+  - [source-library legacy 410 contract](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/07_wave9-3-legacy-410-contract-evidence-2026-05-22.md)
+  - [document queries contract](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/07_wave9-worker4-document-queries-contract-2026-05-22.md)
+  - [consumer facade boundary contract](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md)
+  - [ingest long-cycle lifecycle contract](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/04_wave9-6-ingest-long-cycle-lifecycle-contract-evidence-2026-05-22.md)
+  - [AgentCore platform contract](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/04_wave9-7-agent-core-platform-contract-evidence-2026-05-22.md)
+  - [docs root migration manifest evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/04_wave9-8-docs-root-migration-manifest-evidence-2026-05-22.md)
+  - [source-library ingest AT-EXT current contract](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md)
+  - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

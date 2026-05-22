@@ -48,6 +48,8 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave8 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave8-worktree-plan-2026-05-22.md)
   - [2026-05-22 Crawler Source Expansion Wave8 A7 Validation Pack](./automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/README.md)
   - [2026-05-22 Wave8 Search / Vectorization Contract](./automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
+  - [2026-05-22 Wave9 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave9-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Wave9 CURRENT_DEV Status Evidence Gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - `backend-docs`：
   - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：
@@ -89,6 +91,16 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave8 Graph Projection Rollout Contract](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/04_wave8-5-projection-rollout-contract-note-2026-05-22.md)
   - [2026-05-22 Wave8 Typed Knowledge Writing Handoff](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/03_wave8_6_writing-handoff-contract-evidence-2026-05-22.md)
   - [2026-05-22 Wave8 Time Target-Overlap Priority Evidence](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/07_wave8-target-overlap-priority-evidence-2026-05-22.md)
+- `development-plans/CURRENT_DEV`：
+  - [2026-05-22 Wave9 Meaningful Ingest Guardrails Contract](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/02_wave9-1-meaningful-ingest-guardrails-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave9 Agent Symbolic Batch Search Contract](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/16_wave9-agent-symbolic-batch-search-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave9 Source-Library Legacy 410 Contract](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/07_wave9-3-legacy-410-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave9 Document Queries Contract](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/07_wave9-worker4-document-queries-contract-2026-05-22.md)
+  - [2026-05-22 Wave9 Consumer Facade Boundary Contract](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md)
+  - [2026-05-22 Wave9 Ingest Long-Cycle Lifecycle Contract](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/04_wave9-6-ingest-long-cycle-lifecycle-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave9 AgentCore Platform Contract](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/04_wave9-7-agent-core-platform-contract-evidence-2026-05-22.md)
+  - [2026-05-22 Wave9 Docs Root Migration Manifest Evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/04_wave9-8-docs-root-migration-manifest-evidence-2026-05-22.md)
+  - [2026-05-22 Wave9 Source-Library Ingest AT-EXT Current Contract](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md)
   - [2026-05-22 Source Library Public Live Probes](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
