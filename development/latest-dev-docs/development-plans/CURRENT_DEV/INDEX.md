@@ -17,6 +17,7 @@
 - `retired` [2026-03-04 RAG Line Round3 Filter Robustness](../ARCHIVE_RETIRED/2026-03-04-rag-line-round3-filter-robustness/)
 - `retired` [2026-03-07 Builtin Writing Workbench Design](../ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/)
 - `retired` [2026-03-12 Time Semantics Density Merged Plan](../ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/)
+- `retired_in_place` [2026-03-24 Frontend Visual Layering](./2026-03-24-frontend-visual-layering/INDEX.md) - empty placeholder retired into [2026-03-15 Frontend Three-Layer Rewrite](./2026-03-15-frontend-three-layer-rewrite/README.md), with static evidence at [frontend-topology-theme/2026-05-22](../../automation-runs/frontend-topology-theme/2026-05-22/README.md) and runtime visual evidence at [frontend-runtime-visual/2026-05-22](../../automation-runs/frontend-runtime-visual/2026-05-22/README.md)
 
 ## 标签说明
 
@@ -32,7 +33,7 @@
 
 - `partial`: 30
 - `not_closed`: 3
-- `no_closure_claim`: 3
+- `no_closure_claim`: 2
 
 ## Agent High-Fidelity Migration Split Result
 
@@ -83,7 +84,6 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 
 - `[no_closure_claim][doc_drift]` [2026-03-02 Graph Node Standardization A Then B Plan](./2026-03-02-graph-node-standardization-a-then-b-plan/01_graph-node-standardization-a-then-b-plan-2026-03-02.md)
 - `[no_closure_claim][doc_aligned]` [2026-03-07 Ingest Digestion And Long-Cycle Automation](./2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md)
-- `[no_closure_claim][placeholder]` `2026-03-24 Frontend Visual Layering`（placeholder path is not present in this snapshot）
 
 ## 说明
 
