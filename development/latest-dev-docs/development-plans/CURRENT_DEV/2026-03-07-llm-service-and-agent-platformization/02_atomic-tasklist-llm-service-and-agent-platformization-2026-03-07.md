@@ -2,11 +2,13 @@
 
 ## Execution Status Snapshot
 
-- `A1`: pending, reconcile the plan with the repo's real LLM-related surfaces and remove greenfield assumptions.
-- `A2-A4`: pending, freeze shared service concepts, routing/config boundary, and trace/audit rules.
-- `A5-A6`: pending, normalize the consumer map and freeze the first supported agent shape.
-- `A7`: pending, define the long-horizon framework evaluation gate instead of promising immediate integration.
-- `A8`: pending, close with a minimum validation pack that later implementation work can reuse.
+- `A1`: closed-minimal by Wave6-5 evidence; baseline repo anchors are real and no longer greenfield.
+- `A2-A4`: closed-minimal by `main/backend/app/services/llm/platformization.py` plus writing/report/workflow consumers.
+- `A5-A6`: closed-minimal by the platform consumer boundary table and agent permission boundary.
+- `A7`: needs-update; long-horizon framework evaluation should be deferred behind current AgentCore/LLM contract deltas.
+- `A8`: closed-minimal for the current validation pack; topic stays in `CURRENT_DEV` until the A7 update and any shared-index integration are handled separately.
+
+Wave6-5 status evidence: `03_wave6-5-status-evidence-and-min-plan-2026-05-21.md`.
 
 ## Global Serial-Parallel Rules
 
@@ -61,7 +63,7 @@ Each task must declare:
 ## Task A1: Baseline Reconciliation
 
 - goal: Reconcile this theme with actual repo assets so the rest of the plan stops assuming missing platform pieces that already exist.
-- status: pending
+- status: closed-minimal by Wave6-5 status evidence
 - depends_on: `[]`
 - blocks: `["A2","A3","A4"]`
 - input:
@@ -88,7 +90,7 @@ Each task must declare:
 ## Task A2: Freeze Shared Service Vocabulary
 
 - goal: Freeze a shared vocabulary for `provider`, `model`, `capability`, `route`, and `trace` that can describe writing, report, and workflow consumers consistently.
-- status: pending
+- status: closed-minimal by Wave6-5 status evidence
 - depends_on: `["A1"]`
 - blocks: `["A5","A6","A7"]`
 - input:
@@ -112,7 +114,7 @@ Each task must declare:
 ## Task A3: Freeze Config and Routing Boundary
 
 - goal: Clarify where configuration ownership stops and routing/runtime decisions begin.
-- status: pending
+- status: closed-minimal by Wave6-5 status evidence
 - depends_on: `["A1"]`
 - blocks: `["A5","A7"]`
 - input:
@@ -133,7 +135,7 @@ Each task must declare:
 ## Task A4: Freeze Trace and Audit Rules
 
 - goal: Define the minimum trace, request identity, failure metadata, and audit expectations that every business consumer must preserve.
-- status: pending
+- status: closed-minimal by Wave6-5 status evidence
 - depends_on: `["A1"]`
 - blocks: `["A5","A6","A8"]`
 - input:
@@ -153,7 +155,7 @@ Each task must declare:
 ## Task A5: Map Platform Consumers and Adapter Responsibilities
 
 - goal: Freeze how existing consumers use the shared platform layer, and which logic stays in business adapters.
-- status: pending
+- status: closed-minimal by Wave6-5 status evidence
 - depends_on: `["A2","A3","A4"]`
 - blocks: `["A6","A7","A8"]`
 - input:
@@ -179,7 +181,7 @@ Each task must declare:
 ## Task A6: Freeze Agent Position and Permission Boundary
 
 - goal: Define the first supported agent shape and prevent "agent" from becoming an umbrella term for all LLM-driven behavior.
-- status: pending
+- status: closed-minimal by Wave6-5 status evidence
 - depends_on: `["A2","A4","A5"]`
 - blocks: `["A7","A8"]`
 - input:
@@ -204,7 +206,7 @@ Each task must declare:
 ## Task A7: Define Long-Horizon Framework Evaluation Gate
 
 - goal: Convert long-horizon framework discussion into explicit entry criteria instead of vague roadmap language.
-- status: pending
+- status: needs-update; defer external framework evaluation behind repo-native contract deltas
 - depends_on: `["A2","A3","A5","A6"]`
 - blocks: `["A8"]`
 - input:
@@ -223,7 +225,7 @@ Each task must declare:
 ## Task A8: Close the Minimum Validation Pack
 
 - goal: Produce the smallest validation set that later implementation work can execute to confirm the plan still matches the repo.
-- status: pending
+- status: closed-minimal by Wave6-5 validation pack
 - depends_on: `["A4","A5","A6","A7"]`
 - blocks: `[]`
 - input:
