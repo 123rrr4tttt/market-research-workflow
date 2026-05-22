@@ -1,11 +1,12 @@
 from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, Query, HTTPException
 from sqlalchemy import func
 from sqlalchemy.exc import OperationalError, DatabaseError
 import logging
 
-from ..contracts import ErrorCode, error_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import MarketStat
@@ -13,6 +14,7 @@ from ..models.entities import MarketStat
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/market", tags=["market"])
+MarketEnvelope = ApiEnvelope[dict[str, Any]]
 
 
 def _raise_upstream_error(message: str, *, details: dict | None = None) -> None:
@@ -43,7 +45,7 @@ def _decimal_to_float(value):
     return float(value)
 
 
-@router.get("")
+@router.get("", response_model=MarketEnvelope)
 def market_stats(
     state: str = Query(..., description="州，如 CA"),
     period: str = Query("daily", pattern="^(daily|monthly)$"),
@@ -123,7 +125,7 @@ def market_stats(
         )
 
 
-@router.get("/games")
+@router.get("/games", response_model=MarketEnvelope)
 def market_games(state: str = Query(...)):
     state = state.upper()
     try:

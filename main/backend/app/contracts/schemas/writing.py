@@ -162,6 +162,21 @@ class TemplateValidateResponse(BaseModel):
     observability: dict[str, Any] = Field(default_factory=dict)
 
 
+class WritingTemplateItemData(BaseModel):
+    template_key: str = Field(..., min_length=1, max_length=128)
+    label: str = Field(..., min_length=1, max_length=300)
+    description: str = Field(default="", max_length=1000)
+    template_content: str = ""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class WritingTemplateListData(BaseModel):
+    items: list[WritingTemplateItemData] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="allow")
+
+
 class LlmActionRequest(WritingRequestContext):
     action_id: Literal["outline_generate", "section_expand", "selection_rewrite", "evidence_summary"]
     template_key: str | None = Field(default=None, max_length=128)
@@ -211,6 +226,12 @@ class LlmActionHistoryItem(BaseModel):
     created_at: str | None = None
     duration_ms: int | None = None
     result_summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class LlmActionHistoryListData(BaseModel):
+    items: list[LlmActionHistoryItem] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="allow")
 
 
 class WritingDocumentData(BaseModel):

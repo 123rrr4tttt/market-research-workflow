@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from ..contracts import ErrorCode, error_response, map_exception_to_error
+from ..contracts import ApiEnvelope, ErrorCode, error_response, map_exception_to_error
 from ..contracts.responses import ok
 from ..services.indexer.policy import index_policy_documents
 from ..settings.config import settings
 
 
 router = APIRouter(prefix="/indexer", tags=["indexer"])
+IndexerEnvelope = ApiEnvelope[dict[str, Any]]
 
 
 def _raise_config_error(message: str) -> None:
@@ -45,7 +48,7 @@ class ReindexPolicyRequest(BaseModel):
     state: str | None = Field(default=None)
 
 
-@router.post("/policy")
+@router.post("/policy", response_model=IndexerEnvelope)
 def reindex_policy(payload: ReindexPolicyRequest):
     if not settings.openai_api_key:
         _raise_config_error("OPENAI_API_KEY 未配置，无法生成嵌入")

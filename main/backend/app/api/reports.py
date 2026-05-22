@@ -1,7 +1,9 @@
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from ..contracts import ErrorCode, error_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
 from ..services.report import generate_html_report, generate_csv_report
 
@@ -14,9 +16,14 @@ class ReportRequest(BaseModel):
 
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+ReportEnvelope = ApiEnvelope[dict[str, Any]]
 
 
-@router.post("")
+@router.post(
+    "",
+    response_model=ReportEnvelope,
+    responses={200: {"content": {"text/csv": {"schema": {"type": "string", "format": "binary"}}}}},
+)
 def create_report(payload: ReportRequest):
     fmt = payload.format.lower()
     try:
