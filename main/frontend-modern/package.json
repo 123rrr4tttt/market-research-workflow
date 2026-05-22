@@ -11,6 +11,7 @@
     "check:graph-runtime-pixel-gate": "playwright test tests/e2e/graph-runtime-pixel-gate.spec.ts --reporter=line --workers=1",
     "check:agent-chat-i18n-slice": "node scripts/check_agent_chat_i18n_slice.mjs",
     "check:projects-i18n-slice": "node scripts/check_projects_i18n_slice.mjs",
+    "check:catalog-page-i18n-slice": "node scripts/check_catalog_page_i18n_slice.mjs",
     "check:business-string-audit": "node scripts/check_frontend_business_string_audit.mjs",
     "check:layer-shell-contract": "node scripts/check_layer_shell_contract.mjs",
     "check:topology-platform": "node scripts/check_topology_platform_contract.mjs",
