@@ -42,6 +42,16 @@ class LongCycleTaskStatus(str, Enum):
     SKIPPED = "skipped"
 
 
+class LongCycleLifecycleTransition(str, Enum):
+    PLAN = "plan"
+    MARK_READY = "mark_ready"
+    DISPATCH = "dispatch"
+    SUCCEED = "succeed"
+    FAIL = "fail"
+    BLOCK = "block"
+    SKIP = "skip"
+
+
 class IngestTimeSemantics(BaseModel):
     source_time: datetime | None = None
     processed_time: datetime
@@ -173,6 +183,83 @@ class LongCycleAutomationStatus(BaseModel):
     @field_validator("blockers")
     @classmethod
     def _normalize_blockers(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+        return out
+
+
+class LongCycleTaskLifecycleEvent(BaseModel):
+    transition: LongCycleLifecycleTransition
+    from_status: LongCycleTaskStatus | None = None
+    to_status: LongCycleTaskStatus
+    event_time: datetime
+    actor: str | None = Field(default=None, max_length=128)
+    reason: str | None = Field(default=None, max_length=256)
+    dispatch_ref: str | None = Field(default=None, max_length=256)
+    output_ref: str | None = Field(default=None, max_length=512)
+    error: str | None = Field(default=None, max_length=512)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class LongCyclePersistentTaskRecord(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_persistent_task.v1", max_length=96)
+    task_key: str = Field(..., min_length=1, max_length=96)
+    scheduler_ref: str | None = Field(default=None, max_length=256)
+    persistent_ref: str | None = Field(default=None, max_length=256)
+    task: LongCycleTaskObject
+    status: LongCycleTaskStatus
+    lifecycle_events: list[LongCycleTaskLifecycleEvent] = Field(default_factory=list)
+    attempt_count: int = Field(default=0, ge=0)
+    dispatch_ref: str | None = Field(default=None, max_length=256)
+    output_ref: str | None = Field(default=None, max_length=512)
+    error: str | None = Field(default=None, max_length=512)
+    created_at: datetime
+    updated_at: datetime
+    remaining_external_bindings: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("scheduler_ref", "persistent_ref", "dispatch_ref", "output_ref", "error")
+    @classmethod
+    def _normalize_optional_text(cls, value: str | None) -> str | None:
+        normalized = str(value or "").strip()
+        return normalized or None
+
+    @field_validator("remaining_external_bindings")
+    @classmethod
+    def _normalize_external_bindings(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+        return out
+
+
+class LongCycleLifecycleContractCheck(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_lifecycle_contract_check.v1", max_length=96)
+    status: str = Field(..., max_length=32)
+    blockers: list[str] = Field(default_factory=list)
+    closed_slice: list[str] = Field(default_factory=list)
+    remaining_runtime_gaps: list[str] = Field(default_factory=list)
+    automation_status: LongCycleAutomationStatus
+    persistent_task: LongCyclePersistentTaskRecord
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("blockers", "closed_slice", "remaining_runtime_gaps")
+    @classmethod
+    def _normalize_string_list(cls, value: list[str]) -> list[str]:
         out: list[str] = []
         seen: set[str] = set()
         for item in value:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -12,7 +14,11 @@ from app.contracts.ingest_digestion import (
     IngestInputKind,
     IngestTimeSemantics,
     LongCycleAutomationStatus,
+    LongCycleLifecycleContractCheck,
+    LongCycleLifecycleTransition,
+    LongCyclePersistentTaskRecord,
     LongCycleTaskObject,
+    LongCycleTaskLifecycleEvent,
     LongCycleTaskSnapshot,
     LongCycleTaskStatus,
     NormalizedIngestEnvelope,
@@ -30,6 +36,7 @@ def taxonomy_baseline_contract() -> dict[str, list[str]]:
         "digestion_stages": [x.value for x in DigestionStage],
         "candidate_windows": list(DEFAULT_CANDIDATE_WINDOWS),
         "long_cycle_statuses": [x.value for x in LongCycleTaskStatus],
+        "long_cycle_lifecycle_transitions": [x.value for x in LongCycleLifecycleTransition],
     }
 
 
@@ -94,6 +101,37 @@ def _to_long_cycle_status(value: LongCycleTaskStatus | str | None) -> LongCycleT
         if candidate.value == raw:
             return candidate
     return LongCycleTaskStatus.PLANNED
+
+
+def _to_lifecycle_transition(value: LongCycleLifecycleTransition | str | None) -> LongCycleLifecycleTransition:
+    if isinstance(value, LongCycleLifecycleTransition):
+        return value
+    if hasattr(value, "value"):
+        raw = str(getattr(value, "value", "") or "").strip().lower()
+    else:
+        raw = str(value or "").strip().lower()
+    for candidate in LongCycleLifecycleTransition:
+        if candidate.value == raw:
+            return candidate
+    raise ValueError(f"unknown long-cycle lifecycle transition: {value}")
+
+
+def _stable_json_hash(value: Any) -> str:
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _long_cycle_task_key(task: LongCycleTaskObject) -> str:
+    payload = {
+        "task_goal": task.task_goal,
+        "input_selector": task.input_selector,
+        "window_strategy": task.window_strategy,
+        "candidate_windows": sorted(task.candidate_windows),
+        "cadence": task.cadence,
+        "priority_rule": task.priority_rule,
+        "output_target": task.output_target,
+    }
+    return f"ingest-lc-{_stable_json_hash(payload)[:24]}"
 
 
 def _normalize_candidate_window_list(candidate_windows: list[str] | tuple[str, ...] | None) -> tuple[list[str], list[str]]:
@@ -505,3 +543,196 @@ def check_long_cycle_automation_status(
         normalized_input=envelope,
         digestion_decision=decision,
     ).model_dump(mode="json")
+
+
+def _as_automation_status(payload: LongCycleAutomationStatus | dict[str, Any]) -> LongCycleAutomationStatus:
+    if isinstance(payload, LongCycleAutomationStatus):
+        return payload
+    return LongCycleAutomationStatus.model_validate(payload)
+
+
+def _initial_lifecycle_transition(status: LongCycleTaskStatus) -> LongCycleLifecycleTransition:
+    if status == LongCycleTaskStatus.READY:
+        return LongCycleLifecycleTransition.MARK_READY
+    if status == LongCycleTaskStatus.RUNNING:
+        return LongCycleLifecycleTransition.DISPATCH
+    if status == LongCycleTaskStatus.SUCCEEDED:
+        return LongCycleLifecycleTransition.SUCCEED
+    if status == LongCycleTaskStatus.FAILED:
+        return LongCycleLifecycleTransition.FAIL
+    if status == LongCycleTaskStatus.BLOCKED:
+        return LongCycleLifecycleTransition.BLOCK
+    if status == LongCycleTaskStatus.SKIPPED:
+        return LongCycleLifecycleTransition.SKIP
+    return LongCycleLifecycleTransition.PLAN
+
+
+def build_long_cycle_persistent_task_record(
+    automation_status: LongCycleAutomationStatus | dict[str, Any],
+    *,
+    task_key: str | None = None,
+    status: LongCycleTaskStatus | str | None = None,
+    scheduler_ref: str | None = None,
+    persistent_ref: str | None = None,
+    event_time: datetime | str | None = None,
+    reason: str | None = None,
+    remaining_external_bindings: list[str] | None = None,
+) -> LongCyclePersistentTaskRecord:
+    automation = _as_automation_status(automation_status)
+    normalized_status = _to_long_cycle_status(status) if status else automation.status
+    now = _parse_datetime(event_time) or automation.normalized_input.processed_time or _utcnow()
+    event_reason = reason or ";".join(automation.blockers) or "long_cycle_lifecycle_contract_initialized"
+    task_snapshot = LongCycleTaskSnapshot(
+        status=normalized_status,
+        selected_window=automation.selected_window,
+        output_ref=None,
+        updated_at=now,
+        reason=event_reason,
+    )
+    task = automation.task.model_copy(update={"last_run_snapshot": task_snapshot})
+    event = LongCycleTaskLifecycleEvent(
+        transition=_initial_lifecycle_transition(normalized_status),
+        from_status=None,
+        to_status=normalized_status,
+        event_time=now,
+        actor="ingest_long_cycle_lifecycle_contract",
+        reason=event_reason,
+    )
+    return LongCyclePersistentTaskRecord(
+        task_key=task_key or _long_cycle_task_key(task),
+        scheduler_ref=scheduler_ref,
+        persistent_ref=persistent_ref,
+        task=task,
+        status=normalized_status,
+        lifecycle_events=[event],
+        created_at=now,
+        updated_at=now,
+        remaining_external_bindings=remaining_external_bindings or [],
+    )
+
+
+_TRANSITION_TARGETS: dict[LongCycleLifecycleTransition, LongCycleTaskStatus] = {
+    LongCycleLifecycleTransition.MARK_READY: LongCycleTaskStatus.READY,
+    LongCycleLifecycleTransition.DISPATCH: LongCycleTaskStatus.RUNNING,
+    LongCycleLifecycleTransition.SUCCEED: LongCycleTaskStatus.SUCCEEDED,
+    LongCycleLifecycleTransition.FAIL: LongCycleTaskStatus.FAILED,
+    LongCycleLifecycleTransition.BLOCK: LongCycleTaskStatus.BLOCKED,
+    LongCycleLifecycleTransition.SKIP: LongCycleTaskStatus.SKIPPED,
+}
+
+_ALLOWED_TRANSITIONS: dict[LongCycleTaskStatus, set[LongCycleTaskStatus]] = {
+    LongCycleTaskStatus.PLANNED: {LongCycleTaskStatus.READY, LongCycleTaskStatus.BLOCKED, LongCycleTaskStatus.SKIPPED},
+    LongCycleTaskStatus.READY: {LongCycleTaskStatus.RUNNING, LongCycleTaskStatus.BLOCKED, LongCycleTaskStatus.SKIPPED},
+    LongCycleTaskStatus.RUNNING: {LongCycleTaskStatus.SUCCEEDED, LongCycleTaskStatus.FAILED, LongCycleTaskStatus.BLOCKED},
+    LongCycleTaskStatus.FAILED: {LongCycleTaskStatus.READY, LongCycleTaskStatus.BLOCKED, LongCycleTaskStatus.SKIPPED},
+    LongCycleTaskStatus.BLOCKED: {LongCycleTaskStatus.READY, LongCycleTaskStatus.SKIPPED},
+    LongCycleTaskStatus.SUCCEEDED: set(),
+    LongCycleTaskStatus.SKIPPED: set(),
+}
+
+
+def transition_long_cycle_persistent_task_record(
+    record: LongCyclePersistentTaskRecord | dict[str, Any],
+    *,
+    transition: LongCycleLifecycleTransition | str,
+    event_time: datetime | str | None = None,
+    actor: str | None = None,
+    reason: str | None = None,
+    dispatch_ref: str | None = None,
+    output_ref: str | None = None,
+    error: str | None = None,
+) -> LongCyclePersistentTaskRecord:
+    current = record if isinstance(record, LongCyclePersistentTaskRecord) else LongCyclePersistentTaskRecord.model_validate(record)
+    normalized_transition = _to_lifecycle_transition(transition)
+    if normalized_transition == LongCycleLifecycleTransition.PLAN:
+        raise ValueError("plan is only valid as an initial lifecycle event")
+    target_status = _TRANSITION_TARGETS[normalized_transition]
+    allowed_targets = _ALLOWED_TRANSITIONS[current.status]
+    if target_status not in allowed_targets:
+        raise ValueError(f"invalid long-cycle transition: {current.status.value} -> {target_status.value}")
+
+    normalized_dispatch_ref = str(dispatch_ref or current.dispatch_ref or "").strip() or None
+    normalized_output_ref = str(output_ref or current.output_ref or "").strip() or None
+    normalized_error = str(error or "").strip() or None
+    if normalized_transition == LongCycleLifecycleTransition.DISPATCH and not normalized_dispatch_ref:
+        raise ValueError("dispatch_ref is required for dispatch transition")
+    if normalized_transition == LongCycleLifecycleTransition.SUCCEED and not normalized_output_ref:
+        raise ValueError("output_ref is required for succeed transition")
+    if normalized_transition == LongCycleLifecycleTransition.FAIL and not (normalized_error or reason):
+        raise ValueError("error or reason is required for fail transition")
+
+    now = _parse_datetime(event_time) or _utcnow()
+    event = LongCycleTaskLifecycleEvent(
+        transition=normalized_transition,
+        from_status=current.status,
+        to_status=target_status,
+        event_time=now,
+        actor=str(actor or "").strip() or "ingest_long_cycle_lifecycle_contract",
+        reason=str(reason or "").strip() or None,
+        dispatch_ref=normalized_dispatch_ref,
+        output_ref=normalized_output_ref,
+        error=normalized_error,
+    )
+    task_snapshot = LongCycleTaskSnapshot(
+        status=target_status,
+        selected_window=current.task.last_run_snapshot.selected_window if current.task.last_run_snapshot else None,
+        output_ref=normalized_output_ref,
+        updated_at=now,
+        reason=event.reason or event.error or target_status.value,
+    )
+    task = current.task.model_copy(update={"last_run_snapshot": task_snapshot})
+    return current.model_copy(
+        update={
+            "task": task,
+            "status": target_status,
+            "lifecycle_events": [*current.lifecycle_events, event],
+            "attempt_count": current.attempt_count + (1 if normalized_transition == LongCycleLifecycleTransition.DISPATCH else 0),
+            "dispatch_ref": normalized_dispatch_ref,
+            "output_ref": normalized_output_ref,
+            "error": normalized_error,
+            "updated_at": now,
+        }
+    )
+
+
+def check_long_cycle_lifecycle_contract(
+    *,
+    scheduler_ref: str | None = None,
+    persistent_ref: str | None = None,
+    event_time: datetime | str | None = None,
+    **automation_kwargs: Any,
+) -> dict[str, Any]:
+    automation_payload = check_long_cycle_automation_status(**automation_kwargs)
+    automation = _as_automation_status(automation_payload)
+    blockers = list(automation.blockers)
+    if automation.status == LongCycleTaskStatus.READY and not automation.selected_window:
+        blockers.append("missing_selected_window_for_lifecycle_dispatch")
+
+    record_status = LongCycleTaskStatus.BLOCKED if blockers else LongCycleTaskStatus.READY
+    record = build_long_cycle_persistent_task_record(
+        automation,
+        status=record_status,
+        scheduler_ref=scheduler_ref,
+        persistent_ref=persistent_ref,
+        event_time=event_time,
+        reason=";".join(blockers) if blockers else "ready_for_in_memory_lifecycle_dispatch",
+        remaining_external_bindings=[
+            "live_scheduler_dispatch_not_executed",
+            "persistent_task_table_write_not_executed",
+            "end_to_end_automation_run_not_executed",
+        ],
+    )
+    check = LongCycleLifecycleContractCheck(
+        status="fail" if blockers else "pass",
+        blockers=blockers,
+        closed_slice=[
+            "stable_task_key",
+            "persistent_task_record_shape",
+            "selected_window_dispatch_precondition",
+            "in_memory_ready_running_terminal_lifecycle",
+        ],
+        remaining_runtime_gaps=list(record.remaining_external_bindings),
+        automation_status=automation,
+        persistent_task=record,
+    )
+    return check.model_dump(mode="json")
