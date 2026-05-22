@@ -1,0 +1,26 @@
+{
+  "contract_version": "clue_chain.external_search_fixture.v1",
+  "queries": {
+    "robotics policy breadcrumbs": {
+      "results": [
+        {
+          "title": "Robotics Policy Registry",
+          "url": "https://Example.org/registry?utm_source=fixture&keep=1#overview",
+          "snippet": "Registry entry with policy breadcrumbs.",
+          "aliases": ["Policy Registry"]
+        },
+        {
+          "title": "Robotics Policy Registry duplicate",
+          "link": "https://example.org/registry?keep=1",
+          "snippet": "Duplicate URL should merge.",
+          "aliases": ["Policy Registry Duplicate"]
+        },
+        {
+          "title": "Municipal robotics procurement memo",
+          "url": "https://city.example/reports/robotics-procurement/",
+          "snippet": "Procurement memo with vendor and budget clues."
+        }
+      ]
+    }
+  }
+}
