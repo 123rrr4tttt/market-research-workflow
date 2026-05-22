@@ -11,6 +11,8 @@ from . import contracts
 
 PERSISTENCE_API_BOUNDARY_CONTRACT_VERSION: Final[str] = "typed_knowledge.persistence_api_boundary.v1"
 PERSISTENCE_WRITE_RESULT_CONTRACT_VERSION: Final[str] = "typed_knowledge.persistence_write_result.v1"
+PUBLIC_API_ROUTE_CONTRACT_VERSION: Final[str] = "typed_knowledge.public_api_route_contract.v1"
+PUBLIC_API_ROUTE_PATH: Final[str] = "/api/v1/typed-knowledge/persistence-boundary"
 DEFAULT_REPOSITORY_REF: Final[str] = "memory://typed-knowledge/persistence-api-boundary"
 DEFAULT_LOGICAL_TABLE: Final[str] = "typed_knowledge_objects"
 
@@ -68,6 +70,18 @@ PERSISTENCE_API_BOUNDARY_REMAINING_LIVE_GAPS: Final[tuple[str, ...]] = (
     "public_typed_knowledge_api_route_not_implemented",
     "governance_ui_not_implemented",
     "migration_and_backfill_not_executed",
+)
+PUBLIC_API_ROUTE_CLOSED_SLICE: Final[tuple[str, ...]] = (
+    "typed_knowledge_public_api_route_contract",
+    "persistence_boundary_envelope_readback",
+    "status_data_error_meta_route_envelope",
+    "live_db_overclaim_guard",
+)
+PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS: Final[tuple[str, ...]] = (
+    "live_db_persistence_not_implemented",
+    "governance_ui_not_implemented",
+    "migration_and_backfill_not_executed",
+    "live_db_backed_typed_knowledge_readback_not_verified",
 )
 
 
@@ -429,23 +443,24 @@ def serialize_persistence_write_result(result: PersistenceWriteResult) -> dict[s
     }
 
 
-def build_sample_boundary_envelope() -> dict[str, Any]:
+def build_sample_boundary_envelope(*, project_key: str = "demo_proj") -> dict[str, Any]:
+    normalized_project_key = str(project_key or "").strip() or "demo_proj"
     type_node = contracts.TypeNode(
         key="type:market_signal",
-        project_key="demo_proj",
+        project_key=normalized_project_key,
         label="Market Signal",
         review_state=contracts.REVIEW_STATE_HUMAN_CONFIRMED,
     )
     topic_cluster = contracts.TopicCluster(
         key="topic:robotics",
-        project_key="demo_proj",
+        project_key=normalized_project_key,
         label="Robotics",
         knowledge_item_keys=("ki:robotics-policy",),
         review_state=contracts.REVIEW_STATE_HUMAN_CONFIRMED,
     )
     booklet = contracts.Booklet(
         key="booklet:q2-review",
-        project_key="demo_proj",
+        project_key=normalized_project_key,
         title="Q2 Review",
         included_type_node_keys=(type_node.key,),
         included_topic_cluster_keys=(topic_cluster.key,),
@@ -454,7 +469,7 @@ def build_sample_boundary_envelope() -> dict[str, Any]:
     )
     item = contracts.KnowledgeItem(
         key="ki:robotics-policy",
-        project_key="demo_proj",
+        project_key=normalized_project_key,
         canonical_statement="Humanoid robotics investment is shifting toward industrial pilots.",
         primary_type_node_key=type_node.key,
         evidence_refs=("doc:robotics:42",),
@@ -476,9 +491,91 @@ def build_sample_boundary_envelope() -> dict[str, Any]:
         topic_clusters=(topic_cluster,),
         booklets=(booklet,),
         writing_handoffs=(handoff,),
-        project_key="demo_proj",
+        project_key=normalized_project_key,
         write_time="2026-05-22T00:00:00Z",
     )
+
+
+def build_public_api_route_contract_envelope(*, project_key: str = "demo_proj") -> dict[str, Any]:
+    boundary_envelope = build_sample_boundary_envelope(project_key=project_key)
+    envelope = {
+        "status": "ok",
+        "data": {
+            "contract_version": PUBLIC_API_ROUTE_CONTRACT_VERSION,
+            "route": {
+                "method": "GET",
+                "path": PUBLIC_API_ROUTE_PATH,
+                "tag": "typed_knowledge",
+                "public_api_route": True,
+                "live_db_backed": False,
+                "response_contract": PUBLIC_API_ROUTE_CONTRACT_VERSION,
+            },
+            "persistence_boundary": boundary_envelope["data"],
+            "persistence_boundary_meta": boundary_envelope["meta"],
+            "boundary_fingerprint": boundary_fingerprint(boundary_envelope),
+        },
+        "error": None,
+        "meta": {
+            "contract_readiness": "ready",
+            "closed_slice": list(PUBLIC_API_ROUTE_CLOSED_SLICE),
+            "readiness": {
+                "public_api_route": True,
+                "api_contract": True,
+                "repository_contract": True,
+                "live_db_persistence": False,
+                "governance_ui": False,
+            },
+            "remaining_live_gaps": list(PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS),
+            "non_goal": "no_live_db_write_no_product_ui",
+        },
+    }
+    validate_public_api_route_contract_envelope(envelope)
+    return envelope
+
+
+def validate_public_api_route_contract_envelope(envelope: Mapping[str, Any]) -> None:
+    if not isinstance(envelope, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_envelope_not_mapping")
+    if envelope.get("status") != "ok":
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_envelope_status_not_ok")
+    data = envelope.get("data")
+    meta = envelope.get("meta")
+    if not isinstance(data, Mapping) or not isinstance(meta, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_envelope_missing_data_or_meta")
+    if data.get("contract_version") != PUBLIC_API_ROUTE_CONTRACT_VERSION:
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_contract_version_mismatch")
+    route = data.get("route")
+    if not isinstance(route, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_route")
+    if route.get("method") != "GET" or route.get("path") != PUBLIC_API_ROUTE_PATH:
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_path_mismatch")
+    if route.get("public_api_route") is not True or route.get("live_db_backed") is not False:
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_readiness_mismatch")
+
+    persistence_boundary = data.get("persistence_boundary")
+    if not isinstance(persistence_boundary, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_persistence_boundary")
+    repository = persistence_boundary.get("repository")
+    if not isinstance(repository, Mapping) or repository.get("live_db_write") is not False:
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_db_overclaim")
+    records = persistence_boundary.get("records")
+    if not isinstance(records, list) or not records:
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_records")
+
+    readiness = meta.get("readiness")
+    if not isinstance(readiness, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_readiness")
+    if readiness.get("public_api_route") is not True or readiness.get("api_contract") is not True:
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_contract_not_ready")
+    if readiness.get("live_db_persistence") is not False or readiness.get("governance_ui") is not False:
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_completion_overclaim")
+
+    remaining_gaps = tuple(meta.get("remaining_live_gaps") or ())
+    for required_gap in PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS:
+        if required_gap not in remaining_gaps:
+            raise TypedKnowledgePersistenceBoundaryError(f"public_api_route_missing_remaining_gap:{required_gap}")
+    if "public_typed_knowledge_api_route_not_implemented" in remaining_gaps:
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_keeps_closed_gap_open")
 
 
 def _object_parts(

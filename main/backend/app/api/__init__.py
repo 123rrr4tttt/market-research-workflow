@@ -25,6 +25,7 @@ from .llm_report import router as llm_report_router
 from .workflow_graph import router as workflow_graph_router
 from .stats import router as stats_router
 from .writing import router as writing_router
+from .typed_knowledge import router as typed_knowledge_router
 from .agent_batch import router as agent_batch_router
 from .agent_chat import router as agent_chat_router
 from .agent_sessions import router as agent_sessions_router
@@ -59,6 +60,7 @@ router.include_router(llm_report_router)
 router.include_router(workflow_graph_router)
 router.include_router(stats_router)
 router.include_router(writing_router)
+router.include_router(typed_knowledge_router)
 router.include_router(agent_batch_router)
 router.include_router(agent_chat_router)
 router.include_router(agent_sessions_router)
