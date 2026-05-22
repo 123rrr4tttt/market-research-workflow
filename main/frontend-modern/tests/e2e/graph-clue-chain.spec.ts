@@ -1,15 +1,18 @@
 import { expect, test, type Page } from '@playwright/test'
 
 type ClueChainDecisionRequest = {
-  decision?: string
-  actor_id?: string
+  action?: string
+  decided_by?: string
 }
 
 type ClueChainCreateRequest = {
-  seed_nodes?: Array<{ node_id?: string; label?: string }>
-  graph_context?: {
-    selected_count?: number
-    visible_nodes?: number
+  root_node_ids?: string[]
+  metadata?: {
+    seed_nodes?: Array<{ node_id?: string; label?: string }>
+    graph_context?: {
+      selected_count?: number
+      visible_nodes?: number
+    }
   }
 }
 
@@ -203,8 +206,9 @@ test('graph page can create and review a clue chain with mocked APIs', async ({ 
 
   await expect(page.getByTestId('clue-chain-inspector')).toBeVisible()
   await expect(page.getByTestId('clue-chain-candidate-queue')).toContainText('渠道价差线索')
-  expect(hits.createBody?.seed_nodes?.map((node) => node.node_id)).toEqual(['n1', 'n2'])
-  expect(hits.createBody?.graph_context?.visible_nodes).toBe(2)
+  expect(hits.createBody?.root_node_ids).toEqual(['n1', 'n2'])
+  expect(hits.createBody?.metadata?.seed_nodes?.map((node) => node.node_id)).toEqual(['n1', 'n2'])
+  expect(hits.createBody?.metadata?.graph_context?.visible_nodes).toBe(2)
 
   await page.getByRole('button', { name: /Source Hop/ }).click()
   await expect(page.getByTestId('clue-chain-hop-list')).toContainText('commodity margin expansion')
@@ -217,7 +221,7 @@ test('graph page can create and review a clue chain with mocked APIs', async ({ 
   await page.getByTestId('clue-chain-promote-candidate-1').click()
   await expect(page.getByTestId('clue-chain-candidate-queue')).toContainText('已提升')
   expect(hits.decisionBody).toEqual(expect.objectContaining({
-    decision: 'promote',
-    actor_id: 'graphpage.clue-chain-ui',
+    action: 'promote',
+    decided_by: 'graphpage.clue-chain-ui',
   }))
 })

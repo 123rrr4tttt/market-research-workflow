@@ -1,7 +1,7 @@
 import { endpoints } from '../endpoints'
 import { asList, httpGet as get, httpPost as post } from '../client'
 
-export type ClueChainStatus = 'draft' | 'running' | 'paused' | 'blocked' | 'closed' | string
+export type ClueChainStatus = 'open' | 'closed' | 'draft' | 'running' | 'paused' | 'blocked' | string
 
 export type ChainHopStatus =
   | 'planned'
@@ -27,7 +27,7 @@ export type ChainCandidateDecisionStatus =
 
 export type ChainDecisionAction = 'promote' | 'reject' | 'merge' | 'pause' | 'close' | string
 
-export type ChainExpansionMode = 'graph_neighbors' | 'external_search' | 'source_library_search' | 'agent_subtask' | string
+export type ChainExpansionMode = 'source_library_search' | 'external_search' | 'external_search_fixture' | 'agent_tool' | 'manual' | string
 
 export type ChainCreatedBy = 'user' | 'agent' | 'workflow_graph' | string
 
@@ -194,7 +194,12 @@ export type ChainFrontierItem = {
 
 export type ClueChainCreatePayload = {
   title: string
+  project_key?: string | null
+  graph_id?: string | null
+  graph_type?: string | null
+  question?: string | null
   objective?: string | null
+  root_node_ids?: string[]
   seed_node_ids: string[]
   seed_nodes?: Array<Record<string, unknown>>
   max_depth?: number | null
@@ -216,8 +221,11 @@ export type ClueChainListParams = {
 }
 
 export type ClueChainExpandPayload = {
+  mode?: ChainExpansionMode
   input_node_id?: string | null
   expansion_mode: ChainExpansionMode
+  frontier_node_ids?: string[]
+  limit?: number
   budget?: ChainBudget
   operator_policy?: ChainOperatorPolicy
   query?: string | null
@@ -229,12 +237,16 @@ export type ClueChainExpandPayload = {
   dry_run?: boolean
   replay?: boolean
   metadata?: Record<string, unknown> | null
+  provider_options?: Record<string, unknown> | null
 }
 
 export type ClueChainCandidateDecisionPayload = {
+  action?: ChainDecisionAction
   decision: ChainDecisionAction
   actor?: 'user' | 'agent' | 'workflow' | string | null
+  decided_by?: string | null
   reason?: string | null
+  merge_candidate_id?: string | null
   merge_target_id?: string | null
   target_node_id?: string | null
   evidence_ids?: string[]
@@ -243,6 +255,7 @@ export type ClueChainCandidateDecisionPayload = {
 
 export type ClueChainClosePayload = {
   actor?: 'user' | 'agent' | 'workflow' | string | null
+  closed_by?: string | null
   reason?: string | null
   final_status?: 'closed' | 'blocked'
   blockers?: string[]
@@ -319,7 +332,25 @@ function buildClueChainListQuery(params: ClueChainListParams = {}) {
 }
 
 export async function createClueChain(payload: ClueChainCreatePayload) {
-  return post<ClueChainMutationResponse>(endpoints.clueChains.root, payload)
+  return post<ClueChainMutationResponse>(endpoints.clueChains.root, {
+    project_key: payload.project_key,
+    graph_id: payload.graph_id || payload.graph_type || 'default',
+    title: payload.title,
+    question: payload.question || payload.objective || null,
+    root_node_ids: payload.root_node_ids || payload.seed_node_ids || [],
+    metadata: {
+      ...(payload.metadata || {}),
+      seed_nodes: payload.seed_nodes || [],
+      graph_type: payload.graph_type,
+      created_by: payload.created_by,
+      max_depth: payload.max_depth,
+      max_hops: payload.max_hops,
+      confidence_threshold: payload.confidence_threshold,
+      provenance_policy: payload.provenance_policy,
+      privacy_policy: payload.privacy_policy,
+      policy_json: payload.policy_json,
+    },
+  })
 }
 
 export async function listClueChains(params: ClueChainListParams = {}) {
@@ -339,7 +370,25 @@ export async function getClueChain(chainId: string) {
 }
 
 export async function expandClueChain(chainId: string, payload: ClueChainExpandPayload) {
-  return post<ClueChainExpandResponse>(endpoints.clueChains.expand(chainId), payload)
+  return post<ClueChainExpandResponse>(endpoints.clueChains.expand(chainId), {
+    mode: payload.mode || payload.expansion_mode,
+    query: payload.query,
+    frontier_node_ids: payload.frontier_node_ids || (payload.input_node_id ? [payload.input_node_id] : []),
+    limit: payload.limit || payload.budget?.max_results || 5,
+    provider_options: {
+      ...(payload.provider_options || {}),
+      budget: payload.budget,
+      operator_policy: payload.operator_policy,
+      aliases: payload.aliases,
+      provider: payload.provider,
+      source_item_keys: payload.source_item_keys,
+      local_index_mode: payload.local_index_mode,
+      fixture_key: payload.fixture_key,
+      dry_run: payload.dry_run,
+      replay: payload.replay,
+      metadata: payload.metadata,
+    },
+  })
 }
 
 export async function decideClueChainCandidate(
@@ -347,9 +396,27 @@ export async function decideClueChainCandidate(
   candidateId: string,
   payload: ClueChainCandidateDecisionPayload,
 ) {
-  return post<ClueChainCandidateDecisionResponse>(endpoints.clueChains.candidateDecision(chainId, candidateId), payload)
+  return post<ClueChainCandidateDecisionResponse>(endpoints.clueChains.candidateDecision(chainId, candidateId), {
+    action: payload.action || payload.decision,
+    reason: payload.reason,
+    target_node_id: payload.target_node_id,
+    merge_candidate_id: payload.merge_candidate_id || payload.merge_target_id,
+    decided_by: payload.decided_by || payload.actor,
+    metadata: {
+      ...(payload.metadata || {}),
+      evidence_ids: payload.evidence_ids,
+    },
+  })
 }
 
 export async function closeClueChain(chainId: string, payload: ClueChainClosePayload = {}) {
-  return post<ClueChainCloseResponse>(endpoints.clueChains.close(chainId), payload)
+  return post<ClueChainCloseResponse>(endpoints.clueChains.close(chainId), {
+    reason: payload.reason || payload.summary,
+    closed_by: payload.closed_by || payload.actor,
+    metadata: {
+      ...(payload.metadata || {}),
+      final_status: payload.final_status,
+      blockers: payload.blockers || [],
+    },
+  })
 }
