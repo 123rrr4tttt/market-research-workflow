@@ -1,18 +1,21 @@
-# Frontend Modern Documentation Index
+# Frontend Modern Docs Index
 
-更新时间：2026-05-22（PST）
+> Last updated: 2026-05-22 (US/Pacific)  
+> Entry rule: `main/` is the canonical entry surface. Supporting or historical materials stay in archive category directories.
 
 ## Main Entry
 
-- [main/](./main/)
-- [main/index.md](./main/index.md)
-- [main/MERGED_FRONTEND_MODERN.md](./main/MERGED_FRONTEND_MODERN.md)
+- [main/index.md](./main/index.md) - canonical entry index
+- [main/MERGED_FRONTEND_MODERN.md](./main/MERGED_FRONTEND_MODERN.md) - merged current-state document for `main/frontend-modern`
 
-## Current Materials
+## Archive Category Directories
 
-- [main/LLM_DESIGNER_UI_REPLICA_BRIEF.md](./main/LLM_DESIGNER_UI_REPLICA_BRIEF.md)
+- [F_PLAN/](./F_PLAN/) - implementation/design planning notes preserved outside the canonical main entry
 
-## Notes
+## Current Source Anchors
 
-- This directory is now part of the `development/latest-dev-docs` navigation surface.
-- `main/` is the canonical entry. Future frontend-modern planning or review files should be added through this index and reflected in the top-level overview.
+- [`main/frontend-modern/README.md`](../../../main/frontend-modern/README.md)
+- [`main/frontend-modern/package.json`](../../../main/frontend-modern/package.json)
+- [`main/frontend-modern/.storybook/main.ts`](../../../main/frontend-modern/.storybook/main.ts)
+- [`main/frontend-modern/playwright.config.ts`](../../../main/frontend-modern/playwright.config.ts)
+- [`main/frontend-modern/tests/e2e/`](../../../main/frontend-modern/tests/e2e/)
