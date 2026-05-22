@@ -90,6 +90,39 @@ export const MESSAGE_KEY_SHAPE = {
     'action.cancel': '',
     'action.confirm': '',
   },
+  agentChat: {
+    'stage.context': '',
+    'stage.tools': '',
+    'stage.answer': '',
+    'system.ready': '',
+    'system.newSessionCreated': '',
+    'session.newTitle': '',
+    'session.recoveredTitle': '',
+    'session.updatedNow': '',
+    'session.searchPlaceholder': '',
+    'session.label': '',
+    'session.current': '',
+    'session.emptyPreview': '',
+    'session.noMatchesTitle': '',
+    'session.noMatchesHint': '',
+    'session.running': '',
+    'session.runningTasksCount': '',
+    'session.messageCount': '',
+    'status.approvalNeeded': '',
+    'status.approvalNeededDetail': '',
+    'status.live': '',
+    'status.idle': '',
+    'status.idleDetail': '',
+    'composer.idleHint': '',
+    'composer.inputPlaceholder': '',
+    'composer.quickCommand.marketDrivers': '',
+    'composer.quickCommand.ingestBatch': '',
+    'composer.quickCommand.runtimeRisk': '',
+    'action.newConversation': '',
+    'action.newFromDraft': '',
+    'action.clearSession': '',
+    'action.send': '',
+  },
 } as const
 
 type CatalogShape = {
@@ -188,6 +221,39 @@ const zhCNMessages: CatalogShape = {
     'action.cancel': '取消',
     'action.confirm': '确认',
   },
+  agentChat: {
+    'stage.context': '上下文',
+    'stage.tools': '工具',
+    'stage.answer': '回答',
+    'system.ready': 'Agent 对话已就绪。建议先输入目标和约束，例如时间窗口、地区、输出格式。',
+    'system.newSessionCreated': '新会话已创建。可继续围绕这条任务展开：{command}',
+    'session.newTitle': '新对话',
+    'session.recoveredTitle': '恢复的会话',
+    'session.updatedNow': '刚刚',
+    'session.searchPlaceholder': '搜索',
+    'session.label': '会话',
+    'session.current': '当前会话',
+    'session.emptyPreview': '暂无消息',
+    'session.noMatchesTitle': '没有匹配会话',
+    'session.noMatchesHint': '换个关键词，或新建一个对话。',
+    'session.running': '运行中',
+    'session.runningTasksCount': '{count} 个任务运行中',
+    'session.messageCount': '{count} 条消息',
+    'status.approvalNeeded': '等待审批',
+    'status.approvalNeededDetail': '{count} 个操作需要确认',
+    'status.live': '实时运行',
+    'status.idle': '待开始',
+    'status.idleDetail': '输入任务后创建运行会话',
+    'composer.idleHint': '直接输入问题或任务。工具和产物会作为运行细节折叠在同一条对话流里。',
+    'composer.inputPlaceholder': '输入问题或任务',
+    'composer.quickCommand.marketDrivers': '分析最近 14 天 California gas price 的主驱动因素，并给出证据链',
+    'composer.quickCommand.ingestBatch': '针对 New York power market，生成一个可执行的采集批处理命令',
+    'composer.quickCommand.runtimeRisk': '总结当前项目 agent runtime 的风险点，并列出最小回归验证步骤',
+    'action.newConversation': '新对话',
+    'action.newFromDraft': '基于当前草稿新建会话',
+    'action.clearSession': '清空当前会话',
+    'action.send': '发送',
+  },
 }
 
 const enUSMessages: CatalogShape = {
@@ -280,6 +346,39 @@ const enUSMessages: CatalogShape = {
     'action.cancel': 'Cancel',
     'action.confirm': 'Confirm',
   },
+  agentChat: {
+    'stage.context': 'Context',
+    'stage.tools': 'Tools',
+    'stage.answer': 'Answer',
+    'system.ready': 'Agent chat is ready. Start with the goal and constraints, such as time window, region, and output format.',
+    'system.newSessionCreated': 'New session created. Continue from this task: {command}',
+    'session.newTitle': 'New Chat',
+    'session.recoveredTitle': 'Recovered Session',
+    'session.updatedNow': 'just now',
+    'session.searchPlaceholder': 'Search',
+    'session.label': 'Sessions',
+    'session.current': 'Current session',
+    'session.emptyPreview': 'No messages yet',
+    'session.noMatchesTitle': 'No matching sessions',
+    'session.noMatchesHint': 'Try another keyword or start a new chat.',
+    'session.running': 'Running',
+    'session.runningTasksCount': '{count} tasks running',
+    'session.messageCount': '{count} messages',
+    'status.approvalNeeded': 'Approval needed',
+    'status.approvalNeededDetail': '{count} operations need confirmation',
+    'status.live': 'Live',
+    'status.idle': 'Not started',
+    'status.idleDetail': 'Enter a task to create a run session',
+    'composer.idleHint': 'Enter a question or task. Tools and artifacts are folded into the same conversation flow as run details.',
+    'composer.inputPlaceholder': 'Enter a question or task',
+    'composer.quickCommand.marketDrivers': 'Analyze the main drivers of California gas prices over the last 14 days and include an evidence chain',
+    'composer.quickCommand.ingestBatch': 'Generate an executable collection batch command for the New York power market',
+    'composer.quickCommand.runtimeRisk': 'Summarize the current project agent runtime risks and list the minimal regression checks',
+    'action.newConversation': 'New Chat',
+    'action.newFromDraft': 'Start from current draft',
+    'action.clearSession': 'Clear current session',
+    'action.send': 'Send',
+  },
 }
 
 export const MESSAGE_CATALOGS: Record<AppLocale, CatalogShape> = {
@@ -312,9 +411,7 @@ export function translate(locale: AppLocale, key: MessageKey, fallback?: string)
 }
 
 function readCatalogValue(catalog: CatalogShape, namespace: string, messageKey: string): string {
-  if (namespace === 'shell') return catalog.shell[messageKey as keyof CatalogShape['shell']] || ''
-  if (namespace === 'navigation') return catalog.navigation[messageKey as keyof CatalogShape['navigation']] || ''
-  if (namespace === 'settings') return catalog.settings[messageKey as keyof CatalogShape['settings']] || ''
-  if (namespace === 'shared') return catalog.shared[messageKey as keyof CatalogShape['shared']] || ''
-  return ''
+  const namespaceCatalog = catalog[namespace as keyof CatalogShape]
+  if (!namespaceCatalog) return ''
+  return (namespaceCatalog as Record<string, string>)[messageKey] || ''
 }

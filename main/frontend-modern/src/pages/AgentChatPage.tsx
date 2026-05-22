@@ -45,6 +45,7 @@ import type {
   AgentSessionEventStreamStatus,
   AgentTaskItem,
 } from '../lib/types'
+import { translate, useAppLocale, type AppLocale, type MessageKey } from '../app/platform/i18n'
 import './agent-chat.css'
 
 type AgentChatPageProps = {
@@ -173,36 +174,63 @@ function isTerminalAgentSessionStatus(status?: string | null) {
   return ['completed', 'failed', 'canceled', 'cancelled'].includes(String(status || '').toLowerCase())
 }
 
-const DEFAULT_QUICK_COMMANDS = [
-  '分析最近 14 天 California gas price 的主驱动因素，并给出证据链',
-  '针对 New York power market，生成一个可执行的采集批处理命令',
-  '总结当前项目 agent runtime 的风险点，并列出最小回归验证步骤',
-]
+const AGENT_CHAT_QUICK_COMMAND_KEYS = [
+  'agentChat.composer.quickCommand.marketDrivers',
+  'agentChat.composer.quickCommand.ingestBatch',
+  'agentChat.composer.quickCommand.runtimeRisk',
+] as const
 
 const STAGE_LABELS = [
-  { key: 'context', label: '上下文' },
-  { key: 'tools', label: '工具' },
-  { key: 'answer', label: '回答' },
-]
+  { key: 'context', labelKey: 'agentChat.stage.context' },
+  { key: 'tools', labelKey: 'agentChat.stage.tools' },
+  { key: 'answer', labelKey: 'agentChat.stage.answer' },
+] as const
 const AGENT_CHAT_STORAGE_PREFIX = 'agent-chat-state-v1'
 const DEFAULT_SESSION_ID = 's-default'
-const DEFAULT_SESSIONS: ChatSession[] = [
-  { id: DEFAULT_SESSION_ID, title: '新对话', updatedAt: '刚刚' },
-]
 
-function buildBaseStages(): StageItem[] {
+function formatCatalogTemplate(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
+function buildDefaultSessions(locale: AppLocale): ChatSession[] {
+  return [
+    {
+      id: DEFAULT_SESSION_ID,
+      title: translate(locale, 'agentChat.session.newTitle'),
+      updatedAt: translate(locale, 'agentChat.session.updatedNow'),
+    },
+  ]
+}
+
+function buildBaseStages(locale: AppLocale): StageItem[] {
   return STAGE_LABELS.map((stage, idx) => ({
     key: stage.key,
-    label: stage.label,
+    label: translate(locale, stage.labelKey),
     status: idx === 0 ? 'running' : 'pending',
   }))
 }
 
-function buildStreamingStages(): StageItem[] {
+function buildStreamingStages(locale: AppLocale): StageItem[] {
   return STAGE_LABELS.map((stage) => ({
     key: stage.key,
-    label: stage.label,
+    label: translate(locale, stage.labelKey),
     status: stage.key === 'answer' ? 'running' : 'done',
+  }))
+}
+
+function buildPendingStages(locale: AppLocale): StageItem[] {
+  return STAGE_LABELS.map((stage) => ({
+    key: stage.key,
+    label: translate(locale, stage.labelKey),
+    status: 'pending',
+  }))
+}
+
+function buildCompletedStages(locale: AppLocale): StageItem[] {
+  return STAGE_LABELS.map((stage) => ({
+    key: stage.key,
+    label: translate(locale, stage.labelKey),
+    status: 'done',
   }))
 }
 
@@ -284,19 +312,19 @@ function extractProgressiveStreamText(event: AgentEventItem): string {
   return ''
 }
 
-function buildSystemMessage(projectKey: string, hint?: string): ChatMessage {
+function buildSystemMessage(projectKey: string, locale: AppLocale, hint?: string): ChatMessage {
   return {
     id: `sys-${Date.now()}`,
     role: 'system',
     ts: nowLabel(),
-    content: hint || 'Agent 对话已就绪。建议先输入目标和约束，例如时间窗口、地区、输出格式。',
+    content: hint || translate(locale, 'agentChat.system.ready'),
     meta: [`project: ${projectKey}`],
   }
 }
 
-function buildSeedHistories(projectKey: string): Record<string, ChatMessage[]> {
+function buildSeedHistories(projectKey: string, locale: AppLocale): Record<string, ChatMessage[]> {
   return {
-    [DEFAULT_SESSION_ID]: [buildSystemMessage(projectKey)],
+    [DEFAULT_SESSION_ID]: [buildSystemMessage(projectKey, locale)],
   }
 }
 
@@ -314,15 +342,17 @@ function readStoredState(storageKey: string): StoredAgentChatState | null {
 }
 
 function mergeSessionsWithSeed(
+  locale: AppLocale,
   storedSessions?: ChatSession[] | null,
   sessionHistories?: Record<string, ChatMessage[]> | null,
 ): ChatSession[] {
   const sessionsById = new Map<string, ChatSession>()
+  const defaultSessions = buildDefaultSessions(locale)
   for (const session of storedSessions || []) {
     if (!session?.id) continue
     sessionsById.set(session.id, session)
   }
-  for (const session of DEFAULT_SESSIONS) {
+  for (const session of defaultSessions) {
     if (!sessionsById.has(session.id)) {
       sessionsById.set(session.id, session)
     }
@@ -331,21 +361,21 @@ function mergeSessionsWithSeed(
     if (!sessionsById.has(sessionId)) {
       sessionsById.set(sessionId, {
         id: sessionId,
-        title: 'Recovered Session',
-        updatedAt: '刚刚',
+        title: translate(locale, 'agentChat.session.recoveredTitle'),
+        updatedAt: translate(locale, 'agentChat.session.updatedNow'),
       })
     }
   }
   return Array.from(sessionsById.values())
 }
 
-function mergeHistoriesWithSeed(projectKey: string, fromStorage?: Record<string, ChatMessage[]> | null): Record<string, ChatMessage[]> {
-  const seed = buildSeedHistories(projectKey)
-  const baseSessions = Array.from(new Set([...DEFAULT_SESSIONS.map((session) => session.id), ...Object.keys(fromStorage || {})]))
+function mergeHistoriesWithSeed(projectKey: string, locale: AppLocale, fromStorage?: Record<string, ChatMessage[]> | null): Record<string, ChatMessage[]> {
+  const seed = buildSeedHistories(projectKey, locale)
+  const baseSessions = Array.from(new Set([...buildDefaultSessions(locale).map((session) => session.id), ...Object.keys(fromStorage || {})]))
   const mergedEntries = baseSessions.map((sessionId) => {
     const cached = fromStorage?.[sessionId]
     if (Array.isArray(cached) && cached.length > 0) return [sessionId, cached] as const
-    return [sessionId, seed[sessionId] || [buildSystemMessage(projectKey)]] as const
+    return [sessionId, seed[sessionId] || [buildSystemMessage(projectKey, locale)]] as const
   })
   return Object.fromEntries(mergedEntries)
 }
@@ -363,9 +393,9 @@ function buildSessionId() {
   return `s-${Date.now().toString(36)}`
 }
 
-function buildSessionTitle(command?: string) {
+function buildSessionTitle(command: string | undefined, locale: AppLocale) {
   const normalized = String(command || '').replace(/\s+/g, ' ').trim()
-  if (!normalized) return 'New Agent Session'
+  if (!normalized) return translate(locale, 'agentChat.session.newTitle')
   return normalized.slice(0, 28)
 }
 
@@ -1053,10 +1083,12 @@ function isAgentDebugMetaEnabled() {
 }
 
 export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
+  const locale = useAppLocale()
+  const t = useCallback((key: MessageKey) => translate(locale, key), [locale])
   const storageKey = `${AGENT_CHAT_STORAGE_PREFIX}:${projectKey || 'default'}`
   const stored = readStoredState(storageKey)
-  const initialSessions = mergeSessionsWithSeed(stored?.sessions, stored?.sessionHistories)
-  const initialHistories = mergeHistoriesWithSeed(projectKey, stored?.sessionHistories)
+  const initialSessions = mergeSessionsWithSeed(locale, stored?.sessions, stored?.sessionHistories)
+  const initialHistories = mergeHistoriesWithSeed(projectKey, locale, stored?.sessionHistories)
 
   const [sessionFilter, setSessionFilter] = useState('')
   const [activeSessionId, setActiveSessionId] = useState(stored?.activeSessionId || initialSessions[0]?.id || 's1')
@@ -1089,7 +1121,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
   const sessionStats = useMemo(() => {
     const entries = Object.entries(sessionHistories).map(([sessionId, msgs]) => {
       const last = msgs[msgs.length - 1]
-      const preview = last?.content?.replace(/\s+/g, ' ').slice(0, 44) || '暂无消息'
+      const preview = last?.content?.replace(/\s+/g, ' ').slice(0, 44) || t('agentChat.session.emptyPreview')
       return {
         sessionId,
         count: msgs.length,
@@ -1097,7 +1129,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
       }
     })
     return Object.fromEntries(entries.map((item) => [item.sessionId, item])) as Record<string, { count: number; preview: string }>
-  }, [sessionHistories])
+  }, [sessionHistories, t])
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === resolvedActiveSessionId) || sessions[0],
     [sessions, resolvedActiveSessionId],
@@ -1148,7 +1180,14 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
       )
     })
   }, [sessionFilter, sessions, sessionStats])
-  const messageCountLabel = useMemo(() => `${activeMessages.length} 条消息`, [activeMessages.length])
+  const messageCountLabel = useMemo(
+    () => formatCatalogTemplate(t('agentChat.session.messageCount'), { count: activeMessages.length }),
+    [activeMessages.length, t],
+  )
+  const quickCommands = useMemo(
+    () => AGENT_CHAT_QUICK_COMMAND_KEYS.map((key) => t(key)),
+    [t],
+  )
   const currentDraft = draftBySession[resolvedActiveSessionId] || ''
   const activeRunState = runStateBySession[resolvedActiveSessionId]
   const isActiveSessionRunning = Boolean(activeRunState?.pending)
@@ -1210,7 +1249,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                 ? {
                     ...message,
                     content,
-                    stages: buildStreamingStages(),
+                    stages: buildStreamingStages(locale),
                   }
                 : message,
             ),
@@ -1266,7 +1305,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         return { result, events: sessionEvents }
       }
     },
-    [projectKey],
+    [locale, projectKey],
   )
   const coordinatorMutation = useMutation({
     mutationFn: (sessionId: string) => runAgentSessionCoordinatorPass(sessionId),
@@ -1309,7 +1348,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
               role: 'assistant',
               content: finalAnswer || '审批已通过并继续执行。',
               ts: nowLabel(),
-              stages: STAGE_LABELS.map((stage) => ({ ...stage, status: 'done' })),
+              stages: buildCompletedStages(locale),
               meta: showDebugMeta ? ['backend: /agent-chat/approvals/continue'] : [],
               capabilityCalls: capabilityCall ? [capabilityCall] : [],
             },
@@ -1331,7 +1370,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
             role: 'assistant',
             content: approval?.approval_id ? `审批已拒绝：${approval.approval_id}。` : '审批已拒绝。',
             ts: nowLabel(),
-            stages: STAGE_LABELS.map((stage) => ({ ...stage, status: 'done' })),
+            stages: buildCompletedStages(locale),
             meta: showDebugMeta ? ['backend: /agent-approvals/resolve', 'approval: rejected'] : [],
           },
         ],
@@ -1396,16 +1435,24 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
 
   const createSession = (seedCommand?: string) => {
     const nextId = buildSessionId()
-    const title = buildSessionTitle(seedCommand)
+    const title = buildSessionTitle(seedCommand, locale)
     const nextSession: ChatSession = {
       id: nextId,
       title,
-      updatedAt: '刚刚',
+      updatedAt: t('agentChat.session.updatedNow'),
     }
     setSessions((prev) => [nextSession, ...prev])
     setSessionHistories((prev) => ({
       ...prev,
-      [nextId]: [buildSystemMessage(projectKey, seedCommand ? `新会话已创建。可继续围绕这条任务展开：${seedCommand}` : undefined)],
+      [nextId]: [
+        buildSystemMessage(
+          projectKey,
+          locale,
+          seedCommand
+            ? formatCatalogTemplate(t('agentChat.system.newSessionCreated'), { command: seedCommand })
+            : undefined,
+        ),
+      ],
     }))
     setDraftBySession((prev) => ({
       ...prev,
@@ -1437,11 +1484,11 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
           role: 'assistant',
           content: '正在思考...',
           ts: nowLabel(),
-          stages: buildBaseStages(),
+          stages: buildBaseStages(locale),
         },
       ],
     }))
-    setSessions((prev) => prev.map((session) => (session.id === targetSessionId ? { ...session, updatedAt: '刚刚' } : session)))
+    setSessions((prev) => prev.map((session) => (session.id === targetSessionId ? { ...session, updatedAt: t('agentChat.session.updatedNow') } : session)))
     setDraftBySession((prev) => ({
       ...prev,
       [targetSessionId]: '',
@@ -1509,7 +1556,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
               role: 'assistant',
               content: assistantContent,
               ts: nowLabel(),
-              stages: STAGE_LABELS.map((stage) => ({ ...stage, status: 'done' })),
+              stages: buildCompletedStages(locale),
               meta: visibleMeta,
               capabilityCalls,
               agentTasks: Array.isArray(result?.tasks) ? result.tasks : [],
@@ -1531,7 +1578,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                   backendCurrentPhase: backendCurrentPhase || session.backendCurrentPhase,
                   backendCompatMode: typeof backendCompatMode === 'boolean' ? backendCompatMode : session.backendCompatMode,
                   backendProjectionVersion: backendProjectionVersion || session.backendProjectionVersion,
-                  updatedAt: '刚刚',
+                  updatedAt: t('agentChat.session.updatedNow'),
                 }
               : session,
           ),
@@ -1567,7 +1614,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
               state: 'error',
               content: `后端调用失败，未生成 assistant 回复。\n\nerror:\n${errorText}`,
               ts: nowLabel(),
-              stages: STAGE_LABELS.map((stage) => ({ ...stage, status: 'pending' })),
+              stages: buildPendingStages(locale),
               meta: showDebugMeta ? ['backend: /agent-chat/turn', 'status: failed'] : [],
               retryCommand: command,
               retrySessionId: targetSessionId,
@@ -1596,7 +1643,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
     const targetSessionId = resolvedActiveSessionId
     setSessionHistories((prev) => ({
       ...prev,
-      [targetSessionId]: [buildSystemMessage(projectKey)],
+      [targetSessionId]: [buildSystemMessage(projectKey, locale)],
     }))
     setDraftBySession((prev) => ({
       ...prev,
@@ -1607,7 +1654,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         session.id === targetSessionId
           ? {
               ...session,
-              updatedAt: '刚刚',
+              updatedAt: t('agentChat.session.updatedNow'),
               backendSessionId: null,
               backendRootTaskId: null,
               backendCurrentPhase: null,
@@ -1822,12 +1869,16 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
   const isSessionTerminal = isTerminalAgentSessionStatus(sessionStatusToken)
   const isStreamLive = !isSessionTerminal && (streamStatus === 'open' || streamStatus === 'connecting')
   const runSignal = pendingApprovals.length
-    ? { className: 'needs-approval', label: '等待审批', detail: `${pendingApprovals.length} 个操作需要确认` }
+    ? {
+        className: 'needs-approval',
+        label: t('agentChat.status.approvalNeeded'),
+        detail: formatCatalogTemplate(t('agentChat.status.approvalNeededDetail'), { count: pendingApprovals.length }),
+      }
     : isActiveSessionRunning || isStreamLive
-      ? { className: 'live', label: '实时运行', detail: activeRunState?.streamStatus ? `stream ${activeRunState.streamStatus}` : `stream ${streamStatus}` }
+      ? { className: 'live', label: t('agentChat.status.live'), detail: activeRunState?.streamStatus ? `stream ${activeRunState.streamStatus}` : `stream ${streamStatus}` }
       : sessionTelemetry.status
         ? { className: sessionStatusClass, label: safeDisplay(sessionTelemetry.status), detail: safeDisplay(sessionTelemetry.currentPhase) }
-        : { className: 'idle', label: '待开始', detail: '输入任务后创建运行会话' }
+        : { className: 'idle', label: t('agentChat.status.idle'), detail: t('agentChat.status.idleDetail') }
   const retryableTask = sessionTasks.find((task) => ['failed', 'blocked', 'expired'].includes(String(task.status || '').toLowerCase()))
   const actionBusy =
     coordinatorMutation.isPending
@@ -1878,7 +1929,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
             <small>Agent</small>
             <button type="button" className="agent-chat-rail__new" onClick={() => createSession()}>
               <MessageSquarePlus size={15} />
-              <span>新对话</span>
+              <span>{t('agentChat.action.newConversation')}</span>
             </button>
           </div>
           <label className="agent-chat-session-filter">
@@ -1887,14 +1938,14 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
               <input
                 value={sessionFilter}
                 onChange={(event) => setSessionFilter(event.target.value)}
-                placeholder="搜索"
+                placeholder={t('agentChat.session.searchPlaceholder')}
               />
             </div>
           </label>
           <details className="agent-chat-session-dropdown" open={Boolean(sessionFilter.trim()) || undefined}>
             <summary>
-              <span>会话</span>
-              <em>{activeSession?.title || '当前会话'} · {filteredSessions.length}</em>
+              <span>{t('agentChat.session.label')}</span>
+              <em>{activeSession?.title || t('agentChat.session.current')} · {filteredSessions.length}</em>
             </summary>
             <div className="agent-chat-session-list">
               {filteredSessions.length ? (
@@ -1908,30 +1959,34 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                       onClick={() => setActiveSessionId(session.id)}
                     >
                       <strong>{session.title}</strong>
-                      <small>{sessionRunning ? '运行中' : session.backendCurrentPhase || session.updatedAt}</small>
-                      <p>{sessionStats[session.id]?.preview || '暂无消息'}</p>
+                      <small>{sessionRunning ? t('agentChat.session.running') : session.backendCurrentPhase || session.updatedAt}</small>
+                      <p>{sessionStats[session.id]?.preview || t('agentChat.session.emptyPreview')}</p>
                       <em>{sessionStats[session.id]?.count || 0}</em>
                     </button>
                   )
                 })
               ) : (
                 <div className="agent-chat-session-empty">
-                  <strong>没有匹配会话</strong>
-                  <span>换个关键词，或新建一个对话。</span>
+                  <strong>{t('agentChat.session.noMatchesTitle')}</strong>
+                  <span>{t('agentChat.session.noMatchesHint')}</span>
                 </div>
               )}
             </div>
           </details>
           <div className="agent-chat-rail-footer">
             <span>{projectKey}</span>
-            <span>{runningSessionCount ? `${runningSessionCount} 个任务运行中` : streamStatus}</span>
+            <span>
+              {runningSessionCount
+                ? formatCatalogTemplate(t('agentChat.session.runningTasksCount'), { count: runningSessionCount })
+                : streamStatus}
+            </span>
           </div>
         </aside>
 
         <div className="agent-chat-conversation" data-running={isActiveSessionRunning ? 'true' : 'false'} data-testid="agent-chat-conversation">
           <div className="agent-chat-conversation-head">
             <div className="agent-chat-conversation-head__copy">
-              <strong data-testid="agent-chat-active-session-title">{activeSession?.title || '当前会话'}</strong>
+              <strong data-testid="agent-chat-active-session-title">{activeSession?.title || t('agentChat.session.current')}</strong>
               <div className="agent-chat-conversation-head__stages">
                 {STAGE_LABELS.map((stage, index) => (
                   <span
@@ -1939,7 +1994,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                     className={`agent-chat-head-stage ${index < phaseIndex ? 'is-done' : index === phaseIndex ? 'is-active' : ''}`.trim()}
                   >
                     {index < phaseIndex ? <CheckCircle2 size={13} /> : <Circle size={12} />}
-                    {stage.label}
+                    {t(stage.labelKey)}
                   </span>
                 ))}
               </div>
@@ -2004,7 +2059,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                 {isConversationIdle ? (
                   <div className="agent-chat-state-banner">
                     <Bot size={15} />
-                    <span>直接输入问题或任务。工具和产物会作为运行细节折叠在同一条对话流里。</span>
+                    <span>{t('agentChat.composer.idleHint')}</span>
                   </div>
                 ) : null}
                 {activeMessages.map((message) => {
@@ -2564,7 +2619,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                 {isConversationIdle ? (
                   <div className="agent-chat-composer-prompts">
                     <div className="agent-chat-prompt-row">
-                      {DEFAULT_QUICK_COMMANDS.map((command) => (
+                      {quickCommands.map((command) => (
                         <button
                           key={command}
                           type="button"
@@ -2586,7 +2641,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         onClick={() => createSession(currentDraft)}
                       >
                         <MessageSquarePlus size={14} />
-                        <span>基于当前草稿新建会话</span>
+                        <span>{t('agentChat.action.newFromDraft')}</span>
                       </button>
                     </div>
                   </div>
@@ -2595,7 +2650,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                   aria-label="agent chat input"
                   data-testid="agent-chat-input"
                   value={currentDraft}
-                  placeholder="输入问题或任务"
+                  placeholder={t('agentChat.composer.inputPlaceholder')}
                   onChange={(event) =>
                     setDraftBySession((prev) => ({
                       ...prev,
@@ -2615,7 +2670,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                     data-testid="agent-chat-clear-session"
                     onClick={clearCurrentSession}
                     disabled={isActiveSessionRunning}
-                    title="清空当前会话"
+                    title={t('agentChat.action.clearSession')}
                   >
                     <XCircle size={15} />
                   </button>
@@ -2625,7 +2680,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                     data-testid="agent-chat-send-button"
                     onClick={() => void sendMessage(currentDraft)}
                     disabled={isActiveSessionRunning || !currentDraft.trim()}
-                    title="发送"
+                    title={t('agentChat.action.send')}
                   >
                     {isActiveSessionRunning ? <LoaderCircle size={14} className="spin" /> : <SendHorizonal size={14} />}
                   </button>
