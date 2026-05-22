@@ -18,8 +18,7 @@ K1_GLOSSARY: Final[dict[str, str]] = {
 }
 
 K1_GAP_LIST: Final[tuple[str, ...]] = (
-    "No dedicated typed-knowledge persistence or public API surface currently exists.",
+    "Typed-knowledge persistence/API is contract-only; no live DB table or public API route currently exists.",
     "Topic object exists but does not yet express typed hierarchy and governance state boundaries.",
     "No integrated source-library or graph write-back path currently materializes typed knowledge items.",
 )
-
