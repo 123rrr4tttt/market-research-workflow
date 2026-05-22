@@ -14,6 +14,7 @@ TOPIC_DIR = Path(
     "2026-03-07-crawler-source-expansion"
 )
 WAVE6_DOC = TOPIC_DIR / "2026-05-22-wave6-closure-gap-and-min-plan.md"
+WAVE7_POLICY_MATRIX_DOC = TOPIC_DIR / "2026-05-22-wave7-crawler-policy-matrix.md"
 
 PROTECTED_SHARED_INDEXES = [
     "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
@@ -33,6 +34,10 @@ ANCHORS: dict[str, Anchor] = {
     "topic_plan": Anchor(TOPIC_DIR / "01_crawler-source-expansion-plan-2026-03-07.md"),
     "topic_tasklist": Anchor(TOPIC_DIR / "02_atomic-tasklist-crawler-source-expansion-2026-03-07.md"),
     "wave6_closure_doc": Anchor(WAVE6_DOC, ("Closure Decision", "Minimum Development Plan")),
+    "wave7_policy_matrix_doc": Anchor(
+        WAVE7_POLICY_MATRIX_DOC,
+        ("source_policy_action", "`allow`", "`downgrade`", "`block`", "Executable Check"),
+    ),
     "crawler_api": Anchor(Path("main/backend/app/api/crawler.py")),
     "source_library_api": Anchor(Path("main/backend/app/api/source_library.py")),
     "source_library_types": Anchor(
@@ -57,6 +62,15 @@ ANCHORS: dict[str, Anchor] = {
         Path("main/backend/app/services/source_library/resolver.py"),
         ("source_tier", "onboarding_priority", "middle_layer_protocol"),
     ),
+    "source_candidate_trust": Anchor(
+        Path("main/backend/app/services/source_library/source_candidate_trust.py"),
+        (
+            "SOURCE_POLICY_ACTIONS",
+            "source_policy_action",
+            "source_policy_reason",
+            "duplicate_candidate_url",
+        ),
+    ),
     "source_library_runner": Anchor(
         Path("main/backend/app/services/source_library/runner.py"),
         ("source_tiering", "layer_boundary", "provider_dispatch"),
@@ -76,6 +90,10 @@ ANCHORS: dict[str, Anchor] = {
     "quality_meaningful_gate": Anchor(Path("main/backend/app/services/ingest/meaningful_gate.py")),
     "quality_llm_validator": Anchor(Path("main/backend/app/services/resource_pool/llm_validator.py")),
     "quality_discovery_store": Anchor(Path("main/backend/app/services/discovery/store.py")),
+    "source_policy_matrix_check_script": Anchor(
+        Path("main/backend/scripts/check_crawler_policy_matrix.py"),
+        ("POLICY_ACTIONS", "source_policy_action", "policy_matrix_doc"),
+    ),
     "source_replay_script": Anchor(
         Path("main/backend/scripts/source_library_replay_scaleout.py"),
         ("DEFAULT_HISTORICAL_TARGETS", "def validate_manifest_targets", "def run_replay"),
@@ -123,6 +141,14 @@ ANCHORS: dict[str, Anchor] = {
     "test_clue_chain_source_expansion": Anchor(
         Path("main/backend/tests/unit/test_clue_chain_source_library_expansion_unittest.py"),
         ("fixture_required", "network_fetch_performed"),
+    ),
+    "test_policy_matrix_check": Anchor(
+        Path("main/backend/tests/unit/test_crawler_policy_matrix_check_unittest.py"),
+        ("test_policy_matrix_binds_all_actions_to_existing_anchors", "test_policy_matrix_keeps_shared_navigation_out_of_scope"),
+    ),
+    "test_source_candidate_trust": Anchor(
+        Path("main/backend/tests/unit/test_source_candidate_trust_unittest.py"),
+        ("source_policy_action", "test_plan_marks_medium_trust_candidates_as_downgraded_review_path"),
     ),
 }
 
@@ -203,11 +229,16 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "test_crawler_bridge",
     ]
     a4_keys = [
+        "wave7_policy_matrix_doc",
+        "source_candidate_trust",
         "quality_meaningful_gate",
         "quality_llm_validator",
         "quality_discovery_store",
+        "source_policy_matrix_check_script",
         "source_real_probe_evidence",
         "source_live_probe_evidence",
+        "test_policy_matrix_check",
+        "test_source_candidate_trust",
     ]
     a5_keys = [
         "source_replay_script",
@@ -255,11 +286,11 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         _task(
             "A4",
             "Define minimum quality, dedupe, and stability rules",
-            "needs_update" if _passed(anchor_results, a4_keys) else "not_closed",
+            "closed" if _passed(anchor_results, a4_keys) else "needs_update",
             a4_keys,
             anchor_results,
-            "Quality anchors and probe evidence exist, including local fixture and public live probe artifacts.",
-            "The plan still needs a final source-layer allow/downgrade/block matrix tied to enforcement points.",
+            "The Wave7 policy matrix binds allow/downgrade/block to source_candidate_trust, resolver metadata, probe evidence, and downstream gates.",
+            "" if _passed(anchor_results, a4_keys) else "Refresh the A4 policy matrix or its executable coverage check.",
         ),
         _task(
             "A5",
@@ -316,7 +347,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "tasks": tasks,
         "minimum_development_plan": [
             "Keep A1-A3 as evidence-closed and update only topic-local documentation until integration.",
-            "Close A4 by pinning a source-layer allow/downgrade/block matrix to existing resolver/probe enforcement points.",
+            "Keep A4 closed by preserving the Wave7 allow/downgrade/block matrix and executable coverage check.",
             "Close A5 only after an opt-in 45-site public replay records pass/fail/anti-bot/relevance-review outcomes.",
             "Close A6 after crawler/provider-specific handoff cases are covered by focused source_library/ingest tests.",
             "Update shared navigation only in a later integration lane.",

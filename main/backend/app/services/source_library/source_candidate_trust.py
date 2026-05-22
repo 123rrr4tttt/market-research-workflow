@@ -13,6 +13,7 @@ from .external_project import validate_external_http_url
 
 SOURCE_CANDIDATE_PLAN_CONTRACT_VERSION = "source_library.source_candidate_plan.v1"
 DEFAULT_MIN_TRUST_SCORE = 60.0
+SOURCE_POLICY_ACTIONS = ("allow", "downgrade", "block")
 PRE_INGEST_REQUIRED_CHECKS = [
     "redirect_chain_validation",
     "content_type_allowlist",
@@ -78,6 +79,8 @@ def build_source_candidate_plan(
             duplicate = dict(evaluated)
             duplicate["status"] = "duplicate"
             duplicate["blocked_reason"] = "duplicate_candidate_url"
+            duplicate["source_policy_action"] = "downgrade"
+            duplicate["source_policy_reason"] = "normalized_url_duplicate_retained_as_trace"
             duplicates.append(duplicate)
             continue
         if normalized_url:
@@ -116,6 +119,9 @@ def build_source_candidate_plan(
             "duplicate_detection": "normalized_url_dedupe",
             "stale_source_handling": "record publication dates during ingest and down-rank stale evidence during synthesis",
             "source_conflict_notes": "record conflicting claims and preserve source locator before synthesis",
+            "source_policy_actions": list(SOURCE_POLICY_ACTIONS),
+            "source_policy_decision_field": "source_policy_action",
+            "source_policy_reason_field": "source_policy_reason",
             "pre_ingest_required_checks": list(PRE_INGEST_REQUIRED_CHECKS),
         },
         "counts": {
@@ -145,6 +151,8 @@ def evaluate_source_candidate_url(
         "trust_score": 0.0,
         "trust_level": "blocked",
         "blocked_reason": None,
+        "source_policy_action": "block",
+        "source_policy_reason": "unvalidated_or_blocked_candidate",
         "normalization_steps": [],
         "url_checksum": None,
         "content_sha256": None,
@@ -196,6 +204,12 @@ def evaluate_source_candidate_url(
     elif status != "accepted":
         blocked_reason = "trust_score_below_minimum"
 
+    policy_action, policy_reason = _source_policy_action(
+        status=status,
+        blocked_reason=blocked_reason,
+        trust_score=score,
+        url_policy_accepted=bool(getattr(gate, "accepted", False)),
+    )
     return {
         **base,
         "normalized_url": normalized_url,
@@ -205,6 +219,8 @@ def evaluate_source_candidate_url(
         "trust_score": score,
         "trust_level": _trust_level(score),
         "blocked_reason": blocked_reason,
+        "source_policy_action": policy_action,
+        "source_policy_reason": policy_reason,
         "normalization_steps": steps,
         "url_policy": {
             "accepted": bool(getattr(gate, "accepted", False)),
@@ -332,6 +348,24 @@ def _trust_level(score: float) -> str:
     if score > 0.0:
         return "low"
     return "blocked"
+
+
+def _source_policy_action(
+    *,
+    status: str,
+    blocked_reason: str | None,
+    trust_score: float,
+    url_policy_accepted: bool,
+) -> tuple[str, str]:
+    if not url_policy_accepted:
+        return "block", str(blocked_reason or "url_policy_rejected")
+    if status == "accepted" and trust_score >= 85.0:
+        return "allow", "high_trust_candidate"
+    if status == "accepted":
+        return "downgrade", "medium_trust_candidate_requires_review_before_bulk_ingest"
+    if str(blocked_reason or "") == "trust_score_below_minimum" and trust_score > 0.0:
+        return "downgrade", "low_trust_candidate_retained_for_review_only"
+    return "block", str(blocked_reason or "source_candidate_rejected")
 
 
 def _normalize_url_inputs(value: Any) -> list[str]:
