@@ -38,6 +38,9 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
         with patch(
             "app.services.agent_batch.agent_loop.invoke_skill_safe",
             return_value={"ok": True, "result": {"result": {"text": skill_text}}, "error": None},
+        ), patch(
+            "app.services.agent_batch.agent_loop._list_effective_source_items",
+            return_value=[],
         ), patch.object(
             agent_batch_api,
             "plan_batch_search_command",
@@ -89,6 +92,9 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
         with patch(
             "app.services.agent_batch.agent_loop.invoke_skill_safe",
             return_value={"ok": True, "result": {"result": {"text": skill_text}}, "error": None},
+        ), patch(
+            "app.services.agent_batch.agent_loop._list_effective_source_items",
+            return_value=[],
         ), patch.object(
             agent_batch_api,
             "plan_batch_search_command",
@@ -510,6 +516,9 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
         with patch(
             "app.services.agent_batch.agent_loop.invoke_skill_safe",
             return_value={"ok": True, "result": {"result": {"text": skill_text}}, "error": None},
+        ), patch(
+            "app.services.agent_batch.agent_loop._list_effective_source_items",
+            return_value=[],
         ):
             result = run_agent_batch_nl_command_loop(
                 command="search chip pricing regulation last 120 days top 6",
