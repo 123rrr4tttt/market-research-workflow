@@ -4,7 +4,7 @@
   "source_authority": "development/latest-dev-docs",
   "migration_manifest": "docs/architecture/latest-dev-docs-entry-manifest.json",
   "generated_date": "2026-05-22",
-  "status": "gate_only_no_content_move",
+  "status": "wave16_moved_file_batch_partial",
   "checker": "scripts/checkers/check_docs_root_content_plan.py",
   "entries": [
     {
@@ -14,14 +14,23 @@
       "source_authority": "development/latest-dev-docs",
       "target_root": "docs/architecture/backend-core",
       "shim": "docs/architecture/backend-core/README.md",
-      "mode": "shim_only",
-      "source_remains_authoritative": true,
-      "move_allowed": false,
+      "mode": "moved_file_batch",
+      "source_remains_authoritative": false,
+      "move_allowed": true,
       "blocked_by": [
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ],
-      "next_gate": "Move selected backend-core architecture files only after shared navigation and link checks are updated."
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md",
+          "target": "docs/architecture/backend-core/A_ARCHITECTURE/README.backend-core.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ],
+      "next_gate": "Supervisor integration still needs to update shared navigation and MERGED_OVERVIEW references, but the backend-core architecture README content itself is now target-authoritative."
     },
     {
       "id": "backend-docs-architecture-tree-content-plan",
@@ -91,18 +100,6 @@
     }
   ],
   "remaining_unsafe_moves": [
-    {
-      "id": "backend-core-architecture-tree",
-      "source": "development/latest-dev-docs/backend-core/A_ARCHITECTURE",
-      "target_root": "docs/architecture/backend-core",
-      "mode": "blocked_broad_move",
-      "reason": "The target shim exists, but shared navigation and overview references still point at the compatibility root.",
-      "required_gates": [
-        "shared_navigation_sync",
-        "MERGED_OVERVIEW_drift",
-        "link_check"
-      ]
-    },
     {
       "id": "backend-docs-architecture-tree",
       "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE",

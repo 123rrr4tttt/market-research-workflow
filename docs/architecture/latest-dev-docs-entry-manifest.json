@@ -3,7 +3,7 @@
   "root": "docs/architecture",
   "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-22",
-  "content_authority": "Mapped source files remain authoritative for document content. Target README files are content shims that point readers from docs/architecture into the current compatibility entries until a later content move updates shared navigation.",
+  "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/architecture while their previous latest-dev-docs paths remain compatibility shims until shared navigation is synchronized.",
   "entries": [
     {
       "id": "backend-core-architecture-tree",
@@ -15,7 +15,16 @@
       "shim": "docs/architecture/backend-core/README.md",
       "target_role": "architecture-target-entry-manifest",
       "compatibility_entry": "development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md",
-      "status": "content_shim"
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md",
+          "target": "docs/architecture/backend-core/A_ARCHITECTURE/README.backend-core.md",
+          "compatibility_entry": "development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "backend-docs-architecture-tree",

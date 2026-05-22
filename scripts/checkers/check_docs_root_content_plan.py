@@ -24,7 +24,7 @@ EXPECTED_PLAN_SCHEMA = "docs-root-content-plan/v1"
 EXPECTED_MIGRATION_SCHEMA = "docs-root-entry-manifest/v1"
 SOURCE_AUTHORITY = "development/latest-dev-docs"
 ALLOWED_ROOTS = {"docs/development", "docs/architecture"}
-ALLOWED_ENTRY_MODES = {"shim_only"}
+ALLOWED_ENTRY_MODES = {"shim_only", "moved_file_batch"}
 UNSAFE_MOVE_MODE = "blocked_broad_move"
 REQUIRED_MOVE_BLOCKERS = {"shared_navigation_sync", "MERGED_OVERVIEW_drift"}
 
@@ -187,10 +187,16 @@ def validate_content_plan_entries(
 
         if mode not in ALLOWED_ENTRY_MODES:
             problems.append(Problem(entry_path, f"mode must be one of {sorted(ALLOWED_ENTRY_MODES)}"))
-        if entry.get("source_remains_authoritative") is not True:
-            problems.append(Problem(entry_path, "source_remains_authoritative must be true"))
-        if entry.get("move_allowed") is not False:
-            problems.append(Problem(entry_path, "move_allowed must be false in this bounded gate"))
+        elif mode == "shim_only":
+            if entry.get("source_remains_authoritative") is not True:
+                problems.append(Problem(entry_path, "source_remains_authoritative must be true for shim_only"))
+            if entry.get("move_allowed") is not False:
+                problems.append(Problem(entry_path, "move_allowed must be false for shim_only"))
+        elif mode == "moved_file_batch":
+            if entry.get("source_remains_authoritative") is not False:
+                problems.append(Problem(entry_path, "source_remains_authoritative must be false for moved_file_batch"))
+            if entry.get("move_allowed") is not True:
+                problems.append(Problem(entry_path, "move_allowed must be true for moved_file_batch"))
 
         blockers = set(string_list(entry.get("blocked_by")))
         missing_blockers = REQUIRED_MOVE_BLOCKERS - blockers
@@ -218,14 +224,101 @@ def validate_content_plan_entries(
                             f"{key} does not match migration manifest entry {manifest_entry_id}: {expected}",
                         )
                     )
-            if migration_entry.get("status") != "content_shim":
-                problems.append(Problem(entry_path, "content-plan entries must point at content_shim migration entries"))
+            expected_status = "content_moved_batch" if mode == "moved_file_batch" else "content_shim"
+            if migration_entry.get("status") != expected_status:
+                problems.append(
+                    Problem(entry_path, f"content-plan entry mode {mode} must point at {expected_status} migration entries")
+                )
+            if mode == "moved_file_batch":
+                problems.extend(
+                    validate_moved_file_batch(
+                        repo_root=repo_root,
+                        entry_path=entry_path,
+                        root=root,
+                        target_root_raw=target_root_raw,
+                        entry=entry,
+                        migration_entry=migration_entry,
+                    )
+                )
 
     missing_manifest_entries = sorted(set(migration_entries) - seen_manifest_ids)
     if missing_manifest_entries:
         problems.append(Problem(plan_path, f"missing content-plan entries for migration manifest ids: {missing_manifest_entries}"))
 
     return problems, len(raw_entries)
+
+
+def validate_moved_file_batch(
+    repo_root: Path,
+    entry_path: Path,
+    root: Path,
+    target_root_raw: Any,
+    entry: dict[str, Any],
+    migration_entry: dict[str, Any],
+) -> list[Problem]:
+    problems: list[Problem] = []
+    moved_files = entry.get("moved_files")
+    migration_moved_files = migration_entry.get("moved_files")
+
+    if not isinstance(moved_files, list) or not moved_files:
+        return [Problem(entry_path, "moved_file_batch moved_files must be a non-empty list")]
+    if not isinstance(migration_moved_files, list) or not migration_moved_files:
+        problems.append(Problem(entry_path, "moved_file_batch migration entry must declare moved_files"))
+        migration_moved_files = []
+    if moved_files != migration_moved_files:
+        problems.append(Problem(entry_path, "moved_file_batch moved_files must match migration manifest moved_files"))
+
+    target_root_prefix = f"{target_root_raw}/" if isinstance(target_root_raw, str) else ""
+    for index, moved_file in enumerate(moved_files):
+        moved_path = Path(f"{entry_path}#moved_files[{index}]")
+        if not isinstance(moved_file, dict):
+            problems.append(Problem(moved_path, "moved file entry must be an object"))
+            continue
+
+        source_raw = moved_file.get("source")
+        target_raw = moved_file.get("target")
+        compatibility_raw = moved_file.get("compatibility_entry")
+
+        if not isinstance(source_raw, str) or not source_raw.startswith("development/latest-dev-docs/"):
+            problems.append(Problem(moved_path, "moved file source must be under development/latest-dev-docs"))
+            source = None
+        else:
+            source = repo_root / source_raw
+            if not source.is_file():
+                problems.append(Problem(source, "moved file compatibility shim is missing"))
+
+        if not isinstance(target_raw, str) or not target_root_prefix or not target_raw.startswith(target_root_prefix):
+            problems.append(Problem(moved_path, "moved file target must be inside target_root"))
+            target = None
+        else:
+            target = repo_root / target_raw
+            if not target.is_file():
+                problems.append(Problem(target, "moved file target is missing"))
+            elif not is_relative_to(target, root):
+                problems.append(Problem(target, "moved file target is outside plan root"))
+
+        if compatibility_raw != source_raw:
+            problems.append(Problem(moved_path, "moved file compatibility_entry must equal source"))
+        if moved_file.get("authority") != "target_authoritative":
+            problems.append(Problem(moved_path, "moved file authority must be target_authoritative"))
+        if moved_file.get("source_status") != "compatibility_shim":
+            problems.append(Problem(moved_path, "moved file source_status must be compatibility_shim"))
+
+        if source is not None and source.is_file() and isinstance(target_raw, str):
+            source_text = source.read_text(encoding="utf-8")
+            if "compatibility shim" not in source_text.lower():
+                problems.append(Problem(source, "moved source must identify itself as a compatibility shim"))
+            if target_raw not in source_text:
+                problems.append(Problem(source, f"moved source does not point at target: {target_raw}"))
+
+        if target is not None and target.is_file() and isinstance(source_raw, str):
+            target_text = target.read_text(encoding="utf-8")
+            if "content moved" not in target_text.lower():
+                problems.append(Problem(target, "moved target must identify content moved status"))
+            if source_raw not in target_text:
+                problems.append(Problem(target, f"moved target does not mention compatibility source: {source_raw}"))
+
+    return problems
 
 
 def validate_remaining_unsafe_moves(
