@@ -476,6 +476,29 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["items"], [])
         self.assertEqual(body["data"]["contract_version"], "workflow_graph.handoff.v1")
 
+    def test_openapi_curated_and_handoff_response_schemas_are_visible(self):
+        schema = backend_app.openapi()
+        cases = {
+            ("get", "/api/v1/workflow-graph/curated/{graph_id}"): "ApiEnvelope_WorkflowGraphCuratedStateData_",
+            ("post", "/api/v1/workflow-graph/curated/{graph_id}/draft"): "ApiEnvelope_WorkflowGraphCuratedStateData_",
+            ("post", "/api/v1/workflow-graph/curated/{graph_id}/submit"): "ApiEnvelope_WorkflowGraphCuratedStateData_",
+            ("post", "/api/v1/workflow-graph/curated/{graph_id}/sync"): "ApiEnvelope_WorkflowGraphCuratedStateData_",
+            ("post", "/api/v1/workflow-graph/curated/{graph_id}/rollback"): "ApiEnvelope_WorkflowGraphCuratedStateData_",
+            ("get", "/api/v1/workflow-graph/curated/{graph_id}/audit"): "ApiEnvelope_WorkflowGraphAuditListData_",
+            ("post", "/api/v1/workflow-graph/curated/{graph_id}/evidence-pack"): "ApiEnvelope_WorkflowGraphEvidencePackData_",
+            ("post", "/api/v1/workflow-graph/curated/{graph_id}/handoff/reporting"): "ApiEnvelope_WorkflowGraphHandoffData_",
+            ("post", "/api/v1/workflow-graph/curated/{graph_id}/handoff/writing"): "ApiEnvelope_WorkflowGraphHandoffData_",
+            ("get", "/api/v1/workflow-graph/runs/{run_id}/handoff"): "ApiEnvelope_WorkflowGraphHandoffListData_",
+            (
+                "get",
+                "/api/v1/workflow-graph/runs/{run_id}/handoff/{handoff_id}/replay",
+            ): "ApiEnvelope_WorkflowGraphHandoffReplayData_",
+        }
+        for (method, path), expected_component in cases.items():
+            with self.subTest(method=method, path=path):
+                response_schema = schema["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]
+                self.assertEqual(response_schema["$ref"].rsplit("/", 1)[-1], expected_component)
+
     def test_compiler_service_compile_from_template_version(self):
         from app.services.workflow_graph import WorkflowGraphCompilerService
 

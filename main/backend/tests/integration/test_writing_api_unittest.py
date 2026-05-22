@@ -139,6 +139,27 @@ class WritingApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(body["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
+    def test_openapi_document_response_schemas_are_visible(self):
+        schema = backend_app.openapi()
+        cases = {
+            ("get", "/api/v1/writing/documents"): "ApiEnvelope_WritingDocumentListData_",
+            ("post", "/api/v1/writing/documents"): "ApiEnvelope_WritingDocumentData_",
+            ("get", "/api/v1/writing/documents/{doc_id}"): "ApiEnvelope_WritingDocumentData_",
+            ("patch", "/api/v1/writing/documents/{doc_id}"): "ApiEnvelope_WritingDocumentData_",
+            ("delete", "/api/v1/writing/documents/{doc_id}"): "ApiEnvelope_WritingDocumentDeleteData_",
+            ("post", "/api/v1/writing/documents/{doc_id}/draft"): "ApiEnvelope_WritingDocumentDraftData_",
+            ("get", "/api/v1/writing/documents/{doc_id}/citations"): "ApiEnvelope_WritingCitationListData_",
+            ("post", "/api/v1/writing/documents/{doc_id}/citations"): "ApiEnvelope_WritingCitationListData_",
+        }
+        for (method, path), expected_component in cases.items():
+            with self.subTest(method=method, path=path):
+                response_schema = schema["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]
+                self.assertEqual(response_schema["$ref"].rsplit("/", 1)[-1], expected_component)
+
+        markdown_content = schema["paths"]["/api/v1/writing/export/markdown"]["post"]["responses"]["200"]["content"]
+        self.assertNotIn("application/json", markdown_content)
+        self.assertEqual(markdown_content["text/markdown"]["schema"]["type"], "string")
+
 
 if __name__ == "__main__":
     unittest.main()

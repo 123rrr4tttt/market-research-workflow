@@ -106,6 +106,19 @@ class WritingKeywordCardsApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["data"]["items"][0]["id"], "market_weekly")
 
+    def test_openapi_card_response_schemas_are_visible(self):
+        schema = backend_app.openapi()
+        cases = {
+            ("post", "/api/v1/writing/keyword-cards"): "ApiEnvelope_KeywordCardListResponse_",
+            ("post", "/api/v1/writing/keyword-cards/preview"): "ApiEnvelope_KeywordCardPreviewResponse_",
+            ("get", "/api/v1/writing/cards/{card_id}"): "ApiEnvelope_KeywordCardDetailResponse_",
+            ("get", "/api/v1/writing/suggest"): "ApiEnvelope_SuggestResponse_",
+        }
+        for (method, path), expected_component in cases.items():
+            with self.subTest(method=method, path=path):
+                response_schema = schema["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]
+                self.assertEqual(response_schema["$ref"].rsplit("/", 1)[-1], expected_component)
+
 
 if __name__ == "__main__":
     unittest.main()

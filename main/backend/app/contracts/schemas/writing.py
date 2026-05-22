@@ -213,6 +213,73 @@ class LlmActionHistoryItem(BaseModel):
     result_summary: dict[str, Any] = Field(default_factory=dict)
 
 
+class WritingDocumentData(BaseModel):
+    id: int | None = None
+    project_key: str | None = None
+    title: str = ""
+    body_md: str = ""
+    status: str | None = "draft"
+    version: int | None = None
+    etag: str | None = None
+    updated_by_user_id: str | None = None
+    updated_at: str | None = None
+    created_at: str | None = None
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="allow")
+
+
+class WritingDocumentListData(BaseModel):
+    items: list[WritingDocumentData] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="allow")
+
+
+class WritingDocumentDeleteData(BaseModel):
+    deleted: bool = False
+    document: WritingDocumentData | dict[str, Any] = Field(default_factory=WritingDocumentData)
+
+    model_config = ConfigDict(extra="allow")
+
+
+class WritingDocumentDraftData(BaseModel):
+    id: int | None = None
+    doc_id: int | None = None
+    project_key: str | None = None
+    draft_body_md: str = ""
+    selection_snapshot: dict[str, Any] | list[Any] | None = Field(default_factory=dict)
+    base_version: int | None = None
+    autosave_token: str | None = None
+    request_id: str | None = None
+    updated_at: str | None = None
+    created_at: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
+class WritingCitationData(BaseModel):
+    id: int | None = None
+    doc_id: int | None = None
+    project_key: str | None = None
+    source_doc_id: int | None = None
+    source_uri: str | None = None
+    source_title: str | None = None
+    quote_text: str | None = None
+    position_anchor: str | None = None
+    card_id: str | None = None
+    metadata_json: dict[str, Any] | None = Field(default_factory=dict)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
+class WritingCitationListData(BaseModel):
+    items: list[WritingCitationData] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="allow")
+
+
 PrimaryWritingLoopStage = Literal[
     "document_ready",
     "editing",

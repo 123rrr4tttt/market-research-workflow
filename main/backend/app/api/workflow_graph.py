@@ -5,7 +5,15 @@ from typing import Any
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 
-from ..contracts import ErrorCode, error_response, map_exception_to_error, success_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response, map_exception_to_error, success_response
+from ..contracts.schemas.workflow_graph import (
+    WorkflowGraphAuditListData,
+    WorkflowGraphCuratedStateData,
+    WorkflowGraphEvidencePackData,
+    WorkflowGraphHandoffData,
+    WorkflowGraphHandoffListData,
+    WorkflowGraphHandoffReplayData,
+)
 from ..services.skill_runtime import invoke_skill
 from ..services.workflow_graph.curated_service import WorkflowGraphObjectMissingError, WorkflowGraphSyncConflictError
 from ..services.workflow_graph.handoff_store import handoff_store
@@ -561,7 +569,11 @@ def activate_workflow_graph_template_version(
         return _error_json(code, message, details)
 
 
-@router.get("/curated/{graph_id}", response_model=None)
+@router.get(
+    "/curated/{graph_id}",
+    response_model=ApiEnvelope[WorkflowGraphCuratedStateData],
+    response_model_exclude_unset=True,
+)
 def get_workflow_graph_curated_state(graph_id: str) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_get_curated_graph(graph_id)))
@@ -569,7 +581,11 @@ def get_workflow_graph_curated_state(graph_id: str) -> Any:
         return _workflow_sync_error_json(exc, fallback_message="failed to fetch curated graph")
 
 
-@router.post("/curated/{graph_id}/draft", response_model=None)
+@router.post(
+    "/curated/{graph_id}/draft",
+    response_model=ApiEnvelope[WorkflowGraphCuratedStateData],
+    response_model_exclude_unset=True,
+)
 def save_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any]) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_save_curated_draft(graph_id, payload)))
@@ -577,7 +593,11 @@ def save_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any]) ->
         return _workflow_sync_error_json(exc, fallback_message="failed to save draft")
 
 
-@router.post("/curated/{graph_id}/submit", response_model=None)
+@router.post(
+    "/curated/{graph_id}/submit",
+    response_model=ApiEnvelope[WorkflowGraphCuratedStateData],
+    response_model_exclude_unset=True,
+)
 def submit_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_submit_curated_draft(graph_id, payload or {})))
@@ -585,7 +605,11 @@ def submit_workflow_graph_curated_draft(graph_id: str, payload: dict[str, Any] |
         return _workflow_sync_error_json(exc, fallback_message="failed to submit draft")
 
 
-@router.post("/curated/{graph_id}/sync", response_model=None)
+@router.post(
+    "/curated/{graph_id}/sync",
+    response_model=ApiEnvelope[WorkflowGraphCuratedStateData],
+    response_model_exclude_unset=True,
+)
 def sync_workflow_graph_curated_state(graph_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_sync_curated_graph(graph_id, payload or {})))
@@ -593,7 +617,11 @@ def sync_workflow_graph_curated_state(graph_id: str, payload: dict[str, Any] | N
         return _workflow_sync_error_json(exc, fallback_message="failed to sync graph state")
 
 
-@router.post("/curated/{graph_id}/rollback", response_model=None)
+@router.post(
+    "/curated/{graph_id}/rollback",
+    response_model=ApiEnvelope[WorkflowGraphCuratedStateData],
+    response_model_exclude_unset=True,
+)
 def rollback_workflow_graph_curated_state(graph_id: str, payload: dict[str, Any]) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_rollback_curated_graph(graph_id, payload)))
@@ -601,7 +629,11 @@ def rollback_workflow_graph_curated_state(graph_id: str, payload: dict[str, Any]
         return _workflow_sync_error_json(exc, fallback_message="failed to rollback graph state")
 
 
-@router.get("/curated/{graph_id}/audit", response_model=None)
+@router.get(
+    "/curated/{graph_id}/audit",
+    response_model=ApiEnvelope[WorkflowGraphAuditListData],
+    response_model_exclude_unset=True,
+)
 def list_workflow_graph_curated_audits(graph_id: str, limit: int = 50) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_list_curated_audits(graph_id, limit)))
@@ -609,7 +641,11 @@ def list_workflow_graph_curated_audits(graph_id: str, limit: int = 50) -> Any:
         return _workflow_sync_error_json(exc, fallback_message="failed to list audits")
 
 
-@router.post("/curated/{graph_id}/evidence-pack", response_model=None)
+@router.post(
+    "/curated/{graph_id}/evidence-pack",
+    response_model=ApiEnvelope[WorkflowGraphEvidencePackData],
+    response_model_exclude_unset=True,
+)
 def build_workflow_graph_evidence_pack(graph_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_build_evidence_pack(graph_id, payload or {})))
@@ -617,7 +653,11 @@ def build_workflow_graph_evidence_pack(graph_id: str, payload: dict[str, Any] | 
         return _workflow_sync_error_json(exc, fallback_message="failed to build evidence pack")
 
 
-@router.post("/curated/{graph_id}/handoff/reporting", response_model=None)
+@router.post(
+    "/curated/{graph_id}/handoff/reporting",
+    response_model=ApiEnvelope[WorkflowGraphHandoffData],
+    response_model_exclude_unset=True,
+)
 def build_workflow_graph_reporting_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
     try:
         handoff_payload = _as_dict(_invoke_reporting_handoff(graph_id, payload))
@@ -628,7 +668,11 @@ def build_workflow_graph_reporting_handoff(graph_id: str, payload: dict[str, Any
         return _workflow_sync_error_json(exc, fallback_message="failed to build reporting handoff")
 
 
-@router.post("/curated/{graph_id}/handoff/writing", response_model=None)
+@router.post(
+    "/curated/{graph_id}/handoff/writing",
+    response_model=ApiEnvelope[WorkflowGraphHandoffData],
+    response_model_exclude_unset=True,
+)
 def build_workflow_graph_writing_handoff(graph_id: str, payload: dict[str, Any]) -> Any:
     try:
         handoff_payload = _as_dict(_invoke_writing_handoff(graph_id, payload))
@@ -639,7 +683,11 @@ def build_workflow_graph_writing_handoff(graph_id: str, payload: dict[str, Any])
         return _workflow_sync_error_json(exc, fallback_message="failed to build writing handoff")
 
 
-@router.get("/runs/{run_id}/handoff", response_model=None)
+@router.get(
+    "/runs/{run_id}/handoff",
+    response_model=ApiEnvelope[WorkflowGraphHandoffListData],
+    response_model_exclude_unset=True,
+)
 def list_workflow_graph_run_handoffs(run_id: str, handoff_mode: str | None = None) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(handoff_store.list_handoffs(run_id=run_id, handoff_mode=handoff_mode)))
@@ -652,7 +700,11 @@ def list_workflow_graph_run_handoffs(run_id: str, handoff_mode: str | None = Non
         return _error_json(code, message, details)
 
 
-@router.get("/runs/{run_id}/handoff/{handoff_id}/replay", response_model=None)
+@router.get(
+    "/runs/{run_id}/handoff/{handoff_id}/replay",
+    response_model=ApiEnvelope[WorkflowGraphHandoffReplayData],
+    response_model_exclude_unset=True,
+)
 def replay_workflow_graph_handoff(run_id: str, handoff_id: str) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(handoff_store.replay_handoff(run_id=run_id, handoff_id=handoff_id)))
