@@ -9,6 +9,7 @@ Included:
 - extracted version interface contract (`R41_INTERFACE_CONTRACT.md`)
 - Wave12 repo-local autodispatch gate evidence (`implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md`)
 - Wave15 repo-local runtime handoff evidence (`implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md`)
+- Wave20 repo-local mirror/runtime manifest readback evidence (`implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md`)
 
 Source:
 - `/Users/wangyiliang/Desktop/openclaw`
