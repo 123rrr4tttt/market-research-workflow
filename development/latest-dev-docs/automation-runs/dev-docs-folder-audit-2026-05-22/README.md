@@ -10,16 +10,16 @@ Related execution plans:
 
 ## Summary
 
-This run used 10 parallel read-only subaudits plus one integration pass.
+This run used 10 parallel read-only subaudits, 10 worktree implementation lanes, and one merge integration pass.
 
 Status counts:
 
 - `CURRENT_DEV` topics checked: 36.
-- Fully closed inside `CURRENT_DEV`: 0.
-- Not closed / partial current work: 21.
-- Outdated or drifted: 11.
-- Needs update / no closure claim / external gap: 3.
-- Evidence insufficient: 1.
+- Moved from `CURRENT_DEV` to `ARCHIVE_CLOSED`: 1.
+- Remaining fully closed inside `CURRENT_DEV`: 0.
+- Code/test advanced but still not fully closed: 5.
+- Documentation evidence refreshed but still not closed: 7.
+- Still not closed / outdated / needs update / evidence insufficient: keep in `CURRENT_DEV` with blockers.
 
 Landing completed in this run:
 
@@ -29,17 +29,23 @@ Landing completed in this run:
 - Repaired obvious development-plan navigation drift and dead links.
 - Added explicit SearXNG / YaCy provider trace metadata to search results and unit coverage.
 - Added the first local-index `mode=keyword|vector|hybrid` contract slice across schema, service normalization, LanceDB adapter routing, and unit coverage.
+- Added backend-core runtime route drift snapshot and contract guard.
+- Added backend-docs current API route map.
+- Added ops-frontend closure matrix for graph/API/Storybook/launcher.
+- Refreshed graph, ingest/frontdoor, and source_library plan evidence with focused tests where practical.
+- Archived completed `2026-04-02` Agent high-fidelity migration material out of `CURRENT_DEV`.
+- Added a detailed parallel plan tree for the next agent wave.
 
 ## Folder Status
 
 | Folder | Status | Evidence | Action |
 |---|---|---|---|
 | `root-plans` | current | `INDEX.md` points first to `main/`; no dead current-entry issue found | keep |
-| `backend-core` | needs update | review docs note API/module count drift and remaining strict-mode / DB validation follow-ups | update backend-core merged docs and run backend tests before closure |
-| `backend-docs` | outdated | merged docs remain March snapshots and review docs mark route/API map decay | mark old snapshots clearly or refresh from current `main/backend/app/api` |
-| `ops-frontend` | not closed | main entry exists but graph/API/storybook/launcher closure state is incomplete | add closure notes for graph/API and plans for Storybook/launcher |
-| `frontend-modern` | needs update, entry repaired | directory had material but no `INDEX.md` or `main/index.md` before this run | standard entry added; future frontend work should update this folder |
-| `development-plans` | needs update, partially repaired | missing A-F indexes, dead links, stale `CURRENT_DEV/main index.md`, duplicate archive links | indexes and high-signal dead links repaired; remaining duplicates can be cleaned in a follow-up |
+| `backend-core` | updated, not globally closed | runtime route snapshot and route drift contract guard landed; strict-mode / DB validation follow-ups remain | keep guard current as API changes |
+| `backend-docs` | updated snapshot, not schema-closed | current AST route map added; old 2026-02-27 route docs marked historical | add request/response schema inventory in next wave |
+| `ops-frontend` | not closed, matrix added | graph/API/Storybook/launcher status matrix added with blockers | run frontend runtime gates before closure |
+| `frontend-modern` | current entry repaired | standard `INDEX.md`, `main/index.md`, and merged current-state document added | run frontend lint/build/storybook/e2e in a dependency-ready lane |
+| `development-plans` | updated, partially closed | A-F indexes added, `2026-04-02` migrated to `ARCHIVE_CLOSED`, high-signal dead links repaired | continue topic-level closure only with evidence |
 | `development-plans/ARCHIVE_CLOSED` | closed archive | archive index exists; one empty source-library entry was misleading | removed empty entry from archive index |
 | `development-plans/ARCHIVE_RETIRED` | retired archive | no new broken entry found | keep |
 
@@ -78,7 +84,7 @@ Landing completed in this run:
 | `2026-03-15-frontend-three-layer-rewrite` | not closed | partial three-layer rewrite with known AppShell/kernel gaps | close T1-T5 or keep blockers explicit |
 | `2026-03-24-frontend-visual-layering` | evidence insufficient | placeholder/empty topic | add README/status or retire |
 | `2026-03-25-source-library-ingest-minimal-migration` | not closed | AT-SLIM/AT-ITEM evidence exists, AT-EXT remains pending | finish AT-EXT or document deferral |
-| `2026-04-02-claude-agent-high-fidelity-migration` | needs update | implemented evidence exists but topic still mixes current entry and closure material | split active diagnostics from completed records |
+| `2026-04-02-claude-agent-high-fidelity-migration` | archived closed | completed migration/diagnostic records moved to `ARCHIVE_CLOSED`; no active current-entry diagnostic remains | if reopened, create a new D48+ `CURRENT_DEV` topic |
 | `2026-04-07-parallel-agent-wave-orchestration` | not closed | execution framework, not closure | keep as active orchestration entry |
 | `2026-05-14-global-vectorization-general-foundation` | not closed | first local-index mode contract slice landed; full vector/hybrid foundation still needs runtime validation | expand real LanceDB vector/hybrid runtime evidence next |
 | `2026-05-14-local-open-search-provider-isolation` | needs update | much is implemented; explicit provider trace/regression evidence now landed | use provider trace in next closure replay |
@@ -94,13 +100,31 @@ Search provider trace:
   - `provider_auto_included`
   - `backend_trace`
 - The fields explicitly mark SearXNG / YaCy as explicit local open-search providers and not part of `provider=auto`.
+- Integration gate: `tests/unit/test_search_web_provider_adapters_unittest.py` passed (`4 passed`).
 
 Local index mode contract:
 
 - `LocalIndexQuery.mode` is normalized to `keyword`, `vector`, or `hybrid`.
 - `LocalIndexSearchResult.to_dict()` now exposes `retrieval_mode`, `retrieval_family`, and `trace`.
 - The LanceDB adapter now routes keyword to FTS, vector to vector search, and hybrid to hybrid/vector with keyword fallback.
-- Unit coverage verifies supported mode preservation and unknown-mode normalization.
+- Unit coverage verifies supported mode preservation, unknown-mode normalization, adapter dispatch, and keyword fallback.
+- Integration gate: `tests/unit/test_local_index_service_unittest.py` passed (`7 passed`).
+
+Backend-core route drift guard:
+
+- Added runtime route inventory for 2026-05-22.
+- Added `tests/contract/test_api_route_drift_contract_unittest.py`.
+- Integration gate with project/ingest contracts passed (`42 passed`).
+
+Ingest/frontdoor contract:
+
+- Added focused legacy single-url/frontdoor mapping coverage in `tests/unit/test_ingest_frontdoor_context_unittest.py`.
+- Integration gate passed (`3 passed`).
+
+Source-library capability fallback:
+
+- Added search-template fallback diagnostics and assertions.
+- Integration gate over source_library focused tests passed (`56 passed`).
 
 Documentation navigation:
 
@@ -118,7 +142,9 @@ Documentation navigation:
 ## Next Landing Queue
 
 1. Validate LanceDB vector/hybrid against a real optional-dependency runtime and record benchmark evidence.
-2. Refresh backend-core API/route/project-key follow-ups against current code.
-3. Add frontend graph/API/Storybook/launcher closure notes under `ops-frontend/F_PLAN`.
-4. Split `2026-04-02-claude-agent-high-fidelity-migration` into completed records versus active diagnostics.
-5. For broad implementation follow-up, use worktree branches per lane and merge through the supervisor worktree after each lane's gate passes.
+2. Rerun SearXNG / YaCy container replay and prove explicit provider trace in real replay output.
+3. Run GraphPage frontend e2e / visual canvas evidence for graph closure.
+4. Run Storybook build / MCP and launcher-first frontend gates.
+5. Add stable source_library real site-entry / anti-bot probe fixtures.
+6. Extend backend-docs route map into request/response schema inventory.
+7. Continue broad implementation follow-up through the detailed plan tree in `parallel-plan-tree-2026-05-22.md`.
