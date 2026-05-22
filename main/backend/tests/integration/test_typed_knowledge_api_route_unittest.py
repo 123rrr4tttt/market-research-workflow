@@ -46,7 +46,10 @@ class TypedKnowledgeApiRouteIntegrationTestCase(unittest.TestCase):
         self.assertTrue(body["data"]["route"]["public_api_route"])
         self.assertFalse(body["data"]["route"]["live_db_backed"])
         self.assertTrue(body["meta"]["readiness"]["public_api_route"])
+        self.assertTrue(body["meta"]["readiness"]["persisted_card_request_response_readback"])
         self.assertFalse(body["meta"]["readiness"]["live_db_persistence"])
+        self.assertFalse(body["meta"]["readiness"]["live_api_closure"])
+        self.assertFalse(body["meta"]["readiness"]["live_ui_closure"])
         self.assertIn("live_db_persistence_not_implemented", body["meta"]["remaining_live_gaps"])
         self.assertNotIn(
             "public_typed_knowledge_api_route_not_implemented",
@@ -63,6 +66,20 @@ class TypedKnowledgeApiRouteIntegrationTestCase(unittest.TestCase):
             "writing.keyword_card",
         )
         self.assertFalse(body["data"]["persistence_boundary"]["repository"]["live_db_write"])
+
+        readback = body["data"]["persisted_card_request_response_readback"]
+        self.assertEqual(
+            readback["contract_version"],
+            boundary.PERSISTED_CARD_REQUEST_RESPONSE_READBACK_CONTRACT_VERSION,
+        )
+        self.assertEqual(readback["keyword_card_request"]["path"], boundary.WRITING_KEYWORD_CARD_ROUTE_PATH)
+        self.assertEqual(
+            readback["persisted_document"]["metadata_json"]["typed_knowledge_context"],
+            readback["keyword_card_request"]["body"]["context"]["typed_knowledge_context"],
+        )
+        self.assertEqual(readback["keyword_card_response"]["body"]["cards"][0]["publisher"], "typed_knowledge")
+        self.assertFalse(readback["meta"]["readiness"]["live_api_closure"])
+        self.assertFalse(readback["meta"]["readiness"]["live_ui_closure"])
 
     def test_public_route_keeps_project_scoped_identity_in_contract_readback(self):
         response = self.client.get(
@@ -85,6 +102,10 @@ class TypedKnowledgeApiRouteIntegrationTestCase(unittest.TestCase):
             body["data"]["persistence_boundary"]["repository"]["persistence_mode"],
             "in_memory_contract",
         )
+        self.assertEqual(
+            body["data"]["persisted_card_request_response_readback"]["readback"]["knowledge_item_key"],
+            "ki:robotics-policy",
+        )
 
     def test_openapi_exposes_typed_knowledge_route_contract_schema(self):
         schema = backend_app.openapi()
@@ -94,6 +115,8 @@ class TypedKnowledgeApiRouteIntegrationTestCase(unittest.TestCase):
         )
 
         self.assertEqual(response_schema["$ref"].rsplit("/", 1)[-1], "TypedKnowledgeRouteContractEnvelope")
+        route_data = schema["components"]["schemas"]["TypedKnowledgeRouteContractData"]["properties"]
+        self.assertIn("persisted_card_request_response_readback", route_data)
 
 
 if __name__ == "__main__":

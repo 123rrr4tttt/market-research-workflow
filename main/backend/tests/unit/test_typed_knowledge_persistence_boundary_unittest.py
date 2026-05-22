@@ -183,7 +183,10 @@ class TypedKnowledgePersistenceBoundaryTests(unittest.TestCase):
         self.assertEqual(envelope["data"]["contract_version"], boundary.PUBLIC_API_ROUTE_CONTRACT_VERSION)
         self.assertEqual(envelope["data"]["route"]["path"], boundary.PUBLIC_API_ROUTE_PATH)
         self.assertTrue(envelope["meta"]["readiness"]["public_api_route"])
+        self.assertTrue(envelope["meta"]["readiness"]["persisted_card_request_response_readback"])
         self.assertFalse(envelope["meta"]["readiness"]["live_db_persistence"])
+        self.assertFalse(envelope["meta"]["readiness"]["live_api_closure"])
+        self.assertFalse(envelope["meta"]["readiness"]["live_ui_closure"])
         self.assertNotIn(
             "public_typed_knowledge_api_route_not_implemented",
             envelope["meta"]["remaining_live_gaps"],
@@ -201,6 +204,42 @@ class TypedKnowledgePersistenceBoundaryTests(unittest.TestCase):
             "public_api_route_live_completion_overclaim",
         ):
             boundary.validate_public_api_route_contract_envelope(overclaim)
+
+    def test_persisted_card_request_response_readback_preserves_ui_api_boundary_without_live_claims(self):
+        envelope = boundary.build_public_api_route_contract_envelope(project_key="ui_proj")
+        readback = envelope["data"]["persisted_card_request_response_readback"]
+        boundary.validate_persisted_card_request_response_readback(readback)
+
+        self.assertEqual(
+            readback["contract_version"],
+            boundary.PERSISTED_CARD_REQUEST_RESPONSE_READBACK_CONTRACT_VERSION,
+        )
+        self.assertEqual(
+            readback["typed_knowledge_api_boundary"]["route_path"],
+            boundary.PUBLIC_API_ROUTE_PATH,
+        )
+        self.assertFalse(readback["typed_knowledge_api_boundary"]["live_db_backed"])
+
+        persisted_doc = readback["persisted_document"]
+        typed_context = persisted_doc["metadata_json"]["typed_knowledge_context"]
+        request_body = readback["keyword_card_request"]["body"]
+        response_body = readback["keyword_card_response"]["body"]
+
+        self.assertFalse(persisted_doc["live_db_document"])
+        self.assertEqual(typed_context["contract_version"], contracts.WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION)
+        self.assertEqual(request_body["context"]["typed_knowledge_context"], typed_context)
+        self.assertIn("resource", request_body["sources"])
+        self.assertEqual(response_body["cards"][0]["publisher"], "typed_knowledge")
+        self.assertEqual(response_body["cards"][0]["source_type"], "resource")
+        self.assertEqual(response_body["cards"][0]["extra"]["knowledge_item_key"], "ki:robotics-policy")
+        self.assertTrue(readback["readback"]["request_response_readback"])
+        self.assertFalse(readback["meta"]["readiness"]["live_db_persistence"])
+        self.assertFalse(readback["meta"]["readiness"]["live_api_closure"])
+        self.assertFalse(readback["meta"]["readiness"]["live_ui_closure"])
+        self.assertIn(
+            "live_api_request_response_closure_not_verified",
+            readback["meta"]["remaining_live_gaps"],
+        )
 
     def test_durable_repository_readback_contract_keeps_live_boundaries_open(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
