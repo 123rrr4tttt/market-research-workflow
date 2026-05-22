@@ -555,7 +555,7 @@ def is_css_literal(value: str, before: str) -> bool:
 
 
 def is_catalog_key(value: str) -> bool:
-    return bool(re.match(r"^(shell|navigation|settings|shared|agentChat)\.[A-Za-z0-9_.-]+$", value))
+    return bool(re.match(r"^(shell|navigation|settings|shared|agentChat|projects)\.[A-Za-z0-9_.-]+$", value))
 
 
 def is_technical_token(value: str, module_keys: set[str], routes: set[str], legacy_hashes: set[str]) -> bool:

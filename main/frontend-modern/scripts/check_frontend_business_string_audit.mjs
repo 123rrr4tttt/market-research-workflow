@@ -183,7 +183,7 @@ function extractRendererComponentPaths(source) {
 
 function extractCatalogKeys(source) {
   const keys = new Set()
-  const namespacePattern = /(?:shell|navigation|settings|shared|agentChat):\s*\{([\s\S]*?)\n\s*\}/g
+  const namespacePattern = /(?:shell|navigation|settings|shared|agentChat|projects):\s*\{([\s\S]*?)\n\s*\}/g
   let namespaceMatch = namespacePattern.exec(source)
   while (namespaceMatch) {
     const namespaceText = namespaceMatch[0]
@@ -292,7 +292,7 @@ function propNameBeforeLiteral(before) {
 }
 
 function isCatalogKey(value) {
-  return /^(shell|navigation|settings|shared|agentChat)\.[A-Za-z0-9_.-]+$/.test(value)
+  return /^(shell|navigation|settings|shared|agentChat|projects)\.[A-Za-z0-9_.-]+$/.test(value)
 }
 
 function isModuleOrRouteToken(value) {
