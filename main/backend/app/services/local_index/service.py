@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Protocol
 
-from .schema import LocalIndexChunk, LocalIndexQuery, LocalIndexSearchResult
+from .schema import LocalIndexChunk, LocalIndexQuery, LocalIndexSearchResult, normalize_local_index_mode
 
 
 class LocalIndexAdapter(Protocol):
@@ -31,4 +32,6 @@ class LocalIndexService:
     def search(self, query: LocalIndexQuery) -> list[LocalIndexSearchResult]:
         if not query.query.strip() or not query.project_id.strip():
             return []
-        return self._adapter.search(query)
+        normalized_mode = normalize_local_index_mode(query.mode)
+        normalized_query = query if query.mode == normalized_mode else replace(query, mode=normalized_mode)
+        return self._adapter.search(normalized_query)

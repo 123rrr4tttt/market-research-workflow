@@ -823,6 +823,12 @@ def _serper_search(keyword: str, api_key: str, limit: int, *, language: str = "e
 
 def _searxng_search(keyword: str, base_url: str, limit: int, *, language: str = "en") -> List[dict]:
     url = urljoin(base_url.rstrip("/") + "/", "search")
+    provider_trace_base = {
+        "provider": "searxng",
+        "provider_route": "explicit",
+        "provider_family": "local_open_search",
+        "auto_included": False,
+    }
     try:
         max_pages = max(1, min(10, int(os.getenv("SEARXNG_MAX_PAGES", "5"))))
     except ValueError:
@@ -850,6 +856,10 @@ def _searxng_search(keyword: str, base_url: str, limit: int, *, language: str = 
                     "link": link,
                     "snippet": row.get("content") or row.get("snippet") or row.get("description"),
                     "source": "searxng",
+                    "provider_route": "explicit:searxng",
+                    "provider_family": "local_open_search",
+                    "provider_auto_included": False,
+                    "backend_trace": {**provider_trace_base, "pageno": page_no},
                     "rank": len(items) + 1,
                     "raw": {
                         "engine": row.get("engine"),
@@ -870,6 +880,13 @@ def _searxng_search(keyword: str, base_url: str, limit: int, *, language: str = 
 def _yacy_search(keyword: str, base_url: str, limit: int, *, resource_mode: str = "local") -> List[dict]:
     url = urljoin(base_url.rstrip("/") + "/", "yacysearch.json")
     resource = resource_mode if resource_mode in {"local", "global"} else "local"
+    provider_trace_base = {
+        "provider": "yacy",
+        "provider_route": "explicit",
+        "provider_family": "local_open_search",
+        "auto_included": False,
+        "resource": resource,
+    }
     params = {
         "query": keyword,
         "resource": resource,
@@ -898,6 +915,10 @@ def _yacy_search(keyword: str, base_url: str, limit: int, *, resource_mode: str 
                 "link": link,
                 "snippet": row.get("description") or row.get("snippet") or row.get("text"),
                 "source": "yacy",
+                "provider_route": "explicit:yacy",
+                "provider_family": "local_open_search",
+                "provider_auto_included": False,
+                "backend_trace": {**provider_trace_base},
                 "rank": rank,
                 "raw": {
                     "resource": resource,

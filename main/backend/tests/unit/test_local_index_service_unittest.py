@@ -13,12 +13,14 @@ pytestmark = pytest.mark.unit
 class FakeLocalIndexAdapter:
     def __init__(self) -> None:
         self.chunks: list[LocalIndexChunk] = []
+        self.last_query: LocalIndexQuery | None = None
 
     def upsert_chunks(self, chunks: list[LocalIndexChunk]) -> dict[str, int | bool | str | None]:
         self.chunks = list(chunks)
         return {"ok": True, "chunk_count": len(self.chunks), "adapter": "fake"}
 
     def search(self, query: LocalIndexQuery) -> list[LocalIndexSearchResult]:
+        self.last_query = query
         out: list[LocalIndexSearchResult] = []
         needle = query.query.lower()
         for chunk in self.chunks:
@@ -38,6 +40,9 @@ class FakeLocalIndexAdapter:
                     content=chunk.content,
                     score=1.0,
                     url=chunk.url,
+                    retrieval_mode=query.mode,
+                    retrieval_family="local_index",
+                    trace={"adapter": "fake", "mode": query.mode},
                 )
             )
         return out[: query.top_k]
@@ -75,8 +80,53 @@ class LocalIndexServiceTest(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].chunk_id, "c1")
         self.assertEqual(results[0].source_id, "source_a")
-        self.assertIn("document_id", results[0].to_dict())
-        self.assertNotIn("source_library_item", results[0].to_dict())
+        result_dict = results[0].to_dict()
+        self.assertIn("document_id", result_dict)
+        self.assertNotIn("source_library_item", result_dict)
+        self.assertEqual(result_dict["retrieval_mode"], "keyword")
+        self.assertEqual(result_dict["retrieval_family"], "local_index")
+        self.assertEqual(result_dict["trace"]["adapter"], "fake")
+
+    def test_service_preserves_supported_query_modes(self) -> None:
+        adapter = FakeLocalIndexAdapter()
+        service = LocalIndexService(adapter)
+        service.upsert_chunks(
+            [
+                LocalIndexChunk(
+                    chunk_id="c1",
+                    document_id="d1",
+                    project_id="demo_proj",
+                    source_id="source_a",
+                    title="Robotics policy",
+                    content="Embodied AI robotics policy material chunk.",
+                )
+            ]
+        )
+
+        results = service.search(LocalIndexQuery(query="robotics", project_id="demo_proj", mode="hybrid"))
+
+        self.assertEqual(adapter.last_query.mode if adapter.last_query else None, "hybrid")
+        self.assertEqual(results[0].retrieval_mode, "hybrid")
+
+    def test_service_normalizes_unknown_query_mode_to_keyword(self) -> None:
+        adapter = FakeLocalIndexAdapter()
+        service = LocalIndexService(adapter)
+        service.upsert_chunks(
+            [
+                LocalIndexChunk(
+                    chunk_id="c1",
+                    document_id="d1",
+                    project_id="demo_proj",
+                    source_id="source_a",
+                    title="Robotics policy",
+                    content="Embodied AI robotics policy material chunk.",
+                )
+            ]
+        )
+
+        service.search(LocalIndexQuery(query="robotics", project_id="demo_proj", mode="semantic"))
+
+        self.assertEqual(adapter.last_query.mode if adapter.last_query else None, "keyword")
 
     def test_empty_query_short_circuits(self) -> None:
         service = LocalIndexService(FakeLocalIndexAdapter())

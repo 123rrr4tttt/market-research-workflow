@@ -101,7 +101,6 @@
 - [CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md](./CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md)
 - [CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md](./CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md)
 - [CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md](./CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md)
-- [CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/06_p2-delivery-checklist-2026-03-11.md](./CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/06_p2-delivery-checklist-2026-03-11.md)
 - [CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/07_agent-loop-kernel-architecture-and-planner-governance-2026-03-11.md](./CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/07_agent-loop-kernel-architecture-and-planner-governance-2026-03-11.md)
 - [CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/09_backend-full-skillization-best-practices-and-implementation-plan-2026-03-11.md](./CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/09_backend-full-skillization-best-practices-and-implementation-plan-2026-03-11.md)
 - [CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md](./CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md)
@@ -118,6 +117,12 @@
 - `E_OPS/`
 - `F_PLAN/`
 - `G_REVIEW/`（review 文档位置保持不变）
+- [A_ARCHITECTURE/INDEX.md](./A_ARCHITECTURE/INDEX.md)
+- [B_API/INDEX.md](./B_API/INDEX.md)
+- [C_INGEST/INDEX.md](./C_INGEST/INDEX.md)
+- [D_TEST/INDEX.md](./D_TEST/INDEX.md)
+- [E_OPS/INDEX.md](./E_OPS/INDEX.md)
+- [F_PLAN/INDEX.md](./F_PLAN/INDEX.md)
 - `CURRENT_DEV/`（当前开发任务分解，仅未封口且仍可作为现行入口）
 - `CURRENT_DEV/STATUS_AUDIT_2026-04-07.md`（当前目录状态与文档时效性审计）
 - `CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/`（仓库级并行开发编排主入口与子 agent 契约模板）

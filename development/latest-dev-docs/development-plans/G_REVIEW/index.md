@@ -1,15 +1,21 @@
-# Development Plans Index
-字母分层结构说明：`A_INDEX`（导航索引）-> `B_MERGED`（合并正文）-> `C_REVIEW`（复核结论）-> `D_SOURCE`（来源拆分文档）
+# Development Plans Review Index
+
+更新时间：2026-05-22（PST）
+
+历史字母分层结构说明：`A_INDEX`（导航索引）-> `B_MERGED`（合并正文）-> `C_REVIEW`（复核结论）-> `D_SOURCE`（来源拆分文档）。
+
+当前标准入口已迁移到 `main/` 与分类目录 `A_*` 到 `G_REVIEW/`。
 
 Generated: 2026-03-01 07:31:19 PST
 
 Quick Links:
-- [B_MERGED/MERGED_DEVELOPMENT_PLANS.md](../B_MERGED/MERGED_DEVELOPMENT_PLANS.md)
-- [C_REVIEW/MERGED_DEVELOPMENT_PLANS_REVIEW.md](../C_REVIEW/MERGED_DEVELOPMENT_PLANS_REVIEW.md)
-- [D_SOURCE/](../D_SOURCE/)
+- [main/MERGED_DEVELOPMENT_PLANS.md](../main/MERGED_DEVELOPMENT_PLANS.md)
+- [G_REVIEW/MERGED_DEVELOPMENT_PLANS_REVIEW.md](./MERGED_DEVELOPMENT_PLANS_REVIEW.md)
+- [development-plans INDEX](../INDEX.md)
+- Current category indexes: [A_ARCHITECTURE](../A_ARCHITECTURE/INDEX.md), [B_API](../B_API/INDEX.md), [C_INGEST](../C_INGEST/INDEX.md), [D_TEST](../D_TEST/INDEX.md), [E_OPS](../E_OPS/INDEX.md), [F_PLAN](../F_PLAN/INDEX.md)
 
 Merged Draft:
-- `../B_MERGED/MERGED_DEVELOPMENT_PLANS.md` (merged from `01`-`11`, organized by phase/milestone/dependencies)
+- `../main/MERGED_DEVELOPMENT_PLANS.md` (merged from `01`-`11`, organized by phase/milestone/dependencies)
 
 | # | Priority | Source Path | Commit Date | Availability | Copied File |
 |---|---|---|---|---|---|

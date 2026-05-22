@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from ..schema import LocalIndexChunk, LocalIndexQuery, LocalIndexSearchResult
+from ..schema import LocalIndexChunk, LocalIndexQuery, LocalIndexSearchResult, normalize_local_index_mode
 
 
 def is_lancedb_available() -> bool:
@@ -55,23 +55,50 @@ class LanceDBLocalIndexAdapter:
     def search(self, query: LocalIndexQuery) -> list[LocalIndexSearchResult]:
         if self._table is None:
             return []
+        mode = normalize_local_index_mode(query.mode)
         predicate = f"project_id = '{_escape_lancedb_literal(query.project_id)}'"
         if query.source_id:
             predicate += f" AND source_id = '{_escape_lancedb_literal(query.source_id)}'"
-        rows = (
-            self._table.search(query.query, query_type="fts")
-            .where(predicate)
-            .limit(max(1, min(50, int(query.top_k or 10))))
-            .to_list()
-        )
-        return [_result_from_record(row) for row in rows]
+        rows = self._search_rows(query=query, mode=mode, predicate=predicate)
+        return [_result_from_record(row, mode=mode) for row in rows]
+
+    def _search_rows(self, *, query: LocalIndexQuery, mode: str, predicate: str) -> list[dict[str, Any]]:
+        limit = max(1, min(50, int(query.top_k or 10)))
+        if mode == "vector":
+            search = self._vector_search(query.query)
+        elif mode == "hybrid":
+            search = self._hybrid_search(query.query)
+        else:
+            search = self._table.search(query.query, query_type="fts")
+        try:
+            return search.where(predicate).limit(limit).to_list()
+        except Exception:
+            if mode == "keyword":
+                raise
+            return self._table.search(query.query, query_type="fts").where(predicate).limit(limit).to_list()
+
+    def _vector_search(self, text: str) -> Any:
+        vector = _deterministic_vector(text)
+        try:
+            return self._table.search(vector, vector_column_name="vector")
+        except TypeError:
+            return self._table.search(vector)
+
+    def _hybrid_search(self, text: str) -> Any:
+        try:
+            return self._table.search(text, query_type="hybrid", vector_column_name="vector")
+        except TypeError:
+            try:
+                return self._table.search(text, query_type="hybrid")
+            except TypeError:
+                return self._vector_search(text)
 
 
 def _escape_lancedb_literal(value: str) -> str:
     return str(value or "").replace("'", "''")
 
 
-def _result_from_record(row: dict[str, Any]) -> LocalIndexSearchResult:
+def _result_from_record(row: dict[str, Any], *, mode: str = "keyword") -> LocalIndexSearchResult:
     return LocalIndexSearchResult(
         chunk_id=str(row.get("chunk_id") or ""),
         document_id=str(row.get("document_id") or ""),
@@ -83,4 +110,12 @@ def _result_from_record(row: dict[str, Any]) -> LocalIndexSearchResult:
         url=str(row.get("url") or "") or None,
         source_type=str(row.get("source_type") or "material"),
         metadata={"adapter": "lancedb"},
+        retrieval_mode=mode,
+        retrieval_family="local_index",
+        trace={
+            "adapter": "lancedb",
+            "mode": mode,
+            "supports_vector": True,
+            "fallback_family": "keyword",
+        },
     )

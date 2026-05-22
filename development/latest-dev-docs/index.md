@@ -19,4 +19,5 @@ Generated: 2026-03-01 PST
 | `development/latest-dev-docs/backend-core/INDEX.md` | `multiple` | backend core mapping |
 | `development/latest-dev-docs/backend-docs/INDEX.md` | `multiple` | backend docs mapping |
 | `development/latest-dev-docs/ops-frontend/INDEX.md` | `multiple` | ops and frontend mapping |
+| `development/latest-dev-docs/frontend-modern/INDEX.md` | `multiple` | frontend modern mapping |
 | `development/latest-dev-docs/development-plans/INDEX.md` | `multiple` | development plans mapping |

@@ -10,6 +10,7 @@ Updated: 2026-05-14 PST
 | `backend-core` | [main/MERGED_BACKEND_CORE.md](./backend-core/main/MERGED_BACKEND_CORE.md) | [G_REVIEW/MERGED_BACKEND_CORE_REVIEW.md](./backend-core/G_REVIEW/MERGED_BACKEND_CORE_REVIEW.md) | 运行、接口、测试三段合并 |
 | `backend-docs` | [main/MERGED_BACKEND_DOCS.md](./backend-docs/main/MERGED_BACKEND_DOCS.md) | [G_REVIEW/MERGED_BACKEND_DOCS_REVIEW.md](./backend-docs/G_REVIEW/MERGED_BACKEND_DOCS_REVIEW.md) | 架构/API/采集/路线图统一汇总 |
 | `ops-frontend` | [main/MERGED_OPS_FRONTEND.md](./ops-frontend/main/MERGED_OPS_FRONTEND.md) | [G_REVIEW/MERGED_OPS_FRONTEND_REVIEW.md](./ops-frontend/G_REVIEW/MERGED_OPS_FRONTEND_REVIEW.md) | 部署、前端、Figma、快速启动归并 |
+| `frontend-modern` | [main/MERGED_FRONTEND_MODERN.md](./frontend-modern/main/MERGED_FRONTEND_MODERN.md) | [main/index.md](./frontend-modern/main/index.md) | modern 前端专项入口补齐 |
 | `development-plans` | [main/MERGED_DEVELOPMENT_PLANS.md](./development-plans/main/MERGED_DEVELOPMENT_PLANS.md) | [G_REVIEW/MERGED_DEVELOPMENT_PLANS_REVIEW.md](./development-plans/G_REVIEW/MERGED_DEVELOPMENT_PLANS_REVIEW.md) | 阶段/里程碑/依赖视角合并 |
 
 ## 使用建议
@@ -20,6 +21,19 @@ Updated: 2026-05-14 PST
 
 ## 最近新增
 
+- `automation-runs`：
+  - [2026-05-22 Development Docs Folder Audit And Landing Report](./automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
+- `frontend-modern`：
+  - [2026-05-22 frontend-modern standard docs entry](./frontend-modern/INDEX.md)
+- `development-plans`：
+  - [2026-05-22 A_ARCHITECTURE index](./development-plans/A_ARCHITECTURE/INDEX.md)
+  - [2026-05-22 B_API index](./development-plans/B_API/INDEX.md)
+  - [2026-05-22 C_INGEST index](./development-plans/C_INGEST/INDEX.md)
+  - [2026-05-22 D_TEST index](./development-plans/D_TEST/INDEX.md)
+  - [2026-05-22 E_OPS index](./development-plans/E_OPS/INDEX.md)
+  - [2026-05-22 F_PLAN index](./development-plans/F_PLAN/INDEX.md)
+- `automation-runs`：
+  - [2026-05-15 Branch Hygiene Report](./automation-runs/branch-hygiene-2026-05-15.md)
 - 根目录：
   - [2026-05-14 当前预发布说明：pre-release-2026-05-14-rc1](../../RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
 - `automation-runs`：
@@ -124,7 +138,6 @@ Updated: 2026-05-14 PST
   - [2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md)
-  - [2026-03-09-agent-symbolic-batch-search-architecture/05_p1-delivery-checklist-2026-03-10.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/05_p1-delivery-checklist-2026-03-10.md)
   - [2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
   - [2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
   - [2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)
