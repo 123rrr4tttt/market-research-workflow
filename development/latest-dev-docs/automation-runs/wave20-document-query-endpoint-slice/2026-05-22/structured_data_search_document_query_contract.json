@@ -1,0 +1,24 @@
+{
+  "status": "pass",
+  "checks": {
+    "contract_version": "document_queries.v1",
+    "consumer": "project.structured_data.search",
+    "project_key": "demo_proj",
+    "dataset_filter": {
+      "field": "dataset",
+      "op": "in",
+      "value": [
+        "documents",
+        "market_stats"
+      ]
+    },
+    "limit": 100,
+    "result_count": 1,
+    "pagination_total": 3,
+    "result_source_type": "structured_record",
+    "result_backend": "documents",
+    "meta_source": "agent_runtime.structured_data_search",
+    "meta_total_stored_rows": 9,
+    "service_marker_gaps": []
+  }
+}
