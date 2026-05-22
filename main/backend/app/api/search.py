@@ -1,5 +1,7 @@
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query
-from ..contracts import ErrorCode, error_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
@@ -33,7 +35,10 @@ def _raise_internal_error(message: str, *, details: dict | None = None) -> None:
     )
 
 
-@router.get("")
+SearchEnvelope = ApiEnvelope[dict[str, Any]]
+
+
+@router.get("", response_model=SearchEnvelope)
 def search(
     q: str = Query("market trend"),
     state: str | None = None,
@@ -87,7 +92,7 @@ def search(
         )
 
 
-@router.post("/_init")
+@router.post("/_init", response_model=SearchEnvelope)
 def init_search_indices():
     """Create ES indices if not present (idempotent)."""
     es = get_es_client()

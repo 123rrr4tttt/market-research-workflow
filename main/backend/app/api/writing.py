@@ -15,15 +15,20 @@ from ..contracts.schemas.writing import (
     KeywordCardPreviewRequest,
     KeywordCardPreviewResponse,
     KeywordCardRequest,
+    LlmActionHistoryItem,
+    LlmActionHistoryListData,
     LlmActionRequest,
+    LlmActionResponse,
     SuggestRequest,
     SuggestResponse,
     TemplateValidateRequest,
+    TemplateValidateResponse,
     WritingCitationListData,
     WritingDocumentData,
     WritingDocumentDeleteData,
     WritingDocumentDraftData,
     WritingDocumentListData,
+    WritingTemplateListData,
 )
 from ..services.projects import bind_project, current_project_key
 from ..services.projects.context import _normalize_project_key
@@ -310,12 +315,20 @@ def get_writing_document_citations(request: Request, doc_id: int, project_key: s
             raise _handle_not_found(exc) from exc
 
 
-@router.get("/templates")
+@router.get(
+    "/templates",
+    response_model=ApiEnvelope[WritingTemplateListData],
+    response_model_exclude_unset=True,
+)
 def get_writing_templates():
     return success_response({"items": list_templates()})
 
 
-@router.post("/templates/validate")
+@router.post(
+    "/templates/validate",
+    response_model=ApiEnvelope[TemplateValidateResponse],
+    response_model_exclude_unset=True,
+)
 def post_writing_template_validate(payload: TemplateValidateRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     model = payload.model_copy(update={"project_key": resolved_project_key, "request_id": _resolve_request_id(request)})
@@ -402,7 +415,11 @@ def get_writing_suggest(
         return success_response(suggest(model).model_dump())
 
 
-@router.post("/llm-actions")
+@router.post(
+    "/llm-actions",
+    response_model=ApiEnvelope[LlmActionResponse],
+    response_model_exclude_unset=True,
+)
 def post_writing_llm_action(payload: LlmActionRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     model = payload.model_copy(
@@ -417,7 +434,11 @@ def post_writing_llm_action(payload: LlmActionRequest, request: Request):
         return success_response(dispatch_action(model).model_dump(by_alias=True))
 
 
-@router.get("/llm-actions/history")
+@router.get(
+    "/llm-actions/history",
+    response_model=ApiEnvelope[LlmActionHistoryListData],
+    response_model_exclude_unset=True,
+)
 def get_writing_llm_action_history(request: Request, project_key: str | None = Query(default=None), limit: int = Query(default=20, ge=1, le=100)):
     resolved_project_key = _resolve_project_key(project_key, request=request)
     with _writing_project_context(resolved_project_key):
@@ -425,7 +446,11 @@ def get_writing_llm_action_history(request: Request, project_key: str | None = Q
         return success_response({"items": items})
 
 
-@router.get("/llm-actions/{job_id}")
+@router.get(
+    "/llm-actions/{job_id}",
+    response_model=ApiEnvelope[LlmActionHistoryItem],
+    response_model_exclude_unset=True,
+)
 def get_writing_llm_action_detail(request: Request, job_id: int, project_key: str | None = Query(default=None)):
     resolved_project_key = _resolve_project_key(project_key, request=request)
     with _writing_project_context(resolved_project_key):
