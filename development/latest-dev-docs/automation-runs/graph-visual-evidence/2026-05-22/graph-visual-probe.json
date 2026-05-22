@@ -1,0 +1,201 @@
+{
+  "generatedAt": "2026-05-22T04:17:46.850Z",
+  "base": "http://127.0.0.1:6206",
+  "storybookBuild": "passed; see logs/storybook-build.log",
+  "viewport": {
+    "width": 1440,
+    "height": 1000,
+    "deviceScaleFactor": 1
+  },
+  "storyResults": [
+    {
+      "id": "pages-visualization-graphpage--container-default",
+      "kind": "GraphPage 2D mocked market graph",
+      "url": "http://127.0.0.1:6206/iframe.html?id=pages-visualization-graphpage--container-default&viewMode=story",
+      "screenshot": "screenshots/graphpage-container-default.png",
+      "bodyTextSample": "选择模式\n聚焦隐没\n3D模式\n符号调试\n固化选中\n结构化任务（0）\n刷新\n全屏\n收起面板\n视图调节\n收起\n斥力\n25.0%\n引力\n100%\n节点尺寸\n100% · 3D 8.0x\n中心化增强\n0%\n邻近数增强\n0%\n节点透明\n72%\n边粗细\n100%\n边透明\n100%\n显示标签\n已选 0\n清空\n配色调节\n收起\n色系主题\n蓝-青-紫（统一）\nBuPu（ColorBrewer）\n红橙黄蓝青绿（Spectral）\nViridis（细分）\n色差旋转\n58%\n绝对色差\n62%\n数据筛选\n收起\n开始日期\n结束日期\n州\n游戏\n数量限制\n100\n排序策略\n数据本体排序\n节点关联度排序\n文档ID排序\n中心度权重\n50%\n邻域度权重\n50%\n应用筛选\n重置\n公司\n市场\n政策\n符号调试\n可见节点 1\n类型映射 1\n回退circle 0\nMarketData\n→\nMarketData\n→\ncircle\n1\n图谱\n市场图谱\n节点总数\n2\n边总数\n1\n节点类型\n5\n已选节点\n0\n当前可见\n1 / 0",
+      "canvasMetrics": [
+        {
+          "width": 1416,
+          "height": 680,
+          "rect": {
+            "x": 12,
+            "y": 12,
+            "width": 1416,
+            "height": 680
+          },
+          "dataUrlLength": 29718
+        }
+      ],
+      "elementMetrics": [
+        {
+          "tag": "DIV",
+          "className": "gv2-chart",
+          "rect": {
+            "x": 12,
+            "y": 12,
+            "width": 1416,
+            "height": 680
+          }
+        }
+      ]
+    },
+    {
+      "id": "pages-visualization-graphpage--shell-template-builder",
+      "kind": "GraphPage shell template builder",
+      "url": "http://127.0.0.1:6206/iframe.html?id=pages-visualization-graphpage--shell-template-builder&viewMode=story",
+      "screenshot": "screenshots/graphpage-shell-template-builder.png",
+      "bodyTextSample": "LAYER B / VISUALIZATION\nA\nWorkbench\nB\nVisual\nC\nAdmin\n\nDEMO-PROJ / OBSERVATION SURFACE / /VISUAL/GRAPH/BUILDER\n\n新建图谱\nTARGET PROJECT\ndemo-proj\nalpha-lab\npolicy-hub\nactivate\nAPI ok\nLLM ready\nSEARCH ready\nNEWS ready\nDB ready\n\nSIGNALS\n\n数据仪表盘\n市场\n舆情\n政策\n行业公司/商品/经营\n\nGRAPHS\n\n市场图谱\n政策图谱\n社媒图谱\n公司图谱\n商品图谱\n电商/经营图谱\n市场实体加细图\n新建图谱\n\nREVIEW\n\n分析\n看板\n选择模式\n编辑模式\n聚焦隐没\n3D模式\n符号调试\n固化选中\n结构化任务（0）\n刷新\n全屏\n收起面板\n视图调节\n收起\n斥力\n25.0%\n引力\n100%\n节点尺寸\n100% · 3D 8.0x\n中心化增强\n0%\n邻近数增强\n0%\n节点透明\n72%\n边粗细\n100%\n边透明\n100%\n显示标签\n已选 0\n清空\n图谱编辑与模板\n收起\nEdit Mode（本地 Draft）\nDraft: nodes=2 edges=1 · clean\n放弃本地修改\n新节点类型\n新节点名称\n新增节点\n删除选中节点（0）\n边 Source\n选择 source\n储能需求 ",
+      "canvasMetrics": [
+        {
+          "width": 1156,
+          "height": 680,
+          "rect": {
+            "x": 252,
+            "y": 270.875,
+            "width": 1156,
+            "height": 680
+          },
+          "dataUrlLength": 28426
+        }
+      ],
+      "elementMetrics": [
+        {
+          "tag": "DIV",
+          "className": "gv2-chart",
+          "rect": {
+            "x": 252,
+            "y": 270.875,
+            "width": 1156,
+            "height": 680
+          }
+        }
+      ]
+    },
+    {
+      "id": "graph-graphlegend--default",
+      "kind": "graph-kit legend",
+      "url": "http://127.0.0.1:6206/iframe.html?id=graph-graphlegend--default&viewMode=story",
+      "screenshot": "screenshots/graphlegend-default.png",
+      "bodyTextSample": "Shape Legend\nCircle\nEmpty Circle\nRound Rect\nEmpty Round Rect\nRect\nEmpty Rect\nDiamond\nEmpty Diamond\nTriangle\nEmpty Triangle\nPin\nEmpty Pin\nArrow\nEmpty Arrow",
+      "canvasMetrics": [],
+      "elementMetrics": [
+        {
+          "tag": "SECTION",
+          "className": "gk-panel",
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "width": 560,
+            "height": 256
+          }
+        }
+      ]
+    },
+    {
+      "id": "graph-graphnodecard--default",
+      "kind": "graph-kit node card",
+      "url": "http://127.0.0.1:6206/iframe.html?id=graph-graphnodecard--default&viewMode=story",
+      "screenshot": "screenshots/graphnodecard-default.png",
+      "bodyTextSample": "Graph Node\nDocument\nsource: market-report\nstatus: indexed",
+      "canvasMetrics": [],
+      "elementMetrics": [
+        {
+          "tag": "ARTICLE",
+          "className": "gv2-node-card",
+          "rect": {
+            "x": 14,
+            "y": 14,
+            "width": 360,
+            "height": 108
+          }
+        }
+      ]
+    },
+    {
+      "id": "graph-graphtoolbar--default",
+      "kind": "graph-kit toolbar",
+      "url": "http://127.0.0.1:6206/iframe.html?id=graph-graphtoolbar--default&viewMode=story",
+      "screenshot": "screenshots/graphtoolbar-default.png",
+      "bodyTextSample": "Market Graph Controls\n刷新\n筛选\n导出",
+      "canvasMetrics": [],
+      "elementMetrics": [
+        {
+          "tag": "SECTION",
+          "className": "gk-panel",
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "width": 1408,
+            "height": 67
+          }
+        }
+      ]
+    }
+  ],
+  "threeDProbe": {
+    "id": "pages-visualization-graphpage--container-default",
+    "action": "click 3D模式 in Storybook iframe and inspect force graph canvas",
+    "status": "force3d_canvas_present_debug_api_dev_only_absent",
+    "screenshot": "screenshots/graphpage-3d-webgl-probe.png",
+    "projectionEngineValue": "force3d",
+    "forceCanvasCount": 1,
+    "forceContainerMetrics": [
+      {
+        "tag": "DIV",
+        "className": "gv2-chart gv2-chart--force3d",
+        "rect": {
+          "x": 12,
+          "y": 12,
+          "width": 1416,
+          "height": 678
+        }
+      }
+    ],
+    "debugKeys": null,
+    "canvasMetrics": [
+      {
+        "width": 1416,
+        "height": 678,
+        "rect": {
+          "x": 12,
+          "y": 12,
+          "width": 1416,
+          "height": 678
+        },
+        "dataUrlLength": 28466
+      }
+    ],
+    "bodyTextSample": "选择模式\n聚焦隐没\n回到2D\n符号调试\n固化选中\n结构化任务（0）\n刷新\n全屏\n收起面板\nforce-graph 左拖旋转；选择模式下右键节点切换一跳邻域\n视图调节\n收起\n斥力\n25.0%\n引力\n100%\n节点尺寸\n100% · 3D 8.0x\n中心化增强\n0%\n邻近数增强\n0%\n节点透明\n72%\n边粗细\n100%\n边透明\n100%\n显示标签\n已选 0\n清空\n配色调节\n收起\n色系主题\n蓝-青-紫（统一）\nBuPu（ColorBrewer）\n红橙黄蓝青绿（Spectral）\nViridis（细分）\n色差旋转\n58%\n绝对色差\n62%\n数据筛选\n收起\n开始日期\n结束日期\n州\n游戏\n数量限制\n100\n排序策略\n数据本体排序\n节点关联度排序\n文档ID排序\n中心度权重\n50%\n邻域度权重\n50%\n应用筛选\n重置\n3D引擎\nlegacy-projection\nreact-force-graph-3d\n公司\n市场\n政策\n符号调试\n可见节点 1\n类型映射 1\n回退circle 0\nMarketData\n→\nMarketData\n→\ncircle\n1\n图谱\n市场图谱\n节点总数\n2\n边总数\n1\n节点类型\n5\n已选节点\n0\n当前可见\n1 / 0"
+  },
+  "consoleEvents": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (File not found)"
+    },
+    {
+      "type": "warning",
+      "text": "THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead."
+    },
+    {
+      "type": "warning",
+      "text": "THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead."
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x12c001a9e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x12c001a9e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x12c001a9e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x12c001a9e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+    }
+  ]
+}

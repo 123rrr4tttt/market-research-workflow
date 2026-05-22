@@ -129,6 +129,6 @@ export const ShellMarket: Story = {
 export const ShellTemplateBuilder: Story = {
   render: (args) => <StorybookKernelShell moduleKey="graphBuilder" projectKey={args.projectKey} />,
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('button', { name: /编辑模式/i })).toBeInTheDocument()
+    await expect(await canvas.findByRole('button', { name: /编辑模式/i })).toBeInTheDocument()
   },
 }
