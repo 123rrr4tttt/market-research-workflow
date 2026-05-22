@@ -306,8 +306,8 @@
 
 结合当前实现，这一层已经不是“未来独立层”的纯规划状态，而是已经部分落在现有 frontdoor 编排里：
 
-- [unified_structured_extraction_service.py](/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/app/services/ingest/unified_structured_extraction_service.py)
-- [postprocess_frontdoor.py](/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/app/services/ingest/postprocess_frontdoor.py)
+- `unified_structured_extraction_service.py`（历史迁移期薄包装，当前代码树已回收）
+- [postprocess_frontdoor.py](../../../../../main/backend/app/services/ingest/postprocess_frontdoor.py)
 
 代码事实是：
 
