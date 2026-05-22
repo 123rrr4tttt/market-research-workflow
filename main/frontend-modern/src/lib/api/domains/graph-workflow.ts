@@ -9,7 +9,9 @@ import {
 } from '../client'
 import type {
   GraphConfigResponse,
+  GraphEdgeItem,
   GraphExportResponse,
+  GraphNodeItem,
   GraphResponse,
   GraphStructuredSearchRequest,
   GraphStructuredSearchResponse,
@@ -92,6 +94,57 @@ export type WorkflowGraphRunDetailResponse = {
   [key: string]: unknown
 }
 
+export type WorkflowGraphCuratedDsl = {
+  nodes: Array<GraphNodeItem & { node_id?: string; node_type?: string }>
+  edges: Array<GraphEdgeItem & { from_node_id?: string; to_node_id?: string; edge_type?: string }>
+}
+
+export type WorkflowGraphCuratedStateResponse = {
+  graph_id?: string
+  revision?: number
+  active_version_id?: string | null
+  draft?: {
+    dsl?: WorkflowGraphCuratedDsl
+    [key: string]: unknown
+  }
+  has_draft?: boolean
+  updated_at?: string | null
+  base_version?: number
+  sync_status?: string
+  in_sync?: boolean
+  server_snapshot?: {
+    dsl?: WorkflowGraphCuratedDsl
+    [key: string]: unknown
+  }
+  submit_status?: string
+  rollback_status?: string
+  audit_id?: string | null
+  draft_updated_at?: string | null
+  [key: string]: unknown
+}
+
+export type WorkflowGraphCuratedDraftPayload = {
+  dsl: WorkflowGraphCuratedDsl
+  actor_id?: string
+  user_id?: string
+  base_revision?: number
+  base_version?: number
+}
+
+export type WorkflowGraphCuratedSubmitPayload = {
+  actor_id?: string
+  user_id?: string
+  base_revision?: number
+  base_version?: number
+  object_scope?: 'curated_business_graph'
+  version_id?: string
+}
+
+export type WorkflowGraphCuratedSyncPayload = {
+  since_revision?: number
+  base_version?: number
+}
+
 export type WorkflowGraphRunEventsResponse = {
   items?: unknown[]
   total?: number
@@ -166,6 +219,22 @@ export async function replayWorkflowGraphRun(runId: string) {
 
 export async function getCompiledWorkflowGraph(graphId: string) {
   return get<Record<string, unknown>>(endpoints.workflowGraph.compiledById(graphId))
+}
+
+export async function getWorkflowGraphCuratedState(graphId: string) {
+  return get<WorkflowGraphCuratedStateResponse>(endpoints.workflowGraph.curatedById(graphId))
+}
+
+export async function saveWorkflowGraphCuratedDraft(graphId: string, payload: WorkflowGraphCuratedDraftPayload) {
+  return post<WorkflowGraphCuratedStateResponse>(endpoints.workflowGraph.curatedDraft(graphId), payload)
+}
+
+export async function submitWorkflowGraphCuratedDraft(graphId: string, payload: WorkflowGraphCuratedSubmitPayload = {}) {
+  return post<WorkflowGraphCuratedStateResponse>(endpoints.workflowGraph.curatedSubmit(graphId), payload)
+}
+
+export async function syncWorkflowGraphCuratedState(graphId: string, payload: WorkflowGraphCuratedSyncPayload = {}) {
+  return post<WorkflowGraphCuratedStateResponse>(endpoints.workflowGraph.curatedSync(graphId), payload)
 }
 
 export async function exportGraph(docIds: number[] | string) {

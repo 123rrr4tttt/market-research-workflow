@@ -1,0 +1,34 @@
+{
+  "date": "2026-05-22",
+  "worktree": "/Users/wangyiliang/market-research-workflow.worktrees/graphpage-curated-consumer",
+  "branch": "codex/devdocs-wave4-graphpage-curated-consumer",
+  "status": "passed",
+  "commands": [
+    {
+      "command": "npm --prefix main/frontend-modern run lint",
+      "status": "passed"
+    },
+    {
+      "command": "npm --prefix main/frontend-modern run test:e2e -- tests/e2e/graphpage.spec.ts -g \"graph builder submits\"",
+      "status": "passed",
+      "result": "1 passed"
+    },
+    {
+      "command": "npm --prefix main/frontend-modern run test:e2e -- tests/e2e/graphpage.spec.ts",
+      "status": "passed",
+      "result": "4 passed"
+    }
+  ],
+  "evidence": {
+    "ui_consumer": "GraphPage builder local draft editor",
+    "curated_draft_endpoint": "/api/v1/workflow-graph/curated/{graph_id}/draft",
+    "curated_submit_endpoint": "/api/v1/workflow-graph/curated/{graph_id}/submit",
+    "curated_sync_endpoint": "/api/v1/workflow-graph/curated/{graph_id}/sync",
+    "focused_e2e": "main/frontend-modern/tests/e2e/graphpage.spec.ts::graph builder submits local draft to curated workflow graph API"
+  },
+  "remaining_risks": [
+    "Full GraphPage render data-source migration is not included.",
+    "Curated submit rejects temporary node ids and cyclic graph drafts.",
+    "Reporting and writing handoff UI buttons remain out of scope."
+  ]
+}

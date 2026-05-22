@@ -3,7 +3,18 @@ import { useQuery } from '@tanstack/react-query'
 import type { EChartsType } from 'echarts/core'
 import * as THREE from 'three'
 import * as graphApi from '../lib/api'
-import { getGraphConfig, getMarketGraph, getPolicyGraph, getSocialGraph, listSourceItems, submitGraphStructuredSearchTasks } from '../lib/api'
+import {
+  getGraphConfig,
+  getMarketGraph,
+  getPolicyGraph,
+  getSocialGraph,
+  listSourceItems,
+  saveWorkflowGraphCuratedDraft,
+  submitGraphStructuredSearchTasks,
+  submitWorkflowGraphCuratedDraft,
+  syncWorkflowGraphCuratedState,
+} from '../lib/api'
+import type { WorkflowGraphCuratedDsl, WorkflowGraphCuratedStateResponse } from '../lib/api'
 import type {
   GraphEdgeItem,
   GraphNodeItem,
@@ -825,6 +836,108 @@ function parseCommaSeparated(value: string) {
     .filter(Boolean)
 }
 
+function buildDefaultCuratedGraphId(projectKey: string, graphKind: GraphKind) {
+  const raw = `graphpage-${projectKey || 'default'}-${graphKind || 'market'}`
+  return raw.replace(/[^a-zA-Z0-9_.:-]+/g, '-').replace(/^-+|-+$/g, '') || 'graphpage-market'
+}
+
+function curatedNodeId(node: GraphNodeItem) {
+  return String(node.node_id || node.id || node.key || '').trim()
+}
+
+function curatedNodeType(node: GraphNodeItem) {
+  return String(node.node_type || node.type || '').trim() || 'Entity'
+}
+
+function curatedRefId(ref: GraphEdgeItem['from'] | GraphEdgeItem['to']) {
+  if (!ref) return ''
+  const row = ref as Record<string, unknown>
+  return String(row.node_id || row.id || row.key || '').trim()
+}
+
+function curatedEdgeType(edge: GraphEdgeItem) {
+  return String(edge.edge_type || edge.type || edge.predicate || '').trim() || 'RELATED_TO'
+}
+
+function readOptionalString(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = String(row[key] || '').trim()
+    if (value) return value
+  }
+  return ''
+}
+
+function buildCuratedWorkflowGraphDsl(nodes: GraphNodeItem[], edges: GraphEdgeItem[]): WorkflowGraphCuratedDsl {
+  const nodeById = new Map<string, { node_id: string; node_type: string }>()
+  const normalizedNodes = nodes
+    .map((node) => {
+      const row = node as Record<string, unknown>
+      const node_id = curatedNodeId(node)
+      if (!node_id) return null
+      const node_type = curatedNodeType(node)
+      const title = readOptionalString(row, ['title', 'name', 'label', 'text', 'canonical_name']) || node_id
+      const name = readOptionalString(row, ['name', 'title', 'label', 'text', 'canonical_name']) || title
+      const summary = readOptionalString(row, ['summary', 'description', 'text'])
+      const source_uri = readOptionalString(row, ['source_uri', 'uri', 'url'])
+      const provenance = row.provenance && typeof row.provenance === 'object'
+        ? row.provenance as Record<string, unknown>
+        : {}
+      nodeById.set(node_id, { node_id, node_type })
+      return {
+        id: node_id,
+        type: node_type,
+        node_id,
+        node_type,
+        title,
+        name,
+        ...(summary ? { summary } : {}),
+        ...(source_uri ? { source_uri } : {}),
+        provenance,
+      }
+    })
+    .filter((node): node is WorkflowGraphCuratedDsl['nodes'][number] => Boolean(node))
+
+  const edgeByKey = new Map<string, WorkflowGraphCuratedDsl['edges'][number]>()
+  edges.forEach((edge) => {
+    const from_node_id = String(edge.from_node_id || curatedRefId(edge.from)).trim()
+    const to_node_id = String(edge.to_node_id || curatedRefId(edge.to)).trim()
+    if (!from_node_id || !to_node_id || !nodeById.has(from_node_id) || !nodeById.has(to_node_id)) return
+    const edge_type = curatedEdgeType(edge)
+    const key = `${from_node_id}>${to_node_id}|${edge_type}`
+    if (edgeByKey.has(key)) return
+    const fromNode = nodeById.get(from_node_id)
+    const toNode = nodeById.get(to_node_id)
+    edgeByKey.set(key, {
+      from_node_id,
+      to_node_id,
+      edge_type,
+      type: edge_type,
+      predicate: String(edge.predicate || edge_type),
+      from: { id: from_node_id, type: fromNode?.node_type || String(edge.from?.type || '') || 'Entity' },
+      to: { id: to_node_id, type: toNode?.node_type || String(edge.to?.type || '') || 'Entity' },
+      ...(edge.evidence ? { evidence: String(edge.evidence) } : {}),
+      ...(edge.confidence != null ? { confidence: edge.confidence } : {}),
+    })
+  })
+
+  return {
+    nodes: normalizedNodes,
+    edges: Array.from(edgeByKey.values()),
+  }
+}
+
+function temporaryCuratedNodeIds(dsl: WorkflowGraphCuratedDsl) {
+  return dsl.nodes
+    .map((node) => String(node.node_id || node.id || '').trim())
+    .filter((id) => /^(draft|tmp|temp)-/i.test(id))
+}
+
+function snapshotDslFromCuratedState(state: WorkflowGraphCuratedStateResponse) {
+  const snapshot = state.server_snapshot?.dsl || state.draft?.dsl
+  if (!snapshot || !Array.isArray(snapshot.nodes) || !Array.isArray(snapshot.edges)) return null
+  return snapshot
+}
+
 function mergeGraphPayloads(payloads: Array<{ nodes?: GraphNodeItem[]; edges?: GraphEdgeItem[] }>) {
   const nodeMap = new Map<string, GraphNodeItem>()
   const edgeMap = new Map<string, GraphEdgeItem>()
@@ -999,6 +1112,7 @@ const SPECIAL_PREFIX_BY_KIND: Partial<Record<GraphKind, string>> = {
 
 export default function GraphPage({ projectKey, variant, templateBuilder = false }: Props) {
   const graphKind = TYPE_TO_KIND[variant]
+  const defaultCuratedGraphId = useMemo(() => buildDefaultCuratedGraphId(projectKey, graphKind), [projectKey, graphKind])
   const chartRef = useRef<HTMLDivElement | null>(null)
   const forceChartRef = useRef<HTMLDivElement | null>(null)
   const fullscreenWrapRef = useRef<HTMLDivElement | null>(null)
@@ -1075,6 +1189,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   })
   const [editMode, setEditMode] = useState(false)
   const [graphEditStatus, setGraphEditStatus] = useState('')
+  const [curatedGraphId, setCuratedGraphId] = useState(defaultCuratedGraphId)
+  const [curatedBusy, setCuratedBusy] = useState(false)
+  const [curatedRevision, setCuratedRevision] = useState<number | null>(null)
+  const [curatedStatus, setCuratedStatus] = useState('')
   const [newNodeType, setNewNodeType] = useState('Entity')
   const [newNodeName, setNewNodeName] = useState('')
   const [edgeDraft, setEdgeDraft] = useState({ sourceKey: '', targetKey: '', relation: '' })
@@ -1947,6 +2065,122 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   useEffect(() => {
     if (templateBuilder) setEditMode(true)
   }, [templateBuilder])
+
+  useEffect(() => {
+    setCuratedGraphId((prev) => (prev.trim() ? prev : defaultCuratedGraphId))
+  }, [defaultCuratedGraphId])
+
+  const applyCuratedState = useCallback((state: WorkflowGraphCuratedStateResponse, fallbackLabel: string) => {
+    if (typeof state.revision === 'number') setCuratedRevision(state.revision)
+    const status = String(state.sync_status || state.submit_status || state.rollback_status || fallbackLabel)
+    const revision = typeof state.revision === 'number' ? ` r${state.revision}` : ''
+    const version = state.active_version_id ? ` ${state.active_version_id}` : ''
+    setCuratedStatus(`${status}${revision}${version}`)
+  }, [])
+
+  const handleSyncCuratedGraph = useCallback(async () => {
+    const graphId = curatedGraphId.trim()
+    if (!graphId) {
+      window.alert('请填写 Curated graph_id')
+      return
+    }
+    setCuratedBusy(true)
+    try {
+      const state = await syncWorkflowGraphCuratedState(
+        graphId,
+        curatedRevision == null ? {} : { since_revision: curatedRevision },
+      )
+      const snapshot = snapshotDslFromCuratedState(state)
+      if (snapshot) {
+        replaceDraft(snapshot.nodes as GraphNodeItem[], snapshot.edges as GraphEdgeItem[], { markAsDirty: false })
+      }
+      applyCuratedState(state, 'synced')
+      setGraphEditStatus(`Curated 已同步: ${graphId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '同步失败'
+      setCuratedStatus(`sync_failed: ${message}`)
+      setGraphEditStatus(`Curated 同步失败: ${message}`)
+      window.alert(`Curated 同步失败: ${message}`)
+    } finally {
+      setCuratedBusy(false)
+    }
+  }, [curatedGraphId, curatedRevision, replaceDraft, applyCuratedState])
+
+  const handleSaveCuratedDraft = useCallback(async () => {
+    const graphId = curatedGraphId.trim()
+    if (!graphId) {
+      window.alert('请填写 Curated graph_id')
+      return
+    }
+    const dsl = buildCuratedWorkflowGraphDsl(draftNodes, draftEdges)
+    if (!dsl.nodes.length) {
+      window.alert('当前草稿没有可提交节点')
+      return
+    }
+    setCuratedBusy(true)
+    try {
+      const state = await saveWorkflowGraphCuratedDraft(graphId, {
+        dsl,
+        actor_id: 'graphpage.curated-consumer',
+        ...(curatedRevision == null ? {} : { base_revision: curatedRevision }),
+      })
+      applyCuratedState(state, 'draft_saved')
+      markDraftSaved()
+      setGraphEditStatus(`Curated draft 已保存: ${graphId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '保存失败'
+      setCuratedStatus(`draft_failed: ${message}`)
+      setGraphEditStatus(`Curated draft 保存失败: ${message}`)
+      window.alert(`Curated draft 保存失败: ${message}`)
+    } finally {
+      setCuratedBusy(false)
+    }
+  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved])
+
+  const handleSubmitCuratedGraph = useCallback(async () => {
+    const graphId = curatedGraphId.trim()
+    if (!graphId) {
+      window.alert('请填写 Curated graph_id')
+      return
+    }
+    const dsl = buildCuratedWorkflowGraphDsl(draftNodes, draftEdges)
+    if (!dsl.nodes.length) {
+      window.alert('当前草稿没有可提交节点')
+      return
+    }
+    const temporaryIds = temporaryCuratedNodeIds(dsl)
+    if (temporaryIds.length) {
+      const sample = temporaryIds.slice(0, 3).join(', ')
+      const message = `提交前需要把临时节点 id 改成稳定 id: ${sample}`
+      setCuratedStatus(`submit_blocked: ${message}`)
+      window.alert(message)
+      return
+    }
+    setCuratedBusy(true)
+    try {
+      const draftState = await saveWorkflowGraphCuratedDraft(graphId, {
+        dsl,
+        actor_id: 'graphpage.curated-consumer',
+        ...(curatedRevision == null ? {} : { base_revision: curatedRevision }),
+      })
+      const nextBaseRevision = typeof draftState.revision === 'number' ? draftState.revision : curatedRevision ?? undefined
+      const submittedState = await submitWorkflowGraphCuratedDraft(graphId, {
+        actor_id: 'graphpage.curated-consumer',
+        object_scope: 'curated_business_graph',
+        ...(nextBaseRevision == null ? {} : { base_revision: nextBaseRevision }),
+      })
+      applyCuratedState(submittedState, 'submitted')
+      markDraftSaved()
+      setGraphEditStatus(`Curated graph 已提交: ${graphId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '提交失败'
+      setCuratedStatus(`submit_failed: ${message}`)
+      setGraphEditStatus(`Curated graph 提交失败: ${message}`)
+      window.alert(`Curated graph 提交失败: ${message}`)
+    } finally {
+      setCuratedBusy(false)
+    }
+  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved])
 
   const selectedExportPayload = useMemo(() => {
     const scopedTopicFocus = graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
@@ -4554,6 +4788,46 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       >
                         放弃本地修改
                       </button>
+                    </div>
+                    <label className="gv2-control-chip" data-testid="graph-curated-panel">
+                      Curated graph_id
+                      <input
+                        data-testid="graph-curated-graph-id"
+                        value={curatedGraphId}
+                        onChange={(e) => setCuratedGraphId(e.target.value)}
+                        disabled={!editMode || curatedBusy}
+                      />
+                    </label>
+                    <div className="gv2-control-chip">
+                      <button
+                        type="button"
+                        data-testid="graph-curated-save-draft"
+                        onClick={() => void handleSaveCuratedDraft()}
+                        disabled={!editMode || curatedBusy || !draftNodes.length}
+                      >
+                        保存 Curated Draft
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        data-testid="graph-curated-submit"
+                        onClick={() => void handleSubmitCuratedGraph()}
+                        disabled={!editMode || curatedBusy || !draftNodes.length}
+                      >
+                        提交 Curated Graph
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        data-testid="graph-curated-sync"
+                        onClick={() => void handleSyncCuratedGraph()}
+                        disabled={!editMode || curatedBusy}
+                      >
+                        同步 Curated
+                      </button>
+                    </div>
+                    <div className="status-line" data-testid="graph-curated-status">
+                      {curatedBusy ? 'Curated API 调用中...' : (curatedStatus || 'Curated API：就绪')}
                     </div>
                     <label className="gv2-control-chip">
                       新节点类型

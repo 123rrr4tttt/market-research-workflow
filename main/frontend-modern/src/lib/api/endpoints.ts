@@ -156,6 +156,10 @@ export const endpoints = {
     runEvents: (runId: string) => `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}/events`,
     runReplay: (runId: string) => `${API_BASE}/workflow-graph/runs/${encodeURIComponent(runId)}/replay`,
     compiledById: (graphId: string) => `${API_BASE}/workflow-graph/compiled/${encodeURIComponent(graphId)}`,
+    curatedById: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}`,
+    curatedDraft: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/draft`,
+    curatedSubmit: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/submit`,
+    curatedSync: (graphId: string) => `${API_BASE}/workflow-graph/curated/${encodeURIComponent(graphId)}/sync`,
     templates: `${API_BASE}/workflow-graph/templates`,
     templateById: (templateId: string) => `${API_BASE}/workflow-graph/templates/${encodeURIComponent(templateId)}`,
     templateVersions: (templateId: string) =>
