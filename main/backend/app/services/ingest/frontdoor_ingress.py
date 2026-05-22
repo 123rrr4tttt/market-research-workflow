@@ -64,6 +64,8 @@ def build_source_library_ingress_envelope(
 ) -> dict[str, Any]:
     item = terminal_output.get("item") if isinstance(terminal_output.get("item"), dict) else {}
     meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
+    provider_handoff = meta.get("provider_handoff") if isinstance(meta.get("provider_handoff"), dict) else None
+    route_profile = meta.get("frontdoor_route_profile") if isinstance(meta.get("frontdoor_route_profile"), dict) else None
     external_manifest = item.get("external_manifest") if isinstance(item.get("external_manifest"), dict) else {}
     records = ((terminal_output.get("results") or {}).get("records") if isinstance(terminal_output.get("results"), dict) else [])
     source_artifacts = _collect_source_artifacts(records)
@@ -82,11 +84,19 @@ def build_source_library_ingress_envelope(
             "source_kind": external_manifest.get("source_kind"),
             "execution_mode": external_manifest.get("execution_mode"),
             "runner_ref": external_manifest.get("runner_ref"),
+            "provider_type": (provider_handoff or {}).get("provider_type"),
+            "provider_job_id": (provider_handoff or {}).get("provider_job_id"),
+            "provider_dispatch": (provider_handoff or {}).get("provider_dispatch"),
+            "frontdoor_route_hint": (route_profile or provider_handoff or {}).get("route_hint"),
+            "fetch_strategy": (route_profile or provider_handoff or {}).get("fetch_strategy"),
+            "render_required": True if bool((route_profile or provider_handoff or {}).get("render_required")) else None,
         },
         collection_payload={
             "terminal_output": dict(terminal_output or {}),
             "records": list(records or []),
             "source_artifacts": source_artifacts,
+            "provider_handoff": dict(provider_handoff or {}) if provider_handoff else None,
+            "frontdoor_route_profile": dict(route_profile or {}) if route_profile else None,
             "legacy_result": dict(legacy_result or {}) if isinstance(legacy_result, dict) else None,
             "dispatch_plan": {
                 "run_extraction": False,

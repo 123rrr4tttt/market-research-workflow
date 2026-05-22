@@ -1,0 +1,73 @@
+{
+  "assertions": {
+    "authority_provider_summary": true,
+    "frontdoor_browser_route": true,
+    "frontdoor_provider_dispatch": true,
+    "terminal_handoff_contract": true,
+    "terminal_provider_job_id": true
+  },
+  "contract_version": "crawler_provider_handoff.check.v1",
+  "handoff": {
+    "authority_summary": {
+      "channel_key": "crawler.demo_proj",
+      "fetch_strategy": "browser_render",
+      "handoff_kind": "crawler_provider",
+      "present": true,
+      "provider": "crawler",
+      "provider_dispatch": "crawlers/providers",
+      "provider_job_id": "job-high-js-1",
+      "provider_status": "queued",
+      "provider_type": "scrapy",
+      "render_required": true,
+      "route_hint": "crawler_browse",
+      "source": "terminal_output.meta.provider_handoff"
+    },
+    "frontdoor_source_ref": {
+      "domain": "x.com",
+      "entrypoint": "ingest.source_library.run",
+      "fetch_strategy": "browser_render",
+      "frontdoor_route_hint": "crawler_browse",
+      "ingress_type": "source_library",
+      "item_key": "handler.cluster.high_js",
+      "locator": "handler.cluster.high_js",
+      "project_key": "demo_proj",
+      "provider_dispatch": "crawlers/providers",
+      "provider_job_id": "job-high-js-1",
+      "provider_type": "scrapy",
+      "render_required": "True",
+      "source_mode": "url_execution",
+      "url": "https://x.com/search?q=robotics"
+    },
+    "terminal": {
+      "attempt_count": 1,
+      "channel_key": "crawler.demo_proj",
+      "contract_version": "source_library.provider_handoff.v1",
+      "downstream_handoff": "ingest",
+      "execution_layer": "terminal_output_only",
+      "fetch_strategy": "browser_render",
+      "force_url_routing_flow": false,
+      "frontdoor_route_profile": {
+        "contract_version": "ingest.frontdoor_route_profile.v1",
+        "domain": "x.com",
+        "fallback_fetch_strategy": "http_fetch",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "prefer_crawler": true,
+        "prefer_search_shell": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "search_like": true
+      },
+      "handoff_kind": "crawler_provider",
+      "prefer_crawler_first": true,
+      "provider": "crawler",
+      "provider_dispatch": "crawlers/providers",
+      "provider_job_id": "job-high-js-1",
+      "provider_status": "queued",
+      "provider_type": "scrapy",
+      "render_required": true,
+      "route_hint": "crawler_browse"
+    }
+  },
+  "status": "passed"
+}

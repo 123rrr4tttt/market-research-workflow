@@ -104,6 +104,14 @@ ANCHORS: dict[str, Anchor] = {
         Path("development/latest-dev-docs/automation-runs/ingest-frontdoor-closure/2026-05-22/README.md"),
         ("source_library.resolver.run_item_with_url_routing", "partial"),
     ),
+    "crawler_provider_handoff_evidence": Anchor(
+        Path("development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/README.md"),
+        ("Provider Handoff Contract", "High-JS/browser handoff", "source_library.provider_handoff.v1"),
+    ),
+    "crawler_provider_handoff_script": Anchor(
+        Path("main/backend/scripts/check_crawler_provider_handoff_contract.py"),
+        ("CONTRACT_VERSION", "PROVIDER_HANDOFF_CONTRACT_VERSION", "def build_check"),
+    ),
     "test_source_tiering": Anchor(
         Path("main/backend/tests/unit/test_source_library_resolver_unittest.py"),
         ("attaches_source_tiering_contract", "injects_channel_source_tiering_into_protocol"),
@@ -114,7 +122,11 @@ ANCHORS: dict[str, Anchor] = {
     ),
     "test_collect_adapter": Anchor(
         Path("main/backend/tests/unit/test_collect_runtime_source_library_adapter_unittest.py"),
-        ("authority_output", "frontdoor_ingress"),
+        ("authority_output", "frontdoor_ingress", "preserves_provider_handoff_contract"),
+    ),
+    "test_provider_handoff": Anchor(
+        Path("main/backend/tests/unit/test_source_library_resolver_unittest.py"),
+        ("high_js_browser_route_hands_off_to_crawler_provider_with_trace", "source_library.provider_handoff.v1"),
     ),
     "test_crawler_bridge": Anchor(
         Path("main/backend/tests/unit/test_crawler_management_bridge_unittest.py"),
@@ -220,7 +232,10 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "collect_runtime_contracts",
         "source_library_resolver",
         "ingest_frontdoor_evidence",
+        "crawler_provider_handoff_evidence",
+        "crawler_provider_handoff_script",
         "test_collect_adapter",
+        "test_provider_handoff",
     ]
     a7_keys = ["wave6_closure_doc", "test_clue_chain_source_expansion", "clue_chain_source_expansion"]
 
@@ -273,11 +288,11 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         _task(
             "A6",
             "Freeze minimum source-to-ingest handoff contract",
-            "needs_update" if _passed(anchor_results, a6_keys) else "not_closed",
+            "closed" if _passed(anchor_results, a6_keys) else "needs_update",
             a6_keys,
             anchor_results,
-            "Source-library terminal/authority output and frontdoor ingress mapping exist with focused unit coverage.",
-            "Provider-specific crawler and high-JS/browser handoff closure remains broader than this evidence.",
+            "Source-library terminal/authority output, frontdoor ingress, provider-specific crawler dispatch, and high-JS/browser route handoff now have focused contract coverage.",
+            "" if _passed(anchor_results, a6_keys) else "Provider-specific crawler or high-JS/browser handoff evidence is missing.",
         ),
         _task(
             "A7",
@@ -318,7 +333,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             "Keep A1-A3 as evidence-closed and update only topic-local documentation until integration.",
             "Close A4 by pinning a source-layer allow/downgrade/block matrix to existing resolver/probe enforcement points.",
             "Close A5 only after an opt-in 45-site public replay records pass/fail/anti-bot/relevance-review outcomes.",
-            "Close A6 after crawler/provider-specific handoff cases are covered by focused source_library/ingest tests.",
+            "Keep A6 as evidence-closed after focused crawler/provider-specific handoff tests and Wave7 evidence stay green.",
             "Update shared navigation only in a later integration lane.",
         ],
         "protected_shared_indexes": PROTECTED_SHARED_INDEXES,

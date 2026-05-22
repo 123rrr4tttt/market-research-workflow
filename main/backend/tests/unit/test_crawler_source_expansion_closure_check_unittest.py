@@ -33,7 +33,7 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         self.assertEqual(statuses["A3"], "closed")
         self.assertEqual(statuses["A4"], "needs_update")
         self.assertEqual(statuses["A5"], "not_closed")
-        self.assertEqual(statuses["A6"], "needs_update")
+        self.assertEqual(statuses["A6"], "closed")
         self.assertEqual(statuses["A7"], "not_closed")
 
     def test_closure_check_keeps_shared_navigation_out_of_this_lane(self) -> None:

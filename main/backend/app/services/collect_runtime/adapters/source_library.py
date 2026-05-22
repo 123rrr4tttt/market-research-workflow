@@ -202,6 +202,17 @@ def build_source_library_authority_output(
     legacy_result: dict[str, Any],
 ) -> dict[str, Any]:
     terminal_results = terminal_output.get("results") if isinstance(terminal_output.get("results"), dict) else {}
+    terminal_meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
+    provider_handoff = (
+        terminal_meta.get("provider_handoff")
+        if isinstance(terminal_meta.get("provider_handoff"), dict)
+        else {}
+    )
+    route_profile = (
+        terminal_meta.get("frontdoor_route_profile")
+        if isinstance(terminal_meta.get("frontdoor_route_profile"), dict)
+        else {}
+    )
     record_stats = terminal_results.get("stats") if isinstance(terminal_results.get("stats"), dict) else {}
     postprocess_data = (
         postprocess_frontdoor.get("data") if isinstance(postprocess_frontdoor.get("data"), dict) else {}
@@ -247,6 +258,20 @@ def build_source_library_authority_output(
                 "run_writer": bool(dispatch_plan.get("run_writer")),
                 "writer_result": postprocess_data.get("writer_result"),
                 "source": "postprocess_frontdoor.data",
+            },
+            "provider_handoff": {
+                "present": bool(provider_handoff),
+                "handoff_kind": provider_handoff.get("handoff_kind"),
+                "channel_key": provider_handoff.get("channel_key"),
+                "provider": provider_handoff.get("provider"),
+                "provider_type": provider_handoff.get("provider_type"),
+                "provider_dispatch": provider_handoff.get("provider_dispatch"),
+                "provider_job_id": provider_handoff.get("provider_job_id"),
+                "provider_status": provider_handoff.get("provider_status"),
+                "route_hint": route_profile.get("route_hint") or provider_handoff.get("route_hint"),
+                "fetch_strategy": route_profile.get("fetch_strategy") or provider_handoff.get("fetch_strategy"),
+                "render_required": bool(route_profile.get("render_required") or provider_handoff.get("render_required")),
+                "source": "terminal_output.meta.provider_handoff",
             },
             "write_effects": {
                 "inserted": write_inserted,
