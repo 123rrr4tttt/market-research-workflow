@@ -37,6 +37,10 @@
 - Search provider trace 离线 artifact 合同（2026-05-22）：
   - [automation-runs/search-provider-trace-artifacts/2026-05-22/README.md](./automation-runs/search-provider-trace-artifacts/2026-05-22/README.md)
   - [development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/10_search-provider-trace-contract-closure-replay-2026-05-22.md](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/10_search-provider-trace-contract-closure-replay-2026-05-22.md)
+- Source library real probes 证据包（2026-05-22）：
+  - [automation-runs/source-library-real-probes/2026-05-22/README.md](./automation-runs/source-library-real-probes/2026-05-22/README.md)
+- `backend-docs` 新增当前 OpenAPI schema surface inventory 与合同测试防漂移（2026-05-22）：
+  - [backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern` 补齐标准文档入口（2026-05-22）：
   - [frontend-modern/INDEX.md](./frontend-modern/INDEX.md)
   - [frontend-modern/main/MERGED_FRONTEND_MODERN.md](./frontend-modern/main/MERGED_FRONTEND_MODERN.md)

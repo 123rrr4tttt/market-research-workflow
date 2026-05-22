@@ -27,6 +27,9 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Storybook / Launcher Gates Evidence](./automation-runs/storybook-launcher-gates/2026-05-22/README.md)
   - [2026-05-22 Development Docs Folder Audit And Landing Report](./automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
   - [2026-05-22 Search Provider Trace Offline Artifact Contract](./automation-runs/search-provider-trace-artifacts/2026-05-22/README.md)
+  - [2026-05-22 Source Library Real Probes](./automation-runs/source-library-real-probes/2026-05-22/README.md)
+- `backend-docs`：
+  - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：
   - [2026-05-22 frontend-modern standard docs entry](./frontend-modern/INDEX.md)
 - `development-plans`：

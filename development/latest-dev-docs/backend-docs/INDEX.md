@@ -11,6 +11,7 @@
 - [`B_API/`](./B_API/)
 - [`B_API/INDEX.md`](./B_API/INDEX.md)
 - [`B_API/API_ROUTE_MAP_2026-05-22.md`](./B_API/API_ROUTE_MAP_2026-05-22.md) - current backend API route map
+- [`B_API/API_SCHEMA_INVENTORY_2026-05-22.md`](./B_API/API_SCHEMA_INVENTORY_2026-05-22.md) - current backend OpenAPI schema surface inventory
 - [`C_INGEST/`](./C_INGEST/)
 - [`D_TEST/`](./D_TEST/)
 - [`E_OPS/`](./E_OPS/)

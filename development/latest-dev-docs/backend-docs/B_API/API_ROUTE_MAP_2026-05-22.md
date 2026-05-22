@@ -464,6 +464,6 @@ Line numbers are source line numbers from the current worktree and should be tre
 
 ## Follow-Up Contract Work
 
-1. If a frontend lane consumes this route map, generate OpenAPI or typed clients from the running FastAPI app instead of copying tables by hand.
-2. Re-check envelope consistency for expanded modules before declaring `API_CONTRACT_STANDARD.md` fully current; this route map proves route existence only.
-3. Keep historical snapshots in `B_API/` but point new planning work to this file or a newer generated route map.
+1. If a frontend lane consumes this route map, use `API_SCHEMA_INVENTORY_2026-05-22.md` or generate OpenAPI / typed clients from the running FastAPI app instead of copying tables by hand.
+2. Re-check envelope consistency for expanded modules before declaring `API_CONTRACT_STANDARD.md` fully current; this route map plus the schema inventory prove advertised route/schema surface, not every runtime response shape.
+3. Keep historical snapshots in `B_API/` but point new planning work to this file, `API_SCHEMA_INVENTORY_2026-05-22.md`, or a newer generated inventory.
