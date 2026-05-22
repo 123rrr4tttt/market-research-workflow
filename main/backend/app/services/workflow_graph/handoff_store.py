@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from .governance_contract import build_handoff_audit_record
 from .store import InMemoryRunStore, SqlRunStore, build_run_store
 
 HANDOFF_CONTRACT_VERSION = "workflow_graph.handoff.v1"
@@ -43,10 +44,21 @@ class WorkflowGraphHandoffStore:
     def persist(self, *, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         envelope = _normalize_handoff_payload(graph_id=graph_id, payload=payload)
         self._ensure_run_exists(envelope.run_id, graph_id)
+        event_payload = envelope.to_dict()
+        event_payload["audit"] = build_handoff_audit_record(
+            action="handoff.persisted",
+            graph_id=envelope.graph_id,
+            run_id=envelope.run_id,
+            handoff_id=envelope.handoff_id,
+            handoff_mode=envelope.handoff_mode,
+            producer=envelope.producer,
+            consumer=envelope.consumer,
+            evidence_pack=envelope.evidence_pack,
+        )
         event = self._store.append_event(
             envelope.run_id,
             event_type="handoff.persisted",
-            payload=envelope.to_dict(),
+            payload=event_payload,
         )
         return {
             "contract_version": HANDOFF_CONTRACT_VERSION,
@@ -54,6 +66,8 @@ class WorkflowGraphHandoffStore:
             "handoff_id": envelope.handoff_id,
             "event_seq": event.get("seq"),
             "event_type": event.get("type"),
+            "audit_id": event_payload["audit"].get("audit_id"),
+            "audit_contract_version": event_payload["audit"].get("contract_version"),
             "backend_marker": "workflow_graph.run_store",
         }
 
@@ -120,6 +134,22 @@ class WorkflowGraphHandoffStore:
                 "run_id": resolved_run_id,
                 "handoff_id": resolved_handoff_id,
                 "contract_version": HANDOFF_CONTRACT_VERSION,
+                "audit": build_handoff_audit_record(
+                    action="handoff.replayed",
+                    graph_id=str(current_payload.get("graph_id") or "unknown"),
+                    run_id=resolved_run_id,
+                    handoff_id=resolved_handoff_id,
+                    handoff_mode=str(current_payload.get("handoff_mode") or "pull_prepared_evidence"),
+                    producer=str(
+                        current_payload.get("producer")
+                        or current_payload.get("owner")
+                        or "workflow_graph.backend_bridge"
+                    ),
+                    consumer=str(current_payload.get("consumer") or "unknown"),
+                    evidence_pack=current_payload.get("evidence_pack")
+                    if isinstance(current_payload.get("evidence_pack"), Mapping)
+                    else {},
+                ),
             },
         )
         matched.append(replay_event)
