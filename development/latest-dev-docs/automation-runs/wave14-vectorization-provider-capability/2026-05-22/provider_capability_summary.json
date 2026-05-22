@@ -1,0 +1,194 @@
+{
+  "assertions": [
+    "local capability is limited to deterministic local-index mode contract and recorded evidence",
+    "external provider gap is explicit and blocks closure",
+    "provider=auto promotion remains disallowed for local open-search providers",
+    "closure_claim_allowed=false"
+  ],
+  "capability_state": "partial",
+  "closure_claim_allowed": false,
+  "contract_version": "wave14-vectorization-provider-capability.v1",
+  "external_provider_gap": {
+    "embedding_provider_branches": [
+      {
+        "config_required": [
+          "OPENAI_API_KEY"
+        ],
+        "live_verified_by_gate": false,
+        "provider": "openai"
+      },
+      {
+        "config_required": [
+          "AZURE_API_BASE",
+          "AZURE_API_KEY",
+          "AZURE_API_VERSION",
+          "AZURE_EMBEDDING_DEPLOYMENT"
+        ],
+        "live_verified_by_gate": false,
+        "provider": "azure"
+      },
+      {
+        "config_required": [
+          "OLLAMA_BASE_URL"
+        ],
+        "live_verified_by_gate": false,
+        "provider": "ollama"
+      },
+      {
+        "config_required": [
+          "LITELLM_API_BASE",
+          "LITELLM_API_KEY"
+        ],
+        "live_verified_by_gate": false,
+        "provider": "litellm"
+      }
+    ],
+    "external_provider_sealed": false,
+    "gap_codes": [
+      "external_embedding_provider_live_not_verified",
+      "provider_auto_promotion_not_allowed",
+      "local_open_search_live_quality_not_sealed",
+      "semantic_embedding_quality_not_proven",
+      "oss_node_platform_io_sla_not_closed"
+    ],
+    "local_open_search_providers": {
+      "searxng": {
+        "auto_route_excluded": true,
+        "current_live_fallback_reason": "ConnectError",
+        "current_live_probe_status": "unavailable",
+        "current_live_result_count": 0,
+        "external_provider_claim_allowed": false,
+        "provider": "searxng",
+        "provider_auto_included": false,
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:searxng",
+        "recorded_trace_status": "passed"
+      },
+      "yacy": {
+        "auto_route_excluded": true,
+        "current_live_fallback_reason": "ConnectError",
+        "current_live_probe_status": "unavailable",
+        "current_live_result_count": 0,
+        "external_provider_claim_allowed": false,
+        "provider": "yacy",
+        "provider_auto_included": false,
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:yacy",
+        "recorded_trace_status": "passed"
+      }
+    },
+    "provider_auto_promotion_allowed": false,
+    "required_next_evidence": [
+      "live external embedding provider probes with configured credentials or local model endpoint",
+      "fresh SearXNG/YaCy replay with quality, latency, timeout, and approval-gate thresholds before provider=auto promotion",
+      "embedding model/version/provenance contract plus production-like semantic relevance benchmark",
+      "OSS node IO replay that propagates provider live status, fallback metadata, unsupported claims, and closure_claim_allowed=false"
+    ],
+    "unsupported_claim_codes": [
+      "current_local_index_live_quality_not_closed",
+      "current_provider_live_quality_not_closed",
+      "oss_node_platform_io_not_closed",
+      "provider_auto_quality_not_closed",
+      "semantic_embedding_quality_not_closed"
+    ]
+  },
+  "failures": [],
+  "gate_semantics": {
+    "status_passed_does_not_mean": "external embedding providers, SearXNG/YaCy live quality, provider=auto promotion, semantic quality, or OSS node SLA are sealed",
+    "status_passed_means": "repo-controlled local capability contract, recorded evidence, and external gap reporting are valid"
+  },
+  "generated_by": "main/backend/scripts/check_wave14_vectorization_provider_capability.py",
+  "inputs": {
+    "wave10_contract": "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json",
+    "wave12_provider_readiness": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json"
+  },
+  "local_capability": {
+    "claim_scope": "local_repo_controlled_vectorization_contract_only",
+    "current_runtime_import": {
+      "lancedb": false,
+      "live_runtime_ready": false,
+      "pyarrow": false
+    },
+    "deterministic_vector_provider": {
+      "available": true,
+      "dimensions": 8,
+      "external_dependency": false,
+      "production_embedding_provider": false,
+      "provider": "repo_deterministic_hash_vector",
+      "semantic_quality_claim_allowed": false
+    },
+    "local_capability_claim_allowed": true,
+    "mode_contract_exported": true,
+    "modes": {
+      "hybrid": {
+        "current_live_fallback_reason": "missing_optional_dependency",
+        "current_live_probe_status": "blocked",
+        "fallback_reason": "RuntimeError",
+        "fallback_visible": true,
+        "mode": "hybrid",
+        "recorded_benchmark_available": true,
+        "recorded_runtime_available": true
+      },
+      "keyword": {
+        "current_live_fallback_reason": "missing_optional_dependency",
+        "current_live_probe_status": "blocked",
+        "fallback_reason": null,
+        "fallback_visible": true,
+        "mode": "keyword",
+        "recorded_benchmark_available": true,
+        "recorded_runtime_available": true
+      },
+      "vector": {
+        "current_live_fallback_reason": "missing_optional_dependency",
+        "current_live_probe_status": "blocked",
+        "fallback_reason": "RuntimeError",
+        "fallback_visible": true,
+        "mode": "vector",
+        "recorded_benchmark_available": true,
+        "recorded_runtime_available": true
+      }
+    },
+    "semantic_quality_claim_allowed": false,
+    "status": "passed",
+    "supported_modes": [
+      "keyword",
+      "vector",
+      "hybrid"
+    ]
+  },
+  "oss_node_platform_io": {
+    "can_consume_local_fields": [
+      "retrieval_mode",
+      "retrieval_family",
+      "trace.requested_mode",
+      "trace.executed_mode",
+      "trace.project_id",
+      "trace.source_id",
+      "trace.top_k"
+    ],
+    "closure_claim_allowed": false,
+    "must_propagate_gap_fields": [
+      "trace.fallback_from",
+      "trace.fallback_reason",
+      "provider_auto_included=false",
+      "unsupported_claim_codes",
+      "closure_claim_allowed=false"
+    ]
+  },
+  "scope": "deterministic_repo_contract_no_network_no_container_start_no_external_provider_seal",
+  "status": "passed",
+  "target_topics": [
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation"
+    }
+  ]
+}
