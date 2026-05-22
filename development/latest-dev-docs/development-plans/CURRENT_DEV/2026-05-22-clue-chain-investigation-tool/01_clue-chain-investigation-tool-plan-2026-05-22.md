@@ -1,7 +1,7 @@
 # Clue Chain Investigation Tool Plan
 
 Date: 2026-05-22
-Status: `not_closed` / `executing` / Wave5 implementation in progress
+Status: `wave5_merged` / `verification_passed` / active CURRENT_DEV entry
 
 ## 1. Goal
 

@@ -72,6 +72,7 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Clue Chain Investigation Tool Index](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/INDEX.md)
   - [2026-05-22 Clue Chain Investigation Tool Plan](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md)
   - [2026-05-22 Clue Chain Wave5 Worktree Execution Plan](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md)
+  - [2026-05-22 Clue Chain Wave5 Implementation Evidence](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md)
   - [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/INDEX.md)
   - [2026-05-22 Search Provider Trace Contract Closure Replay](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/10_search-provider-trace-contract-closure-replay-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：

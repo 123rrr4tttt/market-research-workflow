@@ -1,10 +1,10 @@
 # Wave5 Clue Chain Worktree Execution Plan
 
 Date: 2026-05-22
-Status: `not_closed` / `executing`
+Status: `wave5_merged` / `verification_passed`
 Scope: docs-status sync for Wave5 Clue Chain implementation.
 
-This file is a planning and status-sync document. It does not claim code implementation has passed. Final pass/fail evidence must be filled by the supervisor after the implementation worktrees are merged and the relevant gates are rerun.
+This file is a planning and status-sync document. Supervisor merge evidence is now recorded in [04_wave5_implementation_evidence-2026-05-22.md](./04_wave5_implementation_evidence-2026-05-22.md).
 
 ## Inputs
 
@@ -21,12 +21,12 @@ This file is a planning and status-sync document. It does not claim code impleme
 | Folder | Current state | Clue Chain / Wave5 action | Evidence rule |
 |---|---|---|---|
 | `root-plans` | current navigation entry; no Clue Chain ownership | no Wave5 edit expected | keep existing index as reference only |
-| `backend-core` | updated, not globally closed | backend code lanes may add Clue Chain service/runtime implementation | do not mark closed until focused backend tests and compile pass after merge |
-| `backend-docs` | API schema surface closed by Wave4 evidence | new Clue Chain API must update inventory only after API routes land | supervisor regenerates inventory after all API lanes merge |
+| `backend-core` | updated, not globally closed | Wave5 added Clue Chain service/runtime implementation | focused Clue Chain backend tests passed after merge |
+| `backend-docs` | API schema surface closed by Wave4 evidence | Clue Chain API inventory and contract counts updated | schema inventory contract passed after API merge |
 | `ops-frontend` | not globally closed; runtime/frontend blockers remain explicit | no direct docs-status claim; GraphPage/agent-session evidence may later link here | runtime UI evidence must be real, not inferred from plan |
-| `frontend-modern` | current entry repaired; Wave4 desktop visual gate exists | Wave5 frontend lanes add Clue Chain client and GraphPage UI | frontend lint/e2e/visual gates required after code merge |
-| `development-plans` | partially closed current-plan registry | Clue Chain is `not_closed` / `executing`; Wave3/Wave4 status remains integrated evidence | keep Wave3/Wave4 closed evidence links; do not rewrite their pass/fail history |
-| `automation-runs` | evidence archive for Wave2-Wave4 gates | Wave5 code lanes may add new evidence packages after implementation | branch-local notes are not closure evidence unless linked and gate-backed |
+| `frontend-modern` | current entry repaired; Wave4 desktop visual gate exists | Wave5 added Clue Chain client and GraphPage UI | frontend lint, topology, and mocked GraphPage e2e passed |
+| `development-plans` | partially closed current-plan registry | Clue Chain Wave5 is `wave5_merged` / `verification_passed`; Wave3/Wave4 status remains integrated evidence | keep Wave3/Wave4 closed evidence links; do not rewrite their pass/fail history |
+| `automation-runs` | evidence archive for Wave2-Wave4 gates | Wave5 evidence is linked from this Clue Chain directory | branch-local notes are not closure evidence unless linked and gate-backed |
 | `development-plans/ARCHIVE_CLOSED` | closed archive | no Clue Chain move | Clue Chain must stay in `CURRENT_DEV` until acceptance criteria pass |
 | `development-plans/ARCHIVE_RETIRED` | retired archive | no Clue Chain move | only use for superseded historical plans |
 
@@ -55,30 +55,30 @@ This Wave5 docs-status branch does not reopen their gate results. It only links 
 | I | `codex/devdocs-wave5-clue-chain-docs-status` | Keep docs/index/status synchronized and mark Clue Chain as executing without fabricating code evidence. | Current docs tree; Wave3/Wave4 evidence; this plan. | Clue Chain index, Wave5 plan, updated README/MERGED_OVERVIEW/CURRENT_DEV/development-plans indexes. | changed Markdown links pass; `git diff --check` passes; commit contains docs only. | none; final reconciliation depends on all lanes | 10 |
 | J | `codex/devdocs-wave5-clue-chain-integration-review` | Review integration risks, merge order, and missing gates before supervisor closure. | Lanes A-H outputs, Wave4 risk review pattern. | risk-review document and final gate checklist. | review lists blockers and required gates; it is not implementation proof. | A-H preferred | 9 |
 
-## Supervisor Fill-In Required After Code Merge
+## Supervisor Evidence Filled After Code Merge
 
-The following fields must remain pending until the supervisor merges implementation branches and reruns gates:
+The supervisor merged implementation branches and reran the following gates. Detailed evidence is in [04_wave5_implementation_evidence-2026-05-22.md](./04_wave5_implementation_evidence-2026-05-22.md).
 
 | Evidence item | Filled by | Required before closure |
 |---|---|---|
-| final lane commit IDs | supervisor integration pass | all implementation branches merged or explicitly skipped |
-| Clue Chain API OpenAPI inventory | supervisor after API merge | generated inventory and contract test pass |
-| backend focused pytest counts | supervisor after backend merge | relevant clue-chain/source-library/search/graph/agent tests pass |
-| Python compile result | supervisor after backend merge | changed Python files compile |
+| final lane commit IDs | supervisor integration pass | recorded in evidence file |
+| Clue Chain API OpenAPI inventory | supervisor after API merge | contract test passed with typed Clue Chain routes |
+| backend focused pytest counts | supervisor after backend merge | `101 passed, 13 warnings, 6 subtests passed` |
+| Python compile result | supervisor after backend merge | changed Clue Chain Python files compiled |
 | source-library hop evidence | source-library lane plus supervisor rerun | fixture/default run stores evidence and candidates |
 | external-search fixture gate | external-search lane plus supervisor rerun | public network disabled by default; live run opt-in only |
-| graph promotion evidence | graph integration lane plus supervisor rerun | promoted node/edge references `ChainEvidence` |
+| graph promotion evidence | graph integration lane plus supervisor rerun | graph payload tests enforce evidence and decision provenance |
 | agent runtime safety evidence | agent-tool lane plus supervisor rerun | agent cannot bypass `ChainDecision` |
-| frontend lint/e2e/visual evidence | frontend lanes plus supervisor rerun | GraphPage UI path is tested after all frontend branches merge |
-| final docs link check | docs-status or supervisor final pass | changed Markdown links and `git diff --check` pass after conflicts resolve |
+| frontend lint/e2e/topology evidence | frontend lanes plus supervisor rerun | lint, topology, and GraphPage Clue Chain e2e passed |
+| final docs link check | docs-status or supervisor final pass | rerun during supervisor final validation |
 
 ## Non-Closure Claims
 
-- This document does not claim the Clue Chain API exists.
-- This document does not claim the graph promotion path is implemented.
-- This document does not claim external search is live-tested.
-- This document does not claim frontend UI is implemented or visually verified.
-- This document does not move Clue Chain to `ARCHIVE_CLOSED`.
+- This document now claims the Wave5 Clue Chain API, service, source/external expansion, agent guard, graph payload builder, and GraphPage UI have been implemented and focused-test verified.
+- This document does not claim external search live-provider reliability.
+- This document does not claim full production graph-submit conflict handling.
+- This document does not claim broader visual regression outside the mocked GraphPage Clue Chain e2e.
+- This document does not move Clue Chain to `ARCHIVE_CLOSED`; the active entry remains here until residual scopes are split or closed.
 
 ## Canonical-Copy Rule
 
