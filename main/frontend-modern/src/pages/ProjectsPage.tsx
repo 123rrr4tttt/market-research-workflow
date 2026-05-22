@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, CopyPlus, Edit3, HardDriveDownload, RefreshCw, Trash2 } from 'lucide-react'
 import { activateProject, archiveProject, autoCreateProject, createProject, deleteProject, listProjects, restoreProject, setProjectKey, updateProject } from '../lib/api'
+import { translate, useAppLocale } from '../app/platform/i18n'
 import { queryKeys } from '../lib/queryKeys'
 
 type ProjectsPageProps = {
@@ -10,6 +11,7 @@ type ProjectsPageProps = {
 }
 
 export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPageProps) {
+  const locale = useAppLocale()
   const queryClient = useQueryClient()
   const [newProjectKey, setNewProjectKey] = useState('')
   const [newProjectName, setNewProjectName] = useState('')
@@ -33,7 +35,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
   const actionMutation = useMutation({
     mutationFn: async (payload: { kind: 'create' | 'archive' | 'restore' | 'delete' | 'update' | 'activate'; key?: string; name?: string }) => {
       if (payload.kind === 'create') return createProject({ project_key: newProjectKey.trim(), name: newProjectName.trim(), enabled: true })
-      if (!payload.key) throw new Error('缺少项目标识')
+      if (!payload.key) throw new Error(translate(locale, 'projects.error.missingProjectKey'))
       if (payload.kind === 'archive') return archiveProject(payload.key)
       if (payload.kind === 'restore') return restoreProject(payload.key)
       if (payload.kind === 'delete') return deleteProject(payload.key, true)
@@ -84,17 +86,17 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
   return (
     <div className="content-stack projects-page">
       <section className="panel">
-        <div className="panel-header"><h2><CopyPlus size={15} />创建项目</h2></div>
+        <div className="panel-header"><h2><CopyPlus size={15} />{translate(locale, 'projects.create.title')}</h2></div>
         <div className="form-grid cols-3">
-          <label><span>project_key</span><input value={newProjectKey} onChange={(e) => setNewProjectKey(e.target.value)} placeholder="demo_proj_2" /></label>
-          <label><span>name</span><input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder="演示项目 2" /></label>
+          <label><span>{translate(locale, 'projects.field.projectKey')}</span><input value={newProjectKey} onChange={(e) => setNewProjectKey(e.target.value)} placeholder={translate(locale, 'projects.placeholder.projectKey')} /></label>
+          <label><span>{translate(locale, 'projects.field.name')}</span><input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder={translate(locale, 'projects.placeholder.projectName')} /></label>
           <div className="inline-actions">
-            <button disabled={actionMutation.isPending || !newProjectKey.trim() || !newProjectName.trim()} onClick={() => actionMutation.mutate({ kind: 'create' })}><CopyPlus size={14} />创建</button>
+            <button disabled={actionMutation.isPending || !newProjectKey.trim() || !newProjectName.trim()} onClick={() => actionMutation.mutate({ kind: 'create' })}><CopyPlus size={14} />{translate(locale, 'projects.action.create')}</button>
           </div>
         </div>
         <div className="form-grid cols-3" style={{ marginTop: 12 }}>
           <label>
-            <span>模板项目</span>
+            <span>{translate(locale, 'projects.field.templateProject')}</span>
             <select value={templateProjectKey} onChange={(e) => setTemplateProjectKey(e.target.value)}>
               <option value="demo_proj">demo_proj</option>
               <option value="online_lottery">online_lottery</option>
@@ -102,7 +104,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
             </select>
           </label>
           <label>
-            <span>LLM 服务名</span>
+            <span>{translate(locale, 'projects.field.llmServiceName')}</span>
             <select value={llmServiceName} onChange={(e) => setLlmServiceName(e.target.value)}>
               {llmServiceOptions.map((service) => (
                 <option key={service} value={service}>{service}</option>
@@ -114,23 +116,23 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
               disabled={autoCreateMutation.isPending || !newProjectName.trim()}
               onClick={() => autoCreateMutation.mutate()}
             >
-              <CopyPlus size={14} />模板+提示词自动创建
+              <CopyPlus size={14} />{translate(locale, 'projects.action.createFromTemplate')}
             </button>
           </div>
         </div>
         <div className="form-grid cols-1" style={{ marginTop: 12 }}>
           <label>
-            <span>LLM user_prompt_template（可选）</span>
-            <textarea value={llmPromptTemplate} onChange={(e) => setLlmPromptTemplate(e.target.value)} placeholder="填写后会写入新项目的 llm_service_configs" />
+            <span>{translate(locale, 'projects.field.llmPromptTemplate')}</span>
+            <textarea value={llmPromptTemplate} onChange={(e) => setLlmPromptTemplate(e.target.value)} placeholder={translate(locale, 'projects.placeholder.llmPromptTemplate')} />
           </label>
         </div>
       </section>
 
       <section className="panel">
-        <div className="panel-header"><h2><HardDriveDownload size={15} />项目列表</h2><button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })}><RefreshCw size={14} />刷新</button></div>
+        <div className="panel-header"><h2><HardDriveDownload size={15} />{translate(locale, 'projects.list.title')}</h2><button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })}><RefreshCw size={14} />{translate(locale, 'projects.action.refresh')}</button></div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>project_key</th><th>name</th><th>schema</th><th>enabled</th><th>active</th><th>操作</th></tr></thead>
+            <thead><tr><th>{translate(locale, 'projects.field.projectKey')}</th><th>{translate(locale, 'projects.field.name')}</th><th>{translate(locale, 'projects.field.schema')}</th><th>{translate(locale, 'projects.field.enabled')}</th><th>{translate(locale, 'projects.field.active')}</th><th>{translate(locale, 'projects.field.actions')}</th></tr></thead>
             <tbody>
               {(projects.data || []).map((item) => (
                 <tr key={item.project_key}>
@@ -144,26 +146,26 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
                   </td>
                   <td>{item.schema_name || '-'}</td>
                   <td>{item.enabled ? 'true' : 'false'}</td>
-                  <td>{item.is_active ? 'true' : 'false'}{item.project_key === projectKey ? ' (current)' : ''}</td>
+                  <td>{item.is_active ? 'true' : 'false'}{item.project_key === projectKey ? ` (${translate(locale, 'projects.status.current')})` : ''}</td>
                   <td>
                     <div className="inline-actions">
-                      <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'activate', key: item.project_key })}>切换</button>
+                      <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'activate', key: item.project_key })}>{translate(locale, 'projects.action.activate')}</button>
                       {editingProject?.key === item.project_key ? (
-                        <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'update', key: item.project_key, name: editingProject.name })}><Edit3 size={12} />保存</button>
+                        <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'update', key: item.project_key, name: editingProject.name })}><Edit3 size={12} />{translate(locale, 'projects.action.save')}</button>
                       ) : (
-                        <button onClick={() => setEditingProject({ key: item.project_key, name: item.name || '' })}><Edit3 size={12} />改名</button>
+                        <button onClick={() => setEditingProject({ key: item.project_key, name: item.name || '' })}><Edit3 size={12} />{translate(locale, 'projects.action.rename')}</button>
                       )}
                       {item.enabled ? (
-                        <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'archive', key: item.project_key })}><Archive size={12} />归档</button>
+                        <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'archive', key: item.project_key })}><Archive size={12} />{translate(locale, 'projects.action.archive')}</button>
                       ) : (
-                        <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'restore', key: item.project_key })}><RefreshCw size={12} />恢复</button>
+                        <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'restore', key: item.project_key })}><RefreshCw size={12} />{translate(locale, 'projects.action.restore')}</button>
                       )}
-                      <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'delete', key: item.project_key })}><Trash2 size={12} />删除</button>
+                      <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'delete', key: item.project_key })}><Trash2 size={12} />{translate(locale, 'projects.action.delete')}</button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {!projects.data?.length && <tr><td colSpan={6} className="empty-cell">暂无项目</td></tr>}
+              {!projects.data?.length && <tr><td colSpan={6} className="empty-cell">{translate(locale, 'projects.list.empty')}</td></tr>}
             </tbody>
           </table>
         </div>
