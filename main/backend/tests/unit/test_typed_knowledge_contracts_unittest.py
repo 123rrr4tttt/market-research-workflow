@@ -173,14 +173,30 @@ class TypedKnowledgeK1K2ContractsTests(unittest.TestCase):
             quality_grade=contracts.QUALITY_GRADE_GOLD,
             locale="en",
             locale_variants={"zh-CN": "政策支持依然强劲"},
+            updated_at="2026-05-22T00:00:00Z",
         )
         draft = contracts.build_downstream_contract_draft(item)
 
         self.assertEqual(draft.canonical_statement, "Policy support remains strong.")
         self.assertEqual(draft.visibility_scope, contracts.VISIBILITY_SCOPE_DOWNSTREAM_READY)
+        self.assertEqual(draft.updated_at, "2026-05-22T00:00:00Z")
         self.assertIn("knowledge_item_key", contracts.DOWNSTREAM_CONTRACT_FIELDS)
+        self.assertIn("updated_at", contracts.DOWNSTREAM_CONTRACT_FIELDS)
         self.assertIn("graph", contracts.DOWNSTREAM_CONSUMER_FACETS)
         contracts.validate_downstream_contract_draft(draft)
+
+    def test_updated_at_must_not_be_blank_when_present(self):
+        item = contracts.KnowledgeItem(
+            key="ki:invalid-updated-at",
+            project_key="demo_proj",
+            canonical_statement="statement",
+            primary_type_node_key="type:policy",
+            evidence_refs=("doc:1",),
+            updated_at=" ",
+        )
+
+        with self.assertRaisesRegex(contracts.TypedKnowledgeContractError, "knowledge_item_invalid_updated_at"):
+            contracts.validate_knowledge_item(item)
 
     def test_downstream_contract_visibility_must_match_review_state(self):
         draft = contracts.DownstreamKnowledgeContractDraft(
