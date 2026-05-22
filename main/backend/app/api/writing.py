@@ -6,15 +6,24 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from ..contracts import ErrorCode, error_response, success_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response, success_response
 from ..settings.config import get_effective_project_key_enforcement_mode
 from ..contracts.schemas.writing import (
     KeywordCardDetailRequest,
+    KeywordCardDetailResponse,
+    KeywordCardListResponse,
     KeywordCardPreviewRequest,
+    KeywordCardPreviewResponse,
     KeywordCardRequest,
     LlmActionRequest,
     SuggestRequest,
+    SuggestResponse,
     TemplateValidateRequest,
+    WritingCitationListData,
+    WritingDocumentData,
+    WritingDocumentDeleteData,
+    WritingDocumentDraftData,
+    WritingDocumentListData,
 )
 from ..services.projects import bind_project, current_project_key
 from ..services.projects.context import _normalize_project_key
@@ -145,14 +154,22 @@ def _writing_project_context(project_key: str):
         ) from exc
 
 
-@router.get("/documents")
+@router.get(
+    "/documents",
+    response_model=ApiEnvelope[WritingDocumentListData],
+    response_model_exclude_unset=True,
+)
 def list_writing_documents(request: Request, project_key: str | None = Query(default=None), limit: int = Query(default=50, ge=1, le=100)):
     resolved_project_key = _resolve_project_key(project_key, request=request)
     with _writing_project_context(resolved_project_key):
         return success_response({"items": list_documents(project_key=resolved_project_key, limit=limit)})
 
 
-@router.post("/documents")
+@router.post(
+    "/documents",
+    response_model=ApiEnvelope[WritingDocumentData],
+    response_model_exclude_unset=True,
+)
 def create_writing_document(payload: WritingDocumentCreateRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     with _writing_project_context(resolved_project_key):
@@ -167,7 +184,11 @@ def create_writing_document(payload: WritingDocumentCreateRequest, request: Requ
         )
 
 
-@router.get("/documents/{doc_id}")
+@router.get(
+    "/documents/{doc_id}",
+    response_model=ApiEnvelope[WritingDocumentData],
+    response_model_exclude_unset=True,
+)
 def get_writing_document(request: Request, doc_id: int, project_key: str | None = Query(default=None)):
     resolved_project_key = _resolve_project_key(project_key, request=request)
     with _writing_project_context(resolved_project_key):
@@ -177,7 +198,11 @@ def get_writing_document(request: Request, doc_id: int, project_key: str | None 
             raise _handle_not_found(exc) from exc
 
 
-@router.delete("/documents/{doc_id}")
+@router.delete(
+    "/documents/{doc_id}",
+    response_model=ApiEnvelope[WritingDocumentDeleteData],
+    response_model_exclude_unset=True,
+)
 def delete_writing_document(doc_id: int, request: Request, project_key: str | None = Query(default=None)):
     resolved_project_key = _resolve_project_key(project_key, request=request)
     with _writing_project_context(resolved_project_key):
@@ -196,7 +221,11 @@ def delete_writing_document(doc_id: int, request: Request, project_key: str | No
             raise _handle_not_found(exc) from exc
 
 
-@router.patch("/documents/{doc_id}")
+@router.patch(
+    "/documents/{doc_id}",
+    response_model=ApiEnvelope[WritingDocumentData],
+    response_model_exclude_unset=True,
+)
 def patch_writing_document(doc_id: int, payload: WritingDocumentPatchRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     with _writing_project_context(resolved_project_key):
@@ -219,7 +248,11 @@ def patch_writing_document(doc_id: int, payload: WritingDocumentPatchRequest, re
             raise _handle_conflict(exc) from exc
 
 
-@router.post("/documents/{doc_id}/draft")
+@router.post(
+    "/documents/{doc_id}/draft",
+    response_model=ApiEnvelope[WritingDocumentDraftData],
+    response_model_exclude_unset=True,
+)
 def autosave_writing_document_draft(doc_id: int, payload: WritingDraftAutosaveRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     with _writing_project_context(resolved_project_key):
@@ -241,7 +274,11 @@ def autosave_writing_document_draft(doc_id: int, payload: WritingDraftAutosaveRe
             raise _handle_conflict(exc) from exc
 
 
-@router.post("/documents/{doc_id}/citations")
+@router.post(
+    "/documents/{doc_id}/citations",
+    response_model=ApiEnvelope[WritingCitationListData],
+    response_model_exclude_unset=True,
+)
 def post_writing_document_citations(doc_id: int, payload: WritingCitationUpsertRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     with _writing_project_context(resolved_project_key):
@@ -259,7 +296,11 @@ def post_writing_document_citations(doc_id: int, payload: WritingCitationUpsertR
             raise _handle_not_found(exc) from exc
 
 
-@router.get("/documents/{doc_id}/citations")
+@router.get(
+    "/documents/{doc_id}/citations",
+    response_model=ApiEnvelope[WritingCitationListData],
+    response_model_exclude_unset=True,
+)
 def get_writing_document_citations(request: Request, doc_id: int, project_key: str | None = Query(default=None)):
     resolved_project_key = _resolve_project_key(project_key, request=request)
     with _writing_project_context(resolved_project_key):
@@ -281,7 +322,11 @@ def post_writing_template_validate(payload: TemplateValidateRequest, request: Re
     return success_response(validate_template_payload(model).model_dump())
 
 
-@router.post("/keyword-cards")
+@router.post(
+    "/keyword-cards",
+    response_model=ApiEnvelope[KeywordCardListResponse],
+    response_model_exclude_unset=True,
+)
 def post_keyword_cards(payload: KeywordCardRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     model = payload.model_copy(update={"project_key": resolved_project_key, "request_id": _resolve_request_id(request)})
@@ -289,7 +334,11 @@ def post_keyword_cards(payload: KeywordCardRequest, request: Request):
         return success_response(aggregate_cards(model).model_dump())
 
 
-@router.post("/keyword-cards/preview")
+@router.post(
+    "/keyword-cards/preview",
+    response_model=ApiEnvelope[KeywordCardPreviewResponse],
+    response_model_exclude_unset=True,
+)
 def post_keyword_card_preview(payload: KeywordCardPreviewRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     model = payload.model_copy(update={"project_key": resolved_project_key, "request_id": _resolve_request_id(request)})
@@ -300,7 +349,11 @@ def post_keyword_card_preview(payload: KeywordCardPreviewRequest, request: Reque
             raise _handle_not_found(exc) from exc
 
 
-@router.get("/cards/{card_id}")
+@router.get(
+    "/cards/{card_id}",
+    response_model=ApiEnvelope[KeywordCardDetailResponse],
+    response_model_exclude_unset=True,
+)
 def get_writing_card_detail(
     card_id: str,
     request: Request,
@@ -324,7 +377,11 @@ def get_writing_card_detail(
             raise _handle_not_found(exc) from exc
 
 
-@router.get("/suggest")
+@router.get(
+    "/suggest",
+    response_model=ApiEnvelope[SuggestResponse],
+    response_model_exclude_unset=True,
+)
 def get_writing_suggest(
     request: Request,
     query: str = Query(..., min_length=1, max_length=200),
@@ -378,7 +435,12 @@ def get_writing_llm_action_detail(request: Request, job_id: int, project_key: st
             raise _handle_not_found(exc) from exc
 
 
-@router.post("/export/markdown")
+@router.post(
+    "/export/markdown",
+    response_model=None,
+    response_class=Response,
+    responses={200: {"content": {"text/markdown": {"schema": {"type": "string"}}}}},
+)
 def post_writing_export_markdown(payload: WritingExportMarkdownRequest, request: Request):
     resolved_project_key = _resolve_project_key(payload.project_key, request=request)
     with _writing_project_context(resolved_project_key):
