@@ -1,0 +1,280 @@
+{
+  "agent_core_provider_boundary": {
+    "default_provider": "NativeToolCallingCoreProvider(fallback_provider=JsonCoreProvider())",
+    "local_fixture_contract": "schema_inventory_plus_tool_dispatch_no_network",
+    "provider_keys": [
+      "fake_core_provider",
+      "json_core_provider",
+      "native_tool_calling_provider"
+    ],
+    "runtime_builder": "app.api.agent_chat._build_agent_core_provider"
+  },
+  "codex_cli_fallback": {
+    "auth_available": true,
+    "available": true,
+    "binary_available": true,
+    "fallback_enabled": true,
+    "model": "gpt-5.4-mini",
+    "reason": null
+  },
+  "configured_provider": {
+    "agent_core_runtime_provider": "native_tool_calling_provider_with_json_fallback",
+    "e2e_scripted_provider_enabled": false,
+    "llm_provider": "openai"
+  },
+  "configured_providers": [
+    {
+      "config_state": "configured_via_codex_cli_fallback",
+      "implementation_path": "app.services.llm.codex_cli.CodexCliChatModel",
+      "live_gap_reason": null,
+      "live_probe_status": "not_run",
+      "missing_config_keys": [],
+      "notes": "OpenAI API key is absent, but the repo fallback can use local Codex CLI auth.",
+      "provider": "openai",
+      "required_config_keys": [
+        "CODEX_CLI_BINARY",
+        "CODEX_AUTH_TOKEN_SINK"
+      ],
+      "selected": true
+    },
+    {
+      "config_state": "missing_config",
+      "implementation_path": "langchain_openai.AzureChatOpenAI",
+      "live_gap_reason": "missing_azure_chat_config",
+      "live_probe_status": "blocked",
+      "missing_config_keys": [
+        "AZURE_API_BASE",
+        "AZURE_API_KEY",
+        "AZURE_CHAT_DEPLOYMENT"
+      ],
+      "notes": "Azure readiness is config-recorded only; no live model call is made by this checker.",
+      "provider": "azure",
+      "required_config_keys": [
+        "AZURE_API_BASE",
+        "AZURE_API_KEY",
+        "AZURE_API_VERSION",
+        "AZURE_CHAT_DEPLOYMENT"
+      ],
+      "selected": false
+    },
+    {
+      "config_state": "configured",
+      "implementation_path": "langchain_community.chat_models.ChatOllama",
+      "live_gap_reason": null,
+      "live_probe_status": "not_run",
+      "missing_config_keys": [],
+      "notes": "Ollama endpoint configuration is recorded; endpoint health is not probed here.",
+      "provider": "ollama",
+      "required_config_keys": [
+        "OLLAMA_BASE_URL"
+      ],
+      "selected": false
+    },
+    {
+      "config_state": "missing_config",
+      "implementation_path": "langchain_openai.ChatOpenAI(openai-compatible LiteLLM endpoint)",
+      "live_gap_reason": "missing_litellm_config",
+      "live_probe_status": "blocked",
+      "missing_config_keys": [
+        "LITELLM_API_BASE",
+        "LITELLM_API_KEY"
+      ],
+      "notes": "LiteLLM readiness is config-recorded only; no proxy call is made by this checker.",
+      "provider": "litellm",
+      "required_config_keys": [
+        "LITELLM_API_BASE",
+        "LITELLM_API_KEY"
+      ],
+      "selected": false
+    },
+    {
+      "config_state": "unsupported_provider",
+      "implementation_path": "not_implemented_in_app.services.llm.provider.get_chat_model",
+      "live_gap_reason": "local_llm_provider_not_implemented",
+      "live_probe_status": "blocked",
+      "missing_config_keys": [],
+      "notes": "Settings mention local as an allowed value, but the current chat-model adapter has no local provider branch.",
+      "provider": "local",
+      "required_config_keys": [
+        "LOCAL_LLM_ENABLED"
+      ],
+      "selected": false
+    }
+  ],
+  "contract_version": "agent_core.provider_live_readiness.v1",
+  "failures": [],
+  "gate_semantics": {
+    "live_probe_policy": "external model calls are not performed by this checker unless a later contract adds an explicit bounded live probe",
+    "status_passed_does_not_mean": "selected LLM provider, native tool calling, external frameworks, or production model quality are live-ready",
+    "status_passed_means": "AgentCore provider readiness contract shape and local fixture dispatch are valid"
+  },
+  "live_availability": {
+    "live_probes_enabled": false,
+    "probe_type": "configuration_and_local_fixture_readiness_no_external_model_call",
+    "providers": [
+      {
+        "availability_state": "gap_recorded",
+        "config_state": "configured_via_codex_cli_fallback",
+        "gap_reason": "live_probe_disabled",
+        "live_probe_status": "not_run",
+        "provider": "openai",
+        "selected": true,
+        "unsupported_claim": "current live model availability is not proven by this run"
+      },
+      {
+        "availability_state": "gap_recorded",
+        "config_state": "missing_config",
+        "gap_reason": "missing_azure_chat_config",
+        "live_probe_status": "blocked",
+        "provider": "azure",
+        "selected": false,
+        "unsupported_claim": "current live model availability is not proven by this run"
+      },
+      {
+        "availability_state": "gap_recorded",
+        "config_state": "configured",
+        "gap_reason": "live_probe_disabled",
+        "live_probe_status": "not_run",
+        "provider": "ollama",
+        "selected": false,
+        "unsupported_claim": "current live model availability is not proven by this run"
+      },
+      {
+        "availability_state": "gap_recorded",
+        "config_state": "missing_config",
+        "gap_reason": "missing_litellm_config",
+        "live_probe_status": "blocked",
+        "provider": "litellm",
+        "selected": false,
+        "unsupported_claim": "current live model availability is not proven by this run"
+      },
+      {
+        "availability_state": "gap_recorded",
+        "config_state": "unsupported_provider",
+        "gap_reason": "local_llm_provider_not_implemented",
+        "live_probe_status": "blocked",
+        "provider": "local",
+        "selected": false,
+        "unsupported_claim": "current live model availability is not proven by this run"
+      }
+    ],
+    "summary": {
+      "by_availability_state": {
+        "gap_recorded": 5
+      },
+      "by_live_probe_status": {
+        "blocked": 3,
+        "not_run": 2
+      }
+    }
+  },
+  "local_fixture_readiness": [
+    {
+      "event_type_counts": {
+        "assistant_message": 1,
+        "final_answer": 1,
+        "session_started": 1,
+        "tool_call_requested": 1,
+        "tool_call_started": 1,
+        "tool_result": 1,
+        "user_message": 1
+      },
+      "final_answer_present": true,
+      "fixture_status": "ready",
+      "fixture_type": "local_no_network_tool_dispatch",
+      "provider_key": "fake_core_provider",
+      "schema_inventory_contract_version": "agent_core.tool_schema_inventory.v1",
+      "session_id": "agent-core-provider-readiness-fake_core_provider",
+      "stop_reason": "final_answer",
+      "tool_count": 1,
+      "tool_names": [
+        "agent.provider_readiness.echo"
+      ],
+      "tool_result_status_counts": {
+        "completed": 1
+      },
+      "turn_id": "turn-agent-core-provider-readiness-fake_core_provider"
+    },
+    {
+      "event_type_counts": {
+        "assistant_message": 1,
+        "final_answer": 1,
+        "session_started": 1,
+        "tool_call_requested": 1,
+        "tool_call_started": 1,
+        "tool_result": 1,
+        "user_message": 1
+      },
+      "final_answer_present": true,
+      "fixture_status": "ready",
+      "fixture_type": "local_no_network_tool_dispatch",
+      "provider_key": "json_core_provider",
+      "schema_inventory_contract_version": "agent_core.tool_schema_inventory.v1",
+      "session_id": "agent-core-provider-readiness-json_core_provider",
+      "stop_reason": "final_answer",
+      "tool_count": 1,
+      "tool_names": [
+        "agent.provider_readiness.echo"
+      ],
+      "tool_result_status_counts": {
+        "completed": 1
+      },
+      "turn_id": "turn-agent-core-provider-readiness-json_core_provider"
+    },
+    {
+      "event_type_counts": {
+        "assistant_message": 1,
+        "final_answer": 1,
+        "session_started": 1,
+        "tool_call_requested": 1,
+        "tool_call_started": 1,
+        "tool_result": 1,
+        "user_message": 1
+      },
+      "final_answer_present": true,
+      "fixture_status": "ready",
+      "fixture_type": "local_no_network_tool_dispatch",
+      "provider_key": "native_tool_calling_provider",
+      "schema_inventory_contract_version": "agent_core.tool_schema_inventory.v1",
+      "session_id": "agent-core-provider-readiness-native_tool_calling_provider",
+      "stop_reason": "final_answer",
+      "tool_count": 1,
+      "tool_names": [
+        "agent.provider_readiness.echo"
+      ],
+      "tool_result_status_counts": {
+        "completed": 1
+      },
+      "turn_id": "turn-agent-core-provider-readiness-native_tool_calling_provider"
+    }
+  ],
+  "readiness_state": "partial",
+  "scope": "agent_core_provider_live_readiness_boundary_no_external_model_spend",
+  "status": "passed",
+  "unsupported_closure_claims": [
+    {
+      "claim": "All AgentCore providers are live-ready.",
+      "code": "all_agentcore_providers_live_not_closed",
+      "reason": "Current live statuses are recorded as {'openai': 'not_run', 'azure': 'blocked', 'ollama': 'not_run', 'litellm': 'blocked', 'local': 'blocked'}; local fixtures do not prove external model availability.",
+      "required_next_evidence": "Bounded live invocation evidence for the selected provider plus native/json fallback behavior under current credentials."
+    },
+    {
+      "claim": "The selected AgentCore LLM provider 'openai' is live-available.",
+      "code": "selected_provider_live_availability_not_closed",
+      "reason": "This checker records configuration and local fixture readiness; it does not perform an external model call.",
+      "required_next_evidence": "A live provider probe with timeout, model id, response shape, and failure classification."
+    },
+    {
+      "claim": "Native tool calling quality is proven for the selected live model.",
+      "code": "native_tool_calling_quality_not_closed",
+      "reason": "The native provider fixture proves bind_tools dispatch shape only; production model tool-call reliability remains unmeasured.",
+      "required_next_evidence": "Live native tool-call replay against the configured model with schema adherence assertions."
+    },
+    {
+      "claim": "LangGraph, Semantic Kernel, CrewAI, or another external agent framework can replace AgentCore.",
+      "code": "external_framework_live_adoption_not_closed",
+      "reason": "The current readiness boundary is repo-native and does not add or evaluate external framework runtime dependencies.",
+      "required_next_evidence": "A written additive-capability delta that preserves schema inventory, dispatch events, permission checks, and trace audit evidence."
+    }
+  ]
+}
