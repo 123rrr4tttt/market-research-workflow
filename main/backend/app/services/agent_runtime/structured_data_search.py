@@ -23,6 +23,7 @@ from app.models.entities import (
     SearchHistory,
     Source,
 )
+from app.services.document_queries import build_structured_data_search_document_query_envelope
 from app.services.projects import bind_project
 
 
@@ -186,6 +187,18 @@ def query_project_structured_data(
         for item in dataset_results
     ]
     result_items = (flat_items or fallback_items)[:capped_limit]
+    document_query_envelope = build_structured_data_search_document_query_envelope(
+        project_key=resolved_project_key,
+        query=query_text,
+        datasets_requested=selected_datasets,
+        limit=capped_limit,
+        items=result_items,
+        query_mode="inventory" if not query_text else "search",
+        total_matches=len(flat_items),
+        total_stored_rows=total_stored_rows,
+        fallback_used=bool(fallback_items and not flat_items),
+    )
+    document_query_data = document_query_envelope["data"]
     return {
         "contract_version": "project.structured_data.search.v1",
         "project_key": resolved_project_key,
@@ -200,6 +213,11 @@ def query_project_structured_data(
         "fallback_used": bool(fallback_items and not flat_items),
         "fallback_items": fallback_items[:capped_limit],
         "items": result_items,
+        "document_query_contract_version": document_query_data["contract_version"],
+        "document_query": document_query_data["query"],
+        "document_query_results": document_query_data["results"],
+        "document_query_pagination": document_query_data["pagination"],
+        "document_query_meta": document_query_envelope["meta"],
         "model_evidence_manifest": build_structured_data_model_evidence_manifest(
             project_key=resolved_project_key,
             query=query_text,
