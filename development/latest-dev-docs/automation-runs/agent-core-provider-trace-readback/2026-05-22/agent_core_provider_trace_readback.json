@@ -1,0 +1,226 @@
+{
+  "contract_version": "agent_core.provider_trace_readback.v1",
+  "deterministic_provider_trace_ready": true,
+  "external_model_calls": 0,
+  "failures": [],
+  "input_contract_readbacks": {
+    "wave11_provider_matrix": {
+      "contract_version": "agent_core.provider_capability_matrix.v1",
+      "evaluation_mode": "static_contract_not_live_probe",
+      "external_framework_adoption_status": "deferred",
+      "fake_core_provider_status": "repo_native_supported",
+      "live_provider_claims": false,
+      "native_tool_calling_provider_status": "missing_config"
+    },
+    "wave13_live_provider_readiness": {
+      "contract_version": "agent_core.provider_live_readiness.v1",
+      "readiness_state": "partial",
+      "selected_live_probe_status": "blocked",
+      "selected_provider": "openai",
+      "status": "passed",
+      "unsupported_claim_codes": [
+        "all_agentcore_providers_live_not_closed",
+        "external_framework_live_adoption_not_closed",
+        "native_tool_calling_quality_not_closed",
+        "selected_provider_live_availability_not_closed"
+      ]
+    },
+    "wave14_tool_calling_quality": {
+      "contract_version": "agent_core.tool_calling_quality.v1",
+      "deterministic_tool_calling_ready": true,
+      "external_provider_live_gap": "external_provider_live_gap",
+      "live_model_calls": 0,
+      "status": "passed",
+      "unsupported_claim_codes": [
+        "deterministic_fixture_proves_external_provider_quality",
+        "native_tool_calling_quality_closed_without_live_replay"
+      ]
+    }
+  },
+  "provider_trace": {
+    "call_count": 2,
+    "calls": [
+      {
+        "call_index": 1,
+        "context": {
+          "default_model": "fake-core-provider",
+          "default_provider": "fake_core_provider",
+          "request_id": "req-agent-core-provider-trace-readback",
+          "trace_id": "trace-agent-core-provider-trace-readback"
+        },
+        "message": "Run deterministic AgentCore provider trace readback.",
+        "remaining_budget": {
+          "iteration": 1,
+          "max_iterations": 4,
+          "max_tool_calls": 2,
+          "remaining_tool_calls": 2
+        },
+        "status_data_error_meta_seen_in_transcript": false,
+        "tool_names": [
+          "agent.provider_trace.echo"
+        ],
+        "tool_result_seen": false,
+        "transcript_roles": [
+          "user"
+        ]
+      },
+      {
+        "call_index": 2,
+        "context": {
+          "default_model": "fake-core-provider",
+          "default_provider": "fake_core_provider",
+          "request_id": "req-agent-core-provider-trace-readback",
+          "trace_id": "trace-agent-core-provider-trace-readback"
+        },
+        "message": "Run deterministic AgentCore provider trace readback.",
+        "remaining_budget": {
+          "iteration": 2,
+          "max_iterations": 4,
+          "max_tool_calls": 2,
+          "remaining_tool_calls": 1
+        },
+        "status_data_error_meta_seen_in_transcript": true,
+        "tool_names": [
+          "agent.provider_trace.echo"
+        ],
+        "tool_result_seen": true,
+        "transcript_roles": [
+          "user",
+          "tool"
+        ]
+      }
+    ],
+    "contract_version": "agent_core.fake_provider_trace.v1",
+    "provider_key": "fake_core_provider",
+    "provider_path": "app.services.agent_core.fake_provider.FakeCoreProvider",
+    "trace_status": "passed"
+  },
+  "readiness_state": "deterministic_provider_trace_ready_real_external_provider_call_open",
+  "real_external_provider_call_open": true,
+  "scope": "fake_provider_trace_tool_call_envelope_readback_no_external_model_call",
+  "status": "passed",
+  "status_data_error_meta_compatibility": {
+    "compatible": true,
+    "contract_version": "agent_core.status_data_error_meta.compat.v1",
+    "data_contract_version": "agent.provider_trace.echo.result.v1",
+    "error_is_null": true,
+    "meta": {
+      "contract_version": "agent.provider_trace.echo.meta.v1",
+      "external_model_calls": 0,
+      "provider_key": "fake_core_provider",
+      "real_external_provider_call_open": true,
+      "request_id": "req-agent-core-provider-trace-readback",
+      "trace_id": "trace-agent-core-provider-trace-readback"
+    },
+    "present_keys": [
+      "data",
+      "error",
+      "meta",
+      "status"
+    ],
+    "required_keys": [
+      "data",
+      "error",
+      "meta",
+      "status"
+    ],
+    "status": "ok"
+  },
+  "tool_call_envelope": {
+    "contract_version": "agent_core.provider_trace_tool_call_envelope.v1",
+    "event_type_counts": {
+      "assistant_message": 1,
+      "final_answer": 1,
+      "session_started": 1,
+      "tool_call_requested": 1,
+      "tool_call_started": 1,
+      "tool_result": 1,
+      "user_message": 1
+    },
+    "runtime_dispatch": {
+      "contract_version": "agent_core.runtime_dispatch.v1",
+      "final_answer_present": true,
+      "session_id": "agent-core-provider-trace-readback-session",
+      "stop_reason": "final_answer",
+      "turn_id": "turn-agent-core-provider-trace-readback"
+    },
+    "tool_call_contract": {
+      "arguments": {
+        "query": "agent-core-provider-trace-readback",
+        "trace_id": "trace-agent-core-provider-trace-readback"
+      },
+      "arguments_type": "object",
+      "call_id": "call-agent-provider-trace-readback",
+      "contract_version": "agent_core.tool_call_shape.v1",
+      "missing_keys": [],
+      "present_keys": [
+        "arguments",
+        "call_id",
+        "reason",
+        "tool_name"
+      ],
+      "provider_key": "fake_core_provider",
+      "reason_present": true,
+      "required_keys": [
+        "call_id",
+        "tool_name",
+        "arguments",
+        "reason"
+      ],
+      "shape_status": "valid",
+      "tool_name": "agent.provider_trace.echo"
+    },
+    "tool_event_sequence": [
+      {
+        "call_id": "call-agent-provider-trace-readback",
+        "contract_version": "agent_core.provider_trace_tool_event.v1",
+        "event_type": "tool_call_requested",
+        "has_status_data_error_meta": false,
+        "has_tool_call": true,
+        "has_tool_spec": false,
+        "permission": "allow",
+        "status": null,
+        "tool_name": "agent.provider_trace.echo"
+      },
+      {
+        "call_id": "call-agent-provider-trace-readback",
+        "contract_version": "agent_core.provider_trace_tool_event.v1",
+        "event_type": "tool_call_started",
+        "has_status_data_error_meta": false,
+        "has_tool_call": true,
+        "has_tool_spec": true,
+        "permission": null,
+        "status": null,
+        "tool_name": "agent.provider_trace.echo"
+      },
+      {
+        "call_id": "call-agent-provider-trace-readback",
+        "contract_version": "agent_core.provider_trace_tool_event.v1",
+        "event_type": "tool_result",
+        "has_status_data_error_meta": true,
+        "has_tool_call": false,
+        "has_tool_spec": false,
+        "permission": null,
+        "status": "completed",
+        "tool_name": "agent.provider_trace.echo"
+      }
+    ],
+    "tool_result_status_counts": {
+      "completed": 1
+    }
+  },
+  "unsupported_closure_claims": [
+    {
+      "claim": "The selected real external provider has completed a live AgentCore tool-call probe.",
+      "code": "real_external_provider_call_open",
+      "reason": "This Wave18 checker spends zero external model calls and only reads back the fake provider trace envelope.",
+      "required_next_evidence": "Bounded live provider invocation with timeout, model id, raw response shape, latency, and failure classification."
+    },
+    {
+      "claim": "A deterministic fake provider trace proves production provider quality.",
+      "code": "fake_provider_trace_does_not_close_live_provider_quality",
+      "reason": "The fake provider proves runtime trace and envelope preservation only.",
+      "required_next_evidence": "Live replay against the configured provider while preserving the same status/data/error/meta readback."
+    }
+  ]
+}
