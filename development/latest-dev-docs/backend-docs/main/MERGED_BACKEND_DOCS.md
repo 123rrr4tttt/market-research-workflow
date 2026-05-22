@@ -83,11 +83,13 @@
 
 当前自动解析路由库存量：
 - `B_API/API_ROUTE_MAP_2026-05-22.md` 基于当前 `main/backend/app/api/*.py` 静态解析，标注总计 250 条 `/api/v1` router 路由，覆盖 30 个 API 模块。
+- `B_API/API_SCHEMA_INVENTORY_2026-05-22.md` 基于当前 FastAPI OpenAPI 运行时 schema 生成，标注 253 个 `/api/v1` operation，其中 250 个属于 `app.api` 路由图，3 个来自非 `app.api` 应用级入口；该文件由 schema inventory contract test 防漂移。
 - `API_ROUTE_INVENTORY_2026-02-27.md` 标注总计 135 条路由，现仅保留为历史快照。
 - 接口层调查文档提供了 API 文件、应用级路由、前端调用封装与内部 contracts 的分层视图；其中路由数量和行号为 2026-02 口径，当前数量以 `API_ROUTE_MAP_2026-05-22.md` 为准。
 
 对应文档：
 - `API_ROUTE_MAP_2026-05-22.md`
+- `API_SCHEMA_INVENTORY_2026-05-22.md`
 - `API_ROUTE_INVENTORY_2026-02-27.md`
 - `接口层调查文档.md`
 
@@ -233,6 +235,7 @@ API 的主要数据承载对象：
 | `接口层调查文档.md` | 架构/API | 接口分层、模块职责与路由结构 |
 | `API_CONTRACT_STANDARD.md` | API | 统一响应与错误契约 |
 | `API_ROUTE_MAP_2026-05-22.md` | API | 当前路由总量与模块分布依据 |
+| `API_SCHEMA_INVENTORY_2026-05-22.md` | API | 当前 OpenAPI request/response schema surface 与漂移防线 |
 | `API_ROUTE_INVENTORY_2026-02-27.md` | API | 历史路由快照 |
 | `FRONTEND_MODERNIZATION_API_MAP_2026-02-27.md` | API | 前端换栈最小接口集合；需按当前路由图复核 |
 | `INGEST_ARCHITECTURE.md` | 架构/采集 | 摄取分层与主流程骨架 |

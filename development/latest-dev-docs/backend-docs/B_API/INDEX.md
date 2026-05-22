@@ -3,6 +3,7 @@
 ## Current Source
 
 - [`API_ROUTE_MAP_2026-05-22.md`](./API_ROUTE_MAP_2026-05-22.md) - current `/api/v1` router map generated from `main/backend/app/api/*.py`; use this for route-count and route-existence claims.
+- [`API_SCHEMA_INVENTORY_2026-05-22.md`](./API_SCHEMA_INVENTORY_2026-05-22.md) - current FastAPI OpenAPI request/response schema surface inventory with contract-test drift guard.
 - [`API_CONTRACT_STANDARD.md`](./API_CONTRACT_STANDARD.md) - response envelope and error contract standard; still needs per-module conformance verification before being treated as fully implemented everywhere.
 
 ## Historical / Partial Snapshots
