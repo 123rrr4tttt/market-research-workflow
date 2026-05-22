@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -12,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 from app.services.graph.models import Graph, GraphNode
+from app.services.graph.mapping import normalize_canonical_node_id, normalize_node_id
 from app.services.graph.persistence.graph_node_alias_resolver import GraphNodeAliasResolver
 from app.services.graph.persistence.graph_node_writer import GraphNodeWriter
 
@@ -60,6 +62,41 @@ class GraphPersistenceWriterUnitTestCase(unittest.TestCase):
         self.assertEqual(summary.edges_written, 0)
         self.assertEqual(summary.skipped, 0)
         self.assertGreaterEqual(session.calls, 4)
+
+    def test_projection_writer_casefolds_storage_canonical_id_without_changing_interface_id(self):
+        self.assertEqual(normalize_node_id(" ACME\u200b Corp "), "ACME Corp")
+        self.assertEqual(normalize_canonical_node_id(" ACME\u200b Corp "), "acme corp")
+
+        session = _FakeSession()
+        writer = GraphNodeWriter(session, schema_version="v1")
+        graph = Graph(
+            nodes={
+                "Entity:ACME": GraphNode(
+                    type="Entity",
+                    id=" ACME\u200b Corp ",
+                    properties={"name": "ACME Corp"},
+                )
+            },
+            edges=[],
+            schema_version="v1",
+        )
+        captured_payloads: list[dict] = []
+
+        def _capture_payload(payload: dict):
+            captured_payloads.append(payload)
+            return 42
+
+        with patch.object(writer, "_upsert_node", side_effect=_capture_payload), patch.object(
+            writer,
+            "_upsert_aliases",
+            return_value=0,
+        ), patch.object(writer, "_upsert_edges", return_value=0):
+            summary = writer.persist_graph_nodes(graph)
+
+        self.assertEqual(summary.attempted, 1)
+        self.assertEqual(summary.inserted_or_updated, 1)
+        self.assertEqual(captured_payloads[0]["canonical_id"], "acme corp")
+        self.assertEqual(captured_payloads[0]["id"], "acme corp")
 
 
 if __name__ == "__main__":

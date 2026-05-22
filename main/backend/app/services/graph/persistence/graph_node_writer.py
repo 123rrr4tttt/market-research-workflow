@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ....models.entities import GraphEdgeRecord, GraphNodeAliasRecord, GraphNodeRecord
-from ..mapping import normalize_node_id, normalize_node_properties, normalize_node_type
+from ..mapping import normalize_canonical_node_id, normalize_node_properties, normalize_node_type
 from ..models import Graph
 from .graph_node_alias_resolver import GraphNodeAliasResolver
 
@@ -108,9 +108,9 @@ class GraphNodeWriter:
         edge_rows: list[tuple[str, int, int, dict[str, Any]]] = []
         for edge in graph.edges:
             from_type = normalize_node_type(edge.from_node.type)
-            from_id = normalize_node_id(edge.from_node.id)
+            from_id = normalize_canonical_node_id(edge.from_node.id)
             to_type = normalize_node_type(edge.to_node.type)
-            to_id = normalize_node_id(edge.to_node.id)
+            to_id = normalize_canonical_node_id(edge.to_node.id)
             if not from_type or not from_id or not to_type or not to_id:
                 continue
             from_key = f"{from_type}:{from_id}"
@@ -154,7 +154,7 @@ class GraphNodeWriter:
         for node in graph.nodes.values():
             summary.attempted += 1
             node_type = normalize_node_type(node.type)
-            canonical_id = normalize_node_id(node.id)
+            canonical_id = normalize_canonical_node_id(node.id)
             if not node_type or not canonical_id:
                 summary.skipped += 1
                 continue
