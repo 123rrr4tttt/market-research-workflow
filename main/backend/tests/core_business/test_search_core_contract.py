@@ -61,6 +61,15 @@ class SearchCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["rank"], "hybrid")
         self.assertEqual(body["data"]["top_k"], 2)
         self.assertEqual(body["data"]["results"], mocked_results)
+        self.assertEqual(body["data"]["document_query_contract_version"], "document_queries.v1")
+        self.assertEqual(body["data"]["document_query"]["consumer"], "api.search")
+        self.assertEqual(body["data"]["document_query"]["project_key"], "demo_proj")
+        self.assertEqual(body["data"]["document_query"]["filters"], [{"field": "state", "op": "eq", "value": "CA"}])
+        self.assertEqual(body["data"]["document_query"]["limit"], 2)
+        self.assertEqual(body["data"]["document_query_results"][0]["source_type"], "document")
+        self.assertEqual(body["data"]["document_query_results"][0]["rank"], 1)
+        self.assertEqual(body["data"]["document_query_pagination"]["result_count"], 2)
+        self.assertEqual(body["data"]["document_query_meta"]["source"], "api.search.hybrid")
         self.assertEqual(
             body["data"]["search_backends_used"],
             ["opensearch_lexical", "qdrant_vector", "pgvector_fallback", "custom"],

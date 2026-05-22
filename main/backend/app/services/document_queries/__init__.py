@@ -34,6 +34,12 @@ from .writing_material_queries import (
     query_source_library_material_envelope,
     query_source_library_material_rows,
 )
+from .search_endpoint import (
+    SEARCH_ENDPOINT_CONSUMER,
+    SEARCH_ENDPOINT_SOURCE,
+    build_search_endpoint_document_query,
+    build_search_endpoint_document_query_envelope,
+)
 
 __all__ = [
     "DOCUMENT_QUERY_CONTRACT_VERSION",
@@ -63,5 +69,9 @@ __all__ = [
     "query_source_library_material_rows",
     "require_active_document",
     "rows_for_document_views",
+    "SEARCH_ENDPOINT_CONSUMER",
+    "SEARCH_ENDPOINT_SOURCE",
+    "build_search_endpoint_document_query",
+    "build_search_endpoint_document_query_envelope",
     "validate_document_query_result_envelope",
 ]
