@@ -144,6 +144,7 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(captured["params"]["urls"], ["https://example.com/article"])
         self.assertEqual(captured["params"]["query_terms"], ["market"])
         self.assertEqual(captured["params"]["prefer_crawler_first"], True)
+        self.assertEqual(captured["params"]["force_url_routing_flow"], False)
         self.assertEqual(captured["params"]["frontdoor_route_hint"], "static_detail")
 
         ingress = captured["ingress"]
@@ -292,6 +293,74 @@ class IngestFrontdoorContextUnitTestCase(unittest.TestCase):
         self.assertEqual(captured[1]["search_options"]["source_search_contract"]["param_key"], "query")
         self.assertEqual(captured[1]["search_options"]["target_candidates"], 5)
         self.assertEqual(captured[1]["frontdoor_options"]["route_hint"], "search_shell")
+
+    def test_high_js_frontdoor_route_prefers_browser_render_and_projects_dashboard_status(self):
+        captured: dict = {}
+
+        def _fake_frontdoor_ingress(**kwargs):
+            captured["url"] = kwargs["url"]
+            captured["search_options"] = dict(kwargs.get("search_options") or {})
+            captured["frontdoor_options"] = dict(kwargs.get("frontdoor_options") or {})
+            return {
+                "status": "degraded_success",
+                "reason_code": "source_library_fetch_empty",
+                "inserted": 0,
+                "inserted_valid": 0,
+                "skipped": 1,
+                "rejected_count": 0,
+                "rejection_breakdown": {},
+                "degradation_flags": ["empty_records"],
+                "document_id": None,
+                "quality_score": 0.0,
+                "frontdoor_route": {
+                    "contract_version": "ingest.frontdoor_route_profile.v1",
+                    "route_hint": "crawler_browse",
+                    "fetch_strategy": "browser_render",
+                    "render_required": True,
+                    "prefer_crawler_first": True,
+                    "force_url_routing_flow": False,
+                },
+                "postprocess_frontdoor": {
+                    "data": {"admission": "defer"},
+                    "meta": {"reason_code": "deferred", "retryable": False},
+                },
+            }
+
+        with patch.object(url_pool_module, "is_ingest_frontdoor_enabled", return_value=True), patch.object(
+            url_pool_module, "start_job", return_value=202
+        ), patch.object(url_pool_module, "complete_job"), patch.object(
+            url_pool_module, "_run_source_library_frontdoor_ingress", side_effect=_fake_frontdoor_ingress
+        ):
+            result = url_pool_module.collect_urls_from_list(
+                ["https://x.com/search?q=robotics"],
+                project_key="demo_proj",
+                query_terms=["robotics"],
+                extra_params={
+                    "url_routing_frontdoor_enabled": True,
+                    "disable_site_seed_expansion": True,
+                    "url_parallel_workers": 1,
+                    "url_parallel_batch_size": 1,
+                },
+            )
+
+        self.assertEqual(captured["url"], "https://x.com/search?q=robotics")
+        self.assertEqual(captured["search_options"]["frontdoor_route_hint"], "crawler_browse")
+        self.assertEqual(captured["search_options"]["frontdoor_fetch_strategy"], "browser_render")
+        self.assertTrue(captured["search_options"]["frontdoor_render_required"])
+        self.assertTrue(captured["search_options"]["frontdoor_prefers_crawler"])
+        self.assertTrue(captured["search_options"]["frontdoor_prefers_search_shell"])
+        self.assertEqual(captured["frontdoor_options"]["route_hint"], "crawler_browse")
+        self.assertEqual(captured["frontdoor_options"]["fetch_strategy"], "browser_render")
+        self.assertTrue(captured["frontdoor_options"]["prefer_crawler"])
+        self.assertTrue(captured["frontdoor_options"]["render_required"])
+
+        status_summary = result["meta"]["frontdoor_status_summary"]
+        self.assertEqual(status_summary["sample_size"], 1)
+        self.assertEqual(status_summary["dashboard_status_counts"], {"degraded_success": 1})
+        self.assertEqual(status_summary["admission_counts"], {"defer": 1})
+        detail_status = result["debug"]["url_details"][0]["frontdoor_status"]
+        self.assertEqual(detail_status["dashboard_status"], "degraded_success")
+        self.assertEqual(detail_status["frontdoor_admission"], "defer")
 
 
 if __name__ == "__main__":
