@@ -7,11 +7,13 @@ from typing import Optional
 from ....models.entities import Document
 from ..models import NormalizedSocialPost
 from ...document_views import (
+    get_social_identity,
     get_social_entities,
     get_social_keywords,
     get_social_platform,
     get_social_sentiment,
     get_social_text,
+    has_structured_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,10 +35,8 @@ class RedditAdapter:
         - entities: extracted_data.entities (可选)
         - sentiment: extracted_data.sentiment (包含sentiment_orientation, sentiment_tags, key_phrases, emotion_words, topic)
         """
-        if not doc.extracted_data:
+        if not has_structured_data(doc):
             return None
-
-        extracted = doc.extracted_data
 
         # 平台检查
         platform = get_social_platform(doc)
@@ -51,8 +51,9 @@ class RedditAdapter:
             return None
 
         # 提取用户和子论坛信息
-        username = extracted.get("username")
-        subreddit = extracted.get("subreddit")
+        identity = get_social_identity(doc)
+        username = identity["username"]
+        subreddit = identity["subreddit"]
 
         # 提取情感信息
         sentiment = get_social_sentiment(doc)

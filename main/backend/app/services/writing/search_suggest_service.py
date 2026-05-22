@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from ...contracts.schemas.writing import SuggestItem, SuggestRequest, SuggestResponse
+from ..document_queries import query_source_library_material_rows
 from ..keyword_memory import list_keyword_history, normalize_keyword
-from ..source_library.resolver import list_effective_items
 
 _COMMAND_ITEMS = [
     ("insert_quote", "Insert Quote", "Insert a cited quote block"),
@@ -74,7 +74,7 @@ def _template_items(query: str, limit: int) -> list[SuggestItem]:
 def _material_items(project_key: str, query: str, limit: int) -> list[SuggestItem]:
     normalized = normalize_keyword(query)
     items: list[SuggestItem] = []
-    for row in list_effective_items(project_key=project_key):
+    for row in query_source_library_material_rows(project_key, query=query):
         blob = " ".join([str(row.get("item_key") or ""), str(row.get("name") or ""), str(row.get("description") or "")]).lower()
         if normalized and normalized not in blob:
             continue

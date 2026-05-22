@@ -11,11 +11,13 @@ from typing import Optional
 from ....models.entities import Document
 from ..models import NormalizedSocialPost
 from ...document_views import (
+    get_social_identity,
     get_social_entities,
     get_social_keywords,
     get_social_platform,
     get_social_sentiment,
     get_social_text,
+    has_structured_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,10 +31,9 @@ class GenericSocialAdapter:
         Convert doc with sentiment to NormalizedSocialPost.
         Requires: extracted_data.sentiment and (text or content).
         """
-        if not doc.extracted_data:
+        if not has_structured_data(doc):
             return None
 
-        extracted = doc.extracted_data
         sentiment = get_social_sentiment(doc)
         if not sentiment:
             return None
@@ -48,6 +49,7 @@ class GenericSocialAdapter:
         key_phrases = sentiment.get("key_phrases", [])
         emotion_words = sentiment.get("emotion_words", [])
         topic = sentiment.get("topic")
+        identity = get_social_identity(doc)
 
         keywords = get_social_keywords(doc) or key_phrases
         entities = get_social_entities(doc)
@@ -57,8 +59,8 @@ class GenericSocialAdapter:
             uri=doc.uri or "",
             platform=platform,
             text=text,
-            username=extracted.get("username"),
-            subreddit=extracted.get("subreddit"),
+            username=identity["username"],
+            subreddit=identity["subreddit"],
             publish_date=doc.publish_date,
             createdAt=doc.created_at,
             state=doc.state,

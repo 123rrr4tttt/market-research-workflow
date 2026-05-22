@@ -3,6 +3,7 @@
 ## 文档列表
 
 1. [01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
+2. [02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md](./02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md)
 
 ## 使用说明
 
