@@ -37,8 +37,10 @@ class IngestMetricsPayloadUnitTestCase(unittest.TestCase):
         self.assertIn("empty_body_rate", payload)
         self.assertIn("reason_code_top_n", payload)
         self.assertIn("adapter_hit_rate", payload)
+        self.assertIn("guardrail_rollout", payload)
         self.assertIsInstance(payload.get("reason_code_top_n"), list)
         self.assertIsInstance(payload.get("adapter_hit_rate"), list)
+        self.assertIsInstance(payload.get("guardrail_rollout"), dict)
 
     def _assert_source_template_health_fields(self, payload: dict) -> None:
         self.assertIn("template_success_rate", payload)
@@ -91,6 +93,41 @@ class IngestMetricsPayloadUnitTestCase(unittest.TestCase):
         reason_top = {str(row.get("reason_code")): int(row.get("count") or 0) for row in (payload.get("reason_code_top_n") or [])}
         self.assertEqual(int(payload.get("sample_size") or 0), 2)
         self.assertEqual(reason_top.get("rate_limited"), 2)
+
+    def test_metrics_payload_counts_guardrail_rollout_canary_visibility(self):
+        summary = new_metrics_summary()
+        record_metrics_observation(
+            summary,
+            {
+                "inserted_valid": 0,
+                "reason_code": "domain_blocked",
+                "guardrail_rollout": {
+                    "contract_version": "ingest.guardrail_rollout.v1",
+                    "enable_strict_gate": True,
+                    "strict_gate_source": "settings.ingest_guardrail_rollout_mode:canary",
+                    "rollout_mode": "canary",
+                    "project_key": "demo_proj",
+                    "canary_projects": ["demo_proj"],
+                    "canary_matched": True,
+                    "global_default_enabled": False,
+                    "live_canary_validated": False,
+                    "closure_claim": False,
+                },
+            },
+            fallback_adapter="source_library_frontdoor",
+        )
+
+        payload = build_metrics_payload_from_summary(summary)
+        rollout = payload["guardrail_rollout"]
+        source_counts = {row["key"]: row["count"] for row in rollout["strict_gate_source_counts"]}
+        mode_counts = {row["key"]: row["count"] for row in rollout["rollout_mode_counts"]}
+        self.assertEqual(rollout["sample_size"], 1)
+        self.assertEqual(rollout["strict_enabled_samples"], 1)
+        self.assertEqual(rollout["canary_matched_samples"], 1)
+        self.assertEqual(source_counts["settings.ingest_guardrail_rollout_mode:canary"], 1)
+        self.assertEqual(mode_counts["canary"], 1)
+        self.assertFalse(rollout["live_canary_validated"])
+        self.assertFalse(rollout["closure_claim"])
 
     def test_url_pool_result_contains_metrics_payload_in_meta_and_debug(self):
         bridge = Mock(

@@ -90,6 +90,48 @@ class PostprocessFrontdoorUnitTestCase(unittest.TestCase):
         self.assertEqual(gate_config["min_semantic_len"], 20)
         self.assertEqual(result["quality_gates"]["url_gate"]["reason"], "url_policy_low_value_endpoint")
 
+    def test_frontdoor_quality_gate_canary_project_uses_rollout_default(self) -> None:
+        document_candidate = {
+            "uri": "https://example.com/search?q=robotics",
+            "title": "Search page",
+            "summary": "summary",
+            "content": "Robotics market update with enough meaningful context. " * 8,
+            "source_base_url": "example.com",
+            "doc_type": "market",
+        }
+        terminal_context = {
+            "project_key": "demo_proj",
+            "source_mode": "url_execution",
+            "ingestion_entrypoint": "ingest.url_pool",
+            "meaningful_gate_config": {"min_semantic_len": 20},
+            "capability_profile": {"entry_type": "search_template"},
+            "content_extraction": {"page_family": "article"},
+            "http_status": 200,
+            "light_filter": {"filter_decision": "accept", "filter_reason_code": "ok", "filter_score": 92},
+        }
+
+        with (
+            patch("app.services.ingest.postprocess_frontdoor.settings.ingest_enable_strict_gate", False),
+            patch("app.services.ingest.guardrail_rollout.settings.ingest_guardrail_rollout_mode", "canary"),
+            patch("app.services.ingest.guardrail_rollout.settings.ingest_guardrail_canary_projects", "demo_proj"),
+        ):
+            result = _evaluate_quality_frontdoor(
+                document_candidate=document_candidate,
+                terminal_context=terminal_context,
+            )
+
+        gate_config = result["quality_gates"]["gate_config"]
+        rollout = gate_config["guardrail_rollout"]
+        self.assertEqual(result["admission"], "reject")
+        self.assertTrue(result["quality_assessment"]["strict_gate_enabled"])
+        self.assertEqual(result["quality_assessment"]["strict_gate_source"], "settings.ingest_guardrail_rollout_mode:canary")
+        self.assertEqual(result["quality_assessment"]["guardrail_rollout_mode"], "canary")
+        self.assertTrue(result["quality_assessment"]["guardrail_canary_matched"])
+        self.assertFalse(result["quality_assessment"]["guardrail_closure_claim"])
+        self.assertTrue(rollout["enable_strict_gate"])
+        self.assertTrue(rollout["canary_matched"])
+        self.assertFalse(rollout["closure_claim"])
+
     def test_source_library_terminal_output_is_deferred_without_writer(self) -> None:
         terminal_output = {
             "contract_version": "source_library.terminal_output.v1",
