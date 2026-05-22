@@ -17,6 +17,14 @@ from ..document_queries import prompt_time_density_time_expr
 
 _EPSILON = 1e-9
 _DEFAULT_WINDOWS = ["7d", "30d", "90d"]
+TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION = "time-density-decision-log-freshness-contract.v1"
+_TIME_DENSITY_TIME_FALLBACK_CHAIN = [
+    "extracted_data.effective_time",
+    "extracted_data.source_time",
+    "extracted_data.policy.effective_date",
+    "publish_date",
+    "created_at",
+]
 _LOG = logging.getLogger(__name__)
 
 
@@ -30,16 +38,66 @@ def _parse_iso_day(value: Any) -> date | None:
         return None
 
 
-def resolve_document_effective_day(doc: Document) -> date | None:
+def resolve_document_effective_time_provenance(doc: Document) -> dict[str, Any]:
     extracted = doc.extracted_data or {}
+    if not isinstance(extracted, dict):
+        extracted = {}
     policy = extracted.get("policy") if isinstance(extracted.get("policy"), dict) else {}
-    return (
-        _parse_iso_day(extracted.get("effective_time"))
-        or _parse_iso_day(extracted.get("source_time"))
-        or _parse_iso_day(policy.get("effective_date"))
-        or doc.publish_date
-        or (doc.created_at.date() if doc.created_at else None)
+    created_at = getattr(doc, "created_at", None)
+    created_day = created_at.date() if created_at else None
+    candidates = [
+        ("effective_time", "extracted_data.effective_time", extracted.get("effective_time")),
+        ("source_time", "extracted_data.source_time", extracted.get("source_time")),
+        ("policy_effective_date", "extracted_data.policy.effective_date", policy.get("effective_date")),
+        ("publish_date", "publish_date", getattr(doc, "publish_date", None)),
+        ("created_at", "created_at", created_day),
+    ]
+
+    available_sources: list[str] = []
+    selected_source = "missing"
+    selected_field: str | None = None
+    effective_day: date | None = None
+    for source, field, value in candidates:
+        parsed = _parse_iso_day(value)
+        if parsed:
+            available_sources.append(source)
+            if effective_day is None:
+                effective_day = parsed
+                selected_source = source
+                selected_field = field
+
+    gap_markers: list[str] = []
+    if "effective_time" not in available_sources:
+        gap_markers.append("effective_time_missing")
+    if "source_time" not in available_sources:
+        gap_markers.append("source_time_missing")
+    if selected_source in {"publish_date", "created_at"}:
+        gap_markers.append("semantic_time_fallback_used")
+    if selected_source == "created_at":
+        gap_markers.append("created_at_fallback_used")
+    if effective_day is None:
+        gap_markers.append("effective_day_unresolved")
+
+    time_parse_version = (
+        _normalize_json_text(extracted.get("time_parse_version"))
+        or _normalize_json_text(policy.get("time_parse_version"))
+        or "policy-time-expr-v1"
     )
+
+    return {
+        "effective_day": effective_day.isoformat() if effective_day else None,
+        "source": selected_source,
+        "source_field": selected_field,
+        "available_sources": available_sources,
+        "fallback_chain": list(_TIME_DENSITY_TIME_FALLBACK_CHAIN),
+        "time_parse_version": time_parse_version,
+        "gap_markers": sorted(set(gap_markers)),
+    }
+
+
+def resolve_document_effective_day(doc: Document) -> date | None:
+    effective_day = resolve_document_effective_time_provenance(doc).get("effective_day")
+    return _parse_iso_day(effective_day)
 
 
 def _normalize_json_text(value: Any) -> str | None:
@@ -111,6 +169,126 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _new_time_provenance_summary() -> dict[str, Any]:
+    return {
+        "total_docs": 0,
+        "source_counts": {},
+        "gap_counts": {},
+        "parse_versions": set(),
+        "fallback_chain": list(_TIME_DENSITY_TIME_FALLBACK_CHAIN),
+    }
+
+
+def _add_count(target: dict[str, int], key: Any, count: int = 1) -> None:
+    normalized = str(key or "").strip()
+    if not normalized:
+        return
+    target[normalized] = int(target.get(normalized, 0)) + int(count)
+
+
+def _accumulate_doc_time_provenance(summary: dict[str, Any], provenance: dict[str, Any]) -> None:
+    summary["total_docs"] = int(summary.get("total_docs") or 0) + 1
+    _add_count(summary.setdefault("source_counts", {}), provenance.get("source") or "missing")
+    for marker in provenance.get("gap_markers") or []:
+        _add_count(summary.setdefault("gap_counts", {}), marker)
+    parse_version = _normalize_json_text(provenance.get("time_parse_version"))
+    if parse_version:
+        summary.setdefault("parse_versions", set()).add(parse_version)
+
+
+def _merge_time_provenance_summary(target: dict[str, Any], source: dict[str, Any]) -> None:
+    target["total_docs"] = int(target.get("total_docs") or 0) + int(source.get("total_docs") or 0)
+    for key, count in (source.get("source_counts") or {}).items():
+        _add_count(target.setdefault("source_counts", {}), key, int(count or 0))
+    for key, count in (source.get("gap_counts") or {}).items():
+        _add_count(target.setdefault("gap_counts", {}), key, int(count or 0))
+    parse_versions = source.get("parse_versions") or []
+    if isinstance(parse_versions, set):
+        target.setdefault("parse_versions", set()).update(parse_versions)
+    else:
+        target.setdefault("parse_versions", set()).update(str(v) for v in parse_versions if str(v).strip())
+
+
+def _freeze_time_provenance_summary(summary: dict[str, Any] | None) -> dict[str, Any]:
+    summary = summary or {}
+    parse_versions = summary.get("parse_versions") or []
+    if isinstance(parse_versions, set):
+        frozen_versions = sorted(str(v) for v in parse_versions if str(v).strip())
+    else:
+        frozen_versions = sorted(str(v) for v in parse_versions if str(v).strip())
+    return {
+        "total_docs": int(summary.get("total_docs") or 0),
+        "source_counts": {str(k): int(v) for k, v in sorted((summary.get("source_counts") or {}).items())},
+        "gap_counts": {str(k): int(v) for k, v in sorted((summary.get("gap_counts") or {}).items())},
+        "parse_versions": frozen_versions,
+        "fallback_chain": list(summary.get("fallback_chain") or _TIME_DENSITY_TIME_FALLBACK_CHAIN),
+    }
+
+
+def build_time_density_live_gap_markers(
+    *,
+    effective_time_provenance: dict[str, Any] | None = None,
+    feedback_observed: bool = False,
+    production_data_verified: bool = False,
+) -> list[str]:
+    markers: set[str] = set()
+    if not feedback_observed:
+        markers.add("prompt_time_window_feedback_pending")
+    if not production_data_verified:
+        markers.add("production_freshness_probe_not_run")
+
+    provenance = effective_time_provenance or {}
+    for marker, count in (provenance.get("gap_counts") or {}).items():
+        if int(count or 0) > 0:
+            markers.add(f"effective_time_gap:{marker}")
+    return sorted(markers)
+
+
+def _build_ope_freshness_inputs(row: dict[str, Any], *, chosen_window: str) -> dict[str, Any]:
+    return {
+        "decision_log_table": "public.prompt_time_policy_decision_logs",
+        "freshness_timestamp_field": "created_at",
+        "freshness_timestamp_source": "database_server_default",
+        "default_stale_after_hours": 48.0,
+        "feedback_table": "public.prompt_time_window_feedback",
+        "feedback_join_keys": ["request_id", "source_domain", "noun_group_id", "window"],
+        "reward_field": "observed_reward",
+        "reward_fallback": "reward_proxy_from_features",
+        "request_id": _normalize_json_text(row.get("request_id")),
+        "window": _normalize_json_text(row.get("window")),
+        "chosen_window": chosen_window,
+        "is_chosen": bool(row.get("is_chosen")),
+        "p_base": float(row.get("p_base") or 0.0),
+        "p_new": float(row.get("p_new") or 0.0),
+    }
+
+
+def build_time_density_decision_log_features(
+    row: dict[str, Any],
+    trace: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    trace = trace or row.get("policy_decision_trace") or {}
+    return {
+        "density": float(row.get("density") or 0.0),
+        "norm_density": float(row.get("norm_density") or 0.0),
+        "dup_ratio": float(row.get("dup_ratio") or 0.0),
+        "peak_pressure": float(row.get("peak_pressure") or 0.0),
+        "latent_density_score": float(row.get("latent_density_score") or 0.0),
+        "target_overlap": float(row.get("target_overlap") or 0.0),
+        "target_overlap_gap": float(row.get("target_overlap_gap") or 0.0),
+        "collection_priority_score": float(row.get("collection_priority_score") or 0.0),
+        "contract_version": str(
+            trace.get("contract_version") or TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION
+        ),
+        "effective_time_provenance": trace.get("effective_time_provenance")
+        or row.get("effective_time_provenance")
+        or {},
+        "ope_freshness_inputs": trace.get("ope_freshness_inputs") or {},
+        "priority_decision_trace": trace.get("priority_decision_trace") or {},
+        "live_data_gap_markers": trace.get("live_data_gap_markers") or [],
+    }
 
 
 def _normalize_distribution(weights: dict[str, float]) -> dict[str, float]:
@@ -228,16 +406,7 @@ def _persist_policy_decision_logs(
                 offpeak_confidence=float(row.get("offpeak_confidence") or 0.0),
                 policy_version=str(trace.get("policy_version") or "density-cloud-v1"),
                 shift_signal_breakdown=(trace.get("shift_signal_breakdown") or {}),
-                features_json={
-                    "density": float(row.get("density") or 0.0),
-                    "norm_density": float(row.get("norm_density") or 0.0),
-                    "dup_ratio": float(row.get("dup_ratio") or 0.0),
-                    "peak_pressure": float(row.get("peak_pressure") or 0.0),
-                    "latent_density_score": float(row.get("latent_density_score") or 0.0),
-                    "target_overlap": float(row.get("target_overlap") or 0.0),
-                    "target_overlap_gap": float(row.get("target_overlap_gap") or 0.0),
-                    "collection_priority_score": float(row.get("collection_priority_score") or 0.0),
-                },
+                features_json=build_time_density_decision_log_features(row, trace),
             )
         )
 
@@ -315,8 +484,13 @@ def build_policy_decision_trace(
     p_new: float,
     kl_to_base: float,
     policy_version: str = "density-cloud-v1",
+    effective_time_provenance: dict[str, Any] | None = None,
+    priority_decision_trace: dict[str, Any] | None = None,
+    ope_freshness_inputs: dict[str, Any] | None = None,
+    live_data_gap_markers: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
+        "contract_version": TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION,
         "window": window,
         "policy_version": policy_version,
         "shift_signal_breakdown": {
@@ -331,6 +505,10 @@ def build_policy_decision_trace(
         "p_base": p_base,
         "p_new": p_new,
         "kl_to_base": kl_to_base,
+        "effective_time_provenance": effective_time_provenance or {},
+        "priority_decision_trace": priority_decision_trace or {},
+        "ope_freshness_inputs": ope_freshness_inputs or {},
+        "live_data_gap_markers": live_data_gap_markers or [],
     }
 
 
@@ -374,9 +552,11 @@ def query_prompt_time_density(
 
     grouped_doc_ids: dict[tuple[str, str, date], set[int]] = defaultdict(set)
     grouped_hashes: dict[tuple[str, str, date], list[str]] = defaultdict(list)
+    grouped_time_provenance: dict[tuple[str, str, date], dict[str, Any]] = {}
 
     for doc in docs:
-        effective_day = resolve_document_effective_day(doc)
+        time_provenance = resolve_document_effective_time_provenance(doc)
+        effective_day = _parse_iso_day(time_provenance.get("effective_day"))
         if not effective_day:
             continue
         domain = _source_domain_of(doc)
@@ -391,6 +571,10 @@ def query_prompt_time_density(
         dedup_key = str(doc.text_hash or "").strip() or str(doc.uri or "").strip().lower()
         if dedup_key:
             grouped_hashes[key].append(dedup_key)
+        _accumulate_doc_time_provenance(
+            grouped_time_provenance.setdefault(key, _new_time_provenance_summary()),
+            time_provenance,
+        )
 
     baseline_group_counts: dict[str, int] = defaultdict(int)
     for doc in baseline_docs:
@@ -425,6 +609,9 @@ def query_prompt_time_density(
                 "baseline_density": baseline_density,
                 "norm_density": norm_density,
                 "dup_ratio": dup_ratio,
+                "effective_time_provenance": _freeze_time_provenance_summary(
+                    grouped_time_provenance.get(key)
+                ),
             }
         )
     return out
@@ -602,12 +789,17 @@ def query_prompt_time_density_priority(
                     "norm_density_sum": 0.0,
                     "dup_ratio_sum": 0.0,
                     "count": 0,
+                    "effective_time_provenance": _new_time_provenance_summary(),
                 },
             )
             state["density_sum"] += _safe_float(row.get("density"))
             state["norm_density_sum"] += _safe_float(row.get("norm_density"))
             state["dup_ratio_sum"] += _safe_float(row.get("dup_ratio"))
             state["count"] += 1
+            _merge_time_provenance_summary(
+                state["effective_time_provenance"],
+                row.get("effective_time_provenance") or {},
+            )
         per_window_rows[raw] = []
         for state in aggregated.values():
             count = max(1, int(state["count"]))
@@ -652,6 +844,9 @@ def query_prompt_time_density_priority(
                     "offpeak_confidence": max(0.0, min(1.0, overlap * (1.0 - peak_pressure))),
                     "collection_priority_score": base_score,
                     "freshness_penalty": freshness_cost,
+                    "effective_time_provenance": _freeze_time_provenance_summary(
+                        state.get("effective_time_provenance")
+                    ),
                 }
             )
 
@@ -676,6 +871,19 @@ def query_prompt_time_density_priority(
             item["p_base"] = float(p_base.get(window, 0.0))
             item["p_new"] = float(p_new.get(window, item["p_base"]))
             item["kl_to_base"] = float(kl_to_base)
+            effective_time_provenance = dict(item.get("effective_time_provenance") or {})
+            priority_decision_trace = {
+                "prefer_low_density": bool(prefer_low_density),
+                "exclude_high_dup": bool(exclude_high_dup),
+                "min_overlap": float(min_overlap),
+                "target_overlap": float(target_overlap),
+                "eta": float(eta),
+                "delta_max": float(delta_max),
+                "tau": float(tau),
+                "avoid_peak": bool(avoid_peak),
+                "sort_order": ["p_new_desc", "collection_priority_score_asc", "vector_overlap_desc"],
+                "behavior_policy": "highest_p_base_window_for_ope_replay",
+            }
             trace = build_policy_decision_trace(
                 window=window,
                 peak_pressure=float(item["peak_pressure"]),
@@ -688,6 +896,13 @@ def query_prompt_time_density_priority(
                 p_base=float(item["p_base"]),
                 p_new=float(item["p_new"]),
                 kl_to_base=float(kl_to_base),
+                effective_time_provenance=effective_time_provenance,
+                priority_decision_trace=priority_decision_trace,
+                live_data_gap_markers=build_time_density_live_gap_markers(
+                    effective_time_provenance=effective_time_provenance,
+                    feedback_observed=False,
+                    production_data_verified=False,
+                ),
             )
             item["policy_decision_trace"] = trace
             rows.append(item)
@@ -713,6 +928,21 @@ def query_prompt_time_density_priority(
             row["request_id"] = request_id
             row["chosen_window"] = chosen_window
             row["is_chosen"] = bool(str(row.get("window") or "") == str(chosen_window))
+            trace = row.get("policy_decision_trace") or {}
+            priority_trace = dict(trace.get("priority_decision_trace") or {})
+            priority_trace.update(
+                {
+                    "rank": int(row.get("rank") or 0),
+                    "chosen_window": str(chosen_window),
+                    "is_chosen": bool(row.get("is_chosen")),
+                }
+            )
+            trace["priority_decision_trace"] = priority_trace
+            trace["ope_freshness_inputs"] = _build_ope_freshness_inputs(
+                row,
+                chosen_window=str(chosen_window),
+            )
+            row["policy_decision_trace"] = trace
         try:
             _persist_policy_decision_logs(
                 request_id=request_id,
