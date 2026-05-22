@@ -200,6 +200,9 @@ class LocalIndexServiceTest(unittest.TestCase):
         self.assertEqual(vector_results[0].retrieval_mode, "vector")
         self.assertEqual(hybrid_results[0].retrieval_mode, "hybrid")
         self.assertEqual(hybrid_results[0].trace["executed_mode"], "hybrid")
+        self.assertEqual(hybrid_results[0].trace["project_id"], "demo_proj")
+        self.assertIsNone(hybrid_results[0].trace["source_id"])
+        self.assertEqual(hybrid_results[0].trace["top_k"], 10)
 
     def test_lancedb_adapter_falls_back_to_keyword_when_vector_runtime_is_unavailable(self) -> None:
         adapter = object.__new__(LanceDBLocalIndexAdapter)

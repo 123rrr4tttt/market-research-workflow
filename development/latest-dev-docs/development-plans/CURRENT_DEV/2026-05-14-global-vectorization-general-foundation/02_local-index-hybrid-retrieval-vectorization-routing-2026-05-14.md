@@ -1,7 +1,7 @@
 # Local Index Hybrid Retrieval Vectorization Routing
 
-更新时间：2026-05-14 PST  
-状态：归属定位文档；本次不实施  
+更新时间：2026-05-22 PST
+状态：归属定位 + runtime/benchmark evidence partial；不作封口声明
 范围：把 LanceDB vector / hybrid retrieval 从 local open search provider isolation 后续工作中移出，归入全项目数据向量化 / 标准化开发线。
 
 ## 1. 定位
@@ -26,8 +26,8 @@ development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vect
 - `main/backend/app/services/local_index/schema.py` 已定义 `LocalIndexChunk / LocalIndexQuery / LocalIndexSearchResult`。
 - `main/backend/app/services/local_index/service.py` 已提供薄 service，过滤无效 chunk 并委托 adapter。
 - `main/backend/app/services/local_index/adapters/lancedb_adapter.py` 已实现可选 LanceDB adapter。
-- 当前 LanceDB adapter 的 `search()` 使用 `query_type="fts"`；`vector` 字段只在缺失时用 deterministic vector 填充，尚未用于真实 vector similarity。
-- 因此，本文中的 LanceDB vector / hybrid retrieval 是下一步要求，不是已完成事实。
+- 当前 LanceDB adapter 的 `search()` 已按 `keyword|vector|hybrid` mode 分发，并在可选 LanceDB runtime 中完成 smoke 与受控 benchmark。
+- 当前 benchmark 使用 deterministic vectors 证明 adapter ranking wiring、filter 和 trace，不证明生产 embedding model 的语义相关性质量。
 
 ## 2. 与搜索 provider 线的边界
 
@@ -86,7 +86,7 @@ local open search provider isolation 线继续负责：
 
 - 不把 LanceDB 加入主项目强依赖。
 - 不把 LanceDB 加入 `/api/v1/search` 的主 fallback order。
-- 不把 FTS prototype 宣称为 vector/hybrid 已完成。
+- 不把受控 benchmark 宣称为生产 embedding quality 已完成。
 - 新增 vector/hybrid 前，先补 `test_local_index_service_unittest.py` 或新增 contract test 覆盖 optional dependency、keyword/vector/hybrid mode、project/source/document filters。
 
 ## 2026-05-22 lane 9 落地状态
@@ -108,9 +108,20 @@ local open search provider isolation 线继续负责：
 - 因此，本文件状态从“只剩未安装依赖环境补跑”更新为“依赖可用时 keyword/vector/hybrid runtime smoke 已通过，但 embedding/ranking 质量与全项目 evidence contract 仍未封口”。
 - 本目录仍保留在 `CURRENT_DEV`，不迁入 `ARCHIVE_CLOSED`。
 
-## 4. 本次不做
+## 2026-05-22 Wave3 A benchmark evidence
 
-本文件只完成归属定位，不实施：
+- Benchmark 证据包：[local-index-lancedb-benchmark/2026-05-22](../../../automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)。
+- 已新增 `ops/search-lab/scripts/local_index_lancedb_benchmark_quality.py`，在可选 LanceDB 环境中构造受控 benchmark dataset，并重复断言：
+  - `keyword` / `vector` / `hybrid` top-2 排名顺序稳定；
+  - `project_id` 和 `source_id` filters 不泄漏 exact-match foreign rows；
+  - result `trace` 包含 adapter、requested/executed mode、query family、project/source/top_k；
+  - vector/hybrid 没有 keyword fallback。
+- 本次证明的是 `local_index` LanceDB adapter 的受控 ranking wiring 和可复跑 evidence，不证明生产 embedding model 的语义相关性质量。
+- 因此，本目录仍保持 `partial`：真实 embedding pipeline、embedding version/provenance、统一 vector object schema 和主搜索 evidence contract 继续未封口。
+
+## 4. 仍不做
+
+本文档只同步归属、runtime smoke 与受控 benchmark evidence，不把以下事项封口：
 
 - 不新增 embedding 任务。
 - 不修改数据库 schema。

@@ -1,0 +1,838 @@
+{
+  "generated_at": "2026-05-22T04:49:39.068203+00:00",
+  "status": "passed",
+  "python": "3.11.14",
+  "platform": "macOS-26.3-arm64-arm-64bit",
+  "packages": {
+    "lancedb": "0.24.2",
+    "pyarrow": "24.0.0"
+  },
+  "db_path": "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-benchmark-ytr9s5cf",
+  "out_dir": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22",
+  "rerun_command": "main/backend/.venv311/bin/python ops/search-lab/scripts/local_index_lancedb_benchmark_quality.py --out-dir development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22",
+  "assertions": [
+    "lancedb and pyarrow importable only in the optional benchmark environment",
+    "controlled dataset indexed through LocalIndexService and LanceDBLocalIndexAdapter",
+    "keyword, vector, and hybrid repeated top-k order remains stable",
+    "project_id and source_id filters exclude exact-match foreign rows",
+    "result trace includes adapter, requested/executed mode, query family, project_id, source_id, and top_k",
+    "vector and hybrid cases execute without keyword fallback"
+  ],
+  "remaining_blockers": [
+    {
+      "code": "semantic_embedding_quality_not_proven",
+      "message": "This benchmark uses deterministic vectors to prove LanceDB ranking wiring and stable top-k behavior. It does not prove production embedding model relevance quality."
+    },
+    {
+      "code": "global_vector_contract_not_closed",
+      "message": "Unified vector object schema, embedding model/version provenance, and main search evidence contract alignment remain open in CURRENT_DEV."
+    }
+  ],
+  "blockers": [],
+  "upsert": {
+    "ok": true,
+    "chunk_count": 12,
+    "created_table": true,
+    "adapter": "lancedb"
+  },
+  "ranking_cases": [
+    {
+      "case_id": "keyword_source_top2",
+      "mode": "keyword",
+      "query": "rare alpha keyword benchmark proof",
+      "project_id": "lancedb-benchmark",
+      "source_id": "source-alpha",
+      "top_k": 2,
+      "expected_order": [
+        "kw-primary",
+        "kw-secondary"
+      ],
+      "stable_order": [
+        "kw-primary",
+        "kw-secondary"
+      ],
+      "passed": true,
+      "repeats": [
+        {
+          "repeat": 0,
+          "latency_ms": 46.23,
+          "chunk_order": [
+            "kw-primary",
+            "kw-secondary"
+          ],
+          "scores": [
+            6.061047554016113,
+            5.151750564575195
+          ],
+          "score_order_ok": true,
+          "trace": [
+            {
+              "adapter": "lancedb",
+              "requested_mode": "keyword",
+              "executed_mode": "keyword",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-alpha",
+              "top_k": 2
+            },
+            {
+              "adapter": "lancedb",
+              "requested_mode": "keyword",
+              "executed_mode": "keyword",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-alpha",
+              "top_k": 2
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "latency_ms": 6.05,
+          "chunk_order": [
+            "kw-primary",
+            "kw-secondary"
+          ],
+          "scores": [
+            6.061047554016113,
+            5.151750564575195
+          ],
+          "score_order_ok": true,
+          "trace": [
+            {
+              "adapter": "lancedb",
+              "requested_mode": "keyword",
+              "executed_mode": "keyword",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-alpha",
+              "top_k": 2
+            },
+            {
+              "adapter": "lancedb",
+              "requested_mode": "keyword",
+              "executed_mode": "keyword",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-alpha",
+              "top_k": 2
+            }
+          ]
+        },
+        {
+          "repeat": 2,
+          "latency_ms": 10.38,
+          "chunk_order": [
+            "kw-primary",
+            "kw-secondary"
+          ],
+          "scores": [
+            6.061047554016113,
+            5.151750564575195
+          ],
+          "score_order_ok": true,
+          "trace": [
+            {
+              "adapter": "lancedb",
+              "requested_mode": "keyword",
+              "executed_mode": "keyword",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-alpha",
+              "top_k": 2
+            },
+            {
+              "adapter": "lancedb",
+              "requested_mode": "keyword",
+              "executed_mode": "keyword",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-alpha",
+              "top_k": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "vector_source_top2",
+      "mode": "vector",
+      "query": "semantic vector quality benchmark",
+      "project_id": "lancedb-benchmark",
+      "source_id": "source-vector",
+      "top_k": 2,
+      "expected_order": [
+        "vec-primary",
+        "vec-secondary"
+      ],
+      "stable_order": [
+        "vec-primary",
+        "vec-secondary"
+      ],
+      "passed": true,
+      "repeats": [
+        {
+          "repeat": 0,
+          "latency_ms": 17.84,
+          "chunk_order": [
+            "vec-primary",
+            "vec-secondary"
+          ],
+          "scores": [
+            0.0,
+            1.4995709657669067
+          ],
+          "score_order_ok": true,
+          "trace": [
+            {
+              "adapter": "lancedb",
+              "requested_mode": "vector",
+              "executed_mode": "vector",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-vector",
+              "top_k": 2
+            },
+            {
+              "adapter": "lancedb",
+              "requested_mode": "vector",
+              "executed_mode": "vector",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-vector",
+              "top_k": 2
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "latency_ms": 6.97,
+          "chunk_order": [
+            "vec-primary",
+            "vec-secondary"
+          ],
+          "scores": [
+            0.0,
+            1.4995709657669067
+          ],
+          "score_order_ok": true,
+          "trace": [
+            {
+              "adapter": "lancedb",
+              "requested_mode": "vector",
+              "executed_mode": "vector",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-vector",
+              "top_k": 2
+            },
+            {
+              "adapter": "lancedb",
+              "requested_mode": "vector",
+              "executed_mode": "vector",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-vector",
+              "top_k": 2
+            }
+          ]
+        },
+        {
+          "repeat": 2,
+          "latency_ms": 6.95,
+          "chunk_order": [
+            "vec-primary",
+            "vec-secondary"
+          ],
+          "scores": [
+            0.0,
+            1.4995709657669067
+          ],
+          "score_order_ok": true,
+          "trace": [
+            {
+              "adapter": "lancedb",
+              "requested_mode": "vector",
+              "executed_mode": "vector",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-vector",
+              "top_k": 2
+            },
+            {
+              "adapter": "lancedb",
+              "requested_mode": "vector",
+              "executed_mode": "vector",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-vector",
+              "top_k": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "hybrid_source_top2",
+      "mode": "hybrid",
+      "query": "hybrid fusion ranking benchmark",
+      "project_id": "lancedb-benchmark",
+      "source_id": "source-hybrid",
+      "top_k": 2,
+      "expected_order": [
+        "hybrid-primary",
+        "hybrid-secondary"
+      ],
+      "stable_order": [
+        "hybrid-primary",
+        "hybrid-secondary"
+      ],
+      "passed": true,
+      "repeats": [
+        {
+          "repeat": 0,
+          "latency_ms": 44.66,
+          "chunk_order": [
+            "hybrid-primary",
+            "hybrid-secondary"
+          ],
+          "scores": [
+            0.032786883413791656,
+            0.016129031777381897
+          ],
+          "score_order_ok": true,
+          "trace": [
+            {
+              "adapter": "lancedb",
+              "requested_mode": "hybrid",
+              "executed_mode": "hybrid",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-hybrid",
+              "top_k": 2
+            },
+            {
+              "adapter": "lancedb",
+              "requested_mode": "hybrid",
+              "executed_mode": "hybrid",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-hybrid",
+              "top_k": 2
+            }
+          ]
+        },
+        {
+          "repeat": 1,
+          "latency_ms": 21.63,
+          "chunk_order": [
+            "hybrid-primary",
+            "hybrid-secondary"
+          ],
+          "scores": [
+            0.032786883413791656,
+            0.016129031777381897
+          ],
+          "score_order_ok": true,
+          "trace": [
+            {
+              "adapter": "lancedb",
+              "requested_mode": "hybrid",
+              "executed_mode": "hybrid",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-hybrid",
+              "top_k": 2
+            },
+            {
+              "adapter": "lancedb",
+              "requested_mode": "hybrid",
+              "executed_mode": "hybrid",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-hybrid",
+              "top_k": 2
+            }
+          ]
+        },
+        {
+          "repeat": 2,
+          "latency_ms": 19.25,
+          "chunk_order": [
+            "hybrid-primary",
+            "hybrid-secondary"
+          ],
+          "scores": [
+            0.032786883413791656,
+            0.016129031777381897
+          ],
+          "score_order_ok": true,
+          "trace": [
+            {
+              "adapter": "lancedb",
+              "requested_mode": "hybrid",
+              "executed_mode": "hybrid",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-hybrid",
+              "top_k": 2
+            },
+            {
+              "adapter": "lancedb",
+              "requested_mode": "hybrid",
+              "executed_mode": "hybrid",
+              "query_family": "local_material",
+              "project_id": "lancedb-benchmark",
+              "source_id": "source-hybrid",
+              "top_k": 2
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "filter_cases": [
+    {
+      "case_id": "keyword_project_filter",
+      "mode": "keyword",
+      "query": "rare alpha keyword benchmark proof",
+      "project_id": "lancedb-benchmark",
+      "source_id": null,
+      "top_k": 5,
+      "latency_ms": 24.17,
+      "chunk_order": [
+        "kw-primary",
+        "hybrid-primary",
+        "kw-foreign-source",
+        "hybrid-secondary",
+        "kw-secondary"
+      ],
+      "forbidden_chunk_ids": [
+        "kw-foreign-project"
+      ],
+      "passed": true,
+      "results": [
+        {
+          "chunk_id": "kw-primary",
+          "document_id": "doc-kw-primary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-alpha",
+          "title": "Keyword primary",
+          "content": "rare alpha keyword benchmark proof rare alpha keyword benchmark proof rare alpha keyword benchmark proof robotics policy evidence.",
+          "score": 6.061047554016113,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "keyword",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "keyword",
+            "executed_mode": "keyword",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "hybrid-primary",
+          "document_id": "doc-hybrid-primary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-hybrid",
+          "title": "Hybrid primary",
+          "content": "hybrid fusion ranking benchmark robotics governance hybrid fusion ranking benchmark robotics governance.",
+          "score": 5.887328147888184,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "keyword",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "keyword",
+            "executed_mode": "keyword",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "kw-foreign-source",
+          "document_id": "doc-kw-foreign-source",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-beta",
+          "title": "Keyword foreign source",
+          "content": "rare alpha keyword benchmark proof rare alpha keyword benchmark proof excluded by source_id.",
+          "score": 5.724752426147461,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "keyword",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "keyword",
+            "executed_mode": "keyword",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "hybrid-secondary",
+          "document_id": "doc-hybrid-secondary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-hybrid",
+          "title": "Hybrid secondary",
+          "content": "hybrid fusion ranking benchmark secondary governance.",
+          "score": 5.4211883544921875,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "keyword",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "keyword",
+            "executed_mode": "keyword",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "kw-secondary",
+          "document_id": "doc-kw-secondary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-alpha",
+          "title": "Keyword secondary",
+          "content": "rare alpha keyword benchmark proof secondary evidence.",
+          "score": 5.151750564575195,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "keyword",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "keyword",
+            "executed_mode": "keyword",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "vector_project_filter",
+      "mode": "vector",
+      "query": "semantic vector quality benchmark",
+      "project_id": "lancedb-benchmark",
+      "source_id": null,
+      "top_k": 5,
+      "latency_ms": 11.21,
+      "chunk_order": [
+        "vec-primary",
+        "vec-foreign-source",
+        "kw-primary",
+        "kw-secondary",
+        "vec-secondary"
+      ],
+      "forbidden_chunk_ids": [
+        "vec-foreign-project"
+      ],
+      "passed": true,
+      "results": [
+        {
+          "chunk_id": "vec-primary",
+          "document_id": "doc-vec-primary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-vector",
+          "title": "Vector primary",
+          "content": "Controlled vector quality primary material.",
+          "score": 0.0,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "vector",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "vector",
+            "executed_mode": "vector",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "vec-foreign-source",
+          "document_id": "doc-vec-foreign-source",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-beta",
+          "title": "Vector foreign source",
+          "content": "Controlled vector quality foreign source material.",
+          "score": 0.0,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "vector",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "vector",
+            "executed_mode": "vector",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "kw-primary",
+          "document_id": "doc-kw-primary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-alpha",
+          "title": "Keyword primary",
+          "content": "rare alpha keyword benchmark proof rare alpha keyword benchmark proof rare alpha keyword benchmark proof robotics policy evidence.",
+          "score": 1.062091588973999,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "vector",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "vector",
+            "executed_mode": "vector",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "kw-secondary",
+          "document_id": "doc-kw-secondary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-alpha",
+          "title": "Keyword secondary",
+          "content": "rare alpha keyword benchmark proof secondary evidence.",
+          "score": 1.4364113807678223,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "vector",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "vector",
+            "executed_mode": "vector",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "vec-secondary",
+          "document_id": "doc-vec-secondary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-vector",
+          "title": "Vector secondary",
+          "content": "Controlled vector quality secondary material.",
+          "score": 1.4995709657669067,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "vector",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "vector",
+            "executed_mode": "vector",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "hybrid_project_filter",
+      "mode": "hybrid",
+      "query": "hybrid fusion ranking benchmark",
+      "project_id": "lancedb-benchmark",
+      "source_id": null,
+      "top_k": 5,
+      "latency_ms": 11.85,
+      "chunk_order": [
+        "hybrid-primary",
+        "hybrid-foreign-source",
+        "hybrid-secondary",
+        "kw-primary",
+        "vec-secondary"
+      ],
+      "forbidden_chunk_ids": [
+        "hybrid-foreign-project"
+      ],
+      "passed": true,
+      "results": [
+        {
+          "chunk_id": "hybrid-primary",
+          "document_id": "doc-hybrid-primary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-hybrid",
+          "title": "Hybrid primary",
+          "content": "hybrid fusion ranking benchmark robotics governance hybrid fusion ranking benchmark robotics governance.",
+          "score": 0.032258063554763794,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "hybrid",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "hybrid",
+            "executed_mode": "hybrid",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "hybrid-foreign-source",
+          "document_id": "doc-hybrid-foreign-source",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-beta",
+          "title": "Hybrid foreign source",
+          "content": "hybrid fusion ranking benchmark robotics governance excluded by source_id.",
+          "score": 0.03201844170689583,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "hybrid",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "hybrid",
+            "executed_mode": "hybrid",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "hybrid-secondary",
+          "document_id": "doc-hybrid-secondary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-hybrid",
+          "title": "Hybrid secondary",
+          "content": "hybrid fusion ranking benchmark secondary governance.",
+          "score": 0.0317460335791111,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "hybrid",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "hybrid",
+            "executed_mode": "hybrid",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "kw-primary",
+          "document_id": "doc-kw-primary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-alpha",
+          "title": "Keyword primary",
+          "content": "rare alpha keyword benchmark proof rare alpha keyword benchmark proof rare alpha keyword benchmark proof robotics policy evidence.",
+          "score": 0.016393441706895828,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "hybrid",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "hybrid",
+            "executed_mode": "hybrid",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        },
+        {
+          "chunk_id": "vec-secondary",
+          "document_id": "doc-vec-secondary",
+          "project_id": "lancedb-benchmark",
+          "source_id": "source-vector",
+          "title": "Vector secondary",
+          "content": "Controlled vector quality secondary material.",
+          "score": 0.015625,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb"
+          },
+          "retrieval_mode": "hybrid",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "hybrid",
+            "executed_mode": "hybrid",
+            "query_family": "local_material",
+            "project_id": "lancedb-benchmark",
+            "source_id": null,
+            "top_k": 5
+          }
+        }
+      ]
+    }
+  ],
+  "duration_ms": 1045.85
+}

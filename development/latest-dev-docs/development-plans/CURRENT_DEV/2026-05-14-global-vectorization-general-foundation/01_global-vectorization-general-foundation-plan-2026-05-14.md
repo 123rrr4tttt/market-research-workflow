@@ -1,6 +1,6 @@
 # Global Vectorization General Foundation Plan (2026-05-14)
 
-更新时间：2026-05-14 PST  
+更新时间：2026-05-22 PST
 状态：实效性更新；仍为 partial / doc-aligned，不作封口声明  
 范围：全项目数据向量化、chunk/material 标准化、hybrid retrieval、provenance 与下游 Agent / WritingWorkbench / report evidence 共用检索底座。
 
@@ -49,8 +49,8 @@
    - `main/backend/app/services/local_index/service.py`
    - `main/backend/app/services/local_index/adapters/lancedb_adapter.py`
    - `LocalIndexChunk` 已有 `chunk_id, document_id, project_id, source_id, title, content, url, source_type, language, created_at, metadata, vector`。
-   - LanceDB adapter 当前只实现 FTS 搜索；未实现真实 vector similarity / hybrid score。
-   - LanceDB 是可选依赖，不能成为主项目强依赖。
+   - LanceDB adapter 已按 `LocalIndexQuery.mode` 分发 FTS/vector/hybrid，并保持可选依赖边界，不能成为主项目强依赖。
+   - Wave3 A 的受控 benchmark 已证明 deterministic-vector 数据集上的 top-k ranking wiring、filters 和 trace；但这不是生产 embedding model 语义相关性质量证明。
 
 4. Agent 矩阵式检索已经部分落地：
    - `main/backend/app/services/agent_core/project_tools.py`
@@ -71,7 +71,7 @@
 3. `Embedding` 表还没有 `project_key, chunk_id, source_id, document_id, vector_version, provenance, source_uri, char_start, char_end, token_count, normalization_version, matrix_branch_id` 等字段。
 4. policy indexer 目前按 document id 删除/写入 embedding，chunk 级主键仍不充分。
 5. Qdrant 与 pgvector 的输出 shape 还不是完整 evidence hit contract；缺少统一 `evidence_class, verification_state, rank_features, provenance`。
-6. LanceDB 当前是 FTS prototype，不应被文档描述为已经支持 vector/hybrid。
+6. LanceDB `local_index` runtime 与受控 benchmark 已覆盖 keyword/vector/hybrid，但仍不应被文档描述为生产 embedding quality 已封口。
 7. Agent matrix 和主检索链路尚未打通：Agent 外部 source matrix 有 branch diagnostics，但 `/api/v1/search` 的 vector/hybrid 结果尚无 `query_group_id/matrix_branch_id`。
 
 后续要求必须以“扩展现有实现”为原则：
@@ -317,7 +317,7 @@
   - `test_local_index_service_unittest.py`
   - `test_agent_core_unittest.py` 中 matrix 相关测试。
 
-2026-05-22 lane 9 已完成 M0 的 `local_index` 子项：冻结 `keyword|vector|hybrid` mode contract，补齐 service normalization、LanceDB adapter dispatch、result `retrieval_mode/retrieval_family/trace`，并用 `test_local_index_service_unittest.py` 覆盖 fake-table dispatch 与 optional dependency boundary。Wave2 A/B 已补 [local-index-lancedb-runtime-smoke/2026-05-22](../../../automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md) 与 [local-index-runtime-contract/2026-05-22](../../../automation-runs/local-index-runtime-contract/2026-05-22/README.md) 证据：当前 optional dependency 环境可 import `lancedb`，keyword/vector/hybrid runtime smoke 均通过；因此 M0 的 `local_index` runtime smoke 已对齐，但 embedding/ranking 质量、benchmark 与全项目 evidence contract 仍是后续验证项。
+2026-05-22 lane 9 已完成 M0 的 `local_index` 子项：冻结 `keyword|vector|hybrid` mode contract，补齐 service normalization、LanceDB adapter dispatch、result `retrieval_mode/retrieval_family/trace`，并用 `test_local_index_service_unittest.py` 覆盖 fake-table dispatch 与 optional dependency boundary。Wave2 A/B 已补 [local-index-lancedb-runtime-smoke/2026-05-22](../../../automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md) 与 [local-index-runtime-contract/2026-05-22](../../../automation-runs/local-index-runtime-contract/2026-05-22/README.md) 证据：当前 optional dependency 环境可 import `lancedb`，keyword/vector/hybrid runtime smoke 均通过。Wave3 A 已补 [local-index-lancedb-benchmark/2026-05-22](../../../automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md) 证据：受控 dataset 下三种 mode 的 repeated top-k ranking、project/source filters 和 trace contract 均通过；因此 M0 的 `local_index` runtime/benchmark wiring 已对齐，但真实 embedding model 语义质量、统一 vector object schema 与全项目 evidence contract 仍是后续验证项。
 
 2. `M1`（基础落库）
 - 在不破坏 `Embedding` 表现有 contract 的前提下，扩展 ES/Qdrant payload 字段。

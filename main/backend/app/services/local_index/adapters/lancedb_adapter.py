@@ -66,6 +66,9 @@ class LanceDBLocalIndexAdapter:
             "requested_mode": mode,
             "executed_mode": mode,
             "query_family": "local_material",
+            "project_id": query.project_id,
+            "source_id": query.source_id,
+            "top_k": limit,
         }
         try:
             rows = _search_rows(self._table, query=query, predicate=predicate, limit=limit, mode=mode)
