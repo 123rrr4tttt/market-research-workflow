@@ -1,6 +1,6 @@
 # Development Plans Index
 
-更新时间：2026-05-14（PST）
+更新时间：2026-05-22（PST）
 范围：`development/latest-dev-docs/development-plans`
 
 ## Main Entry
@@ -23,6 +23,7 @@
 - [ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/](./ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
 - [CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/](./CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/INDEX.md)
 - [CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md](./CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md)
+- [CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/10_search-provider-trace-contract-closure-replay-2026-05-22.md](./CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/10_search-provider-trace-contract-closure-replay-2026-05-22.md)
 - [CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md](./CURRENT_DEV/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
 - [CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 - [F_PLAN/12_static-temporal-decoupling-platformization-plan-2026-03-01.md](./F_PLAN/12_static-temporal-decoupling-platformization-plan-2026-03-01.md)

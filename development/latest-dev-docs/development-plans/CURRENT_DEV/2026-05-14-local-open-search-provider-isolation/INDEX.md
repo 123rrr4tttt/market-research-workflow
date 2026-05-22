@@ -1,7 +1,7 @@
 # Local Open Search Provider Isolation Index
 
 更新时间：2026-05-22 PST
-状态：本目录为 SearXNG / YaCy 本地开源搜索 provider 隔离部署与显式接入目标的唯一入口；源码、脚本、官方文档对齐说明和真实运行态 smoke 均已完成；SearXNG 外部搜索 benchmark、本地索引 baseline、解除隔离与全项目融贯性 backend replay、WritingWorkbench 前端融贯性、SearXNG candidate approval gate、可选增强启动器集成、Docker Web Launcher / launcher-agent 均已落盘；2026-05-22 已补 explicit provider trace 合同、单测和真实容器 replay 证据
+状态：本目录为 SearXNG / YaCy 本地开源搜索 provider 隔离部署与显式接入目标的唯一入口；源码、脚本、官方文档对齐说明和真实运行态 smoke 均已完成；SearXNG 外部搜索 benchmark、本地索引 baseline、解除隔离与全项目融贯性 backend replay、WritingWorkbench 前端融贯性、SearXNG candidate approval gate、可选增强启动器集成、Docker Web Launcher / launcher-agent 均已落盘；2026-05-22 已补 explicit provider trace 合同、单测、离线 artifact 复跑脚本和真实容器 replay 证据
 
 ## 范围
 
@@ -65,5 +65,6 @@
 | 解除隔离与项目融贯性 | 后端 replay 完成；前端 e2e blocked_by_env | `automation-runs/deisolation-project-coherence/2026-05-14/`：agent SearXNG 调用 14 条候选、source candidate review 14 条 URL、writing material retrieval 10 条结果、LanceDB FTS prototype 通过，`provider=auto` 未接入 SearXNG |
 | 前端融贯性与候选门禁 | 完成 | `automation-runs/frontend-coherence-and-searxng-gate/2026-05-14/`：WritingWorkbench e2e 6 passed，选区材料检索调用 `project.context.bundle` + `writing.document.list` 且未写回，SearXNG gate 14 candidates / 1 approved / 1 rejected / 12 pending，裸搜索结果未写入 source_library |
 | 可选增强启动器 | 完成 | `09_...launcher-integration...md`：SearXNG / YaCy 主 compose profile、LanceDB optional requirements、跨平台窗口勾选项、macOS 包装窗口、独立 Docker Web Launcher / launcher-agent 控制面和启动脚本透传均已完成 |
-| Explicit provider trace contract | 完成 | `10_...closure-replay...md`：SearXNG / YaCy 结果新增 explicit route trace；adapter 单测 `4 passed`，`git diff --check` 与 `py_compile` 通过 |
-| Explicit provider trace container replay | 完成 | `automation-runs/search-provider-container-replay/2026-05-22/`：SearXNG 与 YaCy 真实容器 replay 均通过，`provider_trace_replay.jsonl` 记录 `provider_route`、`provider_family`、`provider_auto_included` 和 `backend_trace` |
+| Explicit provider trace contract | 完成 | `10_...closure-replay...md`：SearXNG / YaCy 结果新增 explicit route trace；adapter 单测覆盖显式 provider trace 与 `provider=auto` 排除关系 |
+| Explicit provider trace offline artifact | 完成 | `automation-runs/search-provider-trace-artifacts/2026-05-22/`：离线 artifact 复跑脚本固化 `provider_route`、`provider_family`、`provider_auto_included` 和 `backend_trace` 字段 |
+| Explicit provider trace container replay | 完成 | `automation-runs/search-provider-container-replay/2026-05-22/`：SearXNG 与 YaCy 真实容器 replay 均通过，`provider_trace_replay.jsonl` 记录 explicit provider trace 字段 |
