@@ -32,8 +32,6 @@ Updated: 2026-05-14 PST
   - [2026-05-22 D_TEST index](./development-plans/D_TEST/INDEX.md)
   - [2026-05-22 E_OPS index](./development-plans/E_OPS/INDEX.md)
   - [2026-05-22 F_PLAN index](./development-plans/F_PLAN/INDEX.md)
-- `automation-runs`：
-  - [2026-05-15 Branch Hygiene Report](./automation-runs/branch-hygiene-2026-05-15.md)
 - 根目录：
   - [2026-05-14 当前预发布说明：pre-release-2026-05-14-rc1](../../RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
 - `automation-runs`：

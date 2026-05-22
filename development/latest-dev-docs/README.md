@@ -38,8 +38,6 @@
   - [development-plans/D_TEST/INDEX.md](./development-plans/D_TEST/INDEX.md)
   - [development-plans/E_OPS/INDEX.md](./development-plans/E_OPS/INDEX.md)
   - [development-plans/F_PLAN/INDEX.md](./development-plans/F_PLAN/INDEX.md)
-- 分支卫生巡检报告（2026-05-15）：
-  - [automation-runs/branch-hygiene-2026-05-15.md](./automation-runs/branch-hygiene-2026-05-15.md)
 - 根目录新增当前完整预发布说明（2026-05-14）：
   - [RELEASE_NOTES_pre-release-2026-05-14-rc1.md](../../RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
 - 当前预发布门禁与完成审计（2026-05-14）：
