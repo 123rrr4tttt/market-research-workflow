@@ -23,13 +23,13 @@
 - `partial`：已有明显落地或局部收口，但整目录未闭环
 - `not_closed`：仍处于未完成计划或明确未收口状态
 - `no_closure_claim`：目录没有收口声明，或只是映射 / 占位 / 规划材料
-- `executing`：已进入当前并行实现波次，但代码证据尚未由主代理合并回填
+- `wave5_verified`：当前并行实现波次已合并并通过聚焦门禁，仍保留后续生产化或更大范围验证项
 - 时效标签详见 [`STATUS_AUDIT_2026-04-07.md`](./STATUS_AUDIT_2026-04-07.md)
 
 ## 剩余状态分布
 
-- `partial`: 23
-- `not_closed`: 9
+- `partial`: 24
+- `not_closed`: 8
 - `no_closure_claim`: 4
 
 ## Agent High-Fidelity Migration Split Result
@@ -62,12 +62,12 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 - `[partial][doc_aligned]` [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md) - i18n/theme contract evidence: [frontend-topology-theme/2026-05-22](../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
 - `[partial][doc_aligned]` [2026-03-15 Frontend Three-Layer Rewrite](./2026-03-15-frontend-three-layer-rewrite/README.md)
 - `[partial][doc_aligned]` [2026-03-25 Source-Library Ingest Minimal Migration](./2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md)
+- `[partial][wave5_verified]` [2026-05-22 Clue Chain Investigation Tool](./2026-05-22-clue-chain-investigation-tool/INDEX.md) - Wave5 plan: [02_wave5_worktree_execution_plan.md](./2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md); implementation evidence: [04_wave5_implementation_evidence-2026-05-22.md](./2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md)
 - `[partial][doc_drift]` [MERGED_OVERVIEW](./MERGED_OVERVIEW/index.md)
 
 ## Not Closed
 
 - `[not_closed][doc_aligned]` [2026-04-07 Parallel Agent Wave Orchestration](./2026-04-07-parallel-agent-wave-orchestration/README.md)
-- `[not_closed][executing]` [2026-05-22 Clue Chain Investigation Tool](./2026-05-22-clue-chain-investigation-tool/INDEX.md) - Wave5 plan: [02_wave5_worktree_execution_plan.md](./2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
 - `[not_closed][doc_aligned]` [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md) - API handoff evidence: [graph-handoff-evidence/2026-05-22](../../automation-runs/graph-handoff-evidence/2026-05-22/README.md)
