@@ -1,0 +1,365 @@
+{
+  "contract_version": "agent_core.tool_calling_quality.v1",
+  "deterministic_tool_calling_ready": true,
+  "external_provider_live_gap": {
+    "auto_promotion_allowed": false,
+    "gap_reason": "The deterministic fixtures prove provider adapter shape only; they do not measure the configured external model's live native tool-call reliability, latency, or schema adherence.",
+    "live_model_calls": 0,
+    "quality_claim_allowed": false,
+    "required_next_evidence": "Bounded live replay against the selected external provider with timeout, model id, tool-call response shape, schema-adherence counts, and failure classification.",
+    "state": "external_provider_live_gap"
+  },
+  "failures": [],
+  "provider_tool_call_contracts": [
+    {
+      "external_quality_claim_allowed": false,
+      "failures": [],
+      "fixture_status": "ready",
+      "fixture_type": "deterministic_no_network_tool_call_contract",
+      "model_path": "fake_core_provider",
+      "provider_key": "fake_core_provider",
+      "provider_path": "app.services.agent_core.fake_provider.FakeCoreProvider",
+      "provider_wire_contract": {
+        "raw_response_shape": "CoreModelStep.tools(CoreToolCall)",
+        "wire_protocol": "core_model_step_fixture"
+      },
+      "runtime_dispatch": {
+        "contract_version": "agent_core.runtime_dispatch.v1",
+        "event_type_counts": {
+          "assistant_message": 1,
+          "final_answer": 1,
+          "session_started": 1,
+          "tool_call_requested": 1,
+          "tool_call_started": 1,
+          "tool_result": 1,
+          "user_message": 1
+        },
+        "final_answer_present": true,
+        "session_id": "agent-core-tool-calling-quality-fake_core_provider",
+        "stop_reason": "final_answer",
+        "tool_event_sequence": [
+          {
+            "call_id": "call-agent-tool-calling-quality-fake_core_provider",
+            "contract_version": "agent_core.runtime_tool_event_shape.v1",
+            "event_type": "tool_call_requested",
+            "has_tool_call": true,
+            "has_tool_result": false,
+            "has_tool_spec": false,
+            "tool_name": "agent.tool_calling_quality.echo"
+          },
+          {
+            "call_id": "call-agent-tool-calling-quality-fake_core_provider",
+            "contract_version": "agent_core.runtime_tool_event_shape.v1",
+            "event_type": "tool_call_started",
+            "has_tool_call": true,
+            "has_tool_result": false,
+            "has_tool_spec": true,
+            "tool_name": "agent.tool_calling_quality.echo"
+          },
+          {
+            "call_id": "call-agent-tool-calling-quality-fake_core_provider",
+            "contract_version": "agent_core.runtime_tool_event_shape.v1",
+            "event_type": "tool_result",
+            "has_tool_call": false,
+            "has_tool_result": true,
+            "has_tool_spec": false,
+            "tool_name": "agent.tool_calling_quality.echo"
+          }
+        ],
+        "tool_result_status_counts": {
+          "completed": 1
+        },
+        "tool_results": [
+          {
+            "call_id": "call-agent-tool-calling-quality-fake_core_provider",
+            "status": "completed",
+            "structured_contract_version": "agent.tool_calling_quality.echo.result.v1",
+            "tool_name": "agent.tool_calling_quality.echo"
+          }
+        ],
+        "turn_id": "turn-agent-core-tool-calling-quality-fake_core_provider"
+      },
+      "schema_validation": {
+        "errors": [],
+        "status": "passed"
+      },
+      "step_type": "tool_calls",
+      "tool_call_contract": {
+        "arguments": {
+          "limit": 2,
+          "query": "fake_core_provider-contract-shape",
+          "tags": [
+            "agent_core",
+            "fake_core_provider"
+          ]
+        },
+        "arguments_type": "object",
+        "call_id": "call-agent-tool-calling-quality-fake_core_provider",
+        "contract_version": "agent_core.tool_call_shape.v1",
+        "missing_keys": [],
+        "present_keys": [
+          "arguments",
+          "call_id",
+          "reason",
+          "tool_name"
+        ],
+        "provider_key": "fake_core_provider",
+        "reason_present": true,
+        "required_keys": [
+          "call_id",
+          "tool_name",
+          "arguments",
+          "reason"
+        ],
+        "shape_status": "valid",
+        "tool_name": "agent.tool_calling_quality.echo"
+      }
+    },
+    {
+      "external_quality_claim_allowed": false,
+      "failures": [],
+      "fixture_status": "ready",
+      "fixture_type": "deterministic_no_network_tool_call_contract",
+      "model_path": "json_core_provider",
+      "provider_key": "json_core_provider",
+      "provider_path": "app.services.agent_core.json_provider.JsonCoreProvider",
+      "provider_wire_contract": {
+        "argument_key": "arguments",
+        "raw_response_shape": "JSON object with type=tool_calls",
+        "tool_call_array_key": "tool_calls",
+        "wire_protocol": "json_tool_call_protocol"
+      },
+      "runtime_dispatch": {
+        "contract_version": "agent_core.runtime_dispatch.v1",
+        "event_type_counts": {
+          "assistant_message": 1,
+          "final_answer": 1,
+          "session_started": 1,
+          "tool_call_requested": 1,
+          "tool_call_started": 1,
+          "tool_result": 1,
+          "user_message": 1
+        },
+        "final_answer_present": true,
+        "session_id": "agent-core-tool-calling-quality-json_core_provider",
+        "stop_reason": "final_answer",
+        "tool_event_sequence": [
+          {
+            "call_id": "call-agent-tool-calling-quality-json_core_provider",
+            "contract_version": "agent_core.runtime_tool_event_shape.v1",
+            "event_type": "tool_call_requested",
+            "has_tool_call": true,
+            "has_tool_result": false,
+            "has_tool_spec": false,
+            "tool_name": "agent.tool_calling_quality.echo"
+          },
+          {
+            "call_id": "call-agent-tool-calling-quality-json_core_provider",
+            "contract_version": "agent_core.runtime_tool_event_shape.v1",
+            "event_type": "tool_call_started",
+            "has_tool_call": true,
+            "has_tool_result": false,
+            "has_tool_spec": true,
+            "tool_name": "agent.tool_calling_quality.echo"
+          },
+          {
+            "call_id": "call-agent-tool-calling-quality-json_core_provider",
+            "contract_version": "agent_core.runtime_tool_event_shape.v1",
+            "event_type": "tool_result",
+            "has_tool_call": false,
+            "has_tool_result": true,
+            "has_tool_spec": false,
+            "tool_name": "agent.tool_calling_quality.echo"
+          }
+        ],
+        "tool_result_status_counts": {
+          "completed": 1
+        },
+        "tool_results": [
+          {
+            "call_id": "call-agent-tool-calling-quality-json_core_provider",
+            "status": "completed",
+            "structured_contract_version": "agent.tool_calling_quality.echo.result.v1",
+            "tool_name": "agent.tool_calling_quality.echo"
+          }
+        ],
+        "turn_id": "turn-agent-core-tool-calling-quality-json_core_provider"
+      },
+      "schema_validation": {
+        "errors": [],
+        "status": "passed"
+      },
+      "step_type": "tool_calls",
+      "tool_call_contract": {
+        "arguments": {
+          "limit": 2,
+          "query": "json_core_provider-contract-shape",
+          "tags": [
+            "agent_core",
+            "json_core_provider"
+          ]
+        },
+        "arguments_type": "object",
+        "call_id": "call-agent-tool-calling-quality-json_core_provider",
+        "contract_version": "agent_core.tool_call_shape.v1",
+        "missing_keys": [],
+        "present_keys": [
+          "arguments",
+          "call_id",
+          "reason",
+          "tool_name"
+        ],
+        "provider_key": "json_core_provider",
+        "reason_present": true,
+        "required_keys": [
+          "call_id",
+          "tool_name",
+          "arguments",
+          "reason"
+        ],
+        "shape_status": "valid",
+        "tool_name": "agent.tool_calling_quality.echo"
+      }
+    },
+    {
+      "external_quality_claim_allowed": false,
+      "failures": [],
+      "fixture_status": "ready",
+      "fixture_type": "deterministic_no_network_tool_call_contract",
+      "model_path": "native_tool_calling_provider",
+      "provider_key": "native_tool_calling_provider",
+      "provider_path": "app.services.agent_core.native_provider.NativeToolCallingCoreProvider",
+      "provider_wire_contract": {
+        "canonical_tool_name": "agent.tool_calling_quality.echo",
+        "native_tool_name": "agent_tool_calling_quality_echo",
+        "parameters_additional_properties": false,
+        "raw_response_shape": "OpenAI additional_kwargs.tool_calls[].function.arguments JSON string",
+        "safe_name_changed": true,
+        "wire_protocol": "native_bind_tools_function_call"
+      },
+      "runtime_dispatch": {
+        "contract_version": "agent_core.runtime_dispatch.v1",
+        "event_type_counts": {
+          "assistant_message": 1,
+          "final_answer": 1,
+          "session_started": 1,
+          "tool_call_requested": 1,
+          "tool_call_started": 1,
+          "tool_result": 1,
+          "user_message": 1
+        },
+        "final_answer_present": true,
+        "session_id": "agent-core-tool-calling-quality-native_tool_calling_provider",
+        "stop_reason": "final_answer",
+        "tool_event_sequence": [
+          {
+            "call_id": "call-agent-tool-calling-quality-native_tool_calling_provider",
+            "contract_version": "agent_core.runtime_tool_event_shape.v1",
+            "event_type": "tool_call_requested",
+            "has_tool_call": true,
+            "has_tool_result": false,
+            "has_tool_spec": false,
+            "tool_name": "agent.tool_calling_quality.echo"
+          },
+          {
+            "call_id": "call-agent-tool-calling-quality-native_tool_calling_provider",
+            "contract_version": "agent_core.runtime_tool_event_shape.v1",
+            "event_type": "tool_call_started",
+            "has_tool_call": true,
+            "has_tool_result": false,
+            "has_tool_spec": true,
+            "tool_name": "agent.tool_calling_quality.echo"
+          },
+          {
+            "call_id": "call-agent-tool-calling-quality-native_tool_calling_provider",
+            "contract_version": "agent_core.runtime_tool_event_shape.v1",
+            "event_type": "tool_result",
+            "has_tool_call": false,
+            "has_tool_result": true,
+            "has_tool_spec": false,
+            "tool_name": "agent.tool_calling_quality.echo"
+          }
+        ],
+        "tool_result_status_counts": {
+          "completed": 1
+        },
+        "tool_results": [
+          {
+            "call_id": "call-agent-tool-calling-quality-native_tool_calling_provider",
+            "status": "completed",
+            "structured_contract_version": "agent.tool_calling_quality.echo.result.v1",
+            "tool_name": "agent.tool_calling_quality.echo"
+          }
+        ],
+        "turn_id": "turn-agent-core-tool-calling-quality-native_tool_calling_provider"
+      },
+      "schema_validation": {
+        "errors": [],
+        "status": "passed"
+      },
+      "step_type": "tool_calls",
+      "tool_call_contract": {
+        "arguments": {
+          "limit": 2,
+          "query": "native_tool_calling_provider-contract-shape",
+          "tags": [
+            "agent_core",
+            "native_tool_calling_provider"
+          ]
+        },
+        "arguments_type": "object",
+        "call_id": "call-agent-tool-calling-quality-native_tool_calling_provider",
+        "contract_version": "agent_core.tool_call_shape.v1",
+        "missing_keys": [],
+        "present_keys": [
+          "arguments",
+          "call_id",
+          "reason",
+          "tool_name"
+        ],
+        "provider_key": "native_tool_calling_provider",
+        "reason_present": false,
+        "required_keys": [
+          "call_id",
+          "tool_name",
+          "arguments",
+          "reason"
+        ],
+        "shape_status": "valid",
+        "tool_name": "agent.tool_calling_quality.echo"
+      }
+    }
+  ],
+  "quality_gate": {
+    "deterministic_tool_calling_ready": true,
+    "live_model_calls": 0,
+    "quality_claim_allowed": false,
+    "validated_contracts": [
+      "agent_core.tool_call_shape.v1",
+      "agent_core.runtime_tool_event_shape.v1",
+      "agent_core.tool_schema_validation.v1"
+    ],
+    "validated_providers": [
+      "fake_core_provider",
+      "json_core_provider",
+      "native_tool_calling_provider"
+    ]
+  },
+  "readiness_state": "deterministic_tool_calling_ready_external_provider_live_gap_open",
+  "scope": "agent_core_tool_calling_quality_no_external_model_call",
+  "status": "passed",
+  "unsupported_closure_claims": [
+    {
+      "claim": "The local deterministic fixture proves live external provider tool-calling quality.",
+      "code": "deterministic_fixture_proves_external_provider_quality",
+      "reason": "The fixture uses in-process fake chat objects and spends zero external model calls.",
+      "required_next_evidence": "Run a bounded live provider probe and record model id, raw tool-call shape, and schema adherence."
+    },
+    {
+      "claim": "Native tool-calling production quality is closed.",
+      "code": "native_tool_calling_quality_closed_without_live_replay",
+      "reason": "Native adapter shape is ready, but production reliability remains unmeasured for the selected provider.",
+      "required_next_evidence": "Live replay with multiple calls, malformed/edge schema pressure, and stable failure taxonomy."
+    }
+  ]
+}

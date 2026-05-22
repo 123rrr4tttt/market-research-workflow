@@ -32,6 +32,8 @@ ToolConcurrency = Literal["parallel", "serial", "exclusive"]
 ToolSource = Literal["builtin", "project", "skill", "mcp", "legacy_adapter"]
 ToolStatus = Literal["completed", "failed", "canceled", "needs_approval", "deferred"]
 ModelStepType = Literal["assistant_delta", "final_answer", "tool_calls"]
+AGENT_CORE_TOOL_CALL_CONTRACT_VERSION = "agent_core.tool_call_shape.v1"
+CORE_TOOL_CALL_REQUIRED_KEYS = ("call_id", "tool_name", "arguments", "reason")
 
 
 def utcnow_iso() -> str:
@@ -135,6 +137,35 @@ class CoreToolCall:
             "arguments": dict(self.arguments or {}),
             "reason": self.reason,
         }
+
+
+def core_tool_call_contract_shape(
+    tool_call: CoreToolCall,
+    *,
+    provider_key: str | None = None,
+) -> dict[str, Any]:
+    """Return the stable model-to-runtime tool-call shape used by provider gates."""
+
+    payload = tool_call.to_dict()
+    missing = [key for key in CORE_TOOL_CALL_REQUIRED_KEYS if key not in payload]
+    return {
+        "contract_version": AGENT_CORE_TOOL_CALL_CONTRACT_VERSION,
+        "provider_key": provider_key,
+        "required_keys": list(CORE_TOOL_CALL_REQUIRED_KEYS),
+        "present_keys": sorted(payload),
+        "missing_keys": missing,
+        "call_id": str(payload.get("call_id") or ""),
+        "tool_name": str(payload.get("tool_name") or ""),
+        "arguments_type": "object" if isinstance(payload.get("arguments"), dict) else type(payload.get("arguments")).__name__,
+        "arguments": dict(payload.get("arguments") or {}) if isinstance(payload.get("arguments"), dict) else {},
+        "reason_present": bool(str(payload.get("reason") or "").strip()),
+        "shape_status": "valid"
+        if not missing
+        and bool(str(payload.get("call_id") or "").strip())
+        and bool(str(payload.get("tool_name") or "").strip())
+        and isinstance(payload.get("arguments"), dict)
+        else "invalid",
+    }
 
 
 @dataclass(frozen=True)

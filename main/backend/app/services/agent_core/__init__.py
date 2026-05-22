@@ -10,6 +10,7 @@ from .contracts import (
     CoreToolCall,
     CoreToolResult,
     CoreToolSpec,
+    core_tool_call_contract_shape,
 )
 from .core import AgentCore
 from .fake_provider import FakeCoreProvider
@@ -20,6 +21,7 @@ from .provider_readiness import build_agent_core_provider_live_readiness_contrac
 from .project_tools import build_project_core_tool_registry
 from .registry import CoreToolRegistry
 from .tool_window import CoreToolWindow, select_core_tool_window
+from .tool_calling_quality import build_agent_core_tool_calling_quality_contract
 
 __all__ = [
     "AgentCore",
@@ -37,9 +39,11 @@ __all__ = [
     "JsonCoreProvider",
     "NativeToolCallingCoreProvider",
     "CoreToolWindow",
+    "core_tool_call_contract_shape",
     "build_agent_core_platform_contract",
     "build_provider_capability_matrix",
     "build_agent_core_provider_live_readiness_contract",
+    "build_agent_core_tool_calling_quality_contract",
     "build_project_core_tool_registry",
     "select_core_tool_window",
 ]
