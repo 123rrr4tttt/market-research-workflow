@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "check:graph-force3d-frontend-contract": "node scripts/check_graph_force3d_frontend_contract.mjs",
+    "check:business-string-audit": "node scripts/check_frontend_business_string_audit.mjs",
     "check:layer-shell-contract": "node scripts/check_layer_shell_contract.mjs",
     "check:topology-platform": "node scripts/check_topology_platform_contract.mjs",
     "check:writing-workbench-contract": "node scripts/check_writing_workbench_contract.mjs",
