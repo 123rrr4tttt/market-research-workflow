@@ -68,6 +68,54 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
             ["resource_pool", "report_generation", "writing"],
         )
 
+    def test_build_long_cycle_task_object_freezes_template_and_snapshot(self):
+        task = scaffold.build_long_cycle_task_object(
+            task_goal="Refresh report-shaped source bundle",
+            input_selector={"project_key": "demo_proj", "source_locator": "https://example.com/report.pdf"},
+            candidate_windows=["30d", "7d", "30d"],
+            cadence="weekly",
+            selected_window="30d",
+            status="ready",
+            updated_at="2026-03-08T11:00:00Z",
+        )
+        self.assertEqual(task.task_goal, "Refresh report-shaped source bundle")
+        self.assertEqual(task.candidate_windows, ["30d", "7d"])
+        self.assertEqual(task.last_run_snapshot.status.value, contracts.LongCycleTaskStatus.READY.value)
+        self.assertEqual(task.last_run_snapshot.selected_window, "30d")
+
+    def test_long_cycle_status_checker_marks_ready_for_valid_report_path(self):
+        status = scaffold.check_long_cycle_automation_status(
+            task_goal="Digest weekly report inputs",
+            project_key="demo_proj",
+            entrypoint="ingest.raw_import",
+            source_locator="file:///tmp/weekly-report.md",
+            content_format="markdown",
+            content_length=8000,
+            processed_time="2026-03-08T11:00:00Z",
+            candidate_windows=["7d", "30d"],
+            selected_window="7d",
+            cadence="weekly",
+        )
+        self.assertEqual(status["contract_version"], "ingest.long_cycle_automation_status.v1")
+        self.assertEqual(status["status"], contracts.LongCycleTaskStatus.READY.value)
+        self.assertEqual(status["blockers"], [])
+        self.assertEqual(status["task"]["candidate_windows"], ["7d", "30d"])
+        self.assertEqual(status["digestion_decision"]["stage"], contracts.DigestionStage.CHUNK_FIRST.value)
+
+    def test_long_cycle_status_checker_blocks_invalid_window_and_missing_scope(self):
+        status = scaffold.check_long_cycle_automation_status(
+            task_goal="Digest",
+            project_key="demo_proj",
+            entrypoint="ingest.raw_import",
+            processed_time="2026-03-08T11:00:00Z",
+            candidate_windows=["weekly"],
+            selected_window="7d",
+        )
+        self.assertEqual(status["status"], contracts.LongCycleTaskStatus.BLOCKED.value)
+        self.assertIn("invalid_candidate_windows:weekly", status["blockers"])
+        self.assertIn("selected_window_not_in_candidate_windows", status["blockers"])
+        self.assertIn("missing_input_scope", status["blockers"])
+
 
 if __name__ == "__main__":
     unittest.main()
