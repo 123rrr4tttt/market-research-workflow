@@ -1,6 +1,6 @@
 # 合并文档总览
 
-Updated: 2026-05-14 PST
+Updated: 2026-05-22 PST
 
 ## 目录级合并结果
 
@@ -22,6 +22,7 @@ Updated: 2026-05-14 PST
 ## 最近新增
 
 - `automation-runs`：
+  - [2026-05-22 GraphPage Frontend E2E Evidence](./automation-runs/graph-frontend-e2e/2026-05-22/README.md)
   - [2026-05-22 Development Docs Folder Audit And Landing Report](./automation-runs/dev-docs-folder-audit-2026-05-22/README.md)
   - [2026-05-22 Search Provider Trace Offline Artifact Contract](./automation-runs/search-provider-trace-artifacts/2026-05-22/README.md)
 - `frontend-modern`：

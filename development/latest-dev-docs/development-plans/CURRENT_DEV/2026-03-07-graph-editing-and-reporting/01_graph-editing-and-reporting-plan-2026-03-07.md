@@ -53,7 +53,7 @@ Worker lane 5 validation result:
 
 - Passed backend graph/workflow/writing validation from this worktree's `main/backend` directory: `51 passed` for graph projection/exporter/persistence, admin graph standardization, curated workflow graph service, handoff store, writing keyword-card graph context, and workflow graph API tests.
 - Passed negative frontend ownership smoke: `rg -n "curated|evidence-pack|handoff|workflow-graph/curated" main/frontend-modern/src/lib main/frontend-modern/src/pages/GraphPage.tsx` returned no matches, confirming the documented frontend bridge blocker.
-- Blocked frontend GraphPage e2e in this worktree: local `node_modules` is absent, and the borrowed Playwright CLI from the main workspace cannot resolve `@playwright/test` from this worktree's `playwright.config.ts`.
+- Passed frontend GraphPage e2e in `codex/devdocs-graph-frontend-e2e`: `npm --prefix main/frontend-modern run test:e2e -- tests/e2e/graphpage.spec.ts` returned `3 passed`. The new e2e verifies either a real `react-force-graph-3d` canvas with data-backed scene node objects or, on this headless WebGL-limited runner, visible automatic fallback to `legacy-projection` without blanking the page.
 - Passed formatting gate: `git diff --check`.
 
 Closure decision: do not archive. This topic is no longer accurately described as fully pending, but the user-facing GraphPage-to-curated-contract bridge is not proven.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
+import { Component, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { EChartsType } from 'echarts/core'
 import * as THREE from 'three'
@@ -62,6 +62,39 @@ type Graph3DVisibilityStats = {
   sceneNodeObjects: number
   emptyDataNodes: number
   emptySceneNodeObjects: number
+}
+
+type ForceGraphRenderBoundaryProps = {
+  children: ReactNode
+  onError: (message: string) => void
+  resetKey: string
+}
+
+type ForceGraphRenderBoundaryState = {
+  failed: boolean
+}
+
+class ForceGraphRenderBoundary extends Component<ForceGraphRenderBoundaryProps, ForceGraphRenderBoundaryState> {
+  state: ForceGraphRenderBoundaryState = { failed: false }
+
+  static getDerivedStateFromError(): ForceGraphRenderBoundaryState {
+    return { failed: true }
+  }
+
+  componentDidCatch(error: Error) {
+    this.props.onError(error.message || '渲染失败')
+  }
+
+  componentDidUpdate(prevProps: ForceGraphRenderBoundaryProps) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.failed) {
+      this.setState({ failed: false })
+    }
+  }
+
+  render() {
+    if (this.state.failed) return null
+    return this.props.children
+  }
 }
 
 declare global {
@@ -4023,94 +4056,108 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     }
   }, [activeTemplateKey, activeVersionKey, callApiByCandidates, loadVersionList])
 
+  const handleForceGraphRenderError = useCallback((message: string) => {
+    setForceGraphFallbackNotice(`3D引擎渲染失败，已自动降级到 legacy-projection。${message ? ` (${message})` : ''}`)
+    requestProjectionEngineChange('legacy')
+  }, [requestProjectionEngineChange])
+
+  const forceGraphRenderBoundaryKey = `${renderMode}:${projectionEngine}:${forceGraphData.nodes.length}:${forceGraphData.links.length}`
+
   const forceGraphCanvasNode = useMemo(() => {
     if (!(renderMode === 'projection3d' && showForceGraphCanvas && ForceGraph3DComp)) return null
     return (
       <div
         ref={forceChartRef}
         className="gv2-chart gv2-chart--force3d"
+        data-testid="graph-force3d-canvas-host"
         style={showForceGraphCanvas ? undefined : { display: 'none' }}
       >
-        <ForceGraph3DComp
-          ref={forceGraphRef}
-          width={forceViewport.width}
-          height={forceViewport.height}
-          graphData={forceGraphData}
-          nodeVisibility={(node: unknown) => {
-            const id = String((node as { id?: string }).id || '')
-            return forceVisibleNodeKeySet.has(id)
-          }}
-          linkVisibility={(link: unknown) => {
-            const { source, target } = linkEnds(link)
-            return forceVisibleLinkKeySet.has(`${source}>${target}`)
-          }}
-          backgroundColor="#030712"
-          showNavInfo={false}
-          nodeVal={(node: unknown) => {
-            const id = String((node as { id?: string }).id || '')
-            return Number(forceNodeStyleById.get(id)?.val || 1)
-          }}
-          nodeColor={(node: unknown) => {
-            const id = String((node as { id?: string }).id || '')
-            return String(forceNodeStyleById.get(id)?.color || '#7dd3fc')
-          }}
-          nodeOpacity={Math.max(0.2, Math.min(1, visualApplied.nodeAlpha / 100))}
-          nodeThreeObject={(node: unknown) => {
-            const n = node as { id?: string; rawNode?: GraphNodeItem }
-            const id = String(n.id || '')
-            const rawSymbol = resolveNodeSymbol(n.rawNode?.type || '')
-            const graphSymbol = toGraphSymbol(rawSymbol)
-            const style = forceNodeStyleById.get(id)
-            const size = Math.max(1.8, Number(style?.val || 1))
-            const color = String(style?.color || '#7dd3fc')
-            const opacity = Math.max(0.16, Math.min(1, Number(style?.opacity || 0.8)))
-            return getOrCreateForceNodeObject({
-              cache: forceNodeObjectCacheRef.current,
-              id,
-              style: { size, color, opacity, rawSymbol, graphSymbol },
-              isSelected: selectedNodeKeysRef.current.has(id),
-              applyVisualState: applyForceObjectVisualState,
-            })
-          }}
-          linkColor={(link: unknown) => {
-            const { source, target } = linkEnds(link)
-            return String(forceLinkStyleByKey.get(`${source}>${target}`)?.color || '#7dd3fc')
-          }}
-          linkWidth={(link: unknown) => {
-            const { source, target } = linkEnds(link)
-            return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.width || 1)
-          }}
-          linkOpacity={(link: unknown) => {
-            const { source, target } = linkEnds(link)
-            return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.opacity || Math.max(0.06, Math.min(1, visualApplied.edgeAlpha / 100)))
-          }}
-          onNodeHover={handleForceNodeHover}
-          onNodeClick={handleForceNodeClick}
-          onNodeRightClick={handleForceNodeRightClick}
-          onBackgroundClick={handleForceBackgroundClick}
-          onEngineTick={() => {
-            const next = new Map<string, ForceNodePhysics>()
-            forceGraphData.nodes.forEach((node) => {
-              const id = String(node.id || '')
-              if (!id) return
-              next.set(id, {
-                x: node.x,
-                y: node.y,
-                z: node.z,
-                vx: node.vx,
-                vy: node.vy,
-                vz: node.vz,
+        <ForceGraphRenderBoundary
+          resetKey={forceGraphRenderBoundaryKey}
+          onError={handleForceGraphRenderError}
+        >
+          <ForceGraph3DComp
+            ref={forceGraphRef}
+            width={forceViewport.width}
+            height={forceViewport.height}
+            graphData={forceGraphData}
+            nodeVisibility={(node: unknown) => {
+              const id = String((node as { id?: string }).id || '')
+              return forceVisibleNodeKeySet.has(id)
+            }}
+            linkVisibility={(link: unknown) => {
+              const { source, target } = linkEnds(link)
+              return forceVisibleLinkKeySet.has(`${source}>${target}`)
+            }}
+            backgroundColor="#030712"
+            showNavInfo={false}
+            nodeVal={(node: unknown) => {
+              const id = String((node as { id?: string }).id || '')
+              return Number(forceNodeStyleById.get(id)?.val || 1)
+            }}
+            nodeColor={(node: unknown) => {
+              const id = String((node as { id?: string }).id || '')
+              return String(forceNodeStyleById.get(id)?.color || '#7dd3fc')
+            }}
+            nodeOpacity={Math.max(0.2, Math.min(1, visualApplied.nodeAlpha / 100))}
+            nodeThreeObject={(node: unknown) => {
+              const n = node as { id?: string; rawNode?: GraphNodeItem }
+              const id = String(n.id || '')
+              const rawSymbol = resolveNodeSymbol(n.rawNode?.type || '')
+              const graphSymbol = toGraphSymbol(rawSymbol)
+              const style = forceNodeStyleById.get(id)
+              const size = Math.max(1.8, Number(style?.val || 1))
+              const color = String(style?.color || '#7dd3fc')
+              const opacity = Math.max(0.16, Math.min(1, Number(style?.opacity || 0.8)))
+              return getOrCreateForceNodeObject({
+                cache: forceNodeObjectCacheRef.current,
+                id,
+                style: { size, color, opacity, rawSymbol, graphSymbol },
+                isSelected: selectedNodeKeysRef.current.has(id),
+                applyVisualState: applyForceObjectVisualState,
               })
-            })
-            forceNodePhysicsRef.current = next
-          }}
-        />
+            }}
+            linkColor={(link: unknown) => {
+              const { source, target } = linkEnds(link)
+              return String(forceLinkStyleByKey.get(`${source}>${target}`)?.color || '#7dd3fc')
+            }}
+            linkWidth={(link: unknown) => {
+              const { source, target } = linkEnds(link)
+              return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.width || 1)
+            }}
+            linkOpacity={(link: unknown) => {
+              const { source, target } = linkEnds(link)
+              return Number(forceLinkStyleByKey.get(`${source}>${target}`)?.opacity || Math.max(0.06, Math.min(1, visualApplied.edgeAlpha / 100)))
+            }}
+            onNodeHover={handleForceNodeHover}
+            onNodeClick={handleForceNodeClick}
+            onNodeRightClick={handleForceNodeRightClick}
+            onBackgroundClick={handleForceBackgroundClick}
+            onEngineTick={() => {
+              const next = new Map<string, ForceNodePhysics>()
+              forceGraphData.nodes.forEach((node) => {
+                const id = String(node.id || '')
+                if (!id) return
+                next.set(id, {
+                  x: node.x,
+                  y: node.y,
+                  z: node.z,
+                  vx: node.vx,
+                  vy: node.vy,
+                  vz: node.vz,
+                })
+              })
+              forceNodePhysicsRef.current = next
+            }}
+          />
+        </ForceGraphRenderBoundary>
       </div>
     )
   }, [
     renderMode,
     showForceGraphCanvas,
     ForceGraph3DComp,
+    forceGraphRenderBoundaryKey,
     forceViewport.width,
     forceViewport.height,
     forceGraphData,
@@ -4124,6 +4171,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     handleForceNodeClick,
     handleForceNodeRightClick,
     handleForceBackgroundClick,
+    handleForceGraphRenderError,
     applyForceObjectVisualState,
     selectedNodeKeysRef,
   ])
