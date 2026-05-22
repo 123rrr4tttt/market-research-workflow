@@ -126,6 +126,18 @@
   - [writing workbench persistence boundary](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
   - [docs root content plan gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
   - [R41 OpenClaw autodispatch gate](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
+- Wave13 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
+  - [Wave13 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave13-worktree-plan-2026-05-22.md)
+  - [LLM crawler high-JS/public replay readiness](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md)
+  - [symbolic search provider quality readiness](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/18_wave13-symbolic-provider-quality-readiness-evidence-2026-05-22.md)
+  - [structured search endpoint document-query contract](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/09_wave13-structured-search-endpoint-contract-2026-05-22.md)
+  - [consumer admin/dashboard extraction](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md)
+  - [AgentCore live provider readiness](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/06_wave13-agentcore-live-provider-readiness-2026-05-22.md)
+  - [long-cycle scheduler readiness](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/06_wave13-long-cycle-scheduler-readiness-2026-05-22.md)
+  - [crawler public replay gate](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave13-worker7-crawler-public-replay-gate.md)
+  - [crawler public replay gate artifact](./automation-runs/crawler-public-replay-gate/2026-05-22/README.md)
+  - [abstract folderization current-entry evidence](./development-plans/CURRENT_DEV/2026-03-07-后续安排/05_wave13-abstract-folderization-current-entry-evidence-2026-05-22.md)
+  - [CURRENT_DEV MERGED_OVERVIEW drift gate](./development-plans/CURRENT_DEV/MERGED_OVERVIEW/03_wave13-current-merged-overview-rag-drift-gate-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

@@ -57,6 +57,10 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave12 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave12-worktree-plan-2026-05-22.md)
   - [2026-05-22 Wave12 Provider Readiness Evidence](./automation-runs/wave12-provider-readiness/2026-05-22/README.md)
   - [2026-05-22 Wave12 CURRENT_DEV Status Evidence Gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
+  - [2026-05-22 Wave13 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave13-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Wave13 Crawler Public Replay Gate](./automation-runs/crawler-public-replay-gate/2026-05-22/README.md)
+  - [2026-05-22 Wave13 AgentCore Provider Live Readiness](./automation-runs/agent-core-provider-live-readiness/2026-05-22/agent_core_provider_live_readiness.json)
+  - [2026-05-22 Wave13 CURRENT_DEV Status Evidence Gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - `backend-docs`：
   - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：
@@ -154,6 +158,15 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave12 Writing Workbench Persistence Boundary](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Docs Root Content Plan Gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 R41 OpenClaw Autodispatch Gate](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
+  - [2026-05-22 Wave13 LLM Crawler High-JS Public Replay Readiness](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md)
+  - [2026-05-22 Wave13 Symbolic Provider Quality Readiness](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/18_wave13-symbolic-provider-quality-readiness-evidence-2026-05-22.md)
+  - [2026-05-22 Wave13 Structured Search Endpoint Contract](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/09_wave13-structured-search-endpoint-contract-2026-05-22.md)
+  - [2026-05-22 Wave13 Consumer Admin Dashboard Extraction](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md)
+  - [2026-05-22 Wave13 AgentCore Live Provider Readiness](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/06_wave13-agentcore-live-provider-readiness-2026-05-22.md)
+  - [2026-05-22 Wave13 Long-Cycle Scheduler Readiness](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/06_wave13-long-cycle-scheduler-readiness-2026-05-22.md)
+  - [2026-05-22 Wave13 Crawler Public Replay Gate](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave13-worker7-crawler-public-replay-gate.md)
+  - [2026-05-22 Wave13 Abstract Folderization Current Entry](./development-plans/CURRENT_DEV/2026-03-07-后续安排/05_wave13-abstract-folderization-current-entry-evidence-2026-05-22.md)
+  - [2026-05-22 Wave13 CURRENT_DEV MERGED_OVERVIEW Drift Gate](./development-plans/CURRENT_DEV/MERGED_OVERVIEW/03_wave13-current-merged-overview-rag-drift-gate-2026-05-22.md)
   - [2026-05-22 Source Library Public Live Probes](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：

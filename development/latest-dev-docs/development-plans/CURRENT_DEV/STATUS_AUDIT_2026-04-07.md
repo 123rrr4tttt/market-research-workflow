@@ -1,6 +1,6 @@
 # CURRENT_DEV Status Audit
 
-更新时间：2026-04-07（PST）；2026-05-22 补充 Wave12 状态证据、窄口径合同落地与仍需保留的外部 / 生产化边界。
+更新时间：2026-04-07（PST）；2026-05-22 补充 Wave13 状态证据、窄口径合同落地与仍需保留的外部 / 生产化边界。
 
 本审计基于对 `CURRENT_DEV` 一级目录的逐目录核对，判断标准同时参考：
 
@@ -21,6 +21,7 @@
 - `wave10_verified` / `wave10_checked`：Wave10 子代理分支已合并并通过聚焦门禁；若仍非 `clear_closed`，表示专题只完成窄口径合同、治理门禁或 shim 批次，仍保留 live DB / public replay / 生产数据 / 前端真实数据验证范围
 - `wave11_verified` / `wave11_checked`：Wave11 子代理分支已合并并通过聚焦门禁；若仍非 `clear_closed`，表示专题只完成窄口径合同、deterministic replay、fake repository E2E、navigation promotion 或 no-dep frontend gate，仍保留 live provider / live scheduler / live external replay / 全量 UI 迁移边界
 - `wave12_verified` / `wave12_checked`：Wave12 子代理分支已合并并通过聚焦门禁；若仍非 `clear_closed`，表示专题只完成 readiness gate、review queue、decision log、content plan、persistence boundary 或 repo-local external-gap gate，仍保留 live provider / live DB / live canary / 人工 review / 全量 UI 迁移边界
+- `wave13_verified` / `wave13_checked`：Wave13 子代理分支已合并并通过聚焦门禁；若仍非 `clear_closed`，表示专题只完成 endpoint projection、consumer extraction、readiness/drift gate 或 repo-local external replay gate，仍保留 live provider / live scheduler / public replay / production quality / 更大迁移范围
 
 时效标签：
 
@@ -66,22 +67,22 @@
 | `2026-03-04-r41-openclaw-autodispatch` | `partial` | `external_gap / wave12_checked` | Wave12 已补 repo-local mirror gate；外部 OpenClaw 当前运行态仍不在当前仓库证据链内 |
 | `2026-03-05-oss-node-platform-io-plan` | `partial` | `doc_aligned / wave8_checked / wave10_checked / wave12_checked` | Wave8 search/vector deterministic gate 复核 runtime/replay 主线，Wave10 已补 vectorization quality gate，Wave12 已补 provider readiness gate；整套平台目标未闭环 |
 | `2026-03-05-time-statistics-remediation-plan` | `partial` | `doc_stale / wave8_checked / wave10_verified / wave12_verified` | Wave8 已补 target-overlap priority 代码与单测，Wave10 已补 OPE freshness deterministic gate，Wave12 已补 decision-log freshness contract；旧任务状态仍需更大范围生产验证 |
-| `2026-03-07-crawler-source-expansion` | `partial` | `doc_aligned / external_blocked / wave8_checked` | Wave8 已封 A7 validation pack；A1-A4/A6/A7 仓内可验证，A5 仍受 45-site public replay 外部阻塞 |
+| `2026-03-07-crawler-source-expansion` | `partial` | `doc_aligned / external_blocked / wave8_checked / wave13_checked` | Wave8 已封 A7 validation pack；Wave13 已补 public replay manifest/checker 并把缺少真实 `output.public.json` 标为 not closed；A5 仍受 45-site public replay 外部阻塞 |
 | `2026-04-07-parallel-agent-wave-orchestration` | `partial` | `doc_aligned / external_blocked / wave10_checked` | repo 合同、fallback、任务模板和自检脚本可验证；Wave10 记录 parent runtime 可用，但 worker runtime 仍需按实际工具暴露验证 |
 | `2026-03-07-docs-root-restructuring` | `partial` | `doc_aligned / wave9_checked / wave10_checked / wave11_checked / wave12_checked` | `docs/development` 与 `docs/architecture` target roots 已准备，Wave9 已补首批 machine-checkable manifest，Wave10 已补 content shim，Wave11 已补 `docs/development` local navigation promotion，Wave12 已补 content-plan gate；权威内容移动仍未全执行 |
 | `2026-03-07-dual-frontend-workbench-topology` | `partial` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked` | Wave8 已补 topology contract checker 与 lint 证据，Wave11 已补 no-dep layer-shell route/surface contract，Wave12 已补 business-string audit；仍保留更大范围双交互面闭环 |
 | `2026-03-07-frontend-i18n-theme-modularization` | `partial` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked` | Wave8 已补 i18n/theme registry contract evidence，Wave11 已把 theme/i18n anchor 纳入 layer-shell contract，Wave12 已补 business-string audit；仍保留全量业务文案迁移范围 |
 | `2026-03-07-graph-editing-and-reporting` | `partial` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked` | Wave6 已补 reporting handoff bridge 与 curated API evidence，Wave8 已补 projection rollout contract，Wave11 已补 service-layer audit/rollback governance，Wave12 已补 live-smoke readiness gate；GraphPage UI 与 live DB audit durability 仍未全封 |
-| `2026-03-07-ingest-digestion-and-long-cycle-automation` | `partial` | `doc_aligned / wave9_verified / wave11_verified` | Wave7 已补 digestion / long-cycle pre-dispatch contract，Wave9 已补 persistent-task lifecycle contract，Wave11 已补 fake repository scheduler E2E contract；live scheduler / live DB write / end-to-end automation 仍未闭环 |
-| `2026-03-07-llm-service-and-agent-platformization` | `partial` | `doc_aligned / wave6_verified / wave9_verified / wave11_verified` | Wave6 已补 AgentCore schema inventory，Wave9 已补 tool-dispatch platform baseline，Wave11 已补 provider matrix 与 external framework boundary；provider live 可用性仍需独立闭环 |
+| `2026-03-07-ingest-digestion-and-long-cycle-automation` | `partial` | `doc_aligned / wave9_verified / wave11_verified / wave13_checked` | Wave7 已补 digestion / long-cycle pre-dispatch contract，Wave9 已补 persistent-task lifecycle contract，Wave11 已补 fake repository scheduler E2E contract，Wave13 已补 scheduler readiness/dry-run boundary；live scheduler / live DB write / end-to-end automation 仍未闭环 |
+| `2026-03-07-llm-service-and-agent-platformization` | `partial` | `doc_aligned / wave6_verified / wave9_verified / wave11_verified / wave13_checked` | Wave6 已补 AgentCore schema inventory，Wave9 已补 tool-dispatch platform baseline，Wave11 已补 provider matrix 与 external framework boundary，Wave13 已补 live-provider readiness contract；provider live calls 与 native tool-calling production quality 仍需独立闭环 |
 | `2026-03-07-typed-knowledge-organization` | `partial` | `doc_aligned / wave8_verified / wave10_verified / wave12_verified` | Wave8 已补 typed knowledge -> writing handoff contract，Wave10 已补 writing context envelope，Wave12 已补 persistence/API boundary；live DB/API/UI 仍未全闭环 |
 | `2026-03-07-writing-workbench-evolution` | `partial` | `doc_stale / wave8_verified / wave10_verified / wave12_verified` | Wave8 已补 typed-knowledge keyword card consumer contract，Wave10 已补 resource-card consumer boundary，Wave12 已补 typed-knowledge persistence boundary；演进任务仍未全闭环 |
-| `2026-03-07-后续安排` | `partial` | `doc_aligned` | Wave6 已补 folderization structure evidence，抽象规划后续迁档仍未结束 |
-| `2026-03-08-llm-crawler-unified-frontdoor` | `partial` | `doc_aligned / wave8_verified / wave10_verified` | Wave8 已补 fetch-router/frontdoor context closure，Wave10 已补 tri-state router contract；真实 high-JS browser fleet replay 仍未全封 |
-| `2026-03-09-agent-symbolic-batch-search-architecture` | `partial` | `doc_aligned / wave9_verified / wave11_verified` | Wave9 已补 `agent_batch` search brief / critic / bounded retry 确定性门禁，Wave11 已补 fixture quality replay 与 benchmark uplift boundary；live provider quality 仍未封口 |
+| `2026-03-07-后续安排` | `partial` | `doc_aligned / wave13_checked` | Wave6 已补 folderization structure evidence，Wave13 已把该入口收窄为 retained coordination topic 并记录 local structure sealed / downstream content gaps；抽象规划后续迁档仍未结束 |
+| `2026-03-08-llm-crawler-unified-frontdoor` | `partial` | `doc_aligned / wave8_verified / wave10_verified / wave13_checked` | Wave8 已补 fetch-router/frontdoor context closure，Wave10 已补 tri-state router contract，Wave13 已补 high-JS/public replay readiness gate；真实 high-JS browser fleet replay 仍未全封 |
+| `2026-03-09-agent-symbolic-batch-search-architecture` | `partial` | `doc_aligned / wave9_verified / wave11_verified / wave13_checked` | Wave9 已补 `agent_batch` search brief / critic / bounded retry 确定性门禁，Wave11 已补 fixture quality replay 与 benchmark uplift boundary，Wave13 已补 provider-quality readiness gate；live provider quality 仍未封口 |
 | `2026-03-11-source-library-three-lane-architecture` | `partial` | `doc_aligned / wave9_verified / wave12_verified` | Wave9 已补 legacy item-run `410 Gone` replacement contract，Wave12 已补 relevance review queue；live source collection 与三车道全量分类治理仍未封口 |
-| `2026-03-12-data-structured-service-modularization` | `partial` | `doc_aligned / wave9_verified / wave11_verified` | Wave9 已补 `document_queries.v1` query/envelope/view-consumer 合同，Wave11 已抽离 prompt-time-density query path；更多 API/search endpoint 与 DB statement builder 迁移仍未完成 |
-| `2026-03-14-consumer-side-modularization` | `partial` | `doc_aligned / wave9_verified / wave11_verified` | Wave9 已补 graph/writing consumer facade boundary guard，Wave11 已抽离 prompt-time-density JSON query path；admin/dashboard JSON query 抽离仍未完成 |
+| `2026-03-12-data-structured-service-modularization` | `partial` | `doc_aligned / wave9_verified / wave11_verified / wave13_verified` | Wave9 已补 `document_queries.v1` query/envelope/view-consumer 合同，Wave11 已抽离 prompt-time-density query path，Wave13 已补 `/api/v1/search` document-query projection；更多 API/search endpoint 与 DB statement builder 迁移仍未完成 |
+| `2026-03-14-consumer-side-modularization` | `partial` | `doc_aligned / wave9_verified / wave11_verified / wave13_verified` | Wave9 已补 graph/writing consumer facade boundary guard，Wave11 已抽离 prompt-time-density JSON query path，Wave13 已补 bounded admin/dashboard document-view extraction；SQL JSON predicate helper 抽离仍未完成 |
 | `2026-03-14-search-chain-source-library-mounting-audit` | `partial` | `doc_aligned / wave10_checked / wave12_verified` | 主入口与挂载关系能对上代码，Wave10 已补 source-library search/mount governance checker，Wave12 已补 relevance review queue；治理动作仍未结束 |
 | `2026-03-14-source-library-adapter-capability-remediation` | `partial` | `doc_aligned / wave8_verified / wave10_checked / wave12_verified` | Wave8 已补 parser-profile capability gate，Wave10 已补 governance gate，Wave12 已补 relevance review queue；public replay 和人工 relevance review 仍未全封 |
 | `2026-03-14-time-semantics-density-merged-plan` | `partial` | `doc_aligned / wave8_verified / wave10_verified / wave12_verified` | Wave8 已补 `target_overlap` priority 语义，Wave10 已补 OPE deterministic contract，Wave12 已补 decision-log contract；真实生产数据验证尚未闭环 |
@@ -89,7 +90,7 @@
 | `2026-03-24-frontend-visual-layering` | `retired_in_place` | `doc_aligned` | 原空占位已补退场证据；现行入口转交 `2026-03-15-frontend-three-layer-rewrite` 与 Wave3/Wave4 frontend evidence |
 | `2026-03-25-source-library-ingest-minimal-migration` | `partial` | `doc_aligned / wave9_checked / wave11_verified / wave12_verified` | Wave9 已把 `AT-EXT-*` 拆成 current-state deterministic contract 与 known gaps，Wave11 已补 article extraction runner / frontdoor document-candidate contract，Wave12 已补 relevance review queue；python/CLI/container runners 与 live external replay 仍未封口 |
 | `2026-04-02-claude-agent-high-fidelity-migration` | `clear_closed` | `doc_aligned` | 当前入口已拆分并迁入 `ARCHIVE_CLOSED`；如需新诊断应开 D48+ 新主题 |
-| `MERGED_OVERVIEW` | `partial` | `doc_drift` | 合并总结有参考价值，但部分映射文件和能力边界已漂移 |
+| `MERGED_OVERVIEW` | `partial` | `doc_drift / wave13_checked` | 合并总结有参考价值，Wave13 已补 topic-local RAG drift gate；global vector contract、production semantic quality 与 live optional dependency readiness 仍未闭环 |
 
 ## 使用建议
 
