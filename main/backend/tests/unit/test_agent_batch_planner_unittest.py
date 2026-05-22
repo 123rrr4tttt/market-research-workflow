@@ -18,6 +18,7 @@ from app.services.agent_batch.task_contract import build_agent_batch_approval_ar
 from app.services.agent_batch.task_contract import build_agent_batch_dispatch_invocation
 from app.services.agent_batch.task_contract import build_agent_batch_execution_registry
 from app.services.agent_batch.task_contract import build_agent_batch_submit_item_data
+from app.services.agent_batch.task_contract import build_live_quality_threshold_schema
 from app.services.agent_batch.task_contract import build_retry_action_schema
 from app.services.agent_batch.task_contract import build_search_brief_schema
 from app.services.agent_batch.task_contract import build_search_critic_schema
@@ -178,6 +179,13 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         self.assertIn("source_quality", quality_replay_schema["coverage_keys"])
         self.assertIn("quality_claim_allowed", quality_replay_schema["live_provider_gap_required_keys"])
 
+        live_threshold_schema = build_live_quality_threshold_schema()
+        self.assertEqual(live_threshold_schema["artifact"], "live_quality_threshold")
+        self.assertIn("quality_thresholds", live_threshold_schema["required_keys"])
+        self.assertIn("live_provider_replay_closed", live_threshold_schema["required_keys"])
+        self.assertIn("min_relevance_score", live_threshold_schema["quality_threshold_required_keys"])
+        self.assertIn("min_review_sample_count", live_threshold_schema["quality_threshold_required_keys"])
+
         retry_schema = build_retry_action_schema()
         self.assertEqual(retry_schema["artifact"], "retry_action")
         self.assertTrue(retry_schema["fail_closed"])
@@ -217,6 +225,7 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         self.assertEqual(policy_contract["search_brief"], brief_schema)
         self.assertEqual(policy_contract["search_critic"], critic_schema)
         self.assertEqual(policy_contract["quality_replay"], quality_replay_schema)
+        self.assertEqual(policy_contract["live_quality_threshold"], live_threshold_schema)
         self.assertEqual(policy_contract["retry_action"], retry_schema)
         self.assertEqual(policy_contract["rewrite_eligible_fields_by_channel"], rewrite_fields)
         self.assertEqual(policy_contract["defaults"], defaults)

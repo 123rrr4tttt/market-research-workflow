@@ -7,6 +7,7 @@ AGENT_BATCH_TASK_MANIFEST_VERSION = "agent_batch.task_manifest.v1"
 AGENT_BATCH_SEARCH_POLICY_CONTRACT_VERSION = "agent_batch.search_policy.v1"
 AGENT_BATCH_SEARCH_QUALITY_REPLAY_CONTRACT_VERSION = "agent_batch.search_quality_replay.v1"
 AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION = "agent_batch.provider_quality_readiness.v1"
+AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION = "agent_batch.live_quality_threshold.v1"
 
 _TASK_OPTIONAL_KEYS = [
     "task_id",
@@ -265,6 +266,66 @@ _PROVIDER_QUALITY_READINESS_SCHEMA = {
     ],
 }
 
+_LIVE_QUALITY_THRESHOLD_SCHEMA = {
+    "contract_version": AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION,
+    "artifact": "live_quality_threshold",
+    "scope": "symbolic_search_live_provider_quality_threshold_contract",
+    "required_keys": [
+        "scope",
+        "threshold_version",
+        "quality_thresholds",
+        "fixture_quality_boundary",
+        "replay_evaluation",
+        "threshold_status",
+        "live_provider_replay_closed",
+        "quality_claim_allowed",
+        "unsupported_live_provider_claims",
+        "remaining_live_gaps",
+    ],
+    "quality_threshold_required_keys": [
+        "required_providers",
+        "min_case_count",
+        "min_results_per_provider",
+        "min_source_domains",
+        "min_relevance_score",
+        "min_freshness_score",
+        "max_duplicate_rate",
+        "max_timeout_rate",
+        "max_p95_latency_ms",
+        "min_review_sample_count",
+        "require_trace_success",
+    ],
+    "provider_evaluation_required_keys": [
+        "provider",
+        "replay_status",
+        "case_count",
+        "result_count",
+        "source_domain_count",
+        "relevance_score",
+        "freshness_score",
+        "duplicate_rate",
+        "timeout_rate",
+        "p95_latency_ms",
+        "review_sample_count",
+        "trace_success",
+        "thresholds_met",
+        "quality_claim_allowed",
+        "remaining_gap",
+    ],
+    "unsupported_claim_required_keys": [
+        "code",
+        "claim",
+        "reason",
+        "required_next_evidence",
+    ],
+    "remaining_live_gap_required_keys": [
+        "code",
+        "status",
+        "reason",
+        "required_next_evidence",
+    ],
+}
+
 _RETRY_ACTION_REQUIRED_REWRITE_FIELDS = {
     "expand_query_terms": ["query_terms"],
     "narrow_query_terms": ["query_terms"],
@@ -462,6 +523,10 @@ def build_provider_quality_readiness_schema() -> dict[str, Any]:
     return deepcopy(_PROVIDER_QUALITY_READINESS_SCHEMA)
 
 
+def build_live_quality_threshold_schema() -> dict[str, Any]:
+    return deepcopy(_LIVE_QUALITY_THRESHOLD_SCHEMA)
+
+
 def build_retry_action_schema() -> dict[str, Any]:
     return deepcopy(_RETRY_ACTION_SCHEMA)
 
@@ -590,6 +655,7 @@ def build_search_policy_contract() -> dict[str, Any]:
         "search_critic": build_search_critic_schema(),
         "quality_replay": build_search_quality_replay_schema(),
         "provider_quality_readiness": build_provider_quality_readiness_schema(),
+        "live_quality_threshold": build_live_quality_threshold_schema(),
         "retry_action": build_retry_action_schema(),
         "rewrite_eligible_fields_by_channel": get_rewrite_eligible_fields_by_channel(),
         "defaults": get_search_policy_defaults(),
