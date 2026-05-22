@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Query, HTTPException
-from typing import Optional
+from typing import Any, Optional
 from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.exc import OperationalError, DatabaseError
 from datetime import datetime, date, timedelta
 import logging
 import re
 
-from ..contracts import ErrorCode, error_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response
 from ..contracts.responses import ok
 from ..models.base import SessionLocal
 from ..models.entities import (
@@ -111,7 +111,7 @@ def _parse_iso8601_datetime_param(value: Optional[str], *, field: str) -> Option
     return parsed
 
 
-@router.get("/global/stats")
+@router.get("/global/stats", response_model=ApiEnvelope[dict[str, Any]])
 def get_global_stats():
     """总库汇总统计（aggregator schema）"""
     from sqlalchemy import text
@@ -137,7 +137,7 @@ def get_global_stats():
         })
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=ApiEnvelope[dict[str, Any]])
 def get_dashboard_stats():
     """获取仪表盘概览统计数据"""
     try:
@@ -259,7 +259,7 @@ def get_dashboard_stats():
         )
 
 
-@router.get("/market-trends")
+@router.get("/market-trends", response_model=ApiEnvelope[dict[str, Any]])
 def get_market_trends(
     state: Optional[str] = Query(None, description="州过滤"),
     game: Optional[str] = Query(None, description="游戏类型过滤"),
@@ -388,7 +388,7 @@ def get_market_trends(
         })
 
 
-@router.get("/document-analysis")
+@router.get("/document-analysis", response_model=ApiEnvelope[dict[str, Any]])
 def get_document_analysis(
     start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
@@ -492,7 +492,7 @@ def get_document_analysis(
         })
 
 
-@router.get("/sentiment-analysis")
+@router.get("/sentiment-analysis", response_model=ApiEnvelope[dict[str, Any]])
 def get_sentiment_analysis(
     start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
@@ -633,7 +633,7 @@ def get_sentiment_analysis(
         })
 
 
-@router.get("/sentiment-sources")
+@router.get("/sentiment-sources", response_model=ApiEnvelope[dict[str, Any]])
 def get_sentiment_sources(
     sentiment: Optional[str] = Query(None, description="情感类型: positive, negative, neutral, unknown"),
     platform: Optional[str] = Query(None, description="平台名称"),
@@ -726,7 +726,7 @@ def get_sentiment_sources(
         })
 
 
-@router.get("/task-monitoring")
+@router.get("/task-monitoring", response_model=ApiEnvelope[dict[str, Any]])
 def get_task_monitoring(
     limit: int = Query(default=50, ge=1, le=500),
     status: Optional[str] = Query(None, description="任务状态过滤"),
@@ -788,7 +788,7 @@ def get_task_monitoring(
         })
 
 
-@router.get("/search-analytics")
+@router.get("/search-analytics", response_model=ApiEnvelope[dict[str, Any]])
 def get_search_analytics(limit: int = Query(default=50, ge=1, le=500)):
     """获取搜索行为分析数据"""
     with SessionLocal() as session:
@@ -831,7 +831,7 @@ def get_search_analytics(limit: int = Query(default=50, ge=1, le=500)):
         })
 
 
-@router.get("/commodity-trends")
+@router.get("/commodity-trends", response_model=ApiEnvelope[dict[str, Any]])
 def get_commodity_trends(
     metric_key: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
@@ -904,7 +904,7 @@ def get_commodity_trends(
         })
 
 
-@router.get("/ecom-price-trends")
+@router.get("/ecom-price-trends", response_model=ApiEnvelope[dict[str, Any]])
 def get_ecom_price_trends(
     product_id: Optional[int] = Query(None),
     start_date: Optional[str] = Query(None, description="开始时间 ISO8601"),

@@ -24,7 +24,7 @@ from ..services.extraction.topic_workflow import (
 )
 from ..services.projects import bind_project
 from ..services.graph.relation_ontology import relation_annotation
-from ..contracts import ErrorCode, error_response, success_response, task_result_response
+from ..contracts import ApiEnvelope, ErrorCode, error_response, success_response, task_result_response
 from ..services.ingest.adapters.http_utils import fetch_html
 from ..services.ingest.postprocess_frontdoor import run_frontdoor_extraction
 from ..services.ingest.raw_import import run_raw_import_documents
@@ -820,7 +820,7 @@ def _augment_market_graph_with_topic_structured(
                 ]
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=ApiEnvelope[dict[str, Any]])
 def get_stats(request: Request):
     """获取数据库统计信息"""
     project_key = _project_key_from_request(request)
@@ -878,7 +878,7 @@ def get_stats(request: Request):
             })
 
 
-@router.post("/documents/raw-import")
+@router.post("/documents/raw-import", response_model=ApiEnvelope[dict[str, Any]])
 def raw_import_documents(request: Request, payload: RawImportRequest):
     """Raw data direct ingest: skip fetch stage and reuse project-consistent ingest flow."""
     project_key = _project_key_from_request(request)
@@ -896,7 +896,7 @@ def raw_import_documents(request: Request, payload: RawImportRequest):
         return success_response(run_raw_import_documents(payload_dict, project_key))
 
 
-@router.post("/documents/list")
+@router.post("/documents/list", response_model=ApiEnvelope[dict[str, Any]])
 def list_documents(request: Request, payload: DocumentListRequest):
     """列出文档"""
     project_key = _project_key_from_request(request)
@@ -1048,7 +1048,7 @@ def list_documents(request: Request, payload: DocumentListRequest):
         })
 
 
-@router.get("/documents/{doc_id}")
+@router.get("/documents/{doc_id}", response_model=ApiEnvelope[dict[str, Any]])
 def get_document(doc_id: int):
     """获取文档详情"""
     with SessionLocal() as session:
@@ -1087,7 +1087,7 @@ class BulkUpdateExtractedDataRequest(BaseModel):
     extracted_data: Any = Field(default=None, description="要写入的 JSON 值；null 表示清空 extracted_data")
 
 
-@router.post("/documents/{doc_id}/extracted-data")
+@router.post("/documents/{doc_id}/extracted-data", response_model=ApiEnvelope[dict[str, Any]])
 def update_document_extracted_data(doc_id: int, payload: UpdateExtractedDataRequest):
     """手动写入/合并文档 extracted_data（在库结构化结果）。"""
     with SessionLocal() as session:
@@ -1113,7 +1113,7 @@ def update_document_extracted_data(doc_id: int, payload: UpdateExtractedDataRequ
         return success_response({"id": doc.id, "extracted_data": doc.extracted_data})
 
 
-@router.post("/documents/bulk/extracted-data")
+@router.post("/documents/bulk/extracted-data", response_model=ApiEnvelope[dict[str, Any]])
 def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest):
     """批量写入/合并文档 extracted_data。"""
     if not payload.doc_ids:
@@ -1163,7 +1163,7 @@ def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest)
         }
     )
 
-@router.post("/documents/delete")
+@router.post("/documents/delete", response_model=ApiEnvelope[dict[str, Any]])
 def delete_documents(payload: DeleteDocumentsRequest):
     """删除文档"""
     with SessionLocal() as session:
@@ -1180,7 +1180,7 @@ def delete_documents(payload: DeleteDocumentsRequest):
         return success_response({"deleted": deleted})
 
 
-@router.post("/documents/re-extract")
+@router.post("/documents/re-extract", response_model=ApiEnvelope[dict[str, Any]])
 def re_extract_documents(payload: ReExtractRequest):
     """重新提取文档的结构化数据"""
     with SessionLocal() as session:
@@ -1291,7 +1291,7 @@ def re_extract_documents(payload: ReExtractRequest):
         })
 
 
-@router.post("/documents/topic-extract")
+@router.post("/documents/topic-extract", response_model=ApiEnvelope[dict[str, Any]])
 def topic_extract_documents(request: Request, payload: TopicExtractRequest):
     """专题析取（规则筛 + LLM确认），回填 company/product/operation 专题结构化字段。"""
     project_key = _project_key_from_request(request)
@@ -1443,7 +1443,7 @@ def topic_extract_documents(request: Request, payload: TopicExtractRequest):
             )
 
 
-@router.post("/sources/list")
+@router.post("/sources/list", response_model=ApiEnvelope[dict[str, Any]])
 def list_sources(payload: SourceListRequest):
     """列出数据源"""
     with SessionLocal() as session:
@@ -1533,7 +1533,7 @@ def list_sources(payload: SourceListRequest):
         })
 
 
-@router.post("/market-stats/list")
+@router.post("/market-stats/list", response_model=ApiEnvelope[dict[str, Any]])
 def list_market_stats(payload: MarketStatsListRequest):
     """列出市场数据"""
     with SessionLocal() as session:
@@ -1631,7 +1631,7 @@ def list_market_stats(payload: MarketStatsListRequest):
         })
 
 
-@router.post("/social-data/list")
+@router.post("/social-data/list", response_model=ApiEnvelope[dict[str, Any]])
 def list_social_data(payload: SocialDataListRequest):
     """列出社交平台数据"""
     with SessionLocal() as session:
@@ -1736,7 +1736,7 @@ def list_social_data(payload: SocialDataListRequest):
         })
 
 
-@router.get("/export-graph")
+@router.get("/export-graph", response_model=ApiEnvelope[dict[str, Any]])
 def export_graph(doc_ids: str = Query(..., description="文档ID列表，逗号分隔")):
     """导出指定文档的内容图谱"""
     from app.services.graph.adapters import normalize_document
@@ -1786,7 +1786,7 @@ def export_graph(doc_ids: str = Query(..., description="文档ID列表，逗号�
         return _error_json(500, ErrorCode.INTERNAL_ERROR, f"导出失败: {str(e)}")
 
 
-@router.get("/content-graph")
+@router.get("/content-graph", response_model=ApiEnvelope[dict[str, Any]])
 def get_content_graph(
     request: Request,
     start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
@@ -1910,7 +1910,7 @@ def get_content_graph(
         return _empty_graph_response()
 
 
-@router.get("/market-graph")
+@router.get("/market-graph", response_model=ApiEnvelope[dict[str, Any]])
 def get_market_graph(
     request: Request,
     start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
@@ -2070,7 +2070,7 @@ def get_market_graph(
         return _empty_graph_response()
 
 
-@router.get("/policy-graph")
+@router.get("/policy-graph", response_model=ApiEnvelope[dict[str, Any]])
 def get_policy_graph(
     request: Request,
     start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
@@ -2215,7 +2215,7 @@ def get_policy_graph(
         return _empty_graph_response()
 
 
-@router.get("/search-history")
+@router.get("/search-history", response_model=ApiEnvelope[dict[str, Any]])
 def get_search_history(
     request: Request,
     page: int = Query(default=1, ge=1),
