@@ -5,6 +5,8 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 import difflib
 import hashlib
+import importlib
+import inspect
 import json
 import os
 from typing import Any
@@ -257,6 +259,7 @@ def _register_deepening_tools(
     registry.register(_project_graph_search_spec(), _project_graph_search_handler(searcher))
     registry.register(_project_structured_graph_query_spec(), _project_structured_graph_query_handler(searcher))
     registry.register(_project_structured_data_quality_audit_spec(), _project_structured_data_quality_audit_handler())
+    registry.register(_clue_chain_expand_spec(), _clue_chain_expand_handler(service))
     registry.register(_source_discovery_plan_spec(), _source_discovery_plan_handler(source_library_lister))
     registry.register(_source_web_search_spec(), _source_web_search_handler())
     registry.register(_source_candidate_review_spec(), _source_candidate_review_handler(service))
@@ -1416,6 +1419,498 @@ def _source_discovery_plan_handler(
         )
 
     return handler
+
+
+def _clue_chain_expand_spec() -> CoreToolSpec:
+    return CoreToolSpec(
+        name="chain.expand",
+        title="Request Clue Chain Expansion",
+        description_for_model=(
+            "Request a governed clue-chain expansion hop from graph frontier nodes, source-library search, or fixture-backed external search. "
+            "This tool may create expansion requests, hops, and review candidates only. It must never promote candidates into the workflow graph. "
+            "Return candidates to the user for ChainDecision review before any graph node or edge is created."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "chain_id": {"type": "string", "description": "Existing clue chain id to expand."},
+                "project_key": {"type": "string"},
+                "query": {"type": "string", "description": "Search or expansion query for the next hop."},
+                "frontier_node_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Graph frontier node ids selected by the user or graph UI.",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["source_library_search", "external_search_fixture"],
+                    "description": "Expansion provider mode. external_search_fixture must stay fixture-gated and offline in tests.",
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": ["source_library_search", "external_search_fixture"],
+                    "description": "Alias for mode, accepted for provider-style callers.",
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 20},
+                "idempotency_key": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+        source="project",
+        risk="write_shared",
+        permission="allow",
+        concurrency="serial",
+        timeout_seconds=20,
+        result_budget=9000,
+        project_service_id="chain.expand",
+        metadata={
+            "contract_version": "chain.expand.v1",
+            "auto_allow_session_write": True,
+            "requires_review": True,
+            "no_silent_promote": True,
+            "no_graph_write": True,
+            "fixture_gated_external_search": True,
+        },
+    )
+
+
+def _clue_chain_expand_handler(
+    service: AgentSessionService,
+) -> Callable[[CoreToolCall, CoreToolSpec, AgentCoreRequest, Callable[[CoreEvent], None]], CoreToolResult]:
+    def handler(
+        tool_call: CoreToolCall,
+        tool_spec: CoreToolSpec,
+        request: AgentCoreRequest,
+        emit: Callable[[CoreEvent], None],
+    ) -> CoreToolResult:
+        project_key = _resolve_project_key(tool_call, request)
+        if not project_key:
+            return _missing_project_result(tool_call)
+        chain_id = str(tool_call.arguments.get("chain_id") or "").strip()
+        if not chain_id:
+            return CoreToolResult(
+                call_id=tool_call.call_id,
+                tool_name=tool_call.tool_name,
+                status="failed",
+                model_summary="chain_id is required for chain.expand.",
+                error={"code": "missing_chain_id", "message": "chain_id is required"},
+                retry_hint="Pass the clue chain id selected in the graph UI or returned by the clue-chain API.",
+            )
+        mode = _normalize_clue_chain_expand_mode(tool_call.arguments.get("mode") or tool_call.arguments.get("provider"))
+        if mode is None:
+            return CoreToolResult(
+                call_id=tool_call.call_id,
+                tool_name=tool_call.tool_name,
+                status="failed",
+                model_summary="chain.expand mode must be source_library_search or external_search_fixture.",
+                error={
+                    "code": "invalid_chain_expand_mode",
+                    "message": "mode/provider must be one of: source_library_search, external_search_fixture",
+                },
+            )
+        frontier_node_ids = _normalize_string_list(tool_call.arguments.get("frontier_node_ids"))
+        query = str(tool_call.arguments.get("query") or request.message or "").strip()
+        limit = max(1, min(20, int(tool_call.arguments.get("limit") or 5)))
+        idempotency_key = str(tool_call.arguments.get("idempotency_key") or "").strip()
+        payload = {
+            "project_key": project_key,
+            "chain_id": chain_id,
+            "query": query,
+            "frontier_node_ids": frontier_node_ids,
+            "mode": mode,
+            "provider": mode,
+            "limit": limit,
+            "idempotency_key": idempotency_key or None,
+            "session_id": request.session_id,
+            "turn_id": request.turn_id,
+            "call_id": tool_call.call_id,
+            "actor": "agent_core",
+            "requires_review": True,
+            "auto_promote": False,
+            "promote": False,
+        }
+
+        service_result, service_status = _try_clue_chain_service_expand(payload)
+        if service_result is not None:
+            return _clue_chain_expand_result_from_service(
+                tool_call=tool_call,
+                project_key=project_key,
+                chain_id=chain_id,
+                query=query,
+                frontier_node_ids=frontier_node_ids,
+                mode=mode,
+                limit=limit,
+                service_result=service_result,
+                service_status=service_status,
+            )
+
+        fallback = _record_clue_chain_expand_request_artifact(
+            service=service,
+            request=request,
+            tool_call=tool_call,
+            project_key=project_key,
+            chain_id=chain_id,
+            query=query,
+            frontier_node_ids=frontier_node_ids,
+            mode=mode,
+            limit=limit,
+            idempotency_key=idempotency_key,
+            service_status=service_status,
+        )
+        return CoreToolResult(
+            call_id=tool_call.call_id,
+            tool_name=tool_call.tool_name,
+            status="completed",
+            model_summary=(
+                f"Requested clue chain expansion for chain={chain_id}; "
+                f"mode={mode}; candidates={len(fallback['candidates'])}; requires_review=True; promoted_to_graph=False."
+            ),
+            structured_content=fallback,
+            artifact_refs=(str((fallback.get("artifact") or {}).get("artifact_id") or "clue_chain_expansions.json"),),
+        )
+
+    return handler
+
+
+def _normalize_clue_chain_expand_mode(value: Any) -> str | None:
+    mode = str(value or "source_library_search").strip().lower() or "source_library_search"
+    aliases = {
+        "source_library": "source_library_search",
+        "source-library": "source_library_search",
+        "source-library-search": "source_library_search",
+        "source_library_search": "source_library_search",
+        "external_search": "external_search_fixture",
+        "external-fixture": "external_search_fixture",
+        "external_search_fixture": "external_search_fixture",
+        "fixture": "external_search_fixture",
+    }
+    return aliases.get(mode)
+
+
+def _try_clue_chain_service_expand(payload: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    try:
+        module = importlib.import_module("app.services.clue_chains.service")
+    except Exception as exc:  # noqa: BLE001
+        return None, {
+            "service_adapter": "app.services.clue_chains.service",
+            "status": "unavailable",
+            "code": exc.__class__.__name__,
+            "message": str(exc),
+        }
+    for name in ("expand_chain", "request_chain_expansion", "create_expansion_request"):
+        handler = getattr(module, name, None)
+        if not callable(handler):
+            continue
+        try:
+            result = handler(**_filter_kwargs_for_callable(handler, payload))
+        except Exception as exc:  # noqa: BLE001
+            return None, {
+                "service_adapter": "app.services.clue_chains.service",
+                "handler": name,
+                "status": "failed",
+                "code": exc.__class__.__name__,
+                "message": str(exc),
+            }
+        return dict(result or {}), {
+            "service_adapter": "app.services.clue_chains.service",
+            "handler": name,
+            "status": "completed",
+        }
+    return None, {
+        "service_adapter": "app.services.clue_chains.service",
+        "status": "handler_missing",
+        "expected_handlers": ["expand_chain", "request_chain_expansion", "create_expansion_request"],
+    }
+
+
+def _filter_kwargs_for_callable(handler: Callable[..., Any], payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        signature = inspect.signature(handler)
+    except Exception:  # noqa: BLE001
+        return dict(payload)
+    params = signature.parameters
+    if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in params.values()):
+        return dict(payload)
+    return {key: value for key, value in payload.items() if key in params}
+
+
+def _clue_chain_expand_result_from_service(
+    *,
+    tool_call: CoreToolCall,
+    project_key: str,
+    chain_id: str,
+    query: str,
+    frontier_node_ids: list[str],
+    mode: str,
+    limit: int,
+    service_result: dict[str, Any],
+    service_status: dict[str, Any],
+) -> CoreToolResult:
+    candidates = list(service_result.get("candidates") or [])
+    if not candidates and isinstance(service_result.get("hop"), dict):
+        candidates = list(dict(service_result.get("hop") or {}).get("candidates") or [])
+    normalized = {
+        **service_result,
+        "contract_version": "chain.expand.v1",
+        "project_key": service_result.get("project_key") or project_key,
+        "chain_id": service_result.get("chain_id") or chain_id,
+        "query": service_result.get("query") or query,
+        "frontier_node_ids": list(service_result.get("frontier_node_ids") or frontier_node_ids),
+        "mode": service_result.get("mode") or mode,
+        "provider": service_result.get("provider") or service_result.get("mode") or mode,
+        "limit": service_result.get("limit") or limit,
+        "candidates": _compact_json_value(candidates, max_items=max(30, limit), max_depth=6),
+        "candidate_count": len(candidates),
+        "requires_review": True,
+        "review_status": "pending_review",
+        "promoted_to_graph": False,
+        "graph_mutation_performed": False,
+        "no_silent_promote": True,
+        "decision_gate": _clue_chain_decision_gate(chain_id),
+        "service_status": service_status,
+    }
+    return CoreToolResult(
+        call_id=tool_call.call_id,
+        tool_name=tool_call.tool_name,
+        status="completed",
+        model_summary=(
+            f"Requested clue chain expansion for chain={chain_id}; "
+            f"mode={mode}; candidates={len(candidates)}; requires_review=True; promoted_to_graph=False."
+        ),
+        structured_content=normalized,
+    )
+
+
+def _record_clue_chain_expand_request_artifact(
+    *,
+    service: AgentSessionService,
+    request: AgentCoreRequest,
+    tool_call: CoreToolCall,
+    project_key: str,
+    chain_id: str,
+    query: str,
+    frontier_node_ids: list[str],
+    mode: str,
+    limit: int,
+    idempotency_key: str,
+    service_status: dict[str, Any],
+) -> dict[str, Any]:
+    artifact_name = "clue_chain_expansions.json"
+    existing_artifact = next((item for item in service.list_artifacts(request.session_id) if item.get("name") == artifact_name), None)
+    existing_content = dict((existing_artifact or {}).get("content_json") or {})
+    replay_keys = [str(item or "") for item in list(existing_content.get("replay_keys") or []) if str(item or "").strip()]
+    request_key = idempotency_key or _stable_hash(
+        {
+            "project_key": project_key,
+            "chain_id": chain_id,
+            "query": query,
+            "frontier_node_ids": frontier_node_ids,
+            "mode": mode,
+            "limit": limit,
+            "call_id": tool_call.call_id,
+        }
+    )
+    replayed = bool(idempotency_key and idempotency_key in replay_keys)
+    requests = [dict(item) for item in list(existing_content.get("requests") or []) if isinstance(item, dict)]
+    hops = [dict(item) for item in list(existing_content.get("hops") or []) if isinstance(item, dict)]
+    candidates = [dict(item) for item in list(existing_content.get("candidates") or []) if isinstance(item, dict)]
+
+    if replayed:
+        expansion_request = next((item for item in requests if str(item.get("request_key") or "") == request_key), {})
+        hop = next((item for item in hops if str(item.get("expansion_request_id") or "") == expansion_request.get("expansion_request_id")), {})
+        selected_candidates = [
+            item
+            for item in candidates
+            if str(item.get("hop_id") or "") == str(hop.get("hop_id") or "")
+        ]
+    else:
+        expansion_request_id = f"chain-exp-{_stable_hash({'request_key': request_key, 'chain_id': chain_id})[:16]}"
+        hop_id = f"chain-hop-{_stable_hash({'expansion_request_id': expansion_request_id, 'mode': mode})[:16]}"
+        now = _utcnow_iso()
+        expansion_request = {
+            "expansion_request_id": expansion_request_id,
+            "request_key": request_key,
+            "chain_id": chain_id,
+            "project_key": project_key,
+            "query": query,
+            "frontier_node_ids": frontier_node_ids,
+            "mode": mode,
+            "provider": mode,
+            "limit": limit,
+            "status": "requested",
+            "requires_review": True,
+            "created_by": "agent_core",
+            "created_at": now,
+            "session_id": request.session_id,
+            "turn_id": request.turn_id,
+            "call_id": tool_call.call_id,
+        }
+        hop = {
+            "hop_id": hop_id,
+            "expansion_request_id": expansion_request_id,
+            "chain_id": chain_id,
+            "project_key": project_key,
+            "query": query,
+            "frontier_node_ids": frontier_node_ids,
+            "mode": mode,
+            "provider": mode,
+            "status": "pending_review",
+            "requires_review": True,
+            "promoted_to_graph": False,
+            "graph_mutation_performed": False,
+            "created_at": now,
+        }
+        selected_candidates = _build_clue_chain_review_candidates(
+            project_key=project_key,
+            chain_id=chain_id,
+            hop_id=hop_id,
+            expansion_request_id=expansion_request_id,
+            query=query,
+            frontier_node_ids=frontier_node_ids,
+            mode=mode,
+            limit=limit,
+        )
+        hop["candidate_ids"] = [item["candidate_id"] for item in selected_candidates]
+        requests = [item for item in requests if str(item.get("request_key") or "") != request_key]
+        hops = [item for item in hops if str(item.get("hop_id") or "") != hop_id]
+        candidates = [
+            item
+            for item in candidates
+            if str(item.get("expansion_request_id") or "") != expansion_request_id
+        ]
+        requests.append(expansion_request)
+        hops.append(hop)
+        candidates.extend(selected_candidates)
+        if idempotency_key:
+            replay_keys.append(idempotency_key)
+
+    content = {
+        **existing_content,
+        "contract_version": "chain.expand.v1",
+        "project_key": project_key,
+        "updated_at": _utcnow_iso(),
+        "replay_keys": replay_keys[-50:],
+        "requests": requests[-100:],
+        "hops": hops[-100:],
+        "candidates": candidates[-200:],
+        "counts": {
+            "requests": len(requests),
+            "hops": len(hops),
+            "candidates": len(candidates),
+            "pending_review": sum(1 for item in candidates if bool(item.get("requires_review"))),
+            "promoted": 0,
+        },
+        "guardrails": {
+            "requires_review": True,
+            "silent_promote_allowed": False,
+            "graph_mutation_performed": False,
+            "decision_contract": "ChainDecision",
+        },
+    }
+    artifact = service.store.upsert_artifact(
+        {
+            "session_id": request.session_id,
+            "name": artifact_name,
+            "artifact_type": "clue_chain_expansion_request_state",
+            "mime_type": "application/json",
+            "content_text": json.dumps(content, ensure_ascii=False, sort_keys=True, default=str),
+            "content_json": content,
+            "metadata": {
+                "project_key": project_key,
+                "contract_version": "chain.expand.v1",
+                "auto_written_by": "agent_core",
+                "requires_review": True,
+                "no_silent_promote": True,
+                "replayed": replayed,
+            },
+        }
+    )
+    return {
+        "contract_version": "chain.expand.v1",
+        "project_key": project_key,
+        "chain_id": chain_id,
+        "query": query,
+        "frontier_node_ids": frontier_node_ids,
+        "mode": mode,
+        "provider": mode,
+        "limit": limit,
+        "expansion_request": _compact_json_value(expansion_request, max_items=24, max_depth=5),
+        "hop": _compact_json_value(hop, max_items=24, max_depth=5),
+        "candidates": _compact_json_value(selected_candidates, max_items=max(30, limit), max_depth=6),
+        "candidate_count": len(selected_candidates),
+        "requires_review": True,
+        "review_status": "pending_review",
+        "promoted_to_graph": False,
+        "graph_mutation_performed": False,
+        "external_network_io": False,
+        "fixture_gated": mode == "external_search_fixture",
+        "no_silent_promote": True,
+        "decision_gate": _clue_chain_decision_gate(chain_id),
+        "service_status": service_status,
+        "artifact": _compact_json_value(artifact, max_items=18, max_depth=4),
+        "replayed": replayed,
+    }
+
+
+def _build_clue_chain_review_candidates(
+    *,
+    project_key: str,
+    chain_id: str,
+    hop_id: str,
+    expansion_request_id: str,
+    query: str,
+    frontier_node_ids: list[str],
+    mode: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    seed_labels = frontier_node_ids[:limit] or [query or chain_id]
+    candidates: list[dict[str, Any]] = []
+    for index, seed in enumerate(seed_labels[:limit], start=1):
+        candidate_id = f"chain-cand-{_stable_hash({'hop_id': hop_id, 'seed': seed, 'index': index})[:16]}"
+        candidates.append(
+            {
+                "candidate_id": candidate_id,
+                "chain_id": chain_id,
+                "project_key": project_key,
+                "hop_id": hop_id,
+                "expansion_request_id": expansion_request_id,
+                "rank": index,
+                "mode": mode,
+                "provider": mode,
+                "title": _clue_chain_candidate_title(mode=mode, query=query, seed=seed),
+                "query": query,
+                "frontier_node_ids": frontier_node_ids,
+                "frontier_seed": seed,
+                "candidate_type": "source_library_lead" if mode == "source_library_search" else "external_search_fixture_lead",
+                "review_status": "pending_review",
+                "requires_review": True,
+                "promote_allowed": False,
+                "promoted_to_graph": False,
+                "graph_mutation_performed": False,
+                "evidence_refs": [],
+                "proposed_graph_nodes": [],
+                "proposed_graph_edges": [],
+                "decision": None,
+            }
+        )
+    return candidates
+
+
+def _clue_chain_candidate_title(*, mode: str, query: str, seed: str) -> str:
+    label = query or seed or "next clue"
+    if mode == "external_search_fixture":
+        return f"Fixture external-search lead for {label}"
+    return f"Source-library search lead for {label}"
+
+
+def _clue_chain_decision_gate(chain_id: str) -> dict[str, Any]:
+    return {
+        "requires_review": True,
+        "decision_contract": "ChainDecision",
+        "decision_api": f"POST /api/v1/clue-chains/{chain_id}/candidates/{{candidate_id}}/decision",
+        "future_tool": "chain.decision",
+        "message": "Review candidates before any graph node or edge promotion; chain.expand never promotes silently.",
+    }
 
 
 def _source_web_search_spec() -> CoreToolSpec:
