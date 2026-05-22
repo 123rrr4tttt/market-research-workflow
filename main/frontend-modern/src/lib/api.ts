@@ -269,6 +269,7 @@ export type UpdateWritingDocumentPayload = import('./api/domains/writing').Updat
 export type ValidateWritingTemplatePayload = import('./api/domains/writing').ValidateWritingTemplatePayload
 export type WritingCardDetailParams = import('./api/domains/writing').WritingCardDetailParams
 export type WritingCitation = import('./api/domains/writing').WritingCitation
+export type WritingContextEnvelope = import('./api/domains/writing').WritingContextEnvelope
 export type WritingDocument = import('./api/domains/writing').WritingDocument
 export type WritingDraft = import('./api/domains/writing').WritingDraft
 export type WritingKeywordCard = import('./api/domains/writing').WritingKeywordCard
