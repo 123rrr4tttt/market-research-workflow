@@ -120,6 +120,156 @@ def validate_content_shim(
     return problems
 
 
+def validate_navigation_promotions(
+    repo_root: Path,
+    manifest_path: Path,
+    root: Path,
+    root_raw: str,
+    data: dict[str, Any],
+    entries_by_id: dict[str, dict[str, Any]],
+) -> list[Problem]:
+    problems: list[Problem] = []
+    promotions_raw = data.get("navigation_promotions", [])
+    if promotions_raw is None:
+        return problems
+    if not isinstance(promotions_raw, list):
+        return [Problem(manifest_path, "navigation_promotions must be a list when present")]
+
+    seen_promotion_ids: set[str] = set()
+    expected_root_readme_raw = f"{root_raw}/README.md"
+    expected_root_readme = repo_root / expected_root_readme_raw
+    root_text = expected_root_readme.read_text(encoding="utf-8") if expected_root_readme.is_file() else ""
+
+    for promotion_index, promotion in enumerate(promotions_raw):
+        promotion_path = Path(f"{manifest_path}#navigation_promotions[{promotion_index}]")
+        if not isinstance(promotion, dict):
+            problems.append(Problem(promotion_path, "navigation promotion must be an object"))
+            continue
+
+        promotion_id = promotion.get("id")
+        if not isinstance(promotion_id, str) or not promotion_id:
+            problems.append(Problem(promotion_path, "navigation promotion id is missing"))
+        elif promotion_id in seen_promotion_ids:
+            problems.append(Problem(promotion_path, f"duplicate navigation promotion id: {promotion_id}"))
+        else:
+            seen_promotion_ids.add(promotion_id)
+
+        if promotion.get("status") != "navigation_promoted":
+            problems.append(Problem(promotion_path, "navigation promotion status must be navigation_promoted"))
+
+        root_readme_raw = promotion.get("root_readme")
+        if root_readme_raw != expected_root_readme_raw:
+            problems.append(
+                Problem(
+                    promotion_path,
+                    f"navigation promotion root_readme must be {expected_root_readme_raw}",
+                )
+            )
+        if not expected_root_readme.is_file():
+            problems.append(Problem(expected_root_readme, "navigation promotion root README is missing"))
+
+        navigation_section = promotion.get("navigation_section")
+        if not isinstance(navigation_section, str) or not navigation_section:
+            problems.append(Problem(promotion_path, "navigation promotion navigation_section is missing"))
+        elif navigation_section not in root_text:
+            problems.append(
+                Problem(expected_root_readme, f"navigation section is missing: {navigation_section}")
+            )
+
+        if isinstance(promotion_id, str) and promotion_id and promotion_id not in root_text:
+            problems.append(Problem(expected_root_readme, f"navigation promotion id is not mentioned: {promotion_id}"))
+
+        navigation_entries = promotion.get("entries")
+        if not isinstance(navigation_entries, list) or not navigation_entries:
+            problems.append(Problem(promotion_path, "navigation promotion entries must be a non-empty list"))
+            continue
+
+        for entry_index, navigation_entry in enumerate(navigation_entries):
+            navigation_entry_path = Path(f"{promotion_path}#entries[{entry_index}]")
+            if not isinstance(navigation_entry, dict):
+                problems.append(Problem(navigation_entry_path, "navigation entry must be an object"))
+                continue
+
+            target_root_raw = navigation_entry.get("target_root")
+            target_raw = navigation_entry.get("target")
+            compatibility_entry_raw = navigation_entry.get("compatibility_entry")
+            manifest_entry_ids_raw = navigation_entry.get("manifest_entry_ids")
+
+            if not isinstance(target_root_raw, str) or not target_root_raw.startswith(f"{root_raw}/"):
+                problems.append(Problem(navigation_entry_path, "navigation target_root is outside manifest root"))
+                target_root = None
+            else:
+                target_root = repo_root / target_root_raw
+                if not target_root.is_dir():
+                    problems.append(Problem(target_root, "navigation target_root directory is missing"))
+                elif not is_relative_to(target_root, root):
+                    problems.append(Problem(target_root, "navigation target_root is outside manifest root"))
+
+            if not isinstance(target_raw, str):
+                problems.append(Problem(navigation_entry_path, "navigation target is missing"))
+                target = None
+            else:
+                target = repo_root / target_raw
+                if not target.is_file():
+                    problems.append(Problem(target, "navigation target README is missing"))
+                if target_root is not None and not same_path(target, target_root / "README.md"):
+                    problems.append(Problem(target, "navigation target must be target_root/README.md"))
+
+            if isinstance(compatibility_entry_raw, str):
+                compatibility_entry = repo_root / compatibility_entry_raw
+                if not compatibility_entry_raw.startswith("development/latest-dev-docs/"):
+                    problems.append(
+                        Problem(navigation_entry_path, "navigation compatibility_entry must be under development/latest-dev-docs")
+                    )
+                elif not compatibility_entry.exists():
+                    problems.append(Problem(compatibility_entry, "navigation compatibility_entry does not exist"))
+            else:
+                problems.append(Problem(navigation_entry_path, "navigation compatibility_entry is missing"))
+
+            if not isinstance(manifest_entry_ids_raw, list) or not manifest_entry_ids_raw:
+                problems.append(Problem(navigation_entry_path, "navigation manifest_entry_ids must be a non-empty list"))
+                manifest_entry_ids: list[str] = []
+            else:
+                manifest_entry_ids = []
+                for raw_entry_id in manifest_entry_ids_raw:
+                    if not isinstance(raw_entry_id, str) or not raw_entry_id:
+                        problems.append(Problem(navigation_entry_path, "navigation manifest_entry_ids must be strings"))
+                        continue
+                    manifest_entry_ids.append(raw_entry_id)
+                    source_entry = entries_by_id.get(raw_entry_id)
+                    if source_entry is None:
+                        problems.append(Problem(navigation_entry_path, f"navigation references unknown entry id: {raw_entry_id}"))
+                        continue
+                    if target_root_raw and source_entry.get("target_root") != target_root_raw:
+                        problems.append(
+                            Problem(navigation_entry_path, f"navigation entry id target_root mismatch: {raw_entry_id}")
+                        )
+                    if target_raw and source_entry.get("target") != target_raw:
+                        problems.append(
+                            Problem(navigation_entry_path, f"navigation entry id target mismatch: {raw_entry_id}")
+                        )
+
+            required_root_text = [
+                value
+                for value in (
+                    target_root_raw,
+                    target_raw,
+                    compatibility_entry_raw,
+                    *manifest_entry_ids,
+                )
+                if isinstance(value, str) and value
+            ]
+            for required in required_root_text:
+                if required not in root_text:
+                    problems.append(Problem(expected_root_readme, f"navigation README does not mention: {required}"))
+
+            partial_boundary = navigation_entry.get("partial_boundary")
+            if not isinstance(partial_boundary, str) or not partial_boundary:
+                problems.append(Problem(navigation_entry_path, "navigation partial_boundary is missing"))
+
+    return problems
+
+
 def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Problem], int]:
     problems: list[Problem] = []
     data, load_problems = load_json(manifest_path)
@@ -152,6 +302,7 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Proble
         return problems, 0
 
     seen_ids: set[str] = set()
+    entries_by_id: dict[str, dict[str, Any]] = {}
     seen_source_roles: set[str] = set()
 
     for index, entry in enumerate(entries):
@@ -167,6 +318,7 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Proble
             problems.append(Problem(entry_path, f"duplicate entry id: {entry_id}"))
         else:
             seen_ids.add(entry_id)
+            entries_by_id[entry_id] = entry
 
         if entry.get("classification") != expected_classification:
             problems.append(Problem(entry_path, "entry classification does not match root"))
@@ -219,6 +371,17 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> tuple[list[Proble
     missing_roles = required_source_roles - seen_source_roles
     if missing_roles:
         problems.append(Problem(manifest_path, f"required source roles missing: {sorted(missing_roles)}"))
+
+    problems.extend(
+        validate_navigation_promotions(
+            repo_root=repo_root,
+            manifest_path=manifest_path,
+            root=root,
+            root_raw=root_raw,
+            data=data,
+            entries_by_id=entries_by_id,
+        )
+    )
 
     return problems, len(entries)
 

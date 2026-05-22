@@ -4,6 +4,47 @@
   "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-22",
   "content_authority": "Mapped source files remain authoritative for document content. Target README files are content shims that point readers from docs/development into the current compatibility entries until a later content move updates shared navigation.",
+  "navigation_promotions": [
+    {
+      "id": "development-root-reader-navigation-wave11",
+      "status": "navigation_promoted",
+      "root_readme": "docs/development/README.md",
+      "navigation_section": "Promoted Navigation Batch",
+      "entries": [
+        {
+          "target_root": "docs/development/development-plans",
+          "target": "docs/development/development-plans/README.md",
+          "manifest_entry_ids": [
+            "development-plans-main-index",
+            "development-plans-main-merged",
+            "development-plans-current-dev-root"
+          ],
+          "compatibility_entry": "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+          "partial_boundary": "Shared latest-dev-docs indexes remain compatibility-bound."
+        },
+        {
+          "target_root": "docs/development/frontend-modern",
+          "target": "docs/development/frontend-modern/README.md",
+          "manifest_entry_ids": [
+            "frontend-modern-main-index",
+            "frontend-modern-main-merged"
+          ],
+          "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/index.md",
+          "partial_boundary": "Shared latest-dev-docs indexes remain compatibility-bound."
+        },
+        {
+          "target_root": "docs/development/root-plans",
+          "target": "docs/development/root-plans/README.md",
+          "manifest_entry_ids": [
+            "root-plans-f-plan-index",
+            "root-plans-main-index-mixed"
+          ],
+          "compatibility_entry": "development/latest-dev-docs/root-plans/F_PLAN/index.md",
+          "partial_boundary": "Shared latest-dev-docs indexes remain compatibility-bound."
+        }
+      ]
+    }
+  ],
   "entries": [
     {
       "id": "development-plans-main-index",

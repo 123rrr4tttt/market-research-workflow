@@ -22,6 +22,16 @@ The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuri
 
 The first content shim batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries keep `development/latest-dev-docs` as the content authority while the README shims under this root provide readable pointers to the current compatibility entries. Shared navigation still belongs to the integration lane.
 
+## Promoted Navigation Batch
+
+Manifest promotion `development-root-reader-navigation-wave11` makes the existing development-root shims visible from this local root README. This is a reader navigation promotion only: it does not move content and does not update the shared latest-dev-docs indexes.
+
+| Target root | Local navigation entry | Manifest entry IDs | Compatibility entry | Partial boundary |
+|---|---|---|---|---|
+| `docs/development/development-plans` | [docs/development/development-plans/README.md](./development-plans/README.md) | `development-plans-main-index`, `development-plans-main-merged`, `development-plans-current-dev-root` | `development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md` | Shared latest-dev-docs indexes remain compatibility-bound. |
+| `docs/development/frontend-modern` | [docs/development/frontend-modern/README.md](./frontend-modern/README.md) | `frontend-modern-main-index`, `frontend-modern-main-merged` | `development/latest-dev-docs/frontend-modern/main/index.md` | Shared latest-dev-docs indexes remain compatibility-bound. |
+| `docs/development/root-plans` | [docs/development/root-plans/README.md](./root-plans/README.md) | `root-plans-f-plan-index`, `root-plans-main-index-mixed` | `development/latest-dev-docs/root-plans/F_PLAN/index.md` | Shared latest-dev-docs indexes remain compatibility-bound. |
+
 ## Target Routing
 
 | Source family | Target under this root | Notes |
