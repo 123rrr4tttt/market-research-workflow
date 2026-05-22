@@ -62,6 +62,15 @@ export const endpoints = {
     extractFromDocuments: `${API_BASE}/resource_pool/extract/from-documents`,
     discoverSiteEntries: `${API_BASE}/resource_pool/discover/site-entries`,
   },
+  clueChains: {
+    root: `${API_BASE}/clue-chains`,
+    query: (query: URLSearchParams | string) => withQuery(`${API_BASE}/clue-chains`, query),
+    byId: (chainId: string) => `${API_BASE}/clue-chains/${encodeURIComponent(chainId)}`,
+    expand: (chainId: string) => `${API_BASE}/clue-chains/${encodeURIComponent(chainId)}/expand`,
+    candidateDecision: (chainId: string, candidateId: string) =>
+      `${API_BASE}/clue-chains/${encodeURIComponent(chainId)}/candidates/${encodeURIComponent(candidateId)}/decision`,
+    close: (chainId: string) => `${API_BASE}/clue-chains/${encodeURIComponent(chainId)}/close`,
+  },
   config: {
     env: `${API_BASE}/config/env`,
   },

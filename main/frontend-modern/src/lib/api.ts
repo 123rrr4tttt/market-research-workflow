@@ -150,6 +150,44 @@ export {
   upsertSourceLibraryItem,
 } from './api/domains/resource-source'
 export {
+  closeClueChain,
+  createClueChain,
+  decideClueChainCandidate,
+  expandClueChain,
+  getClueChain,
+  listClueChains,
+} from './api/domains/clue-chains'
+export type ChainBudget = import('./api/domains/clue-chains').ChainBudget
+export type ChainCandidate = import('./api/domains/clue-chains').ChainCandidate
+export type ChainCandidateDecisionStatus = import('./api/domains/clue-chains').ChainCandidateDecisionStatus
+export type ChainCreatedBy = import('./api/domains/clue-chains').ChainCreatedBy
+export type ChainDecision = import('./api/domains/clue-chains').ChainDecision
+export type ChainDecisionAction = import('./api/domains/clue-chains').ChainDecisionAction
+export type ChainEdge = import('./api/domains/clue-chains').ChainEdge
+export type ChainEvidence = import('./api/domains/clue-chains').ChainEvidence
+export type ChainEvidenceSourceKind = import('./api/domains/clue-chains').ChainEvidenceSourceKind
+export type ChainEvidenceStatus = import('./api/domains/clue-chains').ChainEvidenceStatus
+export type ChainExpansionMode = import('./api/domains/clue-chains').ChainExpansionMode
+export type ChainFrontierItem = import('./api/domains/clue-chains').ChainFrontierItem
+export type ChainHop = import('./api/domains/clue-chains').ChainHop
+export type ChainHopStatus = import('./api/domains/clue-chains').ChainHopStatus
+export type ChainOperatorPolicy = import('./api/domains/clue-chains').ChainOperatorPolicy
+export type ChainSourceRef = import('./api/domains/clue-chains').ChainSourceRef
+export type ClueChain = import('./api/domains/clue-chains').ClueChain
+export type ClueChainCandidateDecisionPayload = import('./api/domains/clue-chains').ClueChainCandidateDecisionPayload
+export type ClueChainCandidateDecisionResponse =
+  import('./api/domains/clue-chains').ClueChainCandidateDecisionResponse
+export type ClueChainClosePayload = import('./api/domains/clue-chains').ClueChainClosePayload
+export type ClueChainCloseResponse = import('./api/domains/clue-chains').ClueChainCloseResponse
+export type ClueChainCreatePayload = import('./api/domains/clue-chains').ClueChainCreatePayload
+export type ClueChainDetailResponse = import('./api/domains/clue-chains').ClueChainDetailResponse
+export type ClueChainExpandPayload = import('./api/domains/clue-chains').ClueChainExpandPayload
+export type ClueChainExpandResponse = import('./api/domains/clue-chains').ClueChainExpandResponse
+export type ClueChainListParams = import('./api/domains/clue-chains').ClueChainListParams
+export type ClueChainListResponse = import('./api/domains/clue-chains').ClueChainListResponse
+export type ClueChainMutationResponse = import('./api/domains/clue-chains').ClueChainMutationResponse
+export type ClueChainStatus = import('./api/domains/clue-chains').ClueChainStatus
+export {
   activateWorkflowGraphTemplateVersion,
   compileWorkflowGraph,
   createWorkflowGraphTemplate,
