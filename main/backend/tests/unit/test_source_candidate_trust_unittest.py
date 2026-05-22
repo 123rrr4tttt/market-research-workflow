@@ -60,13 +60,40 @@ class SourceCandidateTrustUnitTest(unittest.TestCase):
         self.assertEqual(plan["counts"]["candidate_urls"], 1)
         self.assertEqual(plan["counts"]["duplicate_urls"], 1)
         self.assertEqual(plan["candidate_urls"][0]["normalized_url"], "https://example.com/robot?id=1")
+        self.assertEqual(plan["candidate_urls"][0]["source_policy_action"], "allow")
         self.assertIn("query_wrapped_url", plan["candidate_urls"][0]["normalization_steps"])
         self.assertEqual(plan["duplicate_urls"][0]["blocked_reason"], "duplicate_candidate_url")
+        self.assertEqual(plan["duplicate_urls"][0]["source_policy_action"], "downgrade")
         self.assertEqual(plan["rejected_urls"][0]["domain"], "127.0.0.1")
         self.assertIn("localhost", plan["rejected_urls"][0]["blocked_reason"])
+        self.assertEqual(plan["rejected_urls"][0]["source_policy_action"], "block")
         self.assertEqual(plan["candidate_source_items"][0]["item_key"], "handler.cluster.search_template")
         self.assertFalse(plan["trust_policy"]["network_fetch_performed"])
+        self.assertEqual(plan["trust_policy"]["source_policy_actions"], ["allow", "downgrade", "block"])
         self.assertIn("redirect_chain_validation", plan["trust_policy"]["pre_ingest_required_checks"])
+
+    def test_plan_marks_medium_trust_candidates_as_downgraded_review_path(self):
+        public_dns = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+
+        with patch("app.services.source_library.external_project.socket.getaddrinfo", return_value=public_dns):
+            plan = build_source_candidate_plan(
+                project_key="demo_proj",
+                query="robot funding",
+                urls=["https://example.org/general"],
+                domains=[],
+                source_library_items=[],
+                max_candidates=10,
+            )
+
+        self.assertEqual(plan["counts"]["candidate_urls"], 1)
+        candidate = plan["candidate_urls"][0]
+        self.assertEqual(candidate["status"], "accepted")
+        self.assertEqual(candidate["trust_level"], "medium")
+        self.assertEqual(candidate["source_policy_action"], "downgrade")
+        self.assertEqual(
+            candidate["source_policy_reason"],
+            "medium_trust_candidate_requires_review_before_bulk_ingest",
+        )
 
     def test_agent_core_exposes_source_discovery_plan_as_read_only_p1_gate(self):
         public_dns = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
