@@ -311,12 +311,9 @@ def get_state_policies(
         with SessionLocal() as session:
             conditions = [
                 Document.doc_type.in_(["policy", "policy_regulation"]),
-                or_(
-                    Document.state == state.upper(),
-                    cast(Document.extracted_data["policy"]["state"], String) == state.upper(),
-                ),
+                policy_state_condition(state),
             ]
-            policy_time = _policy_time_expr()
+            policy_time = policy_time_expr()
 
             if start_dt:
                 conditions.append(policy_time >= start_dt)

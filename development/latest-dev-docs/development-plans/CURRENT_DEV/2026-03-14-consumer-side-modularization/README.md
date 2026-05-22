@@ -7,9 +7,11 @@
 3. [03_wave11-consumer-query-extraction-evidence-2026-05-22.md](./03_wave11-consumer-query-extraction-evidence-2026-05-22.md)
 4. [04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md](./04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md)
 5. [05_wave15-consumer-sql-predicate-facade-2026-05-22.md](./05_wave15-consumer-sql-predicate-facade-2026-05-22.md)
+6. [06_wave17-policy-state-consumer-query-boundary-2026-05-22.md](./06_wave17-policy-state-consumer-query-boundary-2026-05-22.md)
 
 ## 使用说明
 
 1. 本目录单独覆盖消费侧读取模块化。
 2. 重点区分 `document_views` 读取层与 `document_queries` 查询层。
 3. 与 `2026-03-12-data-structured-service-modularization/` 目录形成“写入侧主线 / 消费侧主线”分工。
+4. Wave17 worker 8 将 `/policies/state/{state}` 作为非 admin/dashboard consumer query boundary 增量迁移到 `document_queries` helper。
