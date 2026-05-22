@@ -802,6 +802,9 @@ def _run_source_library_frontdoor_ingress(
     data = frontdoor_result.get("data") if isinstance(frontdoor_result.get("data"), dict) else {}
     writer_result = data.get("writer_result") if isinstance(data.get("writer_result"), dict) else {}
     meta = frontdoor_result.get("meta") if isinstance(frontdoor_result.get("meta"), dict) else {}
+    quality_gates = data.get("quality_gates") if isinstance(data.get("quality_gates"), dict) else {}
+    gate_config = quality_gates.get("gate_config") if isinstance(quality_gates.get("gate_config"), dict) else {}
+    guardrail_rollout = gate_config.get("guardrail_rollout") if isinstance(gate_config.get("guardrail_rollout"), dict) else {}
     admission = str(data.get("admission") or "").strip().lower()
     inserted = int(writer_result.get("inserted") or 0)
     skipped = int(writer_result.get("skipped") or (0 if inserted > 0 else 1))
@@ -824,6 +827,7 @@ def _run_source_library_frontdoor_ingress(
         "errors": errors,
         "frontdoor_ingress": ingress_envelope,
         "postprocess_frontdoor": frontdoor_result,
+        "guardrail_rollout": dict(guardrail_rollout),
         "single_write_workflow": "source_library_frontdoor",
         "source_library_collect_only": True,
     }

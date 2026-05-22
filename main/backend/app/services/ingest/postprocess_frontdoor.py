@@ -10,6 +10,7 @@ from .content_cleaner import clean_frontdoor_document_candidate
 from .content_extraction import apply_main_content_extraction
 from .frontdoor_ingress import CONTRACT_VERSION as INGRESS_CONTRACT_VERSION
 from .gate_reason_codes import normalize_reason_code
+from .guardrail_rollout import resolve_ingest_guardrail_rollout_decision
 from .light_filter import evaluate_light_filter, normalize_light_filter_options
 from .meaningful_gate import build_gateplus_snapshot, content_quality_check, url_policy_check
 from .retry_policy import build_retry_observability
@@ -45,22 +46,31 @@ def _frontdoor_gate_config(*, terminal_context: dict[str, Any] | None = None) ->
 
     settings_enabled = bool(getattr(settings, "ingest_enable_strict_gate", False))
     request_enabled = _coerce_bool(request_gate_config.get("enable_strict_gate"), False)
+    # Source token retained for the Wave9 checker: terminal_context.strict_mode.
     strict_mode_enabled = _coerce_bool(context.get("strict_mode"), False)
-    enabled = bool(settings_enabled or request_enabled or strict_mode_enabled)
-    if settings_enabled:
-        source = "settings.ingest_enable_strict_gate"
-    elif request_enabled:
-        source = "terminal_context.meaningful_gate_config"
-    elif strict_mode_enabled:
-        source = "terminal_context.strict_mode"
-    else:
-        source = "disabled"
+    project_key = str(context.get("project_key") or "").strip() or None
+    source_mode = str(context.get("source_mode") or "").strip().lower()
+    entrypoint = str(context.get("ingestion_entrypoint") or "").strip().lower()
+    capability_profile = context.get("capability_profile") if isinstance(context.get("capability_profile"), dict) else {}
+    rollout_eligible = bool(
+        source_mode == "url_execution"
+        or entrypoint in {"ingest.url_pool", "ingest.source_library.run"}
+        or capability_profile.get("source_library_collect_only")
+    )
+    rollout_decision = resolve_ingest_guardrail_rollout_decision(
+        project_key=project_key,
+        settings_enabled=settings_enabled,
+        request_enabled=request_enabled,
+        strict_mode_enabled=strict_mode_enabled,
+        rollout_eligible=rollout_eligible,
+    )
 
     raw_min_len = request_gate_config.get("min_semantic_len", getattr(settings, "ingest_min_semantic_len", 500))
     return {
-        "enable_strict_gate": enabled,
-        "strict_gate_source": source,
+        "enable_strict_gate": bool(rollout_decision.enable_strict_gate),
+        "strict_gate_source": str(rollout_decision.strict_gate_source),
         "min_semantic_len": int(raw_min_len or 500),
+        "guardrail_rollout": rollout_decision.to_dict(),
     }
 
 
@@ -143,8 +153,10 @@ def run_postprocess_frontdoor(
         return envelope
 
     terminal_context = collection_payload.get("terminal_context") if isinstance(collection_payload.get("terminal_context"), dict) else {}
-    document_candidate, extraction_profile = apply_main_content_extraction(document_candidate)
     terminal_context = dict(terminal_context or {})
+    if ingress.get("project_key") and not terminal_context.get("project_key"):
+        terminal_context["project_key"] = ingress.get("project_key")
+    document_candidate, extraction_profile = apply_main_content_extraction(document_candidate)
     terminal_context["content_extraction"] = dict(extraction_profile)
     envelope["data"]["content_extraction"] = deepcopy(extraction_profile)
     _stage(envelope, "content_extracted")
@@ -606,6 +618,11 @@ def _evaluate_quality_frontdoor(
         ),
     )
     quality_score = max(existing_quality_score if existing_quality_score is not None else 0.0, computed_quality_score)
+    guardrail_rollout = (
+        gate_cfg.get("guardrail_rollout")
+        if isinstance(gate_cfg.get("guardrail_rollout"), dict)
+        else {}
+    )
     return {
         "admission": admission,
         "reason_code": reason_code,
@@ -622,6 +639,9 @@ def _evaluate_quality_frontdoor(
             "page_family": str(content_profile.get("page_family") or "unknown"),
             "strict_gate_enabled": bool(gate_cfg.get("enable_strict_gate")),
             "strict_gate_source": str(gate_cfg.get("strict_gate_source") or "disabled"),
+            "guardrail_rollout_mode": str(guardrail_rollout.get("rollout_mode") or "canary"),
+            "guardrail_canary_matched": bool(guardrail_rollout.get("canary_matched")),
+            "guardrail_closure_claim": bool(guardrail_rollout.get("closure_claim")),
         },
         "quality_gates": {
             "light_filter": dict(light_filter),
@@ -633,6 +653,7 @@ def _evaluate_quality_frontdoor(
                 "enable_strict_gate": bool(gate_cfg.get("enable_strict_gate")),
                 "strict_gate_source": str(gate_cfg.get("strict_gate_source") or "disabled"),
                 "min_semantic_len": int(gate_cfg.get("min_semantic_len") or 500),
+                "guardrail_rollout": deepcopy(guardrail_rollout),
             },
         },
         "degradation_flags": degradation_flags,

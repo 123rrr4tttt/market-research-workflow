@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from .gate_reason_codes import normalize_reason_code
+from .guardrail_rollout import ROLLOUT_CONTRACT_VERSION
 
 _SCHEMA_VERSION = "a9.v1"
+_GUARDRAIL_METRICS_CONTRACT_VERSION = "ingest.guardrail_rollout.metrics.v1"
 _WINDOW = "task_local"
 _DEFAULT_TOP_N = 5
 _EMPTY_BODY_REASON_CODES = {
@@ -21,6 +23,14 @@ def new_metrics_summary() -> dict[str, Any]:
         "empty_body_documents": 0,
         "reason_code_counts": {},
         "adapter_hit_counts": {},
+        "guardrail_rollout": {
+            "samples": 0,
+            "strict_enabled_samples": 0,
+            "canary_matched_samples": 0,
+            "global_default_samples": 0,
+            "rollout_mode_counts": {},
+            "strict_gate_source_counts": {},
+        },
     }
 
 
@@ -70,6 +80,74 @@ def _adapter_name(result: dict[str, Any], *, fallback_adapter: str | None = None
     return fallback or "unknown"
 
 
+def _counter_rows(counter: dict[str, Any], *, denominator: float, top_n: int) -> list[dict[str, Any]]:
+    rows = sorted(
+        ((str(key), _coerce_non_negative_int(value)) for key, value in dict(counter or {}).items()),
+        key=lambda item: item[1],
+        reverse=True,
+    )[: max(1, int(top_n))]
+    return [
+        {
+            "key": key,
+            "count": count,
+            "rate": round(float(count) / denominator, 6) if denominator > 0 else 0.0,
+        }
+        for key, count in rows
+    ]
+
+
+def _extract_guardrail_rollout(result: dict[str, Any]) -> dict[str, Any]:
+    direct = result.get("guardrail_rollout")
+    if isinstance(direct, dict) and direct:
+        return dict(direct)
+
+    postprocess = result.get("postprocess_frontdoor")
+    if isinstance(postprocess, dict):
+        data = postprocess.get("data") if isinstance(postprocess.get("data"), dict) else {}
+        quality_gates = data.get("quality_gates") if isinstance(data.get("quality_gates"), dict) else {}
+        gate_config = quality_gates.get("gate_config") if isinstance(quality_gates.get("gate_config"), dict) else {}
+        rollout = gate_config.get("guardrail_rollout")
+        if isinstance(rollout, dict) and rollout:
+            return dict(rollout)
+
+    quality_gates = result.get("quality_gates") if isinstance(result.get("quality_gates"), dict) else {}
+    gate_config = quality_gates.get("gate_config") if isinstance(quality_gates.get("gate_config"), dict) else {}
+    rollout = gate_config.get("guardrail_rollout")
+    if isinstance(rollout, dict) and rollout:
+        return dict(rollout)
+    return {}
+
+
+def _record_guardrail_rollout_observation(summary: dict[str, Any], result: dict[str, Any]) -> None:
+    rollout = _extract_guardrail_rollout(result)
+    if not rollout:
+        return
+    bucket = summary.get("guardrail_rollout")
+    if not isinstance(bucket, dict):
+        bucket = {}
+        summary["guardrail_rollout"] = bucket
+
+    bucket["samples"] = _coerce_non_negative_int(bucket.get("samples")) + 1
+    if bool(rollout.get("enable_strict_gate")):
+        bucket["strict_enabled_samples"] = _coerce_non_negative_int(bucket.get("strict_enabled_samples")) + 1
+    if bool(rollout.get("canary_matched")):
+        bucket["canary_matched_samples"] = _coerce_non_negative_int(bucket.get("canary_matched_samples")) + 1
+    if bool(rollout.get("global_default_enabled")):
+        bucket["global_default_samples"] = _coerce_non_negative_int(bucket.get("global_default_samples")) + 1
+
+    mode_counts = bucket.get("rollout_mode_counts")
+    if not isinstance(mode_counts, dict):
+        mode_counts = {}
+        bucket["rollout_mode_counts"] = mode_counts
+    _merge_counter(mode_counts, str(rollout.get("rollout_mode") or "unknown"), 1)
+
+    source_counts = bucket.get("strict_gate_source_counts")
+    if not isinstance(source_counts, dict):
+        source_counts = {}
+        bucket["strict_gate_source_counts"] = source_counts
+    _merge_counter(source_counts, str(rollout.get("strict_gate_source") or "unknown"), 1)
+
+
 def record_metrics_observation(
     summary: dict[str, Any],
     result: dict[str, Any] | None,
@@ -101,6 +179,7 @@ def record_metrics_observation(
         adapter_counts = {}
         summary["adapter_hit_counts"] = adapter_counts
     _merge_counter(adapter_counts, _adapter_name(result, fallback_adapter=fallback_adapter), 1)
+    _record_guardrail_rollout_observation(summary, result)
 
 
 def build_metrics_payload_from_summary(
@@ -115,6 +194,16 @@ def build_metrics_payload_from_summary(
         base["empty_body_documents"] = _coerce_non_negative_int(summary.get("empty_body_documents"))
         base["reason_code_counts"] = dict(summary.get("reason_code_counts") or {})
         base["adapter_hit_counts"] = dict(summary.get("adapter_hit_counts") or {})
+        if isinstance(summary.get("guardrail_rollout"), dict):
+            raw_guardrail = summary.get("guardrail_rollout") or {}
+            base["guardrail_rollout"] = {
+                "samples": _coerce_non_negative_int(raw_guardrail.get("samples")),
+                "strict_enabled_samples": _coerce_non_negative_int(raw_guardrail.get("strict_enabled_samples")),
+                "canary_matched_samples": _coerce_non_negative_int(raw_guardrail.get("canary_matched_samples")),
+                "global_default_samples": _coerce_non_negative_int(raw_guardrail.get("global_default_samples")),
+                "rollout_mode_counts": dict(raw_guardrail.get("rollout_mode_counts") or {}),
+                "strict_gate_source_counts": dict(raw_guardrail.get("strict_gate_source_counts") or {}),
+            }
 
     total = _coerce_non_negative_int(base["total_samples"])
     denominator = float(total) if total > 0 else 1.0
@@ -133,6 +222,9 @@ def build_metrics_payload_from_summary(
         key=lambda item: item[1],
         reverse=True,
     )[:top_limit]
+    guardrail = base.get("guardrail_rollout") if isinstance(base.get("guardrail_rollout"), dict) else {}
+    guardrail_samples = _coerce_non_negative_int(guardrail.get("samples"))
+    guardrail_denominator = float(guardrail_samples) if guardrail_samples > 0 else 1.0
 
     return {
         "schema_version": _SCHEMA_VERSION,
@@ -156,6 +248,38 @@ def build_metrics_payload_from_summary(
             }
             for adapter, count in adapter_top
         ],
+        "guardrail_rollout": {
+            "contract_version": _GUARDRAIL_METRICS_CONTRACT_VERSION,
+            "decision_contract_version": ROLLOUT_CONTRACT_VERSION,
+            "sample_size": guardrail_samples,
+            "strict_enabled_samples": _coerce_non_negative_int(guardrail.get("strict_enabled_samples")),
+            "canary_matched_samples": _coerce_non_negative_int(guardrail.get("canary_matched_samples")),
+            "global_default_samples": _coerce_non_negative_int(guardrail.get("global_default_samples")),
+            "strict_enabled_rate": round(
+                float(_coerce_non_negative_int(guardrail.get("strict_enabled_samples"))) / guardrail_denominator,
+                6,
+            )
+            if guardrail_samples > 0
+            else 0.0,
+            "canary_matched_rate": round(
+                float(_coerce_non_negative_int(guardrail.get("canary_matched_samples"))) / guardrail_denominator,
+                6,
+            )
+            if guardrail_samples > 0
+            else 0.0,
+            "rollout_mode_counts": _counter_rows(
+                dict(guardrail.get("rollout_mode_counts") or {}),
+                denominator=guardrail_denominator,
+                top_n=top_limit,
+            ),
+            "strict_gate_source_counts": _counter_rows(
+                dict(guardrail.get("strict_gate_source_counts") or {}),
+                denominator=guardrail_denominator,
+                top_n=top_limit,
+            ),
+            "live_canary_validated": False,
+            "closure_claim": False,
+        },
         "counters": {
             "total_samples": total,
             "url_only_documents": _coerce_non_negative_int(base["url_only_documents"]),

@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     ingest_frontdoor_canary_projects: str = Field(default="demo_proj")
     url_batch_path_default_mode: str = Field(default="batch_runtime_targets")  # legacy_per_url | batch_runtime_targets
     ingest_enable_strict_gate: bool = Field(default=False)
+    ingest_guardrail_rollout_mode: str = Field(default="canary")  # off | canary | on | passthrough
+    ingest_guardrail_canary_projects: str = Field(default="demo_proj")
     ingest_low_value_domains: str = Field(default="news.google.com,x.com,actiontoaction.ai")
     ingest_low_value_path_keywords: str = Field(default="/search,/login,/home,/showcase,/topics/,/stargazers,/sitemap")
     ingest_shell_signatures: str = Field(default="window.wiz_progre,var bodyCacheable = true,self.__next_f,errorContainer")
