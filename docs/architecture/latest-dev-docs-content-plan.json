@@ -1,0 +1,155 @@
+{
+  "schema": "docs-root-content-plan/v1",
+  "root": "docs/architecture",
+  "source_authority": "development/latest-dev-docs",
+  "migration_manifest": "docs/architecture/latest-dev-docs-entry-manifest.json",
+  "generated_date": "2026-05-22",
+  "status": "gate_only_no_content_move",
+  "checker": "scripts/checkers/check_docs_root_content_plan.py",
+  "entries": [
+    {
+      "id": "backend-core-architecture-tree-content-plan",
+      "manifest_entry_id": "backend-core-architecture-tree",
+      "source": "development/latest-dev-docs/backend-core/A_ARCHITECTURE",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/architecture/backend-core",
+      "shim": "docs/architecture/backend-core/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ],
+      "next_gate": "Move selected backend-core architecture files only after shared navigation and link checks are updated."
+    },
+    {
+      "id": "backend-docs-architecture-tree-content-plan",
+      "manifest_entry_id": "backend-docs-architecture-tree",
+      "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/architecture/backend-docs",
+      "shim": "docs/architecture/backend-docs/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ],
+      "next_gate": "Move selected backend-docs architecture files only after the compatibility directory entry is replaced by link-checked file entries."
+    },
+    {
+      "id": "development-plans-architecture-tree-content-plan",
+      "manifest_entry_id": "development-plans-architecture-tree",
+      "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/architecture/development-plans",
+      "shim": "docs/architecture/development-plans/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift",
+        "topic_status_sync"
+      ],
+      "next_gate": "Move only after development-plan status surfaces and architecture links are synchronized together."
+    },
+    {
+      "id": "ops-frontend-architecture-tree-content-plan",
+      "manifest_entry_id": "ops-frontend-architecture-tree",
+      "source": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/architecture/ops-frontend",
+      "shim": "docs/architecture/ops-frontend/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ],
+      "next_gate": "Move selected ops-frontend architecture files only after the mixed frontend docs are classified and link-checked."
+    },
+    {
+      "id": "root-plans-architecture-tree-content-plan",
+      "manifest_entry_id": "root-plans-architecture-tree",
+      "source": "development/latest-dev-docs/root-plans/A_ARCHITECTURE",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/architecture/root-plans",
+      "shim": "docs/architecture/root-plans/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift",
+        "file_level_classification"
+      ],
+      "next_gate": "Do not move root-plans architecture as a broad package until mixed root-plans references are classified."
+    }
+  ],
+  "remaining_unsafe_moves": [
+    {
+      "id": "backend-core-architecture-tree",
+      "source": "development/latest-dev-docs/backend-core/A_ARCHITECTURE",
+      "target_root": "docs/architecture/backend-core",
+      "mode": "blocked_broad_move",
+      "reason": "The target shim exists, but shared navigation and overview references still point at the compatibility root.",
+      "required_gates": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift",
+        "link_check"
+      ]
+    },
+    {
+      "id": "backend-docs-architecture-tree",
+      "source": "development/latest-dev-docs/backend-docs/A_ARCHITECTURE",
+      "target_root": "docs/architecture/backend-docs",
+      "mode": "blocked_broad_move",
+      "reason": "The compatibility entry is a directory, so file-level move entries must be created before content moves.",
+      "required_gates": [
+        "file_level_classification",
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ]
+    },
+    {
+      "id": "development-plans-architecture-tree",
+      "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE",
+      "target_root": "docs/architecture/development-plans",
+      "mode": "blocked_broad_move",
+      "reason": "Development-plan architecture is tied to CURRENT_DEV status and shared development-plan indexes.",
+      "required_gates": [
+        "topic_status_sync",
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ]
+    },
+    {
+      "id": "ops-frontend-architecture-tree",
+      "source": "development/latest-dev-docs/ops-frontend/A_ARCHITECTURE",
+      "target_root": "docs/architecture/ops-frontend",
+      "mode": "blocked_broad_move",
+      "reason": "ops-frontend is a mixed lifecycle tree and needs link-checked file selection before content movement.",
+      "required_gates": [
+        "file_level_classification",
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ]
+    },
+    {
+      "id": "root-plans-architecture-tree",
+      "source": "development/latest-dev-docs/root-plans/A_ARCHITECTURE",
+      "target_root": "docs/architecture/root-plans",
+      "mode": "blocked_broad_move",
+      "reason": "root-plans architecture is coupled to mixed root-plans references and cannot be moved as a broad package.",
+      "required_gates": [
+        "file_level_classification",
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ]
+    }
+  ]
+}

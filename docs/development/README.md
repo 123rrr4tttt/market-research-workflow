@@ -22,6 +22,8 @@ The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuri
 
 The first content shim batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries keep `development/latest-dev-docs` as the content authority while the README shims under this root provide readable pointers to the current compatibility entries. Shared navigation still belongs to the integration lane.
 
+The bounded content-plan gate is recorded in [latest-dev-docs-content-plan.json](./latest-dev-docs-content-plan.json) and checked by [scripts/checkers/check_docs_root_content_plan.py](../../scripts/checkers/check_docs_root_content_plan.py). That gate keeps every current development entry in `shim_only` mode and records the remaining unsafe moves blocked by shared navigation and `MERGED_OVERVIEW` drift.
+
 ## Promoted Navigation Batch
 
 Manifest promotion `development-root-reader-navigation-wave11` makes the existing development-root shims visible from this local root README. This is a reader navigation promotion only: it does not move content and does not update the shared latest-dev-docs indexes.

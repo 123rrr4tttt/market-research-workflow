@@ -1,0 +1,187 @@
+{
+  "schema": "docs-root-content-plan/v1",
+  "root": "docs/development",
+  "source_authority": "development/latest-dev-docs",
+  "migration_manifest": "docs/development/latest-dev-docs-entry-manifest.json",
+  "generated_date": "2026-05-22",
+  "status": "gate_only_no_content_move",
+  "checker": "scripts/checkers/check_docs_root_content_plan.py",
+  "entries": [
+    {
+      "id": "development-plans-main-index-content-plan",
+      "manifest_entry_id": "development-plans-main-index",
+      "source": "development/latest-dev-docs/development-plans/main/index.md",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/development/development-plans",
+      "shim": "docs/development/development-plans/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ],
+      "next_gate": "Supervisor integration must update shared navigation and rerun link checks before moving this content."
+    },
+    {
+      "id": "development-plans-main-merged-content-plan",
+      "manifest_entry_id": "development-plans-main-merged",
+      "source": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/development/development-plans",
+      "shim": "docs/development/development-plans/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ],
+      "next_gate": "Supervisor integration must reconcile MERGED_OVERVIEW and rerun link checks before moving merged snapshots."
+    },
+    {
+      "id": "development-plans-current-dev-root-content-plan",
+      "manifest_entry_id": "development-plans-current-dev-root",
+      "source": "development/latest-dev-docs/development-plans/CURRENT_DEV",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/development/development-plans",
+      "shim": "docs/development/development-plans/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift",
+        "topic_status_sync"
+      ],
+      "next_gate": "Keep CURRENT_DEV authoritative until supervisor-owned status and shared navigation sync land together."
+    },
+    {
+      "id": "frontend-modern-main-index-content-plan",
+      "manifest_entry_id": "frontend-modern-main-index",
+      "source": "development/latest-dev-docs/frontend-modern/main/index.md",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/development/frontend-modern",
+      "shim": "docs/development/frontend-modern/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ],
+      "next_gate": "Promote only after shared navigation points to the docs/development shim and links are checked."
+    },
+    {
+      "id": "frontend-modern-main-merged-content-plan",
+      "manifest_entry_id": "frontend-modern-main-merged",
+      "source": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/development/frontend-modern",
+      "shim": "docs/development/frontend-modern/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ],
+      "next_gate": "Move only after the merged snapshot is reconciled with the shared overview and local shim."
+    },
+    {
+      "id": "root-plans-f-plan-index-content-plan",
+      "manifest_entry_id": "root-plans-f-plan-index",
+      "source": "development/latest-dev-docs/root-plans/F_PLAN/index.md",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/development/root-plans",
+      "shim": "docs/development/root-plans/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ],
+      "next_gate": "Move only as a small file batch with compatibility links and shared navigation updated in the same integration pass."
+    },
+    {
+      "id": "root-plans-main-index-content-plan",
+      "manifest_entry_id": "root-plans-main-index-mixed",
+      "source": "development/latest-dev-docs/root-plans/main/index.md",
+      "source_authority": "development/latest-dev-docs",
+      "target_root": "docs/development/root-plans",
+      "shim": "docs/development/root-plans/README.md",
+      "mode": "shim_only",
+      "source_remains_authoritative": true,
+      "move_allowed": false,
+      "blocked_by": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift",
+        "file_level_classification"
+      ],
+      "next_gate": "Do not move the mixed root-plans main tree until file-level classification proves the development-only subset."
+    }
+  ],
+  "remaining_unsafe_moves": [
+    {
+      "id": "development-plans-current-dev-tree",
+      "source": "development/latest-dev-docs/development-plans/CURRENT_DEV",
+      "target_root": "docs/development/development-plans",
+      "mode": "blocked_broad_move",
+      "reason": "CURRENT_DEV is still the active status surface and contains shared index files owned by supervisor integration.",
+      "required_gates": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift",
+        "topic_status_sync"
+      ]
+    },
+    {
+      "id": "development-plans-main-tree",
+      "source": "development/latest-dev-docs/development-plans/main",
+      "target_root": "docs/development/development-plans",
+      "mode": "blocked_broad_move",
+      "reason": "The main tree is compatibility-bound until merged snapshots and shared overview references are reconciled.",
+      "required_gates": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift",
+        "link_check"
+      ]
+    },
+    {
+      "id": "development-plans-archive-closed-tree",
+      "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED",
+      "target_root": "docs/development/development-plans",
+      "mode": "blocked_broad_move",
+      "reason": "Closed archives are mixed across development, implementation, architecture, and governance roles.",
+      "required_gates": [
+        "file_level_classification",
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ]
+    },
+    {
+      "id": "frontend-modern-tree",
+      "source": "development/latest-dev-docs/frontend-modern",
+      "target_root": "docs/development/frontend-modern",
+      "mode": "blocked_broad_move",
+      "reason": "The tree is development-oriented but still has compatibility-root links and shared overview references.",
+      "required_gates": [
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift",
+        "link_check"
+      ]
+    },
+    {
+      "id": "root-plans-main-tree",
+      "source": "development/latest-dev-docs/root-plans/main",
+      "target_root": "docs/development/root-plans",
+      "mode": "blocked_broad_move",
+      "reason": "root-plans main is mixed; move files only after classification, not as a whole directory.",
+      "required_gates": [
+        "file_level_classification",
+        "shared_navigation_sync",
+        "MERGED_OVERVIEW_drift"
+      ]
+    }
+  ]
+}
