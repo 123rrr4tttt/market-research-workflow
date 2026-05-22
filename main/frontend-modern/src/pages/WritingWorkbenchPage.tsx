@@ -28,10 +28,13 @@ import {
   listWritingDocuments,
   listWritingTemplates,
   previewWritingKeywordCard,
+  readTypedKnowledgeWritingContextFromDocument,
   runAgentChatTurnStreaming,
   updateWritingDocument,
   upsertWritingCitations,
   validateWritingTemplate,
+  withTypedKnowledgeWritingContext,
+  writingTypedKnowledgeContextKey,
   type WritingDocument,
   type WritingKeywordCard,
   type WritingKeywordCardPreview,
@@ -680,6 +683,14 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     [agentUpdates, markdown],
   )
   const latestAgentUpdate = agentUpdates[0] || null
+  const writingTypedContext = useMemo(
+    () => readTypedKnowledgeWritingContextFromDocument(documentDetailQuery.data),
+    [documentDetailQuery.data],
+  )
+  const writingTypedContextKey = useMemo(
+    () => writingTypedKnowledgeContextKey(writingTypedContext),
+    [writingTypedContext],
+  )
 
   const resetContextPanels = () => {
     dismissInsightCard()
@@ -752,13 +763,17 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const selectionLookup = useSelectionLookup({
     selectionText,
     enabled: canUseWritingProject && viewMode !== 'preview',
+    lookupScopeKey: writingTypedContextKey,
     lookup: async (nextSelection, selectionHash) => {
       const [cardsResult, suggestResult] = await Promise.all([
-        getWritingKeywordCards({
-          query: nextSelection,
-          selection_hash: selectionHash,
-          sources: ['document', 'resource', 'graph'],
-        }),
+        getWritingKeywordCards(
+          withTypedKnowledgeWritingContext({
+            project_key: projectKey,
+            query: nextSelection,
+            selection_hash: selectionHash,
+            sources: ['document', 'resource', 'graph'],
+          }, writingTypedContext),
+        ),
         getWritingSuggest(nextSelection, { mode: 'material', limit: 6 }),
       ])
       return {

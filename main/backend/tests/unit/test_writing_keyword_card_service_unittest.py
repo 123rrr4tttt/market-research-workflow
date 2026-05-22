@@ -12,10 +12,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 try:
-    from app.contracts.schemas.writing import KeywordCardItem, KeywordCardRequest, WritingContextEnvelope
+    from app.contracts.schemas.writing import (
+        KeywordCardDetailRequest,
+        KeywordCardItem,
+        KeywordCardPreviewRequest,
+        KeywordCardRequest,
+        WritingContextEnvelope,
+    )
     from app.services.document_views.writing_card_view import build_keyword_card_from_typed_knowledge_handoff
     from app.services.typed_knowledge import contracts as typed_knowledge_contracts
-    from app.services.writing.keyword_card_service import _CARD_CACHE, _SELECTION_CACHE, aggregate_cards
+    from app.services.writing.keyword_card_service import (
+        _CARD_CACHE,
+        _SELECTION_CACHE,
+        aggregate_cards,
+        get_card_detail,
+        get_card_preview,
+    )
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -200,6 +212,61 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         self.assertFalse(response.context_boundary["graph_context_attached"])
         self.assertTrue(response.dependency_gate["typed_knowledge"]["attached"])
         self.assertEqual(response.dependency_gate["typed_knowledge"]["card_source_type"], "resource")
+
+    def test_typed_knowledge_card_preview_and_detail_readback_after_consumer_fetch(self):
+        item = typed_knowledge_contracts.KnowledgeItem(
+            key="ki:robotics-policy",
+            project_key="demo_proj",
+            canonical_statement="Humanoid robotics investment is shifting toward industrial pilots.",
+            primary_type_node_key="type:market_signal",
+            evidence_refs=("doc:robotics:42",),
+            topic_cluster_keys=("topic:robotics",),
+            booklet_keys=("booklet:q2-review",),
+            review_state=typed_knowledge_contracts.REVIEW_STATE_HUMAN_CONFIRMED,
+            quality_grade=typed_knowledge_contracts.QUALITY_GRADE_GOLD,
+            locale="en",
+        )
+        handoff = typed_knowledge_contracts.build_writing_knowledge_handoff(
+            typed_knowledge_contracts.build_downstream_contract_draft(item),
+            selection_hash="selection:robotics",
+            selection_text="robotics investment",
+        )
+        envelope = typed_knowledge_contracts.build_writing_knowledge_context_envelope((handoff,))
+        payload = KeywordCardRequest(
+            project_key="demo_proj",
+            query="robotics investment",
+            sources=["resource"],
+            context=WritingContextEnvelope(typed_knowledge_context=envelope),
+        )
+
+        with (
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=[]),
+            patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
+        ):
+            response = aggregate_cards(payload)
+
+        card_id = response.cards[0].card_id
+        preview = get_card_preview(
+            KeywordCardPreviewRequest(project_key="demo_proj", card_id=card_id, query="robotics investment")
+        )
+        detail = get_card_detail(
+            KeywordCardDetailRequest(
+                project_key="demo_proj",
+                request_id="wave16-worker5-readback",
+                card_id=card_id,
+                include_provenance=True,
+                max_provenance_items=12,
+            )
+        )
+
+        self.assertEqual(preview.publisher, "typed_knowledge")
+        self.assertEqual(preview.source_type, "resource")
+        self.assertEqual(detail.publisher, "typed_knowledge")
+        self.assertEqual(detail.source_type, "resource")
+        self.assertEqual(detail.normalized_query, "robotics investment")
+        self.assertEqual(detail.provenance["raw_keys"], ["typed_knowledge_context"])
+        self.assertEqual(detail.selection_matches["query"], "robotics investment")
+        self.assertEqual(detail.selection_matches["request_id"], "wave16-worker5-readback")
 
 
 if __name__ == "__main__":
