@@ -1,0 +1,395 @@
+{
+  "assertions": [
+    "LOCAL_INDEX_QUERY_MODES exports keyword, vector, and hybrid",
+    "keyword, vector, and hybrid cases preserve requested/executed mode identity",
+    "quality_trace exposes score components and disallows semantic quality claims",
+    "trace.readback mirrors returned chunk/project/source/retrieval identity",
+    "closure_claim_allowed=false"
+  ],
+  "closure_claim_allowed": false,
+  "contract_version": "wave18-vectorization-hybrid-readback.v1",
+  "failures": [],
+  "gate_semantics": {
+    "status_passed_does_not_mean": "live embedding providers, SearXNG/YaCy live quality, provider=auto promotion, semantic relevance quality, or OSS node SLA are sealed",
+    "status_passed_means": "repo-local keyword/vector/hybrid identity, quality trace, and result readback contract are deterministic and machine-checkable"
+  },
+  "generated_by": "ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py",
+  "inputs": {
+    "wave10": {
+      "capability_state": null,
+      "closure_claim_allowed": null,
+      "contract_version": "wave10-vectorization-quality-gate.v1",
+      "failures": [],
+      "input_status": "passed",
+      "label": "wave10",
+      "path": "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json",
+      "readiness_state": null,
+      "status": "passed"
+    },
+    "wave12": {
+      "capability_state": null,
+      "closure_claim_allowed": null,
+      "contract_version": "wave12-provider-readiness-gate.v1",
+      "failures": [],
+      "input_status": "passed",
+      "label": "wave12",
+      "path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "readiness_state": "partial",
+      "status": "passed"
+    },
+    "wave14": {
+      "capability_state": "partial",
+      "closure_claim_allowed": false,
+      "contract_version": "wave14-vectorization-provider-capability.v1",
+      "failures": [],
+      "input_status": "passed",
+      "label": "wave14",
+      "path": "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22/provider_capability_summary.json",
+      "readiness_state": null,
+      "status": "passed"
+    },
+    "wave8": {
+      "capability_state": null,
+      "closure_claim_allowed": null,
+      "contract_version": "wave8-search-vectorization-runtime-contract.v1",
+      "failures": [],
+      "input_status": "passed",
+      "label": "wave8",
+      "path": "development/latest-dev-docs/automation-runs/wave8-search-vectorization-contract/2026-05-22/contract_summary.json",
+      "readiness_state": null,
+      "status": "passed"
+    }
+  },
+  "mode_identity_readback": {
+    "cases": [
+      {
+        "case_id": "keyword_identity_readback",
+        "chunk_order": [
+          "kw-primary",
+          "kw-secondary"
+        ],
+        "expected_order": [
+          "kw-primary",
+          "kw-secondary"
+        ],
+        "failures": [],
+        "mode": "keyword",
+        "query": "wave18 keyword identity proof",
+        "scores": [
+          2.5,
+          1.5
+        ],
+        "source_id": "source-keyword",
+        "trace_readback": [
+          {
+            "chunk_id": "kw-primary",
+            "retrieval_mode": "keyword",
+            "trace": {
+              "adapter": "repo_local_hybrid_readback_fixture",
+              "executed_mode": "keyword",
+              "project_id": "wave18-readback",
+              "quality_trace": {
+                "mode_identity": "keyword",
+                "provider_live_verified": false,
+                "rank": 1,
+                "score_components": {
+                  "hybrid_score": null,
+                  "keyword_score": 2.5,
+                  "normalized_vector_score": 0.582645,
+                  "vector_score": 0.165289
+                },
+                "scoring_fixture": "repo_deterministic_hash_vector_and_keyword_terms",
+                "semantic_quality_claim_allowed": false
+              },
+              "query_family": "local_material",
+              "readback": {
+                "chunk_id": "kw-primary",
+                "document_id": "doc-kw-primary",
+                "project_id": "wave18-readback",
+                "retrieval_mode": "keyword",
+                "source_id": "source-keyword"
+              },
+              "requested_mode": "keyword",
+              "source_id": "source-keyword",
+              "top_k": 2
+            }
+          },
+          {
+            "chunk_id": "kw-secondary",
+            "retrieval_mode": "keyword",
+            "trace": {
+              "adapter": "repo_local_hybrid_readback_fixture",
+              "executed_mode": "keyword",
+              "project_id": "wave18-readback",
+              "quality_trace": {
+                "mode_identity": "keyword",
+                "provider_live_verified": false,
+                "rank": 2,
+                "score_components": {
+                  "hybrid_score": null,
+                  "keyword_score": 1.5,
+                  "normalized_vector_score": 0.720735,
+                  "vector_score": 0.441471
+                },
+                "scoring_fixture": "repo_deterministic_hash_vector_and_keyword_terms",
+                "semantic_quality_claim_allowed": false
+              },
+              "query_family": "local_material",
+              "readback": {
+                "chunk_id": "kw-secondary",
+                "document_id": "doc-kw-secondary",
+                "project_id": "wave18-readback",
+                "retrieval_mode": "keyword",
+                "source_id": "source-keyword"
+              },
+              "requested_mode": "keyword",
+              "source_id": "source-keyword",
+              "top_k": 2
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "vector_identity_readback",
+        "chunk_order": [
+          "vec-primary",
+          "vec-secondary"
+        ],
+        "expected_order": [
+          "vec-primary",
+          "vec-secondary"
+        ],
+        "failures": [],
+        "mode": "vector",
+        "query": "wave18 vector identity proof",
+        "scores": [
+          1.0,
+          0.911119
+        ],
+        "source_id": "source-vector",
+        "trace_readback": [
+          {
+            "chunk_id": "vec-primary",
+            "retrieval_mode": "vector",
+            "trace": {
+              "adapter": "repo_local_hybrid_readback_fixture",
+              "executed_mode": "vector",
+              "project_id": "wave18-readback",
+              "quality_trace": {
+                "mode_identity": "vector",
+                "provider_live_verified": false,
+                "rank": 1,
+                "score_components": {
+                  "hybrid_score": null,
+                  "keyword_score": 1.0,
+                  "normalized_vector_score": 1.0,
+                  "vector_score": 1.0
+                },
+                "scoring_fixture": "repo_deterministic_hash_vector_and_keyword_terms",
+                "semantic_quality_claim_allowed": false
+              },
+              "query_family": "local_material",
+              "readback": {
+                "chunk_id": "vec-primary",
+                "document_id": "doc-vec-primary",
+                "project_id": "wave18-readback",
+                "retrieval_mode": "vector",
+                "source_id": "source-vector"
+              },
+              "requested_mode": "vector",
+              "source_id": "source-vector",
+              "top_k": 2
+            }
+          },
+          {
+            "chunk_id": "vec-secondary",
+            "retrieval_mode": "vector",
+            "trace": {
+              "adapter": "repo_local_hybrid_readback_fixture",
+              "executed_mode": "vector",
+              "project_id": "wave18-readback",
+              "quality_trace": {
+                "mode_identity": "vector",
+                "provider_live_verified": false,
+                "rank": 2,
+                "score_components": {
+                  "hybrid_score": null,
+                  "keyword_score": 1.0,
+                  "normalized_vector_score": 0.911119,
+                  "vector_score": 0.822238
+                },
+                "scoring_fixture": "repo_deterministic_hash_vector_and_keyword_terms",
+                "semantic_quality_claim_allowed": false
+              },
+              "query_family": "local_material",
+              "readback": {
+                "chunk_id": "vec-secondary",
+                "document_id": "doc-vec-secondary",
+                "project_id": "wave18-readback",
+                "retrieval_mode": "vector",
+                "source_id": "source-vector"
+              },
+              "requested_mode": "vector",
+              "source_id": "source-vector",
+              "top_k": 2
+            }
+          }
+        ]
+      },
+      {
+        "case_id": "hybrid_identity_readback",
+        "chunk_order": [
+          "hybrid-primary",
+          "hybrid-secondary"
+        ],
+        "expected_order": [
+          "hybrid-primary",
+          "hybrid-secondary"
+        ],
+        "failures": [],
+        "mode": "hybrid",
+        "query": "wave18 hybrid identity proof",
+        "scores": [
+          1.825,
+          1.272835
+        ],
+        "source_id": "source-hybrid",
+        "trace_readback": [
+          {
+            "chunk_id": "hybrid-primary",
+            "retrieval_mode": "hybrid",
+            "trace": {
+              "adapter": "repo_local_hybrid_readback_fixture",
+              "executed_mode": "hybrid",
+              "project_id": "wave18-readback",
+              "quality_trace": {
+                "mode_identity": "hybrid",
+                "provider_live_verified": false,
+                "rank": 1,
+                "score_components": {
+                  "hybrid_score": 1.825,
+                  "keyword_score": 2.5,
+                  "normalized_vector_score": 1.0,
+                  "vector_score": 1.0
+                },
+                "scoring_fixture": "repo_deterministic_hash_vector_and_keyword_terms",
+                "semantic_quality_claim_allowed": false
+              },
+              "query_family": "local_material",
+              "readback": {
+                "chunk_id": "hybrid-primary",
+                "document_id": "doc-hybrid-primary",
+                "project_id": "wave18-readback",
+                "retrieval_mode": "hybrid",
+                "source_id": "source-hybrid"
+              },
+              "requested_mode": "hybrid",
+              "source_id": "source-hybrid",
+              "top_k": 2
+            }
+          },
+          {
+            "chunk_id": "hybrid-secondary",
+            "retrieval_mode": "hybrid",
+            "trace": {
+              "adapter": "repo_local_hybrid_readback_fixture",
+              "executed_mode": "hybrid",
+              "project_id": "wave18-readback",
+              "quality_trace": {
+                "mode_identity": "hybrid",
+                "provider_live_verified": false,
+                "rank": 2,
+                "score_components": {
+                  "hybrid_score": 1.272835,
+                  "keyword_score": 1.5,
+                  "normalized_vector_score": 0.995189,
+                  "vector_score": 0.990377
+                },
+                "scoring_fixture": "repo_deterministic_hash_vector_and_keyword_terms",
+                "semantic_quality_claim_allowed": false
+              },
+              "query_family": "local_material",
+              "readback": {
+                "chunk_id": "hybrid-secondary",
+                "document_id": "doc-hybrid-secondary",
+                "project_id": "wave18-readback",
+                "retrieval_mode": "hybrid",
+                "source_id": "source-hybrid"
+              },
+              "requested_mode": "hybrid",
+              "source_id": "source-hybrid",
+              "top_k": 2
+            }
+          }
+        ]
+      }
+    ],
+    "exported_modes": [
+      "hybrid",
+      "keyword",
+      "vector"
+    ],
+    "failures": [],
+    "status": "passed",
+    "supported_modes": [
+      "keyword",
+      "vector",
+      "hybrid"
+    ],
+    "upsert": {
+      "adapter": "repo_local_hybrid_readback_fixture",
+      "chunk_count": 9,
+      "ok": true
+    }
+  },
+  "oss_node_platform_io": {
+    "can_consume_readback_fields": [
+      "retrieval_mode",
+      "retrieval_family",
+      "trace.requested_mode",
+      "trace.executed_mode",
+      "trace.quality_trace.score_components",
+      "trace.readback.chunk_id",
+      "trace.readback.project_id",
+      "trace.readback.source_id"
+    ],
+    "closure_claim_allowed": false,
+    "must_propagate_gap_fields": [
+      "provider_live_verified=false",
+      "semantic_quality_claim_allowed=false",
+      "closure_claim_allowed=false"
+    ]
+  },
+  "provider_live_closure_claim_allowed": false,
+  "remaining_gaps": [
+    {
+      "code": "live_provider_quality_not_closed",
+      "message": "This checker does not call external embedding providers or local open-search services."
+    },
+    {
+      "code": "semantic_embedding_quality_not_proven",
+      "message": "Deterministic vectors prove wiring and trace readback, not production semantic relevance."
+    },
+    {
+      "code": "oss_node_platform_io_sla_not_closed",
+      "message": "OSS node IO can consume the readback fields but still needs node-level live SLA evidence."
+    }
+  ],
+  "scope": "deterministic_repo_local_fixture_no_network_no_container_no_live_provider_closure",
+  "semantic_quality_claim_allowed": false,
+  "status": "passed",
+  "target_topics": [
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan"
+    }
+  ]
+}
