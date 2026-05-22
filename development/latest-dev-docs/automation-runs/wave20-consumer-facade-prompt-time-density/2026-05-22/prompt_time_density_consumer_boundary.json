@@ -1,0 +1,55 @@
+{
+  "contract_version": "prompt-time-density-consumer-facade.wave20.v1",
+  "facade": {
+    "missing_definitions": [],
+    "path": "main/backend/app/services/document_views/stats_view.py"
+  },
+  "status": "passed",
+  "surface": {
+    "direct_extracted_data_reads": [],
+    "functions": [
+      {
+        "exists": true,
+        "missing_facade_calls": [],
+        "name": "resolve_document_effective_time_provenance",
+        "passed": true,
+        "required_facade_calls": [
+          "get_prompt_time_density_fields"
+        ]
+      },
+      {
+        "exists": true,
+        "missing_facade_calls": [],
+        "name": "_prompt_group_of",
+        "passed": true,
+        "required_facade_calls": [
+          "get_prompt_time_density_group"
+        ]
+      },
+      {
+        "exists": true,
+        "missing_facade_calls": [],
+        "name": "_source_domain_of",
+        "passed": true,
+        "required_facade_calls": [
+          "get_prompt_time_density_source_domain"
+        ]
+      }
+    ],
+    "missing_document_view_imports": [],
+    "path": "main/backend/app/services/stats/prompt_time_density.py",
+    "required_document_view_imports": [
+      "get_prompt_time_density_fields",
+      "get_prompt_time_density_group",
+      "get_prompt_time_density_source_domain"
+    ]
+  },
+  "topic_id": "2026-03-14-consumer-side-modularization",
+  "validation": {
+    "covered_scope": "prompt_time_density Python-level structured field reads use document_views; SQL date predicates remain in document_queries.",
+    "passed": true,
+    "problem_count": 0,
+    "problems": [],
+    "remaining_boundary": "No live DB/API smoke is claimed. This does not cover admin governance writes or other consumer slices."
+  }
+}
