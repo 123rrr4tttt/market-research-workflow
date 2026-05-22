@@ -98,6 +98,54 @@ class ClueChainsApiIntegrationTestCase(unittest.TestCase):
         self.assertEqual(close_data["chain"]["status"], "closed")
         self.assertEqual(close_data["chain"]["close_reason"], "frontier exhausted")
 
+    def test_external_search_api_contract_stays_fixture_gated_and_review_only(self):
+        create_response = self.client.post(
+            "/api/v1/clue-chains",
+            headers=self.headers,
+            json={
+                "graph_id": "graph-1",
+                "title": "Fixture-gated external clue search",
+                "question": "Which external lead should be reviewed?",
+                "root_node_ids": ["node-seed-external"],
+            },
+        )
+        self.assertEqual(create_response.status_code, 200)
+        chain_id = create_response.json()["data"]["chain"]["chain_id"]
+
+        expand_response = self.client.post(
+            f"/api/v1/clue-chains/{chain_id}/expand",
+            headers=self.headers,
+            json={"mode": "external_search", "query": "commodity margin source trail", "limit": 5},
+        )
+        self.assertEqual(expand_response.status_code, 200)
+        expand_data = expand_response.json()["data"]
+
+        self.assertNotIn("edges", expand_data)
+        self.assertEqual(expand_data["hop"]["mode"], "external_search")
+        self.assertEqual(expand_data["hop"]["status"], "completed")
+        self.assertGreaterEqual(len(expand_data["candidates"]), 1)
+        self.assertGreaterEqual(len(expand_data["evidence"]), 1)
+
+        hop_trace = expand_data["hop"]["metadata"]["trace"]
+        provider_trace = hop_trace["expansion"]
+        self.assertTrue(hop_trace["requires_review"])
+        self.assertFalse(hop_trace["graph_mutation_performed"])
+        self.assertTrue(provider_trace["fixture_gate"])
+        self.assertFalse(provider_trace["network_allowed"])
+        self.assertFalse(provider_trace["live_enabled"])
+        self.assertEqual(provider_trace["trace_context"]["api"], "clue_chains.expand")
+
+        candidate = expand_data["candidates"][0]
+        evidence = expand_data["evidence"][0]
+        self.assertEqual(candidate["status"], "pending")
+        self.assertFalse(candidate["metadata"]["promotion_allowed"])
+        self.assertTrue(candidate["metadata"]["requires_review"])
+        self.assertTrue(candidate["metadata"]["fixture_gate"])
+        self.assertEqual(candidate["evidence_ids"], [evidence["evidence_id"]])
+        self.assertEqual(evidence["candidate_id"], candidate["candidate_id"])
+        self.assertEqual(evidence["metadata"]["fixture_gate"], True)
+        self.assertEqual(evidence["metadata"]["trace"]["trace_context"]["api"], "clue_chains.expand")
+
     def test_invalid_input_and_not_found_are_structured_errors(self):
         invalid_create = self.client.post(
             "/api/v1/clue-chains",
