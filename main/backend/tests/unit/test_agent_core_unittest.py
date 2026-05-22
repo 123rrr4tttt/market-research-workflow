@@ -2985,6 +2985,61 @@ class AgentCoreUnitTest(unittest.TestCase):
         self.assertIn("google", diagnostics["configured_paid_providers"])
         self.assertNotIn("google_not_configured", diagnostics["empty_result_likely_causes"])
 
+    def test_source_web_search_diagnostics_keep_local_open_search_explicit_only(self):
+        service = AgentSessionService(store=InMemoryAgentSessionStore())
+        bundle = service.create_session(
+            source="user",
+            entrypoint_type="agent_core",
+            goal="本地开源搜索 provider 显式护栏",
+            project_key="demo_proj",
+            task_blueprints=[],
+        )
+        registry = build_project_core_tool_registry(service=service, source_library_lister=lambda _: [])
+        provider = FakeCoreProvider(
+            [
+                CoreModelStep.tools(
+                    CoreToolCall(
+                        tool_name="source.web.search",
+                        call_id="call-searxng-readiness",
+                        arguments={
+                            "query": "robotics official report",
+                            "provider": "searxng",
+                            "language": "en",
+                            "max_results": 3,
+                        },
+                    )
+                ),
+                CoreModelStep.final("SearXNG readiness 已检查。"),
+            ]
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "SEARXNG_BASE_URL": "http://127.0.0.1:8088",
+                "YACY_BASE_URL": "http://127.0.0.1:8090",
+            },
+            clear=False,
+        ), patch("app.services.agent_core.project_tools.search_sources", return_value=[]):
+            out = AgentCore(provider=provider, tool_registry=registry, tool_specs=registry.list_specs()).run(
+                AgentCoreRequest(
+                    message="帮我用 SearXNG 搜索外部机器人资料",
+                    session_id=bundle["session"]["session_id"],
+                    project_key="demo_proj",
+                )
+            )
+
+        diagnostics = out.tool_results[0].structured_content["provider_diagnostics"]
+        self.assertEqual(diagnostics["provider"], "searxng")
+        self.assertEqual(diagnostics["explicit_experimental_providers"], ["searxng", "yacy"])
+        self.assertEqual(diagnostics["recommended_provider_order"], ["serper", "google", "serpstack", "serpapi", "ddg"])
+        self.assertNotIn("searxng", diagnostics["recommended_provider_order"])
+        self.assertNotIn("yacy", diagnostics["recommended_provider_order"])
+        self.assertTrue(diagnostics["provider_readiness"]["searxng"]["configured"])
+        self.assertTrue(diagnostics["provider_readiness"]["yacy"]["configured"])
+        self.assertTrue(diagnostics["selected_provider_configured"])
+        self.assertEqual(diagnostics["searxng_base_url"], "http://127.0.0.1:8088")
+        self.assertEqual(diagnostics["yacy_base_url"], "http://127.0.0.1:8090")
+
     def test_source_history_read_recovers_recent_project_candidate_state(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
         previous = service.create_session(

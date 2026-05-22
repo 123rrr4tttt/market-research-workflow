@@ -1,7 +1,7 @@
 # Local Open Search Provider Isolation Index
 
 更新时间：2026-05-22 PST
-状态：本目录为 SearXNG / YaCy 本地开源搜索 provider 隔离部署与显式接入目标的唯一入口；源码、脚本、官方文档对齐说明和真实运行态 smoke 均已完成；SearXNG 外部搜索 benchmark、本地索引 baseline、解除隔离与全项目融贯性 backend replay、WritingWorkbench 前端融贯性、SearXNG candidate approval gate、可选增强启动器集成、Docker Web Launcher / launcher-agent 均已落盘；2026-05-22 已补 explicit provider trace 合同、单测、离线 artifact 复跑脚本和真实容器 replay 证据
+状态：本目录为 SearXNG / YaCy 本地开源搜索 provider 隔离部署与显式接入目标的唯一入口；源码、脚本、官方文档对齐说明和真实运行态 smoke 均已完成；SearXNG 外部搜索 benchmark、本地索引 baseline、解除隔离与全项目融贯性 backend replay、WritingWorkbench 前端融贯性、SearXNG candidate approval gate、可选增强启动器集成、Docker Web Launcher / launcher-agent 均已落盘；2026-05-22 已补 explicit provider trace 合同、单测、离线 artifact 复跑脚本和真实容器 replay 证据；Wave6-9 记录 topic-local 状态证据并补 agent provider 配置护栏单测
 
 ## 范围
 
@@ -49,6 +49,8 @@
   SearXNG / YaCy / LanceDB 去实验化为可选增强：主 compose profile、跨平台启动窗口勾选项、本地 / Docker 启动参数、Docker Web Launcher / launcher-agent 和可选依赖边界。
 - [10_search-provider-trace-contract-closure-replay-2026-05-22.md](./10_search-provider-trace-contract-closure-replay-2026-05-22.md)
   SearXNG / YaCy explicit provider trace contract closure replay，记录 `provider_route`、`provider_family`、`provider_auto_included`、`backend_trace` 的代码与单测落地证据。
+- [11_wave6-9-status-evidence-and-min-plan-2026-05-22.md](./11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
+  Wave6-9 topic-local 状态证据与最小开发计划，记录共享 `no_closure_claim` 状态滞后、本轮不编辑共享索引，以及 agent provider 配置护栏单测。
 
 ## 当前状态
 
@@ -68,3 +70,4 @@
 | Explicit provider trace contract | 完成 | `10_...closure-replay...md`：SearXNG / YaCy 结果新增 explicit route trace；adapter 单测覆盖显式 provider trace 与 `provider=auto` 排除关系 |
 | Explicit provider trace offline artifact | 完成 | `automation-runs/search-provider-trace-artifacts/2026-05-22/`：离线 artifact 复跑脚本固化 `provider_route`、`provider_family`、`provider_auto_included` 和 `backend_trace` 字段 |
 | Explicit provider trace container replay | 完成 | `automation-runs/search-provider-container-replay/2026-05-22/`：SearXNG 与 YaCy 真实容器 replay 均通过，`provider_trace_replay.jsonl` 记录 explicit provider trace 字段 |
+| Wave6-9 topic-local status evidence | 完成 | `11_wave6-9-status-evidence-and-min-plan-2026-05-22.md`：确认共享 `no_closure_claim` 状态滞后，本轮不改共享索引；新增 agent provider 配置护栏测试 |
