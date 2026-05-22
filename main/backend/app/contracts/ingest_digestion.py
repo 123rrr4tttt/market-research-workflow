@@ -539,3 +539,153 @@ class LongCycleSchedulerHandoffTraceCheck(BaseModel):
             seen.add(normalized)
             out.append(normalized)
         return out
+
+
+class LongCycleSchedulerQueueItem(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_scheduler_queue_item.v1", max_length=96)
+    queue_item_key: str = Field(..., min_length=1, max_length=96)
+    queue_state: str = Field(default="queued_contract_only", min_length=1, max_length=64)
+    dispatch_key: str = Field(..., min_length=1, max_length=96)
+    idempotency_key: str = Field(..., min_length=1, max_length=128)
+    scheduler_ref: str = Field(..., min_length=1, max_length=256)
+    queue_name: str = Field(..., min_length=1, max_length=128)
+    worker_task_name: str = Field(..., min_length=1, max_length=128)
+    task_key: str = Field(..., min_length=1, max_length=96)
+    selected_window: str = Field(..., min_length=1, max_length=32)
+    cadence: str = Field(..., min_length=1, max_length=64)
+    run_at: datetime
+    enqueue_after: datetime
+    persistent_ref: str | None = Field(default=None, max_length=256)
+    repository_ref: str = Field(..., min_length=1, max_length=256)
+    dispatch_ref: str = Field(..., min_length=1, max_length=256)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    live_enqueue: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator(
+        "queue_item_key",
+        "queue_state",
+        "dispatch_key",
+        "idempotency_key",
+        "scheduler_ref",
+        "queue_name",
+        "worker_task_name",
+        "task_key",
+        "selected_window",
+        "cadence",
+        "repository_ref",
+        "dispatch_ref",
+    )
+    @classmethod
+    def _normalize_required_text(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("value must not be empty")
+        return normalized
+
+    @field_validator("persistent_ref")
+    @classmethod
+    def _normalize_optional_text(cls, value: str | None) -> str | None:
+        normalized = str(value or "").strip()
+        return normalized or None
+
+
+class LongCycleRepositoryEventReplaySummary(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_repository_event_replay_summary.v1", max_length=96)
+    event_replay_ref: str = Field(..., min_length=1, max_length=512)
+    repository_ref: str = Field(..., min_length=1, max_length=256)
+    task_key: str = Field(..., min_length=1, max_length=96)
+    queue_item_key: str = Field(..., min_length=1, max_length=96)
+    dispatch_key: str = Field(..., min_length=1, max_length=96)
+    dispatch_ref: str = Field(..., min_length=1, max_length=256)
+    event_sequence: list[str] = Field(default_factory=list)
+    status_sequence: list[str] = Field(default_factory=list)
+    write_status_sequence: list[str] = Field(default_factory=list)
+    event_count: int = Field(default=0, ge=0)
+    write_count: int = Field(default=0, ge=0)
+    terminal_status: LongCycleTaskStatus | None = None
+    terminal_output_ref: str | None = Field(default=None, max_length=512)
+    dispatch_event_time: datetime | None = None
+    replay_complete: bool
+    repository_write_readback: bool
+    live_db_write: bool = False
+    live_scheduler_closure_validated: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator(
+        "event_replay_ref",
+        "repository_ref",
+        "task_key",
+        "queue_item_key",
+        "dispatch_key",
+        "dispatch_ref",
+    )
+    @classmethod
+    def _normalize_required_text(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("value must not be empty")
+        return normalized
+
+    @field_validator("terminal_output_ref")
+    @classmethod
+    def _normalize_optional_text(cls, value: str | None) -> str | None:
+        normalized = str(value or "").strip()
+        return normalized or None
+
+    @field_validator("event_sequence", "status_sequence", "write_status_sequence")
+    @classmethod
+    def _normalize_string_list(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        for item in value:
+            normalized = str(item or "").strip()
+            if normalized:
+                out.append(normalized)
+        return out
+
+
+class LongCycleSchedulerQueueReplayCheck(BaseModel):
+    contract_version: str = Field(default="ingest.long_cycle_scheduler_queue_replay_check.v1", max_length=96)
+    status: str = Field(..., max_length=32)
+    blockers: list[str] = Field(default_factory=list)
+    closed_slice: list[str] = Field(default_factory=list)
+    remaining_runtime_gaps: list[str] = Field(default_factory=list)
+    scheduler_intent_validated: bool
+    queue_item_validated: bool
+    repository_write_readback_validated: bool
+    event_replay_summary_validated: bool
+    dispatch_intent: LongCycleSchedulerDispatchIntent
+    queue_item: LongCycleSchedulerQueueItem
+    repository_readback: LongCycleRepositoryReadbackCheck
+    handoff_trace: LongCycleSchedulerHandoffTraceCheck
+    event_replay_summary: LongCycleRepositoryEventReplaySummary
+    live_dispatch: bool = False
+    live_enqueue: bool = False
+    live_db_write: bool = False
+    closure_claim: bool = False
+    live_scheduler_closure_validated: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("status")
+    @classmethod
+    def _normalize_text(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("value must not be empty")
+        return normalized
+
+    @field_validator("blockers", "closed_slice", "remaining_runtime_gaps")
+    @classmethod
+    def _normalize_string_list(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+        return out
