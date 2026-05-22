@@ -1218,6 +1218,20 @@ def unified_search_by_item_payload(
                     params=routed_params,
                 )
                 entry_runtime["search_template_adapter"] = adapter_plan.adapter_key
+                for key in (
+                    "adapter_capability_status",
+                    "adapter_capability_reason",
+                    "parser_profile_requested",
+                    "parser_profile_resolved",
+                ):
+                    value = routed_params.get(key)
+                    if value not in (None, ""):
+                        entry_runtime[key] = value
+                if routed_params.get("candidate_relevance_review_required"):
+                    entry_runtime["relevance_review_required"] = True
+                    entry_runtime["relevance_review_reason"] = str(
+                        routed_params.get("adapter_capability_reason") or "parser_profile_review"
+                    )
                 if adapter_plan.reason:
                     entry_runtime["search_template_adapter_reason"] = adapter_plan.reason
                 pinned_template, pinned_terms = _resolve_pinned_search_contract(entry, terms)
@@ -1306,7 +1320,10 @@ def unified_search_by_item_payload(
                             ),
                         }
                     )
+                    entry_runtime["relevance_review_required"] = True
+                    entry_runtime["relevance_review_reason"] = "term_fallback_candidates"
                 start_page, max_pages = _resolve_search_template_pagination(params)
+                review_required = bool(entry_runtime.get("relevance_review_required"))
                 for decision in execution.selected_candidates:
                     u = str(decision.url or "").strip()
                     if not u:
@@ -1337,6 +1354,14 @@ def unified_search_by_item_payload(
                             "parser_candidate_rejected_low_value": int(
                                 execution.diagnostics.get("parser_candidate_rejected_low_value") or 0
                             ),
+                            "adapter_capability_status": str(routed_params.get("adapter_capability_status") or "allow"),
+                            "parser_profile_resolved": str(
+                                routed_params.get("parser_profile_resolved")
+                                or routed_params.get("parser_profile")
+                                or ""
+                            ),
+                            "candidate_review_state": "relevance_review" if review_required else "auto_selected",
+                            "relevance_review_required": review_required,
                         },
                         score=decision.score,
                     )

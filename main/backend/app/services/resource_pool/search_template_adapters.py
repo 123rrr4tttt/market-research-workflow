@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import replace
 from typing import Any
 
+from .search_result_parser_profiles import resolve_parser_profile_capability
 from .url_utils import domain_from_url
 
 
@@ -15,6 +17,7 @@ class SearchTemplateAdapterPlan:
     parser_profile: str | None = None
     param_overrides: dict[str, Any] | None = None
     reason: str | None = None
+    entry_domain: str | None = None
 
 
 _DOC_SEARCH_DOMAINS = {
@@ -98,11 +101,11 @@ def resolve_search_template_adapter_plan(
     domain = str(entry_domain or domain_from_url(site_url) or "").strip().lower()
     normalized = domain[4:] if domain.startswith("www.") else domain
     if normalized in _PARSER_ENHANCED_DOMAINS:
-        return _PARSER_ENHANCED_DOMAINS[normalized]
+        return replace(_PARSER_ENHANCED_DOMAINS[normalized], entry_domain=domain)
     if domain in _WORDPRESS_MEDIA_DOMAINS:
-        return _WORDPRESS_MEDIA_DOMAINS[domain]
+        return replace(_WORDPRESS_MEDIA_DOMAINS[domain], entry_domain=domain)
     if normalized in _QUERY_SEARCH_DOMAINS:
-        return _QUERY_SEARCH_DOMAINS[normalized]
+        return replace(_QUERY_SEARCH_DOMAINS[normalized], entry_domain=domain)
     if domain in _DOC_SEARCH_DOMAINS:
         return SearchTemplateAdapterPlan(
             adapter_key="search_template.doc_native",
@@ -113,12 +116,14 @@ def resolve_search_template_adapter_plan(
                 "enable_external_search_slowlane": False,
             },
             reason="Docs/help search should stay on a single native search page.",
+            entry_domain=domain,
         )
     return SearchTemplateAdapterPlan(
         adapter_key="search_template.generic",
         parser_profile="site_adaptive",
         param_overrides={"max_pages": 1},
         reason="Default generic search_template adapter.",
+        entry_domain=domain,
     )
 
 
@@ -137,4 +142,17 @@ def apply_search_template_adapter_plan(
         or existing_parser_profile == "site_adaptive"
     ):
         routed["parser_profile"] = plan.parser_profile
+    capability = resolve_parser_profile_capability(
+        plan.entry_domain,
+        parser_profile=str(routed.get("parser_profile") or "").strip() or None,
+        default_profile=plan.parser_profile,
+    )
+    routed["adapter_capability_status"] = capability.status
+    routed["adapter_capability_reason"] = capability.reason
+    routed["parser_profile_requested"] = capability.requested_profile
+    routed["parser_profile_resolved"] = capability.resolved_profile
+    if capability.status == "downgrade":
+        routed["parser_profile"] = capability.resolved_profile
+    if capability.review_required:
+        routed["candidate_relevance_review_required"] = True
     return routed
