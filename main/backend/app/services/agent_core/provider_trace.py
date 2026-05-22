@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections import Counter
+import hashlib
+import json
 from typing import Any, Mapping
 
 from .contracts import (
@@ -24,11 +26,21 @@ from .tool_calling_quality import build_agent_core_tool_calling_quality_contract
 
 AGENT_CORE_PROVIDER_TRACE_READBACK_CONTRACT_VERSION = "agent_core.provider_trace_readback.v1"
 AGENT_CORE_STATUS_DATA_ERROR_META_COMPAT_VERSION = "agent_core.status_data_error_meta.compat.v1"
+AGENT_CORE_PROVIDER_TRACE_REDACTION_REPLAY_VERSION = "agent_core.provider_trace_redaction_replay.v1"
 
 _TOOL_NAME = "agent.provider_trace.echo"
 _CALL_ID = "call-agent-provider-trace-readback"
 _TRACE_ID = "trace-agent-core-provider-trace-readback"
 _REQUEST_ID = "req-agent-core-provider-trace-readback"
+_REDACTION_MARKER = "[REDACTED]"
+_SENSITIVE_REQUEST_BODY = (
+    "wave19-provider-trace-sensitive-request-body::"
+    "customer=demo-account;api_key=fixture-openai-key;notes=private strategy memo"
+)
+_SENSITIVE_TOOL_QUERY = (
+    "wave19-provider-trace-sensitive-tool-query::"
+    "authorization=bearer fixture-token;prompt=private provider replay body"
+)
 
 
 def build_agent_core_provider_trace_readback_contract() -> dict[str, Any]:
@@ -55,30 +67,34 @@ def build_agent_core_provider_trace_readback_contract() -> dict[str, Any]:
     tool_call_envelope = _tool_call_envelope_readback(result=result, tool_call=tool_call)
     status_envelope = _status_data_error_meta_readback(result=result)
     input_contracts = _input_contract_readbacks()
+    redaction_replay = _redaction_replay_readback(request=request, provider=provider, result=result, tool_call=tool_call)
     failures = _contract_failures(
         result=result,
         provider_trace=provider_trace,
         tool_call_envelope=tool_call_envelope,
         status_envelope=status_envelope,
         input_contracts=input_contracts,
+        redaction_replay=redaction_replay,
     )
     deterministic_ready = not failures
     return {
         "contract_version": AGENT_CORE_PROVIDER_TRACE_READBACK_CONTRACT_VERSION,
         "status": "passed" if deterministic_ready else "failed",
         "readiness_state": (
-            "deterministic_provider_trace_ready_real_external_provider_call_open"
+            "deterministic_provider_trace_redaction_ready_real_external_provider_call_open"
             if deterministic_ready
             else "deterministic_provider_trace_blocked"
         ),
-        "scope": "fake_provider_trace_tool_call_envelope_readback_no_external_model_call",
+        "scope": "fake_provider_trace_redaction_tool_call_envelope_readback_no_external_model_call",
         "deterministic_provider_trace_ready": deterministic_ready,
+        "provider_trace_redaction_ready": redaction_replay.get("status") == "passed",
         "real_external_provider_call_open": True,
         "external_model_calls": 0,
         "provider_trace": provider_trace,
         "tool_call_envelope": tool_call_envelope,
         "status_data_error_meta_compatibility": status_envelope,
         "input_contract_readbacks": input_contracts,
+        "redaction_replay": redaction_replay,
         "unsupported_closure_claims": _unsupported_closure_claims(),
         "failures": failures,
     }
@@ -93,11 +109,12 @@ def validate_agent_core_provider_trace_readback_contract(contract: Mapping[str, 
     )
     _expect(contract.get("status") in {"passed", "failed"}, errors, "invalid status")
     _expect(
-        contract.get("scope") == "fake_provider_trace_tool_call_envelope_readback_no_external_model_call",
+        contract.get("scope") == "fake_provider_trace_redaction_tool_call_envelope_readback_no_external_model_call",
         errors,
         "unexpected scope",
     )
     _expect(contract.get("deterministic_provider_trace_ready") is True, errors, "deterministic provider trace is not ready")
+    _expect(contract.get("provider_trace_redaction_ready") is True, errors, "provider trace redaction is not ready")
     _expect(contract.get("real_external_provider_call_open") is True, errors, "real external provider call is not marked open")
     _expect(contract.get("external_model_calls") == 0, errors, "deterministic provider trace spent external model calls")
     _expect(not contract.get("failures"), errors, f"contract failures present: {contract.get('failures')}")
@@ -127,6 +144,10 @@ def validate_agent_core_provider_trace_readback_contract(contract: Mapping[str, 
     _expect(shape.get("contract_version") == AGENT_CORE_TOOL_CALL_CONTRACT_VERSION, errors, "tool-call shape version drift")
     _expect(shape.get("shape_status") == "valid", errors, "tool-call shape invalid")
     _expect(shape.get("tool_name") == _TOOL_NAME, errors, "tool-call tool name drift")
+    _expect(shape.get("arguments_redacted") is True, errors, "tool-call shape arguments were not redacted")
+    _expect(shape.get("raw_arguments_persisted") is False, errors, "tool-call shape persisted raw arguments")
+    shape_arguments = shape.get("arguments") if isinstance(shape.get("arguments"), Mapping) else {}
+    _expect(shape_arguments.get("redacted") is True, errors, "tool-call argument snapshot is not redacted")
     event_types = [
         item.get("event_type")
         for item in envelope.get("tool_event_sequence") or []
@@ -162,6 +183,17 @@ def validate_agent_core_provider_trace_readback_contract(contract: Mapping[str, 
         errors,
         "Wave14 tool-calling quality gap readback drift",
     )
+    redaction = contract.get("redaction_replay") if isinstance(contract.get("redaction_replay"), Mapping) else {}
+    _expect(
+        redaction.get("contract_version") == AGENT_CORE_PROVIDER_TRACE_REDACTION_REPLAY_VERSION,
+        errors,
+        "redaction replay version drift",
+    )
+    _expect(redaction.get("status") == "passed", errors, "redaction replay did not pass")
+    _expect(redaction.get("raw_sensitive_values_absent") is True, errors, "raw sensitive values were persisted")
+    _expect(redaction.get("tool_call_arguments_redacted") is True, errors, "tool-call replay arguments were not redacted")
+    request_body = redaction.get("request_body") if isinstance(redaction.get("request_body"), Mapping) else {}
+    _expect(request_body.get("redacted") is True, errors, "request body was not redacted")
     claim_codes = {
         str(item.get("code") or "")
         for item in contract.get("unsupported_closure_claims") or []
@@ -181,8 +213,9 @@ def _fixture_tool_spec() -> CoreToolSpec:
             "properties": {
                 "query": {"type": "string", "minLength": 3},
                 "trace_id": {"type": "string", "minLength": 3},
+                "request_body": {"type": "string", "minLength": 3},
             },
-            "required": ["query", "trace_id"],
+            "required": ["query", "trace_id", "request_body"],
             "additionalProperties": False,
         },
         output_schema={
@@ -207,7 +240,7 @@ def _fixture_tool_spec() -> CoreToolSpec:
 
 def _fixture_request() -> AgentCoreRequest:
     return AgentCoreRequest(
-        message="Run deterministic AgentCore provider trace readback.",
+        message=f"Run deterministic AgentCore provider trace readback. Body: {_SENSITIVE_REQUEST_BODY}",
         session_id="agent-core-provider-trace-readback-session",
         turn_id="turn-agent-core-provider-trace-readback",
         project_key="demo_proj",
@@ -228,7 +261,7 @@ def _fixture_request() -> AgentCoreRequest:
 def _fixture_tool_call() -> CoreToolCall:
     return CoreToolCall(
         tool_name=_TOOL_NAME,
-        arguments={"query": "agent-core-provider-trace-readback", "trace_id": _TRACE_ID},
+        arguments={"query": _SENSITIVE_TOOL_QUERY, "trace_id": _TRACE_ID, "request_body": _SENSITIVE_REQUEST_BODY},
         call_id=_CALL_ID,
         reason="deterministic provider trace readback fixture",
     )
@@ -245,7 +278,8 @@ def _fixture_tool_handler(
         "status": "ok",
         "data": {
             "contract_version": "agent.provider_trace.echo.result.v1",
-            "echo": str(tool_call.arguments.get("query") or ""),
+            "query": _redacted_value_snapshot(tool_call.arguments.get("query")),
+            "request_body": _redacted_value_snapshot(tool_call.arguments.get("request_body")),
             "project_key": request.project_key,
             "tool_name": tool_call.tool_name,
             "tool_call_id": tool_call.call_id,
@@ -286,7 +320,8 @@ def _provider_call_snapshot(*, index: int, call: Mapping[str, Any]) -> dict[str,
     transcript = [item for item in call.get("transcript") or [] if isinstance(item, Mapping)]
     return {
         "call_index": index,
-        "message": str(call.get("message") or ""),
+        "message": _REDACTION_MARKER,
+        "message_redaction": _redacted_value_snapshot(call.get("message")),
         "context": _selected_context(call.get("context") if isinstance(call.get("context"), Mapping) else {}),
         "tool_names": [str(name) for name in call.get("tool_names") or []],
         "transcript_roles": [str(item.get("role") or "") for item in transcript],
@@ -299,9 +334,13 @@ def _provider_call_snapshot(*, index: int, call: Mapping[str, Any]) -> dict[str,
 def _tool_call_envelope_readback(*, result: AgentCoreRunResult, tool_call: CoreToolCall) -> dict[str, Any]:
     event_counts = Counter(event.event_type for event in result.events)
     result_counts = Counter(item.status for item in result.tool_results)
+    tool_call_contract = core_tool_call_contract_shape(tool_call, provider_key="fake_core_provider")
+    tool_call_contract["arguments"] = _redacted_arguments_snapshot(tool_call.arguments)
+    tool_call_contract["arguments_redacted"] = True
+    tool_call_contract["raw_arguments_persisted"] = False
     return {
         "contract_version": "agent_core.provider_trace_tool_call_envelope.v1",
-        "tool_call_contract": core_tool_call_contract_shape(tool_call, provider_key="fake_core_provider"),
+        "tool_call_contract": tool_call_contract,
         "runtime_dispatch": {
             "contract_version": "agent_core.runtime_dispatch.v1",
             "session_id": result.session_id,
@@ -313,6 +352,61 @@ def _tool_call_envelope_readback(*, result: AgentCoreRunResult, tool_call: CoreT
         "tool_result_status_counts": {name: result_counts[name] for name in sorted(result_counts)},
         "tool_event_sequence": [_tool_event_snapshot(event) for event in result.events if _is_tool_event(event)],
     }
+
+
+def _redaction_replay_readback(
+    *,
+    request: AgentCoreRequest,
+    provider: FakeCoreProvider,
+    result: AgentCoreRunResult,
+    tool_call: CoreToolCall,
+) -> dict[str, Any]:
+    event_replay = [_redacted_tool_event_replay(event) for event in result.events if _is_tool_event(event)]
+    provider_call_replay = [
+        {
+            "call_index": index,
+            "message": _redacted_value_snapshot(call.get("message")),
+            "context_keys": sorted(str(key) for key in (call.get("context") or {}) if isinstance(call.get("context"), Mapping)),
+            "tool_names": [str(name) for name in call.get("tool_names") or []],
+            "transcript_roles": [
+                str(item.get("role") or "")
+                for item in call.get("transcript") or []
+                if isinstance(item, Mapping)
+            ],
+        }
+        for index, call in enumerate(provider.calls, start=1)
+    ]
+    replay = {
+        "contract_version": AGENT_CORE_PROVIDER_TRACE_REDACTION_REPLAY_VERSION,
+        "status": "failed",
+        "redaction_marker": _REDACTION_MARKER,
+        "request_body": _redacted_value_snapshot(request.message),
+        "request_context_keys": sorted(str(key) for key in request.context),
+        "provider_call_replay": provider_call_replay,
+        "tool_call_envelope_replay": {
+            "call_id": tool_call.call_id,
+            "tool_name": tool_call.tool_name,
+            "tool_call_arguments": _redacted_arguments_snapshot(tool_call.arguments),
+            "event_sequence": event_replay,
+        },
+        "tool_call_arguments_redacted": True,
+        "provider_messages_redacted": True,
+        "raw_request_body_persisted": False,
+        "raw_tool_arguments_persisted": False,
+        "external_model_calls": 0,
+    }
+    replay["raw_sensitive_values_absent"] = _raw_sensitive_values_absent(replay, _sensitive_fixture_values())
+    replay["status"] = (
+        "passed"
+        if replay["raw_sensitive_values_absent"]
+        and replay["tool_call_arguments_redacted"]
+        and replay["provider_messages_redacted"]
+        and replay["raw_request_body_persisted"] is False
+        and replay["raw_tool_arguments_persisted"] is False
+        and len(event_replay) == 3
+        else "failed"
+    )
+    return replay
 
 
 def _status_data_error_meta_readback(*, result: AgentCoreRunResult) -> dict[str, Any]:
@@ -401,6 +495,7 @@ def _contract_failures(
     tool_call_envelope: Mapping[str, Any],
     status_envelope: Mapping[str, Any],
     input_contracts: Mapping[str, Any],
+    redaction_replay: Mapping[str, Any],
 ) -> list[str]:
     failures: list[str] = []
     if result.stop_reason != "final_answer":
@@ -419,6 +514,8 @@ def _contract_failures(
     shape = tool_call_envelope.get("tool_call_contract") if isinstance(tool_call_envelope.get("tool_call_contract"), Mapping) else {}
     if shape.get("shape_status") != "valid":
         failures.append("tool_call_shape_invalid")
+    if shape.get("arguments_redacted") is not True or shape.get("raw_arguments_persisted") is not False:
+        failures.append("tool_call_arguments_not_redacted")
     if status_envelope.get("compatible") is not True:
         failures.append("status_data_error_meta_envelope_incompatible")
     if input_contracts.get("wave11_provider_matrix", {}).get("live_provider_claims") is not False:
@@ -427,6 +524,12 @@ def _contract_failures(
         failures.append("wave13_readiness_state_drift")
     if input_contracts.get("wave14_tool_calling_quality", {}).get("external_provider_live_gap") != "external_provider_live_gap":
         failures.append("wave14_external_provider_gap_drift")
+    if redaction_replay.get("status") != "passed":
+        failures.append("provider_trace_redaction_replay_failed")
+    if redaction_replay.get("raw_sensitive_values_absent") is not True:
+        failures.append("raw_sensitive_values_persisted")
+    if redaction_replay.get("tool_call_arguments_redacted") is not True:
+        failures.append("redacted_tool_call_envelope_replay_missing")
     return failures
 
 
@@ -465,6 +568,22 @@ def _tool_event_snapshot(event: CoreEvent) -> dict[str, Any]:
     }
 
 
+def _redacted_tool_event_replay(event: CoreEvent) -> dict[str, Any]:
+    payload = dict(event.payload or {})
+    tool_call = payload.get("tool_call") if isinstance(payload.get("tool_call"), Mapping) else {}
+    structured = payload.get("structured_content") if isinstance(payload.get("structured_content"), Mapping) else {}
+    return {
+        "contract_version": "agent_core.provider_trace_redacted_tool_event.v1",
+        "event_type": event.event_type,
+        "call_id": event.call_id,
+        "tool_name": tool_call.get("tool_name") or payload.get("tool_name"),
+        "tool_call_arguments": _redacted_arguments_snapshot(tool_call.get("arguments") if isinstance(tool_call, Mapping) else {}),
+        "structured_content": _status_envelope_redaction_snapshot(structured),
+        "permission": payload.get("permission"),
+        "status": payload.get("status"),
+    }
+
+
 def _is_tool_event(event: CoreEvent) -> bool:
     return event.event_type in {"tool_call_requested", "tool_call_started", "tool_result"}
 
@@ -491,6 +610,84 @@ def _selected_context(value: Mapping[str, Any]) -> dict[str, Any]:
         "default_provider": value.get("default_provider"),
         "default_model": value.get("default_model"),
     }
+
+
+def _status_envelope_redaction_snapshot(value: Mapping[str, Any]) -> dict[str, Any]:
+    if not value:
+        return {"present": False}
+    structured = dict(value or {})
+    data = structured.get("data") if isinstance(structured.get("data"), Mapping) else {}
+    meta = structured.get("meta") if isinstance(structured.get("meta"), Mapping) else {}
+    return {
+        "present": True,
+        "has_status_data_error_meta": _is_status_data_error_meta_envelope(structured),
+        "present_keys": sorted(str(key) for key in structured),
+        "status": structured.get("status"),
+        "data_keys": sorted(str(key) for key in data),
+        "meta_keys": sorted(str(key) for key in meta),
+        "raw_values_persisted": False,
+    }
+
+
+def _redacted_arguments_snapshot(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        return {
+            "redacted": True,
+            "type": type(value).__name__,
+            "keys": [],
+            "value_fingerprints": {},
+            "raw_values_persisted": False,
+        }
+    arguments = dict(value or {})
+    return {
+        "redacted": True,
+        "type": "object",
+        "keys": sorted(str(key) for key in arguments),
+        "value_fingerprints": {
+            str(key): _redacted_value_snapshot(arguments[key])
+            for key in sorted(arguments, key=lambda item: str(item))
+        },
+        "raw_values_persisted": False,
+    }
+
+
+def _redacted_value_snapshot(value: Any) -> dict[str, Any]:
+    encoded = _canonical_json(value)
+    if isinstance(value, str):
+        value_type = "string"
+        length = len(value)
+    elif isinstance(value, Mapping):
+        value_type = "object"
+        length = len(value)
+    elif isinstance(value, (list, tuple)):
+        value_type = "array"
+        length = len(value)
+    elif value is None:
+        value_type = "null"
+        length = 0
+    else:
+        value_type = type(value).__name__
+        length = len(encoded)
+    return {
+        "redacted": True,
+        "marker": _REDACTION_MARKER,
+        "type": value_type,
+        "length": length,
+        "sha256": hashlib.sha256(encoded.encode("utf-8")).hexdigest(),
+    }
+
+
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _sensitive_fixture_values() -> list[str]:
+    return [_SENSITIVE_REQUEST_BODY, _SENSITIVE_TOOL_QUERY]
+
+
+def _raw_sensitive_values_absent(value: Mapping[str, Any], sensitive_values: list[str]) -> bool:
+    encoded = _canonical_json(value)
+    return all(item not in encoded for item in sensitive_values)
 
 
 def _claim_codes(value: Any) -> list[str]:
