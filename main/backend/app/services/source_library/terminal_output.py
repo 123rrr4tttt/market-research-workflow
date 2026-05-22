@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from .external_project import build_external_project_summary, get_external_project_manifest
 
 CONTRACT_VERSION = "source_library.terminal_output.v1"
+PROVIDER_HANDOFF_CONTRACT_VERSION = "source_library.provider_handoff.v1"
 _ALLOWED_SOURCE_MODES = {"protocol_search", "provider_harvest", "site_search", "url_execution"}
 
 
@@ -22,6 +23,11 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
     records = _build_clean_records(payload=payload, result=result)
     stats = _build_stats(source_mode=source_mode, result=result, params=normalized_params, errors=errors, records=records)
     status = _resolve_status(stats)
+    provider_handoff = _resolve_provider_handoff(payload=payload, result=result)
+    frontdoor_route_profile = _resolve_frontdoor_route_profile(
+        params=normalized_params,
+        provider_handoff=provider_handoff,
+    )
 
     # Empty/invalid payload should be safe and observable in terminal output.
     if not payload and not errors:
@@ -58,6 +64,8 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
             "provider_job_id": _nullable_str(result.get("provider_job_id") or payload.get("provider_job_id")),
             "trace_id": _nullable_str(result.get("trace_id") or payload.get("trace_id")),
             "warnings": list(execution_request.get("warnings") or []),
+            "provider_handoff": provider_handoff,
+            "frontdoor_route_profile": frontdoor_route_profile,
             "raw_result_keys": sorted(result.keys()),
         },
         "raw_snapshot": deepcopy(payload),
@@ -311,6 +319,12 @@ def _record_from_by_url_row(*, row: Any, fallback_item_key: str, index: int) -> 
                 "execution_layer": result.get("execution_layer"),
                 "fallback_from_channel_key": _nullable_str(row.get("fallback_from_channel_key")),
                 "fallback_reason": _nullable_str(row.get("fallback_reason")),
+                "provider_handoff": dict(row.get("provider_handoff") or {})
+                if isinstance(row.get("provider_handoff"), dict)
+                else None,
+                "frontdoor_route_profile": dict(row.get("frontdoor_route_profile") or {})
+                if isinstance(row.get("frontdoor_route_profile"), dict)
+                else None,
             },
             "raw_ref": {"source": "result.by_url", "url": url},
         }
@@ -337,6 +351,87 @@ def _normalize_record(row: Dict[str, Any]) -> Dict[str, Any] | None:
         "record_meta": _as_dict(row.get("record_meta")),
         "raw_ref": row.get("raw_ref") if isinstance(row.get("raw_ref"), dict) else {},
     }
+
+
+def _resolve_provider_handoff(*, payload: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any] | None:
+    direct = result.get("provider_handoff")
+    if isinstance(direct, dict):
+        return _clean_provider_handoff(direct)
+
+    for row in _iter_by_url_rows(result):
+        candidate = row.get("provider_handoff")
+        if isinstance(candidate, dict):
+            return _clean_provider_handoff(candidate)
+
+    provider_type = _nullable_str(result.get("provider_type") or payload.get("provider_type"))
+    provider_job_id = _nullable_str(result.get("provider_job_id") or payload.get("provider_job_id"))
+    provider_status = _nullable_str(result.get("provider_status") or payload.get("provider_status"))
+    runtime_channel = result.get("runtime_channel") if isinstance(result.get("runtime_channel"), dict) else {}
+    layer_boundary = (
+        runtime_channel.get("layer_boundary")
+        if isinstance(runtime_channel.get("layer_boundary"), dict)
+        else {}
+    )
+    if not (provider_type or provider_job_id or provider_status or runtime_channel):
+        return None
+    return _clean_provider_handoff(
+        {
+            "contract_version": PROVIDER_HANDOFF_CONTRACT_VERSION,
+            "handoff_kind": "provider_harvest",
+            "channel_key": payload.get("channel_key"),
+            "provider": result.get("provider") or payload.get("provider"),
+            "provider_type": provider_type,
+            "provider_dispatch": layer_boundary.get("provider_dispatch"),
+            "downstream_handoff": layer_boundary.get("downstream_handoff") or "ingest",
+            "provider_job_id": provider_job_id,
+            "provider_status": provider_status,
+            "attempt_count": result.get("attempt_count") or payload.get("attempt_count"),
+        }
+    )
+
+
+def _iter_by_url_rows(result: Dict[str, Any]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    direct_rows = result.get("by_url") if isinstance(result.get("by_url"), list) else []
+    rows.extend(row for row in direct_rows if isinstance(row, dict))
+    routing_result = result.get("routing_result") if isinstance(result.get("routing_result"), dict) else {}
+    nested_rows = routing_result.get("by_url") if isinstance(routing_result.get("by_url"), list) else []
+    rows.extend(row for row in nested_rows if isinstance(row, dict))
+    return rows
+
+
+def _clean_provider_handoff(value: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(value or {})
+    out.setdefault("contract_version", PROVIDER_HANDOFF_CONTRACT_VERSION)
+    return {str(key): raw for key, raw in out.items() if raw not in (None, "", [], {})}
+
+
+def _resolve_frontdoor_route_profile(
+    *,
+    params: Dict[str, Any],
+    provider_handoff: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    handoff_profile = (
+        provider_handoff.get("frontdoor_route_profile")
+        if isinstance(provider_handoff, dict) and isinstance(provider_handoff.get("frontdoor_route_profile"), dict)
+        else None
+    )
+    if isinstance(handoff_profile, dict):
+        return dict(handoff_profile)
+    params_profile = params.get("frontdoor_route_profile")
+    if isinstance(params_profile, dict):
+        return dict(params_profile)
+    route_hint = _nullable_str(params.get("frontdoor_route_hint"))
+    fetch_strategy = _nullable_str(params.get("frontdoor_fetch_strategy"))
+    render_required = params.get("frontdoor_render_required")
+    if not (route_hint or fetch_strategy or render_required is not None):
+        return None
+    out: Dict[str, Any] = {
+        "route_hint": route_hint,
+        "fetch_strategy": fetch_strategy,
+        "render_required": bool(render_required),
+    }
+    return {key: value for key, value in out.items() if value is not None}
 
 
 def _nullable_str(value: Any) -> str | None:

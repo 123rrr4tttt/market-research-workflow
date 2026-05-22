@@ -33,7 +33,7 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         self.assertEqual(statuses["A3"], "closed")
         self.assertEqual(statuses["A4"], "closed")
         self.assertEqual(statuses["A5"], "blocked_external")
-        self.assertEqual(statuses["A6"], "needs_update")
+        self.assertEqual(statuses["A6"], "closed")
         self.assertEqual(statuses["A7"], "not_closed")
 
         a4 = next(task for task in result["tasks"] if task["task_id"] == "A4")
@@ -42,6 +42,9 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         a5 = next(task for task in result["tasks"] if task["task_id"] == "A5")
         self.assertEqual(a5["status"], "blocked_external")
         self.assertIn("external", a5["gap"])
+        a6 = next(task for task in result["tasks"] if task["task_id"] == "A6")
+        self.assertEqual(a6["gap"], "")
+        self.assertIn("provider-specific crawler dispatch", a6["evidence"])
 
     def test_closure_check_keeps_shared_navigation_out_of_this_lane(self) -> None:
         result = build_check(REPO_ROOT)
@@ -57,6 +60,10 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         )
         self.assertIn(
             "Treat A5 as deterministic-gate sealed but externally blocked until an opt-in 45-site public replay can be rerun and stored.",
+            result["minimum_development_plan"],
+        )
+        self.assertIn(
+            "Keep A6 as evidence-closed after focused crawler/provider-specific handoff tests and Wave7 evidence stay green.",
             result["minimum_development_plan"],
         )
         for protected_path in PROTECTED_SHARED_INDEXES:

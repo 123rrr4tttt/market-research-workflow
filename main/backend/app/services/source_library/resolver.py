@@ -48,6 +48,7 @@ from .url_router import resolve_channel_for_url
 logger = logging.getLogger(__name__)
 
 ExecutionLayer = Literal["execute", "terminal_output_only"]
+PROVIDER_HANDOFF_CONTRACT_VERSION = "source_library.provider_handoff.v1"
 
 def _as_list(value: Any) -> list:
     if isinstance(value, list):
@@ -255,6 +256,15 @@ def _inject_url_params_for_channel(
         arguments = _as_dict(per_url_params.get("arguments"))
         arguments.setdefault("url", url_str)
         arguments.setdefault("urls", [url_str])
+        route_profile = _as_dict(per_url_params.get("frontdoor_route_profile"))
+        if route_profile:
+            arguments.setdefault("frontdoor_route_profile", route_profile)
+        if per_url_params.get("frontdoor_route_hint") is not None:
+            arguments.setdefault("frontdoor_route_hint", per_url_params.get("frontdoor_route_hint"))
+        if per_url_params.get("frontdoor_fetch_strategy") is not None:
+            arguments.setdefault("frontdoor_fetch_strategy", per_url_params.get("frontdoor_fetch_strategy"))
+        if per_url_params.get("frontdoor_render_required") is not None:
+            arguments.setdefault("frontdoor_render_required", bool(per_url_params.get("frontdoor_render_required")))
         per_url_params["arguments"] = arguments
 
     if provider == "generic_web":
@@ -349,6 +359,56 @@ def _is_retryable_crawler_runtime_error(exc: Exception) -> bool:
     return (
         "crawler provider '" in message and " is unavailable" in message
     ) or ("unsupported crawler provider_type" in message)
+
+
+def _build_provider_handoff(
+    *,
+    channel: Dict[str, Any],
+    channel_key: str,
+    params: Dict[str, Any],
+    result: Dict[str, Any] | None,
+    execution_layer: ExecutionLayer,
+    force_url_routing_flow: bool,
+    fallback_from_channel_key: str | None = None,
+    fallback_reason: str | None = None,
+) -> Dict[str, Any]:
+    provider_type = str(channel.get("provider_type") or "").strip().lower() or None
+    provider = str(channel.get("provider") or "").strip().lower() or None
+    route_profile = _as_dict(params.get("frontdoor_route_profile"))
+    result_payload = result if isinstance(result, dict) else {}
+    route_hint = (
+        str(route_profile.get("route_hint") or params.get("frontdoor_route_hint") or "").strip()
+        or None
+    )
+    fetch_strategy = (
+        str(route_profile.get("fetch_strategy") or params.get("frontdoor_fetch_strategy") or "").strip()
+        or None
+    )
+    render_required = bool(route_profile.get("render_required") or params.get("frontdoor_render_required"))
+    is_crawler = _is_crawler_channel(channel)
+    out: Dict[str, Any] = {
+        "contract_version": PROVIDER_HANDOFF_CONTRACT_VERSION,
+        "handoff_kind": "crawler_provider" if is_crawler else "mechanical_fetch",
+        "channel_key": channel_key or None,
+        "provider": provider,
+        "provider_type": provider_type,
+        "provider_dispatch": "crawlers/providers" if is_crawler else None,
+        "downstream_handoff": "ingest",
+        "execution_layer": execution_layer,
+        "route_hint": route_hint,
+        "fetch_strategy": fetch_strategy,
+        "render_required": render_required,
+        "prefer_crawler_first": bool(params.get("prefer_crawler_first")),
+        "force_url_routing_flow": bool(force_url_routing_flow),
+        "provider_job_id": result_payload.get("provider_job_id"),
+        "provider_status": result_payload.get("provider_status"),
+        "attempt_count": result_payload.get("attempt_count"),
+        "fallback_from_channel_key": fallback_from_channel_key,
+        "fallback_reason": fallback_reason,
+    }
+    if route_profile:
+        out["frontdoor_route_profile"] = route_profile
+    return {key: value for key, value in out.items() if value is not None}
 
 
 def _is_handler_cluster_item(item: Dict[str, Any] | None) -> bool:
@@ -686,6 +746,16 @@ def _run_single_routed_url(
                             project_key=project_key,
                             item_key=str(item.get("item_key") or "").strip() or None,
                         )
+                    provider_handoff = _build_provider_handoff(
+                        channel=fallback_crawler_channel,
+                        channel_key=fallback_crawler_channel_key,
+                        params=fallback_crawler_params,
+                        result=fallback_crawler_result if isinstance(fallback_crawler_result, dict) else None,
+                        execution_layer=execution_layer,
+                        force_url_routing_flow=force_url_routing_flow,
+                        fallback_from_channel_key=channel_key,
+                        fallback_reason="mechanical_no_results",
+                    )
                     return {
                         "url": url_str,
                         "channel_key": fallback_crawler_channel_key,
@@ -693,10 +763,27 @@ def _run_single_routed_url(
                         "fallback_reason": "mechanical_no_results",
                         "error": None,
                         "result": fallback_crawler_result,
+                        "provider_handoff": provider_handoff,
+                        "frontdoor_route_profile": provider_handoff.get("frontdoor_route_profile"),
                     }
                 except Exception:
                     pass
-        return {"url": url_str, "channel_key": channel_key, "error": None, "result": result}
+        provider_handoff = _build_provider_handoff(
+            channel=channel,
+            channel_key=channel_key,
+            params=per_url_params,
+            result=result if isinstance(result, dict) else None,
+            execution_layer=execution_layer,
+            force_url_routing_flow=force_url_routing_flow,
+        )
+        return {
+            "url": url_str,
+            "channel_key": channel_key,
+            "error": None,
+            "result": result,
+            "provider_handoff": provider_handoff,
+            "frontdoor_route_profile": provider_handoff.get("frontdoor_route_profile"),
+        }
     except Exception as exc:
         if (
             preferred_crawler_channel_key
@@ -727,6 +814,16 @@ def _run_single_routed_url(
                             project_key=project_key,
                             item_key=str(item.get("item_key") or "").strip() or None,
                         )
+                    provider_handoff = _build_provider_handoff(
+                        channel=fallback_channel,
+                        channel_key=default_channel_key,
+                        params=fallback_params,
+                        result=fallback_result if isinstance(fallback_result, dict) else None,
+                        execution_layer=execution_layer,
+                        force_url_routing_flow=force_url_routing_flow,
+                        fallback_from_channel_key=channel_key,
+                        fallback_reason=str(exc),
+                    )
                     return {
                         "url": url_str,
                         "channel_key": default_channel_key,
@@ -734,10 +831,28 @@ def _run_single_routed_url(
                         "fallback_reason": str(exc),
                         "error": None,
                         "result": fallback_result,
+                        "provider_handoff": provider_handoff,
+                        "frontdoor_route_profile": provider_handoff.get("frontdoor_route_profile"),
                     }
                 except Exception:
                     pass
-        return {"url": url_str, "channel_key": channel_key, "error": str(exc), "result": None}
+        provider_handoff = _build_provider_handoff(
+            channel=channel,
+            channel_key=channel_key,
+            params=per_url_params,
+            result=None,
+            execution_layer=execution_layer,
+            force_url_routing_flow=force_url_routing_flow,
+            fallback_reason=str(exc),
+        )
+        return {
+            "url": url_str,
+            "channel_key": channel_key,
+            "error": str(exc),
+            "result": None,
+            "provider_handoff": provider_handoff,
+            "frontdoor_route_profile": provider_handoff.get("frontdoor_route_profile"),
+        }
 
 def _result_has_material_output(result: Dict[str, Any]) -> bool:
     if not isinstance(result, dict):
@@ -1588,6 +1703,10 @@ def _extract_records_from_routed_row(
             record_meta.setdefault("channel_key", channel_key or None)
             record_meta.setdefault("fallback_from_channel_key", row.get("fallback_from_channel_key"))
             record_meta.setdefault("fallback_reason", row.get("fallback_reason"))
+            if isinstance(row.get("provider_handoff"), dict):
+                record_meta.setdefault("provider_handoff", dict(row.get("provider_handoff") or {}))
+            if isinstance(row.get("frontdoor_route_profile"), dict):
+                record_meta.setdefault("frontdoor_route_profile", dict(row.get("frontdoor_route_profile") or {}))
             extracted.append(
                 {
                     "record_id": str(nested.get("record_id") or nested_url or f"record:{start_index + offset}"),
@@ -1612,6 +1731,10 @@ def _extract_records_from_routed_row(
         record_meta["execution_layer"] = result.get("execution_layer")
         record_meta["fallback_from_channel_key"] = row.get("fallback_from_channel_key")
         record_meta["fallback_reason"] = row.get("fallback_reason")
+        if isinstance(row.get("provider_handoff"), dict):
+            record_meta["provider_handoff"] = dict(row.get("provider_handoff") or {})
+        if isinstance(row.get("frontdoor_route_profile"), dict):
+            record_meta["frontdoor_route_profile"] = dict(row.get("frontdoor_route_profile") or {})
         extracted.append(
             {
                 "record_id": str(result.get("record_id") or record_url or f"record:{start_index}"),

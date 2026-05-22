@@ -513,6 +513,93 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(result["by_url"][0]["fallback_from_channel_key"], "crawler.demo_proj")
         resolve_channel.assert_called_once()
 
+    def test_high_js_browser_route_hands_off_to_crawler_provider_with_trace(self):
+        item = {"item_key": "report1.root_site_search", "channel_key": "handler.cluster"}
+        params = {
+            "urls": ["https://x.com/search?q=robotics"],
+            "query_terms": ["robotics"],
+            "prefer_crawler_first": True,
+            "force_url_routing_flow": False,
+            "frontdoor_route_hint": "crawler_browse",
+            "frontdoor_fetch_strategy": "browser_render",
+            "frontdoor_render_required": True,
+            "frontdoor_route_profile": {
+                "contract_version": "ingest.frontdoor_route_profile.v1",
+                "route_hint": "crawler_browse",
+                "fetch_strategy": "browser_render",
+                "domain": "x.com",
+                "search_like": True,
+                "high_js": True,
+                "prefer_crawler": True,
+                "prefer_search_shell": True,
+                "render_required": True,
+                "fallback_fetch_strategy": "http_fetch",
+            },
+        }
+        channel_map = {
+            "crawler.demo_proj": {
+                "channel_key": "crawler.demo_proj",
+                "enabled": True,
+                "provider": "crawler",
+                "provider_type": "scrapy",
+                "default_params": {},
+            },
+            "url_pool": {
+                "channel_key": "url_pool",
+                "enabled": True,
+                "provider": "url_pool",
+                "provider_type": "native",
+                "default_params": {},
+            },
+        }
+
+        captured_params: dict = {}
+
+        def _fake_run_channel(*, channel, params, project_key, item_key):  # noqa: ANN001
+            captured_params.update(dict(params))
+            self.assertEqual(channel["channel_key"], "crawler.demo_proj")
+            return {
+                "status": "accepted",
+                "provider_type": "scrapy",
+                "provider_status": "queued",
+                "provider_job_id": "job-high-js-1",
+                "attempt_count": 1,
+            }
+
+        with (
+            patch("app.services.source_library.resolver.run_channel", side_effect=_fake_run_channel),
+            patch("app.services.source_library.resolver.resolve_channel_for_url", return_value="url_pool") as resolve_channel,
+        ):
+            result = resolver.run_item_with_url_routing(
+                item=item,
+                params=params,
+                project_key="demo_proj",
+                channel_map=channel_map,
+                execution_layer="terminal_output_only",
+            )
+
+        self.assertEqual(result["execution_layer"], "terminal_output_only")
+        self.assertEqual(result["by_url"][0]["channel_key"], "crawler.demo_proj")
+        self.assertEqual(captured_params["arguments"]["url"], "https://x.com/search?q=robotics")
+        self.assertEqual(captured_params["arguments"]["frontdoor_fetch_strategy"], "browser_render")
+        self.assertTrue(captured_params["arguments"]["frontdoor_render_required"])
+        self.assertEqual(captured_params["arguments"]["frontdoor_route_profile"]["domain"], "x.com")
+
+        handoff = result["by_url"][0]["provider_handoff"]
+        self.assertEqual(handoff["contract_version"], "source_library.provider_handoff.v1")
+        self.assertEqual(handoff["handoff_kind"], "crawler_provider")
+        self.assertEqual(handoff["provider_type"], "scrapy")
+        self.assertEqual(handoff["provider_dispatch"], "crawlers/providers")
+        self.assertEqual(handoff["downstream_handoff"], "ingest")
+        self.assertEqual(handoff["provider_job_id"], "job-high-js-1")
+        self.assertEqual(handoff["provider_status"], "queued")
+        self.assertEqual(handoff["route_hint"], "crawler_browse")
+        self.assertEqual(handoff["fetch_strategy"], "browser_render")
+        self.assertTrue(handoff["render_required"])
+        self.assertEqual(handoff["frontdoor_route_profile"]["domain"], "x.com")
+        self.assertTrue(result["middle_layer_protocol"]["prefer_crawler_first"])
+        resolve_channel.assert_called_once()
+
     def test_url_routing_parallelism_keeps_result_order_stable(self):
         item = {"item_key": "report1.root_site_search", "channel_key": "handler.cluster"}
         params = {

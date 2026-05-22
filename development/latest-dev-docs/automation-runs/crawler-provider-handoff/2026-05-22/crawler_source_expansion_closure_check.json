@@ -1,0 +1,496 @@
+{
+  "contract_version": "crawler_source_expansion.closure_check.v1",
+  "doc_drift": {
+    "reason": "The 2026-03-07 tasklist still marks A1-A7 pending, while A1-A3 now have code/test evidence.",
+    "status": "outdated_snapshot"
+  },
+  "minimum_development_plan": [
+    "Keep A1-A3 as evidence-closed and update only topic-local documentation until integration.",
+    "Close A4 by pinning a source-layer allow/downgrade/block matrix to existing resolver/probe enforcement points.",
+    "Close A5 only after an opt-in 45-site public replay records pass/fail/anti-bot/relevance-review outcomes.",
+    "Keep A6 as evidence-closed after focused crawler/provider-specific handoff tests and Wave7 evidence stay green.",
+    "Update shared navigation only in a later integration lane."
+  ],
+  "overall_status": "not_closed",
+  "protected_shared_indexes": [
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+    "development/latest-dev-docs/development-plans/INDEX.md",
+    "development/latest-dev-docs/README.md",
+    "development/latest-dev-docs/MERGED_OVERVIEW.md"
+  ],
+  "repo_root": "/Users/wangyiliang/market-research-workflow.worktrees/devdocs-wave7-crawler-provider-handoff",
+  "tasks": [
+    {
+      "anchors": [
+        {
+          "exists": true,
+          "key": "topic_plan",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md",
+          "tokens_checked": []
+        },
+        {
+          "exists": true,
+          "key": "topic_tasklist",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md",
+          "tokens_checked": []
+        },
+        {
+          "exists": true,
+          "key": "crawler_api",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/api/crawler.py",
+          "tokens_checked": []
+        },
+        {
+          "exists": true,
+          "key": "source_library_api",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/api/source_library.py",
+          "tokens_checked": []
+        },
+        {
+          "exists": true,
+          "key": "source_library_types",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/source_library/types.py",
+          "tokens_checked": [
+            "class SourceTier",
+            "class SourceOnboardingPriority",
+            "def derive_source_tiering",
+            "def default_source_layer_boundary",
+            "class FrontDoorExecutionProtocol"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "collect_runtime_contracts",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/collect_runtime/contracts.py",
+          "tokens_checked": [
+            "class CollectRequest",
+            "class CollectResult"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "crawler_dispatch_contracts",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/crawlers/base.py",
+          "tokens_checked": [
+            "class CrawlerDispatchRequest",
+            "class CrawlerDispatchResult"
+          ]
+        }
+      ],
+      "evidence": "The original code anchors still exist and include source_library, collect_runtime, crawler dispatch, and APIs.",
+      "gap": "",
+      "status": "closed",
+      "task_id": "A1",
+      "title": "Verify baseline inventory and layer map"
+    },
+    {
+      "anchors": [
+        {
+          "exists": true,
+          "key": "source_library_types",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/source_library/types.py",
+          "tokens_checked": [
+            "class SourceTier",
+            "class SourceOnboardingPriority",
+            "def derive_source_tiering",
+            "def default_source_layer_boundary",
+            "class FrontDoorExecutionProtocol"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "source_library_resolver",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/source_library/resolver.py",
+          "tokens_checked": [
+            "source_tier",
+            "onboarding_priority",
+            "middle_layer_protocol"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "test_source_tiering",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/tests/unit/test_source_library_resolver_unittest.py",
+          "tokens_checked": [
+            "attaches_source_tiering_contract",
+            "injects_channel_source_tiering_into_protocol"
+          ]
+        }
+      ],
+      "evidence": "SourceTier, onboarding priority, resolver propagation, and unit assertions are present.",
+      "gap": "",
+      "status": "closed",
+      "task_id": "A2",
+      "title": "Freeze source tiering and priority model"
+    },
+    {
+      "anchors": [
+        {
+          "exists": true,
+          "key": "source_library_types",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/source_library/types.py",
+          "tokens_checked": [
+            "class SourceTier",
+            "class SourceOnboardingPriority",
+            "def derive_source_tiering",
+            "def default_source_layer_boundary",
+            "class FrontDoorExecutionProtocol"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "collect_runtime_contracts",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/collect_runtime/contracts.py",
+          "tokens_checked": [
+            "class CollectRequest",
+            "class CollectResult"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "crawler_dispatch_contracts",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/crawlers/base.py",
+          "tokens_checked": [
+            "class CrawlerDispatchRequest",
+            "class CrawlerDispatchResult"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "source_library_runner",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/source_library/runner.py",
+          "tokens_checked": [
+            "source_tiering",
+            "layer_boundary",
+            "provider_dispatch"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "crawler_bridge",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/crawlers/bridge.py",
+          "tokens_checked": [
+            "def submit_crawler_job",
+            "def poll_crawler_job"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "test_runner_boundary",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/tests/unit/test_source_library_runner_gray_rollout_unittest.py",
+          "tokens_checked": [
+            "source_tiering",
+            "layer_boundary"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "test_crawler_bridge",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/tests/unit/test_crawler_management_bridge_unittest.py",
+          "tokens_checked": [
+            "submit_crawler_job",
+            "poll_crawler_job"
+          ]
+        }
+      ],
+      "evidence": "Layer boundary metadata and crawler bridge tests now cover source catalog, runtime, and provider dispatch.",
+      "gap": "",
+      "status": "closed",
+      "task_id": "A3",
+      "title": "Freeze layer responsibilities and onboarding boundary"
+    },
+    {
+      "anchors": [
+        {
+          "exists": true,
+          "key": "quality_meaningful_gate",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/ingest/meaningful_gate.py",
+          "tokens_checked": []
+        },
+        {
+          "exists": true,
+          "key": "quality_llm_validator",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/resource_pool/llm_validator.py",
+          "tokens_checked": []
+        },
+        {
+          "exists": true,
+          "key": "quality_discovery_store",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/discovery/store.py",
+          "tokens_checked": []
+        },
+        {
+          "exists": true,
+          "key": "source_real_probe_evidence",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+          "tokens_checked": [
+            "Deterministic local",
+            "Dirty-source shortlist"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "source_live_probe_evidence",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+          "tokens_checked": [
+            "candidate_ready",
+            "relevance_review"
+          ]
+        }
+      ],
+      "evidence": "Quality anchors and probe evidence exist, including local fixture and public live probe artifacts.",
+      "gap": "The plan still needs a final source-layer allow/downgrade/block matrix tied to enforcement points.",
+      "status": "needs_update",
+      "task_id": "A4",
+      "title": "Define minimum quality, dedupe, and stability rules"
+    },
+    {
+      "anchors": [
+        {
+          "exists": true,
+          "key": "source_replay_script",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/scripts/source_library_replay_scaleout.py",
+          "tokens_checked": [
+            "DEFAULT_HISTORICAL_TARGETS",
+            "def validate_manifest_targets",
+            "def run_replay"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "source_public_live_probe_script",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/scripts/source_library_public_live_probes.py",
+          "tokens_checked": [
+            "def run_probe",
+            "live_evidence_sufficient",
+            "allow_public_network"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "source_replay_scaleout_evidence",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+          "tokens_checked": [
+            "45-site",
+            "not closed"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "source_live_probe_evidence",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+          "tokens_checked": [
+            "candidate_ready",
+            "relevance_review"
+          ]
+        }
+      ],
+      "evidence": "The 45-site historical manifest and public-live subset are represented by scripts and 2026-05-22 artifacts.",
+      "gap": "The 45-site public replay and term-fallback relevance review are still explicit blockers.",
+      "status": "not_closed",
+      "task_id": "A5",
+      "title": "Define directed-source onboarding strategy"
+    },
+    {
+      "anchors": [
+        {
+          "exists": true,
+          "key": "collect_source_library_adapter",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+          "tokens_checked": [
+            "def to_source_library_response",
+            "def build_source_library_authority_output"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "collect_runtime_contracts",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/collect_runtime/contracts.py",
+          "tokens_checked": [
+            "class CollectRequest",
+            "class CollectResult"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "source_library_resolver",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/source_library/resolver.py",
+          "tokens_checked": [
+            "source_tier",
+            "onboarding_priority",
+            "middle_layer_protocol"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "ingest_frontdoor_evidence",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/automation-runs/ingest-frontdoor-closure/2026-05-22/README.md",
+          "tokens_checked": [
+            "source_library.resolver.run_item_with_url_routing",
+            "partial"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "crawler_provider_handoff_evidence",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/README.md",
+          "tokens_checked": [
+            "Provider Handoff Contract",
+            "High-JS/browser handoff",
+            "source_library.provider_handoff.v1"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "crawler_provider_handoff_script",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/scripts/check_crawler_provider_handoff_contract.py",
+          "tokens_checked": [
+            "CONTRACT_VERSION",
+            "PROVIDER_HANDOFF_CONTRACT_VERSION",
+            "def build_check"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "test_collect_adapter",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/tests/unit/test_collect_runtime_source_library_adapter_unittest.py",
+          "tokens_checked": [
+            "authority_output",
+            "frontdoor_ingress",
+            "preserves_provider_handoff_contract"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "test_provider_handoff",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/tests/unit/test_source_library_resolver_unittest.py",
+          "tokens_checked": [
+            "high_js_browser_route_hands_off_to_crawler_provider_with_trace",
+            "source_library.provider_handoff.v1"
+          ]
+        }
+      ],
+      "evidence": "Source-library terminal/authority output, frontdoor ingress, provider-specific crawler dispatch, and high-JS/browser route handoff now have focused contract coverage.",
+      "gap": "",
+      "status": "closed",
+      "task_id": "A6",
+      "title": "Freeze minimum source-to-ingest handoff contract"
+    },
+    {
+      "anchors": [
+        {
+          "exists": true,
+          "key": "wave6_closure_doc",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave6-closure-gap-and-min-plan.md",
+          "tokens_checked": [
+            "Closure Decision",
+            "Minimum Development Plan"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "test_clue_chain_source_expansion",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/tests/unit/test_clue_chain_source_library_expansion_unittest.py",
+          "tokens_checked": [
+            "fixture_required",
+            "network_fetch_performed"
+          ]
+        },
+        {
+          "exists": true,
+          "key": "clue_chain_source_expansion",
+          "missing_tokens": [],
+          "passed": true,
+          "path": "main/backend/app/services/clue_chains/source_library_expansion.py",
+          "tokens_checked": [
+            "def expand_source_library_hop",
+            "replay_manifest",
+            "network_fetch_performed"
+          ]
+        }
+      ],
+      "evidence": "A Wave6 closure-gap document and fixture-replay clue-chain assertions provide a repeatable status baseline.",
+      "gap": "Do not move the topic or edit shared indexes until A4-A6 blockers close.",
+      "status": "not_closed",
+      "task_id": "A7",
+      "title": "Validation pack and documentation closure"
+    }
+  ],
+  "topic_dir": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion",
+  "validation": {
+    "errors": [],
+    "passed": true
+  }
+}

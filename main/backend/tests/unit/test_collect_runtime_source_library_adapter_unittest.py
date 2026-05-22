@@ -268,6 +268,95 @@ class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
         self.assertEqual(response["frontdoor_ingress"]["source_ref"]["execution_mode"], "rss_feed")
         self.assertEqual(response["authority_output"]["summary"]["record_stats"]["normalized"], 1)
 
+    def test_to_source_library_response_preserves_provider_handoff_contract(self) -> None:
+        provider_handoff = {
+            "contract_version": "source_library.provider_handoff.v1",
+            "handoff_kind": "crawler_provider",
+            "channel_key": "crawler.demo_proj",
+            "provider": "crawler",
+            "provider_type": "scrapy",
+            "provider_dispatch": "crawlers/providers",
+            "downstream_handoff": "ingest",
+            "execution_layer": "terminal_output_only",
+            "route_hint": "crawler_browse",
+            "fetch_strategy": "browser_render",
+            "render_required": True,
+            "prefer_crawler_first": True,
+            "force_url_routing_flow": False,
+            "provider_job_id": "job-high-js-1",
+            "provider_status": "queued",
+            "attempt_count": 1,
+            "frontdoor_route_profile": {
+                "contract_version": "ingest.frontdoor_route_profile.v1",
+                "route_hint": "crawler_browse",
+                "fetch_strategy": "browser_render",
+                "domain": "x.com",
+                "high_js": True,
+                "render_required": True,
+            },
+        }
+        raw = {
+            "item_key": "handler.cluster.high_js",
+            "channel_key": "handler.cluster",
+            "params": {
+                "urls": ["https://x.com/search?q=robotics"],
+                "query_terms": ["robotics"],
+                "frontdoor_route_profile": provider_handoff["frontdoor_route_profile"],
+            },
+            "result": {
+                "by_url": [
+                    {
+                        "url": "https://x.com/search?q=robotics",
+                        "channel_key": "crawler.demo_proj",
+                        "error": None,
+                        "result": {
+                            "status": "accepted",
+                            "provider_type": "scrapy",
+                            "provider_status": "queued",
+                            "provider_job_id": "job-high-js-1",
+                            "attempt_count": 1,
+                        },
+                        "provider_handoff": provider_handoff,
+                        "frontdoor_route_profile": provider_handoff["frontdoor_route_profile"],
+                    }
+                ],
+                "execution_request": {
+                    "source_mode": "url_execution",
+                    "project_key": "demo_proj",
+                    "params": {
+                        "urls": ["https://x.com/search?q=robotics"],
+                        "query_terms": ["robotics"],
+                        "frontdoor_route_profile": provider_handoff["frontdoor_route_profile"],
+                    },
+                },
+            },
+        }
+        collect_result = CollectResult(channel="source_library", meta={"raw": raw})
+
+        response = to_source_library_response(collect_result)
+
+        terminal_meta = response["terminal_output"]["meta"]
+        self.assertEqual(terminal_meta["provider_handoff"]["provider_type"], "scrapy")
+        self.assertEqual(terminal_meta["provider_handoff"]["provider_job_id"], "job-high-js-1")
+        self.assertEqual(terminal_meta["frontdoor_route_profile"]["fetch_strategy"], "browser_render")
+
+        frontdoor = response["frontdoor_ingress"]
+        self.assertEqual(frontdoor["source_ref"]["provider_type"], "scrapy")
+        self.assertEqual(frontdoor["source_ref"]["provider_dispatch"], "crawlers/providers")
+        self.assertEqual(frontdoor["source_ref"]["frontdoor_route_hint"], "crawler_browse")
+        self.assertEqual(frontdoor["source_ref"]["fetch_strategy"], "browser_render")
+        self.assertEqual(frontdoor["source_ref"]["render_required"], "True")
+        self.assertEqual(frontdoor["collection_payload"]["provider_handoff"]["provider_job_id"], "job-high-js-1")
+        self.assertEqual(frontdoor["collection_payload"]["frontdoor_route_profile"]["domain"], "x.com")
+
+        provider_summary = response["authority_output"]["summary"]["provider_handoff"]
+        self.assertTrue(provider_summary["present"])
+        self.assertEqual(provider_summary["provider_type"], "scrapy")
+        self.assertEqual(provider_summary["provider_dispatch"], "crawlers/providers")
+        self.assertEqual(provider_summary["provider_job_id"], "job-high-js-1")
+        self.assertEqual(provider_summary["fetch_strategy"], "browser_render")
+        self.assertTrue(provider_summary["render_required"])
+
 
 if __name__ == "__main__":
     unittest.main()
