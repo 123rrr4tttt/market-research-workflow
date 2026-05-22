@@ -18,6 +18,8 @@ Related execution plans:
 - [wave18-agent-roster-2026-05-22.md](./wave18-agent-roster-2026-05-22.md) - Wave18 subagent branch roster; all 10 workers are closed after merge.
 - [wave19-worktree-plan-2026-05-22.md](./wave19-worktree-plan-2026-05-22.md) - Wave19 ten-agent provider manifest / health schema / rollout / migration tree, supervisor reconciliation, and status evidence gate.
 - [wave19-agent-roster-2026-05-22.md](./wave19-agent-roster-2026-05-22.md) - Wave19 subagent branch roster; all 10 workers are closed after merge.
+- [wave20-worktree-plan-2026-05-22.md](./wave20-worktree-plan-2026-05-22.md) - Wave20 ten-agent time / OpenClaw / graph-editing / scheduler / quality / modularization / frontend / docs-root tree.
+- [wave20-agent-roster-2026-05-22.md](./wave20-agent-roster-2026-05-22.md) - Wave20 subagent branch roster; active until every completed, failed, or superseded worker is closed.
 
 ## Wave16 Addendum
 
@@ -55,6 +57,14 @@ Wave19 keeps the Wave18 `CURRENT_DEV` count shape and advances another repo-loca
 - No new directory was moved to `ARCHIVE_CLOSED`; `CURRENT_DEV` remains `partial:33`, `not_closed:0`, `no_closure_claim:0`.
 - Landed gates include vectorization provider manifest readback, open-search health schema/readback, graph rollout readback, ingest 24h metrics artifact, crawler public replay shards, AgentCore provider trace redaction, source-library review closure batch 3, Dashboard page i18n migration, docs-root content move batch 4, and typed/writing persisted-card API boundary.
 - Docs-root content-plan unsafe moves dropped from 7 to 6 after the fourth real moved-file batch.
+
+## Wave20 Addendum
+
+Wave20 starts from the Wave19 `CURRENT_DEV` count shape and targets another repo-local implementation batch without over-claiming external closure.
+
+- 10 worker branches are assigned in the Wave20 roster and must be closed or superseded before handoff.
+- No new directory is pre-marked as `ARCHIVE_CLOSED`; the expected starting state remains `partial:33`, `not_closed:0`, `no_closure_claim:0`.
+- Planned gates include time semantics provenance readback, OpenClaw mirror handoff, graph-editing audit conflict/rollback, long-cycle scheduler queue, agent-batch quality promotion, document-query endpoint slice, consumer facade slice, source-library review closure batch 4, next frontend i18n page slice, and docs-root content move batch 5.
 
 ## Summary
 
