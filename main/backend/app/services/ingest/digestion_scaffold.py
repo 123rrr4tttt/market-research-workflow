@@ -11,6 +11,10 @@ from app.contracts.ingest_digestion import (
     DigestionStage,
     IngestInputKind,
     IngestTimeSemantics,
+    LongCycleAutomationStatus,
+    LongCycleTaskObject,
+    LongCycleTaskSnapshot,
+    LongCycleTaskStatus,
     NormalizedIngestEnvelope,
 )
 
@@ -25,6 +29,7 @@ def taxonomy_baseline_contract() -> dict[str, list[str]]:
         "content_formats": [x.value for x in ContentFormat],
         "digestion_stages": [x.value for x in DigestionStage],
         "candidate_windows": list(DEFAULT_CANDIDATE_WINDOWS),
+        "long_cycle_statuses": [x.value for x in LongCycleTaskStatus],
     }
 
 
@@ -76,6 +81,39 @@ def _to_content_format(value: ContentFormat | str | None) -> ContentFormat:
         if candidate.value == raw:
             return candidate
     return ContentFormat.OTHER
+
+
+def _to_long_cycle_status(value: LongCycleTaskStatus | str | None) -> LongCycleTaskStatus:
+    if isinstance(value, LongCycleTaskStatus):
+        return value
+    if hasattr(value, "value"):
+        raw = str(getattr(value, "value", "") or "").strip().lower()
+    else:
+        raw = str(value or "").strip().lower()
+    for candidate in LongCycleTaskStatus:
+        if candidate.value == raw:
+            return candidate
+    return LongCycleTaskStatus.PLANNED
+
+
+def _normalize_candidate_window_list(candidate_windows: list[str] | tuple[str, ...] | None) -> tuple[list[str], list[str]]:
+    raw_windows = list(candidate_windows) if candidate_windows is not None else list(DEFAULT_CANDIDATE_WINDOWS)
+    out: list[str] = []
+    rejected: list[str] = []
+    seen: set[str] = set()
+    for item in raw_windows:
+        normalized = str(item or "").strip().lower()
+        if not normalized:
+            rejected.append("<empty>")
+            continue
+        if not _WINDOW_RE.match(normalized):
+            rejected.append(normalized)
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out, rejected
 
 
 def classify_input_kind(
@@ -322,3 +360,148 @@ def build_wave_a_scaffold(
         "normalized_input": envelope.model_dump(mode="json"),
         "digestion_decision": decision.model_dump(mode="json"),
     }
+
+
+def build_long_cycle_task_object(
+    *,
+    task_goal: str,
+    input_selector: dict[str, Any] | None = None,
+    window_strategy: str = "prompt_time_density_priority",
+    candidate_windows: list[str] | tuple[str, ...] | None = None,
+    cadence: str = "manual",
+    priority_rule: str | None = "prefer_low_density_gap_fill",
+    output_target: str = "digestion_status_snapshot",
+    status: LongCycleTaskStatus | str | None = None,
+    selected_window: str | None = None,
+    output_ref: str | None = None,
+    updated_at: datetime | str | None = None,
+    reason: str | None = None,
+) -> LongCycleTaskObject:
+    windows, rejected = _normalize_candidate_window_list(candidate_windows)
+    if rejected:
+        raise ValueError(f"invalid candidate_windows: {', '.join(rejected)}")
+
+    normalized_selected = str(selected_window or "").strip().lower() or None
+    if normalized_selected and normalized_selected not in windows:
+        raise ValueError("selected_window must be included in candidate_windows")
+
+    snapshot = None
+    normalized_status = _to_long_cycle_status(status) if status else None
+    if normalized_status or normalized_selected or output_ref or reason:
+        snapshot = LongCycleTaskSnapshot(
+            status=normalized_status or LongCycleTaskStatus.PLANNED,
+            selected_window=normalized_selected,
+            output_ref=output_ref,
+            updated_at=_parse_datetime(updated_at) or _utcnow(),
+            reason=reason,
+        )
+
+    return LongCycleTaskObject(
+        task_goal=task_goal,
+        input_selector=dict(input_selector or {}),
+        window_strategy=window_strategy,
+        candidate_windows=windows,
+        cadence=cadence,
+        priority_rule=priority_rule,
+        output_target=output_target,
+        last_run_snapshot=snapshot,
+    )
+
+
+def check_long_cycle_automation_status(
+    *,
+    task_goal: str,
+    project_key: str | None,
+    entrypoint: str | None,
+    source_locator: str | None = None,
+    artifact_source: str | None = None,
+    doc_type: str | None = None,
+    mime_type: str | None = None,
+    text_sample: str | None = None,
+    content_format: ContentFormat | str | None = None,
+    content_length: int | None = None,
+    source_time: datetime | str | None = None,
+    processed_time: datetime | str | None = None,
+    lineage_ref: str | None = None,
+    requested_downstream_targets: list[str] | None = None,
+    task_window: str | None = None,
+    candidate_windows: list[str] | tuple[str, ...] | None = None,
+    selected_window: str | None = None,
+    cadence: str = "manual",
+    window_strategy: str = "prompt_time_density_priority",
+    priority_rule: str | None = "prefer_low_density_gap_fill",
+    output_target: str = "digestion_status_snapshot",
+) -> dict[str, Any]:
+    windows, rejected_windows = _normalize_candidate_window_list(candidate_windows)
+    normalized_selected = str(selected_window or "").strip().lower() or None
+    blockers: list[str] = []
+
+    if rejected_windows:
+        blockers.append(f"invalid_candidate_windows:{','.join(rejected_windows)}")
+    if normalized_selected and normalized_selected not in windows:
+        blockers.append("selected_window_not_in_candidate_windows")
+    if not str(task_goal or "").strip():
+        blockers.append("missing_task_goal")
+    if not str(output_target or "").strip():
+        blockers.append("missing_output_target")
+    if not windows:
+        blockers.append("missing_candidate_windows")
+    if not any(str(value or "").strip() for value in (source_locator, artifact_source, doc_type)):
+        blockers.append("missing_input_scope")
+
+    envelope = build_normalized_ingest_envelope(
+        project_key=project_key,
+        entrypoint=entrypoint,
+        source_locator=source_locator,
+        artifact_source=artifact_source,
+        doc_type=doc_type,
+        mime_type=mime_type,
+        text_sample=text_sample,
+        content_format=content_format,
+        source_time=source_time,
+        processed_time=processed_time,
+        lineage_ref=lineage_ref,
+        requested_downstream_targets=requested_downstream_targets,
+        task_window=task_window or normalized_selected,
+    )
+    decision = select_digestion_decision(
+        input_kind=envelope.input_kind,
+        content_format=envelope.content_format,
+        content_length=content_length,
+    )
+    input_selector = {
+        "project_key": envelope.project_key,
+        "entrypoint": envelope.ingestion_entrypoint,
+        "source_locator": envelope.source_locator,
+        "artifact_source": str(artifact_source or "").strip() or None,
+        "doc_type": str(doc_type or "").strip() or None,
+        "input_kind": envelope.input_kind.value,
+        "content_format": envelope.content_format.value,
+        "requested_downstream_targets": list(envelope.requested_downstream_targets),
+    }
+    compact_selector = {key: value for key, value in input_selector.items() if value not in (None, "", [])}
+    task = LongCycleTaskObject(
+        task_goal=task_goal,
+        input_selector=compact_selector,
+        window_strategy=window_strategy,
+        candidate_windows=windows,
+        cadence=cadence,
+        priority_rule=priority_rule,
+        output_target=output_target,
+        last_run_snapshot=LongCycleTaskSnapshot(
+            status=LongCycleTaskStatus.BLOCKED if blockers else LongCycleTaskStatus.READY,
+            selected_window=normalized_selected,
+            output_ref=None,
+            updated_at=envelope.processed_time,
+            reason=";".join(blockers) if blockers else "ready_for_task_dispatch",
+        ),
+    )
+    status = LongCycleTaskStatus.BLOCKED if blockers else LongCycleTaskStatus.READY
+    return LongCycleAutomationStatus(
+        status=status,
+        blockers=blockers,
+        selected_window=normalized_selected,
+        task=task,
+        normalized_input=envelope,
+        digestion_decision=decision,
+    ).model_dump(mode="json")

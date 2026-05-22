@@ -8,6 +8,10 @@ from .ingest_digestion import (
     DigestionStage,
     IngestInputKind,
     IngestTimeSemantics,
+    LongCycleAutomationStatus,
+    LongCycleTaskObject,
+    LongCycleTaskSnapshot,
+    LongCycleTaskStatus,
     NormalizedIngestEnvelope,
 )
 from .responses import ApiEnvelope, ApiErrorModel, ApiMetaModel, PaginationMetaModel, TaskResultData, fail, ok, ok_page
@@ -23,6 +27,10 @@ __all__ = [
     "ErrorCode",
     "IngestInputKind",
     "IngestTimeSemantics",
+    "LongCycleAutomationStatus",
+    "LongCycleTaskObject",
+    "LongCycleTaskSnapshot",
+    "LongCycleTaskStatus",
     "NormalizedIngestEnvelope",
     "PaginationMetaModel",
     "TaskResultData",
