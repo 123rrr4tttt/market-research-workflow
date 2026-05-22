@@ -292,3 +292,11 @@ Exit Criteria (T+2 days):
 - Open WebUI Pipelines: provider adapter and param normalization
 - Temporal: durable execution, event history, replay semantics
 
+## 8. Wave8-8 Search / Vectorization IO Evidence
+
+2026-05-22 补充一个与 node platformization 相关的最小 IO 证据层：
+
+- Evidence：[wave8-search-vectorization-contract/2026-05-22](../../../automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
+- Checker：`ops/search-lab/scripts/wave8_search_vectorization_contract.py`
+
+该 checker 把 search provider trace、local open-search replay summary、`local_index` LanceDB runtime smoke、benchmark quality artifact 串成稳定 JSON contract，可作为后续 `vector_search` / external-search node 的输入边界参考。它不声明实时容器可用，不证明生产 embedding 语义质量，也不关闭全局 vector object schema；这些仍应留在向量化 foundation 与节点 IO contract 后续任务中处理。

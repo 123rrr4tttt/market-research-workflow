@@ -1,0 +1,133 @@
+{
+  "assertions": [
+    "explicit SearXNG and YaCy results keep provider trace fields and remain excluded from provider=auto",
+    "container replay is reused only as captured evidence; this gate does not assert current container availability",
+    "local_index keyword, vector, and hybrid runtime smoke executed without fallback in captured LanceDB evidence",
+    "local_index benchmark proves deterministic top-k, project/source filters, and trace fields for all three modes",
+    "semantic embedding quality and global vector object/schema alignment remain open blockers"
+  ],
+  "contract_version": "wave8-search-vectorization-runtime-contract.v1",
+  "evidence": {
+    "local_index_benchmark": {
+      "failures": [],
+      "filter_modes": [
+        "hybrid",
+        "keyword",
+        "vector"
+      ],
+      "packages": {
+        "lancedb": "0.24.2",
+        "pyarrow": "24.0.0"
+      },
+      "path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/benchmark_quality_results.json",
+      "ranking_modes": [
+        "hybrid",
+        "keyword",
+        "vector"
+      ],
+      "remaining_blockers": [
+        {
+          "code": "semantic_embedding_quality_not_proven",
+          "message": "This benchmark uses deterministic vectors to prove LanceDB ranking wiring and stable top-k behavior. It does not prove production embedding model relevance quality."
+        },
+        {
+          "code": "global_vector_contract_not_closed",
+          "message": "Unified vector object schema, embedding model/version provenance, and main search evidence contract alignment remain open in CURRENT_DEV."
+        }
+      ],
+      "status": "passed"
+    },
+    "local_index_runtime_smoke": {
+      "failures": [],
+      "modes": {
+        "hybrid": {
+          "executed_mode": "hybrid",
+          "expected_chunk_id": "chunk-hybrid",
+          "failures": [],
+          "retrieval_mode": "hybrid",
+          "top_chunk_id": "chunk-hybrid"
+        },
+        "keyword": {
+          "executed_mode": "keyword",
+          "expected_chunk_id": "chunk-keyword",
+          "failures": [],
+          "retrieval_mode": "keyword",
+          "top_chunk_id": "chunk-keyword"
+        },
+        "vector": {
+          "executed_mode": "vector",
+          "expected_chunk_id": "chunk-vector",
+          "failures": [],
+          "retrieval_mode": "vector",
+          "top_chunk_id": "chunk-vector"
+        }
+      },
+      "packages": {
+        "lancedb": "0.24.2",
+        "pyarrow": "24.0.0"
+      },
+      "path": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/runtime_smoke_results.json",
+      "status": "passed"
+    },
+    "search_provider_container_replay": {
+      "current_container_availability_asserted": false,
+      "docker_compose_ok_at_capture": true,
+      "docker_container_count_at_capture": 2,
+      "failed_rows": 0,
+      "failures": [],
+      "passed_rows": 2,
+      "path": "development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22/provider_trace_replay_summary.json",
+      "rows": 2,
+      "source": "preexisting_artifact_only",
+      "status": "passed"
+    },
+    "search_provider_trace": {
+      "auto_local_open_search_called": false,
+      "contract_version": "search-provider-trace-artifacts.v1",
+      "explicit_providers": [
+        "searxng",
+        "yacy"
+      ],
+      "failures": [],
+      "path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+      "scope": "offline_unit_contract_no_containers",
+      "status": "passed"
+    }
+  },
+  "failures": [],
+  "generated_by": "ops/search-lab/scripts/wave8_search_vectorization_contract.py",
+  "remaining_gaps": [
+    {
+      "code": "current_container_availability_not_replayed",
+      "message": "This deterministic gate reads recorded replay evidence and does not start or probe SearXNG/YaCy containers."
+    },
+    {
+      "code": "semantic_embedding_quality_not_proven",
+      "message": "LanceDB benchmark uses deterministic vectors and does not prove production embedding relevance quality."
+    },
+    {
+      "code": "global_vector_contract_not_closed",
+      "message": "Unified vector object schema, embedding model provenance, and main search evidence contract remain CURRENT_DEV work."
+    }
+  ],
+  "scope": "deterministic_reuse_no_network_no_container_start",
+  "status": "passed",
+  "target_topics": [
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration"
+    },
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan"
+    }
+  ]
+}

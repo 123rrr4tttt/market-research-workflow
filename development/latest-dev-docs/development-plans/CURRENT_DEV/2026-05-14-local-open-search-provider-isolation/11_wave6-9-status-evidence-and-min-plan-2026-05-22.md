@@ -71,3 +71,13 @@ git diff --check
 - topic-local Markdown path-existence check：12 个 Markdown 文件通过。
 
 本工作树没有 `main/backend/.venv311/bin/python` 和 `development/latest-dev-docs/scripts/check_markdown_links.py`，因此验证使用 `/Users/wangyiliang/.local/bin/python3.11` 和等价的 topic-local Python 相对链接检查。
+
+## 5. Wave8-8 deterministic contract slice
+
+补充证据：
+
+- [wave8-search-vectorization-contract/2026-05-22](../../../automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
+- `ops/search-lab/scripts/wave8_search_vectorization_contract.py`
+- `main/backend/tests/unit/test_wave8_search_vectorization_contract_unittest.py`
+
+该 slice 不重新启动 SearXNG / YaCy，也不把本地开源 provider 纳入 `provider="auto"`。它只复用既有 offline trace artifact 与真实容器 replay summary，断言 explicit `searxng` / `yacy` trace 字段仍存在、`auto` 仍未调用 local open-search provider，并把“当前容器可用性未复跑”作为保留缺口写入 evidence。

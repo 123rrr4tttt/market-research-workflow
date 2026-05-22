@@ -319,6 +319,8 @@
 
 2026-05-22 lane 9 已完成 M0 的 `local_index` 子项：冻结 `keyword|vector|hybrid` mode contract，补齐 service normalization、LanceDB adapter dispatch、result `retrieval_mode/retrieval_family/trace`，并用 `test_local_index_service_unittest.py` 覆盖 fake-table dispatch 与 optional dependency boundary。Wave2 A/B 已补 [local-index-lancedb-runtime-smoke/2026-05-22](../../../automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md) 与 [local-index-runtime-contract/2026-05-22](../../../automation-runs/local-index-runtime-contract/2026-05-22/README.md) 证据：当前 optional dependency 环境可 import `lancedb`，keyword/vector/hybrid runtime smoke 均通过。Wave3 A 已补 [local-index-lancedb-benchmark/2026-05-22](../../../automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md) 证据：受控 dataset 下三种 mode 的 repeated top-k ranking、project/source filters 和 trace contract 均通过；因此 M0 的 `local_index` runtime/benchmark wiring 已对齐，但真实 embedding model 语义质量、统一 vector object schema 与全项目 evidence contract 仍是后续验证项。
 
+2026-05-22 Wave8-8 补充 [wave8-search-vectorization-contract/2026-05-22](../../../automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)：新增 `ops/search-lab/scripts/wave8_search_vectorization_contract.py`，只读取既有 provider trace、container replay summary、LanceDB runtime smoke 和 benchmark JSON，不启动容器、不访问外网。该 gate 固定了 `local_index` runtime/benchmark 与 search provider trace 的交叉证据，同时显式保留 `current_container_availability_not_replayed`、`semantic_embedding_quality_not_proven`、`global_vector_contract_not_closed`。
+
 2. `M1`（基础落库）
 - 在不破坏 `Embedding` 表现有 contract 的前提下，扩展 ES/Qdrant payload 字段。
 - 明确 `chunk_id` 生成规则，并让 policy indexer 输出稳定 chunk 级标识。

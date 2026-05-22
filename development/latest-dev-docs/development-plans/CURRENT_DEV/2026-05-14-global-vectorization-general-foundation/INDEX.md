@@ -36,6 +36,14 @@
 - Runtime 事实：`lancedb==0.24.2` / `pyarrow==24.0.0` 环境中，三种 mode 的受控 benchmark 均通过，且 vector/hybrid 未触发 keyword fallback。
 - 状态判定：受控 adapter ranking benchmark 已推进；本目录仍保持 `partial`，因为真实 embedding model 的语义相关性、embedding version/provenance 和主搜索 evidence contract 尚未封口。
 
+## 2026-05-22 Wave8-8 deterministic closure slice
+
+- 分支：`codex/devdocs-wave8-search-vectorization`
+- Evidence：[wave8-search-vectorization-contract/2026-05-22](../../../automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
+- 已落地：`ops/search-lab/scripts/wave8_search_vectorization_contract.py` 将 search provider trace、SearXNG/YaCy container replay 摘要、LanceDB runtime smoke、LanceDB benchmark 串成一个无外网、无容器启动的 deterministic gate。
+- 已验证：`local_index` 的 `keyword|vector|hybrid` runtime smoke 与 benchmark evidence 均为 `passed`，且 checker 继续保留真实 embedding 语义质量、全局 vector contract、当前容器可用性未复跑三个缺口。
+- 状态判定：本 slice 关闭的是 evidence 漂移与 contract 复核缺口，不改变本目录 `partial` 状态。
+
 ## 当前边界
 
 - 搜索 provider 解隔离继续归 `../2026-05-14-local-open-search-provider-isolation/`。

@@ -121,3 +121,15 @@
 2. 后端语法检查：`python3 -m py_compile` 通过（变更文件）。
 3. 后端新增测试：`python3 -m pytest` 执行结果为 `skip`（当前环境缺少完整依赖）。
 4. 后端应用启动验证未完成：当前环境缺少 `fastapi` 运行依赖。
+
+## 8. 2026-05-22 Wave8-8 Search / Vectorization Contract Slice
+
+本 topic 与 search/vectorization 的关系只落在平台化边界：open-source provider 与 local material index 都必须可被复核，但不得把实验 provider 或 optional vector runtime 伪装成默认平台能力。
+
+本轮补充：
+
+- Evidence：[wave8-search-vectorization-contract/2026-05-22](../../../automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
+- Checker：`ops/search-lab/scripts/wave8_search_vectorization_contract.py`
+- Unit gate：`main/backend/tests/unit/test_wave8_search_vectorization_contract_unittest.py`
+
+结论：deterministic gate 只复用现有 provider trace、SearXNG/YaCy container replay summary、LanceDB runtime smoke 和 benchmark evidence；不启动容器、不访问外网、不编辑 `source_library` adapter/parser。保留缺口包括当前容器可用性未复跑、真实 embedding 语义质量未证明、全局 vector object/schema 尚未封口。
