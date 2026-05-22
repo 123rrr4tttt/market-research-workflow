@@ -254,7 +254,7 @@ def render_markdown(inventory: dict[str, Any]) -> str:
 
 > Status: CURRENT as of 2026-05-22. Generated from the running FastAPI app OpenAPI surface by `main/backend/scripts/generate_api_schema_inventory.py`.
 >
-> Scope: every `/api/v1` OpenAPI operation exposed by `app.main.app`, including the 250 router operations covered by `API_ROUTE_MAP_2026-05-22.md` plus 3 non-`app.api` operations (`/api/v1/health`, `/api/v1/health/deep`, `/api/v1/maps/usa`).
+> Scope: every `/api/v1` OpenAPI operation exposed by `app.main.app`, including the {summary["api_router_operations"]} router operations covered by `API_ROUTE_MAP_2026-05-22.md` plus {summary["app_level_operations"]} non-`app.api` operations (`/api/v1/health`, `/api/v1/health/deep`, `/api/v1/maps/usa`).
 >
 > Drift guard: `main/backend/tests/contract/test_api_schema_inventory_contract_unittest.py` regenerates this document from the current FastAPI OpenAPI schema and compares it byte-for-byte.
 

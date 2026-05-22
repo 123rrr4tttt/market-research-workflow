@@ -30,6 +30,7 @@ from .agent_chat import router as agent_chat_router
 from .agent_sessions import router as agent_sessions_router
 from .skills import router as skills_router
 from .codex_auth import router as codex_auth_router
+from .clue_chains import router as clue_chains_router
 
 
 router = APIRouter()
@@ -63,3 +64,4 @@ router.include_router(agent_chat_router)
 router.include_router(agent_sessions_router)
 router.include_router(skills_router)
 router.include_router(codex_auth_router)
+router.include_router(clue_chains_router)
