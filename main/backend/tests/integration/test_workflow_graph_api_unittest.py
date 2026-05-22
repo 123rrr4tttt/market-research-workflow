@@ -645,6 +645,47 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
                 response_schema = schema["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]
                 self.assertEqual(response_schema["$ref"].rsplit("/", 1)[-1], expected_component)
 
+    def test_openapi_dynamic_route_response_schemas_are_visible(self):
+        schema = backend_app.openapi()
+        cases = (
+            ("post", "/api/v1/workflow-graph/compile"),
+            ("post", "/api/v1/workflow-graph/run"),
+            ("get", "/api/v1/workflow-graph/runs/{run_id}"),
+            ("get", "/api/v1/workflow-graph/runs/{run_id}/events"),
+            ("get", "/api/v1/workflow-graph/runs/{run_id}/agent-session"),
+            ("get", "/api/v1/workflow-graph/compiled/{graph_id}"),
+            ("get", "/api/v1/workflow-graph/runs/{run_id}/replay"),
+            ("get", "/api/v1/workflow-graph/templates"),
+            ("post", "/api/v1/workflow-graph/templates"),
+            ("get", "/api/v1/workflow-graph/templates/{template_id}"),
+            ("patch", "/api/v1/workflow-graph/templates/{template_id}"),
+            ("delete", "/api/v1/workflow-graph/templates/{template_id}"),
+            ("get", "/api/v1/workflow-graph/templates/{template_id}/versions"),
+            ("post", "/api/v1/workflow-graph/templates/{template_id}/versions"),
+            ("get", "/api/v1/workflow-graph/templates/{template_id}/versions/{version_id}"),
+            ("post", "/api/v1/workflow-graph/templates/{template_id}/versions/{version_id}/activate"),
+            ("get", "/api/v1/workflow-graph/observability/failure-reasons"),
+        )
+        for method, path in cases:
+            with self.subTest(method=method, path=path):
+                response_schema = schema["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]
+                self.assertEqual(response_schema["$ref"].rsplit("/", 1)[-1], "ApiEnvelope_dict_str__Any__")
+
+    def test_workflow_graph_module_has_no_untyped_openapi_200_schemas(self):
+        from scripts.generate_api_schema_inventory import build_inventory
+
+        inventory = build_inventory(backend_app)
+        workflow_graph_summary = next(
+            row for row in inventory["source_summary"] if row["source_module"] == "workflow_graph.py"
+        )
+
+        self.assertEqual(workflow_graph_summary["untyped_200"], 0, msg=workflow_graph_summary)
+        self.assertEqual(
+            workflow_graph_summary["response_models"],
+            workflow_graph_summary["operations"],
+            msg=workflow_graph_summary,
+        )
+
     def test_compiler_service_compile_from_template_version(self):
         from app.services.workflow_graph import WorkflowGraphCompilerService
 

@@ -21,6 +21,7 @@ from ..services.workflow_graph.observability import query_top_failure_reasons
 
 
 router = APIRouter(prefix="/workflow-graph", tags=["workflow-graph"])
+WorkflowGraphDynamicEnvelope = ApiEnvelope[dict[str, Any]]
 
 
 def _error_status_code(code: ErrorCode) -> int:
@@ -359,7 +360,7 @@ def _workflow_sync_error_json(exc: Exception, *, fallback_message: str) -> JSONR
     return _error_json(code, message, details)
 
 
-@router.post("/compile", response_model=None)
+@router.post("/compile", response_model=WorkflowGraphDynamicEnvelope)
 def compile_workflow_graph(payload: dict[str, Any]) -> Any:
     try:
         return _ok_workflow_graph(_normalize_compile(_invoke_compile(payload)))
@@ -372,7 +373,7 @@ def compile_workflow_graph(payload: dict[str, Any]) -> Any:
         return _error_json(code, message, details)
 
 
-@router.post("/run", response_model=None)
+@router.post("/run", response_model=WorkflowGraphDynamicEnvelope)
 def run_workflow_graph(payload: dict[str, Any]) -> Any:
     try:
         return _ok_workflow_graph(_normalize_run(_invoke_run(payload)))
@@ -385,7 +386,7 @@ def run_workflow_graph(payload: dict[str, Any]) -> Any:
         return _error_json(code, message, details)
 
 
-@router.get("/runs/{run_id}", response_model=None)
+@router.get("/runs/{run_id}", response_model=WorkflowGraphDynamicEnvelope)
 def get_workflow_graph_run(run_id: str) -> Any:
     try:
         return _ok_workflow_graph(_normalize_run_detail(_invoke_get_run(run_id)))
@@ -398,7 +399,7 @@ def get_workflow_graph_run(run_id: str) -> Any:
         return _error_json(code, message, details)
 
 
-@router.get("/runs/{run_id}/events", response_model=None)
+@router.get("/runs/{run_id}/events", response_model=WorkflowGraphDynamicEnvelope)
 def get_workflow_graph_run_events(run_id: str) -> Any:
     try:
         return _ok_workflow_graph(_normalize_run_events(_invoke_get_run_events(run_id)))
@@ -411,7 +412,7 @@ def get_workflow_graph_run_events(run_id: str) -> Any:
         return _error_json(code, message, details)
 
 
-@router.get("/runs/{run_id}/agent-session", response_model=None)
+@router.get("/runs/{run_id}/agent-session", response_model=WorkflowGraphDynamicEnvelope)
 def get_workflow_graph_run_agent_session(run_id: str) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_get_run_agent_session(run_id)))
@@ -424,7 +425,7 @@ def get_workflow_graph_run_agent_session(run_id: str) -> Any:
         return _error_json(code, message, details)
 
 
-@router.get("/compiled/{graph_id}", response_model=None)
+@router.get("/compiled/{graph_id}", response_model=WorkflowGraphDynamicEnvelope)
 def get_workflow_graph_compiled(graph_id: str) -> Any:
     try:
         return _ok_workflow_graph(_normalize_compile(_invoke_get_compiled(graph_id)))
@@ -437,7 +438,7 @@ def get_workflow_graph_compiled(graph_id: str) -> Any:
         return _error_json(code, message, details)
 
 
-@router.get("/runs/{run_id}/replay", response_model=None)
+@router.get("/runs/{run_id}/replay", response_model=WorkflowGraphDynamicEnvelope)
 def replay_workflow_graph_run(run_id: str, replay_mode: str = "events_only") -> Any:
     try:
         return _ok_workflow_graph(_normalize_run_detail(_invoke_replay_run(run_id, replay_mode)))
@@ -450,7 +451,7 @@ def replay_workflow_graph_run(run_id: str, replay_mode: str = "events_only") -> 
         return _error_json(code, message, details)
 
 
-@router.get("/templates", response_model=None)
+@router.get("/templates", response_model=WorkflowGraphDynamicEnvelope)
 def list_workflow_graph_templates() -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_list_templates()))
@@ -461,7 +462,7 @@ def list_workflow_graph_templates() -> Any:
         return _error_json(code, message, details)
 
 
-@router.post("/templates", response_model=None)
+@router.post("/templates", response_model=WorkflowGraphDynamicEnvelope)
 def create_workflow_graph_template(payload: dict[str, Any]) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_create_template(payload)))
@@ -474,7 +475,7 @@ def create_workflow_graph_template(payload: dict[str, Any]) -> Any:
         return _error_json(code, message, details)
 
 
-@router.get("/templates/{template_id}", response_model=None)
+@router.get("/templates/{template_id}", response_model=WorkflowGraphDynamicEnvelope)
 def get_workflow_graph_template(template_id: str) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_get_template(template_id)))
@@ -487,7 +488,7 @@ def get_workflow_graph_template(template_id: str) -> Any:
         return _error_json(code, message, details)
 
 
-@router.patch("/templates/{template_id}", response_model=None)
+@router.patch("/templates/{template_id}", response_model=WorkflowGraphDynamicEnvelope)
 def patch_workflow_graph_template(template_id: str, payload: dict[str, Any]) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_patch_template(template_id, payload)))
@@ -500,7 +501,7 @@ def patch_workflow_graph_template(template_id: str, payload: dict[str, Any]) -> 
         return _error_json(code, message, details)
 
 
-@router.delete("/templates/{template_id}", response_model=None)
+@router.delete("/templates/{template_id}", response_model=WorkflowGraphDynamicEnvelope)
 def delete_workflow_graph_template(template_id: str, payload: dict[str, Any] | None = Body(default=None)) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_delete_template(template_id, payload or {})))
@@ -513,7 +514,7 @@ def delete_workflow_graph_template(template_id: str, payload: dict[str, Any] | N
         return _error_json(code, message, details)
 
 
-@router.get("/templates/{template_id}/versions", response_model=None)
+@router.get("/templates/{template_id}/versions", response_model=WorkflowGraphDynamicEnvelope)
 def list_workflow_graph_template_versions(template_id: str) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_list_template_versions(template_id)))
@@ -526,7 +527,7 @@ def list_workflow_graph_template_versions(template_id: str) -> Any:
         return _error_json(code, message, details)
 
 
-@router.post("/templates/{template_id}/versions", response_model=None)
+@router.post("/templates/{template_id}/versions", response_model=WorkflowGraphDynamicEnvelope)
 def create_workflow_graph_template_version(template_id: str, payload: dict[str, Any]) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_create_template_version(template_id, payload)))
@@ -539,7 +540,7 @@ def create_workflow_graph_template_version(template_id: str, payload: dict[str, 
         return _error_json(code, message, details)
 
 
-@router.get("/templates/{template_id}/versions/{version_id}", response_model=None)
+@router.get("/templates/{template_id}/versions/{version_id}", response_model=WorkflowGraphDynamicEnvelope)
 def get_workflow_graph_template_version(template_id: str, version_id: str) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(_invoke_get_template_version(template_id, version_id)))
@@ -552,7 +553,7 @@ def get_workflow_graph_template_version(template_id: str, version_id: str) -> An
         return _error_json(code, message, details)
 
 
-@router.post("/templates/{template_id}/versions/{version_id}/activate", response_model=None)
+@router.post("/templates/{template_id}/versions/{version_id}/activate", response_model=WorkflowGraphDynamicEnvelope)
 def activate_workflow_graph_template_version(
     template_id: str,
     version_id: str,
@@ -717,7 +718,7 @@ def replay_workflow_graph_handoff(run_id: str, handoff_id: str) -> Any:
         return _error_json(code, message, details)
 
 
-@router.get("/observability/failure-reasons", response_model=None)
+@router.get("/observability/failure-reasons", response_model=WorkflowGraphDynamicEnvelope)
 def get_workflow_graph_failure_reasons(limit: int = 20) -> Any:
     try:
         return _ok_workflow_graph(_as_dict(query_top_failure_reasons(limit=limit)))
