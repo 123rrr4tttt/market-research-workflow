@@ -1,0 +1,2665 @@
+{
+  "closure_status": {
+    "AT-AC-06": "full 45-site replay manifest is ready; public network execution skipped by operator gate",
+    "AT-AC-10": "full historical 45-site manifest is covered by a no-network gate; dirty-source closure still requires opt-in public replay"
+  },
+  "finished_at": "2026-05-22T05:16:01Z",
+  "inputs": {
+    "manifest_validation": {
+      "enabled_target_count": 40,
+      "errors": [],
+      "passed": true,
+      "policy_skipped_target_count": 5,
+      "target_count": 45
+    },
+    "probe_timeout": 6.0,
+    "project_key": "demo_proj",
+    "source_library_item_key": "handler.cluster.search_template",
+    "target_count": 45,
+    "targets": [
+      {
+        "category": "historical_search_template",
+        "domain": "news.google.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 33,
+        "target_id": "demo_proj_33_news_google_com",
+        "template": "https://news.google.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "actiontoaction.ai",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 34,
+        "target_id": "demo_proj_34_actiontoaction_ai",
+        "template": "https://actiontoaction.ai/search/search?query={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "hai.stanford.edu",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 35,
+        "target_id": "demo_proj_35_hai_stanford_edu",
+        "template": "https://hai.stanford.edu/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "iyiou.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 37,
+        "target_id": "demo_proj_37_iyiou_com",
+        "template": "https://iyiou.com/search/?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "news.cn",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 38,
+        "target_id": "demo_proj_38_news_cn",
+        "template": "http://news.cn/search?q={{q}}"
+      },
+      {
+        "category": "platform_api_required",
+        "domain": "x.com",
+        "enabled": false,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+        "site_entry_id": 39,
+        "target_id": "demo_proj_39_x_com",
+        "template": "https://x.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "github.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 40,
+        "target_id": "demo_proj_40_github_com",
+        "template": "https://github.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "arxiv.org",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 41,
+        "target_id": "demo_proj_41_arxiv_org",
+        "template": "https://arxiv.org/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "stcn.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 43,
+        "target_id": "demo_proj_43_stcn_com",
+        "template": "https://stcn.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "slashgear.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 49,
+        "target_id": "demo_proj_49_slashgear_com",
+        "template": "https://slashgear.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "arstechnica.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 59,
+        "target_id": "demo_proj_59_arstechnica_com",
+        "template": "https://arstechnica.com/search?q={{q}}"
+      },
+      {
+        "category": "platform_api_required",
+        "domain": "linkedin.com",
+        "enabled": false,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+        "site_entry_id": 62,
+        "target_id": "demo_proj_62_linkedin_com",
+        "template": "https://linkedin.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "laptopmag.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 66,
+        "target_id": "demo_proj_66_laptopmag_com",
+        "template": "https://laptopmag.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "theverge.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 70,
+        "target_id": "demo_proj_70_theverge_com",
+        "template": "https://theverge.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "howtogeek.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 75,
+        "target_id": "demo_proj_75_howtogeek_com",
+        "template": "https://howtogeek.com/search/?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "cosmopolitan.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 79,
+        "target_id": "demo_proj_79_cosmopolitan_com",
+        "template": "https://cosmopolitan.com/search?q={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "moorinsightsstrategy.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 83,
+        "target_id": "demo_proj_83_moorinsightsstrategy_com",
+        "template": "https://moorinsightsstrategy.com/find?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "androidpolice.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 93,
+        "target_id": "demo_proj_93_androidpolice_com",
+        "template": "https://androidpolice.com/search/?q={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "supernote.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 99,
+        "target_id": "demo_proj_99_supernote_com",
+        "template": "https://supernote.com/search?q={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "gizmodo.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 106,
+        "target_id": "demo_proj_106_gizmodo_com",
+        "template": "https://gizmodo.com/search?q={{q}}"
+      },
+      {
+        "category": "platform_api_required",
+        "domain": "reddit.com",
+        "enabled": false,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+        "site_entry_id": 110,
+        "target_id": "demo_proj_110_reddit_com",
+        "template": "https://reddit.com/search?q={{q}}"
+      },
+      {
+        "category": "platform_api_required",
+        "domain": "youtube.com",
+        "enabled": false,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+        "site_entry_id": 113,
+        "target_id": "demo_proj_113_youtube_com",
+        "template": "https://youtube.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "cybernews.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 116,
+        "target_id": "demo_proj_116_cybernews_com",
+        "template": "https://cybernews.com/search?q={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "thequalityedit.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 119,
+        "target_id": "demo_proj_119_thequalityedit_com",
+        "template": "https://thequalityedit.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "dcrainmaker.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 123,
+        "target_id": "demo_proj_123_dcrainmaker_com",
+        "template": "https://dcrainmaker.com/search?q={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "serverman.co.uk",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 130,
+        "target_id": "demo_proj_130_serverman_co_uk",
+        "template": "https://www.serverman.co.uk/?s={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "news.google.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 148,
+        "target_id": "demo_proj_148_news_google_com",
+        "template": "https://news.google.com/search?q={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "actiontoaction.ai",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 150,
+        "target_id": "demo_proj_150_actiontoaction_ai",
+        "template": "https://actiontoaction.ai/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "github.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 152,
+        "target_id": "demo_proj_152_github_com",
+        "template": "https://github.com/search?q={{q}}"
+      },
+      {
+        "category": "platform_api_required",
+        "domain": "x.com",
+        "enabled": false,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+        "site_entry_id": 154,
+        "target_id": "demo_proj_154_x_com",
+        "template": "https://x.com/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "arxiv.org",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 156,
+        "target_id": "demo_proj_156_arxiv_org",
+        "template": "https://arxiv.org/search?q={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "hai.stanford.edu",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 159,
+        "target_id": "demo_proj_159_hai_stanford_edu",
+        "template": "https://hai.stanford.edu/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "stcn.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 163,
+        "target_id": "demo_proj_163_stcn_com",
+        "template": "https://stcn.com/search?q={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "iyiou.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 166,
+        "target_id": "demo_proj_166_iyiou_com",
+        "template": "https://iyiou.com/search?q={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "news.cn",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 168,
+        "target_id": "demo_proj_168_news_cn",
+        "template": "http://news.cn/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "docs.github.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 170,
+        "target_id": "demo_proj_170_docs_github_com",
+        "template": "https://docs.github.com/search?query={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "developer.mozilla.org",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 171,
+        "target_id": "demo_proj_171_developer_mozilla_org",
+        "template": "https://developer.mozilla.org/en-US/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "docs.anthropic.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 172,
+        "target_id": "demo_proj_172_docs_anthropic_com",
+        "template": "https://docs.anthropic.com/en/search?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "cloud.google.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 173,
+        "target_id": "demo_proj_173_cloud_google_com",
+        "template": "https://cloud.google.com/search?query={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "help.openai.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 174,
+        "target_id": "demo_proj_174_help_openai_com",
+        "template": "https://help.openai.com/en/?q={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "venturebeat.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 175,
+        "target_id": "demo_proj_175_venturebeat_com",
+        "template": "https://venturebeat.com/?s={{q}}"
+      },
+      {
+        "category": "parser_enhance",
+        "domain": "www.pymnts.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 176,
+        "target_id": "demo_proj_176_www_pymnts_com",
+        "template": "https://www.pymnts.com/?s={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "www.finextra.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 177,
+        "target_id": "demo_proj_177_www_finextra_com",
+        "template": "https://www.finextra.com/searcharticle.aspx?search={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "commercialobserver.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 178,
+        "target_id": "demo_proj_178_commercialobserver_com",
+        "template": "https://commercialobserver.com/?s={{q}}"
+      },
+      {
+        "category": "historical_search_template",
+        "domain": "www.investopedia.com",
+        "enabled": true,
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+        "site_entry_id": 179,
+        "target_id": "demo_proj_179_www_investopedia_com",
+        "template": "https://www.investopedia.com/search?q={{q}}"
+      }
+    ]
+  },
+  "mode": {
+    "allow_public_network": false,
+    "public_network_env": "",
+    "skip_safe": true
+  },
+  "outputs": {
+    "blocker_type_counts": {
+      "operator_gate": 45
+    },
+    "blockers_by_target": [
+      {
+        "blocker_type": "operator_gate",
+        "domain": "news.google.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_33_news_google_com",
+        "template": "https://news.google.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "actiontoaction.ai",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_34_actiontoaction_ai",
+        "template": "https://actiontoaction.ai/search/search?query={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "hai.stanford.edu",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_35_hai_stanford_edu",
+        "template": "https://hai.stanford.edu/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "iyiou.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_37_iyiou_com",
+        "template": "https://iyiou.com/search/?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "news.cn",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_38_news_cn",
+        "template": "http://news.cn/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "x.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_39_x_com",
+        "template": "https://x.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "github.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_40_github_com",
+        "template": "https://github.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "arxiv.org",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_41_arxiv_org",
+        "template": "https://arxiv.org/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "stcn.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_43_stcn_com",
+        "template": "https://stcn.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "slashgear.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_49_slashgear_com",
+        "template": "https://slashgear.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "arstechnica.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_59_arstechnica_com",
+        "template": "https://arstechnica.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "linkedin.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_62_linkedin_com",
+        "template": "https://linkedin.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "laptopmag.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_66_laptopmag_com",
+        "template": "https://laptopmag.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "theverge.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_70_theverge_com",
+        "template": "https://theverge.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "howtogeek.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_75_howtogeek_com",
+        "template": "https://howtogeek.com/search/?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "cosmopolitan.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_79_cosmopolitan_com",
+        "template": "https://cosmopolitan.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "moorinsightsstrategy.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_83_moorinsightsstrategy_com",
+        "template": "https://moorinsightsstrategy.com/find?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "androidpolice.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_93_androidpolice_com",
+        "template": "https://androidpolice.com/search/?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "supernote.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_99_supernote_com",
+        "template": "https://supernote.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "gizmodo.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_106_gizmodo_com",
+        "template": "https://gizmodo.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "reddit.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_110_reddit_com",
+        "template": "https://reddit.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "youtube.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_113_youtube_com",
+        "template": "https://youtube.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "cybernews.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_116_cybernews_com",
+        "template": "https://cybernews.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "thequalityedit.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_119_thequalityedit_com",
+        "template": "https://thequalityedit.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "dcrainmaker.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_123_dcrainmaker_com",
+        "template": "https://dcrainmaker.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "serverman.co.uk",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_130_serverman_co_uk",
+        "template": "https://www.serverman.co.uk/?s={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "news.google.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_148_news_google_com",
+        "template": "https://news.google.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "actiontoaction.ai",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_150_actiontoaction_ai",
+        "template": "https://actiontoaction.ai/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "github.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_152_github_com",
+        "template": "https://github.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "x.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_154_x_com",
+        "template": "https://x.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "arxiv.org",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_156_arxiv_org",
+        "template": "https://arxiv.org/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "hai.stanford.edu",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_159_hai_stanford_edu",
+        "template": "https://hai.stanford.edu/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "stcn.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_163_stcn_com",
+        "template": "https://stcn.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "iyiou.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_166_iyiou_com",
+        "template": "https://iyiou.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "news.cn",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_168_news_cn",
+        "template": "http://news.cn/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "docs.github.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_170_docs_github_com",
+        "template": "https://docs.github.com/search?query={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "developer.mozilla.org",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_171_developer_mozilla_org",
+        "template": "https://developer.mozilla.org/en-US/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "docs.anthropic.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_172_docs_anthropic_com",
+        "template": "https://docs.anthropic.com/en/search?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "cloud.google.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_173_cloud_google_com",
+        "template": "https://cloud.google.com/search?query={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "help.openai.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_174_help_openai_com",
+        "template": "https://help.openai.com/en/?q={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "venturebeat.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_175_venturebeat_com",
+        "template": "https://venturebeat.com/?s={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "www.pymnts.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_176_www_pymnts_com",
+        "template": "https://www.pymnts.com/?s={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "www.finextra.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_177_www_finextra_com",
+        "template": "https://www.finextra.com/searcharticle.aspx?search={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "commercialobserver.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_178_commercialobserver_com",
+        "template": "https://commercialobserver.com/?s={{q}}"
+      },
+      {
+        "blocker_type": "operator_gate",
+        "domain": "www.investopedia.com",
+        "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+        "status": "skipped_public_network_disabled",
+        "target_id": "demo_proj_179_www_investopedia_com",
+        "template": "https://www.investopedia.com/search?q={{q}}"
+      }
+    ],
+    "candidate_ready_targets": [],
+    "public_targets_attempted": 0,
+    "status_counts": {
+      "skipped_public_network_disabled": 45
+    },
+    "target_results": [
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "news.google.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "news.google.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 33,
+          "target_id": "demo_proj_33_news_google_com",
+          "template": "https://news.google.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "actiontoaction.ai",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "actiontoaction.ai",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 34,
+          "target_id": "demo_proj_34_actiontoaction_ai",
+          "template": "https://actiontoaction.ai/search/search?query={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "hai.stanford.edu",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "hai.stanford.edu",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 35,
+          "target_id": "demo_proj_35_hai_stanford_edu",
+          "template": "https://hai.stanford.edu/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "iyiou.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "iyiou.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 37,
+          "target_id": "demo_proj_37_iyiou_com",
+          "template": "https://iyiou.com/search/?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "news.cn",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "news.cn",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 38,
+          "target_id": "demo_proj_38_news_cn",
+          "template": "http://news.cn/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "x.com",
+        "target": {
+          "category": "platform_api_required",
+          "domain": "x.com",
+          "enabled": false,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+          "site_entry_id": 39,
+          "target_id": "demo_proj_39_x_com",
+          "template": "https://x.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "github.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "github.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 40,
+          "target_id": "demo_proj_40_github_com",
+          "template": "https://github.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "arxiv.org",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "arxiv.org",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 41,
+          "target_id": "demo_proj_41_arxiv_org",
+          "template": "https://arxiv.org/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "stcn.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "stcn.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 43,
+          "target_id": "demo_proj_43_stcn_com",
+          "template": "https://stcn.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "slashgear.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "slashgear.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 49,
+          "target_id": "demo_proj_49_slashgear_com",
+          "template": "https://slashgear.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "arstechnica.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "arstechnica.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 59,
+          "target_id": "demo_proj_59_arstechnica_com",
+          "template": "https://arstechnica.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "linkedin.com",
+        "target": {
+          "category": "platform_api_required",
+          "domain": "linkedin.com",
+          "enabled": false,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+          "site_entry_id": 62,
+          "target_id": "demo_proj_62_linkedin_com",
+          "template": "https://linkedin.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "laptopmag.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "laptopmag.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 66,
+          "target_id": "demo_proj_66_laptopmag_com",
+          "template": "https://laptopmag.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "theverge.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "theverge.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 70,
+          "target_id": "demo_proj_70_theverge_com",
+          "template": "https://theverge.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "howtogeek.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "howtogeek.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 75,
+          "target_id": "demo_proj_75_howtogeek_com",
+          "template": "https://howtogeek.com/search/?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "cosmopolitan.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "cosmopolitan.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 79,
+          "target_id": "demo_proj_79_cosmopolitan_com",
+          "template": "https://cosmopolitan.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "moorinsightsstrategy.com",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "moorinsightsstrategy.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 83,
+          "target_id": "demo_proj_83_moorinsightsstrategy_com",
+          "template": "https://moorinsightsstrategy.com/find?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "androidpolice.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "androidpolice.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 93,
+          "target_id": "demo_proj_93_androidpolice_com",
+          "template": "https://androidpolice.com/search/?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "supernote.com",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "supernote.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 99,
+          "target_id": "demo_proj_99_supernote_com",
+          "template": "https://supernote.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "gizmodo.com",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "gizmodo.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 106,
+          "target_id": "demo_proj_106_gizmodo_com",
+          "template": "https://gizmodo.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "reddit.com",
+        "target": {
+          "category": "platform_api_required",
+          "domain": "reddit.com",
+          "enabled": false,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+          "site_entry_id": 110,
+          "target_id": "demo_proj_110_reddit_com",
+          "template": "https://reddit.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "youtube.com",
+        "target": {
+          "category": "platform_api_required",
+          "domain": "youtube.com",
+          "enabled": false,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+          "site_entry_id": 113,
+          "target_id": "demo_proj_113_youtube_com",
+          "template": "https://youtube.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "cybernews.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "cybernews.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 116,
+          "target_id": "demo_proj_116_cybernews_com",
+          "template": "https://cybernews.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "thequalityedit.com",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "thequalityedit.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 119,
+          "target_id": "demo_proj_119_thequalityedit_com",
+          "template": "https://thequalityedit.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "dcrainmaker.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "dcrainmaker.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 123,
+          "target_id": "demo_proj_123_dcrainmaker_com",
+          "template": "https://dcrainmaker.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "serverman.co.uk",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "serverman.co.uk",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 130,
+          "target_id": "demo_proj_130_serverman_co_uk",
+          "template": "https://www.serverman.co.uk/?s={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "news.google.com",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "news.google.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 148,
+          "target_id": "demo_proj_148_news_google_com",
+          "template": "https://news.google.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "actiontoaction.ai",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "actiontoaction.ai",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 150,
+          "target_id": "demo_proj_150_actiontoaction_ai",
+          "template": "https://actiontoaction.ai/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "github.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "github.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 152,
+          "target_id": "demo_proj_152_github_com",
+          "template": "https://github.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "x.com",
+        "target": {
+          "category": "platform_api_required",
+          "domain": "x.com",
+          "enabled": false,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+          "site_entry_id": 154,
+          "target_id": "demo_proj_154_x_com",
+          "template": "https://x.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "arxiv.org",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "arxiv.org",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 156,
+          "target_id": "demo_proj_156_arxiv_org",
+          "template": "https://arxiv.org/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "hai.stanford.edu",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "hai.stanford.edu",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 159,
+          "target_id": "demo_proj_159_hai_stanford_edu",
+          "template": "https://hai.stanford.edu/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "stcn.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "stcn.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 163,
+          "target_id": "demo_proj_163_stcn_com",
+          "template": "https://stcn.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "iyiou.com",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "iyiou.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 166,
+          "target_id": "demo_proj_166_iyiou_com",
+          "template": "https://iyiou.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "news.cn",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "news.cn",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 168,
+          "target_id": "demo_proj_168_news_cn",
+          "template": "http://news.cn/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "docs.github.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "docs.github.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 170,
+          "target_id": "demo_proj_170_docs_github_com",
+          "template": "https://docs.github.com/search?query={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "developer.mozilla.org",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "developer.mozilla.org",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 171,
+          "target_id": "demo_proj_171_developer_mozilla_org",
+          "template": "https://developer.mozilla.org/en-US/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "docs.anthropic.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "docs.anthropic.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 172,
+          "target_id": "demo_proj_172_docs_anthropic_com",
+          "template": "https://docs.anthropic.com/en/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "cloud.google.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "cloud.google.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 173,
+          "target_id": "demo_proj_173_cloud_google_com",
+          "template": "https://cloud.google.com/search?query={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "help.openai.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "help.openai.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 174,
+          "target_id": "demo_proj_174_help_openai_com",
+          "template": "https://help.openai.com/en/?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "venturebeat.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "venturebeat.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 175,
+          "target_id": "demo_proj_175_venturebeat_com",
+          "template": "https://venturebeat.com/?s={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "www.pymnts.com",
+        "target": {
+          "category": "parser_enhance",
+          "domain": "www.pymnts.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 176,
+          "target_id": "demo_proj_176_www_pymnts_com",
+          "template": "https://www.pymnts.com/?s={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "www.finextra.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "www.finextra.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 177,
+          "target_id": "demo_proj_177_www_finextra_com",
+          "template": "https://www.finextra.com/searcharticle.aspx?search={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "commercialobserver.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "commercialobserver.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 178,
+          "target_id": "demo_proj_178_commercialobserver_com",
+          "template": "https://commercialobserver.com/?s={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "operator_gate",
+          "reason": "Set --allow-public-network or SOURCE_LIBRARY_ALLOW_PUBLIC_REPLAY=1 to run the public 45-site replay.",
+          "status": "skipped_public_network_disabled"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "www.investopedia.com",
+        "target": {
+          "category": "historical_search_template",
+          "domain": "www.investopedia.com",
+          "enabled": true,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "site_entry_id": 179,
+          "target_id": "demo_proj_179_www_investopedia_com",
+          "template": "https://www.investopedia.com/search?q={{q}}"
+        }
+      }
+    ],
+    "term_fallback_relevance_review": []
+  },
+  "probe_id": "source_library_replay_scaleout_2026_05_22",
+  "started_at": "2026-05-22T05:16:01Z",
+  "validation": {
+    "errors": [],
+    "full_historical_manifest": true,
+    "live_evidence_sufficient": false,
+    "passed": true,
+    "skipped": true,
+    "warnings": [
+      "public replay is environment-dependent and must not be required by CI",
+      "term-fallback targets require relevance review before closure"
+    ]
+  }
+}

@@ -8,7 +8,7 @@
 - `AT-AC-04`: completed, `unified_search` capability gate relaxed to stop excluding valid `filter` entries.
 - `AT-AC-05`: phase-1 implementation boundary refined to “extract shared search_template service first”.
 - `AT-AC-05/07/08`: 2026-05-22 lane-7 minimum assertion slice landed; see `09_lane7-capability-fallback-assertions-2026-05-22.md`.
-- `AT-AC-06/10`: partially advanced on 2026-05-22 by deterministic local fixture and Wave3 public live probe evidence. Full closure still requires either expanding the public replay beyond the selected four-target set or replaying the full historical `demo_proj` site-entry set in a controlled environment.
+- `AT-AC-06/10`: partially advanced on 2026-05-22 by deterministic local fixture, Wave3 public live probe evidence, and Wave4 full historical 45-site replay manifest/gate. Full closure still requires an opt-in public 45-site run in a controlled environment.
 
 ## Serial-Parallel Rules
 
@@ -230,6 +230,10 @@
 - Output:
   - updated per-site success/error/timeout list
   - shortlist of sites to disable or downgrade
+- 2026-05-22 Wave4 status:
+  - Full historical 45-site manifest and skip-safe gate added.
+  - Default run is no-network and produced `status_counts={"skipped_public_network_disabled": 45}`.
+  - Public dirty-source closure remains pending until `--allow-public-network` is run in a controlled environment.
 - Acceptance:
   - “dirty source” list is produced only after adapter capability repair is verified
   - report distinguishes:
