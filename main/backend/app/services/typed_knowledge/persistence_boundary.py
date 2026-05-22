@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Final, Mapping
 
@@ -12,6 +13,7 @@ from . import contracts
 PERSISTENCE_API_BOUNDARY_CONTRACT_VERSION: Final[str] = "typed_knowledge.persistence_api_boundary.v1"
 PERSISTENCE_WRITE_RESULT_CONTRACT_VERSION: Final[str] = "typed_knowledge.persistence_write_result.v1"
 PUBLIC_API_ROUTE_CONTRACT_VERSION: Final[str] = "typed_knowledge.public_api_route_contract.v1"
+DURABLE_REPOSITORY_READBACK_CONTRACT_VERSION: Final[str] = "typed_knowledge.durable_repository_readback.v1"
 PUBLIC_API_ROUTE_PATH: Final[str] = "/api/v1/typed-knowledge/persistence-boundary"
 DEFAULT_REPOSITORY_REF: Final[str] = "memory://typed-knowledge/persistence-api-boundary"
 DEFAULT_LOGICAL_TABLE: Final[str] = "typed_knowledge_objects"
@@ -64,6 +66,10 @@ PERSISTENCE_API_BOUNDARY_CLOSED_SLICE: Final[tuple[str, ...]] = (
     "in_memory_repository_readback",
     "status_data_error_meta_api_envelope",
     "writing_handoff_reference_preservation",
+)
+ALLOWED_CONTRACT_PERSISTENCE_MODES: Final[tuple[str, ...]] = (
+    "in_memory_contract",
+    "jsonl_durable_contract",
 )
 PERSISTENCE_API_BOUNDARY_REMAINING_LIVE_GAPS: Final[tuple[str, ...]] = (
     "live_db_persistence_not_implemented",
@@ -140,6 +146,7 @@ class InMemoryTypedKnowledgeRepository:
     ) -> None:
         self.repository_ref = str(repository_ref or "").strip() or DEFAULT_REPOSITORY_REF
         self.logical_table = str(logical_table or "").strip() or DEFAULT_LOGICAL_TABLE
+        self.persistence_mode = "in_memory_contract"
         self._records: dict[str, PersistenceBoundaryRecord] = {}
         self._writes: list[PersistenceWriteResult] = []
 
@@ -185,6 +192,56 @@ class InMemoryTypedKnowledgeRepository:
 
     def list_writes(self) -> tuple[PersistenceWriteResult, ...]:
         return tuple(self._writes)
+
+
+class JsonlTypedKnowledgeRepository(InMemoryTypedKnowledgeRepository):
+    """Small durable repository for readback contracts without claiming live DB writes."""
+
+    def __init__(
+        self,
+        *,
+        storage_dir: str | Path,
+        repository_ref: str | None = None,
+        logical_table: str = DEFAULT_LOGICAL_TABLE,
+    ) -> None:
+        self.storage_dir = Path(storage_dir)
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+        super().__init__(
+            repository_ref=repository_ref or f"jsonl://{self.storage_dir.as_posix()}",
+            logical_table=logical_table,
+        )
+        self.persistence_mode = "jsonl_durable_contract"
+        self._records_path = self.storage_dir / "typed_knowledge_records.jsonl"
+        self._writes_path = self.storage_dir / "typed_knowledge_writes.jsonl"
+        self._load()
+
+    def _load(self) -> None:
+        self._records = {}
+        self._writes = []
+        for row in _read_jsonl(self._records_path):
+            record = deserialize_persistence_boundary_record(row)
+            self._records[record.identity_ref] = record
+        for row in _read_jsonl(self._writes_path):
+            self._writes.append(deserialize_persistence_write_result(row))
+
+    def reopen(self) -> "JsonlTypedKnowledgeRepository":
+        return JsonlTypedKnowledgeRepository(
+            storage_dir=self.storage_dir,
+            repository_ref=self.repository_ref,
+            logical_table=self.logical_table,
+        )
+
+    def upsert_record(
+        self,
+        record: PersistenceBoundaryRecord,
+        *,
+        write_time: str | None = None,
+        operation: str = "upsert",
+    ) -> PersistenceWriteResult:
+        result = super().upsert_record(record, write_time=write_time, operation=operation)
+        _append_jsonl(self._records_path, serialize_persistence_boundary_record(record))
+        _append_jsonl(self._writes_path, serialize_persistence_write_result(result))
+        return result
 
 
 def build_writing_handoff_ref(handoff: contracts.WritingKnowledgeHandoff) -> WritingHandoffRef:
@@ -295,7 +352,7 @@ def build_persistence_api_envelope(
             "repository": {
                 "repository_ref": repository.repository_ref,
                 "logical_table": repository.logical_table,
-                "persistence_mode": "in_memory_contract",
+                "persistence_mode": getattr(repository, "persistence_mode", "in_memory_contract"),
                 "live_db_write": False,
             },
             "records": record_payloads,
@@ -368,7 +425,10 @@ def validate_persistence_api_envelope(envelope: Mapping[str, Any]) -> None:
     repository = data.get("repository")
     if not isinstance(repository, Mapping):
         raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_missing_repository")
-    if repository.get("persistence_mode") != "in_memory_contract" or repository.get("live_db_write") is not False:
+    if (
+        repository.get("persistence_mode") not in ALLOWED_CONTRACT_PERSISTENCE_MODES
+        or repository.get("live_db_write") is not False
+    ):
         raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_db_claim_forbidden")
     readiness = meta.get("readiness")
     if not isinstance(readiness, Mapping):
@@ -441,6 +501,62 @@ def serialize_persistence_write_result(result: PersistenceWriteResult) -> dict[s
         "payload_ref": result.payload_ref,
         "live_db_write": result.live_db_write,
     }
+
+
+def deserialize_persistence_boundary_record(payload: Mapping[str, Any]) -> PersistenceBoundaryRecord:
+    refs_payload = payload.get("writing_handoff_refs") or ()
+    refs = tuple(
+        WritingHandoffRef(
+            contract_version=str(ref.get("contract_version") or ""),
+            knowledge_item_key=str(ref.get("knowledge_item_key") or ""),
+            consumer=str(ref.get("consumer") or ""),
+            card_source_type=str(ref.get("card_source_type") or ""),
+            selection_hash=ref.get("selection_hash"),
+            selection_text=ref.get("selection_text"),
+        )
+        for ref in refs_payload
+        if isinstance(ref, Mapping)
+    )
+    record = PersistenceBoundaryRecord(
+        contract_version=str(payload.get("contract_version") or ""),
+        object_type=str(payload.get("object_type") or ""),
+        object_key=str(payload.get("object_key") or ""),
+        project_key=str(payload.get("project_key") or ""),
+        identity_ref=str(payload.get("identity_ref") or ""),
+        visibility_scope=str(payload.get("visibility_scope") or ""),
+        lifecycle_state=str(payload.get("lifecycle_state") or ""),
+        governance=MappingProxyType(dict(payload.get("governance") or {})),
+        writing_handoff_refs=refs,
+        payload=MappingProxyType(dict(payload.get("payload") or {})),
+        updated_at=payload.get("updated_at"),
+    )
+    validate_persistence_boundary_record(record)
+    return record
+
+
+def deserialize_persistence_write_result(payload: Mapping[str, Any]) -> PersistenceWriteResult:
+    result = PersistenceWriteResult(
+        contract_version=str(payload.get("contract_version") or ""),
+        repository_ref=str(payload.get("repository_ref") or ""),
+        logical_table=str(payload.get("logical_table") or ""),
+        operation=str(payload.get("operation") or ""),
+        identity_ref=str(payload.get("identity_ref") or ""),
+        object_type=str(payload.get("object_type") or ""),
+        object_key=str(payload.get("object_key") or ""),
+        status_before=payload.get("status_before"),
+        status_after=str(payload.get("status_after") or ""),
+        visibility_scope=str(payload.get("visibility_scope") or ""),
+        write_time=str(payload.get("write_time") or ""),
+        payload_ref=str(payload.get("payload_ref") or ""),
+        live_db_write=bool(payload.get("live_db_write")),
+    )
+    if result.contract_version != PERSISTENCE_WRITE_RESULT_CONTRACT_VERSION:
+        raise TypedKnowledgePersistenceBoundaryError("persistence_write_result_contract_version_mismatch")
+    if result.live_db_write:
+        raise TypedKnowledgePersistenceBoundaryError("persistence_write_result_live_db_claim_forbidden")
+    if result.status_after not in ALLOWED_LIFECYCLE_STATES:
+        raise TypedKnowledgePersistenceBoundaryError("persistence_write_result_invalid_status_after")
+    return result
 
 
 def build_sample_boundary_envelope(*, project_key: str = "demo_proj") -> dict[str, Any]:
@@ -531,6 +647,69 @@ def build_public_api_route_contract_envelope(*, project_key: str = "demo_proj") 
     }
     validate_public_api_route_contract_envelope(envelope)
     return envelope
+
+
+def check_durable_repository_readback_contract(
+    *,
+    repository: JsonlTypedKnowledgeRepository,
+    project_key: str = "demo_proj",
+) -> dict[str, Any]:
+    """Validate JSONL reopen/readback without claiming live DB/API/UI closure."""
+
+    envelope = build_sample_boundary_envelope(project_key=project_key)
+    sample_records = tuple(deserialize_persistence_boundary_record(record) for record in envelope["data"]["records"])
+    writes = tuple(
+        repository.upsert_record(record, write_time="2026-05-22T00:00:00Z")
+        for record in sample_records
+    )
+    reopened = repository.reopen()
+    readback_envelope = build_persistence_api_envelope(repository=reopened, project_key=project_key, writes=writes)
+    readback_records = readback_envelope["data"]["records"]
+    sample_identity_refs = sorted(record.identity_ref for record in sample_records)
+    readback_identity_refs = sorted(record["identity_ref"] for record in readback_records)
+    write_identity_refs = sorted(write.identity_ref for write in reopened.list_writes())
+    blockers: list[str] = []
+
+    if readback_identity_refs != sample_identity_refs:
+        blockers.append("durable_repository_identity_readback_mismatch")
+    if not set(sample_identity_refs).issubset(set(write_identity_refs)):
+        blockers.append("durable_repository_write_readback_mismatch")
+    if readback_envelope["data"]["repository"]["persistence_mode"] != "jsonl_durable_contract":
+        blockers.append("durable_repository_persistence_mode_mismatch")
+    if any(write["live_db_write"] for write in readback_envelope["data"]["writes"]):
+        blockers.append("durable_repository_must_not_claim_live_db_write")
+    if readback_envelope["meta"]["readiness"]["live_db_persistence"] is not False:
+        blockers.append("durable_repository_must_keep_live_db_gap_open")
+
+    result = {
+        "contract_version": DURABLE_REPOSITORY_READBACK_CONTRACT_VERSION,
+        "status": "fail" if blockers else "pass",
+        "blockers": blockers,
+        "closed_slice": [
+            "jsonl_repository_write_readback",
+            "typed_knowledge_object_reopen_readback",
+            "write_result_reopen_readback",
+            "status_data_error_meta_envelope_preserved",
+        ],
+        "repository_ref": reopened.repository_ref,
+        "logical_table": reopened.logical_table,
+        "storage_kind": "jsonl",
+        "durable_readback": not blockers,
+        "live_db_write": False,
+        "live_db_persistence": False,
+        "public_api_route": True,
+        "governance_ui": False,
+        "readback_identity_refs": readback_identity_refs,
+        "write_identity_refs": write_identity_refs,
+        "readback_fingerprint": boundary_fingerprint(readback_envelope),
+        "remaining_live_gaps": [
+            "live_db_persistence_not_implemented",
+            "live_db_backed_typed_knowledge_readback_not_verified",
+            "governance_ui_not_implemented",
+            "migration_and_backfill_not_executed",
+        ],
+    }
+    return result
 
 
 def validate_public_api_route_contract_envelope(envelope: Mapping[str, Any]) -> None:
@@ -678,6 +857,36 @@ def _normalize_write_time(write_time: str | None, updated_at: str | None) -> str
     if normalized:
         return normalized
     return "contract-time://typed-knowledge-persistence-api-boundary"
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                payload = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise TypedKnowledgePersistenceBoundaryError(
+                    f"typed_knowledge_jsonl_invalid_json:{path}:{line_number}"
+                ) from exc
+            if not isinstance(payload, dict):
+                raise TypedKnowledgePersistenceBoundaryError(
+                    f"typed_knowledge_jsonl_row_not_mapping:{path}:{line_number}"
+                )
+            rows.append(payload)
+    return rows
+
+
+def _append_jsonl(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(_json_safe(payload), ensure_ascii=False, sort_keys=True))
+        handle.write("\n")
 
 
 def _json_safe(value: Any) -> Any:
