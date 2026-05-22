@@ -3,6 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+LOCAL_INDEX_QUERY_MODES = {"keyword", "vector", "hybrid"}
+
+
+def normalize_local_index_mode(mode: str | None) -> str:
+    normalized = str(mode or "keyword").strip().lower()
+    return normalized if normalized in LOCAL_INDEX_QUERY_MODES else "keyword"
+
 
 LOCAL_INDEX_QUERY_MODES = {"keyword", "vector", "hybrid"}
 

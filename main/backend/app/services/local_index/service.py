@@ -32,6 +32,5 @@ class LocalIndexService:
     def search(self, query: LocalIndexQuery) -> list[LocalIndexSearchResult]:
         if not query.query.strip() or not query.project_id.strip():
             return []
-        normalized_mode = normalize_local_index_mode(query.mode)
-        normalized_query = query if query.mode == normalized_mode else replace(query, mode=normalized_mode)
+        normalized_query = replace(query, mode=normalize_local_index_mode(query.mode))
         return self._adapter.search(normalized_query)
