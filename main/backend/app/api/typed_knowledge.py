@@ -25,6 +25,7 @@ class TypedKnowledgeRouteContractData(BaseModel):
     route: TypedKnowledgeRouteInfo
     persistence_boundary: dict[str, Any]
     persistence_boundary_meta: dict[str, Any]
+    persisted_card_request_response_readback: dict[str, Any]
     boundary_fingerprint: str
 
 
@@ -32,7 +33,10 @@ class TypedKnowledgeRouteReadiness(BaseModel):
     public_api_route: bool
     api_contract: bool
     repository_contract: bool
+    persisted_card_request_response_readback: bool
     live_db_persistence: bool
+    live_api_closure: bool
+    live_ui_closure: bool
     governance_ui: bool
 
 

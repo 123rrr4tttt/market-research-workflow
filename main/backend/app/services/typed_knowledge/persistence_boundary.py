@@ -14,7 +14,11 @@ PERSISTENCE_API_BOUNDARY_CONTRACT_VERSION: Final[str] = "typed_knowledge.persist
 PERSISTENCE_WRITE_RESULT_CONTRACT_VERSION: Final[str] = "typed_knowledge.persistence_write_result.v1"
 PUBLIC_API_ROUTE_CONTRACT_VERSION: Final[str] = "typed_knowledge.public_api_route_contract.v1"
 DURABLE_REPOSITORY_READBACK_CONTRACT_VERSION: Final[str] = "typed_knowledge.durable_repository_readback.v1"
+PERSISTED_CARD_REQUEST_RESPONSE_READBACK_CONTRACT_VERSION: Final[str] = (
+    "typed_knowledge.persisted_card_request_response_readback.v1"
+)
 PUBLIC_API_ROUTE_PATH: Final[str] = "/api/v1/typed-knowledge/persistence-boundary"
+WRITING_KEYWORD_CARD_ROUTE_PATH: Final[str] = "/api/v1/writing/keyword-cards"
 DEFAULT_REPOSITORY_REF: Final[str] = "memory://typed-knowledge/persistence-api-boundary"
 DEFAULT_LOGICAL_TABLE: Final[str] = "typed_knowledge_objects"
 
@@ -80,6 +84,7 @@ PERSISTENCE_API_BOUNDARY_REMAINING_LIVE_GAPS: Final[tuple[str, ...]] = (
 PUBLIC_API_ROUTE_CLOSED_SLICE: Final[tuple[str, ...]] = (
     "typed_knowledge_public_api_route_contract",
     "persistence_boundary_envelope_readback",
+    "persisted_card_request_response_readback",
     "status_data_error_meta_route_envelope",
     "live_db_overclaim_guard",
 )
@@ -88,6 +93,21 @@ PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS: Final[tuple[str, ...]] = (
     "governance_ui_not_implemented",
     "migration_and_backfill_not_executed",
     "live_db_backed_typed_knowledge_readback_not_verified",
+)
+PERSISTED_CARD_READBACK_CLOSED_SLICE: Final[tuple[str, ...]] = (
+    "typed_knowledge_api_boundary_persisted_context",
+    "persisted_document_metadata_request_payload",
+    "writing_keyword_card_request_shape",
+    "typed_knowledge_resource_card_response_shape",
+    "live_db_api_ui_overclaim_guard",
+)
+PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS: Final[tuple[str, ...]] = (
+    "live_db_persistence_not_implemented",
+    "live_db_backed_typed_knowledge_readback_not_verified",
+    "live_api_request_response_closure_not_verified",
+    "live_browser_ui_readback_not_verified",
+    "governance_ui_not_implemented",
+    "migration_and_backfill_not_executed",
 )
 
 
@@ -614,6 +634,10 @@ def build_sample_boundary_envelope(*, project_key: str = "demo_proj") -> dict[st
 
 def build_public_api_route_contract_envelope(*, project_key: str = "demo_proj") -> dict[str, Any]:
     boundary_envelope = build_sample_boundary_envelope(project_key=project_key)
+    persisted_card_readback = build_persisted_card_request_response_readback(
+        project_key=project_key,
+        boundary_envelope=boundary_envelope,
+    )
     envelope = {
         "status": "ok",
         "data": {
@@ -628,6 +652,7 @@ def build_public_api_route_contract_envelope(*, project_key: str = "demo_proj") 
             },
             "persistence_boundary": boundary_envelope["data"],
             "persistence_boundary_meta": boundary_envelope["meta"],
+            "persisted_card_request_response_readback": persisted_card_readback,
             "boundary_fingerprint": boundary_fingerprint(boundary_envelope),
         },
         "error": None,
@@ -638,7 +663,10 @@ def build_public_api_route_contract_envelope(*, project_key: str = "demo_proj") 
                 "public_api_route": True,
                 "api_contract": True,
                 "repository_contract": True,
+                "persisted_card_request_response_readback": True,
                 "live_db_persistence": False,
+                "live_api_closure": False,
+                "live_ui_closure": False,
                 "governance_ui": False,
             },
             "remaining_live_gaps": list(PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS),
@@ -647,6 +675,158 @@ def build_public_api_route_contract_envelope(*, project_key: str = "demo_proj") 
     }
     validate_public_api_route_contract_envelope(envelope)
     return envelope
+
+
+def build_persisted_card_request_response_readback(
+    *,
+    project_key: str = "demo_proj",
+    boundary_envelope: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a repo-local persisted-card request/response readback contract.
+
+    The returned payload mirrors the persisted Writing Workbench card request path
+    while staying inside deterministic typed-knowledge API boundary data.
+    """
+
+    normalized_project_key = str(project_key or "").strip() or "demo_proj"
+    source_envelope = boundary_envelope or build_sample_boundary_envelope(project_key=normalized_project_key)
+    validate_persistence_api_envelope(source_envelope)
+    handoff = _build_writing_handoff_from_boundary_envelope(source_envelope)
+    typed_context = contracts.build_writing_knowledge_context_envelope((handoff,))
+    query = handoff.selection_text or handoff.canonical_statement
+    normalized_query = _normalize_card_query(query)
+    card_url = f"typed-knowledge://{handoff.knowledge_item_key}"
+    card_id = _keyword_card_id(
+        source_type="resource",
+        title=handoff.canonical_statement,
+        url=card_url,
+        normalized_query=normalized_query,
+    )
+    persisted_document = {
+        "document_ref": f"repo-local://writing-workbench/{normalized_project_key}/wave19-typed-card",
+        "project_key": normalized_project_key,
+        "metadata_json": {
+            "typed_knowledge_context": typed_context,
+        },
+        "source": "typed_knowledge_api_boundary_fixture",
+        "live_db_document": False,
+    }
+    request_body = {
+        "project_key": normalized_project_key,
+        "query": query,
+        "selection_hash": handoff.selection_hash,
+        "limit": 10,
+        "sources": ["document", "resource", "graph"],
+        "context": {
+            "contract_version": "writing.context_boundary.e3.v1",
+            "typed_knowledge_context": typed_context,
+        },
+    }
+    response_body = {
+        "cards": [
+            {
+                "card_id": card_id,
+                "source_type": "resource",
+                "title": handoff.canonical_statement,
+                "snippet": handoff.canonical_statement,
+                "url": card_url,
+                "score": 0.78,
+                "publisher": "typed_knowledge",
+                "evidence": handoff.canonical_statement,
+                "relevance_tags": [normalized_query],
+                "credibility": 0.78,
+                "quick_actions": ["insert_quote", "insert_summary", "open_detail"],
+                "extra": {
+                    "handoff_source": "typed_knowledge",
+                    "typed_knowledge_contract_version": contracts.WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
+                    "knowledge_item_key": handoff.knowledge_item_key,
+                    "primary_type_node_key": handoff.primary_type_node_key,
+                    "topic_cluster_keys": list(handoff.topic_cluster_keys),
+                    "booklet_keys": list(handoff.booklet_keys),
+                    "review_state": handoff.review_state,
+                    "quality_grade": handoff.quality_grade,
+                    "locale": handoff.locale,
+                    "evidence_refs": list(handoff.evidence_refs),
+                    "visibility_scope": handoff.visibility_scope,
+                    "selection_hash": handoff.selection_hash,
+                    "selection_text": handoff.selection_text,
+                    "facets": _json_safe(handoff.facets),
+                    "handoff_payload": contracts.serialize_writing_knowledge_handoff(handoff),
+                },
+            }
+        ],
+        "selection_hash": _selection_hash(normalized_project_key, query),
+        "suggested_queries": [normalized_query],
+        "search_backends_used": [],
+        "source_count": {"document": 0, "resource": 1, "graph": 0},
+        "dedupe_count": 0,
+        "context_boundary": {
+            "contract_version": "writing.context_boundary.e3.v1",
+            "typed_knowledge_context_attached": True,
+            "typed_knowledge_context_count": 1,
+            "typed_knowledge_boundary_rule": "consume_typed_knowledge_handoff_as_resource_card_only",
+        },
+        "dependency_gate": {
+            "contract_version": "writing.cross_theme_gate.e8.v1",
+            "passed": True,
+            "typed_knowledge": {
+                "mode": "optional_consume_only",
+                "attached": True,
+                "consumer": "writing.keyword_card",
+                "card_source_type": "resource",
+            },
+        },
+        "cache_hit": False,
+    }
+    readback = {
+        "contract_version": PERSISTED_CARD_REQUEST_RESPONSE_READBACK_CONTRACT_VERSION,
+        "typed_knowledge_api_boundary": {
+            "route_path": PUBLIC_API_ROUTE_PATH,
+            "contract_version": PUBLIC_API_ROUTE_CONTRACT_VERSION,
+            "boundary_fingerprint": boundary_fingerprint(source_envelope),
+            "live_db_backed": False,
+        },
+        "persisted_document": persisted_document,
+        "keyword_card_request": {
+            "method": "POST",
+            "path": WRITING_KEYWORD_CARD_ROUTE_PATH,
+            "source": "persisted_writing_document_metadata",
+            "body": request_body,
+        },
+        "keyword_card_response": {
+            "response_contract": "KeywordCardListResponse",
+            "source": "repo_local_expected_response_shape",
+            "body": response_body,
+        },
+        "readback": {
+            "request_uses_persisted_metadata_json": True,
+            "typed_context_contract": contracts.WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION,
+            "handoff_contract": contracts.WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION,
+            "card_id": card_id,
+            "card_source_type": "resource",
+            "publisher": "typed_knowledge",
+            "knowledge_item_key": handoff.knowledge_item_key,
+            "selection_hash": handoff.selection_hash,
+            "request_response_readback": True,
+        },
+        "meta": {
+            "contract_readiness": "ready",
+            "closed_slice": list(PERSISTED_CARD_READBACK_CLOSED_SLICE),
+            "readiness": {
+                "repo_local_persisted_card_readback": True,
+                "typed_knowledge_api_boundary": True,
+                "writing_keyword_card_request_shape": True,
+                "live_db_persistence": False,
+                "live_api_closure": False,
+                "live_ui_closure": False,
+                "governance_ui": False,
+            },
+            "remaining_live_gaps": list(PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS),
+            "non_goal": "no_live_db_no_live_api_no_live_ui_closure",
+        },
+    }
+    validate_persisted_card_request_response_readback(readback)
+    return readback
 
 
 def check_durable_repository_readback_contract(
@@ -740,13 +920,22 @@ def validate_public_api_route_contract_envelope(envelope: Mapping[str, Any]) -> 
     records = persistence_boundary.get("records")
     if not isinstance(records, list) or not records:
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_records")
+    readback = data.get("persisted_card_request_response_readback")
+    if not isinstance(readback, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_persisted_card_readback")
+    validate_persisted_card_request_response_readback(readback)
 
     readiness = meta.get("readiness")
     if not isinstance(readiness, Mapping):
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_readiness")
     if readiness.get("public_api_route") is not True or readiness.get("api_contract") is not True:
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_contract_not_ready")
-    if readiness.get("live_db_persistence") is not False or readiness.get("governance_ui") is not False:
+    if (
+        readiness.get("live_db_persistence") is not False
+        or readiness.get("governance_ui") is not False
+        or readiness.get("live_api_closure") is not False
+        or readiness.get("live_ui_closure") is not False
+    ):
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_completion_overclaim")
 
     remaining_gaps = tuple(meta.get("remaining_live_gaps") or ())
@@ -755,6 +944,84 @@ def validate_public_api_route_contract_envelope(envelope: Mapping[str, Any]) -> 
             raise TypedKnowledgePersistenceBoundaryError(f"public_api_route_missing_remaining_gap:{required_gap}")
     if "public_typed_knowledge_api_route_not_implemented" in remaining_gaps:
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_keeps_closed_gap_open")
+
+
+def validate_persisted_card_request_response_readback(payload: Mapping[str, Any]) -> None:
+    if not isinstance(payload, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_not_mapping")
+    if payload.get("contract_version") != PERSISTED_CARD_REQUEST_RESPONSE_READBACK_CONTRACT_VERSION:
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_contract_version_mismatch")
+
+    api_boundary = payload.get("typed_knowledge_api_boundary")
+    if not isinstance(api_boundary, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_api_boundary")
+    if api_boundary.get("route_path") != PUBLIC_API_ROUTE_PATH or api_boundary.get("live_db_backed") is not False:
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_api_boundary_overclaim")
+
+    persisted_document = payload.get("persisted_document")
+    if not isinstance(persisted_document, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_document")
+    metadata_json = persisted_document.get("metadata_json")
+    if not isinstance(metadata_json, Mapping) or persisted_document.get("live_db_document") is not False:
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_invalid_persisted_document")
+    typed_context = metadata_json.get("typed_knowledge_context")
+    if not isinstance(typed_context, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_typed_context")
+    contracts.validate_writing_knowledge_context_envelope(typed_context)
+
+    request = payload.get("keyword_card_request")
+    if not isinstance(request, Mapping) or request.get("path") != WRITING_KEYWORD_CARD_ROUTE_PATH:
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_invalid_request_route")
+    request_body = request.get("body")
+    if not isinstance(request_body, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_request_body")
+    request_context = request_body.get("context")
+    if not isinstance(request_context, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_request_context")
+    if request_context.get("typed_knowledge_context") != typed_context:
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_context_mismatch")
+    if "resource" not in tuple(request_body.get("sources") or ()):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_request_missing_resource_source")
+
+    response = payload.get("keyword_card_response")
+    if not isinstance(response, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_response")
+    response_body = response.get("body")
+    if not isinstance(response_body, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_response_body")
+    cards = response_body.get("cards")
+    if not isinstance(cards, list) or len(cards) != 1:
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_expected_one_card")
+    card = cards[0]
+    if not isinstance(card, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_invalid_card")
+    if card.get("source_type") != "resource" or card.get("publisher") != "typed_knowledge":
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_card_boundary_mismatch")
+    extra = card.get("extra")
+    if not isinstance(extra, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_card_extra")
+    if extra.get("handoff_source") != "typed_knowledge" or extra.get("visibility_scope") != "downstream_ready":
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_card_extra_mismatch")
+
+    meta = payload.get("meta")
+    if not isinstance(meta, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_meta")
+    readiness = meta.get("readiness")
+    if not isinstance(readiness, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_readiness")
+    if readiness.get("repo_local_persisted_card_readback") is not True:
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_not_ready")
+    if (
+        readiness.get("live_db_persistence") is not False
+        or readiness.get("live_api_closure") is not False
+        or readiness.get("live_ui_closure") is not False
+        or readiness.get("governance_ui") is not False
+    ):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_live_completion_overclaim")
+    remaining_gaps = tuple(meta.get("remaining_live_gaps") or ())
+    for required_gap in PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS:
+        if required_gap not in remaining_gaps:
+            raise TypedKnowledgePersistenceBoundaryError(f"persisted_card_readback_missing_remaining_gap:{required_gap}")
 
 
 def _object_parts(
@@ -857,6 +1124,83 @@ def _normalize_write_time(write_time: str | None, updated_at: str | None) -> str
     if normalized:
         return normalized
     return "contract-time://typed-knowledge-persistence-api-boundary"
+
+
+def _build_writing_handoff_from_boundary_envelope(envelope: Mapping[str, Any]) -> contracts.WritingKnowledgeHandoff:
+    data = envelope.get("data")
+    if not isinstance(data, Mapping):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_data")
+    records = data.get("records")
+    if not isinstance(records, list):
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_records")
+    for record in records:
+        if not isinstance(record, Mapping) or record.get("object_type") != OBJECT_TYPE_KNOWLEDGE_ITEM:
+            continue
+        refs = record.get("writing_handoff_refs")
+        if not isinstance(refs, list) or not refs:
+            continue
+        ref = refs[0]
+        if not isinstance(ref, Mapping):
+            continue
+        payload = record.get("payload") if isinstance(record.get("payload"), Mapping) else {}
+        governance = record.get("governance") if isinstance(record.get("governance"), Mapping) else {}
+        item = contracts.KnowledgeItem(
+            key=str(record.get("object_key") or ""),
+            project_key=str(record.get("project_key") or ""),
+            canonical_statement=str(payload.get("canonical_statement") or ""),
+            primary_type_node_key=str(payload.get("primary_type_node_key") or ""),
+            evidence_refs=_tuple_of_strings(payload.get("evidence_refs")),
+            topic_cluster_keys=_tuple_of_strings(payload.get("topic_cluster_keys")),
+            booklet_keys=_tuple_of_strings(payload.get("booklet_keys")),
+            review_state=str(governance.get("review_state") or ""),
+            quality_grade=_optional_payload_string(payload.get("quality_grade")),
+            locale=_optional_payload_string(payload.get("locale")),
+            locale_variants=dict(payload.get("locale_variants") or {})
+            if isinstance(payload.get("locale_variants"), Mapping)
+            else {},
+            updated_at=_optional_payload_string(record.get("updated_at")),
+        )
+        return contracts.build_writing_knowledge_handoff(
+            contracts.build_downstream_contract_draft(item),
+            selection_hash=_optional_payload_string(ref.get("selection_hash")),
+            selection_text=_optional_payload_string(ref.get("selection_text")),
+        )
+    raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_handoff")
+
+
+def _tuple_of_strings(value: Any) -> tuple[str, ...]:
+    if isinstance(value, str):
+        return (value.strip(),) if value.strip() else ()
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(str(item).strip() for item in value if str(item).strip())
+
+
+def _optional_payload_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
+def _normalize_card_query(text: str) -> str:
+    return " ".join(str(text or "").strip().lower().split())
+
+
+def _selection_hash(project_key: str, query: str) -> str:
+    payload = f"{project_key}:{_normalize_card_query(query)}"
+    return hashlib.sha1(
+        payload.encode("utf-8", errors="ignore"),
+        usedforsecurity=False,
+    ).hexdigest()[:16]
+
+
+def _keyword_card_id(*, source_type: str, title: str, url: str | None, normalized_query: str) -> str:
+    payload = f"{source_type}|{title}|{url or ''}|{normalized_query}"
+    return hashlib.sha1(
+        payload.encode("utf-8", errors="ignore"),
+        usedforsecurity=False,
+    ).hexdigest()[:24]
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:

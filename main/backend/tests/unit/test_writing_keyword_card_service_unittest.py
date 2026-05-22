@@ -21,6 +21,7 @@ try:
     )
     from app.services.document_views.writing_card_view import build_keyword_card_from_typed_knowledge_handoff
     from app.services.typed_knowledge import contracts as typed_knowledge_contracts
+    from app.services.typed_knowledge import persistence_boundary as typed_knowledge_boundary
     from app.services.writing.keyword_card_service import (
         _CARD_CACHE,
         _SELECTION_CACHE,
@@ -267,6 +268,53 @@ class WritingKeywordCardServiceUnitTestCase(unittest.TestCase):
         self.assertEqual(detail.provenance["raw_keys"], ["typed_knowledge_context"])
         self.assertEqual(detail.selection_matches["query"], "robotics investment")
         self.assertEqual(detail.selection_matches["request_id"], "wave16-worker5-readback")
+
+    def test_wave19_persisted_card_request_from_typed_api_boundary_round_trips_response(self):
+        readback = typed_knowledge_boundary.build_persisted_card_request_response_readback(project_key="demo_proj")
+        expected_response = readback["keyword_card_response"]["body"]
+        payload = KeywordCardRequest.model_validate(readback["keyword_card_request"]["body"])
+
+        with (
+            patch("app.services.writing.keyword_card_service._cards_from_hybrid", return_value=[]),
+            patch("app.services.writing.keyword_card_service._cards_from_sources", return_value=[]),
+            patch("app.services.writing.keyword_card_service._cards_from_source_library", return_value=[]),
+        ):
+            response = aggregate_cards(payload)
+
+        self.assertEqual(len(response.cards), 1)
+        self.assertEqual(response.cards[0].card_id, expected_response["cards"][0]["card_id"])
+        self.assertEqual(response.cards[0].publisher, "typed_knowledge")
+        self.assertEqual(response.cards[0].source_type, "resource")
+        self.assertEqual(response.cards[0].extra["knowledge_item_key"], "ki:robotics-policy")
+        self.assertEqual(response.cards[0].extra["selection_hash"], "selection:robotics")
+        self.assertTrue(response.context_boundary["typed_knowledge_context_attached"])
+        self.assertEqual(response.context_boundary["typed_knowledge_context_count"], 1)
+        self.assertTrue(response.dependency_gate["typed_knowledge"]["attached"])
+        self.assertEqual(response.source_count["resource"], 1)
+
+        preview = get_card_preview(
+            KeywordCardPreviewRequest(
+                project_key="demo_proj",
+                card_id=response.cards[0].card_id,
+                query=payload.query,
+            )
+        )
+        detail = get_card_detail(
+            KeywordCardDetailRequest(
+                project_key="demo_proj",
+                request_id="wave19-worker10-readback",
+                card_id=response.cards[0].card_id,
+                include_provenance=True,
+            )
+        )
+
+        self.assertEqual(preview.publisher, "typed_knowledge")
+        self.assertEqual(detail.publisher, "typed_knowledge")
+        self.assertEqual(detail.provenance["raw_keys"], ["typed_knowledge_context"])
+        self.assertEqual(detail.selection_matches["request_id"], "wave19-worker10-readback")
+        self.assertFalse(readback["meta"]["readiness"]["live_db_persistence"])
+        self.assertFalse(readback["meta"]["readiness"]["live_api_closure"])
+        self.assertFalse(readback["meta"]["readiness"]["live_ui_closure"])
 
 
 if __name__ == "__main__":
