@@ -16,6 +16,7 @@ from ..services.agent_batch.routing import apply_async_or_delay, validate_lane
 from ..services.agent_batch.task_contract import build_source_library_override_params
 from ..settings.config import get_effective_project_key_enforcement_mode, settings
 from ..contracts import (
+    ApiEnvelope,
     ErrorCode,
     error_response,
     map_exception_to_error,
@@ -308,6 +309,7 @@ def _expand_query_terms_with_topic_focus(
 
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
+IngestAnyEnvelope = ApiEnvelope[Any]
 
 
 class IngestConfigUpsertPayload(BaseModel):
@@ -317,7 +319,7 @@ class IngestConfigUpsertPayload(BaseModel):
     payload: dict | None = Field(default=None, description="Config payload (JSON)")
 
 
-@router.get("/config")
+@router.get("/config", response_model=IngestAnyEnvelope)
 def get_ingest_config_endpoint(
     project_key: str | None = Query(default=None),
     config_key: str = Query(..., description="Config key, e.g. social_forum"),
@@ -330,7 +332,7 @@ def get_ingest_config_endpoint(
     return ok(data)
 
 
-@router.post("/config")
+@router.post("/config", response_model=IngestAnyEnvelope)
 def post_ingest_config_endpoint(body: IngestConfigUpsertPayload):
     """Upsert ingest config."""
     pk = _require_project_key(body.project_key)
@@ -427,7 +429,7 @@ class EcomPriceRequest(BaseModel):
     project_key: str | None = Field(default=None, description="项目标识")
 
 
-@router.post("/market")
+@router.post("/market", response_model=IngestAnyEnvelope)
 def ingest_market(payload: MarketIngestRequest):
     """Generic market info (web search). Project-specific fixed sources use source library."""
     project_key = _require_project_key(payload.project_key)
@@ -479,7 +481,7 @@ def ingest_market(payload: MarketIngestRequest):
         return _error_500(exc)
 
 
-@router.post("/url/single")
+@router.post("/url/single", response_model=IngestAnyEnvelope)
 def ingest_url_single(payload: SingleUrlIngestRequest):
     project_key = _require_project_key(payload.project_key)
     normalized_url = str(payload.url or "").strip()
@@ -584,7 +586,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
         return _error_500(exc)
 
 
-@router.get("/history")
+@router.get("/history", response_model=IngestAnyEnvelope)
 def ingest_history(limit: int = 20):
     try:
         return success_response(list_jobs(limit=limit))
@@ -612,7 +614,7 @@ def ingest_history(limit: int = 20):
         )
 
 
-@router.post("/reports/california")
+@router.post("/reports/california", response_model=IngestAnyEnvelope)
 def ingest_california_reports(payload: CaliforniaReportRequest):
     try:
         from ..services.ingest.reports.california import collect_california_sales_reports
@@ -868,7 +870,7 @@ def _run_single_source_library_entry(
     return {"mode": "source_library_item", "result": _external_terminal_payload(result)}
 
 
-@router.post("/source-library/run")
+@router.post("/source-library/run", response_model=IngestAnyEnvelope)
 def ingest_source_library_run(payload: SourceLibraryRunPayload):
     """Run source-library item(s) with unified item-style batch support."""
     project_key = _require_project_key(payload.project_key)
@@ -950,7 +952,7 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
         return _error_500(exc)
 
 
-@router.post("/source-library/sync")
+@router.post("/source-library/sync", response_model=IngestAnyEnvelope)
 def ingest_source_library_sync(payload: SourceLibrarySyncPayload):
     """Sync shared source library from files to DB. Entry point for ingest flow."""
     try:
@@ -961,7 +963,7 @@ def ingest_source_library_sync(payload: SourceLibrarySyncPayload):
         return _error_500(exc)
 
 
-@router.get("/news-resources")
+@router.get("/news-resources", response_model=IngestAnyEnvelope)
 def list_news_resources(
     project_key: str | None = Query(default=None),
     scope: str = Query(default="effective", description="shared | project | effective"),
@@ -990,13 +992,13 @@ def list_news_resources(
     return success_response({"items": items, "scope": scope})
 
 
-@router.post("/news/resource/{resource_id}")
+@router.post("/news/resource/{resource_id}", response_model=IngestAnyEnvelope)
 def ingest_news_resource(resource_id: str, payload: NewsRequest):
     """Generic project news resource entrypoint."""
     return _dispatch_news_resource(resource_id, payload)
 
 
-@router.post("/subprojects/{subproject_key}/news/{resource_id}")
+@router.post("/subprojects/{subproject_key}/news/{resource_id}", response_model=IngestAnyEnvelope)
 def ingest_subproject_news_resource(subproject_key: str, resource_id: str, payload: NewsRequest):
     """Subproject-scoped news resource entrypoint."""
     route_project_key = (subproject_key or "").strip()
@@ -1015,7 +1017,7 @@ def ingest_subproject_news_resource(subproject_key: str, resource_id: str, paylo
     return _dispatch_news_resource(resource_id, scoped_payload)
 
 
-@router.post("/social/reddit")
+@router.post("/social/reddit", response_model=IngestAnyEnvelope)
 def ingest_reddit(payload: RedditRequest):
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
@@ -1035,7 +1037,7 @@ def ingest_reddit(payload: RedditRequest):
         return _error_500(exc)
 
 
-@router.post("/reports/weekly")
+@router.post("/reports/weekly", response_model=IngestAnyEnvelope)
 def ingest_weekly_reports(payload: NewsRequest):
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
@@ -1055,7 +1057,7 @@ def ingest_weekly_reports(payload: NewsRequest):
         return _error_500(exc)
 
 
-@router.post("/reports/monthly")
+@router.post("/reports/monthly", response_model=IngestAnyEnvelope)
 def ingest_monthly_reports(payload: NewsRequest):
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
@@ -1574,7 +1576,7 @@ def _run_source_collect_batch(
     }
 
 
-@router.post("/data-api")
+@router.post("/data-api", response_model=IngestAnyEnvelope)
 def ingest_data_api(payload: DataApiRequest):
     """Run data API collection by keywords."""
     project_key = _require_project_key(payload.project_key)
@@ -1619,7 +1621,7 @@ def ingest_data_api(payload: DataApiRequest):
         return _error_500(exc)
 
 
-@router.post("/graph/structured-search")
+@router.post("/graph/structured-search", response_model=IngestAnyEnvelope)
 def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
     project_key = _require_project_key(payload.dashboard.project_key)
     if not payload.selected_nodes:
@@ -1848,7 +1850,7 @@ def ingest_graph_structured_search(payload: GraphStructuredSearchRequest):
     )
 
 
-@router.post("/policy/regulation")
+@router.post("/policy/regulation", response_model=IngestAnyEnvelope)
 def ingest_policy_regulation(payload: PolicyRegulationRequest):
     """收集政策法规相关新闻"""
     project_key = _require_project_key(payload.project_key)
@@ -1899,7 +1901,7 @@ def ingest_policy_regulation(payload: PolicyRegulationRequest):
         return _error_500(exc)
 
 
-@router.post("/commodity/metrics")
+@router.post("/commodity/metrics", response_model=IngestAnyEnvelope)
 def ingest_commodity(payload: CommodityRequest):
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
@@ -1919,7 +1921,7 @@ def ingest_commodity(payload: CommodityRequest):
         return _error_500(exc)
 
 
-@router.post("/ecom/prices")
+@router.post("/ecom/prices", response_model=IngestAnyEnvelope)
 def ingest_ecom_prices(payload: EcomPriceRequest):
     project_key = _require_project_key(payload.project_key)
     if payload.async_mode:
