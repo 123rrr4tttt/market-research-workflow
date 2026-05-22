@@ -1,0 +1,117 @@
+{
+  "browser_decision_path": {
+    "browser_fetch_required": true,
+    "contract_version": "llm_crawler.browser_replay_decision.v1",
+    "fetch_strategy": "browser_render",
+    "http_fetch_fallback_allowed": false,
+    "public_browser_replay_performed": false,
+    "reason_code": "needs_browser_runtime",
+    "route_hint": "crawler_browse",
+    "router_state": "needs_browser"
+  },
+  "closure": {
+    "browser_high_js_decision_path_valid": true,
+    "claim": "repo_local_browser_replay_fixture_passed_real_public_replay_not_closed",
+    "full_closure_allowed": false,
+    "manifest_readback_valid": true,
+    "real_public_high_js_replay_complete": false,
+    "repo_local_fixture_replay_complete": true
+  },
+  "contract_version": "llm_crawler.replay_fixture.check.v1",
+  "evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/08_wave18-browser-replay-fixture-readback-2026-05-22.md",
+  "fixture_contract_version": "llm_crawler.browser_replay_fixture.v1",
+  "fixture_path": "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json",
+  "manifest_gate": {
+    "contract_version": "llm_crawler.replay_manifest.check.v1",
+    "passed": true,
+    "real_public_high_js_replay_complete": false,
+    "status": "manifest_valid_real_public_replay_not_closed"
+  },
+  "manifest_path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+  "manifest_readback": {
+    "manifest_contract_version": "llm_crawler.high_js_replay_manifest.v1",
+    "manifest_path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+    "shape_checked": [
+      "fetch_strategy",
+      "high_js",
+      "http_fetch_fallback_allowed",
+      "public_replay_opt_in_required",
+      "public_site",
+      "render_required",
+      "route_hint"
+    ],
+    "target_count": 3,
+    "target_ids": [
+      "instagram_tag_robotics",
+      "x_search_robotics",
+      "youtube_search_robotics"
+    ]
+  },
+  "repo_root": "/Users/wangyiliang/market-research-workflow.worktrees/devdocs-wave18-llm-crawler-replay-fixture",
+  "runtime": {
+    "browser_runtime_started": false,
+    "deterministic": true,
+    "mode": "repo_local_browser_replay_fixture",
+    "public_browser_replay_performed": false,
+    "public_network_attempted": false,
+    "real_public_replay_claimed": false,
+    "repo_local_fixture": true
+  },
+  "scope": "llm_crawler_unified_frontdoor_browser_replay_fixture",
+  "status": "fixture_replay_passed_public_replay_not_closed",
+  "target_results": {
+    "fixture_target_ids": [
+      "instagram_tag_robotics",
+      "x_search_robotics",
+      "youtube_search_robotics"
+    ],
+    "manifest_target_ids": [
+      "instagram_tag_robotics",
+      "x_search_robotics",
+      "youtube_search_robotics"
+    ],
+    "target_count": 3,
+    "targets": [
+      {
+        "browser_render_decision_proven": true,
+        "expected_domain": "x.com",
+        "fetch_strategy": "browser_render",
+        "public_network_attempted": false,
+        "reason_code": "needs_browser_runtime",
+        "route_hint": "crawler_browse",
+        "router_state": "needs_browser",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "browser_render_decision_proven": true,
+        "expected_domain": "instagram.com",
+        "fetch_strategy": "browser_render",
+        "public_network_attempted": false,
+        "reason_code": "needs_browser_runtime",
+        "route_hint": "crawler_browse",
+        "router_state": "needs_browser",
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "browser_render_decision_proven": true,
+        "expected_domain": "youtube.com",
+        "fetch_strategy": "browser_render",
+        "public_network_attempted": false,
+        "reason_code": "needs_browser_runtime",
+        "route_hint": "crawler_browse",
+        "router_state": "needs_browser",
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ]
+  },
+  "validation": {
+    "browser_runtime_started": false,
+    "errors": [],
+    "passed": true,
+    "public_network_attempted": false,
+    "shared_indexes_edited": false
+  }
+}

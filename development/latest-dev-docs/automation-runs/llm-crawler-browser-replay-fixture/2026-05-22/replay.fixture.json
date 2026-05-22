@@ -1,0 +1,155 @@
+{
+  "browser_decision_path": {
+    "browser_fetch_required": true,
+    "contract_version": "llm_crawler.browser_replay_decision.v1",
+    "fetch_strategy": "browser_render",
+    "http_fetch_fallback_allowed": false,
+    "public_browser_replay_performed": false,
+    "reason_code": "needs_browser_runtime",
+    "route_hint": "crawler_browse",
+    "router_state": "needs_browser"
+  },
+  "contract_version": "llm_crawler.browser_replay_fixture.v1",
+  "manifest_readback": {
+    "manifest_contract_version": "llm_crawler.high_js_replay_manifest.v1",
+    "manifest_path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+    "shape_checked": [
+      "fetch_strategy",
+      "high_js",
+      "http_fetch_fallback_allowed",
+      "public_replay_opt_in_required",
+      "public_site",
+      "render_required",
+      "route_hint"
+    ],
+    "target_count": 3,
+    "target_ids": [
+      "instagram_tag_robotics",
+      "x_search_robotics",
+      "youtube_search_robotics"
+    ]
+  },
+  "runtime": {
+    "browser_runtime_started": false,
+    "deterministic": true,
+    "mode": "repo_local_browser_replay_fixture",
+    "public_browser_replay_performed": false,
+    "public_network_attempted": false,
+    "real_public_replay_claimed": false,
+    "repo_local_fixture": true
+  },
+  "scope": "llm_crawler_high_js_browser_replay_manifest_readback",
+  "target_results": [
+    {
+      "expected_domain": "x.com",
+      "fixture_replay": {
+        "browser_render_decision_proven": true,
+        "browser_runtime_started": false,
+        "public_network_attempted": false,
+        "real_public_replay_claimed": false,
+        "repo_local_snapshot_present": true,
+        "status": "decision_path_replayed"
+      },
+      "frontdoor_decision": {
+        "browser_fetch_required": true,
+        "crawler_provider_allowed": true,
+        "domain": "x.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "http_fetch_fallback_allowed": false,
+        "public_browser_replay_performed": false,
+        "reason_code": "needs_browser_runtime",
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "route_profile_contract_version": "ingest.frontdoor_route_profile.v1",
+        "router_contract_version": "ingest.frontdoor_fetch_router.v1",
+        "router_state": "needs_browser"
+      },
+      "manifest_shape": {
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "http_fetch_fallback_allowed": false,
+        "public_replay_opt_in_required": true,
+        "public_site": true,
+        "render_required": true,
+        "route_hint": "crawler_browse"
+      },
+      "target_id": "x_search_robotics",
+      "url": "https://x.com/search?q=robotics"
+    },
+    {
+      "expected_domain": "instagram.com",
+      "fixture_replay": {
+        "browser_render_decision_proven": true,
+        "browser_runtime_started": false,
+        "public_network_attempted": false,
+        "real_public_replay_claimed": false,
+        "repo_local_snapshot_present": true,
+        "status": "decision_path_replayed"
+      },
+      "frontdoor_decision": {
+        "browser_fetch_required": true,
+        "crawler_provider_allowed": true,
+        "domain": "instagram.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "http_fetch_fallback_allowed": false,
+        "public_browser_replay_performed": false,
+        "reason_code": "needs_browser_runtime",
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "route_profile_contract_version": "ingest.frontdoor_route_profile.v1",
+        "router_contract_version": "ingest.frontdoor_fetch_router.v1",
+        "router_state": "needs_browser"
+      },
+      "manifest_shape": {
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "http_fetch_fallback_allowed": false,
+        "public_replay_opt_in_required": true,
+        "public_site": true,
+        "render_required": true,
+        "route_hint": "crawler_browse"
+      },
+      "target_id": "instagram_tag_robotics",
+      "url": "https://www.instagram.com/explore/tags/robotics/"
+    },
+    {
+      "expected_domain": "youtube.com",
+      "fixture_replay": {
+        "browser_render_decision_proven": true,
+        "browser_runtime_started": false,
+        "public_network_attempted": false,
+        "real_public_replay_claimed": false,
+        "repo_local_snapshot_present": true,
+        "status": "decision_path_replayed"
+      },
+      "frontdoor_decision": {
+        "browser_fetch_required": true,
+        "crawler_provider_allowed": true,
+        "domain": "youtube.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "http_fetch_fallback_allowed": false,
+        "public_browser_replay_performed": false,
+        "reason_code": "needs_browser_runtime",
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "route_profile_contract_version": "ingest.frontdoor_route_profile.v1",
+        "router_contract_version": "ingest.frontdoor_fetch_router.v1",
+        "router_state": "needs_browser"
+      },
+      "manifest_shape": {
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "http_fetch_fallback_allowed": false,
+        "public_replay_opt_in_required": true,
+        "public_site": true,
+        "render_required": true,
+        "route_hint": "crawler_browse"
+      },
+      "target_id": "youtube_search_robotics",
+      "url": "https://www.youtube.com/results?search_query=robotics"
+    }
+  ]
+}
