@@ -1,0 +1,29 @@
+{
+  "closure_policy": {
+    "deterministic_gate_allowed_without_network": true,
+    "live_public_replay_default_status": "not_closed_missing_real_evidence",
+    "real_evidence_requires": [
+      "allow_public_network=true",
+      "validation.full_historical_manifest=true",
+      "inputs.target_count=45",
+      "outputs.target_results=45",
+      "outputs.public_targets_attempted=40",
+      "skipped_policy_disabled_platform_entry=5",
+      "skipped_public_network_disabled=0"
+    ]
+  },
+  "contract_version": "crawler_source_expansion.public_replay_gate_manifest.v1",
+  "expected_counts": {
+    "enabled_public_target_count": 40,
+    "historical_target_count": 45,
+    "policy_disabled_target_count": 5
+  },
+  "required_artifacts": {
+    "deterministic_replay_output": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+    "live_public_output": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+    "source_replay_manifest": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+    "stored_a5_gate_output": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/a5_public_replay_gate_check.json",
+    "stored_closure_output": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/crawler_source_expansion_closure_check.json"
+  },
+  "scope": "Wave13 worker 7 crawler source expansion public replay gate; validates deterministic artifacts and prevents live 45-site replay closure without real evidence."
+}

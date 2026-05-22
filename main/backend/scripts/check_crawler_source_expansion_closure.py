@@ -17,9 +17,14 @@ WAVE6_DOC = TOPIC_DIR / "2026-05-22-wave6-closure-gap-and-min-plan.md"
 WAVE7_POLICY_MATRIX_DOC = TOPIC_DIR / "2026-05-22-wave7-crawler-policy-matrix.md"
 WAVE7_A5_DOC = TOPIC_DIR / "2026-05-22-wave7-a5-public-replay-evidence.md"
 WAVE8_A7_DOC = TOPIC_DIR / "2026-05-22-wave8-a7-validation-pack.md"
+WAVE13_PUBLIC_REPLAY_DOC = TOPIC_DIR / "2026-05-22-wave13-worker7-crawler-public-replay-gate.md"
 WAVE8_A7_RUN_DIR = Path(
     "development/latest-dev-docs/automation-runs/"
     "crawler-source-expansion-wave8-a7-validation-pack/2026-05-22"
+)
+WAVE13_PUBLIC_REPLAY_RUN_DIR = Path(
+    "development/latest-dev-docs/automation-runs/"
+    "crawler-public-replay-gate/2026-05-22"
 )
 
 PROTECTED_SHARED_INDEXES = [
@@ -52,9 +57,25 @@ ANCHORS: dict[str, Anchor] = {
         WAVE8_A7_DOC,
         ("A7 Validation Pack", "External Blocker Boundary", "Repeatable Commands", "Overall Status"),
     ),
+    "wave13_public_replay_doc": Anchor(
+        WAVE13_PUBLIC_REPLAY_DOC,
+        ("Wave13 Worker 7 Crawler Public Replay Gate", "Live 45-site public replay remains not closed"),
+    ),
     "wave8_a7_validation_pack_run": Anchor(
         WAVE8_A7_RUN_DIR / "README.md",
         ("Wave8-1 A7 Validation Pack", "A5 remains `blocked_external`", "`external_blocked`"),
+    ),
+    "wave13_public_replay_run": Anchor(
+        WAVE13_PUBLIC_REPLAY_RUN_DIR / "README.md",
+        ("Crawler Public Replay Gate", "not_closed_missing_real_evidence", "public network attempted by checker"),
+    ),
+    "wave13_public_replay_manifest": Anchor(
+        WAVE13_PUBLIC_REPLAY_RUN_DIR / "manifest.json",
+        ("crawler_source_expansion.public_replay_gate_manifest.v1", "live_public_output"),
+    ),
+    "wave13_public_replay_check_output": Anchor(
+        WAVE13_PUBLIC_REPLAY_RUN_DIR / "crawler_public_replay_gate_check.json",
+        ("crawler_source_expansion.public_replay_gate.v1", "not_closed_missing_real_evidence"),
     ),
     "wave8_a7_closure_check_output": Anchor(
         WAVE8_A7_RUN_DIR / "crawler_source_expansion_closure_check.json",
@@ -140,6 +161,10 @@ ANCHORS: dict[str, Anchor] = {
         Path("main/backend/scripts/check_source_library_public_replay_a5_gate.py"),
         ("CONTRACT_VERSION", "def build_check", "external_public_network_or_site_stability"),
     ),
+    "crawler_public_replay_gate_script": Anchor(
+        Path("main/backend/scripts/check_crawler_public_replay_gate.py"),
+        ("CONTRACT_VERSION", "def build_check", "not_closed_missing_real_evidence"),
+    ),
     "source_replay_scaleout_evidence": Anchor(
         Path("development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md"),
         ("45-site", "not closed"),
@@ -199,6 +224,10 @@ ANCHORS: dict[str, Anchor] = {
     "test_source_library_public_replay_a5_gate": Anchor(
         Path("main/backend/tests/unit/test_source_library_public_replay_a5_gate_unittest.py"),
         ("deterministic_replay_gate_closed_external_public_replay_blocked", "review_required_not_full_closure"),
+    ),
+    "test_crawler_public_replay_gate": Anchor(
+        Path("main/backend/tests/unit/test_crawler_public_replay_gate_unittest.py"),
+        ("test_gate_validates_deterministic_artifacts_and_marks_public_replay_open", "not_closed_missing_real_evidence"),
     ),
 }
 
@@ -305,10 +334,16 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "source_replay_script",
         "source_public_live_probe_script",
         "source_public_replay_a5_gate_script",
+        "crawler_public_replay_gate_script",
         "source_replay_scaleout_evidence",
         "source_live_probe_evidence",
         "wave7_a5_public_replay_doc",
+        "wave13_public_replay_doc",
+        "wave13_public_replay_run",
+        "wave13_public_replay_manifest",
+        "wave13_public_replay_check_output",
         "test_source_library_public_replay_a5_gate",
+        "test_crawler_public_replay_gate",
     ]
     a6_keys = [
         "collect_source_library_adapter",
@@ -374,7 +409,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             "blocked_external" if _passed(anchor_results, a5_keys) else "needs_update",
             a5_keys,
             anchor_results,
-            "The 45-site historical manifest, no-network replay gate, public-live fixture, A5 checker, and term-fallback relevance-review test are represented.",
+            "The 45-site historical manifest, no-network replay gate, public-live fixture, A5 checker, Wave13 public replay gate, and term-fallback relevance-review tests are represented.",
             "Full 45-site public replay remains an external public-network/site-stability blocker; term-fallback rows stay review evidence, not clean closure.",
         ),
         _task(
@@ -424,6 +459,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             "Keep A1-A3 as evidence-closed and update only topic-local documentation until integration.",
             "Keep A4 closed by preserving the Wave7 allow/downgrade/block matrix and executable coverage check.",
             "Treat A5 as deterministic-gate sealed but externally blocked until an opt-in 45-site public replay can be rerun and stored.",
+            "Keep the Wave13 public replay gate green while reporting live 45-site replay as not_closed_missing_real_evidence until real output.public.json evidence exists.",
             "Keep A6 as evidence-closed after focused crawler/provider-specific handoff tests and Wave7 evidence stay green.",
             "Keep A7 closed through the Wave8 validation pack while preserving A5 as the only external blocker.",
             "Update shared navigation only in a later integration lane.",
