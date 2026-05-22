@@ -31,6 +31,7 @@ REASON_CODE_CATALOG: dict[str, tuple[str, ...]] = {
     "technical": (
         "invalid_url",
         "fetch_failed",
+        "source_library_fetch_empty",
         "unexpected_exception",
         "crawler_pool_dispatch_failed",
         "light_filter_rejected",

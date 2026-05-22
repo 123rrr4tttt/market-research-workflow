@@ -40,14 +40,19 @@ _DEBUG_MAX_URLS = 200
 _DEBUG_MAX_POOL_ITEMS = 50
 _DEBUG_MAX_ERRORS = 50
 _TEMPLATE_HEALTH_TOP_N = 5
+_FRONTDOOR_ROUTE_PROFILE_CONTRACT_VERSION = "ingest.frontdoor_route_profile.v1"
+_FRONTDOOR_STATUS_PROJECTION_CONTRACT_VERSION = "ingest.frontdoor_status_projection.v1"
 _ENTRY_QUERY_KEYS = {"q", "query", "keyword", "keywords", "search", "s", "term"}
 _HIGH_JS_DOMAINS = {
     "x.com",
     "twitter.com",
+    "threads.net",
     "instagram.com",
     "facebook.com",
     "linkedin.com",
     "tiktok.com",
+    "youtube.com",
+    "youtu.be",
 }
 
 
@@ -220,7 +225,13 @@ def _search_options_for_target(
     }
 
 
-def _frontdoor_route_hint_for_url(url: str) -> str:
+def _domain_matches(domain: str, suffix: str) -> bool:
+    domain = str(domain or "").strip().lower()
+    suffix = str(suffix or "").strip().lower()
+    return bool(domain and suffix and (domain == suffix or domain.endswith(f".{suffix}")))
+
+
+def _frontdoor_route_profile_for_url(url: str) -> Dict[str, Any]:
     parsed = urlparse(str(url or ""))
     domain = str(parsed.netloc or "").strip().lower()
     if domain.startswith("www."):
@@ -228,11 +239,26 @@ def _frontdoor_route_hint_for_url(url: str) -> str:
     path = str(parsed.path or "").lower()
     query_pairs = parse_qsl(parsed.query or "", keep_blank_values=True)
     query_keys = {str(k or "").strip().lower() for k, _ in query_pairs if str(k or "").strip()}
-    if "/search" in path or bool(query_keys & _ENTRY_QUERY_KEYS):
-        return "search_shell"
-    if any(domain.endswith(d) for d in _HIGH_JS_DOMAINS):
-        return "crawler_browse"
-    return "default"
+    search_like = bool("/search" in path or bool(query_keys & _ENTRY_QUERY_KEYS))
+    high_js = any(_domain_matches(domain, d) for d in _HIGH_JS_DOMAINS)
+    route_hint = "crawler_browse" if high_js else ("search_shell" if search_like else "static_detail")
+    fetch_strategy = "browser_render" if high_js else ("search_candidate_route" if search_like else "http_fetch")
+    return {
+        "contract_version": _FRONTDOOR_ROUTE_PROFILE_CONTRACT_VERSION,
+        "route_hint": route_hint,
+        "fetch_strategy": fetch_strategy,
+        "domain": domain or None,
+        "search_like": search_like,
+        "high_js": high_js,
+        "prefer_crawler": high_js,
+        "prefer_search_shell": search_like,
+        "render_required": high_js,
+        "fallback_fetch_strategy": "http_fetch",
+    }
+
+
+def _frontdoor_route_hint_for_url(url: str) -> str:
+    return str(_frontdoor_route_profile_for_url(url).get("route_hint") or "static_detail")
 
 
 def _apply_frontdoor_target_hint(
@@ -244,10 +270,14 @@ def _apply_frontdoor_target_hint(
     out: Dict[str, Any] = dict(search_options or {})
     if not bool((frontdoor_options or {}).get("enabled")):
         return out or search_options
-    route_hint = _frontdoor_route_hint_for_url(target_url)
+    route_profile = _frontdoor_route_profile_for_url(target_url)
+    route_hint = str(route_profile.get("route_hint") or "static_detail")
     out["frontdoor_route_hint"] = route_hint
-    out["frontdoor_prefers_crawler"] = bool(route_hint == "crawler_browse")
-    out["frontdoor_prefers_search_shell"] = bool(route_hint == "search_shell")
+    out["frontdoor_fetch_strategy"] = route_profile.get("fetch_strategy")
+    out["frontdoor_render_required"] = bool(route_profile.get("render_required"))
+    out["frontdoor_prefers_crawler"] = bool(route_profile.get("prefer_crawler"))
+    out["frontdoor_prefers_search_shell"] = bool(route_profile.get("prefer_search_shell"))
+    out["frontdoor_route_profile"] = route_profile
     return out
 
 
@@ -315,6 +345,7 @@ def _collect_urls_from_list_with_runtime_targets(
     parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
     metrics_summary = new_metrics_summary()
     source_template_health_summary = _new_source_template_health_summary()
+    frontdoor_status_summary = _new_frontdoor_status_summary()
     queued = 0
     queued_tasks: List[Dict[str, Any]] = []
 
@@ -336,6 +367,10 @@ def _collect_urls_from_list_with_runtime_targets(
             target_frontdoor_options = dict(frontdoor_options or {})
             target_frontdoor_options["enabled"] = True
             target_frontdoor_options["route_hint"] = str(search_options.get("frontdoor_route_hint") or "")
+            target_frontdoor_options["fetch_strategy"] = str(search_options.get("frontdoor_fetch_strategy") or "")
+            target_frontdoor_options["render_required"] = bool(search_options.get("frontdoor_render_required"))
+            if isinstance(search_options.get("frontdoor_route_profile"), dict):
+                target_frontdoor_options["route_profile"] = dict(search_options.get("frontdoor_route_profile") or {})
             target_frontdoor_options["prefer_crawler"] = bool(search_options.get("frontdoor_prefers_crawler"))
             target_frontdoor_options["prefer_search_shell"] = bool(
                 search_options.get("frontdoor_prefers_search_shell")
@@ -376,6 +411,8 @@ def _collect_urls_from_list_with_runtime_targets(
             skipped_fetch_error += 1
         if str(item_result.get("status") or "").strip().lower() == "failed" and len(errors) < _DEBUG_MAX_ERRORS:
             errors.append({"url": target_url, "error": str(item_result.get("error") or "url_routing_failed")})
+        frontdoor_status = _build_frontdoor_status_projection(item_result)
+        _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
 
         context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
         _annotate_url_pool_context(
@@ -407,6 +444,10 @@ def _collect_urls_from_list_with_runtime_targets(
                     matched_channel_key=item_result.get("handler_allocation", {}).get("matched_channel_key")
                     if isinstance(item_result.get("handler_allocation"), dict)
                     else None,
+                    frontdoor_route=item_result.get("frontdoor_route")
+                    if isinstance(item_result.get("frontdoor_route"), dict)
+                    else None,
+                    frontdoor_status=frontdoor_status,
                 )
             )
 
@@ -432,6 +473,10 @@ def _collect_urls_from_list_with_runtime_targets(
                 search_options,
             )
             queued += 1
+            frontdoor_status = _build_frontdoor_status_projection(
+                {"status": "degraded_success", "reason_code": "queued_async", "inserted_valid": 0}
+            )
+            _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
             record_metrics_observation(
                 metrics_summary,
                 {
@@ -449,6 +494,7 @@ def _collect_urls_from_list_with_runtime_targets(
                         task_id=getattr(async_result, "id", None),
                         entry_type=target.get("entry_type"),
                         site_seed=bool(target.get("is_site_seed")),
+                        frontdoor_status=frontdoor_status,
                     )
                 )
     else:
@@ -523,6 +569,8 @@ def _collect_urls_from_list_with_runtime_targets(
     attach_metrics_payload(result, metrics_payload)
     source_template_health = _build_source_template_health_payload(source_template_health_summary)
     _attach_source_template_health(result, source_template_health)
+    frontdoor_status = _build_frontdoor_status_summary_payload(frontdoor_status_summary)
+    _attach_frontdoor_status_summary(result, frontdoor_status)
     complete_job(job_id, result=result)
     return result
 
@@ -613,8 +661,15 @@ def _run_source_library_frontdoor_ingress(
     if isinstance(frontdoor_options, dict):
         if frontdoor_options.get("prefer_crawler"):
             params["prefer_crawler_first"] = True
+            params["force_url_routing_flow"] = False
         if frontdoor_options.get("route_hint"):
             params["frontdoor_route_hint"] = frontdoor_options.get("route_hint")
+        if frontdoor_options.get("fetch_strategy"):
+            params["frontdoor_fetch_strategy"] = frontdoor_options.get("fetch_strategy")
+        if "render_required" in frontdoor_options:
+            params["frontdoor_render_required"] = bool(frontdoor_options.get("render_required"))
+        if isinstance(frontdoor_options.get("route_profile"), dict):
+            params["frontdoor_route_profile"] = dict(frontdoor_options.get("route_profile") or {})
 
     channels = list_effective_channels(scope="effective", project_key=project_key)
     channel_map = {
@@ -645,10 +700,12 @@ def _run_source_library_frontdoor_ingress(
     records = list(routed.get("records") or []) if isinstance(routed.get("records"), list) else []
     errors = [str(x) for x in (routed.get("errors") or []) if str(x or "").strip()]
     by_url = list(routed.get("by_url") or []) if isinstance(routed.get("by_url"), list) else []
+    frontdoor_route = _frontdoor_route_summary_from_params(params)
     if not records:
         reason = errors[0] if errors else "source_library_fetch_empty"
         return {
             "status": "failed" if errors else "degraded_success",
+            "reason_code": "fetch_failed" if errors else "source_library_fetch_empty",
             "inserted": 0,
             "inserted_valid": 0,
             "skipped": 1,
@@ -661,6 +718,7 @@ def _run_source_library_frontdoor_ingress(
             "error": reason,
             "records": [],
             "by_url": by_url,
+            "frontdoor_route": frontdoor_route,
             "single_write_workflow": "source_library_frontdoor",
             "source_library_collect_only": True,
         }
@@ -724,6 +782,7 @@ def _run_source_library_frontdoor_ingress(
         "quality_score": 0.0,
         "records": records,
         "by_url": by_url,
+        "frontdoor_route": frontdoor_route,
         "errors": errors,
         "frontdoor_ingress": ingress_envelope,
         "postprocess_frontdoor": frontdoor_result,
@@ -1178,6 +1237,122 @@ def _attach_source_template_health(
     debug["source_template_health"] = payload
 
 
+def _frontdoor_route_summary_from_params(params: Dict[str, Any]) -> Dict[str, Any]:
+    profile = params.get("frontdoor_route_profile") if isinstance(params, dict) else None
+    return {
+        "contract_version": _FRONTDOOR_ROUTE_PROFILE_CONTRACT_VERSION,
+        "route_hint": str((profile or {}).get("route_hint") or params.get("frontdoor_route_hint") or "").strip()
+        or None,
+        "fetch_strategy": str((profile or {}).get("fetch_strategy") or params.get("frontdoor_fetch_strategy") or "").strip()
+        or None,
+        "render_required": bool((profile or {}).get("render_required") or params.get("frontdoor_render_required")),
+        "prefer_crawler_first": bool(params.get("prefer_crawler_first")),
+        "force_url_routing_flow": bool(params.get("force_url_routing_flow", False)),
+    }
+
+
+def _new_frontdoor_status_summary() -> Dict[str, Any]:
+    return {
+        "sample_size": 0,
+        "dashboard_status_counts": {},
+        "admission_counts": {},
+        "reason_counts": {},
+    }
+
+
+def _build_frontdoor_status_projection(item_result: Dict[str, Any]) -> Dict[str, Any]:
+    postprocess = item_result.get("postprocess_frontdoor") if isinstance(item_result.get("postprocess_frontdoor"), dict) else {}
+    data = postprocess.get("data") if isinstance(postprocess.get("data"), dict) else {}
+    meta = postprocess.get("meta") if isinstance(postprocess.get("meta"), dict) else {}
+    outer_status = str(item_result.get("status") or "").strip().lower()
+    inserted_valid = _as_int(item_result.get("inserted_valid"), 0)
+    admission = str(data.get("admission") or "").strip().lower()
+    if not admission:
+        if outer_status == "failed":
+            admission = "reject"
+        elif outer_status == "success" and inserted_valid > 0:
+            admission = "accept"
+        else:
+            admission = "defer"
+
+    reason_code = (
+        str(meta.get("reason_code") or "").strip()
+        or str(item_result.get("reason_code") or "").strip()
+        or _source_template_reason_code(item_result)
+    )
+    reason_code = normalize_reason_code(reason_code, default="ok")
+    retryable = bool(meta.get("retryable") or item_result.get("retryable"))
+
+    if outer_status == "failed" or admission == "reject":
+        dashboard_status = "failed"
+    elif outer_status == "success" and admission == "accept" and inserted_valid > 0:
+        dashboard_status = "success"
+    else:
+        dashboard_status = "degraded_success"
+
+    source = "postprocess_frontdoor" if postprocess else "url_pool_result"
+    return {
+        "contract_version": _FRONTDOOR_STATUS_PROJECTION_CONTRACT_VERSION,
+        "dashboard_status": dashboard_status,
+        "frontdoor_admission": admission,
+        "outer_status": outer_status or None,
+        "reason_code": reason_code,
+        "retryable": retryable,
+        "inserted_valid": inserted_valid,
+        "source": source,
+    }
+
+
+def _record_frontdoor_status_observation(
+    summary: Dict[str, Any],
+    projection: Dict[str, Any],
+) -> None:
+    if not isinstance(summary, dict) or not isinstance(projection, dict):
+        return
+    summary["sample_size"] = _as_int(summary.get("sample_size"), 0) + 1
+    for source_key, bucket_key in (
+        ("dashboard_status", "dashboard_status_counts"),
+        ("frontdoor_admission", "admission_counts"),
+        ("reason_code", "reason_counts"),
+    ):
+        value = str(projection.get(source_key) or "").strip()
+        if not value:
+            continue
+        bucket = summary.get(bucket_key)
+        if not isinstance(bucket, dict):
+            bucket = {}
+            summary[bucket_key] = bucket
+        bucket[value] = _as_int(bucket.get(value), 0) + 1
+
+
+def _build_frontdoor_status_summary_payload(summary: Dict[str, Any] | None) -> Dict[str, Any]:
+    raw = summary if isinstance(summary, dict) else {}
+    return {
+        "contract_version": _FRONTDOOR_STATUS_PROJECTION_CONTRACT_VERSION,
+        "sample_size": _as_int(raw.get("sample_size"), 0),
+        "dashboard_status_counts": dict(raw.get("dashboard_status_counts") or {}),
+        "admission_counts": dict(raw.get("admission_counts") or {}),
+        "reason_counts": dict(raw.get("reason_counts") or {}),
+    }
+
+
+def _attach_frontdoor_status_summary(
+    result: Dict[str, Any],
+    payload: Dict[str, Any],
+) -> None:
+    meta = result.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+        result["meta"] = meta
+    meta["frontdoor_status_summary"] = payload
+
+    debug = result.get("debug")
+    if not isinstance(debug, dict):
+        debug = {}
+        result["debug"] = debug
+    debug["frontdoor_status_summary"] = payload
+
+
 def _as_int(value: Any, default: int) -> int:
     try:
         return int(value)
@@ -1340,11 +1515,15 @@ def collect_urls_from_list(
     normalized_count = len(urls)
     if not urls:
         source_template_health = _build_source_template_health_payload(_new_source_template_health_summary())
+        frontdoor_status = _build_frontdoor_status_summary_payload(_new_frontdoor_status_summary())
         return {
             "inserted": 0,
             "skipped": 0,
             "urls": 0,
-            "meta": {"source_template_health": source_template_health},
+            "meta": {
+                "source_template_health": source_template_health,
+                "frontdoor_status_summary": frontdoor_status,
+            },
             "debug": {
                 "mode": "list",
                 "raw_url_count": raw_count,
@@ -1352,6 +1531,7 @@ def collect_urls_from_list(
                 "filtered_out": max(0, raw_count - normalized_count),
                 "note": "输入 URL 列表为空或全部被过滤（仅接受 http/https）",
                 "source_template_health": source_template_health,
+                "frontdoor_status_summary": frontdoor_status,
             },
         }
 
@@ -1506,6 +1686,7 @@ def collect_urls_from_pool(
         parallel_batch_size = _resolve_parallel_batch_size(extra_params=extra_params, parallel_workers=parallel_workers)
         metrics_summary = new_metrics_summary()
         source_template_health_summary = _new_source_template_health_summary()
+        frontdoor_status_summary = _new_frontdoor_status_summary()
         queued = 0
         queued_tasks: List[Dict[str, Any]] = []
 
@@ -1527,6 +1708,10 @@ def collect_urls_from_pool(
                 target_frontdoor_options = dict(frontdoor_options or {})
                 target_frontdoor_options["enabled"] = True
                 target_frontdoor_options["route_hint"] = str(search_options.get("frontdoor_route_hint") or "")
+                target_frontdoor_options["fetch_strategy"] = str(search_options.get("frontdoor_fetch_strategy") or "")
+                target_frontdoor_options["render_required"] = bool(search_options.get("frontdoor_render_required"))
+                if isinstance(search_options.get("frontdoor_route_profile"), dict):
+                    target_frontdoor_options["route_profile"] = dict(search_options.get("frontdoor_route_profile") or {})
                 target_frontdoor_options["prefer_crawler"] = bool(search_options.get("frontdoor_prefers_crawler"))
                 target_frontdoor_options["prefer_search_shell"] = bool(
                     search_options.get("frontdoor_prefers_search_shell")
@@ -1567,6 +1752,8 @@ def collect_urls_from_pool(
                 skipped_fetch_error += 1
             if str(item_result.get("status") or "").strip().lower() == "failed" and len(errors) < _DEBUG_MAX_ERRORS:
                 errors.append({"url": target_url, "error": str(item_result.get("error") or "url_routing_failed")})
+            frontdoor_status = _build_frontdoor_status_projection(item_result)
+            _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
 
             context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
             _annotate_url_pool_context(
@@ -1604,6 +1791,10 @@ def collect_urls_from_pool(
                         pool_source=pool_item.get("source"),
                         pool_domain=pool_item.get("domain"),
                         pool_source_ref=pool_item.get("source_ref"),
+                        frontdoor_route=item_result.get("frontdoor_route")
+                        if isinstance(item_result.get("frontdoor_route"), dict)
+                        else None,
+                        frontdoor_status=frontdoor_status,
                     )
                 )
 
@@ -1629,6 +1820,10 @@ def collect_urls_from_pool(
                     search_options,
                 )
                 queued += 1
+                frontdoor_status = _build_frontdoor_status_projection(
+                    {"status": "degraded_success", "reason_code": "queued_async", "inserted_valid": 0}
+                )
+                _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
                 record_metrics_observation(
                     metrics_summary,
                     {
@@ -1650,6 +1845,7 @@ def collect_urls_from_pool(
                             pool_source=pool_item.get("source"),
                             pool_domain=pool_item.get("domain"),
                             pool_source_ref=pool_item.get("source_ref"),
+                            frontdoor_status=frontdoor_status,
                         )
                     )
         else:
@@ -1737,6 +1933,8 @@ def collect_urls_from_pool(
         attach_metrics_payload(result, metrics_payload)
         source_template_health = _build_source_template_health_payload(source_template_health_summary)
         _attach_source_template_health(result, source_template_health)
+        frontdoor_status = _build_frontdoor_status_summary_payload(frontdoor_status_summary)
+        _attach_frontdoor_status_summary(result, frontdoor_status)
         complete_job(job_id, result=result)
         return result
     except Exception as exc:  # noqa: BLE001
