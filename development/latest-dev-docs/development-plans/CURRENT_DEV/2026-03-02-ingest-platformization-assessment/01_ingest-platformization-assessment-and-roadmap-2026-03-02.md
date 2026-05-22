@@ -1,5 +1,25 @@
 # Ingest Platformization Assessment and Roadmap (2026-03-02)
 
+## 0. 2026-05-22 Current Naming Refresh
+
+Status: `partial / current entry map aligned`.
+
+This document originally used `single_url` as shorthand for the single write-capable URL ingest workflow. In the current codebase, that shorthand means the source-library/frontdoor compatibility chain, not a standalone `single_url.py` module.
+
+Current write-capable URL ingest path:
+
+```text
+/api/v1/ingest/url/single
+  -> ingest_url_via_source_library_frontdoor
+  -> url_pool.single_url_compat
+  -> source_library URL routing
+  -> frontdoor_ingress
+  -> postprocess_frontdoor
+  -> terminal_writer
+```
+
+Wave3-H added a focused regression and fix for `collect_urls_from_pool` target-context preservation. Evidence: [automation-runs/ingest-frontdoor-closure/2026-05-22/README.md](../../../automation-runs/ingest-frontdoor-closure/2026-05-22/README.md).
+
 ## 1. Goal
 
 对当前信息采集链条进行平台化评估，并形成可执行的最小落地路线，覆盖：
@@ -11,7 +31,7 @@
 
 平台化边界约束（本轮决策）：
 
-- `single_url` 作为平台化唯一入库工作流（single write workflow）。
+- legacy `single_url` contract is implemented by `url_pool/source_library -> frontdoor_ingress -> postprocess_frontdoor -> terminal_writer` as the platformized single write workflow.
 - `url_pool`、`source_library`、`discovery`、`raw_import` 等仅作为候选生产或任务编排层，不再定义独立入库语义。
 
 ## 2. Overall Conclusion
@@ -29,13 +49,13 @@
 
 已具备：
 
-- `single_url` 统一输入输出契约，返回 `status/inserted/inserted_valid/rejected_count/rejection_breakdown/degradation_flags`
+- legacy single-url URL-execution contract returns `status/inserted/inserted_valid/rejected_count/rejection_breakdown/degradation_flags`
 - `search_template + fallback + fanout + crawler_pool` 的主分支已形成可复用编排
 - URL/content/provenance 三层 gate 已接入同一主链路
 
 主要不足：
 
-- `single_url` 职责较重，路由、抓取、解析、规则、持久化耦合在单文件
+- URL-execution compatibility chain仍承担路由、抓取、解析、规则、持久化衔接，broader fetch-router 拆分未完全封口
 - 规则常量硬编码较多，不利于租户化策略治理
 
 ### 3.2 API and Frontend Integration
@@ -80,8 +100,8 @@
 
 P0:
 
-1. 规则中心化：所有入口统一回流 `single_url` 并复用同一规则源
-2. `single_url` 分阶段 pipeline 化：`classify -> fetch -> parse -> gate -> persist`
+1. 规则中心化：所有入口统一回流 legacy single-url contract 并复用同一规则源
+2. legacy single-url contract 分阶段 pipeline 化：`classify -> fetch -> parse -> gate -> persist`
 
 P1:
 
@@ -103,7 +123,7 @@ Task A (P0): GateService consolidation
 - 改造入口统一调用，消除分支重复判断
 - 输出标准拒绝码映射表（稳定对外契约）
 
-Task B (P0): `single_url` pipeline refactor
+Task B (P0): legacy single-url contract pipeline refactor
 
 - 拆分阶段函数与上下文对象
 - 主函数仅负责 orchestration
@@ -160,4 +180,3 @@ Task F (P2): replay and regression
 - 先在 `demo_proj` 灰度
 - 保持 reason code 稳定并对比回归样本
 - 提供 feature flag 快速回滚
-

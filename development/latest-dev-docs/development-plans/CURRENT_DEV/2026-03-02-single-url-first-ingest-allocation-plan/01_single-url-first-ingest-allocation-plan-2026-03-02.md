@@ -2,9 +2,16 @@
 
 ## 0. 2026-05-22 Current Code Mapping
 
-Status: `需更新 -> 已完成当前入口重映射` for this lane.
+Status: `需更新 -> 已完成当前入口重映射 / broader fetch-router 未封口` for this lane.
 
 The original plan uses `single_url` as the conceptual primitive. In the current codebase, that primitive is implemented as a source-library/frontdoor compatibility chain, not as `main/backend/app/services/ingest/single_url.py`.
+
+Wave3-H closure update:
+- `single_url.py` and `test_single_url_ingest_unittest.py` are stale path names and must not be used as active implementation targets.
+- `/api/v1/ingest/url/single` currently dispatches to `url_pool.single_url_compat -> source_library.resolver.run_item_with_url_routing(..., execution_layer="terminal_output_only") -> frontdoor_ingress -> postprocess_frontdoor`.
+- `collect_urls_from_pool` now has a focused regression ensuring pool targets keep their own `source_search_contract` through frontdoor routing instead of reusing the last target context.
+- Evidence: [automation-runs/ingest-frontdoor-closure/2026-05-22/README.md](../../../automation-runs/ingest-frontdoor-closure/2026-05-22/README.md).
+- Remaining blockers before full closure: broader browser/crawler-first fetch-router coverage for high-JS domains, official API adapter maturity, and frontend/dashboard tri-state alignment.
 
 Current URL-execution write chain:
 

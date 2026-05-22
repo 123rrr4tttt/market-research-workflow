@@ -20,6 +20,11 @@ This document replaces the earlier stale audit. The previous version cited `main
 | source-library candidate-only path | `collect_runtime/adapters/source_library.py::to_source_library_response` runs postprocess with `run_writer=False` | Implemented |
 | search-template fan-out before URL execution | `source_library/resolver.py` + `resource_pool/unified_search.py` handler-cluster path | Implemented with graceful degrade when no candidates |
 
+Wave3-H delta:
+- The active entry map is now pinned by an additional pool/frontdoor regression: `collect_urls_from_pool` must pass the current target into synchronous and threaded `_run_single_target` calls so each target keeps its own `source_search_contract`.
+- The fixed case covers two source-library pool search templates with different query parameter contracts. Before the fix, the sync/thread branch could reuse the last target context for all pool targets.
+- Evidence and lane status are recorded at [automation-runs/ingest-frontdoor-closure/2026-05-22/README.md](../../../automation-runs/ingest-frontdoor-closure/2026-05-22/README.md).
+
 ---
 
 ## B. Phase-1 Core Re-check
@@ -70,6 +75,7 @@ Not closed by this lane:
 - Real browser/crawler-first execution for all high-JS domains is still broader fetch-router work.
 - Official API routing still depends on source-library adapter maturity.
 - Frontend tri-state display is intentionally out of scope for this lane.
+- Broader job/dashboard status can still represent outer task state differently from inner frontdoor `success/degraded_success/failed` admission state.
 
 No longer current:
 - Any implementation instruction that names `main/backend/app/services/ingest/single_url.py`.
