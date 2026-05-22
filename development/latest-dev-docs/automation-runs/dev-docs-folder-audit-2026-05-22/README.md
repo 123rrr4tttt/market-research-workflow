@@ -14,6 +14,8 @@ Related execution plans:
 - [wave16-worktree-plan-2026-05-22.md](./wave16-worktree-plan-2026-05-22.md) - Wave16 nine-agent implementation / closure split tree, supervisor reconciliation, and status evidence gate.
 - [wave17-worktree-plan-2026-05-22.md](./wave17-worktree-plan-2026-05-22.md) - Wave17 nine-agent readback / runtime / migration tree, supervisor reconciliation, and status evidence gate.
 - [wave17-agent-roster-2026-05-22.md](./wave17-agent-roster-2026-05-22.md) - Wave17 subagent branch roster; all 9 workers are closed after merge.
+- [wave18-worktree-plan-2026-05-22.md](./wave18-worktree-plan-2026-05-22.md) - Wave18 ten-agent readback / health / migration tree, supervisor reconciliation, and status evidence gate.
+- [wave18-agent-roster-2026-05-22.md](./wave18-agent-roster-2026-05-22.md) - Wave18 subagent branch roster; all 10 workers are closed after merge.
 
 ## Wave16 Addendum
 
@@ -33,6 +35,15 @@ Wave17 keeps the Wave16 `CURRENT_DEV` count shape but advances more repo-local i
 - No new directory was moved to `ARCHIVE_CLOSED`; the live / external / production boundaries remain explicit, so `CURRENT_DEV` remains `partial:33`, `not_closed:0`, `no_closure_claim:0`.
 - Landed gates include source-time deterministic sample readback, ingest canary metrics readback, graph runtime pixel/shape fallback, graph-node rollout manifest readback, typed-knowledge durable JSONL readback, writing-workbench persisted typed-card readback, Projects page i18n migration, policy-state query boundary, and docs-root content move batch 2.
 - Docs-root content-plan unsafe moves dropped from 9 to 8 after the second real moved-file batch.
+
+## Wave18 Addendum
+
+Wave18 keeps the Wave17 `CURRENT_DEV` count shape and advances another repo-local implementation batch without over-claiming external closure.
+
+- 10 worker branches were merged into the Wave18 integration branch and all completed subagents are marked `closed` in the roster.
+- No new directory was moved to `ARCHIVE_CLOSED`; `CURRENT_DEV` remains `partial:33`, `not_closed:0`, `no_closure_claim:0`.
+- Landed gates include vectorization hybrid readback, open-search health artifact, LLM crawler browser replay fixture, symbolic quality regression, long-cycle scheduler handoff trace, graph audit readback, AgentCore provider trace, source-library review closure batch 2, Catalog page i18n migration, and docs-root content move batch 3.
+- Docs-root content-plan unsafe moves dropped from 8 to 7 after the third real moved-file batch.
 
 ## Summary
 

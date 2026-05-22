@@ -48,3 +48,10 @@ Worker 分支也不得修改当前主工作树已有脏项：
 2. 集成分支先合并低冲突后端 checker/test，再合并 frontend 与 docs-root 批次。
 3. 合并后由 supervisor 统一更新 `CURRENT_DEV/INDEX.md`、`STATUS_AUDIT_2026-04-07.md`、`development-plans/INDEX.md`、`README.md`、`MERGED_OVERVIEW.md`，必要时新增 `wave18_verified` / `wave18_checked` 标签说明。
 4. 最小门禁：Wave18 plan gate、CURRENT_DEV status evidence、latest-dev-docs link gate、每个 worker 的 checker/test、`git diff --check`。
+
+## 集成结果
+
+- 10 个 worker 分支已合并到 `codex/devdocs-wave18-integration-2026-05-22`。
+- 10 个完成子 agent 已在 roster 中标记为 `closed`。
+- 本轮新增 deterministic hybrid readback、open-search health artifact、LLM crawler replay fixture、symbolic quality regression、scheduler handoff trace、graph audit readback、AgentCore provider trace、source-library review batch2、Catalog page i18n slice、docs-root content move batch3。
+- `CURRENT_DEV` 仍保持 `partial:33`、`not_closed:0`、`no_closure_claim:0`；所有 live provider、public replay、live scheduler、live DB/API/UI、production data、human review 和全量迁移边界仍显式保留。

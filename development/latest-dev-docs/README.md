@@ -195,6 +195,17 @@
   - [frontend Projects page i18n slice](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/08_wave17-projects-page-i18n-slice-evidence-2026-05-22.md)
   - [policy-state query boundary](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/10_wave17-policy-state-query-boundary-2026-05-22.md)
   - [docs root content move batch 2](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/09_wave17-docs-root-content-move-batch2-evidence-2026-05-22.md)
+- Wave18 CURRENT_DEV readback / health / migration gates（2026-05-22，10 个子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
+  - [Wave18 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave18-worktree-plan-2026-05-22.md)
+  - [Wave18 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave18-agent-roster-2026-05-22.md)
+  - [vectorization hybrid readback](./development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/06_wave18-vectorization-hybrid-readback-2026-05-22.md)
+  - [open-search health artifact](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/14_wave18-open-search-health-artifact-2026-05-22.md)
+  - [LLM crawler browser replay fixture](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/08_wave18-browser-replay-fixture-readback-2026-05-22.md)
+  - [symbolic quality regression evaluator](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/20_wave18-symbolic-quality-regression-evaluator-2026-05-22.md)
+  - [long-cycle scheduler handoff trace](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/08_wave18-long-cycle-scheduler-handoff-trace-2026-05-22.md)
+  - [AgentCore provider trace readback](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/08_wave18-agentcore-provider-trace-readback-2026-05-22.md)
+  - [Catalog page i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/10_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md)
+  - [docs root content move batch 3](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/10_wave18-docs-root-content-move-batch3-evidence-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：
