@@ -33,6 +33,11 @@ class PolicyFiltersUnitTestCase(unittest.TestCase):
         for expr in expressions:
             self.assertTrue(hasattr(expr, "compile"))
 
+    def test_policy_time_expr_includes_explicit_effective_and_source_time(self) -> None:
+        compiled = str(policy_time_expr().compile(compile_kwargs={"literal_binds": True}))
+        self.assertIn("effective_time", compiled)
+        self.assertIn("source_time", compiled)
+
 
 if __name__ == "__main__":
     unittest.main()

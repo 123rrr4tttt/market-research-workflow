@@ -55,6 +55,10 @@ class LongCycleLifecycleTransition(str, Enum):
 class IngestTimeSemantics(BaseModel):
     source_time: datetime | None = None
     processed_time: datetime
+    effective_time: datetime
+    time_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    time_provenance: str = Field(default="processed_time_fallback", max_length=96)
+    time_parse_version: str = Field(default="source-time-window-v1", max_length=96)
     task_window: str | None = None
     task_window_start: date | None = None
     task_window_end: date | None = None
@@ -75,6 +79,10 @@ class NormalizedIngestEnvelope(BaseModel):
     content_format: ContentFormat = ContentFormat.OTHER
     source_time: datetime | None = None
     processed_time: datetime
+    effective_time: datetime
+    time_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    time_provenance: str = Field(default="processed_time_fallback", max_length=96)
+    time_parse_version: str = Field(default="source-time-window-v1", max_length=96)
     lineage_ref: str | None = Field(default=None, max_length=256)
     requested_downstream_targets: list[str] = Field(default_factory=list)
     task_window: str | None = None

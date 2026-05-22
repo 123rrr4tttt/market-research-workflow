@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import Date, String, case, cast, func, select
 
 from ...models.base import SessionLocal
 from ...models.entities import Document, PromptTimePolicyDecisionLog
@@ -20,8 +20,45 @@ _DEFAULT_WINDOWS = ["7d", "30d", "90d"]
 _LOG = logging.getLogger(__name__)
 
 
+def _json_iso_date_expr(key: str):
+    raw = cast(Document.extracted_data[key], String)
+    text = func.replace(raw, '"', "")
+    return case(
+        (text.op("~")(r"^\d{4}-\d{2}-\d{2}"), cast(func.substr(text, 1, 10), Date)),
+        else_=None,
+    )
+
+
 def _effective_date_expr():
-    return func.coalesce(policy_effective_date_expr(), Document.publish_date, func.date(Document.created_at))
+    return func.coalesce(
+        _json_iso_date_expr("effective_time"),
+        _json_iso_date_expr("source_time"),
+        policy_effective_date_expr(),
+        Document.publish_date,
+        func.date(Document.created_at),
+    )
+
+
+def _parse_iso_day(value: Any) -> date | None:
+    text = _normalize_json_text(value)
+    if not text:
+        return None
+    try:
+        return datetime.strptime(text[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def resolve_document_effective_day(doc: Document) -> date | None:
+    extracted = doc.extracted_data or {}
+    policy = extracted.get("policy") if isinstance(extracted.get("policy"), dict) else {}
+    return (
+        _parse_iso_day(extracted.get("effective_time"))
+        or _parse_iso_day(extracted.get("source_time"))
+        or _parse_iso_day(policy.get("effective_date"))
+        or doc.publish_date
+        or (doc.created_at.date() if doc.created_at else None)
+    )
 
 
 def _normalize_json_text(value: Any) -> str | None:
@@ -358,17 +395,8 @@ def query_prompt_time_density(
     grouped_hashes: dict[tuple[str, str, date], list[str]] = defaultdict(list)
 
     for doc in docs:
-        day = doc.publish_date or (doc.created_at.date() if doc.created_at else None)
-        extracted = doc.extracted_data or {}
-        eff = (
-            _normalize_json_text((extracted.get("policy") or {}).get("effective_date"))
-            or (day.isoformat() if day else None)
-        )
-        if not eff:
-            continue
-        try:
-            effective_day = datetime.strptime(eff[:10], "%Y-%m-%d").date()
-        except ValueError:
+        effective_day = resolve_document_effective_day(doc)
+        if not effective_day:
             continue
         domain = _source_domain_of(doc)
         prompt_group = _prompt_group_of(doc)
