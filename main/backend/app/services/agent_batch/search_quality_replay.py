@@ -7,11 +7,15 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .task_contract import (
+    AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION,
     AGENT_BATCH_SEARCH_QUALITY_REPLAY_CONTRACT_VERSION,
     get_search_policy_defaults,
 )
 
 QUALITY_REPLAY_SCOPE = "deterministic_no_network_symbolic_search_quality_replay"
+PROVIDER_QUALITY_READINESS_SCOPE = (
+    "symbolic_search_provider_quality_readiness_fixture_quality_and_live_gap_boundary"
+)
 _DEFAULT_LIVE_PROVIDER_KEYS = ["searxng", "yacy", "web"]
 
 _AXIS_HINTS = {
@@ -39,6 +43,59 @@ def build_live_provider_gap_state(
         "unsupported_claims": [
             f"{provider}_live_quality_verified" for provider in providers
         ],
+    }
+
+
+def build_symbolic_provider_quality_readiness(
+    *,
+    fixture_cases: list[dict[str, Any]],
+    provider_statuses: dict[str, dict[str, Any]] | None = None,
+    required_live_providers: list[str] | None = None,
+) -> dict[str, Any]:
+    providers = _normalize_string_list(required_live_providers) or list(_DEFAULT_LIVE_PROVIDER_KEYS)
+    benchmark = score_quality_benchmark_replay(cases=fixture_cases)
+    fixture_quality = _summarize_fixture_quality(benchmark)
+    provider_readiness = _build_provider_quality_rows(
+        provider_statuses=provider_statuses or {},
+        providers=providers,
+    )
+    unsupported_claims = _build_unsupported_live_provider_claims(
+        fixture_quality=fixture_quality,
+        provider_readiness=provider_readiness,
+    )
+    remaining_gaps = _build_remaining_live_gaps(
+        fixture_quality=fixture_quality,
+        provider_readiness=provider_readiness,
+    )
+
+    failures: list[str] = []
+    if benchmark.get("status") != "passed":
+        failures.append("fixture quality benchmark did not pass")
+    if fixture_quality.get("quality_claim_allowed") is not False:
+        failures.append("fixture quality unexpectedly allowed live provider claim")
+    if not unsupported_claims:
+        failures.append("unsupported live-provider claims were not recorded")
+    if not remaining_gaps:
+        failures.append("remaining live provider gaps were not recorded")
+
+    return {
+        "contract_version": AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION,
+        "scope": PROVIDER_QUALITY_READINESS_SCOPE,
+        "status": "passed" if not failures else "failed",
+        "readiness_state": "fixture_quality_ready_live_provider_gap_open"
+        if not failures
+        else "fixture_quality_or_boundary_failed",
+        "closure_claim": "fixture_quality_recorded_live_provider_quality_not_closed",
+        "fixture_quality": fixture_quality,
+        "provider_readiness": provider_readiness,
+        "unsupported_live_provider_claims": unsupported_claims,
+        "remaining_live_gaps": remaining_gaps,
+        "gate_semantics": {
+            "status_passed_means": "fixture quality and live-gap boundary are valid",
+            "status_passed_does_not_mean": "live provider quality, provider=auto promotion, or production ranking quality",
+            "live_provider_claims_are": "reported as unsupported until a separate live quality replay supplies result quality, latency, timeout, and review evidence",
+        },
+        "failures": failures,
     }
 
 
@@ -237,6 +294,162 @@ def score_quality_benchmark_replay(*, cases: list[dict[str, Any]]) -> dict[str, 
         "live_provider_gap_state": build_live_provider_gap_state(),
         "quality_claim": "deterministic_replay_only_not_live_provider_quality",
     }
+
+
+def _summarize_fixture_quality(benchmark: dict[str, Any]) -> dict[str, Any]:
+    live_gap = dict(benchmark.get("live_provider_gap_state") or build_live_provider_gap_state())
+    return {
+        "source": "score_quality_benchmark_replay",
+        "status": str(benchmark.get("status") or "missing"),
+        "case_count": len(list(benchmark.get("cases") or [])),
+        "average_baseline_score": float(benchmark.get("average_baseline_score") or 0.0),
+        "average_retry_score": float(benchmark.get("average_retry_score") or 0.0),
+        "average_uplift": float(benchmark.get("average_uplift") or 0.0),
+        "false_positive_retry_rate": float(benchmark.get("false_positive_retry_rate") or 0.0),
+        "quality_claim": str(benchmark.get("quality_claim") or "deterministic_replay_only_not_live_provider_quality"),
+        "quality_claim_allowed": bool(live_gap.get("quality_claim_allowed")) is True,
+        "live_provider_gap_state": live_gap,
+    }
+
+
+def _build_provider_quality_rows(
+    *,
+    provider_statuses: dict[str, dict[str, Any]],
+    providers: list[str],
+) -> dict[str, Any]:
+    rows: dict[str, Any] = {}
+    for provider in providers:
+        live = dict(provider_statuses.get(provider) or {})
+        live_status = str(live.get("live_probe_status") or "not_run").strip() or "not_run"
+        result_quality_verified = bool(live.get("result_quality_verified")) is True
+        result_count = _optional_int(live.get("result_count"))
+        if live_status == "ready" and result_quality_verified:
+            availability_state = "live_available_quality_recorded"
+            remaining_gap = "symbolic_live_uplift_not_verified"
+        elif live_status == "ready":
+            availability_state = "live_available_quality_unverified"
+            remaining_gap = "result_quality_not_verified"
+        else:
+            availability_state = "live_gap"
+            remaining_gap = "live_provider_not_ready"
+        fallback_reason = live.get("fallback_reason")
+        if fallback_reason in (None, "") and live_status != "ready":
+            fallback_reason = "live_probe_not_run"
+        rows[provider] = {
+            "provider": provider,
+            "live_probe_status": live_status,
+            "availability_state": availability_state,
+            "result_count": result_count,
+            "result_quality_verified": result_quality_verified,
+            "quality_claim_allowed": False,
+            "input_quality_claim_allowed": bool(live.get("quality_claim_allowed")) is True,
+            "fallback_reason": fallback_reason,
+            "trace_failures": _normalize_string_list(live.get("trace_failures")),
+            "remaining_gap": remaining_gap,
+        }
+    return {
+        "probe_type": "recorded_provider_status_no_network_no_container_start",
+        "providers": rows,
+        "quality_claim_allowed": False,
+        "auto_promotion_allowed": False,
+    }
+
+
+def _build_unsupported_live_provider_claims(
+    *,
+    fixture_quality: dict[str, Any],
+    provider_readiness: dict[str, Any],
+) -> list[dict[str, str]]:
+    provider_statuses = {
+        name: row.get("live_probe_status")
+        for name, row in (provider_readiness.get("providers") or {}).items()
+    }
+    claims = [
+        {
+            "code": "fixture_replay_proves_live_provider_quality",
+            "claim": "Deterministic symbolic search fixture replay proves live provider quality.",
+            "reason": (
+                "Fixture quality only records deterministic source signals and uplift; "
+                f"quality_claim_allowed={fixture_quality.get('quality_claim_allowed')}."
+            ),
+            "required_next_evidence": "Live provider replay with result quality assertions and reviewer-visible samples.",
+        },
+        {
+            "code": "live_provider_availability_proves_symbolic_quality",
+            "claim": "Provider availability alone proves symbolic search provider quality.",
+            "reason": f"Current provider statuses are recorded only: {provider_statuses}.",
+            "required_next_evidence": "Per-provider success, latency, timeout, trace, and relevance thresholds on symbolic search cases.",
+        },
+        {
+            "code": "provider_auto_promotion_supported",
+            "claim": "SearXNG, YaCy, or web providers can be promoted into provider=auto.",
+            "reason": "The readiness contract keeps live providers explicit-only until quality and operator policy gates exist.",
+            "required_next_evidence": "Provider=auto rollout gate with live success rate, bounded timeouts, approval policy, and rollback criteria.",
+        },
+        {
+            "code": "live_retry_uplift_closed",
+            "claim": "Bounded retry uplift is proven against live providers.",
+            "reason": "The current uplift is fixture replay only and does not exercise live provider ranking behavior.",
+            "required_next_evidence": "Live baseline-vs-retry replay across provider-backed cases with false-positive retry tracking.",
+        },
+    ]
+    if any(row.get("input_quality_claim_allowed") for row in (provider_readiness.get("providers") or {}).values()):
+        claims.append(
+            {
+                "code": "input_provider_quality_claim_rejected",
+                "claim": "Caller-supplied provider status may mark live quality as closed.",
+                "reason": "The symbolic readiness gate rejects input quality claims unless this contract owns the live quality replay evidence.",
+                "required_next_evidence": "Attach the live quality replay artifact and threshold summary to this gate.",
+            }
+        )
+    return claims
+
+
+def _build_remaining_live_gaps(
+    *,
+    fixture_quality: dict[str, Any],
+    provider_readiness: dict[str, Any],
+) -> list[dict[str, str]]:
+    gaps: list[dict[str, str]] = []
+    for provider, row in (provider_readiness.get("providers") or {}).items():
+        gap = str(row.get("remaining_gap") or "live_provider_quality_not_verified")
+        gaps.append(
+            {
+                "code": f"{provider}_{gap}",
+                "status": "open",
+                "reason": (
+                    f"{provider} live_probe_status={row.get('live_probe_status')} "
+                    f"result_quality_verified={row.get('result_quality_verified')}"
+                ),
+                "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+            }
+        )
+    gaps.extend(
+        [
+            {
+                "code": "live_result_quality_threshold_not_defined",
+                "status": "open",
+                "reason": "No symbolic provider-quality threshold is attached to a live provider replay artifact.",
+                "required_next_evidence": "Define minimum result count, source diversity, relevance, freshness, latency, and timeout thresholds.",
+            },
+            {
+                "code": "live_retry_uplift_replay_not_run",
+                "status": "open",
+                "reason": (
+                    "Fixture average_uplift="
+                    f"{fixture_quality.get('average_uplift')} is not production provider evidence."
+                ),
+                "required_next_evidence": "Run live baseline-vs-retry replay and record uplift plus false-positive retry rate.",
+            },
+            {
+                "code": "provider_auto_operator_policy_not_approved",
+                "status": "open",
+                "reason": "Provider auto-routing remains unsafe without quality, timeout, and human-review policy.",
+                "required_next_evidence": "Operator-approved provider=auto policy with rollback and manual review boundaries.",
+            },
+        ]
+    )
+    return gaps
 
 
 def _resolve_days_back_limit(search_brief: dict[str, Any]) -> int | None:
