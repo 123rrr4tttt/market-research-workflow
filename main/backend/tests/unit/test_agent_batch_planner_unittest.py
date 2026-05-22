@@ -19,6 +19,7 @@ from app.services.agent_batch.task_contract import build_agent_batch_dispatch_in
 from app.services.agent_batch.task_contract import build_agent_batch_execution_registry
 from app.services.agent_batch.task_contract import build_agent_batch_submit_item_data
 from app.services.agent_batch.task_contract import build_live_quality_threshold_schema
+from app.services.agent_batch.task_contract import build_quality_promotion_readback_schema
 from app.services.agent_batch.task_contract import build_retry_action_schema
 from app.services.agent_batch.task_contract import build_search_brief_schema
 from app.services.agent_batch.task_contract import build_search_critic_schema
@@ -186,6 +187,13 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         self.assertIn("min_relevance_score", live_threshold_schema["quality_threshold_required_keys"])
         self.assertIn("min_review_sample_count", live_threshold_schema["quality_threshold_required_keys"])
 
+        promotion_schema = build_quality_promotion_readback_schema()
+        self.assertEqual(promotion_schema["artifact"], "quality_promotion_readback")
+        self.assertIn("fixture_search_brief", promotion_schema["required_keys"])
+        self.assertIn("critic_score_readback", promotion_schema["required_keys"])
+        self.assertIn("promotion_decision_readback", promotion_schema["required_keys"])
+        self.assertIn("decision_digest", promotion_schema["promotion_decision_readback_required_keys"])
+
         retry_schema = build_retry_action_schema()
         self.assertEqual(retry_schema["artifact"], "retry_action")
         self.assertTrue(retry_schema["fail_closed"])
@@ -226,6 +234,7 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         self.assertEqual(policy_contract["search_critic"], critic_schema)
         self.assertEqual(policy_contract["quality_replay"], quality_replay_schema)
         self.assertEqual(policy_contract["live_quality_threshold"], live_threshold_schema)
+        self.assertEqual(policy_contract["quality_promotion_readback"], promotion_schema)
         self.assertEqual(policy_contract["retry_action"], retry_schema)
         self.assertEqual(policy_contract["rewrite_eligible_fields_by_channel"], rewrite_fields)
         self.assertEqual(policy_contract["defaults"], defaults)

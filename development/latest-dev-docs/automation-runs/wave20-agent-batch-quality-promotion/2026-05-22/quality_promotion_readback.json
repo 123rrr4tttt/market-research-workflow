@@ -1,0 +1,1356 @@
+{
+  "bounded_retry_readback": {
+    "decisions": [
+      {
+        "case_id": "robotics-source-gap",
+        "critic_score": 0.66,
+        "decision": "retry_allowed",
+        "expected_decision": "retry_allowed",
+        "replay_score_is_observational": true
+      },
+      {
+        "case_id": "robotics-sufficient-stop",
+        "critic_score": 0.91,
+        "decision": "retry_blocked",
+        "expected_decision": "retry_blocked",
+        "replay_score_is_observational": true
+      }
+    ],
+    "enabled": true,
+    "live_provider_quality_claim_allowed": false,
+    "max_retry_rounds": 1,
+    "replay_score_is_observational": true,
+    "retry_allowed_count": 1,
+    "retry_blocked_count": 1,
+    "retry_budget": 1,
+    "trace_count": 2
+  },
+  "closure_claim": "quality_promotion_readback_validated_live_provider_quality_not_closed",
+  "contract_version": "agent-symbolic-batch-search.wave20.quality_promotion_readback.v1",
+  "critic_score_readback": {
+    "case_id": "robotics-source-gap",
+    "diagnosis": "baseline records miss fresh multi-company coverage",
+    "next_action": "retry_with_precision_query",
+    "reason_codes": [
+      "entity_coverage_gap",
+      "freshness_gap"
+    ],
+    "retry_score_source": "search_critic.score",
+    "score": 0.66,
+    "score_threshold": 0.72
+  },
+  "evidence": {
+    "contract_shape": {
+      "policy_contract_version": "agent_batch.search_policy.v1",
+      "quality_promotion_readback_schema": {
+        "artifact": "quality_promotion_readback",
+        "bounded_retry_required_keys": [
+          "enabled",
+          "retry_budget",
+          "max_retry_rounds",
+          "retry_allowed_count",
+          "retry_blocked_count",
+          "replay_score_is_observational"
+        ],
+        "contract_version": "agent_batch.quality_promotion_readback.v1",
+        "critic_score_required_keys": [
+          "case_id",
+          "score",
+          "score_threshold",
+          "next_action",
+          "reason_codes",
+          "retry_score_source"
+        ],
+        "fixture_search_brief_required_keys": [
+          "case_id",
+          "intent",
+          "goal",
+          "coverage_axes",
+          "time_strategy",
+          "search_strategy_count",
+          "candidate_items"
+        ],
+        "promotion_decision_readback_required_keys": [
+          "readback_performed",
+          "readback_matches_decision",
+          "promotion_allowed",
+          "provider_auto_promotion_allowed",
+          "decision_digest"
+        ],
+        "promotion_decision_required_keys": [
+          "decision_id",
+          "decision",
+          "promotion_allowed",
+          "provider_auto_promotion_allowed",
+          "reason_codes",
+          "required_next_evidence"
+        ],
+        "quality_threshold_required_keys": [
+          "threshold_status",
+          "fixture_threshold_status",
+          "live_provider_replay_closed",
+          "quality_claim_allowed"
+        ],
+        "required_keys": [
+          "scope",
+          "fixture_search_brief",
+          "critic_score_readback",
+          "bounded_retry_readback",
+          "quality_threshold_readback",
+          "promotion_decision",
+          "promotion_decision_readback",
+          "provider_independent_boundary",
+          "unsupported_promotion_claims",
+          "remaining_live_gaps"
+        ],
+        "scope": "provider_independent_symbolic_quality_promotion_readback"
+      }
+    },
+    "input_promotion_claim_rejected": {
+      "promotion_decision": {
+        "bounded_retry_trace_count": 2,
+        "decision": "hold_provider_auto_promotion",
+        "decision_id": "agent_batch_quality_promotion_readback:provider_auto:hold",
+        "decision_source": "provider_independent_quality_promotion_readback_gate",
+        "promotion_allowed": false,
+        "provider_auto_promotion_allowed": false,
+        "quality_promotion_state": "fixture_quality_passed_live_provider_gap_open",
+        "quality_threshold_status": "threshold_contract_ready_live_replay_gap_open",
+        "reason_codes": [
+          "fixture_quality_replay_only",
+          "live_quality_threshold_replay_gap_open",
+          "provider_auto_operator_policy_not_approved"
+        ],
+        "required_next_evidence": [
+          "live_provider_quality_replay",
+          "all_provider_threshold_rows_passed",
+          "operator_review_approved",
+          "provider_auto_rollout_policy_approved"
+        ]
+      },
+      "promotion_decision_readback": {
+        "decision_digest": "adfa1129333c9e86",
+        "input_decision": "promote_provider_auto",
+        "input_promotion_claim_rejected": true,
+        "promotion_allowed": false,
+        "provider_auto_promotion_allowed": false,
+        "readback_digest": "adfa1129333c9e86",
+        "readback_matches_decision": true,
+        "readback_performed": true
+      },
+      "status": "passed",
+      "unsupported_promotion_claims": [
+        {
+          "claim": "Fixture replay quality can promote live providers into provider=auto.",
+          "code": "fixture_replay_promotes_provider_auto",
+          "reason": "Fixture replay is provider-independent and does not start live providers.",
+          "required_next_evidence": "Live provider replay with threshold pass rows and operator approval."
+        },
+        {
+          "claim": "A search critic score can promote provider routing.",
+          "code": "critic_score_promotes_provider_auto",
+          "reason": "critic_score=0.66 only controls bounded retry decisions.",
+          "required_next_evidence": "Separate provider-auto rollout policy and live provider quality gate."
+        },
+        {
+          "claim": "A threshold contract can promote providers without a live replay.",
+          "code": "quality_threshold_status_promotes_without_live_replay",
+          "reason": "threshold_status=threshold_contract_ready_live_replay_gap_open and quality_claim_allowed=False.",
+          "required_next_evidence": "Replay status live_provider_quality_replay with all thresholds met."
+        },
+        {
+          "claim": "Caller-supplied promotion decision can mark provider=auto as allowed.",
+          "code": "input_promotion_decision_claim_rejected",
+          "reason": "The gate recomputes promotion and keeps provider-auto promotion held.",
+          "required_next_evidence": "Attach a live provider quality replay and operator-approved promotion policy."
+        },
+        {
+          "claim": "Deterministic symbolic search fixture replay proves live provider quality.",
+          "code": "fixture_replay_proves_live_provider_quality",
+          "reason": "Fixture quality only records deterministic source signals and uplift; quality_claim_allowed=False.",
+          "required_next_evidence": "Live provider replay with result quality assertions and reviewer-visible samples."
+        },
+        {
+          "claim": "Provider availability alone proves symbolic search provider quality.",
+          "code": "live_provider_availability_proves_symbolic_quality",
+          "reason": "Current provider statuses are recorded only: {'searxng': 'unavailable', 'yacy': 'not_run', 'web': 'not_run'}.",
+          "required_next_evidence": "Per-provider success, latency, timeout, trace, and relevance thresholds on symbolic search cases."
+        },
+        {
+          "claim": "SearXNG, YaCy, or web providers can be promoted into provider=auto.",
+          "code": "provider_auto_promotion_supported",
+          "reason": "The readiness contract keeps live providers explicit-only until quality and operator policy gates exist.",
+          "required_next_evidence": "Provider=auto rollout gate with live success rate, bounded timeouts, approval policy, and rollback criteria."
+        },
+        {
+          "claim": "Bounded retry uplift is proven against live providers.",
+          "code": "live_retry_uplift_closed",
+          "reason": "The current uplift is fixture replay only and does not exercise live provider ranking behavior.",
+          "required_next_evidence": "Live baseline-vs-retry replay across provider-backed cases with false-positive retry tracking."
+        },
+        {
+          "claim": "Fixture replay uplift can satisfy the live provider quality threshold.",
+          "code": "fixture_quality_uplift_meets_live_quality_threshold",
+          "reason": "Fixture uplift is deterministic replay only: average_uplift=0.15 quality_claim_allowed=False.",
+          "required_next_evidence": "Attach a live provider replay artifact evaluated against this threshold contract."
+        },
+        {
+          "claim": "Provider availability or result count alone proves live symbolic search quality.",
+          "code": "provider_availability_meets_live_quality_threshold",
+          "reason": "The threshold requires relevance, freshness, source diversity, latency, timeout, trace, and review samples.",
+          "required_next_evidence": "Per-provider threshold rows with reviewer-visible samples and trace success."
+        },
+        {
+          "claim": "Live provider quality can be closed without a threshold replay artifact.",
+          "code": "live_quality_closed_without_threshold_replay",
+          "reason": "No quality claim is allowed until replay_type=live_provider_quality_replay passes all thresholds.",
+          "required_next_evidence": "Run the real provider replay and record threshold pass/fail rows."
+        },
+        {
+          "claim": "Passing this threshold contract automatically promotes providers into provider=auto.",
+          "code": "provider_auto_promotion_supported_by_threshold",
+          "reason": "Provider auto-promotion remains blocked by a separate operator rollout policy.",
+          "required_next_evidence": "Provider=auto rollout gate with approval, rollback, and production monitoring policy."
+        }
+      ]
+    },
+    "promotion_gate": {
+      "bounded_retry_readback": {
+        "decisions": [
+          {
+            "case_id": "robotics-source-gap",
+            "critic_score": 0.66,
+            "decision": "retry_allowed",
+            "expected_decision": "retry_allowed",
+            "replay_score_is_observational": true
+          },
+          {
+            "case_id": "robotics-sufficient-stop",
+            "critic_score": 0.91,
+            "decision": "retry_blocked",
+            "expected_decision": "retry_blocked",
+            "replay_score_is_observational": true
+          }
+        ],
+        "enabled": true,
+        "live_provider_quality_claim_allowed": false,
+        "max_retry_rounds": 1,
+        "replay_score_is_observational": true,
+        "retry_allowed_count": 1,
+        "retry_blocked_count": 1,
+        "retry_budget": 1,
+        "trace_count": 2
+      },
+      "closure_claim": "promotion_decision_readback_validated_live_provider_quality_not_closed",
+      "contract_version": "agent_batch.quality_promotion_readback.v1",
+      "critic_score_readback": {
+        "case_id": "robotics-source-gap",
+        "diagnosis": "baseline records miss fresh multi-company coverage",
+        "next_action": "retry_with_precision_query",
+        "reason_codes": [
+          "entity_coverage_gap",
+          "freshness_gap"
+        ],
+        "retry_score_source": "search_critic.score",
+        "score": 0.66,
+        "score_threshold": 0.72
+      },
+      "failures": [],
+      "fixture_search_brief": {
+        "attach_source_library": false,
+        "candidate_items": [
+          "robotics.market_watch"
+        ],
+        "case_id": "robotics-source-gap",
+        "coverage_axes": [
+          "products",
+          "companies",
+          "recent_movement"
+        ],
+        "first_query_terms": [
+          "embodied ai robotics commercialization companies product latest news"
+        ],
+        "goal": "search embodied ai robotics commercialization companies product latest news",
+        "intent": "market_research_general",
+        "search_strategy_count": 1,
+        "stop_conditions": {
+          "max_search_rounds": 2,
+          "min_entity_count": 4,
+          "min_source_domains": 2
+        },
+        "time_strategy": {
+          "days_back": 30,
+          "mode": "recent"
+        }
+      },
+      "gate_state": "provider_independent_quality_promotion_held_live_gap_open",
+      "promotion_decision": {
+        "bounded_retry_trace_count": 2,
+        "decision": "hold_provider_auto_promotion",
+        "decision_id": "agent_batch_quality_promotion_readback:provider_auto:hold",
+        "decision_source": "provider_independent_quality_promotion_readback_gate",
+        "promotion_allowed": false,
+        "provider_auto_promotion_allowed": false,
+        "quality_promotion_state": "fixture_quality_passed_live_provider_gap_open",
+        "quality_threshold_status": "threshold_contract_ready_live_replay_gap_open",
+        "reason_codes": [
+          "fixture_quality_replay_only",
+          "live_quality_threshold_replay_gap_open",
+          "provider_auto_operator_policy_not_approved"
+        ],
+        "required_next_evidence": [
+          "live_provider_quality_replay",
+          "all_provider_threshold_rows_passed",
+          "operator_review_approved",
+          "provider_auto_rollout_policy_approved"
+        ]
+      },
+      "promotion_decision_readback": {
+        "decision_digest": "adfa1129333c9e86",
+        "input_decision": null,
+        "input_promotion_claim_rejected": false,
+        "promotion_allowed": false,
+        "provider_auto_promotion_allowed": false,
+        "readback_digest": "adfa1129333c9e86",
+        "readback_matches_decision": true,
+        "readback_performed": true
+      },
+      "provider_independent_boundary": {
+        "live_provider_probe_performed": false,
+        "live_provider_quality_closed_by_gate": false,
+        "live_provider_quality_open": true,
+        "network_started": false,
+        "provider_auto_promotion_allowed": false,
+        "provider_readiness_probe_type": "recorded_provider_status_no_network_no_container_start",
+        "quality_claim_allowed": false,
+        "status_passed_does_not_mean": "live provider quality or provider=auto promotion is closed",
+        "status_passed_means": "fixture search brief, critic score, bounded retry, threshold, and promotion decision readback are internally consistent"
+      },
+      "quality_regression_evaluator": {
+        "closure_claim": "provider_independent_quality_regression_passed_live_provider_quality_not_closed",
+        "contract_version": "agent_batch.symbolic_quality_regression_evaluator.v1",
+        "critic_bounded_retry_trace": {
+          "failures": [],
+          "retry_allowed_count": 1,
+          "retry_blocked_count": 1,
+          "status": "passed",
+          "trace_count": 2,
+          "traces": [
+            {
+              "baseline_score": 0.7,
+              "boundary": {
+                "contract_version": "agent_batch.search_quality_replay.v1",
+                "critic_next_action": "retry_with_precision_query",
+                "critic_score": 0.66,
+                "decision": "retry_allowed",
+                "live_provider_quality_claim_allowed": false,
+                "max_retry_rounds": 1,
+                "reason_code": "critic_requested_retry",
+                "replay_score": 0.7,
+                "replay_score_is_observational": true,
+                "retry_budget": 1,
+                "retry_score_source": "search_critic.score",
+                "score_threshold": 0.72,
+                "threshold_bypassed": false
+              },
+              "case_id": "robotics-source-gap",
+              "expected_decision": "retry_allowed",
+              "failures": [],
+              "retry_expected": true,
+              "retry_score": 0.99,
+              "search_critic": {
+                "diagnosis": "baseline records miss fresh multi-company coverage",
+                "next_action": "retry_with_precision_query",
+                "reason_codes": [
+                  "entity_coverage_gap",
+                  "freshness_gap"
+                ],
+                "score": 0.66
+              },
+              "status": "passed",
+              "uplift": 0.29
+            },
+            {
+              "baseline_score": 0.99,
+              "boundary": {
+                "contract_version": "agent_batch.search_quality_replay.v1",
+                "critic_next_action": "stop",
+                "critic_score": 0.91,
+                "decision": "retry_blocked",
+                "live_provider_quality_claim_allowed": false,
+                "max_retry_rounds": 1,
+                "reason_code": "critic_stop",
+                "replay_score": 0.99,
+                "replay_score_is_observational": true,
+                "retry_budget": 1,
+                "retry_score_source": "search_critic.score",
+                "score_threshold": 0.72,
+                "threshold_bypassed": false
+              },
+              "case_id": "robotics-sufficient-stop",
+              "expected_decision": "retry_blocked",
+              "failures": [],
+              "retry_expected": false,
+              "retry_score": 0.99,
+              "search_critic": {
+                "diagnosis": "fixture already satisfies coverage and freshness",
+                "next_action": "stop",
+                "reason_codes": [
+                  "coverage_sufficient"
+                ],
+                "score": 0.91
+              },
+              "status": "passed",
+              "uplift": 0.0
+            }
+          ]
+        },
+        "failures": [],
+        "fixture_quality_threshold": {
+          "average_uplift": 0.15,
+          "case_count": 2,
+          "false_positive_retry_rate": 0.0,
+          "status": "passed",
+          "threshold_checks": {
+            "average_uplift": true,
+            "case_count": true,
+            "false_positive_retry_rate": true,
+            "fixture_quality_claim_blocked": true,
+            "fixture_status_passed": true,
+            "live_provider_quality_open": true
+          },
+          "threshold_failures": [],
+          "threshold_version": "symbolic_quality_regression_thresholds.v1"
+        },
+        "live_provider_quality_closed_by_evaluator": false,
+        "live_provider_quality_open": true,
+        "live_quality_threshold": {
+          "closure_claim": "live_quality_threshold_defined_provider_replay_not_closed",
+          "contract_version": "agent_batch.live_quality_threshold.v1",
+          "failures": [],
+          "fixture_quality_boundary": {
+            "average_uplift": 0.15,
+            "case_count": 2,
+            "false_positive_retry_rate": 0.0,
+            "live_provider_gap_state": {
+              "live_provider_probe_performed": false,
+              "providers_not_started": [
+                "searxng",
+                "yacy",
+                "web"
+              ],
+              "quality_claim_allowed": false,
+              "reason": "deterministic replay does not start SearXNG, YaCy, browser, or external web providers",
+              "status": "not_run",
+              "unsupported_claims": [
+                "searxng_live_quality_verified",
+                "yacy_live_quality_verified",
+                "web_live_quality_verified"
+              ]
+            },
+            "live_provider_quality_equivalent": false,
+            "quality_claim": "deterministic_replay_only_not_live_provider_quality",
+            "quality_claim_allowed": false,
+            "source": "score_quality_benchmark_replay",
+            "status": "passed"
+          },
+          "live_provider_replay_closed": false,
+          "provider_auto_promotion_allowed": false,
+          "quality_claim_allowed": false,
+          "quality_thresholds": {
+            "max_duplicate_rate": 0.25,
+            "max_p95_latency_ms": 4000,
+            "max_timeout_rate": 0.1,
+            "min_case_count": 1,
+            "min_freshness_score": 0.65,
+            "min_relevance_score": 0.72,
+            "min_results_per_provider": 3,
+            "min_review_sample_count": 3,
+            "min_source_domains": 2,
+            "require_trace_success": true,
+            "required_providers": [
+              "searxng",
+              "yacy",
+              "web"
+            ],
+            "threshold_version": "symbolic_live_quality_thresholds.v1"
+          },
+          "remaining_live_gaps": [
+            {
+              "code": "live_provider_replay_not_run",
+              "reason": "This contract defines thresholds but does not start SearXNG, YaCy, browser, or web providers.",
+              "required_next_evidence": "Run real provider replay and attach threshold-evaluated provider rows.",
+              "status": "open"
+            },
+            {
+              "code": "searxng_live_provider_replay_not_attached",
+              "reason": "searxng replay_status=unavailable threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+              "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+              "status": "open"
+            },
+            {
+              "code": "yacy_live_provider_replay_not_attached",
+              "reason": "yacy replay_status=not_run threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+              "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+              "status": "open"
+            },
+            {
+              "code": "web_live_provider_replay_not_attached",
+              "reason": "web replay_status=not_run threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+              "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+              "status": "open"
+            },
+            {
+              "code": "operator_review_not_approved",
+              "reason": "operator_review_status=not_run",
+              "required_next_evidence": "Reviewer-visible result samples and explicit operator approval for live quality closure.",
+              "status": "open"
+            }
+          ],
+          "replay_evaluation": {
+            "live_replay_performed": false,
+            "operator_review_status": "not_run",
+            "providers": {
+              "searxng": {
+                "case_count": 0,
+                "duplicate_rate": 0.0,
+                "freshness_score": null,
+                "input_quality_claim_allowed": false,
+                "p95_latency_ms": null,
+                "provider": "searxng",
+                "quality_claim_allowed": false,
+                "relevance_score": null,
+                "remaining_gap": "live_provider_replay_not_attached",
+                "replay_status": "unavailable",
+                "result_count": 0,
+                "review_sample_count": 0,
+                "source_domain_count": 0,
+                "source_domains": [],
+                "threshold_checks": {
+                  "case_count": false,
+                  "duplicate_rate": true,
+                  "freshness_score": false,
+                  "live_replay_attached": false,
+                  "p95_latency_ms": false,
+                  "relevance_score": false,
+                  "result_count": false,
+                  "review_sample_count": false,
+                  "source_domain_count": false,
+                  "timeout_rate": false,
+                  "trace_success": false
+                },
+                "threshold_failures": [
+                  "live_replay_attached",
+                  "case_count",
+                  "result_count",
+                  "source_domain_count",
+                  "relevance_score",
+                  "freshness_score",
+                  "timeout_rate",
+                  "p95_latency_ms",
+                  "review_sample_count",
+                  "trace_success"
+                ],
+                "thresholds_met": false,
+                "timeout_rate": 1.0,
+                "trace_success": false
+              },
+              "web": {
+                "case_count": 0,
+                "duplicate_rate": 0.0,
+                "freshness_score": null,
+                "input_quality_claim_allowed": false,
+                "p95_latency_ms": null,
+                "provider": "web",
+                "quality_claim_allowed": false,
+                "relevance_score": null,
+                "remaining_gap": "live_provider_replay_not_attached",
+                "replay_status": "not_run",
+                "result_count": 0,
+                "review_sample_count": 0,
+                "source_domain_count": 0,
+                "source_domains": [],
+                "threshold_checks": {
+                  "case_count": false,
+                  "duplicate_rate": true,
+                  "freshness_score": false,
+                  "live_replay_attached": false,
+                  "p95_latency_ms": false,
+                  "relevance_score": false,
+                  "result_count": false,
+                  "review_sample_count": false,
+                  "source_domain_count": false,
+                  "timeout_rate": false,
+                  "trace_success": false
+                },
+                "threshold_failures": [
+                  "live_replay_attached",
+                  "case_count",
+                  "result_count",
+                  "source_domain_count",
+                  "relevance_score",
+                  "freshness_score",
+                  "timeout_rate",
+                  "p95_latency_ms",
+                  "review_sample_count",
+                  "trace_success"
+                ],
+                "thresholds_met": false,
+                "timeout_rate": 1.0,
+                "trace_success": false
+              },
+              "yacy": {
+                "case_count": 0,
+                "duplicate_rate": 0.0,
+                "freshness_score": null,
+                "input_quality_claim_allowed": false,
+                "p95_latency_ms": null,
+                "provider": "yacy",
+                "quality_claim_allowed": false,
+                "relevance_score": null,
+                "remaining_gap": "live_provider_replay_not_attached",
+                "replay_status": "not_run",
+                "result_count": 0,
+                "review_sample_count": 0,
+                "source_domain_count": 0,
+                "source_domains": [],
+                "threshold_checks": {
+                  "case_count": false,
+                  "duplicate_rate": true,
+                  "freshness_score": false,
+                  "live_replay_attached": false,
+                  "p95_latency_ms": false,
+                  "relevance_score": false,
+                  "result_count": false,
+                  "review_sample_count": false,
+                  "source_domain_count": false,
+                  "timeout_rate": false,
+                  "trace_success": false
+                },
+                "threshold_failures": [
+                  "live_replay_attached",
+                  "case_count",
+                  "result_count",
+                  "source_domain_count",
+                  "relevance_score",
+                  "freshness_score",
+                  "timeout_rate",
+                  "p95_latency_ms",
+                  "review_sample_count",
+                  "trace_success"
+                ],
+                "thresholds_met": false,
+                "timeout_rate": 1.0,
+                "trace_success": false
+              }
+            },
+            "replay_type": "not_run"
+          },
+          "scope": "symbolic_search_live_provider_quality_threshold_contract",
+          "status": "passed",
+          "threshold_status": "threshold_contract_ready_live_replay_gap_open",
+          "threshold_version": "symbolic_live_quality_thresholds.v1",
+          "unsupported_live_provider_claims": [
+            {
+              "claim": "Fixture replay uplift can satisfy the live provider quality threshold.",
+              "code": "fixture_quality_uplift_meets_live_quality_threshold",
+              "reason": "Fixture uplift is deterministic replay only: average_uplift=0.15 quality_claim_allowed=False.",
+              "required_next_evidence": "Attach a live provider replay artifact evaluated against this threshold contract."
+            },
+            {
+              "claim": "Provider availability or result count alone proves live symbolic search quality.",
+              "code": "provider_availability_meets_live_quality_threshold",
+              "reason": "The threshold requires relevance, freshness, source diversity, latency, timeout, trace, and review samples.",
+              "required_next_evidence": "Per-provider threshold rows with reviewer-visible samples and trace success."
+            },
+            {
+              "claim": "Live provider quality can be closed without a threshold replay artifact.",
+              "code": "live_quality_closed_without_threshold_replay",
+              "reason": "No quality claim is allowed until replay_type=live_provider_quality_replay passes all thresholds.",
+              "required_next_evidence": "Run the real provider replay and record threshold pass/fail rows."
+            },
+            {
+              "claim": "Passing this threshold contract automatically promotes providers into provider=auto.",
+              "code": "provider_auto_promotion_supported_by_threshold",
+              "reason": "Provider auto-promotion remains blocked by a separate operator rollout policy.",
+              "required_next_evidence": "Provider=auto rollout gate with approval, rollback, and production monitoring policy."
+            }
+          ]
+        },
+        "provider_auto_promotion_allowed": false,
+        "provider_readiness": {
+          "closure_claim": "fixture_quality_recorded_live_provider_quality_not_closed",
+          "contract_version": "agent_batch.provider_quality_readiness.v1",
+          "failures": [],
+          "fixture_quality": {
+            "average_baseline_score": 0.84,
+            "average_retry_score": 0.99,
+            "average_uplift": 0.15,
+            "case_count": 2,
+            "false_positive_retry_rate": 0.0,
+            "live_provider_gap_state": {
+              "live_provider_probe_performed": false,
+              "providers_not_started": [
+                "searxng",
+                "yacy",
+                "web"
+              ],
+              "quality_claim_allowed": false,
+              "reason": "deterministic replay does not start SearXNG, YaCy, browser, or external web providers",
+              "status": "not_run",
+              "unsupported_claims": [
+                "searxng_live_quality_verified",
+                "yacy_live_quality_verified",
+                "web_live_quality_verified"
+              ]
+            },
+            "quality_claim": "deterministic_replay_only_not_live_provider_quality",
+            "quality_claim_allowed": false,
+            "source": "score_quality_benchmark_replay",
+            "status": "passed"
+          },
+          "gate_semantics": {
+            "live_provider_claims_are": "reported as unsupported until a separate live quality replay supplies result quality, latency, timeout, and review evidence",
+            "status_passed_does_not_mean": "live provider quality, provider=auto promotion, or production ranking quality",
+            "status_passed_means": "fixture quality and live-gap boundary are valid"
+          },
+          "provider_readiness": {
+            "auto_promotion_allowed": false,
+            "probe_type": "recorded_provider_status_no_network_no_container_start",
+            "providers": {
+              "searxng": {
+                "availability_state": "live_gap",
+                "fallback_reason": "ConnectError",
+                "input_quality_claim_allowed": false,
+                "live_probe_status": "unavailable",
+                "provider": "searxng",
+                "quality_claim_allowed": false,
+                "remaining_gap": "live_provider_not_ready",
+                "result_count": 0,
+                "result_quality_verified": false,
+                "trace_failures": []
+              },
+              "web": {
+                "availability_state": "live_gap",
+                "fallback_reason": "live_probe_not_run",
+                "input_quality_claim_allowed": false,
+                "live_probe_status": "not_run",
+                "provider": "web",
+                "quality_claim_allowed": false,
+                "remaining_gap": "live_provider_not_ready",
+                "result_count": 0,
+                "result_quality_verified": false,
+                "trace_failures": []
+              },
+              "yacy": {
+                "availability_state": "live_gap",
+                "fallback_reason": "live_probe_not_run",
+                "input_quality_claim_allowed": false,
+                "live_probe_status": "not_run",
+                "provider": "yacy",
+                "quality_claim_allowed": false,
+                "remaining_gap": "live_provider_not_ready",
+                "result_count": 0,
+                "result_quality_verified": false,
+                "trace_failures": []
+              }
+            },
+            "quality_claim_allowed": false
+          },
+          "readiness_state": "fixture_quality_ready_live_provider_gap_open",
+          "remaining_live_gaps": [
+            {
+              "code": "searxng_live_provider_not_ready",
+              "reason": "searxng live_probe_status=unavailable result_quality_verified=False",
+              "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+              "status": "open"
+            },
+            {
+              "code": "yacy_live_provider_not_ready",
+              "reason": "yacy live_probe_status=not_run result_quality_verified=False",
+              "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+              "status": "open"
+            },
+            {
+              "code": "web_live_provider_not_ready",
+              "reason": "web live_probe_status=not_run result_quality_verified=False",
+              "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+              "status": "open"
+            },
+            {
+              "code": "live_result_quality_threshold_not_defined",
+              "reason": "No symbolic provider-quality threshold is attached to a live provider replay artifact.",
+              "required_next_evidence": "Define minimum result count, source diversity, relevance, freshness, latency, and timeout thresholds.",
+              "status": "open"
+            },
+            {
+              "code": "live_retry_uplift_replay_not_run",
+              "reason": "Fixture average_uplift=0.15 is not production provider evidence.",
+              "required_next_evidence": "Run live baseline-vs-retry replay and record uplift plus false-positive retry rate.",
+              "status": "open"
+            },
+            {
+              "code": "provider_auto_operator_policy_not_approved",
+              "reason": "Provider auto-routing remains unsafe without quality, timeout, and human-review policy.",
+              "required_next_evidence": "Operator-approved provider=auto policy with rollback and manual review boundaries.",
+              "status": "open"
+            }
+          ],
+          "scope": "symbolic_search_provider_quality_readiness_fixture_quality_and_live_gap_boundary",
+          "status": "passed",
+          "unsupported_live_provider_claims": [
+            {
+              "claim": "Deterministic symbolic search fixture replay proves live provider quality.",
+              "code": "fixture_replay_proves_live_provider_quality",
+              "reason": "Fixture quality only records deterministic source signals and uplift; quality_claim_allowed=False.",
+              "required_next_evidence": "Live provider replay with result quality assertions and reviewer-visible samples."
+            },
+            {
+              "claim": "Provider availability alone proves symbolic search provider quality.",
+              "code": "live_provider_availability_proves_symbolic_quality",
+              "reason": "Current provider statuses are recorded only: {'searxng': 'unavailable', 'yacy': 'not_run', 'web': 'not_run'}.",
+              "required_next_evidence": "Per-provider success, latency, timeout, trace, and relevance thresholds on symbolic search cases."
+            },
+            {
+              "claim": "SearXNG, YaCy, or web providers can be promoted into provider=auto.",
+              "code": "provider_auto_promotion_supported",
+              "reason": "The readiness contract keeps live providers explicit-only until quality and operator policy gates exist.",
+              "required_next_evidence": "Provider=auto rollout gate with live success rate, bounded timeouts, approval policy, and rollback criteria."
+            },
+            {
+              "claim": "Bounded retry uplift is proven against live providers.",
+              "code": "live_retry_uplift_closed",
+              "reason": "The current uplift is fixture replay only and does not exercise live provider ranking behavior.",
+              "required_next_evidence": "Live baseline-vs-retry replay across provider-backed cases with false-positive retry tracking."
+            }
+          ]
+        },
+        "quality_claim_allowed": false,
+        "regression_state": "fixture_quality_regression_passed_live_provider_quality_open",
+        "regression_thresholds": {
+          "max_false_positive_retry_rate": 0.25,
+          "min_average_uplift": 0.0,
+          "min_fixture_case_count": 1,
+          "require_live_provider_quality_open": true,
+          "require_retry_allowed_trace": true,
+          "require_retry_blocked_trace": true,
+          "threshold_version": "symbolic_quality_regression_thresholds.v1"
+        },
+        "remaining_live_gaps": [
+          {
+            "code": "searxng_live_provider_not_ready",
+            "reason": "searxng live_probe_status=unavailable result_quality_verified=False",
+            "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+            "status": "open"
+          },
+          {
+            "code": "yacy_live_provider_not_ready",
+            "reason": "yacy live_probe_status=not_run result_quality_verified=False",
+            "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+            "status": "open"
+          },
+          {
+            "code": "web_live_provider_not_ready",
+            "reason": "web live_probe_status=not_run result_quality_verified=False",
+            "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+            "status": "open"
+          },
+          {
+            "code": "live_result_quality_threshold_not_defined",
+            "reason": "No symbolic provider-quality threshold is attached to a live provider replay artifact.",
+            "required_next_evidence": "Define minimum result count, source diversity, relevance, freshness, latency, and timeout thresholds.",
+            "status": "open"
+          },
+          {
+            "code": "live_retry_uplift_replay_not_run",
+            "reason": "Fixture average_uplift=0.15 is not production provider evidence.",
+            "required_next_evidence": "Run live baseline-vs-retry replay and record uplift plus false-positive retry rate.",
+            "status": "open"
+          },
+          {
+            "code": "provider_auto_operator_policy_not_approved",
+            "reason": "Provider auto-routing remains unsafe without quality, timeout, and human-review policy.",
+            "required_next_evidence": "Operator-approved provider=auto policy with rollback and manual review boundaries.",
+            "status": "open"
+          },
+          {
+            "code": "live_provider_replay_not_run",
+            "reason": "This contract defines thresholds but does not start SearXNG, YaCy, browser, or web providers.",
+            "required_next_evidence": "Run real provider replay and attach threshold-evaluated provider rows.",
+            "status": "open"
+          },
+          {
+            "code": "searxng_live_provider_replay_not_attached",
+            "reason": "searxng replay_status=unavailable threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+            "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+            "status": "open"
+          },
+          {
+            "code": "yacy_live_provider_replay_not_attached",
+            "reason": "yacy replay_status=not_run threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+            "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+            "status": "open"
+          },
+          {
+            "code": "web_live_provider_replay_not_attached",
+            "reason": "web replay_status=not_run threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+            "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+            "status": "open"
+          },
+          {
+            "code": "operator_review_not_approved",
+            "reason": "operator_review_status=not_run",
+            "required_next_evidence": "Reviewer-visible result samples and explicit operator approval for live quality closure.",
+            "status": "open"
+          }
+        ],
+        "scope": "symbolic_search_quality_regression_fixture_threshold_live_gap_boundary",
+        "status": "passed",
+        "threshold_status": "threshold_contract_ready_live_replay_gap_open",
+        "unsupported_live_provider_claims": [
+          {
+            "claim": "Deterministic symbolic search fixture replay proves live provider quality.",
+            "code": "fixture_replay_proves_live_provider_quality",
+            "reason": "Fixture quality only records deterministic source signals and uplift; quality_claim_allowed=False.",
+            "required_next_evidence": "Live provider replay with result quality assertions and reviewer-visible samples."
+          },
+          {
+            "claim": "Provider availability alone proves symbolic search provider quality.",
+            "code": "live_provider_availability_proves_symbolic_quality",
+            "reason": "Current provider statuses are recorded only: {'searxng': 'unavailable', 'yacy': 'not_run', 'web': 'not_run'}.",
+            "required_next_evidence": "Per-provider success, latency, timeout, trace, and relevance thresholds on symbolic search cases."
+          },
+          {
+            "claim": "SearXNG, YaCy, or web providers can be promoted into provider=auto.",
+            "code": "provider_auto_promotion_supported",
+            "reason": "The readiness contract keeps live providers explicit-only until quality and operator policy gates exist.",
+            "required_next_evidence": "Provider=auto rollout gate with live success rate, bounded timeouts, approval policy, and rollback criteria."
+          },
+          {
+            "claim": "Bounded retry uplift is proven against live providers.",
+            "code": "live_retry_uplift_closed",
+            "reason": "The current uplift is fixture replay only and does not exercise live provider ranking behavior.",
+            "required_next_evidence": "Live baseline-vs-retry replay across provider-backed cases with false-positive retry tracking."
+          },
+          {
+            "claim": "Fixture replay uplift can satisfy the live provider quality threshold.",
+            "code": "fixture_quality_uplift_meets_live_quality_threshold",
+            "reason": "Fixture uplift is deterministic replay only: average_uplift=0.15 quality_claim_allowed=False.",
+            "required_next_evidence": "Attach a live provider replay artifact evaluated against this threshold contract."
+          },
+          {
+            "claim": "Provider availability or result count alone proves live symbolic search quality.",
+            "code": "provider_availability_meets_live_quality_threshold",
+            "reason": "The threshold requires relevance, freshness, source diversity, latency, timeout, trace, and review samples.",
+            "required_next_evidence": "Per-provider threshold rows with reviewer-visible samples and trace success."
+          },
+          {
+            "claim": "Live provider quality can be closed without a threshold replay artifact.",
+            "code": "live_quality_closed_without_threshold_replay",
+            "reason": "No quality claim is allowed until replay_type=live_provider_quality_replay passes all thresholds.",
+            "required_next_evidence": "Run the real provider replay and record threshold pass/fail rows."
+          },
+          {
+            "claim": "Passing this threshold contract automatically promotes providers into provider=auto.",
+            "code": "provider_auto_promotion_supported_by_threshold",
+            "reason": "Provider auto-promotion remains blocked by a separate operator rollout policy.",
+            "required_next_evidence": "Provider=auto rollout gate with approval, rollback, and production monitoring policy."
+          }
+        ]
+      },
+      "quality_threshold_readback": {
+        "false_positive_retry_rate": 0.0,
+        "fixture_average_uplift": 0.15,
+        "fixture_case_count": 2,
+        "fixture_threshold_status": "passed",
+        "live_provider_replay_closed": false,
+        "provider_auto_promotion_allowed": false,
+        "quality_claim_allowed": false,
+        "regression_threshold_version": "symbolic_quality_regression_thresholds.v1",
+        "required_providers": [
+          "searxng",
+          "yacy",
+          "web"
+        ],
+        "threshold_status": "threshold_contract_ready_live_replay_gap_open",
+        "threshold_version": "symbolic_live_quality_thresholds.v1"
+      },
+      "remaining_live_gaps": [
+        {
+          "code": "searxng_live_provider_not_ready",
+          "reason": "searxng live_probe_status=unavailable result_quality_verified=False",
+          "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+          "status": "open"
+        },
+        {
+          "code": "yacy_live_provider_not_ready",
+          "reason": "yacy live_probe_status=not_run result_quality_verified=False",
+          "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+          "status": "open"
+        },
+        {
+          "code": "web_live_provider_not_ready",
+          "reason": "web live_probe_status=not_run result_quality_verified=False",
+          "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+          "status": "open"
+        },
+        {
+          "code": "live_result_quality_threshold_not_defined",
+          "reason": "No symbolic provider-quality threshold is attached to a live provider replay artifact.",
+          "required_next_evidence": "Define minimum result count, source diversity, relevance, freshness, latency, and timeout thresholds.",
+          "status": "open"
+        },
+        {
+          "code": "live_retry_uplift_replay_not_run",
+          "reason": "Fixture average_uplift=0.15 is not production provider evidence.",
+          "required_next_evidence": "Run live baseline-vs-retry replay and record uplift plus false-positive retry rate.",
+          "status": "open"
+        },
+        {
+          "code": "provider_auto_operator_policy_not_approved",
+          "reason": "Provider auto-routing remains unsafe without quality, timeout, and human-review policy.",
+          "required_next_evidence": "Operator-approved provider=auto policy with rollback and manual review boundaries.",
+          "status": "open"
+        },
+        {
+          "code": "live_provider_replay_not_run",
+          "reason": "This contract defines thresholds but does not start SearXNG, YaCy, browser, or web providers.",
+          "required_next_evidence": "Run real provider replay and attach threshold-evaluated provider rows.",
+          "status": "open"
+        },
+        {
+          "code": "searxng_live_provider_replay_not_attached",
+          "reason": "searxng replay_status=unavailable threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+          "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+          "status": "open"
+        },
+        {
+          "code": "yacy_live_provider_replay_not_attached",
+          "reason": "yacy replay_status=not_run threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+          "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+          "status": "open"
+        },
+        {
+          "code": "web_live_provider_replay_not_attached",
+          "reason": "web replay_status=not_run threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+          "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+          "status": "open"
+        },
+        {
+          "code": "operator_review_not_approved",
+          "reason": "operator_review_status=not_run",
+          "required_next_evidence": "Reviewer-visible result samples and explicit operator approval for live quality closure.",
+          "status": "open"
+        },
+        {
+          "code": "provider_auto_promotion_readback_hold",
+          "reason": "Promotion decision readback is validated, but live provider quality remains open.",
+          "required_next_evidence": "Live provider replay, threshold pass rows, and operator approval before provider=auto promotion.",
+          "status": "open"
+        }
+      ],
+      "scope": "provider_independent_symbolic_quality_promotion_readback",
+      "status": "passed",
+      "unsupported_promotion_claims": [
+        {
+          "claim": "Fixture replay quality can promote live providers into provider=auto.",
+          "code": "fixture_replay_promotes_provider_auto",
+          "reason": "Fixture replay is provider-independent and does not start live providers.",
+          "required_next_evidence": "Live provider replay with threshold pass rows and operator approval."
+        },
+        {
+          "claim": "A search critic score can promote provider routing.",
+          "code": "critic_score_promotes_provider_auto",
+          "reason": "critic_score=0.66 only controls bounded retry decisions.",
+          "required_next_evidence": "Separate provider-auto rollout policy and live provider quality gate."
+        },
+        {
+          "claim": "A threshold contract can promote providers without a live replay.",
+          "code": "quality_threshold_status_promotes_without_live_replay",
+          "reason": "threshold_status=threshold_contract_ready_live_replay_gap_open and quality_claim_allowed=False.",
+          "required_next_evidence": "Replay status live_provider_quality_replay with all thresholds met."
+        },
+        {
+          "claim": "Deterministic symbolic search fixture replay proves live provider quality.",
+          "code": "fixture_replay_proves_live_provider_quality",
+          "reason": "Fixture quality only records deterministic source signals and uplift; quality_claim_allowed=False.",
+          "required_next_evidence": "Live provider replay with result quality assertions and reviewer-visible samples."
+        },
+        {
+          "claim": "Provider availability alone proves symbolic search provider quality.",
+          "code": "live_provider_availability_proves_symbolic_quality",
+          "reason": "Current provider statuses are recorded only: {'searxng': 'unavailable', 'yacy': 'not_run', 'web': 'not_run'}.",
+          "required_next_evidence": "Per-provider success, latency, timeout, trace, and relevance thresholds on symbolic search cases."
+        },
+        {
+          "claim": "SearXNG, YaCy, or web providers can be promoted into provider=auto.",
+          "code": "provider_auto_promotion_supported",
+          "reason": "The readiness contract keeps live providers explicit-only until quality and operator policy gates exist.",
+          "required_next_evidence": "Provider=auto rollout gate with live success rate, bounded timeouts, approval policy, and rollback criteria."
+        },
+        {
+          "claim": "Bounded retry uplift is proven against live providers.",
+          "code": "live_retry_uplift_closed",
+          "reason": "The current uplift is fixture replay only and does not exercise live provider ranking behavior.",
+          "required_next_evidence": "Live baseline-vs-retry replay across provider-backed cases with false-positive retry tracking."
+        },
+        {
+          "claim": "Fixture replay uplift can satisfy the live provider quality threshold.",
+          "code": "fixture_quality_uplift_meets_live_quality_threshold",
+          "reason": "Fixture uplift is deterministic replay only: average_uplift=0.15 quality_claim_allowed=False.",
+          "required_next_evidence": "Attach a live provider replay artifact evaluated against this threshold contract."
+        },
+        {
+          "claim": "Provider availability or result count alone proves live symbolic search quality.",
+          "code": "provider_availability_meets_live_quality_threshold",
+          "reason": "The threshold requires relevance, freshness, source diversity, latency, timeout, trace, and review samples.",
+          "required_next_evidence": "Per-provider threshold rows with reviewer-visible samples and trace success."
+        },
+        {
+          "claim": "Live provider quality can be closed without a threshold replay artifact.",
+          "code": "live_quality_closed_without_threshold_replay",
+          "reason": "No quality claim is allowed until replay_type=live_provider_quality_replay passes all thresholds.",
+          "required_next_evidence": "Run the real provider replay and record threshold pass/fail rows."
+        },
+        {
+          "claim": "Passing this threshold contract automatically promotes providers into provider=auto.",
+          "code": "provider_auto_promotion_supported_by_threshold",
+          "reason": "Provider auto-promotion remains blocked by a separate operator rollout policy.",
+          "required_next_evidence": "Provider=auto rollout gate with approval, rollback, and production monitoring policy."
+        }
+      ]
+    }
+  },
+  "failures": [],
+  "fixture_search_brief": {
+    "attach_source_library": false,
+    "candidate_items": [
+      "robotics.market_watch"
+    ],
+    "case_id": "robotics-source-gap",
+    "coverage_axes": [
+      "products",
+      "companies",
+      "recent_movement"
+    ],
+    "first_query_terms": [
+      "embodied ai robotics commercialization companies product latest news"
+    ],
+    "goal": "search embodied ai robotics commercialization companies product latest news",
+    "intent": "market_research_general",
+    "search_strategy_count": 1,
+    "stop_conditions": {
+      "max_search_rounds": 2,
+      "min_entity_count": 4,
+      "min_source_domains": 2
+    },
+    "time_strategy": {
+      "days_back": 30,
+      "mode": "recent"
+    }
+  },
+  "gate_state": "provider_independent_quality_promotion_held_live_gap_open",
+  "promotion_decision": {
+    "bounded_retry_trace_count": 2,
+    "decision": "hold_provider_auto_promotion",
+    "decision_id": "agent_batch_quality_promotion_readback:provider_auto:hold",
+    "decision_source": "provider_independent_quality_promotion_readback_gate",
+    "promotion_allowed": false,
+    "provider_auto_promotion_allowed": false,
+    "quality_promotion_state": "fixture_quality_passed_live_provider_gap_open",
+    "quality_threshold_status": "threshold_contract_ready_live_replay_gap_open",
+    "reason_codes": [
+      "fixture_quality_replay_only",
+      "live_quality_threshold_replay_gap_open",
+      "provider_auto_operator_policy_not_approved"
+    ],
+    "required_next_evidence": [
+      "live_provider_quality_replay",
+      "all_provider_threshold_rows_passed",
+      "operator_review_approved",
+      "provider_auto_rollout_policy_approved"
+    ]
+  },
+  "promotion_decision_readback": {
+    "decision_digest": "adfa1129333c9e86",
+    "input_decision": null,
+    "input_promotion_claim_rejected": false,
+    "promotion_allowed": false,
+    "provider_auto_promotion_allowed": false,
+    "readback_digest": "adfa1129333c9e86",
+    "readback_matches_decision": true,
+    "readback_performed": true
+  },
+  "provider_independent_boundary": {
+    "live_provider_probe_performed": false,
+    "live_provider_quality_closed_by_gate": false,
+    "live_provider_quality_open": true,
+    "network_started": false,
+    "provider_auto_promotion_allowed": false,
+    "provider_readiness_probe_type": "recorded_provider_status_no_network_no_container_start",
+    "quality_claim_allowed": false,
+    "status_passed_does_not_mean": "live provider quality or provider=auto promotion is closed",
+    "status_passed_means": "fixture search brief, critic score, bounded retry, threshold, and promotion decision readback are internally consistent"
+  },
+  "quality_threshold_readback": {
+    "false_positive_retry_rate": 0.0,
+    "fixture_average_uplift": 0.15,
+    "fixture_case_count": 2,
+    "fixture_threshold_status": "passed",
+    "live_provider_replay_closed": false,
+    "provider_auto_promotion_allowed": false,
+    "quality_claim_allowed": false,
+    "regression_threshold_version": "symbolic_quality_regression_thresholds.v1",
+    "required_providers": [
+      "searxng",
+      "yacy",
+      "web"
+    ],
+    "threshold_status": "threshold_contract_ready_live_replay_gap_open",
+    "threshold_version": "symbolic_live_quality_thresholds.v1"
+  },
+  "remaining_live_gaps": [
+    {
+      "code": "searxng_live_provider_not_ready",
+      "reason": "searxng live_probe_status=unavailable result_quality_verified=False",
+      "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+      "status": "open"
+    },
+    {
+      "code": "yacy_live_provider_not_ready",
+      "reason": "yacy live_probe_status=not_run result_quality_verified=False",
+      "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+      "status": "open"
+    },
+    {
+      "code": "web_live_provider_not_ready",
+      "reason": "web live_probe_status=not_run result_quality_verified=False",
+      "required_next_evidence": "Provider-specific live replay with quality thresholds and reviewer-visible result samples.",
+      "status": "open"
+    },
+    {
+      "code": "live_result_quality_threshold_not_defined",
+      "reason": "No symbolic provider-quality threshold is attached to a live provider replay artifact.",
+      "required_next_evidence": "Define minimum result count, source diversity, relevance, freshness, latency, and timeout thresholds.",
+      "status": "open"
+    },
+    {
+      "code": "live_retry_uplift_replay_not_run",
+      "reason": "Fixture average_uplift=0.15 is not production provider evidence.",
+      "required_next_evidence": "Run live baseline-vs-retry replay and record uplift plus false-positive retry rate.",
+      "status": "open"
+    },
+    {
+      "code": "provider_auto_operator_policy_not_approved",
+      "reason": "Provider auto-routing remains unsafe without quality, timeout, and human-review policy.",
+      "required_next_evidence": "Operator-approved provider=auto policy with rollback and manual review boundaries.",
+      "status": "open"
+    },
+    {
+      "code": "live_provider_replay_not_run",
+      "reason": "This contract defines thresholds but does not start SearXNG, YaCy, browser, or web providers.",
+      "required_next_evidence": "Run real provider replay and attach threshold-evaluated provider rows.",
+      "status": "open"
+    },
+    {
+      "code": "searxng_live_provider_replay_not_attached",
+      "reason": "searxng replay_status=unavailable threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+      "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+      "status": "open"
+    },
+    {
+      "code": "yacy_live_provider_replay_not_attached",
+      "reason": "yacy replay_status=not_run threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+      "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+      "status": "open"
+    },
+    {
+      "code": "web_live_provider_replay_not_attached",
+      "reason": "web replay_status=not_run threshold_failures=['live_replay_attached', 'case_count', 'result_count', 'source_domain_count', 'relevance_score', 'freshness_score', 'timeout_rate', 'p95_latency_ms', 'review_sample_count', 'trace_success']",
+      "required_next_evidence": "Provider-specific live replay meeting all quality thresholds.",
+      "status": "open"
+    },
+    {
+      "code": "operator_review_not_approved",
+      "reason": "operator_review_status=not_run",
+      "required_next_evidence": "Reviewer-visible result samples and explicit operator approval for live quality closure.",
+      "status": "open"
+    },
+    {
+      "code": "provider_auto_promotion_readback_hold",
+      "reason": "Promotion decision readback is validated, but live provider quality remains open.",
+      "required_next_evidence": "Live provider replay, threshold pass rows, and operator approval before provider=auto promotion.",
+      "status": "open"
+    }
+  ],
+  "scope": "provider_independent_agent_batch_quality_promotion_readback_no_network",
+  "status": "passed",
+  "unsupported_promotion_claims": [
+    {
+      "claim": "Fixture replay quality can promote live providers into provider=auto.",
+      "code": "fixture_replay_promotes_provider_auto",
+      "reason": "Fixture replay is provider-independent and does not start live providers.",
+      "required_next_evidence": "Live provider replay with threshold pass rows and operator approval."
+    },
+    {
+      "claim": "A search critic score can promote provider routing.",
+      "code": "critic_score_promotes_provider_auto",
+      "reason": "critic_score=0.66 only controls bounded retry decisions.",
+      "required_next_evidence": "Separate provider-auto rollout policy and live provider quality gate."
+    },
+    {
+      "claim": "A threshold contract can promote providers without a live replay.",
+      "code": "quality_threshold_status_promotes_without_live_replay",
+      "reason": "threshold_status=threshold_contract_ready_live_replay_gap_open and quality_claim_allowed=False.",
+      "required_next_evidence": "Replay status live_provider_quality_replay with all thresholds met."
+    },
+    {
+      "claim": "Deterministic symbolic search fixture replay proves live provider quality.",
+      "code": "fixture_replay_proves_live_provider_quality",
+      "reason": "Fixture quality only records deterministic source signals and uplift; quality_claim_allowed=False.",
+      "required_next_evidence": "Live provider replay with result quality assertions and reviewer-visible samples."
+    },
+    {
+      "claim": "Provider availability alone proves symbolic search provider quality.",
+      "code": "live_provider_availability_proves_symbolic_quality",
+      "reason": "Current provider statuses are recorded only: {'searxng': 'unavailable', 'yacy': 'not_run', 'web': 'not_run'}.",
+      "required_next_evidence": "Per-provider success, latency, timeout, trace, and relevance thresholds on symbolic search cases."
+    },
+    {
+      "claim": "SearXNG, YaCy, or web providers can be promoted into provider=auto.",
+      "code": "provider_auto_promotion_supported",
+      "reason": "The readiness contract keeps live providers explicit-only until quality and operator policy gates exist.",
+      "required_next_evidence": "Provider=auto rollout gate with live success rate, bounded timeouts, approval policy, and rollback criteria."
+    },
+    {
+      "claim": "Bounded retry uplift is proven against live providers.",
+      "code": "live_retry_uplift_closed",
+      "reason": "The current uplift is fixture replay only and does not exercise live provider ranking behavior.",
+      "required_next_evidence": "Live baseline-vs-retry replay across provider-backed cases with false-positive retry tracking."
+    },
+    {
+      "claim": "Fixture replay uplift can satisfy the live provider quality threshold.",
+      "code": "fixture_quality_uplift_meets_live_quality_threshold",
+      "reason": "Fixture uplift is deterministic replay only: average_uplift=0.15 quality_claim_allowed=False.",
+      "required_next_evidence": "Attach a live provider replay artifact evaluated against this threshold contract."
+    },
+    {
+      "claim": "Provider availability or result count alone proves live symbolic search quality.",
+      "code": "provider_availability_meets_live_quality_threshold",
+      "reason": "The threshold requires relevance, freshness, source diversity, latency, timeout, trace, and review samples.",
+      "required_next_evidence": "Per-provider threshold rows with reviewer-visible samples and trace success."
+    },
+    {
+      "claim": "Live provider quality can be closed without a threshold replay artifact.",
+      "code": "live_quality_closed_without_threshold_replay",
+      "reason": "No quality claim is allowed until replay_type=live_provider_quality_replay passes all thresholds.",
+      "required_next_evidence": "Run the real provider replay and record threshold pass/fail rows."
+    },
+    {
+      "claim": "Passing this threshold contract automatically promotes providers into provider=auto.",
+      "code": "provider_auto_promotion_supported_by_threshold",
+      "reason": "Provider auto-promotion remains blocked by a separate operator rollout policy.",
+      "required_next_evidence": "Provider=auto rollout gate with approval, rollback, and production monitoring policy."
+    }
+  ]
+}
