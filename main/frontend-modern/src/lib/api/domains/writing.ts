@@ -61,6 +61,14 @@ export type WritingTemplateValidation = {
   observability: Record<string, unknown>
 }
 
+export type WritingContextEnvelope = {
+  contract_version?: string
+  selection_context?: Record<string, unknown>
+  evidence_context?: Record<string, unknown>
+  accepted_citation_context?: Record<string, unknown>
+  graph_context?: Record<string, unknown> | null
+}
+
 export type WritingKeywordCardSource = 'document' | 'resource' | 'graph'
 
 export type WritingKeywordCard = {
@@ -88,6 +96,8 @@ export type WritingKeywordCardListResponse = {
   source_count: Record<string, number>
   dedupe_count: number
   score_snapshot: Record<string, unknown>
+  context_boundary: Record<string, unknown>
+  dependency_gate: Record<string, unknown>
   cache_hit: boolean
   cache_ttl_ms?: number | null
 }
@@ -149,7 +159,10 @@ export type WritingLlmActionResponse = {
   trace_id?: string | null
   job_id?: number | null
   status: string
+  capability_truth: Record<string, unknown>
   observability: Record<string, unknown>
+  action_boundary: Record<string, unknown>
+  dependency_gate: Record<string, unknown>
 }
 
 export type WritingLlmActionHistoryItem = {
@@ -212,6 +225,8 @@ export type WritingKeywordCardRequest = {
   limit?: number
   sources?: WritingKeywordCardSource[]
   timeout_ms?: number | null
+  context?: WritingContextEnvelope | null
+  graph_context?: Record<string, unknown> | null
 }
 
 export type WritingKeywordCardPreviewRequest = {
@@ -244,6 +259,7 @@ export type WritingLlmActionPayload = {
   document_id?: string | null
   input_markdown?: string
   selection_text?: string | null
+  target_scope?: 'selection' | 'document' | null
   async?: boolean
   gate_mode?: string | null
 }
