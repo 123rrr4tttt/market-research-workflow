@@ -311,6 +311,27 @@ _LONG_TASK_TOKENS = frozenset(
         "break down",
     }
 )
+_CLUE_CHAIN_TOKENS = frozenset(
+    {
+        "线索链",
+        "线索链条",
+        "线索链路",
+        "线索扩展",
+        "链条扩展",
+        "证据链",
+        "追线索",
+        "扩展线索",
+        "frontier node",
+        "frontier_node",
+        "frontier_node_ids",
+        "clue chain",
+        "clue-chain",
+        "chain.expand",
+        "chain expansion",
+        "chain investigation",
+        "evidence chain",
+    }
+)
 _WRITING_TOKENS = frozenset(
     {
         "写作",
@@ -365,6 +386,27 @@ _PROJECT_CONTEXT_TOKENS = frozenset({"项目", "会话", "状态", "source libra
 
 
 _TOOL_WINDOW_PROFILES = (
+    _ToolWindowProfileDefinition(
+        name="clue-chain-investigation",
+        reason="clue-chain, graph-frontier, or evidence-chain expansion request; expose governed review-only expansion",
+        require_all=("asks_clue_chain",),
+        tools=(
+            "chain.expand",
+            "project.structured_graph.query",
+            "project.graph.search",
+            "project.structured_data.search",
+            "project.structured_data.item.read",
+            "project.structured_data.items.read",
+            "project.context.resource.read",
+            "source.discovery.plan",
+            "source.web.search",
+            "source.candidate.review",
+            "source.history.read",
+            "source_library.item.search",
+            "source_library.item.list",
+            "agent_investigation.trace.read",
+        ),
+    ),
     _ToolWindowProfileDefinition(
         name="source-library-execute-explicit",
         reason="source-library item key is explicit; expose the governed execution tool directly",
@@ -658,6 +700,7 @@ def _extract_tool_window_signals(text: str, lowered: str) -> dict[str, bool]:
     )
     asks_discovery_plan = _has_any(lowered, _DISCOVERY_PLAN_TOKENS) or asks_external_source
     asks_long_task = _has_any(lowered, _LONG_TASK_TOKENS)
+    asks_clue_chain = _has_any(lowered, _CLUE_CHAIN_TOKENS)
     asks_writing = _has_any(lowered, _WRITING_TOKENS)
     asks_capability = _has_any(lowered, _CAPABILITY_TOKENS)
     asks_workflow = _has_any(lowered, _WORKFLOW_TOKENS)
@@ -674,6 +717,7 @@ def _extract_tool_window_signals(text: str, lowered: str) -> dict[str, bool]:
         "asks_material_collection": asks_material_collection,
         "asks_discovery_plan": asks_discovery_plan,
         "asks_long_task": asks_long_task,
+        "asks_clue_chain": asks_clue_chain,
         "asks_writing": asks_writing,
         "asks_capability": asks_capability,
         "asks_workflow": asks_workflow,
