@@ -23,6 +23,7 @@ from ..models.entities import (
     PriceObservation,
 )
 from ..services.graph.doc_types import resolve_graph_doc_types
+from ..services import document_queries
 from ..services.document_views import (
     get_social_platform_label,
     get_social_sentiment_orientation,
@@ -205,7 +206,7 @@ def get_dashboard_stats():
             # 结构化数据提取率
             doc_with_extracted = session.execute(
                 select(func.count(Document.id)).where(
-                    Document.extracted_data.isnot(None)
+                    document_queries.document_has_extracted_data_condition()
                 )
             ).scalar() or 0
             extraction_rate = (doc_with_extracted / doc_total * 100) if doc_total > 0 else 0
@@ -472,7 +473,7 @@ def get_document_analysis(
             Document.doc_type,
             func.count(Document.id).label("total"),
             func.sum(
-                case((Document.extracted_data.isnot(None), 1), else_=0)
+                document_queries.document_extracted_data_present_case()
             ).label("with_extracted")
         ).group_by(Document.doc_type)
         if conditions:
@@ -510,8 +511,7 @@ def get_sentiment_analysis(
     social_doc_types = graph_doc_types.get("social") or ["social_sentiment", "social_feed"]
     with SessionLocal() as session:
         conditions = [
-            Document.doc_type.in_(social_doc_types),
-            Document.extracted_data.isnot(None),
+            *document_queries.social_document_base_conditions(social_doc_types),
         ]
         
         if start:
@@ -631,8 +631,7 @@ def get_sentiment_sources(
     social_doc_types = graph_doc_types.get("social") or ["social_sentiment", "social_feed"]
     with SessionLocal() as session:
         conditions = [
-            Document.doc_type.in_(social_doc_types),
-            Document.extracted_data.isnot(None),
+            *document_queries.social_document_base_conditions(social_doc_types),
         ]
         
         if start:

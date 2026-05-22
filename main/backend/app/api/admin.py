@@ -29,6 +29,7 @@ from ..services.ingest.adapters.http_utils import fetch_html
 from ..services.ingest.postprocess_frontdoor import run_frontdoor_extraction
 from ..services.ingest.raw_import import run_raw_import_documents
 from ..services.ingest.url_pool import _extract_text_from_html
+from ..services import document_queries
 from ..services.document_views import (
     build_social_data_item,
     get_extracted_data,
@@ -931,9 +932,9 @@ def list_documents(request: Request, payload: DocumentListRequest):
         if payload.doc_type:
             conditions.append(Document.doc_type == payload.doc_type)
         if payload.has_extracted_data is True:
-            conditions.append(Document.extracted_data.isnot(None))
+            conditions.append(document_queries.document_has_extracted_data_condition())
         elif payload.has_extracted_data is False:
-            conditions.append(Document.extracted_data.is_(None))
+            conditions.append(document_queries.document_missing_extracted_data_condition())
         if payload.search:
             search_term = f"%{payload.search}%"
             conditions.append(
@@ -1662,13 +1663,11 @@ def list_social_data(payload: SocialDataListRequest):
         
         if payload.platform:
             # 平台信息存储在extracted_data中
-            conditions.append(Document.extracted_data["platform"].astext == payload.platform)
+            conditions.append(document_queries.social_platform_condition(payload.platform))
         
         if payload.sentiment_orientation:
             # 情感倾向存储在extracted_data->sentiment->sentiment_orientation中
-            conditions.append(
-                Document.extracted_data["sentiment"]["sentiment_orientation"].astext == payload.sentiment_orientation
-            )
+            conditions.append(document_queries.social_sentiment_orientation_condition(payload.sentiment_orientation))
         
         if payload.search:
             search_term = f"%{payload.search}%"
@@ -1802,13 +1801,7 @@ def get_content_graph(
         with bind_project(project_key):
             with SessionLocal() as session:
                 # 构建查询条件
-                conditions = [
-                    Document.extracted_data.isnot(None),
-                    or_(
-                        Document.extracted_data["sentiment"].isnot(None),
-                        Document.extracted_data["entities_relations"].isnot(None),
-                    ),
-                ]
+                conditions = [document_queries.content_graph_structured_condition()]
 
                 # 时间过滤
                 start, start_error = _parse_iso_date_or_error(start_date, field="start_date")
@@ -1928,79 +1921,30 @@ def get_market_graph(
     try:
         with bind_project(project_key):
             with SessionLocal() as session:
-                from sqlalchemy import and_, or_, func
                 conditions = [
-                    Document.extracted_data.isnot(None),
+                    document_queries.market_graph_structured_condition(
+                        deep_view=deep_view,
+                        topic_scope=topic_scope,
+                    )
                 ]
-                if deep_view:
-                    if topic_scope == "company":
-                        conditions.append(Document.extracted_data["company_structured"].isnot(None))
-                    elif topic_scope == "product":
-                        conditions.append(Document.extracted_data["product_structured"].isnot(None))
-                    elif topic_scope == "operation":
-                        conditions.append(Document.extracted_data["operation_structured"].isnot(None))
-                    else:
-                        conditions.append(
-                            or_(
-                                Document.extracted_data["market"].isnot(None),
-                                Document.extracted_data["company_structured"].isnot(None),
-                                Document.extracted_data["product_structured"].isnot(None),
-                                Document.extracted_data["operation_structured"].isnot(None),
-                                Document.extracted_data["entities_relations"].isnot(None),
-                            )
-                        )
-                else:
-                    conditions.append(Document.extracted_data["market"].isnot(None))
 
                 if state:
-                    state_upper = state.upper()
-                    conditions.append(
-                        or_(
-                            Document.state == state_upper,
-                            Document.extracted_data['market']['state'].astext == state_upper
-                        )
-                    )
+                    conditions.append(document_queries.market_state_condition(state))
 
                 if game:
-                    conditions.append(
-                        Document.extracted_data['market']['game'].astext.ilike(f"%{game}%")
-                    )
+                    conditions.append(document_queries.market_game_condition(game))
 
                 start, start_error = _parse_iso_date_or_error(start_date, field="start_date")
                 if start_error:
                     return start_error
                 if start:
-                    conditions.append(
-                        or_(
-                            Document.publish_date >= start,
-                            and_(
-                                Document.publish_date.is_(None),
-                                func.date(Document.created_at) >= start
-                            ),
-                            func.cast(
-                                Document.extracted_data['market']['report_date'].astext,
-                                date
-                            ) >= start
-                        )
-                    )
+                    conditions.append(document_queries.market_publish_created_or_report_on_or_after_condition(start))
 
                 end, end_error = _parse_iso_date_or_error(end_date, field="end_date")
                 if end_error:
                     return end_error
                 if end:
-                    conditions.append(
-                        or_(
-                            Document.publish_date <= end,
-                            and_(
-                                Document.publish_date.is_(None),
-                                func.date(Document.created_at) <= end
-                            ),
-                            func.cast(
-                                Document.extracted_data['market']['report_date'].astext,
-                                date
-                            ) <= end
-                        )
-                    )
+                    conditions.append(document_queries.market_publish_created_or_report_on_or_before_condition(end))
 
                 query = select(Document).where(and_(*conditions))
                 query = query.order_by(Document.publish_date.desc().nullslast(), Document.created_at.desc()).limit(limit)
@@ -2088,24 +2032,13 @@ def get_policy_graph(
     try:
         with bind_project(project_key):
             with SessionLocal() as session:
-                conditions = [
-                    Document.extracted_data.isnot(None),
-                    Document.extracted_data["policy"].isnot(None),
-                ]
+                conditions = [document_queries.policy_graph_has_data_condition()]
 
                 if state:
-                    state_upper = state.upper()
-                    conditions.append(
-                        or_(
-                            Document.state == state_upper,
-                            Document.extracted_data["policy"]["state"].astext == state_upper,
-                        )
-                    )
+                    conditions.append(document_queries.policy_graph_state_condition(state))
 
                 if policy_type:
-                    conditions.append(
-                        Document.extracted_data["policy"]["policy_type"].astext.ilike(f"%{policy_type}%")
-                    )
+                    conditions.append(document_queries.policy_graph_type_ilike_condition(policy_type))
 
                 query = select(Document).where(and_(*conditions))
                 query = query.order_by(

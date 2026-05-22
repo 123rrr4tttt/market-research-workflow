@@ -28,7 +28,7 @@ class AdminDashboardConsumerBoundaryUnitTestCase(unittest.TestCase):
         self.assertEqual(result["status"], "passed")
         self.assertTrue(result["validation"]["passed"])
         self.assertEqual(result["validation"]["direct_instance_extracted_data_read_count"], 0)
-        self.assertGreater(result["validation"]["allowed_sql_json_expression_count"], 0)
+        self.assertEqual(result["validation"]["allowed_sql_json_expression_count"], 0)
 
         surfaces = {item["path"]: item for item in result["checked_surfaces"]}
         self.assertIn("main/backend/app/api/dashboard.py", surfaces)
@@ -61,7 +61,7 @@ class AdminDashboardConsumerBoundaryUnitTestCase(unittest.TestCase):
             self.assertTrue(admin_functions[name]["passed"], admin_functions[name])
             self.assertFalse(admin_functions[name]["missing_boundary_calls"], admin_functions[name])
 
-    def test_checker_keeps_sql_json_predicates_as_deferred_query_scope(self) -> None:
+    def test_checker_defers_sql_json_predicates_to_wave15_facade_gate(self) -> None:
         result = build_check(REPO_ROOT)
         admin_surface = next(
             item
@@ -70,9 +70,9 @@ class AdminDashboardConsumerBoundaryUnitTestCase(unittest.TestCase):
         )
         by_name = {item["name"]: item for item in admin_surface["functions"]}
 
-        self.assertGreater(by_name["get_content_graph"]["sql_json_expression_count"], 0)
-        self.assertGreater(by_name["get_market_graph"]["sql_json_expression_count"], 0)
-        self.assertIn("query-layer work", result["boundary_rule"])
+        self.assertEqual(by_name["get_content_graph"]["sql_json_expression_count"], 0)
+        self.assertEqual(by_name["get_market_graph"]["sql_json_expression_count"], 0)
+        self.assertIn("Wave15", result["boundary_rule"])
 
 
 if __name__ == "__main__":
