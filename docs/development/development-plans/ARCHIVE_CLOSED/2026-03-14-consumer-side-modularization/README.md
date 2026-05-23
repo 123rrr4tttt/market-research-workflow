@@ -10,6 +10,7 @@
 6. [06_wave17-policy-state-consumer-query-boundary-2026-05-22.md](./06_wave17-policy-state-consumer-query-boundary-2026-05-22.md)
 7. [07_wave20-prompt-time-density-consumer-facade-2026-05-22.md](./07_wave20-prompt-time-density-consumer-facade-2026-05-22.md)
 8. [08_wave27-external-blocked-decision-2026-05-23.md](./08_wave27-external-blocked-decision-2026-05-23.md)
+9. [09_wave45-manual-live-api-closure-2026-05-23.md](./09_wave45-manual-live-api-closure-2026-05-23.md)
 
 ## 使用说明
 
@@ -18,3 +19,4 @@
 3. 与 `2026-03-12-data-structured-service-modularization/` 目录形成“写入侧主线 / 消费侧主线”分工。
 4. Wave17 worker 8 将 `/policies/state/{state}` 作为非 admin/dashboard consumer query boundary 增量迁移到 `document_queries` helper。
 5. Wave27 已将本目录迁入 `ARCHIVE_EXTERNAL_BLOCKED`：repo-local consumer facade/query gates 均通过，剩余条件为 live DB/API smoke。
+6. Wave45 已手动补齐 live DB/API smoke：search/admin/dashboard/policy/prompt-time-density consumer surfaces 均完成 live readback，本目录状态更新为 `closed` 并迁入 canonical `ARCHIVE_CLOSED`。

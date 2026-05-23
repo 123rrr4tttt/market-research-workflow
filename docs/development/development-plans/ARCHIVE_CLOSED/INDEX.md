@@ -48,6 +48,8 @@
 - [2026-03-07 后续安排 / Abstract Planning Folderization](./2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md)
 - [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)
 - [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/12_wave28-closure-decision-2026-05-23.md)
+- [2026-03-12 Data Structured Service Modularization](./2026-03-12-data-structured-service-modularization/15_wave45-manual-live-api-closure-2026-05-23.md)
+- [2026-03-14 Consumer-Side Modularization](./2026-03-14-consumer-side-modularization/09_wave45-manual-live-api-closure-2026-05-23.md)
 - [2026-03-15 Frontend Three-Layer Rewrite](./2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)
 - [2026-04-02 Claude Agent High-Fidelity Migration Process Records](./2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
 - [2026-04-07 Parallel Agent Wave Orchestration](./2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md)

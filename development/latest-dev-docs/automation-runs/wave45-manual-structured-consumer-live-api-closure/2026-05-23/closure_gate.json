@@ -1,0 +1,209 @@
+{
+  "contract_version": "wave27.structured_consumer_closure.v1",
+  "decision": {
+    "archive_eligible": true,
+    "external_blocker_count": 0,
+    "recommendation": "move structured service modularization and consumer-side modularization to ARCHIVE_CLOSED",
+    "repo_local_blocker_count": 0,
+    "status": "closed",
+    "topics": {
+      "2026-03-12-data-structured-service-modularization": {
+        "archive_eligible": true,
+        "external_blocker_ids": [],
+        "repo_local_blocker_count": 0,
+        "status": "closed"
+      },
+      "2026-03-14-consumer-side-modularization": {
+        "archive_eligible": true,
+        "external_blocker_ids": [],
+        "repo_local_blocker_count": 0,
+        "status": "closed"
+      }
+    }
+  },
+  "external_blockers": [],
+  "gates": [
+    {
+      "contract_version": "structured-sql-helper-migration.wave15.v1",
+      "name": "structured_sql_helper_migration",
+      "passed": true,
+      "problem_count": null,
+      "status": "passed",
+      "summary": {
+        "covered_surface_count": 7,
+        "covered_surface_gap_count": 0,
+        "deferred_boundary_count": 0,
+        "missing_deferred_targets": [],
+        "passed": true
+      },
+      "topic_id": "2026-03-12-data-structured-service-modularization"
+    },
+    {
+      "contract_version": "wave27.endpoint_projection_gate.v1",
+      "name": "structured_endpoint_projection",
+      "passed": true,
+      "problem_count": 0,
+      "status": "passed",
+      "summary": {
+        "api_search_marker_gaps": [],
+        "covered_endpoints": [
+          "/api/v1/search",
+          "project.structured_data.search"
+        ],
+        "passed": true,
+        "problem_count": 0,
+        "problems": [],
+        "structured_search_marker_gaps": []
+      },
+      "topic_id": "2026-03-12-data-structured-service-modularization"
+    },
+    {
+      "contract_version": "consumer.facade_boundary.wave9.v1",
+      "name": "consumer_side_facade_contract",
+      "passed": true,
+      "problem_count": null,
+      "status": "passed",
+      "summary": {
+        "checked_python_read_surface_count": 11,
+        "deferred_query_scope": "Remaining admin/dashboard SQL JSON predicates are outside worker5 and are left for later worker/integration slices; prompt_time_density query-time extraction is now guarded separately.",
+        "deferred_query_surfaces": [
+          "main/backend/app/api/admin.py",
+          "main/backend/app/api/dashboard.py"
+        ],
+        "direct_extracted_data_read_count": 0,
+        "extracted_query_surfaces": [
+          "main/backend/app/services/stats/prompt_time_density.py"
+        ],
+        "passed": true
+      },
+      "topic_id": "2026-03-14-consumer-side-modularization"
+    },
+    {
+      "contract_version": "consumer.sql_predicate_facade.wave15.v1",
+      "name": "consumer_sql_predicate_facade",
+      "passed": true,
+      "problem_count": null,
+      "status": "passed",
+      "summary": {
+        "checked_api_surface_count": 2,
+        "checked_consumer_query_function_count": 9,
+        "covered_scope": "admin.py and dashboard.py no longer own Document.extracted_data SQL JSON predicates; selected document-view consumer queries call document_queries helpers.",
+        "direct_admin_dashboard_document_extracted_data_read_count": 0,
+        "passed": true,
+        "remaining_boundary": "Document.extracted_data SQL JSON paths remain inside document_queries helper modules. This gate does not claim non-admin/dashboard consumers or Python instance-level writer/governance paths."
+      },
+      "topic_id": "2026-03-14-consumer-side-modularization"
+    },
+    {
+      "contract_version": "consumer.admin_dashboard_boundary.wave13.v1",
+      "name": "admin_dashboard_consumer_boundary",
+      "passed": true,
+      "problem_count": null,
+      "status": "passed",
+      "summary": {
+        "allowed_sql_json_expression_count": 0,
+        "checked_python_consumer_function_count": 7,
+        "direct_instance_extracted_data_read_count": 0,
+        "passed": true,
+        "query_layer_deferred_scope": "Wave13 only guards Python instance reads. Wave15 owns the admin/dashboard SQL JSON predicate facade gate and should keep this count at zero for selected functions."
+      },
+      "topic_id": "2026-03-14-consumer-side-modularization"
+    },
+    {
+      "contract_version": "policy-state-document-query-boundary.wave17.v1",
+      "name": "policy_state_document_query_boundary",
+      "passed": true,
+      "problem_count": 0,
+      "status": "passed",
+      "summary": {
+        "passed": true,
+        "problem_count": 0,
+        "problems": []
+      },
+      "topic_id": "2026-03-14-consumer-side-modularization"
+    },
+    {
+      "contract_version": "prompt-time-density-consumer-facade.wave20.v1",
+      "name": "prompt_time_density_consumer_boundary",
+      "passed": true,
+      "problem_count": 0,
+      "status": "passed",
+      "summary": {
+        "covered_scope": "prompt_time_density Python-level structured field reads use document_views; SQL date predicates remain in document_queries.",
+        "passed": true,
+        "problem_count": 0,
+        "problems": [],
+        "remaining_boundary": "No live DB/API smoke is claimed. This does not cover admin governance writes or other consumer slices."
+      },
+      "topic_id": "2026-03-14-consumer-side-modularization"
+    }
+  ],
+  "repo_local_blockers": [],
+  "status": "passed",
+  "topic_ids": [
+    "2026-03-12-data-structured-service-modularization",
+    "2026-03-14-consumer-side-modularization"
+  ],
+  "validation": {
+    "closure_ready": true,
+    "document_query_statement_builder": {
+      "boundary_id": "generic_document_query_db_statement_builder",
+      "candidate_definitions": [
+        {
+          "matched_tokens": [
+            "build_document_query_statement",
+            "compile_document_query_statement",
+            "apply_document_query_to_statement",
+            "document_query_to_statement"
+          ],
+          "path": "main/backend/app/services/document_queries/__init__.py"
+        },
+        {
+          "matched_tokens": [
+            "build_document_query_statement",
+            "compile_document_query_statement",
+            "apply_document_query_to_statement",
+            "document_query_to_statement"
+          ],
+          "path": "main/backend/app/services/document_queries/statement_builder.py"
+        }
+      ],
+      "compile_gaps": [],
+      "compiled_sql_sample": "SELECT documents.source_id, documents.state, documents.doc_type, documents.title, documents.status, documents.publish_date, documents.content, documents.summary, documents.text_hash, documents.uri, documents.extracted_data, documents.created_at, documents.updated_at, documents.id \nFROM documents \nWHERE (documents.title ILIKE '%%robotics policy%%' OR documents.summary ILIKE '%%robotics policy%%' OR documents.content ILIKE '%%robotics policy%%' OR documents.uri ILIKE '%%robotics policy%%') AND (documents.extracted_data ->> 'project_key') = 'demo_proj' AND documents.state = 'CA' AND documents.doc_type IN ('policy', 'news') AND ((documents.extracted_data -> 'policy')) ->> 'policy_type' ILIKE '%%grant%%' ORDER BY documents.publish_date DESC NULLS LAST, documents.id DESC \n LIMIT 7 OFFSET 3",
+      "exists": true,
+      "expected_exports": [
+        "build_document_query_statement",
+        "compile_document_query_statement",
+        "apply_document_query_to_statement",
+        "document_query_to_statement"
+      ],
+      "exported_tokens": [
+        "build_document_query_statement",
+        "compile_document_query_statement",
+        "apply_document_query_to_statement",
+        "document_query_to_statement"
+      ],
+      "status": "covered"
+    },
+    "gate_count": 7,
+    "live_evidence": {
+      "endpoint_count": 10,
+      "path": "development/latest-dev-docs/automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/live_evidence.json",
+      "problems": [],
+      "project_key": "demo_proj",
+      "required_flags": [
+        "live_db_api_smoke_validated",
+        "structured_query_endpoint_validated",
+        "statement_builder_live_db_execution_validated",
+        "search_consumer_validated",
+        "admin_dashboard_consumer_validated",
+        "policy_consumer_validated",
+        "prompt_time_density_consumer_validated"
+      ],
+      "status": "validated",
+      "validated": true
+    },
+    "passed": true,
+    "passed_gate_count": 7
+  }
+}

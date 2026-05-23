@@ -1,0 +1,175 @@
+{
+  "contract_version": "wave45.structured_consumer_live_api_evidence.v1",
+  "status": "passed",
+  "checked_at": "2026-05-23 PST",
+  "project_key": "demo_proj",
+  "backend_base_url": "http://127.0.0.1:8000/api/v1",
+  "live_db_api_smoke_validated": true,
+  "structured_query_endpoint_validated": true,
+  "statement_builder_live_db_execution_validated": true,
+  "search_consumer_validated": true,
+  "admin_dashboard_consumer_validated": true,
+  "policy_consumer_validated": true,
+  "prompt_time_density_consumer_validated": true,
+  "endpoints": [
+    {
+      "name": "health",
+      "method": "GET",
+      "path": "/health",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "status": "ok",
+        "provider": "openai",
+        "env": "dev"
+      }
+    },
+    {
+      "name": "search_document_query",
+      "method": "GET",
+      "path": "/search?q=embodied%20ai&rank=hybrid&top_k=3",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "result_count": 3,
+        "document_query_result_count": 3,
+        "search_backends_used": ["opensearch_lexical"],
+        "retrieval_run_readback_status": "passed",
+        "retrieval_write_performed": true,
+        "retrieval_readback_performed": true
+      }
+    },
+    {
+      "name": "dashboard_stats",
+      "method": "GET",
+      "path": "/dashboard/stats",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "documents_total": 218,
+        "sources_total": 12,
+        "tasks_total": 2531
+      }
+    },
+    {
+      "name": "admin_stats",
+      "method": "GET",
+      "path": "/admin/stats",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "documents_total": 218,
+        "sources_total": 12,
+        "social_total": 3
+      }
+    },
+    {
+      "name": "admin_documents_list",
+      "method": "POST",
+      "path": "/admin/documents/list",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "total": 218,
+        "item_count": 3,
+        "ids": [777, 776, 775]
+      }
+    },
+    {
+      "name": "admin_sources_list",
+      "method": "POST",
+      "path": "/admin/sources/list",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "total": 12,
+        "item_count": 3,
+        "ids": [22, 21, 20]
+      }
+    },
+    {
+      "name": "dashboard_search_analytics",
+      "method": "GET",
+      "path": "/dashboard/search-analytics?limit=3",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "popular_topic_count": 0,
+        "search_trend_count": 0
+      }
+    },
+    {
+      "name": "policies_stats",
+      "method": "GET",
+      "path": "/policies/stats",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "total": 0,
+        "active_count": 0,
+        "states_count": 0
+      }
+    },
+    {
+      "name": "policies_list",
+      "method": "GET",
+      "path": "/policies?page=1&page_size=3&sort_by=publish_date&sort_order=desc",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "item_count": 0,
+        "pagination_total": 0
+      }
+    },
+    {
+      "name": "prompt_time_density",
+      "method": "GET",
+      "path": "/stats/prompt-time-density?time_window=30d&bucket=day",
+      "http_status": 200,
+      "validated": true,
+      "selected_readback": {
+        "total": 0,
+        "bucket": "day",
+        "start": "2026-04-24",
+        "end": "2026-05-23"
+      }
+    }
+  ],
+  "live_db_statement_builder": {
+    "status": "passed",
+    "project_schema": "demo_proj",
+    "consumer": "wave45.live_structured_consumer_smoke",
+    "query": "Embodied",
+    "row_count": 3,
+    "rows": [
+      {
+        "id": 777,
+        "title": "Embodied AI Market Report 2025 - 2030 [291 Pages & 249 Tables]",
+        "doc_type": "market_info",
+        "publish_date": "2025-01-01"
+      },
+      {
+        "id": 774,
+        "title": "What Is Embodied Intelligence and What Can It Do",
+        "doc_type": "market_info",
+        "publish_date": "2023-09-19"
+      },
+      {
+        "id": 773,
+        "title": "Projects: A theory of embodied intelligence | Santa Fe Institute",
+        "doc_type": "market_info",
+        "publish_date": null
+      }
+    ],
+    "compiled_sql_contains": {
+      "from_documents": true,
+      "doc_type_filter": true,
+      "limit_3": true
+    }
+  },
+  "commands": [
+    "curl -sS -H 'X-Project-Key: demo_proj' http://127.0.0.1:8000/api/v1/dashboard/stats",
+    "curl -sS -H 'X-Project-Key: demo_proj' http://127.0.0.1:8000/api/v1/search?q=embodied%20ai&rank=hybrid&top_k=3",
+    "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 - <<'PY' ... build_document_query_statement ... session.execute(statement) ... PY"
+  ]
+}

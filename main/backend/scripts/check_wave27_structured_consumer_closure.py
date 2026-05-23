@@ -37,6 +37,7 @@ from check_structured_sql_helper_migration import build_check as build_structure
 CONTRACT_VERSION = "wave27.structured_consumer_closure.v1"
 STRUCTURED_TOPIC_ID = "2026-03-12-data-structured-service-modularization"
 CONSUMER_TOPIC_ID = "2026-03-14-consumer-side-modularization"
+LIVE_EVIDENCE_CONTRACT_VERSION = "wave45.structured_consumer_live_api_evidence.v1"
 
 SEARCH_API_PATH = "main/backend/app/api/search.py"
 STRUCTURED_SEARCH_SERVICE_PATH = "main/backend/app/services/agent_runtime/structured_data_search.py"
@@ -233,7 +234,98 @@ def _document_query_statement_builder_status(root: Path) -> dict[str, Any]:
     }
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def _load_live_evidence(path: Path | str | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    evidence_path = Path(path)
+    if not evidence_path.is_file():
+        return {
+            "status": "failed",
+            "path": str(evidence_path),
+            "problems": ["live evidence file is missing"],
+        }
+    try:
+        data = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {
+            "status": "failed",
+            "path": str(evidence_path),
+            "problems": [f"invalid live evidence JSON: {exc}"],
+        }
+    if not isinstance(data, dict):
+        return {
+            "status": "failed",
+            "path": str(evidence_path),
+            "problems": ["live evidence root must be an object"],
+        }
+    data["path"] = str(evidence_path)
+    return data
+
+
+def _live_evidence_status(evidence: dict[str, Any] | None) -> dict[str, Any]:
+    required_flags = (
+        "live_db_api_smoke_validated",
+        "structured_query_endpoint_validated",
+        "statement_builder_live_db_execution_validated",
+        "search_consumer_validated",
+        "admin_dashboard_consumer_validated",
+        "policy_consumer_validated",
+        "prompt_time_density_consumer_validated",
+    )
+    if evidence is None:
+        return {
+            "status": "not_provided",
+            "validated": False,
+            "problems": ["live evidence was not provided"],
+            "required_flags": list(required_flags),
+        }
+    problems = list(evidence.get("problems") or [])
+    if evidence.get("contract_version") != LIVE_EVIDENCE_CONTRACT_VERSION:
+        problems.append("contract_version mismatch")
+    if evidence.get("status") != "passed":
+        problems.append("status must be passed")
+    for flag in required_flags:
+        if evidence.get(flag) is not True:
+            problems.append(f"{flag} must be true")
+    endpoints = evidence.get("endpoints")
+    if not isinstance(endpoints, list) or len(endpoints) < 6:
+        problems.append("endpoints must contain at least six live API checks")
+    else:
+        for index, endpoint in enumerate(endpoints):
+            if not isinstance(endpoint, dict):
+                problems.append(f"endpoints[{index}] must be an object")
+                continue
+            if int(endpoint.get("http_status") or 0) != 200:
+                problems.append(f"endpoints[{index}] http_status must be 200")
+            if endpoint.get("validated") is not True:
+                problems.append(f"endpoints[{index}] validated must be true")
+    statement_builder = evidence.get("live_db_statement_builder")
+    if not isinstance(statement_builder, dict):
+        problems.append("live_db_statement_builder must be an object")
+    else:
+        if statement_builder.get("status") != "passed":
+            problems.append("live_db_statement_builder.status must be passed")
+        if int(statement_builder.get("row_count") or 0) <= 0:
+            problems.append("live_db_statement_builder.row_count must be positive")
+        fragments = statement_builder.get("compiled_sql_contains")
+        if not isinstance(fragments, dict) or not all(bool(value) for value in fragments.values()):
+            problems.append("live_db_statement_builder.compiled_sql_contains must all be true")
+    return {
+        "status": "validated" if not problems else "failed",
+        "validated": not problems,
+        "path": evidence.get("path"),
+        "project_key": evidence.get("project_key"),
+        "endpoint_count": len(endpoints) if isinstance(endpoints, list) else 0,
+        "problems": problems,
+        "required_flags": list(required_flags),
+    }
+
+
+def build_check(
+    repo_root: Path | str | None = None,
+    *,
+    live_evidence_path: Path | str | None = None,
+) -> dict[str, Any]:
     root = Path(repo_root).resolve() if repo_root is not None else _repo_root().resolve()
 
     structured_sql = build_structured_sql_check(root)
@@ -244,6 +336,8 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     prompt_time_density = build_prompt_time_density_check(root)
     endpoint_projection = _build_endpoint_projection_gate(root)
     builder_status = _document_query_statement_builder_status(root)
+    live_evidence = _load_live_evidence(live_evidence_path)
+    live_evidence_status = _live_evidence_status(live_evidence)
 
     gates = [
         _gate("structured_sql_helper_migration", topic_id=STRUCTURED_TOPIC_ID, result=structured_sql),
@@ -286,17 +380,20 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             }
         )
 
-    external_blockers = [
-        {
-            "id": "live_db_api_smoke_not_run",
-            "kind": "external_runtime_validation",
-            "topic_ids": [STRUCTURED_TOPIC_ID, CONSUMER_TOPIC_ID],
-            "detail": (
-                "Focused gates are deterministic and do not start a live tenant DB/API stack; live DB/API smoke "
-                "remains a separate external-runtime validation condition."
-            ),
-        }
-    ]
+    external_blockers = []
+    if not live_evidence_status["validated"]:
+        external_blockers.append(
+            {
+                "id": "live_db_api_smoke_not_run",
+                "kind": "external_runtime_validation",
+                "topic_ids": [STRUCTURED_TOPIC_ID, CONSUMER_TOPIC_ID],
+                "detail": (
+                    "Focused gates are deterministic and do not start a live tenant DB/API stack; live DB/API smoke "
+                    "remains a separate external-runtime validation condition."
+                ),
+                "live_evidence_status": live_evidence_status,
+            }
+        )
     structured_repo_local_blockers = [
         blocker for blocker in repo_local_blockers if blocker.get("topic_id") == STRUCTURED_TOPIC_ID
     ]
@@ -306,26 +403,43 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     structured_archive_eligible = not structured_repo_local_blockers
     consumer_archive_eligible = not consumer_repo_local_blockers
     validation_passed = all(gate["passed"] for gate in gates)
+    closure_ready = validation_passed and not repo_local_blockers and not external_blockers
 
     return {
         "contract_version": CONTRACT_VERSION,
         "topic_ids": [STRUCTURED_TOPIC_ID, CONSUMER_TOPIC_ID],
         "status": "passed" if validation_passed else "failed",
         "decision": {
-            "status": "external_blocked_candidate",
+            "status": "closed" if closure_ready else "external_blocked_candidate",
             "archive_eligible": structured_archive_eligible and consumer_archive_eligible,
             "repo_local_blocker_count": len(repo_local_blockers),
             "external_blocker_count": len(external_blockers),
-            "recommendation": "move structured service modularization to ARCHIVE_EXTERNAL_BLOCKED when the supervisor performs the next CURRENT_DEV status migration",
+            "recommendation": (
+                "move structured service modularization and consumer-side modularization to ARCHIVE_CLOSED"
+                if closure_ready
+                else "move structured service modularization to ARCHIVE_EXTERNAL_BLOCKED when the supervisor performs the next CURRENT_DEV status migration"
+            ),
             "topics": {
                 STRUCTURED_TOPIC_ID: {
-                    "status": "external_blocked_candidate" if structured_archive_eligible else "retained_partial",
+                    "status": (
+                        "closed"
+                        if closure_ready and structured_archive_eligible
+                        else "external_blocked_candidate"
+                        if structured_archive_eligible
+                        else "retained_partial"
+                    ),
                     "archive_eligible": structured_archive_eligible,
                     "repo_local_blocker_count": len(structured_repo_local_blockers),
                     "external_blocker_ids": [item["id"] for item in external_blockers],
                 },
                 CONSUMER_TOPIC_ID: {
-                    "status": "external_blocked_candidate" if consumer_archive_eligible else "retained_partial",
+                    "status": (
+                        "closed"
+                        if closure_ready and consumer_archive_eligible
+                        else "external_blocked_candidate"
+                        if consumer_archive_eligible
+                        else "retained_partial"
+                    ),
                     "archive_eligible": consumer_archive_eligible,
                     "repo_local_blocker_count": len(consumer_repo_local_blockers),
                     "external_blocker_ids": [item["id"] for item in external_blockers],
@@ -340,6 +454,8 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             "gate_count": len(gates),
             "passed_gate_count": sum(1 for gate in gates if gate["passed"]),
             "document_query_statement_builder": builder_status,
+            "live_evidence": live_evidence_status,
+            "closure_ready": closure_ready,
         },
     }
 
@@ -347,9 +463,10 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check Wave27 structured/consumer closure decision.")
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--live-evidence-json", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    result = build_check()
+    result = build_check(live_evidence_path=args.live_evidence_json)
     payload = json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)

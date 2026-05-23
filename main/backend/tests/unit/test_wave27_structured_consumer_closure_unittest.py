@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,6 +16,7 @@ pytestmark = pytest.mark.unit
 from scripts.check_wave27_structured_consumer_closure import (  # noqa: E402
     CONSUMER_TOPIC_ID,
     CONTRACT_VERSION,
+    LIVE_EVIDENCE_CONTRACT_VERSION,
     STRUCTURED_TOPIC_ID,
     build_check,
 )
@@ -69,6 +72,51 @@ class Wave27StructuredConsumerClosureDecisionUnitTest(unittest.TestCase):
             },
         )
         self.assertEqual(builder["compile_gaps"], [])
+
+    def test_live_evidence_closes_structured_and_consumer_topics(self) -> None:
+        evidence = {
+            "contract_version": LIVE_EVIDENCE_CONTRACT_VERSION,
+            "status": "passed",
+            "project_key": "demo_proj",
+            "live_db_api_smoke_validated": True,
+            "structured_query_endpoint_validated": True,
+            "statement_builder_live_db_execution_validated": True,
+            "search_consumer_validated": True,
+            "admin_dashboard_consumer_validated": True,
+            "policy_consumer_validated": True,
+            "prompt_time_density_consumer_validated": True,
+            "endpoints": [
+                {"name": "health", "http_status": 200, "validated": True},
+                {"name": "search", "http_status": 200, "validated": True},
+                {"name": "dashboard_stats", "http_status": 200, "validated": True},
+                {"name": "admin_documents", "http_status": 200, "validated": True},
+                {"name": "policies_stats", "http_status": 200, "validated": True},
+                {"name": "prompt_time_density", "http_status": 200, "validated": True},
+            ],
+            "live_db_statement_builder": {
+                "status": "passed",
+                "row_count": 3,
+                "compiled_sql_contains": {
+                    "from_documents": True,
+                    "doc_type_filter": True,
+                    "limit_3": True,
+                },
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            evidence_path = Path(tmp_dir) / "live_evidence.json"
+            evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+
+            result = build_check(REPO_ROOT, live_evidence_path=evidence_path)
+
+        self.assertTrue(result["validation"]["passed"], result)
+        self.assertTrue(result["validation"]["closure_ready"], result)
+        self.assertEqual(result["decision"]["status"], "closed")
+        self.assertEqual(result["decision"]["external_blocker_count"], 0)
+        self.assertEqual(result["external_blockers"], [])
+        self.assertEqual(result["decision"]["topics"][STRUCTURED_TOPIC_ID]["status"], "closed")
+        self.assertEqual(result["decision"]["topics"][CONSUMER_TOPIC_ID]["status"], "closed")
+        self.assertEqual(result["validation"]["live_evidence"]["status"], "validated")
 
 
 if __name__ == "__main__":

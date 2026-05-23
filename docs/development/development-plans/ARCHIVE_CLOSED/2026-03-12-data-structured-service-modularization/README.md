@@ -15,6 +15,7 @@
 11. [12_wave27-structured-consumer-closure-decision-2026-05-23.md](./12_wave27-structured-consumer-closure-decision-2026-05-23.md)
 12. [13_wave28-structured-reviewer-evidence-2026-05-23.md](./13_wave28-structured-reviewer-evidence-2026-05-23.md)
 13. [14_wave28-structured-document-query-statement-builder-2026-05-23.md](./14_wave28-structured-document-query-statement-builder-2026-05-23.md)
+14. [15_wave45-manual-live-api-closure-2026-05-23.md](./15_wave45-manual-live-api-closure-2026-05-23.md)
 
 ## 使用顺序
 
@@ -39,3 +40,4 @@
 - 2026-05-23 Wave27 已补组合 endpoint/consumer closure gate：endpoint/query/facade gates 均通过；paired consumer topic 迁入 `ARCHIVE_EXTERNAL_BLOCKED`，本目录因 generic `DocumentQuery -> SQLAlchemy statement` builder 仍未导出而保留 `CURRENT_DEV`。
 - 2026-05-23 Wave28 structured worker A 已导出 generic `DocumentQuery -> SQLAlchemy statement` builder，并更新 closure checker；本目录 repo-local blocker 归零，只剩 `live_db_api_smoke_not_run` 外部运行时验证。
 - 2026-05-23 Wave28 reviewer 复核当前 `document_queries` 服务、checker 与 `CURRENT_DEV` evidence：当前可执行封口范围原本只剩 generic `DocumentQuery -> SQLAlchemy statement` builder；本轮 builder 变更合并后 focused gates 显示 repo-local blocker 清零，目录已迁入 `ARCHIVE_EXTERNAL_BLOCKED` 而非 `ARCHIVE_CLOSED`。
+- 2026-05-23 Wave45 手动补齐 live DB/API smoke：`/search` document-query projection 与 retrieval readback、admin/dashboard/policy/prompt-time-density consumer API，以及 `DocumentQuery -> SQLAlchemy statement` live DB execution 均通过；本目录状态更新为 `closed` 并迁入 canonical `ARCHIVE_CLOSED`。

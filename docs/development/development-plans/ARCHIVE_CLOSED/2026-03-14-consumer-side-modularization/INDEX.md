@@ -1,9 +1,9 @@
 # Consumer-Side Modularization Index
 
 更新时间：2026-05-23 PST
-状态：`external_blocked` / `wave27_checked`。本目录已迁入 `ARCHIVE_EXTERNAL_BLOCKED`；仓内 consumer facade/query、admin/dashboard、policy-state 与 prompt-time-density gates 已封住。目录内早期 `partial` 或 repo-local blocker 文案只保留为历史证据，不再是当前目录主状态。
+状态：`closed` / `wave45_live_api_checked`。本目录已迁入 canonical `ARCHIVE_CLOSED`；仓内 consumer facade/query、admin/dashboard、policy-state 与 prompt-time-density gates 已封住，Wave45 已补齐 live DB/API smoke。目录内早期 `partial`、`external_blocked` 或 repo-local blocker 文案只保留为历史证据，不再是当前目录主状态。
 
-防误读：当前 canonical decision 以本 `INDEX.md` 与 `08_wave27-external-blocked-decision-2026-05-23.md` 为准。重新进入 `CURRENT_DEV` 前，必须先补齐 live DB/API smoke evidence。
+防误读：当前 canonical decision 以本 `INDEX.md` 与 `09_wave45-manual-live-api-closure-2026-05-23.md` 为准。`08_wave27-external-blocked-decision-2026-05-23.md` 只保留为 Wave27 历史快照。
 
 ## 文件
 
@@ -24,19 +24,22 @@
 - [07_wave20-prompt-time-density-consumer-facade-2026-05-22.md](./07_wave20-prompt-time-density-consumer-facade-2026-05-22.md)
   Prompt-time-density consumer facade。
 - [08_wave27-external-blocked-decision-2026-05-23.md](./08_wave27-external-blocked-decision-2026-05-23.md)
-  当前 canonical decision：repo-local consumer gates 通过，剩余 live DB/API smoke。
+  Wave27 historical decision：repo-local consumer gates 通过，剩余 live DB/API smoke。
+- [09_wave45-manual-live-api-closure-2026-05-23.md](./09_wave45-manual-live-api-closure-2026-05-23.md)
+  当前 canonical closure：live DB/API smoke 已通过，目录 closed。
 
 ## 当前状态
 
 | 项 | 状态 | 证据 |
 |---|---|---|
-| 目录归属 | `ARCHIVE_EXTERNAL_BLOCKED` | `CURRENT_DEV/INDEX.md` 不再将本主题计入 `partial` |
+| 目录归属 | `ARCHIVE_CLOSED` | `docs/development/development-plans/ARCHIVE_CLOSED/INDEX.md` |
 | Repo-local consumer facade/query gates | sealed | `check_wave27_structured_consumer_closure.py` 与 unit pytest |
-| Live DB/API smoke | external blocker | `live_db_api_smoke_not_run` |
+| Live DB/API smoke | sealed | Wave45 live evidence pack 与 closure gate |
 
 ## 验证命令
 
 ```bash
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_wave27_structured_consumer_closure.py
+PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_wave27_structured_consumer_closure.py --live-evidence-json development/latest-dev-docs/automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/live_evidence.json
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 -m pytest -q main/backend/tests/unit/test_wave27_structured_consumer_closure_unittest.py
 ```
