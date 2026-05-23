@@ -39,12 +39,13 @@
 - Current `CURRENT_DEV` status is canonical only in [CURRENT_DEV/INDEX.md](./CURRENT_DEV/INDEX.md): `partial:0 / not_closed:0 / no_closure_claim:0`.
 - Target-topic scope is canonical in [TARGET_TOPIC_ALLOWLIST.json](./TARGET_TOPIC_ALLOWLIST.json): only real development target topics are checked for closed / external_blocked / retired / active current status; navigation, evidence/process, compatibility-shim, and reference material directories are not closure targets.
 - External-blocked target governance is canonical in [EXTERNAL_BLOCKER_MANIFEST.v1.json](./EXTERNAL_BLOCKER_MANIFEST.v1.json): every remaining external-blocked review target must have dependency type, repo-local evidence, required external proof, probe/manual evidence shape, exit criteria, and owner surface.
-- Four-state review status is canonical in the current target matrix: `unsealed:0 / sealed:51 / outdated:6 / needs_update:0`.
-- The latest target evidence profile is Wave51 non-target reclassification: 57 target topics (`closed:36 / external_blocked:15 / retired:6 / active_current:0`), 21 non-target roots, and 57 target evidence profiles.
+- Four-state review status is canonical in the current target matrix: `unsealed:0 / sealed:49 / outdated:6 / needs_update:0`.
+- The latest target evidence profile is Wave52 non-target reclassification: 55 target topics (`closed:36 / external_blocked:13 / retired:6 / active_current:0`), 23 non-target roots, and 55 target evidence profiles.
 - Wave entries and `partial:x -> partial:y` notes below are historical wave logs. They record past migration deltas and do not reopen active `CURRENT_DEV` work.
 
 ## Historical Wave Log / Archive Navigation
 
+- [Wave52 Non-Target Reclassification](./ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/10_wave52-non-target-time-cluster-evidence-reclassification-2026-05-23.md) removes `2026-03-02-source-time-window-smart-timestamp-plan` and `2026-03-05-time-statistics-remediation-plan` from the external-blocked target set as time-semantics cluster evidence; production semantic-chain proof remains owned by the `2026-03-14-time-semantics-density-merged-plan` target. Current external-blocked review targets are now `13`, and manifest entries are `13`.
 - [Wave51 Non-Target Reclassification](./ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md) removes the `2026-03-02-ingest-platformization-assessment` parent assessment wrapper from the external-blocked target set; live canary, production 24h readback, and ops approval remain owned by concrete ingest successor targets. Current external-blocked review targets are now `15`, and manifest entries are `15`.
 - [Wave50 Non-Target Reclassification](./ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/05_wave50-non-target-drift-evidence-reclassification-2026-05-23.md) removes `MERGED_OVERVIEW` topic-local drift evidence, the `2026-03-01-open-source-platform-integration` parent wrapper, and the `2026-03-14-search-chain-source-library-mounting-audit` evidence pack from the external-blocked target set. That wave reduced external-blocked review targets to `16`, and manifest entries to `16`.
 
@@ -64,7 +65,7 @@
 
 - [Wave41 External Unblock Attempt](../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md) closes the parallel-agent runtime exposure external blocker with real `multi_agent_v1` spawn/completion/error/close evidence. That wave reduced external-blocked review targets to `29`, and manifest entries to `29`.
 
-- [Wave40 External Blocker Manifest](../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md) added a structured manifest and checker for the original 30 external-blocked review targets. After Wave51, `check_external_blocker_manifest.py` verifies `external_target_count=15 / manifest_target_count=15`, preventing keyword-only external-blocked closure claims.
+- [Wave40 External Blocker Manifest](../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md) added a structured manifest and checker for the original 30 external-blocked review targets. After Wave52, `check_external_blocker_manifest.py` verifies `external_target_count=13 / manifest_target_count=13`, preventing keyword-only external-blocked closure claims.
 
 - [ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md](./ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md)
 - [ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md](./ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md)

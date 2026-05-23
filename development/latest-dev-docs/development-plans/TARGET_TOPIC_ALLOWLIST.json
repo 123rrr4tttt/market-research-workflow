@@ -31,6 +31,8 @@
       "excluded_topic_dirs": [
         "2026-03-01-open-source-platform-integration",
         "2026-03-02-ingest-platformization-assessment",
+        "2026-03-02-source-time-window-smart-timestamp-plan",
+        "2026-03-05-time-statistics-remediation-plan",
         "2026-03-14-search-chain-source-library-mounting-audit",
         "MERGED_OVERVIEW"
       ]
@@ -133,6 +135,14 @@
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment",
       "role": "ingest_platformization_assessment_wrapper"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan",
+      "role": "time_semantics_cluster_evidence"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan",
+      "role": "time_semantics_cluster_evidence"
     },
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW",

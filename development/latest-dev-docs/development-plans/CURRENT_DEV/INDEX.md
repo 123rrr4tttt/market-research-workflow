@@ -42,8 +42,6 @@
 
 ## 本次外部阻塞归档
 
-- `external_blocked` [2026-03-02 Source Time Window Smart Timestamp Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/)
-- `external_blocked` [2026-03-05 Time Statistics Remediation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/)
 - `external_blocked` [2026-03-11 Source Library Three-Lane Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/)
 - `closed` [2026-03-14 Source-Library Adapter Capability Remediation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/20_wave49-manual-public-replay-closure-2026-05-23.md)
 - `external_blocked` [2026-03-14 Time Semantics Density Merged Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md)
@@ -64,6 +62,8 @@
 - `non_target_topic_local_drift_evidence` [MERGED_OVERVIEW Topic Drift Gate](../ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/05_wave50-non-target-drift-evidence-reclassification-2026-05-23.md) - Wave50 将它从 external target set 移除；真实 vector production-quality 条件由 Global Vectorization target 承接。
 - `non_target_superseded_parent_wrapper` [2026-03-01 Open Source Platform Integration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/10_wave50-non-target-wrapper-reclassification-2026-05-23.md) - Wave50 将它从 external target set 移除；剩余 provider/SLA 条件由 Global Vectorization 与 OSS Node Platform IO targets 承接。
 - `non_target_ingest_platformization_assessment_wrapper` [2026-03-02 Ingest Platformization Assessment](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md) - Wave51 将它从 external target set 移除；live canary / 24h metrics / ops approval 条件由 Meaningful Ingest Guardrails 与 Single URL First targets 承接。
+- `non_target_time_semantics_cluster_evidence` [2026-03-02 Source Time Window Smart Timestamp Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/10_wave52-non-target-time-cluster-evidence-reclassification-2026-05-23.md) - Wave52 将它从 external target set 移除；production semantic-chain 条件由 Time Semantics Density Merged target 承接。
+- `non_target_time_semantics_cluster_evidence` [2026-03-05 Time Statistics Remediation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/12_wave52-non-target-time-cluster-evidence-reclassification-2026-05-23.md) - Wave52 将它从 external target set 移除；production freshness/volume/alignment 条件由 Time Semantics Density Merged target 承接。
 - `non_target_source_library_mounting_audit_evidence` [2026-03-14 Search Chain Source-Library Mounting Audit](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/10_wave50-non-target-mounting-audit-reclassification-2026-05-23.md) - Wave50 将它从 external target set 移除；live source collection / human review / live ingest migration 条件由 source-library successor targets 承接。
 
 ## 本次外部阻塞复核
