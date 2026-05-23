@@ -1,12 +1,6 @@
 {
-  "schema_version": "v1",
-  "required_files": [
-    "quality-metrics.json",
-    "observability-check.json",
-    "release-notes.md"
-  ],
-  "strict_policy": {
-    "observability_result": "pass",
-    "gate_result": "pass"
-  }
+  "_docs_root_migration": "compatibility shim",
+  "authoritative_target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/artifact-contract.json",
+  "previous_source_path": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/artifact-contract.json",
+  "migration_batch": "development-plans-archive-closed-wave31-batch"
 }

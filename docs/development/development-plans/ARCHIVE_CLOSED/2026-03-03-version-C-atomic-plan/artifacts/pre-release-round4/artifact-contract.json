@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "required_files": [
+    "quality-metrics.json",
+    "observability-check.json",
+    "release-notes.md"
+  ],
+  "strict_policy": {
+    "observability_result": "pass",
+    "gate_result": "pass"
+  }
+}

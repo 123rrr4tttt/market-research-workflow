@@ -4789,7 +4789,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const detachProjectionControls = renderMode === 'projection3d' && activeRendererCapabilities.supportsProjectionControls
   const projectionControlSection = activeRendererCapabilities.supportsProjectionControls ? (
     <label className="gv2-control-chip">
-      3D引擎
+      {t('graphPage.control.force3dEngine')}
       <select
         value={projectionEngine}
         onChange={(e) => requestProjectionEngineChange(e.target.value as ProjectionEngine)}
@@ -4808,10 +4808,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
             className={`gv2-chart-wrap gv2-chart-wrap--fullscreen-ready ${isFullscreen ? 'is-fullscreen' : ''}`}
             ref={fullscreenWrapRef}
           >
-            {graphData.isFetching ? <div className="gv2-loading">加载中...</div> : null}
+            {graphData.isFetching ? <div className="gv2-loading">{t('graphPage.loading.fetching')}</div> : null}
             {graphData.error ? (
               <div className="gv2-loading gv2-loading-error">
-                加载失败：{graphData.error instanceof Error ? graphData.error.message : '请求异常'}
+                {t('graphPage.error.loadFailed')}{graphData.error instanceof Error ? graphData.error.message : t('graphPage.error.requestException')}
               </div>
             ) : null}
             <div
@@ -4822,10 +4822,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
             />
             {forceGraphCanvasNode}
             {useForceGraph3D && !ForceGraph3DComp ? (
-              <div className="gv2-loading">3D引擎加载中...</div>
+              <div className="gv2-loading">{t('graphPage.loading.force3d')}</div>
             ) : null}
             {useForceGraph3D && forceGraphLoadError ? (
-              <div className="gv2-loading gv2-loading-error">3D引擎加载失败：{forceGraphLoadError}</div>
+              <div className="gv2-loading gv2-loading-error">{t('graphPage.error.force3dLoadFailed')}{forceGraphLoadError}</div>
             ) : null}
             {renderMode === 'projection3d' && projectionEngine === 'legacy' && forceGraphFallbackNotice ? (
               <div className="gv2-loading">
@@ -4840,7 +4840,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     requestProjectionEngineChange('force3d')
                   }}
                 >
-                  重试 force3d
+                  {t('graphPage.action.retryForce3d')}
                 </button>
               </div>
             ) : null}
@@ -4865,16 +4865,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 className={`gv2-select-mode-btn ${selectionEnabled ? '' : 'is-off'}`.trim()}
                 onClick={handleToggleSelectionMode}
               >
-                选择模式
+                {t('graphPage.action.selectionMode')}
               </button>
               {templateBuilder ? (
               <button
                 type="button"
                 className={`gv2-select-mode-btn ${editMode ? '' : 'is-off'}`.trim()}
                 onClick={() => setEditMode((prev) => !prev)}
-                title="编辑模式下可本地增删改节点与边"
+                title={t('graphPage.tooltip.editMode')}
               >
-                编辑模式{isDraftDirty ? ' *' : ''}
+                {t('graphPage.action.editMode')}{isDraftDirty ? ' *' : ''}
               </button>
               ) : null}
               <button
@@ -4887,25 +4887,25 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     return next
                   })
                 }}
-                title="基于当前节点详情自动隐没无关节点（与选择模式独立）"
+                title={t('graphPage.tooltip.autoFocusHide')}
               >
-                聚焦隐没
+                {t('graphPage.action.autoFocusHide')}
               </button>
               <button
                 type="button"
                 className={`gv2-select-mode-btn ${renderMode === 'projection3d' ? '' : 'is-off'}`.trim()}
                 onClick={() => requestRenderModeChange(renderMode === '2d' ? 'projection3d' : '2d')}
-                title="轻量3D模型模式（中心锁定，非相机视角）"
+                title={t('graphPage.tooltip.projectionMode')}
               >
-                {renderMode === 'projection3d' ? '回到2D' : '3D模式'}
+                {renderMode === 'projection3d' ? t('graphPage.action.mode2d') : t('graphPage.action.mode3d')}
               </button>
               <button
                 type="button"
                 className={`gv2-select-mode-btn ${showSymbolDebug ? '' : 'is-off'}`.trim()}
                 onClick={() => setShowSymbolDebug((v) => !v)}
-                title="显示节点类型到GL符号的映射调试信息"
+                title={t('graphPage.tooltip.symbolDebug')}
               >
-                符号调试
+                {t('graphPage.action.symbolDebug')}
               </button>
               <button
                 type="button"
@@ -4913,14 +4913,14 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 onClick={() => setSelectionPinned((v) => !v)}
                 disabled={!selectedNodeKeys.size}
               >
-                固化选中
+                {t('graphPage.action.pinSelection')}
               </button>
               <button
                 type="button"
                 onClick={() => setTaskModalOpen(true)}
                 disabled={!selectedNodeKeys.size}
               >
-                结构化任务（{selectedNodeKeys.size}）
+                {t('graphPage.action.structuredTasks')}（{selectedNodeKeys.size}）
               </button>
               <button
                 type="button"
@@ -4928,12 +4928,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 data-testid="graph-create-clue-chain"
                 onClick={() => void handleCreateClueChain()}
                 disabled={clueChainBusy || !clueChainSeedNodes.length}
-                title="从当前选中节点创建 Clue Chain；未选中时使用当前图谱上下文"
+                title={t('graphPage.tooltip.createClueChain')}
               >
                 {clueChainBusy ? <LoaderCircle size={14} className="spinning" /> : <GitBranchPlus size={14} />}
                 Chain（{selectedNodeKeys.size || clueChainSeedNodes.length}）
               </button>
-              <button onClick={async () => { await graphData.refetch() }} disabled={graphData.isFetching}>刷新</button>
+              <button onClick={async () => { await graphData.refetch() }} disabled={graphData.isFetching}>{t('graphPage.action.refresh')}</button>
               <button
                 onClick={async () => {
                   if (!fullscreenWrapRef.current) return
@@ -4956,15 +4956,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   }
                 }}
               >
-                {isFullscreen ? '退出全屏' : '全屏'}
+                {isFullscreen ? t('graphPage.action.exitFullscreen') : t('graphPage.action.fullscreen')}
               </button>
-              <button onClick={() => setShowOverlay((v) => !v)}>{showOverlay ? '收起面板' : '展开面板'}</button>
-              {nodeDragCapturedFx ? <span className="gv2-drag-captured">已捕获</span> : null}
+              <button onClick={() => setShowOverlay((v) => !v)}>{showOverlay ? t('graphPage.action.collapsePanel') : t('graphPage.action.expandPanel')}</button>
+              {nodeDragCapturedFx ? <span className="gv2-drag-captured">{t('graphPage.status.dragCaptured')}</span> : null}
               </div>
             </div>
             {renderMode === 'projection3d' && !isFullscreen ? (
               <div className="gv2-graph-controls-hint">
-                force-graph 左拖旋转；选择模式下右键节点切换一跳邻域
+                {t('graphPage.hint.force3dControls')}
               </div>
             ) : null}
             <div
@@ -4982,13 +4982,13 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   className="gv2-control-section-head"
                   onClick={() => setControlSectionOpen((prev) => ({ ...prev, view: !prev.view }))}
                 >
-                  <strong>视图调节</strong>
-                  <span>{controlSectionOpen.view ? '收起' : '展开'}</span>
+                  <strong>{t('graphPage.section.view')}</strong>
+                  <span>{controlSectionOpen.view ? t('graphPage.action.collapse') : t('graphPage.action.expand')}</span>
                 </button>
                 {controlSectionOpen.view ? (
                   <div className="gv2-control-section-body">
                     <label className="gv2-control-chip">
-                      斥力
+                      {t('graphPage.control.repulsion')}
                       <input
                         type="range"
                         min={0}
@@ -5004,7 +5004,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{(visualDraft.repulsion / 7.2).toFixed(1)}%</span>
                     </label>
                     <label className="gv2-control-chip">
-                      引力
+                      {t('graphPage.control.gravity')}
                       <input
                         type="range"
                         min={0}
@@ -5020,7 +5020,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{visualDraft.gravityPercent}%</span>
                     </label>
                     <label className="gv2-control-chip">
-                      节点尺寸
+                      {t('graphPage.control.nodeSize')}
                       <input
                         type="range"
                         min={NODE_SIZE_SLIDER_MIN}
@@ -5036,7 +5036,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{visualDraft.nodeScale}% · 3D {computeForce3DSizeCompensationX(visualDraft.nodeScale).toFixed(1)}x</span>
                     </label>
                     <label className="gv2-control-chip">
-                      中心化增强
+                      {t('graphPage.control.centralityBoost')}
                       <input
                         type="range"
                         min={NODE_CONTRAST_SLIDER_MIN}
@@ -5052,7 +5052,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{visualDraft.nodeContrastCentral}%</span>
                     </label>
                     <label className="gv2-control-chip">
-                      邻近数增强
+                      {t('graphPage.control.neighborBoost')}
                       <input
                         type="range"
                         min={NODE_CONTRAST_SLIDER_MIN}
@@ -5068,7 +5068,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{visualDraft.nodeContrastNeighbor}%</span>
                     </label>
                     <label className="gv2-control-chip">
-                      节点透明
+                      {t('graphPage.control.nodeAlpha')}
                       <input
                         type="range"
                         min={0}
@@ -5084,7 +5084,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{visualDraft.nodeAlpha}%</span>
                     </label>
                     <label className="gv2-control-chip">
-                      边粗细
+                      {t('graphPage.control.edgeWidth')}
                       <input
                         type="range"
                         min={0}
@@ -5100,7 +5100,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{visualDraft.edgeWidth}%</span>
                     </label>
                     <label className="gv2-control-chip">
-                      边透明
+                      {t('graphPage.control.edgeAlpha')}
                       <input
                         type="range"
                         min={0}
@@ -5124,10 +5124,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           updateVisual('showLabel', checked, { immediate: true })
                         }}
                       />
-                      显示标签
+                      {t('graphPage.control.showLabels')}
                     </label>
                     <div className="gv2-control-chip">
-                      <span>已选 {selectedNodeKeys.size}</span>
+                      <span>{t('graphPage.status.selected')} {selectedNodeKeys.size}</span>
                       <button
                         type="button"
                         className="secondary"
@@ -5138,7 +5138,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         }}
                         disabled={!selectedNodeKeys.size}
                       >
-                        清空
+                        {t('graphPage.action.clear')}
                       </button>
                     </div>
                   </div>
@@ -5450,13 +5450,13 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   className="gv2-control-section-head"
                   onClick={() => setControlSectionOpen((prev) => ({ ...prev, color: !prev.color }))}
                 >
-                  <strong>配色调节</strong>
-                  <span>{controlSectionOpen.color ? '收起' : '展开'}</span>
+                  <strong>{t('graphPage.section.color')}</strong>
+                  <span>{controlSectionOpen.color ? t('graphPage.action.collapse') : t('graphPage.action.expand')}</span>
                 </button>
                 {controlSectionOpen.color ? (
                   <div className="gv2-control-section-body">
                     <label className="gv2-control-chip">
-                      色系主题
+                      {t('graphPage.control.paletteTheme')}
                       <select value={paletteKey} onChange={(e) => setPaletteKey(e.target.value as PaletteKey)}>
                         {Object.entries(GRAPH_COLOR_THEMES).map(([key, val]) => (
                           <option key={key} value={key}>{val.label}</option>
@@ -5464,7 +5464,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       </select>
                     </label>
                     <label className="gv2-control-chip">
-                      色差旋转
+                      {t('graphPage.control.colorRotate')}
                       <input
                         type="range"
                         min={0}
@@ -5476,7 +5476,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{colorRotate}%</span>
                     </label>
                     <label className="gv2-control-chip">
-                      绝对色差
+                      {t('graphPage.control.absoluteContrast')}
                       <input
                         type="range"
                         min={0}
@@ -5497,13 +5497,13 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   className="gv2-control-section-head"
                   onClick={() => setControlSectionOpen((prev) => ({ ...prev, filter: !prev.filter }))}
                 >
-                  <strong>数据筛选</strong>
-                  <span>{controlSectionOpen.filter ? '收起' : '展开'}</span>
+                  <strong>{t('graphPage.section.filter')}</strong>
+                  <span>{controlSectionOpen.filter ? t('graphPage.action.collapse') : t('graphPage.action.expand')}</span>
                 </button>
                 {controlSectionOpen.filter ? (
                   <div className="gv2-control-section-body">
                     <label className="gv2-control-chip">
-                      开始日期
+                      {t('graphPage.field.startDate')}
                       <input
                         type="date"
                         value={startDate}
@@ -5514,7 +5514,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       />
                     </label>
                     <label className="gv2-control-chip">
-                      结束日期
+                      {t('graphPage.field.endDate')}
                       <input
                         type="date"
                         value={endDate}
@@ -5526,36 +5526,36 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     </label>
                     {(graphKind === 'policy' || graphKind === 'market' || graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation') ? (
                       <label className="gv2-control-chip">
-                        州
-                        <input value={state} placeholder="CA / NY / TX" onChange={(e) => setState(e.target.value)} />
+                        {t('graphPage.field.state')}
+                        <input value={state} placeholder={t('graphPage.placeholder.state')} onChange={(e) => setState(e.target.value)} />
                       </label>
                     ) : null}
                     {graphKind === 'policy' ? (
                       <label className="gv2-control-chip">
-                        政策类型
-                        <input value={policyType} placeholder="regulation / bill" onChange={(e) => setPolicyType(e.target.value)} />
+                        {t('graphPage.field.policyType')}
+                        <input value={policyType} placeholder={t('graphPage.placeholder.policyType')} onChange={(e) => setPolicyType(e.target.value)} />
                       </label>
                     ) : null}
                     {graphKind === 'social' ? (
                       <>
                         <label className="gv2-control-chip">
-                          平台
-                          <input value={platform} placeholder="reddit / twitter" onChange={(e) => setPlatform(e.target.value)} />
+                          {t('graphPage.field.platform')}
+                          <input value={platform} placeholder={t('graphPage.placeholder.platform')} onChange={(e) => setPlatform(e.target.value)} />
                         </label>
                         <label className="gv2-control-chip">
-                          主题
-                          <input value={topic} placeholder="关键词" onChange={(e) => setTopic(e.target.value)} />
+                          {t('graphPage.field.topic')}
+                          <input value={topic} placeholder={t('graphPage.placeholder.topic')} onChange={(e) => setTopic(e.target.value)} />
                         </label>
                       </>
                     ) : null}
                     {(graphKind === 'market' || graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation') ? (
                       <label className="gv2-control-chip">
-                        游戏
-                        <input value={game} placeholder="游戏名" onChange={(e) => setGame(e.target.value)} />
+                        {t('graphPage.field.game')}
+                        <input value={game} placeholder={t('graphPage.placeholder.game')} onChange={(e) => setGame(e.target.value)} />
                       </label>
                     ) : null}
                     <label className="gv2-control-chip">
-                      数量限制
+                      {t('graphPage.field.limit')}
                       <input
                         type="range"
                         min={GRAPH_LIMIT_MIN}
@@ -5569,15 +5569,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{limit}</span>
                     </label>
                     <label className="gv2-control-chip">
-                      排序策略
+                      {t('graphPage.field.rankingStrategy')}
                       <select value={rankingStrategy} onChange={(e) => setRankingStrategy(e.target.value as NodeRankStrategy)}>
-                        <option value="doc_body">数据本体排序</option>
-                        <option value="node_connectivity">节点关联度排序</option>
-                        <option value="doc_id">文档ID排序</option>
+                        <option value="doc_body">{t('graphPage.ranking.docBody')}</option>
+                        <option value="node_connectivity">{t('graphPage.ranking.nodeConnectivity')}</option>
+                        <option value="doc_id">{t('graphPage.ranking.docId')}</option>
                       </select>
                     </label>
                     <label className="gv2-control-chip">
-                      中心度权重
+                      {t('graphPage.field.centralityWeight')}
                       <input
                         type="range"
                         min={RANK_WEIGHT_SLIDER_MIN}
@@ -5589,7 +5589,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <span>{rankingWeightCentral}%</span>
                     </label>
                     <label className="gv2-control-chip">
-                      邻域度权重
+                      {t('graphPage.field.neighborDegreeWeight')}
                       <input
                         type="range"
                         min={RANK_WEIGHT_SLIDER_MIN}
@@ -5606,7 +5606,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           const nextStartDate = String(startDate || '').trim()
                           const nextEndDate = String(endDate || '').trim()
                           if (nextStartDate && nextEndDate && nextStartDate > nextEndDate) {
-                            setFilterApplyError('开始日期不能晚于结束日期')
+                            setFilterApplyError(t('graphPage.error.invalidDateRange'))
                             return
                           }
                           setFilterApplyError('')
@@ -5630,7 +5630,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           setHiddenEdgeKinds({})
                         }}
                       >
-                        应用筛选
+                        {t('graphPage.action.applyFilter')}
                       </button>
                       <button
                         className="secondary"
@@ -5669,7 +5669,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           setExpandedEdgeGroup(null)
                         }}
                       >
-                        重置
+                        {t('graphPage.action.reset')}
                       </button>
                     </div>
                     {filterApplyError ? (

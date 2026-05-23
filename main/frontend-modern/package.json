@@ -16,6 +16,8 @@
     "check:process-page-i18n-slice": "node scripts/check_process_page_i18n_slice.mjs",
     "check:graph-page-i18n-slice": "node scripts/check_graph_page_i18n_slice.mjs",
     "check:crawler-manage-i18n-slice": "node scripts/check_crawler_manage_i18n_slice.mjs",
+    "check:llm-designer-page-i18n-slice": "node scripts/check_llm_designer_page_i18n_slice.mjs",
+    "check:ops-page-i18n-slice": "node scripts/check_ops_page_i18n_slice.mjs",
     "check:i18n-page-shell-disjoint": "node scripts/check_i18n_page_shell_disjoint_gate.mjs",
     "check:business-string-audit": "node scripts/check_frontend_business_string_audit.mjs",
     "check:layer-shell-contract": "node scripts/check_layer_shell_contract.mjs",

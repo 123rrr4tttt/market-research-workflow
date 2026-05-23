@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-03-04T07:15:01Z",
+  "commit": "20a5a53",
+  "branch": "feature/version-C-streamplus",
+  "gate_result": "pass",
+  "gate_report": {
+    "name": "gate-result.json",
+    "source": "/Users/wangyiliang/market-research-workflow-parallel-20260303-215619-C",
+    "lint": "skip",
+    "backend": "pass"
+  },
+  "files": [
+    {
+      "name": "quality-metrics.json",
+      "size": 197,
+      "sha256": "fb4b3744eb86ebadb50d3350ba51283b66e6d8718211e24be3a70b4396f02d96"
+    },
+    {
+      "name": "observability-check.json",
+      "size": 277,
+      "sha256": "68c63499a7f72207e9128273c95d19a6120443ef402dcf84ac3313b6f48522e0"
+    },
+    {
+      "name": "release-notes.md",
+      "size": 431,
+      "sha256": "07888556bb68054da93717f4f70499e7dc7fa7ddf10a73eb8aeb8426da344225"
+    }
+  ]
+}

@@ -3,21 +3,24 @@
   "root": "docs/development",
   "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-23",
-  "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/development while their previous latest-dev-docs paths remain compatibility shims until shared navigation is fully synchronized. Wave27 made the frontend-modern and root-plans main batches target-authoritative after file-level classification and link-check reconciliation. Wave28 keeps CURRENT_DEV source-authoritative as a supervisor-owned active status surface. Wave29 closes the ARCHIVE_CLOSED broad-tree unsafe move by decomposing it into ledger-backed per-file batch work; archive files remain source-authoritative until a later moved_file_batch creates targets and compatibility shims.",
+  "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/development while their previous latest-dev-docs paths remain compatibility shims until shared navigation is fully synchronized. Wave27 made the frontend-modern and root-plans main batches target-authoritative after file-level classification and link-check reconciliation. Wave28 keeps CURRENT_DEV source-authoritative as a supervisor-owned active status surface. Wave29 closes the ARCHIVE_CLOSED broad-tree unsafe move by decomposing it into ledger-backed per-file batch work; archive files remain source-authoritative until a later moved_file_batch creates targets and compatibility shims. Wave31 moved the ARCHIVE_CLOSED ledger batch to docs/development targets and retained latest-dev-docs archive paths as compatibility shims.",
   "wave30_worker_b_readback": "Requested content-plan and migration-manifest gates pass with no docs-root unsafe move left in the manifests. The archive ledger remains a retained_partial per-file queue, not target-authoritative moved content.",
+  "wave31_worker_b_evaluation": {
+    "status": "retained_not_safe_to_close",
+    "evidence": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/wave31-worker-b-docs-root-decomposed-queue-readback-2026-05-23.md",
+    "decision": "The ARCHIVE_CLOSED queue is not safe to close because its 195 source files are still source-authoritative, proposed target files are absent, and source compatibility shims have not been created."
+  },
   "classification_ledgers": [
     {
       "id": "development-plans-archive-closed-tree-wave28",
       "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED",
       "target_root": "docs/development/development-plans",
       "ledger": "docs/development/development-plans/archive-closed-file-classification-2026-05-23.json",
-      "status": "broad_move_decomposed_to_file_batches",
-      "remaining_gates": [
-        "source_compatibility_shim_conversion",
-        "shared_navigation_sync",
-        "MERGED_OVERVIEW_drift"
-      ],
-      "mechanical_next_step": "Generate target files and source compatibility shims from the ledger in small moved_file_batch entries; do not mark archive files target-authoritative until both sides exist and shared navigation is synchronized."
+      "status": "moved_file_batch_completed",
+      "remaining_gates": [],
+      "mechanical_next_step": "Generate target files and source compatibility shims from the ledger in small moved_file_batch entries; do not mark archive files target-authoritative until both sides exist and shared navigation is synchronized.",
+      "moved_file_batch_id": "development-plans-archive-closed-wave31-batch",
+      "moved_files": 195
     }
   ],
   "navigation_promotions": [
@@ -199,6 +202,1392 @@
           "source_status": "compatibility_shim"
         }
       ]
+    },
+    {
+      "id": "development-plans-archive-closed-wave31-batch",
+      "classification": "development",
+      "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED",
+      "source_role": "latest-dev-docs-archive-closed-tree",
+      "target": "docs/development/development-plans/README.md",
+      "target_root": "docs/development/development-plans",
+      "shim": "docs/development/development-plans/README.md",
+      "target_role": "development-target-entry-manifest",
+      "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED",
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-02-ingest-chain-full-branch-map/01_ingest-chain-full-branch-map-2026-03-02.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-ingest-chain-full-branch-map/01_ingest-chain-full-branch-map-2026-03-02.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-02-ingest-chain-full-branch-map/01_ingest-chain-full-branch-map-2026-03-02.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-platformization-first-vectorization/06_backend-db-standardization-vectorization-closure-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-platformization-first-vectorization/06_backend-db-standardization-vectorization-closure-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-platformization-first-vectorization/06_backend-db-standardization-vectorization-closure-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round1/01_rag-best-practice-research-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round1/01_rag-best-practice-research-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round1/01_rag-best-practice-research-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round1/02_rag-dev-plan-and-atomic-task-table-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round1/02_rag-dev-plan-and-atomic-task-table-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round1/02_rag-dev-plan-and-atomic-task-table-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round1/03_rag-round1-closing-doc-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round1/03_rag-round1-closing-doc-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round1/03_rag-round1-closing-doc-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round2/01_rag-best-practice-research-2026-03-03-round2.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round2/01_rag-best-practice-research-2026-03-03-round2.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round2/01_rag-best-practice-research-2026-03-03-round2.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round2/02_rag-dev-plan-and-atomic-task-table-2026-03-03-round2.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round2/02_rag-dev-plan-and-atomic-task-table-2026-03-03-round2.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round2/02_rag-dev-plan-and-atomic-task-table-2026-03-03-round2.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round2/03_rag-round2-closing-doc-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round2/03_rag-round2-closing-doc-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-rag-line-round2/03_rag-round2-closing-doc-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/01_atomic-task-table-and-sequence.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/01_atomic-task-table-and-sequence.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/01_atomic-task-table-and-sequence.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/02_A-line-round2-stability-regression-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/02_A-line-round2-stability-regression-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/02_A-line-round2-stability-regression-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/03_A-line-round3-stage1-research-CI-regression-flake-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/03_A-line-round3-stage1-research-CI-regression-flake-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/03_A-line-round3-stage1-research-CI-regression-flake-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/04_A-line-round3-stage1-closing-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/04_A-line-round3-stage1-closing-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/04_A-line-round3-stage1-closing-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/05_A-line-round4-research-and-implementation-plan-CI-regression-flake-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/05_A-line-round4-research-and-implementation-plan-CI-regression-flake-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/05_A-line-round4-research-and-implementation-plan-CI-regression-flake-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/06_A-line-round4-atomic-task-table-and-gates-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/06_A-line-round4-atomic-task-table-and-gates-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/06_A-line-round4-atomic-task-table-and-gates-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/07_A-line-round4-closing-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/07_A-line-round4-closing-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/07_A-line-round4-closing-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/08_A-line-round5-dev-plan-and-atomic-table-CI-flaky-registry-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/08_A-line-round5-dev-plan-and-atomic-table-CI-flaky-registry-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/08_A-line-round5-dev-plan-and-atomic-table-CI-flaky-registry-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/09_A-line-round5-closing-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/09_A-line-round5-closing-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/09_A-line-round5-closing-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/10_A-line-round6-autowakeup-draft-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/10_A-line-round6-autowakeup-draft-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/10_A-line-round6-autowakeup-draft-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/11_A-line-round6-research-and-knowledgepool-CI-flake-trend-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/11_A-line-round6-research-and-knowledgepool-CI-flake-trend-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/11_A-line-round6-research-and-knowledgepool-CI-flake-trend-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/12_A-line-round6-atomic-task-table-and-gates-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/12_A-line-round6-atomic-task-table-and-gates-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/12_A-line-round6-atomic-task-table-and-gates-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/13_A-line-round6-closing-2026-03-03.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/13_A-line-round6-closing-2026-03-03.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/13_A-line-round6-closing-2026-03-03.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/14_A-line-round7-mvp-machine-readable-flake-trend-summary-2026-03-04.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/14_A-line-round7-mvp-machine-readable-flake-trend-summary-2026-03-04.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/14_A-line-round7-mvp-machine-readable-flake-trend-summary-2026-03-04.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/README.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/README.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/README.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/index.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/index.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/index.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-doc-normalization/01_task_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-doc-normalization/01_task_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-doc-normalization/01_task_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-doc-normalization/02_dev_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-doc-normalization/02_dev_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-doc-normalization/02_dev_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/01_atomic-task-table-and-sequence.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/01_atomic-task-table-and-sequence.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/01_atomic-task-table-and-sequence.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/02_B-line-round2-verifiable-integrable-delivery.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/02_B-line-round2-verifiable-integrable-delivery.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/02_B-line-round2-verifiable-integrable-delivery.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/03_B-line-round3-gateplus-guard-script.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/03_B-line-round3-gateplus-guard-script.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/03_B-line-round3-gateplus-guard-script.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/03_B-line-round3-stage1-research-and-gate-blueprint.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/03_B-line-round3-stage1-research-and-gate-blueprint.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/03_B-line-round3-stage1-research-and-gate-blueprint.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/04_B-line-round4-streamplus-plan-and-atomic-task-table.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/04_B-line-round4-streamplus-plan-and-atomic-task-table.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/04_B-line-round4-streamplus-plan-and-atomic-task-table.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/05_B-line-round4-streamplus-closure.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/05_B-line-round4-streamplus-closure.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/05_B-line-round4-streamplus-closure.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/06_B-line-round6-plan-and-atomic-task-table.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/06_B-line-round6-plan-and-atomic-task-table.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/06_B-line-round6-plan-and-atomic-task-table.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/07_B-line-round6-closure.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/07_B-line-round6-closure.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/07_B-line-round6-closure.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/08_B-line-round7-plan-and-atomic-task-table.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/08_B-line-round7-plan-and-atomic-task-table.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/08_B-line-round7-plan-and-atomic-task-table.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/09_B-line-round7-closure.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/10_B-line-round3-r3-must-minimal-implementation.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/11_B-line-round5-repo-map-and-r5-implementation.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/11_B-line-round5-repo-map-and-r5-implementation.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/11_B-line-round5-repo-map-and-r5-implementation.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/README.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/README.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/README.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/index.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/index.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-atomic-plan/index.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-doc-normalization/01_task_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-doc-normalization/01_task_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-doc-normalization/01_task_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-doc-normalization/02_dev_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-doc-normalization/02_dev_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-B-doc-normalization/02_dev_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/01_atomic-task-table-and-sequence.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/01_atomic-task-table-and-sequence.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/01_atomic-task-table-and-sequence.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/02_C-line-round2-engineering-hardening.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/02_C-line-round2-engineering-hardening.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/02_C-line-round2-engineering-hardening.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/03_C-line-round3-stage1-best-practice-research.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/03_C-line-round3-stage1-best-practice-research.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/03_C-line-round3-stage1-best-practice-research.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/04_C-line-round4-plan-and-atomic-tasks.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/04_C-line-round4-plan-and-atomic-tasks.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/04_C-line-round4-plan-and-atomic-tasks.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/05_C-line-round4-closure.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/05_C-line-round4-closure.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/05_C-line-round4-closure.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/06_C-line-round5-best-practice-research.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/06_C-line-round5-best-practice-research.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/06_C-line-round5-best-practice-research.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/07_C-line-round5-plan-and-atomic-tasks.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/07_C-line-round5-plan-and-atomic-tasks.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/07_C-line-round5-plan-and-atomic-tasks.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/08_C-line-round5-closure.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/08_C-line-round5-closure.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/08_C-line-round5-closure.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/09_C-line-round6-self-wakeup-draft.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/09_C-line-round6-self-wakeup-draft.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/09_C-line-round6-self-wakeup-draft.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/10_C-line-round6-plan-and-atomic-tasks.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/10_C-line-round6-plan-and-atomic-tasks.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/10_C-line-round6-plan-and-atomic-tasks.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/11_C-line-round6-closure.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/11_C-line-round6-closure.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/11_C-line-round6-closure.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/12_C-line-round7-draft.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/12_C-line-round7-draft.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/12_C-line-round7-draft.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/13_C-line-round7-repo-mapping-and-min-implementation-2026-03-04.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/13_C-line-round7-repo-mapping-and-min-implementation-2026-03-04.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/13_C-line-round7-repo-mapping-and-min-implementation-2026-03-04.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/README.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/README.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/README.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/artifact-contract.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/artifact-contract.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/artifact-contract.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/artifact-manifest.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/artifact-manifest.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/artifact-manifest.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/gate-result.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/gate-result.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/gate-result.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/observability-check.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/observability-check.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/observability-check.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/quality-metrics.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/quality-metrics.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/quality-metrics.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/release-notes.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/release-notes.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round4/release-notes.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/artifact-manifest.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/artifact-manifest.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/artifact-manifest.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/gate-result.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/gate-result.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/gate-result.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/observability-check.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/observability-check.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/observability-check.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/quality-metrics.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/quality-metrics.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/quality-metrics.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/release-notes.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/release-notes.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round5/release-notes.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/artifact-contract.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/artifact-contract.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/artifact-contract.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/artifact-manifest.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/artifact-manifest.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/artifact-manifest.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/gate-result.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/gate-result.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/gate-result.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/observability-check.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/observability-check.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/observability-check.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/quality-metrics.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/quality-metrics.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/quality-metrics.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/release-notes.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/release-notes.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/release-notes.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/index.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/index.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/index.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-D-doc-normalization/01_task_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-D-doc-normalization/01_task_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-D-doc-normalization/01_task_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-D-doc-normalization/02_dev_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-D-doc-normalization/02_dev_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-D-doc-normalization/02_dev_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-E-doc-normalization/01_task_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-E-doc-normalization/01_task_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-E-doc-normalization/01_task_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-E-doc-normalization/02_dev_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-E-doc-normalization/02_dev_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-E-doc-normalization/02_dev_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-F-doc-normalization/01_task_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-F-doc-normalization/01_task_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-F-doc-normalization/01_task_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-F-doc-normalization/02_dev_doc.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-F-doc-normalization/02_dev_doc.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-F-doc-normalization/02_dev_doc.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-c-line-round7-drift-check/01_task_and_closing.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-c-line-round7-drift-check/01_task_and_closing.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-c-line-round7-drift-check/01_task_and_closing.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r3-c-observability-minimal/01_repo-mapping-and-minimal-implementation.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r3-c-observability-minimal/01_repo-mapping-and-minimal-implementation.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r3-c-observability-minimal/01_repo-mapping-and-minimal-implementation.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r3-d-security-minimal/01_repo-mapping-and-minimal-implementation.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r3-d-security-minimal/01_repo-mapping-and-minimal-implementation.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r3-d-security-minimal/01_repo-mapping-and-minimal-implementation.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r5-d-provenance-enforcement/01_repo-mapping-and-minimal-enforcement.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r5-d-provenance-enforcement/01_repo-mapping-and-minimal-enforcement.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r5-d-provenance-enforcement/01_repo-mapping-and-minimal-enforcement.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-d-line-rag-filter-robustness/01_task_and_closing.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-d-line-rag-filter-robustness/01_task_and_closing.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-d-line-rag-filter-robustness/01_task_and_closing.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-a-line/02_atomic-task-table-r12-a.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-a-line/02_atomic-task-table-r12-a.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-a-line/02_atomic-task-table-r12-a.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-a-line/03_impl-verification-r12-a.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-a-line/03_impl-verification-r12-a.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-a-line/03_impl-verification-r12-a.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-b-line/02_atomic-task-table-r12-b.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-b-line/02_atomic-task-table-r12-b.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-b-line/02_atomic-task-table-r12-b.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-b-line/03_impl-verification-r12-b.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-b-line/03_impl-verification-r12-b.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-b-line/03_impl-verification-r12-b.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r13-b-line/02_atomic-task-table-r13-b.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r13-b-line/02_atomic-task-table-r13-b.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r13-b-line/02_atomic-task-table-r13-b.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r13-b-line/03_impl-verification-r13-b.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r13-b-line/03_impl-verification-r13-b.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r13-b-line/03_impl-verification-r13-b.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r3-must-minimal-implementation/01_r3-must-minimal-implementation-and-verification-2026-03-04.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r3-must-minimal-implementation/01_r3-must-minimal-implementation-and-verification-2026-03-04.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r3-must-minimal-implementation/01_r3-must-minimal-implementation-and-verification-2026-03-04.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r8-c-minimal-slice/README.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r8-c-minimal-slice/README.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-r8-c-minimal-slice/README.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-04-sa3-r3-f-llm-report-must-minset/01_sa3-r3-f-implementation-2026-03-04.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/01_handler-cluster-frontdoor-middle-layer-alignment-plan-2026-03-06.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/01_handler-cluster-frontdoor-middle-layer-alignment-plan-2026-03-06.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/01_handler-cluster-frontdoor-middle-layer-alignment-plan-2026-03-06.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/02_atomic-tasklist-handler-cluster-frontdoor-middle-layer-alignment-2026-03-06.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/02_atomic-tasklist-handler-cluster-frontdoor-middle-layer-alignment-2026-03-06.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/02_atomic-tasklist-handler-cluster-frontdoor-middle-layer-alignment-2026-03-06.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/03_handler-cluster-frontdoor-middle-layer-alignment-closing-2026-03-06.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/03_handler-cluster-frontdoor-middle-layer-alignment-closing-2026-03-06.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/03_handler-cluster-frontdoor-middle-layer-alignment-closing-2026-03-06.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/02_atomic-tasklist-frontend-i18n-theme-modularization-2026-03-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/02_atomic-tasklist-frontend-i18n-theme-modularization-2026-03-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/02_atomic-tasklist-frontend-i18n-theme-modularization-2026-03-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/03_wave8-4-topology-i18n-theme-contract-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/03_wave8-4-topology-i18n-theme-contract-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/03_wave8-4-topology-i18n-theme-contract-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/04_wave11-layer-shell-topology-contract-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/04_wave11-layer-shell-topology-contract-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/04_wave11-layer-shell-topology-contract-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/05_wave12-frontend-business-string-audit-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/05_wave12-frontend-business-string-audit-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/05_wave12-frontend-business-string-audit-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/06_wave14-frontend-migration-boundary-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/06_wave14-frontend-migration-boundary-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/06_wave14-frontend-migration-boundary-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/07_wave16-agent-chat-i18n-slice-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/07_wave16-agent-chat-i18n-slice-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/07_wave16-agent-chat-i18n-slice-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/08_wave17-projects-page-i18n-slice-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/08_wave17-projects-page-i18n-slice-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/08_wave17-projects-page-i18n-slice-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/09_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/09_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/09_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/10_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/10_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/10_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/11_wave20-process-page-i18n-slice-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/11_wave20-process-page-i18n-slice-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/11_wave20-process-page-i18n-slice-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/12_wave28-closure-decision-2026-05-23.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/12_wave28-closure-decision-2026-05-23.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/12_wave28-closure-decision-2026-05-23.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/01_abstract-planning-folderization-plan-2026-03-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/03_feature-implementation-orchestration-2026-03-08.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/03_feature-implementation-orchestration-2026-03-08.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/03_feature-implementation-orchestration-2026-03-08.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/05_wave13-abstract-folderization-current-entry-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/05_wave13-abstract-folderization-current-entry-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/05_wave13-abstract-folderization-current-entry-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/06_wave14-abstract-content-gaps-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/06_wave14-abstract-content-gaps-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/06_wave14-abstract-content-gaps-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/抽象规划.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/抽象规划.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/抽象规划.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/01_claude-agent-high-fidelity-migration-mapping-2026-04-02.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/02_claude-code-level-agent-interaction-todo-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/02_claude-code-level-agent-interaction-todo-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/02_claude-code-level-agent-interaction-todo-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/17_claude-code-core-reconstruction-spec-2026-05-11.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/17_claude-code-core-reconstruction-spec-2026-05-11.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/17_claude-code-core-reconstruction-spec-2026-05-11.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/18_agent-architecture-deepening-writing-investigation-spec-2026-05-11.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/18_agent-architecture-deepening-writing-investigation-spec-2026-05-11.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/18_agent-architecture-deepening-writing-investigation-spec-2026-05-11.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/45_agent-high-fidelity-migration-final-completion-audit-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/46_agent-context-manifest-and-demand-read-synthesis-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/INDEX.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/INDEX.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/INDEX.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/03_claude-code-level-agent-m1-implementation-status-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/03_claude-code-level-agent-m1-implementation-status-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/03_claude-code-level-agent-m1-implementation-status-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/04_agent-runtime-v2-tool-loop-and-approval-status-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/04_agent-runtime-v2-tool-loop-and-approval-status-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/04_agent-runtime-v2-tool-loop-and-approval-status-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/05_agent-workbench-ui-and-mainline-satisfaction-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/05_agent-workbench-ui-and-mainline-satisfaction-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/05_agent-workbench-ui-and-mainline-satisfaction-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/06_agent-runtime-v2-project-tool-adapters-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/06_agent-runtime-v2-project-tool-adapters-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/06_agent-runtime-v2-project-tool-adapters-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/07_agent-runtime-v2-approval-edit-reject-ui-replay-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/07_agent-runtime-v2-approval-edit-reject-ui-replay-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/07_agent-runtime-v2-approval-edit-reject-ui-replay-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/08_agent-runtime-v2-scenario-replay-gate-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/08_agent-runtime-v2-scenario-replay-gate-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/08_agent-runtime-v2-scenario-replay-gate-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/09_agent-runtime-v2-session-control-tools-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/09_agent-runtime-v2-session-control-tools-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/09_agent-runtime-v2-session-control-tools-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/10_agent-runtime-v2-context-followup-replay-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/10_agent-runtime-v2-context-followup-replay-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/10_agent-runtime-v2-context-followup-replay-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/11_agent-runtime-v2-scenario-completion-runtime-flags-and-metrics-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/11_agent-runtime-v2-scenario-completion-runtime-flags-and-metrics-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/11_agent-runtime-v2-scenario-completion-runtime-flags-and-metrics-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/12_agent-workbench-capability-panel-artifact-preview-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/12_agent-workbench-capability-panel-artifact-preview-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/12_agent-workbench-capability-panel-artifact-preview-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/13_agent-runtime-v2-tool-context-pool-search-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/13_agent-runtime-v2-tool-context-pool-search-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/13_agent-runtime-v2-tool-context-pool-search-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/14_agent-runtime-v2-session-memory-context-budget-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/14_agent-runtime-v2-session-memory-context-budget-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/14_agent-runtime-v2-session-memory-context-budget-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/15_agent-runtime-v2-governance-report-stream-ui-e2e-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/15_agent-runtime-v2-governance-report-stream-ui-e2e-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/15_agent-runtime-v2-governance-report-stream-ui-e2e-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/16_agent-runtime-v2-model-final-answer-and-agent-batch-governed-fallback-2026-05-10.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/16_agent-runtime-v2-model-final-answer-and-agent-batch-governed-fallback-2026-05-10.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/16_agent-runtime-v2-model-final-answer-and-agent-batch-governed-fallback-2026-05-10.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/19_agent-core-completion-audit-and-r25-stream-contract-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/19_agent-core-completion-audit-and-r25-stream-contract-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/19_agent-core-completion-audit-and-r25-stream-contract-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/20_agentchat-stream-hang-rca-and-r34-fix-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/20_agentchat-stream-hang-rca-and-r34-fix-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/20_agentchat-stream-hang-rca-and-r34-fix-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/21_agent-goal-gap-and-optimization-direction-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/21_agent-goal-gap-and-optimization-direction-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/21_agent-goal-gap-and-optimization-direction-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/22_agent-material-ontology-and-context-bundle-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/22_agent-material-ontology-and-context-bundle-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/22_agent-material-ontology-and-context-bundle-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/23_agent-writing-selection-range-tools-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/23_agent-writing-selection-range-tools-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/23_agent-writing-selection-range-tools-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/24_agent-long-task-stage-ui-recovery-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/24_agent-long-task-stage-ui-recovery-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/24_agent-long-task-stage-ui-recovery-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/25_agent-model-owned-internal-external-tool-loop-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/25_agent-model-owned-internal-external-tool-loop-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/25_agent-model-owned-internal-external-tool-loop-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/26_agent-real-backend-source-intake-browser-e2e-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/26_agent-real-backend-source-intake-browser-e2e-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/26_agent-real-backend-source-intake-browser-e2e-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/27_agent-material-supplement-writing-source-semantics-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/27_agent-material-supplement-writing-source-semantics-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/27_agent-material-supplement-writing-source-semantics-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/28_agent-live-external-source-search-tool-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/28_agent-live-external-source-search-tool-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/28_agent-live-external-source-search-tool-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/29_agent-writing-workbench-selection-rewrite-rollback-e2e-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/29_agent-writing-workbench-selection-rewrite-rollback-e2e-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/29_agent-writing-workbench-selection-rewrite-rollback-e2e-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/30_agent-source-candidate-review-ui-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/30_agent-source-candidate-review-ui-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/30_agent-source-candidate-review-ui-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/31_agent-source-candidate-review-decision-loop-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/31_agent-source-candidate-review-decision-loop-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/31_agent-source-candidate-review-decision-loop-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/32_agent-url-pool-ingest-submit-tool-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/32_agent-url-pool-ingest-submit-tool-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/32_agent-url-pool-ingest-submit-tool-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/33_agent-source-candidate-decision-state-recovery-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/33_agent-source-candidate-decision-state-recovery-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/33_agent-source-candidate-decision-state-recovery-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/34_agent-live-search-empty-result-diagnostics-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/34_agent-live-search-empty-result-diagnostics-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/34_agent-live-search-empty-result-diagnostics-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/35_agent-url-pool-candidate-to-writing-workbench-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/35_agent-url-pool-candidate-to-writing-workbench-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/35_agent-url-pool-candidate-to-writing-workbench-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/36_agent-url-pool-status-verified-evidence-gate-2026-05-13.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/36_agent-url-pool-status-verified-evidence-gate-2026-05-13.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/36_agent-url-pool-status-verified-evidence-gate-2026-05-13.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/37_agent-external-search-provider-readiness-diagnostics-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/37_agent-external-search-provider-readiness-diagnostics-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/37_agent-external-search-provider-readiness-diagnostics-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/38_agent-source-history-read-tool-and-ui-recovery-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/38_agent-source-history-read-tool-and-ui-recovery-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/38_agent-source-history-read-tool-and-ui-recovery-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/39_agent-url-pool-task-event-session-writeback-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/39_agent-url-pool-task-event-session-writeback-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/39_agent-url-pool-task-event-session-writeback-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/40_agent-writing-material-scope-ontology-refinement-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/40_agent-writing-material-scope-ontology-refinement-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/40_agent-writing-material-scope-ontology-refinement-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/41_agent-high-fidelity-migration-closure-audit-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/41_agent-high-fidelity-migration-closure-audit-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/41_agent-high-fidelity-migration-closure-audit-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/42_agent-cooperative-abort-coverage-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/42_agent-cooperative-abort-coverage-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/42_agent-cooperative-abort-coverage-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/43_agent-live-provider-r1-validation-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/43_agent-live-provider-r1-validation-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/43_agent-live-provider-r1-validation-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/44_agent-matrix-capability-execution-r3-2026-05-14.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/44_agent-matrix-capability-execution-r3-2026-05-14.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/44_agent-matrix-capability-execution-r3-2026-05-14.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/01_repo-logic-gap-assessment-2026-04-06.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/02_repo-closure-plan-aligned-with-latest-direction-2026-04-06.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/03_atomic-tasklist-repo-closure-plan-2026-04-06.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/04_topology-risk-freeze-compat-caller-matrix-and-rollout-guards-2026-04-06.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/05_governance-default-gates-pr-evidence-and-docs-navigation-2026-04-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/06_validation-closure-repo-closure-plan-2026-04-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/07_topic-closure-matrix-repo-closure-plan-2026-04-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/08_agent-runtime-canonical-path-closure-2026-04-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-06-repo-logic-gap-assessment/09_runtime-smoke-reproduction-repo-closure-plan-2026-04-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/03_wave0-baseline-freeze-task-pool-2026-04-07.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/README.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/README.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/README.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/runtime_contract_refresh_2026-05-22.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/runtime_contract_refresh_2026-05-22.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/runtime_contract_refresh_2026-05-22.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave10_runtime_contract.py",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave10_runtime_contract.py",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave10_runtime_contract.py",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave16_runtime_contract.py",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave16_runtime_contract.py",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave16_runtime_contract.py",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/verify_wave7_runtime_contract.sh",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/wave16_runtime_boundary_closure_2026-05-22.json",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/wave16_runtime_boundary_closure_2026-05-22.json",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/wave16_runtime_boundary_closure_2026-05-22.json",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/03_wave5_integration_risk_review.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/03_wave5_integration_risk_review.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/03_wave5_integration_risk_review.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/INDEX.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/INDEX.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/INDEX.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/INDEX.md",
+          "target": "docs/development/development-plans/ARCHIVE_CLOSED/INDEX.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/INDEX.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     }
-  ]
+  ],
+  "wave31_archive_closed_moved_file_batch": {
+    "status": "completed",
+    "batch_id": "development-plans-archive-closed-wave31-batch",
+    "moved_files": 195,
+    "target_root": "docs/development/development-plans/ARCHIVE_CLOSED",
+    "compatibility_source_root": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED"
+  }
 }

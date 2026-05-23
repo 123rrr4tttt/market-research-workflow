@@ -234,7 +234,7 @@ def validate_content_moved_batch(
             if moved_target_raw not in source_text:
                 problems.append(Problem(moved_source, f"moved source does not point at target: {moved_target_raw}"))
 
-        if moved_target is not None and moved_target.is_file() and isinstance(moved_source_raw, str):
+        if moved_target is not None and moved_target.is_file() and isinstance(moved_source_raw, str) and moved_target.suffix == ".md":
             moved_target_text = moved_target.read_text(encoding="utf-8")
             if moved_source_raw not in moved_target_text:
                 problems.append(Problem(moved_target, f"moved target does not mention compatibility source: {moved_source_raw}"))

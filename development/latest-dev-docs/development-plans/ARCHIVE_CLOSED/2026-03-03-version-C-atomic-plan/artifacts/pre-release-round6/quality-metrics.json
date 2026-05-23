@@ -1,9 +1,6 @@
 {
-  "timestamp": "2026-03-04T07:22:13Z",
-  "commit": "20a5a53",
-  "branch": "feature/version-C-streamplus",
-  "gate_result": "pass",
-  "lint": "skip",
-  "backend": "pass",
-  "quality_score": 100
+  "_docs_root_migration": "compatibility shim",
+  "authoritative_target": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/quality-metrics.json",
+  "previous_source_path": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan/artifacts/pre-release-round6/quality-metrics.json",
+  "migration_batch": "development-plans-archive-closed-wave31-batch"
 }

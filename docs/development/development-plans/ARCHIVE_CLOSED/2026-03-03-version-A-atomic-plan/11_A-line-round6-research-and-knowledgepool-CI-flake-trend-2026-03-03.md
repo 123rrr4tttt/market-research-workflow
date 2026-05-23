@@ -1,0 +1,19 @@
+<!-- docs-root-migration: content moved -->
+> Status: content moved; target authoritative after Wave31 archive-closed batch.
+> Previous compatibility source: `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/11_A-line-round6-research-and-knowledgepool-CI-flake-trend-2026-03-03.md`
+> Authoritative target: `docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan/11_A-line-round6-research-and-knowledgepool-CI-flake-trend-2026-03-03.md`
+> Migration batch: `development-plans-archive-closed-wave31-batch`
+> Date: 2026-05-23
+
+# A线第6轮：研究沉淀与统一知识池更新（CI Flake Trend）
+
+## 本轮目标
+- 在已有 flaky registry/report 基础上，新增跨运行趋势观测能力。
+- 所有检索结论合并入 `信息源库/INDEX.md` 单一入口。
+
+## 输出
+- 新增知识文档：`信息源库/CI-稳定性-Flaky趋势观测与预警分层-最佳实践-2026-03-03-round6.md`
+- 新增统一入口索引：`信息源库/INDEX.md`
+
+## 差异化声明
+- 非重复 round4/5 的“台账建设”，而是补齐“趋势聚合与阈值预警”层。

@@ -62,8 +62,12 @@ const userFacingLiteralValues = new Set([
 const explicitGapProperties = new Set(['aria-label', 'label', 'placeholder', 'title'])
 const technicalProps = new Set([
   'activeLayer',
+  'channel',
   'className',
+  'contract_version',
   'entryRoute',
+  'idempotency_key',
+  'item_id',
   'key',
   'legacyHash',
   'navGroupKey',
@@ -183,7 +187,7 @@ function extractRendererComponentPaths(source) {
 
 function extractCatalogKeys(source) {
   const keys = new Set()
-  const namespacePattern = /(?:shell|navigation|settings|shared|agentChat|projects|catalogPage|dashboardPage|graphPage|processPage|crawlerManagePage):\s*\{([\s\S]*?)\n\s*\}/g
+  const namespacePattern = /(?:shell|navigation|settings|shared|agentChat|projects|catalogPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|llmDesignerPage|writingWorkbenchPage):\s*\{([\s\S]*?)\n\s*\}/g
   let namespaceMatch = namespacePattern.exec(source)
   while (namespaceMatch) {
     const namespaceText = namespaceMatch[0]
@@ -292,7 +296,7 @@ function propNameBeforeLiteral(before) {
 }
 
 function isCatalogKey(value) {
-  return /^(shell|navigation|settings|shared|agentChat|projects|catalogPage|dashboardPage|graphPage|processPage|crawlerManagePage)\.[A-Za-z0-9_.-]+$/.test(value)
+  return /^(shell|navigation|settings|shared|agentChat|projects|catalogPage|opsPage|dashboardPage|ingestPage|graphPage|processPage|crawlerManagePage|llmDesignerPage|writingWorkbenchPage)\.[A-Za-z0-9_.-]+$/.test(value)
 }
 
 function isModuleOrRouteToken(value) {

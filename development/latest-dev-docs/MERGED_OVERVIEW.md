@@ -22,10 +22,15 @@ Updated: 2026-05-23 PST
 ## 最近新增
 
 - `development-plans`：
+  - [2026-05-23 Wave31 Frontend I18N Concentrated Slices](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/15_wave31-frontend-i18n-concentrated-slices-2026-05-23.md)
   - [2026-05-23 Wave30 Global Vectorization External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)
   - [2026-05-23 Wave30 Open Source Platform External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/09_wave30-open-source-external-blocked-decision-2026-05-23.md)
   - [2026-05-23 Wave30 Docs Root Navigation Target Readback](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/20_wave30-docs-root-navigation-target-readback-2026-05-23.md)
+  - [2026-05-23 Wave31 Docs Root Shared Navigation Sync](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)
   - [2026-05-23 Wave30 Crawler Manage I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/14_wave30-crawler-manage-i18n-slice-2026-05-23.md)
+  - [2026-05-23 Wave28 Docs Root CURRENT_DEV Active Surface](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/17_wave28-docs-root-current-dev-supervisor-owned-2026-05-23.md)
+  - [2026-05-23 Wave28 Docs Root Reviewer Decision](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/17_wave28-docs-root-reviewer-2026-05-23.md)
+  - [2026-05-23 Wave28 Docs Root Archive Closed Classification](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/18_wave28-worker-a-docs-root-archive-closed-classification-2026-05-23.md)
   - [2026-05-23 Wave29 Ingest Platformization External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/09_wave29-ingest-platformization-repo-local-closure-2026-05-23.md)
   - [2026-05-23 Wave29 Meaningful Ingest Guardrails External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md)
   - [2026-05-23 Wave29 Single URL External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/10_wave29-ingest-blocker-alignment-2026-05-23.md)

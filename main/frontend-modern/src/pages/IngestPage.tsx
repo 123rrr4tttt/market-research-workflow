@@ -22,10 +22,25 @@ import {
   listSiteEntryGrouped,
   listSourceItems,
 } from '../lib/api'
+import { DEFAULT_APP_LOCALE, translate, useAppLocale, type AppLocale, type MessageKey } from '../app/platform/i18n'
 import type { IngestSingleUrlPayload } from '../lib/api'
 import { useIngestActions } from '../hooks/useIngestActions'
 import { queryKeys } from '../lib/queryKeys'
 import type { AgentBatchEventRow, AgentBatchItemRow, AgentBatchJobDetail, IngestFormState, IngestJobRow, SourceLibraryItem } from '../lib/types'
+
+type IngestMessageKey = MessageKey
+type TemplateValues = {
+  [key: string]: string | number
+}
+type HandlerGroupedByEntryType = {
+  [entryType: string]: { count?: number }
+}
+
+function formatIngestTemplate(template: string, values: TemplateValues) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
+const defaultBaseSubreddits = translate(DEFAULT_APP_LOCALE, 'ingestPage.default.baseSubreddits')
 
 const defaultForm: IngestFormState = {
   queryTerms: '',
@@ -38,7 +53,7 @@ const defaultForm: IngestFormState = {
   enableExtraction: true,
   asyncMode: true,
   socialPlatform: 'reddit',
-  baseSubreddits: 'MachineLearning, robotics, ArtificialInteligence, singularity',
+  baseSubreddits: defaultBaseSubreddits,
   enableSubredditDiscovery: true,
   commodityLimit: 30,
   ecomLimit: 100,
@@ -76,11 +91,11 @@ function toNullableInt(raw: string, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value?: string | null, locale: AppLocale = DEFAULT_APP_LOCALE) {
   if (!value) return '-'
   const dt = new Date(value)
   if (Number.isNaN(dt.getTime())) return value
-  return dt.toLocaleString('zh-CN')
+  return dt.toLocaleString(locale)
 }
 
 function rowTaskName(row: IngestJobRow) {
@@ -197,7 +212,7 @@ export type IngestPageViewProps = {
   actionMessage: string
   sourceItemList: SourceLibraryItem[]
   selectedSourceItem: SourceLibraryItem | null
-  handlerGroupedByEntryType: Record<string, { count?: number }>
+  handlerGroupedByEntryType: HandlerGroupedByEntryType
   handlerKeys: string[]
   historyRows: IngestJobRow[]
   agentBatchJobId: string
@@ -223,12 +238,14 @@ export type IngestPageViewProps = {
 }
 
 export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPageProps) {
+  const locale = useAppLocale()
+  const t = (key: IngestMessageKey) => translate(locale, key)
   const isSpecialized = variant === 'specialized'
-  const pageTitle = isSpecialized ? '特化采集' : '采集'
-  const pageScopeLabel = isSpecialized ? 'source-library + single-url' : 'execution + agent-batch'
-  const [form, setForm] = useState<IngestFormState>(defaultForm)
+  const pageTitle = t(isSpecialized ? 'ingestPage.title.specialized' : 'ingestPage.title.ingest')
+  const pageScopeLabel = t(isSpecialized ? 'ingestPage.scope.specialized' : 'ingestPage.scope.ingest')
+  const [form, setForm] = useState(defaultForm)
   const [agentBatchJobId, setAgentBatchJobId] = useState('')
-  const [agentBatchRejectedReasonCodes, setAgentBatchRejectedReasonCodes] = useState<string[]>([])
+  const [agentBatchRejectedReasonCodes, setAgentBatchRejectedReasonCodes] = useState([] as string[])
   const {
     actionPending,
     actionMessage,
@@ -291,7 +308,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
 
   const buildCommonPayload = () => {
     const queryTerms = splitTerms(form.queryTerms)
-    if (!queryTerms.length) throw new Error('请先输入查询词（逗号分隔）')
+    if (!queryTerms.length) throw new Error(t('ingestPage.error.queryTermsComma'))
 
     const payload: Record<string, unknown> = {
       query_terms: queryTerms,
@@ -350,7 +367,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
 
   const buildSingleUrlPayload = (): IngestSingleUrlPayload => {
     const url = String(form.singleUrl || '').trim()
-    if (!url) throw new Error('请先输入 URL')
+    if (!url) throw new Error(t('ingestPage.error.urlRequired'))
     const queryTerms = splitTerms(form.queryTerms)
     return {
       url,
@@ -399,9 +416,9 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
   }
 
   const onSuggestKeywords = () =>
-    runAction('获取联想词', async () => {
+    runAction(t('ingestPage.action.suggestKeywords'), async () => {
       const base = splitTerms(form.queryTerms)
-      if (!base.length) throw new Error('请先输入查询词')
+      if (!base.length) throw new Error(t('ingestPage.error.queryTerms'))
 
       const response = await generateKeywords({
         topic: base.join(' '),
@@ -413,7 +430,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
 
       const suggested = response.search_keywords?.length ? response.search_keywords : response.keywords || []
       const merged = Array.from(new Set([...base, ...suggested.map((v) => String(v || '').trim()).filter(Boolean)]))
-      if (!merged.length) throw new Error('未获得联想词')
+      if (!merged.length) throw new Error(t('ingestPage.error.noSuggestedKeywords'))
 
       setForm((prev) => ({ ...prev, queryTerms: merged.join(', ') }))
       return { ok: true }
@@ -421,7 +438,7 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
 
   const onSubmitAgentBatch = async () => {
     const terms = splitTerms(form.queryTerms)
-    if (!terms.length) throw new Error('请先输入查询词（逗号分隔）')
+    if (!terms.length) throw new Error(t('ingestPage.error.queryTermsComma'))
     const language = getLanguageValue() || 'zh'
     const daysBack = toNullableInt(form.daysBack, 1, 365) ?? undefined
     const jobs = terms.map((term, idx) => ({
@@ -450,9 +467,13 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
 
   const onSubmitNlAgentBatch = async () => {
     const command = splitTerms(form.queryTerms).join('，')
-    if (!command) throw new Error('请先输入查询词')
+    if (!command) throw new Error(t('ingestPage.error.queryTerms'))
+    const requestCommand = formatIngestTemplate(translate(DEFAULT_APP_LOCALE, 'ingestPage.agentBatch.nlCommand'), {
+      days: toNullableInt(form.daysBack, 1, 365) ?? 7,
+      command,
+    })
     const result = await runAgentBatchNlCommand({
-      command: `请在最近${toNullableInt(form.daysBack, 1, 365) ?? 7}天采集：${command}`,
+      command: requestCommand,
       project_key: projectKey,
       idempotency_key: `ingest-ui-nl-${Date.now()}`,
     })
@@ -585,16 +606,19 @@ export function IngestPageView({
   onRetryBatchItem,
   onRefreshHistory,
 }: IngestPageViewProps) {
+  const locale = useAppLocale()
+  const t = (key: IngestMessageKey) => translate(locale, key)
+  const tf = (key: IngestMessageKey, values: Record<string, string | number>) => formatIngestTemplate(t(key), values)
   const isSpecialized = variant === 'specialized'
   const progress = agentBatchJob?.progress
   const failedBatchItems = agentBatchItems.filter((item) => isFailedStatus(item.status))
   const hasBatch = Boolean(agentBatchJobId)
   const batchSummaryParts = [
-    hasBatch ? `状态 ${agentBatchJob?.status || '-'}` : '',
-    hasBatch ? `进度 ${progress?.succeeded || 0}/${progress?.total || 0}` : '',
-    hasBatch && (progress?.failed || 0) ? `失败 ${progress?.failed || 0}` : '',
-    agentBatchRejectedReasonCodes.length ? `拒绝 ${agentBatchRejectedReasonCodes.join(', ')}` : '',
-    hasBatch && failedBatchItems.length ? `待重试 ${failedBatchItems.length}` : '',
+    hasBatch ? tf('ingestPage.summary.status', { status: agentBatchJob?.status || '-' }) : '',
+    hasBatch ? tf('ingestPage.summary.progress', { succeeded: progress?.succeeded || 0, total: progress?.total || 0 }) : '',
+    hasBatch && (progress?.failed || 0) ? tf('ingestPage.summary.failed', { count: progress?.failed || 0 }) : '',
+    agentBatchRejectedReasonCodes.length ? tf('ingestPage.summary.rejected', { reasons: agentBatchRejectedReasonCodes.join(', ') }) : '',
+    hasBatch && failedBatchItems.length ? tf('ingestPage.summary.retryPending', { count: failedBatchItems.length }) : '',
   ].filter(Boolean)
 
   return (
@@ -602,7 +626,7 @@ export function IngestPageView({
       <section className="panel ingest-page__section ingest-page__section--query">
         <div className="panel-header">
           <h2>
-            <Search size={15} />检索设置
+            <Search size={15} />{t('ingestPage.section.searchSettings')}
           </h2>
           <span className="chip">
             {pageTitle} / {pageScopeLabel}
@@ -612,12 +636,12 @@ export function IngestPageView({
         <div className="ingest-query-layout">
           <div className="ingest-query-primary">
             <label className="ingest-query-prompt">
-              <span>查询词</span>
+              <span>{t('ingestPage.field.queryTerms')}</span>
               <textarea
                 rows={4}
                 value={form.queryTerms}
                 onChange={(e) => setForm((p) => ({ ...p, queryTerms: e.target.value }))}
-                placeholder="输入关键词，使用逗号分隔，例如：California gas price, refinery outage, retail margin"
+                placeholder={t('ingestPage.placeholder.queryTerms')}
               />
             </label>
 
@@ -625,17 +649,17 @@ export function IngestPageView({
               <div className="ingest-query-modes toggles">
                 <label>
                   <input type="checkbox" checked={form.enableExtraction} onChange={(e) => setForm((p) => ({ ...p, enableExtraction: e.target.checked }))} />
-                  结构化提取
+                  {t('ingestPage.toggle.enableExtraction')}
                 </label>
                 <label>
                   <input type="checkbox" checked={form.asyncMode} onChange={(e) => setForm((p) => ({ ...p, asyncMode: e.target.checked }))} />
-                  异步模式
+                  {t('ingestPage.toggle.asyncMode')}
                 </label>
               </div>
 
               <div className="inline-actions">
                 <button disabled={actionPending} onClick={onSuggestKeywords}>
-                  <Sparkles size={15} />获取联想词
+                  <Sparkles size={15} />{t('ingestPage.action.suggestKeywords')}
                 </button>
               </div>
             </div>
@@ -643,21 +667,21 @@ export function IngestPageView({
 
           <div className="ingest-query-sidebar">
             <div className="ingest-query-cluster">
-              <small>检索策略</small>
+              <small>{t('ingestPage.group.searchStrategy')}</small>
               <div className="form-grid cols-3 ingest-query-cluster__fields">
                 <label>
-                  <span>专题联想</span>
+                  <span>{t('ingestPage.field.topicFocus')}</span>
                   <select value={form.topicFocus} onChange={(e) => setForm((p) => ({ ...p, topicFocus: e.target.value as IngestFormState['topicFocus'] }))}>
-                    <option value="">默认</option>
-                    <option value="company">公司</option>
-                    <option value="product">商品</option>
-                    <option value="operation">电商/经营</option>
+                    <option value="">{t('ingestPage.option.default')}</option>
+                    <option value="company">{t('ingestPage.option.company')}</option>
+                    <option value="product">{t('ingestPage.option.product')}</option>
+                    <option value="operation">{t('ingestPage.option.operation')}</option>
                   </select>
                 </label>
                 <label>
-                  <span>搜索服务</span>
+                  <span>{t('ingestPage.field.provider')}</span>
                   <select value={form.provider} onChange={(e) => setForm((p) => ({ ...p, provider: e.target.value as IngestFormState['provider'] }))}>
-                    <option value="">默认</option>
+                    <option value="">{t('ingestPage.option.default')}</option>
                     <option value="serper">serper</option>
                     <option value="google">google</option>
                     <option value="ddg">ddg</option>
@@ -666,17 +690,17 @@ export function IngestPageView({
                     <option value="auto">auto</option>
                   </select>
                 </label>
-                <SliderField label="每词结果数" min={1} max={100} value={form.maxItems} onChange={(nextValue) => setForm((p) => ({ ...p, maxItems: nextValue }))} />
+                <SliderField label={t('ingestPage.field.maxItems')} min={1} max={100} value={form.maxItems} onChange={(nextValue) => setForm((p) => ({ ...p, maxItems: nextValue }))} />
               </div>
             </div>
 
             <div className="ingest-query-cluster">
-              <small>窗口与语言</small>
+              <small>{t('ingestPage.group.windowLanguage')}</small>
               <div className="form-grid cols-3 ingest-query-cluster__fields">
-                <SliderField label="起始偏移" min={1} max={91} value={toDisplayInt(form.startOffset, 1)} onChange={(nextValue) => setForm((p) => ({ ...p, startOffset: String(nextValue) }))} />
-                <SliderField label="时间范围" min={1} max={90} unit="d" value={toDisplayInt(form.daysBack, 7)} onChange={(nextValue) => setForm((p) => ({ ...p, daysBack: String(nextValue) }))} />
+                <SliderField label={t('ingestPage.field.startOffset')} min={1} max={91} value={toDisplayInt(form.startOffset, 1)} onChange={(nextValue) => setForm((p) => ({ ...p, startOffset: String(nextValue) }))} />
+                <SliderField label={t('ingestPage.field.daysBack')} min={1} max={90} unit="d" value={toDisplayInt(form.daysBack, 7)} onChange={(nextValue) => setForm((p) => ({ ...p, daysBack: String(nextValue) }))} />
                 <label>
-                  <span>语言</span>
+                  <span>{t('ingestPage.field.language')}</span>
                   <div className="inline-checks">
                     <label>
                       <input
@@ -719,20 +743,22 @@ export function IngestPageView({
               <section className="ingest-flow-block ingest-page__section ingest-page__section--library">
                 <div className="panel-header">
                   <h2>
-                    <Database size={15} />来源库运行
+                    <Database size={15} />{t('ingestPage.section.sourceLibraryRun')}
                   </h2>
                 </div>
 
                 <p className="status-line">
                   <Database size={14} />
-                  {selectedSourceItem ? `已选来源项: ${selectedSourceItem.name || selectedSourceItem.item_key}` : '未选择来源项，可直接选 Handler 聚类运行'}
+                  {selectedSourceItem
+                    ? tf('ingestPage.status.selectedSourceItem', { name: selectedSourceItem.name || selectedSourceItem.item_key })
+                    : t('ingestPage.status.noSourceItem')}
                 </p>
 
                 <div className="form-grid cols-2">
                   <label>
-                    <span>来源库项</span>
+                    <span>{t('ingestPage.field.sourceItem')}</span>
                     <select value={form.sourceItemKey} onChange={(e) => onSourceItemChange(e.target.value)}>
-                      <option value="">(可选) 选择 item_key</option>
+                      <option value="">{t('ingestPage.option.sourceItemOptional')}</option>
                       {sourceItemList.map((item) => (
                         <option key={item.item_key} value={item.item_key}>
                           {item.name || item.item_key} ({item.item_key})
@@ -742,9 +768,9 @@ export function IngestPageView({
                   </label>
 
                   <label>
-                    <span>Handler 聚类(entry_type)</span>
+                    <span>{t('ingestPage.field.handlerCluster')}</span>
                     <select value={form.sourceHandlerKey} onChange={(e) => setForm((p) => ({ ...p, sourceHandlerKey: e.target.value, sourceItemKey: '' }))}>
-                      <option value="">(可选) 选择 handler_key</option>
+                      <option value="">{t('ingestPage.option.handlerOptional')}</option>
                       {handlerKeys.map((key) => (
                         <option key={key} value={key}>
                           {key} ({handlerGroupedByEntryType[key]?.count || 0})
@@ -756,26 +782,26 @@ export function IngestPageView({
 
                 <div className="form-grid cols-2">
                   <label>
-                    <span>平台</span>
+                    <span>{t('ingestPage.field.platform')}</span>
                     <input value={form.socialPlatform} onChange={(e) => setForm((p) => ({ ...p, socialPlatform: e.target.value || 'reddit' }))} />
                   </label>
                   <label>
-                    <span>基础子论坛(逗号分隔)</span>
+                    <span>{t('ingestPage.field.baseSubreddits')}</span>
                     <input value={form.baseSubreddits} onChange={(e) => setForm((p) => ({ ...p, baseSubreddits: e.target.value }))} />
                   </label>
                 </div>
 
                 <label className="single-check">
                   <input type="checkbox" checked={form.enableSubredditDiscovery} onChange={(e) => setForm((p) => ({ ...p, enableSubredditDiscovery: e.target.checked }))} />
-                  子论坛发现
+                  {t('ingestPage.toggle.subredditDiscovery')}
                 </label>
 
                 <div className="inline-actions ingest-flow-actions">
                   <button disabled={actionPending} onClick={onSyncSourceLibrary}>
-                    <RefreshCw size={15} />同步来源库
+                    <RefreshCw size={15} />{t('ingestPage.action.syncSourceLibrary')}
                   </button>
                   <button disabled={actionPending || (!form.sourceItemKey && !form.sourceHandlerKey)} onClick={onRunSourceLibrary}>
-                    <Play size={15} />运行
+                    <Play size={15} />{t('ingestPage.action.run')}
                   </button>
                 </div>
               </section>
@@ -783,22 +809,22 @@ export function IngestPageView({
               <section className="ingest-flow-block ingest-page__section ingest-page__section--single-url">
                 <div className="panel-header">
                   <h2>
-                    <Link2 size={15} />单 URL 入库
+                    <Link2 size={15} />{t('ingestPage.section.singleUrlIngest')}
                   </h2>
                   <span className="chip">single_url</span>
                 </div>
 
                 <div className="form-grid cols-2 ingest-single-url-intro">
                   <label>
-                    <span>目标 URL</span>
+                    <span>{t('ingestPage.field.targetUrl')}</span>
                     <input value={form.singleUrl} onChange={(e) => setForm((p) => ({ ...p, singleUrl: e.target.value }))} placeholder="https://example.com/article" />
                   </label>
-                  <SliderField label="搜索展开上限" min={1} max={20} value={form.singleUrlSearchExpandLimit} onChange={(nextValue) => setForm((p) => ({ ...p, singleUrlSearchExpandLimit: Math.max(1, Math.min(20, nextValue)) }))} />
+                  <SliderField label={t('ingestPage.field.singleUrlSearchLimit')} min={1} max={20} value={form.singleUrlSearchExpandLimit} onChange={(nextValue) => setForm((p) => ({ ...p, singleUrlSearchExpandLimit: Math.max(1, Math.min(20, nextValue)) }))} />
                 </div>
 
                 <div className="form-grid cols-4 ingest-single-url-settings">
                   <label>
-                    <span>搜索提供方</span>
+                    <span>{t('ingestPage.field.searchProvider')}</span>
                     <select value={form.singleUrlSearchProvider} onChange={(e) => setForm((p) => ({ ...p, singleUrlSearchProvider: e.target.value as IngestFormState['singleUrlSearchProvider'] }))}>
                       <option value="auto">auto</option>
                       <option value="google">google</option>
@@ -806,31 +832,31 @@ export function IngestPageView({
                     </select>
                   </label>
                   <label>
-                    <span>兜底提供方</span>
+                    <span>{t('ingestPage.field.fallbackProvider')}</span>
                     <select value={form.singleUrlSearchFallbackProvider} onChange={(e) => setForm((p) => ({ ...p, singleUrlSearchFallbackProvider: e.target.value as IngestFormState['singleUrlSearchFallbackProvider'] }))}>
                       <option value="ddg_html">ddg_html</option>
                     </select>
                   </label>
-                  <SliderField label="最少结果数" min={1} max={20} value={form.singleUrlMinResultsRequired} onChange={(nextValue) => setForm((p) => ({ ...p, singleUrlMinResultsRequired: Math.max(1, Math.min(20, nextValue)) }))} />
-                  <SliderField label="目标候选数" min={1} max={20} value={form.singleUrlTargetCandidates} onChange={(nextValue) => setForm((p) => ({ ...p, singleUrlTargetCandidates: Math.max(1, Math.min(20, nextValue)) }))} />
-                  <SliderField label="轻过滤阈值" min={0} max={100} value={form.singleUrlLightFilterMinScore} onChange={(nextValue) => setForm((p) => ({ ...p, singleUrlLightFilterMinScore: Math.max(0, Math.min(100, nextValue)) }))} />
+                  <SliderField label={t('ingestPage.field.minResultsRequired')} min={1} max={20} value={form.singleUrlMinResultsRequired} onChange={(nextValue) => setForm((p) => ({ ...p, singleUrlMinResultsRequired: Math.max(1, Math.min(20, nextValue)) }))} />
+                  <SliderField label={t('ingestPage.field.targetCandidates')} min={1} max={20} value={form.singleUrlTargetCandidates} onChange={(nextValue) => setForm((p) => ({ ...p, singleUrlTargetCandidates: Math.max(1, Math.min(20, nextValue)) }))} />
+                  <SliderField label={t('ingestPage.field.lightFilterMinScore')} min={0} max={100} value={form.singleUrlLightFilterMinScore} onChange={(nextValue) => setForm((p) => ({ ...p, singleUrlLightFilterMinScore: Math.max(0, Math.min(100, nextValue)) }))} />
                 </div>
 
                 <div className="toggles">
-                  <label><input type="checkbox" checked={form.singleUrlStrictMode} onChange={(e) => setForm((p) => ({ ...p, singleUrlStrictMode: e.target.checked }))} />严格模式</label>
-                  <label><input type="checkbox" checked={form.singleUrlSearchExpand} onChange={(e) => setForm((p) => ({ ...p, singleUrlSearchExpand: e.target.checked }))} />搜索展开</label>
-                  <label><input type="checkbox" checked={form.singleUrlFallbackOnInsufficient} onChange={(e) => setForm((p) => ({ ...p, singleUrlFallbackOnInsufficient: e.target.checked }))} />结果不足兜底</label>
-                  <label><input type="checkbox" checked={form.singleUrlAllowSearchSummaryWrite} onChange={(e) => setForm((p) => ({ ...p, singleUrlAllowSearchSummaryWrite: e.target.checked }))} />允许写入搜索摘要</label>
-                  <label><input type="checkbox" checked={form.singleUrlDecodeRedirectWrappers} onChange={(e) => setForm((p) => ({ ...p, singleUrlDecodeRedirectWrappers: e.target.checked }))} />解包重定向链接</label>
-                  <label><input type="checkbox" checked={form.singleUrlFilterLowValueCandidates} onChange={(e) => setForm((p) => ({ ...p, singleUrlFilterLowValueCandidates: e.target.checked }))} />过滤低价值候选</label>
-                  <label><input type="checkbox" checked={form.singleUrlLightFilterEnabled} onChange={(e) => setForm((p) => ({ ...p, singleUrlLightFilterEnabled: e.target.checked }))} />启用轻过滤</label>
-                  <label><input type="checkbox" checked={form.singleUrlLightFilterRejectStaticAssets} onChange={(e) => setForm((p) => ({ ...p, singleUrlLightFilterRejectStaticAssets: e.target.checked }))} />轻过滤拒绝静态资源</label>
-                  <label><input type="checkbox" checked={form.singleUrlLightFilterRejectSearchNoiseDomain} onChange={(e) => setForm((p) => ({ ...p, singleUrlLightFilterRejectSearchNoiseDomain: e.target.checked }))} />轻过滤拒绝噪音域</label>
+                  <label><input type="checkbox" checked={form.singleUrlStrictMode} onChange={(e) => setForm((p) => ({ ...p, singleUrlStrictMode: e.target.checked }))} />{t('ingestPage.toggle.strictMode')}</label>
+                  <label><input type="checkbox" checked={form.singleUrlSearchExpand} onChange={(e) => setForm((p) => ({ ...p, singleUrlSearchExpand: e.target.checked }))} />{t('ingestPage.toggle.searchExpand')}</label>
+                  <label><input type="checkbox" checked={form.singleUrlFallbackOnInsufficient} onChange={(e) => setForm((p) => ({ ...p, singleUrlFallbackOnInsufficient: e.target.checked }))} />{t('ingestPage.toggle.fallbackOnInsufficient')}</label>
+                  <label><input type="checkbox" checked={form.singleUrlAllowSearchSummaryWrite} onChange={(e) => setForm((p) => ({ ...p, singleUrlAllowSearchSummaryWrite: e.target.checked }))} />{t('ingestPage.toggle.allowSearchSummaryWrite')}</label>
+                  <label><input type="checkbox" checked={form.singleUrlDecodeRedirectWrappers} onChange={(e) => setForm((p) => ({ ...p, singleUrlDecodeRedirectWrappers: e.target.checked }))} />{t('ingestPage.toggle.decodeRedirectWrappers')}</label>
+                  <label><input type="checkbox" checked={form.singleUrlFilterLowValueCandidates} onChange={(e) => setForm((p) => ({ ...p, singleUrlFilterLowValueCandidates: e.target.checked }))} />{t('ingestPage.toggle.filterLowValueCandidates')}</label>
+                  <label><input type="checkbox" checked={form.singleUrlLightFilterEnabled} onChange={(e) => setForm((p) => ({ ...p, singleUrlLightFilterEnabled: e.target.checked }))} />{t('ingestPage.toggle.lightFilterEnabled')}</label>
+                  <label><input type="checkbox" checked={form.singleUrlLightFilterRejectStaticAssets} onChange={(e) => setForm((p) => ({ ...p, singleUrlLightFilterRejectStaticAssets: e.target.checked }))} />{t('ingestPage.toggle.lightFilterRejectStaticAssets')}</label>
+                  <label><input type="checkbox" checked={form.singleUrlLightFilterRejectSearchNoiseDomain} onChange={(e) => setForm((p) => ({ ...p, singleUrlLightFilterRejectSearchNoiseDomain: e.target.checked }))} />{t('ingestPage.toggle.lightFilterRejectSearchNoiseDomain')}</label>
                 </div>
 
                 <div className="inline-actions ingest-flow-actions">
                   <button disabled={actionPending || !form.singleUrl.trim()} onClick={onIngestSingleUrl}>
-                    <Play size={15} />执行单 URL 入库
+                    <Play size={15} />{t('ingestPage.action.ingestSingleUrl')}
                   </button>
                 </div>
               </section>
@@ -840,21 +866,21 @@ export function IngestPageView({
               <section className="ingest-flow-block ingest-page__section ingest-page__section--execution">
                 <div className="panel-header">
                   <h2>
-                    <Cable size={15} />采集执行
+                    <Cable size={15} />{t('ingestPage.section.ingestExecution')}
                   </h2>
                 </div>
 
                 <div className="form-grid cols-3 ingest-task-controls">
-                  <SliderField label="商品天数" min={1} max={365} unit="d" value={form.commodityLimit} onChange={(nextValue) => setForm((p) => ({ ...p, commodityLimit: nextValue }))} />
-                  <SliderField label="电商条数" min={1} max={500} value={form.ecomLimit} onChange={(nextValue) => setForm((p) => ({ ...p, ecomLimit: nextValue }))} />
+                  <SliderField label={t('ingestPage.field.commodityDays')} min={1} max={365} unit="d" value={form.commodityLimit} onChange={(nextValue) => setForm((p) => ({ ...p, commodityLimit: nextValue }))} />
+                  <SliderField label={t('ingestPage.field.ecomLimit')} min={1} max={500} value={form.ecomLimit} onChange={(nextValue) => setForm((p) => ({ ...p, ecomLimit: nextValue }))} />
                 </div>
 
                 <div className="action-grid ingest-task-actions">
-                  <button disabled={actionPending} onClick={onIngestPolicyRegulation}><Radar size={16} />政策法规</button>
-                  <button disabled={actionPending} onClick={onIngestMarket}><Activity size={16} />市场采集</button>
-                  <button disabled={actionPending} onClick={onIngestDataApi}><Globe size={16} />数据 API 采集</button>
-                  <button disabled={actionPending} onClick={onIngestCommodity}><Boxes size={16} />商品采集</button>
-                  <button disabled={actionPending} onClick={onIngestEcom}><Database size={16} />电商采集</button>
+                  <button disabled={actionPending} onClick={onIngestPolicyRegulation}><Radar size={16} />{t('ingestPage.action.ingestPolicy')}</button>
+                  <button disabled={actionPending} onClick={onIngestMarket}><Activity size={16} />{t('ingestPage.action.ingestMarket')}</button>
+                  <button disabled={actionPending} onClick={onIngestDataApi}><Globe size={16} />{t('ingestPage.action.ingestDataApi')}</button>
+                  <button disabled={actionPending} onClick={onIngestCommodity}><Boxes size={16} />{t('ingestPage.action.ingestCommodity')}</button>
+                  <button disabled={actionPending} onClick={onIngestEcom}><Database size={16} />{t('ingestPage.action.ingestEcom')}</button>
                 </div>
 
                 <p className="status-line">
@@ -867,17 +893,17 @@ export function IngestPageView({
                 <div className="panel-header">
                   <h2>
                     <History size={15} />
-                    Agent 批量采集
+                    {t('ingestPage.section.agentBatch')}
                   </h2>
-                  <span className="chip">{hasBatch ? `job: ${agentBatchJobId}` : '未提交'}</span>
+                  <span className="chip">{hasBatch ? tf('ingestPage.status.batchJob', { jobId: agentBatchJobId }) : t('ingestPage.status.batchNotSubmitted')}</span>
                 </div>
 
                 <div className="inline-actions ingest-task-toolbar">
-                  <button disabled={actionPending} onClick={onSubmitAgentBatch}><Play size={15} />提交批量任务</button>
-                  <button disabled={actionPending} onClick={onSubmitNlAgentBatch}><Sparkles size={15} />NL 指令启动</button>
+                  <button disabled={actionPending} onClick={onSubmitAgentBatch}><Play size={15} />{t('ingestPage.action.submitBatch')}</button>
+                  <button disabled={actionPending} onClick={onSubmitNlAgentBatch}><Sparkles size={15} />{t('ingestPage.action.startNlCommand')}</button>
                   {hasBatch ? (
                     <button disabled={actionPending} onClick={onRefreshBatchStatus}>
-                      <RefreshCw size={15} />刷新批量状态
+                      <RefreshCw size={15} />{t('ingestPage.action.refreshBatchStatus')}
                     </button>
                   ) : null}
                 </div>
@@ -895,11 +921,11 @@ export function IngestPageView({
                     <table>
                       <thead>
                         <tr>
-                          <th>Item</th>
-                          <th>任务</th>
-                          <th>状态</th>
-                          <th>错误</th>
-                          <th>操作</th>
+                          <th>{t('ingestPage.table.item')}</th>
+                          <th>{t('ingestPage.table.task')}</th>
+                          <th>{t('ingestPage.table.status')}</th>
+                          <th>{t('ingestPage.table.error')}</th>
+                          <th>{t('ingestPage.table.action')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -911,14 +937,14 @@ export function IngestPageView({
                             <td>{toErrorText(item.error) || '-'}</td>
                             <td>
                               <button disabled={actionPending || !isFailedStatus(item.status)} onClick={() => onRetryBatchItem(item)}>
-                                <RotateCcw size={14} />重试
+                                <RotateCcw size={14} />{t('ingestPage.action.retry')}
                               </button>
                             </td>
                           </tr>
                         ))}
                         {!agentBatchItems.length ? (
                           <tr>
-                            <td colSpan={5} className="empty-cell">暂无批量项</td>
+                            <td colSpan={5} className="empty-cell">{t('ingestPage.empty.batchItems')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -931,16 +957,16 @@ export function IngestPageView({
                     <table>
                       <thead>
                         <tr>
-                          <th>时间</th>
-                          <th>事件</th>
-                          <th>Item</th>
-                          <th>消息</th>
+                          <th>{t('ingestPage.table.time')}</th>
+                          <th>{t('ingestPage.table.event')}</th>
+                          <th>{t('ingestPage.table.item')}</th>
+                          <th>{t('ingestPage.table.message')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {agentBatchEvents.slice(0, 20).map((event, idx) => (
                           <tr key={`${event.id || 'evt'}-${idx}`}>
-                            <td>{formatDate(event.ts)}</td>
+                            <td>{formatDate(event.ts, locale)}</td>
                             <td>{event.event_type || '-'}</td>
                             <td>{event.item_id || '-'}</td>
                             <td>{event.message || '-'}</td>
@@ -948,7 +974,7 @@ export function IngestPageView({
                         ))}
                         {!agentBatchEvents.length ? (
                           <tr>
-                            <td colSpan={4} className="empty-cell">暂无时间线事件</td>
+                            <td colSpan={4} className="empty-cell">{t('ingestPage.empty.batchEvents')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -963,9 +989,9 @@ export function IngestPageView({
         <aside className="ingest-workspace__secondary">
           <section className="ingest-flow-block ingest-flow-block--history ingest-page__section ingest-page__section--history">
             <div className="panel-header">
-              <h2>最近任务状态</h2>
+              <h2>{t('ingestPage.section.recentTaskStatus')}</h2>
               <button onClick={onRefreshHistory}>
-                <RefreshCw size={14} />刷新
+                <RefreshCw size={14} />{t('ingestPage.action.refresh')}
               </button>
             </div>
 
@@ -973,12 +999,12 @@ export function IngestPageView({
               <table>
                 <thead>
                   <tr>
-                    <th>任务</th>
-                    <th>状态</th>
-                    <th>拒绝数</th>
-                    <th>降级标记</th>
-                    <th>开始时间</th>
-                    <th>结束时间</th>
+                    <th>{t('ingestPage.table.task')}</th>
+                    <th>{t('ingestPage.table.status')}</th>
+                    <th>{t('ingestPage.table.rejectionCount')}</th>
+                    <th>{t('ingestPage.table.degradationFlags')}</th>
+                    <th>{t('ingestPage.table.startedAt')}</th>
+                    <th>{t('ingestPage.table.finishedAt')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -988,13 +1014,13 @@ export function IngestPageView({
                       <td><span className={statusClass(row.status)}>{row.status || '-'}</span></td>
                       <td>{rowRejectionCount(row)}</td>
                       <td>{rowDegradationFlags(row).slice(0, 2).join(', ') || '-'}</td>
-                      <td>{formatDate(rowStartAt(row))}</td>
-                      <td>{formatDate(rowEndAt(row))}</td>
+                      <td>{formatDate(rowStartAt(row), locale)}</td>
+                      <td>{formatDate(rowEndAt(row), locale)}</td>
                     </tr>
                   ))}
                   {!historyRows.length ? (
                     <tr>
-                      <td colSpan={6} className="empty-cell">暂无任务记录</td>
+                      <td colSpan={6} className="empty-cell">{t('ingestPage.empty.history')}</td>
                     </tr>
                   ) : null}
                 </tbody>

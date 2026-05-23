@@ -4,6 +4,7 @@ import { CheckCircle2, Eye, RefreshCw, Trash2, XCircle } from 'lucide-react'
 import GraphNodeCard from '../components/graph-kit/GraphNodeCard'
 import GraphBusinessCardSections from '../components/GraphBusinessCardSections'
 import GraphExtensionsSections from '../components/GraphExtensionsSections'
+import { DEFAULT_APP_LOCALE, translate, useAppLocale, type AppLocale, type MessageKey } from '../app/platform/i18n'
 import { endpoints } from '../lib/api/endpoints'
 import { queryKeys } from '../lib/queryKeys'
 import type { AgentArtifactItem, AgentEventItem, AgentMessageItem, AgentSessionDetail, AgentSessionItem, AgentTaskItem, DocumentItem } from '../lib/types'
@@ -36,6 +37,26 @@ type OpsPageProps = {
 }
 
 type OpsCardTab = 'business' | 'graph_ext'
+type OpsActionKey =
+  | 'cleanup'
+  | 'reExtract'
+  | 'topicExtract'
+  | 'graphExport'
+  | 'syncAggregator'
+  | 'bulkStructuredWrite'
+  | 'clearStructured'
+  | 'deleteDocuments'
+
+const OPS_ACTION_NAME_KEYS: Record<OpsActionKey, MessageKey> = {
+  cleanup: 'opsPage.actionName.cleanup',
+  reExtract: 'opsPage.actionName.reExtract',
+  topicExtract: 'opsPage.actionName.topicExtract',
+  graphExport: 'opsPage.actionName.graphExport',
+  syncAggregator: 'opsPage.actionName.syncAggregator',
+  bulkStructuredWrite: 'opsPage.actionName.bulkStructuredWrite',
+  clearStructured: 'opsPage.actionName.clearStructured',
+  deleteDocuments: 'opsPage.actionName.deleteDocuments',
+}
 
 const OPS_CARD_PALETTE = [
   '#7dd3fc', // brand cyan
@@ -58,11 +79,18 @@ const AGENT_ENFORCEMENT_EVENT_TYPES = new Set([
   'coordinator.synthesis_completed',
 ])
 
-function formatDate(value?: string | null) {
+function formatDate(value?: string | null, locale: AppLocale = DEFAULT_APP_LOCALE) {
   if (!value) return '-'
   const dt = new Date(value)
   if (Number.isNaN(dt.getTime())) return value
-  return dt.toLocaleString('zh-CN')
+  return dt.toLocaleString(locale)
+}
+
+function formatOpsTemplate(template: string, values: Record<string, string | number>) {
+  return Object.entries(values).reduce(
+    (text, [key, value]) => text.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value)),
+    template,
+  )
 }
 
 function toGraphBusinessNode(doc: DocumentItem | undefined, activeDocId: number | null): Record<string, unknown> {
@@ -220,11 +248,11 @@ function getEventLabel(event: AgentEventItem) {
   return [event.event_type, event.severity].filter(Boolean).join(' · ') || '-'
 }
 
-function getTaskProgressLabel(task: AgentTaskItem) {
+function getTaskProgressLabel(task: AgentTaskItem, labels: { tools: string; tokens: string }) {
   const progress = task.progress || {}
   const toolUseCount = Number(progress.tool_use_count || 0)
   const tokenUsage = Number(progress.token_usage || 0)
-  return `tools ${toolUseCount} | tokens ${tokenUsage}`
+  return `${labels.tools} ${toolUseCount} | ${labels.tokens} ${tokenUsage}`
 }
 
 function getMessageLabel(message: AgentMessageItem) {
@@ -235,13 +263,13 @@ function getAgentEventKey(event: AgentEventItem) {
   return `${event.seq || '-'}-${event.event_type || '-'}-${event.ts || '-'}-${event.task_id || event.session_id || '-'}`
 }
 
-function getEnforcementPolicyLabel(event: AgentEventItem) {
+function getEnforcementPolicyLabel(event: AgentEventItem, labels: { writeConflict: string; approvalFlow: string }) {
   const payload = event.payload || {}
   const concurrencyClass = typeof payload.concurrency_class === 'string' ? payload.concurrency_class : ''
   if (concurrencyClass) return concurrencyClass
   const eventType = String(event.event_type || '')
-  if (eventType === 'skill.write_conflict') return 'write_shared conflict'
-  if (eventType.startsWith('approval.')) return 'approval flow'
+  if (eventType === 'skill.write_conflict') return labels.writeConflict
+  if (eventType.startsWith('approval.')) return labels.approvalFlow
   return '-'
 }
 
@@ -267,10 +295,13 @@ function statusClass(status?: string | null) {
 
 export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const queryClient = useQueryClient()
+  const locale = useAppLocale()
+  const t = (key: MessageKey, fallback?: string) => translate(locale, key, fallback)
+  const actionName = (key: OpsActionKey) => t(OPS_ACTION_NAME_KEYS[key])
   const [retentionDays, setRetentionDays] = useState(90)
   const [pending, setPending] = useState(false)
-  const [activeAction, setActiveAction] = useState('')
-  const [statusText, setStatusText] = useState('就绪')
+  const [activeAction, setActiveAction] = useState<OpsActionKey | ''>('')
+  const [statusText, setStatusText] = useState(() => t('opsPage.status.ready'))
   const [errorText, setErrorText] = useState('')
   const [docIdsText, setDocIdsText] = useState('')
   const [topicScope, setTopicScope] = useState<'all' | 'company' | 'product' | 'operation'>('all')
@@ -283,7 +314,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const [opsCardTab, setOpsCardTab] = useState<OpsCardTab>('business')
   const [extractMode, setExtractMode] = useState<'replace' | 'merge'>('merge')
   const [extractJsonText, setExtractJsonText] = useState('{}')
-  const [sessionGoal, setSessionGoal] = useState('Review the current agent-session state and outstanding approvals.')
+  const [sessionGoal, setSessionGoal] = useState(() => t('opsPage.default.sessionGoal'))
   const [sessionSource, setSessionSource] = useState<'user' | 'agent_batch' | 'workflow_graph'>('user')
   const [sessionCompatMode, setSessionCompatMode] = useState(false)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
@@ -472,18 +503,23 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   }
 
   const runAction = async (
-    name: string,
+    actionKey: OpsActionKey,
     fn: () => Promise<unknown>,
     options?: { refreshStats?: boolean; refreshSearchHistory?: boolean; refreshDocuments?: boolean },
   ) => {
+    const name = actionName(actionKey)
     setPending(true)
-    setActiveAction(name)
+    setActiveAction(actionKey)
     setErrorText('')
-    setStatusText(`${name} 执行中...`)
+    setStatusText(formatOpsTemplate(t('opsPage.status.running'), { action: name }))
     try {
       const result = await fn()
       const taskId = typeof (result as { task_id?: unknown })?.task_id === 'string' ? String((result as { task_id?: string }).task_id) : ''
-      setStatusText(taskId ? `${name} 已提交，任务 ID: ${taskId}` : `${name} 完成`)
+      setStatusText(
+        taskId
+          ? formatOpsTemplate(t('opsPage.status.submittedWithTask'), { action: name, taskId })
+          : formatOpsTemplate(t('opsPage.status.completed'), { action: name }),
+      )
       if (options?.refreshStats !== false) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats(projectKey) })
       }
@@ -494,8 +530,8 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.admin.documentsBase(projectKey) })
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : '未知错误'
-      setStatusText(`${name} 失败`)
+      const message = error instanceof Error ? error.message : t('opsPage.error.unknown')
+      setStatusText(formatOpsTemplate(t('opsPage.status.failed'), { action: name }))
       setErrorText(message)
     } finally {
       setPending(false)
@@ -507,21 +543,21 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
     <div className={`content-stack gv2-root ops-page ops-page--${variant}`}>
       <section className="panel">
         <div className="panel-header">
-          <h2>{variant === 'backend' ? '后端监控视图' : '数据运维视图'}</h2>
+          <h2>{variant === 'backend' ? t('opsPage.title.backend') : t('opsPage.title.ops')}</h2>
         </div>
       </section>
       <section className="kpi-grid">
-        <article className="kpi-card"><span>文档</span><strong>{adminStats.data?.documents?.total || 0}</strong><small>今日 {adminStats.data?.documents?.recent_today || 0}</small></article>
-        <article className="kpi-card"><span>社媒文档</span><strong>{adminStats.data?.social_data?.total || 0}</strong><small>今日 {adminStats.data?.social_data?.recent_today || 0}</small></article>
-        <article className="kpi-card"><span>来源数</span><strong>{adminStats.data?.sources?.total || 0}</strong><small>resource pool</small></article>
-        <article className="kpi-card"><span>搜索历史</span><strong>{adminStats.data?.search_history?.total || 0}</strong><small>history</small></article>
+        <article className="kpi-card"><span>{t('opsPage.kpi.documents')}</span><strong>{adminStats.data?.documents?.total || 0}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.documents?.recent_today || 0 })}</small></article>
+        <article className="kpi-card"><span>{t('opsPage.kpi.socialDocuments')}</span><strong>{adminStats.data?.social_data?.total || 0}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.social_data?.recent_today || 0 })}</small></article>
+        <article className="kpi-card"><span>{t('opsPage.kpi.sources')}</span><strong>{adminStats.data?.sources?.total || 0}</strong><small>{t('opsPage.kpi.resourcePool')}</small></article>
+        <article className="kpi-card"><span>{t('opsPage.kpi.searchHistory')}</span><strong>{adminStats.data?.search_history?.total || 0}</strong><small>{t('opsPage.kpi.history')}</small></article>
       </section>
 
       <section className="panel">
         <div className="panel-header">
           <h2>
             <Eye size={15} />
-            Agent Session 面板
+            {t('opsPage.section.agentSessions')}
           </h2>
           <div className="inline-actions">
             <button
@@ -534,7 +570,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               }}
             >
               <RefreshCw size={14} />
-              刷新
+              {t('opsPage.action.refresh')}
             </button>
             <button
               type="button"
@@ -543,7 +579,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               }}
               disabled={!sessionGoal.trim() || createSessionMutation.isPending}
             >
-              创建 Session
+              {t('opsPage.action.createSession')}
             </button>
           </div>
         </div>
@@ -551,16 +587,16 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         <div className="grid-2" style={{ alignItems: 'start' }}>
           <div className="panel" style={{ margin: 0 }}>
             <div className="panel-header">
-              <h3>新建 Session</h3>
+              <h3>{t('opsPage.section.newSession')}</h3>
             </div>
             <div className="stack" style={{ gap: 12 }}>
               <label className="stack" style={{ gap: 6 }}>
-                <span>Goal</span>
+                <span>{t('opsPage.field.goal')}</span>
                 <textarea value={sessionGoal} onChange={(e) => setSessionGoal(e.target.value)} rows={4} />
               </label>
               <div className="grid-2">
                 <label className="stack" style={{ gap: 6 }}>
-                  <span>Source</span>
+                  <span>{t('opsPage.field.source')}</span>
                   <select value={sessionSource} onChange={(e) => setSessionSource(e.target.value as 'user' | 'agent_batch' | 'workflow_graph')}>
                     <option value="user">user</option>
                     <option value="agent_batch">agent_batch</option>
@@ -568,14 +604,14 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   </select>
                 </label>
                 <label className="stack" style={{ gap: 6 }}>
-                  <span>Compat Mode</span>
+                  <span>{t('opsPage.field.compatMode')}</span>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     <input
                       type="checkbox"
                       checked={sessionCompatMode}
                       onChange={(e) => setSessionCompatMode(e.target.checked)}
                     />
-                    project compat projection
+                    {t('opsPage.control.projectCompatProjection')}
                   </label>
                 </label>
               </div>
@@ -587,28 +623,28 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   }}
                   disabled={!sessionGoal.trim() || createSessionMutation.isPending}
                 >
-                  {createSessionMutation.isPending ? '创建中...' : '创建'}
+                  {createSessionMutation.isPending ? t('opsPage.action.creating') : t('opsPage.action.create')}
                 </button>
-                {selectedSessionId ? <span className="chip">当前 session: {selectedSessionId}</span> : null}
+                {selectedSessionId ? <span className="chip">{formatOpsTemplate(t('opsPage.status.currentSession'), { sessionId: selectedSessionId })}</span> : null}
               </div>
             </div>
           </div>
 
           <div className="panel" style={{ margin: 0 }}>
             <div className="panel-header">
-              <h3>Session 列表</h3>
-              <span className="chip">{normalizedSessions.length} items</span>
+              <h3>{t('opsPage.section.sessionList')}</h3>
+              <span className="chip">{formatOpsTemplate(t('opsPage.metric.itemsCount'), { count: normalizedSessions.length })}</span>
             </div>
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Session</th>
-                    <th>Status</th>
-                    <th>Phase</th>
-                    <th>Tasks</th>
-                    <th>Updated</th>
-                    <th>Open</th>
+                    <th>{t('opsPage.field.session')}</th>
+                    <th>{t('opsPage.field.status')}</th>
+                    <th>{t('opsPage.field.phase')}</th>
+                    <th>{t('opsPage.field.tasks')}</th>
+                    <th>{t('opsPage.field.updated')}</th>
+                    <th>{t('opsPage.field.open')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -621,7 +657,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                       <td><span className={statusClass(session.status)}>{session.status || '-'}</span></td>
                       <td>{session.current_phase || '-'}</td>
                       <td>{session.task_count ?? '-'}</td>
-                      <td>{formatDate(session.updated_at)}</td>
+                      <td>{formatDate(session.updated_at, locale)}</td>
                       <td>
                         <button
                           type="button"
@@ -631,7 +667,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                             setSelectedArtifactName('memory.md')
                           }}
                         >
-                          查看
+                          {t('opsPage.action.open')}
                         </button>
                       </td>
                     </tr>
@@ -639,7 +675,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   {!normalizedSessions.length ? (
                     <tr>
                       <td colSpan={6} className="empty-cell">
-                        暂无 session
+                        {t('opsPage.empty.sessions')}
                       </td>
                     </tr>
                   ) : null}
@@ -653,7 +689,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
           <div className="grid-2" style={{ marginTop: 16, alignItems: 'start' }}>
             <div className="panel" style={{ margin: 0 }}>
               <div className="panel-header">
-                <h3>Session 详情</h3>
+                <h3>{t('opsPage.section.sessionDetail')}</h3>
                 <div className="inline-actions">
                   <button
                     type="button"
@@ -664,7 +700,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     disabled={!selectedSessionId || cancelSessionMutation.isPending}
                   >
                     <XCircle size={14} />
-                    取消 Session
+                    {t('opsPage.action.cancelSession')}
                   </button>
                   <button
                     type="button"
@@ -674,7 +710,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     }}
                   >
                     <RefreshCw size={14} />
-                    刷新详情
+                    {t('opsPage.action.refreshDetails')}
                   </button>
                   <button
                     type="button"
@@ -685,7 +721,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     disabled={!selectedSessionId || coordinatorPassMutation.isPending}
                   >
                     <RefreshCw size={14} />
-                    Coordinator Pass
+                    {t('opsPage.action.coordinatorPass')}
                   </button>
                   <button
                     type="button"
@@ -696,39 +732,39 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     disabled={!selectedSessionId || reclaimExpiredMutation.isPending}
                   >
                     <Trash2 size={14} />
-                    回收过期 Lease
+                    {t('opsPage.action.reclaimExpiredLease')}
                   </button>
                 </div>
               </div>
               <div className="kpi-grid" style={{ marginTop: 0 }}>
                 <article className="kpi-card">
-                  <span>Status</span>
+                  <span>{t('opsPage.field.status')}</span>
                   <strong>{selectedSession.status || '-'}</strong>
                   <small>{selectedSession.current_phase || '-'}</small>
                 </article>
                 <article className="kpi-card">
-                  <span>Tasks</span>
+                  <span>{t('opsPage.field.tasks')}</span>
                   <strong>{selectedSessionTasks.length}</strong>
-                  <small>events {selectedSessionEvents.length} · messages {selectedSessionMessages.length}</small>
+                  <small>{formatOpsTemplate(t('opsPage.metric.eventsMessages'), { events: selectedSessionEvents.length, messages: selectedSessionMessages.length })}</small>
                 </article>
                 <article className="kpi-card">
-                  <span>Artifacts</span>
+                  <span>{t('opsPage.field.artifacts')}</span>
                   <strong>{selectedSessionArtifacts.length}</strong>
-                  <small>approvals {selectedSessionApprovals.length}</small>
+                  <small>{formatOpsTemplate(t('opsPage.metric.approvalsCount'), { count: selectedSessionApprovals.length })}</small>
                 </article>
                 <article className="kpi-card">
-                  <span>Compat</span>
-                  <strong>{selectedSession.compat_mode ? 'yes' : 'no'}</strong>
+                  <span>{t('opsPage.field.compat')}</span>
+                  <strong>{selectedSession.compat_mode ? t('opsPage.status.yes') : t('opsPage.status.no')}</strong>
                   <small>{selectedSession.compat_projection_version || '-'}</small>
                 </article>
               </div>
               <div className="stack" style={{ gap: 12 }}>
                 <div>
-                  <strong>Goal</strong>
+                  <strong>{t('opsPage.field.goal')}</strong>
                   <div>{selectedSession.goal || '-'}</div>
                 </div>
                 <div>
-                  <strong>Artifacts</strong>
+                  <strong>{t('opsPage.field.artifacts')}</strong>
                   <div className="inline-actions" style={{ marginTop: 8, flexWrap: 'wrap' }}>
                     {selectedSessionArtifacts.map((artifact) => (
                       <button
@@ -743,7 +779,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   </div>
                 </div>
                 <div>
-                  <strong>Selected Artifact</strong>
+                  <strong>{t('opsPage.field.selectedArtifact')}</strong>
                   <pre style={{ ...detailPreStyle, maxHeight: 220 }}>{getArtifactPreview(selectedArtifact)}</pre>
                 </div>
               </div>
@@ -751,22 +787,22 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
 
             <div className="panel" style={{ margin: 0 }}>
               <div className="panel-header">
-                <h3>Tasks / Approvals / Events</h3>
+                <h3>{t('opsPage.section.tasksApprovalsEvents')}</h3>
               </div>
               <div className="stack" style={{ gap: 16 }}>
                 <section className="panel" style={{ margin: 0 }}>
                   <div className="panel-header">
-                    <h4>Task Tree</h4>
+                    <h4>{t('opsPage.section.taskTree')}</h4>
                   </div>
                   <div className="table-wrap">
                     <table>
                       <thead>
                         <tr>
-                          <th>Task</th>
-                          <th>Status</th>
-                          <th>Phase</th>
-                          <th>Progress</th>
-                          <th>Action</th>
+                          <th>{t('opsPage.field.task')}</th>
+                          <th>{t('opsPage.field.status')}</th>
+                          <th>{t('opsPage.field.phase')}</th>
+                          <th>{t('opsPage.field.progress')}</th>
+                          <th>{t('opsPage.field.action')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -778,10 +814,10 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                             </td>
                             <td><span className={statusClass(task.status)}>{task.status || '-'}</span></td>
                             <td>{task.phase || '-'}</td>
-                            <td>{getTaskProgressLabel(task)}</td>
+                            <td>{getTaskProgressLabel(task, { tools: t('opsPage.taskProgress.tools'), tokens: t('opsPage.taskProgress.tokens') })}</td>
                             <td>
                               <div className="inline-actions">
-                                <button type="button" onClick={() => setSelectedTaskId(task.task_id)}>查看</button>
+                                <button type="button" onClick={() => setSelectedTaskId(task.task_id)}>{t('opsPage.action.open')}</button>
                                 {String(task.status || '') === 'failed' ? (
                                   <button
                                     type="button"
@@ -789,9 +825,9 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                                       if (!selectedSessionId) return
                                       void retryTaskMutation.mutateAsync({ sessionId: selectedSessionId, taskId: task.task_id })
                                     }}
-                                    disabled={!selectedSessionId || retryTaskMutation.isPending}
-                                  >
-                                    重试
+                                  disabled={!selectedSessionId || retryTaskMutation.isPending}
+                                >
+                                    {t('opsPage.action.retry')}
                                   </button>
                                 ) : null}
                               </div>
@@ -800,7 +836,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                         ))}
                         {!selectedSessionTasks.length ? (
                           <tr>
-                            <td colSpan={5} className="empty-cell">暂无任务</td>
+                            <td colSpan={5} className="empty-cell">{t('opsPage.empty.tasks')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -808,7 +844,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   </div>
                   {selectedAgentTask ? (
                     <div style={{ marginTop: 12 }}>
-                      <strong>Selected Task Detail</strong>
+                      <strong>{t('opsPage.field.selectedTaskDetail')}</strong>
                       <pre style={{ ...detailPreStyle, maxHeight: 200 }}>{JSON.stringify(selectedAgentTask, null, 2)}</pre>
                     </div>
                   ) : null}
@@ -816,17 +852,17 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
 
                 <section className="panel" style={{ margin: 0 }}>
                   <div className="panel-header">
-                    <h4>Approvals</h4>
+                    <h4>{t('opsPage.section.approvals')}</h4>
                   </div>
                   <div className="table-wrap">
                     <table>
                       <thead>
                         <tr>
-                          <th>Approval</th>
-                          <th>Status</th>
-                          <th>Requester</th>
-                          <th>Expires</th>
-                          <th>Action</th>
+                          <th>{t('opsPage.field.approval')}</th>
+                          <th>{t('opsPage.field.status')}</th>
+                          <th>{t('opsPage.field.requester')}</th>
+                          <th>{t('opsPage.field.expires')}</th>
+                          <th>{t('opsPage.field.action')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -841,7 +877,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                               <div>{approval.requester_session_id || approval.session_id || approval.requested_by || '-'}</div>
                               <small>{approval.requester_task_id || approval.task_id || '-'}</small>
                             </td>
-                            <td>{formatDate(approval.expires_at)}</td>
+                            <td>{formatDate(approval.expires_at, locale)}</td>
                             <td>
                               <div className="inline-actions">
                                 <button
@@ -852,7 +888,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                                   disabled={resolveApprovalMutation.isPending}
                                 >
                                   <CheckCircle2 size={14} />
-                                  批准
+                                  {t('opsPage.action.approve')}
                                 </button>
                                 <button
                                   type="button"
@@ -862,7 +898,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                                   disabled={resolveApprovalMutation.isPending}
                                 >
                                   <XCircle size={14} />
-                                  拒绝
+                                  {t('opsPage.action.reject')}
                                 </button>
                               </div>
                             </td>
@@ -870,14 +906,14 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                         ))}
                         {!selectedSessionApprovals.length ? (
                           <tr>
-                            <td colSpan={5} className="empty-cell">暂无审批</td>
+                            <td colSpan={5} className="empty-cell">{t('opsPage.empty.approvals')}</td>
                           </tr>
                         ) : null}
                       </tbody>
                     </table>
                   </div>
                   <div style={{ marginTop: 12 }}>
-                    <strong>Approval Payload</strong>
+                    <strong>{t('opsPage.field.approvalPayload')}</strong>
                     <pre style={{ ...detailPreStyle, maxHeight: 180 }}>
                       {selectedSessionApprovals[0] ? JSON.stringify(selectedSessionApprovals[0].binding_payload || {}, null, 2) : '-'}
                     </pre>
@@ -886,17 +922,17 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
 
                 <section className="panel" style={{ margin: 0 }}>
                   <div className="panel-header">
-                    <h4>Skill Enforcement Timeline</h4>
+                    <h4>{t('opsPage.section.skillEnforcementTimeline')}</h4>
                   </div>
                   <div className="table-wrap">
                     <table>
                       <thead>
                         <tr>
-                          <th>Time</th>
-                          <th>Type</th>
-                          <th>Task</th>
-                          <th>Policy</th>
-                          <th>Payload</th>
+                          <th>{t('opsPage.field.time')}</th>
+                          <th>{t('opsPage.field.type')}</th>
+                          <th>{t('opsPage.field.task')}</th>
+                          <th>{t('opsPage.field.policy')}</th>
+                          <th>{t('opsPage.field.payload')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -909,24 +945,24 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                               onClick={() => setSelectedEnforcementEventKey(eventKey)}
                               style={{ cursor: 'pointer' }}
                             >
-                              <td>{formatDate(event.ts)}</td>
+                              <td>{formatDate(event.ts, locale)}</td>
                               <td>{event.event_type || '-'}</td>
                               <td>{event.task_id || '-'}</td>
-                              <td>{getEnforcementPolicyLabel(event)}</td>
+                              <td>{getEnforcementPolicyLabel(event, { writeConflict: t('opsPage.policy.writeSharedConflict'), approvalFlow: t('opsPage.policy.approvalFlow') })}</td>
                               <td>{getPayloadSummary(event.payload)}</td>
                             </tr>
                           )
                         })}
                         {!selectedEnforcementEvents.length ? (
                           <tr>
-                            <td colSpan={5} className="empty-cell">暂无执行策略事件</td>
+                            <td colSpan={5} className="empty-cell">{t('opsPage.empty.enforcementEvents')}</td>
                           </tr>
                         ) : null}
                       </tbody>
                     </table>
                   </div>
                   <div style={{ marginTop: 12 }}>
-                    <strong>Enforcement Payload</strong>
+                    <strong>{t('opsPage.field.enforcementPayload')}</strong>
                     <pre style={{ ...detailPreStyle, maxHeight: 180 }}>
                       {selectedEnforcementEvent ? JSON.stringify(selectedEnforcementEvent.payload || {}, null, 2) : '-'}
                     </pre>
@@ -935,16 +971,16 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
 
                 <section className="panel" style={{ margin: 0 }}>
                   <div className="panel-header">
-                    <h4>Events</h4>
+                    <h4>{t('opsPage.section.events')}</h4>
                   </div>
                   <div className="table-wrap">
                     <table>
                       <thead>
                         <tr>
-                          <th>Seq</th>
-                          <th>Type</th>
-                          <th>Task</th>
-                          <th>Message</th>
+                          <th>{t('opsPage.field.seq')}</th>
+                          <th>{t('opsPage.field.type')}</th>
+                          <th>{t('opsPage.field.task')}</th>
+                          <th>{t('opsPage.field.message')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -958,7 +994,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                         ))}
                         {!selectedSessionEvents.length ? (
                           <tr>
-                            <td colSpan={4} className="empty-cell">暂无事件</td>
+                            <td colSpan={4} className="empty-cell">{t('opsPage.empty.events')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -968,22 +1004,22 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
 
                 <section className="panel" style={{ margin: 0 }}>
                   <div className="panel-header">
-                    <h4>Coordinator Messages</h4>
+                    <h4>{t('opsPage.section.coordinatorMessages')}</h4>
                   </div>
                   <div className="table-wrap">
                     <table>
                       <thead>
                         <tr>
-                          <th>When</th>
-                          <th>Actor</th>
-                          <th>Task</th>
-                          <th>Content</th>
+                          <th>{t('opsPage.field.when')}</th>
+                          <th>{t('opsPage.field.actor')}</th>
+                          <th>{t('opsPage.field.task')}</th>
+                          <th>{t('opsPage.field.content')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {selectedSessionMessages.slice().reverse().slice(0, 12).map((message) => (
                           <tr key={`${message.created_at}-${message.actor}-${message.task_id || 'session'}`}>
-                            <td>{formatDate(message.created_at)}</td>
+                            <td>{formatDate(message.created_at, locale)}</td>
                             <td>{getMessageLabel(message)}</td>
                             <td>{message.task_id || '-'}</td>
                             <td>{message.content || '-'}</td>
@@ -991,7 +1027,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                         ))}
                         {!selectedSessionMessages.length ? (
                           <tr>
-                            <td colSpan={4} className="empty-cell">暂无消息</td>
+                            <td colSpan={4} className="empty-cell">{t('opsPage.empty.messages')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -1005,7 +1041,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
       </section>
 
       <section className="panel">
-        <div className="panel-header"><h2>治理动作</h2></div>
+        <div className="panel-header"><h2>{t('opsPage.section.governanceActions')}</h2></div>
         <div className="inline-actions">
           <label><span>retention_days</span><input type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(Number.parseInt(e.target.value || '90', 10) || 90)} /></label>
           <label>
@@ -1016,7 +1052,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             disabled={!selectedCount}
             onClick={() => setDocIdsText(selectedCsv)}
           >
-            使用所选({selectedCount})
+            {formatOpsTemplate(t('opsPage.action.useSelected'), { count: selectedCount })}
           </button>
           <label>
             <span>topic_scope</span>
@@ -1027,15 +1063,15 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
               <option value="operation">operation</option>
             </select>
           </label>
-          <button disabled={pending} onClick={() => runAction('数据清理', () => cleanupGovernance(retentionDays))}><Trash2 size={14} />{activeAction === '数据清理' ? '执行中...' : '清理旧数据'}</button>
+          <button disabled={pending} onClick={() => runAction('cleanup', () => cleanupGovernance(retentionDays))}><Trash2 size={14} />{activeAction === 'cleanup' ? t('opsPage.action.running') : t('opsPage.action.cleanup')}</button>
           <button
             disabled={pending}
             onClick={() => {
               const docIds = parsedDocIds
-              runAction('文档重提取', () => reExtractDocuments(docIds.length ? { doc_ids: docIds } : {}))
+              runAction('reExtract', () => reExtractDocuments(docIds.length ? { doc_ids: docIds } : {}))
             }}
           >
-            <RefreshCw size={14} />{activeAction === '文档重提取' ? '执行中...' : '文档重提取'}
+            <RefreshCw size={14} />{activeAction === 'reExtract' ? t('opsPage.action.running') : t('opsPage.action.reExtract')}
           </button>
           <button
             disabled={pending}
@@ -1046,37 +1082,37 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                 topics,
                 ...(docIds.length ? { doc_ids: docIds } : {}),
               }
-              runAction('专题提取', () => topicExtractDocuments(payload))
+              runAction('topicExtract', () => topicExtractDocuments(payload))
             }}
           >
-            <RefreshCw size={14} />{activeAction === '专题提取' ? '执行中...' : '专题提取'}
+            <RefreshCw size={14} />{activeAction === 'topicExtract' ? t('opsPage.action.running') : t('opsPage.action.topicExtract')}
           </button>
           <button
             disabled={pending}
             onClick={() => {
               const docIds = parsedDocIds
               if (!docIds.length) {
-                setStatusText('图谱导出 失败')
-                setErrorText('请先输入 doc_ids（逗号或空格分隔）')
+                setStatusText(formatOpsTemplate(t('opsPage.status.failed'), { action: actionName('graphExport') }))
+                setErrorText(t('opsPage.error.missingDocIds'))
                 return
               }
               runAction(
-                '图谱导出',
+                'graphExport',
                 async () => {
                   const result = await exportGraph(docIds)
                   const nodes = Array.isArray(result?.nodes) ? result.nodes.length : 0
                   const edges = Array.isArray(result?.edges) ? result.edges.length : 0
-                  setStatusText(`图谱导出完成，nodes=${nodes}, edges=${edges}`)
+                  setStatusText(formatOpsTemplate(t('opsPage.status.graphExportCompleted'), { nodes, edges }))
                   return result
                 },
                 { refreshStats: false, refreshSearchHistory: false },
               )
             }}
           >
-            <RefreshCw size={14} />{activeAction === '图谱导出' ? '执行中...' : '图谱导出'}
+            <RefreshCw size={14} />{activeAction === 'graphExport' ? t('opsPage.action.running') : t('opsPage.action.graphExport')}
           </button>
-          <button disabled={pending} onClick={() => runAction('聚合库同步', () => syncAggregator(true))}><RefreshCw size={14} />{activeAction === '聚合库同步' ? '执行中...' : '同步 Aggregator'}</button>
-          <button onClick={() => { queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats(projectKey) }); queryClient.invalidateQueries({ queryKey: queryKeys.admin.searchHistory(projectKey) }); }}><RefreshCw size={14} />刷新</button>
+          <button disabled={pending} onClick={() => runAction('syncAggregator', () => syncAggregator(true))}><RefreshCw size={14} />{activeAction === 'syncAggregator' ? t('opsPage.action.running') : t('opsPage.action.syncAggregator')}</button>
+          <button onClick={() => { queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats(projectKey) }); queryClient.invalidateQueries({ queryKey: queryKeys.admin.searchHistory(projectKey) }); }}><RefreshCw size={14} />{t('opsPage.action.refresh')}</button>
         </div>
         <p className="status-line">{statusText}</p>
         {!!errorText && <p className="status-line">{errorText}</p>}
@@ -1084,14 +1120,14 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
 
       <section className="panel">
         <div className="panel-header">
-          <h2>文档治理</h2>
+          <h2>{t('opsPage.section.documentGovernance')}</h2>
           <div className="inline-actions">
             <button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.admin.documentsBase(projectKey) })} disabled={adminDocuments.isFetching}>
               <RefreshCw size={14} />
-              {adminDocuments.isFetching ? '刷新中...' : '刷新文档'}
+              {adminDocuments.isFetching ? t('opsPage.action.refreshing') : t('opsPage.action.refreshDocuments')}
             </button>
-            <button onClick={selectCurrentPage} disabled={!(adminDocuments.data?.items || []).length}>选择当前页</button>
-            <button onClick={() => setSelectedDocIds([])} disabled={!selectedCount}>清空选择</button>
+            <button onClick={selectCurrentPage} disabled={!(adminDocuments.data?.items || []).length}>{t('opsPage.action.selectCurrentPage')}</button>
+            <button onClick={() => setSelectedDocIds([])} disabled={!selectedCount}>{t('opsPage.action.clearSelection')}</button>
           </div>
         </div>
         <div className="form-grid cols-4">
@@ -1105,7 +1141,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
           </label>
           <label>
             <span>search</span>
-            <input value={docSearch} onChange={(e) => { setDocSearch(e.target.value); setDocPage(1) }} placeholder="标题关键词" />
+            <input value={docSearch} onChange={(e) => { setDocSearch(e.target.value); setDocPage(1) }} placeholder={t('opsPage.placeholder.titleKeyword')} />
           </label>
           <label>
             <span>extract_mode</span>
@@ -1124,12 +1160,12 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             <button
               disabled={pending || !selectedCount}
               onClick={() => {
-                runAction('批量写入结构化', async () => {
+                runAction('bulkStructuredWrite', async () => {
                   let parsed: unknown
                   try {
                     parsed = JSON.parse(extractJsonText || '{}')
                   } catch {
-                    throw new Error('extracted_data 不是合法 JSON')
+                    throw new Error(t('opsPage.error.invalidJson'))
                   }
                   return bulkUpdateDocumentExtractedData({
                     doc_ids: selectedDocIds,
@@ -1139,34 +1175,34 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                 })
               }}
             >
-              批量写入结构化
+              {t('opsPage.action.bulkWriteStructured')}
             </button>
             <button
               disabled={pending || !selectedCount}
-              onClick={() => runAction('清空结构化', () => clearDocumentExtractedData(selectedDocIds))}
+              onClick={() => runAction('clearStructured', () => clearDocumentExtractedData(selectedDocIds))}
             >
-              清空结构化
+              {t('opsPage.action.clearStructured')}
             </button>
             <button
               disabled={pending || !selectedCount}
-              onClick={() => runAction('删除文档', () => deleteAdminDocuments({ ids: selectedDocIds }))}
+              onClick={() => runAction('deleteDocuments', () => deleteAdminDocuments({ ids: selectedDocIds }))}
             >
-              删除文档
+              {t('opsPage.action.deleteDocuments')}
             </button>
           </div>
         </div>
-        <p className="status-line">已选择文档: {selectedCount}</p>
+        <p className="status-line">{formatOpsTemplate(t('opsPage.metric.selectedDocuments'), { count: selectedCount })}</p>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>选中</th>
+                <th>{t('opsPage.field.selected')}</th>
                 <th>ID</th>
-                <th>标题</th>
-                <th>类型</th>
-                <th>州</th>
-                <th>提取</th>
-                <th>更新时间</th>
+                <th>{t('opsPage.field.title')}</th>
+                <th>{t('opsPage.field.type')}</th>
+                <th>{t('opsPage.field.state')}</th>
+                <th>{t('opsPage.field.extraction')}</th>
+                <th>{t('opsPage.field.updated')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1199,34 +1235,34 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   <td>{row.doc_type || '-'}</td>
                   <td>{row.state || '-'}</td>
                   <td>{String(row.has_extracted_data ?? false)}</td>
-                  <td>{formatDate(row.updated_at)}</td>
+                  <td>{formatDate(row.updated_at, locale)}</td>
                 </tr>
               ))}
               {!adminDocuments.data?.items?.length ? (
                 <tr>
-                  <td colSpan={7} className="empty-cell">暂无文档</td>
+                  <td colSpan={7} className="empty-cell">{t('opsPage.empty.documents')}</td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
         <div className="inline-actions">
-          <button disabled={docPage <= 1} onClick={() => setDocPage((p) => Math.max(1, p - 1))}>上一页</button>
-          <span className="chip">第 {docPage}/{docTotalPages} 页</span>
-          <button disabled={docPage >= docTotalPages} onClick={() => setDocPage((p) => Math.min(docTotalPages, p + 1))}>下一页</button>
+          <button disabled={docPage <= 1} onClick={() => setDocPage((p) => Math.max(1, p - 1))}>{t('opsPage.action.previousPage')}</button>
+          <span className="chip">{formatOpsTemplate(t('opsPage.metric.pageOf'), { page: docPage, total: docTotalPages })}</span>
+          <button disabled={docPage >= docTotalPages} onClick={() => setDocPage((p) => Math.min(docTotalPages, p + 1))}>{t('opsPage.action.nextPage')}</button>
         </div>
       </section>
 
       <section className="panel">
-        <div className="panel-header"><h2>搜索历史</h2></div>
+        <div className="panel-header"><h2>{t('opsPage.section.searchHistory')}</h2></div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>topic</th><th>last_search_time</th></tr></thead>
+            <thead><tr><th>ID</th><th>{t('opsPage.field.topic')}</th><th>{t('opsPage.field.lastSearchTime')}</th></tr></thead>
             <tbody>
               {(searchHistory.data || []).map((row) => (
-                <tr key={row.id}><td>{row.id}</td><td>{row.topic || '-'}</td><td>{formatDate(row.last_search_time)}</td></tr>
+                <tr key={row.id}><td>{row.id}</td><td>{row.topic || '-'}</td><td>{formatDate(row.last_search_time, locale)}</td></tr>
               ))}
-              {!searchHistory.data?.length && <tr><td colSpan={3} className="empty-cell">暂无搜索历史</td></tr>}
+              {!searchHistory.data?.length && <tr><td colSpan={3} className="empty-cell">{t('opsPage.empty.searchHistory')}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1234,7 +1270,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
 
       {activeDocCardId ? (
         <GraphNodeCard
-          title={activeDocDetail.data?.title || `文档 ${activeDocCardId}`}
+          title={activeDocDetail.data?.title || formatOpsTemplate(t('opsPage.fallback.documentTitle'), { docId: activeDocCardId })}
           subtitle={activeDocDetail.data?.doc_type || '-'}
           style={{
             position: 'fixed',
@@ -1248,7 +1284,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
           }}
           actions={
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <div className="gv2-card-tabs" role="tablist" aria-label="卡片标签">
+              <div className="gv2-card-tabs" role="tablist" aria-label={t('opsPage.aria.cardTabs')}>
                 <button
                   type="button"
                   role="tab"
@@ -1257,9 +1293,9 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   onClick={() => {
                     setOpsCardTab('business')
                   }}
-                  title="业务数据"
+                  title={t('opsPage.tab.businessData')}
                 >
-                  业务数据
+                  {t('opsPage.tab.businessData')}
                 </button>
                 <button
                   type="button"
@@ -1267,9 +1303,9 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                   aria-selected={opsCardTab === 'graph_ext'}
                   className={`gv2-card-tab ${opsCardTab === 'graph_ext' ? 'is-active' : ''}`.trim()}
                   onClick={() => setOpsCardTab('graph_ext')}
-                  title="图谱扩展"
+                  title={t('opsPage.tab.graphExtension')}
                 >
-                  图谱扩展
+                  {t('opsPage.tab.graphExtension')}
                 </button>
               </div>
               <button
@@ -1277,7 +1313,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                 onClick={() => {
                   void queryClient.invalidateQueries({ queryKey: queryKeys.admin.documentDetail(projectKey, activeDocCardId) })
                 }}
-                title="刷新"
+                title={t('opsPage.action.refresh')}
               >
                 ↻
               </button>
@@ -1291,8 +1327,8 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
           {activeDocDetail.isFetching ? (
             <div className="gv2-node-grid">
               <div className="gv2-node-grid-item">
-                <label>状态</label>
-                <strong>加载中...</strong>
+                <label>{t('opsPage.field.status')}</label>
+                <strong>{t('opsPage.status.loading')}</strong>
               </div>
             </div>
           ) : (

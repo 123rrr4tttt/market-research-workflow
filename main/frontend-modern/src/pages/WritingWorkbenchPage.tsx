@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { translate, useAppLocale } from '../app/platform/i18n'
 import { hashByMode } from '../app/navigation'
 import { isReservedProjectKey } from '../app/kernel/projectKeys'
 import AgentWritingAssistantPanel, {
@@ -49,6 +50,8 @@ export type WritingWorkbenchPageProps = {
   standalone?: boolean
 }
 
+type WritingWorkbenchMessageKey = Parameters<typeof translate>[1]
+type WritingTemplateValues = Record<string, string | number>
 type WritingCanvasViewMode = 'write' | 'preview' | 'split'
 type FloatingSize = {
   width: number
@@ -133,10 +136,6 @@ type WritingAgentUpdateAnchor = {
   preview: string
 }
 
-const EMPTY_MARKDOWN = `## 摘要
-
-在这里直接开始写。
-`
 const PANEL_MIN_WIDTH = 300
 const PANEL_MAX_WIDTH = 520
 const PANEL_MIN_HEIGHT = 320
@@ -171,8 +170,12 @@ function readViewport(): ViewportSize {
   }
 }
 
-function formatUpdatedAt(value?: string | null) {
-  if (!value) return 'new'
+function formatWritingTemplate(template: string, values: WritingTemplateValues) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
+function formatUpdatedAt(value?: string | null, emptyLabel = 'new') {
+  if (!value) return emptyLabel
   return value.replace('T', ' ').slice(0, 16)
 }
 
@@ -317,8 +320,8 @@ function findAgentUpdateRange(markdown: string, update: WritingAgentUpdate): { s
   return null
 }
 
-function previewAgentUpdateText(update: WritingAgentUpdate) {
-  return update.insertedText || update.locator.anchorText || update.summary || '暂无可展示的正文片段'
+function previewAgentUpdateText(update: WritingAgentUpdate, emptyLabel: string) {
+  return update.insertedText || update.locator.anchorText || update.summary || emptyLabel
 }
 
 function buildAgentUpdateRejectedMarkdown(markdown: string, update: WritingAgentUpdate): string | null {
@@ -329,7 +332,7 @@ function buildAgentUpdateRejectedMarkdown(markdown: string, update: WritingAgent
   return `${markdown.slice(0, range.start)}${replacementText}${markdown.slice(range.end)}`.replace(/\n{3,}/g, '\n\n')
 }
 
-function buildAgentUpdateAnchors(markdown: string, updates: WritingAgentUpdate[]): WritingAgentUpdateAnchor[] {
+function buildAgentUpdateAnchors(markdown: string, updates: WritingAgentUpdate[], emptyPreviewLabel: string): WritingAgentUpdateAnchor[] {
   return updates.map((update) => {
     const range = findAgentUpdateRange(markdown, update)
     const lineStart = range ? markdown.slice(0, range.start).split('\n').length : update.locator.anchorLine
@@ -339,14 +342,14 @@ function buildAgentUpdateAnchors(markdown: string, updates: WritingAgentUpdate[]
       range,
       lineStart,
       lineEnd,
-      preview: previewAgentUpdateText(update),
+      preview: previewAgentUpdateText(update, emptyPreviewLabel),
     }
   })
 }
 
-function agentUpdateVersionLabel(update: WritingAgentUpdate) {
-  const before = update.oldVersion ? `v${update.oldVersion}` : '原版本'
-  const after = update.newVersion ? `v${update.newVersion}` : 'Agent 写回'
+function agentUpdateVersionLabel(update: WritingAgentUpdate, labels: { before: string; after: string }) {
+  const before = update.oldVersion ? `v${update.oldVersion}` : labels.before
+  const after = update.newVersion ? `v${update.newVersion}` : labels.after
   return `${before} -> ${after}`
 }
 
@@ -544,7 +547,15 @@ function buildCitationDockedStyle(
 }
 
 export default function WritingWorkbenchPage({ projectKey, standalone = false }: WritingWorkbenchPageProps) {
+  const locale = useAppLocale()
   const queryClient = useQueryClient()
+  const t = useCallback((key: WritingWorkbenchMessageKey, fallback?: string) => translate(locale, key, fallback), [locale])
+  const tf = useCallback(
+    (key: WritingWorkbenchMessageKey, values: WritingTemplateValues, fallback?: string) =>
+      formatWritingTemplate(t(key, fallback), values),
+    [t],
+  )
+  const defaultMarkdown = t('writingWorkbenchPage.default.markdown')
   const canUseWritingProject = Boolean(projectKey && !isReservedProjectKey(projectKey))
   const initialViewport = readViewport()
   const initialPanelHeight = Math.max(PANEL_MIN_HEIGHT, initialViewport.height - 148)
@@ -666,7 +677,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   })
   const draftKey = effectiveDocumentId == null ? '__new__' : String(effectiveDocumentId)
   const persistedTitle = documentDetailQuery.data?.title || ''
-  const persistedMarkdown = documentDetailQuery.data?.body_md || EMPTY_MARKDOWN
+  const persistedMarkdown = documentDetailQuery.data?.body_md || defaultMarkdown
   const currentDraft = draftByKey[draftKey]
   const title = currentDraft?.title ?? persistedTitle
   const markdown = currentDraft?.markdown ?? persistedMarkdown
@@ -679,8 +690,8 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     [documentDetailQuery.data?.metadata_json],
   )
   const agentUpdateAnchors = useMemo(
-    () => buildAgentUpdateAnchors(markdown, agentUpdates),
-    [agentUpdates, markdown],
+    () => buildAgentUpdateAnchors(markdown, agentUpdates, t('writingWorkbenchPage.agentUpdate.emptyPreview')),
+    [agentUpdates, markdown, t],
   )
   const latestAgentUpdate = agentUpdates[0] || null
   const writingTypedContext = useMemo(
@@ -738,15 +749,15 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         }
         return next
       })
-      setAutosaveMessage('saved')
-      setSaveMessage(effectiveDocumentId == null ? '文档已创建' : '正文已保存')
+      setAutosaveMessage(t('writingWorkbenchPage.status.saved'))
+      setSaveMessage(effectiveDocumentId == null ? t('writingWorkbenchPage.status.documentCreated') : t('writingWorkbenchPage.status.bodySaved'))
       setExportMessage('')
       await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documents(projectKey) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documentDetail(projectKey, nextDocumentId) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.writing.citations(projectKey, nextDocumentId) })
     },
     onError: (error) => {
-      setSaveMessage(error instanceof Error ? error.message : '保存失败')
+      setSaveMessage(error instanceof Error ? error.message : t('writingWorkbenchPage.status.saveFailed'))
     },
   })
 
@@ -905,7 +916,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       if (result.skippedDuplicate) {
         setCitationTrayCollapsed(false)
         setCitationTrayDragOver(false)
-        setSaveMessage('引用已存在')
+        setSaveMessage(t('writingWorkbenchPage.status.citationDuplicate'))
         return
       }
       if (result.createdDocument?.id) {
@@ -917,15 +928,15 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           delete next[String(result.createdDocument?.id)]
           return next
         })
-        setAutosaveMessage('saved')
-        setSaveMessage('文档已自动创建并加入引用')
+        setAutosaveMessage(t('writingWorkbenchPage.status.saved'))
+        setSaveMessage(t('writingWorkbenchPage.status.citationCreatedDocument'))
         setExportMessage('')
         await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documents(projectKey) })
         await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documentDetail(projectKey, result.createdDocument.id) })
       }
       setCitationTrayCollapsed(false)
       setCitationTrayDragOver(false)
-      setSaveMessage('已加入引用')
+      setSaveMessage(t('writingWorkbenchPage.status.citationAdded'))
       if (result.source.kind === 'selected') {
         dismissInsightCard()
       } else if (result.source.kind === 'pinned') {
@@ -1018,7 +1029,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     if (!isDirty || saveDocumentMutation.isPending) return
 
     const timer = window.setTimeout(() => {
-      setAutosaveMessage('autosaving...')
+      setAutosaveMessage(t('writingWorkbenchPage.status.autosaving'))
       void autosaveWritingDraft(effectiveDocumentId, {
         draft_body_md: markdown,
         base_version: documentDetailQuery.data?.version,
@@ -1030,10 +1041,10 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         },
       })
         .then(() => {
-          setAutosaveMessage('autosave ready')
+          setAutosaveMessage(t('writingWorkbenchPage.status.autosaveReady'))
         })
         .catch((error) => {
-          setAutosaveMessage(error instanceof Error ? error.message : 'autosave failed')
+          setAutosaveMessage(error instanceof Error ? error.message : t('writingWorkbenchPage.status.autosaveFailed'))
         })
     }, 600)
 
@@ -1046,6 +1057,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     saveDocumentMutation.isPending,
     selectionLookup.selectionHash,
     selectionText,
+    t,
   ])
 
   useEffect(() => {
@@ -1073,11 +1085,11 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         id: item.id,
         title: item.title,
         status: item.status,
-        updatedAt: formatUpdatedAt(item.updated_at),
+        updatedAt: formatUpdatedAt(item.updated_at, t('writingWorkbenchPage.status.new')),
         active: item.id === effectiveDocumentId,
         agentUpdateCount: readAgentUpdates(item.metadata_json).length,
       })),
-    [documentsQuery.data, effectiveDocumentId],
+    [documentsQuery.data, effectiveDocumentId, t],
   )
 
   const currentTemplateKey = useMemo(() => {
@@ -1647,16 +1659,16 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
 
   const handleExportMarkdown = async () => {
     if (effectiveDocumentId == null) {
-      setExportMessage('请先保存文档')
+      setExportMessage(t('writingWorkbenchPage.status.exportNeedsSavedDocument'))
       return
     }
     if (isDirty) {
-      setExportMessage('请先保存当前修改，再导出 Markdown')
+      setExportMessage(t('writingWorkbenchPage.status.exportNeedsCleanDocument'))
       return
     }
 
     try {
-      setExportMessage('exporting...')
+      setExportMessage(t('writingWorkbenchPage.status.exporting'))
       const exported = await exportWritingMarkdown(effectiveDocumentId, projectKey)
       const blob = new Blob([exported.markdown], { type: 'text/markdown;charset=utf-8' })
       const url = window.URL.createObjectURL(blob)
@@ -1665,9 +1677,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       anchor.download = exported.filename
       anchor.click()
       window.URL.revokeObjectURL(url)
-      setExportMessage(`已导出 ${exported.filename}`)
+      setExportMessage(tf('writingWorkbenchPage.status.exported', { filename: exported.filename }))
     } catch (error) {
-      setExportMessage(error instanceof Error ? error.message : '导出失败')
+      setExportMessage(error instanceof Error ? error.message : t('writingWorkbenchPage.status.exportFailed'))
     }
   }
 
@@ -1677,14 +1689,14 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     resetContextPanels()
     setSaveMessage('')
     setExportMessage('')
-    setAutosaveMessage('new draft')
+    setAutosaveMessage(t('writingWorkbenchPage.status.newDraft'))
     setDocumentsPanelOpen(false)
     setTemplatesPanelOpen(false)
     setDraftByKey((prev) => ({
       ...prev,
       __new__: {
         title: '',
-        markdown: EMPTY_MARKDOWN,
+        markdown: defaultMarkdown,
       },
     }))
   }
@@ -1751,7 +1763,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   }
 
   const handleRefreshWritingState = useCallback(async () => {
-    setAutosaveMessage('refreshing...')
+    setAutosaveMessage(t('writingWorkbenchPage.status.refreshing'))
     const refreshes: Array<Promise<unknown>> = [documentsQuery.refetch()]
     if (effectiveDocumentId != null) {
       refreshes.push(documentDetailQuery.refetch())
@@ -1759,12 +1771,12 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     }
     try {
       await Promise.all(refreshes)
-      setAutosaveMessage('refreshed')
-      setSaveMessage('已刷新工作台')
+      setAutosaveMessage(t('writingWorkbenchPage.status.refreshed'))
+      setSaveMessage(t('writingWorkbenchPage.status.workbenchRefreshed'))
     } catch (error) {
-      setSaveMessage(error instanceof Error ? error.message : '刷新失败')
+      setSaveMessage(error instanceof Error ? error.message : t('writingWorkbenchPage.status.refreshFailed'))
     }
-  }, [citationsQuery, documentDetailQuery, documentsQuery, effectiveDocumentId])
+  }, [citationsQuery, documentDetailQuery, documentsQuery, effectiveDocumentId, t])
 
   const buildWritingAgentCommand = useCallback(
     (userCommand: string) => {
@@ -1773,7 +1785,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       const documentContext = {
         project_key: projectKey,
         doc_id: effectiveDocumentId,
-        title: title || 'Untitled report',
+        title: title || t('writingWorkbenchPage.placeholder.untitledReport'),
         version: documentDetailQuery.data?.version ?? null,
         etag: documentDetailQuery.data?.etag ?? null,
         dirty_in_browser: isDirty,
@@ -1814,6 +1826,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       projectKey,
       selectionState,
       selectionText,
+      t,
       title,
     ],
   )
@@ -1828,7 +1841,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           {
             id: `writing-agent-system-${Date.now()}`,
             role: 'system',
-            content: '当前项目仍在解析中，等顶部项目切换到真实 project_key 后再调用写作 Agent。',
+            content: t('writingWorkbenchPage.agent.projectPending'),
           },
         ])
         return
@@ -1840,7 +1853,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       setWritingAgentMessages((prev) => [
         ...prev,
         { id: `writing-agent-user-${Date.now()}`, role: 'user', content: command },
-        { id: loadingId, role: 'assistant', content: '正在处理写作上下文...', pending: true },
+        { id: loadingId, role: 'assistant', content: t('writingWorkbenchPage.agent.processing'), pending: true },
       ])
 
       let streamedText = ''
@@ -1873,34 +1886,34 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
               const chunk = extractWritingAgentChunk(event)
               if (!chunk?.text) return
               streamedText = chunk.mode === 'append' ? `${streamedText}${chunk.text}` : chunk.text
-              updateLoading(streamedText || '正在处理写作上下文...')
+              updateLoading(streamedText || t('writingWorkbenchPage.agent.processing'))
             },
           },
         )
         const nextSessionId = String(result?.session?.session_id || result?.stream?.session_id || '').trim()
         if (nextSessionId) setWritingAgentSessionId(nextSessionId)
-        updateLoading(String(result?.final_answer || streamedText || '写作 Agent 已完成本轮处理。').trim(), false)
+        updateLoading(String(result?.final_answer || streamedText || t('writingWorkbenchPage.agent.completed')).trim(), false)
         setWritingAgentStreamStatus('closed')
         await handleRefreshWritingState()
       } catch (error) {
         setWritingAgentStreamStatus('error')
-        updateLoading(`写作 Agent 调用失败：${error instanceof Error ? error.message : String(error)}`, false)
+        updateLoading(tf('writingWorkbenchPage.agent.failed', { message: error instanceof Error ? error.message : String(error) }), false)
       } finally {
         setWritingAgentBusy(false)
       }
     },
-    [buildWritingAgentCommand, canUseWritingProject, handleRefreshWritingState, projectKey, writingAgentBusy, writingAgentSessionId],
+    [buildWritingAgentCommand, canUseWritingProject, handleRefreshWritingState, projectKey, t, tf, writingAgentBusy, writingAgentSessionId],
   )
 
   const handleLocateAgentUpdate = (update: WritingAgentUpdate) => {
     const range = findAgentUpdateRange(markdown, update)
     if (!range) {
-      setSaveMessage('未在当前正文中找到该 Agent 块')
+      setSaveMessage(t('writingWorkbenchPage.agentUpdate.notFoundInCurrentBody'))
       return
     }
 
     setViewMode('write')
-    setSaveMessage(`已定位 ${update.locator.anchorId}`)
+    setSaveMessage(tf('writingWorkbenchPage.agentUpdate.located', { anchorId: update.locator.anchorId }))
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         const textarea = canvasShellRef.current?.querySelector<HTMLTextAreaElement>('.writing-editor__textarea')
@@ -1920,11 +1933,11 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     nextMarkdown = persistedMarkdown,
   ) => {
     if (effectiveDocumentId == null || !documentDetailQuery.data) {
-      setSaveMessage('当前没有可更新的文档')
+      setSaveMessage(t('writingWorkbenchPage.agentUpdate.noDocument'))
       return
     }
     if (isDirty) {
-      setSaveMessage('请先保存当前草稿，再处理 Agent 写回')
+      setSaveMessage(t('writingWorkbenchPage.agentUpdate.saveBeforeReview'))
       return
     }
     const nextMetadata = withAgentUpdateReviewStatus(documentDetailQuery.data.metadata_json, update, reviewStatus)
@@ -1944,12 +1957,16 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         delete next[draftKey]
         return next
       })
-      setAutosaveMessage('saved')
-      setSaveMessage(reviewStatus === 'accepted' ? '已采纳 Agent 写回' : '已撤回 Agent 写回')
+      setAutosaveMessage(t('writingWorkbenchPage.status.saved'))
+      setSaveMessage(
+        reviewStatus === 'accepted'
+          ? t('writingWorkbenchPage.agentUpdate.acceptedMessage')
+          : t('writingWorkbenchPage.agentUpdate.rejectedMessage'),
+      )
       await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documents(projectKey) })
       await queryClient.invalidateQueries({ queryKey: queryKeys.writing.documentDetail(projectKey, document.id || effectiveDocumentId) })
     } catch (error) {
-      setSaveMessage(error instanceof Error ? error.message : 'Agent 写回状态更新失败')
+      setSaveMessage(error instanceof Error ? error.message : t('writingWorkbenchPage.agentUpdate.reviewFailed'))
     }
   }
 
@@ -1959,12 +1976,12 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
 
   const handleRejectAgentUpdate = (update: WritingAgentUpdate) => {
     if (isDirty) {
-      setSaveMessage('请先保存当前草稿，再撤回 Agent 写回')
+      setSaveMessage(t('writingWorkbenchPage.agentUpdate.saveBeforeReject'))
       return
     }
     const nextMarkdown = buildAgentUpdateRejectedMarkdown(persistedMarkdown, update)
     if (nextMarkdown == null) {
-      setSaveMessage('未在服务器正文中找到可撤回的 Agent 块')
+      setSaveMessage(t('writingWorkbenchPage.agentUpdate.notFoundOnServer'))
       return
     }
     void persistAgentUpdateReview(update, 'rejected', nextMarkdown)
@@ -1973,76 +1990,84 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const writingAgentToolActions: WritingAgentToolAction[] = [
     {
       id: 'rewrite-selection',
-      label: '改写选区',
-      description: '将当前划词和精确 range 交给 Agent 改写。',
-      prompt: '改写当前选区，保持原论证含义但让表达更清晰；请写回当前文档，优先使用 replace_range。',
+      label: t('writingWorkbenchPage.agentAction.rewriteSelection.label'),
+      description: t('writingWorkbenchPage.agentAction.rewriteSelection.description'),
+      prompt: t('writingWorkbenchPage.agentAction.rewriteSelection.prompt'),
       disabled: !selectionText,
     },
     {
       id: 'continue-after-selection',
-      label: '选区后续写',
-      description: '从当前划词后继续扩写一段。',
-      prompt: '在当前选区后续写一段，承接上下文并写回当前文档，优先使用 insert_at_offset。',
+      label: t('writingWorkbenchPage.agentAction.continueAfterSelection.label'),
+      description: t('writingWorkbenchPage.agentAction.continueAfterSelection.description'),
+      prompt: t('writingWorkbenchPage.agentAction.continueAfterSelection.prompt'),
       disabled: !selectionText,
     },
     {
       id: 'insert-before-selection',
-      label: '选区前补桥段',
-      description: '在当前划词前补一段过渡或定义。',
-      prompt: '在当前选区前补一段必要的过渡、定义或论证铺垫，写回当前文档，使用 insert_before_text。',
+      label: t('writingWorkbenchPage.agentAction.insertBeforeSelection.label'),
+      description: t('writingWorkbenchPage.agentAction.insertBeforeSelection.description'),
+      prompt: t('writingWorkbenchPage.agentAction.insertBeforeSelection.prompt'),
       disabled: !selectionText,
     },
     {
       id: 'expand-section',
-      label: '扩写当前节',
-      description: '根据当前标题和附近上下文扩写当前小节。',
-      prompt: '扩写当前标题下的小节，先读取文档，再在当前标题后插入一段结构化内容。',
+      label: t('writingWorkbenchPage.agentAction.expandSection.label'),
+      description: t('writingWorkbenchPage.agentAction.expandSection.description'),
+      prompt: t('writingWorkbenchPage.agentAction.expandSection.prompt'),
       disabled: effectiveDocumentId == null,
     },
     {
       id: 'material-search',
-      label: '按选区找资料',
-      description: '围绕当前选区检索项目内结构化、图谱和资料库信息。',
-      prompt: '围绕当前选区检索项目内 documents、graph_nodes、resource_pool 等资料，给出可用于写作的证据点，不要先写回。',
+      label: t('writingWorkbenchPage.agentAction.materialSearch.label'),
+      description: t('writingWorkbenchPage.agentAction.materialSearch.description'),
+      prompt: t('writingWorkbenchPage.agentAction.materialSearch.prompt'),
       disabled: !selectionText,
     },
     {
       id: 'evidence-to-paragraph',
-      label: '证据转段落',
-      description: '把当前资料上下文整理成可写入段落。',
-      prompt: '基于当前选区、引用和已钉住资料，生成一段带证据指向的写作段落，并询问或在明确可定位时写回。',
+      label: t('writingWorkbenchPage.agentAction.evidenceToParagraph.label'),
+      description: t('writingWorkbenchPage.agentAction.evidenceToParagraph.description'),
+      prompt: t('writingWorkbenchPage.agentAction.evidenceToParagraph.prompt'),
     },
     {
       id: 'outline',
-      label: '生成提纲',
-      description: '读取当前文档后生成或补全提纲。',
-      prompt: '读取当前文档，生成一份可以继续写作的分层提纲；如果文档为空，创建一个适合当前标题的提纲。',
+      label: t('writingWorkbenchPage.agentAction.outline.label'),
+      description: t('writingWorkbenchPage.agentAction.outline.description'),
+      prompt: t('writingWorkbenchPage.agentAction.outline.prompt'),
     },
     {
       id: 'review-structure',
-      label: '结构审阅',
-      description: '检查论证结构、断裂点和需要补证据的位置。',
-      prompt: '审阅当前文档结构，指出论证断裂、重复、需要补证据的位置，并给出下一步写作操作建议。',
+      label: t('writingWorkbenchPage.agentAction.reviewStructure.label'),
+      description: t('writingWorkbenchPage.agentAction.reviewStructure.description'),
+      prompt: t('writingWorkbenchPage.agentAction.reviewStructure.prompt'),
     },
   ]
 
   const writingAgentWorkbenchTools: WritingAgentWorkbenchTool[] = [
-    { id: 'documents', label: '文档', active: documentsPanelOpen, onClick: toggleDocumentsPanel },
-    { id: 'templates', label: '模板', active: templatesPanelOpen, onClick: toggleTemplatesPanel },
-    { id: 'insights', label: '资料', active: insightsPanelOpen, onClick: toggleInsightsPanel },
+    { id: 'documents', label: t('writingWorkbenchPage.panel.documents'), active: documentsPanelOpen, onClick: toggleDocumentsPanel },
+    { id: 'templates', label: t('writingWorkbenchPage.panel.templates'), active: templatesPanelOpen, onClick: toggleTemplatesPanel },
+    { id: 'insights', label: t('writingWorkbenchPage.panel.insights'), active: insightsPanelOpen, onClick: toggleInsightsPanel },
     {
       id: 'citations',
-      label: '引用',
+      label: t('writingWorkbenchPage.panel.citations'),
       active: citationTrayVisible,
       onClick: () => {
         activateFloatingWindow('citations')
         setCitationTrayVisible((prev) => !prev)
       },
     },
-    { id: 'updates', label: '写回', active: agentUpdatesPanelOpen, onClick: () => setAgentUpdatesPanelOpen((prev) => !prev) },
-    { id: 'save', label: '保存', disabled: saveDocumentMutation.isPending, onClick: () => saveDocumentMutation.mutate() },
-    { id: 'refresh', label: '刷新', onClick: () => void handleRefreshWritingState() },
+    { id: 'updates', label: t('writingWorkbenchPage.panel.agentWrites'), active: agentUpdatesPanelOpen, onClick: () => setAgentUpdatesPanelOpen((prev) => !prev) },
+    { id: 'save', label: t('writingWorkbenchPage.action.save'), disabled: saveDocumentMutation.isPending, onClick: () => saveDocumentMutation.mutate() },
+    { id: 'refresh', label: t('writingWorkbenchPage.action.refresh'), onClick: () => void handleRefreshWritingState() },
   ]
+  const agentReviewStatusLabel = (status: WritingAgentReviewStatus) =>
+    t(
+      status === 'accepted'
+        ? 'writingWorkbenchPage.agentUpdate.status.accepted'
+        : status === 'rejected'
+          ? 'writingWorkbenchPage.agentUpdate.status.rejected'
+          : 'writingWorkbenchPage.agentUpdate.status.pending',
+    )
 
   return (
     <div className={`writing-workbench-page${standalone ? ' is-standalone' : ''}`} data-testid="writing-workbench-page">
@@ -2052,19 +2077,19 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
             className="writing-toolbar-drag-handle"
             onMouseDown={handleToolbarDragStart}
             onDoubleClick={resetToolbarPosition}
-            aria-label="拖动写作条"
-            title="拖动写作条，双击恢复默认位置"
+            aria-label={t('writingWorkbenchPage.aria.toolbarDrag')}
+            title={t('writingWorkbenchPage.title.toolbarDrag')}
           />
           <div className="writing-toolbar-cluster writing-toolbar-cluster--title">
             {standalone ? (
               <button type="button" className="button-secondary" onClick={handleBackToWorkspace}>
-                返
+                {t('writingWorkbenchPage.action.back')}
               </button>
             ) : null}
             <input
               className="writing-title-input"
               data-testid="writing-title-input"
-              aria-label="writing document title"
+              aria-label={t('writingWorkbenchPage.aria.documentTitle')}
               value={title}
               onChange={(event) =>
                 setDraftByKey((prev) => ({
@@ -2072,25 +2097,25 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                   [draftKey]: { title: event.target.value, markdown },
                 }))
               }
-              placeholder="Untitled report"
+              placeholder={t('writingWorkbenchPage.placeholder.untitledReport')}
             />
           </div>
 
           <div className="writing-toolbar-cluster writing-toolbar-cluster--panels">
             <button type="button" className={panelButtonClass(documentsPanelOpen)} data-testid="writing-panel-documents" onClick={toggleDocumentsPanel}>
-              文档
+              {t('writingWorkbenchPage.panel.documents')}
             </button>
             <button type="button" className={panelButtonClass(templatesPanelOpen)} data-testid="writing-panel-templates" onClick={toggleTemplatesPanel}>
-              模板
+              {t('writingWorkbenchPage.panel.templates')}
             </button>
             <button type="button" className={panelButtonClass(insightsPanelOpen)} data-testid="writing-panel-insights" onClick={toggleInsightsPanel}>
-              资料
+              {t('writingWorkbenchPage.panel.insights')}
             </button>
             <button type="button" className={panelButtonClass(citationTrayVisible)} data-testid="writing-panel-citations" onClick={() => { activateFloatingWindow('citations'); setCitationTrayVisible((prev) => !prev) }}>
-              引用
+              {t('writingWorkbenchPage.panel.citations')}
             </button>
             <button type="button" className={panelButtonClass(llmPanelOpen)} data-testid="writing-panel-llm" onClick={toggleLlmPanel}>
-              Agent
+              {t('writingWorkbenchPage.panel.agent')}
             </button>
             <button
               type="button"
@@ -2098,31 +2123,31 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
               data-testid="writing-panel-agent-updates"
               onClick={() => setAgentUpdatesPanelOpen((prev) => !prev)}
             >
-              Agent{agentUpdates.length ? ` ${agentUpdates.length}` : ''}
+              {agentUpdates.length ? tf('writingWorkbenchPage.panel.agentUpdatesCount', { count: agentUpdates.length }) : t('writingWorkbenchPage.panel.agent')}
             </button>
           </div>
 
           <div className="writing-toolbar-cluster writing-toolbar-cluster--actions">
             <button type="button" className={panelButtonClass(viewMode === 'write')} data-testid="writing-mode-write" onClick={() => setViewMode('write')}>
-              写
+              {t('writingWorkbenchPage.mode.write')}
             </button>
             <button type="button" className={panelButtonClass(viewMode === 'preview')} data-testid="writing-mode-preview" onClick={() => setViewMode('preview')}>
-              预
+              {t('writingWorkbenchPage.mode.preview')}
             </button>
             <button type="button" className={panelButtonClass(viewMode === 'split')} data-testid="writing-mode-split" onClick={() => setViewMode('split')}>
-              分
+              {t('writingWorkbenchPage.mode.split')}
             </button>
             <button type="button" className="button-secondary" data-testid="writing-new-draft" onClick={startNewDraft}>
-              新建
+              {t('writingWorkbenchPage.action.newDraft')}
             </button>
             <button type="button" className="button-primary" data-testid="writing-save" onClick={() => saveDocumentMutation.mutate()} disabled={saveDocumentMutation.isPending}>
-              保存
+              {t('writingWorkbenchPage.action.save')}
             </button>
             <button type="button" className="button-secondary" data-testid="writing-export" onClick={() => void handleExportMarkdown()} disabled={effectiveDocumentId == null || isDirty}>
-              导出
+              {t('writingWorkbenchPage.action.export')}
             </button>
             <button type="button" className="button-secondary" data-testid="writing-refresh" onClick={() => void handleRefreshWritingState()}>
-              刷新
+              {t('writingWorkbenchPage.action.refresh')}
             </button>
           </div>
           <div className="writing-toolbar-cluster writing-toolbar-cluster--meta">
@@ -2141,12 +2166,12 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           onMouseDown={() => activateFloatingWindow('documents')}
         >
           <div className="writing-floating-panel__chrome">
-            <span className="writing-floating-drag-handle" onMouseDown={handleDocumentsPanelDragStart} aria-label="拖动文档面板" />
+            <span className="writing-floating-drag-handle" onMouseDown={handleDocumentsPanelDragStart} aria-label={t('writingWorkbenchPage.aria.documentsPanelDrag')} />
             <div className="writing-floating-panel__tabs">
-              <span className="chip chip-warn">文档</span>
+              <span className="chip chip-warn">{t('writingWorkbenchPage.panel.documents')}</span>
             </div>
             <button type="button" className="button-secondary" onClick={() => setDocumentsPanelOpen(false)}>
-              收起
+              {t('writingWorkbenchPage.action.collapse')}
             </button>
           </div>
 
@@ -2154,15 +2179,15 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
             <section className="panel writing-side-panel">
               <div className="panel-header">
                 <div>
-                  <h2>文档列表</h2>
-                  <p className="text-muted writing-panel-subtitle">只保留文档切换，不再和模板共窗。</p>
+                  <h2>{t('writingWorkbenchPage.section.documentList')}</h2>
+                  <p className="text-muted writing-panel-subtitle">{t('writingWorkbenchPage.hint.documentList')}</p>
                 </div>
                 <span className="chip chip-ok">{documentSummaries.length}</span>
               </div>
 
               <div className="writing-list">
                 <button type="button" className="button-primary" onClick={startNewDraft}>
-                  新建空白报告
+                  {t('writingWorkbenchPage.action.newBlankReport')}
                 </button>
                 {documentSummaries.map((item) => (
                   <button
@@ -2180,13 +2205,13 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                     <div className="writing-list-card__footer">
                       <span className="text-muted">{item.updatedAt}</span>
                       <span className="writing-list-card__badges">
-                        {item.agentUpdateCount ? <span className="chip chip-ok">Agent {item.agentUpdateCount}</span> : null}
-                        {item.active ? <span className="chip chip-ok">当前</span> : null}
+                        {item.agentUpdateCount ? <span className="chip chip-ok">{tf('writingWorkbenchPage.badge.agentCount', { count: item.agentUpdateCount })}</span> : null}
+                        {item.active ? <span className="chip chip-ok">{t('writingWorkbenchPage.status.current')}</span> : null}
                       </span>
                     </div>
                   </button>
                 ))}
-                {!documentSummaries.length ? <div className="empty-cell">暂无已保存文档，先创建一篇。</div> : null}
+                {!documentSummaries.length ? <div className="empty-cell">{t('writingWorkbenchPage.empty.documents')}</div> : null}
               </div>
             </section>
           </div>
@@ -2206,12 +2231,12 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           onMouseDown={() => activateFloatingWindow('templates')}
         >
           <div className="writing-floating-panel__chrome">
-            <span className="writing-floating-drag-handle" onMouseDown={handleTemplatesPanelDragStart} aria-label="拖动模板面板" />
+            <span className="writing-floating-drag-handle" onMouseDown={handleTemplatesPanelDragStart} aria-label={t('writingWorkbenchPage.aria.templatesPanelDrag')} />
             <div className="writing-floating-panel__tabs">
-              <span className="chip chip-warn">模板</span>
+              <span className="chip chip-warn">{t('writingWorkbenchPage.panel.templates')}</span>
             </div>
             <button type="button" className="button-secondary" onClick={() => setTemplatesPanelOpen(false)}>
-              收起
+              {t('writingWorkbenchPage.action.collapse')}
             </button>
           </div>
 
@@ -2241,12 +2266,12 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           onMouseDown={() => activateFloatingWindow('insights')}
         >
           <div className="writing-floating-panel__chrome">
-            <span className="writing-floating-drag-handle" onMouseDown={handleInsightsPanelDragStart} aria-label="拖动资料面板" />
+            <span className="writing-floating-drag-handle" onMouseDown={handleInsightsPanelDragStart} aria-label={t('writingWorkbenchPage.aria.insightsPanelDrag')} />
             <div className="writing-floating-panel__tabs">
-              <span className="chip chip-warn">资料</span>
+              <span className="chip chip-warn">{t('writingWorkbenchPage.panel.insights')}</span>
             </div>
             <button type="button" className="button-secondary" onClick={() => setInsightsPanelOpen(false)}>
-              收起
+              {t('writingWorkbenchPage.action.collapse')}
             </button>
           </div>
 
@@ -2280,12 +2305,12 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           onMouseDown={() => activateFloatingWindow('llm')}
         >
           <div className="writing-floating-panel__chrome">
-            <span className="writing-floating-drag-handle" onMouseDown={handleLlmPanelDragStart} aria-label="拖动 Agent 面板" />
+            <span className="writing-floating-drag-handle" onMouseDown={handleLlmPanelDragStart} aria-label={t('writingWorkbenchPage.aria.agentPanelDrag')} />
             <div className="writing-floating-panel__tabs">
-              <span className="chip chip-warn">Agent</span>
+              <span className="chip chip-warn">{t('writingWorkbenchPage.panel.agent')}</span>
             </div>
             <button type="button" className="button-secondary" onClick={() => setLlmPanelOpen(false)}>
-              收起
+              {t('writingWorkbenchPage.action.collapse')}
             </button>
           </div>
 
@@ -2296,7 +2321,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
               busy={writingAgentBusy}
               streamStatus={writingAgentStreamStatus}
               sessionId={writingAgentSessionId}
-              documentLabel={effectiveDocumentId == null ? '未保存草稿' : `doc ${effectiveDocumentId} · v${documentDetailQuery.data?.version || '-'}`}
+              documentLabel={effectiveDocumentId == null ? t('writingWorkbenchPage.status.unsavedDraft') : `doc ${effectiveDocumentId} · v${documentDetailQuery.data?.version || '-'}`}
               selectionText={selectionText}
               selectionLine={selectionState?.line || null}
               actions={writingAgentToolActions}
@@ -2316,20 +2341,22 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         </aside>
 
         {agentUpdatesPanelOpen ? (
-          <aside className="writing-agent-updates-panel" aria-label="Agent 更新" data-testid="writing-agent-updates-panel">
+          <aside className="writing-agent-updates-panel" aria-label={t('writingWorkbenchPage.agentUpdate.aria.panel')} data-testid="writing-agent-updates-panel">
             <div className="writing-agent-updates-panel__header">
               <div>
-                <span className="chip chip-ok">Agent 更新</span>
+                <span className="chip chip-ok">{t('writingWorkbenchPage.agentUpdate.title')}</span>
                 <p className="writing-panel-subtitle">
-                  {agentUpdates.length ? `当前文档 ${agentUpdates.length} 条` : '当前文档暂无 Agent 写回记录'}
+                  {agentUpdates.length
+                    ? tf('writingWorkbenchPage.agentUpdate.count', { count: agentUpdates.length })
+                    : t('writingWorkbenchPage.agentUpdate.emptyCurrent')}
                 </p>
               </div>
               <div className="writing-agent-updates-panel__actions">
                 <button type="button" className="button-secondary" onClick={() => void handleRefreshWritingState()}>
-                  刷新
+                  {t('writingWorkbenchPage.action.refresh')}
                 </button>
                 <button type="button" className="button-secondary" onClick={() => setAgentUpdatesPanelOpen(false)}>
-                  收起
+                  {t('writingWorkbenchPage.action.collapse')}
                 </button>
               </div>
             </div>
@@ -2342,9 +2369,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
 	                    <div className="writing-agent-update-card__head">
 	                      <span className="chip chip-warn">{update.operation}</span>
 	                      <span className={update.reviewStatus === 'accepted' ? 'chip chip-ok' : update.reviewStatus === 'rejected' ? 'chip chip-danger' : 'chip'}>
-	                        {update.reviewStatus === 'accepted' ? '已采纳' : update.reviewStatus === 'rejected' ? '已撤回' : '待处理'}
+	                        {agentReviewStatusLabel(update.reviewStatus)}
 	                      </span>
-	                      <span className="writing-score">{formatUpdatedAt(update.createdAt)}</span>
+	                      <span className="writing-score">{formatUpdatedAt(update.createdAt, t('writingWorkbenchPage.status.new'))}</span>
 	                    </div>
                     <strong>{update.summary || update.locator.anchorText || update.callId || update.id}</strong>
                     {update.locator.anchorText ? <p>{update.locator.anchorText}</p> : null}
@@ -2356,13 +2383,13 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                     </div>
 	                    <div className="writing-agent-update-card__actions">
 	                      <button type="button" className="button-primary" data-testid="writing-agent-update-locate" onClick={() => handleLocateAgentUpdate(update)}>
-	                        定位
+	                        {t('writingWorkbenchPage.agentUpdate.action.locate')}
 	                      </button>
 	                      <button type="button" className="button-secondary" data-testid="writing-agent-update-accept" onClick={() => handleAcceptAgentUpdate(update)}>
-	                        采纳
+	                        {t('writingWorkbenchPage.agentUpdate.action.accept')}
 	                      </button>
 	                      <button type="button" className="button-secondary" data-testid="writing-agent-update-reject" onClick={() => handleRejectAgentUpdate(update)}>
-	                        撤回
+	                        {t('writingWorkbenchPage.agentUpdate.action.reject')}
 	                      </button>
                       <button
                         type="button"
@@ -2370,30 +2397,35 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                         data-testid="writing-agent-update-diff"
                         onClick={() => setExpandedAgentUpdateId((current) => (current === update.id ? null : update.id))}
                       >
-                        差异
+                        {t('writingWorkbenchPage.agentUpdate.action.diff')}
                       </button>
-                      {update.insertedTextTruncated ? <span className="writing-score">正文片段已截断</span> : null}
-                      {update.replacedTextTruncated ? <span className="writing-score">原选区已截断</span> : null}
+                      {update.insertedTextTruncated ? <span className="writing-score">{t('writingWorkbenchPage.agentUpdate.insertedTruncated')}</span> : null}
+                      {update.replacedTextTruncated ? <span className="writing-score">{t('writingWorkbenchPage.agentUpdate.replacedTruncated')}</span> : null}
 	                    </div>
                     {expandedAgentUpdateId === update.id ? (
                       <div className="writing-agent-update-diff" data-testid="writing-agent-update-diff-panel">
                         {update.replacedText ? (
                           <div className="writing-agent-update-diff__pane">
-                            <small>原选区</small>
+                            <small>{t('writingWorkbenchPage.agentUpdate.diff.originalSelection')}</small>
                             <strong>rollback source</strong>
                             <pre>{update.replacedText}</pre>
                           </div>
                         ) : null}
                         <div className="writing-agent-update-diff__pane">
-                          <small>定位</small>
-                          <strong>{agentUpdateVersionLabel(update)}</strong>
-                          <p>{update.locator.anchorHeading || update.locator.anchorId || '未提供标题定位'}</p>
+                          <small>{t('writingWorkbenchPage.agentUpdate.diff.locator')}</small>
+                          <strong>
+                            {agentUpdateVersionLabel(update, {
+                              before: t('writingWorkbenchPage.agentUpdate.version.before'),
+                              after: t('writingWorkbenchPage.agentUpdate.version.after'),
+                            })}
+                          </strong>
+                          <p>{update.locator.anchorHeading || update.locator.anchorId || t('writingWorkbenchPage.agentUpdate.noHeadingLocator')}</p>
                           {update.locator.anchorLine ? <span>line {update.locator.anchorLine}</span> : null}
                         </div>
                         <div className="writing-agent-update-diff__pane is-added">
-                          <small>Agent 写入</small>
+                          <small>{t('writingWorkbenchPage.agentUpdate.diff.agentInsert')}</small>
                           <strong>{update.operation}</strong>
-                          <pre>{previewAgentUpdateText(update)}</pre>
+                          <pre>{previewAgentUpdateText(update, t('writingWorkbenchPage.agentUpdate.emptyPreview'))}</pre>
                         </div>
                         <div className="writing-agent-update-diff__meta">
                           {update.sourceRefs.length ? <span>refs: {update.sourceRefs.slice(0, 3).join(', ')}</span> : null}
@@ -2406,7 +2438,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                 )
               })}
               {!agentUpdates.length ? (
-                <div className="empty-cell">AgentCore 写回后会在这里显示 provenance 和定位入口。</div>
+                <div className="empty-cell">{t('writingWorkbenchPage.agentUpdate.emptyPanel')}</div>
               ) : null}
             </div>
           </aside>
@@ -2420,9 +2452,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                   value={markdown}
                   autosaveLabel={
                     saveDocumentMutation.isPending
-                      ? 'saving...'
+                      ? t('writingWorkbenchPage.status.saving')
                       : effectiveDocumentId == null
-                        ? 'new draft'
+                        ? t('writingWorkbenchPage.status.newDraft')
                         : autosaveMessage
                   }
                   onChange={(nextMarkdown) =>
@@ -2434,9 +2466,9 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                   onSelectionChange={handleSelectionTextChange}
                 />
                 {agentUpdateAnchors.length ? (
-                  <aside className="writing-agent-collab-rail" aria-label="Agent 段落协作" data-testid="writing-agent-collab-rail">
+                  <aside className="writing-agent-collab-rail" aria-label={t('writingWorkbenchPage.agentRail.aria.panel')} data-testid="writing-agent-collab-rail">
                     <div className="writing-agent-collab-rail__header">
-                      <span className="chip chip-ok">Agent 段落</span>
+                      <span className="chip chip-ok">{t('writingWorkbenchPage.agentRail.title')}</span>
                       <span className="writing-score">{agentUpdateAnchors.length}</span>
                     </div>
                     <div className="writing-agent-collab-rail__list">
@@ -2446,7 +2478,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                             ? `L${lineStart}-${lineEnd}`
                             : lineStart
                               ? `L${lineStart}`
-                              : '未定位'
+                              : t('writingWorkbenchPage.agentRail.unlocated')
                         return (
                           <article
                             key={`rail-${update.id}-${update.callId || 'call'}-${index}`}
@@ -2456,7 +2488,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                             <div className="writing-agent-anchor-card__head">
                               <span className="chip chip-warn">{lineLabel}</span>
                               <span className={update.reviewStatus === 'accepted' ? 'chip chip-ok' : update.reviewStatus === 'rejected' ? 'chip chip-danger' : 'chip'}>
-                                {update.reviewStatus === 'accepted' ? '已采纳' : update.reviewStatus === 'rejected' ? '已撤回' : '待处理'}
+                                {agentReviewStatusLabel(update.reviewStatus)}
                               </span>
                             </div>
                             <strong>{update.summary || update.operation || update.id}</strong>
@@ -2467,13 +2499,13 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                             </div>
                             <div className="writing-agent-anchor-card__actions">
                               <button type="button" className="button-primary" data-testid="writing-agent-anchor-locate" onClick={() => handleLocateAgentUpdate(update)}>
-                                定位
+                                {t('writingWorkbenchPage.agentUpdate.action.locate')}
                               </button>
                               <button type="button" className="button-secondary" data-testid="writing-agent-anchor-accept" onClick={() => handleAcceptAgentUpdate(update)}>
-                                采纳
+                                {t('writingWorkbenchPage.agentUpdate.action.accept')}
                               </button>
                               <button type="button" className="button-secondary" data-testid="writing-agent-anchor-reject" onClick={() => handleRejectAgentUpdate(update)}>
-                                撤回
+                                {t('writingWorkbenchPage.agentUpdate.action.reject')}
                               </button>
                               <button
                                 type="button"
@@ -2484,7 +2516,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                                   setExpandedAgentUpdateId((current) => (current === update.id ? null : update.id))
                                 }}
                               >
-                                差异
+                                {t('writingWorkbenchPage.agentUpdate.action.diff')}
                               </button>
                             </div>
                           </article>

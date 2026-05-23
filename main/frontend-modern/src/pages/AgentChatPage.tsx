@@ -55,6 +55,7 @@ type AgentChatPageProps = {
 type ChatRole = 'system' | 'user' | 'assistant'
 type StageStatus = 'pending' | 'running' | 'done'
 type WorkbenchView = 'overview' | 'tasks' | 'tools' | 'approvals' | 'artifacts'
+type SourceHistoryFilter = 'all' | 'open' | 'approved' | 'deferred' | 'rejected'
 
 type StageItem = {
   key: string
@@ -185,6 +186,24 @@ const STAGE_LABELS = [
   { key: 'tools', labelKey: 'agentChat.stage.tools' },
   { key: 'answer', labelKey: 'agentChat.stage.answer' },
 ] as const
+
+const WORKBENCH_VIEW_LABEL_KEYS: Record<WorkbenchView, MessageKey> = {
+  overview: 'agentChat.workbench.tab.overview',
+  tasks: 'agentChat.workbench.tab.tasks',
+  tools: 'agentChat.workbench.tab.tools',
+  approvals: 'agentChat.workbench.tab.approvals',
+  artifacts: 'agentChat.workbench.tab.artifacts',
+}
+
+const SOURCE_HISTORY_FILTERS: SourceHistoryFilter[] = ['all', 'open', 'approved', 'deferred', 'rejected']
+
+const SOURCE_HISTORY_FILTER_LABEL_KEYS: Record<SourceHistoryFilter, MessageKey> = {
+  all: 'agentChat.source.filter.all',
+  open: 'agentChat.source.filter.open',
+  approved: 'agentChat.source.filter.approved',
+  deferred: 'agentChat.source.filter.deferred',
+  rejected: 'agentChat.source.filter.rejected',
+}
 const AGENT_CHAT_STORAGE_PREFIX = 'agent-chat-state-v1'
 const DEFAULT_SESSION_ID = 's-default'
 
@@ -266,7 +285,7 @@ function extractAssistantStreamChunk(event: AgentEventItem): { mode: 'append' | 
   return null
 }
 
-function extractProgressiveStreamText(event: AgentEventItem): string {
+function extractProgressiveStreamText(locale: AppLocale, event: AgentEventItem): string {
   const eventType = String(event.event_type || '').toLowerCase()
   const payload =
     event.payload && typeof event.payload === 'object'
@@ -287,28 +306,40 @@ function extractProgressiveStreamText(event: AgentEventItem): string {
   const phase = String(payload.phase || '').trim()
   const transition = String(payload.transition_reason || '').trim()
   if (eventType.includes('tool_call_requested')) {
-    return toolName ? `准备调用工具：${toolName}` : '准备调用工具...'
+    return toolName
+      ? formatCatalogTemplate(translate(locale, 'agentChat.stream.toolCallRequestedWithTool'), { tool: toolName })
+      : translate(locale, 'agentChat.stream.toolCallRequested')
   }
   if (eventType.includes('tool_call_started')) {
-    return toolName ? `正在调用工具：${toolName}` : '正在调用工具...'
+    return toolName
+      ? formatCatalogTemplate(translate(locale, 'agentChat.stream.toolCallStartedWithTool'), { tool: toolName })
+      : translate(locale, 'agentChat.stream.toolCallStarted')
   }
   if (eventType.includes('tool_progress')) {
-    return summary || (toolName ? `工具运行中：${toolName}` : '工具运行中...')
+    return summary || (toolName
+      ? formatCatalogTemplate(translate(locale, 'agentChat.stream.toolProgressWithTool'), { tool: toolName })
+      : translate(locale, 'agentChat.stream.toolProgress'))
   }
   if (eventType.includes('tool_result')) {
-    if (toolName && summary) return `工具完成：${toolName}\n${summary}`
-    return toolName ? `工具完成：${toolName}` : '工具已完成。'
+    if (toolName && summary) {
+      return formatCatalogTemplate(translate(locale, 'agentChat.stream.toolResultWithToolAndSummary'), { tool: toolName, summary })
+    }
+    return toolName
+      ? formatCatalogTemplate(translate(locale, 'agentChat.stream.toolResultWithTool'), { tool: toolName })
+      : translate(locale, 'agentChat.stream.toolResult')
   }
   if (eventType.includes('permission_requested')) {
-    return toolName ? `等待确认：${toolName}` : '等待确认...'
+    return toolName
+      ? formatCatalogTemplate(translate(locale, 'agentChat.stream.permissionRequestedWithTool'), { tool: toolName })
+      : translate(locale, 'agentChat.stream.permissionRequested')
   }
   if (eventType.includes('turn_state')) {
-    if (phase === 'model_step') return '模型正在阅读上下文...'
-    if (phase === 'tool_calls') return '模型正在选择并调用工具...'
-    if (phase === 'final_answer') return '正在生成最终回答...'
-    if (transition) return `运行中：${transition}`
+    if (phase === 'model_step') return translate(locale, 'agentChat.stream.turnModelStep')
+    if (phase === 'tool_calls') return translate(locale, 'agentChat.stream.turnToolCalls')
+    if (phase === 'final_answer') return translate(locale, 'agentChat.stream.turnFinalAnswer')
+    if (transition) return formatCatalogTemplate(translate(locale, 'agentChat.stream.turnTransition'), { transition })
   }
-  if (eventType.includes('run_resumed')) return '已恢复会话，继续执行...'
+  if (eventType.includes('run_resumed')) return translate(locale, 'agentChat.stream.runResumed')
   return ''
 }
 
@@ -751,10 +782,10 @@ function normalizeSourceCandidateDecision(value: unknown): SourceQualityCard['re
   return undefined
 }
 
-function formatSourceCandidateDecision(decision?: SourceQualityCard['reviewDecision']) {
-  if (decision === 'approved') return '已采集'
-  if (decision === 'deferred') return '已暂缓'
-  if (decision === 'rejected') return '已拒绝'
+function formatSourceCandidateDecision(locale: AppLocale, decision?: SourceQualityCard['reviewDecision']) {
+  if (decision === 'approved') return translate(locale, 'agentChat.source.decision.approved')
+  if (decision === 'deferred') return translate(locale, 'agentChat.source.decision.deferred')
+  if (decision === 'rejected') return translate(locale, 'agentChat.source.decision.rejected')
   return ''
 }
 
@@ -1100,7 +1131,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
   const [runStateBySession, setRunStateBySession] = useState<Record<string, SessionRunState>>({})
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null)
   const [workbenchView, setWorkbenchView] = useState<WorkbenchView>('overview')
-  const [sourceHistoryFilter, setSourceHistoryFilter] = useState<'all' | 'open' | 'approved' | 'deferred' | 'rejected'>('all')
+  const [sourceHistoryFilter, setSourceHistoryFilter] = useState<SourceHistoryFilter>('all')
   const [approvalOverrideById, setApprovalOverrideById] = useState<Record<string, string>>({})
   const [approvalErrorById, setApprovalErrorById] = useState<Record<string, string>>({})
   const listRef = useRef<HTMLDivElement | null>(null)
@@ -1274,11 +1305,11 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         const chunk = extractAssistantStreamChunk(event)
         if (chunk) {
           streamedAnswer = chunk.mode === 'append' ? `${streamedAnswer}${chunk.text}` : chunk.text
-          updateLoadingMessage(streamedAnswer || '正在思考...')
+          updateLoadingMessage(streamedAnswer || translate(locale, 'agentChat.status.thinking'))
           return
         }
         if (streamedAnswer.trim()) return
-        const progressText = extractProgressiveStreamText(event)
+        const progressText = extractProgressiveStreamText(locale, event)
         if (!progressText || progressText === lastProgressText) return
         lastProgressText = progressText
         updateLoadingMessage(progressText)
@@ -1346,7 +1377,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
             {
               id: `a-approval-${Date.now()}`,
               role: 'assistant',
-              content: finalAnswer || '审批已通过并继续执行。',
+              content: finalAnswer || t('agentChat.approval.approvedContinue'),
               ts: nowLabel(),
               stages: buildCompletedStages(locale),
               meta: showDebugMeta ? ['backend: /agent-chat/approvals/continue'] : [],
@@ -1368,7 +1399,9 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
           {
             id: `a-reject-${Date.now()}`,
             role: 'assistant',
-            content: approval?.approval_id ? `审批已拒绝：${approval.approval_id}。` : '审批已拒绝。',
+            content: approval?.approval_id
+              ? formatCatalogTemplate(t('agentChat.approval.rejectedWithId'), { approvalId: approval.approval_id })
+              : t('agentChat.approval.rejected'),
             ts: nowLabel(),
             stages: buildCompletedStages(locale),
             meta: showDebugMeta ? ['backend: /agent-approvals/resolve', 'approval: rejected'] : [],
@@ -1887,15 +1920,15 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
     || continueApprovalMutation.isPending
     || rejectApprovalMutation.isPending
   const backendErrorText = backendSessionQuery.isError
-    ? '后端会话读取失败'
+    ? t('agentChat.error.backendSessionLoadFailed')
     : backendTaskQuery.isError
-      ? '任务列表读取失败'
+      ? t('agentChat.error.taskListLoadFailed')
       : backendEventQuery.isError
-        ? '事件流读取失败'
+        ? t('agentChat.error.eventStreamLoadFailed')
         : backendArtifactQuery.isError
-          ? '产物读取失败'
+          ? t('agentChat.error.artifactLoadFailed')
           : agentCapabilityQuery.isError
-            ? '能力目录读取失败'
+            ? t('agentChat.error.capabilityCatalogLoadFailed')
             : ''
   const isConversationIdle = activeMessages.length <= 1 && !activeBackendSessionId && !isActiveSessionRunning
   const hasStreamingPlaceholder = activeMessages.some((message) => message.role === 'assistant' && message.id.startsWith('a-loading-'))
@@ -1917,7 +1950,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
       setApprovalErrorById((prev) => ({ ...prev, [approvalId]: '' }))
       continueApprovalMutation.mutate({ approvalId, bindingPayloadOverrides: parsed })
     } catch {
-      setApprovalErrorById((prev) => ({ ...prev, [approvalId]: 'JSON 参数无效' }))
+      setApprovalErrorById((prev) => ({ ...prev, [approvalId]: t('agentChat.error.invalidApprovalJson') }))
     }
   }
 
@@ -1926,7 +1959,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
       <section className="agent-chat-layout">
         <aside className="agent-chat-rail">
           <div className="agent-chat-section-head">
-            <small>Agent</small>
+            <small>{t('agentChat.brand.agent')}</small>
             <button type="button" className="agent-chat-rail__new" onClick={() => createSession()}>
               <MessageSquarePlus size={15} />
               <span>{t('agentChat.action.newConversation')}</span>
@@ -2018,7 +2051,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                 className="agent-chat-icon-button"
                 onClick={() => activeBackendSessionId && coordinatorMutation.mutate(activeBackendSessionId)}
                 disabled={!activeBackendSessionId || actionBusy}
-                title="继续当前 agent 会话"
+                title={t('agentChat.action.continueCurrentSession')}
               >
                 <Play size={15} />
               </button>
@@ -2031,7 +2064,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                     : undefined
                 }
                 disabled={!activeBackendSessionId || !retryableTask?.task_id || actionBusy}
-                title="重试失败任务"
+                title={t('agentChat.action.retryFailedTask')}
               >
                 <RotateCcw size={15} />
               </button>
@@ -2040,7 +2073,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                 className="agent-chat-icon-button"
                 onClick={() => activeBackendSessionId && cancelSessionMutation.mutate(activeBackendSessionId)}
                 disabled={!activeBackendSessionId || actionBusy}
-                title="停止当前会话"
+                title={t('agentChat.action.stopCurrentSession')}
               >
                 <XCircle size={15} />
               </button>
@@ -2072,7 +2105,13 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                       className={`agent-chat-message role-${message.role} ${message.state === 'error' ? 'is-error' : ''} ${isStreamingMessage ? 'is-streaming' : ''}`.trim()}
                     >
                       <div className="agent-chat-message-body">
-                        <span className="agent-chat-message-role">{message.role === 'user' ? 'YOU' : message.role === 'system' ? 'SYSTEM' : 'AGENT'}</span>
+                        <span className="agent-chat-message-role">
+                          {message.role === 'user'
+                            ? t('agentChat.message.role.user')
+                            : message.role === 'system'
+                              ? t('agentChat.message.role.system')
+                              : t('agentChat.message.role.assistant')}
+                        </span>
                         <p className="agent-chat-message-summary">{contentParts.summary}</p>
                         {message.state === 'error' && message.retryCommand ? (
                           <div className="agent-chat-error-actions">
@@ -2083,7 +2122,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                               disabled={Boolean(runStateBySession[retrySessionId]?.pending)}
                             >
                               <RotateCcw size={13} />
-                              重试
+                              {t('agentChat.action.retry')}
                             </button>
                           </div>
                         ) : null}
@@ -2091,7 +2130,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                           <details className="agent-chat-run-details">
                             <summary>
                               <Wrench size={14} />
-                              已运行 {message.capabilityCalls.length} 个工具
+                              {formatCatalogTemplate(t('agentChat.message.runToolsCount'), { count: message.capabilityCalls.length })}
                             </summary>
                             {message.capabilityCalls.map((call, index) => (
                               <div key={`${call.capability_id || 'tool'}-${index}`} className={`agent-chat-run-row status-${normalizeStatusToken(call.status)}`}>
@@ -2109,7 +2148,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         ) : null}
                         {showDebugMeta && message.meta?.length && message.role !== 'system' ? (
                           <details className="agent-chat-debug-details">
-                            <summary>运行元信息</summary>
+                            <summary>{t('agentChat.message.runtimeMeta')}</summary>
                             <div className="agent-chat-message-meta">
                               {message.meta.map((item, index) => (
                                 <span key={`${item}-${index}`}>{item}</span>
@@ -2137,7 +2176,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         ) : null}
                         {contentParts.detailValue ? (
                           <details className="agent-chat-message-detail">
-                            <summary>{contentParts.detailLabel || 'details'}</summary>
+                            <summary>{contentParts.detailLabel || t('agentChat.message.details')}</summary>
                             <pre>{contentParts.detailValue}</pre>
                           </details>
                         ) : null}
@@ -2148,10 +2187,10 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                 {isThinking ? (
                   <article className="agent-chat-message role-assistant is-thinking">
                     <div className="agent-chat-message-body">
-                      <span className="agent-chat-message-role">AGENT</span>
+                      <span className="agent-chat-message-role">{t('agentChat.message.role.assistant')}</span>
                       <p className="agent-chat-message-summary">
                         <LoaderCircle size={14} className="spin" />
-                        <span>正在思考</span>
+                        <span>{t('agentChat.status.thinking')}</span>
                       </p>
                     </div>
                   </article>
@@ -2159,10 +2198,16 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                 <details className="agent-chat-runtime-panel" open={pendingApprovals.length > 0 || undefined}>
                   <summary>
                     <Clock3 size={14} />
-                    运行细节
-                    <span>{sessionTelemetry.events} events · {latestCapabilityCalls.length} tools · {sessionTelemetry.artifacts} artifacts</span>
+                    {t('agentChat.runtime.title')}
+                    <span>
+                      {formatCatalogTemplate(t('agentChat.runtime.summary'), {
+                        events: sessionTelemetry.events,
+                        tools: latestCapabilityCalls.length,
+                        artifacts: sessionTelemetry.artifacts,
+                      })}
+                    </span>
                   </summary>
-                  <div className="agent-chat-workbench-tabs" aria-label="agent workbench view">
+                  <div className="agent-chat-workbench-tabs" aria-label={t('agentChat.workbench.ariaLabel')}>
                     {(['overview', 'tasks', 'tools', 'approvals', 'artifacts'] as const).map((view) => (
                       <button
                         key={view}
@@ -2170,7 +2215,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         className={workbenchView === view ? 'is-active' : undefined}
                         onClick={() => setWorkbenchView(view)}
                       >
-                        {view}
+                        {t(WORKBENCH_VIEW_LABEL_KEYS[view])}
                       </button>
                     ))}
                   </div>
@@ -2178,19 +2223,19 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                   <div className={`agent-chat-inspector-section agent-chat-overview-section ${workbenchView === 'overview' ? '' : 'is-hidden'}`.trim()}>
                     <div className="agent-chat-workbench-metrics">
                       <div>
-                        <span>phase</span>
+                        <span>{t('agentChat.metric.phase')}</span>
                         <strong>{safeDisplay(sessionTelemetry.currentPhase)}</strong>
                       </div>
                       <div>
-                        <span>status</span>
+                        <span>{t('agentChat.metric.status')}</span>
                         <strong>{safeDisplay(sessionTelemetry.status)}</strong>
                       </div>
                       <div>
-                        <span>root</span>
+                        <span>{t('agentChat.metric.root')}</span>
                         <strong>{safeDisplay(sessionTelemetry.rootTaskId)}</strong>
                       </div>
                       <div>
-                        <span>stream</span>
+                        <span>{t('agentChat.metric.stream')}</span>
                         <strong>{streamStatus}</strong>
                       </div>
                     </div>
@@ -2207,13 +2252,13 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                           </article>
                         ))
                       ) : (
-                        <p>暂无事件</p>
+                        <p>{t('agentChat.empty.events')}</p>
                       )}
                     </div>
                   </div>
 
                   <div className={`agent-chat-inspector-section agent-chat-task-plan-section ${shouldShowWorkbenchSection('tasks') ? '' : 'is-hidden'}`.trim()}>
-                    <span><Play size={13} /> task plan</span>
+                    <span><Play size={13} /> {t('agentChat.section.taskPlan')}</span>
                     {sessionTasks.length ? (
                       <div className="agent-chat-task-plan-list">
                         {sessionTasks.map((task, index) => {
@@ -2230,12 +2275,12 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                                 <strong>{task.subject || task.task_type || task.task_id}</strong>
                                 <em>{safeDisplay(task.status)} · {safeDisplay(task.phase)}</em>
                               </div>
-                              <p>{task.result_summary || task.progress?.summary_label || task.description || '等待模型继续处理'}</p>
+                              <p>{task.result_summary || task.progress?.summary_label || task.description || t('agentChat.task.pendingModel')}</p>
                               <div className="agent-chat-task-plan-card__meta">
-                                {task.blocked_by?.length ? <span>blocked by {task.blocked_by.length}</span> : null}
-                                {task.blocks?.length ? <span>blocks {task.blocks.length}</span> : null}
-                                {task.read_set?.length ? <span>read {task.read_set.length}</span> : null}
-                                {task.write_set?.length ? <span>write {task.write_set.length}</span> : null}
+                                {task.blocked_by?.length ? <span>{formatCatalogTemplate(t('agentChat.task.blockedByCount'), { count: task.blocked_by.length })}</span> : null}
+                                {task.blocks?.length ? <span>{formatCatalogTemplate(t('agentChat.task.blocksCount'), { count: task.blocks.length })}</span> : null}
+                                {task.read_set?.length ? <span>{formatCatalogTemplate(t('agentChat.task.readCount'), { count: task.read_set.length })}</span> : null}
+                                {task.write_set?.length ? <span>{formatCatalogTemplate(t('agentChat.task.writeCount'), { count: task.write_set.length })}</span> : null}
                               </div>
                               <div className="agent-chat-task-plan-card__actions">
                                 {canRetry ? (
@@ -2250,7 +2295,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                                     disabled={!activeBackendSessionId || actionBusy}
                                   >
                                     <RotateCcw size={13} />
-                                    重试
+                                    {t('agentChat.action.retry')}
                                   </button>
                                 ) : null}
                                 <button
@@ -2260,7 +2305,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                                   disabled={!activeBackendSessionId || actionBusy}
                                 >
                                   <Play size={13} />
-                                  继续
+                                  {t('agentChat.action.continue')}
                                 </button>
                               </div>
                             </article>
@@ -2268,19 +2313,19 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         })}
                       </div>
                     ) : (
-                      <p>暂无分拆任务</p>
+                      <p>{t('agentChat.empty.tasks')}</p>
                     )}
                     {longTaskStageCards.length ? (
                       <>
-                        <span><Clock3 size={13} /> long task stages</span>
+                        <span><Clock3 size={13} /> {t('agentChat.section.longTaskStages')}</span>
                         <div className="agent-chat-long-task-stage-list">
                           {longTaskStageCards.map((stage) => (
                             <article key={stage.key} className="agent-chat-long-task-stage-card" data-testid="agent-chat-long-task-stage-card">
                               <strong>{stage.currentStage}</strong>
-                              <small>completed {stage.completed}</small>
+                              <small>{formatCatalogTemplate(t('agentChat.longTask.completed'), { value: stage.completed })}</small>
                               <p>{stage.summary}</p>
                               <em>{stage.lastStage} · {stage.counts}</em>
-                              {stage.nextAction ? <em>next {stage.nextAction}</em> : null}
+                              {stage.nextAction ? <em>{formatCatalogTemplate(t('agentChat.longTask.next'), { value: stage.nextAction })}</em> : null}
                             </article>
                           ))}
                         </div>
@@ -2289,66 +2334,66 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                   </div>
 
                   <div className={`agent-chat-inspector-section agent-chat-capability-section ${shouldShowWorkbenchSection('tools') ? '' : 'is-hidden'}`.trim()}>
-                    <span><Wrench size={13} /> capabilities</span>
+                    <span><Wrench size={13} /> {t('agentChat.section.capabilities')}</span>
                     <div className="agent-chat-capability-groups">
                       <div>
-                        <small>core</small>
+                        <small>{t('agentChat.capability.group.core')}</small>
                         {coreCapabilities.length ? (
                           coreCapabilities.map((capability) => (
                             <article
                               key={capability.capability_id || capability.name}
                               className="agent-chat-capability-card"
                               data-testid="agent-chat-capability-item"
-                              title="只读能力目录项"
+                              title={t('agentChat.capability.readOnlyTitle')}
                             >
                               <strong>{capability.capability_id || capability.name}</strong>
                               <em>{summarizeCapability(capability)}</em>
                             </article>
                           ))
                         ) : (
-                          <p>{agentCapabilityQuery.isFetching ? '加载中' : '暂无能力目录'}</p>
+                          <p>{agentCapabilityQuery.isFetching ? t('agentChat.status.loading') : t('agentChat.empty.capabilityCatalog')}</p>
                         )}
                       </div>
                       <div>
-                        <small>governed</small>
+                        <small>{t('agentChat.capability.group.governed')}</small>
                         {governedCapabilities.length ? (
                           governedCapabilities.map((capability) => (
                             <article
                               key={capability.capability_id || capability.name}
                               className="agent-chat-capability-card"
                               data-testid="agent-chat-capability-item"
-                              title="只读能力目录项"
+                              title={t('agentChat.capability.readOnlyTitle')}
                             >
                               <strong>{capability.capability_id || capability.name}</strong>
                               <em>{summarizeCapability(capability)}</em>
                             </article>
                           ))
                         ) : (
-                          <p>审批已冻结，当前默认直接执行显式工具请求</p>
+                          <p>{t('agentChat.empty.governedCapabilities')}</p>
                         )}
                       </div>
                       <div>
-                        <small>external boundary</small>
+                        <small>{t('agentChat.capability.group.externalBoundary')}</small>
                         {unavailableCapabilities.length ? (
                           unavailableCapabilities.map((capability) => (
                             <article
                               key={capability.capability_id || capability.name}
                               className="agent-chat-boundary-card"
                               data-testid="agent-chat-external-boundary-item"
-                              title="未作为可执行工具暴露"
+                              title={t('agentChat.capability.externalBoundaryTitle')}
                             >
                               <strong>{capability.capability_id || capability.name}</strong>
                               <em>{capability.implementation_state || (capability.implemented === false ? 'unimplemented' : 'disabled')}</em>
                               {summarizeCapabilityRuntime(capability) ? <small>{summarizeCapabilityRuntime(capability)}</small> : null}
-                              <p>{capability.disabled_reason || capability.description || 'not available in the current AgentCore tool boundary'}</p>
+                              <p>{capability.disabled_reason || capability.description || t('agentChat.capability.notAvailableBoundary')}</p>
                             </article>
                           ))
                         ) : (
-                          <p>暂无未挂载外部能力</p>
+                          <p>{t('agentChat.empty.externalBoundary')}</p>
                         )}
                       </div>
                     </div>
-                    <span><Wrench size={13} /> tool calls</span>
+                    <span><Wrench size={13} /> {t('agentChat.section.toolCalls')}</span>
                     {latestCapabilityCalls.length ? (
                       latestCapabilityCalls.slice(0, 8).map((call, index) => (
                         <article key={`${call.capability_id || 'call'}-${index}`} className={`agent-chat-run-row status-${normalizeStatusToken(call.status)}`}>
@@ -2367,9 +2412,9 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         </article>
                       ))
                     ) : (
-                      <p>暂无工具调用</p>
+                      <p>{t('agentChat.empty.toolCalls')}</p>
                     )}
-                    <span><Radio size={13} /> progressive events</span>
+                    <span><Radio size={13} /> {t('agentChat.section.progressiveEvents')}</span>
                     {progressiveToolEvents.length ? (
                       <div className="agent-chat-progressive-list">
                         {progressiveToolEvents.map((event) => (
@@ -2385,11 +2430,11 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         ))}
                       </div>
                     ) : (
-                      <p>暂无增量事件</p>
+                      <p>{t('agentChat.empty.progressiveEvents')}</p>
                     )}
                     {investigationTraceCards.length ? (
                       <>
-                        <span><Search size={13} /> investigation trace</span>
+                        <span><Search size={13} /> {t('agentChat.section.investigationTrace')}</span>
                         <div className="agent-chat-trace-list">
                           {investigationTraceCards.map((trace) => (
                             <article key={trace.key} className="agent-chat-trace-card" data-testid="agent-chat-investigation-trace-card">
@@ -2404,7 +2449,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                     ) : null}
                     {writingDiffCards.length ? (
                       <>
-                        <span><FileText size={13} /> writing diff</span>
+                        <span><FileText size={13} /> {t('agentChat.section.writingDiff')}</span>
                         <div className="agent-chat-diff-list">
                           {writingDiffCards.map((diff) => (
                             <article key={diff.key} className="agent-chat-diff-card" data-testid="agent-chat-diff-event">
@@ -2419,22 +2464,16 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                     ) : null}
                     {sourceQualityCards.length ? (
                       <>
-                        <span><ShieldCheck size={13} /> source quality</span>
+                        <span><ShieldCheck size={13} /> {t('agentChat.section.sourceQuality')}</span>
                         <div className="agent-chat-source-history-toolbar" data-testid="agent-chat-source-history-toolbar">
-                          {[
-                            ['all', `全部 ${sourceHistorySummary.all}`],
-                            ['open', `待审 ${sourceHistorySummary.open}`],
-                            ['approved', `已采集 ${sourceHistorySummary.approved}`],
-                            ['deferred', `暂缓 ${sourceHistorySummary.deferred}`],
-                            ['rejected', `拒绝 ${sourceHistorySummary.rejected}`],
-                          ].map(([filter, label]) => (
+                          {SOURCE_HISTORY_FILTERS.map((filter) => (
                             <button
                               key={filter}
                               type="button"
                               className={sourceHistoryFilter === filter ? 'is-selected' : ''}
                               onClick={() => setSourceHistoryFilter(filter as typeof sourceHistoryFilter)}
                             >
-                              {label}
+                              {formatCatalogTemplate(t(SOURCE_HISTORY_FILTER_LABEL_KEYS[filter]), { count: sourceHistorySummary[filter] })}
                             </button>
                           ))}
                         </div>
@@ -2442,7 +2481,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                           {visibleSourceQualityCards.length ? visibleSourceQualityCards.map((card) => (
                             <article key={card.key} className={`agent-chat-source-quality-card status-${normalizeStatusToken(card.status)}`} data-testid="agent-chat-source-quality-card">
                               <strong>{card.title}</strong>
-                              <small>{card.status} · score {card.score} · {card.level}</small>
+                              <small>{formatCatalogTemplate(t('agentChat.source.scoreMeta'), { status: card.status, score: card.score, level: card.level })}</small>
                               {card.url ? <em>{card.url}</em> : null}
                               <p>{card.reason}</p>
                               {card.snippet ? <p>{card.snippet}</p> : null}
@@ -2454,8 +2493,8 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                               ) : null}
                               {card.reviewDecision ? (
                                 <div className={`agent-chat-source-quality-card__decision decision-${card.reviewDecision}`} data-testid="agent-chat-source-candidate-decision">
-                                  <span>{formatSourceCandidateDecision(card.reviewDecision)}</span>
-                                  {card.reviewTaskId ? <em>task {card.reviewTaskId}</em> : null}
+                                  <span>{formatSourceCandidateDecision(locale, card.reviewDecision)}</span>
+                                  {card.reviewTaskId ? <em>{formatCatalogTemplate(t('agentChat.source.taskLabel'), { taskId: card.reviewTaskId })}</em> : null}
                                   {card.reviewNextGate ? <em>{card.reviewNextGate}</em> : null}
                                   {card.reviewReason ? <p>{card.reviewReason}</p> : null}
                                 </div>
@@ -2468,7 +2507,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                                   disabled={isActiveSessionRunning}
                                   onClick={() => submitSourceCandidateDecision(card, 'approved')}
                                 >
-                                  <Play size={13} /> 采集
+                                  <Play size={13} /> {t('agentChat.source.action.collect')}
                                 </button>
                                 <button
                                   type="button"
@@ -2477,7 +2516,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                                   disabled={isActiveSessionRunning}
                                   onClick={() => submitSourceCandidateDecision(card, 'deferred')}
                                 >
-                                  <Clock3 size={13} /> 暂缓
+                                  <Clock3 size={13} /> {t('agentChat.source.action.defer')}
                                 </button>
                                 <button
                                   type="button"
@@ -2486,12 +2525,12 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                                   disabled={isActiveSessionRunning}
                                   onClick={() => submitSourceCandidateDecision(card, 'rejected')}
                                 >
-                                  <XCircle size={13} /> 拒绝
+                                  <XCircle size={13} /> {t('agentChat.source.action.reject')}
                                 </button>
                               </div>
                             </article>
                           )) : (
-                            <p className="agent-chat-source-history-empty">当前筛选下没有候选来源</p>
+                            <p className="agent-chat-source-history-empty">{t('agentChat.empty.sourceHistory')}</p>
                           )}
                         </div>
                       </>
@@ -2499,11 +2538,11 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                   </div>
 
                   <div className={`agent-chat-inspector-section agent-chat-approval-section ${shouldShowWorkbenchSection('approvals') ? '' : 'is-hidden'}`.trim()}>
-                    <span><ShieldCheck size={13} /> approvals</span>
+                    <span><ShieldCheck size={13} /> {t('agentChat.section.approvals')}</span>
                     {primaryPendingApproval ? (
                       <div className="agent-chat-approval-callout">
                         <div>
-                          <small>待审批</small>
+                          <small>{t('agentChat.approval.pending')}</small>
                           <strong>
                             {(() => {
                               const binding = primaryPendingApproval.binding_payload || {}
@@ -2516,7 +2555,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                           <textarea
                             value={approvalOverrideById[primaryPendingApproval.approval_id] || ''}
                             placeholder='{"graph_id":"...","inputs":{}}'
-                            aria-label="approval override JSON"
+                            aria-label={t('agentChat.approval.overrideAriaLabel')}
                             onChange={(event) => {
                               const value = event.target.value
                               setApprovalOverrideById((prev) => ({ ...prev, [primaryPendingApproval.approval_id]: value }))
@@ -2537,7 +2576,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                             disabled={actionBusy}
                           >
                             <Play size={13} />
-                            批准并继续
+                            {t('agentChat.action.approveAndContinue')}
                           </button>
                           <button
                             type="button"
@@ -2546,7 +2585,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                             onClick={() => rejectApprovalMutation.mutate(primaryPendingApproval.approval_id)}
                             disabled={actionBusy}
                           >
-                            拒绝
+                            {t('agentChat.action.reject')}
                           </button>
                         </div>
                       </div>
@@ -2572,12 +2611,12 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         )
                       })
                     ) : (
-                      <p>审批已冻结，暂无待处理请求</p>
+                      <p>{t('agentChat.empty.approvals')}</p>
                     )}
                   </div>
 
                   <div className={`agent-chat-inspector-section agent-chat-artifact-section ${shouldShowWorkbenchSection('artifacts') ? '' : 'is-hidden'}`.trim()}>
-                    <span><FileText size={13} /> artifacts</span>
+                    <span><FileText size={13} /> {t('agentChat.section.artifacts')}</span>
                     {latestArtifacts.length ? (
                       latestArtifacts.map((artifact) => (
                         <button
@@ -2592,7 +2631,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         </button>
                       ))
                     ) : (
-                      <p>暂无产物</p>
+                      <p>{t('agentChat.empty.artifacts')}</p>
                     )}
                     {selectedArtifact ? (
                       <div className="agent-chat-artifact-preview">
@@ -2605,11 +2644,15 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                     ) : null}
                   </div>
                   <div className="agent-chat-session-panel__footer">
-                    <span>compat {safeDisplay(sessionTelemetry.compatMode)}</span>
-                    <span>{sessionTelemetry.projectionVersion ? `projection ${sessionTelemetry.projectionVersion}` : 'projection -'}</span>
+                    <span>{formatCatalogTemplate(t('agentChat.runtime.compatLabel'), { value: safeDisplay(sessionTelemetry.compatMode) })}</span>
+                    <span>
+                      {sessionTelemetry.projectionVersion
+                        ? formatCatalogTemplate(t('agentChat.runtime.projectionLabel'), { value: sessionTelemetry.projectionVersion })
+                        : t('agentChat.runtime.projectionEmpty')}
+                    </span>
                     <button type="button" onClick={() => void refreshBackendSession()} disabled={!activeBackendSessionId}>
                       <RefreshCw size={13} className={backendSessionQuery.isFetching ? 'spin' : undefined} />
-                      刷新
+                      {t('agentChat.action.refresh')}
                     </button>
                   </div>
                 </details>

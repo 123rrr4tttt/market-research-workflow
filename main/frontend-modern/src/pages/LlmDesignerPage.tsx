@@ -23,6 +23,7 @@ import {
   getWorkflowGraphRunEvents,
   runWorkflowGraph,
 } from '../lib/api'
+import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 import NodeInfoCard from '../components/workflow/NodeInfoCard'
 import NodeTemplatePalette, { type NodeTemplatePaletteItem } from '../components/workflow/NodeTemplatePalette'
 import { getNodeSchema } from '../components/workflow/nodeSchemaRegistry'
@@ -49,13 +50,17 @@ type NodeType = 'vector_search' | 'llm_call' | 'join' | 'filter' | 'frontend_inp
 
 type NodeTemplate = NodeTemplatePaletteItem<Record<string, unknown>> & {
   nodeType: NodeType
+  labelKey?: LlmDesignerMessageKey
+  descriptionKey?: LlmDesignerMessageKey
 }
 
 type NodeInfoProfile = {
   key: string
   label: string
+  labelKey?: LlmDesignerMessageKey
   nodeType: NodeType
   description?: string
+  descriptionKey?: LlmDesignerMessageKey
   data: Record<string, unknown>
 }
 
@@ -66,6 +71,8 @@ type NodeOutputOption = {
 }
 
 type CanvasPanelKey = 'templates' | 'p2p' | 'preset' | 'runtime' | 'json' | 'results'
+type LlmDesignerMessageKey = Extract<MessageKey, `llmDesignerPage.${string}`>
+type TemplateValues = Record<string, string | number>
 
 type LlmDesignerPageProps = {
   projectKey: string
@@ -85,6 +92,10 @@ type DesignerLinkParams = {
   frontendQueryKey: string
   databaseStoreUri: string
   databaseTable: string
+}
+
+function formatLlmDesignerTemplate(template: string, values: TemplateValues) {
+  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => String(values[key] ?? match))
 }
 
 function readDesignerLinkParams(): DesignerLinkParams {
@@ -148,32 +159,55 @@ function createModuleTemplates(): NodeTemplate[] {
   }))
 }
 
-function createTemplateCatalog(): NodeTemplate[] {
-  return mergeUniqueTemplates(NODE_TEMPLATES, createModuleTemplates())
+function localizeTemplate(template: NodeTemplate, t: (key: LlmDesignerMessageKey, fallback?: string) => string): NodeTemplate {
+  return {
+    ...template,
+    label: template.labelKey ? t(template.labelKey, template.label) : template.label,
+    description: template.descriptionKey ? t(template.descriptionKey, template.description) : template.description,
+  }
+}
+
+function localizeProfile(profile: NodeInfoProfile, t: (key: LlmDesignerMessageKey, fallback?: string) => string): NodeInfoProfile {
+  return {
+    ...profile,
+    label: profile.labelKey ? t(profile.labelKey, profile.label) : profile.label,
+    description: profile.descriptionKey ? t(profile.descriptionKey, profile.description) : profile.description,
+  }
+}
+
+function createTemplateCatalog(t?: (key: LlmDesignerMessageKey, fallback?: string) => string): NodeTemplate[] {
+  const templates = mergeUniqueTemplates(NODE_TEMPLATES, createModuleTemplates())
+  return t ? templates.map((template) => localizeTemplate(template, t)) : templates
 }
 
 const NODE_TEMPLATES: NodeTemplate[] = [
   {
     key: 'user-input',
-    label: 'User Input',
+    label: 'llmDesignerPage.template.userInput.label',
+    labelKey: 'llmDesignerPage.template.userInput.label',
     nodeType: 'vector_search',
-    description: '用户输入/问题入口',
-    data: { label: 'User Input', node_type: 'vector_search', role: 'input', query_key: 'query' },
+    description: 'llmDesignerPage.template.userInput.description',
+    descriptionKey: 'llmDesignerPage.template.userInput.description',
+    data: { label: 'user_input', node_type: 'vector_search', role: 'input', query_key: 'query' },
   },
   {
     key: 'vector-search',
-    label: 'Vector Search',
+    label: 'llmDesignerPage.template.vectorSearch.label',
+    labelKey: 'llmDesignerPage.template.vectorSearch.label',
     nodeType: 'vector_search',
-    description: '向量检索上下文',
-    data: { label: 'Vector Search', node_type: 'vector_search', top_k: 5, source: 'default_corpus' },
+    description: 'llmDesignerPage.template.vectorSearch.description',
+    descriptionKey: 'llmDesignerPage.template.vectorSearch.description',
+    data: { label: 'vector_search', node_type: 'vector_search', top_k: 5, source: 'default_corpus' },
   },
   {
     key: 'llm-call',
-    label: 'LLM Call',
+    label: 'llmDesignerPage.template.llmCall.label',
+    labelKey: 'llmDesignerPage.template.llmCall.label',
     nodeType: 'llm_call',
-    description: '调用大模型生成',
+    description: 'llmDesignerPage.template.llmCall.description',
+    descriptionKey: 'llmDesignerPage.template.llmCall.description',
     data: {
-      label: 'LLM Call',
+      label: 'llm_call',
       node_type: 'llm_call',
       provider: 'openai',
       model: 'gpt-4.1',
@@ -186,11 +220,13 @@ const NODE_TEMPLATES: NodeTemplate[] = [
   },
   {
     key: 'filter-predicate',
-    label: 'Filter (Predicate)',
+    label: 'llmDesignerPage.template.filterPredicate.label',
+    labelKey: 'llmDesignerPage.template.filterPredicate.label',
     nodeType: 'filter',
-    description: '表达式筛选策略',
+    description: 'llmDesignerPage.template.filterPredicate.description',
+    descriptionKey: 'llmDesignerPage.template.filterPredicate.description',
     data: {
-      label: 'Filter Predicate',
+      label: 'filter_predicate',
       node_type: 'filter',
       strategy: 'predicate',
       predicate_expr: '={{$input.query}}',
@@ -199,11 +235,13 @@ const NODE_TEMPLATES: NodeTemplate[] = [
   },
   {
     key: 'filter-topk',
-    label: 'Filter (TopK)',
+    label: 'llmDesignerPage.template.filterTopk.label',
+    labelKey: 'llmDesignerPage.template.filterTopk.label',
     nodeType: 'filter',
-    description: '评分阈值/TopK 筛选',
+    description: 'llmDesignerPage.template.filterTopk.description',
+    descriptionKey: 'llmDesignerPage.template.filterTopk.description',
     data: {
-      label: 'Filter TopK',
+      label: 'filter_topk',
       node_type: 'filter',
       strategy: 'topk',
       topk_k: 20,
@@ -213,17 +251,21 @@ const NODE_TEMPLATES: NodeTemplate[] = [
   },
   {
     key: 'join',
-    label: 'Join',
+    label: 'llmDesignerPage.template.join.label',
+    labelKey: 'llmDesignerPage.template.join.label',
     nodeType: 'join',
-    description: '聚合多路节点输出',
-    data: { label: 'Join', node_type: 'join', strategy: 'concat' },
+    description: 'llmDesignerPage.template.join.description',
+    descriptionKey: 'llmDesignerPage.template.join.description',
+    data: { label: 'join', node_type: 'join', strategy: 'concat' },
   },
   {
     key: 'final-output',
-    label: 'Final Output',
+    label: 'llmDesignerPage.template.finalOutput.label',
+    labelKey: 'llmDesignerPage.template.finalOutput.label',
     nodeType: 'join',
-    description: '最终输出节点',
-    data: { label: 'Final Output', node_type: 'join', role: 'output' },
+    description: 'llmDesignerPage.template.finalOutput.description',
+    descriptionKey: 'llmDesignerPage.template.finalOutput.description',
+    data: { label: 'final_output', node_type: 'join', role: 'output' },
   },
 ]
 
@@ -239,9 +281,11 @@ const SOURCE_TYPE_BY_NODE: Record<NodeType, string> = {
 const NODE_INFO_PROFILES: NodeInfoProfile[] = [
   {
     key: 'llm-precise',
-    label: 'LLM Precise',
+    label: 'llmDesignerPage.profile.llmPrecise.label',
+    labelKey: 'llmDesignerPage.profile.llmPrecise.label',
     nodeType: 'llm_call',
-    description: '低温度，稳定输出',
+    description: 'llmDesignerPage.profile.llmPrecise.description',
+    descriptionKey: 'llmDesignerPage.profile.llmPrecise.description',
     data: {
       provider: 'openai',
       model: 'gpt-4.1',
@@ -254,9 +298,11 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
   },
   {
     key: 'llm-creative',
-    label: 'LLM Creative',
+    label: 'llmDesignerPage.profile.llmCreative.label',
+    labelKey: 'llmDesignerPage.profile.llmCreative.label',
     nodeType: 'llm_call',
-    description: '高温度，发散输出',
+    description: 'llmDesignerPage.profile.llmCreative.description',
+    descriptionKey: 'llmDesignerPage.profile.llmCreative.description',
     data: {
       provider: 'openai',
       model: 'gpt-4.1',
@@ -269,9 +315,11 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
   },
   {
     key: 'llm-summarizer',
-    label: 'LLM Summarizer',
+    label: 'llmDesignerPage.profile.llmSummarizer.label',
+    labelKey: 'llmDesignerPage.profile.llmSummarizer.label',
     nodeType: 'llm_call',
-    description: '摘要生成',
+    description: 'llmDesignerPage.profile.llmSummarizer.description',
+    descriptionKey: 'llmDesignerPage.profile.llmSummarizer.description',
     data: {
       provider: 'openai',
       model: 'gpt-4.1-mini',
@@ -284,9 +332,11 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
   },
   {
     key: 'llm-extractor',
-    label: 'LLM Extractor',
+    label: 'llmDesignerPage.profile.llmExtractor.label',
+    labelKey: 'llmDesignerPage.profile.llmExtractor.label',
     nodeType: 'llm_call',
-    description: '结构化字段提取',
+    description: 'llmDesignerPage.profile.llmExtractor.description',
+    descriptionKey: 'llmDesignerPage.profile.llmExtractor.description',
     data: {
       provider: 'openai',
       model: 'gpt-4.1-mini',
@@ -299,23 +349,29 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
   },
   {
     key: 'vec-fast',
-    label: 'Vector Fast',
+    label: 'llmDesignerPage.profile.vecFast.label',
+    labelKey: 'llmDesignerPage.profile.vecFast.label',
     nodeType: 'vector_search',
-    description: '快速检索',
+    description: 'llmDesignerPage.profile.vecFast.description',
+    descriptionKey: 'llmDesignerPage.profile.vecFast.description',
     data: { top_k: 5, source: 'default_corpus', rerank: false },
   },
   {
     key: 'vec-deep',
-    label: 'Vector Deep',
+    label: 'llmDesignerPage.profile.vecDeep.label',
+    labelKey: 'llmDesignerPage.profile.vecDeep.label',
     nodeType: 'vector_search',
-    description: '深度检索+重排',
+    description: 'llmDesignerPage.profile.vecDeep.description',
+    descriptionKey: 'llmDesignerPage.profile.vecDeep.description',
     data: { top_k: 20, source: 'default_corpus', rerank: true },
   },
   {
     key: 'filter-predicate-keep',
-    label: 'Filter Predicate Keep',
+    label: 'llmDesignerPage.profile.filterPredicateKeep.label',
+    labelKey: 'llmDesignerPage.profile.filterPredicateKeep.label',
     nodeType: 'filter',
-    description: '表达式命中后保留',
+    description: 'llmDesignerPage.profile.filterPredicateKeep.description',
+    descriptionKey: 'llmDesignerPage.profile.filterPredicateKeep.description',
     data: {
       strategy: 'predicate',
       predicate_expr: '={{$input.query}}',
@@ -324,9 +380,11 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
   },
   {
     key: 'filter-topk-desc',
-    label: 'Filter TopK Desc',
+    label: 'llmDesignerPage.profile.filterTopkDesc.label',
+    labelKey: 'llmDesignerPage.profile.filterTopkDesc.label',
     nodeType: 'filter',
-    description: '按分数降序取 TopK',
+    description: 'llmDesignerPage.profile.filterTopkDesc.description',
+    descriptionKey: 'llmDesignerPage.profile.filterTopkDesc.description',
     data: {
       strategy: 'topk',
       topk_k: 20,
@@ -336,22 +394,26 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
   },
   {
     key: 'join-concat',
-    label: 'Join Concat',
+    label: 'llmDesignerPage.profile.joinConcat.label',
+    labelKey: 'llmDesignerPage.profile.joinConcat.label',
     nodeType: 'join',
-    description: '字符串拼接',
+    description: 'llmDesignerPage.profile.joinConcat.description',
+    descriptionKey: 'llmDesignerPage.profile.joinConcat.description',
     data: { strategy: 'concat', delimiter: '\\n\\n' },
   },
   {
     key: 'join-json',
-    label: 'Join JSON',
+    label: 'llmDesignerPage.profile.joinJson.label',
+    labelKey: 'llmDesignerPage.profile.joinJson.label',
     nodeType: 'join',
-    description: 'JSON 合并',
+    description: 'llmDesignerPage.profile.joinJson.description',
+    descriptionKey: 'llmDesignerPage.profile.joinJson.description',
     data: { strategy: 'json_merge' },
   },
 ]
 
 const baseNodes: Node[] = [
-  { id: 'input-1', type: 'input', position: { x: 80, y: 120 }, data: { label: 'Input', node_type: 'vector_search' } },
+  { id: 'input-1', type: 'input', position: { x: 80, y: 120 }, data: { label: 'input', node_type: 'vector_search' } },
   {
     id: 'llm-1',
     position: { x: 360, y: 120 },
@@ -366,7 +428,7 @@ const baseNodes: Node[] = [
       prompt_class: 'analyst',
     },
   },
-  { id: 'output-1', type: 'output', position: { x: 640, y: 120 }, data: { label: 'Output', node_type: 'join' } },
+  { id: 'output-1', type: 'output', position: { x: 640, y: 120 }, data: { label: 'output', node_type: 'join' } },
 ]
 
 const baseEdges: Edge[] = [
@@ -388,11 +450,25 @@ type BoundaryNodeConfig = {
   databaseTable?: string
 }
 
+type BoundaryNodeLabels = {
+  frontendInput: string
+  databaseSink: string
+  frontendEdge: string
+  databaseEdge: string
+}
+
+const DEFAULT_BOUNDARY_NODE_LABELS: BoundaryNodeLabels = {
+  frontendInput: 'frontend_input',
+  databaseSink: 'database_sink',
+  frontendEdge: 'frontend_input',
+  databaseEdge: 'database_sink',
+}
+
 function isBoundaryNodeId(nodeId: string): boolean {
   return nodeId === FRONT_INPUT_NODE_ID || nodeId === DATABASE_NODE_ID
 }
 
-function createBoundaryNodes(base: Node[], config?: BoundaryNodeConfig): Node[] {
+function createBoundaryNodes(base: Node[], config?: BoundaryNodeConfig, labels: BoundaryNodeLabels = DEFAULT_BOUNDARY_NODE_LABELS): Node[] {
   const nodes = base.filter((node) => !isBoundaryNodeId(node.id))
   const frontendPayload = (config?.frontendPayload || '').trim() || DEFAULT_FRONTEND_PAYLOAD
   const frontendQueryKey = (config?.frontendQueryKey || '').trim() || 'query'
@@ -405,7 +481,7 @@ function createBoundaryNodes(base: Node[], config?: BoundaryNodeConfig): Node[] 
         type: 'default',
         position: { x: -280, y: 120 },
         data: {
-          label: 'Frontend Input',
+          label: labels.frontendInput,
           node_type: 'frontend_input',
           role: 'frontend_input',
           query_key: frontendQueryKey,
@@ -421,7 +497,7 @@ function createBoundaryNodes(base: Node[], config?: BoundaryNodeConfig): Node[] 
         type: 'default',
         position: { x: 980, y: 120 },
         data: {
-          label: 'Database Sink',
+          label: labels.databaseSink,
           node_type: 'database_sink',
           role: 'database_sink',
           store_uri: databaseStoreUri,
@@ -445,7 +521,7 @@ function createBoundaryNodes(base: Node[], config?: BoundaryNodeConfig): Node[] 
       type: 'default',
       position: { x: minX - 360, y: centerY },
       data: {
-        label: 'Frontend Input',
+        label: labels.frontendInput,
         node_type: 'frontend_input',
         role: 'frontend_input',
         query_key: frontendQueryKey,
@@ -461,7 +537,7 @@ function createBoundaryNodes(base: Node[], config?: BoundaryNodeConfig): Node[] 
       type: 'default',
       position: { x: maxX + 360, y: centerY },
       data: {
-        label: 'Database Sink',
+        label: labels.databaseSink,
         node_type: 'database_sink',
         role: 'database_sink',
         store_uri: databaseStoreUri,
@@ -475,21 +551,21 @@ function createBoundaryNodes(base: Node[], config?: BoundaryNodeConfig): Node[] 
   ]
 }
 
-function ensureBoundaryNodes(base: Node[], config?: BoundaryNodeConfig): Node[] {
+function ensureBoundaryNodes(base: Node[], config?: BoundaryNodeConfig, labels: BoundaryNodeLabels = DEFAULT_BOUNDARY_NODE_LABELS): Node[] {
   const frontendExisting = base.find((node) => node.id === FRONT_INPUT_NODE_ID)
   const databaseExisting = base.find((node) => node.id === DATABASE_NODE_ID)
   const nonBoundaryNodes = base.filter((node) => !isBoundaryNodeId(node.id))
-  const [frontendDefault, databaseDefault] = createBoundaryNodes(nonBoundaryNodes, config)
+  const [frontendDefault, databaseDefault] = createBoundaryNodes(nonBoundaryNodes, config, labels)
   const frontendNode = frontendExisting
-    ? { ...frontendExisting, draggable: false, selectable: true, style: frontendDefault.style }
+    ? { ...frontendExisting, data: { ...(frontendExisting.data || {}), label: labels.frontendInput }, draggable: false, selectable: true, style: frontendDefault.style }
     : frontendDefault
   const databaseNode = databaseExisting
-    ? { ...databaseExisting, draggable: false, selectable: true, style: databaseDefault.style }
+    ? { ...databaseExisting, data: { ...(databaseExisting.data || {}), label: labels.databaseSink }, draggable: false, selectable: true, style: databaseDefault.style }
     : databaseDefault
   return [...nonBoundaryNodes, frontendNode, databaseNode]
 }
 
-function buildAutoBridgeEdges(nodes: Node[], edges: Edge[]): Edge[] {
+function buildAutoBridgeEdges(nodes: Node[], edges: Edge[], labels: BoundaryNodeLabels = DEFAULT_BOUNDARY_NODE_LABELS): Edge[] {
   const dataNodes = nodes.filter((node) => !isBoundaryNodeId(node.id))
   if (!dataNodes.length) return []
   const edgeKeySet = new Set(edges.map((edge) => `${edge.source}::${edge.target}`))
@@ -518,7 +594,7 @@ function buildAutoBridgeEdges(nodes: Node[], edges: Edge[]): Edge[] {
       source: FRONT_INPUT_NODE_ID,
       target: head.id,
       type: 'smoothstep',
-      label: 'frontend input',
+      label: labels.frontendEdge,
       animated: true,
       style: { stroke: '#2563eb', strokeDasharray: '6 5', strokeWidth: 1.8 },
       labelStyle: { fill: '#1d4ed8', fontSize: 11, fontWeight: 600 },
@@ -533,7 +609,7 @@ function buildAutoBridgeEdges(nodes: Node[], edges: Edge[]): Edge[] {
       source: tail.id,
       target: DATABASE_NODE_ID,
       type: 'smoothstep',
-      label: 'persist',
+      label: labels.databaseEdge,
       animated: true,
       style: { stroke: '#0f766e', strokeDasharray: '6 5', strokeWidth: 1.8 },
       labelStyle: { fill: '#0f766e', fontSize: 11, fontWeight: 600 },
@@ -567,18 +643,18 @@ function asKey(value: unknown, fallback: string): string {
   return next || fallback
 }
 
-function validateNodeConfigDraft(data: Record<string, unknown>): string | null {
+function validateNodeConfigDraft(data: Record<string, unknown>): { key: LlmDesignerMessageKey; values?: TemplateValues } | null {
   const inputVars = asList(data.input_vars)
   for (const item of inputVars) {
     const name = asKey(item.name, '')
-    if (!name) return 'Input variable name is required'
+    if (!name) return { key: 'llmDesignerPage.validation.inputNameRequired' }
     const source = asKey(item.source, 'input')
     if (source === 'node_output') {
-      if (!asKey(item.from_node, '')) return `Input '${name}' missing from_node`
-      if (!asKey(item.from_key, '')) return `Input '${name}' missing from_key`
+      if (!asKey(item.from_node, '')) return { key: 'llmDesignerPage.validation.inputMissingFromNode', values: { name } }
+      if (!asKey(item.from_key, '')) return { key: 'llmDesignerPage.validation.inputMissingFromKey', values: { name } }
     }
     if (source === 'expression' && !asKey(item.expr, '')) {
-      return `Input '${name}' missing expr`
+      return { key: 'llmDesignerPage.validation.inputMissingExpr', values: { name } }
     }
   }
   return null
@@ -643,6 +719,13 @@ function createConnectedInputVars(sourceNode: Node, targetNode: Node): Array<Rec
 }
 
 function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
+  const locale = useAppLocale()
+  const t = useCallback((key: LlmDesignerMessageKey, fallback?: string) => translate(locale, key, fallback), [locale])
+  const tf = useCallback(
+    (key: LlmDesignerMessageKey, values: TemplateValues, fallback?: string) =>
+      formatLlmDesignerTemplate(t(key, fallback), values),
+    [t],
+  )
   const isStorybookCanvas = useMemo(isStorybookIframe, [])
   const linkParams = useMemo(readDesignerLinkParams, [])
   const boundaryConfig = useMemo<BoundaryNodeConfig>(
@@ -654,20 +737,29 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     }),
     [linkParams.databaseStoreUri, linkParams.databaseTable, linkParams.frontendPayload, linkParams.frontendQueryKey],
   )
-  const templateCatalog = useMemo(createTemplateCatalog, [])
+  const boundaryLabels = useMemo<BoundaryNodeLabels>(
+    () => ({
+      frontendInput: t('llmDesignerPage.boundary.frontendInput'),
+      databaseSink: t('llmDesignerPage.boundary.databaseSink'),
+      frontendEdge: t('llmDesignerPage.boundary.frontendEdge'),
+      databaseEdge: t('llmDesignerPage.boundary.databaseEdge'),
+    }),
+    [t],
+  )
+  const templateCatalog = useMemo(() => createTemplateCatalog(t), [t])
   const resolvedTemplateKey = useMemo(() => {
     const key = linkParams.templateKey
     if (!key) return templateCatalog[2]?.key || 'llm-call'
     return templateCatalog.some((item) => item.key === key) ? key : (templateCatalog[2]?.key || 'llm-call')
   }, [linkParams.templateKey, templateCatalog])
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(ensureBoundaryNodes(baseNodes, boundaryConfig))
+  const [nodes, setNodes, onNodesChange] = useNodesState(ensureBoundaryNodes(baseNodes, boundaryConfig, boundaryLabels))
   const [edges, setEdges, onEdgesChange] = useEdgesState(baseEdges)
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([])
   const [selectedTemplateKey, setSelectedTemplateKey] = useState(resolvedTemplateKey)
   const [jsonDraft, setJsonDraft] = useState('')
-  const [status, setStatus] = useState('Ready')
+  const [status, setStatus] = useState(t('llmDesignerPage.status.ready'))
   const [graphId, setGraphId] = useState(linkParams.graphId)
   const [runId, setRunId] = useState(linkParams.runId)
   const [runInputText, setRunInputText] = useState(linkParams.runInputText)
@@ -700,17 +792,22 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   const flowRef = useRef<ReactFlowInstance<Node, Edge> | null>(null)
   const canvasRef = useRef<HTMLDivElement | null>(null)
 
+  useEffect(() => {
+    setNodes((current) => ensureBoundaryNodes(current, boundaryConfig, boundaryLabels))
+  }, [boundaryConfig, boundaryLabels, setNodes])
+
   const selectedCount = selectedNodeIds.length + selectedEdgeIds.length
-  const bridgeEdges = useMemo(() => buildAutoBridgeEdges(nodes, edges), [edges, nodes])
+  const bridgeEdges = useMemo(() => buildAutoBridgeEdges(nodes, edges, boundaryLabels), [boundaryLabels, edges, nodes])
   const allEdges = useMemo(() => [...edges, ...bridgeEdges], [bridgeEdges, edges])
   const selectedNode = useMemo(() => {
     if (!editingNodeId) return null
     return nodes.find((item) => item.id === editingNodeId) || null
   }, [editingNodeId, nodes])
   const selectedNodeType = useMemo(() => (selectedNode ? inferNodeType(selectedNode) : null), [selectedNode])
+  const localizedNodeInfoProfiles = useMemo(() => NODE_INFO_PROFILES.map((profile) => localizeProfile(profile, t)), [t])
   const selectedNodeProfiles = useMemo(
-    () => (selectedNodeType ? NODE_INFO_PROFILES.filter((item) => item.nodeType === selectedNodeType) : []),
-    [selectedNodeType],
+    () => (selectedNodeType ? localizedNodeInfoProfiles.filter((item) => item.nodeType === selectedNodeType) : []),
+    [localizedNodeInfoProfiles, selectedNodeType],
   )
   const selectedNodeSchema = useMemo(
     () => (selectedNodeType ? getNodeSchema(selectedNodeType) : null),
@@ -814,7 +911,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     (connection: Connection) => {
       if (!connection.source || !connection.target || connection.source === connection.target) return
       if (connection.source === DATABASE_NODE_ID || connection.target === FRONT_INPUT_NODE_ID) {
-        setStatus('Connect failed: invalid direction for boundary endpoints')
+        setStatus(t('llmDesignerPage.status.invalidBoundaryConnect'))
         return
       }
       const edgeId = `e-${connection.source ?? 'unknown'}-${connection.target ?? 'unknown'}-${Date.now()}`
@@ -835,9 +932,9 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
             : node,
         )
       })
-      setStatus('Connected')
+      setStatus(t('llmDesignerPage.status.connected'))
     },
-    [setEdges, setNodes],
+    [setEdges, setNodes, t],
   )
 
   const addTemplateNode = useCallback((templateItem?: NodeTemplatePaletteItem<Record<string, unknown>>) => {
@@ -850,20 +947,20 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       position: { x: 160 + nodes.length * 24, y: 160 + nodes.length * 18 },
       data: { ...normalizeTemplateData(template), label: `${template.label} ${nextIdRef.current - 1}` },
     }
-    setNodes((current) => ensureBoundaryNodes([...current, nextNode], boundaryConfig))
-    setStatus(`Added template node: ${template.label}`)
-  }, [nodes.length, selectedTemplateKey, setNodes, templateCatalog, boundaryConfig])
+    setNodes((current) => ensureBoundaryNodes([...current, nextNode], boundaryConfig, boundaryLabels))
+    setStatus(tf('llmDesignerPage.status.addedTemplateNode', { label: template.label }))
+  }, [nodes.length, selectedTemplateKey, setNodes, templateCatalog, boundaryConfig, boundaryLabels, tf])
 
   const applyTemplateToSelected = useCallback((templateItem?: NodeTemplatePaletteItem<Record<string, unknown>>) => {
     if (selectedNodeIds.length !== 1) {
-      setStatus('Apply template failed: select exactly one node')
+      setStatus(t('llmDesignerPage.status.applyTemplateSelectOne'))
       return
     }
     const template = templateCatalog.find((item) => item.key === (templateItem?.key || selectedTemplateKey)) || templateCatalog[2]
     if (!template) return
     const targetNodeId = selectedNodeIds[0]
     if (isBoundaryNodeId(targetNodeId)) {
-      setStatus('Apply template failed: boundary endpoint template is fixed')
+      setStatus(t('llmDesignerPage.status.applyTemplateBoundaryFixed'))
       return
     }
     setNodes((current) =>
@@ -879,24 +976,24 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
           : node,
       ),
     )
-    setStatus(`Applied template ${template.label} to ${targetNodeId}`)
-  }, [selectedNodeIds, selectedTemplateKey, setNodes, templateCatalog])
+    setStatus(tf('llmDesignerPage.status.appliedTemplate', { label: template.label, nodeId: targetNodeId }))
+  }, [selectedNodeIds, selectedTemplateKey, setNodes, templateCatalog, t, tf])
 
   const connectPointToPoint = useCallback(() => {
     const source = fromNodeId.trim()
     const target = toNodeId.trim()
     if (!source || !target || source === target) {
-      setStatus('P2P connect failed: choose valid from/to nodes')
+      setStatus(t('llmDesignerPage.status.p2pChooseValid'))
       return
     }
     const sourceExists = nodes.some((item) => item.id === source)
     const targetExists = nodes.some((item) => item.id === target)
     if (!sourceExists || !targetExists) {
-      setStatus('P2P connect failed: node not found')
+      setStatus(t('llmDesignerPage.status.p2pNodeNotFound'))
       return
     }
     if (source === DATABASE_NODE_ID || target === FRONT_INPUT_NODE_ID) {
-      setStatus('P2P connect failed: invalid direction for boundary endpoints')
+      setStatus(t('llmDesignerPage.status.p2pInvalidBoundary'))
       return
     }
     setEdges((current) => {
@@ -916,8 +1013,8 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
           : node,
       )
     })
-    setStatus(`Connected ${source} -> ${target}`)
-  }, [fromNodeId, nodes, setEdges, setNodes, toNodeId])
+    setStatus(tf('llmDesignerPage.status.connectedNodes', { source, target }))
+  }, [fromNodeId, nodes, setEdges, setNodes, t, tf, toNodeId])
 
   const removeSelection = useCallback(() => {
     if (!selectedCount) return
@@ -925,8 +1022,8 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       current.filter((node) => !selectedNodeIds.includes(node.id) || isBoundaryNodeId(node.id)),
     )
     setEdges((current) => current.filter((edge) => !selectedEdgeIds.includes(edge.id)))
-    setStatus(`Removed ${selectedCount} selected item(s)`)
-  }, [selectedCount, selectedEdgeIds, selectedNodeIds, setEdges, setNodes])
+    setStatus(tf('llmDesignerPage.status.removedSelection', { count: selectedCount }))
+  }, [selectedCount, selectedEdgeIds, selectedNodeIds, setEdges, setNodes, tf])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -943,15 +1040,15 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   }, [selectedEdgeIds, selectedNodeIds, setEdges, setNodes])
 
   const resetGraph = useCallback(() => {
-    setNodes(ensureBoundaryNodes(baseNodes, boundaryConfig))
+    setNodes(ensureBoundaryNodes(baseNodes, boundaryConfig, boundaryLabels))
     setEdges(baseEdges)
     setSelectedNodeIds([])
     setSelectedEdgeIds([])
-    setStatus('Reset to template')
+    setStatus(t('llmDesignerPage.status.resetTemplate'))
     window.requestAnimationFrame(() => {
       flowRef.current?.fitView({ duration: 300, padding: 0.2 })
     })
-  }, [boundaryConfig, setEdges, setNodes])
+  }, [boundaryConfig, boundaryLabels, setEdges, setNodes, t])
 
   const collectDsl = useCallback((): DesignerDsl => {
     const viewport = flowRef.current?.getViewport()
@@ -970,31 +1067,31 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     link.download = `llm-designer-dsl-${Date.now()}.json`
     link.click()
     URL.revokeObjectURL(url)
-    setStatus('Exported DSL')
-  }, [collectDsl, onExportDsl])
+    setStatus(t('llmDesignerPage.status.exportedDsl'))
+  }, [collectDsl, onExportDsl, t])
 
   const importDslFromText = useCallback((text: string) => {
     const parsed = JSON.parse(text) as Partial<DesignerDsl>
     if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
       throw new Error('JSON must include nodes[] and edges[]')
     }
-    setNodes(ensureBoundaryNodes(parsed.nodes as Node[], boundaryConfig))
+    setNodes(ensureBoundaryNodes(parsed.nodes as Node[], boundaryConfig, boundaryLabels))
     setEdges(parsed.edges as Edge[])
     if (parsed.viewport) {
       window.requestAnimationFrame(() => {
         flowRef.current?.setViewport(parsed.viewport as Viewport, { duration: 280 })
       })
     }
-  }, [boundaryConfig, setEdges, setNodes])
+  }, [boundaryConfig, boundaryLabels, setEdges, setNodes])
 
   const onImportJson = useCallback(() => {
     try {
       importDslFromText(jsonDraft)
-      setStatus('Imported from JSON text')
+      setStatus(t('llmDesignerPage.status.importedJsonText'))
     } catch (error) {
-      setStatus(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setStatus(tf('llmDesignerPage.status.importFailed', { message: error instanceof Error ? error.message : t('llmDesignerPage.error.unknown') }))
     }
-  }, [importDslFromText, jsonDraft])
+  }, [importDslFromText, jsonDraft, t, tf])
 
   const onCompileGraph = useCallback(async () => {
     setBusyAction('compile')
@@ -1015,18 +1112,18 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       const nextGraphId = String(response.graph_id || '').trim()
       if (nextGraphId) setGraphId(nextGraphId)
       setCompileResultText(JSON.stringify(response, null, 2))
-      setStatus(nextGraphId ? `Compiled graph: ${nextGraphId}` : 'Compiled')
+      setStatus(nextGraphId ? tf('llmDesignerPage.status.compiledGraph', { graphId: nextGraphId }) : t('llmDesignerPage.status.compiled'))
     } catch (error) {
-      setStatus(`Compile failed: ${error instanceof Error ? error.message : 'unknown error'}`)
+      setStatus(tf('llmDesignerPage.status.compileFailed', { message: error instanceof Error ? error.message : t('llmDesignerPage.error.unknown') }))
     } finally {
       setBusyAction('')
     }
-  }, [graphId, nodes, allEdges])
+  }, [graphId, nodes, allEdges, t, tf])
 
   const onRunGraph = useCallback(async () => {
     const targetGraphId = graphId.trim()
     if (!targetGraphId) {
-      setStatus('Run failed: graph_id required')
+      setStatus(t('llmDesignerPage.status.runGraphIdRequired'))
       return
     }
     setBusyAction('run')
@@ -1036,76 +1133,76 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       const nextRunId = String(response.run_id || '').trim()
       if (nextRunId) setRunId(nextRunId)
       setRunResultText(JSON.stringify(response, null, 2))
-      setStatus(nextRunId ? `Run started: ${nextRunId}` : 'Run submitted')
+      setStatus(nextRunId ? tf('llmDesignerPage.status.runStarted', { runId: nextRunId }) : t('llmDesignerPage.status.runSubmitted'))
     } catch (error) {
-      setStatus(`Run failed: ${error instanceof Error ? error.message : 'unknown error'}`)
+      setStatus(tf('llmDesignerPage.status.runFailed', { message: error instanceof Error ? error.message : t('llmDesignerPage.error.unknown') }))
     } finally {
       setBusyAction('')
     }
-  }, [graphId, runInputText])
+  }, [graphId, runInputText, t, tf])
 
   const onGetRunDetail = useCallback(async () => {
     const targetRunId = runId.trim()
     if (!targetRunId) {
-      setStatus('Run detail failed: run_id required')
+      setStatus(t('llmDesignerPage.status.runDetailRunIdRequired'))
       return
     }
     setBusyAction('run-detail')
     try {
       const response = await getWorkflowGraphRun(targetRunId)
       setRunResultText(JSON.stringify(response, null, 2))
-      setStatus(`Fetched run detail: ${targetRunId}`)
+      setStatus(tf('llmDesignerPage.status.fetchedRunDetail', { runId: targetRunId }))
     } catch (error) {
-      setStatus(`Run detail failed: ${error instanceof Error ? error.message : 'unknown error'}`)
+      setStatus(tf('llmDesignerPage.status.runDetailFailed', { message: error instanceof Error ? error.message : t('llmDesignerPage.error.unknown') }))
     } finally {
       setBusyAction('')
     }
-  }, [runId])
+  }, [runId, t, tf])
 
   const onGetRunEvents = useCallback(async () => {
     const targetRunId = runId.trim()
     if (!targetRunId) {
-      setStatus('Run events failed: run_id required')
+      setStatus(t('llmDesignerPage.status.runEventsRunIdRequired'))
       return
     }
     setBusyAction('run-events')
     try {
       const response = await getWorkflowGraphRunEvents(targetRunId)
       setRunResultText(JSON.stringify(response, null, 2))
-      setStatus(`Fetched run events: ${targetRunId}`)
+      setStatus(tf('llmDesignerPage.status.fetchedRunEvents', { runId: targetRunId }))
     } catch (error) {
-      setStatus(`Run events failed: ${error instanceof Error ? error.message : 'unknown error'}`)
+      setStatus(tf('llmDesignerPage.status.runEventsFailed', { message: error instanceof Error ? error.message : t('llmDesignerPage.error.unknown') }))
     } finally {
       setBusyAction('')
     }
-  }, [runId])
+  }, [runId, t, tf])
 
   const onGetCompiledGraph = useCallback(async () => {
     const targetGraphId = graphId.trim()
     if (!targetGraphId) {
-      setStatus('Compiled graph query failed: graph_id required')
+      setStatus(t('llmDesignerPage.status.compiledGraphIdRequired'))
       return
     }
     setBusyAction('compiled')
     try {
       const response = await getCompiledWorkflowGraph(targetGraphId)
       setCompileResultText(JSON.stringify(response, null, 2))
-      setStatus(`Fetched compiled graph: ${targetGraphId}`)
+      setStatus(tf('llmDesignerPage.status.fetchedCompiledGraph', { graphId: targetGraphId }))
     } catch (error) {
-      setStatus(`Compiled graph query failed: ${error instanceof Error ? error.message : 'unknown error'}`)
+      setStatus(tf('llmDesignerPage.status.compiledGraphQueryFailed', { message: error instanceof Error ? error.message : t('llmDesignerPage.error.unknown') }))
     } finally {
       setBusyAction('')
     }
-  }, [graphId])
+  }, [graphId, t, tf])
 
   const applyInfoProfileByKey = useCallback((profileKey: string) => {
     if (!selectedNode || !selectedNodeType) {
-      setStatus('Apply node info template failed: select one node')
+      setStatus(t('llmDesignerPage.status.applyNodeInfoSelectOne'))
       return
     }
-    const profile = NODE_INFO_PROFILES.find((item) => item.key === profileKey && item.nodeType === selectedNodeType)
+    const profile = localizedNodeInfoProfiles.find((item) => item.key === profileKey && item.nodeType === selectedNodeType)
     if (!profile) {
-      setStatus('Apply node info template failed: choose template')
+      setStatus(t('llmDesignerPage.status.applyNodeInfoChooseTemplate'))
       return
     }
     const nextData = {
@@ -1116,19 +1213,25 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     }
     setNodes((current) => current.map((node) => (node.id === selectedNode.id ? { ...node, data: nextData } : node)))
     setNodeInfoDraft(JSON.stringify(nextData, null, 2))
-    setStatus(`Applied node info template: ${profile.label}`)
-  }, [selectedNode, selectedNodeType, setNodes])
+    setStatus(tf('llmDesignerPage.status.appliedNodeInfoTemplate', { label: profile.label }))
+  }, [localizedNodeInfoProfiles, selectedNode, selectedNodeType, setNodes, t, tf])
 
   const saveNodeInfoDraft = useCallback(() => {
     if (!selectedNode || !selectedNodeType) {
-      setStatus('Save node info failed: select one node')
+      setStatus(t('llmDesignerPage.status.saveNodeInfoSelectOne'))
       return
     }
     try {
       const parsed = JSON.parse(nodeInfoDraft || '{}') as Record<string, unknown>
       const validationError = validateNodeConfigDraft(parsed)
       if (validationError) {
-        setStatus(`Save node info failed: ${validationError}`)
+        setStatus(
+          tf('llmDesignerPage.status.saveNodeInfoFailed', {
+            message: validationError.values
+              ? formatLlmDesignerTemplate(t(validationError.key), validationError.values)
+              : t(validationError.key),
+          }),
+        )
         return
       }
       const nextData = {
@@ -1138,11 +1241,11 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         label: String(parsed.label || (selectedNode.data as { label?: unknown })?.label || selectedNode.id),
       }
       setNodes((current) => current.map((node) => (node.id === selectedNode.id ? { ...node, data: nextData } : node)))
-      setStatus(`Saved node info: ${selectedNode.id}`)
+      setStatus(tf('llmDesignerPage.status.savedNodeInfo', { nodeId: selectedNode.id }))
     } catch (error) {
-      setStatus(`Save node info failed: ${error instanceof Error ? error.message : 'invalid JSON'}`)
+      setStatus(tf('llmDesignerPage.status.saveNodeInfoFailed', { message: error instanceof Error ? error.message : t('llmDesignerPage.error.invalidJson') }))
     }
-  }, [nodeInfoDraft, selectedNode, selectedNodeType, setNodes])
+  }, [nodeInfoDraft, selectedNode, selectedNodeType, setNodes, t, tf])
 
   const handleCardMove = useCallback((x: number, y: number) => {
     const rect = canvasRef.current?.getBoundingClientRect()
@@ -1164,7 +1267,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     }))
   }, [])
 
-  const statsText = `Nodes ${nodes.length} · Edges ${allEdges.length}`
+  const statsText = tf('llmDesignerPage.stats.canvas', { nodes: nodes.length, edges: allEdges.length })
 
   const addNodeAtPoint = useCallback((clientX: number, clientY: number) => {
     const instance = flowRef.current
@@ -1179,14 +1282,14 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       position,
       data: { ...normalizeTemplateData(template), label: `${template.label} ${nextIdRef.current - 1}` },
     }
-    setNodes((current) => ensureBoundaryNodes([...current, nextNode], boundaryConfig))
-    setStatus(`Added node at cursor: ${id}`)
-  }, [selectedTemplateKey, setNodes, templateCatalog, boundaryConfig])
+    setNodes((current) => ensureBoundaryNodes([...current, nextNode], boundaryConfig, boundaryLabels))
+    setStatus(tf('llmDesignerPage.status.addedNodeAtCursor', { nodeId: id }))
+  }, [selectedTemplateKey, setNodes, templateCatalog, boundaryConfig, boundaryLabels, tf])
 
   const generatePresetChain = useCallback(() => {
     const preset = WORKFLOW_LINK_PRESET_BY_KEY[selectedPresetKey as keyof typeof WORKFLOW_LINK_PRESET_BY_KEY]
     if (!preset) {
-      setStatus('Preset generation failed: choose valid preset')
+      setStatus(t('llmDesignerPage.status.presetChooseValid'))
       return
     }
     const templateByKey = new Map(templateCatalog.map((item) => [item.key, item]))
@@ -1198,7 +1301,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         return {
           id: `${presetNode.id}-${startIndex + index}`,
           position: presetNode.position,
-          data: { label: `Missing template: ${presetNode.templateKey}`, node_type: 'join' },
+          data: { label: tf('llmDesignerPage.status.missingTemplate', { templateKey: presetNode.templateKey }), node_type: 'join' },
         }
       }
       const nextId = `${presetNode.id}-${startIndex + index}`
@@ -1246,15 +1349,15 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       }
     })
 
-    setNodes(ensureBoundaryNodes(enrichedNodes, boundaryConfig))
+    setNodes(ensureBoundaryNodes(enrichedNodes, boundaryConfig, boundaryLabels))
     setEdges(nextEdges)
     setSelectedNodeIds([])
     setSelectedEdgeIds([])
-    setStatus(`Generated preset chain: ${preset.label}`)
+    setStatus(tf('llmDesignerPage.status.generatedPresetChain', { label: preset.label }))
     window.requestAnimationFrame(() => {
       flowRef.current?.fitView({ duration: 260, padding: 0.2 })
     })
-  }, [selectedPresetKey, setEdges, setNodes, templateCatalog, boundaryConfig])
+  }, [selectedPresetKey, setEdges, setNodes, templateCatalog, boundaryConfig, boundaryLabels, t, tf])
 
   const selectedPreset = useMemo(
     () => WORKFLOW_LINK_PRESET_BY_KEY[selectedPresetKey as keyof typeof WORKFLOW_LINK_PRESET_BY_KEY] || null,
@@ -1301,7 +1404,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   const openNodeCardById = useCallback((nodeId: string) => {
     const targetNode = nodes.find((item) => item.id === nodeId)
     if (!targetNode) {
-      setStatus(`Node not found: ${nodeId}`)
+      setStatus(tf('llmDesignerPage.status.nodeNotFound', { nodeId }))
       return
     }
     const cardX = isNodeSidebarCollapsed ? 24 : leftSidebarWidth + 24
@@ -1311,27 +1414,27 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     setNodeInfoCard((prev) => ({ ...prev, open: true, x: cardX, y: 28 }))
     setFromNodeId((prev) => prev || nodeId)
     setToNodeId((prev) => (prev && prev !== nodeId ? prev : ''))
-  }, [isNodeSidebarCollapsed, leftSidebarWidth, nodes])
+  }, [isNodeSidebarCollapsed, leftSidebarWidth, nodes, tf])
 
   const focusNodeById = useCallback((nodeId: string) => {
     const targetNode = nodes.find((item) => item.id === nodeId)
     const instance = flowRef.current
     if (!targetNode || !instance) {
-      setStatus(`Focus failed: ${nodeId}`)
+      setStatus(tf('llmDesignerPage.status.focusFailed', { nodeId }))
       return
     }
     const zoom = Math.max(instance.getZoom(), 1)
     void instance.setCenter(targetNode.position.x + 120, targetNode.position.y + 32, { duration: 260, zoom })
-    setStatus(`Focused node: ${nodeId}`)
-  }, [nodes])
+    setStatus(tf('llmDesignerPage.status.focusedNode', { nodeId }))
+  }, [nodes, tf])
 
   const deleteNodeById = useCallback((nodeId: string) => {
     if (isBoundaryNodeId(nodeId)) {
-      setStatus(`Delete blocked: ${nodeId} is a fixed endpoint`)
+      setStatus(tf('llmDesignerPage.status.deleteBlocked', { nodeId }))
       return
     }
     if (!nodes.some((item) => item.id === nodeId)) {
-      setStatus(`Delete failed: ${nodeId}`)
+      setStatus(tf('llmDesignerPage.status.deleteFailed', { nodeId }))
       return
     }
     setNodes((current) => current.filter((node) => node.id !== nodeId))
@@ -1342,16 +1445,16 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       setEditingNodeId('')
       setNodeInfoCard((prev) => ({ ...prev, open: false }))
     }
-    setStatus(`Deleted node: ${nodeId}`)
-  }, [editingNodeId, nodes, setEdges, setNodes])
+    setStatus(tf('llmDesignerPage.status.deletedNode', { nodeId }))
+  }, [editingNodeId, nodes, setEdges, setNodes, tf])
 
   return (
     <section className="llm-designer-page llm-designer-page--full llm-designer-page--quiet">
       <header className="llm-designer-header">
         <div className="llm-designer-header__copy">
-          <small>workflow composition</small>
-          <h2>LLM Designer</h2>
-          <p>让模板、连线、运行态和结果检查留在同一块安静的画布里，而不是变成一组过度抢眼的控制台。</p>
+          <small>{t('llmDesignerPage.header.eyebrow')}</small>
+          <h2>{t('llmDesignerPage.header.title')}</h2>
+          <p>{t('llmDesignerPage.header.description')}</p>
         </div>
         <div className="llm-designer-header__stats">{statsText}</div>
       </header>
@@ -1379,12 +1482,12 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
           }}
         >
           <div className="llm-canvas-sidebar__head">
-            {!isNodeSidebarCollapsed && <strong>Nodes</strong>}
+            {!isNodeSidebarCollapsed && <strong>{t('llmDesignerPage.sidebar.nodes')}</strong>}
             <button
               type="button"
               className="llm-canvas-sidebar__toggle"
               onClick={() => setIsNodeSidebarCollapsed((prev) => !prev)}
-              aria-label={isNodeSidebarCollapsed ? 'Expand node sidebar' : 'Collapse node sidebar'}
+              aria-label={isNodeSidebarCollapsed ? t('llmDesignerPage.sidebar.toggleExpand') : t('llmDesignerPage.sidebar.toggleCollapse')}
             >
               {isNodeSidebarCollapsed ? '>' : '<'}
             </button>
@@ -1397,11 +1500,11 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
                   className="llm-canvas-sidebar__search-input"
                   value={nodeSidebarQuery}
                   onChange={(event) => setNodeSidebarQuery(event.target.value)}
-                  placeholder="Search node id / label / type"
+                  placeholder={t('llmDesignerPage.sidebar.searchPlaceholder')}
                 />
               </div>
               <div className="llm-canvas-sidebar__count">
-                {filteredNodes.length}/{nodes.length} node(s)
+                {tf('llmDesignerPage.sidebar.count', { filtered: filteredNodes.length, total: nodes.length })}
               </div>
               <div className="llm-canvas-sidebar__list">
                 {filteredNodes.map((node) => {
@@ -1427,21 +1530,21 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
                           className="llm-canvas-node-item__action"
                           onClick={() => focusNodeById(node.id)}
                         >
-                          Focus
+                          {t('llmDesignerPage.action.focus')}
                         </button>
                         <button
                           type="button"
                           className="llm-canvas-node-item__action is-danger"
                           onClick={() => deleteNodeById(node.id)}
                         >
-                          Delete
+                          {t('llmDesignerPage.action.delete')}
                         </button>
                       </div>
                     </article>
                   )
                 })}
                 {!filteredNodes.length && (
-                  <div className="llm-canvas-sidebar__empty">No nodes matched.</div>
+                  <div className="llm-canvas-sidebar__empty">{t('llmDesignerPage.sidebar.empty')}</div>
                 )}
               </div>
             </>
@@ -1453,7 +1556,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
 
         <div className="llm-canvas-right-stack" style={{ width: rightStackWidth }}>
           {!isStorybookCanvas ? <div className="llm-canvas-resize-handle llm-canvas-resize-handle--right" onPointerDown={startRightResize} /> : null}
-          {renderCanvasPanel('templates', '模板', (
+          {renderCanvasPanel('templates', t('llmDesignerPage.panel.templates'), (
             <NodeTemplatePalette
               templates={templateCatalog}
               selectedTemplateKey={selectedTemplateKey}
@@ -1461,17 +1564,17 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
               onAddTemplate={addTemplateNode}
               onApplyTemplateToSelected={applyTemplateToSelected}
               selectedNodeCount={selectedNodeIds.length}
-              title="Node Template Palette"
+              title={t('llmDesignerPage.palette.title')}
             />
           ))}
 
-          {renderCanvasPanel('p2p', '连接与画布操作', (
+          {renderCanvasPanel('p2p', t('llmDesignerPage.panel.p2p'), (
             <>
               <div className="form-grid cols-2">
                 <label>
-                  <span>point from</span>
+                  <span>{t('llmDesignerPage.field.pointFrom')}</span>
                   <select value={fromNodeId} onChange={(event) => setFromNodeId(event.target.value)}>
-                    <option value="">Select source node</option>
+                    <option value="">{t('llmDesignerPage.placeholder.sourceNode')}</option>
                     {nodes.map((node) => (
                       <option key={node.id} value={node.id}>
                         {asKey(asObject(node.data).label, node.id)} ({node.id})
@@ -1480,9 +1583,9 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
                   </select>
                 </label>
                 <label>
-                  <span>point to</span>
+                  <span>{t('llmDesignerPage.field.pointTo')}</span>
                   <select value={toNodeId} onChange={(event) => setToNodeId(event.target.value)}>
-                    <option value="">Select target node</option>
+                    <option value="">{t('llmDesignerPage.placeholder.targetNode')}</option>
                     {nodes.map((node) => (
                       <option key={node.id} value={node.id}>
                         {asKey(asObject(node.data).label, node.id)} ({node.id})
@@ -1492,11 +1595,11 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
                 </label>
               </div>
               <div className="inline-actions">
-                <button type="button" onClick={connectPointToPoint}>Connect P2P</button>
-                <button type="button" onClick={removeSelection} disabled={!selectedCount}>Delete Selected</button>
-                <button type="button" onClick={resetGraph}>Reset</button>
-                <button type="button" onClick={exportDsl}>Export JSON</button>
-                <button type="button" onClick={() => fileInputRef.current?.click()}>Import File</button>
+                <button type="button" onClick={connectPointToPoint}>{t('llmDesignerPage.action.connectP2p')}</button>
+                <button type="button" onClick={removeSelection} disabled={!selectedCount}>{t('llmDesignerPage.action.deleteSelected')}</button>
+                <button type="button" onClick={resetGraph}>{t('llmDesignerPage.action.reset')}</button>
+                <button type="button" onClick={exportDsl}>{t('llmDesignerPage.action.exportJson')}</button>
+                <button type="button" onClick={() => fileInputRef.current?.click()}>{t('llmDesignerPage.action.importFile')}</button>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1509,9 +1612,9 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
                         const text = await file.text()
                         setJsonDraft(text)
                         importDslFromText(text)
-                        setStatus(`Imported file: ${file.name}`)
+                        setStatus(tf('llmDesignerPage.status.importedFile', { fileName: file.name }))
                       } catch (error) {
-                        setStatus(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                        setStatus(tf('llmDesignerPage.status.importFailed', { message: error instanceof Error ? error.message : t('llmDesignerPage.error.unknown') }))
                       }
                     })()
                     event.target.value = ''
@@ -1521,11 +1624,11 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
             </>
           ))}
 
-          {renderCanvasPanel('preset', '业务链条模板', (
+          {renderCanvasPanel('preset', t('llmDesignerPage.panel.preset'), (
             <>
               <div className="form-grid cols-2">
                 <label>
-                  <span>业务链条模板（下拉选择）</span>
+                  <span>{t('llmDesignerPage.field.businessPreset')}</span>
                   <select value={selectedPresetKey} onChange={(event) => setSelectedPresetKey(event.target.value)}>
                     {WORKFLOW_LINK_PRESETS.map((preset) => (
                       <option key={preset.key} value={preset.key}>
@@ -1535,61 +1638,63 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
                   </select>
                 </label>
                 <label>
-                  <span>链路说明</span>
+                  <span>{t('llmDesignerPage.field.linkDescription')}</span>
                   <input value={selectedPreset?.description || ''} readOnly />
                 </label>
               </div>
               <div className="inline-actions">
-                <button type="button" onClick={generatePresetChain}>生成所选业务链条</button>
+                <button type="button" onClick={generatePresetChain}>{t('llmDesignerPage.action.generatePresetChain')}</button>
               </div>
             </>
           ))}
 
-          {renderCanvasPanel('runtime', '运行与调试', (
+          {renderCanvasPanel('runtime', t('llmDesignerPage.panel.runtime'), (
             <>
               <div className="form-grid cols-3">
                 <label>
                   <span>graph_id</span>
-                  <input value={graphId} onChange={(event) => setGraphId(event.target.value)} placeholder="optional when compile, required when run/query" />
+                  <input value={graphId} onChange={(event) => setGraphId(event.target.value)} placeholder={t('llmDesignerPage.placeholder.graphId')} />
                 </label>
                 <label>
                   <span>run_id</span>
-                  <input value={runId} onChange={(event) => setRunId(event.target.value)} placeholder="required for run detail/events" />
+                  <input value={runId} onChange={(event) => setRunId(event.target.value)} placeholder={t('llmDesignerPage.placeholder.runId')} />
                 </label>
                 <label>
-                  <span>run input (JSON)</span>
-                  <input value={runInputText} onChange={(event) => setRunInputText(event.target.value)} placeholder='{"query":"..."}' />
+                  <span>{t('llmDesignerPage.field.runInput')}</span>
+                  <input value={runInputText} onChange={(event) => setRunInputText(event.target.value)} placeholder={t('llmDesignerPage.placeholder.runInput')} />
                 </label>
               </div>
               <div className="inline-actions">
-                <button type="button" onClick={onCompileGraph} disabled={Boolean(busyAction)}>{busyAction === 'compile' ? 'Compiling...' : 'Compile Graph'}</button>
-                <button type="button" onClick={onRunGraph} disabled={Boolean(busyAction)}>{busyAction === 'run' ? 'Running...' : 'Run Graph'}</button>
-                <button type="button" onClick={onGetRunDetail} disabled={Boolean(busyAction)}>{busyAction === 'run-detail' ? 'Loading...' : 'Get Run Detail'}</button>
-                <button type="button" onClick={onGetRunEvents} disabled={Boolean(busyAction)}>{busyAction === 'run-events' ? 'Loading...' : 'Get Run Events'}</button>
-                <button type="button" onClick={onGetCompiledGraph} disabled={Boolean(busyAction)}>{busyAction === 'compiled' ? 'Loading...' : 'Get Compiled Graph'}</button>
+                <button type="button" onClick={onCompileGraph} disabled={Boolean(busyAction)}>{busyAction === 'compile' ? t('llmDesignerPage.action.compiling') : t('llmDesignerPage.action.compileGraph')}</button>
+                <button type="button" onClick={onRunGraph} disabled={Boolean(busyAction)}>{busyAction === 'run' ? t('llmDesignerPage.action.running') : t('llmDesignerPage.action.runGraph')}</button>
+                <button type="button" onClick={onGetRunDetail} disabled={Boolean(busyAction)}>{busyAction === 'run-detail' ? t('llmDesignerPage.action.loading') : t('llmDesignerPage.action.getRunDetail')}</button>
+                <button type="button" onClick={onGetRunEvents} disabled={Boolean(busyAction)}>{busyAction === 'run-events' ? t('llmDesignerPage.action.loading') : t('llmDesignerPage.action.getRunEvents')}</button>
+                <button type="button" onClick={onGetCompiledGraph} disabled={Boolean(busyAction)}>{busyAction === 'compiled' ? t('llmDesignerPage.action.loading') : t('llmDesignerPage.action.getCompiledGraph')}</button>
               </div>
-              <div className="status-line">Double-click canvas to add selected template; `Delete` removes selection; status: {status}</div>
+              <div className="status-line">
+                {tf('llmDesignerPage.status.runtimeLine', { status })}
+              </div>
             </>
           ))}
 
-          {renderCanvasPanel('json', 'DSL JSON', (
+          {renderCanvasPanel('json', t('llmDesignerPage.panel.json'), (
             <div className="llm-designer-json">
-              <label htmlFor="llm-designer-json-input">JSON import / export</label>
-              <textarea id="llm-designer-json-input" value={jsonDraft} onChange={(event) => setJsonDraft(event.target.value)} spellCheck={false} placeholder="Paste exported DSL JSON here..." />
+              <label htmlFor="llm-designer-json-input">{t('llmDesignerPage.field.jsonImportExport')}</label>
+              <textarea id="llm-designer-json-input" value={jsonDraft} onChange={(event) => setJsonDraft(event.target.value)} spellCheck={false} placeholder={t('llmDesignerPage.placeholder.jsonDraft')} />
               <div className="llm-designer-json-actions">
-                <button type="button" onClick={onImportJson}>Import JSON Text</button>
+                <button type="button" onClick={onImportJson}>{t('llmDesignerPage.action.importJsonText')}</button>
               </div>
             </div>
           ))}
 
-          {renderCanvasPanel('results', '运行结果', (
+          {renderCanvasPanel('results', t('llmDesignerPage.panel.results'), (
             <div className="form-grid cols-2">
               <label>
-                <span>compile response</span>
+                <span>{t('llmDesignerPage.field.compileResponse')}</span>
                 <textarea rows={10} value={compileResultText} onChange={(event) => setCompileResultText(event.target.value)} />
               </label>
               <label>
-                <span>run response / events</span>
+                <span>{t('llmDesignerPage.field.runResponseEvents')}</span>
                 <textarea rows={10} value={runResultText} onChange={(event) => setRunResultText(event.target.value)} />
               </label>
             </div>
@@ -1667,43 +1772,64 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
 }
 
 function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'projectKey'>) {
-  const templateCatalog = useMemo(() => createTemplateCatalog(), [])
+  const locale = useAppLocale()
+  const t = useCallback((key: LlmDesignerMessageKey, fallback?: string) => translate(locale, key, fallback), [locale])
+  const tf = useCallback(
+    (key: LlmDesignerMessageKey, values: TemplateValues, fallback?: string) =>
+      formatLlmDesignerTemplate(t(key, fallback), values),
+    [t],
+  )
+  const boundaryLabels = useMemo<BoundaryNodeLabels>(
+    () => ({
+      frontendInput: t('llmDesignerPage.boundary.frontendInput'),
+      databaseSink: t('llmDesignerPage.boundary.databaseSink'),
+      frontendEdge: t('llmDesignerPage.boundary.frontendEdge'),
+      databaseEdge: t('llmDesignerPage.boundary.databaseEdge'),
+    }),
+    [t],
+  )
+  const templateCatalog = useMemo(() => createTemplateCatalog(t), [t])
   const preset = WORKFLOW_LINK_PRESET_BY_KEY[DEFAULT_WORKFLOW_LINK_PRESET_KEY]
-  const previewNodes = useMemo(() => ensureBoundaryNodes(baseNodes).map((node) => ({
+  const previewNodes = useMemo(() => ensureBoundaryNodes(baseNodes, undefined, boundaryLabels).map((node) => ({
     id: node.id,
     label: asKey(asObject(node.data).label, node.id),
     nodeType: asKey(asObject(node.data).node_type, node.type || 'unknown'),
     role: asKey(asObject(node.data).role, ''),
-  })), [])
-  const previewEdges = useMemo(() => [...baseEdges, ...buildAutoBridgeEdges(ensureBoundaryNodes(baseNodes), baseEdges)], [])
+  })), [boundaryLabels])
+  const previewEdges = useMemo(
+    () => [...baseEdges, ...buildAutoBridgeEdges(ensureBoundaryNodes(baseNodes, undefined, boundaryLabels), baseEdges, boundaryLabels)],
+    [boundaryLabels],
+  )
   const visibleTemplates = useMemo(() => templateCatalog.slice(0, 8), [templateCatalog])
-  const visibleProfiles = useMemo(() => NODE_INFO_PROFILES.slice(0, 4), [])
+  const visibleProfiles = useMemo(() => NODE_INFO_PROFILES.slice(0, 4).map((profile) => localizeProfile(profile, t)), [t])
 
   return (
     <section className="llm-designer-page llm-designer-page--full llm-designer-page--quiet">
       <header className="llm-designer-header">
         <div className="llm-designer-header__copy">
-          <small>storybook-lite contract</small>
-          <h2>LLM Designer</h2>
-          <p>Storybook 只保留 agent 后续开发真正需要的模板、链路和运行 contract，不再承接完整 ReactFlow 运行时。</p>
+          <small>{t('llmDesignerPage.storybook.eyebrow')}</small>
+          <h2>{t('llmDesignerPage.header.title')}</h2>
+          <p>{t('llmDesignerPage.storybook.description')}</p>
         </div>
-        <div className="llm-designer-header__stats">Templates {templateCatalog.length} · Nodes {previewNodes.length} · Edges {previewEdges.length}</div>
+        <div className="llm-designer-header__stats">
+          {tf('llmDesignerPage.stats.storybook', { templates: templateCatalog.length, nodes: previewNodes.length, edges: previewEdges.length })}
+        </div>
       </header>
 
       <div className="content-stack">
         <section className="panel">
           <div className="panel-header">
-            <h2>Storybook Contract Surface</h2>
-            <span className="chip">project: {projectKey}</span>
+            <h2>{t('llmDesignerPage.storybook.contractTitle')}</h2>
+            <span className="chip">{tf('llmDesignerPage.field.project', { projectKey })}</span>
           </div>
           <p className="status-line">
-            生产页继续使用完整 runtime canvas；Storybook 使用轻量入口，避免 iframe 中的布局反馈、自动 fit 和重交互拖垮 story。
+            {t('llmDesignerPage.storybook.contractStatus')}
           </p>
         </section>
 
         <section className="panel">
           <div className="panel-header">
-            <h2>Default Workflow Preview</h2>
+            <h2>{t('llmDesignerPage.storybook.defaultWorkflowPreview')}</h2>
             <span className="chip">{preset.label}</span>
           </div>
           <div style={{ display: 'grid', gap: 12 }}>
@@ -1712,29 +1838,29 @@ function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'pr
                 <article key={node.id} style={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.72)' }}>
                   <strong>{node.label}</strong>
                   <div className="status-line">{node.id}</div>
-                  <div className="status-line">type: {node.nodeType}</div>
-                  <div className="status-line">role: {node.role || '-'}</div>
+                  <div className="status-line">{tf('llmDesignerPage.field.typeValue', { value: node.nodeType })}</div>
+                  <div className="status-line">{tf('llmDesignerPage.field.roleValue', { value: node.role || '-' })}</div>
                 </article>
               ))}
             </div>
             <div className="status-line">
-              edges: {previewEdges.map((edge) => `${edge.source} -> ${edge.target}`).join(' | ')}
+              {tf('llmDesignerPage.field.edgesValue', { value: previewEdges.map((edge) => `${edge.source} -> ${edge.target}`).join(' | ') })}
             </div>
           </div>
         </section>
 
         <section className="panel">
           <div className="panel-header">
-            <h2>Template Palette</h2>
-            <span className="chip">deduped</span>
+            <h2>{t('llmDesignerPage.storybook.templatePalette')}</h2>
+            <span className="chip">{t('llmDesignerPage.storybook.dedupedChip')}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             {visibleTemplates.map((template) => (
               <article key={template.key} style={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.72)' }}>
                 <strong>{template.label}</strong>
                 <div className="status-line">{template.key}</div>
-                <div className="status-line">{template.description || 'No description'}</div>
-                <div className="status-line">node_type: {template.nodeType}</div>
+                <div className="status-line">{template.description || t('llmDesignerPage.empty.noDescription')}</div>
+                <div className="status-line">{tf('llmDesignerPage.field.nodeTypeValue', { value: template.nodeType })}</div>
               </article>
             ))}
           </div>
@@ -1742,16 +1868,16 @@ function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'pr
 
         <section className="panel">
           <div className="panel-header">
-            <h2>Node Profiles</h2>
-            <span className="chip">editable presets</span>
+            <h2>{t('llmDesignerPage.storybook.nodeProfiles')}</h2>
+            <span className="chip">{t('llmDesignerPage.storybook.editablePresetsChip')}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             {visibleProfiles.map((profile) => (
               <article key={profile.key} style={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.72)' }}>
                 <strong>{profile.label}</strong>
                 <div className="status-line">{profile.description || '-'}</div>
-                <div className="status-line">node_type: {profile.nodeType}</div>
-                <div className="status-line">model: {asKey(profile.data.model, '-')}</div>
+                <div className="status-line">{tf('llmDesignerPage.field.nodeTypeValue', { value: profile.nodeType })}</div>
+                <div className="status-line">{tf('llmDesignerPage.field.modelValue', { value: asKey(profile.data.model, '-') })}</div>
               </article>
             ))}
           </div>
@@ -1759,8 +1885,8 @@ function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'pr
 
         <section className="panel">
           <div className="panel-header">
-            <h2>Runtime Contract</h2>
-            <span className="chip">api integration</span>
+            <h2>{t('llmDesignerPage.storybook.runtimeContract')}</h2>
+            <span className="chip">{t('llmDesignerPage.storybook.apiIntegrationChip')}</span>
           </div>
           <div className="form-grid cols-3">
             <label>
@@ -1772,15 +1898,15 @@ function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'pr
               <input value="run-demo-001" readOnly />
             </label>
             <label>
-              <span>run input</span>
+              <span>{t('llmDesignerPage.field.runInput')}</span>
               <input value='{"query":"battery market"}' readOnly />
             </label>
           </div>
           <div className="inline-actions">
-            <button type="button" disabled>Compile Graph</button>
-            <button type="button" disabled>Run Graph</button>
-            <button type="button" disabled>Get Run Detail</button>
-            <button type="button" disabled>Get Run Events</button>
+            <button type="button" disabled>{t('llmDesignerPage.action.compileGraph')}</button>
+            <button type="button" disabled>{t('llmDesignerPage.action.runGraph')}</button>
+            <button type="button" disabled>{t('llmDesignerPage.action.getRunDetail')}</button>
+            <button type="button" disabled>{t('llmDesignerPage.action.getRunEvents')}</button>
           </div>
         </section>
       </div>

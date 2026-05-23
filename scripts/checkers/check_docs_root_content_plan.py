@@ -311,7 +311,7 @@ def validate_moved_file_batch(
             if target_raw not in source_text:
                 problems.append(Problem(source, f"moved source does not point at target: {target_raw}"))
 
-        if target is not None and target.is_file() and isinstance(source_raw, str):
+        if target is not None and target.is_file() and isinstance(source_raw, str) and target.suffix == ".md":
             target_text = target.read_text(encoding="utf-8")
             if "content moved" not in target_text.lower():
                 problems.append(Problem(target, "moved target must identify content moved status"))

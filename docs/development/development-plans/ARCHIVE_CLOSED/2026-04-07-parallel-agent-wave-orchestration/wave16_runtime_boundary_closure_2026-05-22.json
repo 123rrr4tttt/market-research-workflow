@@ -1,0 +1,62 @@
+{
+  "schema": "parallel_agent_runtime_boundary_closure_wave16.v1",
+  "run_date": "2026-05-22",
+  "topic": "2026-04-07-parallel-agent-wave-orchestration",
+  "status": "archive_candidate",
+  "status_tags": [
+    "wave16_checked",
+    "archive_candidate",
+    "successor_split",
+    "worker_runtime_external"
+  ],
+  "parent_runtime": {
+    "tool": "multi_agent_v1.spawn_agent",
+    "available": true,
+    "evidence": [
+      "Wave16 assignment states the parent runtime has exposed multi_agent_v1.spawn_agent",
+      "Wave16 plan starts nine worker branches from the parent/supervisor lane"
+    ],
+    "claim_scope": "parent_runtime_only",
+    "closed_for_repo_boundary": true
+  },
+  "repo_runtime_entry": {
+    "agents_contract": "codex_settings/AGENTS.md",
+    "tool_search_required_when_missing": true,
+    "spawn_tool_name": "multi_agent_v1.spawn_agent",
+    "fallback_when_missing": [
+      "record runtime tool unavailable",
+      "continue through normal single-agent workflow",
+      "use parallel shell/tool calls only as read-only exploration fallback"
+    ],
+    "no_fabricated_subagent_capability": true,
+    "fallback_context_tools": [
+      "codex_settings/scripts/swarm_file_bootstrap.sh",
+      "codex_settings/scripts/swarm.sh"
+    ],
+    "fallback_context_tools_are_spawn_evidence": false,
+    "closed_for_repo_boundary": true
+  },
+  "worker_runtime_successor": {
+    "successor_required": true,
+    "successor_status": "external_runtime_dependent",
+    "closed_by_this_topic": false,
+    "current_worker_observation": "tool_search was used for multi-agent spawn discovery in this worker, but no callable multi_agent_v1 namespace was exposed to this worker",
+    "must_not_block_archive_candidate": true,
+    "must_not_be_reported_as_closed": true,
+    "claim_requires": [
+      "multi_agent_v1.spawn_agent is callable in the worker runtime that makes the claim",
+      "at least one spawned worker returns result, changed files, validation status, and risk",
+      "fallback use is recorded when the runtime does not expose the tool"
+    ]
+  },
+  "archive_candidate": {
+    "candidate": true,
+    "scope": "topic-local evidence only",
+    "supervisor_owns_shared_index_update": true,
+    "reason": "Repo runtime entry, parent runtime availability, fallback contract, and non-fabrication rules are machine-checkable; worker-runtime proof is split to a successor boundary."
+  },
+  "verification": {
+    "checker": "verify_wave16_runtime_contract.py",
+    "expected_marker": "WAVE16_RUNTIME_BOUNDARY_OK"
+  }
+}
