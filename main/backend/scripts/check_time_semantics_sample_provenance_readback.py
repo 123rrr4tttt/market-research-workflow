@@ -19,30 +19,37 @@ CONTRACT_VERSION = "time-semantics.sample-provenance-readback.v1"
 SCOPE = "repo_local_deterministic_sample_provenance_readback_no_live_production_probe"
 
 SOURCE_READINESS_SCRIPT = "check_source_time_production_readiness.py"
+CURRENT_DEV_ROOT = Path("development/latest-dev-docs/development-plans/CURRENT_DEV")
+ARCHIVE_EXTERNAL_BLOCKED_ROOT = Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED")
+
+
+def _evidence_path_candidates(topic_dir: str, filename: str) -> tuple[Path, Path]:
+    return (
+        ARCHIVE_EXTERNAL_BLOCKED_ROOT / topic_dir / filename,
+        CURRENT_DEV_ROOT / topic_dir / filename,
+    )
+
 
 TOPIC_EVIDENCE = {
     "source_time_window": {
         "label": "Source Time Window",
-        "path": (
-            "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-            "2026-03-02-source-time-window-smart-timestamp-plan/"
-            "08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+        "paths": _evidence_path_candidates(
+            "2026-03-02-source-time-window-smart-timestamp-plan",
+            "08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md",
         ),
     },
     "time_statistics": {
         "label": "Time Statistics",
-        "path": (
-            "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-            "2026-03-05-time-statistics-remediation-plan/"
-            "10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+        "paths": _evidence_path_candidates(
+            "2026-03-05-time-statistics-remediation-plan",
+            "10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md",
         ),
     },
     "time_semantics_density": {
         "label": "Time Semantics Density",
-        "path": (
-            "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-            "2026-03-14-time-semantics-density-merged-plan/"
-            "10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+        "paths": _evidence_path_candidates(
+            "2026-03-14-time-semantics-density-merged-plan",
+            "10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md",
         ),
     },
 }
@@ -105,11 +112,19 @@ def _contains_marker(text: str, marker: str) -> bool:
     return marker.lower() in text.lower()
 
 
+def _resolve_existing_relative(repo_root: Path, candidates: tuple[Path, ...]) -> Path:
+    for relative_path in candidates:
+        if (repo_root / relative_path).is_file():
+            return relative_path
+    return candidates[0]
+
+
 def _topic_doc_checks(repo_root: Path) -> dict[str, Any]:
     topics: dict[str, Any] = {}
     failures: list[str] = []
     for key, topic in TOPIC_EVIDENCE.items():
-        relative_path = Path(str(topic["path"]))
+        candidate_paths = tuple(Path(path) for path in topic["paths"])
+        relative_path = _resolve_existing_relative(repo_root, candidate_paths)
         path = repo_root / relative_path
         exists = path.is_file()
         text = _read_text(path) if exists else ""
@@ -118,7 +133,8 @@ def _topic_doc_checks(repo_root: Path) -> dict[str, Any]:
         passed = bool(exists and not missing)
         topics[key] = {
             "label": topic["label"],
-            "path": str(relative_path),
+            "path": relative_path.as_posix(),
+            "candidate_paths": [path.as_posix() for path in candidate_paths],
             "exists": exists,
             "markers_checked": list(required_markers),
             "missing_markers": missing,

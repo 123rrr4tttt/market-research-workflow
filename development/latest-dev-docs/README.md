@@ -18,6 +18,7 @@
 - [ops-frontend](./ops-frontend/INDEX.md)
 - [frontend-modern](./frontend-modern/INDEX.md)
 - [development-plans](./development-plans/INDEX.md)
+- [development-plans/ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)
 
 ## 命名日期规则
 
@@ -26,6 +27,7 @@
 
 ## 最新补充
 
+- Wave21 封口优先波次（2026-05-22）：`CURRENT_DEV` 从 `partial:33` 降到 `partial:26`；7 个仓内门禁已封、但依赖外部 runtime / 生产数据 / 公网 replay / 人工 review 的目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)。
 - 线索追查 `Chain` / 链条工具开发计划（2026-05-22）：
   - [development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/INDEX.md](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/INDEX.md)
   - [development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md)
@@ -57,17 +59,17 @@
   - [crawler A7 validation pack](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave8-a7-validation-pack.md)
   - [crawler A7 validation run](./automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/README.md)
   - [fetch router gap closure](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/02_wave8-2-fetch-router-gap-closure-2026-05-22.md)
-  - [source-library adapter capability parser-profile gate](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/2026-05-22-wave8-3-adapter-capability-parser-profile-gate.md)
+  - [source-library adapter capability parser-profile gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/2026-05-22-wave8-3-adapter-capability-parser-profile-gate.md)
   - [frontend topology/i18n/theme contract evidence](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/03_wave8-4-topology-i18n-theme-contract-evidence-2026-05-22.md)
   - [graph projection rollout contract](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/04_wave8-5-projection-rollout-contract-note-2026-05-22.md)
   - [typed knowledge writing handoff contract](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/03_wave8_6_writing-handoff-contract-evidence-2026-05-22.md)
-  - [time target-overlap priority evidence](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/07_wave8-target-overlap-priority-evidence-2026-05-22.md)
+  - [time target-overlap priority evidence](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/07_wave8-target-overlap-priority-evidence-2026-05-22.md)
   - [search/vectorization deterministic contract](./automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
 - Wave9 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave9 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave9-worktree-plan-2026-05-22.md)
   - [meaningful ingest guardrails contract](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/02_wave9-1-meaningful-ingest-guardrails-contract-evidence-2026-05-22.md)
   - [agent symbolic batch search contract](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/16_wave9-agent-symbolic-batch-search-contract-evidence-2026-05-22.md)
-  - [source-library legacy 410 contract](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/07_wave9-3-legacy-410-contract-evidence-2026-05-22.md)
+  - [source-library legacy 410 contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/07_wave9-3-legacy-410-contract-evidence-2026-05-22.md)
   - [document queries contract](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/07_wave9-worker4-document-queries-contract-2026-05-22.md)
   - [consumer facade boundary contract](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md)
   - [ingest long-cycle lifecycle contract](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/04_wave9-6-ingest-long-cycle-lifecycle-contract-evidence-2026-05-22.md)
@@ -79,7 +81,7 @@
   - [Wave10 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave10-worktree-plan-2026-05-22.md)
   - [graph frontend force3d / engine-switch contract](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/03_wave10-frontend-visual-engine-switch-contract-2026-05-22.md)
   - [graph node DB rollout readiness contract](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/04_wave10-db-rollout-readiness-contract-2026-05-22.md)
-  - [time semantics OPE contract](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/08_wave10-time-semantics-ope-contract-evidence-2026-05-22.md)
+  - [time semantics OPE contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/08_wave10-time-semantics-ope-contract-evidence-2026-05-22.md)
   - [LLM crawler tri-state router contract](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/05_wave10-tri-state-router-contract-2026-05-22.md)
   - [source-library search governance](./automation-runs/source-library-search-governance/2026-05-22/README.md)
   - [vectorization quality gate](./automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
@@ -112,12 +114,12 @@
   - [ingest canary handoff](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/03_wave12-ingest-canary-handoff-evidence-2026-05-22.md)
   - [meaningful ingest canary handoff](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/04_wave12-meaningful-ingest-canary-handoff-evidence-2026-05-22.md)
   - [single URL canary handoff](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/04_wave12-single-url-canary-handoff-evidence-2026-05-22.md)
-  - [source time-window decision log](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/05_wave12-time-density-decision-log-provenance-evidence-2026-05-22.md)
-  - [time statistics decision log freshness](./development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/08_wave12-time-density-decision-log-freshness-evidence-2026-05-22.md)
-  - [time semantics density decision log](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/09_wave12-time-density-decision-log-contract-evidence-2026-05-22.md)
-  - [source-library three-lane relevance queue](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/08_wave12-relevance-review-queue-contract-2026-05-22.md)
-  - [search-chain source-library relevance queue](./development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/04_wave12-relevance-review-queue-contract-2026-05-22.md)
-  - [source-library adapter capability relevance queue](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/14_wave12-relevance-review-queue-contract-2026-05-22.md)
+  - [source time-window decision log](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/05_wave12-time-density-decision-log-provenance-evidence-2026-05-22.md)
+  - [time statistics decision log freshness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/08_wave12-time-density-decision-log-freshness-evidence-2026-05-22.md)
+  - [time semantics density decision log](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/09_wave12-time-density-decision-log-contract-evidence-2026-05-22.md)
+  - [source-library three-lane relevance queue](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/08_wave12-relevance-review-queue-contract-2026-05-22.md)
+  - [search-chain source-library relevance queue](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/04_wave12-relevance-review-queue-contract-2026-05-22.md)
+  - [source-library adapter capability relevance queue](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/14_wave12-relevance-review-queue-contract-2026-05-22.md)
   - [source-library ingest review queue](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/12_wave12-relevance-review-queue-contract-2026-05-22.md)
   - [frontend i18n business-string audit](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/05_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
   - [dual frontend business-string audit](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/05_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
@@ -125,7 +127,7 @@
   - [typed knowledge persistence/API boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md)
   - [writing workbench persistence boundary](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
   - [docs root content plan gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
-  - [R41 OpenClaw autodispatch gate](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
+  - [R41 OpenClaw autodispatch gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
 - Wave13 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave13 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave13-worktree-plan-2026-05-22.md)
   - [LLM crawler high-JS/public replay readiness](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md)
@@ -149,10 +151,10 @@
   - [ingest canary metrics readiness](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/04_wave14-ingest-canary-metrics-readiness-2026-05-22.md)
   - [meaningful ingest canary metrics readiness](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/05_wave14-meaningful-ingest-canary-metrics-readiness-2026-05-22.md)
   - [single URL canary metrics readiness](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/05_wave14-single-url-canary-metrics-readiness-2026-05-22.md)
-  - [time density current-state checker](./development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/09_wave14-time-density-current-state-evidence-2026-05-22.md)
-  - [source-library three-lane taxonomy review](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/09_wave14-taxonomy-review-readiness-2026-05-22.md)
-  - [search-chain source-library taxonomy review](./development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/05_wave14-taxonomy-review-readiness-2026-05-22.md)
-  - [source-library adapter taxonomy review](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/15_wave14-taxonomy-review-readiness-2026-05-22.md)
+  - [time density current-state checker](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/09_wave14-time-density-current-state-evidence-2026-05-22.md)
+  - [source-library three-lane taxonomy review](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/09_wave14-taxonomy-review-readiness-2026-05-22.md)
+  - [search-chain source-library taxonomy review](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/05_wave14-taxonomy-review-readiness-2026-05-22.md)
+  - [source-library adapter taxonomy review](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/15_wave14-taxonomy-review-readiness-2026-05-22.md)
   - [dual frontend migration boundary](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/06_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
   - [frontend i18n/theme migration boundary](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/06_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
   - [frontend three-layer migration boundary](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/07_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
@@ -161,8 +163,8 @@
 - Wave15 CURRENT_DEV runtime / migration / closure gates（2026-05-22，9 个子代理分支已合并，1 个目录已迁入 `ARCHIVE_CLOSED`）：
   - [Wave15 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave15-worktree-plan-2026-05-22.md)
   - [open search runtime boundary](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/13_wave15-open-search-runtime-boundary-2026-05-22.md)
-  - [source time production readiness](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/06_wave15-source-time-production-readiness-2026-05-22.md)
-  - [R41 OpenClaw runtime handoff](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
+  - [source time production readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/06_wave15-source-time-production-readiness-2026-05-22.md)
+  - [R41 OpenClaw runtime handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
   - [LLM crawler high-JS replay manifest](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md)
   - [symbolic search live quality threshold](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/19_wave15-symbolic-live-quality-threshold-2026-05-22.md)
   - [structured SQL helper migration](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_wave15-structured-sql-helper-migration-2026-05-22.md)
@@ -182,11 +184,11 @@
   - [long-cycle durable repository readback](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/07_wave16-long-cycle-durable-repository-readback-2026-05-22.md)
   - [docs root content move batch](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/08_wave16-docs-root-content-move-batch-evidence-2026-05-22.md)
   - [frontend Agent Chat i18n slice](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/07_wave16-agent-chat-i18n-slice-evidence-2026-05-22.md)
-  - [source-library review closure batch](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/10_wave16-review-closure-batch-2026-05-22.md)
+  - [source-library review closure batch](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/10_wave16-review-closure-batch-2026-05-22.md)
 - Wave17 CURRENT_DEV readback / runtime / migration gates（2026-05-22，9 个子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
   - [Wave17 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave17-worktree-plan-2026-05-22.md)
   - [Wave17 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave17-agent-roster-2026-05-22.md)
-  - [source-time sample readback](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/07_wave17-source-time-production-sample-readback-gate-2026-05-22.md)
+  - [source-time sample readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/07_wave17-source-time-production-sample-readback-gate-2026-05-22.md)
   - [ingest canary metrics readback](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/05_wave17-ingest-canary-metrics-readback-2026-05-22.md)
   - [graph runtime pixel / shape gate](./development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/06_wave17-runtime-pixel-shape-gate-2026-05-22.md)
   - [graph node rollout manifest readback](./development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/07_wave17-rollout-manifest-readback-2026-05-22.md)
@@ -215,21 +217,21 @@
   - [ingest 24h metrics artifact](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md)
   - [crawler public replay shards](./development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md)
   - [AgentCore provider trace redaction](./development-plans/CURRENT_DEV/2026-03-07-llm-service-and-agent-platformization/09_wave19-agentcore-provider-trace-redaction-2026-05-22.md)
-  - [source-library review closure batch 3](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/12_wave19-review-closure-batch3-2026-05-22.md)
+  - [source-library review closure batch 3](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/12_wave19-review-closure-batch3-2026-05-22.md)
   - [Dashboard page i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
   - [docs root content move batch 4](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/11_wave19-docs-root-content-move-batch4-evidence-2026-05-22.md)
   - [typed/writing persisted-card API boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
 - Wave20 CURRENT_DEV time / OpenClaw / modularization gates（2026-05-22，10 个 isolated 子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
   - [Wave20 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-worktree-plan-2026-05-22.md)
   - [Wave20 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-agent-roster-2026-05-22.md)
-  - [time semantics sample/provenance readback](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md)
-  - [OpenClaw mirror runtime manifest](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md)
+  - [time semantics sample/provenance readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md)
+  - [OpenClaw mirror runtime manifest](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md)
   - [graph editing audit conflict readback](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md)
   - [long-cycle scheduler queue replay](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/09_wave20-long-cycle-scheduler-queue-handoff-replay-2026-05-22.md)
   - [agent-batch quality promotion readback](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/21_wave20-agent-batch-quality-promotion-readback-2026-05-22.md)
   - [document-query endpoint slice](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/11_wave20-document-query-endpoint-slice-2026-05-22.md)
   - [consumer facade prompt-time-density slice](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/07_wave20-prompt-time-density-consumer-facade-2026-05-22.md)
-  - [source-library review closure batch 4](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/13_wave20-review-closure-batch4-2026-05-22.md)
+  - [source-library review closure batch 4](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/13_wave20-review-closure-batch4-2026-05-22.md)
   - [ProcessPage i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/12_wave20-process-page-i18n-slice-evidence-2026-05-22.md)
   - [docs root content move batch 5](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
@@ -266,10 +268,10 @@
   - [automation-runs/source-library-real-probes/2026-05-22/README.md](./automation-runs/source-library-real-probes/2026-05-22/README.md)
 - Source library public live probes 证据包（2026-05-22）：
   - [automation-runs/source-library-live-probes/2026-05-22/README.md](./automation-runs/source-library-live-probes/2026-05-22/README.md)
-  - [development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
 - Source library 45-site replay scaleout 证据包（2026-05-22）：
   - [automation-runs/source-library-replay-scaleout/2026-05-22/README.md](./automation-runs/source-library-replay-scaleout/2026-05-22/README.md)
-  - [development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `backend-docs` 新增当前 OpenAPI schema surface inventory 与合同测试防漂移（2026-05-22）：
   - [backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - Wave2 工作树计划与集成状态（2026-05-22）：
@@ -365,17 +367,17 @@
   - 历史 `single_url.py`、`task_ingest_single_url` 与 `single_url_*` 参数兼容层已删除。
   - 单 URL 与 URL 池正式写入主链已统一为 `url_routing/source_library -> postprocess_frontdoor`。
 - `development-plans/CURRENT_DEV` 补充来源库三车道与 clean terminal output 实现状态同步（2026-03-14）：
-  - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md)
-  - [2026-03-11-source-library-three-lane-architecture/05_agent-dispatch-lane-alignment-and-contract-closure-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/05_agent-dispatch-lane-alignment-and-contract-closure-2026-03-14.md)
-  - [2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md)
-  - [2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md)
-  - [2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md)
-  - [2026-03-14-source-library-adapter-capability-remediation/04_site-search-open-source-capability-matrix-and-execution-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/04_site-search-open-source-capability-matrix-and-execution-2026-03-15.md)
-  - [2026-03-14-source-library-adapter-capability-remediation/05_search-contract-discovery-service-and-storage-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/05_search-contract-discovery-service-and-storage-2026-03-15.md)
-  - [2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md)
-  - [2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md)
-  - [2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md)
-  - [2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
+  - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md)
+  - [2026-03-11-source-library-three-lane-architecture/05_agent-dispatch-lane-alignment-and-contract-closure-2026-03-14.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/05_agent-dispatch-lane-alignment-and-contract-closure-2026-03-14.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/02_atomic-tasklist-source-library-adapter-capability-remediation-2026-03-14.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/03_source-library-capability-service-map-and-modular-rollout-2026-03-14.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/04_site-search-open-source-capability-matrix-and-execution-2026-03-15.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/04_site-search-open-source-capability-matrix-and-execution-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/05_search-contract-discovery-service-and-storage-2026-03-15.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/05_search-contract-discovery-service-and-storage-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/06_open-source-source-presets-and-candidate-plan-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/07_site-routing-remediation-table-and-parser-focus-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/08_search-template-parser-pool-and-url-experiment-loop-2026-03-15.md)
+  - [2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/11_agent-exposed-task-contract-completeness-audit-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/11_agent-exposed-task-contract-completeness-audit-2026-03-14.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/12_search-brief-critic-retry-policy-and-agent-strategy-selection-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/12_search-brief-critic-retry-policy-and-agent-strategy-selection-2026-03-25.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/13_reference-library-search-brief-critic-retry-implementation-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/13_reference-library-search-brief-critic-retry-implementation-2026-03-25.md)
@@ -385,14 +387,14 @@
   - [2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md)
   - [2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md)
   - [2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
-  - [2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md)
+  - [2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md)
 - `development-plans/ARCHIVE_RETIRED` 已退场旧版时间语义与密度合并计划：
   - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md)
 - `development-plans/CURRENT_DEV` 新增来源库三分入口架构说明：
-  - [2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md)
-  - [2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md)
-  - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md)
-  - [2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md)
+  - [2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/01_source-library-three-lane-architecture-2026-03-11.md)
+  - [2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/02_atomic-tasklist-source-library-three-lane-architecture-2026-03-12.md)
+  - [2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/03_validation-closure-source-library-three-lane-architecture-2026-03-12.md)
+  - [2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/04_search-parameter-remediation-plan-2026-03-12.md)
   - [2026-03-12-data-structured-service-modularization/01_terminal-structured-ingest-output-standardization-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/01_terminal-structured-ingest-output-standardization-plan-2026-03-12.md)
   - [2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md)
   - [2026-03-12-data-structured-service-modularization/03_discrete-retained-modules-and-preprocess-frontdoor-plan-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/03_discrete-retained-modules-and-preprocess-frontdoor-plan-2026-03-12.md)
@@ -439,7 +441,7 @@
 - `development-plans/ARCHIVE_CLOSED` 已封口前侧收敛与系统中间层对齐计划：
   - [2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/03_handler-cluster-frontdoor-middle-layer-alignment-closing-2026-03-06.md](./development-plans/ARCHIVE_CLOSED/2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/03_handler-cluster-frontdoor-middle-layer-alignment-closing-2026-03-06.md)
 - `development-plans/CURRENT_DEV` 持续维护时间功能与统计联动修复计划：
-  - [2026-03-05-time-statistics-remediation-plan/01_time-statistics-remediation-plan-2026-03-05.md](./development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/01_time-statistics-remediation-plan-2026-03-05.md)
+  - [2026-03-05-time-statistics-remediation-plan/01_time-statistics-remediation-plan-2026-03-05.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/01_time-statistics-remediation-plan-2026-03-05.md)
 - `development-plans/CURRENT_DEV` 保留 OSS 代码采集与 IO 级任务规划：
   - [2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md](./development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md)
 - `ops-frontend/F_PLAN` 最近新增 modern API / graph 原子执行记录：
@@ -450,7 +452,7 @@
 ## 2026-03-14 迁移补充（最新口径主入口）
 
 - `development-plans/CURRENT_DEV` 时间语义与密度合并计划已迁移到最新口径主入口：
-  - [2026-03-14-time-semantics-density-merged-plan/README.md](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/README.md)
-  - [2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md)
+  - [2026-03-14-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md)
+  - [2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/CHANGELOG_2026-03-14.md)
 - 旧目录已退场并保留兼容迁移说明：
   - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md)

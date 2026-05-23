@@ -73,6 +73,16 @@ class SourceLibraryReviewClosureBatch4UnitTestCase(unittest.TestCase):
             sorted(artifact["topic_coverage"]),
             ["adapter_capability", "minimal_migration", "search_chain", "three_lane"],
         )
+        self.assertTrue(
+            artifact["topic_coverage"]["three_lane"]["wave20_evidence_doc"].startswith(
+                "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+            )
+        )
+        self.assertTrue(
+            artifact["topic_coverage"]["minimal_migration"]["wave20_evidence_doc"].startswith(
+                "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+            )
+        )
 
     def test_checker_validates_committed_artifact_topic_docs_and_gap_register(self) -> None:
         result = build_check(REPO_ROOT)
@@ -91,6 +101,17 @@ class SourceLibraryReviewClosureBatch4UnitTestCase(unittest.TestCase):
             ["human_review", "live_ingest_migration", "live_source_collection", "public_replay"],
         )
         self.assertEqual(len(result["topic_evidence"]["docs"]), 4)
+        doc_paths = {row["topic"]: row["path"] for row in result["topic_evidence"]["docs"]}
+        self.assertTrue(
+            doc_paths["three_lane"].startswith(
+                "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+            )
+        )
+        self.assertTrue(
+            doc_paths["minimal_migration"].startswith(
+                "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+            )
+        )
 
     def test_checker_rejects_human_public_source_or_ingest_closure_claims(self) -> None:
         artifact = build_expected_artifact(REPO_ROOT)

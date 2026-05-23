@@ -64,27 +64,32 @@ WAVE18_ARTIFACT_PATH = Path(
 WAVE19_ARTIFACT_PATH = Path(
     "development/latest-dev-docs/automation-runs/source-library-review-closure-batch3/2026-05-22/review_batch3.json"
 )
+CURRENT_DEV_ROOT = Path("development/latest-dev-docs/development-plans/CURRENT_DEV")
+ARCHIVE_EXTERNAL_BLOCKED_ROOT = Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED")
+
+
+def _evidence_doc_candidates(topic_dir: str, filename: str) -> tuple[Path, Path]:
+    return (
+        ARCHIVE_EXTERNAL_BLOCKED_ROOT / topic_dir / filename,
+        CURRENT_DEV_ROOT / topic_dir / filename,
+    )
 
 EVIDENCE_DOCS = {
-    "three_lane": (
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-        "2026-03-11-source-library-three-lane-architecture/"
-        "13_wave20-review-closure-batch4-2026-05-22.md"
+    "three_lane": _evidence_doc_candidates(
+        "2026-03-11-source-library-three-lane-architecture",
+        "13_wave20-review-closure-batch4-2026-05-22.md",
     ),
-    "search_chain": (
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-        "2026-03-14-search-chain-source-library-mounting-audit/"
-        "09_wave20-review-closure-batch4-2026-05-22.md"
+    "search_chain": _evidence_doc_candidates(
+        "2026-03-14-search-chain-source-library-mounting-audit",
+        "09_wave20-review-closure-batch4-2026-05-22.md",
     ),
-    "adapter_capability": (
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-        "2026-03-14-source-library-adapter-capability-remediation/"
-        "19_wave20-review-closure-batch4-2026-05-22.md"
+    "adapter_capability": _evidence_doc_candidates(
+        "2026-03-14-source-library-adapter-capability-remediation",
+        "19_wave20-review-closure-batch4-2026-05-22.md",
     ),
-    "minimal_migration": (
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-        "2026-03-25-source-library-ingest-minimal-migration/"
-        "16_wave20-review-closure-batch4-2026-05-22.md"
+    "minimal_migration": _evidence_doc_candidates(
+        "2026-03-25-source-library-ingest-minimal-migration",
+        "16_wave20-review-closure-batch4-2026-05-22.md",
     ),
 }
 
@@ -115,11 +120,18 @@ def _require(condition: bool, errors: list[str], message: str) -> None:
         errors.append(message)
 
 
-def _read_text(root: Path, relative: str) -> str:
+def _read_text(root: Path, relative: Path | str) -> str:
     path = root / relative
     if not path.is_file():
         return ""
     return path.read_text(encoding="utf-8")
+
+
+def _resolve_existing_relative(root: Path, candidates: tuple[Path, ...]) -> Path:
+    for relative in candidates:
+        if (root / relative).is_file():
+            return relative
+    return candidates[0]
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -456,8 +468,8 @@ def build_expected_artifact(repo_root: Path | str | None = None) -> dict[str, An
             ],
         },
         "topic_coverage": {
-            topic: {"wave20_evidence_doc": path}
-            for topic, path in sorted(EVIDENCE_DOCS.items())
+            topic: {"wave20_evidence_doc": _resolve_existing_relative(root, paths).as_posix()}
+            for topic, paths in sorted(EVIDENCE_DOCS.items())
         },
         "remaining_gaps": _remaining_gaps(),
         "non_closure_markers": {
@@ -561,19 +573,25 @@ def _compare_artifact(expected: dict[str, Any], actual: dict[str, Any], errors: 
 
 def _build_doc_check(root: Path, errors: list[str]) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
-    for topic, relative in sorted(EVIDENCE_DOCS.items()):
+    for topic, candidates in sorted(EVIDENCE_DOCS.items()):
+        relative = _resolve_existing_relative(root, candidates)
         text = _read_text(root, relative)
         missing_markers = [marker for marker in REQUIRED_DOC_MARKERS if marker not in text]
         rows.append(
             {
                 "topic": topic,
-                "path": relative,
+                "path": relative.as_posix(),
+                "candidate_paths": [path.as_posix() for path in candidates],
                 "exists": bool(text),
                 "missing_markers": missing_markers,
             }
         )
-        _require(bool(text), errors, f"missing Wave20 topic evidence doc: {relative}")
-        _require(not missing_markers, errors, f"Wave20 topic evidence doc missing markers: {relative}: {missing_markers}")
+        _require(bool(text), errors, f"missing Wave20 topic evidence doc: {relative.as_posix()}")
+        _require(
+            not missing_markers,
+            errors,
+            f"Wave20 topic evidence doc missing markers: {relative.as_posix()}: {missing_markers}",
+        )
     return {
         "docs": rows,
         "forbidden_shared_indexes": sorted(FORBIDDEN_SHARED_INDEXES),

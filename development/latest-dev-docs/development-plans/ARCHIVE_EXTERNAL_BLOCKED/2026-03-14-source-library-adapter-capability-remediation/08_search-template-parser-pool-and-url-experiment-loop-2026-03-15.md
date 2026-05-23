@@ -19,7 +19,7 @@ Move search-result parsing from a single growing function to a modular parser po
 
 New file:
 
-- [search_result_parser_profiles.py](/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/app/services/resource_pool/search_result_parser_profiles.py)
+- [search_result_parser_profiles.py](../../../../../main/backend/app/services/resource_pool/search_result_parser_profiles.py)
 
 It externalizes profile configuration instead of embedding all rule data inside one execution file.
 
@@ -50,7 +50,7 @@ Current profile fields:
 
 New modular executor:
 
-- [search_result_parser_service.py](/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/app/services/resource_pool/search_result_parser_service.py)
+- [search_result_parser_service.py](../../../../../main/backend/app/services/resource_pool/search_result_parser_service.py)
 
 It now resolves a profile into a parser-module chain and executes modules in order.
 
@@ -75,9 +75,9 @@ The route layer keeps owning policy; the parser layer now owns concrete extracti
 
 Integrated files:
 
-- [site_search_policy.py](/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/app/services/resource_pool/site_search_policy.py)
-- [unified_search.py](/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/app/services/resource_pool/unified_search.py)
-- [search_template_service.py](/Users/wangyiliang/market-research-workflow-parallel-20260303-215619/main/backend/app/services/resource_pool/search_template_service.py)
+- [site_search_policy.py](../../../../../main/backend/app/services/resource_pool/site_search_policy.py)
+- [unified_search.py](../../../../../main/backend/app/services/resource_pool/unified_search.py)
+- [search_template_service.py](../../../../../main/backend/app/services/resource_pool/search_template_service.py)
 
 Current flow:
 

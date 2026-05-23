@@ -87,7 +87,7 @@ OK
 Use a supervisor/integration lane to perform the actual migration:
 
 1. Move the topic from
-   `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/`
+   `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/`
    to the canonical external-blocked holding area. If the taxonomy needs a
    physical directory, use:
    `development/latest-dev-docs/development-plans/EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/`.

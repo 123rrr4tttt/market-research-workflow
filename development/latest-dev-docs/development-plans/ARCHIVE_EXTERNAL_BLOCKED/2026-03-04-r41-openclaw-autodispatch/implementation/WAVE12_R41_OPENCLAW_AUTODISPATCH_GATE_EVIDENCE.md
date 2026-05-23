@@ -16,7 +16,7 @@ runtime state.
 
 - Checker: `scripts/checkers/check_r41_openclaw_autodispatch_gate.py`
 - Topic root:
-  `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch`
+  `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch`
 - Repo-local assertions:
   - autodispatch status is `skipped`
   - reason is `no_unfinished_line_task`
@@ -32,7 +32,7 @@ python3 scripts/check_current_dev_wave12_plan.py
 python3 scripts/checkers/check_r41_openclaw_autodispatch_gate.py
 python3 -m unittest discover -s tests/checkers -p '*_unittest.py'
 python3 -m py_compile scripts/checkers/check_r41_openclaw_autodispatch_gate.py tests/checkers/test_check_r41_openclaw_autodispatch_gate_unittest.py
-python3 scripts/check_latest_dev_docs_structure.py --link-path development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch
+python3 scripts/check_latest_dev_docs_structure.py --link-path development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch
 git diff --check
 ```
 

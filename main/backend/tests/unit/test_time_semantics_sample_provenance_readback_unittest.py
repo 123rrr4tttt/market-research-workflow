@@ -56,6 +56,14 @@ class TimeSemanticsSampleProvenanceReadbackTest(unittest.TestCase):
         )
         self.assertEqual(result["sample_evidence"]["source_time"], "2026-03-02T12:00:00Z")
         self.assertEqual(result["sample_evidence"]["time_provenance"], "source_time")
+        self.assertTrue(
+            all(
+                row["path"].startswith(
+                    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+                )
+                for row in result["topic_evidence"].values()
+            )
+        )
 
     def test_checker_fails_when_wave20_topic_evidence_is_missing(self) -> None:
         module = _load_checker_module()

@@ -54,6 +54,10 @@
   "status": "passed_with_known_gaps",
   "topic_evidence": {
     "source_time_window": {
+      "candidate_paths": [
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+      ],
       "exists": true,
       "label": "Source Time Window",
       "markers_checked": [
@@ -70,9 +74,13 @@
       ],
       "missing_markers": [],
       "passed": true,
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
     },
     "time_semantics_density": {
+      "candidate_paths": [
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+      ],
       "exists": true,
       "label": "Time Semantics Density",
       "markers_checked": [
@@ -89,9 +97,13 @@
       ],
       "missing_markers": [],
       "passed": true,
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
     },
     "time_statistics": {
+      "candidate_paths": [
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+      ],
       "exists": true,
       "label": "Time Statistics",
       "markers_checked": [
@@ -108,7 +120,7 @@
       ],
       "missing_markers": [],
       "passed": true,
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md"
     }
   }
 }

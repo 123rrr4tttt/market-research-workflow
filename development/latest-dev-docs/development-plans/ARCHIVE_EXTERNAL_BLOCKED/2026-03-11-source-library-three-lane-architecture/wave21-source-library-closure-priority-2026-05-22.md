@@ -8,7 +8,7 @@ cluster spanning:
 - [2026-03-11-source-library-three-lane-architecture](.)
 - [2026-03-14-search-chain-source-library-mounting-audit](../2026-03-14-search-chain-source-library-mounting-audit)
 - [2026-03-14-source-library-adapter-capability-remediation](../2026-03-14-source-library-adapter-capability-remediation)
-- [2026-03-25-source-library-ingest-minimal-migration](../2026-03-25-source-library-ingest-minimal-migration)
+- [2026-03-25-source-library-ingest-minimal-migration](../../CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration)
 
 No shared indexes are edited in this pass. Moving directories out of
 `CURRENT_DEV` still requires a later integration pass because it must update the
@@ -64,7 +64,7 @@ allowed to edit the top-level shared indexes.
   - `claims_live_ingest_migration_complete=false`
   - `shared_indexes_edited=false`
 - Retained-partial ingest evidence:
-  `../2026-03-25-source-library-ingest-minimal-migration/11_wave11-source-library-extraction-runner-evidence-2026-05-22.md`
+  `../../CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/11_wave11-source-library-extraction-runner-evidence-2026-05-22.md`
 
 ## Verification Commands
 

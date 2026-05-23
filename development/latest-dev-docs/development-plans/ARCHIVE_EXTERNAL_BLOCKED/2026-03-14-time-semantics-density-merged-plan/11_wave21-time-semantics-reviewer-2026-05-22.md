@@ -23,9 +23,9 @@
 - Decision：`external_blocked`
 - Evidence：
   - `development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md` 对该目录记录 `partial`，并写明 `wave20_verified` 后仍为「生产数据语义链未封口」。
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/06_wave15-source-time-production-readiness-2026-05-22.md` 报告 `production_data_semantic_chain=ready_not_run`，并说明可由 `--live-evidence-json` 额外补齐。
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/07_wave17-source-time-production-sample-readback-gate-2026-05-22.md` 明确 `production_data_semantic_chain: ready_not_run` 且 `sample_does_not_claim_live_production=true`。
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md` 明确未使用 live production data/public network/replay/生产 DB/API/UI readback，剩余：
+  - `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/06_wave15-source-time-production-readiness-2026-05-22.md` 报告 `production_data_semantic_chain=ready_not_run`，并说明可由 `--live-evidence-json` 额外补齐。
+  - `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/07_wave17-source-time-production-sample-readback-gate-2026-05-22.md` 明确 `production_data_semantic_chain: ready_not_run` 且 `sample_does_not_claim_live_production=true`。
+  - `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md` 明确未使用 live production data/public network/replay/生产 DB/API/UI readback，剩余：
     - `production_data_semantic_chain_live_validation_not_run`
     - `live_source_time_coverage_distribution_not_measured`
     - `live_decision_log_features_readback_not_verified`
@@ -40,9 +40,9 @@
 - Decision：`external_blocked`
 - Evidence：
   - `development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md` 记录该目录为 `partial`，并写明 Wave14/Wave20 之后仍有生产验证未闭合项。
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/09_wave14-time-density-current-state-evidence-2026-05-22.md` 说明局部检查为 `status=passed_with_known_gaps`，并保留 `external_gap`：决策日志 volume、反馈对齐、生产鲜度证明、historical backfill、release 门禁。
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/08_wave12-time-density-decision-log-freshness-evidence-2026-05-22.md` 与 `07_wave10...` 同步写明本地 checker 不依赖 live 数据，live volume/alignment 未验证。
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md` 明确 `production_data_semantic_chain_live_verified=false`，同一组 live-gap markers 未打通。
+  - `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/09_wave14-time-density-current-state-evidence-2026-05-22.md` 说明局部检查为 `status=passed_with_known_gaps`，并保留 `external_gap`：决策日志 volume、反馈对齐、生产鲜度证明、historical backfill、release 门禁。
+  - `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/08_wave12-time-density-decision-log-freshness-evidence-2026-05-22.md` 与 `07_wave10...` 同步写明本地 checker 不依赖 live 数据，live volume/alignment 未验证。
+  - `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md` 明确 `production_data_semantic_chain_live_verified=false`，同一组 live-gap markers 未打通。
 - Risk：
   - 当前 evidence 可用于 repo 内 deterministic 验证，但 release/gating 与 feedback 链路仍需生产采样才能合规宣告闭口。
   - 若缺少稳定的生产数据回放窗口，`production_state` 仍只能停留在 `partial`。
@@ -54,9 +54,9 @@
 - Decision：`external_blocked`
 - Evidence：
   - `development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md` 对该目录记录 `partial`，并写明 Wave8/Wave10/Wave12/Wave20 后「生产数据语义链仍未封口」。
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/09_wave12-time-density-decision-log-contract-evidence-2026-05-22.md` 将生产 freshness/volume/alignment 明确标为 `external_gap`，并不作全局闭口。
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md` 与 `08_wave10...` 明确 `status=passed_with_known_gaps`、`production_data_semantic_chain_live_validation_not_run`。
-  - `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/README.md` 与 `05_merged-unified-report...` 均为主读本，未见已进入 release 级 production 终止条件。
+  - `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/09_wave12-time-density-decision-log-contract-evidence-2026-05-22.md` 将生产 freshness/volume/alignment 明确标为 `external_gap`，并不作全局闭口。
+  - `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md` 与 `08_wave10...` 明确 `status=passed_with_known_gaps`、`production_data_semantic_chain_live_validation_not_run`。
+  - `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md` 与 `05_merged-unified-report...` 均为主读本，未见已进入 release 级 production 终止条件。
 - Risk：
   - 决策链中 OPE/反馈体量、生产决策日志读回、外部服务配置验证仍待外部条件满足。
   - 已有 deterministic contract 通过不足以支持闭口决策，容易出现「docs 一致但生产链路不稳定」误判。

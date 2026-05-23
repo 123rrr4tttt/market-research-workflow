@@ -21,9 +21,9 @@ Scope: repo-local deterministic sample/provenance readback for the Source Time W
 
 ## Topic Evidence
 
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md`
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-time-statistics-remediation-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md`
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md`
+- `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md`
+- `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md`
+- `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/10_wave20-time-semantics-sample-provenance-readback-2026-05-22.md`
 
 ## Remaining Open Production Chain
 

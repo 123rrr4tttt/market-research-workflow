@@ -34,9 +34,10 @@ class R41OpenClawMirrorRuntimeManifestReadbackTestCase(unittest.TestCase):
         return target
 
     def test_contract_accepts_repo_local_manifest_readback(self) -> None:
-        contract = checker.build_contract(root=checker.REPO_ROOT, topic=checker.REPO_ROOT / checker.TOPIC_REL)
+        contract = checker.build_contract(root=checker.REPO_ROOT)
 
         self.assertEqual(contract["status"], "passed", contract["failures"])
+        self.assertEqual(contract["topic"], checker.TOPIC_REL.as_posix())
         self.assertEqual(contract["readback_state"]["local_mirror_status"], checker.STATUS_LOCAL_MIRROR_PASSED)
         self.assertEqual(
             contract["readback_state"]["external_runtime_status"],

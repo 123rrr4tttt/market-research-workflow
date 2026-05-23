@@ -121,161 +121,161 @@
       "artifact_id": "autodispatch_runtime_state",
       "exists": true,
       "kind": "runtime_state",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/orchestration/line-autodispatch-2026-03-04-scout-r41.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/orchestration/line-autodispatch-2026-03-04-scout-r41.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "interface_contract",
       "exists": true,
       "kind": "interface_contract",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/R41_INTERFACE_CONTRACT.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/R41_INTERFACE_CONTRACT.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "codex_handoff_manifest",
       "exists": true,
       "kind": "handoff_manifest",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/codex_handoff.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/codex_handoff.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_index",
       "exists": true,
       "kind": "reference_pool",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/INDEX.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/INDEX.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_dedup_boundary",
       "exists": true,
       "kind": "reference_pool",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/dedup_diff.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/dedup_diff.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "interface_alignment",
       "exists": true,
       "kind": "reference_pool",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/interface_envelope_alignment.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/interface_envelope_alignment.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "wave12_autodispatch_gate_evidence",
       "exists": true,
       "kind": "evidence",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "wave15_runtime_handoff_evidence",
       "exists": true,
       "kind": "evidence",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "wave20_mirror_readback_topic_evidence",
       "exists": true,
       "kind": "evidence",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "implementation_sa1-ab",
       "exists": true,
       "kind": "implementation_doc",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/SA1-R41-AB-line-unfinished-autodispatch.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/SA1-R41-AB-line-unfinished-autodispatch.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "implementation_sa2-cd",
       "exists": true,
       "kind": "implementation_doc",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/SA2-R41-CD-line-unfinished-autodispatch.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/SA2-R41-CD-line-unfinished-autodispatch.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "implementation_sa3-ef",
       "exists": true,
       "kind": "implementation_doc",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/SA3-R41-EF-line-unfinished-autodispatch.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/SA3-R41-EF-line-unfinished-autodispatch.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_AB_envelope",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/AB-envelope.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/AB-envelope.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_CD_envelope",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/CD-envelope.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/CD-envelope.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_EF_envelope",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/EF-envelope.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/EF-envelope.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_reference_pack",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/reference_pack.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/reference_pack.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_research_note",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/research_note.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/research_note.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_codex_handoff",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/codex_handoff.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/codex_handoff.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_dedup_diff",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/dedup_diff.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/dedup_diff.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_source_repo_urls",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/source_repo_urls.txt",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/source_repo_urls.txt",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_line_sync_leveling",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/line_sync_leveling.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/line_sync_leveling.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_interface_envelope_alignment",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/interface_envelope_alignment.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/interface_envelope_alignment.md",
       "status": "local_mirror_passed"
     },
     {
       "artifact_id": "reference_file_structural_inconsistency_patch",
       "exists": true,
       "kind": "reference_file",
-      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/structural_inconsistency_patch.md",
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/reference-pool/2026-03-04-scout-r41/structural_inconsistency_patch.md",
       "status": "local_mirror_passed"
     }
   ],
@@ -289,5 +289,5 @@
   },
   "scope": "repo_local_openclaw_mirror_runtime_handoff_manifest_readback_no_external_runtime_probe",
   "status": "passed",
-  "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch"
+  "topic": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch"
 }

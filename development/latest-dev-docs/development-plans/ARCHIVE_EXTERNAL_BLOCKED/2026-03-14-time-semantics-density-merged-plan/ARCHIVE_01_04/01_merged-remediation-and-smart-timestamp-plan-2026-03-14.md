@@ -2,7 +2,7 @@
 
 ## 文档元信息
 - 文档 ID: `A01-merged-remediation-smart-timestamp-2026-03-14`
-- 所属目录: `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-time-semantics-density-merged-plan/ARCHIVE_01_04/`
+- 所属目录: `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/ARCHIVE_01_04/`
 - 版本: `v2026.03.14`
 - 状态: `current-baseline`
 - 术语主键: `noun_group_id`

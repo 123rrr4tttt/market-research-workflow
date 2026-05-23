@@ -59,7 +59,7 @@ Topic-local Markdown link gate:
 
 ```bash
 python3 scripts/check_latest_dev_docs_structure.py \
-  --link-path development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture
+  --link-path development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture
 ```
 
 Result: `OK latest_dev_docs_structure=passed markdown_link_files=7 markdown_links=0`.

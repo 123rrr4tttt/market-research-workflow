@@ -61,7 +61,7 @@ Observed validation on 2026-05-22:
 
 ```text
 OK wave15_current_dev_plan=passed mode=codex/devdocs-wave15-openclaw-runtime-handoff branches=9 changed_files=4 worker_boundary_enforced=true
-OK r41_openclaw_runtime_handoff=passed topic=development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch repo_local_handoff_mirror_consistent=true mirror_line_rows=6 handoff_tasks=12 implementation_docs=3 reference_files=11 external_openclaw_runtime_live_verified=false external_runtime_checked=false
+OK r41_openclaw_runtime_handoff=passed topic=development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch repo_local_handoff_mirror_consistent=true mirror_line_rows=6 handoff_tasks=12 implementation_docs=3 reference_files=11 external_openclaw_runtime_live_verified=false external_runtime_checked=false
 OK current_dev_status_evidence=passed entries=35 counts=partial:35,not_closed:0,no_closure_claim:0 links=184 placeholders=0 empty_dirs=0 wave_rows=117
 OK latest_dev_docs_structure=passed markdown_link_files=20 markdown_links=0
 ```
