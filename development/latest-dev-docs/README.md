@@ -36,6 +36,8 @@
 
 ## 最新补充
 
+- Wave36 target-topic evidence profile（2026-05-23）：按四类目录模型重算开发计划状态，只将真实开发目标纳入 closure 指标；过程/证据记录、分类/导航目录、外部参考材料不再被机械要求目录级封口。`TARGET_TOPIC_ALLOWLIST.json` 现在给出 61 个 target topics（`closed:26 / external_blocked:29 / retired:6 / active_current:0`）与 17 个 non-target roots，`check_development_plans_status_matrix.py` 新增 target evidence profile 并要求每个 target 有 code/script/test/gate 证据信号，`external_blocked` 还必须有 external blocker 信号。证据：[wave36 target-topic evidence profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)。
+
 - Wave34 docs-root physical archive（2026-05-23）：`2026-03-07-docs-root-restructuring` 已从 `CURRENT_DEV` 实体迁出到 [docs/development ARCHIVE_CLOSED](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)；`check_current_dev_status_evidence.py` 新增 inactive direct-dir gate，防止索引已 `clear_closed` 但目录仍留在 `CURRENT_DEV` 的漂移。证据：[wave34 docs-root physical archive](./automation-runs/wave34-docs-root-physical-archive/2026-05-23/README.md)。
 
 - Wave33 external-blocked revalidation（2026-05-23）：`CURRENT_DEV` 已为 `partial:0`，本轮改为复核最接近误判的外部阻塞目录：source-library、time semantics 与 OpenClaw R41。9 个子 agent 已完成并关闭；仓内修复了 time-semantics checker 的 archive-first evidence fallback、OpenClaw `--repo-root` / archive topic 默认值与空证据文件失败保护，并标注 source-library 历史 `retained_partial` 文案为旧快照。结论仍是 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-23-wave33-external-blocked-revalidation.md)，不转 `ARCHIVE_CLOSED`。

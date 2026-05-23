@@ -22,11 +22,13 @@ Updated: 2026-05-23 PST
 ## 当前规范状态
 
 - `CURRENT_DEV` 的当前剩余状态以 [development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md) 为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
+- Target-topic scope 以 [development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json) 与 [Wave36 target-topic evidence profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md) 为准：当前 61 个 target topics（`closed:26 / external_blocked:29 / retired:6 / active_current:0`）、17 个 non-target roots；过程记录、导航分类与外部参考不计入 closure 指标。
 - “最近新增”中的 Wave21-Wave34 条目是 historical wave log；历史 `partial` 计数只说明当时的迁档进度，不应作为当前未封口数量读取。
 
 ## 最近新增
 
 - `development-plans`：
+  - [2026-05-23 Wave36 Target Topic Evidence Profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)
   - [2026-05-23 Wave34 Docs Root Physical Archive](./automation-runs/wave34-docs-root-physical-archive/2026-05-23/README.md)
   - [2026-05-23 Wave33 External-Blocked Revalidation](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-23-wave33-external-blocked-revalidation.md)
   - [2026-05-23 Wave32 Frontend I18N Final Closure](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)
@@ -64,6 +66,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave21 External-Blocked Archive](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)
   - [Historical Wave21 CURRENT_DEV status snapshot; current canonical status is in CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md)
 - `automation-runs`：
+  - [2026-05-23 Wave36 Target Topic Evidence Profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)
   - [2026-05-23 Wave30 Vector Closure Gate](./automation-runs/wave30-vector-closure-gate/2026-05-23/README.md)
   - [2026-05-23 Wave27 Structured / Consumer Closure Gate](./automation-runs/wave27-structured-consumer-closure/2026-05-23/README.md)
   - [2026-05-23 Wave27 Ingest Canary Closure Readiness](./automation-runs/wave27-ingest-canary-closure-readiness/2026-05-23/README.md)

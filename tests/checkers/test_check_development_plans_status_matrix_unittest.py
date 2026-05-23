@@ -101,6 +101,7 @@ class DevelopmentPlansTargetTopicMatrixTestCase(unittest.TestCase):
                     "path": "docs/development/development-plans/ARCHIVE_CLOSED",
                     "status": "closed",
                     "entrypoint": "docs/development/development-plans/ARCHIVE_CLOSED/INDEX.md",
+                    "excluded_topic_dirs": ["process-topic"],
                 },
                 {
                     "path": (checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED").as_posix(),
@@ -141,12 +142,13 @@ class DevelopmentPlansTargetTopicMatrixTestCase(unittest.TestCase):
         self.assertTrue(result.ok, result.problems)
         self.assertEqual({"partial": 0, "not_closed": 0, "no_closure_claim": 0}, result.status_counts)
         self.assertEqual((), tuple(target for target in result.targets if target.status == "active_current"))
+        self.assertEqual({}, result.target_profiles)
 
     def test_checker_expands_target_roots_without_requiring_navigation_dirs_to_close(self) -> None:
         root = self.make_repo()
         topic = root / "docs/development/development-plans/ARCHIVE_CLOSED/closed-topic"
         topic.mkdir()
-        (topic / "evidence.md").write_text("# Closed evidence\n", encoding="utf-8")
+        (topic / "evidence.md").write_text("# Closed evidence\n\nGate: pytest tests/unit/test_closed.py passed.\n", encoding="utf-8")
         with (root / "docs/development/development-plans/ARCHIVE_CLOSED/INDEX.md").open("a", encoding="utf-8") as handle:
             handle.write("- [Closed Topic](./closed-topic/evidence.md)\n")
 
@@ -161,6 +163,8 @@ class DevelopmentPlansTargetTopicMatrixTestCase(unittest.TestCase):
             ),
             result.targets,
         )
+        profile = result.target_profiles[Path("docs/development/development-plans/ARCHIVE_CLOSED/closed-topic")]
+        self.assertEqual(1, profile.file_count)
 
     def test_checker_rejects_current_dev_count_mismatch(self) -> None:
         root = self.make_repo(partial=0)
@@ -209,6 +213,79 @@ class DevelopmentPlansTargetTopicMatrixTestCase(unittest.TestCase):
         self.assertTrue(result.ok, result.problems)
         self.assertIn(checker.DEV_PLANS_ROOT / "A_ARCHITECTURE", result.non_target_roots)
         self.assertFalse(any(target.path.name == "A_ARCHITECTURE" for target in result.targets))
+
+    def test_checker_rejects_closed_topic_without_code_script_test_or_gate_signal(self) -> None:
+        root = self.make_repo()
+        topic = root / "docs/development/development-plans/ARCHIVE_CLOSED/weak-closed-topic"
+        topic.mkdir()
+        (topic / "note.md").write_text("# Weak closed topic\n\nOnly narrative.\n", encoding="utf-8")
+        with (root / "docs/development/development-plans/ARCHIVE_CLOSED/INDEX.md").open("a", encoding="utf-8") as handle:
+            handle.write("- [Weak Closed Topic](./weak-closed-topic/note.md)\n")
+
+        result = checker.check(root)
+
+        self.assertFalse(result.ok)
+        self.assertTrue(any("lacks code/script/test/gate evidence" in problem.message for problem in result.problems), result.problems)
+
+    def test_checker_excludes_configured_process_topic_from_target_expansion(self) -> None:
+        root = self.make_repo()
+        process_topic = root / "docs/development/development-plans/ARCHIVE_CLOSED/process-topic"
+        process_topic.mkdir()
+        (process_topic / "note.md").write_text("# Process record\n", encoding="utf-8")
+
+        result = checker.check(root)
+
+        self.assertTrue(result.ok, result.problems)
+        self.assertFalse(any(target.path.name == "process-topic" for target in result.targets))
+
+    def test_evidence_profile_detects_code_script_test_gate_and_external_signals(self) -> None:
+        root = self.make_repo()
+        topic = root / checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED/external-profile-topic"
+        topic.mkdir()
+        (topic / "INDEX.md").write_text(
+            "\n".join(
+                [
+                    "# External Profile Topic",
+                    "Status: external_blocked",
+                    "Code: main/backend/app/services/example.py",
+                    "Script: scripts/check_example.py",
+                    "Test: pytest tests/unit/test_example.py passed",
+                    "Gate: validation gate readback",
+                    "External blocker: live provider not_verified",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        with (root / checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED/INDEX.md").open("a", encoding="utf-8") as handle:
+            handle.write("- [External Profile Topic](./external-profile-topic/INDEX.md)\n")
+
+        result = checker.check(root)
+
+        self.assertTrue(result.ok, result.problems)
+        profile = result.target_profiles[checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED/external-profile-topic"]
+        self.assertTrue(profile.has_code_reference)
+        self.assertTrue(profile.has_script_reference)
+        self.assertTrue(profile.has_test_reference)
+        self.assertTrue(profile.has_gate_reference)
+        self.assertTrue(profile.has_external_blocker)
+
+    def test_reference_excludes_from_allowlist_are_used_by_profile_scan(self) -> None:
+        root = self.make_repo()
+        topic = root / "docs/development/development-plans/ARCHIVE_CLOSED/reference-excluded-topic"
+        topic.mkdir()
+        (topic / "evidence.md").write_text("# Evidence\n\nGate: pytest tests/unit/test_ref.py passed.\n", encoding="utf-8")
+        excluded = topic / "references/repos/example"
+        excluded.mkdir(parents=True)
+        (excluded / "README.md").write_text("External fixture with `.py` and external_blocked noise.\n", encoding="utf-8")
+        with (root / "docs/development/development-plans/ARCHIVE_CLOSED/INDEX.md").open("a", encoding="utf-8") as handle:
+            handle.write("- [Reference Excluded Topic](./reference-excluded-topic/evidence.md)\n")
+
+        result = checker.check(root)
+
+        self.assertTrue(result.ok, result.problems)
+        profile = result.target_profiles[Path("docs/development/development-plans/ARCHIVE_CLOSED/reference-excluded-topic")]
+        self.assertEqual(1, profile.file_count)
 
     def test_reference_repo_paths_are_excluded(self) -> None:
         self.assertTrue(checker.is_reference_repo_path(Path("topic/references/repos/example/README.md")))

@@ -49,13 +49,13 @@
   状态：`external_blocked` / `wave24_checked`。仓内 RAG drift gate 已证明 retired RAG anchors 与 current local-index/vectorization anchors 的映射；剩余条件是 live/vector optional dependency readiness、production semantic quality 与 global vector contract closure。
 - [2026-05-22 Clue Chain Successor Scopes](./2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md)
   状态：`external_blocked` / `wave26_checked`。仓内 graph-submit conflict bridge/curated conflict/readback 与 GraphPage Clue Chain UI matrix 已封住；剩余条件是 SearXNG / YaCy / project search adapter live provider reliability。
-- [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/11_wave27-external-blocked-decision-2026-05-23.md)
+- [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/INDEX.md)
   状态：`external_blocked` / `wave27_checked`。仓内 backend audit/readback、tenant-like fixture、conflict/rollback readback 与 GraphPage audit/rollback/handoff replay UI gate 已封住；剩余条件是 live tenant DB audit durability、persistent handoff replay readback 和 tenant/project scoping。
-- [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/10_wave27-external-blocked-decision-2026-05-23.md)
+- [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/INDEX.md)
   状态：`external_blocked` / `wave27_checked`。仓内 typed-knowledge JSONL durable readback、public API route contract、persisted-card request/response readback 与 overclaim guards 已封住；剩余条件是 live DB/API/UI、governance UI 与 migration/backfill evidence。
-- [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/11_wave27-external-blocked-decision-2026-05-23.md)
+- [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/INDEX.md)
   状态：`external_blocked` / `wave27_checked`。仓内 Writing Workbench typed-card request shape、keyword-card consumer readback、preview/detail readback 与 live-closure guards 已封住；剩余条件是 live persisted UI/API/DB readback、governance mutation 与 migration/backfill evidence。
-- [2026-03-14 Consumer-Side Modularization](./2026-03-14-consumer-side-modularization/08_wave27-external-blocked-decision-2026-05-23.md)
+- [2026-03-14 Consumer-Side Modularization](./2026-03-14-consumer-side-modularization/INDEX.md)
   状态：`external_blocked` / `wave27_checked`。仓内 consumer facade/query、admin/dashboard、policy-state 与 prompt-time-density gates 已封住；剩余条件是 live DB/API smoke。
 - [2026-03-25 Source-Library Ingest Minimal Migration](./2026-03-25-source-library-ingest-minimal-migration/18_wave27-external-blocked-decision-2026-05-23.md)
   状态：`external_blocked` / `wave27_checked` / `wave33_checked`。仓内 `python_library` 与 `cli_or_container` bounded runner gates 已封住，AT-EXT checker `failures=[]`；Wave33 标注旧 Wave9/Wave21 runner blocker 文案为历史快照；剩余条件是 live article-extraction stack replay 与 live external-project replay。

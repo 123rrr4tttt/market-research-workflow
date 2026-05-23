@@ -9,6 +9,7 @@ evidence/process records, compatibility shims, and embedded reference repos.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import re
 import sys
@@ -33,6 +34,20 @@ COUNT_RE = re.compile(r"`?(partial|not_closed|no_closure_claim)`?\s*[:：]\s*`?(
 LINK_RE = re.compile(r"(!?)\[([^\]]*)\]\(([^)]+)\)")
 SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 VALID_TARGET_STATUSES = {"active_current", "closed", "external_blocked", "retired"}
+DEFAULT_REFERENCE_EXCLUDES = ("**/references/repos/**", "references/repos/**")
+PROFILE_SUFFIXES = {".md", ".json", ".yml", ".yaml", ".toml", ".txt", ".sh", ".py"}
+CODE_RE = re.compile(
+    r"\b(main|backend|frontend|app|src|services|components|api|workflow|agent|graph|ingest|crawler|search|writing)\b|"
+    r"\.(py|ts|tsx|js|mjs|sh)\b"
+)
+SCRIPT_RE = re.compile(r"\b(script|scripts/|checkers/|ops/|run_|verify_|check_)\b|\.sh\b")
+TEST_RE = re.compile(r"\b(pytest|unittest|tests?/|test_|npm run test|passed|pass(ed)?)\b", re.IGNORECASE)
+GATE_RE = re.compile(r"\b(gate|check:|lint|build|contract|smoke|readback|manifest|validation|验证|门禁)\b", re.IGNORECASE)
+EXTERNAL_RE = re.compile(
+    r"\b(external_blocked|external blocker|live|production|public replay|tenant|provider|operator|human review|"
+    r"not_run|not_verified|missing_real_evidence|外部|公网|生产|人工)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -59,9 +74,21 @@ class TargetTopic:
 
 
 @dataclass(frozen=True)
+class EvidenceProfile:
+    file_count: int
+    has_code_reference: bool
+    has_script_reference: bool
+    has_test_reference: bool
+    has_gate_reference: bool
+    has_external_blocker: bool
+    sample_files: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
 class Result:
     status_counts: dict[str, int]
     targets: tuple[TargetTopic, ...]
+    target_profiles: dict[Path, EvidenceProfile]
     non_target_roots: tuple[Path, ...]
     evidence_roots: tuple[Path, ...]
     active_navigation: tuple[Path, ...]
@@ -90,7 +117,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def is_reference_repo_path(path: Path) -> bool:
+def reference_excludes(allowlist: dict[str, Any] | None = None) -> tuple[str, ...]:
+    if not allowlist:
+        return DEFAULT_REFERENCE_EXCLUDES
+    configured = allowlist.get("reference_excludes", [])
+    if not isinstance(configured, list):
+        return DEFAULT_REFERENCE_EXCLUDES
+    patterns = tuple(item for item in configured if isinstance(item, str) and item)
+    return patterns or DEFAULT_REFERENCE_EXCLUDES
+
+
+def is_reference_repo_path(path: Path, patterns: tuple[str, ...] | None = None) -> bool:
+    normalized = path.as_posix()
+    active_patterns = patterns or DEFAULT_REFERENCE_EXCLUDES
+    if any(fnmatch.fnmatch(normalized, pattern) for pattern in active_patterns):
+        return True
     parts = path.parts
     return any(parts[index : index + 2] == ("references", "repos") for index in range(len(parts) - 1))
 
@@ -102,8 +143,13 @@ def rel(path: Path, root: Path) -> Path:
         return path
 
 
-def read_text(root: Path, relative_path: Path, problems: list[Problem]) -> str:
-    if is_reference_repo_path(relative_path):
+def read_text(
+    root: Path,
+    relative_path: Path,
+    problems: list[Problem],
+    reference_patterns: tuple[str, ...] | None = None,
+) -> str:
+    if is_reference_repo_path(relative_path, reference_patterns):
         return ""
     try:
         return (root / relative_path).read_text(encoding="utf-8")
@@ -147,7 +193,12 @@ def target_path(raw: str) -> str | None:
     return path_text or None
 
 
-def resolve_link(root: Path, source_rel: Path, raw_target: str) -> Path | None:
+def resolve_link(
+    root: Path,
+    source_rel: Path,
+    raw_target: str,
+    reference_patterns: tuple[str, ...] | None = None,
+) -> Path | None:
     path_text = target_path(raw_target)
     if path_text is None:
         return None
@@ -156,13 +207,15 @@ def resolve_link(root: Path, source_rel: Path, raw_target: str) -> Path | None:
         relative = candidate.resolve().relative_to(root.resolve())
     except ValueError:
         return None
-    if is_reference_repo_path(relative):
+    if is_reference_repo_path(relative, reference_patterns):
         return None
     return relative
 
 
-def parse_current_status_counts(root: Path, problems: list[Problem]) -> dict[str, int]:
-    text = read_text(root, CURRENT_DEV_INDEX, problems)
+def parse_current_status_counts(
+    root: Path, problems: list[Problem], reference_patterns: tuple[str, ...] | None = None
+) -> dict[str, int]:
+    text = read_text(root, CURRENT_DEV_INDEX, problems, reference_patterns)
     counts: dict[str, int] = {}
     in_distribution = False
     for line in text.splitlines():
@@ -183,10 +236,12 @@ def historical_count_line(line: str) -> bool:
     return any(marker in lowered for marker in HISTORICAL_MARKERS)
 
 
-def status_counts_in_active_navigation(root: Path, problems: list[Problem]) -> list[StatusCount]:
+def status_counts_in_active_navigation(
+    root: Path, problems: list[Problem], reference_patterns: tuple[str, ...] | None = None
+) -> list[StatusCount]:
     counts: list[StatusCount] = []
     for surface in ACTIVE_NAVIGATION:
-        text = read_text(root, surface, problems)
+        text = read_text(root, surface, problems, reference_patterns)
         for line_no, line in enumerate(text.splitlines(), start=1):
             if "references/repos" in line:
                 continue
@@ -203,7 +258,7 @@ def status_counts_in_active_navigation(root: Path, problems: list[Problem]) -> l
     return counts
 
 
-def direct_child_dirs(root: Path, parent: Path) -> tuple[Path, ...]:
+def direct_child_dirs(root: Path, parent: Path, reference_patterns: tuple[str, ...] | None = None) -> tuple[Path, ...]:
     full_parent = root / parent
     if not full_parent.is_dir():
         return ()
@@ -211,7 +266,7 @@ def direct_child_dirs(root: Path, parent: Path) -> tuple[Path, ...]:
     for child in sorted(full_parent.iterdir()):
         if child.is_dir() and not child.name.startswith("."):
             child_rel = rel(child, root)
-            if not is_reference_repo_path(child_rel):
+            if not is_reference_repo_path(child_rel, reference_patterns):
                 children.append(child_rel)
     return tuple(children)
 
@@ -226,7 +281,12 @@ def strings(value: Any) -> set[str]:
     return {item for item in value if isinstance(item, str)}
 
 
-def collect_targets(root: Path, allowlist: dict[str, Any], problems: list[Problem]) -> tuple[TargetTopic, ...]:
+def collect_targets(
+    root: Path,
+    allowlist: dict[str, Any],
+    problems: list[Problem],
+    reference_patterns: tuple[str, ...] | None = None,
+) -> tuple[TargetTopic, ...]:
     targets: list[TargetTopic] = []
     target_roots = allowlist.get("target_roots")
     if not isinstance(target_roots, list):
@@ -254,7 +314,7 @@ def collect_targets(root: Path, allowlist: dict[str, Any], problems: list[Proble
 
         excluded = strings(rule.get("excluded_topic_dirs"))
         allowed_non_topic = strings(rule.get("allowed_non_topic_dirs"))
-        for child in direct_child_dirs(root, root_path):
+        for child in direct_child_dirs(root, root_path, reference_patterns):
             name = child.name
             if name in excluded or name in allowed_non_topic:
                 continue
@@ -278,19 +338,31 @@ def collect_declared_roots(allowlist: dict[str, Any], key: str, problems: list[P
     return tuple(roots)
 
 
-def index_mentions_topic(root: Path, entrypoint: Path, topic: Path, problems: list[Problem]) -> bool:
-    text = read_text(root, entrypoint, problems)
+def index_mentions_topic(
+    root: Path,
+    entrypoint: Path,
+    topic: Path,
+    problems: list[Problem],
+    reference_patterns: tuple[str, ...] | None = None,
+) -> bool:
+    text = read_text(root, entrypoint, problems, reference_patterns)
     topic_name = topic.name
     if topic_name in text:
         return True
     for _, _, raw_target in LINK_RE.findall(text):
-        resolved = resolve_link(root, entrypoint, raw_target)
+        resolved = resolve_link(root, entrypoint, raw_target, reference_patterns)
         if resolved is not None and (resolved == topic or topic in resolved.parents):
             return True
     return False
 
 
-def check_target_evidence(root: Path, target: TargetTopic, problems: list[Problem]) -> None:
+def check_target_evidence(
+    root: Path,
+    target: TargetTopic,
+    problems: list[Problem],
+    profile: EvidenceProfile,
+    reference_patterns: tuple[str, ...] | None = None,
+) -> None:
     full = root / target.path
     if not full.is_dir():
         problems.append(Problem(target.path, "target topic directory is missing"))
@@ -302,14 +374,64 @@ def check_target_evidence(root: Path, target: TargetTopic, problems: list[Proble
     ]
     if not topic_files:
         problems.append(Problem(target.path, "target topic has no local evidence files"))
-    if not index_mentions_topic(root, target.entrypoint, target.path, problems):
+    if not index_mentions_topic(root, target.entrypoint, target.path, problems, reference_patterns):
         problems.append(Problem(target.entrypoint, f"target root entrypoint does not mention {target.path.name}"))
+
+    if target.status in {"active_current", "closed", "external_blocked"} and not (
+        profile.has_code_reference
+        or profile.has_script_reference
+        or profile.has_test_reference
+        or profile.has_gate_reference
+    ):
+        problems.append(
+            Problem(
+                target.path,
+                "target lacks code/script/test/gate evidence signals; classify as process/evidence or add a verifiable gate",
+            )
+        )
 
     if target.status == "external_blocked":
         text = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in topic_files)
-        entry_text = read_text(root, target.entrypoint, problems)
+        entry_text = read_text(root, target.entrypoint, problems, reference_patterns)
+        if not profile.has_external_blocker:
+            problems.append(Problem(target.path, "external_blocked target lacks external blocker signal"))
         if "external_blocked" not in text and "external_blocked" not in entry_text:
             problems.append(Problem(target.path, "external_blocked target lacks explicit external blocker evidence"))
+
+
+def profile_files(root: Path, topic: Path, reference_patterns: tuple[str, ...] | None = None) -> tuple[Path, ...]:
+    full = root / topic
+    if not full.is_dir():
+        return ()
+    files: list[Path] = []
+    for child in sorted(full.rglob("*")):
+        if not child.is_file():
+            continue
+        child_rel = rel(child, root)
+        if is_reference_repo_path(child_rel, reference_patterns) or child.suffix.lower() not in PROFILE_SUFFIXES:
+            continue
+        files.append(child_rel)
+    return tuple(files)
+
+
+def evidence_profile(root: Path, topic: Path, reference_patterns: tuple[str, ...] | None = None) -> EvidenceProfile:
+    files = profile_files(root, topic, reference_patterns)
+    text_parts: list[str] = []
+    for file_path in files:
+        try:
+            text_parts.append((root / file_path).read_text(encoding="utf-8", errors="ignore"))
+        except OSError:
+            continue
+    text = "\n".join(text_parts)
+    return EvidenceProfile(
+        file_count=len(files),
+        has_code_reference=bool(CODE_RE.search(text)),
+        has_script_reference=bool(SCRIPT_RE.search(text)),
+        has_test_reference=bool(TEST_RE.search(text)),
+        has_gate_reference=bool(GATE_RE.search(text)),
+        has_external_blocker=bool(EXTERNAL_RE.search(text)),
+        sample_files=files[:5],
+    )
 
 
 def check_non_targets_exist(root: Path, roots: tuple[Path, ...], problems: list[Problem]) -> None:
@@ -321,8 +443,10 @@ def check_non_targets_exist(root: Path, roots: tuple[Path, ...], problems: list[
 def check(root: Path, allowlist_path: Path = ALLOWLIST) -> Result:
     problems: list[Problem] = []
     allowlist = read_json(root, allowlist_path, problems)
-    status_counts = parse_current_status_counts(root, problems)
-    targets = collect_targets(root, allowlist, problems)
+    reference_patterns = reference_excludes(allowlist)
+    status_counts = parse_current_status_counts(root, problems, reference_patterns)
+    targets = collect_targets(root, allowlist, problems, reference_patterns)
+    target_profiles = {target.path: evidence_profile(root, target.path, reference_patterns) for target in targets}
     non_target_roots = collect_declared_roots(allowlist, "non_target_roots", problems)
     evidence_roots = collect_declared_roots(allowlist, "evidence_roots", problems)
 
@@ -340,7 +464,7 @@ def check(root: Path, allowlist_path: Path = ALLOWLIST) -> Result:
         )
 
     current_partial = status_counts.get("partial")
-    for count in status_counts_in_active_navigation(root, problems):
+    for count in status_counts_in_active_navigation(root, problems, reference_patterns):
         if count.status != "partial" or current_partial is None:
             continue
         if count.count != current_partial and not historical_count_line(count.line):
@@ -357,7 +481,7 @@ def check(root: Path, allowlist_path: Path = ALLOWLIST) -> Result:
         if target.path in seen:
             problems.append(Problem(target.path, "duplicate target topic in allowlist expansion"))
         seen.add(target.path)
-        check_target_evidence(root, target, problems)
+        check_target_evidence(root, target, problems, target_profiles[target.path], reference_patterns)
 
     check_non_targets_exist(root, non_target_roots, problems)
     check_non_targets_exist(root, evidence_roots, problems)
@@ -365,6 +489,7 @@ def check(root: Path, allowlist_path: Path = ALLOWLIST) -> Result:
     return Result(
         status_counts=status_counts,
         targets=targets,
+        target_profiles=target_profiles,
         non_target_roots=non_target_roots,
         evidence_roots=evidence_roots,
         active_navigation=ACTIVE_NAVIGATION,
@@ -383,6 +508,20 @@ def result_json(result: Result) -> dict[str, Any]:
         "target_status_counts": status_counts,
         "targets": [
             {"path": target.path.as_posix(), "status": target.status, "entrypoint": target.entrypoint.as_posix()}
+            for target in result.targets
+        ],
+        "target_profiles": [
+            {
+                "path": target.path.as_posix(),
+                "status": target.status,
+                "file_count": result.target_profiles[target.path].file_count,
+                "has_code_reference": result.target_profiles[target.path].has_code_reference,
+                "has_script_reference": result.target_profiles[target.path].has_script_reference,
+                "has_test_reference": result.target_profiles[target.path].has_test_reference,
+                "has_gate_reference": result.target_profiles[target.path].has_gate_reference,
+                "has_external_blocker": result.target_profiles[target.path].has_external_blocker,
+                "sample_files": [path.as_posix() for path in result.target_profiles[target.path].sample_files],
+            }
             for target in result.targets
         ],
         "non_target_roots": [path.as_posix() for path in result.non_target_roots],
