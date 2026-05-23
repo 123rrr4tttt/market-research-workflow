@@ -21,7 +21,7 @@ from typing import Any
 from urllib.parse import unquote
 
 
-TOPIC_DIR = Path("development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring")
+TOPIC_DIR = Path("docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring")
 CONTENT_PLAN = Path("docs/development/latest-dev-docs-content-plan.json")
 REQUIRED_BLOCKERS = {"shared_navigation_sync", "MERGED_OVERVIEW_drift"}
 POST_WAVE25_MIN_PREFIX = 14

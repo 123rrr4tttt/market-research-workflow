@@ -18,7 +18,7 @@ Use this root for:
 
 The current readable entrypoint remains [development/latest-dev-docs](../../development/latest-dev-docs/README.md). This root is prepared for migration targets, but it does not replace the compatibility entry until an integration batch updates shared navigation.
 
-The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuring](../../development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md).
+The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuring](../development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md).
 
 The first content shim batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries keep `development/latest-dev-docs` as the content authority while the README shims under this root provide readable pointers to the current compatibility entries. Shared navigation still belongs to the integration lane.
 

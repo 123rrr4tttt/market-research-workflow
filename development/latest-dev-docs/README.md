@@ -29,17 +29,19 @@
 
 ## 最新补充
 
+- Wave34 docs-root physical archive（2026-05-23）：`2026-03-07-docs-root-restructuring` 已从 `CURRENT_DEV` 实体迁出到 [docs/development ARCHIVE_CLOSED](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)；`check_current_dev_status_evidence.py` 新增 inactive direct-dir gate，防止索引已 `clear_closed` 但目录仍留在 `CURRENT_DEV` 的漂移。证据：[wave34 docs-root physical archive](./automation-runs/wave34-docs-root-physical-archive/2026-05-23/README.md)。
+
 - Wave33 external-blocked revalidation（2026-05-23）：`CURRENT_DEV` 已为 `partial:0`，本轮改为复核最接近误判的外部阻塞目录：source-library、time semantics 与 OpenClaw R41。9 个子 agent 已完成并关闭；仓内修复了 time-semantics checker 的 archive-first evidence fallback、OpenClaw `--repo-root` / archive topic 默认值与空证据文件失败保护，并标注 source-library 历史 `retained_partial` 文案为旧快照。结论仍是 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-23-wave33-external-blocked-revalidation.md)，不转 `ARCHIVE_CLOSED`。
 
 - Wave32 closure-priority wave（2026-05-23）：集中处理最后一个 `CURRENT_DEV` partial：`2026-03-15-frontend-three-layer-rewrite`。9 个 frontend worker 的结果已集成并关闭，`check:business-string-audit` 报告 `full_business_string_migration_complete=true`、`remaining_migration_gaps.total=0`，Graph/Ops/AgentChat/Resource/Settings/LlmDesigner/WritingWorkbench focused gates、`lint` 与 `build` 均通过；目录迁入 [ARCHIVE_CLOSED](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)，`CURRENT_DEV` 从 `partial:1` 降到 `partial:0`。
 
-- Wave31 closure-priority wave（2026-05-23）：docs-root 执行 195 个 `ARCHIVE_CLOSED` ledger 文件 moved-file batch，`check_docs_root_navigation_drift.py --require-clean` 达到 `missing_refs=0 / shared_missing_refs=0 / unsafe_moves=0 / decomposed_moves=0`，`CURRENT_DEV` 从 `partial:2` 降到 `partial:1`；frontend three-layer 继续保留为唯一 `partial`，但 business-string audit gaps 从 1724 降到 1080 且 build 通过。证据：[docs-root Wave31 clean gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)、[frontend Wave31 i18n slices](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/15_wave31-frontend-i18n-concentrated-slices-2026-05-23.md)。
+- Wave31 closure-priority wave（2026-05-23）：docs-root 执行 195 个 `ARCHIVE_CLOSED` ledger 文件 moved-file batch，`check_docs_root_navigation_drift.py --require-clean` 达到 `missing_refs=0 / shared_missing_refs=0 / unsafe_moves=0 / decomposed_moves=0`，`CURRENT_DEV` 从 `partial:2` 降到 `partial:1`；frontend three-layer 继续保留为唯一 `partial`，但 business-string audit gaps 从 1724 降到 1080 且 build 通过。证据：[docs-root Wave31 clean gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)、[frontend Wave31 i18n slices](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/15_wave31-frontend-i18n-concentrated-slices-2026-05-23.md)。
 
-- Wave30 closure-priority wave（2026-05-23）：按“减少 `partial`”只处理最接近封口的 vector/open-source/docs-root/frontend 四个目录；global vectorization 已落地 retrieval run persistence/readback、payload provenance 与 Agent/main-search schema join，open-source platform 不再有独立仓内 blocker，两个目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)：[global vectorization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)、[open source platform](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/09_wave30-open-source-external-blocked-decision-2026-05-23.md)。`CURRENT_DEV` 从 `partial:4` 降到 `partial:2`；保留项证据：[docs-root target readback](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/20_wave30-docs-root-navigation-target-readback-2026-05-23.md)、[CrawlerManage i18n slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/14_wave30-crawler-manage-i18n-slice-2026-05-23.md)、[vector closure gate](./automation-runs/wave30-vector-closure-gate/2026-05-23/README.md)。Wave31 shared-navigation readback also keeps docs-root anchors visible: [CURRENT_DEV active surface](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/17_wave28-docs-root-current-dev-supervisor-owned-2026-05-23.md)、[reviewer decision](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/17_wave28-docs-root-reviewer-2026-05-23.md)、[archive closed classification](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/18_wave28-worker-a-docs-root-archive-closed-classification-2026-05-23.md)、[shared navigation sync](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)。
+- Wave30 closure-priority wave（2026-05-23）：按“减少 `partial`”只处理最接近封口的 vector/open-source/docs-root/frontend 四个目录；global vectorization 已落地 retrieval run persistence/readback、payload provenance 与 Agent/main-search schema join，open-source platform 不再有独立仓内 blocker，两个目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)：[global vectorization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)、[open source platform](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/09_wave30-open-source-external-blocked-decision-2026-05-23.md)。`CURRENT_DEV` 从 `partial:4` 降到 `partial:2`；保留项证据：[docs-root target readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/20_wave30-docs-root-navigation-target-readback-2026-05-23.md)、[CrawlerManage i18n slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/14_wave30-crawler-manage-i18n-slice-2026-05-23.md)、[vector closure gate](./automation-runs/wave30-vector-closure-gate/2026-05-23/README.md)。Wave31 shared-navigation readback also keeps docs-root anchors visible: [CURRENT_DEV active surface](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/17_wave28-docs-root-current-dev-supervisor-owned-2026-05-23.md)、[reviewer decision](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/17_wave28-docs-root-reviewer-2026-05-23.md)、[archive closed classification](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/18_wave28-worker-a-docs-root-archive-closed-classification-2026-05-23.md)、[shared navigation sync](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)。
 
 - Wave29 closure-priority wave（2026-05-23）：按“减少 `partial`”重新排序，集中处理 ingest / OSS-node / vector / docs-root 近封口目录；四个目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)：[ingest platformization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/09_wave29-ingest-platformization-repo-local-closure-2026-05-23.md)、[meaningful guardrails](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md)、[single URL](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/10_wave29-ingest-blocker-alignment-2026-05-23.md)、[OSS node](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md)。`CURRENT_DEV` 从 `partial:8` 降到 `partial:4`。
 
-- Wave29 retained partial evidence（2026-05-23）：global vectorization 已落地 response-level `evidence_hits` / `global_vector_object` schema gate，但仍保留 persistence、payload provenance 与 Agent/main-search join blocker；docs-root 已将最后 unsafe broad archive move 拆为 per-file batches，但 navigation / `MERGED_OVERVIEW` drift 仍阻塞封口。证据：[vector schema alignment](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md)、[docs-root decomposition](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/19_wave29-worker-a-docs-root-archive-closed-decomposition-2026-05-23.md)、[docs-root navigation drift](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/19_wave29-worker-b-docs-root-shared-navigation-drift-2026-05-23.md)。
+- Wave29 retained partial evidence（2026-05-23）：global vectorization 已落地 response-level `evidence_hits` / `global_vector_object` schema gate，但仍保留 persistence、payload provenance 与 Agent/main-search join blocker；docs-root 已将最后 unsafe broad archive move 拆为 per-file batches，但 navigation / `MERGED_OVERVIEW` drift 仍阻塞封口。证据：[vector schema alignment](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md)、[docs-root decomposition](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/19_wave29-worker-a-docs-root-archive-closed-decomposition-2026-05-23.md)、[docs-root navigation drift](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/19_wave29-worker-b-docs-root-shared-navigation-drift-2026-05-23.md)。
 
 - Wave28 structured worker（2026-05-23）：`2026-03-12-data-structured-service-modularization` 已补 generic DocumentQuery statement builder 并通过 focused gates；仓内 repo-local blocker 清零，剩余 live DB/API smoke 属外部条件，目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-12-data-structured-service-modularization/14_wave28-structured-document-query-statement-builder-2026-05-23.md)，`CURRENT_DEV` 从 `partial:9` 降到 `partial:8`。
 
@@ -62,7 +64,7 @@
 - Wave6 CURRENT_DEV 并行状态证据与最小落地计划（2026-05-22，9 个子代理分支已合并）：
   - [parallel-agent orchestration](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md)
   - [crawler source expansion](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave6-closure-gap-and-min-plan.md)
-  - [docs root restructuring](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/02_wave6-docs-root-restructuring-evidence-closure-gap-2026-05-22.md)
+  - [docs root restructuring](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/02_wave6-docs-root-restructuring-evidence-closure-gap-2026-05-22.md)
   - [graph editing/reporting](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md)
   - [LLM service and Agent platformization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/03_wave6-5-status-evidence-and-min-plan-2026-05-22.md)
   - [typed knowledge organization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/03_wave6-6-status-evidence-and-minimal-plan-2026-05-22.md)
@@ -74,7 +76,7 @@
   - [crawler policy matrix](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-crawler-policy-matrix.md)
   - [crawler public replay A5 gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-a5-public-replay-evidence.md)
   - [crawler provider handoff evidence](./automation-runs/crawler-provider-handoff/2026-05-22/README.md)
-  - [docs root target roots](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/03_wave7-5-docs-root-targets-evidence-2026-05-22.md)
+  - [docs root target roots](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/03_wave7-5-docs-root-targets-evidence-2026-05-22.md)
   - [graph node standardization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/02_wave7-status-evidence-and-min-plan-2026-05-22.md)
   - [ingest digestion long-cycle automation](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/03_wave7-7-ingest-digestion-long-cycle-automation-evidence-2026-05-22.md)
   - [frontend visual layering retirement](./development-plans/ARCHIVE_RETIRED/2026-03-24-frontend-visual-layering/INDEX.md)
@@ -99,7 +101,7 @@
   - [consumer facade boundary contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md)
   - [ingest long-cycle lifecycle contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/04_wave9-6-ingest-long-cycle-lifecycle-contract-evidence-2026-05-22.md)
   - [AgentCore platform contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/04_wave9-7-agent-core-platform-contract-evidence-2026-05-22.md)
-  - [docs root migration manifest evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/04_wave9-8-docs-root-migration-manifest-evidence-2026-05-22.md)
+  - [docs root migration manifest evidence](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/04_wave9-8-docs-root-migration-manifest-evidence-2026-05-22.md)
   - [source-library ingest AT-EXT current contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md)
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - Wave10 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
@@ -111,7 +113,7 @@
   - [source-library search governance](./automation-runs/source-library-search-governance/2026-05-22/README.md)
   - [vectorization quality gate](./automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
   - [typed knowledge writing context envelope](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/04_wave10-worker7-writing-context-envelope-evidence-2026-05-22.md)
-  - [docs root content shim evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/05_wave10-8-docs-root-content-shim-evidence-2026-05-22.md)
+  - [docs root content shim evidence](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/05_wave10-8-docs-root-content-shim-evidence-2026-05-22.md)
   - [parallel agent runtime contract refresh](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md)
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - Wave11 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
@@ -125,7 +127,7 @@
   - [structured consumer query extraction](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-12-data-structured-service-modularization/08_wave11-structured-consumer-query-extraction-evidence-2026-05-22.md)
   - [consumer-side query extraction](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/03_wave11-consumer-query-extraction-evidence-2026-05-22.md)
   - [frontend layer-shell topology contract](./development-plans/ARCHIVE_RETIRED/2026-03-07-dual-frontend-workbench-topology/04_wave11-layer-shell-topology-contract-evidence-2026-05-22.md)
-  - [docs root navigation promotion](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/06_wave11-docs-root-navigation-promotion-evidence-2026-05-22.md)
+  - [docs root navigation promotion](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/06_wave11-docs-root-navigation-promotion-evidence-2026-05-22.md)
 - Wave12 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave12 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave12-worktree-plan-2026-05-22.md)
   - [provider readiness run artifact](./automation-runs/wave12-provider-readiness/2026-05-22/README.md)
@@ -151,7 +153,7 @@
   - [frontend three-layer business-string audit](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/06_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
   - [typed knowledge persistence/API boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md)
   - [writing workbench persistence boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
-  - [docs root content plan gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
+  - [docs root content plan gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
   - [R41 OpenClaw autodispatch gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
 - Wave13 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave13 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave13-worktree-plan-2026-05-22.md)
@@ -207,7 +209,7 @@
   - [typed knowledge API route contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/07_wave16-typed-knowledge-api-route-contract-2026-05-22.md)
   - [writing workbench typed fetch readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/08_wave16-worker5-typed-knowledge-fetch-readback-2026-05-22.md)
   - [long-cycle durable repository readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/07_wave16-long-cycle-durable-repository-readback-2026-05-22.md)
-  - [docs root content move batch](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/08_wave16-docs-root-content-move-batch-evidence-2026-05-22.md)
+  - [docs root content move batch](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/08_wave16-docs-root-content-move-batch-evidence-2026-05-22.md)
   - [frontend Agent Chat i18n slice](./development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/07_wave16-agent-chat-i18n-slice-evidence-2026-05-22.md)
   - [source-library review closure batch](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/10_wave16-review-closure-batch-2026-05-22.md)
 - Wave17 CURRENT_DEV readback / runtime / migration gates（2026-05-22，9 个子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
@@ -221,7 +223,7 @@
   - [writing workbench persisted typed-card readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md)
   - [frontend Projects page i18n slice](./development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/08_wave17-projects-page-i18n-slice-evidence-2026-05-22.md)
   - [policy-state query boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-12-data-structured-service-modularization/10_wave17-policy-state-query-boundary-2026-05-22.md)
-  - [docs root content move batch 2](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/09_wave17-docs-root-content-move-batch2-evidence-2026-05-22.md)
+  - [docs root content move batch 2](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/09_wave17-docs-root-content-move-batch2-evidence-2026-05-22.md)
 - Wave18 CURRENT_DEV readback / health / migration gates（2026-05-22，10 个子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
   - [Wave18 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave18-worktree-plan-2026-05-22.md)
   - [Wave18 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave18-agent-roster-2026-05-22.md)
@@ -232,7 +234,7 @@
   - [long-cycle scheduler handoff trace](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/08_wave18-long-cycle-scheduler-handoff-trace-2026-05-22.md)
   - [AgentCore provider trace readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/08_wave18-agentcore-provider-trace-readback-2026-05-22.md)
   - [Catalog page i18n slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/10_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md)
-  - [docs root content move batch 3](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/10_wave18-docs-root-content-move-batch3-evidence-2026-05-22.md)
+  - [docs root content move batch 3](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/10_wave18-docs-root-content-move-batch3-evidence-2026-05-22.md)
 - Wave19 CURRENT_DEV provider manifest / rollout / migration gates（2026-05-22，10 个子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
   - [Wave19 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-worktree-plan-2026-05-22.md)
   - [Wave19 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-agent-roster-2026-05-22.md)
@@ -244,7 +246,7 @@
   - [AgentCore provider trace redaction](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/09_wave19-agentcore-provider-trace-redaction-2026-05-22.md)
   - [source-library review closure batch 3](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/12_wave19-review-closure-batch3-2026-05-22.md)
   - [Dashboard page i18n slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
-  - [docs root content move batch 4](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/11_wave19-docs-root-content-move-batch4-evidence-2026-05-22.md)
+  - [docs root content move batch 4](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/11_wave19-docs-root-content-move-batch4-evidence-2026-05-22.md)
   - [typed/writing persisted-card API boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
 - Wave20 CURRENT_DEV time / OpenClaw / modularization gates（2026-05-22，10 个 isolated 子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
   - [Wave20 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-worktree-plan-2026-05-22.md)
@@ -258,13 +260,13 @@
   - [consumer facade prompt-time-density slice](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/07_wave20-prompt-time-density-consumer-facade-2026-05-22.md)
   - [source-library review closure batch 4](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/13_wave20-review-closure-batch4-2026-05-22.md)
   - [ProcessPage i18n slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/12_wave20-process-page-i18n-slice-evidence-2026-05-22.md)
-  - [docs root content move batch 5](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md)
+  - [docs root content move batch 5](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md)
 - Wave25 closure-priority docs-root integration（2026-05-23，11 个子代理复核后未误迁有 repo-local blocker 的目录；docs-root `unsafe_moves` 从 5 降到 4）：
-  - [docs root development main move](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/14_wave25-docs-root-development-main-move-2026-05-23.md)
+  - [docs root development main move](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/14_wave25-docs-root-development-main-move-2026-05-23.md)
   - [docs/development development-plans main entry](../../docs/development/development-plans/main/index.md)
 - Wave27 docs-root root-plans integration（2026-05-23，并行 frontend-modern 批次已保留；root-plans main 移入 docs/development，docs-root `unsafe_moves` 降到 2）：
-  - [docs root root-plans main move](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/15_wave27-worker-b-docs-root-root-plans-main-move-2026-05-23.md)
-  - [docs root worker A reconciliation](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/16_wave27-worker-a-docs-root-root-plans-main-reconciliation-2026-05-23.md)
+  - [docs root root-plans main move](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/15_wave27-worker-b-docs-root-root-plans-main-move-2026-05-23.md)
+  - [docs root worker A reconciliation](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/16_wave27-worker-a-docs-root-root-plans-main-reconciliation-2026-05-23.md)
   - [docs/development root-plans main entry](../../docs/development/root-plans/main/index.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
@@ -462,7 +464,7 @@
 - `development-plans/CURRENT_DEV` 新增抽象规划子文件夹拆分原子任务：
   - [2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md)
 - `development-plans/CURRENT_DEV` 新增 docs 根目录重构迁移映射表：
-  - [2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
+  - [2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)
 - `development-plans/ARCHIVE_RETIRED` 已退场早期内置写作工作台设计稿：
   - [2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md](./development-plans/ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/01_builtin-writing-workbench-design-2026-03-07.md)
   - [2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md](./development-plans/ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/02_atomic-tasklist-builtin-writing-workbench-design-2026-03-07.md)

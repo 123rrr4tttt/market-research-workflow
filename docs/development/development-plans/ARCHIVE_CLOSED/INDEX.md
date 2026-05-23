@@ -38,6 +38,7 @@
 - [2026-04-02 Claude Agent High-Fidelity Migration](./2026-04-02-claude-agent-high-fidelity-migration/INDEX.md)
 - [2026-04-06 Repo Logic Gap Assessment](./2026-04-06-repo-logic-gap-assessment/)
 - [2026-03-07 后续安排 / Abstract Planning Folderization](./2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md)
+- [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)
 - [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/12_wave28-closure-decision-2026-05-23.md)
 - [2026-03-15 Frontend Three-Layer Rewrite](./2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)
 - [2026-04-02 Claude Agent High-Fidelity Migration Process Records](./2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
@@ -46,4 +47,4 @@
 
 ## 返回
 
-- [CURRENT_DEV](../CURRENT_DEV/INDEX.md) - 未封口开发计划
+- [CURRENT_DEV](../../../../development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md) - 未封口开发计划

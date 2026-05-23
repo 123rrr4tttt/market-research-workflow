@@ -1,7 +1,9 @@
 # Global Vectorization General Foundation Index
 
 更新时间：2026-05-23 PST<br>
-状态：`external_blocked` / `wave30_checked`。全项目数据向量化 / 标准化 repo-local blocker 已由 Wave30 清零；目录已从 `CURRENT_DEV` 迁入 `ARCHIVE_EXTERNAL_BLOCKED`。剩余条件是真实 embedding provider、生产语义质量与 production vector quality，不再作为当前仓内 `partial` 入口。
+状态：`external_blocked` / `wave30_checked`。全项目数据向量化 / 标准化 repo-local blocker 已由 Wave30 清零；目录已从 `CURRENT_DEV` 迁入 `ARCHIVE_EXTERNAL_BLOCKED`。剩余条件是真实 live embedding provider、`semantic_embedding_quality_not_proven` 与 production vector quality，不再作为当前仓内 `partial` 入口。
+
+防误读：下方 Wave2/Wave3/Wave8/Wave10 段落中的 `partial` 是历史快照；当前 canonical readback 以本 `INDEX.md` 和 `11_wave30-vector-closure-external-blocked-decision-2026-05-23.md` 为准。
 
 ## 文件
 
@@ -13,6 +15,24 @@
 
 - [03_wave10-vectorization-quality-gate-2026-05-22.md](./03_wave10-vectorization-quality-gate-2026-05-22.md)
   Wave10 worker6 deterministic quality gate：复核 provider trace、`keyword|vector|hybrid` runtime/benchmark evidence、benchmark threshold 与 vector/hybrid fallback reason；继续保留真实 embedding semantic quality 与全局 vector contract 缺口。
+
+- [04_wave12-provider-readiness-gate-2026-05-22.md](./04_wave12-provider-readiness-gate-2026-05-22.md)
+  Wave12 provider readiness gate。
+
+- [05_wave14-vectorization-provider-capability-2026-05-22.md](./05_wave14-vectorization-provider-capability-2026-05-22.md)
+  Wave14 provider capability gate。
+
+- [06_wave18-vectorization-hybrid-readback-2026-05-22.md](./06_wave18-vectorization-hybrid-readback-2026-05-22.md)
+  Wave18 hybrid readback gate。
+
+- [07_wave19-vectorization-provider-manifest-2026-05-22.md](./07_wave19-vectorization-provider-manifest-2026-05-22.md)
+  Wave19 provider manifest readback。
+
+- [08_wave22-vectorization-provider-external-blocked-decision-2026-05-22.md](./08_wave22-vectorization-provider-external-blocked-decision-2026-05-22.md)
+  Wave22 provider external-blocked decision。
+
+- [09_wave27-vectorization-closure-decision-2026-05-23.md](./09_wave27-vectorization-closure-decision-2026-05-23.md)
+  Wave27 closure decision showing repo-local blockers still existed before Wave30。
 
 - [10_wave29-vector-schema-alignment-2026-05-23.md](./10_wave29-vector-schema-alignment-2026-05-23.md)
   Wave29 repo-local schema gate：新增 `search_evidence_hit.v1` / `global_vector_object.v1` builder 与 validator，并让 `/api/v1/search` 在保持 legacy `results` 不变的同时返回并行 `evidence_hits`，关闭 `unified_vector_object_contract_not_frozen` 与 `main_search_evidence_hit_contract_not_aligned` 两个 blocker。

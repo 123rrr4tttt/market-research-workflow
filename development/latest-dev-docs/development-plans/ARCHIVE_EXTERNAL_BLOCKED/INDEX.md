@@ -69,14 +69,14 @@
   状态：`external_blocked` / `wave29_checked`。仓内 broader fetch-router、official API adapter 与 dashboard tri-state blockers 已封住；剩余条件是 public browser/runtime replay、非 arXiv provider live API maturity、configured-service canary 与 production 24h readback。
 - [2026-03-05 OSS Node Platform IO Plan](./2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md)
   状态：`external_blocked` / `wave29_checked`。仓内 node manifest/runtime replay 已覆盖 `keyword` / `vector` / `hybrid` provider manifest consumption；剩余条件是 live embedding provider verification、local open-search quality、semantic relevance 与 live scheduler/tenant DB/UI SLA。
-- [2026-05-14 Global Vectorization General Foundation](./2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)
+- [2026-05-14 Global Vectorization General Foundation](./2026-05-14-global-vectorization-general-foundation/INDEX.md)
   状态：`external_blocked` / `wave30_checked`。Wave30 已关闭 retrieval run JSONL persistence/readback、qdrant/pgvector payload provenance 统一、Agent matrix/main search schema join 三个 repo-local blocker；剩余条件是 live embedding provider、semantic embedding quality 与 production vector quality。
-- [2026-03-01 Open Source Platform Integration](./2026-03-01-open-source-platform-integration/09_wave30-open-source-external-blocked-decision-2026-05-23.md)
+- [2026-03-01 Open Source Platform Integration](./2026-03-01-open-source-platform-integration/INDEX.md)
   状态：`external_blocked` / `wave30_checked`。Wave29 已迁出 OSS-node slice，Wave30 已清零 global-vector repo-local blocker；本目录不再有独立仓内 blocker，剩余条件是 live provider、local open-search quality、semantic relevance 与外部 runtime/SLA evidence。
 
 ## 相邻目录状态
 
-- [2026-03-07 Docs Root Restructuring](../CURRENT_DEV/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)：`clear_closed`。Wave31 `check_docs_root_navigation_drift.py --require-clean` 已清零 navigation drift；该目录不再计入 `CURRENT_DEV` partial。
+- [2026-03-07 Docs Root Restructuring](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)：`clear_closed`。Wave31 `check_docs_root_navigation_drift.py --require-clean` 已清零 navigation drift；该目录不再计入 `CURRENT_DEV` partial。
 - [2026-03-15 Frontend Three-Layer Rewrite](../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)：`clear_closed`。Wave32 已清零 frontend business-string repo-local blocker，并迁入 `ARCHIVE_CLOSED`。
 
 ## 返回

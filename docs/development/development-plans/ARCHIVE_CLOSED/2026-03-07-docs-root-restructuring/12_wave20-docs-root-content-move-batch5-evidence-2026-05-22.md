@@ -1,3 +1,9 @@
+<!-- docs-root-migration: content moved -->
+> Status: content moved; target authoritative after docs-root topic archive migration.
+> Previous source: `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md`
+> Authoritative target: `docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md`
+> Migration batch: `docs-root-topic-archive-closed-2026-05-23`
+
 # Wave20 Docs Root Content Move Batch 5 Evidence
 
 > Date: 2026-05-22

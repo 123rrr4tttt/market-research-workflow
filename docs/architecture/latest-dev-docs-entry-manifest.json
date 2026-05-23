@@ -1,7 +1,7 @@
 {
   "schema": "docs-root-entry-manifest/v1",
   "root": "docs/architecture",
-  "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
+  "topic": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-22",
   "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/architecture while their previous latest-dev-docs paths remain compatibility shims until shared navigation is synchronized.",
   "entries": [

@@ -1,7 +1,9 @@
 # Local Open Search Provider Isolation Index
 
-更新时间：2026-05-22 PST
-状态：本目录为 SearXNG / YaCy 本地开源搜索 provider 隔离部署与显式接入目标的唯一入口；源码、脚本、官方文档对齐说明和真实运行态 smoke 均已完成；SearXNG 外部搜索 benchmark、本地索引 baseline、解除隔离与全项目融贯性 backend replay、WritingWorkbench 前端融贯性、SearXNG candidate approval gate、可选增强启动器集成、Docker Web Launcher / launcher-agent 均已落盘；2026-05-22 已补 explicit provider trace 合同、单测、离线 artifact 复跑脚本和真实容器 replay 证据；Wave6-9 记录 topic-local 状态证据并补 agent provider 配置护栏单测
+更新时间：2026-05-23 PST
+状态：`external_blocked` / `wave22_checked`。仓内 explicit provider trace、runtime boundary、health artifact、schema/readback 与单测门禁已封住；本目录不再作为 `CURRENT_DEV` partial 入口。剩余条件是 SearXNG / YaCy live availability、live result quality / freshness / latency stability、timeout policy、operator approval gate 与 `provider=auto` promotion owner decision。
+
+防误读：下方“完成”项表示历史或仓内确定性证据已落地，不等于 `ARCHIVE_CLOSED`。当前 canonical readback 以本 `INDEX.md` 和 `16_wave22-external-blocked-decision-2026-05-22.md` 为准。
 
 ## 范围
 
@@ -52,10 +54,22 @@
 - [11_wave6-9-status-evidence-and-min-plan-2026-05-22.md](./11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
   Wave6-9 topic-local 状态证据与最小开发计划，记录共享 `no_closure_claim` 状态滞后、本轮不编辑共享索引，以及 agent provider 配置护栏单测。
 
+- [12_wave12-provider-readiness-gate-2026-05-22.md](./12_wave12-provider-readiness-gate-2026-05-22.md)
+  Wave12 provider readiness gate，记录当前 SearXNG / YaCy live probe 仍是外部 runtime gap。
+- [13_wave15-open-search-runtime-boundary-2026-05-22.md](./13_wave15-open-search-runtime-boundary-2026-05-22.md)
+  Wave15 runtime boundary gate，固定 `closure_claim_allowed=false`。
+- [14_wave18-open-search-health-artifact-2026-05-22.md](./14_wave18-open-search-health-artifact-2026-05-22.md)
+  Wave18 health artifact gate，保留 live probe open / partial health state。
+- [15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md](./15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md)
+  Wave19 schema/readback gate，确认未宣称 external provider closure。
+- [16_wave22-external-blocked-decision-2026-05-22.md](./16_wave22-external-blocked-decision-2026-05-22.md)
+  当前 canonical decision：repo-local blocker 清零，剩余为外部 provider/runtime/quality 条件。
+
 ## 当前状态
 
 | 项 | 状态 | 证据 |
 |---|---|---|
+| 当前封口口径 | `external_blocked` / `wave22_checked` | `16_wave22-external-blocked-decision-2026-05-22.md`；不能迁入 `ARCHIVE_CLOSED` |
 | 规划文档 | 完成 | `01_...plan...md` 已包含目标、非目标、API、provider contract、源码接入面、门禁和风险 |
 | 目录边界 | 已修正 | 本 `INDEX.md` 明确本目录只处理 local open search provider isolation |
 | 执行产物 | 已落地 | `ops/search-lab/`、smoke 脚本、compare 脚本和 automation run 已在本目录目标下落地 |

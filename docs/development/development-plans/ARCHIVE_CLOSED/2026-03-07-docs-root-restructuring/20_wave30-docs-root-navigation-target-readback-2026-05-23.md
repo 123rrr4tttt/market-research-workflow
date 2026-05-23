@@ -1,3 +1,9 @@
+<!-- docs-root-migration: content moved -->
+> Status: content moved; target authoritative after docs-root topic archive migration.
+> Previous source: `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/20_wave30-docs-root-navigation-target-readback-2026-05-23.md`
+> Authoritative target: `docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/20_wave30-docs-root-navigation-target-readback-2026-05-23.md`
+> Migration batch: `docs-root-topic-archive-closed-2026-05-23`
+
 # Wave30 Docs Root Navigation Target Readback
 
 日期：2026-05-23

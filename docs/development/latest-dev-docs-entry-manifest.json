@@ -1,13 +1,13 @@
 {
   "schema": "docs-root-entry-manifest/v1",
   "root": "docs/development",
-  "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
+  "topic": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-23",
   "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/development while their previous latest-dev-docs paths remain compatibility shims until shared navigation is fully synchronized. Wave27 made the frontend-modern and root-plans main batches target-authoritative after file-level classification and link-check reconciliation. Wave28 keeps CURRENT_DEV source-authoritative as a supervisor-owned active status surface. Wave29 closes the ARCHIVE_CLOSED broad-tree unsafe move by decomposing it into ledger-backed per-file batch work; archive files remain source-authoritative until a later moved_file_batch creates targets and compatibility shims. Wave31 moved the ARCHIVE_CLOSED ledger batch to docs/development targets and retained latest-dev-docs archive paths as compatibility shims.",
   "wave30_worker_b_readback": "Requested content-plan and migration-manifest gates pass with no docs-root unsafe move left in the manifests. The archive ledger remains a retained_partial per-file queue, not target-authoritative moved content.",
   "wave31_worker_b_evaluation": {
     "status": "retained_not_safe_to_close",
-    "evidence": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/wave31-worker-b-docs-root-decomposed-queue-readback-2026-05-23.md",
+    "evidence": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/wave31-worker-b-docs-root-decomposed-queue-readback-2026-05-23.md",
     "decision": "The ARCHIVE_CLOSED queue is not safe to close because its 195 source files are still source-authoritative, proposed target files are absent, and source compatibility shims have not been created."
   },
   "classification_ledgers": [

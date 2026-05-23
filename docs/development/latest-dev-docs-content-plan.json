@@ -8,7 +8,7 @@
   "wave30_worker_b_readback": "Requested content-plan and migration-manifest gates pass with remaining_unsafe_moves=0. The archive broad move is closed as a broad migration primitive and retained as a decomposed per-file queue; archive files are not target-authoritative until explicit moved_file_batch promotion creates targets and source compatibility shims.",
   "wave31_worker_b_evaluation": {
     "status": "superseded_by_wave31_moved_file_batch",
-    "evidence": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/wave31-worker-b-docs-root-decomposed-queue-readback-2026-05-23.md",
+    "evidence": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/wave31-worker-b-docs-root-decomposed-queue-readback-2026-05-23.md",
     "decision": "Do not remove decomposed_broad_moves for development-plans-archive-closed-tree until per-file targets and source compatibility shims exist.",
     "source_files": 195,
     "ledger_source_diff": 0,
@@ -1593,6 +1593,6 @@
     "moved_files": 195,
     "missing_proposed_targets": 0,
     "source_compatibility_shims": 195,
-    "evidence": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md"
+    "evidence": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md"
   }
 }

@@ -24,6 +24,7 @@ STATUS_SECTIONS = {
     "No Closure Claim / Retained Current Evidence": "no_closure_claim",
 }
 PRIMARY_STATUSES = set(STATUS_SECTIONS.values())
+ALLOWED_CURRENT_DEV_DIRS = {"main"}
 WAVE_TAGS = {
     "wave5_verified": "wave5",
     "wave6_verified": "wave6",
@@ -125,6 +126,7 @@ class Result:
     links: tuple[Link, ...]
     placeholders: tuple[Entry, ...]
     empty_dirs: tuple[Path, ...]
+    inactive_dirs: tuple[Path, ...]
     wave_rows: tuple[tuple[Entry, str, tuple[Link, ...]], ...]
     problems: tuple[Problem, ...]
 
@@ -214,11 +216,42 @@ def find_empty_dirs(current_dev: Path) -> tuple[Path, ...]:
     return tuple(sorted(path for path in current_dev.rglob("*") if path.is_dir() and not any(path.iterdir())))
 
 
+def _current_dev_topic_dir(current_dev: Path, path: Path) -> Path | None:
+    try:
+        relative = path.resolve().relative_to(current_dev.resolve())
+    except ValueError:
+        return None
+    if not relative.parts:
+        return None
+    return current_dev / relative.parts[0]
+
+
+def find_inactive_current_dev_dirs(current_dev: Path, entries: tuple[Entry, ...]) -> tuple[Path, ...]:
+    if not current_dev.is_dir():
+        return ()
+    linked_topic_dirs: set[Path] = set()
+    for entry in entries:
+        for link in entry.links:
+            if link.candidate is None:
+                continue
+            topic_dir = _current_dev_topic_dir(current_dev, link.candidate)
+            if topic_dir is not None:
+                linked_topic_dirs.add(topic_dir.resolve())
+
+    inactive_dirs: list[Path] = []
+    for path in sorted(item for item in current_dev.iterdir() if item.is_dir()):
+        if path.name in ALLOWED_CURRENT_DEV_DIRS:
+            continue
+        if path.resolve() not in linked_topic_dirs:
+            inactive_dirs.append(path)
+    return tuple(inactive_dirs)
+
+
 def check(root: Path, index_rel: str) -> Result:
     index = (root / index_rel).resolve()
     problems: list[Problem] = []
     if not index.is_file():
-        return Result(root, index, {}, Counter(), (), (), (), (), (), (Problem(index, None, "index is missing"),))
+        return Result(root, index, {}, Counter(), (), (), (), (), (), (), (Problem(index, None, "index is missing"),))
 
     text = index.read_text(encoding="utf-8")
     expected = expected_counts(text)
@@ -271,8 +304,24 @@ def check(root: Path, index_rel: str) -> Result:
         if not mentioned:
             problems.append(Problem(empty_dir, None, "empty CURRENT_DEV directory is not identified as placeholder/blocker"))
 
+    inactive_dirs = find_inactive_current_dev_dirs(index.parent, entries)
+    for inactive_dir in inactive_dirs:
+        problems.append(Problem(inactive_dir, None, "CURRENT_DEV directory is not backed by an active status row"))
+
     placeholders = tuple(entry for entry in entries if entry.is_placeholder)
-    return Result(root, index, expected, actual, entries, links, placeholders, empty_dirs, tuple(wave_rows), tuple(problems))
+    return Result(
+        root,
+        index,
+        expected,
+        actual,
+        entries,
+        links,
+        placeholders,
+        empty_dirs,
+        inactive_dirs,
+        tuple(wave_rows),
+        tuple(problems),
+    )
 
 
 def rel(path: Path, root: Path) -> str:
@@ -305,6 +354,7 @@ def write_report(result: Result, report_path: Path) -> None:
         f"| Markdown links checked | {len(result.links)} |",
         f"| placeholder entries recognized | {len(result.placeholders)} |",
         f"| empty directories recognized | {len(result.empty_dirs)} |",
+        f"| inactive CURRENT_DEV directories | {len(result.inactive_dirs)} |",
         f"| Wave5-Wave18 evidence rows checked | {len(result.wave_rows)} |",
         f"| problems | {len(result.problems)} |",
         "",
@@ -352,7 +402,8 @@ def print_result(result: Result) -> None:
         print(
             "OK current_dev_status_evidence=passed "
             f"entries={len(result.entries)} counts={counts} links={len(result.links)} "
-            f"placeholders={len(result.placeholders)} empty_dirs={len(result.empty_dirs)} wave_rows={len(result.wave_rows)}"
+            f"placeholders={len(result.placeholders)} empty_dirs={len(result.empty_dirs)} "
+            f"inactive_dirs={len(result.inactive_dirs)} wave_rows={len(result.wave_rows)}"
         )
         return
     print(
