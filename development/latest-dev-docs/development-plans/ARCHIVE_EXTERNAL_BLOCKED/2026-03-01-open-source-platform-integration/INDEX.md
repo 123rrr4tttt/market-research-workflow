@@ -1,9 +1,9 @@
 # Open Source Platform Integration Index
 
 更新时间：2026-05-23 PST
-状态：`external_blocked` / `wave30_checked`。本目录已从 `CURRENT_DEV` 迁入 `ARCHIVE_EXTERNAL_BLOCKED`；Wave29 OSS-node slice 与 Wave30 global-vector repo-local blockers 均已清零。本目录不再有独立仓内 blocker，不能作为新的 `partial` 当前开发入口继续补小 gate。
+状态：`non_target_superseded_parent_wrapper` / `wave50_reclassified`。本目录已从 external-blocked target set 中移除；Wave29 OSS-node slice 与 Wave30 global-vector repo-local blockers 均已清零，剩余 provider/SLA 条件由具体 successor 目标承接。本目录不再有独立仓内 blocker，不能作为新的 `partial` 或 `external_blocked` 当前开发入口继续补小 gate。
 
-防误读：本目录历史文件中的 provider/vectorization gate 表示当时的仓内证据推进；当前 canonical readback 以本 `INDEX.md` 和 `09_wave30-open-source-external-blocked-decision-2026-05-23.md` 为准。重新进入当前开发前，必须先补齐 live provider、local open-search quality、semantic relevance 或 external runtime/SLA evidence；对应状态码为 `local_open_search_live_quality_not_sealed`、`semantic_embedding_quality_not_proven` 和 `oss_node_platform_io_sla_not_closed`。
+防误读：本目录历史文件中的 provider/vectorization gate 表示当时的仓内证据推进；当前 canonical readback 以本 `INDEX.md` 和 `10_wave50-non-target-wrapper-reclassification-2026-05-23.md` 为准。重新进入当前开发前，应直接开到 successor 目标，而不是复用这个父级汇总目录。
 
 ## 文件
 
@@ -24,13 +24,15 @@
 - [08_wave27-vectorization-closure-decision-2026-05-23.md](./08_wave27-vectorization-closure-decision-2026-05-23.md)
   Wave27 vectorization closure decision showing adjacent blockers still existed then。
 - [09_wave30-open-source-external-blocked-decision-2026-05-23.md](./09_wave30-open-source-external-blocked-decision-2026-05-23.md)
-  当前 canonical decision：本目录 repo-local blocker 清零，剩余均为外部条件。
+  历史 decision：本目录 repo-local blocker 清零，剩余均为外部条件。
+- [10_wave50-non-target-wrapper-reclassification-2026-05-23.md](./10_wave50-non-target-wrapper-reclassification-2026-05-23.md)
+  当前 canonical decision：本父级 wrapper 不再作为独立 external-blocked target 计数，剩余条件由 global-vector 与 OSS-node successor targets 承接。
 
 ## 当前状态
 
 | 项 | 状态 | 证据 |
 |---|---|---|
-| 目录归属 | `ARCHIVE_EXTERNAL_BLOCKED` | `CURRENT_DEV/INDEX.md` 只保留 external-blocked 指针，不再作为 partial 目录 |
+| 目录归属 | `non_target_superseded_parent_wrapper` | `TARGET_TOPIC_ALLOWLIST.json` excludes this parent wrapper from the external target set |
 | OSS-node adjacent blocker | cleared / external-blocked | `../2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md` |
 | Global vector repo-local blocker | cleared | `../2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md` |
 | Independent repo-local blocker | none | `09_wave30-open-source-external-blocked-decision-2026-05-23.md` |

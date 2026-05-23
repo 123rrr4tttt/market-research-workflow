@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for search/vector external-blocked status readback."""
+"""Focused tests for search/vector successor external-blocked status readback."""
 
 from __future__ import annotations
 
@@ -88,15 +88,15 @@ class SearchVectorExternalBlockedStatusTestCase(unittest.TestCase):
         checker.check_navigation(root, checker.TOPICS, problems)
 
         self.assertEqual([], problems)
-        self.assertEqual(["external_blocked"] * 3, [item["status"] for item in topic_results])
+        self.assertEqual(["external_blocked"] * len(checker.TOPICS), [item["status"] for item in topic_results])
 
     def test_readback_rejects_missing_entrypoint(self) -> None:
         root = self.make_repo()
-        open_source = checker.TOPICS[-1]
-        (root / open_source.directory / open_source.entrypoint).unlink()
+        topic = checker.TOPICS[-1]
+        (root / topic.directory / topic.entrypoint).unlink()
         problems: list[checker.Problem] = []
 
-        checker.topic_readback(root, open_source, problems)
+        checker.topic_readback(root, topic, problems)
 
         self.assertTrue(any("file is missing" in problem.message for problem in problems), problems)
 

@@ -27,7 +27,12 @@
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED",
       "status": "external_blocked",
-      "entrypoint": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md"
+      "entrypoint": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
+      "excluded_topic_dirs": [
+        "2026-03-01-open-source-platform-integration",
+        "2026-03-14-search-chain-source-library-mounting-audit",
+        "MERGED_OVERVIEW"
+      ]
     },
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_RETIRED",
@@ -36,12 +41,6 @@
     }
   ],
   "target_topic_overrides": [
-    {
-      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW",
-      "role": "topic_local_gate",
-      "review_status": "external_blocked",
-      "reason": "Topic-local RAG/current-vector drift gate, not the top-level navigation overview."
-    },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-ingest-chain-full-branch-map",
       "review_status": "closed",
@@ -125,6 +124,18 @@
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED",
       "role": "compatibility_shim_root",
       "canonical_target_root": "docs/development/development-plans/ARCHIVE_CLOSED"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
+      "role": "superseded_parent_wrapper"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW",
+      "role": "topic_local_drift_evidence"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit",
+      "role": "source_library_mounting_audit_evidence"
     },
     {
       "path": "docs/development/development-plans/main",

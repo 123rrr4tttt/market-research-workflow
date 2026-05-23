@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read back external-blocked status for search/vector adjacent topics.
+"""Read back external-blocked status for search/vector successor topics.
 
 This checker is intentionally read-only. It exists to keep follow-up agents from
 re-opening these migrated topics as ordinary CURRENT_DEV partial work when the
@@ -41,20 +41,6 @@ class Problem:
 
 TOPICS: tuple[TopicContract, ...] = (
     TopicContract(
-        key="open_search",
-        title="Local Open Search Provider Isolation",
-        directory=ARCHIVE_ROOT / "2026-05-14-local-open-search-provider-isolation",
-        entrypoint=Path("INDEX.md"),
-        latest_decision=Path("16_wave22-external-blocked-decision-2026-05-22.md"),
-        status_tokens=("external_blocked", "wave22_checked"),
-        remaining_condition_tokens=(
-            "SearXNG / YaCy live availability",
-            "live result quality",
-            "operator approval gate",
-            "`provider=auto` promotion",
-        ),
-    ),
-    TopicContract(
         key="vector",
         title="Global Vectorization General Foundation",
         directory=ARCHIVE_ROOT / "2026-05-14-global-vectorization-general-foundation",
@@ -68,17 +54,17 @@ TOPICS: tuple[TopicContract, ...] = (
         ),
     ),
     TopicContract(
-        key="open_source",
-        title="Open Source Platform Integration",
-        directory=ARCHIVE_ROOT / "2026-03-01-open-source-platform-integration",
+        key="oss_node",
+        title="OSS Node Platform IO Plan",
+        directory=ARCHIVE_ROOT / "2026-03-05-oss-node-platform-io-plan",
         entrypoint=Path("INDEX.md"),
-        latest_decision=Path("09_wave30-open-source-external-blocked-decision-2026-05-23.md"),
-        status_tokens=("external_blocked", "wave30_checked"),
+        latest_decision=Path("08_wave29-oss-node-vector-manifest-replay-2026-05-23.md"),
+        status_tokens=("external_blocked", "wave29_checked"),
         remaining_condition_tokens=(
-            "live provider",
-            "local_open_search_live_quality_not_sealed",
-            "semantic_embedding_quality_not_proven",
-            "oss_node_platform_io_sla_not_closed",
+            "live embedding provider verification",
+            "local open-search quality",
+            "semantic relevance",
+            "live scheduler/tenant DB/UI SLA",
         ),
     ),
 )
@@ -193,8 +179,8 @@ def main() -> int:
 
     result: dict[str, Any] = {
         "status": "passed" if not problems else "failed",
-        "contract_version": "search-vector-external-blocked-status.v1",
-        "scope": "open-search/vector/open-source external-blocked status readback",
+        "contract_version": "search-vector-external-blocked-status.v2",
+        "scope": "global-vectorization and OSS-node external-blocked status readback",
         "topics": topics,
         "navigation_surfaces": surfaces,
         "problems": [{"path": problem.path.as_posix(), "message": problem.message} for problem in problems],

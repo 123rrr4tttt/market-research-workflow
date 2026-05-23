@@ -2,6 +2,7 @@
 
 - Status: `archive_external_blocked_candidate`
 - Decision date: 2026-05-23
+- Supervisor status: `external_blocked` / `wave29_checked`
 - Evidence: [wave29-oss-node-vector-manifest-replay/2026-05-23](../../../automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23/README.md)
 - Checker: `ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py`
 - Unit gate: `main/backend/tests/unit/test_wave29_oss_node_vector_manifest_replay_unittest.py`
@@ -33,6 +34,8 @@ The second closure is limited to the deterministic repo-local fixture boundary: 
 - `local_open_search_live_quality_not_sealed`
 - `semantic_embedding_quality_not_proven`
 - `live_scheduler_tenant_db_ui_sla_not_proven`
+
+Supervisor wording: live embedding provider verification, local open-search quality, semantic relevance, and live scheduler/tenant DB/UI SLA remain external conditions for the concrete OSS-node target.
 
 ## Archive Recommendation
 

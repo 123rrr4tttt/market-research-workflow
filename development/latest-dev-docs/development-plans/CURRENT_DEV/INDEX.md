@@ -45,23 +45,26 @@
 - `external_blocked` [2026-03-02 Source Time Window Smart Timestamp Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/)
 - `external_blocked` [2026-03-05 Time Statistics Remediation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/)
 - `external_blocked` [2026-03-11 Source Library Three-Lane Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/)
-- `external_blocked` [2026-03-14 Search Chain Source-Library Mounting Audit](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/)
 - `closed` [2026-03-14 Source-Library Adapter Capability Remediation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/20_wave49-manual-public-replay-closure-2026-05-23.md)
 - `external_blocked` [2026-03-14 Time Semantics Density Merged Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md)
 - `external_blocked` [2026-03-08 LLM Crawler Unified FrontDoor](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/10_wave23-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-09 Agent Symbolic Batch Search Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/22_wave23-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 LLM Service And Agent Platformization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/10_wave23-closure-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Ingest Digestion And Long-Cycle Automation](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/10_wave23-closure-decision-2026-05-23.md)
-- `external_blocked` [MERGED_OVERVIEW Topic Drift Gate](../ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/04_wave24-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Typed Knowledge Organization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/10_wave27-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Writing Workbench Evolution](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/11_wave27-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-25 Source-Library Ingest Minimal Migration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/18_wave27-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-02 Ingest Platformization Assessment](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/09_wave29-ingest-platformization-repo-local-closure-2026-05-23.md)
 - `external_blocked` [2026-03-02 Meaningful Ingest Guardrails Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md)
 - `external_blocked` [2026-03-02 Single URL First Ingest Allocation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/10_wave29-ingest-blocker-alignment-2026-05-23.md)
-- `external_blocked` [2026-03-05 OSS Node Platform IO Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md)
-- `external_blocked` [2026-03-01 Open Source Platform Integration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/INDEX.md)
+- `external_blocked` [2026-03-05 OSS Node Platform IO Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/INDEX.md)
 - `external_blocked` [2026-05-14 Global Vectorization General Foundation](../ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/INDEX.md)
+
+## 本次非目标证据 / 父级汇总
+
+- `non_target_topic_local_drift_evidence` [MERGED_OVERVIEW Topic Drift Gate](../ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/05_wave50-non-target-drift-evidence-reclassification-2026-05-23.md) - Wave50 将它从 external target set 移除；真实 vector production-quality 条件由 Global Vectorization target 承接。
+- `non_target_superseded_parent_wrapper` [2026-03-01 Open Source Platform Integration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/10_wave50-non-target-wrapper-reclassification-2026-05-23.md) - Wave50 将它从 external target set 移除；剩余 provider/SLA 条件由 Global Vectorization 与 OSS Node Platform IO targets 承接。
+- `non_target_source_library_mounting_audit_evidence` [2026-03-14 Search Chain Source-Library Mounting Audit](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/10_wave50-non-target-mounting-audit-reclassification-2026-05-23.md) - Wave50 将它从 external target set 移除；live source collection / human review / live ingest migration 条件由 source-library successor targets 承接。
 
 ## 本次外部阻塞复核
 
