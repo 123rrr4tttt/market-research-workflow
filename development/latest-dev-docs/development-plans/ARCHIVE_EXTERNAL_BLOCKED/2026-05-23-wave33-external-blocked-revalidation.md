@@ -13,7 +13,7 @@ Reviewed clusters:
 - source-library deterministic review / ingest migration:
   `2026-03-11-source-library-three-lane-architecture`,
   `2026-03-14-search-chain-source-library-mounting-audit`,
-  `2026-03-14-source-library-adapter-capability-remediation`, and
+  `2026-03-14-source-library-adapter-capability-remediation` (later closed by Wave49), and
   `2026-03-25-source-library-ingest-minimal-migration`
 - time semantics:
   `2026-03-02-source-time-window-smart-timestamp-plan`,
@@ -24,7 +24,9 @@ Reviewed clusters:
 
 ## Decision
 
-All reviewed topics remain `external_blocked`, not `closed`.
+At Wave33 time, all reviewed topics remained `external_blocked`, not `closed`.
+Wave49 later closed `2026-03-14-source-library-adapter-capability-remediation`
+after the real 45-site public replay was attached and reviewed.
 
 The repo-local blockers found in this wave were checker/doc drift issues, not
 product implementation gaps:
@@ -72,9 +74,9 @@ Observed status:
 
 ## Remaining External Conditions
 
-- source-library: live source collection, opt-in public replay, completed human
-  review, live ingest migration, live article extraction stack replay, and live
-  external-project replay.
+- source-library: live source collection, completed human review, live ingest
+  migration, live article extraction stack replay, and live external-project
+  replay. The adapter-remediation public replay blocker is closed by Wave49.
 - time semantics: production data semantic-chain live validation, coverage
   distribution, and decision-log feature readback.
 - OpenClaw R41: fresh external OpenClaw runtime invocation and run-state artifact

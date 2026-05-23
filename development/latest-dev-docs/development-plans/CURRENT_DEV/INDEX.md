@@ -46,7 +46,7 @@
 - `external_blocked` [2026-03-05 Time Statistics Remediation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/)
 - `external_blocked` [2026-03-11 Source Library Three-Lane Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/)
 - `external_blocked` [2026-03-14 Search Chain Source-Library Mounting Audit](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/)
-- `external_blocked` [2026-03-14 Source-Library Adapter Capability Remediation](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/)
+- `closed` [2026-03-14 Source-Library Adapter Capability Remediation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/20_wave49-manual-public-replay-closure-2026-05-23.md)
 - `external_blocked` [2026-03-14 Time Semantics Density Merged Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md)
 - `external_blocked` [2026-03-08 LLM Crawler Unified FrontDoor](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/10_wave23-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-09 Agent Symbolic Batch Search Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/22_wave23-external-blocked-decision-2026-05-23.md)

@@ -24,14 +24,17 @@ The checker also verifies handler registration for `handler.cluster` and `generi
 
 ## Public Replay and Relevance Boundary
 
-The checker reuses the deterministic A5 public replay gate and requires the following non-closure state:
+The checker reuses the A5 public replay gate and preserves relevance-review boundaries:
 
 - `public_network_attempted=false`
-- `claims_full_45_site_public_replay=false`
+- `claims_full_45_site_public_replay=true` after Wave49 attached and reviewed the opt-in 45-site replay
 - `claims_human_relevance_review_complete=false`
 - term-fallback candidates remain `review_required_not_full_closure`
 
-This preserves the Wave4/Wave8 boundary: the 45-site manifest and deterministic no-network gate are checkable, but full public replay and human relevance review are not claimed complete.
+This preserves the Wave4/Wave8 boundary while reflecting the Wave49 update:
+full public replay is now closed for this adapter-remediation target, but human
+relevance review is still not claimed complete for broader source-library
+promotion topics.
 
 ## Validation
 

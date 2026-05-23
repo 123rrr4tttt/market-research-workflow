@@ -20,7 +20,7 @@
 
 - [2026-03-03 Platformization First Vectorization GM](./2026-03-03-platformization-first-vectorization-gm/)
   当前问题：文档把 `single_url` 视为唯一最终写入主链，但仓库现行主链已切到 `url_routing/source_library -> postprocess_frontdoor`，原前提已失效。
-  替代入口：优先参考 [ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md) 与 [ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md)。
+  替代入口：优先参考 [ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md) 与 [ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/01_source-library-adapter-capability-remediation-2026-03-14.md)。
 - [2026-03-04 RAG Line Round3 Filter Robustness](./2026-03-04-rag-line-round3-filter-robustness/)
   当前问题：文档引用的 `minimal_rag.py` 与测试路径已不在当前仓库；继续放在 `CURRENT_DEV` 会制造“还可按旧路径推进”的错觉。
   替代入口：无直接替代主文档；若要重启该主题，应按当前 RAG 代码结构重新立项。

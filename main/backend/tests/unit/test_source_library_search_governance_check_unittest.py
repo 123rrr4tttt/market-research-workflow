@@ -24,7 +24,7 @@ class SourceLibrarySearchGovernanceCheckUnitTestCase(unittest.TestCase):
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
         self.assertTrue(result["validation"]["passed"], result["validation"]["errors"])
         self.assertFalse(result["validation"]["public_network_attempted"])
-        self.assertFalse(result["governance_scope"]["claims_full_45_site_public_replay"])
+        self.assertTrue(result["governance_scope"]["claims_full_45_site_public_replay"])
         self.assertFalse(result["governance_scope"]["claims_human_relevance_review_complete"])
 
         routes = {row["route_id"]: row for row in result["mount_routes"]["routes"]}
@@ -63,9 +63,11 @@ class SourceLibrarySearchGovernanceCheckUnitTestCase(unittest.TestCase):
             {
                 "deterministic_replay_gate_closed_external_public_replay_blocked",
                 "full_public_replay_artifact_present_review_required",
+                "full_public_replay_reviewed_closed",
             },
         )
         self.assertFalse(replay["public_network_attempted"])
+        self.assertTrue(replay["full_public_replay_resolved"])
 
         review = replay["term_fallback_relevance_review"]
         self.assertEqual(review["status"], "review_required_not_full_closure")

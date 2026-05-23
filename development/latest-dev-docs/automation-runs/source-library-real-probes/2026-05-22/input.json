@@ -8,7 +8,7 @@
     "main/backend/app/services/resource_pool/search_template_service.py",
     "main/backend/app/services/resource_pool/site_entry_discovery.py",
     "main/backend/tests/",
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/"
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/"
   ],
   "probe_design": {
     "fixture": "local HTTP server",

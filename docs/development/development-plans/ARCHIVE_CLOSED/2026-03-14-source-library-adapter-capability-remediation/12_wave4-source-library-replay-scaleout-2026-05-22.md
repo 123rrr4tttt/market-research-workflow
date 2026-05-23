@@ -27,8 +27,8 @@ Evidence package:
 
 | Item | Status | Evidence |
 | --- | --- | --- |
-| `AT-AC-06` anti-bot / transport resilience | advanced, not globally closed | Replay script can classify public network and anti-bot blockers separately from code failures when opt-in public replay is run. |
-| `AT-AC-10` real site-entry replay / dirty-source shortlist | advanced, not closed | The full historical 45-site manifest and skip-safe output exist. Public dirty-source replay still needs an explicit network-enabled run. |
+| `AT-AC-06` anti-bot / transport resilience | closed for adapter remediation | Replay script classifies public network and anti-bot blockers separately from code failures, and Wave49 attaches the opt-in public replay run. |
+| `AT-AC-10` real site-entry replay / dirty-source shortlist | closed for adapter remediation | The full historical 45-site manifest, skip-safe output, and Wave49 public replay output exist. The public run attempted all 40 enabled targets and classified each remaining outcome. |
 
 Default gate result:
 
@@ -43,9 +43,9 @@ validation.full_historical_manifest=true
 
 ## Remaining Risk
 
-- No public 45-site network run is claimed by this lane.
-- Five platform/API-required historical targets are preserved in the manifest but skipped when public replay is enabled.
-- `candidate_ready_with_term_fallback` remains review evidence only; it must not be treated as full dirty-source closure without relevance review.
+- Five platform/API-required historical targets are preserved in the manifest and skipped when public replay is enabled.
+- `candidate_ready_with_term_fallback` remains review evidence only; it must not be treated as full clean-source promotion without relevance review.
+- Broader source-library three-lane, search-chain, and ingest-migration topics still own their separate human-review, live source collection, governance, and ingest evidence.
 
 ## Validation
 

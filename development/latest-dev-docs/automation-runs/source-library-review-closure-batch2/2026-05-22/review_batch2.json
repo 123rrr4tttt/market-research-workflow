@@ -140,7 +140,7 @@
   },
   "topic_coverage": {
     "adapter_capability": {
-      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/17_wave18-review-closure-batch2-2026-05-22.md"
+      "wave18_evidence_doc": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/17_wave18-review-closure-batch2-2026-05-22.md"
     },
     "minimal_migration": {
       "wave18_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/14_wave18-review-closure-batch2-2026-05-22.md"

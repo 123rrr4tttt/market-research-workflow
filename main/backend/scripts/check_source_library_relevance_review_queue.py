@@ -22,10 +22,12 @@ from app.services.source_library.relevance_review import build_relevance_review_
 
 CURRENT_DEV_ROOT = Path("development/latest-dev-docs/development-plans/CURRENT_DEV")
 ARCHIVE_EXTERNAL_BLOCKED_ROOT = Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED")
+ARCHIVE_CLOSED_ROOT = Path("docs/development/development-plans/ARCHIVE_CLOSED")
 
 
-def _evidence_doc_candidates(topic_dir: str, filename: str) -> tuple[Path, Path]:
+def _evidence_doc_candidates(topic_dir: str, filename: str) -> tuple[Path, ...]:
     return (
+        ARCHIVE_CLOSED_ROOT / topic_dir / filename,
         ARCHIVE_EXTERNAL_BLOCKED_ROOT / topic_dir / filename,
         CURRENT_DEV_ROOT / topic_dir / filename,
     )

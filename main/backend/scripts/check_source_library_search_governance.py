@@ -3,8 +3,9 @@
 
 The checker intentionally avoids public network access. It verifies that the
 search chain still mounts into the source-library front door, that site-search
-adapter capability/profile downgrades are visible, and that public replay /
-relevance-review gaps remain explicit blockers rather than closure claims.
+adapter capability/profile downgrades are visible, and that term-fallback
+relevance-review gaps remain explicit blockers rather than clean-source
+promotion claims.
 """
 
 from __future__ import annotations
@@ -35,9 +36,10 @@ from scripts.check_source_library_public_replay_a5_gate import (  # noqa: E402
 
 
 CONTRACT_VERSION = "source_library.search_chain_governance.v1"
-PUBLIC_REPLAY_NON_CLOSURE_STATUSES = {
+PUBLIC_REPLAY_ACCEPTED_STATUSES = {
     "deterministic_replay_gate_closed_external_public_replay_blocked",
     "full_public_replay_artifact_present_review_required",
+    "full_public_replay_reviewed_closed",
 }
 
 
@@ -474,11 +476,7 @@ def _build_public_replay_gap_check(root: Path, errors: list[str]) -> dict[str, A
     external_blocker = public_gate.get("external_blocker") if isinstance(public_gate.get("external_blocker"), dict) else {}
 
     _require(bool(validation.get("passed")), errors, "public replay deterministic A5 gate must pass")
-    _require(
-        replay_status in PUBLIC_REPLAY_NON_CLOSURE_STATUSES,
-        errors,
-        "public replay status must remain a non-closure status",
-    )
+    _require(replay_status in PUBLIC_REPLAY_ACCEPTED_STATUSES, errors, "public replay status must be recognized")
     _require(
         bool(validation.get("public_network_attempted")) is False,
         errors,
@@ -503,6 +501,7 @@ def _build_public_replay_gap_check(root: Path, errors: list[str]) -> dict[str, A
             "blocker_type": external_blocker.get("blocker_type"),
             "path": external_blocker.get("path"),
         },
+        "full_public_replay_resolved": replay_status == "full_public_replay_reviewed_closed",
         "term_fallback_relevance_review": relevance_review,
         "validation_errors": list(validation.get("errors") or []),
     }
@@ -523,7 +522,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "repo_root": str(root),
         "governance_scope": {
             "public_network_required": False,
-            "claims_full_45_site_public_replay": False,
+            "claims_full_45_site_public_replay": public_replay_gaps.get("full_public_replay_resolved") is True,
             "claims_human_relevance_review_complete": False,
             "shared_indexes_edited": False,
         },
