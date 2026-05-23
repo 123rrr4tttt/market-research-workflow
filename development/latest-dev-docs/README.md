@@ -16,7 +16,7 @@
 - 目标主题 allowlist：[development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json)，用于区分真实开发目标、证据/过程记录、分类/导航目录与外部参考材料。
 - 外部阻塞 manifest：[development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)，用于把剩余 `external_blocked` review target 绑定到结构化外部依赖、仓内证据、解除条件和 owner surface。
 - 当前 `CURRENT_DEV` 分布以该入口的“剩余状态分布”为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
-- 四态审计摘要以 [Wave46 manual graph editing live-audit closure](./automation-runs/wave46-manual-graph-editing-live-audit-closure/2026-05-23/README.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`，其中 target topics 为 `closed:33 / external_blocked:22 / retired:6 / active_current:0`。
+- 四态审计摘要以 [Wave47 crawler public replay closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`，其中 target topics 为 `closed:34 / external_blocked:21 / retired:6 / active_current:0`。
 - 下方“最新补充”是 historical wave log；其中 `partial:x -> partial:y` 仅表示对应 wave 完成时的历史快照，不代表当前剩余状态。
 
 ## 分目录入口
@@ -37,6 +37,8 @@
 - 当更新日期变化时，必须同步更新目录名、文件名与索引引用（至少包含 `README.md`、`MERGED_OVERVIEW.md`、子目录 `INDEX.md`）。
 
 ## 最新补充
+
+- Wave47 crawler public replay closure（2026-05-23）：手动执行真实 opt-in 45-site public replay，记录 40 个 enabled public targets attempted、5 个 platform/API policy skips、0 个 operator-gate skips，并完成 A5 review；`2026-03-07-crawler-source-expansion` 迁入 `ARCHIVE_CLOSED`，external-blocked review targets 从 `22` 降到 `21`。证据：[output.public.json](./automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json)，闭合记录：[crawler source expansion public replay closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md)。
 
 - Wave46 manual graph editing live-audit closure（2026-05-23）：手动验证 curated submit/rollback audit live DB durability、persistent handoff replay readback 与 tenant/project scoping；`2026-03-07-graph-editing-and-reporting` 迁入 `ARCHIVE_CLOSED`，external-blocked review targets 从 `23` 降到 `22`。证据：[wave46 manual graph editing live-audit closure](./automation-runs/wave46-manual-graph-editing-live-audit-closure/2026-05-23/README.md)，闭合记录：[graph editing live-audit closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/12_wave46-manual-live-audit-closure-2026-05-23.md)。
 
@@ -93,7 +95,7 @@
   - [development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md)
 - Wave6 CURRENT_DEV 并行状态证据与最小落地计划（2026-05-22，9 个子代理分支已合并）：
   - [parallel-agent orchestration](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md)
-  - [crawler source expansion](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave6-closure-gap-and-min-plan.md)
+  - [crawler source expansion](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/2026-05-22-wave6-closure-gap-and-min-plan.md)
   - [docs root restructuring](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/02_wave6-docs-root-restructuring-evidence-closure-gap-2026-05-22.md)
   - [graph editing/reporting](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md)
   - [LLM service and Agent platformization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/03_wave6-5-status-evidence-and-min-plan-2026-05-22.md)
@@ -103,8 +105,8 @@
   - [local open search provider isolation](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
 - Wave7 CURRENT_DEV 集成状态证据与代码落地（2026-05-22，9 个子代理分支已合并）：
   - [parallel-agent runtime contract](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/05_wave7-runtime-closure-evidence-2026-05-22.md)
-  - [crawler policy matrix](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-crawler-policy-matrix.md)
-  - [crawler public replay A5 gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-a5-public-replay-evidence.md)
+  - [crawler policy matrix](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-crawler-policy-matrix.md)
+  - [crawler public replay A5 gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-a5-public-replay-evidence.md)
   - [crawler provider handoff evidence](./automation-runs/crawler-provider-handoff/2026-05-22/README.md)
   - [docs root target roots](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/03_wave7-5-docs-root-targets-evidence-2026-05-22.md)
   - [graph node standardization](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/02_wave7-status-evidence-and-min-plan-2026-05-22.md)
@@ -113,7 +115,7 @@
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - Wave8 CURRENT_DEV 分支落地与外部阻塞归类（2026-05-22，9 个子代理分支已合并）：
   - [Wave8 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave8-worktree-plan-2026-05-22.md)
-  - [crawler A7 validation pack](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave8-a7-validation-pack.md)
+  - [crawler A7 validation pack](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/2026-05-22-wave8-a7-validation-pack.md)
   - [crawler A7 validation run](./automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/README.md)
   - [fetch router gap closure](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/02_wave8-2-fetch-router-gap-closure-2026-05-22.md)
   - [source-library adapter capability parser-profile gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/2026-05-22-wave8-3-adapter-capability-parser-profile-gate.md)
@@ -193,7 +195,7 @@
   - [consumer admin/dashboard extraction](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-consumer-side-modularization/04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md)
   - [AgentCore live provider readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/06_wave13-agentcore-live-provider-readiness-2026-05-22.md)
   - [long-cycle scheduler readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/06_wave13-long-cycle-scheduler-readiness-2026-05-22.md)
-  - [crawler public replay gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave13-worker7-crawler-public-replay-gate.md)
+  - [crawler public replay gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/2026-05-22-wave13-worker7-crawler-public-replay-gate.md)
   - [crawler public replay gate artifact](./automation-runs/crawler-public-replay-gate/2026-05-22/README.md)
   - [abstract folderization current-entry evidence](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/05_wave13-abstract-folderization-current-entry-evidence-2026-05-22.md)
   - [archived MERGED_OVERVIEW drift gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/03_wave13-current-merged-overview-rag-drift-gate-2026-05-22.md)
@@ -272,7 +274,7 @@
   - [open-search health schema/readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md)
   - [graph rollout readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/08_wave19-graph-rollout-readback-gate-2026-05-22.md)
   - [ingest 24h metrics artifact](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md)
-  - [crawler public replay shards](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md)
+  - [crawler public replay shards](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md)
   - [AgentCore provider trace redaction](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/09_wave19-agentcore-provider-trace-redaction-2026-05-22.md)
   - [source-library review closure batch 3](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/12_wave19-review-closure-batch3-2026-05-22.md)
   - [Dashboard page i18n slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
@@ -480,8 +482,8 @@
 - `development-plans/CURRENT_DEV` 新增采集、来源、前端基础设施主题文档：
   - [2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md)
   - [2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md)
-  - [2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)
-  - [2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md)
+  - [2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)
+  - [2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md)
   - [2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md](./development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/01_frontend-i18n-theme-modularization-plan-2026-03-07.md)
   - [2026-03-07-frontend-i18n-theme-modularization/02_atomic-tasklist-frontend-i18n-theme-modularization-2026-03-07.md](./development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/02_atomic-tasklist-frontend-i18n-theme-modularization-2026-03-07.md)
 - `development-plans/CURRENT_DEV` 新增模型服务平台化与 modern 基座双交互前端拓扑主题文档：

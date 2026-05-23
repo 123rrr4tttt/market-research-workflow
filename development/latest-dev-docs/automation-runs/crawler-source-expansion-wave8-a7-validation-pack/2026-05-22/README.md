@@ -11,7 +11,7 @@ This run stores repeatable outputs for the crawler source-expansion closure boun
 
 ## Inputs
 
-- Topic evidence document: [2026-05-22-wave8-a7-validation-pack.md](../../../development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave8-a7-validation-pack.md)
+- Topic evidence document: [2026-05-22-wave8-a7-validation-pack.md](../../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/2026-05-22-wave8-a7-validation-pack.md)
 - Closure checker: [check_crawler_source_expansion_closure.py](../../../../../main/backend/scripts/check_crawler_source_expansion_closure.py)
 - A5 gate checker: [check_source_library_public_replay_a5_gate.py](../../../../../main/backend/scripts/check_source_library_public_replay_a5_gate.py)
 

@@ -7,10 +7,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from scripts.check_crawler_public_replay_gate import build_check as build_public_replay_gate_check
+from scripts.check_source_library_public_replay_a5_gate import build_check as build_a5_gate_check
+
 
 CONTRACT_VERSION = "crawler_source_expansion.closure_check.v1"
 TOPIC_DIR = Path(
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-03-07-crawler-source-expansion"
 )
 WAVE6_DOC = TOPIC_DIR / "2026-05-22-wave6-closure-gap-and-min-plan.md"
@@ -18,6 +25,7 @@ WAVE7_POLICY_MATRIX_DOC = TOPIC_DIR / "2026-05-22-wave7-crawler-policy-matrix.md
 WAVE7_A5_DOC = TOPIC_DIR / "2026-05-22-wave7-a5-public-replay-evidence.md"
 WAVE8_A7_DOC = TOPIC_DIR / "2026-05-22-wave8-a7-validation-pack.md"
 WAVE13_PUBLIC_REPLAY_DOC = TOPIC_DIR / "2026-05-22-wave13-worker7-crawler-public-replay-gate.md"
+WAVE47_PUBLIC_REPLAY_CLOSURE_DOC = TOPIC_DIR / "10_wave47-manual-public-replay-closure-2026-05-23.md"
 WAVE8_A7_RUN_DIR = Path(
     "development/latest-dev-docs/automation-runs/"
     "crawler-source-expansion-wave8-a7-validation-pack/2026-05-22"
@@ -60,6 +68,15 @@ ANCHORS: dict[str, Anchor] = {
     "wave13_public_replay_doc": Anchor(
         WAVE13_PUBLIC_REPLAY_DOC,
         ("Wave13 Worker 7 Crawler Public Replay Gate", "Live 45-site public replay remains not closed"),
+    ),
+    "wave47_manual_public_replay_closure_doc": Anchor(
+        WAVE47_PUBLIC_REPLAY_CLOSURE_DOC,
+        (
+            "Wave47 Manual Public Replay Closure",
+            "A5 status: `closed`",
+            "real_evidence_present_review_required",
+            "closure decision: `closed`",
+        ),
     ),
     "wave8_a7_validation_pack_run": Anchor(
         WAVE8_A7_RUN_DIR / "README.md",
@@ -167,7 +184,16 @@ ANCHORS: dict[str, Anchor] = {
     ),
     "source_replay_scaleout_evidence": Anchor(
         Path("development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md"),
-        ("45-site", "not closed"),
+        ("45-site", "output.public.json", "Closed for crawler source expansion"),
+    ),
+    "source_replay_scaleout_public_output": Anchor(
+        Path("development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json"),
+        (
+            "allow_public_network",
+            "public_targets_attempted",
+            "skipped_policy_disabled_platform_entry",
+            "candidate_ready_with_term_fallback",
+        ),
     ),
     "source_real_probe_evidence": Anchor(
         Path("development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md"),
@@ -223,11 +249,14 @@ ANCHORS: dict[str, Anchor] = {
     ),
     "test_source_library_public_replay_a5_gate": Anchor(
         Path("main/backend/tests/unit/test_source_library_public_replay_a5_gate_unittest.py"),
-        ("deterministic_replay_gate_closed_external_public_replay_blocked", "review_required_not_full_closure"),
+        ("full_public_replay_reviewed_closed", "review_required_not_full_closure"),
     ),
     "test_crawler_public_replay_gate": Anchor(
         Path("main/backend/tests/unit/test_crawler_public_replay_gate_unittest.py"),
-        ("test_gate_validates_deterministic_artifacts_and_marks_public_replay_open", "not_closed_missing_real_evidence"),
+        (
+            "test_gate_validates_deterministic_artifacts_and_detects_real_public_replay",
+            "real_evidence_present_review_required",
+        ),
     ),
 }
 
@@ -298,6 +327,8 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     anchor_results = {key: _anchor_result(root, key, anchor) for key, anchor in ANCHORS.items()}
+    a5_gate = build_a5_gate_check(root)
+    public_replay_gate = build_public_replay_gate_check(root)
 
     a1_keys = [
         "topic_plan",
@@ -336,9 +367,11 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "source_public_replay_a5_gate_script",
         "crawler_public_replay_gate_script",
         "source_replay_scaleout_evidence",
+        "source_replay_scaleout_public_output",
         "source_live_probe_evidence",
         "wave7_a5_public_replay_doc",
         "wave13_public_replay_doc",
+        "wave47_manual_public_replay_closure_doc",
         "wave13_public_replay_run",
         "wave13_public_replay_manifest",
         "wave13_public_replay_check_output",
@@ -365,6 +398,22 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "clue_chain_source_expansion",
         "test_source_library_public_replay_a5_gate",
     ]
+    a5_anchors_pass = _passed(anchor_results, a5_keys)
+    a5_gate_closed = (
+        a5_gate.get("a5_status") == "full_public_replay_reviewed_closed"
+        and bool((a5_gate.get("validation") or {}).get("passed"))
+        and (a5_gate.get("external_blocker") or {}).get("status") == "resolved"
+    )
+    public_replay_ready = (
+        bool((public_replay_gate.get("validation") or {}).get("passed"))
+        and public_replay_gate.get("overall_status")
+        == "deterministic_artifacts_valid_live_public_replay_evidence_present_review_required"
+        and (public_replay_gate.get("live_public_replay") or {}).get("status")
+        == "real_evidence_present_review_required"
+    )
+    a5_status = "closed" if a5_anchors_pass and a5_gate_closed and public_replay_ready else (
+        "blocked_external" if a5_anchors_pass else "needs_update"
+    )
 
     tasks = [
         _task(
@@ -406,11 +455,16 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         _task(
             "A5",
             "Define directed-source onboarding strategy",
-            "blocked_external" if _passed(anchor_results, a5_keys) else "needs_update",
+            a5_status,
             a5_keys,
             anchor_results,
-            "The 45-site historical manifest, no-network replay gate, public-live fixture, A5 checker, Wave13 public replay gate, and term-fallback relevance-review tests are represented.",
-            "Full 45-site public replay remains an external public-network/site-stability blocker; term-fallback rows stay review evidence, not clean closure.",
+            (
+                "The 45-site historical manifest, no-network replay gate, public-live fixture, opt-in full public replay, "
+                "A5 checker, Wave13 public replay gate, and Wave47 manual review are represented."
+            ),
+            "" if a5_status == "closed" else (
+                "Full 45-site public replay or its manual review is still missing; term-fallback rows stay review evidence, not clean closure."
+            ),
         ),
         _task(
             "A6",
@@ -444,6 +498,10 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     )
     if not anchor_results["wave6_closure_doc"]["exists"]:
         errors.append("wave6_closure_doc: missing Wave6 closure-gap document")
+    errors.extend(f"a5_gate: {message}" for message in (a5_gate.get("validation") or {}).get("errors", []))
+    errors.extend(
+        f"public_replay_gate: {message}" for message in (public_replay_gate.get("validation") or {}).get("errors", [])
+    )
 
     return {
         "contract_version": CONTRACT_VERSION,
@@ -451,18 +509,26 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "topic_dir": str(TOPIC_DIR),
         "overall_status": _overall_status(tasks),
         "doc_drift": {
-            "status": "outdated_snapshot",
-            "reason": "The 2026-03-07 tasklist still marks A1-A7 pending, while Wave6-Wave8 evidence now records task-level closure and the A5 external blocker.",
+            "status": "historical_snapshot_superseded",
+            "reason": "The 2026-03-07 tasklist still records the initial pending plan, but Wave47 public replay evidence and review now supersede the former A5 external blocker.",
         },
         "tasks": tasks,
+        "a5_gate": {
+            "status": a5_gate.get("a5_status"),
+            "external_blocker": a5_gate.get("external_blocker"),
+            "full_public_replay": a5_gate.get("full_public_replay"),
+            "closure_review": a5_gate.get("closure_review"),
+        },
+        "public_replay_gate": {
+            "overall_status": public_replay_gate.get("overall_status"),
+            "live_public_replay": public_replay_gate.get("live_public_replay"),
+        },
         "minimum_development_plan": [
-            "Keep A1-A3 as evidence-closed and update only topic-local documentation until integration.",
-            "Keep A4 closed by preserving the Wave7 allow/downgrade/block matrix and executable coverage check.",
-            "Treat A5 as deterministic-gate sealed but externally blocked until an opt-in 45-site public replay can be rerun and stored.",
-            "Keep the Wave13 public replay gate green while reporting live 45-site replay as not_closed_missing_real_evidence until real output.public.json evidence exists.",
-            "Keep A6 as evidence-closed after focused crawler/provider-specific handoff tests and Wave7 evidence stay green.",
-            "Keep A7 closed through the Wave8 validation pack while preserving A5 as the only external blocker.",
-            "Update shared navigation only in a later integration lane.",
+            "Keep A1-A4, A6, and A7 as evidence-closed through their existing code, fixture, and checker anchors.",
+            "Treat A5 as closed only while the Wave47 opt-in public replay artifact and manual review note remain present.",
+            "Keep term-fallback rows as relevance-review evidence rather than promoting them to clean source corpus rows.",
+            "Keep public transport, anti-bot, and empty-source outcomes classified in output.public.json instead of hiding them.",
+            "Keep shared navigation synced through the archive-closed target root.",
         ],
         "protected_shared_indexes": PROTECTED_SHARED_INDEXES,
         "validation": {

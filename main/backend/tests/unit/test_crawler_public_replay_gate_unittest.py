@@ -66,7 +66,7 @@ def _manifest_with_public_output(public_output_path: str) -> dict:
 
 
 class CrawlerPublicReplayGateUnitTestCase(unittest.TestCase):
-    def test_gate_validates_deterministic_artifacts_and_marks_public_replay_open(self) -> None:
+    def test_gate_validates_deterministic_artifacts_and_detects_real_public_replay(self) -> None:
         result = build_check(REPO_ROOT)
 
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
@@ -75,7 +75,7 @@ class CrawlerPublicReplayGateUnitTestCase(unittest.TestCase):
         self.assertFalse(result["validation"]["shared_indexes_edited"])
         self.assertEqual(
             result["overall_status"],
-            "deterministic_artifacts_valid_live_public_replay_not_closed",
+            "deterministic_artifacts_valid_live_public_replay_evidence_present_review_required",
         )
 
         manifest = result["deterministic_artifacts"]["source_replay_manifest"]
@@ -90,9 +90,13 @@ class CrawlerPublicReplayGateUnitTestCase(unittest.TestCase):
         self.assertEqual(deterministic["public_targets_attempted"], 0)
 
         live = result["live_public_replay"]
-        self.assertEqual(live["status"], "not_closed_missing_real_evidence")
-        self.assertEqual(live["closure_claim"], "not_closed")
-        self.assertFalse(live["evidence_present"])
+        self.assertEqual(live["status"], "real_evidence_present_review_required")
+        self.assertEqual(live["closure_claim"], "review_required")
+        self.assertTrue(live["evidence_present"])
+        self.assertEqual(live["target_result_count"], 45)
+        self.assertEqual(live["public_targets_attempted"], 40)
+        self.assertEqual(live["policy_skipped_status_count"], 5)
+        self.assertEqual(live["operator_gate_skip_count"], 0)
 
     def test_public_artifact_presence_is_not_enough_without_real_attempts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

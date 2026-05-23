@@ -23,16 +23,16 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         result = build_check(REPO_ROOT)
 
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
-        self.assertEqual(result["overall_status"], "external_blocked")
+        self.assertEqual(result["overall_status"], "closed")
         self.assertTrue(result["validation"]["passed"], result["validation"]["errors"])
-        self.assertEqual(result["doc_drift"]["status"], "outdated_snapshot")
+        self.assertEqual(result["doc_drift"]["status"], "historical_snapshot_superseded")
 
         statuses = {task["task_id"]: task["status"] for task in result["tasks"]}
         self.assertEqual(statuses["A1"], "closed")
         self.assertEqual(statuses["A2"], "closed")
         self.assertEqual(statuses["A3"], "closed")
         self.assertEqual(statuses["A4"], "closed")
-        self.assertEqual(statuses["A5"], "blocked_external")
+        self.assertEqual(statuses["A5"], "closed")
         self.assertEqual(statuses["A6"], "closed")
         self.assertEqual(statuses["A7"], "closed")
 
@@ -40,8 +40,13 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         self.assertEqual(a4["gap"], "")
         self.assertIn("Wave7 policy matrix", a4["evidence"])
         a5 = next(task for task in result["tasks"] if task["task_id"] == "A5")
-        self.assertEqual(a5["status"], "blocked_external")
-        self.assertIn("external", a5["gap"])
+        self.assertEqual(a5["status"], "closed")
+        self.assertEqual(a5["gap"], "")
+        self.assertEqual(result["a5_gate"]["status"], "full_public_replay_reviewed_closed")
+        self.assertEqual(
+            result["public_replay_gate"]["overall_status"],
+            "deterministic_artifacts_valid_live_public_replay_evidence_present_review_required",
+        )
         a6 = next(task for task in result["tasks"] if task["task_id"] == "A6")
         self.assertEqual(a6["gap"], "")
         self.assertIn("provider-specific crawler dispatch", a6["evidence"])
@@ -49,36 +54,27 @@ class CrawlerSourceExpansionClosureCheckUnitTest(unittest.TestCase):
         self.assertEqual(a7["gap"], "")
         self.assertIn("Wave8 stores a repeatable validation pack", a7["evidence"])
 
-    def test_overall_status_preserves_external_blocker_semantics(self) -> None:
+    def test_overall_status_closes_after_public_replay_review(self) -> None:
         result = build_check(REPO_ROOT)
 
         non_closed = [task for task in result["tasks"] if task["status"] != "closed"]
-        self.assertEqual([task["task_id"] for task in non_closed], ["A5"])
-        self.assertEqual(non_closed[0]["status"], "blocked_external")
-        self.assertEqual(result["overall_status"], "external_blocked")
+        self.assertEqual(non_closed, [])
+        self.assertEqual(result["overall_status"], "closed")
 
     def test_closure_check_keeps_shared_navigation_out_of_this_lane(self) -> None:
         result = build_check(REPO_ROOT)
 
         self.assertEqual(result["protected_shared_indexes"], PROTECTED_SHARED_INDEXES)
         self.assertIn(
-            "Keep A4 closed by preserving the Wave7 allow/downgrade/block matrix and executable coverage check.",
+            "Keep A1-A4, A6, and A7 as evidence-closed through their existing code, fixture, and checker anchors.",
             result["minimum_development_plan"],
         )
         self.assertIn(
-            "Update shared navigation only in a later integration lane.",
+            "Treat A5 as closed only while the Wave47 opt-in public replay artifact and manual review note remain present.",
             result["minimum_development_plan"],
         )
         self.assertIn(
-            "Treat A5 as deterministic-gate sealed but externally blocked until an opt-in 45-site public replay can be rerun and stored.",
-            result["minimum_development_plan"],
-        )
-        self.assertIn(
-            "Keep A6 as evidence-closed after focused crawler/provider-specific handoff tests and Wave7 evidence stay green.",
-            result["minimum_development_plan"],
-        )
-        self.assertIn(
-            "Keep A7 closed through the Wave8 validation pack while preserving A5 as the only external blocker.",
+            "Keep public transport, anti-bot, and empty-source outcomes classified in output.public.json instead of hiding them.",
             result["minimum_development_plan"],
         )
         for protected_path in PROTECTED_SHARED_INDEXES:

@@ -28,7 +28,7 @@ Decision tags:
 ## Evidence
 
 The source-layer policy owner is
-`development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-crawler-policy-matrix.md`.
+`docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-crawler-policy-matrix.md`.
 That matrix binds `source_policy_action` to `allow`, `downgrade`, and `block`,
 and anchors the implementation to:
 

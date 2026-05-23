@@ -20,8 +20,12 @@ CONTRACT_VERSION = "source_library.public_replay_a5_gate.v1"
 REPLAY_RUN_DIR = Path("development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22")
 LIVE_PROBE_RUN_DIR = Path("development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22")
 WAVE7_A5_DOC = Path(
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-03-07-crawler-source-expansion/2026-05-22-wave7-a5-public-replay-evidence.md"
+)
+WAVE47_CLOSURE_DOC = Path(
+    "docs/development/development-plans/ARCHIVE_CLOSED/"
+    "2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md"
 )
 
 
@@ -61,6 +65,14 @@ def _status_counts(payload: dict[str, Any]) -> dict[str, int]:
         except (TypeError, ValueError):
             counts[str(key)] = 0
     return counts
+
+
+def _load_text(root: Path, relative_path: Path, errors: list[str]) -> str:
+    path = root / relative_path
+    if not path.is_file():
+        errors.append(f"missing review artifact: {relative_path}")
+        return ""
+    return path.read_text(encoding="utf-8")
 
 
 def _target_ids(payload: dict[str, Any]) -> set[str]:
@@ -155,6 +167,97 @@ def _public_live_fixture_summary(payload: dict[str, Any], errors: list[str]) -> 
     }
 
 
+def _full_public_replay_summary(root: Path, errors: list[str]) -> dict[str, Any]:
+    relative_path = REPLAY_RUN_DIR / "output.public.json"
+    if not (root / relative_path).is_file():
+        return {
+            "status": "missing",
+            "path": str(relative_path),
+        }
+    payload = _load_json(root, relative_path, errors)
+    if not payload:
+        return {
+            "status": "missing",
+            "path": str(relative_path),
+        }
+
+    mode = payload.get("mode") if isinstance(payload.get("mode"), dict) else {}
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+    inputs = payload.get("inputs") if isinstance(payload.get("inputs"), dict) else {}
+    manifest_validation = (
+        inputs.get("manifest_validation") if isinstance(inputs.get("manifest_validation"), dict) else {}
+    )
+    outputs = payload.get("outputs") if isinstance(payload.get("outputs"), dict) else {}
+    target_results = outputs.get("target_results") if isinstance(outputs.get("target_results"), list) else []
+    counts = _status_counts(payload)
+    blocker_type_counts = outputs.get("blocker_type_counts") if isinstance(outputs.get("blocker_type_counts"), dict) else {}
+
+    _require(bool(mode.get("allow_public_network")), errors, "full public replay must record allow_public_network=true")
+    _require(bool(validation.get("passed")), errors, "full public replay validation must pass")
+    _require(not bool(validation.get("skipped")), errors, "full public replay must not be skipped")
+    _require(bool(validation.get("full_historical_manifest")), errors, "full public replay must cover full 45-site manifest")
+    _require(bool(validation.get("live_evidence_sufficient")), errors, "full public replay must be sufficient live evidence")
+    _require(int(inputs.get("target_count") or 0) == 45, errors, "full public replay must record 45 targets")
+    _require(
+        int(manifest_validation.get("enabled_target_count") or 0) == 40,
+        errors,
+        "full public replay must record 40 enabled public targets",
+    )
+    _require(
+        int(manifest_validation.get("policy_skipped_target_count") or 0) == 5,
+        errors,
+        "full public replay must record 5 policy-disabled targets",
+    )
+    _require(len(target_results) == 45, errors, "full public replay must contain 45 target results")
+    _require(int(outputs.get("public_targets_attempted") or 0) == 40, errors, "full public replay must attempt 40 targets")
+    _require(
+        int(counts.get("skipped_policy_disabled_platform_entry") or 0) == 5,
+        errors,
+        "full public replay must keep 5 platform/API entries policy-skipped",
+    )
+    _require(
+        int(counts.get("skipped_public_network_disabled") or 0) == 0,
+        errors,
+        "full public replay must not contain operator-gate skips",
+    )
+
+    return {
+        "status": "real_evidence_present_review_required",
+        "path": str(relative_path),
+        "allow_public_network": bool(mode.get("allow_public_network")),
+        "target_count": int(inputs.get("target_count") or 0),
+        "public_targets_attempted": int(outputs.get("public_targets_attempted") or 0),
+        "status_counts": counts,
+        "blocker_type_counts": blocker_type_counts,
+        "live_evidence_sufficient": bool(validation.get("live_evidence_sufficient")),
+    }
+
+
+def _closure_review_summary(root: Path, errors: list[str]) -> dict[str, Any]:
+    before_error_count = len(errors)
+    text = _load_text(root, WAVE47_CLOSURE_DOC, errors)
+    if not text:
+        return {
+            "status": "missing",
+            "path": str(WAVE47_CLOSURE_DOC),
+        }
+    required_tokens = (
+        "Wave47 Manual Public Replay Closure",
+        "A5 status: `closed`",
+        "real_evidence_present_review_required",
+        "candidate_ready_with_term_fallback",
+        "closure decision: `closed`",
+    )
+    missing = [token for token in required_tokens if token not in text]
+    for token in missing:
+        errors.append(f"closure review missing token {token!r}: {WAVE47_CLOSURE_DOC}")
+    return {
+        "status": "reviewed_for_topic_closure" if len(errors) == before_error_count else "needs_update",
+        "path": str(WAVE47_CLOSURE_DOC),
+        "missing_tokens": missing,
+    }
+
+
 def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
@@ -178,16 +281,32 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     replay_artifact = _deterministic_replay_summary(replay_output, errors) if replay_output else {}
     replay_dry_run = _deterministic_replay_summary(run_replay(allow_public_network=False), errors)
     live_fixture = _public_live_fixture_summary(live_output, errors) if live_output else {}
+    full_public_replay = _full_public_replay_summary(root, errors)
+    closure_review = _closure_review_summary(root, errors) if full_public_replay.get("status") != "missing" else {}
 
     full_public_output_path = root / REPLAY_RUN_DIR / "output.public.json"
+    full_public_reviewed = (
+        full_public_replay.get("status") == "real_evidence_present_review_required"
+        and closure_review.get("status") == "reviewed_for_topic_closure"
+    )
     external_blocker = {
-        "status": "recorded" if not full_public_output_path.is_file() else "public_output_present",
-        "blocker_type": "external_public_network_or_site_stability" if not full_public_output_path.is_file() else None,
+        "status": (
+            "resolved" if full_public_reviewed else "recorded" if not full_public_output_path.is_file() else "public_output_present"
+        ),
+        "blocker_type": (
+            None
+            if full_public_reviewed
+            else "external_public_network_or_site_stability"
+            if not full_public_output_path.is_file()
+            else "human_review_required"
+        ),
         "path": str(REPLAY_RUN_DIR / "output.public.json"),
         "reason": (
             "Full 45-site public replay output is absent from this worktree; public site availability, anti-bot, "
             "rate-limit, and parser volatility remain outside the deterministic CI gate."
             if not full_public_output_path.is_file()
+            else "A full public replay output artifact is present and reviewed for topic closure."
+            if full_public_reviewed
             else "A full public replay output artifact is present and should be reviewed separately before upgrading A5."
         ),
     }
@@ -198,9 +317,12 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "a5_status": (
             "deterministic_replay_gate_closed_external_public_replay_blocked"
             if not full_public_output_path.is_file()
+            else "full_public_replay_reviewed_closed"
+            if full_public_reviewed
             else "full_public_replay_artifact_present_review_required"
         ),
         "evidence_doc": str(WAVE7_A5_DOC),
+        "closure_review_doc": str(WAVE47_CLOSURE_DOC),
         "a5_gate": {
             "embedded_manifest": manifest_validation,
             "artifact_input": artifact_input,
@@ -208,6 +330,8 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
             "fresh_no_network_dry_run": replay_dry_run,
         },
         "public_live_fixture": live_fixture,
+        "full_public_replay": full_public_replay,
+        "closure_review": closure_review,
         "term_fallback_relevance_review": {
             "status": "review_required_not_full_closure",
             "review_target_count": len(live_fixture.get("relevance_review_targets") or []),
