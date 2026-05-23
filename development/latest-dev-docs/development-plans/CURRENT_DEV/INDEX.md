@@ -4,6 +4,11 @@
 
 本目录优先保留尚未封口且仍可作为现行入口的开发计划；少量总体性完成审计和当前主入口文档可暂留，过程记录已迁入 [`ARCHIVE_CLOSED`](../ARCHIVE_CLOSED/INDEX.md)，已被后续代码事实或更新主入口覆盖的早期文档已迁入 [`ARCHIVE_RETIRED`](../ARCHIVE_RETIRED/INDEX.md)。
 
+## Current Canonical Status
+
+- 当前规范分布：`partial:0 / not_closed:0 / no_closure_claim:0`。
+- 本文件中的“本次已迁档 / 已退场 / 外部阻塞归档”是当前导航状态；历史 wave 证据中的 `partial` 计数仅为对应 wave 快照。
+
 ## 本次已迁档
 
 - `clear_closed` [2026-03-02 Ingest Chain Full Branch Map](../ARCHIVE_CLOSED/2026-03-02-ingest-chain-full-branch-map/)
@@ -133,7 +138,7 @@ If a new AgentCore diagnostic reopens, create a new `D48` or later topic under `
 
 ## Partial
 
-None after Wave32 migration.
+None after Wave32 migration. Historical wave logs above may mention earlier `partial` counts; those counts are not current.
 
 ## Not Closed
 

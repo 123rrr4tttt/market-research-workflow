@@ -16,6 +16,15 @@
 - [ARCHIVE_RETIRED/INDEX.md](./ARCHIVE_RETIRED/INDEX.md)
 - [ARCHIVE_RETIRED/2026-03-07-dual-frontend-workbench-topology/13_wave28-retirement-decision-2026-05-23.md](./ARCHIVE_RETIRED/2026-03-07-dual-frontend-workbench-topology/13_wave28-retirement-decision-2026-05-23.md)
 - [ARCHIVE_EXTERNAL_BLOCKED/2026-03-12-data-structured-service-modularization/14_wave28-structured-document-query-statement-builder-2026-05-23.md](./ARCHIVE_EXTERNAL_BLOCKED/2026-03-12-data-structured-service-modularization/14_wave28-structured-document-query-statement-builder-2026-05-23.md)
+
+## Current Canonical Status
+
+- Current `CURRENT_DEV` status is canonical only in [CURRENT_DEV/INDEX.md](./CURRENT_DEV/INDEX.md): `partial:0 / not_closed:0 / no_closure_claim:0`.
+- Target-topic scope is canonical in [TARGET_TOPIC_ALLOWLIST.json](./TARGET_TOPIC_ALLOWLIST.json): only real development target topics are checked for closed / external_blocked / retired / active current status; navigation, evidence/process, compatibility-shim, and reference material directories are not closure targets.
+- Wave entries and `partial:x -> partial:y` notes below are historical wave logs. They record past migration deltas and do not reopen active `CURRENT_DEV` work.
+
+## Historical Wave Log / Archive Navigation
+
 - [ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/09_wave29-ingest-platformization-repo-local-closure-2026-05-23.md](./ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/09_wave29-ingest-platformization-repo-local-closure-2026-05-23.md)
 - [ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md](./ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md)
 - [ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/10_wave29-ingest-blocker-alignment-2026-05-23.md](./ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/10_wave29-ingest-blocker-alignment-2026-05-23.md)

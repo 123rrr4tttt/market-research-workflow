@@ -8,7 +8,7 @@
 
 > Date: 2026-05-23
 > Worker: docs-root worker A
-> Status: unsafe broad-tree move closed; archive content remains source-authoritative
+> Historical status before Wave31/Wave34: unsafe broad-tree move closed; archive content remained source-authoritative at that time.
 
 ## Scope
 
@@ -25,7 +25,7 @@ No shared latest-dev-docs top index was edited. No source archive file under [de
 
 Wave29 closes the unsafe broad-tree move as the wrong migration primitive. The archive is now represented as `broad_move_decomposed_to_file_batches` in the development content plan and manifest metadata.
 
-This is not a content move. The source archive remains authoritative until a later worker performs explicit per-file moved batches.
+At Wave29 this was not yet a content move: the source archive remained authoritative until a later worker performed explicit per-file moved batches. After Wave31/Wave34, this copied topic record itself is now target-authoritative under `docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring`; the sentence is retained here as historical context for why Wave29 did not claim closure.
 
 ## Evidence
 

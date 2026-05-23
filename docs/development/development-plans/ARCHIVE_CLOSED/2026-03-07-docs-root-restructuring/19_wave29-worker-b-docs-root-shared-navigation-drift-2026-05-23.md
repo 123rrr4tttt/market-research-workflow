@@ -8,7 +8,7 @@
 
 > Date: 2026-05-23
 > Worker: docs-root worker B
-> Status: partial; shared navigation and MERGED_OVERVIEW drift remain integration blockers
+> Historical status before Wave31/Wave34: partial; shared navigation and MERGED_OVERVIEW drift remained integration blockers at that time.
 
 ## Scope
 
@@ -37,7 +37,7 @@ The classified archive ledger exists at:
 
 - `docs/development/development-plans/archive-closed-file-classification-2026-05-23.json`
 
-The source archive files are still source-authoritative records, not compatibility shims. A later content-migration wave must convert selected source files into compatibility shims and synchronize shared navigation in the same integration pass that promotes those files.
+At Wave29 the source archive files were still source-authoritative records, not compatibility shims. After Wave31/Wave34, this copied topic record itself is now target-authoritative under `docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring`; the old blocker description is retained here as historical context for the later navigation-sync closure.
 
 ## Machine-Checkable Drift
 

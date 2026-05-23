@@ -1,0 +1,79 @@
+{
+  "schema": "development-plans-target-topic-allowlist/v1",
+  "updated": "2026-05-23 PST",
+  "purpose": "Separate real development target topics from evidence/process records, navigation directories, compatibility shims, and external reference material.",
+  "target_roots": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV",
+      "status": "active_current",
+      "entrypoint": "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+      "allowed_non_topic_dirs": ["main"]
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED",
+      "status": "closed",
+      "entrypoint": "docs/development/development-plans/ARCHIVE_CLOSED/INDEX.md",
+      "excluded_topic_dirs": ["2026-04-02-claude-agent-high-fidelity-migration-process-records"]
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED",
+      "status": "external_blocked",
+      "entrypoint": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_RETIRED",
+      "status": "retired",
+      "entrypoint": "development/latest-dev-docs/development-plans/ARCHIVE_RETIRED/INDEX.md"
+    }
+  ],
+  "non_target_roots": [
+    {
+      "path": "development/latest-dev-docs/development-plans/A_ARCHITECTURE",
+      "role": "navigation_category"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/B_API",
+      "role": "navigation_category"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/C_INGEST",
+      "role": "navigation_category"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/D_TEST",
+      "role": "navigation_category"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/E_OPS",
+      "role": "navigation_category"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/F_PLAN",
+      "role": "navigation_category"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/G_REVIEW",
+      "role": "navigation_category"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/main",
+      "role": "navigation_main_shim"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED",
+      "role": "compatibility_shim_root",
+      "canonical_target_root": "docs/development/development-plans/ARCHIVE_CLOSED"
+    },
+    {
+      "path": "docs/development/development-plans/main",
+      "role": "navigation_main"
+    }
+  ],
+  "evidence_roots": [
+    "development/latest-dev-docs/automation-runs",
+    "docs/development/development-plans/archive-closed-file-classification-2026-05-23.json"
+  ],
+  "reference_excludes": [
+    "**/references/repos/**"
+  ]
+}

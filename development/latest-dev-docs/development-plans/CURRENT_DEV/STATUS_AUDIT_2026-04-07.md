@@ -2,6 +2,8 @@
 
 更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave33 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
 
+当前规范状态：`CURRENT_DEV partial:0 / not_closed:0 / no_closure_claim:0`，以 [`CURRENT_DEV/INDEX.md`](./INDEX.md) 的“剩余状态分布”为准。下文 Wave21-Wave33 的 `partial` 计数均为 historical wave log 快照，不代表当前剩余状态。
+
 本审计基于对 `CURRENT_DEV` 一级目录的逐目录核对，判断标准同时参考：
 
 - 文档是否明确宣称已收口

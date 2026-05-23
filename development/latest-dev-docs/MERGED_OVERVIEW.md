@@ -19,6 +19,11 @@ Updated: 2026-05-23 PST
 2. 校对文档用于识别过时项，不直接替代原始来源文档。
 3. 若要提交发布版，优先更新 `SYNC_STATUS.md` 的检查时间。
 
+## 当前规范状态
+
+- `CURRENT_DEV` 的当前剩余状态以 [development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md) 为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
+- “最近新增”中的 Wave21-Wave34 条目是 historical wave log；历史 `partial` 计数只说明当时的迁档进度，不应作为当前未封口数量读取。
+
 ## 最近新增
 
 - `development-plans`：
@@ -57,7 +62,7 @@ Updated: 2026-05-23 PST
   - [2026-05-23 Wave27 Single URL Canary Closure Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md)
   - [2026-05-22 Wave27 Source-Library Runner Worker](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/17_wave27-source-library-runner-worker-2026-05-22.md)
   - [2026-05-22 Wave21 External-Blocked Archive](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)
-  - [CURRENT_DEV status after Wave21](./development-plans/CURRENT_DEV/INDEX.md)
+  - [Historical Wave21 CURRENT_DEV status snapshot; current canonical status is in CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md)
 - `automation-runs`：
   - [2026-05-23 Wave30 Vector Closure Gate](./automation-runs/wave30-vector-closure-gate/2026-05-23/README.md)
   - [2026-05-23 Wave27 Structured / Consumer Closure Gate](./automation-runs/wave27-structured-consumer-closure/2026-05-23/README.md)

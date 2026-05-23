@@ -10,6 +10,13 @@
 - [同步状态](./SYNC_STATUS.md)
 - [来源台账](./index.md)
 
+## 当前规范状态
+
+- 规范入口：[development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md)。
+- 目标主题 allowlist：[development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json)，用于区分真实开发目标、证据/过程记录、分类/导航目录与外部参考材料。
+- 当前 `CURRENT_DEV` 分布以该入口的“剩余状态分布”为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
+- 下方“最新补充”是 historical wave log；其中 `partial:x -> partial:y` 仅表示对应 wave 完成时的历史快照，不代表当前剩余状态。
+
 ## 分目录入口
 
 - [root-plans](./root-plans/INDEX.md)
