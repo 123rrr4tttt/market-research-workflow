@@ -41,6 +41,10 @@
   状态：`external_blocked` / `wave23_checked`。仓内 long-cycle lifecycle、scheduler intent、JSONL durable readback、handoff trace 与 queue replay gate 已封住；剩余条件是 live scheduler enqueue、worker consumption、live DB write/readback 与 downstream handoff evidence。
 - [2026-03-02 Graph Node Standardization A Then B Plan](./2026-03-02-graph-node-standardization-a-then-b-plan/09_wave23-closure-decision-2026-05-23.md)
   状态：`external_blocked` / `wave23_checked`。仓内 canonical-id/backfill readiness/live-DB rollout manifest/readback gates 已封住；剩余条件是 configured tenant schema、live backfill dry-run、nonempty tenant graph endpoint smoke 与 read-mode parity evidence。
+- [2026-03-02 Graph 3D Force Engine Parallel Migration](./2026-03-02-graph-3d-force-engine-parallel-migration/08_wave24-external-blocked-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave24_checked`。仓内 Force3D frontend contract、runtime pixel/shape、visual-data smoke、rollback/readback gate 已封住；剩余条件是 live tenant DB GraphPage run、backend graph endpoint data、WebGL nonblank canvas 与 `window.__graph3dDebug` evidence。
+- [MERGED_OVERVIEW Topic Drift Gate](./MERGED_OVERVIEW/04_wave24-external-blocked-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave24_checked`。仓内 RAG drift gate 已证明 retired RAG anchors 与 current local-index/vectorization anchors 的映射；剩余条件是 live/vector optional dependency readiness、production semantic quality 与 global vector contract closure。
 
 ## 保留在 CURRENT_DEV 的相邻目录
 

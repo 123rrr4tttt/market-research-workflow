@@ -1,6 +1,6 @@
 # CURRENT_DEV Status Audit
 
-更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave23 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
+更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave24 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
 
 本审计基于对 `CURRENT_DEV` 一级目录的逐目录核对，判断标准同时参考：
 
@@ -32,6 +32,7 @@
 - `wave21_checked`：Wave21 封口优先波次已完成目录级判定；迁入 `ARCHIVE_EXTERNAL_BLOCKED` 的目录不再计入当前 `partial`，但仍不声明 full closure
 - `wave22_checked`：Wave22 封口优先波次继续按目录级 repo-local blocker 判定；迁入 `ARCHIVE_EXTERNAL_BLOCKED` 的目录不再计入当前 `partial`，保留项必须说明内部 blocker
 - `wave23_checked`：Wave23 改为封口优先波次，集中迁出只剩 live/provider/tenant/runtime evidence 的目录，以直接降低 `CURRENT_DEV` 的 `partial` 数
+- `wave24_checked`：Wave24 继续按封口优先推进，只迁出 worker/reviewer 双证据均确认只剩外部 / live / runtime 条件的目录；带仓内 blocker 的目录保留在 `CURRENT_DEV`
 
 时效标签：
 
@@ -82,6 +83,8 @@
 - `external_blocked` [2026-03-07-llm-service-and-agent-platformization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/10_wave23-closure-decision-2026-05-23.md) - 真实 provider/API/account/network invocation evidence 未闭环
 - `external_blocked` [2026-03-07-ingest-digestion-and-long-cycle-automation](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/10_wave23-closure-decision-2026-05-23.md) - live scheduler enqueue、worker consumption、live DB write/readback 与 downstream handoff 未闭环
 - `external_blocked` [2026-03-02-graph-node-standardization-a-then-b-plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/09_wave23-closure-decision-2026-05-23.md) - tenant schema、live backfill dry-run、nonempty tenant graph endpoint smoke 与 read-mode parity evidence 未闭环
+- `external_blocked` [2026-03-02-graph-3d-force-engine-parallel-migration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/08_wave24-external-blocked-decision-2026-05-23.md) - live tenant DB GraphPage run、backend graph endpoint data、WebGL nonblank canvas 与 `window.__graph3dDebug` evidence 未闭环
+- `external_blocked` [MERGED_OVERVIEW](../ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/04_wave24-external-blocked-decision-2026-05-23.md) - live/vector optional dependency readiness、production semantic quality 与 global vector contract 未闭环
 
 ## 结果矩阵
 
@@ -90,7 +93,6 @@
 | `2026-03-01-open-source-platform-integration` | `partial` | `doc_aligned / wave8_checked / wave10_checked / wave12_checked / wave14_checked / wave18_checked / wave19_checked` | Wave8 已补 search/vector deterministic contract 复核，Wave10 已补 vectorization quality gate，Wave12 已补 provider readiness gate，Wave14 已补 provider capability gate，Wave18 已补 hybrid readback；平台化验收仍存在更大范围；Wave19 已补 provider manifest readback 并继续保留 live provider / platform closure 边界 |
 | `2026-05-14-global-vectorization-general-foundation` | `partial` | `doc_aligned / wave8_checked / wave10_checked / wave12_checked / wave14_checked / wave18_checked / wave19_checked` | Wave8 已把 search provider trace、container replay summary、local_index runtime/benchmark 组成确定性门禁，Wave10 已补 keyword/vector/hybrid quality gate，Wave12 已补 provider readiness gate，Wave14 已补 provider capability gate，Wave18 已补 hybrid readback；真实 embedding 质量与全局 vector contract 未封口；Wave19 已补 provider manifest readback；真实 embedding 质量与 provider promotion 未封口 |
 | `2026-05-22-clue-chain-successor-scopes` | `partial` | `external_blocked / wave16_checked` | 原 Wave5 实现目录已迁入 `ARCHIVE_CLOSED`；当前只保留 live provider reliability、production graph-submit conflict handling、broader UI / visual regression 三个 successor 范围 |
-| `2026-03-02-graph-3d-force-engine-parallel-migration` | `partial` | `doc_aligned / wave8_checked / wave10_verified / wave12_checked / wave14_checked / wave17_verified / wave19_verified` | Wave8 已补 backend graph projection contract；Wave10 已补 frontend force3d/engine-switch smoke，Wave12 已补 live-smoke readiness gate，Wave14 已补 backend-data visual smoke boundary，Wave17 已补 runtime pixel/shape gate；real live tenant DB WebGL visual smoke 仍缺；Wave19 已补 graph rollout pre-live readback；real tenant DB / WebGL live smoke 仍缺 |
 | `2026-03-02-ingest-platformization-assessment` | `partial` | `doc_aligned / wave8_verified / wave12_verified / wave14_checked / wave17_verified / wave19_verified` | Wave8 已补 fetch-router gap closure gate，Wave12 已补 single-url canary handoff contract，Wave14 已补 canary metrics readiness，Wave17 已补 deterministic canary metrics readback；生产级 live canary 和 24h metric readback 仍未完成；Wave19 已补 24h metrics artifact contract；live canary 24h readback 仍未完成 |
 | `2026-03-02-meaningful-ingest-guardrails-plan` | `partial` | `doc_aligned / wave9_verified / wave11_verified / wave12_verified / wave14_checked / wave17_verified / wave19_verified` | Wave9 已补 request strict gate 与响应可见性合同；Wave11 已补 URL-execution canary rollout default 与 task-local metrics；Wave12 已补 canary handoff contract，Wave14 已补 canary metrics readiness，Wave17 已补 deterministic canary metrics readback；live demo_proj canary 和 24h 指标仍未封口；Wave19 已补 24h metrics artifact contract；live demo/prod canary 仍未封口 |
 | `2026-03-02-single-url-first-ingest-allocation-plan` | `partial` | `doc_aligned / wave8_verified / wave12_verified / wave14_checked / wave17_verified / wave19_verified` | Wave8 已补 fetch-router/frontdoor context gap closure，Wave12 已补 single-url canary handoff contract，Wave14 已补 canary metrics readiness，Wave17 已补 deterministic readback；前端消费、live canary 和 24h metrics 仍未全闭环；Wave19 已补 24h metrics artifact contract；前端消费与 live metrics 仍未全闭环 |
@@ -108,7 +110,6 @@
 | `2026-03-24-frontend-visual-layering` | `retired_in_place` | `doc_aligned` | 原空占位已补退场证据；现行入口转交 `2026-03-15-frontend-three-layer-rewrite` 与 Wave3/Wave4 frontend evidence |
 | `2026-03-25-source-library-ingest-minimal-migration` | `partial` | `doc_aligned / wave9_checked / wave11_verified / wave12_verified / wave16_checked / wave18_checked / wave19_checked / wave20_checked / retained_partial` | Wave9 已把 `AT-EXT-*` 拆成 current-state deterministic contract 与 known gaps，Wave11 已补 article extraction runner / frontdoor document-candidate contract，Wave12 已补 relevance review queue，Wave16 已闭合 deterministic fixture review batch，Wave18 已闭合第二批 deterministic fixture review；python/CLI/container runners 与 live external replay 仍未封口；Wave19 已闭合第三批 deterministic fixture review；live ingest migration 仍未封口；Wave20 已闭合第四批 deterministic fixture review；live ingest migration 仍未封口 |
 | `2026-04-02-claude-agent-high-fidelity-migration` | `clear_closed` | `doc_aligned` | 当前入口已拆分并迁入 `ARCHIVE_CLOSED`；如需新诊断应开 D48+ 新主题 |
-| `MERGED_OVERVIEW` | `partial` | `doc_drift / wave13_checked` | 合并总结有参考价值，Wave13 已补 topic-local RAG drift gate；global vector contract、production semantic quality 与 live optional dependency readiness 仍未闭环 |
 
 ## 使用建议
 

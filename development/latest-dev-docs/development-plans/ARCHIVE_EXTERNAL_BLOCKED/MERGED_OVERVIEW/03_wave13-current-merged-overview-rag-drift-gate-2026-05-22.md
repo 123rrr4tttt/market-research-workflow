@@ -2,7 +2,7 @@
 
 - date: 2026-05-22
 - branch: `codex/devdocs-wave13-merged-overview-drift-gate`
-- scope: `development/latest-dev-docs/development-plans/CURRENT_DEV/MERGED_OVERVIEW/` plus a dedicated checker
+- scope: `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/` plus a dedicated checker
 - status: partial; drift gate advanced
 - shared navigation: No top-level MERGED_OVERVIEW.md edits
 
@@ -71,7 +71,7 @@ The checker enforces:
 
 ```bash
 python3 scripts/check_current_dev_merged_overview_drift_gate.py
-python3 scripts/check_latest_dev_docs_structure.py --link-path development/latest-dev-docs/development-plans/CURRENT_DEV/MERGED_OVERVIEW
+python3 scripts/check_latest_dev_docs_structure.py --link-path development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW
 python3 scripts/check_current_dev_wave13_plan.py
 git diff --check
 ```
@@ -79,7 +79,7 @@ git diff --check
 ## Validation In This Branch
 
 - `python3 scripts/check_current_dev_merged_overview_drift_gate.py`: `OK current_dev_merged_overview_drift_gate=passed old_missing=3 current_anchors=14`
-- `python3 scripts/check_latest_dev_docs_structure.py --link-path development/latest-dev-docs/development-plans/CURRENT_DEV/MERGED_OVERVIEW`: `OK latest_dev_docs_structure=passed markdown_link_files=3 markdown_links=25`
+- `python3 scripts/check_latest_dev_docs_structure.py --link-path development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW`: `OK latest_dev_docs_structure=passed markdown_link_files=3 markdown_links=25`
 - `python3 scripts/check_current_dev_wave13_plan.py`: `OK wave13_current_dev_plan=passed mode=codex/devdocs-wave13-merged-overview-drift-gate branches=9 changed_files=3 worker_boundary_enforced=true`
 - `git diff --check`: passed
 - `python3 -m py_compile scripts/check_current_dev_merged_overview_drift_gate.py`: passed

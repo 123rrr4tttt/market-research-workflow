@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-TOPIC_DIR = REPO_ROOT / "development/latest-dev-docs/development-plans/CURRENT_DEV/MERGED_OVERVIEW"
+TOPIC_DIR = REPO_ROOT / "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW"
 LEGACY_DOC = TOPIC_DIR / "02_rag-incremental-best-practice-pool-round2.md"
 EVIDENCE_DOC = TOPIC_DIR / "03_wave13-current-merged-overview-rag-drift-gate-2026-05-22.md"
 
