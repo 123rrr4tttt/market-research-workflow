@@ -1,0 +1,1490 @@
+{
+  "channels": [
+    {
+      "description": "Search for embodied ai",
+      "image": {
+        "link": "http://127.0.0.1:8090/yacysearch.html?query=embodied+ai&amp;resource=global&amp;contentdom=text",
+        "title": "Search for embodied ai",
+        "url": "http://127.0.0.1:8090/env/grafics/yacy.png"
+      },
+      "items": [
+        {
+          "code": "",
+          "description": "UC San Diego Computer Scientist Rose Yu Named 2025 Samsung <b>AI</b> Researcher of the Year",
+          "faviconUrl": "ViewFavicon.png?maxwidth=16&amp;maxheight=16&amp;isStatic=true&amp;quadratic&amp;code=638730d1-ebb0-4465-ab12-8e51fb3aa3d9",
+          "file": "",
+          "guid": "f8YddlLoqomw",
+          "host": "cse.ucsd.edu",
+          "image": "https://cse.ucsd.edu/themes/contrib/bootstrap_subtheme/images/cropped-cse-logo.png",
+          "link": "https://cse.ucsd.edu/",
+          "path": "/",
+          "pubDate": "Tue, 12 May 2026 03:32:20 +0000",
+          "ranking": "7.930833E9",
+          "size": "47460",
+          "sizename": "46 kbyte",
+          "title": "Home | Computer Science",
+          "urlhash": "f8YddlLoqomw"
+        },
+        {
+          "code": "",
+          "description": "<b>Embodied</b> <b>AI</b> refers to the integration of artificial intelligence into physical systems, enabling them to interact with the physical world.",
+          "faviconUrl": "ViewFavicon.png?maxwidth=16&amp;maxheight=16&amp;isStatic=true&amp;quadratic&amp;code=6ae4e889-3981-42e7-a839-36d709c05c24",
+          "file": "",
+          "guid": "zXskQv7t2YV4",
+          "host": "www.nvidia.com",
+          "image": "https://www.nvidia.com/favicon.ico",
+          "link": "https://www.nvidia.com/en-in/glossary/embodied-ai/?ref=itsfoss.com",
+          "path": "/en-in/glossary/embodied-ai/",
+          "pubDate": "Thu, 14 May 2026 02:44:50 +0000",
+          "ranking": "5.849568E9",
+          "size": "323037",
+          "sizename": "315 kbyte",
+          "title": "What is Embodied AI? | NVIDIA Glossary",
+          "urlhash": "zXskQv7t2YV4"
+        },
+        {
+          "code": "",
+          "description": "A first of its kind behavioral foundation model for <b>embodied</b> humanoid virtual agents",
+          "faviconUrl": "ViewFavicon.png?maxwidth=16&amp;maxheight=16&amp;isStatic=true&amp;quadratic&amp;code=e09cbea6-721d-4c41-8025-13806ef37bac",
+          "file": "",
+          "guid": "XfnwS6bJccF4",
+          "host": "ai.meta.com",
+          "link": "https://ai.meta.com/research/",
+          "path": "/research/",
+          "pubDate": "Tue, 05 May 2026 00:00:00 +0000",
+          "ranking": "7.993916E8",
+          "size": "729547",
+          "sizename": "712 kbyte",
+          "title": "AI Research: Introducing Muse Spark - New Foundation Model | AI at Meta",
+          "urlhash": "XfnwS6bJccF4"
+        },
+        {
+          "code": "",
+          "description": "",
+          "faviconUrl": "ViewFavicon.png?maxwidth=16&amp;maxheight=16&amp;isStatic=true&amp;quadratic&amp;code=5bc5ab71-2739-4233-ad00-de2002adf012",
+          "file": "members",
+          "guid": "QBYaaES6MKD4",
+          "host": "github.com",
+          "link": "https://github.com/Genesis-Embodied-AI/Genesis/network/members",
+          "path": "/Genesis-Embodied-AI/Genesis/network/members",
+          "pubDate": "Tue, 19 Aug 2025 00:00:00 +0000",
+          "ranking": "1.2900498E10",
+          "size": "1104112",
+          "sizename": "1 mbyte",
+          "title": "Forks · Genesis-Embodied-AI/Genesis · GitHub",
+          "urlhash": "QBYaaES6MKD4"
+        },
+        {
+          "code": "",
+          "description": "",
+          "faviconUrl": "ViewFavicon.png?maxwidth=16&amp;maxheight=16&amp;isStatic=true&amp;quadratic&amp;code=9cd2fd30-72e9-4982-9268-04b9a29a08cd",
+          "file": "",
+          "guid": "S40KzsBkn1Dw",
+          "host": "wayve.ai",
+          "link": "https://wayve.ai/technology/",
+          "path": "/technology/",
+          "pubDate": "Sun, 08 Mar 2026 00:00:00 +0000",
+          "ranking": "8.0345766E8",
+          "size": "64777",
+          "sizename": "63 kbyte",
+          "title": "Wayve Technology: Solving Self-Driving with Embodied AI",
+          "urlhash": "S40KzsBkn1Dw"
+        }
+      ],
+      "itemsPerPage": "5",
+      "link": "http://127.0.0.1:8090/yacysearch.html?query=embodied+ai&amp;resource=global&amp;contentdom=text",
+      "navigation": [
+        {
+          "displayname": "Protocol",
+          "elements": [
+            {
+              "count": "698",
+              "modifier": "%2Fhttps",
+              "name": "https",
+              "url": "yacysearch.json?query=embodied+ai+%2Fhttps&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "%2Fhttp",
+              "name": "http",
+              "url": "yacysearch.json?query=embodied+ai+%2Fhttp&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            }
+          ],
+          "facetname": "protocols",
+          "max": "0",
+          "mean": "0",
+          "min": "0",
+          "type": "String"
+        },
+        {
+          "displayname": "Domain",
+          "elements": [
+            {
+              "count": "59",
+              "modifier": "site%3Aarxiv.org",
+              "name": "arxiv.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aarxiv.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "42",
+              "modifier": "site%3Agithub.com",
+              "name": "github.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Agithub.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "22",
+              "modifier": "site%3Asports.yahoo.com",
+              "name": "sports.yahoo.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Asports.yahoo.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "21",
+              "modifier": "site%3Amicrosoft.com",
+              "name": "microsoft.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Amicrosoft.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "18",
+              "modifier": "site%3Anvidia.com",
+              "name": "nvidia.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Anvidia.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "12",
+              "modifier": "site%3Ayoutube.com",
+              "name": "youtube.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Ayoutube.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "10",
+              "modifier": "site%3Adeveloper.nvidia.com",
+              "name": "developer.nvidia.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Adeveloper.nvidia.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "10",
+              "modifier": "site%3Aeur-lex.europa.eu",
+              "name": "eur-lex.europa.eu",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aeur-lex.europa.eu&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "9",
+              "modifier": "site%3Aen.wikipedia.org",
+              "name": "en.wikipedia.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aen.wikipedia.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "9",
+              "modifier": "site%3Atoday.ucsd.edu",
+              "name": "today.ucsd.edu",
+              "url": "yacysearch.json?query=embodied+ai+site%3Atoday.ucsd.edu&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "8",
+              "modifier": "site%3Aamazon.jobs",
+              "name": "amazon.jobs",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aamazon.jobs&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "6",
+              "modifier": "site%3Adev.to",
+              "name": "dev.to",
+              "url": "yacysearch.json?query=embodied+ai+site%3Adev.to&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "6",
+              "modifier": "site%3Azollabkuerzungen.de",
+              "name": "zollabkuerzungen.de",
+              "url": "yacysearch.json?query=embodied+ai+site%3Azollabkuerzungen.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "6",
+              "modifier": "site%3Afinance.yahoo.com",
+              "name": "finance.yahoo.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Afinance.yahoo.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "site%3Arechtslupe.de",
+              "name": "rechtslupe.de",
+              "url": "yacysearch.json?query=embodied+ai+site%3Arechtslupe.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "site%3Aenergy.gov",
+              "name": "energy.gov",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aenergy.gov&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "site%3Ainterestingengineering.com",
+              "name": "interestingengineering.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Ainterestingengineering.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "site%3Adeepmind.google",
+              "name": "deepmind.google",
+              "url": "yacysearch.json?query=embodied+ai+site%3Adeepmind.google&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "site%3Abuild.nvidia.com",
+              "name": "build.nvidia.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Abuild.nvidia.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "site%3Atechcrunch.com",
+              "name": "techcrunch.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Atechcrunch.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "site%3Aroboticsandautomationnews.com",
+              "name": "roboticsandautomationnews.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aroboticsandautomationnews.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "site%3Aeverything.explained.today",
+              "name": "everything.explained.today",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aeverything.explained.today&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "site%3Anews.ycombinator.com",
+              "name": "news.ycombinator.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Anews.ycombinator.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "site%3Adocs.nvidia.com",
+              "name": "docs.nvidia.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Adocs.nvidia.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "site%3Ashopping.yahoo.com",
+              "name": "shopping.yahoo.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Ashopping.yahoo.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "site%3Aarchive.org",
+              "name": "archive.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aarchive.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "site%3Abusiness.linkedin.com",
+              "name": "business.linkedin.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Abusiness.linkedin.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "site%3Ahuggingface.co",
+              "name": "huggingface.co",
+              "url": "yacysearch.json?query=embodied+ai+site%3Ahuggingface.co&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "site%3Aai.google",
+              "name": "ai.google",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aai.google&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "site%3Aoecd.org",
+              "name": "oecd.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aoecd.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Aresearch.nvidia.com",
+              "name": "research.nvidia.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aresearch.nvidia.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Agwern.net",
+              "name": "gwern.net",
+              "url": "yacysearch.json?query=embodied+ai+site%3Agwern.net&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Aevents.ccc.de",
+              "name": "events.ccc.de",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aevents.ccc.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Apartner.microsoft.com",
+              "name": "partner.microsoft.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Apartner.microsoft.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Agenesis-world.readthedocs.io",
+              "name": "genesis-world.readthedocs.io",
+              "url": "yacysearch.json?query=embodied+ai+site%3Agenesis-world.readthedocs.io&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Aeff.org",
+              "name": "eff.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aeff.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Alearn.microsoft.com",
+              "name": "learn.microsoft.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Alearn.microsoft.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Anypost.com",
+              "name": "nypost.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Anypost.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Ascribd.com",
+              "name": "scribd.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Ascribd.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Awu.ac.at",
+              "name": "wu.ac.at",
+              "url": "yacysearch.json?query=embodied+ai+site%3Awu.ac.at&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Agithub.blog",
+              "name": "github.blog",
+              "url": "yacysearch.json?query=embodied+ai+site%3Agithub.blog&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Ablogs.nvidia.com",
+              "name": "blogs.nvidia.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Ablogs.nvidia.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Ajacobsschool.ucsd.edu",
+              "name": "jacobsschool.ucsd.edu",
+              "url": "yacysearch.json?query=embodied+ai+site%3Ajacobsschool.ucsd.edu&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Adiscord.com",
+              "name": "discord.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Adiscord.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "site%3Aargusmedia.com",
+              "name": "argusmedia.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aargusmedia.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aabsatzwirtschaft.de",
+              "name": "absatzwirtschaft.de",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aabsatzwirtschaft.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Acs.cmu.edu",
+              "name": "cs.cmu.edu",
+              "url": "yacysearch.json?query=embodied+ai+site%3Acs.cmu.edu&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aaidemos.meta.com",
+              "name": "aidemos.meta.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aaidemos.meta.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aseeedstudio.com",
+              "name": "seeedstudio.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aseeedstudio.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Amech-mind.com",
+              "name": "mech-mind.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Amech-mind.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aperun.net",
+              "name": "perun.net",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aperun.net&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aembodiedphilosophy.com",
+              "name": "embodiedphilosophy.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aembodiedphilosophy.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aai-sdk.dev",
+              "name": "ai-sdk.dev",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aai-sdk.dev&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Amedia.ccc.de",
+              "name": "media.ccc.de",
+              "url": "yacysearch.json?query=embodied+ai+site%3Amedia.ccc.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aai.meta.com",
+              "name": "ai.meta.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aai.meta.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aazure.microsoft.com",
+              "name": "azure.microsoft.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aazure.microsoft.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Amdpi.com",
+              "name": "mdpi.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Amdpi.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Asyncedreview.com",
+              "name": "syncedreview.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Asyncedreview.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Atelegraph.co.uk",
+              "name": "telegraph.co.uk",
+              "url": "yacysearch.json?query=embodied+ai+site%3Atelegraph.co.uk&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aai.google.dev",
+              "name": "ai.google.dev",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aai.google.dev&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aodd.blog",
+              "name": "odd.blog",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aodd.blog&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Adigitalocean.com",
+              "name": "digitalocean.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Adigitalocean.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3A3dprintersuperstore.com.au",
+              "name": "3dprintersuperstore.com.au",
+              "url": "yacysearch.json?query=embodied+ai+site%3A3dprintersuperstore.com.au&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aembodied-ai.org",
+              "name": "embodied-ai.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aembodied-ai.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aitsfoss.com",
+              "name": "itsfoss.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aitsfoss.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Agtai.de",
+              "name": "gtai.de",
+              "url": "yacysearch.json?query=embodied+ai+site%3Agtai.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aamd.com",
+              "name": "amd.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aamd.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Agemini.google.com",
+              "name": "gemini.google.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Agemini.google.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Acarnegieendowment.org",
+              "name": "carnegieendowment.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Acarnegieendowment.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aau.lifehacker.com",
+              "name": "au.lifehacker.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aau.lifehacker.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Astartup-connection.de",
+              "name": "startup-connection.de",
+              "url": "yacysearch.json?query=embodied+ai+site%3Astartup-connection.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aamazon.science",
+              "name": "amazon.science",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aamazon.science&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Abbc.com",
+              "name": "bbc.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Abbc.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aabout.google",
+              "name": "about.google",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aabout.google&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Amarketplace.microsoft.com",
+              "name": "marketplace.microsoft.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Amarketplace.microsoft.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Acatalog.ngc.nvidia.com",
+              "name": "catalog.ngc.nvidia.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Acatalog.ngc.nvidia.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Adocs.github.com",
+              "name": "docs.github.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Adocs.github.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Atheguardian.com",
+              "name": "theguardian.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Atheguardian.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Abeanotherlab.org",
+              "name": "beanotherlab.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Abeanotherlab.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aacademia.edu",
+              "name": "academia.edu",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aacademia.edu&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Aallenai.org",
+              "name": "allenai.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aallenai.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "site%3Ainfo.arxiv.org",
+              "name": "info.arxiv.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Ainfo.arxiv.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Atheporndude.com",
+              "name": "theporndude.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Atheporndude.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Acse.ucsd.edu",
+              "name": "cse.ucsd.edu",
+              "url": "yacysearch.json?query=embodied+ai+site%3Acse.ucsd.edu&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Aprocrastinationembodied.wordpress.com",
+              "name": "procrastinationembodied.wordpress.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aprocrastinationembodied.wordpress.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Aai.ucsd.edu",
+              "name": "ai.ucsd.edu",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aai.ucsd.edu&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Aionos.de",
+              "name": "ionos.de",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aionos.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Aanalyticsindiamag.com",
+              "name": "analyticsindiamag.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aanalyticsindiamag.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Aasiatimes.com",
+              "name": "asiatimes.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aasiatimes.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Aai.mobirise.com",
+              "name": "ai.mobirise.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aai.mobirise.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Acandy.ai",
+              "name": "candy.ai",
+              "url": "yacysearch.json?query=embodied+ai+site%3Acandy.ai&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Alemmy.world",
+              "name": "lemmy.world",
+              "url": "yacysearch.json?query=embodied+ai+site%3Alemmy.world&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Aaithority.com",
+              "name": "aithority.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aaithority.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Ablogs.microsoft.com",
+              "name": "blogs.microsoft.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Ablogs.microsoft.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Adecider.com",
+              "name": "decider.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Adecider.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Aarstechnica.com",
+              "name": "arstechnica.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aarstechnica.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Alemonde.fr",
+              "name": "lemonde.fr",
+              "url": "yacysearch.json?query=embodied+ai+site%3Alemonde.fr&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Acat-ai.neocities.org",
+              "name": "cat-ai.neocities.org",
+              "url": "yacysearch.json?query=embodied+ai+site%3Acat-ai.neocities.org&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Arobotflow.ai",
+              "name": "robotflow.ai",
+              "url": "yacysearch.json?query=embodied+ai+site%3Arobotflow.ai&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "site%3Aaws.amazon.com",
+              "name": "aws.amazon.com",
+              "url": "yacysearch.json?query=embodied+ai+site%3Aaws.amazon.com&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            }
+          ],
+          "facetname": "hosts",
+          "max": "0",
+          "mean": "0",
+          "min": "0",
+          "type": "String"
+        },
+        {
+          "displayname": "Authors",
+          "elements": [
+            {
+              "count": "3",
+              "modifier": "author%3A%28Copyright+2026+NYP+Holdings.+All+rights+reserved.%29",
+              "name": "Copyright 2026 NYP Holdings. All rights reserved.",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Copyright+2026+NYP+Holdings.+All+rights+reserved.%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "author%3AGwern",
+              "name": "Gwern",
+              "url": "yacysearch.json?query=embodied+ai+author%3AGwern&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "author%3A%28Matthew+Guariglia%29",
+              "name": "Matthew Guariglia",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Matthew+Guariglia%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "author%3ASynced",
+              "name": "Synced",
+              "url": "yacysearch.json?query=embodied+ai+author%3ASynced&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3AKingStudio.ro",
+              "name": "KingStudio.ro",
+              "url": "yacysearch.json?query=embodied+ai+author%3AKingStudio.ro&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Yiran+Geng%29",
+              "name": "Yiran Geng",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Yiran+Geng%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Yueen+Ma%3B+Zixing+Song%3B+Yuzheng+Zhuang%3B+Jianye+Hao%3B+Irwin+King%29",
+              "name": "Yueen Ma; Zixing Song; Yuzheng Zhuang; Jianye Hao; Irwin King",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Yueen+Ma%3B+Zixing+Song%3B+Yuzheng+Zhuang%3B+Jianye+Hao%3B+Irwin+King%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Yuanming+Hu%29",
+              "name": "Yuanming Hu",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Yuanming+Hu%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3ApdfTeX",
+              "name": "pdfTeX",
+              "url": "yacysearch.json?query=embodied+ai+author%3ApdfTeX&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28K%C3%B6rner%2C+Anita%29",
+              "name": "Körner, Anita",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28K%C3%B6rner%2C+Anita%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3Ajustborn",
+              "name": "justborn",
+              "url": "yacysearch.json?query=embodied+ai+author%3Ajustborn&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Mingrui+Zhang%29",
+              "name": "Mingrui Zhang",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Mingrui+Zhang%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Tim+Windecker%2C+Jonas+Frey%2C+Manthan+Patel%2C+Moritz+Reuss%2C+et+al.%29",
+              "name": "Tim Windecker, Jonas Frey, Manthan Patel, Moritz Reuss, et al.",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Tim+Windecker%2C+Jonas+Frey%2C+Manthan+Patel%2C+Moritz+Reuss%2C+et+al.%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Nina+Haller%29",
+              "name": "Nina Haller",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Nina+Haller%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Kurt+Knutsson%2C+CyberGuy+Report%29",
+              "name": "Kurt Knutsson, CyberGuy Report",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Kurt+Knutsson%2C+CyberGuy+Report%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Yi-Ling+Qiao%29",
+              "name": "Yi-Ling Qiao",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Yi-Ling+Qiao%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28keith%40hlfshell.ai+%28Keith+Chester%29%29",
+              "name": "keith@hlfshell.ai (Keith Chester)",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28keith%40hlfshell.ai+%28Keith+Chester%29%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3ACatalyzeX",
+              "name": "CatalyzeX",
+              "url": "yacysearch.json?query=embodied+ai+author%3ACatalyzeX&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Yuke+Zhu%29",
+              "name": "Yuke Zhu",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Yuke+Zhu%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Neetika+Walter%29",
+              "name": "Neetika Walter",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Neetika+Walter%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28By+the+Ecosystem+modeling+team%29",
+              "name": "By the Ecosystem modeling team",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28By+the+Ecosystem+modeling+team%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Your+name+goes+here%29",
+              "name": "Your name goes here",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Your+name+goes+here%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Aria+Alamalhodaei%29",
+              "name": "Aria Alamalhodaei",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Aria+Alamalhodaei%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Zane+McNeill%29",
+              "name": "Zane McNeill",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Zane+McNeill%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Kit+Walsh%29",
+              "name": "Kit Walsh",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Kit+Walsh%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Linxi+%22Jim%22+Fan%29",
+              "name": "Linxi \"Jim\" Fan",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Linxi+%22Jim%22+Fan%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Adam+Clark+Estes%29",
+              "name": "Adam Clark Estes",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Adam+Clark+Estes%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Chunyi+Li%3B+Rui+Qing%3B+Jianbo+Zhang%3B+Yuan+Tian%3B+Xiangyang+Zhu%3B+Zicheng+Zhang%3B+Xiaohong+Liu%3B+Weisi+Lin%3B%29",
+              "name": "Chunyi Li; Rui Qing; Jianbo Zhang; Yuan Tian; Xiangyang Zhu; Zicheng Zhang; Xiaohong Liu; Weisi Lin;",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Chunyi+Li%3B+Rui+Qing%3B+Jianbo+Zhang%3B+Yuan+Tian%3B+Xiangyang+Zhu%3B+Zicheng+Zhang%3B+Xiaohong+Liu%3B+Weisi+Lin%3B%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Jensen+Huang%29",
+              "name": "Jensen Huang",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Jensen+Huang%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Oliver+B%C3%BCnte%29",
+              "name": "Oliver Bünte",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Oliver+B%C3%BCnte%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Nathan+Benaich+and+Air+Street+Capital%29",
+              "name": "Nathan Benaich and Air Street Capital",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Nathan+Benaich+and+Air+Street+Capital%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Interesting+Engineering%29",
+              "name": "Interesting Engineering",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Interesting+Engineering%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28TamTamy+Reply%29",
+              "name": "TamTamy Reply",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28TamTamy+Reply%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Howard%2C+David%29",
+              "name": "Howard, David",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Howard%2C+David%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28FP+Analytics%29",
+              "name": "FP Analytics",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28FP+Analytics%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Siddharth+Jindal%29",
+              "name": "Siddharth Jindal",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Siddharth+Jindal%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Nygaard%2C+T%C3%B8nnes%29",
+              "name": "Nygaard, Tønnes",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Nygaard%2C+T%C3%B8nnes%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Andrew+Szot%2C+Unnat+Jain%2C+Dhruv+Batra%2C+Zsolt+Kira%2C+Ruta+Desai%2C+Akshara+Rai%29",
+              "name": "Andrew Szot, Unnat Jain, Dhruv Batra, Zsolt Kira, Ruta Desai, Akshara Rai",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Andrew+Szot%2C+Unnat+Jain%2C+Dhruv+Batra%2C+Zsolt+Kira%2C+Ruta+Desai%2C+Akshara+Rai%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Business+Wire%29",
+              "name": "Business Wire",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Business+Wire%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Bergmann%2C+Lasse+Tenzin%29",
+              "name": "Bergmann, Lasse Tenzin",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Bergmann%2C+Lasse+Tenzin%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Kaif+Shaikh%29",
+              "name": "Kaif Shaikh",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Kaif+Shaikh%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28ScienceCast+Team%29",
+              "name": "ScienceCast Team",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28ScienceCast+Team%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Jennings+Brown%29",
+              "name": "Jennings Brown",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Jennings+Brown%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%E5%AE%8B%E8%89%BA",
+              "name": "宋艺",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%E5%AE%8B%E8%89%BA&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3Avanessa.cann%40ki-verband.de",
+              "name": "vanessa.cann@ki-verband.de",
+              "url": "yacysearch.json?query=embodied+ai+author%3Avanessa.cann%40ki-verband.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Dmitry+Paperny%29",
+              "name": "Dmitry Paperny",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Dmitry+Paperny%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Kari+Briski%29",
+              "name": "Kari Briski",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Kari+Briski%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3ACGTN",
+              "name": "CGTN",
+              "url": "yacysearch.json?query=embodied+ai+author%3ACGTN&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Johnson+Wang%29",
+              "name": "Johnson Wang",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Johnson+Wang%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28NVIDIA+Cosmos%29",
+              "name": "NVIDIA Cosmos",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28NVIDIA+Cosmos%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Manish+Singh%29",
+              "name": "Manish Singh",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Manish+Singh%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Kajetan+Rachwa%C5%82%3B+Maciej+Majek%3B+Bart%C5%82omiej+Boczek%3B+Kacper+D%C4%85browski%3B+Pawe%C5%82+Liberadzki%3B+Adam+D%C4%85browski%29",
+              "name": "Kajetan Rachwał; Maciej Majek; Bartłomiej Boczek; Kacper Dąbrowski; Paweł Liberadzki; Adam Dąbrowski",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Kajetan+Rachwa%C5%82%3B+Maciej+Majek%3B+Bart%C5%82omiej+Boczek%3B+Kacper+D%C4%85browski%3B+Pawe%C5%82+Liberadzki%3B+Adam+D%C4%85browski%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28pdfTeX%2C+Version+3.141592653-2.6-1.40.25+%28TeX+Live+2023%29+kpathsea+version+6.3.5%29",
+              "name": "pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) kpathsea version 6.3.5",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28pdfTeX%2C+Version+3.141592653-2.6-1.40.25+%28TeX+Live+2023%29+kpathsea+version+6.3.5%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Ming+C.+Lin%29",
+              "name": "Ming C. Lin",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Ming+C.+Lin%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28DR.+FAROOQ+AHMAD+PEER%29",
+              "name": "DR. FAROOQ AHMAD PEER",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28DR.+FAROOQ+AHMAD+PEER%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Prokopenko%2C+Mikhail%29",
+              "name": "Prokopenko, Mikhail",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Prokopenko%2C+Mikhail%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Michael+Wayland%29",
+              "name": "Michael Wayland",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Michael+Wayland%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Lauren+Forristal%29",
+              "name": "Lauren Forristal",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Lauren+Forristal%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3Akcpitt",
+              "name": "kcpitt",
+              "url": "yacysearch.json?query=embodied+ai+author%3Akcpitt&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Atharva+Gosavi%29",
+              "name": "Atharva Gosavi",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Atharva+Gosavi%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Ryan+Daws%29",
+              "name": "Ryan Daws",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Ryan+Daws%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Joe+Giddings%2C+Seb+Laan+Lomas%29",
+              "name": "Joe Giddings, Seb Laan Lomas",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Joe+Giddings%2C+Seb+Laan+Lomas%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Hinrich%2C+Nicol%C3%A1s%29",
+              "name": "Hinrich, Nicolás",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Hinrich%2C+Nicol%C3%A1s%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Corrado+Carbonaro%29",
+              "name": "Corrado Carbonaro",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Corrado+Carbonaro%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Konrad+Wolfenstein%29",
+              "name": "Konrad Wolfenstein",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Konrad+Wolfenstein%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Hongxin+Zhang%29",
+              "name": "Hongxin Zhang",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Hongxin+Zhang%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Georgina+Jedikovska%29",
+              "name": "Georgina Jedikovska",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Georgina+Jedikovska%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3Asling-distribution-importer",
+              "name": "sling-distribution-importer",
+              "url": "yacysearch.json?query=embodied+ai+author%3Asling-distribution-importer&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28MacDougall%2C+David%29",
+              "name": "MacDougall, David",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28MacDougall%2C+David%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3AGoogle",
+              "name": "Google",
+              "url": "yacysearch.json?query=embodied+ai+author%3AGoogle&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Matt+Bramble%29",
+              "name": "Matt Bramble",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Matt+Bramble%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Jeff+Pao%29",
+              "name": "Jeff Pao",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Jeff+Pao%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Xuangan+Xiao%29",
+              "name": "Xuangan Xiao",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Xuangan+Xiao%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3AFapify",
+              "name": "Fapify",
+              "url": "yacysearch.json?query=embodied+ai+author%3AFapify&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Mack+DeGeurin%29",
+              "name": "Mack DeGeurin",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Mack+DeGeurin%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3Awww.haufe.de",
+              "name": "www.haufe.de",
+              "url": "yacysearch.json?query=embodied+ai+author%3Awww.haufe.de&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3Arjaura",
+              "name": "rjaura",
+              "url": "yacysearch.json?query=embodied+ai+author%3Arjaura&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Minchen+Li%29",
+              "name": "Minchen Li",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Minchen+Li%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Deni+Ellis+B%C3%A9chard%29",
+              "name": "Deni Ellis Béchard",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Deni+Ellis+B%C3%A9chard%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Zhenjia+Xu%29",
+              "name": "Zhenjia Xu",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Zhenjia+Xu%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28AlphaProof+and+AlphaGeometry+teams%29",
+              "name": "AlphaProof and AlphaGeometry teams",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28AlphaProof+and+AlphaGeometry+teams%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Alexis+R.+Tudor%3B+Joaqu%C3%ADn+Arias%3B+Gopal+Gupta%29",
+              "name": "Alexis R. Tudor; Joaquín Arias; Gopal Gupta",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Alexis+R.+Tudor%3B+Joaqu%C3%ADn+Arias%3B+Gopal+Gupta%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Umesh+Ellichipuram%29",
+              "name": "Umesh Ellichipuram",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Umesh+Ellichipuram%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3AGethugothemes",
+              "name": "Gethugothemes",
+              "url": "yacysearch.json?query=embodied+ai+author%3AGethugothemes&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Gil+Press%29",
+              "name": "Gil Press",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Gil+Press%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3Asadadow",
+              "name": "sadadow",
+              "url": "yacysearch.json?query=embodied+ai+author%3Asadadow&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "author%3A%28Chris+Nicholson%29",
+              "name": "Chris Nicholson",
+              "url": "yacysearch.json?query=embodied+ai+author%3A%28Chris+Nicholson%29&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            }
+          ],
+          "facetname": "authors",
+          "max": "0",
+          "mean": "0",
+          "min": "0",
+          "type": "String"
+        },
+        {
+          "displayname": "Filetype",
+          "elements": [
+            {
+              "count": "58",
+              "modifier": "filetype%3Ahtml",
+              "name": "html",
+              "url": "yacysearch.json?query=embodied+ai+filetype%3Ahtml&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "filetype%3Apdf",
+              "name": "pdf",
+              "url": "yacysearch.json?query=embodied+ai+filetype%3Apdf&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "filetype%3Ahtm",
+              "name": "htm",
+              "url": "yacysearch.json?query=embodied+ai+filetype%3Ahtm&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "filetype%3Aphp",
+              "name": "php",
+              "url": "yacysearch.json?query=embodied+ai+filetype%3Aphp&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "filetype%3Aaspx",
+              "name": "aspx",
+              "url": "yacysearch.json?query=embodied+ai+filetype%3Aaspx&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            }
+          ],
+          "facetname": "filetype",
+          "max": "0",
+          "mean": "0",
+          "min": "0",
+          "type": "String"
+        },
+        {
+          "displayname": "Language",
+          "elements": [
+            {
+              "count": "82",
+              "modifier": "%2Flanguage%2Fen",
+              "name": "English",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Fen&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "28",
+              "modifier": "%2Flanguage%2Fde",
+              "name": "German",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Fde&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "9",
+              "modifier": "%2Flanguage%2Ffr",
+              "name": "French",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Ffr&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "%2Flanguage%2Fzh",
+              "name": "Chinese",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Fzh&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "%2Flanguage%2Fnl",
+              "name": "Dutch",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Fnl&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "%2Flanguage%2Fro",
+              "name": "Romanian",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Fro&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "%2Flanguage%2Fhr",
+              "name": "Croatian",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Fhr&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "%2Flanguage%2FEN",
+              "name": "English",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2FEN&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "%2Flanguage%2Fth",
+              "name": "Thai",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Fth&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "%2Flanguage%2Fru",
+              "name": "Russian",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Fru&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "%2Flanguage%2Fcs",
+              "name": "Czech",
+              "url": "yacysearch.json?query=embodied+ai+%2Flanguage%2Fcs&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            }
+          ],
+          "facetname": "language",
+          "max": "0",
+          "mean": "0",
+          "min": "0",
+          "type": "String"
+        },
+        {
+          "displayname": "Topics",
+          "elements": [
+            {
+              "count": "1",
+              "modifier": "nvidia",
+              "name": "nvidia",
+              "url": "yacysearch.json?query=embodied+ai+nvidia&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "capital",
+              "name": "capital",
+              "url": "yacysearch.json?query=embodied+ai+capital&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "christianity",
+              "name": "christianity",
+              "url": "yacysearch.json?query=embodied+ai+christianity&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "jewish",
+              "name": "jewish",
+              "url": "yacysearch.json?query=embodied+ai+jewish&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "6",
+              "modifier": "genesis",
+              "name": "genesis",
+              "url": "yacysearch.json?query=embodied+ai+genesis&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "7",
+              "modifier": "text",
+              "name": "text",
+              "url": "yacysearch.json?query=embodied+ai+text&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "8",
+              "modifier": "strategy",
+              "name": "strategy",
+              "url": "yacysearch.json?query=embodied+ai+strategy&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "9",
+              "modifier": "full",
+              "name": "full",
+              "url": "yacysearch.json?query=embodied+ai+full&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "8",
+              "modifier": "evolutionary",
+              "name": "evolutionary",
+              "url": "yacysearch.json?query=embodied+ai+evolutionary&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "7",
+              "modifier": "wikipedia",
+              "name": "wikipedia",
+              "url": "yacysearch.json?query=embodied+ai+wikipedia&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "6",
+              "modifier": "encyclopedia",
+              "name": "encyclopedia",
+              "url": "yacysearch.json?query=embodied+ai+encyclopedia&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "5",
+              "modifier": "cultural",
+              "name": "cultural",
+              "url": "yacysearch.json?query=embodied+ai+cultural&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "4",
+              "modifier": "icc",
+              "name": "icc",
+              "url": "yacysearch.json?query=embodied+ai+icc&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "3",
+              "modifier": "unlocking",
+              "name": "unlocking",
+              "url": "yacysearch.json?query=embodied+ai+unlocking&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "2",
+              "modifier": "psychedelics",
+              "name": "psychedelics",
+              "url": "yacysearch.json?query=embodied+ai+psychedelics&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            },
+            {
+              "count": "1",
+              "modifier": "model",
+              "name": "model",
+              "url": "yacysearch.json?query=embodied+ai+model&maximumRecords=5&resource=global&verify=ifexist&prefermaskfilter=&cat=href&constraint=&contentdom=all&strictContentDom=false&meanCount=0&former=embodied+ai&startRecord=0"
+            }
+          ],
+          "facetname": "topics",
+          "max": "0",
+          "mean": "0",
+          "min": "0",
+          "type": "String"
+        }
+      ],
+      "searchTerms": "embodied+ai",
+      "startIndex": "0",
+      "title": "YaCy P2P-Search for embodied ai",
+      "totalResults": "893"
+    }
+  ]
+}

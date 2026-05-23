@@ -1,9 +1,9 @@
 # Local Open Search Provider Isolation Index
 
 更新时间：2026-05-23 PST
-状态：`external_blocked` / `wave22_checked`。仓内 explicit provider trace、runtime boundary、health artifact、schema/readback 与单测门禁已封住；本目录不再作为 `CURRENT_DEV` partial 入口。剩余条件是 SearXNG / YaCy live availability、live result quality / freshness / latency stability、timeout policy、operator approval gate 与 `provider=auto` promotion owner decision。
+状态：`closed` / `wave42_checked`。仓内 explicit provider trace、runtime boundary、health artifact、schema/readback 与单测门禁已封住；Wave42 手动启动 SearXNG / YaCy 并完成 live availability、normalized result quality / latency、trace 和 operator decision readback。
 
-防误读：下方“完成”项表示历史或仓内确定性证据已落地，不等于 `ARCHIVE_CLOSED`。当前 canonical readback 以本 `INDEX.md` 和 `16_wave22-external-blocked-decision-2026-05-22.md` 为准。
+防误读：历史 Wave12-Wave22 文件中的 `external_blocked` 表示当时状态；当前 canonical readback 以本 `INDEX.md` 和 `17_wave42-manual-open-search-live-closure-2026-05-23.md` 为准。
 
 ## 范围
 
@@ -63,13 +63,15 @@
 - [15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md](./15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md)
   Wave19 schema/readback gate，确认未宣称 external provider closure。
 - [16_wave22-external-blocked-decision-2026-05-22.md](./16_wave22-external-blocked-decision-2026-05-22.md)
-  当前 canonical decision：repo-local blocker 清零，剩余为外部 provider/runtime/quality 条件。
+  历史 external-blocked decision：repo-local blocker 清零，剩余为外部 provider/runtime/quality 条件。
+- [17_wave42-manual-open-search-live-closure-2026-05-23.md](./17_wave42-manual-open-search-live-closure-2026-05-23.md)
+  当前 closure decision：SearXNG / YaCy live runtime、quality/latency/trace 和 operator decision 已手动验证，迁入 `ARCHIVE_CLOSED`。
 
 ## 当前状态
 
 | 项 | 状态 | 证据 |
 |---|---|---|
-| 当前封口口径 | `external_blocked` / `wave22_checked` | `16_wave22-external-blocked-decision-2026-05-22.md`；不能迁入 `ARCHIVE_CLOSED` |
+| 当前封口口径 | `closed` / `wave42_checked` | `17_wave42-manual-open-search-live-closure-2026-05-23.md`；已迁入 `ARCHIVE_CLOSED` |
 | 规划文档 | 完成 | `01_...plan...md` 已包含目标、非目标、API、provider contract、源码接入面、门禁和风险 |
 | 目录边界 | 已修正 | 本 `INDEX.md` 明确本目录只处理 local open search provider isolation |
 | 执行产物 | 已落地 | `ops/search-lab/`、smoke 脚本、compare 脚本和 automation run 已在本目录目标下落地 |
@@ -85,3 +87,4 @@
 | Explicit provider trace offline artifact | 完成 | `automation-runs/search-provider-trace-artifacts/2026-05-22/`：离线 artifact 复跑脚本固化 `provider_route`、`provider_family`、`provider_auto_included` 和 `backend_trace` 字段 |
 | Explicit provider trace container replay | 完成 | `automation-runs/search-provider-container-replay/2026-05-22/`：SearXNG 与 YaCy 真实容器 replay 均通过，`provider_trace_replay.jsonl` 记录 explicit provider trace 字段 |
 | Wave6-9 topic-local status evidence | 完成 | `11_wave6-9-status-evidence-and-min-plan-2026-05-22.md`：确认共享 `no_closure_claim` 状态滞后，本轮不改共享索引；新增 agent provider 配置护栏测试 |
+| Wave42 live closure | 完成 | `development/latest-dev-docs/automation-runs/wave42-manual-open-search-live-closure/2026-05-23/backend_search_sources_live_replay.json`：2 provider x 3 query 全部通过，`provider=auto` 明确保留排除，不再作为本目录 closure blocker |

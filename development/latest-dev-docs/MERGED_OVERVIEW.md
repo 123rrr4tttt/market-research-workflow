@@ -22,14 +22,17 @@ Updated: 2026-05-23 PST
 ## 当前规范状态
 
 - `CURRENT_DEV` 的当前剩余状态以 [development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md) 为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
-- Target-topic scope 以 [development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json) 与 [Wave36 target-topic evidence profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md) 为准：当前 61 个 target topics（`closed:26 / external_blocked:29 / retired:6 / active_current:0`）、17 个 non-target roots；过程记录、导航分类与外部参考不计入 closure 指标。
-- External-blocked governance 以 [development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)、[Wave40 external blocker manifest](./automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md) 与 [Wave41 external unblock attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md) 为准：当前 29 个 external-blocked review targets 仍有结构化外部依赖、仓内证据、解除条件和 owner surface。
+- Target-topic scope 以 [development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json) 与 [Wave42 manual open search live closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md) 为准：当前 61 个 target topics（`closed:28 / external_blocked:27 / retired:6 / active_current:0`）、17 个 non-target roots；过程记录、导航分类与外部参考不计入 closure 指标。
+- External-blocked governance 以 [development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)、[Wave40 external blocker manifest](./automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)、[Wave41 external unblock attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md) 与 [Wave42 manual open search live closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md) 为准：当前 27 个 external-blocked review targets 仍有结构化外部依赖、仓内证据、解除条件和 owner surface。
 - Four-state review summary 以 [Wave39 target review zero needs update](./automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`。
 - “最近新增”中的 Wave21-Wave34 条目是 historical wave log；历史 `partial` 计数只说明当时的迁档进度，不应作为当前未封口数量读取。
 
 ## 最近新增
 
 - `development-plans`：
+  - [2026-05-23 Wave42 Manual Open Search Live Closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md)
+  - [2026-05-23 Local Open Search Provider Isolation Closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/17_wave42-manual-open-search-live-closure-2026-05-23.md)
+  - [2026-05-23 Clue Chain Live Provider Reliability Closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/04_wave42-live-provider-reliability-closure-2026-05-23.md)
   - [2026-05-23 Wave41 External Unblock Attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)
   - [2026-05-23 Parallel Agent Runtime Exposure Closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/08_wave41-subagent-runtime-exposure-closure-2026-05-23.md)
   - [2026-05-23 Wave40 External Blocker Manifest](./automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)
@@ -75,6 +78,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave21 External-Blocked Archive](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)
   - [Historical Wave21 CURRENT_DEV status snapshot; current canonical status is in CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md)
 - `automation-runs`：
+  - [2026-05-23 Wave42 Manual Open Search Live Closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md)
   - [2026-05-23 Wave41 External Unblock Attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)
   - [2026-05-23 Wave40 External Blocker Manifest](./automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)
   - [2026-05-23 Wave37 Target Review Status](./automation-runs/wave37-target-review-status/2026-05-23/README.md)
@@ -169,9 +173,9 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Clue Chain Investigation Tool Plan](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/01_clue-chain-investigation-tool-plan-2026-05-22.md)
   - [2026-05-22 Clue Chain Wave5 Worktree Execution Plan](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/02_wave5_worktree_execution_plan.md)
   - [2026-05-22 Clue Chain Wave5 Implementation Evidence](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md)
-  - [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/INDEX.md)
-  - [2026-05-22 Search Provider Trace Contract Closure Replay](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/10_search-provider-trace-contract-closure-replay-2026-05-22.md)
-  - [2026-05-22 Wave6-9 Open Search Provider Isolation Status Evidence](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
+  - [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/INDEX.md)
+  - [2026-05-22 Search Provider Trace Contract Closure Replay](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/10_search-provider-trace-contract-closure-replay-2026-05-22.md)
+  - [2026-05-22 Wave6-9 Open Search Provider Isolation Status Evidence](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-05-22 Wave8 Crawler A7 Validation Pack](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave8-a7-validation-pack.md)
   - [2026-05-22 Wave8 Fetch Router Gap Closure](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/02_wave8-2-fetch-router-gap-closure-2026-05-22.md)
@@ -214,7 +218,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave11 Docs Root Navigation Promotion](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/06_wave11-docs-root-navigation-promotion-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Open Source Platform Provider Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/03_wave12-provider-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Global Vectorization Provider Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/04_wave12-provider-readiness-gate-2026-05-22.md)
-  - [2026-05-22 Wave12 Local Open Search Provider Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/12_wave12-provider-readiness-gate-2026-05-22.md)
+  - [2026-05-22 Wave12 Local Open Search Provider Readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/12_wave12-provider-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 OSS Node Provider Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/03_wave12-provider-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Graph Force3D Live Smoke Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/04_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Graph Node Live Smoke Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/05_wave12-live-smoke-readiness-gate-2026-05-22.md)
@@ -263,7 +267,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave14 Abstract Content Gaps Evidence](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/06_wave14-abstract-content-gaps-evidence-2026-05-22.md)
   - [2026-05-22 Wave14 AgentCore Tool Calling Quality](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/07_wave14-agentcore-tool-calling-quality-2026-05-22.md)
 - `development-plans/CURRENT_DEV` Wave15 runtime / migration / closure gates:
-  - [2026-05-22 Wave15 Open Search Runtime Boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/13_wave15-open-search-runtime-boundary-2026-05-22.md)
+  - [2026-05-22 Wave15 Open Search Runtime Boundary](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/13_wave15-open-search-runtime-boundary-2026-05-22.md)
   - [2026-05-22 Wave15 Source Time Production Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/06_wave15-source-time-production-readiness-2026-05-22.md)
   - [2026-05-22 Wave15 R41 OpenClaw Runtime Handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
   - [2026-05-22 Wave15 LLM Crawler Replay Manifest](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md)
@@ -279,8 +283,8 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave16 Worktree Plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave16-worktree-plan-2026-05-22.md)
   - [2026-05-22 Wave16 Parallel Agent Runtime Boundary Closure](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md)
   - [2026-05-22 Wave16 Clue Chain Closure Split](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md)
-  - [2026-05-22 Clue Chain Successor Scopes](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/INDEX.md)
-  - [2026-05-23 Wave26 Clue Chain Successor External-Blocked Migration](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md)
+  - [2026-05-22 Clue Chain Successor Scopes](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/INDEX.md)
+  - [2026-05-23 Wave26 Clue Chain Successor External-Blocked Migration](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md)
   - [2026-05-22 Wave16 Graph Editing UI Audit Controls](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/08_wave16-graph-editing-ui-audit-controls-2026-05-22.md)
   - [2026-05-22 Wave16 Typed Knowledge API Route Contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/07_wave16-typed-knowledge-api-route-contract-2026-05-22.md)
   - [2026-05-22 Wave16 Writing Workbench Typed Fetch Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/08_wave16-worker5-typed-knowledge-fetch-readback-2026-05-22.md)
@@ -304,7 +308,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave18 Worktree Plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave18-worktree-plan-2026-05-22.md)
   - [2026-05-22 Wave18 Agent Roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave18-agent-roster-2026-05-22.md)
   - [2026-05-22 Wave18 Vectorization Hybrid Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/06_wave18-vectorization-hybrid-readback-2026-05-22.md)
-  - [2026-05-22 Wave18 Open Search Health Artifact](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/14_wave18-open-search-health-artifact-2026-05-22.md)
+  - [2026-05-22 Wave18 Open Search Health Artifact](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/14_wave18-open-search-health-artifact-2026-05-22.md)
   - [2026-05-22 Wave18 LLM Crawler Browser Replay Fixture](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/08_wave18-browser-replay-fixture-readback-2026-05-22.md)
   - [2026-05-22 Wave18 Symbolic Quality Regression](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/20_wave18-symbolic-quality-regression-evaluator-2026-05-22.md)
   - [2026-05-22 Wave18 Long-Cycle Scheduler Handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/08_wave18-long-cycle-scheduler-handoff-trace-2026-05-22.md)
@@ -317,7 +321,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave19 Worktree Plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-worktree-plan-2026-05-22.md)
   - [2026-05-22 Wave19 Agent Roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-agent-roster-2026-05-22.md)
   - [2026-05-22 Wave19 Vectorization Provider Manifest](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md)
-  - [2026-05-22 Wave19 Open Search Health Schema](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md)
+  - [2026-05-22 Wave19 Open Search Health Schema](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md)
   - [2026-05-22 Wave19 Graph Rollout Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/08_wave19-graph-rollout-readback-gate-2026-05-22.md)
   - [2026-05-22 Wave19 Ingest Canary 24h Metrics](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md)
   - [2026-05-22 Wave19 Crawler Public Replay Shards](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md)
@@ -358,7 +362,7 @@ Updated: 2026-05-23 PST
 - [2026-05-22 Source Library Public Live Probes](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
-  - [2026-05-14 Optional Search / Index Enhancements Launcher Integration](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md)
+  - [2026-05-14 Optional Search / Index Enhancements Launcher Integration](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/09_optional-search-index-enhancements-launcher-integration-2026-05-14.md)
 - `development-plans/CURRENT_DEV`：
   - [2026-04-07 Parallel Agent Wave Orchestration](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
   - [2026-04-07 Subagent Task Contract Template](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/02_subagent-task-contract-template-2026-04-07.md)

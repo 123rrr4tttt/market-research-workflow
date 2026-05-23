@@ -1,7 +1,7 @@
 {
   "schema": "external-blocker-manifest/v1",
   "updated": "2026-05-23 PST",
-  "purpose": "Bind every external_blocked review target to a structured external dependency, repo-local evidence, required external proof, exit criteria, and owner surface. Wave41 closed the parallel-agent runtime review override, so the manifest now tracks the remaining external-blocked targets only.",
+  "purpose": "Bind every external_blocked review target to a structured external dependency, repo-local evidence, required external proof, exit criteria, and owner surface. Wave42 manually closed the local open-search and Clue Chain live-provider blockers, so the manifest now tracks the remaining external-blocked targets only.",
   "targets": [
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
@@ -1191,100 +1191,6 @@
           "state": "blocked",
           "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
           "note": "Live embedding provider, semantic embedding quality, and production vector quality evidence are not attached."
-        }
-      ],
-      "owner_surface": {
-        "owner": "external-blocker-review",
-        "surface": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
-        "contact": "@devdocs-supervisor"
-      }
-    },
-    {
-      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation",
-      "dependency_type": "provider",
-      "blocked_on": "SearXNG/YaCy live availability, quality/freshness/latency stability, timeout policy, and operator approval are not attached.",
-      "external_surfaces": [
-        "SearXNG",
-        "YaCy",
-        "local open-search runtime",
-        "operator approval"
-      ],
-      "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/16_wave22-external-blocked-decision-2026-05-22.md"
-      ],
-      "evidence_required": [
-        "probe",
-        "run_output",
-        "manual_check",
-        "contract"
-      ],
-      "probe_or_manual_evidence": {
-        "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_open_search_runtime_boundary.py --probe-timeout 0.2",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
-      },
-      "exit_criteria": [
-        {
-          "id": "repo-local-boundary-recorded",
-          "state": "satisfied",
-          "evidence": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/16_wave22-external-blocked-decision-2026-05-22.md",
-          "note": "Repo-local deterministic evidence is present and linked from the target topic."
-        },
-        {
-          "id": "local-open-search-live-quality",
-          "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "SearXNG/YaCy live availability, quality/freshness/latency stability, timeout policy, and operator approval are not attached."
-        }
-      ],
-      "owner_surface": {
-        "owner": "external-blocker-review",
-        "surface": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
-        "contact": "@devdocs-supervisor"
-      }
-    },
-    {
-      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes",
-      "dependency_type": "provider",
-      "blocked_on": "SearXNG/YaCy/project search adapter live provider reliability and reviewer approval are not attached.",
-      "external_surfaces": [
-        "SearXNG",
-        "YaCy",
-        "project search adapter",
-        "reviewer approval"
-      ],
-      "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md"
-      ],
-      "evidence_required": [
-        "probe",
-        "run_output",
-        "manual_check",
-        "contract"
-      ],
-      "probe_or_manual_evidence": {
-        "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_open_search_runtime_boundary.py --probe-timeout 0.2",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
-      },
-      "exit_criteria": [
-        {
-          "id": "repo-local-boundary-recorded",
-          "state": "satisfied",
-          "evidence": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md",
-          "note": "Repo-local deterministic evidence is present and linked from the target topic."
-        },
-        {
-          "id": "clue-chain-live-provider-reliability",
-          "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "SearXNG/YaCy/project search adapter live provider reliability and reviewer approval are not attached."
         }
       ],
       "owner_surface": {

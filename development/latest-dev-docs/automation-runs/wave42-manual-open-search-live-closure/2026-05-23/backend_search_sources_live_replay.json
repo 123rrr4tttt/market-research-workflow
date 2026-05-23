@@ -1,0 +1,416 @@
+{
+  "schema": "manual-open-search-live-replay/v1",
+  "generated_by": "manual inline backend search_sources invocation",
+  "generated_at": "2026-05-23 PST",
+  "environment": {
+    "SEARXNG_BASE_URL": "http://127.0.0.1:8088",
+    "YACY_BASE_URL": "http://127.0.0.1:8090",
+    "YACY_RESOURCE_MODE": "global"
+  },
+  "thresholds": {
+    "min_results_per_query": 3,
+    "min_domains_per_query": 2,
+    "max_latency_ms": 4000,
+    "trace_required": true,
+    "operator_decision": "approved_explicit_route_keep_provider_auto_excluded"
+  },
+  "summary": {
+    "provider_count": 2,
+    "query_count": 3,
+    "row_count": 6,
+    "passed_rows": 6,
+    "failed_rows": 0
+  },
+  "closure_decision": {
+    "local_open_search_live_availability": "satisfied",
+    "local_open_search_quality_latency_trace": "satisfied",
+    "provider_auto_promotion": "not_required_explicit_route_retained",
+    "operator_approval": "approved_for_explicit_route_optional_provider_scope"
+  },
+  "rows": [
+    {
+      "provider": "searxng",
+      "query": "embodied ai",
+      "ok": true,
+      "result_count": 5,
+      "domain_count": 5,
+      "domains": [
+        "allenai.org",
+        "arxiv.org",
+        "embodiedai.ch",
+        "www.nvidia.com",
+        "www.sciencedirect.com"
+      ],
+      "latency_ms": 764.79,
+      "trace_ok": true,
+      "error": null,
+      "sample_results": [
+        {
+          "title": "What is Embodied AI? | NVIDIA Glossary",
+          "link": "https://www.nvidia.com/en-us/glossary/embodied-ai/",
+          "source": "searxng",
+          "provider_route": "explicit:searxng",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "searxng",
+            "provider_route": "explicit:searxng",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "pageno": 1
+          }
+        },
+        {
+          "title": "Embodied AI: A Foundation for Intelligent and Autonomous Manufacturing ...",
+          "link": "https://www.sciencedirect.com/science/article/pii/S209580992500815X",
+          "source": "searxng",
+          "provider_route": "explicit:searxng",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "searxng",
+            "provider_route": "explicit:searxng",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "pageno": 1
+          }
+        },
+        {
+          "title": "Embodied AI | Ai2 - Allen Institute for Artificial Intelligence",
+          "link": "https://allenai.org/embodied-ai",
+          "source": "searxng",
+          "provider_route": "explicit:searxng",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "searxng",
+            "provider_route": "explicit:searxng",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "pageno": 1
+          }
+        }
+      ]
+    },
+    {
+      "provider": "searxng",
+      "query": "robotics commercialization 2026",
+      "ok": true,
+      "result_count": 5,
+      "domain_count": 5,
+      "domains": [
+        "www.bvp.com",
+        "www.idc.com",
+        "www.therobotreport.com",
+        "www.trendforce.com",
+        "www.youngju.dev"
+      ],
+      "latency_ms": 1009.78,
+      "trace_ok": true,
+      "error": null,
+      "sample_results": [
+        {
+          "title": "Humanoid Robotics Commercialization Trends 2026 - IDC",
+          "link": "https://www.idc.com/resource-center/blog/humanoid-robotics-commercialization-2026/",
+          "source": "searxng",
+          "provider_route": "explicit:searxng",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "searxng",
+            "provider_route": "explicit:searxng",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "pageno": 1
+          }
+        },
+        {
+          "title": "Top 10 robotics developments of March 2026 - The Robot Report",
+          "link": "https://www.therobotreport.com/top-10-robotics-developments-march-2026/",
+          "source": "searxng",
+          "provider_route": "explicit:searxng",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "searxng",
+            "provider_route": "explicit:searxng",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "pageno": 1
+          }
+        },
+        {
+          "title": "China's Humanoid Robot Output to Surge 94% in 2026; Unitree and AgiBot ...",
+          "link": "https://www.trendforce.com/presscenter/news/20260409-13007.html",
+          "source": "searxng",
+          "provider_route": "explicit:searxng",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "searxng",
+            "provider_route": "explicit:searxng",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "pageno": 1
+          }
+        }
+      ]
+    },
+    {
+      "provider": "searxng",
+      "query": "supply chain risk semiconductor",
+      "ok": true,
+      "result_count": 5,
+      "domain_count": 5,
+      "domains": [
+        "www.exiger.com",
+        "www.moodys.com",
+        "www.reddit.com",
+        "www.sciencedirect.com",
+        "www.strategyand.pwc.com"
+      ],
+      "latency_ms": 1098.12,
+      "trace_ok": true,
+      "error": null,
+      "sample_results": [
+        {
+          "title": "Chip Challenges: Semiconductors and Supply Chain Risks - Exiger",
+          "link": "https://www.exiger.com/perspectives/chip-challenges-semiconductors-and-supply-chain-risks/",
+          "source": "searxng",
+          "provider_route": "explicit:searxng",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "searxng",
+            "provider_route": "explicit:searxng",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "pageno": 1
+          }
+        },
+        {
+          "title": "Semiconductors in 2026: Why supply chains are a major bottleneck - Moody's",
+          "link": "https://www.moodys.com/web/en/us/insights/corporations/semiconductors-in-2026-why-supply-chains-are-a-major-bottleneck.html",
+          "source": "searxng",
+          "provider_route": "explicit:searxng",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "searxng",
+            "provider_route": "explicit:searxng",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "pageno": 1
+          }
+        },
+        {
+          "title": "Semiconductor supply risk management | Strategy&",
+          "link": "https://www.strategyand.pwc.com/de/en/industries/automotive/semiconductor-supply-chain-risk.html",
+          "source": "searxng",
+          "provider_route": "explicit:searxng",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "searxng",
+            "provider_route": "explicit:searxng",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "pageno": 1
+          }
+        }
+      ]
+    },
+    {
+      "provider": "yacy",
+      "query": "embodied ai",
+      "ok": true,
+      "result_count": 5,
+      "domain_count": 5,
+      "domains": [
+        "ai.meta.com",
+        "cse.ucsd.edu",
+        "github.com",
+        "wayve.ai",
+        "www.nvidia.com"
+      ],
+      "latency_ms": 44.49,
+      "trace_ok": true,
+      "error": null,
+      "sample_results": [
+        {
+          "title": "Home | Computer Science",
+          "link": "https://cse.ucsd.edu/",
+          "source": "yacy",
+          "provider_route": "explicit:yacy",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "resource": "global"
+          }
+        },
+        {
+          "title": "What is Embodied AI? | NVIDIA Glossary",
+          "link": "https://www.nvidia.com/en-in/glossary/embodied-ai/",
+          "source": "yacy",
+          "provider_route": "explicit:yacy",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "resource": "global"
+          }
+        },
+        {
+          "title": "AI Research: Introducing Muse Spark - New Foundation Model | AI at Meta",
+          "link": "https://ai.meta.com/research/",
+          "source": "yacy",
+          "provider_route": "explicit:yacy",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "resource": "global"
+          }
+        }
+      ]
+    },
+    {
+      "provider": "yacy",
+      "query": "robotics commercialization 2026",
+      "ok": true,
+      "result_count": 5,
+      "domain_count": 5,
+      "domains": [
+        "aaes.uada.edu",
+        "engineering.cmu.edu",
+        "help.nextcloud.com",
+        "www.massgeneralbrigham.org",
+        "www.nvidia.com"
+      ],
+      "latency_ms": 668.76,
+      "trace_ok": true,
+      "error": null,
+      "sample_results": [
+        {
+          "title": "From creation to commercialization",
+          "link": "https://engineering.cmu.edu/etim/",
+          "source": "yacy",
+          "provider_route": "explicit:yacy",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "resource": "global"
+          }
+        },
+        {
+          "title": "Commercialization - ℹ️ Support - Nextcloud community",
+          "link": "https://help.nextcloud.com/t/commercialization/175975",
+          "source": "yacy",
+          "provider_route": "explicit:yacy",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "resource": "global"
+          }
+        },
+        {
+          "title": "commercialization-guide.pdf",
+          "link": "https://www.massgeneralbrigham.org/content/dam/mgb-global/en/research-and-innovation/innovations-and-ventures/innovation/documents/for-innovators/commercialization-guide.pdf",
+          "source": "yacy",
+          "provider_route": "explicit:yacy",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "resource": "global"
+          }
+        }
+      ]
+    },
+    {
+      "provider": "yacy",
+      "query": "supply chain risk semiconductor",
+      "ok": true,
+      "result_count": 5,
+      "domain_count": 5,
+      "domains": [
+        "fpanalytics.foreignpolicy.com",
+        "semiconductor.samsung.com",
+        "www.dekra.de",
+        "www.gowinsemi.com",
+        "www.linkedin.com"
+      ],
+      "latency_ms": 650.41,
+      "trace_ok": true,
+      "error": null,
+      "sample_results": [
+        {
+          "title": "Home|GOWIN Semiconductor",
+          "link": "https://www.gowinsemi.com/en/",
+          "source": "yacy",
+          "provider_route": "explicit:yacy",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "resource": "global"
+          }
+        },
+        {
+          "title": "FP Analytics – Foreign Policy’s research and advisory division",
+          "link": "https://fpanalytics.foreignpolicy.com/",
+          "source": "yacy",
+          "provider_route": "explicit:yacy",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "resource": "global"
+          }
+        },
+        {
+          "title": "Responsible Supply Chain | Sustainable Supply Chain | Samsung Semiconductor Global",
+          "link": "https://semiconductor.samsung.com/sustainability/sustainable-supply-chain/responsible-supply-chain/",
+          "source": "yacy",
+          "provider_route": "explicit:yacy",
+          "provider_family": "local_open_search",
+          "provider_auto_included": false,
+          "backend_trace": {
+            "provider": "yacy",
+            "provider_route": "explicit:yacy",
+            "provider_family": "local_open_search",
+            "auto_included": false,
+            "resource": "global"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,7 @@
 
 - Target topic allowlist: [../TARGET_TOPIC_ALLOWLIST.json](../TARGET_TOPIC_ALLOWLIST.json)
 - External blocker manifest: [../EXTERNAL_BLOCKER_MANIFEST.v1.json](../EXTERNAL_BLOCKER_MANIFEST.v1.json)
+- Wave42 manual open search live closure: [../../automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md](../../automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md)
 - Wave41 external unblock attempt: [../../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md](../../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)
 - Wave40 manifest evidence: [../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md](../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)
 - Wave37 four-state review: [../../automation-runs/wave37-target-review-status/2026-05-23/README.md](../../automation-runs/wave37-target-review-status/2026-05-23/README.md)
@@ -39,8 +40,6 @@
   状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 parser-profile、taxonomy/review readiness 与 deterministic review batch 已封住；Wave33 复核无新增 repo-local blocker；剩余条件是 public replay 与人工 relevance review。
 - [2026-03-14 Time Semantics Density Merged Plan](./2026-03-14-time-semantics-density-merged-plan/README.md)
   状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 target-overlap、OPE contract、decision-log contract 与 sample/provenance readback 已封住；Wave33 将证据路径修正为 archive-first/current-dev fallback；剩余条件是 production semantic evidence 与 release gate 接入。
-- [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./2026-05-14-local-open-search-provider-isolation/INDEX.md)
-  状态：`external_blocked` / `wave22_checked`。仓内 explicit provider trace、runtime boundary、health artifact、schema/readback 与单测门禁已封住；剩余条件是 SearXNG / YaCy live availability、provider quality/freshness/latency、operator approval 与 `provider=auto` promotion。
 - [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/INDEX.md)
   状态：`external_blocked` / `wave22_checked`。仓内 A1-A4/A6/A7 与 public replay deterministic gate 已封住；剩余条件是受控公网窗口产出 45-site replay 真实证据，尤其是缺失的 `output.public.json`。
 - [2026-03-08 LLM Crawler Unified FrontDoor](./2026-03-08-llm-crawler-unified-frontdoor/INDEX.md)
@@ -57,8 +56,6 @@
   状态：`external_blocked` / `wave24_checked`。仓内 Force3D frontend contract、runtime pixel/shape、visual-data smoke、rollback/readback gate 已封住；剩余条件是 live tenant DB GraphPage run、backend graph endpoint data、WebGL nonblank canvas 与 `window.__graph3dDebug` evidence。
 - [MERGED_OVERVIEW Topic Drift Gate](./MERGED_OVERVIEW/04_wave24-external-blocked-decision-2026-05-23.md)
   状态：`external_blocked` / `wave24_checked`。仓内 RAG drift gate 已证明 retired RAG anchors 与 current local-index/vectorization anchors 的映射；剩余条件是 live/vector optional dependency readiness、production semantic quality 与 global vector contract closure。
-- [2026-05-22 Clue Chain Successor Scopes](./2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md)
-  状态：`external_blocked` / `wave26_checked`。仓内 graph-submit conflict bridge/curated conflict/readback 与 GraphPage Clue Chain UI matrix 已封住；剩余条件是 SearXNG / YaCy / project search adapter live provider reliability。
 - [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/INDEX.md)
   状态：`external_blocked` / `wave27_checked`。仓内 backend audit/readback、tenant-like fixture、conflict/rollback readback 与 GraphPage audit/rollback/handoff replay UI gate 已封住；剩余条件是 live tenant DB audit durability、persistent handoff replay readback 和 tenant/project scoping。
 - [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/INDEX.md)
@@ -86,6 +83,8 @@
 
 ## 相邻目录状态
 
+- [2026-05-14 Local Open Search Provider Isolation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/17_wave42-manual-open-search-live-closure-2026-05-23.md)：`clear_closed`。Wave42 手动启动 SearXNG / YaCy 并通过 backend `search_sources(provider=...)` 完成 2 provider x 3 query live replay；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
+- [2026-05-22 Clue Chain Successor Scopes](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/04_wave42-live-provider-reliability-closure-2026-05-23.md)：`clear_closed`。Wave42 使用同一 live provider 证据关闭 Clue Chain successor 的 live-provider reliability 条件；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
 - [2026-03-07 Docs Root Restructuring](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)：`clear_closed`。Wave31 `check_docs_root_navigation_drift.py --require-clean` 已清零 navigation drift；该目录不再计入 `CURRENT_DEV` partial。
 - [2026-03-15 Frontend Three-Layer Rewrite](../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)：`clear_closed`。Wave32 已清零 frontend business-string repo-local blocker，并迁入 `ARCHIVE_CLOSED`。
 

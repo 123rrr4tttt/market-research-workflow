@@ -50,6 +50,8 @@
 - [2026-04-02 Claude Agent High-Fidelity Migration Process Records](./2026-04-02-claude-agent-high-fidelity-migration-process-records/INDEX.md)
 - [2026-04-07 Parallel Agent Wave Orchestration](./2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md)
 - [2026-05-22 Clue Chain Investigation Tool](./2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md)
+- [2026-05-14 Local Open Search Provider Isolation](./2026-05-14-local-open-search-provider-isolation/17_wave42-manual-open-search-live-closure-2026-05-23.md)
+- [2026-05-22 Clue Chain Successor Scopes](./2026-05-22-clue-chain-successor-scopes/04_wave42-live-provider-reliability-closure-2026-05-23.md)
 
 ## 返回
 
