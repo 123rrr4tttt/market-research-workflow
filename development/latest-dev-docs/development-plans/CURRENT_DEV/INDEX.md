@@ -54,7 +54,6 @@
 - `external_blocked` [2026-03-07 Typed Knowledge Organization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/10_wave27-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Writing Workbench Evolution](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/11_wave27-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-25 Source-Library Ingest Minimal Migration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/18_wave27-external-blocked-decision-2026-05-23.md)
-- `external_blocked` [2026-03-02 Ingest Platformization Assessment](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/09_wave29-ingest-platformization-repo-local-closure-2026-05-23.md)
 - `external_blocked` [2026-03-02 Meaningful Ingest Guardrails Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md)
 - `external_blocked` [2026-03-02 Single URL First Ingest Allocation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/10_wave29-ingest-blocker-alignment-2026-05-23.md)
 - `external_blocked` [2026-03-05 OSS Node Platform IO Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/INDEX.md)
@@ -64,6 +63,7 @@
 
 - `non_target_topic_local_drift_evidence` [MERGED_OVERVIEW Topic Drift Gate](../ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/05_wave50-non-target-drift-evidence-reclassification-2026-05-23.md) - Wave50 将它从 external target set 移除；真实 vector production-quality 条件由 Global Vectorization target 承接。
 - `non_target_superseded_parent_wrapper` [2026-03-01 Open Source Platform Integration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/10_wave50-non-target-wrapper-reclassification-2026-05-23.md) - Wave50 将它从 external target set 移除；剩余 provider/SLA 条件由 Global Vectorization 与 OSS Node Platform IO targets 承接。
+- `non_target_ingest_platformization_assessment_wrapper` [2026-03-02 Ingest Platformization Assessment](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md) - Wave51 将它从 external target set 移除；live canary / 24h metrics / ops approval 条件由 Meaningful Ingest Guardrails 与 Single URL First targets 承接。
 - `non_target_source_library_mounting_audit_evidence` [2026-03-14 Search Chain Source-Library Mounting Audit](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/10_wave50-non-target-mounting-audit-reclassification-2026-05-23.md) - Wave50 将它从 external target set 移除；live source collection / human review / live ingest migration 条件由 source-library successor targets 承接。
 
 ## 本次外部阻塞复核

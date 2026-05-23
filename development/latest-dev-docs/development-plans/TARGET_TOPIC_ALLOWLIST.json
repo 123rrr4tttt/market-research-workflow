@@ -30,6 +30,7 @@
       "entrypoint": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
       "excluded_topic_dirs": [
         "2026-03-01-open-source-platform-integration",
+        "2026-03-02-ingest-platformization-assessment",
         "2026-03-14-search-chain-source-library-mounting-audit",
         "MERGED_OVERVIEW"
       ]
@@ -128,6 +129,10 @@
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
       "role": "superseded_parent_wrapper"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment",
+      "role": "ingest_platformization_assessment_wrapper"
     },
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW",

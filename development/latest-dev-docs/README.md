@@ -16,7 +16,7 @@
 - 目标主题 allowlist：[development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json)，用于区分真实开发目标、证据/过程记录、分类/导航目录与外部参考材料。
 - 外部阻塞 manifest：[development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)，用于把剩余 `external_blocked` review target 绑定到结构化外部依赖、仓内证据、解除条件和 owner surface。
 - 当前 `CURRENT_DEV` 分布以该入口的“剩余状态分布”为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
-- 四态审计摘要以 Wave50 non-target reclassification 为准：`unsealed:0 / sealed:52 / outdated:6 / needs_update:0`，其中 target topics 为 `closed:36 / external_blocked:16 / retired:6 / active_current:0`，non-target roots 为 `20`。
+- 四态审计摘要以 Wave51 non-target reclassification 为准：`unsealed:0 / sealed:51 / outdated:6 / needs_update:0`，其中 target topics 为 `closed:36 / external_blocked:15 / retired:6 / active_current:0`，non-target roots 为 `21`。
 - 下方“最新补充”是 historical wave log；其中 `partial:x -> partial:y` 仅表示对应 wave 完成时的历史快照，不代表当前剩余状态。
 
 ## 分目录入口
@@ -38,6 +38,7 @@
 
 ## 最新补充
 
+- Wave51 non-target reclassification（2026-05-23）：手动复核 `2026-03-02-ingest-platformization-assessment`，确认 Wave29 已清零 repo-local blockers；剩余 live canary、production 24h readback 与 ops approval 由 Meaningful Ingest Guardrails 与 Single URL First successor targets 承接。本 assessment wrapper 从 external target set 移除，external-blocked review targets 从 `16` 降到 `15`。证据：[ingest platformization assessment reclassification](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md)。
 - Wave50 non-target reclassification（2026-05-23）：手动复核并移除三个误计 external target：`MERGED_OVERVIEW` 是 topic-local drift/process evidence，`2026-03-01-open-source-platform-integration` 是已被 Global Vectorization 与 OSS Node successor targets 承接的父级 wrapper，`2026-03-14-search-chain-source-library-mounting-audit` 是 source-library mounting audit evidence；external-blocked review targets 从 `19` 降到 `16`。证据：[MERGED_OVERVIEW reclassification](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/05_wave50-non-target-drift-evidence-reclassification-2026-05-23.md)、[open-source parent reclassification](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/10_wave50-non-target-wrapper-reclassification-2026-05-23.md)、[mounting audit reclassification](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/10_wave50-non-target-mounting-audit-reclassification-2026-05-23.md)。
 
 - Wave49 source-library adapter public replay closure（2026-05-23）：复用真实 opt-in 45-site public replay 与 A5 gate，确认 `AT-AC-10` 已满足 real site-entry probe / classified outcome table 验收；`2026-03-14-source-library-adapter-capability-remediation` 迁入 `ARCHIVE_CLOSED`，external-blocked review targets 从 `20` 降到 `19`。证据：[output.public.json](./automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json)，闭合记录：[source-library adapter public replay closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/20_wave49-manual-public-replay-closure-2026-05-23.md)。
