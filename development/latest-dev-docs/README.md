@@ -16,7 +16,7 @@
 - 目标主题 allowlist：[development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json)，用于区分真实开发目标、证据/过程记录、分类/导航目录与外部参考材料。
 - 外部阻塞 manifest：[development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)，用于把剩余 `external_blocked` review target 绑定到结构化外部依赖、仓内证据、解除条件和 owner surface。
 - 当前 `CURRENT_DEV` 分布以该入口的“剩余状态分布”为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
-- 四态审计摘要以 [Wave42 manual open search live closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`，其中 target topics 为 `closed:28 / external_blocked:27 / retired:6 / active_current:0`。
+- 四态审计摘要以 [Wave43 manual graph live DB closure](./automation-runs/wave43-manual-graph-live-db-closure/2026-05-23/README.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`，其中 target topics 为 `closed:29 / external_blocked:26 / retired:6 / active_current:0`。
 - 下方“最新补充”是 historical wave log；其中 `partial:x -> partial:y` 仅表示对应 wave 完成时的历史快照，不代表当前剩余状态。
 
 ## 分目录入口
@@ -38,6 +38,8 @@
 
 ## 最新补充
 
+- Wave43 manual graph live DB closure（2026-05-23）：修复 tenant graph projection 表缺失唯一约束导致 `GraphNodeWriter` live DB `ON CONFLICT` 失败的问题，手动跑 Alembic、live tenant backfill dry-run、非空 graph endpoint smoke、projection write/readback 与 B-read parity；`2026-03-02-graph-node-standardization-a-then-b-plan` 迁入 `ARCHIVE_CLOSED`，external-blocked review targets 从 `27` 降到 `26`。证据：[wave43 manual graph live DB closure](./automation-runs/wave43-manual-graph-live-db-closure/2026-05-23/README.md)，闭合记录：[graph node live DB closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/10_wave43-manual-live-db-closure-2026-05-23.md)。
+
 - Wave42 manual open search live closure（2026-05-23）：手动启动 Docker Desktop 与 `ops/search-lab` SearXNG / YaCy，直接用 curl 和 backend `search_sources(provider=...)` 验证 2 provider x 3 query 全部通过；`local-open-search-provider-isolation` 与 `clue-chain-successor-scopes` 迁入 `ARCHIVE_CLOSED`，external-blocked review targets 从 `29` 降到 `27`。证据：[wave42 manual open search live closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md)，闭合记录：[local open search closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/17_wave42-manual-open-search-live-closure-2026-05-23.md)、[Clue Chain live provider closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/04_wave42-live-provider-reliability-closure-2026-05-23.md)。
 
 - Wave41 external unblock attempt（2026-05-23）：用真实 `multi_agent_v1` runtime 证据关闭 `parallel-agent-wave-orchestration` 的 worker/subagent runtime exposure blocker；该轮 external-blocked review targets 从 `30` 降到 `29`，manifest entries 从 `30` 降到 `29`。证据：[wave41 external unblock attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)，闭合记录：[parallel-agent runtime exposure closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/08_wave41-subagent-runtime-exposure-closure-2026-05-23.md)。
@@ -50,7 +52,7 @@
 
 - Wave37 target review status（2026-05-23）：`check_development_plans_status_matrix.py` 在保留 legacy 字段的同时新增 `status_summary`、`status_mapping_rules` 与 per-target `target_review_status`，直接输出四态：`unsealed:0 / sealed:49 / outdated:6 / needs_update:6`。本轮收窄证据 regex，加入 allowlist `target_topic_overrides`，并明确 6 个需更新 target。证据：[wave37 target review status](./automation-runs/wave37-target-review-status/2026-05-23/README.md)。
 
-- Wave36 target-topic evidence profile（2026-05-23）：按四类目录模型重算开发计划状态，只将真实开发目标纳入 closure 指标；过程/证据记录、分类/导航目录、外部参考材料不再被机械要求目录级封口。`TARGET_TOPIC_ALLOWLIST.json` 当前给出 61 个 target topics（`closed:28 / external_blocked:27 / retired:6 / active_current:0`）与 17 个 non-target roots，`check_development_plans_status_matrix.py` 新增 target evidence profile 并要求每个 target 有 code/script/test/gate 证据信号，`external_blocked` 还必须有 external blocker 信号。证据：[wave36 target-topic evidence profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)。
+- Wave36 target-topic evidence profile（2026-05-23）：按四类目录模型重算开发计划状态，只将真实开发目标纳入 closure 指标；过程/证据记录、分类/导航目录、外部参考材料不再被机械要求目录级封口。`TARGET_TOPIC_ALLOWLIST.json` 当前给出 61 个 target topics（`closed:29 / external_blocked:26 / retired:6 / active_current:0`）与 17 个 non-target roots，`check_development_plans_status_matrix.py` 新增 target evidence profile 并要求每个 target 有 code/script/test/gate 证据信号，`external_blocked` 还必须有 external blocker 信号。证据：[wave36 target-topic evidence profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)。
 
 - Wave34 docs-root physical archive（2026-05-23）：`2026-03-07-docs-root-restructuring` 已从 `CURRENT_DEV` 实体迁出到 [docs/development ARCHIVE_CLOSED](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)；`check_current_dev_status_evidence.py` 新增 inactive direct-dir gate，防止索引已 `clear_closed` 但目录仍留在 `CURRENT_DEV` 的漂移。证据：[wave34 docs-root physical archive](./automation-runs/wave34-docs-root-physical-archive/2026-05-23/README.md)。
 
@@ -100,7 +102,7 @@
   - [crawler public replay A5 gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-a5-public-replay-evidence.md)
   - [crawler provider handoff evidence](./automation-runs/crawler-provider-handoff/2026-05-22/README.md)
   - [docs root target roots](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/03_wave7-5-docs-root-targets-evidence-2026-05-22.md)
-  - [graph node standardization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/02_wave7-status-evidence-and-min-plan-2026-05-22.md)
+  - [graph node standardization](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/02_wave7-status-evidence-and-min-plan-2026-05-22.md)
   - [ingest digestion long-cycle automation](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/03_wave7-7-ingest-digestion-long-cycle-automation-evidence-2026-05-22.md)
   - [frontend visual layering retirement](./development-plans/ARCHIVE_RETIRED/2026-03-24-frontend-visual-layering/INDEX.md)
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
@@ -130,7 +132,7 @@
 - Wave10 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave10 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave10-worktree-plan-2026-05-22.md)
   - [graph frontend force3d / engine-switch contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/03_wave10-frontend-visual-engine-switch-contract-2026-05-22.md)
-  - [graph node DB rollout readiness contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/04_wave10-db-rollout-readiness-contract-2026-05-22.md)
+  - [graph node DB rollout readiness contract](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/04_wave10-db-rollout-readiness-contract-2026-05-22.md)
   - [time semantics OPE contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/08_wave10-time-semantics-ope-contract-evidence-2026-05-22.md)
   - [LLM crawler tri-state router contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/05_wave10-tri-state-router-contract-2026-05-22.md)
   - [source-library search governance](./automation-runs/source-library-search-governance/2026-05-22/README.md)
@@ -159,7 +161,7 @@
   - [local open search provider readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/12_wave12-provider-readiness-gate-2026-05-22.md)
   - [OSS node provider readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/03_wave12-provider-readiness-gate-2026-05-22.md)
   - [graph Force3D live smoke readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/04_wave12-live-smoke-readiness-gate-2026-05-22.md)
-  - [graph node live smoke readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/05_wave12-live-smoke-readiness-gate-2026-05-22.md)
+  - [graph node live smoke readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/05_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [graph editing live smoke readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/06_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [ingest canary handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/03_wave12-ingest-canary-handoff-evidence-2026-05-22.md)
   - [meaningful ingest canary handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/04_wave12-meaningful-ingest-canary-handoff-evidence-2026-05-22.md)
@@ -197,7 +199,7 @@
   - [global vectorization provider capability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/05_wave14-vectorization-provider-capability-2026-05-22.md)
   - [OSS node provider capability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/04_wave14-vectorization-provider-capability-2026-05-22.md)
   - [graph visual data smoke gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/05_wave14-graph-visual-data-smoke-gate-2026-05-22.md)
-  - [graph node live DB rollout gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/06_wave14-live-db-rollout-gate-2026-05-22.md)
+  - [graph node live DB rollout gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/06_wave14-live-db-rollout-gate-2026-05-22.md)
   - [ingest canary metrics readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/04_wave14-ingest-canary-metrics-readiness-2026-05-22.md)
   - [meaningful ingest canary metrics readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/05_wave14-meaningful-ingest-canary-metrics-readiness-2026-05-22.md)
   - [single URL canary metrics readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/05_wave14-single-url-canary-metrics-readiness-2026-05-22.md)
@@ -241,7 +243,7 @@
   - [source-time sample readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/07_wave17-source-time-production-sample-readback-gate-2026-05-22.md)
   - [ingest canary metrics readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/05_wave17-ingest-canary-metrics-readback-2026-05-22.md)
   - [graph runtime pixel / shape gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/06_wave17-runtime-pixel-shape-gate-2026-05-22.md)
-  - [graph node rollout manifest readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/07_wave17-rollout-manifest-readback-2026-05-22.md)
+  - [graph node rollout manifest readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/07_wave17-rollout-manifest-readback-2026-05-22.md)
   - [typed knowledge durable readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/08_wave17-typed-knowledge-durable-readback-2026-05-22.md)
   - [writing workbench persisted typed-card readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md)
   - [frontend Projects page i18n slice](./development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/08_wave17-projects-page-i18n-slice-evidence-2026-05-22.md)
@@ -263,7 +265,7 @@
   - [Wave19 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-agent-roster-2026-05-22.md)
   - [vectorization provider manifest readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md)
   - [open-search health schema/readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md)
-  - [graph rollout readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/08_wave19-graph-rollout-readback-gate-2026-05-22.md)
+  - [graph rollout readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/08_wave19-graph-rollout-readback-gate-2026-05-22.md)
   - [ingest 24h metrics artifact](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md)
   - [crawler public replay shards](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md)
   - [AgentCore provider trace redaction](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/09_wave19-agentcore-provider-trace-redaction-2026-05-22.md)

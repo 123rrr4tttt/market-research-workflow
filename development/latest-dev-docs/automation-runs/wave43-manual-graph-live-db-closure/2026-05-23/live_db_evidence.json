@@ -1,0 +1,102 @@
+{
+  "live_db_validated": true,
+  "alembic_current_or_upgrade_run": true,
+  "backfill_graph_nodes_dry_run": true,
+  "backend_data_graph_endpoint_smoke": true,
+  "b_read_parity_checked": true,
+  "database": {
+    "kind": "local_postgresql_tenant_schema",
+    "project_key": "demo_proj",
+    "alembic_current_after_upgrade": "20260402_000002 (head)",
+    "constraint_rows_added_or_confirmed": 21,
+    "tenant_counts_after_projection": {
+      "documents": 218,
+      "graph_nodes": 2946,
+      "graph_edges": 6254,
+      "graph_node_aliases": 4741
+    }
+  },
+  "migration_repair": {
+    "file": "main/backend/migrations/versions/20260402_000002_repair_graph_projection_constraints.py",
+    "reason": "existing tenant graph projection tables lacked the unique constraints required by GraphNodeWriter ON CONFLICT",
+    "validated_constraints": [
+      "uq_graph_nodes_type_canonical",
+      "uq_graph_node_aliases_norm_type",
+      "uq_graph_edges_type_from_to"
+    ]
+  },
+  "backfill_dry_run": {
+    "command": "cd main/backend && /Users/wangyiliang/.local/bin/python3.11 scripts/backfill_graph_nodes.py --dry-run --limit 10",
+    "result": {
+      "scanned_docs": 10,
+      "written_nodes": 154,
+      "skipped_docs": 0,
+      "next_resume_token": 33
+    }
+  },
+  "projection_write_readback": {
+    "manual_projection_write": {
+      "content": {
+        "attempted": 123,
+        "inserted_or_updated": 123,
+        "aliases_written": 246,
+        "edges_written": 338,
+        "skipped": 0
+      },
+      "market": {
+        "attempted": 62,
+        "inserted_or_updated": 62,
+        "aliases_written": 124,
+        "edges_written": 57,
+        "skipped": 0
+      },
+      "policy": {
+        "attempted": 70,
+        "inserted_or_updated": 70,
+        "aliases_written": 140,
+        "edges_written": 84,
+        "skipped": 0
+      }
+    },
+    "b_read_parity": {
+      "content": {
+        "a_nodes": 123,
+        "a_edges": 338,
+        "missing_nodes": 0,
+        "missing_edges": 0
+      },
+      "market": {
+        "a_nodes": 62,
+        "a_edges": 57,
+        "missing_nodes": 0,
+        "missing_edges": 0
+      },
+      "policy": {
+        "a_nodes": 70,
+        "a_edges": 81,
+        "missing_nodes": 0,
+        "missing_edges": 0
+      }
+    }
+  },
+  "backend_endpoint_smoke": {
+    "base_url": "http://127.0.0.1:8000/api/v1/admin",
+    "responses": {
+      "content_graph_demo_proj_10": {
+        "status": "ok",
+        "nodes": 123,
+        "edges": 338
+      },
+      "market_graph_demo_proj_10": {
+        "status": "ok",
+        "nodes": 62,
+        "edges": 57
+      },
+      "policy_graph_demo_proj_10": {
+        "status": "ok",
+        "nodes": 70,
+        "edges": 84
+      }
+    }
+  }
+}

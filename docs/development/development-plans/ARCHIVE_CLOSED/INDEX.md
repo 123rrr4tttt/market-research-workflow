@@ -18,6 +18,7 @@
 ## 归档目录
 
 - [2026-03-02 Ingest Chain Full Branch Map](./2026-03-02-ingest-chain-full-branch-map/)
+- [2026-03-02 Graph Node Standardization A Then B Plan](./2026-03-02-graph-node-standardization-a-then-b-plan/10_wave43-manual-live-db-closure-2026-05-23.md)
 - [2026-03-03 Platformization First Vectorization](./2026-03-03-platformization-first-vectorization/)
 - [2026-03-03 Version A Atomic Plan](./2026-03-03-version-A-atomic-plan/)
 - [2026-03-03 Version B Atomic Plan](./2026-03-03-version-B-atomic-plan/)

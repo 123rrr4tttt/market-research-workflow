@@ -23,6 +23,7 @@
 - `clear_closed` [2026-03-15 Frontend Three-Layer Rewrite](../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md) - Wave32 closure-priority integration cleared the final frontend business-string blocker; `check:business-string-audit` now reports `full_business_string_migration_complete=true` and `remaining_migration_gaps.total=0`, with focused i18n slices, `lint`, and `build` passing.
 - `clear_closed` [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/17_wave42-manual-open-search-live-closure-2026-05-23.md) - Wave42 manually started SearXNG / YaCy and verified 2 provider x 3 query live backend replay; explicit local open-search provider scope is closed.
 - `clear_closed` [2026-05-22 Clue Chain Successor Scopes](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/04_wave42-live-provider-reliability-closure-2026-05-23.md) - Wave42 uses the same live provider evidence to close the remaining Clue Chain successor live-provider reliability condition.
+- `clear_closed` [2026-03-02 Graph Node Standardization A Then B Plan](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/10_wave43-manual-live-db-closure-2026-05-23.md) - Wave43 repaired tenant graph projection constraints, ran live PostgreSQL tenant backfill dry-run, endpoint smoke, projection write/readback, and B-read parity; the graph-node live DB external blocker is closed.
 
 ## 本次已退场
 
@@ -47,7 +48,6 @@
 - `external_blocked` [2026-03-09 Agent Symbolic Batch Search Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/22_wave23-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 LLM Service And Agent Platformization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/10_wave23-closure-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Ingest Digestion And Long-Cycle Automation](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/10_wave23-closure-decision-2026-05-23.md)
-- `external_blocked` [2026-03-02 Graph Node Standardization A Then B Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/09_wave23-closure-decision-2026-05-23.md)
 - `external_blocked` [2026-03-02 Graph 3D Force Engine Parallel Migration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/08_wave24-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [MERGED_OVERVIEW Topic Drift Gate](../ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/04_wave24-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Graph Editing And Reporting](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/11_wave27-external-blocked-decision-2026-05-23.md)
