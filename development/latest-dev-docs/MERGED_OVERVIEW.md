@@ -22,14 +22,16 @@ Updated: 2026-05-23 PST
 ## 当前规范状态
 
 - `CURRENT_DEV` 的当前剩余状态以 [development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md) 为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
-- Target-topic scope 以 [development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json) 与 [Wave45 manual structured/consumer live API closure](./automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/README.md) 为准：当前 61 个 target topics（`closed:32 / external_blocked:23 / retired:6 / active_current:0`）、17 个 non-target roots；过程记录、导航分类与外部参考不计入 closure 指标。
-- External-blocked governance 以 [development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)、[Wave40 external blocker manifest](./automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)、[Wave41 external unblock attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)、[Wave42 manual open search live closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md)、[Wave43 manual graph live DB closure](./automation-runs/wave43-manual-graph-live-db-closure/2026-05-23/README.md)、[Wave44 manual graph3d live UI closure](./automation-runs/wave44-manual-graph3d-live-ui-closure/2026-05-23/README.md) 与 [Wave45 manual structured/consumer live API closure](./automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/README.md) 为准：当前 23 个 external-blocked review targets 仍有结构化外部依赖、仓内证据、解除条件和 owner surface。
+- Target-topic scope 以 [development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json) 与 [Wave46 manual graph editing live-audit closure](./automation-runs/wave46-manual-graph-editing-live-audit-closure/2026-05-23/README.md) 为准：当前 61 个 target topics（`closed:33 / external_blocked:22 / retired:6 / active_current:0`）、17 个 non-target roots；过程记录、导航分类与外部参考不计入 closure 指标。
+- External-blocked governance 以 [development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)、[Wave40 external blocker manifest](./automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)、[Wave41 external unblock attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)、[Wave42 manual open search live closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md)、[Wave43 manual graph live DB closure](./automation-runs/wave43-manual-graph-live-db-closure/2026-05-23/README.md)、[Wave44 manual graph3d live UI closure](./automation-runs/wave44-manual-graph3d-live-ui-closure/2026-05-23/README.md)、[Wave45 manual structured/consumer live API closure](./automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/README.md) 与 [Wave46 manual graph editing live-audit closure](./automation-runs/wave46-manual-graph-editing-live-audit-closure/2026-05-23/README.md) 为准：当前 22 个 external-blocked review targets 仍有结构化外部依赖、仓内证据、解除条件和 owner surface。
 - Four-state review summary 以 [Wave39 target review zero needs update](./automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`。
 - “最近新增”中的 Wave21-Wave34 条目是 historical wave log；历史 `partial` 计数只说明当时的迁档进度，不应作为当前未封口数量读取。
 
 ## 最近新增
 
 - `development-plans`：
+  - [2026-05-23 Wave46 Manual Graph Editing Live-Audit Closure](./automation-runs/wave46-manual-graph-editing-live-audit-closure/2026-05-23/README.md)
+  - [2026-05-23 Graph Editing Live-Audit Closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/12_wave46-manual-live-audit-closure-2026-05-23.md)
   - [2026-05-23 Wave44 Manual Graph3D Live UI Closure](./automation-runs/wave44-manual-graph3d-live-ui-closure/2026-05-23/README.md)
   - [2026-05-23 Graph3D Live UI Closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/09_wave44-manual-live-ui-closure-2026-05-23.md)
   - [2026-05-23 Wave43 Manual Graph Live DB Closure](./automation-runs/wave43-manual-graph-live-db-closure/2026-05-23/README.md)
@@ -70,7 +72,7 @@ Updated: 2026-05-23 PST
   - [2026-05-23 Wave28 Dual Frontend Retirement Decision](./development-plans/ARCHIVE_RETIRED/2026-03-07-dual-frontend-workbench-topology/13_wave28-retirement-decision-2026-05-23.md)
   - [2026-05-23 Wave27 Vectorization Closure Gate](./automation-runs/wave27-vectorization-closure/2026-05-23/README.md)
   - [2026-05-23 Wave27 External-Blocked Closure](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)
-  - [2026-05-23 Wave27 Graph Editing External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/11_wave27-external-blocked-decision-2026-05-23.md)
+  - [2026-05-23 Wave27 Graph Editing External-Blocked Decision](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/11_wave27-external-blocked-decision-2026-05-23.md)
   - [2026-05-23 Wave27 Typed Knowledge External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/10_wave27-external-blocked-decision-2026-05-23.md)
   - [2026-05-23 Wave27 Writing Workbench External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/11_wave27-external-blocked-decision-2026-05-23.md)
   - [2026-05-23 Wave27 Consumer-Side External-Blocked Decision](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-consumer-side-modularization/08_wave27-external-blocked-decision-2026-05-23.md)
@@ -188,7 +190,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave8 Fetch Router Gap Closure](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/02_wave8-2-fetch-router-gap-closure-2026-05-22.md)
   - [2026-05-22 Wave8 Source-Library Adapter Capability Gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/2026-05-22-wave8-3-adapter-capability-parser-profile-gate.md)
   - [2026-05-22 Wave8 Frontend Topology / I18N / Theme Evidence](./development-plans/ARCHIVE_RETIRED/2026-03-07-dual-frontend-workbench-topology/03_wave8-4-topology-i18n-theme-contract-evidence-2026-05-22.md)
-  - [2026-05-22 Wave8 Graph Projection Rollout Contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/04_wave8-5-projection-rollout-contract-note-2026-05-22.md)
+  - [2026-05-22 Wave8 Graph Projection Rollout Contract](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/04_wave8-5-projection-rollout-contract-note-2026-05-22.md)
   - [2026-05-22 Wave8 Typed Knowledge Writing Handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/03_wave8_6_writing-handoff-contract-evidence-2026-05-22.md)
   - [2026-05-22 Wave8 Time Target-Overlap Priority Evidence](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/07_wave8-target-overlap-priority-evidence-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
@@ -216,7 +218,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave11 Meaningful Ingest Guardrails Rollout](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/03_wave11-ingest-guardrails-rollout-evidence-2026-05-22.md)
   - [2026-05-22 Wave11 Long-Cycle Scheduler E2E](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/05_wave11-long-cycle-scheduler-e2e-evidence-2026-05-22.md)
   - [2026-05-22 Wave11 AgentCore Provider Matrix](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/05_wave11-agentcore-provider-matrix-evidence-2026-05-22.md)
-  - [2026-05-22 Wave11 Graph Editing Audit / Rollback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/05_wave11-graph-editing-audit-rollback-evidence-2026-05-22.md)
+  - [2026-05-22 Wave11 Graph Editing Audit / Rollback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/05_wave11-graph-editing-audit-rollback-evidence-2026-05-22.md)
   - [2026-05-22 Wave11 Source-Library Extraction Runner](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/11_wave11-source-library-extraction-runner-evidence-2026-05-22.md)
   - [2026-05-22 Wave11 Symbolic Search Quality Replay](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/17_wave11-symbolic-search-quality-replay-evidence-2026-05-22.md)
   - [2026-05-22 Wave11 Structured Consumer Query Extraction](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-12-data-structured-service-modularization/08_wave11-structured-consumer-query-extraction-evidence-2026-05-22.md)
@@ -229,7 +231,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave12 OSS Node Provider Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/03_wave12-provider-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Graph Force3D Live Smoke Readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/04_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Graph Node Live Smoke Readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/05_wave12-live-smoke-readiness-gate-2026-05-22.md)
-  - [2026-05-22 Wave12 Graph Editing Live Smoke Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/06_wave12-live-smoke-readiness-gate-2026-05-22.md)
+  - [2026-05-22 Wave12 Graph Editing Live Smoke Readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/06_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Ingest Canary Handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/03_wave12-ingest-canary-handoff-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Meaningful Ingest Canary Handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/04_wave12-meaningful-ingest-canary-handoff-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Single URL Canary Handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/04_wave12-single-url-canary-handoff-evidence-2026-05-22.md)
@@ -281,7 +283,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave15 Symbolic Live Quality Threshold](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/19_wave15-symbolic-live-quality-threshold-2026-05-22.md)
   - [2026-05-22 Wave15 Structured SQL Helper Migration](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-12-data-structured-service-modularization/06_wave15-structured-sql-helper-migration-2026-05-22.md)
   - [2026-05-22 Wave15 Consumer SQL Predicate Facade](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-consumer-side-modularization/05_wave15-consumer-sql-predicate-facade-2026-05-22.md)
-  - [2026-05-22 Wave15 Graph Editing Audit Durability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/07_wave15-graph-editing-audit-durability-2026-05-22.md)
+  - [2026-05-22 Wave15 Graph Editing Audit Durability](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/07_wave15-graph-editing-audit-durability-2026-05-22.md)
   - [2026-05-22 Wave15 Typed Knowledge Live Boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/06_wave15-typed-writing-live-boundary-2026-05-22.md)
   - [2026-05-22 Wave15 Writing Workbench Live Boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/07_wave15-typed-writing-live-boundary-2026-05-22.md)
 - `development-plans/ARCHIVE_CLOSED` Wave15 closure:
@@ -292,7 +294,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave16 Clue Chain Closure Split](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md)
   - [2026-05-22 Clue Chain Successor Scopes](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/INDEX.md)
   - [2026-05-23 Wave26 Clue Chain Successor External-Blocked Migration](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md)
-  - [2026-05-22 Wave16 Graph Editing UI Audit Controls](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/08_wave16-graph-editing-ui-audit-controls-2026-05-22.md)
+  - [2026-05-22 Wave16 Graph Editing UI Audit Controls](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/08_wave16-graph-editing-ui-audit-controls-2026-05-22.md)
   - [2026-05-22 Wave16 Typed Knowledge API Route Contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/07_wave16-typed-knowledge-api-route-contract-2026-05-22.md)
   - [2026-05-22 Wave16 Writing Workbench Typed Fetch Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/08_wave16-worker5-typed-knowledge-fetch-readback-2026-05-22.md)
   - [2026-05-22 Wave16 Long-Cycle Durable Repository Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/07_wave16-long-cycle-durable-repository-readback-2026-05-22.md)
@@ -319,7 +321,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave18 LLM Crawler Browser Replay Fixture](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/08_wave18-browser-replay-fixture-readback-2026-05-22.md)
   - [2026-05-22 Wave18 Symbolic Quality Regression](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/20_wave18-symbolic-quality-regression-evaluator-2026-05-22.md)
   - [2026-05-22 Wave18 Long-Cycle Scheduler Handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/08_wave18-long-cycle-scheduler-handoff-trace-2026-05-22.md)
-  - [2026-05-22 Wave18 Graph Editing Audit Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/09_wave18-graph-editing-audit-readback-2026-05-22.md)
+  - [2026-05-22 Wave18 Graph Editing Audit Readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/09_wave18-graph-editing-audit-readback-2026-05-22.md)
   - [2026-05-22 Wave18 AgentCore Provider Trace](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/08_wave18-agentcore-provider-trace-readback-2026-05-22.md)
   - [2026-05-22 Wave18 Source-Library Review Batch 2](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/11_wave18-review-closure-batch2-2026-05-22.md)
   - [2026-05-22 Wave18 Catalog Page I18N Slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/10_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md)
@@ -342,7 +344,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave20 Agent Roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-agent-roster-2026-05-22.md)
   - [2026-05-22 Wave20 Time Semantics Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md)
   - [2026-05-22 Wave20 OpenClaw Mirror Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md)
-  - [2026-05-22 Wave20 Graph Editing Audit Conflict](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md)
+  - [2026-05-22 Wave20 Graph Editing Audit Conflict](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md)
   - [2026-05-22 Wave20 Long-Cycle Scheduler Queue](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/09_wave20-long-cycle-scheduler-queue-handoff-replay-2026-05-22.md)
   - [2026-05-22 Wave20 Agent Batch Quality Promotion](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/21_wave20-agent-batch-quality-promotion-readback-2026-05-22.md)
   - [2026-05-22 Wave20 Document Query Endpoint Slice](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-12-data-structured-service-modularization/11_wave20-document-query-endpoint-slice-2026-05-22.md)
@@ -469,9 +471,9 @@ Updated: 2026-05-23 PST
   - [2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)
   - [2026-03-07-typed-knowledge-organization/02_atomic-tasklist-typed-knowledge-organization-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/02_atomic-tasklist-typed-knowledge-organization-2026-03-07.md)
   - [2026-05-22 Wave6 Typed Knowledge Status Evidence](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/03_wave6-6-status-evidence-and-minimal-plan-2026-05-22.md)
-  - [2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md)
-  - [2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md)
-  - [2026-05-22 Wave6 Graph Reporting Handoff Evidence](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md)
+  - [2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md)
+  - [2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md)
+  - [2026-05-22 Wave6 Graph Reporting Handoff Evidence](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md)
   - [2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md)
   - [2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md)
   - [2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md)

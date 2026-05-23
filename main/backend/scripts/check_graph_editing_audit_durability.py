@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate graph editing audit durability/readback without claiming live closure."""
+"""Gate graph editing audit durability/readback with explicit live-closure evidence."""
 
 from __future__ import annotations
 
@@ -1063,6 +1063,7 @@ def build_gate_snapshot(
     database_url: str | None = "",
     graphpage_ui_evidence: dict[str, Any] | None = None,
     live_db_audit_evidence: dict[str, Any] | None = None,
+    allow_live_closure_claim: bool = False,
 ) -> dict[str, Any]:
     repo_stage = _build_repo_local_stage(static_checks=repo_local_static_checks(repo_root))
     tenant_like_stage = _build_tenant_like_fixture_stage()
@@ -1077,32 +1078,50 @@ def build_gate_snapshot(
     )
     stages = [repo_stage, tenant_like_stage, conflict_stage, ui_stage, live_db_stage]
     hard_failures = [failure for stage in stages if not stage["passed"] for failure in stage["failures"]]
+    live_closure_ready = (
+        not hard_failures
+        and repo_stage["validated"]
+        and tenant_like_stage["validated"]
+        and conflict_stage["validated"]
+        and ui_stage["validated"]
+        and live_db_stage["validated"]
+    )
+    closure_claim = allow_live_closure_claim and live_closure_ready
+    live_tenant_db_audit_open = not closure_claim
     if not repo_stage["validated"] or not tenant_like_stage["validated"] or not conflict_stage["validated"]:
         readiness_state = "failed"
+    elif closure_claim:
+        readiness_state = "closed"
     elif ui_stage["validated"] and live_db_stage["validated"]:
         readiness_state = "live_audit_evidence_recorded_non_closing"
     else:
         readiness_state = "repo_local_validated_live_gaps_open"
+    closure_clause = (
+        "closure_claim=true because explicit live evidence sealed tenant DB audit durability, "
+        "persistent handoff replay readback, and tenant/project scoping"
+        if closure_claim
+        else "closure_claim=false because live tenant audit durability must be sealed by separate live evidence"
+    )
     boundary = (
         "repo-local audit/readback contract is deterministic and validated; "
         f"tenant-like fixture audit trace={tenant_like_stage['status']}; "
         f"conflict rollback readback fixture={conflict_stage['status']}; "
         f"GraphPage repo-local audit/rollback UI={ui_stage['status']}; "
         f"live DB audit durability={live_db_stage['status']}; "
-        "live_tenant_db_audit_open=true; "
-        "closure_claim=false because live tenant audit durability must be sealed by separate live evidence"
+        f"live_tenant_db_audit_open={str(live_tenant_db_audit_open).lower()}; "
+        f"{closure_clause}"
     )
     return {
         "contract_version": CONTRACT_VERSION,
         "status": "passed" if not hard_failures else "failed",
         "readiness_state": readiness_state,
-        "closure_claim": False,
+        "closure_claim": closure_claim,
         "repo_local_audit_readback_validated": repo_stage["validated"],
         "tenant_like_fixture_audit_trace_validated": tenant_like_stage["validated"],
         "conflict_rollback_readback_validated": conflict_stage["validated"],
         "graphpage_audit_controls_validated": ui_stage["validated"],
         "live_db_audit_durability_validated": live_db_stage["validated"],
-        "live_tenant_db_audit_open": True,
+        "live_tenant_db_audit_open": live_tenant_db_audit_open,
         "boundary": boundary,
         "stages": stages,
         "remaining_gaps": [gap for stage in stages if not stage["validated"] for gap in stage["gaps"]],
@@ -1110,34 +1129,54 @@ def build_gate_snapshot(
     }
 
 
-def validate_gate_snapshot(snapshot: dict[str, Any]) -> list[str]:
+def validate_gate_snapshot(
+    snapshot: dict[str, Any],
+    *,
+    allow_live_closure_claim: bool = False,
+) -> list[str]:
     failures: list[str] = []
     if snapshot.get("contract_version") != CONTRACT_VERSION:
         failures.append("unexpected contract_version")
-    if snapshot.get("closure_claim") is not False:
-        failures.append("closure_claim must remain false")
     if snapshot.get("repo_local_audit_readback_validated") is not True:
         failures.append("repo-local audit/readback contract must be validated")
     if snapshot.get("tenant_like_fixture_audit_trace_validated") is not True:
         failures.append("tenant-like fixture audit trace must be validated")
     if snapshot.get("conflict_rollback_readback_validated") is not True:
         failures.append("conflict rollback readback fixture must be validated")
-    if snapshot.get("live_tenant_db_audit_open") is not True:
-        failures.append("live_tenant_db_audit_open must remain true")
-    if (
-        snapshot.get("graphpage_audit_controls_validated") is not True
-        or snapshot.get("live_db_audit_durability_validated") is not True
-    ) and snapshot.get("readiness_state") != "repo_local_validated_live_gaps_open":
-        failures.append("unvalidated UI/live DB audit durability must keep readiness_state open")
+    closure_claim = snapshot.get("closure_claim") is True
+    if closure_claim:
+        if not allow_live_closure_claim:
+            failures.append("closure_claim requires allow_live_closure_claim")
+        if snapshot.get("graphpage_audit_controls_validated") is not True:
+            failures.append("closure_claim requires graphpage audit controls")
+        if snapshot.get("live_db_audit_durability_validated") is not True:
+            failures.append("closure_claim requires live DB audit durability evidence")
+        if snapshot.get("live_tenant_db_audit_open") is not False:
+            failures.append("closed live audit durability must set live_tenant_db_audit_open=false")
+        if snapshot.get("readiness_state") != "closed":
+            failures.append("closure_claim requires readiness_state=closed")
+    else:
+        if snapshot.get("closure_claim") is not False:
+            failures.append("closure_claim must be boolean false unless explicitly closed")
+        if snapshot.get("live_tenant_db_audit_open") is not True:
+            failures.append("live_tenant_db_audit_open must remain true")
+        if (
+            snapshot.get("graphpage_audit_controls_validated") is not True
+            or snapshot.get("live_db_audit_durability_validated") is not True
+        ) and snapshot.get("readiness_state") != "repo_local_validated_live_gaps_open":
+            failures.append("unvalidated UI/live DB audit durability must keep readiness_state open")
     boundary = str(snapshot.get("boundary") or "")
     if (
         "repo-local audit/readback contract" not in boundary
         or "tenant-like fixture audit trace" not in boundary
         or "conflict rollback readback fixture" not in boundary
-        or "live_tenant_db_audit_open=true" not in boundary
-        or "closure_claim=false" not in boundary
     ):
         failures.append("boundary must distinguish repo-local audit/readback from live closure")
+    if closure_claim:
+        if "live_tenant_db_audit_open=false" not in boundary or "closure_claim=true" not in boundary:
+            failures.append("closed boundary must record live_tenant_db_audit_open=false and closure_claim=true")
+    elif "live_tenant_db_audit_open=true" not in boundary or "closure_claim=false" not in boundary:
+        failures.append("open boundary must record live_tenant_db_audit_open=true and closure_claim=false")
     for failure in snapshot.get("hard_failures") or []:
         failures.append(str(failure))
     return failures
@@ -1151,14 +1190,23 @@ def main() -> int:
     parser.add_argument("--database-url", default=os.environ.get("DATABASE_URL", ""))
     parser.add_argument("--graphpage-ui-evidence-json", default="")
     parser.add_argument("--live-db-audit-evidence-json", default="")
+    parser.add_argument(
+        "--allow-live-closure-claim",
+        action="store_true",
+        help="Allow closure_claim=true only when repo-local, UI, and live DB audit evidence all validate.",
+    )
     args = parser.parse_args()
 
     snapshot = build_gate_snapshot(
         database_url=args.database_url,
         graphpage_ui_evidence=_read_json(args.graphpage_ui_evidence_json),
         live_db_audit_evidence=_read_json(args.live_db_audit_evidence_json),
+        allow_live_closure_claim=args.allow_live_closure_claim,
     )
-    validation_failures = validate_gate_snapshot(snapshot)
+    validation_failures = validate_gate_snapshot(
+        snapshot,
+        allow_live_closure_claim=args.allow_live_closure_claim,
+    )
     if validation_failures:
         snapshot = {**snapshot, "status": "failed", "validation_failures": validation_failures}
 

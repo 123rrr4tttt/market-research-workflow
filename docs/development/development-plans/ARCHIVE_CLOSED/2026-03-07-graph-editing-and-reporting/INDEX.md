@@ -1,9 +1,9 @@
 # Graph Editing And Reporting Index
 
 更新时间：2026-05-23 PST
-状态：`external_blocked` / `wave27_checked`。本目录已迁入 `ARCHIVE_EXTERNAL_BLOCKED`；仓内 backend audit/readback、tenant-like fixture、conflict/rollback readback 与 GraphPage audit/rollback/handoff replay UI gate 已封住。目录内早期 `partial`、`not_closed`、`live smoke readiness` 表述只表示迁档前推进阶段，不再是当前目录主状态。
+状态：`closed` / `wave46_live_audit_closed`。本目录已迁入 `ARCHIVE_CLOSED`；仓内 backend audit/readback、tenant-like fixture、conflict/rollback readback、GraphPage audit/rollback/handoff replay UI gate，以及 Wave46 live tenant DB audit durability / persistent handoff replay / tenant-project scope 证据均已封住。目录内早期 `partial`、`not_closed`、`live smoke readiness`、`external_blocked` 表述只表示迁档前推进阶段，不再是当前目录主状态。
 
-防误读：当前 canonical decision 以本 `INDEX.md` 与 `11_wave27-external-blocked-decision-2026-05-23.md` 为准。重新进入 `CURRENT_DEV` 前，必须先补齐 live tenant DB audit durability、persistent handoff replay readback 与 tenant/project scoping 证据。
+防误读：当前 canonical decision 以本 `INDEX.md` 与 `12_wave46-manual-live-audit-closure-2026-05-23.md` 为准。`11_wave27-external-blocked-decision-2026-05-23.md` 保留为历史外部阻塞判定，不再代表当前目录状态。
 
 ## 文件
 
@@ -28,20 +28,24 @@
 - [10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md](./10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md)
   Conflict / rollback readback evidence。
 - [11_wave27-external-blocked-decision-2026-05-23.md](./11_wave27-external-blocked-decision-2026-05-23.md)
-  当前 canonical decision：repo-local gates 通过，剩余 live tenant DB audit durability。
+  Wave27 historical decision：repo-local gates 通过，当时剩余 live tenant DB audit durability。
+- [12_wave46-manual-live-audit-closure-2026-05-23.md](./12_wave46-manual-live-audit-closure-2026-05-23.md)
+  当前 canonical closure：live tenant DB audit durability、persistent handoff replay readback 与 tenant/project scoping 已通过。
 
 ## 当前状态
 
 | 项 | 状态 | 证据 |
 |---|---|---|
-| 目录归属 | `ARCHIVE_EXTERNAL_BLOCKED` | `CURRENT_DEV/INDEX.md` 不再将本主题计入 `partial` |
+| 目录归属 | `ARCHIVE_CLOSED` | `CURRENT_DEV/INDEX.md` 不再将本主题计入 `partial` 或 `external_blocked` |
 | Repo-local audit / rollback / UI gates | sealed | `check_graph_editing_audit_durability.py`、unit pytest、GraphPage focused e2e |
-| Live tenant DB audit durability | external blocker | 需要 configured tenant DB、fresh-session audit readback、persistent handoff replay |
+| Live tenant DB audit durability | sealed | Wave46 live API + PostgreSQL readback evidence |
+| Persistent handoff replay readback | sealed | `workflow_graph_runs` / `workflow_graph_events` fresh DB readback |
+| Tenant/project scoping | sealed | `demo_proj` readback + `default` project `NOT_FOUND` / DB row count `0` |
 
 ## 验证命令
 
 ```bash
-PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_graph_editing_audit_durability.py --format text
+PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_graph_editing_audit_durability.py --format text --live-db-audit-evidence-json development/latest-dev-docs/automation-runs/wave46-manual-graph-editing-live-audit-closure/2026-05-23/live_evidence.json --allow-live-closure-claim
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 -m pytest -q main/backend/tests/unit/test_graph_editing_audit_durability_unittest.py
 npm --prefix main/frontend-modern run test:e2e -- tests/e2e/graphpage.spec.ts -g "graph builder (submits|surfaces)" --reporter=line
 ```

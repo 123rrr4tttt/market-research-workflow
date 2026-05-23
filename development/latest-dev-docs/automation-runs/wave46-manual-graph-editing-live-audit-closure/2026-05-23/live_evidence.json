@@ -1,0 +1,137 @@
+{
+  "contract_version": "graph.editing_audit_live_evidence.v1",
+  "recorded_at": "2026-05-23T10:35:00Z",
+  "target_topic": "2026-03-07-graph-editing-and-reporting",
+  "graph_id": "cg-wave46-live-audit-20260523",
+  "project_key": "demo_proj",
+  "actor_id": "wave46.manual",
+  "database_url_family": "postgresql://postgres@localhost:5432/postgres",
+  "live_db_audit_durability_validated": true,
+  "curated_submit_audit_readback_from_fresh_session": true,
+  "curated_rollback_audit_readback_from_fresh_session": true,
+  "handoff_persist_replay_readback_from_fresh_session": true,
+  "tenant_project_scope_checked": true,
+  "api_readback": {
+    "initial_get": {
+      "status": "error",
+      "code": "NOT_FOUND"
+    },
+    "submit_readback": [
+      {
+        "revision": 1,
+        "audit_id": "audit_48d54947ae2c",
+        "active_version_id": "cver-wave46-baseline"
+      },
+      {
+        "revision": 2,
+        "audit_id": "audit_b6f9e913e209",
+        "active_version_id": "cver-wave46-candidate"
+      }
+    ],
+    "stale_rollback_rejected": {
+      "code": "INVALID_INPUT",
+      "category": "version_conflict",
+      "expected_revision": 1,
+      "actual_revision": 2
+    },
+    "accepted_rollback": {
+      "revision": 3,
+      "audit_id": "audit_f8f28f965f05",
+      "active_version_id": "cver_3_c8e9bc3f",
+      "rollback_from_version_id": "cver-wave46-baseline",
+      "rollback_contract_version": "workflow_graph.rollback.v1",
+      "requires_base_revision_match": true
+    },
+    "audit_list": {
+      "total": 3,
+      "actions": [
+        "rollback",
+        "submit",
+        "submit"
+      ],
+      "project_keys": [
+        "demo_proj",
+        "demo_proj",
+        "demo_proj"
+      ],
+      "rollback_from_version_id": "cver-wave46-baseline"
+    },
+    "fresh_sync": {
+      "sync_status": "out_of_sync",
+      "revision": 3,
+      "node_ids": [
+        "node-acme",
+        "node-wave46-baseline"
+      ]
+    },
+    "cross_project_get": {
+      "project_key": "default",
+      "status": "error",
+      "code": "NOT_FOUND"
+    }
+  },
+  "database_readback": {
+    "ingest_config": {
+      "table": "public.ingest_config",
+      "config_key": "workflow_graph_curated_v1",
+      "graph_revision": 3,
+      "audit_count": 3,
+      "audit_actions_write_order": [
+        "submit",
+        "submit",
+        "rollback"
+      ],
+      "rollback_from_version_id": "cver-wave46-baseline",
+      "rollback_project_key": "demo_proj",
+      "rollback_actor_id": "wave46.manual"
+    },
+    "tenant_scope": {
+      "default_project_graph_rows": 0
+    },
+    "workflow_graph_handoff": {
+      "run_table": "public.workflow_graph_runs",
+      "event_table": "public.workflow_graph_events",
+      "run_id": "handoff-cg-wave46-live-audit-20260523",
+      "workflow_id": "cg-wave46-live-audit-20260523",
+      "event_count": 2,
+      "event_types": [
+        "handoff.persisted",
+        "handoff.replayed"
+      ],
+      "audit_actions": [
+        "handoff.persisted",
+        "handoff.replayed"
+      ],
+      "audit_project_keys": [
+        "demo_proj",
+        "demo_proj"
+      ],
+      "handoff_id": "handoff_report_3444c5a4990a"
+    }
+  },
+  "handoff_readback": {
+    "contract_version": "workflow_graph.handoff.v1",
+    "handoff_id": "handoff_report_3444c5a4990a",
+    "events": [
+      "handoff.persisted",
+      "handoff.replayed"
+    ],
+    "seqs": [
+      1,
+      2
+    ],
+    "result_contract_version": "graph_handoff.v1",
+    "consumer": "llm_report.generate",
+    "evidence_pack_revision": 3,
+    "evidence_pack_provenance": {
+      "project_key": "demo_proj",
+      "audit_id": "audit_f8f28f965f05",
+      "source": "workflow_graph.curated"
+    }
+  },
+  "manual_commands": [
+    "curl live API curated draft/submit/rollback/audit/sync/handoff/replay endpoints against localhost:8000",
+    "PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d postgres -At query public.ingest_config",
+    "PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d postgres -At query public.workflow_graph_runs/events"
+  ]
+}

@@ -416,52 +416,6 @@
       }
     },
     {
-      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting",
-      "dependency_type": "infra",
-      "blocked_on": "Live tenant DB audit durability, persistent handoff replay readback, and tenant/project scoping are not attached.",
-      "external_surfaces": [
-        "tenant DB",
-        "audit log",
-        "browser/API readback"
-      ],
-      "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/11_wave27-external-blocked-decision-2026-05-23.md"
-      ],
-      "evidence_required": [
-        "probe",
-        "run_output",
-        "manual_check",
-        "contract"
-      ],
-      "probe_or_manual_evidence": {
-        "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_graph_editing_audit_durability.py --format text",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
-      },
-      "exit_criteria": [
-        {
-          "id": "repo-local-boundary-recorded",
-          "state": "satisfied",
-          "evidence": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/11_wave27-external-blocked-decision-2026-05-23.md",
-          "note": "Repo-local deterministic evidence is present and linked from the target topic."
-        },
-        {
-          "id": "graph-audit-live-db",
-          "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "Live tenant DB audit durability, persistent handoff replay readback, and tenant/project scoping are not attached."
-        }
-      ],
-      "owner_surface": {
-        "owner": "external-blocker-review",
-        "surface": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
-        "contact": "@devdocs-supervisor"
-      }
-    },
-    {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation",
       "dependency_type": "infra",
       "blocked_on": "Live scheduler enqueue, worker consumption, live DB write/readback, and downstream handoff evidence are not attached.",

@@ -147,6 +147,25 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         self.assertFalse(snapshot["closure_claim"])
         self.assertEqual(snapshot["readiness_state"], "live_audit_evidence_recorded_non_closing")
 
+    def test_explicit_live_db_evidence_can_close_topic(self) -> None:
+        snapshot = build_gate_snapshot(
+            live_db_audit_evidence=_live_db_evidence(),
+            allow_live_closure_claim=True,
+        )
+
+        self.assertEqual(validate_gate_snapshot(snapshot, allow_live_closure_claim=True), [])
+        self.assertEqual(snapshot["status"], "passed")
+        self.assertEqual(snapshot["readiness_state"], "closed")
+        self.assertTrue(snapshot["closure_claim"])
+        self.assertFalse(snapshot["live_tenant_db_audit_open"])
+        self.assertTrue(snapshot["repo_local_audit_readback_validated"])
+        self.assertTrue(snapshot["tenant_like_fixture_audit_trace_validated"])
+        self.assertTrue(snapshot["conflict_rollback_readback_validated"])
+        self.assertTrue(snapshot["graphpage_audit_controls_validated"])
+        self.assertTrue(snapshot["live_db_audit_durability_validated"])
+        self.assertIn("closure_claim=true", snapshot["boundary"])
+        self.assertIn("live_tenant_db_audit_open=false", snapshot["boundary"])
+
     def test_complete_ui_evidence_can_be_recorded_without_live_db_closure(self) -> None:
         snapshot = build_gate_snapshot(graphpage_ui_evidence=_graphpage_ui_evidence())
 
