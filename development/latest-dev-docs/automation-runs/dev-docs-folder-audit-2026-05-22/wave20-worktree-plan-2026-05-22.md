@@ -51,4 +51,8 @@ Worker 分支也不得修改当前主工作树已有脏项：
 
 ## 集成结果
 
-待 worker 分支完成后更新。若某个 worker 没有安全代码改动，必须记录 no-op 原因、关闭 agent，并由 supervisor 判断是否纳入索引。
+- 10 个 isolated worker 分支已合并到 `codex/devdocs-wave20-integration-2026-05-22`。
+- 10 个 isolated worker 子 agent 已在 roster 中标记为 `closed`；首轮误用共享工作树的 10 个 agent 已标记 `superseded_closed`。
+- 本轮新增 time semantics sample/provenance readback、OpenClaw mirror runtime manifest、graph editing audit conflict readback、long-cycle scheduler queue replay、agent-batch quality promotion readback、structured data document-query endpoint slice、prompt-time-density consumer facade、source-library review closure batch 4、ProcessPage i18n slice、docs-root content move batch 5。
+- `CURRENT_DEV` 仍保持 `partial:33`、`not_closed:0`、`no_closure_claim:0`；production data、external runtime、live tenant DB、live scheduler、live provider quality、live DB/API smoke、human review 和全量迁移边界仍显式保留。
+- Docs-root content-plan unsafe moves 从 `6` 降到 `5`，剩余 unsafe moves 仍需后续批次处理。

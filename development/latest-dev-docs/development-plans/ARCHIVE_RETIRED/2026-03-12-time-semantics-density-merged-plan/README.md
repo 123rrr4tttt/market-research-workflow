@@ -5,7 +5,7 @@
 ## 最新口径主入口
 
 请使用新目录：
-- [`../2026-03-14-time-semantics-density-merged-plan/README.md`](../2026-03-14-time-semantics-density-merged-plan/README.md)
+- [`../../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md`](../../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md)
 
 ## 保留策略
 

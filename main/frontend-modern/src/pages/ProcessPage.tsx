@@ -1,5 +1,6 @@
 import { Database, RefreshCw, XCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { translate, useAppLocale, type AppLocale } from '../app/platform/i18n'
 import { useProcessData } from '../hooks/useProcessData'
 import type { ProcessHistoryResponse, ProcessTaskDetail, ProcessTaskItem, ProcessTaskList, ProcessTaskStats } from '../lib/types'
 
@@ -9,6 +10,20 @@ export type ProcessPageProps = {
 }
 
 type ProcessHistoryItem = NonNullable<ProcessHistoryResponse['history']>[number]
+type ProcessMessageKey = Parameters<typeof translate>[1]
+
+type ProcessSummaryLabels = {
+  inserted: string
+  updated: string
+  skipped: string
+  errors: string
+  urls: string
+}
+
+type ProcessBooleanLabels = {
+  yes: string
+  no: string
+}
 
 const detailPreStyle = {
   marginTop: 8,
@@ -67,11 +82,32 @@ export type ProcessPageViewProps = {
   onRefreshHistory: () => void
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value: string | null | undefined, locale: AppLocale) {
   if (!value) return '-'
   const dt = new Date(value)
   if (Number.isNaN(dt.getTime())) return value
-  return dt.toLocaleString('zh-CN')
+  return dt.toLocaleString(locale)
+}
+
+function formatProcessTemplate(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
+function getProcessSummaryLabels(locale: AppLocale): ProcessSummaryLabels {
+  return {
+    inserted: translate(locale, 'processPage.summary.inserted'),
+    updated: translate(locale, 'processPage.summary.updated'),
+    skipped: translate(locale, 'processPage.summary.skipped'),
+    errors: translate(locale, 'processPage.summary.errors'),
+    urls: translate(locale, 'processPage.summary.urls'),
+  }
+}
+
+function getProcessBooleanLabels(locale: AppLocale): ProcessBooleanLabels {
+  return {
+    yes: translate(locale, 'processPage.status.yes'),
+    no: translate(locale, 'processPage.status.no'),
+  }
 }
 
 function statusClass(status?: string) {
@@ -114,7 +150,7 @@ function buildResultSummary(input: {
   params?: Record<string, unknown> | null
   result?: unknown
   progress?: Record<string, unknown> | null
-}) {
+}, labels: ProcessSummaryLabels) {
   const dm = (input.display_meta || {}) as Record<string, unknown>
   const params = (input.params || {}) as Record<string, unknown>
   const progress = (input.progress || {}) as Record<string, unknown>
@@ -127,11 +163,11 @@ function buildResultSummary(input: {
   const urls = toFiniteNumber(firstDefined(dm.url_count, params.url_count, params.urls, result.url_count, result.urls))
 
   const parts: string[] = []
-  if (inserted != null) parts.push(`新增 ${inserted}`)
-  if (updated != null) parts.push(`更新 ${updated}`)
-  if (skipped != null) parts.push(`跳过 ${skipped}`)
-  if (errors != null && errors > 0) parts.push(`错误 ${errors}`)
-  if (urls != null) parts.push(`URL ${urls}`)
+  if (inserted != null) parts.push(`${labels.inserted} ${inserted}`)
+  if (updated != null) parts.push(`${labels.updated} ${updated}`)
+  if (skipped != null) parts.push(`${labels.skipped} ${skipped}`)
+  if (errors != null && errors > 0) parts.push(`${labels.errors} ${errors}`)
+  if (urls != null) parts.push(`${labels.urls} ${urls}`)
   return parts.length ? parts.join(' | ') : '-'
 }
 
@@ -180,7 +216,7 @@ function buildLightFilterView(input: {
   params?: Record<string, unknown> | null
   result?: unknown
   progress?: Record<string, unknown> | null
-}) {
+}, labels: ProcessBooleanLabels) {
   const dm = (input.display_meta || {}) as Record<string, unknown>
   const params = (input.params || {}) as Record<string, unknown>
   const progress = (input.progress || {}) as Record<string, unknown>
@@ -216,7 +252,7 @@ function buildLightFilterView(input: {
     params.keep_for_vectorization,
     progress.keep_for_vectorization,
   )
-  const keep = typeof keepRaw === 'boolean' ? (keepRaw ? 'yes' : 'no') : '-'
+  const keep = typeof keepRaw === 'boolean' ? (keepRaw ? labels.yes : labels.no) : '-'
   return { decision, reason, score, keep }
 }
 
@@ -229,6 +265,9 @@ function getTaskSourceKind(task?: ProcessTaskItem, fallback?: string | null) {
 }
 
 export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProps) {
+  const locale = useAppLocale()
+  const summaryLabels = useMemo(() => getProcessSummaryLabels(locale), [locale])
+  const booleanLabels = useMemo(() => getProcessBooleanLabels(locale), [locale])
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
   const [refreshIntervalSec, setRefreshIntervalSec] = useState(8)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
@@ -274,11 +313,11 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
         params: (taskDetail.data?.kwargs || selectedTask?.kwargs || null) as Record<string, unknown> | null,
         progress: (taskDetail.data?.progress || selectedTask?.progress || null) as Record<string, unknown> | null,
         result: taskDetail.data?.result,
-      })
+      }, summaryLabels)
     : buildResultSummary({
         display_meta: (selectedHistoryTask?.display_meta || null) as Record<string, unknown> | null,
         params: (selectedHistoryTask?.params || null) as Record<string, unknown> | null,
-      })
+      }, summaryLabels)
   const selectedRejectionView = selectedCurrent
     ? buildRejectionView({
         display_meta: (taskDetail.data?.display_meta || selectedTask?.display_meta || null) as Record<string, unknown> | null,
@@ -296,11 +335,11 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
         params: (taskDetail.data?.kwargs || selectedTask?.kwargs || null) as Record<string, unknown> | null,
         progress: (taskDetail.data?.progress || selectedTask?.progress || null) as Record<string, unknown> | null,
         result: taskDetail.data?.result,
-      })
+      }, booleanLabels)
     : buildLightFilterView({
         display_meta: (selectedHistoryTask?.display_meta || null) as Record<string, unknown> | null,
         params: (selectedHistoryTask?.params || null) as Record<string, unknown> | null,
-      })
+      }, booleanLabels)
   const cancellableSelectedTaskIds = selectedTaskIds.filter((taskId) => {
     const task = (processList.data?.tasks || []).find((item) => item.task_id === taskId)
     return task ? canCancelTask(task) : false
@@ -420,33 +459,39 @@ export function ProcessPageView({
   onRefreshSelectedTask,
   onRefreshHistory,
 }: ProcessPageViewProps) {
+  const locale = useAppLocale()
+  const summaryLabels = useMemo(() => getProcessSummaryLabels(locale), [locale])
+  const t = (key: ProcessMessageKey, fallback?: string) => translate(locale, key, fallback)
+  const formatTemplate = (key: ProcessMessageKey, values: Record<string, string | number>) =>
+    formatProcessTemplate(t(key), values)
+
   return (
     <div className={`content-stack process-page process-page--${variant}`}>
       <section className="panel">
         <div className="panel-header">
-          <h2>{variant === 'processing' ? '数据处理任务视图' : '任务调度视图'}</h2>
+          <h2>{variant === 'processing' ? t('processPage.title.processing') : t('processPage.title.process')}</h2>
         </div>
       </section>
       <section className="kpi-grid">
         <article className="kpi-card">
-          <span>运行任务</span>
+          <span>{t('processPage.kpi.runningTasks')}</span>
           <strong>{processStats?.total_running || 0}</strong>
-          <small>active {processStats?.active_tasks || 0}</small>
+          <small>{formatTemplate('processPage.kpi.activeTasks', { count: processStats?.active_tasks || 0 })}</small>
         </article>
         <article className="kpi-card">
-          <span>scheduled</span>
+          <span>{t('processPage.kpi.scheduledTasks')}</span>
           <strong>{processStats?.scheduled_tasks || 0}</strong>
-          <small>reserved {processStats?.reserved_tasks || 0}</small>
+          <small>{formatTemplate('processPage.kpi.reservedTasks', { count: processStats?.reserved_tasks || 0 })}</small>
         </article>
         <article className="kpi-card">
-          <span>workers</span>
+          <span>{t('processPage.kpi.workers')}</span>
           <strong>{processStats?.workers || 0}</strong>
           <small>{(processStats?.worker_names || []).slice(0, 2).join(', ') || '-'}</small>
         </article>
         <article className="kpi-card">
-          <span>总任务</span>
+          <span>{t('processPage.kpi.totalTasks')}</span>
           <strong>{processList?.stats?.total_tasks || 0}</strong>
-          <small>pending {processList?.stats?.pending_tasks || 0}</small>
+          <small>{formatTemplate('processPage.kpi.pendingTasks', { count: processList?.stats?.pending_tasks || 0 })}</small>
         </article>
       </section>
 
@@ -454,15 +499,15 @@ export function ProcessPageView({
         <div className="panel-header">
           <h2>
             <Database size={15} />
-            当前队列
+            {t('processPage.section.currentQueue')}
           </h2>
           <div className="inline-actions">
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <input type="checkbox" checked={autoRefreshEnabled} onChange={(e) => onAutoRefreshEnabledChange(e.target.checked)} />
-              自动刷新
+              {t('processPage.control.autoRefresh')}
             </label>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              间隔
+              {t('processPage.control.interval')}
               <select value={refreshIntervalSec} disabled={!autoRefreshEnabled} onChange={(e) => onRefreshIntervalChange(Number(e.target.value) || 8)}>
                 {[5, 8, 10, 15, 30, 60].map((sec) => (
                   <option key={sec} value={sec}>
@@ -473,16 +518,16 @@ export function ProcessPageView({
             </label>
             <button onClick={onRefreshAll} disabled={isRefreshing}>
               <RefreshCw size={14} />
-              {isRefreshing ? '刷新中...' : '刷新'}
+              {isRefreshing ? t('processPage.action.refreshing') : t('processPage.action.refresh')}
             </button>
             <button onClick={onSelectAllCancellable} disabled={!(processList?.tasks || []).length}>
-              选择可取消
+              {t('processPage.action.selectCancellable')}
             </button>
             <button onClick={onClearSelectedTasks} disabled={!selectedTaskIds.length}>
-              清空选择
+              {t('processPage.action.clearSelection')}
             </button>
             <button onClick={onCancelSelectedTasks} disabled={!cancellableSelectedTaskIds.length || cancelPending}>
-              批量取消({cancellableSelectedTaskIds.length})
+              {formatTemplate('processPage.action.cancelSelected', { count: cancellableSelectedTaskIds.length })}
             </button>
           </div>
         </div>
@@ -491,14 +536,14 @@ export function ProcessPageView({
           <table>
             <thead>
               <tr>
-                <th>Task ID</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Worker</th>
-                <th>来源</th>
-                <th>Started</th>
-                <th>选中</th>
-                <th>Action</th>
+                <th>{t('processPage.field.taskId')}</th>
+                <th>{t('processPage.field.name')}</th>
+                <th>{t('processPage.field.status')}</th>
+                <th>{t('processPage.field.worker')}</th>
+                <th>{t('processPage.field.source')}</th>
+                <th>{t('processPage.field.started')}</th>
+                <th>{t('processPage.field.selected')}</th>
+                <th>{t('processPage.field.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -520,24 +565,24 @@ export function ProcessPageView({
                       </small>
                     ) : null}
                   </td>
-                  <td>{formatDate(task.started_at)}</td>
+                  <td>{formatDate(task.started_at, locale)}</td>
                   <td>
                     <input type="checkbox" checked={selectedTaskIds.includes(task.task_id)} onChange={() => onToggleTaskSelect(task.task_id)} disabled={!canCancelTask(task)} />
                   </td>
                   <td>
                     <button onClick={() => onToggleCurrentTaskDetail(task.task_id)}>
-                      {selectedTaskId === task.task_id ? '收起' : '详情'}
+                      {selectedTaskId === task.task_id ? t('processPage.action.collapse') : t('processPage.action.details')}
                     </button>
                     <button disabled={!canCancelTask(task) || cancelPending} onClick={() => onCancelTask(task.task_id)}>
                       <XCircle size={14} />
-                      取消
+                      {t('processPage.action.cancel')}
                     </button>
                   </td>
                 </tr>
               ))}
               {!processList?.tasks?.length ? (
                 <tr>
-                  <td colSpan={8} className="empty-cell">暂无运行中任务</td>
+                  <td colSpan={8} className="empty-cell">{t('processPage.empty.runningTasks')}</td>
                 </tr>
               ) : null}
             </tbody>
@@ -549,60 +594,63 @@ export function ProcessPageView({
         <div className="process-detail-backdrop" onClick={onCloseDetail}>
           <section className="panel process-detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="panel-header">
-              <h2>任务详情 {selectedCurrent ? selectedTaskId : `history#${selectedHistoryId}`}</h2>
+              <h2>
+                {t('processPage.section.taskDetail')}{' '}
+                {selectedCurrent ? selectedTaskId : formatTemplate('processPage.detail.historyId', { id: selectedHistoryId ?? '-' })}
+              </h2>
               <div className="inline-actions">
                 <button onClick={onRefreshSelectedTask} disabled={!selectedCurrent || isRefreshing}>
                   <RefreshCw size={14} />
-                  {selectedCurrent && isRefreshing ? '刷新中...' : '刷新'}
+                  {selectedCurrent && isRefreshing ? t('processPage.action.refreshing') : t('processPage.action.refresh')}
                 </button>
-                <button onClick={onCloseDetail}>关闭</button>
+                <button onClick={onCloseDetail}>{t('processPage.action.close')}</button>
               </div>
             </div>
             <div className="content-stack">
               <div>
-                <strong>状态：</strong>
+                <strong>{t('processPage.field.status')}：</strong>
                 <span className={statusClass(selectedCurrent ? (taskDetail?.status || selectedTask?.status) : selectedHistoryTask?.status)}>
                   {selectedCurrent ? (taskDetail?.status || selectedTask?.status || '-') : (selectedHistoryTask?.status || '-')}
                 </span>
               </div>
               <div>
-                <strong>来源：</strong>
+                <strong>{t('processPage.field.source')}：</strong>
                 {selectedSourceKind}
                 {selectedMeta?.item_key ? ` | item_key=${selectedMeta.item_key}` : ''}
                 {selectedMeta?.channel ? ` | channel=${selectedMeta.channel}` : ''}
                 {selectedMeta?.provider ? ` | provider=${selectedMeta.provider}` : ''}
               </div>
-              <div><strong>结果摘要：</strong>{selectedResultSummary}</div>
-              <div><strong>有效入库：</strong>{selectedRejectionView.insertedValid ?? '-'} {' | '}<strong>剔除：</strong>{selectedRejectionView.rejectedCount ?? '-'}</div>
-              <div><strong>主要剔除原因：</strong>{selectedRejectionView.topReason}</div>
-              <div><strong>轻过滤：</strong>{selectedLightFilterView.decision} {' | '}<strong>原因：</strong>{selectedLightFilterView.reason} {' | '}<strong>分数：</strong>{selectedLightFilterView.score ?? '-'} {' | '}<strong>向量化保留：</strong>{selectedLightFilterView.keep}</div>
+              <div><strong>{t('processPage.field.resultSummary')}：</strong>{selectedResultSummary}</div>
+              <div><strong>{t('processPage.field.insertedValid')}：</strong>{selectedRejectionView.insertedValid ?? '-'} {' | '}<strong>{t('processPage.field.rejected')}：</strong>{selectedRejectionView.rejectedCount ?? '-'}</div>
+              <div><strong>{t('processPage.field.topRejectionReason')}：</strong>{selectedRejectionView.topReason}</div>
+              <div><strong>{t('processPage.field.lightFilter')}：</strong>{selectedLightFilterView.decision} {' | '}<strong>{t('processPage.field.reason')}：</strong>{selectedLightFilterView.reason} {' | '}<strong>{t('processPage.field.score')}：</strong>{selectedLightFilterView.score ?? '-'} {' | '}<strong>{t('processPage.field.keepForVectorization')}：</strong>{selectedLightFilterView.keep}</div>
               <div>
-                <strong>剔除明细</strong>
+                <strong>{t('processPage.section.rejectionBreakdown')}</strong>
                 <pre style={detailPreStyle}>{Object.keys(selectedRejectionView.rejectionBreakdown).length ? stringifyBlock(selectedRejectionView.rejectionBreakdown) : '-'}</pre>
               </div>
-              <div><strong>Worker：</strong>{selectedCurrent ? (taskDetail?.worker || selectedTask?.worker || '-') : (selectedHistoryTask?.worker || '-')}</div>
-              <div><strong>Started：</strong>{formatDate(selectedCurrent ? (taskDetail?.started_at || selectedTask?.started_at) : selectedHistoryTask?.started_at)}</div>
+              <div><strong>{t('processPage.field.worker')}：</strong>{selectedCurrent ? (taskDetail?.worker || selectedTask?.worker || '-') : (selectedHistoryTask?.worker || '-')}</div>
+              <div><strong>{t('processPage.field.started')}：</strong>{formatDate(selectedCurrent ? (taskDetail?.started_at || selectedTask?.started_at) : selectedHistoryTask?.started_at, locale)}</div>
               {!selectedCurrent ? (
                 <>
-                  <div><strong>Finished：</strong>{formatDate(selectedHistoryTask?.finished_at)}</div>
-                  <div><strong>Duration(s)：</strong>{selectedHistoryTask?.duration_seconds != null ? selectedHistoryTask.duration_seconds.toFixed(1) : '-'}</div>
-                  <div><strong>job_type：</strong>{selectedHistoryTask?.job_type || '-'}</div>
+                  <div><strong>{t('processPage.field.finished')}：</strong>{formatDate(selectedHistoryTask?.finished_at, locale)}</div>
+                  <div><strong>{t('processPage.field.durationSeconds')}：</strong>{selectedHistoryTask?.duration_seconds != null ? selectedHistoryTask.duration_seconds.toFixed(1) : '-'}</div>
+                  <div><strong>{t('processPage.field.jobType')}：</strong>{selectedHistoryTask?.job_type || '-'}</div>
                 </>
               ) : null}
-              <div><strong>display_meta</strong><pre style={detailPreStyle}>{stringifyBlock(selectedMeta)}</pre></div>
+              <div><strong>{t('processPage.field.displayMeta')}</strong><pre style={detailPreStyle}>{stringifyBlock(selectedMeta)}</pre></div>
               {selectedCurrent ? (
                 <>
-                  <div><strong>args</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.args || selectedTask?.args)}</pre></div>
-                  <div><strong>kwargs</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.kwargs || selectedTask?.kwargs)}</pre></div>
-                  <div><strong>progress</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.progress || selectedTask?.progress)}</pre></div>
-                  <div><strong>result</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.result)}</pre></div>
-                  <div><strong>traceback</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.traceback || selectedTask?.traceback)}</pre></div>
-                  <div><strong>logs (tail 200)</strong><pre style={detailPreStyle}>{taskLogsError ? '日志加载失败' : stringifyBlock(taskLogsText)}</pre></div>
+                  <div><strong>{t('processPage.field.args')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.args || selectedTask?.args)}</pre></div>
+                  <div><strong>{t('processPage.field.kwargs')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.kwargs || selectedTask?.kwargs)}</pre></div>
+                  <div><strong>{t('processPage.field.progress')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.progress || selectedTask?.progress)}</pre></div>
+                  <div><strong>{t('processPage.field.resultRaw')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.result)}</pre></div>
+                  <div><strong>{t('processPage.field.traceback')}</strong><pre style={detailPreStyle}>{stringifyBlock(taskDetail?.traceback || selectedTask?.traceback)}</pre></div>
+                  <div><strong>{t('processPage.field.logsTail')}</strong><pre style={detailPreStyle}>{taskLogsError ? t('processPage.error.logsFailed') : stringifyBlock(taskLogsText)}</pre></div>
                 </>
               ) : (
                 <>
-                  <div><strong>params</strong><pre style={detailPreStyle}>{stringifyBlock(selectedHistoryTask?.params)}</pre></div>
-                  <div><strong>error</strong><pre style={detailPreStyle}>{stringifyBlock(selectedHistoryTask?.error)}</pre></div>
+                  <div><strong>{t('processPage.field.params')}</strong><pre style={detailPreStyle}>{stringifyBlock(selectedHistoryTask?.params)}</pre></div>
+                  <div><strong>{t('processPage.field.error')}</strong><pre style={detailPreStyle}>{stringifyBlock(selectedHistoryTask?.error)}</pre></div>
                 </>
               )}
             </div>
@@ -612,11 +660,11 @@ export function ProcessPageView({
 
       <section className="panel">
         <div className="panel-header">
-          <h2>任务历史</h2>
+          <h2>{t('processPage.section.taskHistory')}</h2>
           <div className="inline-actions">
             <button onClick={onRefreshHistory} disabled={isRefreshing}>
               <RefreshCw size={14} />
-              {isRefreshing ? '刷新中...' : '刷新'}
+              {isRefreshing ? t('processPage.action.refreshing') : t('processPage.action.refresh')}
             </button>
           </div>
         </div>
@@ -625,17 +673,17 @@ export function ProcessPageView({
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>类型</th>
-                <th>状态</th>
-                <th>开始</th>
-                <th>结束</th>
-                <th>耗时(秒)</th>
-                <th>结果</th>
-                <th>有效入库</th>
-                <th>剔除</th>
-                <th>主要剔除原因</th>
-                <th>操作</th>
+                <th>{t('processPage.field.id')}</th>
+                <th>{t('processPage.field.type')}</th>
+                <th>{t('processPage.field.status')}</th>
+                <th>{t('processPage.field.start')}</th>
+                <th>{t('processPage.field.end')}</th>
+                <th>{t('processPage.field.durationSeconds')}</th>
+                <th>{t('processPage.field.result')}</th>
+                <th>{t('processPage.field.insertedValid')}</th>
+                <th>{t('processPage.field.rejected')}</th>
+                <th>{t('processPage.field.topRejectionReason')}</th>
+                <th>{t('processPage.field.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -649,16 +697,16 @@ export function ProcessPageView({
                     <td>{row.id}</td>
                     <td>{row.job_type || '-'}</td>
                     <td><span className={statusClass(row.status)}>{row.status || '-'}</span></td>
-                    <td>{formatDate(row.started_at)}</td>
-                    <td>{formatDate(row.finished_at)}</td>
+                    <td>{formatDate(row.started_at, locale)}</td>
+                    <td>{formatDate(row.finished_at, locale)}</td>
                     <td>{row.duration_seconds != null ? row.duration_seconds.toFixed(1) : '-'}</td>
-                    <td>{buildResultSummary({ display_meta: row.display_meta as Record<string, unknown> | null, params: row.params || null })}</td>
+                    <td>{buildResultSummary({ display_meta: row.display_meta as Record<string, unknown> | null, params: row.params || null }, summaryLabels)}</td>
                     <td>{rowRejectionView.insertedValid ?? '-'}</td>
                     <td>{rowRejectionView.rejectedCount ?? '-'}</td>
                     <td>{rowRejectionView.topReason}</td>
                     <td>
                       <button onClick={() => onToggleHistoryDetail(Number(row.id))}>
-                        {selectedHistoryId === Number(row.id) ? '收起' : '详情'}
+                        {selectedHistoryId === Number(row.id) ? t('processPage.action.collapse') : t('processPage.action.details')}
                       </button>
                     </td>
                   </tr>
@@ -666,7 +714,7 @@ export function ProcessPageView({
               })}
               {!processHistory?.history?.length ? (
                 <tr>
-                  <td colSpan={11} className="empty-cell">暂无历史数据</td>
+                  <td colSpan={11} className="empty-cell">{t('processPage.empty.history')}</td>
                 </tr>
               ) : null}
             </tbody>

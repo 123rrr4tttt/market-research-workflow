@@ -37,6 +37,11 @@ from .social_view import (
     get_social_sentiment_terms,
     get_social_text,
 )
+from .stats_view import (
+    get_prompt_time_density_fields,
+    get_prompt_time_density_group,
+    get_prompt_time_density_source_domain,
+)
 from .writing_card_view import (
     build_keyword_card,
     build_keyword_card_from_graph_node,
@@ -75,6 +80,9 @@ __all__ = [
     "get_policy_state",
     "get_policy_summary_text",
     "get_policy_type",
+    "get_prompt_time_density_fields",
+    "get_prompt_time_density_group",
+    "get_prompt_time_density_source_domain",
     "get_relations",
     "get_social_entities",
     "get_social_identity",

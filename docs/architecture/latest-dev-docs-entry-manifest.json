@@ -140,8 +140,52 @@
       "target_root": "docs/architecture/development-plans",
       "shim": "docs/architecture/development-plans/README.md",
       "target_role": "architecture-target-entry-manifest",
-      "compatibility_entry": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/INDEX.md",
-      "status": "content_shim"
+      "compatibility_entry": "development/latest-dev-docs/development-plans/A_ARCHITECTURE",
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/05_plans_project-standardization-development-directions-2026-03-01.md",
+          "target": "docs/architecture/development-plans/A_ARCHITECTURE/05_plans_project-standardization-development-directions-2026-03-01.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/05_plans_project-standardization-development-directions-2026-03-01.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/06_main_backend_docs_RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md",
+          "target": "docs/architecture/development-plans/A_ARCHITECTURE/06_main_backend_docs_RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/06_main_backend_docs_RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/07_main_backend_docs_UNIFIED_SEARCH_ENHANCEMENT_PLAN.md",
+          "target": "docs/architecture/development-plans/A_ARCHITECTURE/07_main_backend_docs_UNIFIED_SEARCH_ENHANCEMENT_PLAN.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/07_main_backend_docs_UNIFIED_SEARCH_ENHANCEMENT_PLAN.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/08_main_backend_docs_DOC_MERGE_PLAN.md",
+          "target": "docs/architecture/development-plans/A_ARCHITECTURE/08_main_backend_docs_DOC_MERGE_PLAN.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/08_main_backend_docs_DOC_MERGE_PLAN.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/11_main_backend_docs_NUMERIC_DATA_HOMOGENIZATION_ROADMAP.md",
+          "target": "docs/architecture/development-plans/A_ARCHITECTURE/11_main_backend_docs_NUMERIC_DATA_HOMOGENIZATION_ROADMAP.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/11_main_backend_docs_NUMERIC_DATA_HOMOGENIZATION_ROADMAP.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/INDEX.md",
+          "target": "docs/architecture/development-plans/A_ARCHITECTURE/INDEX.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/A_ARCHITECTURE/INDEX.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "ops-frontend-architecture-tree",

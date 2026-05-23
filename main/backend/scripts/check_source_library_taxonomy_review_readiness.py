@@ -29,10 +29,30 @@ from app.services.source_library.relevance_review import build_taxonomy_review_r
 from app.services.source_library.types import FrontDoorExecutionProtocol  # noqa: E402
 
 
+CURRENT_DEV_ROOT = Path("development/latest-dev-docs/development-plans/CURRENT_DEV")
+ARCHIVE_EXTERNAL_BLOCKED_ROOT = Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED")
+
+
+def _evidence_doc_candidates(topic_dir: str, filename: str) -> tuple[Path, Path]:
+    return (
+        ARCHIVE_EXTERNAL_BLOCKED_ROOT / topic_dir / filename,
+        CURRENT_DEV_ROOT / topic_dir / filename,
+    )
+
+
 EVIDENCE_DOCS = [
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/09_wave14-taxonomy-review-readiness-2026-05-22.md",
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/05_wave14-taxonomy-review-readiness-2026-05-22.md",
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/15_wave14-taxonomy-review-readiness-2026-05-22.md",
+    _evidence_doc_candidates(
+        "2026-03-11-source-library-three-lane-architecture",
+        "09_wave14-taxonomy-review-readiness-2026-05-22.md",
+    ),
+    _evidence_doc_candidates(
+        "2026-03-14-search-chain-source-library-mounting-audit",
+        "05_wave14-taxonomy-review-readiness-2026-05-22.md",
+    ),
+    _evidence_doc_candidates(
+        "2026-03-14-source-library-adapter-capability-remediation",
+        "15_wave14-taxonomy-review-readiness-2026-05-22.md",
+    ),
 ]
 FORBIDDEN_SHARED_INDEXES = {
     "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
@@ -43,11 +63,18 @@ FORBIDDEN_SHARED_INDEXES = {
 }
 
 
-def _read(root: Path, relative: str) -> str:
+def _read(root: Path, relative: Path | str) -> str:
     path = root / relative
     if not path.is_file():
         return ""
     return path.read_text(encoding="utf-8")
+
+
+def _resolve_existing_relative(root: Path, candidates: tuple[Path, ...]) -> Path:
+    for relative in candidates:
+        if (root / relative).is_file():
+            return relative
+    return candidates[0]
 
 
 def _require(condition: bool, errors: list[str], message: str) -> None:
@@ -331,7 +358,8 @@ def _build_adapter_capability_check(errors: list[str]) -> dict[str, Any]:
 
 def _build_doc_check(root: Path, errors: list[str]) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
-    for relative in EVIDENCE_DOCS:
+    for candidates in EVIDENCE_DOCS:
+        relative = _resolve_existing_relative(root, candidates)
         text = _read(root, relative)
         exists = bool(text)
         has_contract = TAXONOMY_REVIEW_READINESS_CONTRACT_VERSION in text
@@ -343,17 +371,18 @@ def _build_doc_check(root: Path, errors: list[str]) -> dict[str, Any]:
         )
         rows.append(
             {
-                "path": relative,
+                "path": relative.as_posix(),
+                "candidate_paths": [path.as_posix() for path in candidates],
                 "exists": exists,
                 "taxonomy_contract_mentioned": has_contract,
                 "review_queue_contract_mentioned": has_queue,
                 "readiness_markers_present": has_markers,
             }
         )
-        _require(exists, errors, f"missing topic evidence doc: {relative}")
-        _require(has_contract, errors, f"evidence doc missing taxonomy readiness contract: {relative}")
-        _require(has_queue, errors, f"evidence doc missing review queue contract: {relative}")
-        _require(has_markers, errors, f"evidence doc missing readiness/non-closure markers: {relative}")
+        _require(exists, errors, f"missing topic evidence doc: {relative.as_posix()}")
+        _require(has_contract, errors, f"evidence doc missing taxonomy readiness contract: {relative.as_posix()}")
+        _require(has_queue, errors, f"evidence doc missing review queue contract: {relative.as_posix()}")
+        _require(has_markers, errors, f"evidence doc missing readiness/non-closure markers: {relative.as_posix()}")
     return {"docs": rows, "forbidden_shared_indexes": sorted(FORBIDDEN_SHARED_INDEXES)}
 
 

@@ -8,7 +8,10 @@
 4. [05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md](./05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md)
 5. [06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md](./06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md)
 6. [07_wave9-worker4-document-queries-contract-2026-05-22.md](./07_wave9-worker4-document-queries-contract-2026-05-22.md)
-7. [10_wave17-policy-state-query-boundary-2026-05-22.md](./10_wave17-policy-state-query-boundary-2026-05-22.md)
+7. [08_wave11-structured-consumer-query-extraction-evidence-2026-05-22.md](./08_wave11-structured-consumer-query-extraction-evidence-2026-05-22.md)
+8. [09_wave13-structured-search-endpoint-contract-2026-05-22.md](./09_wave13-structured-search-endpoint-contract-2026-05-22.md)
+9. [10_wave17-policy-state-query-boundary-2026-05-22.md](./10_wave17-policy-state-query-boundary-2026-05-22.md)
+10. [11_wave20-document-query-endpoint-slice-2026-05-22.md](./11_wave20-document-query-endpoint-slice-2026-05-22.md)
 
 ## 使用顺序
 
@@ -29,3 +32,4 @@
 - 2026-03-14 已补充来源库优先的统一质检前门原子任务清单，作为下一阶段实施主入口。
 - 2026-05-22 Wave9 worker 4 已补齐 `document_queries.v1` 最小契约层：稳定 query/filter/sort/result envelope，并保留 writing keyword-card 与 `document_views` 旧消费 row 兼容。
 - 2026-05-22 Wave17 worker 8 已将 `/policies/state/{state}` 的状态 predicate 与时间表达式收口到 `document_queries.policy_filters`，作为非 admin/dashboard query boundary 的增量迁移证据。
+- 2026-05-22 Wave20 worker 6 已将 `project.structured_data.search` 成功响应增加 `document_queries.v1` 投影，作为低风险 query-service endpoint slice；更多 endpoint 与 DB statement builder 仍保留为后续边界。

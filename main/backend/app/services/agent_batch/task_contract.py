@@ -8,6 +8,9 @@ AGENT_BATCH_SEARCH_POLICY_CONTRACT_VERSION = "agent_batch.search_policy.v1"
 AGENT_BATCH_SEARCH_QUALITY_REPLAY_CONTRACT_VERSION = "agent_batch.search_quality_replay.v1"
 AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION = "agent_batch.provider_quality_readiness.v1"
 AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION = "agent_batch.live_quality_threshold.v1"
+AGENT_BATCH_QUALITY_PROMOTION_READBACK_CONTRACT_VERSION = (
+    "agent_batch.quality_promotion_readback.v1"
+)
 
 _TASK_OPTIONAL_KEYS = [
     "task_id",
@@ -326,6 +329,70 @@ _LIVE_QUALITY_THRESHOLD_SCHEMA = {
     ],
 }
 
+_QUALITY_PROMOTION_READBACK_SCHEMA = {
+    "contract_version": AGENT_BATCH_QUALITY_PROMOTION_READBACK_CONTRACT_VERSION,
+    "artifact": "quality_promotion_readback",
+    "scope": "provider_independent_symbolic_quality_promotion_readback",
+    "required_keys": [
+        "scope",
+        "fixture_search_brief",
+        "critic_score_readback",
+        "bounded_retry_readback",
+        "quality_threshold_readback",
+        "promotion_decision",
+        "promotion_decision_readback",
+        "provider_independent_boundary",
+        "unsupported_promotion_claims",
+        "remaining_live_gaps",
+    ],
+    "fixture_search_brief_required_keys": [
+        "case_id",
+        "intent",
+        "goal",
+        "coverage_axes",
+        "time_strategy",
+        "search_strategy_count",
+        "candidate_items",
+    ],
+    "critic_score_required_keys": [
+        "case_id",
+        "score",
+        "score_threshold",
+        "next_action",
+        "reason_codes",
+        "retry_score_source",
+    ],
+    "bounded_retry_required_keys": [
+        "enabled",
+        "retry_budget",
+        "max_retry_rounds",
+        "retry_allowed_count",
+        "retry_blocked_count",
+        "replay_score_is_observational",
+    ],
+    "quality_threshold_required_keys": [
+        "threshold_status",
+        "fixture_threshold_status",
+        "live_provider_replay_closed",
+        "quality_claim_allowed",
+    ],
+    "promotion_decision_required_keys": [
+        "decision_id",
+        "decision",
+        "promotion_allowed",
+        "provider_auto_promotion_allowed",
+        "reason_codes",
+        "required_next_evidence",
+    ],
+    "promotion_decision_readback_required_keys": [
+        "readback_performed",
+        "readback_matches_decision",
+        "promotion_allowed",
+        "provider_auto_promotion_allowed",
+        "decision_digest",
+    ],
+}
+
 _RETRY_ACTION_REQUIRED_REWRITE_FIELDS = {
     "expand_query_terms": ["query_terms"],
     "narrow_query_terms": ["query_terms"],
@@ -527,6 +594,10 @@ def build_live_quality_threshold_schema() -> dict[str, Any]:
     return deepcopy(_LIVE_QUALITY_THRESHOLD_SCHEMA)
 
 
+def build_quality_promotion_readback_schema() -> dict[str, Any]:
+    return deepcopy(_QUALITY_PROMOTION_READBACK_SCHEMA)
+
+
 def build_retry_action_schema() -> dict[str, Any]:
     return deepcopy(_RETRY_ACTION_SCHEMA)
 
@@ -656,6 +727,7 @@ def build_search_policy_contract() -> dict[str, Any]:
         "quality_replay": build_search_quality_replay_schema(),
         "provider_quality_readiness": build_provider_quality_readiness_schema(),
         "live_quality_threshold": build_live_quality_threshold_schema(),
+        "quality_promotion_readback": build_quality_promotion_readback_schema(),
         "retry_action": build_retry_action_schema(),
         "rewrite_eligible_fields_by_channel": get_rewrite_eligible_fields_by_channel(),
         "defaults": get_search_policy_defaults(),

@@ -19,7 +19,7 @@ Related execution plans:
 - [wave19-worktree-plan-2026-05-22.md](./wave19-worktree-plan-2026-05-22.md) - Wave19 ten-agent provider manifest / health schema / rollout / migration tree, supervisor reconciliation, and status evidence gate.
 - [wave19-agent-roster-2026-05-22.md](./wave19-agent-roster-2026-05-22.md) - Wave19 subagent branch roster; all 10 workers are closed after merge.
 - [wave20-worktree-plan-2026-05-22.md](./wave20-worktree-plan-2026-05-22.md) - Wave20 ten-agent time / OpenClaw / graph-editing / scheduler / quality / modularization / frontend / docs-root tree.
-- [wave20-agent-roster-2026-05-22.md](./wave20-agent-roster-2026-05-22.md) - Wave20 subagent branch roster; active until every completed, failed, or superseded worker is closed.
+- [wave20-agent-roster-2026-05-22.md](./wave20-agent-roster-2026-05-22.md) - Wave20 subagent branch roster; all isolated workers are closed after merge; first shared-worktree launch is marked superseded_closed.
 
 ## Wave16 Addendum
 
@@ -60,11 +60,12 @@ Wave19 keeps the Wave18 `CURRENT_DEV` count shape and advances another repo-loca
 
 ## Wave20 Addendum
 
-Wave20 starts from the Wave19 `CURRENT_DEV` count shape and targets another repo-local implementation batch without over-claiming external closure.
+Wave20 keeps the Wave19 `CURRENT_DEV` count shape and advances another repo-local implementation batch without over-claiming external closure.
 
-- 10 worker branches are assigned in the Wave20 roster and must be closed or superseded before handoff.
-- No new directory is pre-marked as `ARCHIVE_CLOSED`; the expected starting state remains `partial:33`, `not_closed:0`, `no_closure_claim:0`.
-- Planned gates include time semantics provenance readback, OpenClaw mirror handoff, graph-editing audit conflict/rollback, long-cycle scheduler queue, agent-batch quality promotion, document-query endpoint slice, consumer facade slice, source-library review closure batch 4, next frontend i18n page slice, and docs-root content move batch 5.
+- 10 isolated worker branches were merged into the Wave20 integration branch and all completed subagents are marked `closed` in the roster; the first shared-worktree launch is marked `superseded_closed`.
+- No new directory moved to `ARCHIVE_CLOSED`; `CURRENT_DEV` remains `partial:33`, `not_closed:0`, `no_closure_claim:0`.
+- Landed gates include time semantics provenance readback, OpenClaw mirror handoff, graph-editing audit conflict/rollback, long-cycle scheduler queue, agent-batch quality promotion, document-query endpoint slice, consumer facade slice, source-library review closure batch 4, ProcessPage i18n migration, and docs-root content move batch 5.
+- Docs-root content-plan unsafe moves dropped from 6 to 5 after the fifth real moved-file batch.
 
 ## Summary
 

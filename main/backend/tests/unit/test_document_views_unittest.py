@@ -20,6 +20,9 @@ from app.services.document_views import (
     build_policy_summary,
     build_writing_conflict_details,
     get_market_data,
+    get_prompt_time_density_fields,
+    get_prompt_time_density_group,
+    get_prompt_time_density_source_domain,
     get_social_entities,
     get_social_keywords,
     get_social_platform_label,
@@ -114,6 +117,35 @@ class DocumentViewsUnitTestCase(unittest.TestCase):
         self.assertEqual(item["sentiment_orientation"], "positive")
         self.assertEqual(item["key_phrases"], ["jackpot"])
         self.assertEqual(item["entities"], [{"name": "Mega Millions"}])
+
+    def test_stats_view_builds_prompt_time_density_fields(self):
+        explicit = SimpleNamespace(
+            uri="https://ignored.example/doc",
+            extracted_data={
+                "source_time": "2026-03-02T12:00:00Z",
+                "prompt_group_id": " robotics ",
+                "source_domain": " Policy.Example ",
+                "policy": {
+                    "effective_date": "2026-03-03",
+                    "policy_type": "notice",
+                    "time_parse_version": "policy-v2",
+                },
+            },
+        )
+        fallback = SimpleNamespace(
+            uri="https://fallback.example/path",
+            extracted_data={"topic_cluster": "Automation"},
+        )
+
+        fields = get_prompt_time_density_fields(explicit)
+
+        self.assertEqual(fields["source_time"], "2026-03-02T12:00:00Z")
+        self.assertEqual(fields["policy_effective_date"], "2026-03-03")
+        self.assertEqual(fields["time_parse_version"], "policy-v2")
+        self.assertEqual(get_prompt_time_density_group(explicit), "robotics")
+        self.assertEqual(get_prompt_time_density_source_domain(explicit), "policy.example")
+        self.assertEqual(get_prompt_time_density_group(fallback), "Automation")
+        self.assertEqual(get_prompt_time_density_source_domain(fallback), "fallback.example")
 
     def test_writing_view_serializes_document_and_conflict_snapshot(self):
         row = SimpleNamespace(

@@ -1,11 +1,16 @@
-# development-plans A_ARCHITECTURE Index
+# development-plans A_ARCHITECTURE Index Compatibility Shim
 
-更新时间：2026-05-22（PST）
+> Status: compatibility shim.
+> Moved on: 2026-05-22 Wave20 docs-root content move batch 5.
 
-## Files
+The authoritative development-plans architecture content moved to:
 
-- [05_plans_project-standardization-development-directions-2026-03-01.md](./05_plans_project-standardization-development-directions-2026-03-01.md)
-- [06_main_backend_docs_RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md](./06_main_backend_docs_RESOURCE_LIBRARY_IMPLEMENTATION_PLAN.md)
-- [07_main_backend_docs_UNIFIED_SEARCH_ENHANCEMENT_PLAN.md](./07_main_backend_docs_UNIFIED_SEARCH_ENHANCEMENT_PLAN.md)
-- [08_main_backend_docs_DOC_MERGE_PLAN.md](./08_main_backend_docs_DOC_MERGE_PLAN.md)
-- [11_main_backend_docs_NUMERIC_DATA_HOMOGENIZATION_ROADMAP.md](./11_main_backend_docs_NUMERIC_DATA_HOMOGENIZATION_ROADMAP.md)
+- [docs/architecture/development-plans/A_ARCHITECTURE/INDEX.md](../../../../docs/architecture/development-plans/A_ARCHITECTURE/INDEX.md)
+
+This file remains only to preserve existing `development/latest-dev-docs` links until the supervisor integration lane updates shared navigation.
+
+Related local navigation:
+
+- [docs/architecture/development-plans/README.md](../../../../docs/architecture/development-plans/README.md)
+- [docs/architecture/latest-dev-docs-entry-manifest.json](../../../../docs/architecture/latest-dev-docs-entry-manifest.json)
+- [docs/architecture/latest-dev-docs-content-plan.json](../../../../docs/architecture/latest-dev-docs-content-plan.json)

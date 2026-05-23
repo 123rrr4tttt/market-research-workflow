@@ -60,6 +60,12 @@ from .search_endpoint import (
     build_search_endpoint_document_query,
     build_search_endpoint_document_query_envelope,
 )
+from .structured_data_search import (
+    STRUCTURED_DATA_SEARCH_CONSUMER,
+    STRUCTURED_DATA_SEARCH_SOURCE,
+    build_structured_data_search_document_query,
+    build_structured_data_search_document_query_envelope,
+)
 
 __all__ = [
     "DOCUMENT_QUERY_CONTRACT_VERSION",
@@ -111,5 +117,9 @@ __all__ = [
     "social_sentiment_orientation_condition",
     "build_search_endpoint_document_query",
     "build_search_endpoint_document_query_envelope",
+    "build_structured_data_search_document_query",
+    "build_structured_data_search_document_query_envelope",
+    "STRUCTURED_DATA_SEARCH_CONSUMER",
+    "STRUCTURED_DATA_SEARCH_SOURCE",
     "validate_document_query_result_envelope",
 ]

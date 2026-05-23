@@ -6,7 +6,6 @@ import logging
 import math
 import statistics
 from typing import Any
-from urllib.parse import urlparse
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -14,6 +13,11 @@ from sqlalchemy import select
 from ...models.base import SessionLocal
 from ...models.entities import Document, PromptTimePolicyDecisionLog
 from ..document_queries import prompt_time_density_time_expr
+from ..document_views import (
+    get_prompt_time_density_fields,
+    get_prompt_time_density_group,
+    get_prompt_time_density_source_domain,
+)
 
 _EPSILON = 1e-9
 _DEFAULT_WINDOWS = ["7d", "30d", "90d"]
@@ -39,16 +43,17 @@ def _parse_iso_day(value: Any) -> date | None:
 
 
 def resolve_document_effective_time_provenance(doc: Document) -> dict[str, Any]:
-    extracted = doc.extracted_data or {}
-    if not isinstance(extracted, dict):
-        extracted = {}
-    policy = extracted.get("policy") if isinstance(extracted.get("policy"), dict) else {}
+    prompt_time_fields = get_prompt_time_density_fields(doc)
     created_at = getattr(doc, "created_at", None)
     created_day = created_at.date() if created_at else None
     candidates = [
-        ("effective_time", "extracted_data.effective_time", extracted.get("effective_time")),
-        ("source_time", "extracted_data.source_time", extracted.get("source_time")),
-        ("policy_effective_date", "extracted_data.policy.effective_date", policy.get("effective_date")),
+        ("effective_time", "extracted_data.effective_time", prompt_time_fields.get("effective_time")),
+        ("source_time", "extracted_data.source_time", prompt_time_fields.get("source_time")),
+        (
+            "policy_effective_date",
+            "extracted_data.policy.effective_date",
+            prompt_time_fields.get("policy_effective_date"),
+        ),
         ("publish_date", "publish_date", getattr(doc, "publish_date", None)),
         ("created_at", "created_at", created_day),
     ]
@@ -79,8 +84,7 @@ def resolve_document_effective_time_provenance(doc: Document) -> dict[str, Any]:
         gap_markers.append("effective_day_unresolved")
 
     time_parse_version = (
-        _normalize_json_text(extracted.get("time_parse_version"))
-        or _normalize_json_text(policy.get("time_parse_version"))
+        _normalize_json_text(prompt_time_fields.get("time_parse_version"))
         or "policy-time-expr-v1"
     )
 
@@ -112,26 +116,11 @@ def _normalize_json_text(value: Any) -> str | None:
 
 
 def _prompt_group_of(doc: Document) -> str:
-    extracted = doc.extracted_data or {}
-    return (
-        _normalize_json_text(extracted.get("prompt_group_id"))
-        or _normalize_json_text(extracted.get("topic_cluster"))
-        or _normalize_json_text(extracted.get("topic"))
-        or _normalize_json_text((extracted.get("policy") or {}).get("policy_type"))
-        or "unknown"
-    )
+    return get_prompt_time_density_group(doc)
 
 
 def _source_domain_of(doc: Document) -> str:
-    extracted = doc.extracted_data or {}
-    source_domain = _normalize_json_text(extracted.get("source_domain"))
-    if source_domain:
-        return source_domain.lower()
-    uri = str(doc.uri or "").strip()
-    if not uri:
-        return "unknown"
-    host = urlparse(uri).netloc.strip().lower()
-    return host or "unknown"
+    return get_prompt_time_density_source_domain(doc)
 
 
 def _bucket_of(day: date, bucket: str) -> date:

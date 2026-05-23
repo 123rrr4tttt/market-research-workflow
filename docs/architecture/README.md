@@ -1,7 +1,7 @@
 # Architecture Documentation Root
 
 > Date: 2026-05-22
-> Status: target root prepared; first content shim batch points to `development/latest-dev-docs`
+> Status: partial moved-file batches; shared navigation remains compatibility-bound
 
 ## Purpose
 
@@ -22,13 +22,17 @@ The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuri
 
 The first content shim batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries keep `development/latest-dev-docs` as the content authority while the README shims under this root provide readable pointers to the current compatibility entries. Shared navigation still belongs to the integration lane.
 
-The bounded content-plan gate is recorded in [latest-dev-docs-content-plan.json](./latest-dev-docs-content-plan.json) and checked by [scripts/checkers/check_docs_root_content_plan.py](../../scripts/checkers/check_docs_root_content_plan.py). Wave16 now allows a validated `moved_file_batch` for the low-ambiguity backend-core architecture README while keeping remaining broad moves blocked by shared navigation and `MERGED_OVERVIEW` drift.
+The bounded content-plan gate is recorded in [latest-dev-docs-content-plan.json](./latest-dev-docs-content-plan.json) and checked by [scripts/checkers/check_docs_root_content_plan.py](../../scripts/checkers/check_docs_root_content_plan.py). Wave20 now records validated `moved_file_batch` entries for backend-core, root-plans, ops-frontend, backend-docs, and development-plans architecture content while keeping docs-root migration blocked by shared navigation, CURRENT_DEV status sync, and `MERGED_OVERVIEW` drift where still applicable.
 
-## Wave16 Moved Content Batch
+## Moved Content Batches Through Wave20
 
 | Target root | Authoritative content | Compatibility shim | Manifest entry |
 |---|---|---|---|
 | `docs/architecture/backend-core` | [docs/architecture/backend-core/A_ARCHITECTURE/README.backend-core.md](./backend-core/A_ARCHITECTURE/README.backend-core.md) | [development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md](../../development/latest-dev-docs/backend-core/A_ARCHITECTURE/README.backend-core.md) | `backend-core-architecture-tree` |
+| `docs/architecture/root-plans` | [docs/architecture/root-plans/A_ARCHITECTURE/README.md](./root-plans/A_ARCHITECTURE/README.md) | [development/latest-dev-docs/root-plans/A_ARCHITECTURE/README.md](../../development/latest-dev-docs/root-plans/A_ARCHITECTURE/README.md) | `root-plans-architecture-tree` |
+| `docs/architecture/ops-frontend` | [docs/architecture/ops-frontend/A_ARCHITECTURE/frontend-modern-README.md](./ops-frontend/A_ARCHITECTURE/frontend-modern-README.md) | [development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/frontend-modern-README.md](../../development/latest-dev-docs/ops-frontend/A_ARCHITECTURE/frontend-modern-README.md) | `ops-frontend-architecture-tree` |
+| `docs/architecture/backend-docs` | [docs/architecture/backend-docs/A_ARCHITECTURE/API_CONTRACT_STANDARD.md](./backend-docs/A_ARCHITECTURE/API_CONTRACT_STANDARD.md) | [development/latest-dev-docs/backend-docs/A_ARCHITECTURE/API_CONTRACT_STANDARD.md](../../development/latest-dev-docs/backend-docs/A_ARCHITECTURE/API_CONTRACT_STANDARD.md) | `backend-docs-architecture-tree` |
+| `docs/architecture/development-plans` | [docs/architecture/development-plans/A_ARCHITECTURE/INDEX.md](./development-plans/A_ARCHITECTURE/INDEX.md) | [development/latest-dev-docs/development-plans/A_ARCHITECTURE/INDEX.md](../../development/latest-dev-docs/development-plans/A_ARCHITECTURE/INDEX.md) | `development-plans-architecture-tree` |
 
 ## Target Routing
 

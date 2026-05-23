@@ -140,16 +140,16 @@
   },
   "topic_coverage": {
     "adapter_capability": {
-      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/17_wave18-review-closure-batch2-2026-05-22.md"
+      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/17_wave18-review-closure-batch2-2026-05-22.md"
     },
     "minimal_migration": {
       "wave18_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/14_wave18-review-closure-batch2-2026-05-22.md"
     },
     "search_chain": {
-      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-14-search-chain-source-library-mounting-audit/07_wave18-review-closure-batch2-2026-05-22.md"
+      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/07_wave18-review-closure-batch2-2026-05-22.md"
     },
     "three_lane": {
-      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/11_wave18-review-closure-batch2-2026-05-22.md"
+      "wave18_evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/11_wave18-review-closure-batch2-2026-05-22.md"
     }
   }
 }
