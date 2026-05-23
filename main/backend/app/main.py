@@ -103,10 +103,46 @@ _REQUEST_LOGGER = logging.getLogger("app.request")
 _ERROR_LOGGER = logging.getLogger("app.error")
 _API_PREFIX = "/api/v1/"
 _API_CONTRACT_EXEMPT_PATHS = {"/api/v1/health", "/api/v1/health/deep"}
+_ZERO_TRACE_ID = "0" * 32
+_ZERO_PARENT_ID = "0" * 16
 
 
 def _is_contract_api_path(path: str) -> bool:
     return path.startswith(_API_PREFIX) and path not in _API_CONTRACT_EXEMPT_PATHS
+
+
+def _is_lower_hex(value: str, length: int) -> bool:
+    return len(value) == length and all(char in "0123456789abcdef" for char in value)
+
+
+def _trace_id_from_traceparent(value: str | None) -> str | None:
+    if not value:
+        return None
+    parts = value.strip().split("-")
+    if len(parts) != 4:
+        return None
+    version, trace_id, parent_id, flags = (part.lower() for part in parts)
+    if not _is_lower_hex(version, 2):
+        return None
+    if not _is_lower_hex(trace_id, 32) or trace_id == _ZERO_TRACE_ID:
+        return None
+    if not _is_lower_hex(parent_id, 16) or parent_id == _ZERO_PARENT_ID:
+        return None
+    if not _is_lower_hex(flags, 2):
+        return None
+    return trace_id
+
+
+def _resolve_request_trace_id(request: Request, request_id: str | None = None) -> str | None:
+    header_trace_id = (request.headers.get("X-Trace-Id") or "").strip()
+    if header_trace_id:
+        return header_trace_id
+    traceparent_trace_id = _trace_id_from_traceparent(request.headers.get("traceparent"))
+    if traceparent_trace_id:
+        return traceparent_trace_id
+    if request_id:
+        return request_id
+    return None
 
 
 def _build_error_payload(
@@ -122,7 +158,8 @@ def _build_error_payload(
         or None
     )
     request_id = (request.headers.get("X-Request-Id") or "").strip() or None
-    meta = ApiMetaModel(trace_id=request_id, project_key=project_key)
+    trace_id = getattr(request.state, "trace_id", None) or _resolve_request_trace_id(request, request_id)
+    meta = ApiMetaModel(trace_id=trace_id, project_key=project_key)
     return fail(code, message, details=details, meta=meta)
 
 
@@ -172,6 +209,7 @@ def _maybe_wrap_success_json_response(
     response: Response,
     *,
     request_id: str,
+    trace_id: str,
     project_key: str,
 ) -> Response:
     if not _is_contract_api_path(request.url.path):
@@ -195,7 +233,7 @@ def _maybe_wrap_success_json_response(
     if _is_already_envelope(payload):
         return response
 
-    meta = ApiMetaModel(trace_id=request_id, project_key=project_key)
+    meta = ApiMetaModel(trace_id=trace_id, project_key=project_key)
     wrapped = ok(payload, meta=meta)
     wrapped_response = JSONResponse(status_code=response.status_code, content=wrapped)
     for k, v in response.headers.items():
@@ -354,7 +392,10 @@ async def metrics_middleware(request: Request, call_next):
     project_key, project_key_source, project_key_is_fallback = _resolve_request_project_context(request)
     effective_project_key_mode = get_effective_project_key_enforcement_mode()
     request_id = (request.headers.get("X-Request-Id") or "").strip() or str(uuid.uuid4())
+    trace_id = _resolve_request_trace_id(request, request_id) or request_id
     start = time.perf_counter()
+    request.state.request_id = request_id
+    request.state.trace_id = trace_id
     request.state.project_key_resolved = project_key
     request.state.project_key_source = project_key_source
     request.state.project_key_is_fallback = project_key_is_fallback
@@ -364,11 +405,13 @@ async def metrics_middleware(request: Request, call_next):
         request,
         response,
         request_id=request_id,
+        trace_id=trace_id,
         project_key=project_key,
     )
     elapsed = time.perf_counter() - start
     endpoint = request.url.path
     response.headers["X-Request-Id"] = request_id
+    response.headers["X-Trace-Id"] = trace_id
     response.headers["X-Project-Key-Resolved"] = project_key
     response.headers["X-Project-Key-Source"] = project_key_source
     response.headers["X-Project-Key-Enforcement-Mode"] = effective_project_key_mode

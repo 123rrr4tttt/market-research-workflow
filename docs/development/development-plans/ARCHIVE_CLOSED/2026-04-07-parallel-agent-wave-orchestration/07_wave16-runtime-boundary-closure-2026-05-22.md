@@ -33,7 +33,7 @@ Inputs checked:
 - [../../../../../codex_settings/AGENTS.md](../../../../../codex_settings/AGENTS.md)
 - [../../../../../codex_settings/scripts/swarm_file_bootstrap.sh](../../../../../codex_settings/scripts/swarm_file_bootstrap.sh)
 - [../../../../../codex_settings/scripts/swarm.sh](../../../../../codex_settings/scripts/swarm.sh)
-- [../../../automation-runs/dev-docs-folder-audit-2026-05-22/wave16-worktree-plan-2026-05-22.md](../../../automation-runs/dev-docs-folder-audit-2026-05-22/wave16-worktree-plan-2026-05-22.md)
+- [../../../../../development/latest-dev-docs/automation-runs/dev-docs-folder-audit-2026-05-22/wave16-worktree-plan-2026-05-22.md](../../../../../development/latest-dev-docs/automation-runs/dev-docs-folder-audit-2026-05-22/wave16-worktree-plan-2026-05-22.md)
 
 ## Boundary Decision
 

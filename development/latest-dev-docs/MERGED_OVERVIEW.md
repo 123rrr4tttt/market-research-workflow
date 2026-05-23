@@ -23,13 +23,15 @@ Updated: 2026-05-23 PST
 
 - `CURRENT_DEV` 的当前剩余状态以 [development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md) 为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
 - Target-topic scope 以 [development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json) 与 [Wave36 target-topic evidence profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md) 为准：当前 61 个 target topics（`closed:26 / external_blocked:29 / retired:6 / active_current:0`）、17 个 non-target roots；过程记录、导航分类与外部参考不计入 closure 指标。
-- Four-state review summary 以 [Wave37 target review status](./automation-runs/wave37-target-review-status/2026-05-23/README.md) 为准：`unsealed:0 / sealed:49 / outdated:6 / needs_update:6`。
+- Four-state review summary 以 [Wave39 target review zero needs update](./automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`。
 - “最近新增”中的 Wave21-Wave34 条目是 historical wave log；历史 `partial` 计数只说明当时的迁档进度，不应作为当前未封口数量读取。
 
 ## 最近新增
 
 - `development-plans`：
   - [2026-05-23 Wave37 Target Review Status](./automation-runs/wave37-target-review-status/2026-05-23/README.md)
+  - [2026-05-23 Wave38 Target Review Closure](./automation-runs/wave38-target-review-closure/2026-05-23/README.md)
+  - [2026-05-23 Wave39 Target Review Zero Needs Update](./automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md)
   - [2026-05-23 Wave36 Target Topic Evidence Profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)
   - [2026-05-23 Wave34 Docs Root Physical Archive](./automation-runs/wave34-docs-root-physical-archive/2026-05-23/README.md)
   - [2026-05-23 Wave33 External-Blocked Revalidation](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-23-wave33-external-blocked-revalidation.md)
@@ -69,6 +71,8 @@ Updated: 2026-05-23 PST
   - [Historical Wave21 CURRENT_DEV status snapshot; current canonical status is in CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md)
 - `automation-runs`：
   - [2026-05-23 Wave37 Target Review Status](./automation-runs/wave37-target-review-status/2026-05-23/README.md)
+  - [2026-05-23 Wave38 Target Review Closure](./automation-runs/wave38-target-review-closure/2026-05-23/README.md)
+  - [2026-05-23 Wave39 Target Review Zero Needs Update](./automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md)
   - [2026-05-23 Wave36 Target Topic Evidence Profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)
   - [2026-05-23 Wave30 Vector Closure Gate](./automation-runs/wave30-vector-closure-gate/2026-05-23/README.md)
   - [2026-05-23 Wave27 Structured / Consumer Closure Gate](./automation-runs/wave27-structured-consumer-closure/2026-05-23/README.md)

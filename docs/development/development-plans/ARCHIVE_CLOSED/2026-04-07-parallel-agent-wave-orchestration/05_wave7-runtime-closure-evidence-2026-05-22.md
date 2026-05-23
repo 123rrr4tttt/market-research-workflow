@@ -33,8 +33,8 @@ Inputs checked:
 - [../../../../../codex_settings/AGENTS.md](../../../../../codex_settings/AGENTS.md)
 - [../../../../../codex_settings/scripts/swarm_file_bootstrap.sh](../../../../../codex_settings/scripts/swarm_file_bootstrap.sh)
 - [../../../../../codex_settings/scripts/swarm.sh](../../../../../codex_settings/scripts/swarm.sh)
-- [../../../automation-runs/dev-docs-folder-audit-2026-05-22/parallel-plan-tree-2026-05-22.md](../../../automation-runs/dev-docs-folder-audit-2026-05-22/parallel-plan-tree-2026-05-22.md)
-- [../../../automation-runs/dev-docs-folder-audit-2026-05-22/worktree-branch-plan.md](../../../automation-runs/dev-docs-folder-audit-2026-05-22/worktree-branch-plan.md)
+- [../../../../../development/latest-dev-docs/automation-runs/dev-docs-folder-audit-2026-05-22/parallel-plan-tree-2026-05-22.md](../../../../../development/latest-dev-docs/automation-runs/dev-docs-folder-audit-2026-05-22/parallel-plan-tree-2026-05-22.md)
+- [../../../../../development/latest-dev-docs/automation-runs/dev-docs-folder-audit-2026-05-22/worktree-branch-plan.md](../../../../../development/latest-dev-docs/automation-runs/dev-docs-folder-audit-2026-05-22/worktree-branch-plan.md)
 - [../2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md](../2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md)
 
 ## Runtime Tool Discovery

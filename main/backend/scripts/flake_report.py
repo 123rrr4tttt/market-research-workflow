@@ -32,7 +32,9 @@ def main() -> int:
         errors += int(suite.attrib.get("errors", 0) or 0)
         skipped += int(suite.attrib.get("skipped", 0) or 0)
         for case in suite.findall("testcase"):
-            issue = case.find("failure") or case.find("error")
+            failure = case.find("failure")
+            error = case.find("error")
+            issue = failure if failure is not None else error
             if issue is not None:
                 failed_cases.append(
                     (

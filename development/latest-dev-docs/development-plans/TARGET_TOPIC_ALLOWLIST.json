@@ -43,33 +43,33 @@
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-ingest-chain-full-branch-map",
-      "review_status": "needs_update",
-      "reason": "Audit found a true development target with only compatibility-shim evidence and no reproducible closure test result."
+      "review_status": "closed",
+      "reason": "Wave39 added target-bound ingest/source-library branch-map closure evidence and ran the focused ingest tests."
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan",
-      "review_status": "needs_update",
-      "reason": "Round6 is closed, but Round7 remains a draft without a matching closure record."
+      "review_status": "closed",
+      "reason": "Wave39 added Round7 flaky-trend closure evidence, build_summary support, optional JSON output, and focused unit tests."
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan",
-      "review_status": "needs_update",
-      "reason": "Round6 is closed, but Round7 remains a draft without a matching closure record."
+      "review_status": "closed",
+      "reason": "Wave38 added Round7 trace-context implementation, e2e/integration tests, and a matching closure record."
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r3-c-observability-minimal",
-      "review_status": "needs_update",
-      "reason": "Audit found test commands but no current execution-result proof bound to this target."
+      "review_status": "closed",
+      "reason": "Wave38 bound request-id and trace-id observability tests to the target and refreshed the evidence note."
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排",
-      "review_status": "needs_update",
-      "reason": "Folderization structure is closed, but old pending/status snapshots remain as topic-local refresh work."
+      "review_status": "closed",
+      "reason": "Wave38 refreshed A1-A6 historical pending snapshots and restored the strict folderization gate across archive roots."
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration",
-      "review_status": "needs_update",
-      "reason": "Repo-local runtime boundary is documented, but worker/subagent runtime proof is explicitly split to successor work."
+      "review_status": "external_blocked",
+      "reason": "Wave38 restored topic-local runtime contract gates; the only remaining proof is worker/subagent runtime exposure outside this repo-local boundary."
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r5-d-provenance-enforcement",

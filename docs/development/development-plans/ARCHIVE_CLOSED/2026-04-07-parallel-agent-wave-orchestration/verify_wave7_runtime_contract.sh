@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-TOPIC="development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration"
+TOPIC="docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration"
 AGENTS="codex_settings/AGENTS.md"
 BOOTSTRAP="codex_settings/scripts/swarm_file_bootstrap.sh"
 SWARM="codex_settings/scripts/swarm.sh"

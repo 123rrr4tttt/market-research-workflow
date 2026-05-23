@@ -28,3 +28,26 @@ def test_header_takes_precedence_over_query_project_key() -> None:
     assert response.status_code == 200
     assert response.headers.get("X-Project-Key-Source") == "header"
     assert response.headers.get("X-Project-Key-Resolved") == "header_two"
+
+
+def test_trace_id_header_is_echoed() -> None:
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/health",
+            headers={"X-Trace-Id": "manual-trace-id-01"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers.get("X-Trace-Id") == "manual-trace-id-01"
+
+
+def test_traceparent_trace_id_is_echoed_when_trace_header_absent() -> None:
+    trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/health",
+            headers={"traceparent": f"00-{trace_id}-00f067aa0ba902b7-01"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers.get("X-Trace-Id") == trace_id

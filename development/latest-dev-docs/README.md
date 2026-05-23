@@ -15,7 +15,7 @@
 - 规范入口：[development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md)。
 - 目标主题 allowlist：[development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json)，用于区分真实开发目标、证据/过程记录、分类/导航目录与外部参考材料。
 - 当前 `CURRENT_DEV` 分布以该入口的“剩余状态分布”为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
-- 四态审计摘要以 [Wave37 target review status](./automation-runs/wave37-target-review-status/2026-05-23/README.md) 为准：`unsealed:0 / sealed:49 / outdated:6 / needs_update:6`。
+- 四态审计摘要以 [Wave39 target review zero needs update](./automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`。
 - 下方“最新补充”是 historical wave log；其中 `partial:x -> partial:y` 仅表示对应 wave 完成时的历史快照，不代表当前剩余状态。
 
 ## 分目录入口
@@ -36,6 +36,10 @@
 - 当更新日期变化时，必须同步更新目录名、文件名与索引引用（至少包含 `README.md`、`MERGED_OVERVIEW.md`、子目录 `INDEX.md`）。
 
 ## 最新补充
+
+- Wave39 target review zero needs update（2026-05-23）：关闭最后 2 个 `needs_update`：ingest-chain full branch map 绑定三条 ingest/source-library 测试证据，Version A Round7 补 `build_summary(...)`、可选 JSON 输出、flaky report 修复与单测。当前四态为 `unsealed:0 / sealed:55 / outdated:6 / needs_update:0`。证据：[wave39 target review zero needs update](./automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md)。
+
+- Wave38 target review closure（2026-05-23）：集中处理 Wave37 留下的 6 个 `needs_update`，直接关闭 Version C trace context、C/D R3 observability 与 abstract folderization coordination 三个目标，并把 parallel-agent orchestration 改判为 `external_blocked`（repo-local runtime gates 已恢复，worker/subagent runtime proof 仍属外部条件）。当前四态为 `unsealed:0 / sealed:53 / outdated:6 / needs_update:2`。证据：[wave38 target review closure](./automation-runs/wave38-target-review-closure/2026-05-23/README.md)。
 
 - Wave37 target review status（2026-05-23）：`check_development_plans_status_matrix.py` 在保留 legacy 字段的同时新增 `status_summary`、`status_mapping_rules` 与 per-target `target_review_status`，直接输出四态：`unsealed:0 / sealed:49 / outdated:6 / needs_update:6`。本轮收窄证据 regex，加入 allowlist `target_topic_overrides`，并明确 6 个需更新 target。证据：[wave37 target review status](./automation-runs/wave37-target-review-status/2026-05-23/README.md)。
 

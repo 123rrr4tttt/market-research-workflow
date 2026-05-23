@@ -20,7 +20,7 @@ The `2026-03-07-后续安排` directory should no longer be treated as a pure op
 - every expected topic directory has exactly one `01_*` plan and one `02_*` atomic-task document;
 - shared top-level indexes already reference the original `01/02` coordination files, but this run intentionally leaves those shared index files unchanged.
 
-The directory should still remain in `CURRENT_DEV` until an index owner or closure run decides whether to archive it. The reason is narrow: the folder's local split contract is complete, but several downstream topic tasklists still describe feature implementation or status-refresh work that is not closed.
+The directory has since moved to `ARCHIVE_CLOSED`. Wave15 is the authoritative closure record for this coordination package; old `pending` text in earlier snapshots is historical and no longer controls the directory-level status. Downstream implementation remains owned by the concrete topic directories.
 
 ## Evidence Matrix
 
@@ -28,8 +28,8 @@ The directory should still remain in `CURRENT_DEV` until an index owner or closu
 |---|---|---|---|
 | `抽象规划.md` | closed for ownership source | Defines the eight themes, topic boundaries, priority groups, and child-agent output standard. | Keep as the mother source for historical traceability. |
 | `01_abstract-planning-folderization-plan-2026-03-07.md` | closed for local split contract | Defines the four-layer folderization model, expected topic set, child `01/02` contracts, serial/parallel rules, and minimum validation. | No content rewrite needed in this lane. |
-| `02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md` | structurally closed, status text needs refresh | The A1-A6 outputs are now represented by actual topic directories plus this evidence note, but the task snapshot still says `pending`. | Do not rewrite broad prose here; future cleanup can update only the status snapshot. |
-| `03_feature-implementation-orchestration-2026-03-08.md` | needs update / not closure evidence | It is explicitly for feature delivery execution, not documentation normalization, and its waves are broader than this folderization lane. | Treat as an implementation sketch unless a later feature-wave owner refreshes it. |
+| `02_atomic-tasklist-abstract-planning-folderization-2026-03-07.md` | closed / wave15_verified | The A1-A6 outputs are represented by actual topic directories plus Wave13-Wave15 evidence, and the status snapshot has been refreshed to point at Wave15. | Keep as the coordination task graph; do not reopen downstream implementation here. |
+| `03_feature-implementation-orchestration-2026-03-08.md` | historical implementation sketch / not closure evidence | It is explicitly for feature delivery execution, not documentation normalization, and its waves are broader than this folderization lane. | Treat as historical input unless a later feature-wave owner refreshes it. |
 | Eight topic directories | closed for starter-pair existence | `writing`, `typed-knowledge`, `graph`, `ingest`, `crawler`, `i18n/theme`, `llm-platform`, and `dual-topology` all have one `01_*` and one `02_*`. | Use per-topic lanes for implementation closure; do not make this coordination folder own those closures. |
 | Downstream topic implementation | not closed / mixed | Current docs and `CURRENT_DEV/INDEX.md` still show a mix of `partial`, `not_closed`, `doc_stale`, and topic-specific evidence. | Keep implementation closure outside this directory-local package. |
 | Shared index sync | intentionally not changed | User instruction for this run says not to edit shared total indexes. | Handoff only; no local index mutation. |
@@ -40,8 +40,8 @@ The directory should still remain in `CURRENT_DEV` until an index owner or closu
 |---|---|---|
 | Already closed | A1 topic ownership map, A2 child-document contract, A3/A4 starter-pair creation. | Record as local evidence in this file. |
 | Not closed | Product implementation tasks inside the eight child topic directories. | Leave to topic owners. |
-| Outdated | `03_feature-implementation-orchestration-2026-03-08.md` as a docs-normalization source; old `pending` snapshots in several `02_*` tasklists. | Mark as status drift, not a reason to reopen folderization. |
-| Needs update | Per-topic execution-status snapshots where 2026-05-22 evidence has landed but `status: pending` remains in task bodies. | Update in separate topic-scoped passes to avoid shared-file churn. |
+| Outdated | `03_feature-implementation-orchestration-2026-03-08.md` as a docs-normalization source. | Keep as historical context, not a reason to reopen folderization. |
+| Needs update | None for this coordination package after Wave15 and the A1-A6 status refresh. | Future updates belong to the concrete downstream topic directories. |
 
 ## Current Check Result
 

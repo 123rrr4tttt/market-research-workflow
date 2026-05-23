@@ -34,6 +34,14 @@ COORDINATION_FILES = [
     "抽象规划.md",
 ]
 
+TOPIC_ROOTS = [
+    ("current_dev", Path("development/latest-dev-docs/development-plans/CURRENT_DEV")),
+    ("docs_archive_closed", Path("docs/development/development-plans/ARCHIVE_CLOSED")),
+    ("archive_closed", Path("development/latest-dev-docs/development-plans/ARCHIVE_CLOSED")),
+    ("archive_external_blocked", Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED")),
+    ("archive_retired", Path("development/latest-dev-docs/development-plans/ARCHIVE_RETIRED")),
+]
+
 PLAN_SECTION_RULES = {
     "goal_or_objective": [r"^##\s+\d+\.\s+(Goal|Goals|Objective|Objectives)\b"],
     "current_baseline": [r"^##\s+\d+\.\s+(Verified\s+)?Current Baseline\b"],
@@ -84,8 +92,16 @@ def resolve_coordination_dir(root: Path) -> tuple[Path, str]:
     return current_coordination_dir, "missing"
 
 
+def resolve_topic_dir(root: Path, topic: str) -> tuple[Path, str]:
+    for location, relative_root in TOPIC_ROOTS:
+        candidate = root / relative_root / f"2026-03-07-{topic}"
+        if candidate.is_dir():
+            return candidate, location
+    first_location, first_root = TOPIC_ROOTS[0]
+    return root / first_root / f"2026-03-07-{topic}", first_location
+
+
 def build_report(root: Path) -> dict:
-    current_dev = root / "development/latest-dev-docs/development-plans/CURRENT_DEV"
     coordination_dir, coordination_location = resolve_coordination_dir(root)
 
     hard_failures: list[str] = []
@@ -109,10 +125,11 @@ def build_report(root: Path) -> dict:
 
     topics = []
     for topic in EXPECTED_TOPICS:
-        topic_dir = current_dev / f"2026-03-07-{topic}"
+        topic_dir, topic_location = resolve_topic_dir(root, topic)
         item = {
             "topic": topic,
             "directory": topic_dir.as_posix(),
+            "directory_location": topic_location,
             "directory_exists": topic_dir.is_dir(),
             "plan_file": None,
             "task_file": None,
@@ -185,7 +202,7 @@ def print_markdown(report: dict) -> None:
 
     print("## Topic Matrix")
     print()
-    print("| Topic | Directory | 01 | 02 | Plan gaps | Task gaps |")
+    print("| Topic | Location | Directory | 01 | 02 | Plan gaps | Task gaps |")
     print("|---|---|---|---|---|---|")
     for item in report["topics"]:
         plan_gaps = ", ".join(item["missing_plan_sections"]) or "-"
@@ -194,7 +211,7 @@ def print_markdown(report: dict) -> None:
         plan_status = "ok" if item["plan_file"] else "missing"
         task_status = "ok" if item["task_file"] else "missing"
         print(
-            f"| `{item['topic']}` | {directory_status} | {plan_status} | "
+            f"| `{item['topic']}` | `{item['directory_location']}` | {directory_status} | {plan_status} | "
             f"{task_status} | {plan_gaps} | {task_gaps} |"
         )
 

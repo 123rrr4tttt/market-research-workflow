@@ -25,7 +25,7 @@ Wave 0 does not implement features. It freezes:
 Every Wave 0 subagent must read:
 
 - [../INDEX.md](../INDEX.md)
-- [../../CURRENT_DEV/STATUS_AUDIT_2026-04-07.md](../../CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
+- [CURRENT_DEV status audit](../../../../../development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md)
 - [./01_parallel-agent-wave-orchestration-plan-2026-04-07.md](./01_parallel-agent-wave-orchestration-plan-2026-04-07.md)
 
 Every Wave 0 subagent returns only:

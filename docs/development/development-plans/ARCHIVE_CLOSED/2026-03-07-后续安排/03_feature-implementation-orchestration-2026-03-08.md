@@ -12,6 +12,11 @@
 This runbook is for feature delivery execution, not for documentation normalization.
 It converts current topic plans into an implementation order with explicit gates.
 
+Status note: this file is historical input for downstream feature delivery.
+It is not directory-level closure evidence for `2026-03-07-后续安排`; the
+authoritative coordination closure is Wave15 plus
+`scripts/check_abstract_planning_folderization.py --strict-content`.
+
 ## Layered Delivery Order
 
 - L0 (serial): implementation scope freeze and dependency freeze.

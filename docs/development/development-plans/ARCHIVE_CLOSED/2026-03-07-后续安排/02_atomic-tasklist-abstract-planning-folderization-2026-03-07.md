@@ -9,12 +9,16 @@
 
 ## Execution Status Snapshot
 
-- `A1`: pending, freeze the mother-document to topic-directory ownership map.
-- `A2`: pending, freeze the canonical child-directory document contract.
-- `A3`: pending, normalize topic `01_*` plan documents against the frozen contract.
-- `A4`: pending, normalize topic `02_*` atomic task documents after each `01_*` scope is stable.
-- `A5`: pending, run cross-topic dependency and coverage review.
-- `A6`: pending, prepare external handoff for index synchronization without editing index files inside this work package.
+- `A1`: closed / wave15_verified, freeze the mother-document to topic-directory ownership map.
+- `A2`: closed / wave15_verified, freeze the canonical child-directory document contract.
+- `A3`: closed / wave15_verified, normalize topic `01_*` plan documents against the frozen contract.
+- `A4`: closed / wave15_verified, normalize topic `02_*` atomic task documents after each `01_*` scope is stable.
+- `A5`: closed / wave15_verified, run cross-topic dependency and coverage review.
+- `A6`: closed / wave15_verified, prepare external handoff for index synchronization without editing index files inside this work package.
+
+Wave15 supersedes the earlier pending snapshot for this coordination package:
+`scripts/check_abstract_planning_folderization.py --strict-content` is now the
+authoritative repeatable gate for the folderization contract.
 
 ## Global Serial-Parallel Rules
 
@@ -195,7 +199,7 @@ Conflict rules:
 ## Task A1: Freeze Topic Ownership Map
 
 - Goal: convert the mother document into one stable ownership map from requirements to topic directories.
-- status: pending
+- status: closed / wave15_verified
 - depends_on: `[]`
 - blocks: `["A2","A3","A4","A5"]`
 - Input:
@@ -222,7 +226,7 @@ Conflict rules:
 ## Task A2: Freeze Child-Directory Document Contract
 
 - Goal: define the exact structure that every topic `01_*` and `02_*` document must follow.
-- status: pending
+- status: closed / wave15_verified
 - depends_on: `["A1"]`
 - blocks: `["A3","A4"]`
 - Input:
@@ -249,7 +253,7 @@ Conflict rules:
 ## Task A3: Normalize Topic `01_*` Plan Documents
 
 - Goal: rewrite each topic-level `01_*` file so it becomes a strong planning document rather than a loose note.
-- status: pending
+- status: closed / wave15_verified
 - depends_on: `["A2"]`
 - blocks: `["A4","A5"]`
 - Input:
@@ -277,7 +281,7 @@ Conflict rules:
 ## Task A4: Normalize Topic `02_*` Atomic Task Documents
 
 - Goal: convert each topic plan into an executable atomic task list with stable dependency rules.
-- status: pending
+- status: closed / wave15_verified
 - depends_on: `["A3"]`
 - blocks: `["A5"]`
 - Input:
@@ -305,7 +309,7 @@ Conflict rules:
 ## Task A5: Cross-Topic Coverage and Dependency Review
 
 - Goal: review all active topic directories together to ensure the split remains coherent.
-- status: pending
+- status: closed / wave15_verified
 - depends_on: `["A3","A4"]`
 - blocks: `["A6"]`
 - Input:
@@ -331,7 +335,7 @@ Conflict rules:
 ## Task A6: External Index Sync Handoff
 
 - Goal: prepare a clean closure note for upper-level index synchronization without performing those external edits in this work package.
-- status: pending
+- status: closed / wave15_verified
 - depends_on: `["A5"]`
 - blocks: `[]`
 - Input:

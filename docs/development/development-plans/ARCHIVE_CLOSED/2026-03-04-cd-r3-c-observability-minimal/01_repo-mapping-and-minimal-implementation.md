@@ -18,7 +18,7 @@
 - 已具备 request_id 基础：`main/backend/app/main.py` 的 `metrics_middleware` 生成/透传 `X-Request-Id`，并写入请求日志。
 - 已具备基础 metrics：`/metrics` 暴露 `REQUEST_COUNT` / `REQUEST_LATENCY`。
 - 缺口：
-  - 缺少针对 request_id 透传行为的自动化测试断言（防漂移）。
+  - request_id / trace_id 透传已有自动化测试断言（防漂移）。
   - 缺少“核心旅程 SLI/SLO + 告警分级值班流程”的最小文档门禁资产。
 
 ## 2) 最小实现
@@ -63,6 +63,13 @@ python3 -m pytest tests/integration/test_api_exception_envelope_unittest.py -q
 本轮目标验证点：
 - 新增 request_id 相关性测试通过。
 - 既有异常 envelope 测试不回归。
+
+2026-05-23 复核补充：
+
+- `main/backend/tests/integration/test_api_exception_envelope_unittest.py`
+  已包含 `test_request_id_is_echoed_for_observability_correlation`。
+- `main/backend/tests/e2e/test_request_context_headers_e2e.py`
+  已覆盖 `X-Trace-Id` 响应头与 `traceparent` trace-id 提取。
 
 ## 5) 回滚点
 

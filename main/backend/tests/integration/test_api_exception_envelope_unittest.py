@@ -57,6 +57,19 @@ class ApiExceptionEnvelopeIntegrationTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
+    def test_request_id_is_echoed_for_observability_correlation(self):
+        resp = self.client.get(self.error_path, headers=self.headers)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.headers.get("x-request-id"), self.headers["X-Request-Id"])
+        self.assertEqual(resp.json()["meta"]["trace_id"], self.headers["X-Request-Id"])
+
+    def test_trace_id_is_used_for_error_envelope_correlation(self):
+        headers = {**self.headers, "X-Trace-Id": "exception-trace-it"}
+        resp = self.client.get(self.error_path, headers=headers)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.headers.get("x-trace-id"), "exception-trace-it")
+        self.assertEqual(resp.json()["meta"]["trace_id"], "exception-trace-it")
+
     def test_health_endpoint_remains_exempt_from_error_envelope(self):
         health_route = None
         for route in backend_app.routes:

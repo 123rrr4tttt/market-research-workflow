@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 TOPIC = Path(
-    "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/"
+    "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-04-07-parallel-agent-wave-orchestration"
 )
 RUNS = Path("development/latest-dev-docs/automation-runs/dev-docs-folder-audit-2026-05-22")
