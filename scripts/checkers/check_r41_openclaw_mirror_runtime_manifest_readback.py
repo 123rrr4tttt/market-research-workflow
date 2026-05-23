@@ -21,11 +21,12 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOPIC_NAME = "2026-03-04-r41-openclaw-autodispatch"
 CURRENT_TOPIC_REL = Path("development/latest-dev-docs/development-plans/CURRENT_DEV") / TOPIC_NAME
+ARCHIVE_CLOSED_TOPIC_REL = Path("docs/development/development-plans/ARCHIVE_CLOSED") / TOPIC_NAME
 ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL = (
     Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED") / TOPIC_NAME
 )
-TOPIC_CANDIDATE_RELS = (ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL, CURRENT_TOPIC_REL)
-TOPIC_REL = ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL
+TOPIC_CANDIDATE_RELS = (ARCHIVE_CLOSED_TOPIC_REL, ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL, CURRENT_TOPIC_REL)
+TOPIC_REL = ARCHIVE_CLOSED_TOPIC_REL
 DEFAULT_OUT_DIR = Path("development/latest-dev-docs/automation-runs/wave20-openclaw-mirror-readback/2026-05-22")
 RUNTIME_HANDOFF_SCRIPT = Path("scripts/checkers/check_r41_openclaw_runtime_handoff.py")
 

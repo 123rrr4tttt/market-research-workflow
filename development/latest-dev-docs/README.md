@@ -16,7 +16,7 @@
 - 目标主题 allowlist：[development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json)，用于区分真实开发目标、证据/过程记录、分类/导航目录与外部参考材料。
 - 外部阻塞 manifest：[development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)，用于把剩余 `external_blocked` review target 绑定到结构化外部依赖、仓内证据、解除条件和 owner surface。
 - 当前 `CURRENT_DEV` 分布以该入口的“剩余状态分布”为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
-- 四态审计摘要以 [Wave47 crawler public replay closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`，其中 target topics 为 `closed:34 / external_blocked:21 / retired:6 / active_current:0`。
+- 四态审计摘要以 [Wave48 R41 OpenClaw runtime closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r41-openclaw-autodispatch/22_wave48-manual-openclaw-runtime-closure-2026-05-23.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`，其中 target topics 为 `closed:35 / external_blocked:20 / retired:6 / active_current:0`。
 - 下方“最新补充”是 historical wave log；其中 `partial:x -> partial:y` 仅表示对应 wave 完成时的历史快照，不代表当前剩余状态。
 
 ## 分目录入口
@@ -37,6 +37,8 @@
 - 当更新日期变化时，必须同步更新目录名、文件名与索引引用（至少包含 `README.md`、`MERGED_OVERVIEW.md`、子目录 `INDEX.md`）。
 
 ## 最新补充
+
+- Wave48 R41 OpenClaw runtime closure（2026-05-23）：手动启动真实 `/Users/wangyiliang/Desktop/openclaw` foreground gateway，验证 `gateway.reachable=true`、R41 run-state `status=skipped / reason=no_unfinished_line_task / ready_dispatch_count=0`、360 分钟窗口无 active session 且无 stuck candidates；`2026-03-04-r41-openclaw-autodispatch` 迁入 `ARCHIVE_CLOSED`，external-blocked review targets 从 `21` 降到 `20`。证据：[wave48 manual OpenClaw runtime closure](./automation-runs/wave48-manual-openclaw-runtime-closure/2026-05-23/README.md)，闭合记录：[R41 OpenClaw runtime closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r41-openclaw-autodispatch/22_wave48-manual-openclaw-runtime-closure-2026-05-23.md)。
 
 - Wave47 crawler public replay closure（2026-05-23）：手动执行真实 opt-in 45-site public replay，记录 40 个 enabled public targets attempted、5 个 platform/API policy skips、0 个 operator-gate skips，并完成 A5 review；`2026-03-07-crawler-source-expansion` 迁入 `ARCHIVE_CLOSED`，external-blocked review targets 从 `22` 降到 `21`。证据：[output.public.json](./automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json)，闭合记录：[crawler source expansion public replay closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md)。
 
@@ -186,7 +188,7 @@
   - [typed knowledge persistence/API boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md)
   - [writing workbench persistence boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
   - [docs root content plan gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
-  - [R41 OpenClaw autodispatch gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
+  - [R41 OpenClaw autodispatch gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
 - Wave13 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave13 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave13-worktree-plan-2026-05-22.md)
   - [LLM crawler high-JS/public replay readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md)
@@ -223,7 +225,7 @@
   - [Wave15 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave15-worktree-plan-2026-05-22.md)
   - [open search runtime boundary](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/13_wave15-open-search-runtime-boundary-2026-05-22.md)
   - [source time production readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/06_wave15-source-time-production-readiness-2026-05-22.md)
-  - [R41 OpenClaw runtime handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
+  - [R41 OpenClaw runtime handoff](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
   - [LLM crawler high-JS replay manifest](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md)
   - [symbolic search live quality threshold](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/19_wave15-symbolic-live-quality-threshold-2026-05-22.md)
   - [structured SQL helper migration](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-12-data-structured-service-modularization/06_wave15-structured-sql-helper-migration-2026-05-22.md)
@@ -284,7 +286,7 @@
   - [Wave20 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-worktree-plan-2026-05-22.md)
   - [Wave20 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-agent-roster-2026-05-22.md)
   - [time semantics sample/provenance readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md)
-  - [OpenClaw mirror runtime manifest](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md)
+  - [OpenClaw mirror runtime manifest](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md)
   - [graph editing audit conflict readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md)
   - [long-cycle scheduler queue replay](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/09_wave20-long-cycle-scheduler-queue-handoff-replay-2026-05-22.md)
   - [agent-batch quality promotion readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/21_wave20-agent-batch-quality-promotion-readback-2026-05-22.md)

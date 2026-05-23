@@ -27,6 +27,7 @@
 - `clear_closed` [2026-03-02 Graph 3D Force Engine Parallel Migration](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/09_wave44-manual-live-ui-closure-2026-05-23.md) - Wave44 fixed force3d dynamic component state storage and visible-node debug stats, then validated live backend GraphPage/WebGL nonblank canvas evidence.
 - `clear_closed` [2026-03-07 Graph Editing And Reporting](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/12_wave46-manual-live-audit-closure-2026-05-23.md) - Wave46 validated curated submit/rollback audit live DB durability, persistent handoff replay readback, and tenant/project scoping; the graph editing live-audit external blocker is closed.
 - `clear_closed` [2026-03-07 Crawler Source Expansion](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md) - Wave47 ran the real opt-in 45-site public replay, recorded 40 public attempts, 5 policy skips, 0 operator-gate skips, and closed the A5 manual review.
+- `clear_closed` [2026-03-04 R41 OpenClaw Autodispatch](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r41-openclaw-autodispatch/22_wave48-manual-openclaw-runtime-closure-2026-05-23.md) - Wave48 manually verified the real OpenClaw gateway, R41 external run-state readback, and no active/stuck sessions; the external runtime blocker is closed.
 - `clear_closed` [2026-03-12 Data Structured Service Modularization](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-12-data-structured-service-modularization/15_wave45-manual-live-api-closure-2026-05-23.md) - Wave45 validated live backend `/search` document-query projection, retrieval readback, and `DocumentQuery -> SQLAlchemy statement` live DB execution; the structured live DB/API external blocker is closed.
 - `clear_closed` [2026-03-14 Consumer-Side Modularization](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-consumer-side-modularization/09_wave45-manual-live-api-closure-2026-05-23.md) - Wave45 validated search/admin/dashboard/policy/prompt-time-density consumer live readback; the consumer live DB/API external blocker is closed.
 
@@ -42,7 +43,6 @@
 ## 本次外部阻塞归档
 
 - `external_blocked` [2026-03-02 Source Time Window Smart Timestamp Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/)
-- `external_blocked` [2026-03-04 R41 OpenClaw Autodispatch](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/README.md)
 - `external_blocked` [2026-03-05 Time Statistics Remediation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/)
 - `external_blocked` [2026-03-11 Source Library Three-Lane Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/)
 - `external_blocked` [2026-03-14 Search Chain Source-Library Mounting Audit](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/)

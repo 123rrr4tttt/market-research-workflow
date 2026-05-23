@@ -41,6 +41,7 @@
 - [2026-03-04 CD R3 D Security Minimal](./2026-03-04-cd-r3-d-security-minimal/)
 - [2026-03-04 CD R3 C Observability Minimal](./2026-03-04-cd-r3-c-observability-minimal/)
 - [2026-03-04 CD R5 D Provenance Enforcement](./2026-03-04-cd-r5-d-provenance-enforcement/)
+- [2026-03-04 R41 OpenClaw Autodispatch](./2026-03-04-r41-openclaw-autodispatch/22_wave48-manual-openclaw-runtime-closure-2026-05-23.md)
 - [2026-03-04 SA3-R3-F LLM Report Must Minset](./2026-03-04-sa3-r3-f-llm-report-must-minset/)
 - [2026-03-06 Handler-Cluster Frontdoor Middle-Layer Alignment](./2026-03-06-handler-cluster-frontdoor-middle-layer-alignment/)
 - [2026-04-02 Claude Agent High-Fidelity Migration](./2026-04-02-claude-agent-high-fidelity-migration/INDEX.md)

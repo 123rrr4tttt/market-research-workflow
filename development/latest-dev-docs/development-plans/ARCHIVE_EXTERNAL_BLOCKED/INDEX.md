@@ -13,6 +13,7 @@
 - Wave45 manual structured/consumer live API closure: [../../automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/README.md](../../automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/README.md)
 - Wave46 manual graph editing live-audit closure: [../../automation-runs/wave46-manual-graph-editing-live-audit-closure/2026-05-23/README.md](../../automation-runs/wave46-manual-graph-editing-live-audit-closure/2026-05-23/README.md)
 - Wave47 manual crawler public replay closure: [../../automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json](../../automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json)
+- Wave48 manual R41 OpenClaw runtime closure: [../../automation-runs/wave48-manual-openclaw-runtime-closure/2026-05-23/README.md](../../automation-runs/wave48-manual-openclaw-runtime-closure/2026-05-23/README.md)
 - Wave41 external unblock attempt: [../../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md](../../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)
 - Wave40 manifest evidence: [../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md](../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)
 - Wave37 four-state review: [../../automation-runs/wave37-target-review-status/2026-05-23/README.md](../../automation-runs/wave37-target-review-status/2026-05-23/README.md)
@@ -29,11 +30,9 @@
 ## 外部阻塞目录
 
 - [Wave33 External-Blocked Revalidation](./2026-05-23-wave33-external-blocked-revalidation.md)
-  状态：`wave33_checked`。集中复核 source-library、time semantics 与 OpenClaw R41 近封口目录；修复仓内路径迁移 / 空证据文件盲点后，结论仍为 `external_blocked`，不转 `closed`。
+  状态：`wave33_checked` / historical snapshot。集中复核 source-library、time semantics 与 OpenClaw R41 近封口目录；当时 R41 仍为 `external_blocked`。Wave48 已用真实 OpenClaw runtime 读回关闭 R41，当前剩余外部阻塞不再包含 R41。
 - [2026-03-02 Source Time Window Smart Timestamp Plan](./2026-03-02-source-time-window-smart-timestamp-plan/)
   状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 source-time window、decision-log provenance、sample/provenance readback 已可重复验证；Wave33 将证据路径修正为 archive-first/current-dev fallback；剩余条件是 production data semantic chain 的 live validation、coverage distribution 和 decision-log feature readback。
-- [2026-03-04 R41 OpenClaw Autodispatch](./2026-03-04-r41-openclaw-autodispatch/README.md)
-  状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 mirror/runtime/handoff checker 已通过；Wave33 补齐 archive-first 默认 topic、`--repo-root` alias 与空证据文件失败保护；剩余条件是外部 OpenClaw runtime 的真实执行闭环。
 - [2026-03-05 Time Statistics Remediation Plan](./2026-03-05-time-statistics-remediation-plan/)
   状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 OPE freshness、decision-log freshness、current-state 和 sample/provenance readback 已封住；Wave33 将 current-state evidence 改为 archive-first/current-dev fallback；剩余条件是生产 freshness/volume/alignment 证据。
 - [2026-03-11 Source Library Three-Lane Architecture](./2026-03-11-source-library-three-lane-architecture/)
@@ -83,6 +82,7 @@
 - [2026-03-14 Consumer-Side Modularization](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-consumer-side-modularization/09_wave45-manual-live-api-closure-2026-05-23.md)：`clear_closed`。Wave45 手动验证 search/admin/dashboard/policy/prompt-time-density consumer live readback，关闭 consumer live DB/API 条件；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
 - [2026-03-07 Graph Editing And Reporting](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-graph-editing-and-reporting/12_wave46-manual-live-audit-closure-2026-05-23.md)：`clear_closed`。Wave46 手动验证 curated submit/rollback audit live DB durability、persistent handoff replay readback 与 tenant/project scoping；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
 - [2026-03-07 Crawler Source Expansion](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md)：`clear_closed`。Wave47 执行真实 opt-in 45-site public replay，记录 40 个 public targets attempted、5 个 policy skips、0 个 operator-gate skips，并完成 A5 manual review；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
+- [2026-03-04 R41 OpenClaw Autodispatch](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r41-openclaw-autodispatch/22_wave48-manual-openclaw-runtime-closure-2026-05-23.md)：`clear_closed`。Wave48 手动启动真实 OpenClaw runtime gateway，读回 R41 `skipped/no_unfinished_line_task/ready_dispatch_count=0` 外部 run state，并确认无 active/stuck sessions；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
 - [2026-03-07 Docs Root Restructuring](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)：`clear_closed`。Wave31 `check_docs_root_navigation_drift.py --require-clean` 已清零 navigation drift；该目录不再计入 `CURRENT_DEV` partial。
 - [2026-03-15 Frontend Three-Layer Rewrite](../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)：`clear_closed`。Wave32 已清零 frontend business-string repo-local blocker，并迁入 `ARCHIVE_CLOSED`。
 

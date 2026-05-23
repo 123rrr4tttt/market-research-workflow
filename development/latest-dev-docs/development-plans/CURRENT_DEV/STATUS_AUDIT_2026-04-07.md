@@ -87,7 +87,7 @@
 以下目录本轮已从 `CURRENT_DEV` 迁入 `ARCHIVE_EXTERNAL_BLOCKED`。原因不是 full closure，而是仓内确定性门禁已封住，剩余条件明确依赖外部 runtime、公网 replay、生产数据或人工 review：
 
 - `external_blocked` [2026-03-02-source-time-window-smart-timestamp-plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/) - production data semantic chain 未跑 live validation
-- `external_blocked` [2026-03-04-r41-openclaw-autodispatch](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/README.md) - 外部 OpenClaw runtime 未实测闭环
+- `closed` [2026-03-04-r41-openclaw-autodispatch](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r41-openclaw-autodispatch/22_wave48-manual-openclaw-runtime-closure-2026-05-23.md) - Wave48 已验证真实 OpenClaw gateway、R41 外部 run-state 与无 active/stuck session，外部 runtime blocker 已闭环
 - `external_blocked` [2026-03-05-time-statistics-remediation-plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/) - production freshness / volume / alignment 未验证
 - `external_blocked` [2026-03-11-source-library-three-lane-architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/) - live source collection / public replay / completed human review 未闭环
 - `external_blocked` [2026-03-14-search-chain-source-library-mounting-audit](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/) - public replay / human review / live governance readback 未闭环
