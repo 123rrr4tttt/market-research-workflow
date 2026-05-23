@@ -1,7 +1,7 @@
 # 2026-03-09 Agent + Symbolic + Batch Search
 
 状态：CURRENT_DEV（未封口）  
-目录：`development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture`
+目录：`development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture`
 
 ## Main Docs
 

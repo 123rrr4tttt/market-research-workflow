@@ -10,6 +10,9 @@ from typing import Any
 
 CONTRACT_VERSION = "fetch_router_gap_closure.check.v2"
 CURRENT_DEV = Path("development/latest-dev-docs/development-plans/CURRENT_DEV")
+ARCHIVE_EXTERNAL_BLOCKED = Path(
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED"
+)
 
 PROTECTED_SHARED_INDEXES = [
     "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
@@ -42,7 +45,7 @@ TOPICS: dict[str, dict[str, Any]] = {
     },
     "2026-03-08-llm-crawler-unified-frontdoor": {
         "title": "LLM crawler unified frontdoor provider handoff and tri-state router closure",
-        "doc": CURRENT_DEV
+        "doc": ARCHIVE_EXTERNAL_BLOCKED
         / "2026-03-08-llm-crawler-unified-frontdoor"
         / "04_wave8-2-fetch-router-gap-closure-2026-05-22.md",
         "legacy_gap": "high-JS/browser route intent gap",
@@ -137,7 +140,7 @@ ANCHORS: dict[str, Anchor] = {
         ),
     ),
     "llm_crawler_wave10_tristate_evidence": Anchor(
-        CURRENT_DEV
+        ARCHIVE_EXTERNAL_BLOCKED
         / "2026-03-08-llm-crawler-unified-frontdoor"
         / "05_wave10-tri-state-router-contract-2026-05-22.md",
         (

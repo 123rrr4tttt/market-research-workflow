@@ -19,7 +19,7 @@ from app.services.ingest.digestion_scaffold import check_long_cycle_scheduler_ha
 
 EVIDENCE_FILE = (
     REPO_ROOT
-    / "development/latest-dev-docs/development-plans/CURRENT_DEV"
+    / "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED"
     / "2026-03-07-ingest-digestion-and-long-cycle-automation"
     / "08_wave18-long-cycle-scheduler-handoff-trace-2026-05-22.md"
 )

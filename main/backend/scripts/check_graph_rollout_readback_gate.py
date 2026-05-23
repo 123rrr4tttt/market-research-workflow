@@ -48,7 +48,7 @@ from check_graph_visual_data_smoke_gate import (  # noqa: E402
 CONTRACT_VERSION = "graph.rollout_readback_gate.v1"
 
 DEFAULT_SOURCE_DOCS = [
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-graph-node-standardization-a-then-b-plan/07_wave17-rollout-manifest-readback-2026-05-22.md",
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/07_wave17-rollout-manifest-readback-2026-05-22.md",
     "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-graph-3d-force-engine-parallel-migration/06_wave17-runtime-pixel-shape-gate-2026-05-22.md",
 ]
 

@@ -18,7 +18,7 @@ from scripts.check_crawler_provider_handoff_contract import build_check as build
 CONTRACT_VERSION = "llm_crawler.high_js_replay_readiness.v1"
 PUBLIC_REPLAY_CONTRACT_VERSION = "llm_crawler.high_js_public_replay.v1"
 TOPIC_DIR = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
     "2026-03-08-llm-crawler-unified-frontdoor"
 )
 WAVE13_DOC = TOPIC_DIR / "06_wave13-high-js-public-replay-readiness-2026-05-22.md"

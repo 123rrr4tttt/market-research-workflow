@@ -28,7 +28,7 @@
   },
   "evidence_docs": {
     "crawler_source_expansion": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md",
-    "llm_crawler_unified_frontdoor": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/09_wave19-public-replay-shards-readback-2026-05-22.md"
+    "llm_crawler_unified_frontdoor": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/09_wave19-public-replay-shards-readback-2026-05-22.md"
   },
   "expected_counts": {
     "enabled_public_target_count": 40,

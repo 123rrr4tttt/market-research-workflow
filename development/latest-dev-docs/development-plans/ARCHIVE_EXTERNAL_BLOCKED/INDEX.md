@@ -1,6 +1,6 @@
 # ARCHIVE_EXTERNAL_BLOCKED - 外部条件阻塞开发计划
 
-更新时间：2026-05-22（PST）
+更新时间：2026-05-23（PST）
 
 本目录用于存放已经完成仓内确定性门禁、但剩余验收依赖外部运行时、公网 replay、生产数据、真实租户环境或人工 review 的开发计划。它们不继续占用 `CURRENT_DEV` 的 `partial` 指标；重新进入当前开发前，必须先补齐对应外部条件或开新主题。
 
@@ -31,6 +31,16 @@
   状态：`external_blocked` / `wave22_checked`。仓内 explicit provider trace、runtime boundary、health artifact、schema/readback 与单测门禁已封住；剩余条件是 SearXNG / YaCy live availability、provider quality/freshness/latency、operator approval 与 `provider=auto` promotion。
 - [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/2026-05-22-wave22-archive-external-blocked-decision.md)
   状态：`external_blocked` / `wave22_checked`。仓内 A1-A4/A6/A7 与 public replay deterministic gate 已封住；剩余条件是受控公网窗口产出 45-site replay 真实证据，尤其是缺失的 `output.public.json`。
+- [2026-03-08 LLM Crawler Unified FrontDoor](./2026-03-08-llm-crawler-unified-frontdoor/10_wave23-external-blocked-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave23_checked`。仓内 frontdoor/router/manifest/fixture/shard gate 已封住；剩余条件是真实 high-JS public browser/crawler replay 与 five-shard public output。
+- [2026-03-09 Agent Symbolic Batch Search Architecture](./2026-03-09-agent-symbolic-batch-search-architecture/22_wave23-external-blocked-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave23_checked`。仓内 deterministic search quality、provider-independent regression 与 quality promotion/readback 已封住；剩余条件是 SearXNG / YaCy / web live provider replay、operator review 与 `provider=auto` rollout policy。
+- [2026-03-07 LLM Service And Agent Platformization](./2026-03-07-llm-service-and-agent-platformization/10_wave23-closure-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave23_checked`。仓内 AgentCore platform/provider-readiness/tool-calling/trace-redaction gates 已封住；剩余条件是真实 provider/API/account/network invocation evidence。
+- [2026-03-07 Ingest Digestion And Long-Cycle Automation](./2026-03-07-ingest-digestion-and-long-cycle-automation/10_wave23-closure-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave23_checked`。仓内 long-cycle lifecycle、scheduler intent、JSONL durable readback、handoff trace 与 queue replay gate 已封住；剩余条件是 live scheduler enqueue、worker consumption、live DB write/readback 与 downstream handoff evidence。
+- [2026-03-02 Graph Node Standardization A Then B Plan](./2026-03-02-graph-node-standardization-a-then-b-plan/09_wave23-closure-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave23_checked`。仓内 canonical-id/backfill readiness/live-DB rollout manifest/readback gates 已封住；剩余条件是 configured tenant schema、live backfill dry-run、nonempty tenant graph endpoint smoke 与 read-mode parity evidence。
 
 ## 保留在 CURRENT_DEV 的相邻目录
 

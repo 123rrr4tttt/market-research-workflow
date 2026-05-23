@@ -261,7 +261,7 @@
   - `02` contains execution snapshot, serial-parallel rules, boundaries, per-task goal/dependency/input/output/acceptance/minimum verification
   - no numbering drift or contradictory wording remains
 - Minimum verification:
-  - `git diff --check -- development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md`
+  - `git diff --check -- development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md`
 - Module IO:
   - `module_input_vars`: `in_main_plan(file)`, `in_atomic_tasks(file)`
   - `module_output_vars`: `out_consistent_docs(bool)`, `out_cleanup_notes(list)`

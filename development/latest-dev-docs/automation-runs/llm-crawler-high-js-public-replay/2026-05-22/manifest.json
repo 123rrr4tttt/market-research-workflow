@@ -63,8 +63,8 @@
     "provider_handoff_checker": "main/backend/scripts/check_crawler_provider_handoff_contract.py",
     "readiness_checker": "main/backend/scripts/check_llm_crawler_high_js_replay_readiness.py",
     "url_pool_route_profiles": "main/backend/app/services/ingest/url_pool.py",
-    "wave13_readiness_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md",
-    "wave15_manifest_evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md"
+    "wave13_readiness_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md",
+    "wave15_manifest_evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md"
   },
   "scope": "Wave15 LLM crawler high-JS public replay manifest. This manifest validates target, opt-in, and evidence schema boundaries only; it does not execute public browser replay.",
   "target_set": {

@@ -171,4 +171,4 @@ const envelope = await window.MarketApp.api.getFull(\"/api/v1/xxx?page=1\"); // 
 
 当前专项审计见：
 
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/11_agent-exposed-task-contract-completeness-audit-2026-03-14.md`
+- `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/11_agent-exposed-task-contract-completeness-audit-2026-03-14.md`

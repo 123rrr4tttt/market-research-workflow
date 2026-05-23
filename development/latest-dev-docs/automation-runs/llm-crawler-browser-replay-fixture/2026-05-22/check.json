@@ -18,7 +18,7 @@
     "repo_local_fixture_replay_complete": true
   },
   "contract_version": "llm_crawler.replay_fixture.check.v1",
-  "evidence_doc": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/08_wave18-browser-replay-fixture-readback-2026-05-22.md",
+  "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/08_wave18-browser-replay-fixture-readback-2026-05-22.md",
   "fixture_contract_version": "llm_crawler.browser_replay_fixture.v1",
   "fixture_path": "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json",
   "manifest_gate": {

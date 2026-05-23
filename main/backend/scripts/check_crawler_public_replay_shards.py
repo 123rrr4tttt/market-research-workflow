@@ -36,7 +36,7 @@ CRAWLER_TOPIC_DOC = Path(
     "2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md"
 )
 LLM_TOPIC_DOC = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
     "2026-03-08-llm-crawler-unified-frontdoor/09_wave19-public-replay-shards-readback-2026-05-22.md"
 )
 
