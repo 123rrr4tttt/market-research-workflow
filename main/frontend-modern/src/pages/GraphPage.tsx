@@ -19,6 +19,7 @@ import {
   submitWorkflowGraphCuratedDraft,
   syncWorkflowGraphCuratedState,
 } from '../lib/api'
+import { isApiClientError } from '../lib/api/client'
 import type { WorkflowGraphAuditRecord, WorkflowGraphCuratedDsl, WorkflowGraphCuratedStateResponse } from '../lib/api'
 import type {
   GraphEdgeItem,
@@ -125,6 +126,9 @@ declare global {
   interface Window {
     __graph3dDebug?: {
       getVisibilityStats: () => Graph3DVisibilityStats
+    }
+    __graphPageE2E?: {
+      selectNode: (nodeId: string) => boolean
     }
   }
 }
@@ -949,6 +953,45 @@ function snapshotDslFromCuratedState(state: WorkflowGraphCuratedStateResponse) {
   const snapshot = state.server_snapshot?.dsl || state.draft?.dsl
   if (!snapshot || !Array.isArray(snapshot.nodes) || !Array.isArray(snapshot.edges)) return null
   return snapshot
+}
+
+function recordFrom(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : null
+}
+
+function curatedSubmitFailure(error: unknown) {
+  const errorRecord = recordFrom(error)
+  const response = recordFrom(errorRecord?.response)
+  const responseData = recordFrom(response?.data)
+  const responseError = recordFrom(responseData?.error)
+  const details = isApiClientError(error) ? error.details : recordFrom(responseError?.details)
+  const code = isApiClientError(error) ? error.code : String(responseError?.code || '')
+  const message = isApiClientError(error)
+    ? error.message
+    : String(responseError?.message || errorRecord?.message || '提交失败')
+  const category = String(details?.category || '')
+  const expected = details?.expected_revision
+  const actual = details?.actual_revision
+  const isConflict =
+    category === 'version_conflict' ||
+    /conflict|revision mismatch|version_conflict/i.test(`${code} ${message}`)
+  if (!isConflict) {
+    return {
+      status: `submit_failed: ${message}`,
+      graphStatus: `Curated graph 提交失败: ${message}`,
+      alertMessage: `Curated graph 提交失败: ${message}`,
+    }
+  }
+  const revisionHint =
+    expected !== undefined || actual !== undefined
+      ? ` expected=${String(expected ?? 'unknown')} actual=${String(actual ?? 'unknown')}`
+      : ''
+  const status = `submit_conflict: version_conflict${revisionHint}`
+  return {
+    status,
+    graphStatus: `Curated graph 提交冲突: ${message}`,
+    alertMessage: `Curated graph 提交冲突: ${message}`,
+  }
 }
 
 function mergeGraphPayloads(payloads: Array<{ nodes?: GraphNodeItem[]; edges?: GraphEdgeItem[] }>) {
@@ -1858,6 +1901,25 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   } = useGraphSelectionState(adjacencyConnectedMap)
 
   useEffect(() => {
+    if (!import.meta.env.DEV) return
+    window.__graphPageE2E = {
+      selectNode: (nodeId: string) => {
+        const entry = Array.from(connectedNodeMap.entries()).find(([, node]) => String(node.id) === nodeId)
+        if (!entry) return false
+        const [key, node] = entry
+        setSelectedNode(node)
+        setManualSelectedNodeKeys(new Set([key]))
+        setManualDeselectedNodeKeys(new Set())
+        setSelectionEnabled(true)
+        return true
+      },
+    }
+    return () => {
+      delete window.__graphPageE2E
+    }
+  }, [connectedNodeMap, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setSelectionEnabled])
+
+  useEffect(() => {
     // Avoid carrying hidden type masks across graph variants.
     setHiddenTypes({})
     setHiddenEdgeKinds({})
@@ -2301,10 +2363,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       markDraftSaved()
       setGraphEditStatus(`Curated graph 已提交: ${graphId}`)
     } catch (error) {
-      const message = error instanceof Error ? error.message : '提交失败'
-      setCuratedStatus(`submit_failed: ${message}`)
-      setGraphEditStatus(`Curated graph 提交失败: ${message}`)
-      window.alert(`Curated graph 提交失败: ${message}`)
+      const failure = curatedSubmitFailure(error)
+      setCuratedStatus(failure.status)
+      setGraphEditStatus(failure.graphStatus)
+      window.alert(failure.alertMessage)
     } finally {
       setCuratedBusy(false)
     }
@@ -4722,6 +4784,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
             <div
               ref={chartRef}
               className="gv2-chart"
+              data-testid="graph-chart-2d"
               style={showForceGraphCanvas ? { display: 'none' } : undefined}
             />
             {forceGraphCanvasNode}
@@ -5876,6 +5939,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
           {selectedNode ? (
             <article
               className="gv2-node-card"
+              data-testid="graph-selected-node-card"
               style={nodeCardStyle}
               onMouseEnter={() => {
                 if (autoFocusEnabled) scheduleForceHoverNodeKey(null)

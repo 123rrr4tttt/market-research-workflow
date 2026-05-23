@@ -45,6 +45,8 @@
   状态：`external_blocked` / `wave24_checked`。仓内 Force3D frontend contract、runtime pixel/shape、visual-data smoke、rollback/readback gate 已封住；剩余条件是 live tenant DB GraphPage run、backend graph endpoint data、WebGL nonblank canvas 与 `window.__graph3dDebug` evidence。
 - [MERGED_OVERVIEW Topic Drift Gate](./MERGED_OVERVIEW/04_wave24-external-blocked-decision-2026-05-23.md)
   状态：`external_blocked` / `wave24_checked`。仓内 RAG drift gate 已证明 retired RAG anchors 与 current local-index/vectorization anchors 的映射；剩余条件是 live/vector optional dependency readiness、production semantic quality 与 global vector contract closure。
+- [2026-05-22 Clue Chain Successor Scopes](./2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md)
+  状态：`external_blocked` / `wave26_checked`。仓内 graph-submit conflict bridge/curated conflict/readback 与 GraphPage Clue Chain UI matrix 已封住；剩余条件是 SearXNG / YaCy / project search adapter live provider reliability。
 
 ## 保留在 CURRENT_DEV 的相邻目录
 
@@ -53,7 +55,6 @@
 - [2026-03-25 Source-Library Ingest Minimal Migration](../CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md)：`retained_partial`。仍有 `python_library_cli_container_runners_not_enabled` 仓内 runner 范围 blocker。
 - [2026-05-14 Global Vectorization General Foundation](../CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-05-14.md)：`retained_partial`。统一 vector object、retrieval runs、provenance payload 与主检索/Agent schema 对齐仍是 repo-local blocker。
 - [2026-03-02 Single URL First Ingest Allocation Plan](../CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)：`retained_partial`。主文档仍保留 broader fetch-router、official API adapter 与 dashboard tri-state 对齐。
-- [2026-05-22 Clue Chain Successor Scopes](../CURRENT_DEV/2026-05-22-clue-chain-successor-scopes/02_wave22_archive_external_blocked_decision-2026-05-22.md)：`retained_partial`。live provider 是外部条件，但 Clue Chain graph-submit conflict gate 与 UI/visual matrix 仍是仓内 blocker。
 
 ## 返回
 

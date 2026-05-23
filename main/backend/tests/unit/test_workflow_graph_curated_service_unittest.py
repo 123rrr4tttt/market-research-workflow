@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.services.clue_chains.graph_integration import build_graph_submit_bridge_envelope
 from app.services.workflow_graph.curated_service import (
     WorkflowGraphCuratedService,
     WorkflowGraphObjectMissingError,
@@ -77,6 +78,76 @@ class WorkflowGraphCuratedServiceUnitTest(unittest.TestCase):
                 audits["items"][0]["version_semantics"],
                 "curated_graph_revision_separate_from_template_versions",
             )
+
+    def test_clue_chain_bridge_stale_revision_matches_curated_conflict_without_audit(self):
+        state = self._state()
+        store = {"payload": state}
+        service = WorkflowGraphCuratedService()
+        with patch("app.services.workflow_graph.curated_service.current_project_key", return_value="demo_proj"), patch(
+            "app.services.workflow_graph.curated_service.get_ingest_config",
+            side_effect=lambda *_args, **_kwargs: {"payload": store["payload"]},
+        ), patch(
+            "app.services.workflow_graph.curated_service.upsert_ingest_config",
+            side_effect=lambda *_args, **kwargs: (
+                store.update({"payload": kwargs.get("payload")}),
+                {"payload": store["payload"]},
+            )[1],
+        ):
+            service.save_draft(
+                "cg-1",
+                {
+                    "dsl": {
+                        "nodes": [{"id": "node-a", "type": "Entity"}, {"id": "node-b", "type": "Entity"}],
+                        "edges": [{"from": "node-a", "to": "node-b", "predicate": "relates_to"}],
+                    },
+                },
+            )
+            service.submit_draft("cg-1", {"base_revision": 0, "actor_id": "tester", "version_id": "cver-1"})
+            service.save_draft(
+                "cg-1",
+                {
+                    "base_revision": 1,
+                    "dsl": {
+                        "nodes": [{"id": "node-a", "type": "Entity"}, {"id": "node-c", "type": "Entity"}],
+                        "edges": [{"from": "node-a", "to": "node-c", "predicate": "relates_to"}],
+                    },
+                },
+            )
+
+            current = service.get_graph("cg-1")
+            envelope = build_graph_submit_bridge_envelope(
+                mutation={"graph_id": "cg-1", "chain_id": "chain-robotics"},
+                base_revision=0,
+                current_revision=current["revision"],
+            )
+
+            self.assertEqual(envelope["status"], "conflict")
+            self.assertFalse(envelope["meta"]["graph_mutation_performed"])
+            self.assertEqual(envelope["error"]["details"]["category"], "version_conflict")
+            self.assertEqual(envelope["error"]["details"]["expected_revision"], 0)
+            self.assertEqual(envelope["error"]["details"]["actual_revision"], 1)
+
+            before = service.get_graph("cg-1")
+            before_audits = service.list_audits("cg-1")
+            with self.assertRaises(WorkflowGraphSyncConflictError) as raised:
+                service.submit_draft(
+                    "cg-1",
+                    {
+                        "base_revision": envelope["error"]["details"]["expected_revision"],
+                        "actor_id": "clue_chain.graph_integration",
+                        "version_id": "cver-clue-stale",
+                    },
+                )
+
+            self.assertEqual(
+                raised.exception.to_details(),
+                {"category": "version_conflict", "expected_revision": 0, "actual_revision": 1},
+            )
+            after = service.get_graph("cg-1")
+            after_audits = service.list_audits("cg-1")
+            self.assertEqual(after["revision"], before["revision"])
+            self.assertEqual(after["active_version_id"], before["active_version_id"])
+            self.assertEqual(after_audits["total"], before_audits["total"])
 
     def test_rollback_uses_bounded_contract_and_audit_record(self):
         state = self._state()

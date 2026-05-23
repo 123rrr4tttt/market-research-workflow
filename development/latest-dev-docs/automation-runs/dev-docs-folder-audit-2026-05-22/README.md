@@ -27,7 +27,7 @@ Wave16 supersedes the original `CURRENT_DEV` counts in this report.
 
 - 9 worker branches were merged into the Wave16 integration branch and the completed subagents were closed.
 - The parallel-agent wave orchestration topic moved to [`ARCHIVE_CLOSED`](../../development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md) after the repo-local runtime/fallback boundary was closed.
-- The Clue Chain investigation topic moved to [`ARCHIVE_CLOSED`](../../development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md); only live-provider reliability, production graph-submit conflict handling, and broader UI / visual regression remain in [`CURRENT_DEV/2026-05-22-clue-chain-successor-scopes`](../../development-plans/CURRENT_DEV/2026-05-22-clue-chain-successor-scopes/INDEX.md).
+- The Clue Chain investigation topic moved to [`ARCHIVE_CLOSED`](../../development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md); its successor scope is now archived at [`ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes`](../../development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/INDEX.md) after Wave26 closed the repo-local follow-up gates.
 - `CURRENT_DEV` status evidence now reports `partial:33`, `not_closed:0`, `no_closure_claim:0`.
 - The Wave16 implementation slices landed graph audit controls, typed-knowledge API contract, writing-workbench typed fetch readback, long-cycle durable readback, docs-root content move evidence, frontend Agent Chat i18n slice, and source-library deterministic review closure batches.
 

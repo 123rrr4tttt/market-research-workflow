@@ -27,6 +27,7 @@
 
 ## 最新补充
 
+- Wave26 封口优先波次（2026-05-23）：Clue Chain successor 的 graph-submit conflict 与 UI matrix 两个 repo-local gate 已落地并验证，目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md)，`CURRENT_DEV` 从 `partial:17` 降到 `partial:16`。
 - Wave21 封口优先波次（2026-05-22）：`CURRENT_DEV` 从 `partial:33` 降到 `partial:26`；7 个仓内门禁已封、但依赖外部 runtime / 生产数据 / 公网 replay / 人工 review 的目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)。
 - 线索追查 `Chain` / 链条工具开发计划（2026-05-22）：
   - [development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/INDEX.md](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/INDEX.md)
@@ -177,7 +178,7 @@
   - [Wave16 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave16-worktree-plan-2026-05-22.md)
   - [parallel-agent runtime boundary closure](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md)
   - [Clue Chain closure split](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md)
-  - [Clue Chain successor scopes](./development-plans/CURRENT_DEV/2026-05-22-clue-chain-successor-scopes/INDEX.md)
+  - [Clue Chain successor scopes](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/INDEX.md)
   - [graph editing UI audit controls](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/08_wave16-graph-editing-ui-audit-controls-2026-05-22.md)
   - [typed knowledge API route contract](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/07_wave16-typed-knowledge-api-route-contract-2026-05-22.md)
   - [writing workbench typed fetch readback](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/08_wave16-worker5-typed-knowledge-fetch-readback-2026-05-22.md)

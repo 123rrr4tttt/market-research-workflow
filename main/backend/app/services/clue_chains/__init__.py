@@ -27,10 +27,12 @@ from .external_search_expansion import (
 )
 from .graph_integration import (
     CLUE_CHAIN_GRAPH_MUTATION_CONTRACT_VERSION,
+    CLUE_CHAIN_GRAPH_SUBMIT_BRIDGE_CONTRACT_VERSION,
     ClueChainGraphIntegrationError,
     build_graph_evidence_pack,
     build_graph_handoff_payload,
     build_graph_mutation_payload,
+    build_graph_submit_bridge_envelope,
 )
 from .source_library_expansion import (
     CLUE_CHAIN_SOURCE_LIBRARY_EXPANSION_CONTRACT_VERSION,
@@ -53,6 +55,7 @@ __all__ = [
     "CHAIN_STATUSES",
     "CLUE_CHAIN_EXTERNAL_SEARCH_EXPANSION_CONTRACT_VERSION",
     "CLUE_CHAIN_GRAPH_MUTATION_CONTRACT_VERSION",
+    "CLUE_CHAIN_GRAPH_SUBMIT_BRIDGE_CONTRACT_VERSION",
     "CLUE_CHAIN_SOURCE_LIBRARY_EXPANSION_CONTRACT_VERSION",
     "DECISIONS",
     "EDGE_STATUSES",
@@ -80,6 +83,7 @@ __all__ = [
     "build_graph_evidence_pack",
     "build_graph_handoff_payload",
     "build_graph_mutation_payload",
+    "build_graph_submit_bridge_envelope",
     "expand_external_search",
     "expand_source_library_hop",
     "external_search_dedupe_key",

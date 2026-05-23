@@ -1,6 +1,6 @@
 # CURRENT_DEV Status Audit
 
-更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave25 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
+更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave26 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
 
 本审计基于对 `CURRENT_DEV` 一级目录的逐目录核对，判断标准同时参考：
 
@@ -34,6 +34,7 @@
 - `wave23_checked`：Wave23 改为封口优先波次，集中迁出只剩 live/provider/tenant/runtime evidence 的目录，以直接降低 `CURRENT_DEV` 的 `partial` 数
 - `wave24_checked`：Wave24 继续按封口优先推进，只迁出 worker/reviewer 双证据均确认只剩外部 / live / runtime 条件的目录；带仓内 blocker 的目录保留在 `CURRENT_DEV`
 - `wave25_verified`：Wave25 继续按封口优先推进，先用多代理复核避免误迁，再落地 docs-root 的 repo-local content move 批次；若仍为 `partial`，表示剩余 blocker 仍未清零
+- `wave26_checked`：Wave26 继续按封口优先推进；Clue Chain successor repo-local graph-submit conflict 与 UI matrix gates 已落地，剩余 live provider reliability 作为外部条件迁出 `CURRENT_DEV`
 
 时效标签：
 
@@ -86,6 +87,7 @@
 - `external_blocked` [2026-03-02-graph-node-standardization-a-then-b-plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/09_wave23-closure-decision-2026-05-23.md) - tenant schema、live backfill dry-run、nonempty tenant graph endpoint smoke 与 read-mode parity evidence 未闭环
 - `external_blocked` [2026-03-02-graph-3d-force-engine-parallel-migration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/08_wave24-external-blocked-decision-2026-05-23.md) - live tenant DB GraphPage run、backend graph endpoint data、WebGL nonblank canvas 与 `window.__graph3dDebug` evidence 未闭环
 - `external_blocked` [MERGED_OVERVIEW](../ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/04_wave24-external-blocked-decision-2026-05-23.md) - live/vector optional dependency readiness、production semantic quality 与 global vector contract 未闭环
+- `external_blocked` [2026-05-22-clue-chain-successor-scopes](../ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md) - Clue Chain graph-submit conflict 与 UI matrix repo-local gates 已闭；live provider reliability 未闭环
 
 ## 结果矩阵
 
@@ -93,7 +95,6 @@
 |---|---|---|---|
 | `2026-03-01-open-source-platform-integration` | `partial` | `doc_aligned / wave8_checked / wave10_checked / wave12_checked / wave14_checked / wave18_checked / wave19_checked` | Wave8 已补 search/vector deterministic contract 复核，Wave10 已补 vectorization quality gate，Wave12 已补 provider readiness gate，Wave14 已补 provider capability gate，Wave18 已补 hybrid readback；平台化验收仍存在更大范围；Wave19 已补 provider manifest readback 并继续保留 live provider / platform closure 边界 |
 | `2026-05-14-global-vectorization-general-foundation` | `partial` | `doc_aligned / wave8_checked / wave10_checked / wave12_checked / wave14_checked / wave18_checked / wave19_checked` | Wave8 已把 search provider trace、container replay summary、local_index runtime/benchmark 组成确定性门禁，Wave10 已补 keyword/vector/hybrid quality gate，Wave12 已补 provider readiness gate，Wave14 已补 provider capability gate，Wave18 已补 hybrid readback；真实 embedding 质量与全局 vector contract 未封口；Wave19 已补 provider manifest readback；真实 embedding 质量与 provider promotion 未封口 |
-| `2026-05-22-clue-chain-successor-scopes` | `partial` | `external_blocked / wave16_checked` | 原 Wave5 实现目录已迁入 `ARCHIVE_CLOSED`；当前只保留 live provider reliability、production graph-submit conflict handling、broader UI / visual regression 三个 successor 范围 |
 | `2026-03-02-ingest-platformization-assessment` | `partial` | `doc_aligned / wave8_verified / wave12_verified / wave14_checked / wave17_verified / wave19_verified` | Wave8 已补 fetch-router gap closure gate，Wave12 已补 single-url canary handoff contract，Wave14 已补 canary metrics readiness，Wave17 已补 deterministic canary metrics readback；生产级 live canary 和 24h metric readback 仍未完成；Wave19 已补 24h metrics artifact contract；live canary 24h readback 仍未完成 |
 | `2026-03-02-meaningful-ingest-guardrails-plan` | `partial` | `doc_aligned / wave9_verified / wave11_verified / wave12_verified / wave14_checked / wave17_verified / wave19_verified` | Wave9 已补 request strict gate 与响应可见性合同；Wave11 已补 URL-execution canary rollout default 与 task-local metrics；Wave12 已补 canary handoff contract，Wave14 已补 canary metrics readiness，Wave17 已补 deterministic canary metrics readback；live demo_proj canary 和 24h 指标仍未封口；Wave19 已补 24h metrics artifact contract；live demo/prod canary 仍未封口 |
 | `2026-03-02-single-url-first-ingest-allocation-plan` | `partial` | `doc_aligned / wave8_verified / wave12_verified / wave14_checked / wave17_verified / wave19_verified` | Wave8 已补 fetch-router/frontdoor context gap closure，Wave12 已补 single-url canary handoff contract，Wave14 已补 canary metrics readiness，Wave17 已补 deterministic readback；前端消费、live canary 和 24h metrics 仍未全闭环；Wave19 已补 24h metrics artifact contract；前端消费与 live metrics 仍未全闭环 |

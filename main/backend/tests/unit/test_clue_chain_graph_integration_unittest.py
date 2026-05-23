@@ -8,6 +8,7 @@ from app.services.clue_chains.graph_integration import (
     ClueChainGraphIntegrationError,
     build_graph_handoff_payload,
     build_graph_mutation_payload,
+    build_graph_submit_bridge_envelope,
 )
 
 pytestmark = pytest.mark.unit
@@ -163,6 +164,90 @@ class ClueChainGraphIntegrationUnitTest(unittest.TestCase):
         self.assertEqual(node["provenance"]["merged_count"], 2)
         self.assertEqual(edge["provenance"]["merged_count"], 2)
         self.assertEqual(set(mutation["candidate_ids"]), {"cand-acme-a", "cand-acme-b"})
+
+    def test_graph_submit_bridge_defaults_to_staged_handoff_without_mutation(self):
+        handoff = build_graph_handoff_payload(
+            chain=self._chain(),
+            candidates=[
+                {
+                    "candidate_id": "cand-acme",
+                    "chain_id": "chain-robotics",
+                    "hop_id": "hop-source-library-1",
+                    "evidence_id": "ev-acme",
+                    "source_node_id": "seed-robotics",
+                    "node": {"node_type": "Company", "title": "Acme Robotics"},
+                }
+            ],
+            decisions=[{"decision_id": "dec-acme", "candidate_id": "cand-acme", "decision": "approved"}],
+            evidence_items=[
+                {
+                    "evidence_id": "ev-acme",
+                    "chain_id": "chain-robotics",
+                    "hop_id": "hop-source-library-1",
+                    "summary": "Evidence summary",
+                }
+            ],
+        )
+
+        envelope = build_graph_submit_bridge_envelope(
+            handoff=handoff,
+            base_revision=2,
+            current_revision=2,
+            actor_id="analyst-1",
+        )
+
+        self.assertEqual(envelope["status"], "ok")
+        self.assertIsNone(envelope["error"])
+        self.assertEqual(envelope["meta"]["contract_version"], "clue_chain.graph_submit_bridge.v1")
+        self.assertEqual(envelope["meta"]["bridge_mode"], "staged_handoff")
+        self.assertEqual(envelope["meta"]["submit_status"], "staged")
+        self.assertFalse(envelope["meta"]["graph_mutation_performed"])
+        self.assertEqual(envelope["data"]["graph_id"], "cg-robotics")
+        self.assertEqual(envelope["data"]["chain_id"], "chain-robotics")
+        self.assertEqual(envelope["data"]["handoff"]["handoff_mode"], "push_payload")
+
+    def test_graph_submit_bridge_expresses_stale_base_revision_conflict_envelope(self):
+        mutation = build_graph_mutation_payload(
+            chain=self._chain(),
+            candidates=[
+                {
+                    "candidate_id": "cand-acme",
+                    "chain_id": "chain-robotics",
+                    "hop_id": "hop-source-library-1",
+                    "evidence_id": "ev-acme",
+                    "source_node_id": "seed-robotics",
+                    "node": {"node_type": "Company", "title": "Acme Robotics"},
+                }
+            ],
+            decisions=[{"decision_id": "dec-acme", "candidate_id": "cand-acme", "decision": "approved"}],
+            evidence_items=[
+                {
+                    "evidence_id": "ev-acme",
+                    "chain_id": "chain-robotics",
+                    "hop_id": "hop-source-library-1",
+                    "summary": "Evidence summary",
+                }
+            ],
+        )
+
+        envelope = build_graph_submit_bridge_envelope(mutation=mutation, base_revision=1, current_revision=3)
+
+        self.assertEqual(envelope["status"], "conflict")
+        self.assertIsNone(envelope["data"])
+        self.assertEqual(envelope["error"]["code"], "clue_chain_graph_revision_conflict")
+        self.assertEqual(envelope["meta"]["submit_status"], "rejected_conflict")
+        self.assertFalse(envelope["meta"]["graph_mutation_performed"])
+        details = envelope["error"]["details"]
+        self.assertEqual(details["category"], "version_conflict")
+        self.assertEqual(details["graph_id"], "cg-robotics")
+        self.assertEqual(details["chain_id"], "chain-robotics")
+        self.assertEqual(details["expected_revision"], 1)
+        self.assertEqual(details["actual_revision"], 3)
+        self.assertTrue(details["requires_base_revision_match"])
+        self.assertEqual(
+            details["version_semantics"],
+            "curated_graph_revision_separate_from_template_versions",
+        )
 
 
 if __name__ == "__main__":

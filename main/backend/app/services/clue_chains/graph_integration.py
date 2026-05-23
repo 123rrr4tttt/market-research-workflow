@@ -9,6 +9,7 @@ from typing import Any, Iterable, Mapping, Sequence
 CLUE_CHAIN_GRAPH_MUTATION_CONTRACT_VERSION = "clue_chain.graph_mutation.v1"
 CLUE_CHAIN_GRAPH_HANDOFF_CONTRACT_VERSION = "graph_handoff.v1"
 CLUE_CHAIN_GRAPH_EVIDENCE_PACK_CONTRACT_VERSION = "graph_evidence_pack.v1"
+CLUE_CHAIN_GRAPH_SUBMIT_BRIDGE_CONTRACT_VERSION = "clue_chain.graph_submit_bridge.v1"
 CLUE_CHAIN_GRAPH_PRODUCER = "clue_chain.graph_integration"
 CLUE_CHAIN_GRAPH_CONSUMER = "workflow_graph.curated"
 
@@ -18,6 +19,92 @@ _FIELD_PROVENANCE_KEYS = ("chain_id", "hop_id", "evidence_id", "candidate_id", "
 
 class ClueChainGraphIntegrationError(ValueError):
     """Raised when a Clue Chain candidate cannot be converted into graph mutations."""
+
+
+def build_graph_submit_bridge_envelope(
+    *,
+    graph_id: str | None = None,
+    chain_id: str | None = None,
+    base_revision: int | str | None = None,
+    current_revision: int | str | None = None,
+    handoff: Mapping[str, Any] | None = None,
+    mutation: Mapping[str, Any] | None = None,
+    actor_id: str | None = None,
+) -> dict[str, Any]:
+    """Build a staged graph-submit bridge envelope without mutating the graph."""
+
+    handoff_map = handoff if isinstance(handoff, Mapping) else {}
+    mutation_map = mutation if isinstance(mutation, Mapping) else {}
+    if not mutation_map and isinstance(handoff_map.get("graph_mutation"), Mapping):
+        mutation_map = handoff_map["graph_mutation"]
+
+    resolved_graph_id = (
+        _text(graph_id)
+        or _first_text(mutation_map, ("graph_id",))
+        or _first_text(handoff_map, ("graph_id",))
+        or "default"
+    )
+    resolved_chain_id = (
+        _text(chain_id)
+        or _first_text(mutation_map, ("chain_id",))
+        or _first_text(handoff_map, ("chain_id",))
+        or "unknown-chain"
+    )
+    resolved_base_revision = _optional_non_negative_int(base_revision, "base_revision")
+    resolved_current_revision = _optional_non_negative_int(current_revision, "current_revision")
+
+    common_meta = {
+        "contract_version": CLUE_CHAIN_GRAPH_SUBMIT_BRIDGE_CONTRACT_VERSION,
+        "producer": CLUE_CHAIN_GRAPH_PRODUCER,
+        "consumer": CLUE_CHAIN_GRAPH_CONSUMER,
+        "bridge_mode": "staged_handoff",
+        "handoff_mode": _first_text(handoff_map, ("handoff_mode",)) or "push_payload",
+        "requires_base_revision_match": True,
+        "graph_mutation_performed": False,
+    }
+    revision_contract = {
+        "category": "version_conflict",
+        "graph_id": resolved_graph_id,
+        "chain_id": resolved_chain_id,
+        "base_revision": resolved_base_revision,
+        "current_revision": resolved_current_revision,
+        "expected_revision": resolved_base_revision,
+        "actual_revision": resolved_current_revision,
+        "requires_base_revision_match": True,
+        "version_semantics": "curated_graph_revision_separate_from_template_versions",
+    }
+
+    if (
+        resolved_base_revision is not None
+        and resolved_current_revision is not None
+        and resolved_base_revision != resolved_current_revision
+    ):
+        return {
+            "status": "conflict",
+            "data": None,
+            "error": {
+                "code": "clue_chain_graph_revision_conflict",
+                "message": "stale base_revision for graph submit",
+                "details": revision_contract,
+            },
+            "meta": {**common_meta, "submit_status": "rejected_conflict"},
+        }
+
+    return {
+        "status": "ok",
+        "data": {
+            "submit_status": "staged",
+            "graph_id": resolved_graph_id,
+            "chain_id": resolved_chain_id,
+            "base_revision": resolved_base_revision,
+            "current_revision": resolved_current_revision,
+            "actor_id": _text(actor_id),
+            "handoff": deepcopy(dict(handoff_map)) if handoff_map else None,
+            "graph_mutation": deepcopy(dict(mutation_map)) if mutation_map else None,
+        },
+        "error": None,
+        "meta": {**common_meta, "submit_status": "staged"},
+    }
 
 
 def build_graph_handoff_payload(
@@ -477,3 +564,15 @@ def _safe_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _optional_non_negative_int(value: Any, field: str) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        resolved = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ClueChainGraphIntegrationError(f"{field} must be an integer") from exc
+    if resolved < 0:
+        raise ClueChainGraphIntegrationError(f"{field} must be non-negative")
+    return resolved

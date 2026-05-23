@@ -82,6 +82,7 @@ function EvidenceButtons({
             className="clue-chain-icon-btn"
             onClick={() => onOpenEvidence(evidenceId)}
             title={evidence?.title || evidenceId}
+            data-testid={`clue-chain-evidence-${evidenceId}`}
           >
             <Eye size={13} />
             <span>{evidence?.title || evidenceId}</span>
@@ -269,6 +270,7 @@ export function ClueChainInspector({
                       className="is-danger"
                       onClick={() => onReviewCandidate(candidate.candidate_id, 'reject')}
                       disabled={busy || !isPending}
+                      data-testid={`clue-chain-reject-${candidate.candidate_id}`}
                     >
                       <X size={13} />
                       <span>Reject</span>

@@ -1,7 +1,13 @@
 # Wave22 Archive External Blocked Decision
 
 Date: 2026-05-22
-Status: `wave22_checked` / `retain_current_dev` / `repo_local_blockers_open`
+Status: `wave22_checked` / `superseded_by_wave26`
+
+## Superseded By Wave26
+
+Wave22 correctly kept this directory in `CURRENT_DEV` because two repo-local blockers were still open at that time. Wave26 closed those two blockers with backend conflict tests and frontend UI matrix tests, so this document is now historical readback rather than the current classification.
+
+Current classification is recorded in [03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md](./03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md).
 
 ## Decision
 
@@ -94,7 +100,7 @@ Checked paths:
 
 - `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/04_wave5_implementation_evidence-2026-05-22.md`
 - `development/latest-dev-docs/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md`
-- `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-22-clue-chain-successor-scopes/01_clue-chain-successor-scopes-2026-05-22.md`
+- `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/01_clue-chain-successor-scopes-2026-05-22.md`
 - `development/latest-dev-docs/automation-runs/graph-handoff-evidence/2026-05-22/README.md`
 - `development/latest-dev-docs/automation-runs/graphpage-curated-consumer/2026-05-22/README.md`
 - `development/latest-dev-docs/automation-runs/wave20-graph-editing-audit-conflict/2026-05-22/README.md`

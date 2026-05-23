@@ -26,7 +26,7 @@ type CuratedReportingHandoffRequest = {
   selected_node_ids?: string[]
 }
 
-async function setupGraphPageMocks(page: Page) {
+async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?: boolean } = {}) {
   let graphConfigHit = 0
   let marketGraphHit = 0
   let policyGraphHit = 0
@@ -136,6 +136,26 @@ async function setupGraphPageMocks(page: Page) {
   await page.route('**/workflow-graph/curated/**/submit**', async (route) => {
     curatedSubmitHit += 1
     lastCuratedSubmitBody = route.request().postDataJSON() as CuratedSubmitRequest
+    if (options.curatedSubmitConflict) {
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'error',
+          data: null,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'conflict: revision mismatch expected=0 actual=1',
+            details: {
+              category: 'version_conflict',
+              expected_revision: 0,
+              actual_revision: 1,
+            },
+          },
+        }),
+      })
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -613,5 +633,31 @@ test('graph builder submits local draft to curated workflow graph API', async ({
   }))
   expect(hits.lastCuratedReportingHandoffBody).toEqual(expect.objectContaining({
     topic: 'robotics reporting',
+  }))
+})
+
+test('graph builder surfaces curated submit conflict without retrying destructively', async ({ page }) => {
+  const hits = await setupGraphPageMocks(page, { curatedSubmitConflict: true })
+  page.on('dialog', (dialog) => {
+    void dialog.dismiss()
+  })
+
+  const response = await page.goto('/#graph-template-new.html')
+  expect(response?.ok()).toBeTruthy()
+
+  await expect(page.getByRole('heading', { level: 1, name: '新建图谱', exact: true })).toBeVisible()
+  await expect(page.getByTestId('graph-curated-panel')).toBeVisible()
+
+  await page.getByTestId('graph-curated-graph-id').fill('cg-graphpage-e2e')
+  await page.getByTestId('graph-curated-submit').click()
+  await expect(page.getByTestId('graph-curated-status')).toContainText('submit_conflict: version_conflict')
+  await expect(page.getByTestId('graph-curated-status')).toContainText('expected=0 actual=1')
+
+  expect(hits.curatedDraftHit).toBe(1)
+  expect(hits.curatedSubmitHit).toBe(1)
+  expect(hits.lastCuratedSubmitBody).toEqual(expect.objectContaining({
+    actor_id: 'graphpage.curated-consumer',
+    base_revision: 0,
+    object_scope: 'curated_business_graph',
   }))
 })
