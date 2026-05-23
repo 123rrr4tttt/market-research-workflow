@@ -219,6 +219,19 @@
   - [Dashboard page i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
   - [docs root content move batch 4](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/11_wave19-docs-root-content-move-batch4-evidence-2026-05-22.md)
   - [typed/writing persisted-card API boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
+- Wave20 CURRENT_DEV time / OpenClaw / modularization gates（2026-05-22，10 个 isolated 子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
+  - [Wave20 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-worktree-plan-2026-05-22.md)
+  - [Wave20 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-agent-roster-2026-05-22.md)
+  - [time semantics sample/provenance readback](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md)
+  - [OpenClaw mirror runtime manifest](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md)
+  - [graph editing audit conflict readback](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md)
+  - [long-cycle scheduler queue replay](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/09_wave20-long-cycle-scheduler-queue-handoff-replay-2026-05-22.md)
+  - [agent-batch quality promotion readback](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/21_wave20-agent-batch-quality-promotion-readback-2026-05-22.md)
+  - [document-query endpoint slice](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/11_wave20-document-query-endpoint-slice-2026-05-22.md)
+  - [consumer facade prompt-time-density slice](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/07_wave20-prompt-time-density-consumer-facade-2026-05-22.md)
+  - [source-library review closure batch 4](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/13_wave20-review-closure-batch4-2026-05-22.md)
+  - [ProcessPage i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/12_wave20-process-page-i18n-slice-evidence-2026-05-22.md)
+  - [docs root content move batch 5](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

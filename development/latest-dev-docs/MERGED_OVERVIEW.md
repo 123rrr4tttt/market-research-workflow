@@ -71,6 +71,11 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave19 Crawler Public Replay Shards](./automation-runs/crawler-public-replay-shards/2026-05-22/README.md)
   - [2026-05-22 Wave19 Source-Library Review Batch 3](./automation-runs/source-library-review-closure-batch3/2026-05-22/README.md)
   - [2026-05-22 Wave19 AgentCore Provider Trace Redaction](./automation-runs/agent-core-provider-trace-redaction/2026-05-22/agent_core_provider_trace_redaction.json)
+  - [2026-05-22 Wave20 Worktree Plan And Integration Status](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Wave20 Agent Roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-agent-roster-2026-05-22.md)
+  - [2026-05-22 Wave20 Time Semantics Provenance](./automation-runs/wave20-time-semantics-sample-provenance-readback/2026-05-22/README.md)
+  - [2026-05-22 Wave20 OpenClaw Mirror Readback](./automation-runs/wave20-openclaw-mirror-readback/2026-05-22/README.md)
+  - [2026-05-22 Wave20 Source-Library Review Batch 4](./automation-runs/source-library-review-closure-batch4/2026-05-22/README.md)
 - `backend-docs`：
   - [2026-05-22 Backend API Schema Inventory](./backend-docs/B_API/API_SCHEMA_INVENTORY_2026-05-22.md)
 - `frontend-modern`：
@@ -257,6 +262,19 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave19 Dashboard Page I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
   - [2026-05-22 Wave19 Docs Root Content Move Batch 4](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/11_wave19-docs-root-content-move-batch4-evidence-2026-05-22.md)
   - [2026-05-22 Wave19 Typed Knowledge Persisted-Card API Boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
+- `development-plans` Wave20 time / OpenClaw / modularization / migration gates:
+  - [2026-05-22 Wave20 Worktree Plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-worktree-plan-2026-05-22.md)
+  - [2026-05-22 Wave20 Agent Roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-agent-roster-2026-05-22.md)
+  - [2026-05-22 Wave20 Time Semantics Readback](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md)
+  - [2026-05-22 Wave20 OpenClaw Mirror Readback](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md)
+  - [2026-05-22 Wave20 Graph Editing Audit Conflict](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md)
+  - [2026-05-22 Wave20 Long-Cycle Scheduler Queue](./development-plans/CURRENT_DEV/2026-03-07-ingest-digestion-and-long-cycle-automation/09_wave20-long-cycle-scheduler-queue-handoff-replay-2026-05-22.md)
+  - [2026-05-22 Wave20 Agent Batch Quality Promotion](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/21_wave20-agent-batch-quality-promotion-readback-2026-05-22.md)
+  - [2026-05-22 Wave20 Document Query Endpoint Slice](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/11_wave20-document-query-endpoint-slice-2026-05-22.md)
+  - [2026-05-22 Wave20 Consumer Facade Slice](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/07_wave20-prompt-time-density-consumer-facade-2026-05-22.md)
+  - [2026-05-22 Wave20 Source-Library Review Batch 4](./development-plans/CURRENT_DEV/2026-03-11-source-library-three-lane-architecture/13_wave20-review-closure-batch4-2026-05-22.md)
+  - [2026-05-22 Wave20 ProcessPage I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/12_wave20-process-page-i18n-slice-evidence-2026-05-22.md)
+  - [2026-05-22 Wave20 Docs Root Content Move Batch 5](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md)
 - [2026-05-22 Source Library Public Live Probes](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/CURRENT_DEV/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
