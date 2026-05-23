@@ -125,7 +125,7 @@
   - [typed knowledge persistence/API boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md)
   - [writing workbench persistence boundary](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
   - [docs root content plan gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
-  - [R41 OpenClaw autodispatch gate](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
+  - [R41 OpenClaw autodispatch gate](./development-plans/ARCHIVE_RETIRED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
 - Wave13 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave13 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave13-worktree-plan-2026-05-22.md)
   - [LLM crawler high-JS/public replay readiness](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md)
@@ -162,7 +162,7 @@
   - [Wave15 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave15-worktree-plan-2026-05-22.md)
   - [open search runtime boundary](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/13_wave15-open-search-runtime-boundary-2026-05-22.md)
   - [source time production readiness](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/06_wave15-source-time-production-readiness-2026-05-22.md)
-  - [R41 OpenClaw runtime handoff](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
+  - [R41 OpenClaw runtime handoff](./development-plans/ARCHIVE_RETIRED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
   - [LLM crawler high-JS replay manifest](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md)
   - [symbolic search live quality threshold](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/19_wave15-symbolic-live-quality-threshold-2026-05-22.md)
   - [structured SQL helper migration](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_wave15-structured-sql-helper-migration-2026-05-22.md)

@@ -1,6 +1,6 @@
 # ARCHIVE_RETIRED - 已退场 / 过时开发计划
 
-更新时间：2026-04-07（PST）
+更新时间：2026-05-22（PST）
 
 本目录用于存放已经不应继续作为当前开发入口的历史计划文档。它们保留为背景材料，但不再作为当前代码事实、当前实施路径或当前主入口。
 
@@ -18,6 +18,9 @@
 - [2026-03-04 RAG Line Round3 Filter Robustness](./2026-03-04-rag-line-round3-filter-robustness/)
   当前问题：文档引用的 `minimal_rag.py` 与测试路径已不在当前仓库；继续放在 `CURRENT_DEV` 会制造“还可按旧路径推进”的错觉。
   替代入口：无直接替代主文档；若要重启该主题，应按当前 RAG 代码结构重新立项。
+- [2026-03-04 R41 OpenClaw Autodispatch](./2026-03-04-r41-openclaw-autodispatch/)
+  当前问题：用户确认当前不再使用 OpenClaw R41 autodispatch 开发语义；该目录只是从 `/Users/wangyiliang/Desktop/openclaw` 迁入的历史 R41 workflow bundle，继续放在 `CURRENT_DEV` 会误导后续开发。
+  替代入口：无；如需重启，应在 OpenClaw 项目按当前语义重新立项后再迁入。
 - [2026-03-07 Builtin Writing Workbench Design](./2026-03-07-builtin-writing-workbench-design/)
   当前问题：文档前提是“写作域尚未落地”，但当前前后端写作域已经存在，原文已退化为早期设计稿。
   替代入口：优先参考 [CURRENT_DEV/2026-03-07-writing-workbench-evolution](../CURRENT_DEV/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)。

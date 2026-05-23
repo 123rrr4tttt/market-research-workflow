@@ -8,7 +8,7 @@
 ## Current Active Entries
 
 - Archived AgentCore Session Diagnostics: [47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md](../ARCHIVE_CLOSED/2026-04-02-claude-agent-high-fidelity-migration/47_agentcore-session-diagnostic-breakpoints-and-repair-plan-2026-05-14.md)
-- R41 Latest Bundle: [OpenClaw Autodispatch Migration](./2026-03-04-r41-openclaw-autodispatch/README.md)
+- Retired R41 Bundle: [OpenClaw Autodispatch Migration](../ARCHIVE_RETIRED/2026-03-04-r41-openclaw-autodispatch/README.md)
 
 ## Archived Compatibility Links
 

@@ -167,7 +167,7 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave12 Typed Knowledge Persistence / API Boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Writing Workbench Persistence Boundary](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Docs Root Content Plan Gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
-  - [2026-05-22 Wave12 R41 OpenClaw Autodispatch Gate](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
+  - [2026-05-22 Wave12 R41 OpenClaw Autodispatch Gate](./development-plans/ARCHIVE_RETIRED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
   - [2026-05-22 Wave13 LLM Crawler High-JS Public Replay Readiness](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md)
   - [2026-05-22 Wave13 Symbolic Provider Quality Readiness](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/18_wave13-symbolic-provider-quality-readiness-evidence-2026-05-22.md)
   - [2026-05-22 Wave13 Structured Search Endpoint Contract](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/09_wave13-structured-search-endpoint-contract-2026-05-22.md)
@@ -197,7 +197,7 @@ Updated: 2026-05-22 PST
 - `development-plans/CURRENT_DEV` Wave15 runtime / migration / closure gates:
   - [2026-05-22 Wave15 Open Search Runtime Boundary](./development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/13_wave15-open-search-runtime-boundary-2026-05-22.md)
   - [2026-05-22 Wave15 Source Time Production Readiness](./development-plans/CURRENT_DEV/2026-03-02-source-time-window-smart-timestamp-plan/06_wave15-source-time-production-readiness-2026-05-22.md)
-  - [2026-05-22 Wave15 R41 OpenClaw Runtime Handoff](./development-plans/CURRENT_DEV/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
+  - [2026-05-22 Wave15 R41 OpenClaw Runtime Handoff](./development-plans/ARCHIVE_RETIRED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE15_R41_OPENCLAW_RUNTIME_HANDOFF_EVIDENCE.md)
   - [2026-05-22 Wave15 LLM Crawler Replay Manifest](./development-plans/CURRENT_DEV/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md)
   - [2026-05-22 Wave15 Symbolic Live Quality Threshold](./development-plans/CURRENT_DEV/2026-03-09-agent-symbolic-batch-search-architecture/19_wave15-symbolic-live-quality-threshold-2026-05-22.md)
   - [2026-05-22 Wave15 Structured SQL Helper Migration](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_wave15-structured-sql-helper-migration-2026-05-22.md)
