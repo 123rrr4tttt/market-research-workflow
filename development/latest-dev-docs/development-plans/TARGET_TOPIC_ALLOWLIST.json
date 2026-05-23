@@ -2,6 +2,7 @@
   "schema": "development-plans-target-topic-allowlist/v1",
   "updated": "2026-05-23 PST",
   "purpose": "Separate real development target topics from evidence/process records, navigation directories, compatibility shims, and external reference material.",
+  "external_blocker_manifest": "development/latest-dev-docs/development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json",
   "target_roots": [
     {
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV",

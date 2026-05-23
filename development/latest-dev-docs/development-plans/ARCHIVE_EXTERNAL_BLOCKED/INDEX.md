@@ -7,6 +7,8 @@
 ## 导航基线
 
 - Target topic allowlist: [../TARGET_TOPIC_ALLOWLIST.json](../TARGET_TOPIC_ALLOWLIST.json)
+- External blocker manifest: [../EXTERNAL_BLOCKER_MANIFEST.v1.json](../EXTERNAL_BLOCKER_MANIFEST.v1.json)
+- Wave40 manifest evidence: [../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md](../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)
 - Wave37 four-state review: [../../automation-runs/wave37-target-review-status/2026-05-23/README.md](../../automation-runs/wave37-target-review-status/2026-05-23/README.md)
 - Wave36 target evidence profile: [../../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md](../../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)
 
@@ -16,6 +18,7 @@
 - 剩余 blocker 不可在当前仓库内用确定性测试闭合
 - 目录继续留在 `CURRENT_DEV` 会让 `partial` 数虚高，并误导后续 agent 继续补小 gate
 - 迁入记录必须写明外部条件、仓内已封证据、恢复条件和验证命令
+- Wave40 之后，每个 `external_blocked` review target 还必须在 [EXTERNAL_BLOCKER_MANIFEST.v1.json](../EXTERNAL_BLOCKER_MANIFEST.v1.json) 中登记 `dependency_type`、`repo_local_evidence`、`probe_or_manual_evidence`、`exit_criteria` 和 `owner_surface`，并通过 `scripts/checkers/check_external_blocker_manifest.py`。
 
 ## 外部阻塞目录
 
