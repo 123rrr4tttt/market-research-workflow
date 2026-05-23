@@ -24,7 +24,7 @@
 LanceDB hybrid retrieval 与数据向量化/标准化的后续工作已经单独定位到：
 
 ```text
-development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14.md
+development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14.md
 ```
 
 ## 3. 任务 A：WritingWorkbench 前端融贯性验证

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -43,15 +44,22 @@ class SearchCoreContractTestCase(unittest.TestCase):
     def test_search_success_envelope_complete(self):
         mocked_results = [{"id": "doc-1", "score": 0.91}, {"id": "doc-2", "score": 0.73}]
 
-        with (
-            patch("app.api.search.hybrid_search", return_value=mocked_results),
-            patch("app.api.search.get_last_used_backends", return_value=["opensearch", "qdrant", "pgvector", "custom"]),
-        ):
-            response = self.client.get(
-                "/api/v1/search",
-                params={"q": "market", "state": "CA", "modality": "text", "rank": "hybrid", "top_k": 2},
-                headers=self.headers,
-            )
+        with tempfile.TemporaryDirectory(prefix="search-core-retrieval-runs-") as tmp_dir:
+            retrieval_runs_path = Path(tmp_dir) / "retrieval_runs.jsonl"
+            with (
+                patch("app.api.search.hybrid_search", return_value=mocked_results),
+                patch(
+                    "app.api.search.get_last_used_backends",
+                    return_value=["opensearch", "qdrant", "pgvector", "custom"],
+                ),
+                patch.dict("os.environ", {"SEARCH_RETRIEVAL_RUNS_PATH": str(retrieval_runs_path)}),
+            ):
+                response = self.client.get(
+                    "/api/v1/search",
+                    params={"q": "market", "state": "CA", "modality": "text", "rank": "hybrid", "top_k": 2},
+                    headers=self.headers,
+                )
+            self.assertTrue(retrieval_runs_path.is_file())
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
@@ -83,6 +91,15 @@ class SearchCoreContractTestCase(unittest.TestCase):
         self.assertEqual(len(body["data"]["evidence_hits"]), 2)
         self.assertEqual(body["data"]["evidence_hits"][0]["rank"], 1)
         self.assertEqual(body["data"]["evidence_hits"][0]["retrieval_family"], "main_search")
+        self.assertEqual(body["data"]["retrieval_run"]["query_group_id"], body["data"]["query_group_id"])
+        self.assertEqual(body["data"]["retrieval_run"]["retrieval_family"], "main_search")
+        self.assertEqual(len(body["data"]["retrieval_run"]["evidence_hits"]), 2)
+        self.assertGreaterEqual(len(body["data"]["retrieval_run"]["branch_records"]), 1)
+        self.assertTrue(body["data"]["retrieval_run_id"].startswith("retrieval_run_"))
+        self.assertEqual(body["data"]["search_branches"], body["data"]["retrieval_run"]["retrieval_branches"])
+        self.assertEqual(body["data"]["branch_hit_details"], body["data"]["retrieval_run"]["retrieval_hits"])
+        self.assertEqual(body["data"]["retrieval_run_readback"]["status"], "passed")
+        self.assertTrue(body["data"]["retrieval_run_readback"]["readback_available"])
         self.assertEqual(
             body["data"]["search_backends_used"],
             ["opensearch_lexical", "qdrant_vector", "pgvector_fallback", "custom"],

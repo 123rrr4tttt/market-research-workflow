@@ -17,6 +17,7 @@
       "implementation_or_validation_record": 60
     },
     "wave29_resolution": "unsafe broad-tree move closed by decomposing the archive into ledger-backed per-file batch work; no target authority is claimed for archive files in this worker scope",
+    "wave30_worker_b_readback": "The two requested docs-root gates pass after decomposition. This ledger is retained as the per-file source-shim conversion queue; it does not claim target authority for archive files.",
     "remaining_blockers_after_classification": [
       "source_compatibility_shim_conversion",
       "shared_navigation_sync",

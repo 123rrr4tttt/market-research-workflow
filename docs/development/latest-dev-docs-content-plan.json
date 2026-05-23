@@ -5,6 +5,7 @@
   "migration_manifest": "docs/development/latest-dev-docs-entry-manifest.json",
   "generated_date": "2026-05-23",
   "status": "wave29_archive_closed_broad_move_decomposed",
+  "wave30_worker_b_readback": "Requested content-plan and migration-manifest gates pass with remaining_unsafe_moves=0. The archive broad move is closed as a broad migration primitive and retained as a decomposed per-file queue; archive files are not target-authoritative until explicit moved_file_batch promotion creates targets and source compatibility shims.",
   "checker": "scripts/checkers/check_docs_root_content_plan.py",
   "entries": [
     {

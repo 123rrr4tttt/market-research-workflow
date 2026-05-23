@@ -29,9 +29,9 @@ LOCAL_INDEX_BENCHMARK = (
 )
 
 TARGET_TOPICS = [
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation",
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation",
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration",
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
 ]
 LOCAL_OPEN_SEARCH_PROVIDERS = ["searxng", "yacy"]

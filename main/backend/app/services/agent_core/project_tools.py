@@ -24,6 +24,14 @@ from app.services.agent_runtime.structured_data_quality import audit_project_str
 from app.services.agent_runtime.structured_data_search import query_project_structured_data
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.projects import bind_project
+from app.services.search.vector_contracts import (
+    AGENT_MATRIX_SEARCH_EVIDENCE_CONTRACT_VERSION,
+    GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+    SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
+    SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION,
+    build_agent_matrix_evidence_hits,
+    build_retrieval_run_record,
+)
 from app.services.search.web import search_sources
 from app.services.source_library.source_candidate_trust import build_source_candidate_plan
 from app.services.skill_runtime import invoke_skill, list_registered_skills
@@ -2081,6 +2089,22 @@ def _source_web_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentC
             branches=search_branches,
             candidates=normalized_results,
         )
+        query_group_id, evidence_hits = build_agent_matrix_evidence_hits(
+            normalized_results,
+            query=query,
+            project_key=project_key,
+            rank_mode="matrix",
+            top_k=max_results,
+        )
+        retrieval_run = build_retrieval_run_record(
+            query=query,
+            query_group_id=query_group_id,
+            evidence_hits=evidence_hits,
+            project_key=project_key,
+            rank_mode="matrix",
+            top_k=max_results,
+            retrieval_family="agent_matrix",
+        )
         model_summary = (
             f"External source search returned {len(normalized_results)} candidate(s), "
             f"accepted_by_trust={accepted_count}, provider={provider}, branches={len(search_branches)}."
@@ -2115,6 +2139,13 @@ def _source_web_search_handler() -> Callable[[CoreToolCall, CoreToolSpec, AgentC
                 "candidates": _compact_json_value(normalized_results, max_items=max(12, max_results), max_depth=5),
                 "search_branches": _compact_json_value(search_branches, max_items=12, max_depth=5),
                 "matrix_summary": matrix_summary,
+                "agent_matrix_evidence_contract_version": AGENT_MATRIX_SEARCH_EVIDENCE_CONTRACT_VERSION,
+                "global_vector_object_contract_version": GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+                "evidence_hit_contract_version": SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
+                "retrieval_run_contract_version": SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION,
+                "query_group_id": query_group_id,
+                "evidence_hits": _compact_json_value(evidence_hits, max_items=max(30, max_results), max_depth=6),
+                "retrieval_run": _compact_json_value(retrieval_run, max_items=max(30, max_results), max_depth=6),
                 "provider_diagnostics": provider_diagnostics,
                 "empty_result_guidance": (
                     "No live candidates returned. Do not conclude absence of evidence; retry with a configured provider, "

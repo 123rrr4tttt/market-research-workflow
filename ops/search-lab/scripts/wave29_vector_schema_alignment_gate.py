@@ -20,11 +20,11 @@ DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave29-vector-sch
 CLOSED_REPO_LOCAL_BLOCKERS = [
     "unified_vector_object_contract_not_frozen",
     "main_search_evidence_hit_contract_not_aligned",
+    "embedding_qdrant_pgvector_payload_provenance_not_unified",
 ]
 
 REMAINING_REPO_LOCAL_BLOCKERS = [
     "retrieval_runs_branches_hits_persistence_not_implemented",
-    "embedding_qdrant_pgvector_payload_provenance_not_unified",
     "agent_matrix_and_main_search_schema_not_joined",
 ]
 
@@ -52,7 +52,9 @@ def _fixture_rows() -> list[dict[str, Any]]:
             "chunk_index": 0,
             "source_id": "source-policy",
             "vector_version": "v2",
+            "embedding_provider": "openai",
             "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "2026-05-embedding-manifest",
             "embedding_dim": 3072,
             "score": 5.5,
             "backend": "opensearch",
@@ -71,9 +73,14 @@ def _fixture_rows() -> list[dict[str, Any]]:
             "chunk_id": "policy-18-chunk-0",
             "source_id": "source-policy",
             "vector_version": "v2",
+            "embedding_provider": "openai",
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "2026-05-embedding-manifest",
+            "embedding_dim": 3072,
             "score": 0.93,
             "backend": "qdrant",
             "mode": "vector",
+            "source_reference": "qdrant://policy_chunks/policy-18-chunk-0",
             "tags": ["vector", "qdrant"],
         },
         {
@@ -81,9 +88,17 @@ def _fixture_rows() -> list[dict[str, Any]]:
             "project_key": "demo_proj",
             "object_type": "policy_chunk",
             "object_id": 19,
+            "source_id": "source-policy",
+            "vector_version": "v1",
+            "embedding_provider": "openai",
+            "embedding_model": "text-embedding-3-small",
+            "embedding_model_version": "2026-05-embedding-manifest",
+            "embedding_dim": 1536,
             "score": 0.82,
             "backend": "pgvector",
             "mode": "vector",
+            "source_reference": "postgres://embeddings/19",
+            "fallback_reason": "qdrant_unavailable: deterministic gate fallback",
             "tags": ["vector", "pgvector", "fallback"],
         },
     ]
@@ -92,6 +107,7 @@ def _fixture_rows() -> list[dict[str, Any]]:
 def build_contract() -> dict[str, Any]:
     from app.services.search.vector_contracts import (
         GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+        GLOBAL_VECTOR_OBJECT_PROVENANCE_REQUIRED_FIELDS,
         GLOBAL_VECTOR_OBJECT_REQUIRED_FIELDS,
         SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
         SEARCH_EVIDENCE_HIT_REQUIRED_FIELDS,
@@ -129,6 +145,23 @@ def build_contract() -> dict[str, Any]:
         failures.append("all evidence hits must expose matrix_branch_id")
     if any(hit.get("query_group_id") != query_group_id for hit in hits):
         failures.append("all evidence hits must share query_group_id")
+    for hit in hits:
+        provenance = hit["global_vector_object"]["provenance"]
+        missing = [
+            field
+            for field in GLOBAL_VECTOR_OBJECT_PROVENANCE_REQUIRED_FIELDS
+            if field not in provenance
+        ]
+        if missing:
+            failures.append(f"{hit['backend']}: payload provenance missing fields: {missing!r}")
+    qdrant_hit = next(hit for hit in hits if hit["backend"] == "qdrant_vector")
+    pgvector_hit = next(hit for hit in hits if hit["backend"] == "pgvector_fallback")
+    if qdrant_hit["global_vector_object"]["provenance"].get("provider") != "openai":
+        failures.append("qdrant payload provenance provider mismatch")
+    if pgvector_hit["global_vector_object"]["provenance"].get("fallback_reason") != (
+        "qdrant_unavailable: deterministic gate fallback"
+    ):
+        failures.append("pgvector payload provenance fallback_reason mismatch")
 
     return {
         "contract_version": "wave29-vector-schema-alignment-gate.v1",
@@ -141,6 +174,7 @@ def build_contract() -> dict[str, Any]:
         },
         "required_fields": {
             "global_vector_object": list(GLOBAL_VECTOR_OBJECT_REQUIRED_FIELDS),
+            "global_vector_object_provenance": list(GLOBAL_VECTOR_OBJECT_PROVENANCE_REQUIRED_FIELDS),
             "search_evidence_hit": list(SEARCH_EVIDENCE_HIT_REQUIRED_FIELDS),
         },
         "query_group_id": query_group_id,
@@ -150,14 +184,16 @@ def build_contract() -> dict[str, Any]:
         "closed_repo_local_blockers": CLOSED_REPO_LOCAL_BLOCKERS,
         "remaining_repo_local_blockers": REMAINING_REPO_LOCAL_BLOCKERS,
         "external_conditions_still_open": EXTERNAL_CONDITIONS_STILL_OPEN,
-        "archive_recommendation": "retain_current_dev_until_persistence_payload_provenance_and_agent_join_are_closed",
+        "archive_recommendation": "retain_current_dev_until_persistence_and_agent_join_are_closed",
         "closure_claim_allowed": False,
         "provider_live_closure_claim_allowed": False,
         "semantic_quality_claim_allowed": False,
+        "payload_provenance_repo_local_closed": True,
         "material_changes": [
             "main_search_response_exposes_evidence_hits",
             "global_vector_object_schema_builder_added",
             "evidence_hit_schema_validator_added",
+            "qdrant_pgvector_payload_provenance_unified",
         ],
         "sample_evidence_hits": hits,
         "failures": failures,

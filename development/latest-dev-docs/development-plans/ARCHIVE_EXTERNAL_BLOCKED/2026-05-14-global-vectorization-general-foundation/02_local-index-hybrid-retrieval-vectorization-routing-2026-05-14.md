@@ -18,7 +18,7 @@
 因此，后续工作归入本目录：
 
 ```text
-development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/
+development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/
 ```
 
 当前代码基线：

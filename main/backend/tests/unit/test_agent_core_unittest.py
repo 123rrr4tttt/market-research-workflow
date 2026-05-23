@@ -25,6 +25,12 @@ from app.services.agent_core import (
 )
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
+from app.services.search.vector_contracts import (
+    AGENT_MATRIX_SEARCH_EVIDENCE_CONTRACT_VERSION,
+    GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+    SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
+    SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -2796,6 +2802,19 @@ class AgentCoreUnitTest(unittest.TestCase):
         self.assertEqual(candidate["title"], "Robotics market official report")
         self.assertEqual(candidate["trust"]["domain"], "example.gov")
         self.assertEqual(candidate["trust"]["status"], "accepted")
+        self.assertEqual(content["agent_matrix_evidence_contract_version"], AGENT_MATRIX_SEARCH_EVIDENCE_CONTRACT_VERSION)
+        self.assertEqual(content["evidence_hit_contract_version"], SEARCH_EVIDENCE_HIT_CONTRACT_VERSION)
+        self.assertEqual(content["global_vector_object_contract_version"], GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION)
+        self.assertEqual(content["retrieval_run_contract_version"], SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION)
+        self.assertEqual(len(content["evidence_hits"]), 1)
+        evidence_hit = content["evidence_hits"][0]
+        self.assertEqual(evidence_hit["retrieval_family"], "agent_matrix")
+        self.assertEqual(evidence_hit["backend"], "ddg")
+        self.assertEqual(evidence_hit["global_vector_object"]["contract_version"], GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION)
+        self.assertEqual(
+            evidence_hit["global_vector_object"]["provenance"]["provider_payload_kind"],
+            "agent_matrix_candidate",
+        )
 
     def test_source_discovery_plan_returns_capability_matrix(self):
         service = AgentSessionService(store=InMemoryAgentSessionStore())
@@ -2929,6 +2948,15 @@ class AgentCoreUnitTest(unittest.TestCase):
         self.assertTrue(all("provider_diagnostics" in branch for branch in content["search_branches"]))
         self.assertEqual(content["candidates"][0]["matrix_rank"], 1)
         self.assertGreaterEqual(content["candidates"][0]["branch_count"], 1)
+        self.assertEqual(content["agent_matrix_evidence_contract_version"], AGENT_MATRIX_SEARCH_EVIDENCE_CONTRACT_VERSION)
+        self.assertEqual(content["evidence_hit_contract_version"], SEARCH_EVIDENCE_HIT_CONTRACT_VERSION)
+        self.assertEqual(content["retrieval_run_contract_version"], SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION)
+        self.assertTrue(content["query_group_id"].startswith("qg_"))
+        self.assertEqual(len(content["evidence_hits"]), content["candidate_count"])
+        self.assertEqual(content["evidence_hits"][0]["retrieval_family"], "agent_matrix")
+        self.assertEqual(content["evidence_hits"][0]["global_vector_object"]["object_type"], "source_candidate")
+        self.assertEqual(content["retrieval_run"]["retrieval_family"], "agent_matrix")
+        self.assertEqual(content["retrieval_run"]["evidence_hits"][0]["query_group_id"], content["query_group_id"])
         self.assertIn("branches=4", provider.calls[1]["transcript"][-1]["tool_result"]["model_summary"])
 
     def test_source_web_search_empty_result_reports_provider_uncertainty(self):

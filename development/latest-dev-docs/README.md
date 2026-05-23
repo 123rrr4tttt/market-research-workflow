@@ -28,9 +28,11 @@
 
 ## 最新补充
 
+- Wave30 closure-priority wave（2026-05-23）：按“减少 `partial`”只处理最接近封口的 vector/open-source/docs-root/frontend 四个目录；global vectorization 已落地 retrieval run persistence/readback、payload provenance 与 Agent/main-search schema join，open-source platform 不再有独立仓内 blocker，两个目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)：[global vectorization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)、[open source platform](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/09_wave30-open-source-external-blocked-decision-2026-05-23.md)。`CURRENT_DEV` 从 `partial:4` 降到 `partial:2`；保留项证据：[docs-root target readback](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/20_wave30-docs-root-navigation-target-readback-2026-05-23.md)、[CrawlerManage i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/14_wave30-crawler-manage-i18n-slice-2026-05-23.md)、[vector closure gate](./automation-runs/wave30-vector-closure-gate/2026-05-23/README.md)。
+
 - Wave29 closure-priority wave（2026-05-23）：按“减少 `partial`”重新排序，集中处理 ingest / OSS-node / vector / docs-root 近封口目录；四个目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)：[ingest platformization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/09_wave29-ingest-platformization-repo-local-closure-2026-05-23.md)、[meaningful guardrails](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md)、[single URL](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/10_wave29-ingest-blocker-alignment-2026-05-23.md)、[OSS node](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md)。`CURRENT_DEV` 从 `partial:8` 降到 `partial:4`。
 
-- Wave29 retained partial evidence（2026-05-23）：global vectorization 已落地 response-level `evidence_hits` / `global_vector_object` schema gate，但仍保留 persistence、payload provenance 与 Agent/main-search join blocker；docs-root 已将最后 unsafe broad archive move 拆为 per-file batches，但 navigation / `MERGED_OVERVIEW` drift 仍阻塞封口。证据：[vector schema alignment](./development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md)、[docs-root decomposition](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/19_wave29-worker-a-docs-root-archive-closed-decomposition-2026-05-23.md)、[docs-root navigation drift](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/19_wave29-worker-b-docs-root-shared-navigation-drift-2026-05-23.md)。
+- Wave29 retained partial evidence（2026-05-23）：global vectorization 已落地 response-level `evidence_hits` / `global_vector_object` schema gate，但仍保留 persistence、payload provenance 与 Agent/main-search join blocker；docs-root 已将最后 unsafe broad archive move 拆为 per-file batches，但 navigation / `MERGED_OVERVIEW` drift 仍阻塞封口。证据：[vector schema alignment](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md)、[docs-root decomposition](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/19_wave29-worker-a-docs-root-archive-closed-decomposition-2026-05-23.md)、[docs-root navigation drift](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/19_wave29-worker-b-docs-root-shared-navigation-drift-2026-05-23.md)。
 
 - Wave28 structured worker（2026-05-23）：`2026-03-12-data-structured-service-modularization` 已补 generic DocumentQuery statement builder 并通过 focused gates；仓内 repo-local blocker 清零，剩余 live DB/API smoke 属外部条件，目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-12-data-structured-service-modularization/14_wave28-structured-document-query-statement-builder-2026-05-23.md)，`CURRENT_DEV` 从 `partial:9` 降到 `partial:8`。
 
@@ -120,8 +122,8 @@
 - Wave12 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave12 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave12-worktree-plan-2026-05-22.md)
   - [provider readiness run artifact](./automation-runs/wave12-provider-readiness/2026-05-22/README.md)
-  - [open source platform provider readiness](./development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration/03_wave12-provider-readiness-gate-2026-05-22.md)
-  - [global vectorization provider readiness](./development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/04_wave12-provider-readiness-gate-2026-05-22.md)
+  - [open source platform provider readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/03_wave12-provider-readiness-gate-2026-05-22.md)
+  - [global vectorization provider readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/04_wave12-provider-readiness-gate-2026-05-22.md)
   - [local open search provider readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/12_wave12-provider-readiness-gate-2026-05-22.md)
   - [OSS node provider readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/03_wave12-provider-readiness-gate-2026-05-22.md)
   - [graph Force3D live smoke readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/04_wave12-live-smoke-readiness-gate-2026-05-22.md)
@@ -159,8 +161,8 @@
 - Wave14 CURRENT_DEV readiness / boundary gates（2026-05-22，9 个子代理分支已合并）：
   - [Wave14 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave14-worktree-plan-2026-05-22.md)
   - [vectorization provider capability artifact](./automation-runs/wave14-vectorization-provider-capability/2026-05-22/README.md)
-  - [open source platform vectorization capability](./development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration/04_wave14-vectorization-provider-capability-2026-05-22.md)
-  - [global vectorization provider capability](./development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/05_wave14-vectorization-provider-capability-2026-05-22.md)
+  - [open source platform vectorization capability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/04_wave14-vectorization-provider-capability-2026-05-22.md)
+  - [global vectorization provider capability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/05_wave14-vectorization-provider-capability-2026-05-22.md)
   - [OSS node provider capability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/04_wave14-vectorization-provider-capability-2026-05-22.md)
   - [graph visual data smoke gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/05_wave14-graph-visual-data-smoke-gate-2026-05-22.md)
   - [graph node live DB rollout gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/06_wave14-live-db-rollout-gate-2026-05-22.md)
@@ -216,7 +218,7 @@
 - Wave18 CURRENT_DEV readback / health / migration gates（2026-05-22，10 个子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
   - [Wave18 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave18-worktree-plan-2026-05-22.md)
   - [Wave18 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave18-agent-roster-2026-05-22.md)
-  - [vectorization hybrid readback](./development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/06_wave18-vectorization-hybrid-readback-2026-05-22.md)
+  - [vectorization hybrid readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/06_wave18-vectorization-hybrid-readback-2026-05-22.md)
   - [open-search health artifact](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/14_wave18-open-search-health-artifact-2026-05-22.md)
   - [LLM crawler browser replay fixture](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/08_wave18-browser-replay-fixture-readback-2026-05-22.md)
   - [symbolic quality regression evaluator](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/20_wave18-symbolic-quality-regression-evaluator-2026-05-22.md)
@@ -227,7 +229,7 @@
 - Wave19 CURRENT_DEV provider manifest / rollout / migration gates（2026-05-22，10 个子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
   - [Wave19 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-worktree-plan-2026-05-22.md)
   - [Wave19 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-agent-roster-2026-05-22.md)
-  - [vectorization provider manifest readback](./development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md)
+  - [vectorization provider manifest readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md)
   - [open-search health schema/readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md)
   - [graph rollout readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/08_wave19-graph-rollout-readback-gate-2026-05-22.md)
   - [ingest 24h metrics artifact](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md)

@@ -10,7 +10,7 @@
 
 输入：
 
-- [`CURRENT_DEV/2026-05-14-global-vectorization-general-foundation`](../../../development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/INDEX.md)
+- [`ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation`](../../../development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/INDEX.md)
 - [`backend-core/main/MERGED_BACKEND_CORE.md`](../../../backend-core/main/MERGED_BACKEND_CORE.md)
 - [`dev-docs-folder-audit-2026-05-22/README.md`](../../dev-docs-folder-audit-2026-05-22/README.md)
 - `main/backend/app/services/local_index/`

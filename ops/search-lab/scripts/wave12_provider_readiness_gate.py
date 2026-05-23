@@ -31,9 +31,9 @@ DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave12-provider-r
 WAVE10_GATE = REPO_ROOT / "ops/search-lab/scripts/wave10_vectorization_quality_gate.py"
 
 TARGET_TOPICS = [
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration",
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation",
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation",
 ]
 LOCAL_INDEX_MODES = ["keyword", "vector", "hybrid"]

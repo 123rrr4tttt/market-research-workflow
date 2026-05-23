@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Mapping
 import logging
 
 import numpy as np
@@ -30,6 +30,10 @@ def _set_last_used_backends(backends: list[str]) -> None:
 
 def get_last_used_backends() -> list[str]:
     return list(_LAST_USED_BACKENDS)
+
+
+def _payload_mapping(value: object) -> dict:
+    return dict(value) if isinstance(value, Mapping) else {}
 
 
 def bm25_search(es: Elasticsearch, query: str, state: str | None, top_k: int) -> List[dict]:
@@ -123,6 +127,54 @@ def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict
     for pt in result:
         payload = getattr(pt, "payload", None) or {}
         score = getattr(pt, "score", 0.0) or 0.0
+        existing_provenance = _payload_mapping(payload.get("provenance"))
+        source_uri = payload.get("source_uri") or payload.get("url") or payload.get("uri")
+        source_id = payload.get("source_id") or payload.get("source") or payload.get("document_id")
+        vector_version = payload.get("vector_version") or existing_provenance.get("vector_version") or "v1"
+        embedding_model = (
+            payload.get("embedding_model")
+            or payload.get("model")
+            or existing_provenance.get("embedding_model")
+        )
+        embedding_model_version = (
+            payload.get("embedding_model_version")
+            or payload.get("embedding_version")
+            or payload.get("model_version")
+            or existing_provenance.get("embedding_model_version")
+            or vector_version
+        )
+        embedding_provider = (
+            payload.get("embedding_provider")
+            or payload.get("provider")
+            or existing_provenance.get("provider")
+            or "qdrant"
+        )
+        source_reference = (
+            payload.get("source_reference")
+            or payload.get("reference")
+            or existing_provenance.get("source_reference")
+            or source_uri
+            or source_id
+        )
+        provenance = {
+            **existing_provenance,
+            "provider": embedding_provider,
+            "backend": "qdrant_vector",
+            "retrieval_mode": "vector",
+            "provider_payload_kind": "qdrant_payload",
+            "embedding_model": embedding_model,
+            "embedding_model_version": embedding_model_version,
+            "embedding_dim": payload.get("embedding_dim") or payload.get("dim"),
+            "vector_version": vector_version,
+            "source": payload.get("source") or source_id,
+            "source_id": source_id,
+            "source_reference": source_reference,
+            "reference": source_reference,
+            "source_uri": source_uri,
+            "source_domain": payload.get("source_domain"),
+            "score": float(score),
+            "fallback_reason": None,
+        }
         hits.append(
             {
                 "document_id": payload.get("document_id"),
@@ -130,10 +182,12 @@ def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict
                 "object_type": payload.get("object_type"),
                 "object_id": payload.get("object_id"),
                 "chunk_id": payload.get("chunk_id"),
-                "source_id": payload.get("source_id"),
-                "vector_version": payload.get("vector_version"),
-                "embedding_model": payload.get("embedding_model"),
-                "embedding_dim": payload.get("embedding_dim"),
+                "source_id": source_id,
+                "vector_version": vector_version,
+                "embedding_provider": embedding_provider,
+                "embedding_model": embedding_model,
+                "embedding_model_version": embedding_model_version,
+                "embedding_dim": payload.get("embedding_dim") or payload.get("dim"),
                 "score": float(score),
                 "chunk_index": payload.get("chunk_index"),
                 "title": payload.get("title"),
@@ -142,12 +196,16 @@ def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict
                 "highlight": [],
                 "state": payload.get("state"),
                 "publish_date": payload.get("publish_date"),
-                "source_uri": payload.get("source_uri") or payload.get("url") or payload.get("uri"),
+                "source_uri": source_uri,
+                "source_reference": source_reference,
                 "source_domain": payload.get("source_domain"),
                 "effective_time": payload.get("effective_time"),
                 "language": payload.get("language"),
                 "mode": "vector",
                 "backend": "qdrant",
+                "provider_payload_kind": "qdrant_payload",
+                "payload_provenance": provenance,
+                "provenance": provenance,
                 "tags": ["vector", "qdrant"],
             }
         )
@@ -157,12 +215,14 @@ def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict
 def vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
     # Try Qdrant first; fallback to pgvector
     used_fallback = False
+    fallback_reason: str | None = None
     try:
         q_hits = qdrant_vector_search(query, state, top_k)
         return q_hits
     except Exception as qerr:  # noqa: BLE001
         logger.info(f"Qdrant 不可用或查询失败，降级至 pgvector: {qerr}")
         used_fallback = True
+        fallback_reason = str(qerr)
 
     try:
         embedding = get_embeddings().embed_query(query)
@@ -188,15 +248,42 @@ def vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
         hits = []
         for embedding_row, document in results:
             tags = ["vector", "pgvector"] + (["fallback"] if used_fallback else [])
+            score = float(np.dot(vector, np.array(embedding_row.vector)))
+            source_id = getattr(document, "source_id", None) or document.id
+            source_uri = document.uri
+            vector_version = "v1"
+            embedding_provider = getattr(embedding_row, "provider", None) or "pgvector"
+            embedding_model = embedding_row.model
+            source_reference = source_uri or f"document:{document.id}"
+            provenance = {
+                "provider": embedding_provider,
+                "backend": "pgvector_fallback",
+                "retrieval_mode": "vector",
+                "provider_payload_kind": "pgvector_payload",
+                "embedding_model": embedding_model,
+                "embedding_model_version": vector_version,
+                "embedding_dim": embedding_row.dim,
+                "vector_version": vector_version,
+                "source": f"document:{document.id}",
+                "source_id": str(source_id),
+                "source_reference": source_reference,
+                "reference": source_reference,
+                "source_uri": source_uri,
+                "score": score,
+                "fallback_reason": fallback_reason if used_fallback else None,
+            }
             hits.append(
                 {
                     "document_id": document.id,
                     "object_type": embedding_row.object_type,
                     "object_id": embedding_row.object_id,
-                    "vector_version": "v1",
-                    "embedding_model": embedding_row.model,
+                    "source_id": source_id,
+                    "vector_version": vector_version,
+                    "embedding_provider": embedding_provider,
+                    "embedding_model": embedding_model,
+                    "embedding_model_version": vector_version,
                     "embedding_dim": embedding_row.dim,
-                    "score": float(np.dot(vector, np.array(embedding_row.vector))),
+                    "score": score,
                     "chunk_index": None,
                     "title": document.title,
                     "summary": document.summary,
@@ -206,9 +293,14 @@ def vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
                     "publish_date": document.publish_date.isoformat()
                     if document.publish_date
                     else None,
-                    "source_uri": document.uri,
+                    "source_uri": source_uri,
+                    "source_reference": source_reference,
                     "mode": "vector",
                     "backend": "pgvector",
+                    "provider_payload_kind": "pgvector_payload",
+                    "fallback_reason": fallback_reason if used_fallback else None,
+                    "payload_provenance": provenance,
+                    "provenance": provenance,
                     "tags": tags,
                 }
             )

@@ -9,6 +9,7 @@ import {
   listCrawlerProjects,
   rollbackCrawlerProject,
 } from '../lib/api'
+import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 import { getLocalJson, setLocalJson } from '../lib/localStore'
 import { queryKeys } from '../lib/queryKeys'
 import type { CrawlerDeployRunItem, CrawlerProjectItem } from '../lib/types'
@@ -33,6 +34,11 @@ type CrawlerManageStateCache = {
   deployVersion: string
   rollbackVersion: string
   plannerMode: 'heuristic' | 'manual'
+}
+
+type PlannerMode = CrawlerManageStateCache['plannerMode']
+type TemplateValues = {
+  [key: string]: string | number
 }
 
 function defaultDraft(): Draft {
@@ -64,19 +70,27 @@ function summarizeRun(run?: Partial<CrawlerDeployRunItem> | null) {
     .join(' | ')
 }
 
+function formatCrawlerTemplate(template: string, values: TemplateValues) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
 export default function CrawlerManagePage({ projectKey }: Props) {
-  const storageKey = `crawler_manage_state_v2:${projectKey}`
-  const cached = getLocalJson<CrawlerManageStateCache | null>(storageKey, null)
+  const storageKey = ['crawler_manage_state_v2', projectKey].join(':')
+  const cached = getLocalJson(storageKey, null) as CrawlerManageStateCache | null
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState<Draft>(() => cached?.draft || defaultDraft())
+  const locale = useAppLocale()
+  const [draft, setDraft] = useState((): Draft => cached?.draft || defaultDraft())
   const [message, setMessage] = useState('')
   const [selectedCrawlerProjectKey, setSelectedCrawlerProjectKey] = useState(cached?.selectedCrawlerProjectKey || '')
   const [deployVersion, setDeployVersion] = useState(cached?.deployVersion || '')
   const [rollbackVersion, setRollbackVersion] = useState(cached?.rollbackVersion || '')
-  const [plannerMode, setPlannerMode] = useState<'heuristic' | 'manual'>(cached?.plannerMode || 'heuristic')
+  const [plannerMode, setPlannerMode] = useState((): PlannerMode => cached?.plannerMode || 'heuristic')
+  const t = (key: MessageKey, fallback?: string) => translate(locale, key, fallback)
+  const tf = (key: MessageKey, values: TemplateValues, fallback?: string) =>
+    formatCrawlerTemplate(t(key, fallback), values)
 
   useEffect(() => {
-    const next = getLocalJson<CrawlerManageStateCache | null>(`crawler_manage_state_v2:${projectKey}`, null)
+    const next = getLocalJson(storageKey, null) as CrawlerManageStateCache | null
     const timerId = window.setTimeout(() => {
       setDraft(next?.draft || defaultDraft())
       setSelectedCrawlerProjectKey(next?.selectedCrawlerProjectKey || '')
@@ -87,7 +101,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     return () => {
       window.clearTimeout(timerId)
     }
-  }, [projectKey])
+  }, [storageKey])
 
   const crawlerProjects = useQuery({
     queryKey: queryKeys.crawler.projects(projectKey),
@@ -122,7 +136,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
   const importMutation = useMutation({
     mutationFn: async () => {
       const repoUrl = draft.repoUrl.trim()
-      if (!repoUrl) throw new Error('请先填写爬虫项目 Git URL。')
+      if (!repoUrl) throw new Error(t('crawlerManagePage.error.missingGitUrl'))
       return importCrawlerProject({
         project_key: draft.crawlerProjectKey.trim() || null,
         name: draft.name.trim() || null,
@@ -136,7 +150,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
     onSuccess: async (result) => {
       const nextKey = String(result?.project_key || '').trim()
       if (nextKey) setSelectedCrawlerProjectKey(nextKey)
-      setMessage(nextKey ? `导入成功: ${nextKey}` : '导入成功')
+      setMessage(nextKey ? tf('crawlerManagePage.message.importSuccessWithKey', { projectKey: nextKey }) : t('crawlerManagePage.message.importSuccess'))
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.crawler.projects(projectKey) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.crawler.projectDetailBase(projectKey) }),
@@ -144,13 +158,13 @@ export default function CrawlerManagePage({ projectKey }: Props) {
       ])
     },
     onError: (error) => {
-      setMessage(`导入失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      setMessage(tf('crawlerManagePage.message.importFailed', { message: error instanceof Error ? error.message : t('crawlerManagePage.error.unknown') }))
     },
   })
 
   const deployMutation = useMutation({
     mutationFn: async () => {
-      if (!effectiveSelectedCrawlerProjectKey) throw new Error('请先选择爬虫项目')
+      if (!effectiveSelectedCrawlerProjectKey) throw new Error(t('crawlerManagePage.error.missingCrawlerProject'))
       return deployCrawlerProject(effectiveSelectedCrawlerProjectKey, {
         requested_version: deployVersion.trim() || null,
         planner_mode: plannerMode,
@@ -158,20 +172,20 @@ export default function CrawlerManagePage({ projectKey }: Props) {
       })
     },
     onSuccess: async (run) => {
-      setMessage(`部署已提交: ${summarizeRun(run) || '已创建 deploy run'}`)
+      setMessage(tf('crawlerManagePage.message.deploySubmitted', { summary: summarizeRun(run) || t('crawlerManagePage.message.deployRunCreated') }))
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.crawler.projectDetail(projectKey, effectiveSelectedCrawlerProjectKey) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.crawler.deployRuns(projectKey, effectiveSelectedCrawlerProjectKey) }),
       ])
     },
     onError: (error) => {
-      setMessage(`部署失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      setMessage(tf('crawlerManagePage.message.deployFailed', { message: error instanceof Error ? error.message : t('crawlerManagePage.error.unknown') }))
     },
   })
 
   const rollbackMutation = useMutation({
     mutationFn: async () => {
-      if (!effectiveSelectedCrawlerProjectKey) throw new Error('请先选择爬虫项目')
+      if (!effectiveSelectedCrawlerProjectKey) throw new Error(t('crawlerManagePage.error.missingCrawlerProject'))
       return rollbackCrawlerProject(effectiveSelectedCrawlerProjectKey, {
         to_version: rollbackVersion.trim() || null,
         planner_mode: plannerMode,
@@ -179,14 +193,14 @@ export default function CrawlerManagePage({ projectKey }: Props) {
       })
     },
     onSuccess: async (run) => {
-      setMessage(`回滚已提交: ${summarizeRun(run) || '已创建 rollback run'}`)
+      setMessage(tf('crawlerManagePage.message.rollbackSubmitted', { summary: summarizeRun(run) || t('crawlerManagePage.message.rollbackRunCreated') }))
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.crawler.projectDetail(projectKey, effectiveSelectedCrawlerProjectKey) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.crawler.deployRuns(projectKey, effectiveSelectedCrawlerProjectKey) }),
       ])
     },
     onError: (error) => {
-      setMessage(`回滚失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      setMessage(tf('crawlerManagePage.message.rollbackFailed', { message: error instanceof Error ? error.message : t('crawlerManagePage.error.unknown') }))
     },
   })
 
@@ -202,49 +216,70 @@ export default function CrawlerManagePage({ projectKey }: Props) {
 
   const submitting = importMutation.isPending || deployMutation.isPending || rollbackMutation.isPending
   const detail = (crawlerDetail.data || null) as CrawlerProjectItem | null
+  const detailSummary = detail
+    ? tf('crawlerManagePage.detail.summary', {
+        projectKey: detail.project_key,
+        status: detail.status || '-',
+        currentVersion: detail.current_version || '-',
+        deployedVersion: detail.deployed_version || '-',
+      })
+    : t('crawlerManagePage.empty.selectProject')
+  const detailRows = detail
+    ? [
+        [t('crawlerManagePage.field.projectKey'), detail.project_key],
+        [t('crawlerManagePage.field.name'), detail.name || '-'],
+        [t('crawlerManagePage.field.sourceUri'), detail.source_uri || '-'],
+        [t('crawlerManagePage.field.provider'), detail.provider || '-'],
+        [t('crawlerManagePage.field.status'), detail.status || '-'],
+        [t('crawlerManagePage.field.currentVersion'), detail.current_version || '-'],
+        [t('crawlerManagePage.field.deployedVersion'), detail.deployed_version || '-'],
+        [t('crawlerManagePage.field.previousVersion'), detail.previous_version || '-'],
+        [t('crawlerManagePage.field.updatedAt'), detail.updated_at || '-'],
+      ]
+    : []
 
   return (
     <div className="content-stack crawler-page">
       <section className="panel">
         <div className="panel-header">
-          <h2><Bot size={15} />爬虫项目接入</h2>
-          <span className="status-line">project: {projectKey}</span>
+          <h2><Bot size={15} />{t('crawlerManagePage.section.import')}</h2>
+          <span className="status-line">{tf('crawlerManagePage.field.project', { projectKey })}</span>
         </div>
         <div className="form-grid cols-3" style={{ marginTop: 12 }}>
           <label>
-            <span>Crawler Project Key</span>
+            <span>{t('crawlerManagePage.field.crawlerProjectKey')}</span>
             <input
               value={draft.crawlerProjectKey}
               onChange={(e) => setDraft((prev) => ({ ...prev, crawlerProjectKey: e.target.value }))}
-              placeholder="crawler_demo"
+              placeholder={t('crawlerManagePage.placeholder.crawlerProjectKey')}
             />
           </label>
           <label>
-            <span>Name</span>
+            <span>{t('crawlerManagePage.field.name')}</span>
             <input
               value={draft.name}
               onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="Crawler Demo"
+              placeholder={t('crawlerManagePage.placeholder.name')}
             />
           </label>
           <label>
-            <span>Git URL</span>
+            <span>{t('crawlerManagePage.field.gitUrl')}</span>
             <input
               value={draft.repoUrl}
               onChange={(e) => setDraft((prev) => ({ ...prev, repoUrl: e.target.value }))}
-              placeholder="https://github.com/your-org/your-spider-repo.git"
+              placeholder={t('crawlerManagePage.placeholder.gitUrl')}
             />
           </label>
           <label>
-            <span>Branch / Tag</span>
+            <span>{t('crawlerManagePage.field.branchTag')}</span>
             <input
               value={draft.branch}
               onChange={(e) => setDraft((prev) => ({ ...prev, branch: e.target.value }))}
-              placeholder="main"
+              placeholder={t('crawlerManagePage.placeholder.branchTag')}
             />
           </label>
           <label>
-            <span>Provider Hint</span>
+            <span>{t('crawlerManagePage.field.providerHint')}</span>
             <select
               value={draft.providerHint}
               onChange={(e) => setDraft((prev) => ({ ...prev, providerHint: e.target.value as Draft['providerHint'] }))}
@@ -255,11 +290,11 @@ export default function CrawlerManagePage({ projectKey }: Props) {
             </select>
           </label>
           <label>
-            <span>Description</span>
+            <span>{t('crawlerManagePage.field.description')}</span>
             <input
               value={draft.description}
               onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
-              placeholder="optional"
+              placeholder={t('crawlerManagePage.placeholder.description')}
             />
           </label>
         </div>
@@ -270,27 +305,27 @@ export default function CrawlerManagePage({ projectKey }: Props) {
               checked={draft.enableNow}
               onChange={(e) => setDraft((prev) => ({ ...prev, enableNow: e.target.checked }))}
             />
-            导入后立即启用
+            {t('crawlerManagePage.control.enableNow')}
           </label>
           <button
-            onClick={() => setMessage('草稿已自动本地保存。')}
+            onClick={() => setMessage(t('crawlerManagePage.message.draftAutosaved'))}
             disabled={submitting}
-            title="当前页面变更会自动保存到本地，无需手动保存"
+            title={t('crawlerManagePage.tooltip.draftAutosave')}
           >
             <GitBranch size={14} />
-            草稿自动保存
+            {t('crawlerManagePage.action.draftAutosave')}
           </button>
-          <button onClick={() => importMutation.mutate()} disabled={submitting}><Play size={14} />导入爬虫项目</button>
-          <button onClick={() => crawlerProjects.refetch()}><RefreshCw size={14} />刷新列表</button>
+          <button onClick={() => importMutation.mutate()} disabled={submitting}><Play size={14} />{t('crawlerManagePage.action.importCrawlerProject')}</button>
+          <button onClick={() => crawlerProjects.refetch()}><RefreshCw size={14} />{t('crawlerManagePage.action.refreshList')}</button>
         </div>
         <div className="form-grid cols-3" style={{ marginTop: 12 }}>
           <label>
-            <span>Selected Project</span>
+            <span>{t('crawlerManagePage.field.selectedProject')}</span>
             <select
               value={effectiveSelectedCrawlerProjectKey}
               onChange={(e) => setSelectedCrawlerProjectKey(e.target.value)}
             >
-              <option value="">请选择</option>
+              <option value="">{t('crawlerManagePage.empty.select')}</option>
               {sortedProjects.map((item) => (
                 <option key={item.project_key} value={item.project_key}>
                   {item.project_key}
@@ -299,26 +334,26 @@ export default function CrawlerManagePage({ projectKey }: Props) {
             </select>
           </label>
           <label>
-            <span>Deploy Version</span>
+            <span>{t('crawlerManagePage.field.deployVersion')}</span>
             <input
               value={deployVersion}
               onChange={(e) => setDeployVersion(e.target.value)}
-              placeholder="v1.0.0 (optional)"
+              placeholder={t('crawlerManagePage.placeholder.deployVersion')}
             />
           </label>
           <label>
-            <span>Rollback To Version</span>
+            <span>{t('crawlerManagePage.field.rollbackToVersion')}</span>
             <input
               value={rollbackVersion}
               onChange={(e) => setRollbackVersion(e.target.value)}
-              placeholder="v0.9.0 (optional)"
+              placeholder={t('crawlerManagePage.placeholder.rollbackVersion')}
             />
           </label>
         </div>
         <div className="inline-actions" style={{ marginTop: 10 }}>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <span>planner</span>
-            <select value={plannerMode} onChange={(e) => setPlannerMode(e.target.value as 'heuristic' | 'manual')}>
+            <span>{t('crawlerManagePage.field.planner')}</span>
+            <select value={plannerMode} onChange={(e) => setPlannerMode(e.target.value as PlannerMode)}>
               <option value="heuristic">heuristic</option>
               <option value="manual">manual</option>
             </select>
@@ -327,16 +362,16 @@ export default function CrawlerManagePage({ projectKey }: Props) {
             onClick={() => deployMutation.mutate()}
             disabled={submitting || !effectiveSelectedCrawlerProjectKey}
           >
-            <Play size={14} />提交部署
+            <Play size={14} />{t('crawlerManagePage.action.submitDeploy')}
           </button>
           <button
             onClick={() => rollbackMutation.mutate()}
             disabled={submitting || !effectiveSelectedCrawlerProjectKey}
           >
-            <CircleDashed size={14} />提交回滚
+            <CircleDashed size={14} />{t('crawlerManagePage.action.submitRollback')}
           </button>
           <button onClick={() => { void crawlerDetail.refetch(); void deployRuns.refetch() }} disabled={!effectiveSelectedCrawlerProjectKey}>
-            <RefreshCw size={14} />刷新详情
+            <RefreshCw size={14} />{t('crawlerManagePage.action.refreshDetail')}
           </button>
         </div>
         {message ? <p className="status-line" style={{ marginTop: 10 }}>{message}</p> : null}
@@ -344,18 +379,18 @@ export default function CrawlerManagePage({ projectKey }: Props) {
 
       <section className="panel">
         <div className="panel-header">
-          <h2><CircleDashed size={15} />Crawler Projects</h2>
-          <button onClick={() => crawlerProjects.refetch()}><RefreshCw size={14} />刷新</button>
+          <h2><CircleDashed size={15} />{t('crawlerManagePage.section.projects')}</h2>
+          <button onClick={() => crawlerProjects.refetch()}><RefreshCw size={14} />{t('crawlerManagePage.action.refresh')}</button>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>project_key</th>
-                <th>name</th>
-                <th>status</th>
-                <th>provider</th>
-                <th>deployed_version</th>
+                <th>{t('crawlerManagePage.field.projectKey')}</th>
+                <th>{t('crawlerManagePage.field.name')}</th>
+                <th>{t('crawlerManagePage.field.status')}</th>
+                <th>{t('crawlerManagePage.field.provider')}</th>
+                <th>{t('crawlerManagePage.field.deployedVersion')}</th>
               </tr>
             </thead>
             <tbody>
@@ -377,7 +412,7 @@ export default function CrawlerManagePage({ projectKey }: Props) {
               ))}
               {!sortedProjects.length && (
                 <tr>
-                  <td colSpan={5} className="empty-cell">暂无 crawler 项目</td>
+                  <td colSpan={5} className="empty-cell">{t('crawlerManagePage.empty.crawlerProjects')}</td>
                 </tr>
               )}
             </tbody>
@@ -387,40 +422,40 @@ export default function CrawlerManagePage({ projectKey }: Props) {
 
       <section className="panel">
         <div className="panel-header">
-          <h2><Clock3 size={15} />Deploy Runs / 详情</h2>
-          <button onClick={() => { void crawlerDetail.refetch(); void deployRuns.refetch() }}><RefreshCw size={14} />刷新</button>
+          <h2><Clock3 size={15} />{t('crawlerManagePage.section.deployRunsDetail')}</h2>
+          <button onClick={() => { void crawlerDetail.refetch(); void deployRuns.refetch() }}><RefreshCw size={14} />{t('crawlerManagePage.action.refresh')}</button>
         </div>
         <p className="status-line">
-          detail: {detail ? `${detail.project_key} | status=${detail.status || '-'} | current=${detail.current_version || '-'} | deployed=${detail.deployed_version || '-'}` : '请选择项目'}
+          {t('crawlerManagePage.detail.label')}: {detailSummary}
         </p>
         <div className="table-wrap" style={{ marginTop: 10 }}>
           <table>
             <thead>
               <tr>
-                <th>id</th>
-                <th>action</th>
-                <th>status</th>
-                <th>requested_version</th>
-                <th>from → to</th>
-                <th>started_at</th>
-                <th>finished_at</th>
+                <th>{t('crawlerManagePage.field.id')}</th>
+                <th>{t('crawlerManagePage.field.action')}</th>
+                <th>{t('crawlerManagePage.field.status')}</th>
+                <th>{t('crawlerManagePage.field.requestedVersion')}</th>
+                <th>{t('crawlerManagePage.field.fromTo')}</th>
+                <th>{t('crawlerManagePage.field.startedAt')}</th>
+                <th>{t('crawlerManagePage.field.finishedAt')}</th>
               </tr>
             </thead>
             <tbody>
               {(deployRuns.data || []).map((row) => (
-                <tr key={String(row.id || `${row.action}-${row.started_at}`)}>
+                <tr key={String(row.id || [row.action || '-', row.started_at || '-'].join('-'))}>
                   <td>{row.id ?? '-'}</td>
                   <td>{row.action || '-'}</td>
                   <td>{row.status || '-'}</td>
                   <td>{row.requested_version || '-'}</td>
-                  <td>{`${row.from_version || '-'} → ${row.to_version || '-'}`}</td>
+                  <td>{[row.from_version || '-', row.to_version || '-'].join(' -> ')}</td>
                   <td>{row.started_at || '-'}</td>
                   <td>{row.finished_at || '-'}</td>
                 </tr>
               ))}
               {!(deployRuns.data || []).length && (
                 <tr>
-                  <td colSpan={7} className="empty-cell">暂无 deploy/rollback 记录</td>
+                  <td colSpan={7} className="empty-cell">{t('crawlerManagePage.empty.deployRuns')}</td>
                 </tr>
               )}
             </tbody>
@@ -430,27 +465,21 @@ export default function CrawlerManagePage({ projectKey }: Props) {
           <table>
             <thead>
               <tr>
-                <th>field</th>
-                <th>value</th>
+                <th>{t('crawlerManagePage.field.field')}</th>
+                <th>{t('crawlerManagePage.field.value')}</th>
               </tr>
             </thead>
             <tbody>
               {detail && (
                 <>
-                  <tr><td>project_key</td><td>{detail.project_key}</td></tr>
-                  <tr><td>name</td><td>{detail.name || '-'}</td></tr>
-                  <tr><td>source_uri</td><td>{detail.source_uri || '-'}</td></tr>
-                  <tr><td>provider</td><td>{detail.provider || '-'}</td></tr>
-                  <tr><td>status</td><td>{detail.status || '-'}</td></tr>
-                  <tr><td>current_version</td><td>{detail.current_version || '-'}</td></tr>
-                  <tr><td>deployed_version</td><td>{detail.deployed_version || '-'}</td></tr>
-                  <tr><td>previous_version</td><td>{detail.previous_version || '-'}</td></tr>
-                  <tr><td>updated_at</td><td>{detail.updated_at || '-'}</td></tr>
+                  {detailRows.map(([label, value]) => (
+                    <tr key={label}><td>{label}</td><td>{value}</td></tr>
+                  ))}
                 </>
               )}
               {!detail && (
                 <tr>
-                  <td colSpan={2} className="empty-cell">尚未选择 crawler 项目</td>
+                  <td colSpan={2} className="empty-cell">{t('crawlerManagePage.empty.detailNotSelected')}</td>
                 </tr>
               )}
             </tbody>

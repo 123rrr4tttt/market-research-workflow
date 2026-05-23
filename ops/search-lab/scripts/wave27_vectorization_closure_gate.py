@@ -55,7 +55,7 @@ TARGET_TOPICS = [
     {
         "slug": "2026-03-01-open-source-platform-integration",
         "title": "2026-03-01 Open Source Platform Integration",
-        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration",
+        "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
         "existing_docs": [
             "06_wave19-vectorization-provider-manifest-2026-05-22.md",
             "07_wave22-vectorization-provider-external-blocked-decision-2026-05-22.md",
@@ -80,7 +80,7 @@ TARGET_TOPICS = [
     {
         "slug": "2026-05-14-global-vectorization-general-foundation",
         "title": "2026-05-14 Global Vectorization General Foundation",
-        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation",
+        "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
         "existing_docs": [
             "07_wave19-vectorization-provider-manifest-2026-05-22.md",
             "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22.md",
@@ -90,7 +90,6 @@ TARGET_TOPICS = [
         "repo_local_blockers": [
             "unified_vector_object_contract_not_frozen",
             "retrieval_runs_branches_hits_persistence_not_implemented",
-            "embedding_qdrant_pgvector_payload_provenance_not_unified",
             "main_search_evidence_hit_contract_not_aligned",
             "agent_matrix_and_main_search_schema_not_joined",
         ],
@@ -100,8 +99,8 @@ TARGET_TOPICS = [
             "production_vector_quality_not_proven",
         ],
         "notes": (
-            "This topic still owns repo-local vector object, retrieval persistence, provenance payload, "
-            "and evidence-hit schema work. It is not just waiting on live provider quality."
+            "This topic still owns repo-local vector object, retrieval persistence, and evidence-hit "
+            "schema work. It is not just waiting on live provider quality."
         ),
     },
     {

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Audit docs-root shared navigation and MERGED_OVERVIEW drift.
+"""Audit docs-root target navigation and shared MERGED_OVERVIEW drift.
 
 This checker is intentionally read-only. Worker branches can use the default
-audit mode to record whether the remaining docs-root navigation blocker is
-machine-checkable without editing shared navigation files. The final
-integration lane can use --require-clean to fail until the shared indexes and
-MERGED_OVERVIEW cite the latest docs-root topic-local evidence.
+audit mode to verify the target docs/development navigation surfaces they own
+while still reporting the integration-owned shared navigation drift. The final
+integration lane can use --require-clean to fail until both the target surfaces
+and shared latest-dev-docs indexes cite the latest docs-root topic-local
+evidence.
 """
 
 from __future__ import annotations
@@ -44,6 +45,18 @@ class Problem:
     message: str
 
 
+TARGET_SURFACES = (
+    Surface("docs/development README", Path("docs/development/README.md")),
+    Surface(
+        "docs/development development-plans README",
+        Path("docs/development/development-plans/README.md"),
+    ),
+    Surface(
+        "docs/development development-plans main index",
+        Path("docs/development/development-plans/main/index.md"),
+    ),
+)
+
 SHARED_SURFACES = (
     Surface("latest-dev-docs README", Path("development/latest-dev-docs/README.md")),
     Surface("latest-dev-docs MERGED_OVERVIEW", Path("development/latest-dev-docs/MERGED_OVERVIEW.md")),
@@ -56,12 +69,12 @@ SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Audit docs-root shared navigation drift.")
+    parser = argparse.ArgumentParser(description="Audit docs-root target/shared navigation drift.")
     parser.add_argument("--root", default=".", help="Repository root. Defaults to cwd.")
     parser.add_argument(
         "--require-clean",
         action="store_true",
-        help="Exit non-zero when shared navigation drift or docs-root unsafe moves remain.",
+        help="Exit non-zero when target/shared navigation drift or docs-root unsafe moves remain.",
     )
     parser.add_argument("--verbose", action="store_true", help="Print missing references.")
     return parser.parse_args()
@@ -222,9 +235,14 @@ def validate_content_plan(repo_root: Path, problems: list[Problem]) -> tuple[int
     return len(remaining_moves), len(decomposed_moves)
 
 
-def missing_references(repo_root: Path, anchors: list[Path], problems: list[Problem]) -> list[MissingReference]:
+def missing_references(
+    repo_root: Path,
+    anchors: list[Path],
+    surfaces: tuple[Surface, ...],
+    problems: list[Problem],
+) -> list[MissingReference]:
     missing: list[MissingReference] = []
-    for surface in SHARED_SURFACES:
+    for surface in surfaces:
         links = markdown_links(repo_root, surface, problems)
         for anchor in anchors:
             if anchor not in links:
@@ -243,7 +261,8 @@ def main() -> int:
 
     anchors = topic_evidence_anchors(repo_root, problems)
     unsafe_moves, decomposed_moves = validate_content_plan(repo_root, problems)
-    missing = missing_references(repo_root, anchors, problems)
+    missing = missing_references(repo_root, anchors, TARGET_SURFACES, problems)
+    shared_missing = missing_references(repo_root, anchors, SHARED_SURFACES, problems)
 
     if problems:
         for problem in problems:
@@ -254,14 +273,25 @@ def main() -> int:
         for item in missing:
             print(
                 "MISSING docs_root_navigation_ref "
+                f"scope=target_root surface={display(item.surface.path)} anchor={display(item.anchor)}"
+            )
+        for item in shared_missing:
+            print(
+                "SHARED_MISSING docs_root_navigation_ref "
                 f"surface={display(item.surface.path)} anchor={display(item.anchor)}"
             )
 
-    status = "clean" if not missing and unsafe_moves == 0 and decomposed_moves == 0 else "blocked"
+    status = (
+        "clean"
+        if not missing and not shared_missing and unsafe_moves == 0 and decomposed_moves == 0
+        else "blocked"
+    )
     summary = (
         "OK docs_root_navigation_drift=audit "
-        f"status={status} surfaces={len(SHARED_SURFACES)} anchors={len(anchors)} "
-        f"missing_refs={len(missing)} unsafe_moves={unsafe_moves} decomposed_moves={decomposed_moves}"
+        f"status={status} surfaces={len(TARGET_SURFACES)} anchors={len(anchors)} "
+        f"missing_refs={len(missing)} shared_surfaces={len(SHARED_SURFACES)} "
+        f"shared_missing_refs={len(shared_missing)} unsafe_moves={unsafe_moves} "
+        f"decomposed_moves={decomposed_moves}"
     )
 
     if args.require_clean and status != "clean":

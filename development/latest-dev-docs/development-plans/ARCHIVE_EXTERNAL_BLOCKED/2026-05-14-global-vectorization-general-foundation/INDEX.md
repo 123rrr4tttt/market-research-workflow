@@ -1,7 +1,7 @@
 # Global Vectorization General Foundation Index
 
-更新时间：2026-05-22 PST<br>
-状态：全项目数据向量化 / 标准化开发入口；2026-05-22 lane 9 已落地 `local_index` keyword/vector/hybrid mode contract；Wave2 A 已补真实 LanceDB keyword/vector/hybrid runtime smoke；Wave3 A 已补受控 benchmark-quality evidence；Wave10 worker6 已补 deterministic quality gate 与 fallback reason contract；Wave29 已冻结 `/api/v1/search` 并行 `evidence_hits` 与 `global_vector_object` schema；仍未封口的是 retrieval persistence、stored payload provenance、Agent matrix/main-search schema joining 和真实 embedding model 语义质量
+更新时间：2026-05-23 PST<br>
+状态：`external_blocked` / `wave30_checked`。全项目数据向量化 / 标准化 repo-local blocker 已由 Wave30 清零；目录已从 `CURRENT_DEV` 迁入 `ARCHIVE_EXTERNAL_BLOCKED`。剩余条件是真实 embedding provider、生产语义质量与 production vector quality，不再作为当前仓内 `partial` 入口。
 
 ## 文件
 
@@ -16,6 +16,9 @@
 
 - [10_wave29-vector-schema-alignment-2026-05-23.md](./10_wave29-vector-schema-alignment-2026-05-23.md)
   Wave29 repo-local schema gate：新增 `search_evidence_hit.v1` / `global_vector_object.v1` builder 与 validator，并让 `/api/v1/search` 在保持 legacy `results` 不变的同时返回并行 `evidence_hits`，关闭 `unified_vector_object_contract_not_frozen` 与 `main_search_evidence_hit_contract_not_aligned` 两个 blocker。
+
+- [11_wave30-vector-closure-external-blocked-decision-2026-05-23.md](./11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)
+  Wave30 external-blocked decision：关闭 retrieval run JSONL persistence/readback、qdrant/pgvector payload provenance 统一、Agent matrix/main search schema join 三个 repo-local blocker；剩余条件均为外部 provider / production quality evidence。
 
 ## 2026-05-22 lane 9 落地
 
@@ -63,5 +66,5 @@
 - 搜索 provider 解隔离继续归 `../2026-05-14-local-open-search-provider-isolation/`。
 - 数据向量化、chunk/material 标准化、hybrid retrieval、向量版本化和 provenance 归本目录。
 - 本目录已开始落地 runtime contract 与受控 benchmark evidence；lane 9/Wave3 A 均保持 `local_index` optional boundary，不引入 LanceDB 强依赖。
-- Wave29 仅关闭主搜索 response schema 对齐，不声明 retrieval persistence、stored payload provenance、Agent matrix join 或生产语义质量已封口。
+- Wave30 已关闭仓内 retrieval persistence、stored payload provenance、Agent matrix join blocker，但不声明 live embedding provider 或生产语义质量已封口。
 - 02 号文档本来就是 2026-05-14 文档，文件名和主体保留；仅由本目录索引继续引用。

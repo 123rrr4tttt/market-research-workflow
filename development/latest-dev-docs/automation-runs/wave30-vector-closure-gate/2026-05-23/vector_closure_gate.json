@@ -1,0 +1,1201 @@
+{
+  "agent_matrix": {
+    "branch_count": 2,
+    "evidence_hit_count": 2,
+    "query_group_id": "qg_e1fffd1c03a67a90",
+    "retrieval_run_id": "retrieval_run_86f3ac86d9807934",
+    "sample_backends": [
+      "serper",
+      "ddg"
+    ]
+  },
+  "archive_recommendation": "archive_external_blocked_after_shared_index_sync",
+  "closed_repo_local_blockers": [
+    "retrieval_runs_branches_hits_persistence_not_implemented",
+    "embedding_qdrant_pgvector_payload_provenance_not_unified",
+    "agent_matrix_and_main_search_schema_not_joined"
+  ],
+  "closure_claim_allowed": false,
+  "contract_version": "wave30-vector-closure-gate.v1",
+  "external_blocked_candidate": true,
+  "external_conditions_still_open": [
+    "external_embedding_provider_live_not_verified",
+    "semantic_embedding_quality_not_proven",
+    "production_vector_quality_not_proven"
+  ],
+  "failures": [],
+  "generated_by": "ops/search-lab/scripts/wave30_vector_closure_gate.py",
+  "main_search": {
+    "branch_count": 3,
+    "evidence_hit_count": 3,
+    "query_group_id": "qg_6ef8d0da6df21b93",
+    "retrieval_run_id": "retrieval_run_ba99bb35cab02f6c",
+    "sample_backends": [
+      "opensearch_lexical",
+      "qdrant_vector",
+      "pgvector_fallback"
+    ]
+  },
+  "provenance_required_fields": [
+    "backend",
+    "embedding_dim",
+    "embedding_model",
+    "embedding_model_version",
+    "fallback_reason",
+    "provider",
+    "provider_payload_kind",
+    "reference",
+    "retrieval_mode",
+    "score",
+    "source",
+    "source_id",
+    "source_reference",
+    "vector_version"
+  ],
+  "remaining_repo_local_blockers": [],
+  "sample_agent_matrix_retrieval_run": {
+    "branch_count": 2,
+    "branch_records": [
+      {
+        "backend": "serper",
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "source-candidate-1",
+            "document_id": "https://example.gov/robotics/report",
+            "source_id": "serper",
+            "vector_version": "not_vector_ranked"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_955809606f588a5d"
+        ],
+        "matrix_branch_id": "b1",
+        "retrieval_family": "agent_matrix",
+        "retrieval_mode": "agent_matrix",
+        "top_score": 91.0,
+        "verification_states": [
+          "accepted"
+        ]
+      },
+      {
+        "backend": "ddg",
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "source-candidate-2",
+            "document_id": "https://example.org/robotics/market",
+            "source_id": "ddg",
+            "vector_version": "not_vector_ranked"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_2163e37a067ac430"
+        ],
+        "matrix_branch_id": "b2",
+        "retrieval_family": "agent_matrix",
+        "retrieval_mode": "agent_matrix",
+        "top_score": 84.0,
+        "verification_states": [
+          "accepted"
+        ]
+      }
+    ],
+    "contract_version": "search_retrieval_run.v1",
+    "evidence_hits": [
+      {
+        "backend": "serper",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "source_candidate",
+        "global_vector_object": {
+          "chunk_id": "source-candidate-1",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "https://example.gov/robotics/report",
+          "embedding_dim": null,
+          "embedding_model": "unknown_embedding_model",
+          "matrix_branch_id": "b1",
+          "object_id": "https://example.gov/robotics/report",
+          "object_type": "source_candidate",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "serper",
+            "effective_time": null,
+            "embedding_dim": null,
+            "embedding_model": "unknown_embedding_model",
+            "embedding_model_version": "not_vector_ranked",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "serper",
+            "provider_payload_kind": "agent_matrix_candidate",
+            "reference": "https://example.gov/robotics/report",
+            "retrieval_mode": "agent_matrix",
+            "score": 91.0,
+            "source": "serper",
+            "source_domain": "example.gov",
+            "source_id": "serper",
+            "source_reference": "https://example.gov/robotics/report",
+            "source_uri": "https://example.gov/robotics/report",
+            "vector_version": "not_vector_ranked"
+          },
+          "source_id": "serper",
+          "vector_version": "not_vector_ranked"
+        },
+        "hit_id": "eh_955809606f588a5d",
+        "matrix_branch_id": "b1",
+        "provenance": {
+          "backend": "serper",
+          "chunk_id": "source-candidate-1",
+          "document_id": "https://example.gov/robotics/report",
+          "effective_time": null,
+          "embedding_dim": null,
+          "embedding_model": "unknown_embedding_model",
+          "embedding_model_version": "not_vector_ranked",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "b1",
+          "project_key": "demo_proj",
+          "provider": "serper",
+          "provider_payload_kind": "agent_matrix_candidate",
+          "reference": "https://example.gov/robotics/report",
+          "retrieval_mode": "agent_matrix",
+          "score": 91.0,
+          "source": "serper",
+          "source_domain": "example.gov",
+          "source_id": "serper",
+          "source_reference": "https://example.gov/robotics/report",
+          "source_uri": "https://example.gov/robotics/report",
+          "vector_version": "not_vector_ranked"
+        },
+        "query_group_id": "qg_e1fffd1c03a67a90",
+        "rank": 1,
+        "rank_features": {
+          "backend": "serper",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 1,
+          "retrieval_mode": "agent_matrix",
+          "score": 91.0,
+          "tags": [
+            "agent_matrix",
+            "source_candidate"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "agent_matrix",
+        "retrieval_mode": "agent_matrix",
+        "score": 91.0,
+        "verification_state": "accepted"
+      },
+      {
+        "backend": "ddg",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "source_candidate",
+        "global_vector_object": {
+          "chunk_id": "source-candidate-2",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "https://example.org/robotics/market",
+          "embedding_dim": null,
+          "embedding_model": "unknown_embedding_model",
+          "matrix_branch_id": "b2",
+          "object_id": "https://example.org/robotics/market",
+          "object_type": "source_candidate",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "ddg",
+            "effective_time": null,
+            "embedding_dim": null,
+            "embedding_model": "unknown_embedding_model",
+            "embedding_model_version": "not_vector_ranked",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "ddg",
+            "provider_payload_kind": "agent_matrix_candidate",
+            "reference": "https://example.org/robotics/market",
+            "retrieval_mode": "agent_matrix",
+            "score": 84.0,
+            "source": "ddg",
+            "source_domain": "example.org",
+            "source_id": "ddg",
+            "source_reference": "https://example.org/robotics/market",
+            "source_uri": "https://example.org/robotics/market",
+            "vector_version": "not_vector_ranked"
+          },
+          "source_id": "ddg",
+          "vector_version": "not_vector_ranked"
+        },
+        "hit_id": "eh_2163e37a067ac430",
+        "matrix_branch_id": "b2",
+        "provenance": {
+          "backend": "ddg",
+          "chunk_id": "source-candidate-2",
+          "document_id": "https://example.org/robotics/market",
+          "effective_time": null,
+          "embedding_dim": null,
+          "embedding_model": "unknown_embedding_model",
+          "embedding_model_version": "not_vector_ranked",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "b2",
+          "project_key": "demo_proj",
+          "provider": "ddg",
+          "provider_payload_kind": "agent_matrix_candidate",
+          "reference": "https://example.org/robotics/market",
+          "retrieval_mode": "agent_matrix",
+          "score": 84.0,
+          "source": "ddg",
+          "source_domain": "example.org",
+          "source_id": "ddg",
+          "source_reference": "https://example.org/robotics/market",
+          "source_uri": "https://example.org/robotics/market",
+          "vector_version": "not_vector_ranked"
+        },
+        "query_group_id": "qg_e1fffd1c03a67a90",
+        "rank": 2,
+        "rank_features": {
+          "backend": "ddg",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 2,
+          "retrieval_mode": "agent_matrix",
+          "score": 84.0,
+          "tags": [
+            "agent_matrix",
+            "source_candidate"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "agent_matrix",
+        "retrieval_mode": "agent_matrix",
+        "score": 84.0,
+        "verification_state": "accepted"
+      }
+    ],
+    "filters": {
+      "modality": "any",
+      "state": null,
+      "top_k": 2
+    },
+    "hit_count": 2,
+    "modality": "any",
+    "project_key": "demo_proj",
+    "query": "robotics commercialization",
+    "query_group_id": "qg_e1fffd1c03a67a90",
+    "query_text": "robotics commercialization",
+    "rank_mode": "matrix",
+    "retrieval_branches": [
+      {
+        "backend": "serper",
+        "contract_version": "search_retrieval_branch.v1",
+        "filters": {
+          "modality": "any",
+          "state": null,
+          "top_k": 2
+        },
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "source-candidate-1",
+            "document_id": "https://example.gov/robotics/report",
+            "source_id": "serper",
+            "vector_version": "not_vector_ranked"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_955809606f588a5d"
+        ],
+        "matrix_branch_id": "b1",
+        "provider_or_index": "serper",
+        "query_group_id": "qg_e1fffd1c03a67a90",
+        "query_text": "robotics commercialization",
+        "rank_mode": "matrix",
+        "retrieval_family": "agent_matrix",
+        "retrieval_mode": "agent_matrix",
+        "retrieval_run_id": "retrieval_run_86f3ac86d9807934",
+        "run_id": "retrieval_run_86f3ac86d9807934",
+        "status": "completed",
+        "top_score": 91.0,
+        "verification_states": [
+          "accepted"
+        ]
+      },
+      {
+        "backend": "ddg",
+        "contract_version": "search_retrieval_branch.v1",
+        "filters": {
+          "modality": "any",
+          "state": null,
+          "top_k": 2
+        },
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "source-candidate-2",
+            "document_id": "https://example.org/robotics/market",
+            "source_id": "ddg",
+            "vector_version": "not_vector_ranked"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_2163e37a067ac430"
+        ],
+        "matrix_branch_id": "b2",
+        "provider_or_index": "ddg",
+        "query_group_id": "qg_e1fffd1c03a67a90",
+        "query_text": "robotics commercialization",
+        "rank_mode": "matrix",
+        "retrieval_family": "agent_matrix",
+        "retrieval_mode": "agent_matrix",
+        "retrieval_run_id": "retrieval_run_86f3ac86d9807934",
+        "run_id": "retrieval_run_86f3ac86d9807934",
+        "status": "completed",
+        "top_score": 84.0,
+        "verification_states": [
+          "accepted"
+        ]
+      }
+    ],
+    "retrieval_family": "agent_matrix",
+    "retrieval_hits": [
+      {
+        "backend": "serper",
+        "chunk_id": "source-candidate-1",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "https://example.gov/robotics/report",
+        "evidence_class": "source_candidate",
+        "global_vector_object": {
+          "chunk_id": "source-candidate-1",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "https://example.gov/robotics/report",
+          "embedding_dim": null,
+          "embedding_model": "unknown_embedding_model",
+          "matrix_branch_id": "b1",
+          "object_id": "https://example.gov/robotics/report",
+          "object_type": "source_candidate",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "serper",
+            "effective_time": null,
+            "embedding_dim": null,
+            "embedding_model": "unknown_embedding_model",
+            "embedding_model_version": "not_vector_ranked",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "serper",
+            "provider_payload_kind": "agent_matrix_candidate",
+            "reference": "https://example.gov/robotics/report",
+            "retrieval_mode": "agent_matrix",
+            "score": 91.0,
+            "source": "serper",
+            "source_domain": "example.gov",
+            "source_id": "serper",
+            "source_reference": "https://example.gov/robotics/report",
+            "source_uri": "https://example.gov/robotics/report",
+            "vector_version": "not_vector_ranked"
+          },
+          "source_id": "serper",
+          "vector_version": "not_vector_ranked"
+        },
+        "hit_id": "eh_955809606f588a5d",
+        "matrix_branch_id": "b1",
+        "object_id": "https://example.gov/robotics/report",
+        "object_type": "source_candidate",
+        "provenance": {
+          "backend": "serper",
+          "chunk_id": "source-candidate-1",
+          "document_id": "https://example.gov/robotics/report",
+          "effective_time": null,
+          "embedding_dim": null,
+          "embedding_model": "unknown_embedding_model",
+          "embedding_model_version": "not_vector_ranked",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "b1",
+          "project_key": "demo_proj",
+          "provider": "serper",
+          "provider_payload_kind": "agent_matrix_candidate",
+          "reference": "https://example.gov/robotics/report",
+          "retrieval_mode": "agent_matrix",
+          "score": 91.0,
+          "source": "serper",
+          "source_domain": "example.gov",
+          "source_id": "serper",
+          "source_reference": "https://example.gov/robotics/report",
+          "source_uri": "https://example.gov/robotics/report",
+          "vector_version": "not_vector_ranked"
+        },
+        "query_group_id": "qg_e1fffd1c03a67a90",
+        "rank": 1,
+        "retrieval_family": "agent_matrix",
+        "retrieval_mode": "agent_matrix",
+        "retrieval_run_id": "retrieval_run_86f3ac86d9807934",
+        "run_id": "retrieval_run_86f3ac86d9807934",
+        "score": 91.0,
+        "source_id": "serper",
+        "verification_state": "accepted"
+      },
+      {
+        "backend": "ddg",
+        "chunk_id": "source-candidate-2",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "https://example.org/robotics/market",
+        "evidence_class": "source_candidate",
+        "global_vector_object": {
+          "chunk_id": "source-candidate-2",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "https://example.org/robotics/market",
+          "embedding_dim": null,
+          "embedding_model": "unknown_embedding_model",
+          "matrix_branch_id": "b2",
+          "object_id": "https://example.org/robotics/market",
+          "object_type": "source_candidate",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "ddg",
+            "effective_time": null,
+            "embedding_dim": null,
+            "embedding_model": "unknown_embedding_model",
+            "embedding_model_version": "not_vector_ranked",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "ddg",
+            "provider_payload_kind": "agent_matrix_candidate",
+            "reference": "https://example.org/robotics/market",
+            "retrieval_mode": "agent_matrix",
+            "score": 84.0,
+            "source": "ddg",
+            "source_domain": "example.org",
+            "source_id": "ddg",
+            "source_reference": "https://example.org/robotics/market",
+            "source_uri": "https://example.org/robotics/market",
+            "vector_version": "not_vector_ranked"
+          },
+          "source_id": "ddg",
+          "vector_version": "not_vector_ranked"
+        },
+        "hit_id": "eh_2163e37a067ac430",
+        "matrix_branch_id": "b2",
+        "object_id": "https://example.org/robotics/market",
+        "object_type": "source_candidate",
+        "provenance": {
+          "backend": "ddg",
+          "chunk_id": "source-candidate-2",
+          "document_id": "https://example.org/robotics/market",
+          "effective_time": null,
+          "embedding_dim": null,
+          "embedding_model": "unknown_embedding_model",
+          "embedding_model_version": "not_vector_ranked",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "b2",
+          "project_key": "demo_proj",
+          "provider": "ddg",
+          "provider_payload_kind": "agent_matrix_candidate",
+          "reference": "https://example.org/robotics/market",
+          "retrieval_mode": "agent_matrix",
+          "score": 84.0,
+          "source": "ddg",
+          "source_domain": "example.org",
+          "source_id": "ddg",
+          "source_reference": "https://example.org/robotics/market",
+          "source_uri": "https://example.org/robotics/market",
+          "vector_version": "not_vector_ranked"
+        },
+        "query_group_id": "qg_e1fffd1c03a67a90",
+        "rank": 2,
+        "retrieval_family": "agent_matrix",
+        "retrieval_mode": "agent_matrix",
+        "retrieval_run_id": "retrieval_run_86f3ac86d9807934",
+        "run_id": "retrieval_run_86f3ac86d9807934",
+        "score": 84.0,
+        "source_id": "ddg",
+        "verification_state": "accepted"
+      }
+    ],
+    "retrieval_run_id": "retrieval_run_86f3ac86d9807934",
+    "run_id": "retrieval_run_86f3ac86d9807934",
+    "state": null,
+    "status": "completed",
+    "top_k": 2
+  },
+  "sample_main_search_retrieval_run": {
+    "branch_count": 3,
+    "branch_records": [
+      {
+        "backend": "opensearch_lexical",
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "policy-31:chunk:0",
+            "document_id": "policy-31",
+            "source_id": "policy-corpus",
+            "vector_version": "v3"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_c9c0a9a1077c8376"
+        ],
+        "matrix_branch_id": "branch_1d5fdf3c1fc626e6",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "keyword",
+        "top_score": 6.5,
+        "verification_states": [
+          "unverified"
+        ]
+      },
+      {
+        "backend": "pgvector_fallback",
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "policy-33:chunk:0",
+            "document_id": "policy-33",
+            "source_id": "policy-corpus",
+            "vector_version": "v3"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_329f0c13365c451c"
+        ],
+        "matrix_branch_id": "branch_489f6155d056849a",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "top_score": 0.88,
+        "verification_states": [
+          "fallback"
+        ]
+      },
+      {
+        "backend": "qdrant_vector",
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "policy-32:chunk:0",
+            "document_id": "policy-32",
+            "source_id": "policy-corpus",
+            "vector_version": "v3"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_aebdba8d8b2fe804"
+        ],
+        "matrix_branch_id": "branch_bd1c73d9d192e577",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "top_score": 0.94,
+        "verification_states": [
+          "unverified"
+        ]
+      }
+    ],
+    "contract_version": "search_retrieval_run.v1",
+    "evidence_hits": [
+      {
+        "backend": "opensearch_lexical",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "policy-31:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "policy-31",
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "matrix_branch_id": "branch_1d5fdf3c1fc626e6",
+          "object_id": "policy-31",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "opensearch_lexical",
+            "effective_time": "2026-03-04",
+            "embedding_dim": 3072,
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v3",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "opensearch_lexical",
+            "provider_payload_kind": "opensearch_lexical",
+            "reference": "https://example.gov/policy/31",
+            "retrieval_mode": "keyword",
+            "score": 6.5,
+            "source": "policy-corpus",
+            "source_domain": "example.gov",
+            "source_id": "policy-corpus",
+            "source_reference": "https://example.gov/policy/31",
+            "source_uri": "https://example.gov/policy/31",
+            "vector_version": "v3"
+          },
+          "source_id": "policy-corpus",
+          "vector_version": "v3"
+        },
+        "hit_id": "eh_c9c0a9a1077c8376",
+        "matrix_branch_id": "branch_1d5fdf3c1fc626e6",
+        "provenance": {
+          "backend": "opensearch_lexical",
+          "chunk_id": "policy-31:chunk:0",
+          "document_id": "policy-31",
+          "effective_time": "2026-03-04",
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "embedding_model_version": "v3",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_1d5fdf3c1fc626e6",
+          "project_key": "demo_proj",
+          "provider": "opensearch_lexical",
+          "provider_payload_kind": "opensearch_lexical",
+          "reference": "https://example.gov/policy/31",
+          "retrieval_mode": "keyword",
+          "score": 6.5,
+          "source": "policy-corpus",
+          "source_domain": "example.gov",
+          "source_id": "policy-corpus",
+          "source_reference": "https://example.gov/policy/31",
+          "source_uri": "https://example.gov/policy/31",
+          "vector_version": "v3"
+        },
+        "query_group_id": "qg_6ef8d0da6df21b93",
+        "rank": 1,
+        "rank_features": {
+          "backend": "opensearch_lexical",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 1,
+          "retrieval_mode": "keyword",
+          "score": 6.5,
+          "tags": [],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "keyword",
+        "score": 6.5,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "qdrant_vector",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "policy-32:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "policy-32",
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "matrix_branch_id": "branch_bd1c73d9d192e577",
+          "object_id": "policy-32",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "qdrant_vector",
+            "effective_time": null,
+            "embedding_dim": 3072,
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v3",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "qdrant_vector",
+            "provider_payload_kind": "qdrant_vector",
+            "reference": "https://example.gov/policy/32",
+            "retrieval_mode": "vector",
+            "score": 0.94,
+            "source": "policy-corpus",
+            "source_domain": "example.gov",
+            "source_id": "policy-corpus",
+            "source_reference": "https://example.gov/policy/32",
+            "source_uri": "https://example.gov/policy/32",
+            "vector_version": "v3"
+          },
+          "source_id": "policy-corpus",
+          "vector_version": "v3"
+        },
+        "hit_id": "eh_aebdba8d8b2fe804",
+        "matrix_branch_id": "branch_bd1c73d9d192e577",
+        "provenance": {
+          "backend": "qdrant_vector",
+          "chunk_id": "policy-32:chunk:0",
+          "document_id": "policy-32",
+          "effective_time": null,
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "embedding_model_version": "v3",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_bd1c73d9d192e577",
+          "project_key": "demo_proj",
+          "provider": "qdrant_vector",
+          "provider_payload_kind": "qdrant_vector",
+          "reference": "https://example.gov/policy/32",
+          "retrieval_mode": "vector",
+          "score": 0.94,
+          "source": "policy-corpus",
+          "source_domain": "example.gov",
+          "source_id": "policy-corpus",
+          "source_reference": "https://example.gov/policy/32",
+          "source_uri": "https://example.gov/policy/32",
+          "vector_version": "v3"
+        },
+        "query_group_id": "qg_6ef8d0da6df21b93",
+        "rank": 2,
+        "rank_features": {
+          "backend": "qdrant_vector",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 2,
+          "retrieval_mode": "vector",
+          "score": 0.94,
+          "tags": [],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.94,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "pgvector_fallback",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "policy-33:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "policy-33",
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "matrix_branch_id": "branch_489f6155d056849a",
+          "object_id": "policy-33",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "pgvector_fallback",
+            "effective_time": null,
+            "embedding_dim": 3072,
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v3",
+            "fallback_reason": "pgvector_fallback_fallback",
+            "language": null,
+            "provider": "pgvector_fallback",
+            "provider_payload_kind": "pgvector_fallback",
+            "reference": "https://example.gov/policy/33",
+            "retrieval_mode": "vector",
+            "score": 0.88,
+            "source": "policy-corpus",
+            "source_domain": "example.gov",
+            "source_id": "policy-corpus",
+            "source_reference": "https://example.gov/policy/33",
+            "source_uri": "https://example.gov/policy/33",
+            "vector_version": "v3"
+          },
+          "source_id": "policy-corpus",
+          "vector_version": "v3"
+        },
+        "hit_id": "eh_329f0c13365c451c",
+        "matrix_branch_id": "branch_489f6155d056849a",
+        "provenance": {
+          "backend": "pgvector_fallback",
+          "chunk_id": "policy-33:chunk:0",
+          "document_id": "policy-33",
+          "effective_time": null,
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "embedding_model_version": "v3",
+          "fallback_reason": "pgvector_fallback_fallback",
+          "language": null,
+          "matrix_branch_id": "branch_489f6155d056849a",
+          "project_key": "demo_proj",
+          "provider": "pgvector_fallback",
+          "provider_payload_kind": "pgvector_fallback",
+          "reference": "https://example.gov/policy/33",
+          "retrieval_mode": "vector",
+          "score": 0.88,
+          "source": "policy-corpus",
+          "source_domain": "example.gov",
+          "source_id": "policy-corpus",
+          "source_reference": "https://example.gov/policy/33",
+          "source_uri": "https://example.gov/policy/33",
+          "vector_version": "v3"
+        },
+        "query_group_id": "qg_6ef8d0da6df21b93",
+        "rank": 3,
+        "rank_features": {
+          "backend": "pgvector_fallback",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 3,
+          "retrieval_mode": "vector",
+          "score": 0.88,
+          "tags": [
+            "vector",
+            "pgvector",
+            "fallback"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.88,
+        "verification_state": "fallback"
+      }
+    ],
+    "filters": {
+      "modality": "any",
+      "state": null,
+      "top_k": 3
+    },
+    "hit_count": 3,
+    "modality": "any",
+    "project_key": "demo_proj",
+    "query": "robotics commercialization policy",
+    "query_group_id": "qg_6ef8d0da6df21b93",
+    "query_text": "robotics commercialization policy",
+    "rank_mode": "hybrid",
+    "retrieval_branches": [
+      {
+        "backend": "opensearch_lexical",
+        "contract_version": "search_retrieval_branch.v1",
+        "filters": {
+          "modality": "any",
+          "state": null,
+          "top_k": 3
+        },
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "policy-31:chunk:0",
+            "document_id": "policy-31",
+            "source_id": "policy-corpus",
+            "vector_version": "v3"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_c9c0a9a1077c8376"
+        ],
+        "matrix_branch_id": "branch_1d5fdf3c1fc626e6",
+        "provider_or_index": "opensearch_lexical",
+        "query_group_id": "qg_6ef8d0da6df21b93",
+        "query_text": "robotics commercialization policy",
+        "rank_mode": "hybrid",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "keyword",
+        "retrieval_run_id": "retrieval_run_ba99bb35cab02f6c",
+        "run_id": "retrieval_run_ba99bb35cab02f6c",
+        "status": "completed",
+        "top_score": 6.5,
+        "verification_states": [
+          "unverified"
+        ]
+      },
+      {
+        "backend": "pgvector_fallback",
+        "contract_version": "search_retrieval_branch.v1",
+        "filters": {
+          "modality": "any",
+          "state": null,
+          "top_k": 3
+        },
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "policy-33:chunk:0",
+            "document_id": "policy-33",
+            "source_id": "policy-corpus",
+            "vector_version": "v3"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_329f0c13365c451c"
+        ],
+        "matrix_branch_id": "branch_489f6155d056849a",
+        "provider_or_index": "pgvector_fallback",
+        "query_group_id": "qg_6ef8d0da6df21b93",
+        "query_text": "robotics commercialization policy",
+        "rank_mode": "hybrid",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ba99bb35cab02f6c",
+        "run_id": "retrieval_run_ba99bb35cab02f6c",
+        "status": "completed",
+        "top_score": 0.88,
+        "verification_states": [
+          "fallback"
+        ]
+      },
+      {
+        "backend": "qdrant_vector",
+        "contract_version": "search_retrieval_branch.v1",
+        "filters": {
+          "modality": "any",
+          "state": null,
+          "top_k": 3
+        },
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "policy-32:chunk:0",
+            "document_id": "policy-32",
+            "source_id": "policy-corpus",
+            "vector_version": "v3"
+          }
+        ],
+        "hit_count": 1,
+        "hit_ids": [
+          "eh_aebdba8d8b2fe804"
+        ],
+        "matrix_branch_id": "branch_bd1c73d9d192e577",
+        "provider_or_index": "qdrant_vector",
+        "query_group_id": "qg_6ef8d0da6df21b93",
+        "query_text": "robotics commercialization policy",
+        "rank_mode": "hybrid",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ba99bb35cab02f6c",
+        "run_id": "retrieval_run_ba99bb35cab02f6c",
+        "status": "completed",
+        "top_score": 0.94,
+        "verification_states": [
+          "unverified"
+        ]
+      }
+    ],
+    "retrieval_family": "main_search",
+    "retrieval_hits": [
+      {
+        "backend": "opensearch_lexical",
+        "chunk_id": "policy-31:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "policy-31",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "policy-31:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "policy-31",
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "matrix_branch_id": "branch_1d5fdf3c1fc626e6",
+          "object_id": "policy-31",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "opensearch_lexical",
+            "effective_time": "2026-03-04",
+            "embedding_dim": 3072,
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v3",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "opensearch_lexical",
+            "provider_payload_kind": "opensearch_lexical",
+            "reference": "https://example.gov/policy/31",
+            "retrieval_mode": "keyword",
+            "score": 6.5,
+            "source": "policy-corpus",
+            "source_domain": "example.gov",
+            "source_id": "policy-corpus",
+            "source_reference": "https://example.gov/policy/31",
+            "source_uri": "https://example.gov/policy/31",
+            "vector_version": "v3"
+          },
+          "source_id": "policy-corpus",
+          "vector_version": "v3"
+        },
+        "hit_id": "eh_c9c0a9a1077c8376",
+        "matrix_branch_id": "branch_1d5fdf3c1fc626e6",
+        "object_id": "policy-31",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "opensearch_lexical",
+          "chunk_id": "policy-31:chunk:0",
+          "document_id": "policy-31",
+          "effective_time": "2026-03-04",
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "embedding_model_version": "v3",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_1d5fdf3c1fc626e6",
+          "project_key": "demo_proj",
+          "provider": "opensearch_lexical",
+          "provider_payload_kind": "opensearch_lexical",
+          "reference": "https://example.gov/policy/31",
+          "retrieval_mode": "keyword",
+          "score": 6.5,
+          "source": "policy-corpus",
+          "source_domain": "example.gov",
+          "source_id": "policy-corpus",
+          "source_reference": "https://example.gov/policy/31",
+          "source_uri": "https://example.gov/policy/31",
+          "vector_version": "v3"
+        },
+        "query_group_id": "qg_6ef8d0da6df21b93",
+        "rank": 1,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "keyword",
+        "retrieval_run_id": "retrieval_run_ba99bb35cab02f6c",
+        "run_id": "retrieval_run_ba99bb35cab02f6c",
+        "score": 6.5,
+        "source_id": "policy-corpus",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "qdrant_vector",
+        "chunk_id": "policy-32:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "policy-32",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "policy-32:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "policy-32",
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "matrix_branch_id": "branch_bd1c73d9d192e577",
+          "object_id": "policy-32",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "qdrant_vector",
+            "effective_time": null,
+            "embedding_dim": 3072,
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v3",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "qdrant_vector",
+            "provider_payload_kind": "qdrant_vector",
+            "reference": "https://example.gov/policy/32",
+            "retrieval_mode": "vector",
+            "score": 0.94,
+            "source": "policy-corpus",
+            "source_domain": "example.gov",
+            "source_id": "policy-corpus",
+            "source_reference": "https://example.gov/policy/32",
+            "source_uri": "https://example.gov/policy/32",
+            "vector_version": "v3"
+          },
+          "source_id": "policy-corpus",
+          "vector_version": "v3"
+        },
+        "hit_id": "eh_aebdba8d8b2fe804",
+        "matrix_branch_id": "branch_bd1c73d9d192e577",
+        "object_id": "policy-32",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "qdrant_vector",
+          "chunk_id": "policy-32:chunk:0",
+          "document_id": "policy-32",
+          "effective_time": null,
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "embedding_model_version": "v3",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_bd1c73d9d192e577",
+          "project_key": "demo_proj",
+          "provider": "qdrant_vector",
+          "provider_payload_kind": "qdrant_vector",
+          "reference": "https://example.gov/policy/32",
+          "retrieval_mode": "vector",
+          "score": 0.94,
+          "source": "policy-corpus",
+          "source_domain": "example.gov",
+          "source_id": "policy-corpus",
+          "source_reference": "https://example.gov/policy/32",
+          "source_uri": "https://example.gov/policy/32",
+          "vector_version": "v3"
+        },
+        "query_group_id": "qg_6ef8d0da6df21b93",
+        "rank": 2,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ba99bb35cab02f6c",
+        "run_id": "retrieval_run_ba99bb35cab02f6c",
+        "score": 0.94,
+        "source_id": "policy-corpus",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "pgvector_fallback",
+        "chunk_id": "policy-33:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "policy-33",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "policy-33:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "policy-33",
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "matrix_branch_id": "branch_489f6155d056849a",
+          "object_id": "policy-33",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "pgvector_fallback",
+            "effective_time": null,
+            "embedding_dim": 3072,
+            "embedding_model": "text-embedding-3-large",
+            "embedding_model_version": "v3",
+            "fallback_reason": "pgvector_fallback_fallback",
+            "language": null,
+            "provider": "pgvector_fallback",
+            "provider_payload_kind": "pgvector_fallback",
+            "reference": "https://example.gov/policy/33",
+            "retrieval_mode": "vector",
+            "score": 0.88,
+            "source": "policy-corpus",
+            "source_domain": "example.gov",
+            "source_id": "policy-corpus",
+            "source_reference": "https://example.gov/policy/33",
+            "source_uri": "https://example.gov/policy/33",
+            "vector_version": "v3"
+          },
+          "source_id": "policy-corpus",
+          "vector_version": "v3"
+        },
+        "hit_id": "eh_329f0c13365c451c",
+        "matrix_branch_id": "branch_489f6155d056849a",
+        "object_id": "policy-33",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "pgvector_fallback",
+          "chunk_id": "policy-33:chunk:0",
+          "document_id": "policy-33",
+          "effective_time": null,
+          "embedding_dim": 3072,
+          "embedding_model": "text-embedding-3-large",
+          "embedding_model_version": "v3",
+          "fallback_reason": "pgvector_fallback_fallback",
+          "language": null,
+          "matrix_branch_id": "branch_489f6155d056849a",
+          "project_key": "demo_proj",
+          "provider": "pgvector_fallback",
+          "provider_payload_kind": "pgvector_fallback",
+          "reference": "https://example.gov/policy/33",
+          "retrieval_mode": "vector",
+          "score": 0.88,
+          "source": "policy-corpus",
+          "source_domain": "example.gov",
+          "source_id": "policy-corpus",
+          "source_reference": "https://example.gov/policy/33",
+          "source_uri": "https://example.gov/policy/33",
+          "vector_version": "v3"
+        },
+        "query_group_id": "qg_6ef8d0da6df21b93",
+        "rank": 3,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ba99bb35cab02f6c",
+        "run_id": "retrieval_run_ba99bb35cab02f6c",
+        "score": 0.88,
+        "source_id": "policy-corpus",
+        "verification_state": "fallback"
+      }
+    ],
+    "retrieval_run_id": "retrieval_run_ba99bb35cab02f6c",
+    "run_id": "retrieval_run_ba99bb35cab02f6c",
+    "state": null,
+    "status": "completed",
+    "top_k": 3
+  },
+  "schema_versions": {
+    "agent_matrix_evidence": "agent_matrix_search_evidence.v1",
+    "retrieval_run": "search_retrieval_run.v1"
+  },
+  "status": "passed"
+}

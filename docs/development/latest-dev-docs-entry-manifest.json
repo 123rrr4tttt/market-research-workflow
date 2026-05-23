@@ -4,6 +4,7 @@
   "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-23",
   "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/development while their previous latest-dev-docs paths remain compatibility shims until shared navigation is fully synchronized. Wave27 made the frontend-modern and root-plans main batches target-authoritative after file-level classification and link-check reconciliation. Wave28 keeps CURRENT_DEV source-authoritative as a supervisor-owned active status surface. Wave29 closes the ARCHIVE_CLOSED broad-tree unsafe move by decomposing it into ledger-backed per-file batch work; archive files remain source-authoritative until a later moved_file_batch creates targets and compatibility shims.",
+  "wave30_worker_b_readback": "Requested content-plan and migration-manifest gates pass with no docs-root unsafe move left in the manifests. The archive ledger remains a retained_partial per-file queue, not target-authoritative moved content.",
   "classification_ledgers": [
     {
       "id": "development-plans-archive-closed-tree-wave28",

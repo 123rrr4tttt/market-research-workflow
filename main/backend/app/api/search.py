@@ -10,9 +10,12 @@ from ..services.document_queries import (
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
 from ..services.search.hybrid import hybrid_search, get_last_used_backends
+from ..services.search.retrieval_runs import persist_search_retrieval_run_record
 from ..services.search.vector_contracts import (
     GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+    SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION,
     SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
+    build_retrieval_run_record,
     build_search_evidence_hits,
 )
 import logging
@@ -86,6 +89,18 @@ def search(
             modality=modality,
             top_k=top_k,
         )
+        retrieval_run = build_retrieval_run_record(
+            query=q,
+            query_group_id=query_group_id,
+            evidence_hits=evidence_hits,
+            project_key=project_key,
+            rank_mode=rank,
+            state=state,
+            modality=modality,
+            top_k=top_k,
+            retrieval_family="main_search",
+        )
+        retrieval_run_readback = persist_search_retrieval_run_record(retrieval_run)
         document_query_envelope = build_search_endpoint_document_query_envelope(
             query=q,
             state=state,
@@ -115,6 +130,12 @@ def search(
                 "evidence_hit_contract_version": SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
                 "query_group_id": query_group_id,
                 "evidence_hits": evidence_hits,
+                "retrieval_run_contract_version": SEARCH_RETRIEVAL_RUN_CONTRACT_VERSION,
+                "retrieval_run_id": retrieval_run["run_id"],
+                "search_branches": retrieval_run["retrieval_branches"],
+                "branch_hit_details": retrieval_run["retrieval_hits"],
+                "retrieval_run": retrieval_run,
+                "retrieval_run_readback": retrieval_run_readback,
                 "search_fallback_order": fallback_order,
                 "search_backends_used": used_backends,
             }

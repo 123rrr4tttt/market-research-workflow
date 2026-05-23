@@ -67,13 +67,15 @@
   状态：`external_blocked` / `wave29_checked`。仓内 broader fetch-router、official API adapter 与 dashboard tri-state blockers 已封住；剩余条件是 public browser/runtime replay、非 arXiv provider live API maturity、configured-service canary 与 production 24h readback。
 - [2026-03-05 OSS Node Platform IO Plan](./2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md)
   状态：`external_blocked` / `wave29_checked`。仓内 node manifest/runtime replay 已覆盖 `keyword` / `vector` / `hybrid` provider manifest consumption；剩余条件是 live embedding provider verification、local open-search quality、semantic relevance 与 live scheduler/tenant DB/UI SLA。
+- [2026-05-14 Global Vectorization General Foundation](./2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave30_checked`。Wave30 已关闭 retrieval run JSONL persistence/readback、qdrant/pgvector payload provenance 统一、Agent matrix/main search schema join 三个 repo-local blocker；剩余条件是 live embedding provider、semantic embedding quality 与 production vector quality。
+- [2026-03-01 Open Source Platform Integration](./2026-03-01-open-source-platform-integration/09_wave30-open-source-external-blocked-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave30_checked`。Wave29 已迁出 OSS-node slice，Wave30 已清零 global-vector repo-local blocker；本目录不再有独立仓内 blocker，剩余条件是 live provider、local open-search quality、semantic relevance 与外部 runtime/SLA evidence。
 
 ## 保留在 CURRENT_DEV 的相邻目录
 
 - [2026-03-07 Docs Root Restructuring](../CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)：`retained_partial`。剩余是 repo-local docs integration，不是外部条件。
-- [2026-03-01 Open Source Platform Integration](../CURRENT_DEV/2026-03-01-open-source-platform-integration/08_wave27-vectorization-closure-decision-2026-05-23.md)：`retained_partial` / `wave27_checked`。provider manifest / quality / readback slice 已封住；Wave29 已将 OSS-node IO 迁出为外部阻塞，但本目录仍依赖 global vector contract 仓内边界。
 - [2026-03-15 Frontend Three-Layer Rewrite](../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md)：`retained_partial`。剩余业务文案与兼容层迁移规模仍大。
-- [2026-05-14 Global Vectorization General Foundation](../CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/09_wave27-vectorization-closure-decision-2026-05-23.md)：`retained_partial` / `wave27_checked`。统一 vector object、retrieval runs、provenance payload 与主检索/Agent schema 对齐仍是 repo-local blocker。
 
 ## 返回
 

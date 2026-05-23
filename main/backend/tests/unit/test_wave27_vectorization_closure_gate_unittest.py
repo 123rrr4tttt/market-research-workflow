@@ -64,6 +64,10 @@ class Wave27VectorizationClosureGateTest(unittest.TestCase):
             "retrieval_runs_branches_hits_persistence_not_implemented",
             global_topic["repo_local_blockers"],
         )
+        self.assertNotIn(
+            "embedding_qdrant_pgvector_payload_provenance_not_unified",
+            global_topic["repo_local_blockers"],
+        )
 
         provider_check = contract["provider_manifest_check"]
         self.assertEqual(provider_check["status"], "passed")

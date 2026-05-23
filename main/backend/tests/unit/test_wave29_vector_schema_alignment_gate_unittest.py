@@ -42,6 +42,7 @@ class Wave29VectorSchemaAlignmentGateTest(unittest.TestCase):
             [
                 "unified_vector_object_contract_not_frozen",
                 "main_search_evidence_hit_contract_not_aligned",
+                "embedding_qdrant_pgvector_payload_provenance_not_unified",
             ],
         )
         self.assertNotIn(
@@ -52,10 +53,15 @@ class Wave29VectorSchemaAlignmentGateTest(unittest.TestCase):
             "main_search_evidence_hit_contract_not_aligned",
             contract["remaining_repo_local_blockers"],
         )
+        self.assertNotIn(
+            "embedding_qdrant_pgvector_payload_provenance_not_unified",
+            contract["remaining_repo_local_blockers"],
+        )
         self.assertIn(
             "retrieval_runs_branches_hits_persistence_not_implemented",
             contract["remaining_repo_local_blockers"],
         )
+        self.assertTrue(contract["payload_provenance_repo_local_closed"])
         self.assertFalse(contract["closure_claim_allowed"])
         self.assertFalse(contract["provider_live_closure_claim_allowed"])
         self.assertFalse(contract["semantic_quality_claim_allowed"])
@@ -65,7 +71,21 @@ class Wave29VectorSchemaAlignmentGateTest(unittest.TestCase):
             self.assertEqual(hit["query_group_id"], contract["query_group_id"])
             self.assertTrue(hit["matrix_branch_id"].startswith("branch_"))
             self.assertEqual(hit["global_vector_object"]["project_key"], "demo_proj")
-            self.assertIn("provenance", hit["global_vector_object"])
+            provenance = hit["global_vector_object"]["provenance"]
+            for key in contract["required_fields"]["global_vector_object_provenance"]:
+                self.assertIn(key, provenance)
+
+        qdrant_hit = next(hit for hit in contract["sample_evidence_hits"] if hit["backend"] == "qdrant_vector")
+        self.assertEqual(qdrant_hit["global_vector_object"]["provenance"]["provider"], "openai")
+        self.assertEqual(
+            qdrant_hit["global_vector_object"]["provenance"]["embedding_model_version"],
+            "2026-05-embedding-manifest",
+        )
+        pgvector_hit = next(hit for hit in contract["sample_evidence_hits"] if hit["backend"] == "pgvector_fallback")
+        self.assertEqual(
+            pgvector_hit["global_vector_object"]["provenance"]["fallback_reason"],
+            "qdrant_unavailable: deterministic gate fallback",
+        )
 
 
 if __name__ == "__main__":
