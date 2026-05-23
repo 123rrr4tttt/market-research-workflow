@@ -4,7 +4,7 @@ Date: 2026-05-23
 
 Worker: Wave27 frontend i18n worker B
 
-Scope: `CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology`, with readback against `2026-03-07-frontend-i18n-theme-modularization` and `2026-03-15-frontend-three-layer-rewrite`.
+Original scope before Wave28 retirement: `2026-03-07-dual-frontend-workbench-topology`, with readback against `2026-03-07-frontend-i18n-theme-modularization` and `2026-03-15-frontend-three-layer-rewrite`.
 
 ## Decision
 

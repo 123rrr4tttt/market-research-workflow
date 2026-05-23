@@ -19,8 +19,11 @@ if str(BACKEND_ROOT / "scripts") not in sys.path:
 
 from app.services.document_queries import (  # noqa: E402
     DOCUMENT_QUERY_CONTRACT_VERSION,
+    build_document_query,
+    build_document_query_statement,
     build_search_endpoint_document_query_envelope,
     build_structured_data_search_document_query_envelope,
+    compile_document_query_statement,
     validate_document_query_result_envelope,
 )
 from check_admin_dashboard_consumer_boundary import build_check as build_admin_dashboard_check  # noqa: E402
@@ -185,13 +188,48 @@ def _document_query_statement_builder_status(root: Path) -> dict[str, Any]:
         if matched:
             candidates.append({"path": str(path.relative_to(root)), "matched_tokens": matched})
     exported = [token for token in DOCUMENT_QUERY_BUILDER_EXPECTED_EXPORTS if token in exports]
+    compile_gaps: list[str] = []
+    compiled_sql = ""
+    if exported and candidates:
+        try:
+            sample_query = build_document_query(
+                "robotics policy",
+                project_key="demo_proj",
+                consumer="wave27.structured_closure",
+                sources=("document",),
+                filters=(
+                    {"field": "state", "op": "eq", "value": "CA"},
+                    {"field": "doc_type", "op": "in", "value": ["policy", "news"]},
+                    {"field": "extracted_data.policy.policy_type", "op": "contains", "value": "grant"},
+                ),
+                sort=({"field": "published_at", "direction": "desc"},),
+                limit=7,
+                offset=3,
+            )
+            statement = build_document_query_statement(sample_query)
+            compiled_sql = compile_document_query_statement(statement)
+            required_fragments = (
+                "FROM documents",
+                "documents.state = 'CA'",
+                "documents.doc_type IN ('policy', 'news')",
+                "project_key",
+                "policy_type",
+                "ORDER BY documents.publish_date DESC NULLS LAST",
+                "LIMIT 7 OFFSET 3",
+            )
+            compile_gaps = [fragment for fragment in required_fragments if fragment not in compiled_sql]
+        except Exception as exc:  # pragma: no cover - surfaced in checker output.
+            compile_gaps = [f"{type(exc).__name__}: {exc}"]
+    covered = bool(exported and candidates and not compile_gaps)
     return {
         "boundary_id": "generic_document_query_db_statement_builder",
         "expected_exports": list(DOCUMENT_QUERY_BUILDER_EXPECTED_EXPORTS),
         "exported_tokens": exported,
         "candidate_definitions": candidates,
-        "exists": bool(exported and candidates),
-        "status": "covered" if exported and candidates else "missing_repo_local_builder",
+        "compiled_sql_sample": compiled_sql,
+        "compile_gaps": compile_gaps,
+        "exists": covered,
+        "status": "covered" if covered else "missing_repo_local_builder",
     }
 
 
@@ -274,11 +312,11 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "topic_ids": [STRUCTURED_TOPIC_ID, CONSUMER_TOPIC_ID],
         "status": "passed" if validation_passed else "failed",
         "decision": {
-            "status": "split_retained_and_external_blocked_candidate",
+            "status": "external_blocked_candidate",
             "archive_eligible": structured_archive_eligible and consumer_archive_eligible,
             "repo_local_blocker_count": len(repo_local_blockers),
             "external_blocker_count": len(external_blockers),
-            "recommendation": "move consumer-side modularization to ARCHIVE_EXTERNAL_BLOCKED; keep structured service modularization in CURRENT_DEV until the DB statement-builder scope is resolved",
+            "recommendation": "move structured service modularization to ARCHIVE_EXTERNAL_BLOCKED when the supervisor performs the next CURRENT_DEV status migration",
             "topics": {
                 STRUCTURED_TOPIC_ID: {
                     "status": "external_blocked_candidate" if structured_archive_eligible else "retained_partial",

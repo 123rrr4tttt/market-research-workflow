@@ -6,17 +6,23 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import select
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 pytestmark = pytest.mark.unit
 
+from app.models.entities import Document
 from app.services.document_queries import (
     DOCUMENT_QUERY_CONTRACT_VERSION,
     DocumentQueryFilter,
     DocumentQuerySort,
+    apply_document_query_to_statement,
     build_document_query,
+    build_document_query_statement,
     build_document_query_result_envelope,
+    compile_document_query_statement,
+    document_query_to_statement,
     query_hybrid_document_envelope,
     query_hybrid_document_rows,
     query_source_library_material_envelope,
@@ -148,6 +154,75 @@ class DocumentQueriesContractUnitTestCase(unittest.TestCase):
         self.assertEqual(legacy_rows[0]["item_key"], "robotics_feed")
         self.assertEqual(card.source_type, "resource")
         self.assertEqual(card.extra["item_key"], "robotics_feed")
+
+    def test_document_query_builds_sqlalchemy_statement_with_filters_sort_and_pagination(self) -> None:
+        query = build_document_query(
+            "robotics policy",
+            project_key="demo_proj",
+            consumer="structured.service",
+            sources=("document",),
+            filters=(
+                {"field": "state", "op": "eq", "value": "CA"},
+                {"field": "doc_type", "op": "in", "value": ["policy", "news"]},
+                {"field": "extracted_data.policy.policy_type", "op": "contains", "value": "grant"},
+            ),
+            sort=({"field": "published_at", "direction": "desc"},),
+            limit=7,
+            offset=3,
+        )
+
+        statement = build_document_query_statement(query)
+        compiled = compile_document_query_statement(statement)
+        alias_compiled = compile_document_query_statement(document_query_to_statement(query))
+
+        self.assertIn("FROM documents", alias_compiled)
+        self.assertIn("FROM documents", compiled)
+        self.assertIn("documents.state = 'CA'", compiled)
+        self.assertIn("documents.doc_type IN ('policy', 'news')", compiled)
+        self.assertIn("project_key", compiled)
+        self.assertIn("policy_type", compiled)
+        self.assertIn("ORDER BY documents.publish_date DESC NULLS LAST", compiled)
+        self.assertIn("LIMIT 7 OFFSET 3", compiled)
+
+    def test_document_query_statement_adapter_extends_existing_statement(self) -> None:
+        query = build_document_query(
+            "",
+            filters=({"field": "summary", "op": "contains", "value": "robotics"},),
+            sort=({"field": "title", "direction": "asc"},),
+            limit=2,
+        )
+
+        statement = apply_document_query_to_statement(
+            query,
+            select(Document).where(Document.status == "active"),
+        )
+        compiled = compile_document_query_statement(statement)
+
+        self.assertIn("documents.status = 'active'", compiled)
+        self.assertIn("documents.summary ILIKE", compiled)
+        self.assertIn("ORDER BY documents.title ASC NULLS LAST", compiled)
+        self.assertIn("LIMIT 2", compiled)
+
+    def test_document_query_statement_applies_non_document_sources_as_doc_type_scope(self) -> None:
+        query = build_document_query(
+            "",
+            sources=("documents", "policy", "news"),
+            limit=4,
+        )
+
+        compiled = compile_document_query_statement(query)
+
+        self.assertIn("documents.doc_type IN ('news', 'policy')", compiled)
+        self.assertIn("LIMIT 4", compiled)
+
+    def test_document_query_statement_builder_rejects_unsupported_fields(self) -> None:
+        query = build_document_query(
+            "",
+            filters=({"field": "raw_sql;drop_table", "op": "eq", "value": "bad"},),
+        )
+
+        with self.assertRaisesRegex(ValueError, "unsupported document query field"):
+            build_document_query_statement(query)
 
 
 if __name__ == "__main__":

@@ -238,7 +238,7 @@ rg -n "Document\\(|session\\.add\\(|index_" main/backend/app/services/source_lib
 ```bash
 # 文档关键小节存在性检查
 rg -n "5\\.3 边界扫描规则与本轮结果|5\\.4 本轮实现记录|AT-SL-03A" \
-  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md
+  development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md
 ```
 
 ## 6. 完成定义

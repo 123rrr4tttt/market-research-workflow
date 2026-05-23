@@ -1,6 +1,6 @@
 # CURRENT_DEV Status Audit
 
-更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave27 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
+更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave28 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
 
 本审计基于对 `CURRENT_DEV` 一级目录的逐目录核对，判断标准同时参考：
 
@@ -36,6 +36,7 @@
 - `wave25_verified`：Wave25 继续按封口优先推进，先用多代理复核避免误迁，再落地 docs-root 的 repo-local content move 批次；若仍为 `partial`，表示剩余 blocker 仍未清零
 - `wave26_checked`：Wave26 继续按封口优先推进；Clue Chain successor repo-local graph-submit conflict 与 UI matrix gates 已落地，剩余 live provider reliability 作为外部条件迁出 `CURRENT_DEV`
 - `wave27_checked`：Wave27 封口优先波次集中处理 graph/typed/writing/consumer/source-library 等接近封口目录；迁档目录只剩 live DB/API/UI、tenant DB durability、live external replay 或 migration/backfill 等外部条件，保留目录必须列明 repo-local blocker
+- `wave28_checked`：Wave28 继续按目录级封口优先推进；无独立 repo-local blocker 且仅由后继三层重写继承的 frontend 目录迁入 `ARCHIVE_CLOSED` 或 `ARCHIVE_RETIRED`
 
 时效标签：
 
@@ -55,6 +56,7 @@
 - `clear_closed` [2026-03-07-后续安排](../ARCHIVE_CLOSED/2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md)
 - `clear_closed` [2026-04-07-parallel-agent-wave-orchestration](../ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md)
 - `clear_closed` [2026-05-22-clue-chain-investigation-tool](../ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md)
+- `clear_closed` [2026-03-07-frontend-i18n-theme-modularization](../ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/12_wave28-closure-decision-2026-05-23.md)
 
 ## 已迁入 ARCHIVE_RETIRED
 
@@ -66,6 +68,8 @@
 | `2026-03-04-rag-line-round3-filter-robustness` | `not_closed` | `stale_claim` | 引用的代码与测试路径已不在当前仓库 | 无直接替代；若重做需按当前 RAG 实现重立项 |
 | `2026-03-07-builtin-writing-workbench-design` | `partial` | `stale_claim` | 文档前提“写作域未落地”已被当前代码事实否定 | `2026-03-07-writing-workbench-evolution` |
 | `2026-03-12-time-semantics-density-merged-plan` | `partial` | `doc_stale` | 目录自身已声明应切换到 2026-03-14 主入口 | `2026-03-14-time-semantics-density-merged-plan` |
+| `2026-03-24-frontend-visual-layering` | `retired_in_place` | `doc_aligned` | 原空占位已补退场证据，且可审计 scope 已转交新前端主线与 evidence 包；继续留在 `CURRENT_DEV` 会误导执行 | `2026-03-15-frontend-three-layer-rewrite` / `frontend-topology-theme/2026-05-22` / `frontend-runtime-visual/2026-05-22` |
+| `2026-03-07-dual-frontend-workbench-topology` | `partial` | `doc_aligned / wave28_checked` | Wave27 disjoint gate 已证明 dual frontend 无独立 repo-local blocker；继续保留会重复三层重写的继承 blocker | `2026-03-15-frontend-three-layer-rewrite` |
 
 
 ## 已迁入 ARCHIVE_EXTERNAL_BLOCKED
@@ -94,6 +98,7 @@
 - `external_blocked` [2026-03-07-writing-workbench-evolution](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/11_wave27-external-blocked-decision-2026-05-23.md) - writing typed-card request/consumer/readback deterministic gates 已闭；live persisted UI/API/DB readback、governance mutation 与 migration/backfill 未闭环
 - `external_blocked` [2026-03-14-consumer-side-modularization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/08_wave27-external-blocked-decision-2026-05-23.md) - consumer facade/query deterministic gates 已闭；live DB/API smoke 未闭环
 - `external_blocked` [2026-03-25-source-library-ingest-minimal-migration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/18_wave27-external-blocked-decision-2026-05-23.md) - source-library python/CLI/container runner deterministic gates 已闭；live article-extraction stack replay 与 live external-project replay 未闭环
+- `external_blocked` [2026-03-12-data-structured-service-modularization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-12-data-structured-service-modularization/14_wave28-structured-document-query-statement-builder-2026-05-23.md) - generic DocumentQuery statement builder 与 focused gates 已闭；live DB/API smoke 未闭环
 
 ## 结果矩阵
 
@@ -106,12 +111,11 @@
 | `2026-03-02-single-url-first-ingest-allocation-plan` | `partial` | `doc_aligned / wave8_verified / wave12_verified / wave14_checked / wave17_verified / wave19_verified` | Wave8 已补 fetch-router/frontdoor context gap closure，Wave12 已补 single-url canary handoff contract，Wave14 已补 canary metrics readiness，Wave17 已补 deterministic readback；前端消费、live canary 和 24h metrics 仍未全闭环；Wave19 已补 24h metrics artifact contract；前端消费与 live metrics 仍未全闭环 |
 | `2026-03-05-oss-node-platform-io-plan` | `partial` | `doc_aligned / wave8_checked / wave10_checked / wave12_checked / wave14_checked / wave18_checked / wave19_checked` | Wave8 search/vector deterministic gate 复核 runtime/replay 主线，Wave10 已补 vectorization quality gate，Wave12 已补 provider readiness gate，Wave14 已补 provider capability gate，Wave18 已补 hybrid readback；整套平台目标未闭环；Wave19 已补 provider manifest readback；整套平台 / live provider 目标仍未闭环 |
 | `2026-03-07-docs-root-restructuring` | `partial` | `doc_aligned / wave9_checked / wave10_checked / wave11_checked / wave12_checked / wave16_verified / wave17_verified / wave18_verified / wave19_verified / wave20_verified / wave25_verified / retained_partial` | `docs/development` 与 `docs/architecture` target roots 已准备，Wave9 已补首批 machine-checkable manifest，Wave10 已补 content shim，Wave11 已补 `docs/development` local navigation promotion，Wave12 已补 content-plan gate，Wave16 已真实迁移一个 backend-core architecture content batch，Wave17 迁移一个 ops-frontend architecture batch并将 unsafe moves 降到 8，Wave18 迁移 root-plans architecture 批次并降到 7；权威内容移动仍未全执行；Wave19 已迁移 backend-docs architecture 批次并将 unsafe moves 降到 6；权威内容移动仍未全执行；Wave20 已迁移 development-plans architecture 批次并将 unsafe moves 降到 5；Wave25 已迁移 development-plans main 批次并将 unsafe moves 降到 4；权威内容移动仍未全执行 |
-| `2026-03-07-dual-frontend-workbench-topology` | `partial` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked / wave14_checked / wave16_verified / wave17_verified / wave18_verified / wave19_verified / wave20_verified` | Wave8 已补 topology contract checker 与 lint 证据，Wave11 已补 no-dep layer-shell route/surface contract，Wave12 已补 business-string audit，Wave14 已补 static migration boundary，Wave16 已迁移 Agent Chat i18n slice，Wave17 已迁移 Projects page i18n slice，Wave18 已迁移 Catalog page i18n slice；仍保留更大范围双交互面闭环；Wave19 已迁移 Dashboard page i18n slice；仍保留更大范围双交互面闭环；Wave20 已迁移 ProcessPage i18n slice；更大范围双交互面闭环仍未完成 |
-| `2026-03-07-frontend-i18n-theme-modularization` | `partial` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked / wave14_checked / wave16_verified / wave17_verified / wave18_verified / wave19_verified / wave20_verified` | Wave8 已补 i18n/theme registry contract evidence，Wave11 已把 theme/i18n anchor 纳入 layer-shell contract，Wave12 已补 business-string audit，Wave14 已补 static migration boundary，Wave16 已迁移 Agent Chat i18n slice，Wave17 已迁移 Projects page strings，Wave18 已迁移 Catalog page strings；仍保留全量业务文案迁移范围；Wave19 已迁移 Dashboard page i18n slice；全量业务文案迁移仍未封口；Wave20 已迁移 ProcessPage i18n slice；全量业务文案迁移仍未封口 |
+| `2026-03-07-dual-frontend-workbench-topology` | `retired` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked / wave14_checked / wave16_verified / wave17_verified / wave18_verified / wave19_verified / wave20_verified / wave28_checked` | Wave27 i18n/page-shell disjoint gate、topology gate 与 business-string audit 已证明 dual frontend 无独立 repo-local blocker；剩余 page-shell/AppShell/全量文案与页面重构事项由 `2026-03-15-frontend-three-layer-rewrite` 继承，目录迁入 `ARCHIVE_RETIRED` |
+| `2026-03-07-frontend-i18n-theme-modularization` | `clear_closed` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked / wave14_checked / wave16_verified / wave17_verified / wave18_verified / wave19_verified / wave20_verified / wave28_checked` | Wave28 复核 `check:i18n-page-shell-disjoint` 与 `check:topology-platform`：一阶 i18n/theme/module platform 已闭合，剩余 business-string 与 page-shell retirement 已明确转交 `2026-03-15-frontend-three-layer-rewrite`，本目录迁入 `ARCHIVE_CLOSED` |
 | `2026-03-07-后续安排` | `clear_closed` | `doc_aligned / wave13_checked / wave14_verified / wave15_verified` | Wave6 已补 folderization structure evidence，Wave13 已把该入口收窄为 retained coordination topic，Wave14 已把 downstream content gaps 降为 0，Wave15 `--strict-content` 复核 `hard_failures=0/content_gaps=0`；已迁入 `ARCHIVE_CLOSED` |
-| `2026-03-12-data-structured-service-modularization` | `partial` | `doc_aligned / wave9_verified / wave11_verified / wave13_verified / wave15_verified / wave17_verified / wave20_verified / wave27_checked / retained_partial` | Wave9 已补 `document_queries.v1` query/envelope/view-consumer 合同，Wave11 已抽离 prompt-time-density query path，Wave13 已补 `/api/v1/search` document-query projection，Wave15 已补 SQL/helper migration inventory，Wave17 已补 policy-state query boundary，Wave20 已补 structured-data search document-query endpoint slice；Wave27 endpoint/query/consumer facade 组合 gate 已通过，但 generic `DocumentQuery -> SQLAlchemy statement` builder 仍是 repo-local blocker |
+| `2026-03-12-data-structured-service-modularization` | `external_blocked` | `doc_aligned / wave9_verified / wave11_verified / wave13_verified / wave15_verified / wave17_verified / wave20_verified / wave27_checked / wave28_checked` | Wave9 已补 `document_queries.v1` query/envelope/view-consumer 合同，Wave11 已抽离 prompt-time-density SQL JSON query path，Wave13 已补 `/api/v1/search` document-query projection，Wave15 已补 SQL/helper migration inventory，Wave17 已补 policy-state query boundary，Wave20 已补 structured-data search document-query endpoint slice；Wave27 endpoint/query/consumer facade 组合 gate 已通过；Wave28 generic DocumentQuery statement builder 已落地并让 repo-local blocker 清零；目录迁入 `ARCHIVE_EXTERNAL_BLOCKED`，剩余条件为 live DB/API smoke |
 | `2026-03-15-frontend-three-layer-rewrite` | `partial` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked / wave14_checked / wave16_verified / wave17_verified / wave18_verified / wave19_verified / wave20_verified / retained_partial` | Wave8 已补 topology/i18n/theme contract checker，Wave11 已补 layer-shell coverage gate，Wave12 已补 business-string audit，Wave14 已补 static migration boundary，Wave16 已迁移 Agent Chat i18n slice，Wave17 已迁移 Projects page business strings，Wave18 已迁移 Catalog page business strings；文档与代码仍表明目前是“半重构态”；Wave19 已迁移 Dashboard page i18n slice；仍是半重构态；Wave20 已迁移 ProcessPage i18n slice；仍是半重构态 |
-| `2026-03-24-frontend-visual-layering` | `retired_in_place` | `doc_aligned` | 原空占位已补退场证据；现行入口转交 `2026-03-15-frontend-three-layer-rewrite` 与 Wave3/Wave4 frontend evidence |
 | `2026-04-02-claude-agent-high-fidelity-migration` | `clear_closed` | `doc_aligned` | 当前入口已拆分并迁入 `ARCHIVE_CLOSED`；如需新诊断应开 D48+ 新主题 |
 
 ## 使用建议

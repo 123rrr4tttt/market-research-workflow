@@ -55,6 +55,24 @@ COVERED_SURFACES: tuple[CoveredSurface, ...] = (
         required_text=(f'DOCUMENT_QUERY_CONTRACT_VERSION = "{DOCUMENT_QUERY_CONTRACT_VERSION}"',),
     ),
     CoveredSurface(
+        surface_id="document_query_statement_builder",
+        path="main/backend/app/services/document_queries/statement_builder.py",
+        role="generic_document_query_to_sqlalchemy_statement_builder",
+        required_definitions=(
+            "apply_document_query_to_statement",
+            "build_document_query_statement",
+            "compile_document_query_statement",
+            "document_query_to_statement",
+        ),
+        required_imports=("Document", "DocumentQuery", "select"),
+        required_text=('DOCUMENT_QUERY_STATEMENT_BUILDER_VERSION = "document_query_statement_builder.v1"',),
+        required_calls=(
+            ("build_document_query_statement", ("apply_document_query_to_statement",)),
+            ("document_query_to_statement", ("build_document_query_statement",)),
+            ("compile_document_query_statement", ("build_document_query_statement",)),
+        ),
+    ),
+    CoveredSurface(
         surface_id="policy_sql_expression_helpers",
         path="main/backend/app/services/document_queries/policy_filters.py",
         role="sqlalchemy_json_predicate_helper",
@@ -349,8 +367,9 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "status": "passed" if status_passed else "failed",
         "migration_boundary": {
             "covered_scope": (
-                "DocumentQuery envelope helpers, policy SQL expression helpers, prompt-time-density SQL "
-                "time helper consumption, writing material query helpers, and /api/v1/search projection."
+                "DocumentQuery envelope helpers, generic DocumentQuery-to-SQLAlchemy statement builder, "
+                "policy SQL expression helpers, prompt-time-density SQL time helper consumption, writing "
+                "material query helpers, and /api/v1/search projection."
             ),
             "deferred_scope": (
                 "Admin/dashboard structured JSON SQL predicates remain inventory items until the "

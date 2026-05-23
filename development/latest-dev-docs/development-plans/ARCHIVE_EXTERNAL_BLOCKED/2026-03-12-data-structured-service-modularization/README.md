@@ -13,6 +13,8 @@
 9. [10_wave17-policy-state-query-boundary-2026-05-22.md](./10_wave17-policy-state-query-boundary-2026-05-22.md)
 10. [11_wave20-document-query-endpoint-slice-2026-05-22.md](./11_wave20-document-query-endpoint-slice-2026-05-22.md)
 11. [12_wave27-structured-consumer-closure-decision-2026-05-23.md](./12_wave27-structured-consumer-closure-decision-2026-05-23.md)
+12. [13_wave28-structured-reviewer-evidence-2026-05-23.md](./13_wave28-structured-reviewer-evidence-2026-05-23.md)
+13. [14_wave28-structured-document-query-statement-builder-2026-05-23.md](./14_wave28-structured-document-query-statement-builder-2026-05-23.md)
 
 ## 使用顺序
 
@@ -35,3 +37,5 @@
 - 2026-05-22 Wave17 worker 8 已将 `/policies/state/{state}` 的状态 predicate 与时间表达式收口到 `document_queries.policy_filters`，作为非 admin/dashboard query boundary 的增量迁移证据。
 - 2026-05-22 Wave20 worker 6 已将 `project.structured_data.search` 成功响应增加 `document_queries.v1` 投影，作为低风险 query-service endpoint slice；更多 endpoint 与 DB statement builder 仍保留为后续边界。
 - 2026-05-23 Wave27 已补组合 endpoint/consumer closure gate：endpoint/query/facade gates 均通过；paired consumer topic 迁入 `ARCHIVE_EXTERNAL_BLOCKED`，本目录因 generic `DocumentQuery -> SQLAlchemy statement` builder 仍未导出而保留 `CURRENT_DEV`。
+- 2026-05-23 Wave28 structured worker A 已导出 generic `DocumentQuery -> SQLAlchemy statement` builder，并更新 closure checker；本目录 repo-local blocker 归零，只剩 `live_db_api_smoke_not_run` 外部运行时验证。
+- 2026-05-23 Wave28 reviewer 复核当前 `document_queries` 服务、checker 与 `CURRENT_DEV` evidence：当前可执行封口范围原本只剩 generic `DocumentQuery -> SQLAlchemy statement` builder；本轮 builder 变更合并后 focused gates 显示 repo-local blocker 清零，目录已迁入 `ARCHIVE_EXTERNAL_BLOCKED` 而非 `ARCHIVE_CLOSED`。

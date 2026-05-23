@@ -4,7 +4,7 @@
   "source_authority": "development/latest-dev-docs",
   "migration_manifest": "docs/development/latest-dev-docs-entry-manifest.json",
   "generated_date": "2026-05-22",
-  "status": "wave27_frontend_modern_and_root_plans_main_moved_file_batch_partial",
+  "status": "wave28_current_dev_and_archive_closed_classified_partial",
   "checker": "scripts/checkers/check_docs_root_content_plan.py",
   "entries": [
     {
@@ -68,11 +68,12 @@
       "source_remains_authoritative": true,
       "move_allowed": false,
       "blocked_by": [
+        "supervisor_owned_active_status_surface",
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift",
         "topic_status_sync"
       ],
-      "next_gate": "Keep CURRENT_DEV authoritative until supervisor-owned status and shared navigation sync land together."
+      "next_gate": "Do not move CURRENT_DEV as a docs-root content batch. Keep it source-authoritative as a supervisor-owned active status surface until topic-level closure, archive, or retire decisions remove the live status role."
     },
     {
       "id": "frontend-modern-main-index-content-plan",
@@ -173,27 +174,36 @@
       ]
     }
   ],
-  "remaining_unsafe_moves": [
+  "supervisor_owned_active_surfaces": [
     {
       "id": "development-plans-current-dev-tree",
       "source": "development/latest-dev-docs/development-plans/CURRENT_DEV",
       "target_root": "docs/development/development-plans",
-      "mode": "blocked_broad_move",
-      "reason": "CURRENT_DEV is still the active status surface and contains shared index files owned by supervisor integration.",
-      "required_gates": [
+      "mode": "supervisor_owned_active_surface",
+      "authority": "source_authoritative",
+      "compatibility_entry": "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+      "non_move_reason": "CURRENT_DEV is not a content batch waiting for migration; it is the active status surface for unfinished development topics and must remain under the supervisor-owned latest-dev-docs compatibility root.",
+      "required_supervisor_gates": [
+        "current_dev_status_evidence",
+        "topic_level_archive_or_retire_decisions",
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift",
         "topic_status_sync"
       ]
-    },
+    }
+  ],
+  "remaining_unsafe_moves": [
     {
       "id": "development-plans-archive-closed-tree",
       "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED",
       "target_root": "docs/development/development-plans",
       "mode": "blocked_broad_move",
-      "reason": "Closed archives are mixed across development, implementation, architecture, and governance roles.",
+      "reason": "Wave28 classified ARCHIVE_CLOSED at file level in docs/development/development-plans/archive-closed-file-classification-2026-05-23.json; the broad move remains blocked until source archive files are converted into compatibility shims and shared navigation is synchronized.",
+      "classification_ledger": "docs/development/development-plans/archive-closed-file-classification-2026-05-23.json",
+      "classified_files": 195,
+      "classified_empty_directories": 1,
       "required_gates": [
-        "file_level_classification",
+        "source_compatibility_shim_conversion",
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ]

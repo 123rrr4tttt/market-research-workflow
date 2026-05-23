@@ -45,22 +45,30 @@ class Wave27StructuredConsumerClosureDecisionUnitTest(unittest.TestCase):
             self.assertIn(gate_name, gates)
             self.assertTrue(gates[gate_name]["passed"], gates[gate_name])
 
-    def test_decision_splits_consumer_archive_candidate_from_structured_blocker(self) -> None:
+    def test_decision_marks_structured_and_consumer_as_external_blocked_candidates(self) -> None:
         result = build_check(REPO_ROOT)
 
-        self.assertEqual(result["decision"]["status"], "split_retained_and_external_blocked_candidate")
-        self.assertFalse(result["decision"]["archive_eligible"])
-        self.assertFalse(result["decision"]["topics"][STRUCTURED_TOPIC_ID]["archive_eligible"])
-        self.assertEqual(result["decision"]["topics"][STRUCTURED_TOPIC_ID]["status"], "retained_partial")
+        self.assertEqual(result["decision"]["status"], "external_blocked_candidate")
+        self.assertTrue(result["decision"]["archive_eligible"])
+        self.assertTrue(result["decision"]["topics"][STRUCTURED_TOPIC_ID]["archive_eligible"])
+        self.assertEqual(result["decision"]["topics"][STRUCTURED_TOPIC_ID]["status"], "external_blocked_candidate")
         self.assertTrue(result["decision"]["topics"][CONSUMER_TOPIC_ID]["archive_eligible"])
         self.assertEqual(result["decision"]["topics"][CONSUMER_TOPIC_ID]["status"], "external_blocked_candidate")
-        blocker_ids = {item["id"] for item in result["repo_local_blockers"]}
-        self.assertEqual(blocker_ids, {"generic_document_query_db_statement_builder_missing"})
+        self.assertEqual(result["repo_local_blockers"], [])
         self.assertEqual(result["external_blockers"][0]["id"], "live_db_api_smoke_not_run")
 
         builder = result["validation"]["document_query_statement_builder"]
-        self.assertEqual(builder["status"], "missing_repo_local_builder")
-        self.assertFalse(builder["exported_tokens"])
+        self.assertEqual(builder["status"], "covered")
+        self.assertEqual(
+            set(builder["exported_tokens"]),
+            {
+                "build_document_query_statement",
+                "compile_document_query_statement",
+                "apply_document_query_to_statement",
+                "document_query_to_statement",
+            },
+        )
+        self.assertEqual(builder["compile_gaps"], [])
 
 
 if __name__ == "__main__":

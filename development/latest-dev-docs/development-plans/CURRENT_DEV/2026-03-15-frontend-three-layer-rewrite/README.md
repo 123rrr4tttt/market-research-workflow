@@ -20,7 +20,7 @@ Wave4 H 随后补充了三层 shell 的运行态视觉证据：
 
 该证据说明三层重写里的 shared platform kernel 基础合同已经具备可重复检查：31 个模块都进入 `moduleManifest`，placement baseline 与 baseline inventory 完整，`zh-CN` / `en-US` shell/nav catalog 完整，`light` / `dark` / `brand` token groups 完整，`AppShell` 与 `FigmaSideNav` 均消费当前平台合同。
 
-`2026-03-24-frontend-visual-layering` 已退场为本专题的证据映射，不再作为独立实施入口；退场记录见 [../2026-03-24-frontend-visual-layering/01_retirement-evidence-frontend-visual-layering-2026-05-22.md](../2026-03-24-frontend-visual-layering/01_retirement-evidence-frontend-visual-layering-2026-05-22.md)。
+`2026-03-24-frontend-visual-layering` 已退场为本专题的证据映射，不再作为独立实施入口；退场记录见 [../../ARCHIVE_RETIRED/2026-03-24-frontend-visual-layering/01_retirement-evidence-frontend-visual-layering-2026-05-22.md](../../ARCHIVE_RETIRED/2026-03-24-frontend-visual-layering/01_retirement-evidence-frontend-visual-layering-2026-05-22.md)。
 
 因此后续收口不要再把 S1/S2/S3 当成未开始项；剩余重点是 `AppShell` compatibility-only retirement、`WritingWorkbenchPage` / `GraphPage` 等重页面的 container/view 封边、以及更完整的运行态 E2E。
 
@@ -34,7 +34,7 @@ Wave4 H 随后补充了三层 shell 的运行态视觉证据：
 
 1. 本目录是前端重写主线，目标是“框架逻辑完全重构，业务核心交互闭环保留，分阶段替换旧壳层”。
 2. `2026-03-07-dual-frontend-workbench-topology/` 提供了早期 workbench / management 拓扑基线，但本专题将其升级为 A/B/C 三层重写方案，并固定新的路由和模块契约。
-3. `2026-03-07-frontend-i18n-theme-modularization/` 提供共享平台层的旧基线，本专题仅复用其中“主题、语言、模块元数据应被平台化”的原则，不继承既有 `AppShell` 结构。
+3. `ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/` 已封口为共享平台层基线；本专题继承剩余 business-string migration 与 page-shell retirement work，但不继承既有 `AppShell` 结构。
 4. `ARCHIVE_RETIRED/2026-03-07-builtin-writing-workbench-design/` 的历史设计稿与 `2026-03-07-writing-workbench-evolution/` 仍然是 A 层写作工作台的领域输入，但不再承担前端总体架构主线职责。
 
 ## 使用说明

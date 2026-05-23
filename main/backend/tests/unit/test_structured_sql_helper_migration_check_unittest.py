@@ -33,6 +33,7 @@ class StructuredSqlHelperMigrationCheckUnitTestCase(unittest.TestCase):
         covered = {item["surface_id"]: item for item in result["covered_query_helpers"]}
         for surface_id in (
             "document_query_contract",
+            "document_query_statement_builder",
             "policy_sql_expression_helpers",
             "writing_material_query_helpers",
             "prompt_time_density_sql_helper_consumer",

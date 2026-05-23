@@ -66,17 +66,29 @@ from .structured_data_search import (
     build_structured_data_search_document_query,
     build_structured_data_search_document_query_envelope,
 )
+from .statement_builder import (
+    DOCUMENT_QUERY_STATEMENT_BUILDER_VERSION,
+    apply_document_query_to_statement,
+    build_document_query_statement,
+    compile_document_query_statement,
+    document_query_to_statement,
+)
 
 __all__ = [
     "DOCUMENT_QUERY_CONTRACT_VERSION",
     "DocumentQuery",
     "DocumentQueryFilter",
     "DocumentQuerySort",
+    "DOCUMENT_QUERY_STATEMENT_BUILDER_VERSION",
+    "apply_document_query_to_statement",
     "build_document_query",
+    "build_document_query_statement",
     "build_document_query_result_envelope",
     "build_document_query_result_item",
+    "compile_document_query_statement",
     "content_graph_structured_condition",
     "document_extracted_data_present_case",
+    "document_query_to_statement",
     "document_has_extracted_data_condition",
     "document_json_iso_date_expr",
     "document_missing_extracted_data_condition",

@@ -2,6 +2,7 @@
 
 ## Execution Status Snapshot
 
+- 2026-05-23 Wave28 closure: this directory is closed for the first-wave platform scope and archived in `ARCHIVE_CLOSED`. Remaining full business-string migration and page-shell retirement work is owned by `CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite`.
 - 2026-05-22 status: `A1-A8` are implemented for the first-wave shell/platform scope. Locale, theme, module registration, shell title consumption, navigation label consumption, and settings controls are present in source.
 - `A9` is contract-covered rather than full-page localized: the static gate verifies shell/nav/module contracts across all registered modes; full business-content localization remains out of scope.
 - `A10` now has a repeatable minimum gate: `npm --prefix main/frontend-modern run check:topology-platform`, plus `npm --prefix main/frontend-modern run lint`.

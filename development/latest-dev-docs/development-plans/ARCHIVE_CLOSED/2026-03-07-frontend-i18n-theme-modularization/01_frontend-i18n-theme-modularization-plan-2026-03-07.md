@@ -2,8 +2,14 @@
 
 > Date: 2026-03-07
 > Scope: `main/frontend-modern`
-> Status: 2026-05-22 refreshed; shell-level i18n/theme/module contracts are implemented and statically gated
+> Status: 2026-05-23 closed; shell-level i18n/theme/module contracts are implemented and statically gated
 > Constraint: keep the plan aligned with the current `main/frontend-modern` entrypoints instead of inventing a second frontend shell
+
+## 0.1 2026-05-23 Closure Decision
+
+Wave28 closes this directory as the first-wave frontend i18n/theme/module platform lane. The remaining business-string migration and page-shell retirement backlog is explicitly transferred to `CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite`.
+
+Closure decision: [12_wave28-closure-decision-2026-05-23.md](./12_wave28-closure-decision-2026-05-23.md)
 
 ## 0. 2026-05-22 Current Status Refresh
 

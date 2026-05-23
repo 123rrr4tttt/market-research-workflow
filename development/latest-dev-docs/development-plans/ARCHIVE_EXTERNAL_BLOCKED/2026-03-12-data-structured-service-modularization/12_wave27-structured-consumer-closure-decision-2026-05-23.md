@@ -25,6 +25,8 @@ The structured endpoint projection covers both `/api/v1/search` and `project.str
 
 ## Remaining Blocker
 
+Wave28 update: this repo-local blocker has been closed by [14_wave28-structured-document-query-statement-builder-2026-05-23.md](./14_wave28-structured-document-query-statement-builder-2026-05-23.md). The historical Wave27 decision below explains why this directory stayed in `CURRENT_DEV` before the builder existed.
+
 The remaining structured-service blocker is repo-local:
 
 ```text

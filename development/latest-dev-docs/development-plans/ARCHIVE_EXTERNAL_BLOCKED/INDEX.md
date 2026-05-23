@@ -57,6 +57,8 @@
   状态：`external_blocked` / `wave27_checked`。仓内 consumer facade/query、admin/dashboard、policy-state 与 prompt-time-density gates 已封住；剩余条件是 live DB/API smoke。
 - [2026-03-25 Source-Library Ingest Minimal Migration](./2026-03-25-source-library-ingest-minimal-migration/18_wave27-external-blocked-decision-2026-05-23.md)
   状态：`external_blocked` / `wave27_checked`。仓内 `python_library` 与 `cli_or_container` bounded runner gates 已封住，AT-EXT checker `failures=[]`；剩余条件是 live article-extraction stack replay 与 live external-project replay。
+- [2026-03-12 Data Structured Service Modularization](./2026-03-12-data-structured-service-modularization/14_wave28-structured-document-query-statement-builder-2026-05-23.md)
+  状态：`external_blocked` / `wave28_checked`。仓内 generic DocumentQuery statement builder、structured SQL helper migration 与 focused closure gates 已封住；剩余条件是 live DB/API smoke。
 
 ## 保留在 CURRENT_DEV 的相邻目录
 
@@ -67,7 +69,6 @@
 - [2026-03-05 OSS Node Platform IO Plan](../CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/07_wave27-vectorization-closure-decision-2026-05-23.md)：`retained_partial` / `wave27_checked`。provider manifest 可消费；node schema/runtime/persistence 平台化与 node-level manifest replay 仍是 repo-local blocker。
 - [2026-03-15 Frontend Three-Layer Rewrite](../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md)：`retained_partial`。剩余业务文案与兼容层迁移规模仍大。
 - [2026-05-14 Global Vectorization General Foundation](../CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/09_wave27-vectorization-closure-decision-2026-05-23.md)：`retained_partial` / `wave27_checked`。统一 vector object、retrieval runs、provenance payload 与主检索/Agent schema 对齐仍是 repo-local blocker。
-- [2026-03-12 Data Structured Service Modularization](../CURRENT_DEV/2026-03-12-data-structured-service-modularization/12_wave27-structured-consumer-closure-decision-2026-05-23.md)：`retained_partial` / `wave27_checked`。endpoint/query/consumer facade gates 已封住；generic `DocumentQuery -> SQLAlchemy statement` builder 仍是 repo-local blocker。
 - [2026-03-02 Single URL First Ingest Allocation Plan](../CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md)：`retained_partial` / `wave27_checked`。canary/24h 仓内 gate 已充分；仍有 broader fetch-router、official API adapter 与 dashboard tri-state 对齐 blocker。
 
 ## 返回
