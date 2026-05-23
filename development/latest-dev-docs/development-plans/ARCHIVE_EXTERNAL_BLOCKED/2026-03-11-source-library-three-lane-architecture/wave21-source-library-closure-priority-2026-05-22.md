@@ -22,6 +22,8 @@ reuse the `retained_partial` row below as current status.
 
 ## Decision
 
+The table below is a historical Wave21 snapshot. The `retained_partial` row is not current status after Wave27/Wave33.
+
 | Topic | Decision | Move-from-CURRENT_DEV candidate | Reason |
 | --- | --- | --- | --- |
 | `2026-03-11-source-library-three-lane-architecture` | `external_blocked_candidate` | yes | Wave16, Wave18, Wave19, and Wave20 deterministic review batches are closed. Remaining evidence is human review, opt-in public replay, live source collection, or live ingest/external replay. No topic-local review runner/checker blocker was found in the Wave20 cluster. |

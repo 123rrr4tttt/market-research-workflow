@@ -15,6 +15,7 @@
 - 规范入口：[development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md)。
 - 目标主题 allowlist：[development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json)，用于区分真实开发目标、证据/过程记录、分类/导航目录与外部参考材料。
 - 当前 `CURRENT_DEV` 分布以该入口的“剩余状态分布”为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
+- 四态审计摘要以 [Wave37 target review status](./automation-runs/wave37-target-review-status/2026-05-23/README.md) 为准：`unsealed:0 / sealed:49 / outdated:6 / needs_update:6`。
 - 下方“最新补充”是 historical wave log；其中 `partial:x -> partial:y` 仅表示对应 wave 完成时的历史快照，不代表当前剩余状态。
 
 ## 分目录入口
@@ -35,6 +36,8 @@
 - 当更新日期变化时，必须同步更新目录名、文件名与索引引用（至少包含 `README.md`、`MERGED_OVERVIEW.md`、子目录 `INDEX.md`）。
 
 ## 最新补充
+
+- Wave37 target review status（2026-05-23）：`check_development_plans_status_matrix.py` 在保留 legacy 字段的同时新增 `status_summary`、`status_mapping_rules` 与 per-target `target_review_status`，直接输出四态：`unsealed:0 / sealed:49 / outdated:6 / needs_update:6`。本轮收窄证据 regex，加入 allowlist `target_topic_overrides`，并明确 6 个需更新 target。证据：[wave37 target review status](./automation-runs/wave37-target-review-status/2026-05-23/README.md)。
 
 - Wave36 target-topic evidence profile（2026-05-23）：按四类目录模型重算开发计划状态，只将真实开发目标纳入 closure 指标；过程/证据记录、分类/导航目录、外部参考材料不再被机械要求目录级封口。`TARGET_TOPIC_ALLOWLIST.json` 现在给出 61 个 target topics（`closed:26 / external_blocked:29 / retired:6 / active_current:0`）与 17 个 non-target roots，`check_development_plans_status_matrix.py` 新增 target evidence profile 并要求每个 target 有 code/script/test/gate 证据信号，`external_blocked` 还必须有 external blocker 信号。证据：[wave36 target-topic evidence profile](./automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)。
 

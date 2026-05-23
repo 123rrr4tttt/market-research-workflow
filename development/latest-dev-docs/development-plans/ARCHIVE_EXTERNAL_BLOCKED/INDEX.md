@@ -4,6 +4,12 @@
 
 本目录用于存放已经完成仓内确定性门禁、但剩余验收依赖外部运行时、公网 replay、生产数据、真实租户环境或人工 review 的开发计划。它们不继续占用 `CURRENT_DEV` 的 `partial` 指标；重新进入当前开发前，必须先补齐对应外部条件或开新主题。
 
+## 导航基线
+
+- Target topic allowlist: [../TARGET_TOPIC_ALLOWLIST.json](../TARGET_TOPIC_ALLOWLIST.json)
+- Wave37 four-state review: [../../automation-runs/wave37-target-review-status/2026-05-23/README.md](../../automation-runs/wave37-target-review-status/2026-05-23/README.md)
+- Wave36 target evidence profile: [../../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md](../../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)
+
 ## 迁入标准
 
 - 仓内代码、fixture、manifest、readback 或 checker 已能重复验证当前边界

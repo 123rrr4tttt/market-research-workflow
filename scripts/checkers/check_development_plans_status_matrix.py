@@ -14,6 +14,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
@@ -34,15 +35,30 @@ COUNT_RE = re.compile(r"`?(partial|not_closed|no_closure_claim)`?\s*[:：]\s*`?(
 LINK_RE = re.compile(r"(!?)\[([^\]]*)\]\(([^)]+)\)")
 SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 VALID_TARGET_STATUSES = {"active_current", "closed", "external_blocked", "retired"}
+VALID_REVIEW_STATUSES = {"active_current", "closed", "external_blocked", "retired", "needs_update"}
 DEFAULT_REFERENCE_EXCLUDES = ("**/references/repos/**", "references/repos/**")
 PROFILE_SUFFIXES = {".md", ".json", ".yml", ".yaml", ".toml", ".txt", ".sh", ".py"}
 CODE_RE = re.compile(
-    r"\b(main|backend|frontend|app|src|services|components|api|workflow|agent|graph|ingest|crawler|search|writing)\b|"
-    r"\.(py|ts|tsx|js|mjs|sh)\b"
+    r"(?:^|[\s`'\"(<\[])(?:\.?/)?(?:main|scripts|tests|src|app|frontend|backend|codex_settings|\.github)"
+    r"/[^\s`'\"),>\]]+\.(?:py|ts|tsx|js|mjs|sh|yml|yaml|json|toml|md)\b|"
+    r"(?:^|[\s`'\"(<\[])[\w./@+-]+/[\w./@+-]+\.(?:py|ts|tsx|js|mjs|sh)\b",
+    re.MULTILINE,
 )
-SCRIPT_RE = re.compile(r"\b(script|scripts/|checkers/|ops/|run_|verify_|check_)\b|\.sh\b")
-TEST_RE = re.compile(r"\b(pytest|unittest|tests?/|test_|npm run test|passed|pass(ed)?)\b", re.IGNORECASE)
-GATE_RE = re.compile(r"\b(gate|check:|lint|build|contract|smoke|readback|manifest|validation|验证|门禁)\b", re.IGNORECASE)
+SCRIPT_RE = re.compile(
+    r"(?:^|[\s`])(?:PYTHONPATH=[^\s`]+\s+)?(?:python(?:3(?:\.\d+)?)?|bash|npm|pnpm|yarn|node)"
+    r"[^\n`]*(?:scripts?/|check_|verify_|run_|pytest|test|lint|build|\.sh|\.py)\b|"
+    r"(?:^|[\s`'\"(<\[])(?:\.?/)?(?:scripts|codex_settings/scripts|main/backend/scripts)/[^\s`'\"),>\]]+",
+    re.IGNORECASE | re.MULTILINE,
+)
+TEST_RE = re.compile(
+    r"\b(?:pytest|unittest|tests?/[^\s`'\"),]+|test_[\w.-]+\.py|"
+    r"npm\s+(?:--prefix\s+\S+\s+)?run\s+test|[0-9]+\s+passed)\b",
+    re.IGNORECASE,
+)
+GATE_RE = re.compile(
+    r"\b(?:check_[\w-]+|verify_[\w-]+|gate|check:|lint|build|contract|smoke|readback|manifest)\b|验证|门禁",
+    re.IGNORECASE,
+)
 EXTERNAL_RE = re.compile(
     r"\b(external_blocked|external blocker|live|production|public replay|tenant|provider|operator|human review|"
     r"not_run|not_verified|missing_real_evidence|外部|公网|生产|人工)\b",
@@ -71,6 +87,9 @@ class TargetTopic:
     path: Path
     status: str
     entrypoint: Path
+    role: str = "development_target"
+    review_status_override: str | None = None
+    review_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -114,17 +133,26 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print machine-readable JSON instead of a compact status line.",
     )
+    parser.add_argument(
+        "--fail-on-needs-update",
+        action="store_true",
+        help="Exit nonzero when any target profile is classified as needs_update.",
+    )
     return parser.parse_args()
 
 
 def reference_excludes(allowlist: dict[str, Any] | None = None) -> tuple[str, ...]:
+    defaults = list(DEFAULT_REFERENCE_EXCLUDES)
     if not allowlist:
-        return DEFAULT_REFERENCE_EXCLUDES
+        return tuple(defaults)
     configured = allowlist.get("reference_excludes", [])
     if not isinstance(configured, list):
-        return DEFAULT_REFERENCE_EXCLUDES
-    patterns = tuple(item for item in configured if isinstance(item, str) and item)
-    return patterns or DEFAULT_REFERENCE_EXCLUDES
+        return tuple(defaults)
+    patterns = defaults
+    for item in configured:
+        if isinstance(item, str) and item and item not in patterns:
+            patterns.append(item)
+    return tuple(patterns)
 
 
 def is_reference_repo_path(path: Path, patterns: tuple[str, ...] | None = None) -> bool:
@@ -338,6 +366,27 @@ def collect_declared_roots(allowlist: dict[str, Any], key: str, problems: list[P
     return tuple(roots)
 
 
+def collect_target_overrides(allowlist: dict[str, Any], problems: list[Problem]) -> dict[Path, dict[str, Any]]:
+    raw_overrides = allowlist.get("target_topic_overrides", [])
+    if not isinstance(raw_overrides, list):
+        problems.append(Problem(ALLOWLIST, "target_topic_overrides must be a list when present"))
+        return {}
+    overrides: dict[Path, dict[str, Any]] = {}
+    for index, item in enumerate(raw_overrides):
+        if not isinstance(item, dict) or not isinstance(item.get("path"), str):
+            problems.append(Problem(ALLOWLIST, f"target_topic_overrides[{index}] must be an object with path"))
+            continue
+        path = Path(item["path"])
+        review_status = item.get("review_status")
+        if review_status is not None and review_status not in VALID_REVIEW_STATUSES:
+            problems.append(
+                Problem(ALLOWLIST, f"target_topic_overrides[{index}] has invalid review_status {review_status!r}")
+            )
+            continue
+        overrides[path] = item
+    return overrides
+
+
 def index_mentions_topic(
     root: Path,
     entrypoint: Path,
@@ -434,6 +483,44 @@ def evidence_profile(root: Path, topic: Path, reference_patterns: tuple[str, ...
     )
 
 
+def profile_gaps(target: TargetTopic, profile: EvidenceProfile) -> tuple[str, ...]:
+    if target.review_status_override and target.review_status_override != "needs_update":
+        return ()
+    gaps: list[str] = []
+    if target.review_status_override == "needs_update":
+        gaps.append("review_override_needs_update")
+    if profile.file_count == 0:
+        gaps.append("no_evidence_files")
+
+    if target.status in {"active_current", "closed", "external_blocked"} and not profile.has_code_reference:
+        gaps.append("missing_code_reference")
+
+    if target.status in {"active_current", "closed"}:
+        if not profile.has_test_reference:
+            gaps.append("missing_test_reference")
+        if not profile.has_gate_reference:
+            gaps.append("missing_gate_reference")
+
+    if target.status == "external_blocked":
+        if not profile.has_external_blocker:
+            gaps.append("missing_external_blocker")
+        if not (profile.has_test_reference or profile.has_gate_reference):
+            gaps.append("missing_repo_local_test_or_gate")
+
+    return tuple(gaps)
+
+
+def target_review_status(target: TargetTopic, profile: EvidenceProfile) -> str:
+    if target.review_status_override:
+        return target.review_status_override
+    if target.status == "retired":
+        return "retired"
+    gaps = profile_gaps(target, profile)
+    if gaps:
+        return "needs_update"
+    return target.status
+
+
 def check_non_targets_exist(root: Path, roots: tuple[Path, ...], problems: list[Problem]) -> None:
     for path in roots:
         if not (root / path).exists():
@@ -445,7 +532,24 @@ def check(root: Path, allowlist_path: Path = ALLOWLIST) -> Result:
     allowlist = read_json(root, allowlist_path, problems)
     reference_patterns = reference_excludes(allowlist)
     status_counts = parse_current_status_counts(root, problems, reference_patterns)
+    target_overrides = collect_target_overrides(allowlist, problems)
     targets = collect_targets(root, allowlist, problems, reference_patterns)
+    if target_overrides:
+        targets = tuple(
+            TargetTopic(
+                path=target.path,
+                status=target.status,
+                entrypoint=target.entrypoint,
+                role=str(target_overrides.get(target.path, {}).get("role", target.role)),
+                review_status_override=target_overrides.get(target.path, {}).get("review_status"),
+                review_reason=target_overrides.get(target.path, {}).get("reason"),
+            )
+            for target in targets
+        )
+        target_paths = {target.path for target in targets}
+        for override_path in target_overrides:
+            if override_path not in target_paths:
+                problems.append(Problem(override_path, "target_topic_override path does not match any target topic"))
     target_profiles = {target.path: evidence_profile(root, target.path, reference_patterns) for target in targets}
     non_target_roots = collect_declared_roots(allowlist, "non_target_roots", problems)
     evidence_roots = collect_declared_roots(allowlist, "evidence_roots", problems)
@@ -499,27 +603,60 @@ def check(root: Path, allowlist_path: Path = ALLOWLIST) -> Result:
 
 def result_json(result: Result) -> dict[str, Any]:
     status_counts: dict[str, int] = {}
+    review_status_counts: dict[str, int] = {}
     for target in result.targets:
         status_counts[target.status] = status_counts.get(target.status, 0) + 1
+        profile = result.target_profiles[target.path]
+        review_status = target_review_status(target, profile)
+        review_status_counts[review_status] = review_status_counts.get(review_status, 0) + 1
+    status_summary = {
+        "unsealed_count": sum(result.status_counts.get(status, 0) for status in PRIMARY_STATUSES),
+        "sealed_count": review_status_counts.get("closed", 0) + review_status_counts.get("external_blocked", 0),
+        "outdated_count": review_status_counts.get("retired", 0),
+        "needs_update_count": review_status_counts.get("needs_update", 0),
+        "external_blocked_count": review_status_counts.get("external_blocked", 0),
+    }
     return {
         "status": "passed" if result.ok else "failed",
         "contract_version": "development-plans-target-topic-matrix.v1",
+        "state_schema_version": 2,
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "current_dev_counts": result.status_counts,
         "target_status_counts": status_counts,
+        "target_review_status_counts": review_status_counts,
+        "status_summary": status_summary,
+        "status_mapping_rules": {
+            "unsealed_count": "sum(current_dev_counts.partial, current_dev_counts.not_closed, current_dev_counts.no_closure_claim)",
+            "sealed_count": "target_review_status_counts.closed + target_review_status_counts.external_blocked",
+            "outdated_count": "target_review_status_counts.retired",
+            "needs_update_count": "target_review_status_counts.needs_update",
+            "external_blocked_count": "target_review_status_counts.external_blocked; repo-local sealed but external evidence still required",
+        },
         "targets": [
-            {"path": target.path.as_posix(), "status": target.status, "entrypoint": target.entrypoint.as_posix()}
+            {
+                "path": target.path.as_posix(),
+                "status": target.status,
+                "entrypoint": target.entrypoint.as_posix(),
+                "role": target.role,
+                "review_status_override": target.review_status_override,
+                "review_reason": target.review_reason,
+            }
             for target in result.targets
         ],
         "target_profiles": [
             {
                 "path": target.path.as_posix(),
                 "status": target.status,
+                "role": target.role,
                 "file_count": result.target_profiles[target.path].file_count,
                 "has_code_reference": result.target_profiles[target.path].has_code_reference,
                 "has_script_reference": result.target_profiles[target.path].has_script_reference,
                 "has_test_reference": result.target_profiles[target.path].has_test_reference,
                 "has_gate_reference": result.target_profiles[target.path].has_gate_reference,
                 "has_external_blocker": result.target_profiles[target.path].has_external_blocker,
+                "target_review_status": target_review_status(target, result.target_profiles[target.path]),
+                "review_reason": target.review_reason,
+                "profile_gaps": list(profile_gaps(target, result.target_profiles[target.path])),
                 "sample_files": [path.as_posix() for path in result.target_profiles[target.path].sample_files],
             }
             for target in result.targets
@@ -539,13 +676,19 @@ def print_result(result: Result, *, as_json: bool) -> None:
         print(json.dumps(result_json(result), ensure_ascii=False, indent=2))
         return
     current_counts = ",".join(f"{status}:{result.status_counts.get(status, 'missing')}" for status in PRIMARY_STATUSES)
-    target_counts = result_json(result)["target_status_counts"]
+    json_result = result_json(result)
+    target_counts = json_result["target_status_counts"]
+    review_counts = json_result["target_review_status_counts"]
     target_summary = ",".join(f"{status}:{target_counts.get(status, 0)}" for status in sorted(VALID_TARGET_STATUSES))
+    review_summary = ",".join(
+        f"{status}:{review_counts.get(status, 0)}" for status in sorted(VALID_REVIEW_STATUSES)
+    )
     if result.ok:
         print(
             "OK development_plans_target_topic_matrix=passed "
             f"current={current_counts} targets={target_summary} "
-            f"non_target_roots={len(result.non_target_roots)} evidence_roots={len(result.evidence_roots)}"
+            f"reviews={review_summary} non_target_roots={len(result.non_target_roots)} "
+            f"evidence_roots={len(result.evidence_roots)}"
         )
         return
     print(
@@ -563,6 +706,10 @@ def main() -> int:
     root = Path(args.root).resolve()
     result = check(root, Path(args.allowlist))
     print_result(result, as_json=args.json)
+    if args.fail_on_needs_update and result.ok:
+        review_counts = result_json(result)["target_review_status_counts"]
+        if review_counts.get("needs_update", 0):
+            return 1
     return 0 if result.ok else 1
 
 

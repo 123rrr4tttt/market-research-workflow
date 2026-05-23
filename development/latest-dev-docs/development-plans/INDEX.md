@@ -8,6 +8,7 @@
 - [main/MERGED_DEVELOPMENT_PLANS.md](./main/MERGED_DEVELOPMENT_PLANS.md)
 - [CURRENT_DEV/INDEX.md](./CURRENT_DEV/INDEX.md)
 - [TARGET_TOPIC_ALLOWLIST.json](./TARGET_TOPIC_ALLOWLIST.json)
+- [automation-runs/wave37-target-review-status/2026-05-23/README.md](../automation-runs/wave37-target-review-status/2026-05-23/README.md)
 - [automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md](../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)
 - [ARCHIVE_CLOSED/INDEX.md](./ARCHIVE_CLOSED/INDEX.md)
 - [ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md](./ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)
@@ -23,6 +24,7 @@
 
 - Current `CURRENT_DEV` status is canonical only in [CURRENT_DEV/INDEX.md](./CURRENT_DEV/INDEX.md): `partial:0 / not_closed:0 / no_closure_claim:0`.
 - Target-topic scope is canonical in [TARGET_TOPIC_ALLOWLIST.json](./TARGET_TOPIC_ALLOWLIST.json): only real development target topics are checked for closed / external_blocked / retired / active current status; navigation, evidence/process, compatibility-shim, and reference material directories are not closure targets.
+- Four-state review status is canonical in [Wave37 Target Review Status](../automation-runs/wave37-target-review-status/2026-05-23/README.md): `unsealed:0 / sealed:49 / outdated:6 / needs_update:6`.
 - The latest target evidence profile is [Wave36 Target Topic Evidence Profile](../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md): 61 target topics (`closed:26 / external_blocked:29 / retired:6 / active_current:0`), 17 non-target roots, and 61 target evidence profiles.
 - Wave entries and `partial:x -> partial:y` notes below are historical wave logs. They record past migration deltas and do not reopen active `CURRENT_DEV` work.
 

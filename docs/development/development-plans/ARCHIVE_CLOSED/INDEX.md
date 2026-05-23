@@ -9,6 +9,12 @@
 
 已完成的开发计划（含 closure/closing 文档）归档于此。
 
+## 导航基线
+
+- Target topic allowlist: [development/latest-dev-docs/development-plans/TARGET_TOPIC_ALLOWLIST.json](../../../../development/latest-dev-docs/development-plans/TARGET_TOPIC_ALLOWLIST.json)
+- Wave37 four-state review: [development/latest-dev-docs/automation-runs/wave37-target-review-status/2026-05-23/README.md](../../../../development/latest-dev-docs/automation-runs/wave37-target-review-status/2026-05-23/README.md)
+- Wave36 target evidence profile: [development/latest-dev-docs/automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md](../../../../development/latest-dev-docs/automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)
+
 ## 归档目录
 
 - [2026-03-02 Ingest Chain Full Branch Map](./2026-03-02-ingest-chain-full-branch-map/)

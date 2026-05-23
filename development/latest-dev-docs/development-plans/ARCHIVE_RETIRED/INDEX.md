@@ -4,6 +4,12 @@
 
 本目录用于存放已经不应继续作为当前开发入口的历史计划文档。它们保留为背景材料，但不再作为当前代码事实、当前实施路径或当前主入口。
 
+## 导航基线
+
+- Target topic allowlist: [../TARGET_TOPIC_ALLOWLIST.json](../TARGET_TOPIC_ALLOWLIST.json)
+- Wave37 four-state review: [../../automation-runs/wave37-target-review-status/2026-05-23/README.md](../../automation-runs/wave37-target-review-status/2026-05-23/README.md)
+- Wave36 target evidence profile: [../../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md](../../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)
+
 ## 退场标准
 
 - 关键前提已被当前代码事实否定

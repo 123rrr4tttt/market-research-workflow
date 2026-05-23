@@ -34,6 +34,59 @@
       "entrypoint": "development/latest-dev-docs/development-plans/ARCHIVE_RETIRED/INDEX.md"
     }
   ],
+  "target_topic_overrides": [
+    {
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW",
+      "role": "topic_local_gate",
+      "review_status": "external_blocked",
+      "reason": "Topic-local RAG/current-vector drift gate, not the top-level navigation overview."
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-ingest-chain-full-branch-map",
+      "review_status": "needs_update",
+      "reason": "Audit found a true development target with only compatibility-shim evidence and no reproducible closure test result."
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-A-atomic-plan",
+      "review_status": "needs_update",
+      "reason": "Round6 is closed, but Round7 remains a draft without a matching closure record."
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-03-version-C-atomic-plan",
+      "review_status": "needs_update",
+      "reason": "Round6 is closed, but Round7 remains a draft without a matching closure record."
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r3-c-observability-minimal",
+      "review_status": "needs_update",
+      "reason": "Audit found test commands but no current execution-result proof bound to this target."
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排",
+      "review_status": "needs_update",
+      "reason": "Folderization structure is closed, but old pending/status snapshots remain as topic-local refresh work."
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration",
+      "review_status": "needs_update",
+      "reason": "Repo-local runtime boundary is documented, but worker/subagent runtime proof is explicitly split to successor work."
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r5-d-provenance-enforcement",
+      "review_status": "closed",
+      "reason": "Audit found script, command, and result evidence sufficient for closed status."
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r12-b-line",
+      "review_status": "closed",
+      "reason": "Artifact emitter and JSON validation results are recorded; ruleset drift is warning-only by design."
+    },
+    {
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-r13-b-line",
+      "review_status": "closed",
+      "reason": "Artifact emitter, JSON validation, and sha256 readback are recorded; ruleset drift is warning-only by design."
+    }
+  ],
   "non_target_roots": [
     {
       "path": "development/latest-dev-docs/development-plans/A_ARCHITECTURE",

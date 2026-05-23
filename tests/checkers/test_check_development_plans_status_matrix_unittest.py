@@ -287,6 +287,76 @@ class DevelopmentPlansTargetTopicMatrixTestCase(unittest.TestCase):
         profile = result.target_profiles[Path("docs/development/development-plans/ARCHIVE_CLOSED/reference-excluded-topic")]
         self.assertEqual(1, profile.file_count)
 
+    def test_json_includes_status_summary_and_mapping_rules(self) -> None:
+        root = self.make_repo()
+        topic = root / "docs/development/development-plans/ARCHIVE_CLOSED/closed-topic"
+        topic.mkdir()
+        (topic / "evidence.md").write_text(
+            "# Closed evidence\n\nGate: pytest tests/unit/test_closed.py passed.\n",
+            encoding="utf-8",
+        )
+        with (root / "docs/development/development-plans/ARCHIVE_CLOSED/INDEX.md").open("a", encoding="utf-8") as handle:
+            handle.write("- [Closed Topic](./closed-topic/evidence.md)\n")
+
+        payload = checker.result_json(checker.check(root))
+
+        self.assertEqual(2, payload["state_schema_version"])
+        self.assertIn("generated_at", payload)
+        self.assertEqual(
+            {
+                "unsealed_count": 0,
+                "sealed_count": 1,
+                "outdated_count": 0,
+                "needs_update_count": 0,
+                "external_blocked_count": 0,
+            },
+            payload["status_summary"],
+        )
+        self.assertIn("sealed_count", payload["status_mapping_rules"])
+        self.assertIn("target_review_status_counts", payload)
+
+    def test_target_topic_override_marks_needs_update_without_changing_archive_status(self) -> None:
+        root = self.make_repo()
+        topic = root / "docs/development/development-plans/ARCHIVE_CLOSED/closed-but-stale-topic"
+        topic.mkdir()
+        (topic / "evidence.md").write_text(
+            "# Closed but stale\n\nGate: pytest tests/unit/test_closed.py passed.\n",
+            encoding="utf-8",
+        )
+        with (root / "docs/development/development-plans/ARCHIVE_CLOSED/INDEX.md").open("a", encoding="utf-8") as handle:
+            handle.write("- [Closed But Stale](./closed-but-stale-topic/evidence.md)\n")
+
+        allowlist_path = root / checker.ALLOWLIST
+        allowlist = json.loads(allowlist_path.read_text(encoding="utf-8"))
+        allowlist["target_topic_overrides"] = [
+            {
+                "path": "docs/development/development-plans/ARCHIVE_CLOSED/closed-but-stale-topic",
+                "review_status": "needs_update",
+                "reason": "fixture forces a stale review state",
+            }
+        ]
+        allowlist_path.write_text(json.dumps(allowlist, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        payload = checker.result_json(checker.check(root))
+        profile = next(
+            item
+            for item in payload["target_profiles"]
+            if item["path"] == "docs/development/development-plans/ARCHIVE_CLOSED/closed-but-stale-topic"
+        )
+
+        self.assertEqual({"closed": 1}, payload["target_status_counts"])
+        self.assertEqual({"needs_update": 1}, payload["target_review_status_counts"])
+        self.assertEqual("closed", profile["status"])
+        self.assertEqual("needs_update", profile["target_review_status"])
+        self.assertEqual("fixture forces a stale review state", profile["review_reason"])
+
+    def test_reference_excludes_merge_defaults_with_custom_patterns(self) -> None:
+        patterns = checker.reference_excludes({"reference_excludes": ["**/vendor/reference/**"]})
+
+        self.assertIn("**/references/repos/**", patterns)
+        self.assertIn("references/repos/**", patterns)
+        self.assertIn("**/vendor/reference/**", patterns)
+
     def test_reference_repo_paths_are_excluded(self) -> None:
         self.assertTrue(checker.is_reference_repo_path(Path("topic/references/repos/example/README.md")))
         self.assertFalse(checker.is_reference_repo_path(Path("topic/references/papers/example.pdf")))
