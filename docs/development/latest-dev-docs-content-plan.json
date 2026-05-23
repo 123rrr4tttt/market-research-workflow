@@ -4,40 +4,58 @@
   "source_authority": "development/latest-dev-docs",
   "migration_manifest": "docs/development/latest-dev-docs-entry-manifest.json",
   "generated_date": "2026-05-22",
-  "status": "gate_only_no_content_move",
+  "status": "wave25_development_plans_main_moved_file_batch_partial",
   "checker": "scripts/checkers/check_docs_root_content_plan.py",
   "entries": [
     {
       "id": "development-plans-main-index-content-plan",
       "manifest_entry_id": "development-plans-main-index",
-      "source": "development/latest-dev-docs/development-plans/main/index.md",
+      "source": "development/latest-dev-docs/development-plans/main",
       "source_authority": "development/latest-dev-docs",
       "target_root": "docs/development/development-plans",
       "shim": "docs/development/development-plans/README.md",
-      "mode": "shim_only",
-      "source_remains_authoritative": true,
-      "move_allowed": false,
+      "mode": "moved_file_batch",
+      "source_remains_authoritative": false,
+      "move_allowed": true,
       "blocked_by": [
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ],
-      "next_gate": "Supervisor integration must update shared navigation and rerun link checks before moving this content."
+      "next_gate": "Wave25 made this file target-authoritative under docs/development; remaining supervisor work is limited to the still-listed broad trees, active CURRENT_DEV status surface, and mixed archive/root-plan classification.",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/development-plans/main/index.md",
+          "target": "docs/development/development-plans/main/index.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/main/index.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "development-plans-main-merged-content-plan",
       "manifest_entry_id": "development-plans-main-merged",
-      "source": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+      "source": "development/latest-dev-docs/development-plans/main",
       "source_authority": "development/latest-dev-docs",
       "target_root": "docs/development/development-plans",
       "shim": "docs/development/development-plans/README.md",
-      "mode": "shim_only",
-      "source_remains_authoritative": true,
-      "move_allowed": false,
+      "mode": "moved_file_batch",
+      "source_remains_authoritative": false,
+      "move_allowed": true,
       "blocked_by": [
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ],
-      "next_gate": "Supervisor integration must reconcile MERGED_OVERVIEW and rerun link checks before moving merged snapshots."
+      "next_gate": "Wave25 made this file target-authoritative under docs/development; remaining supervisor work is limited to the still-listed broad trees, active CURRENT_DEV status surface, and mixed archive/root-plan classification.",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+          "target": "docs/development/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "development-plans-current-dev-root-content-plan",
@@ -133,18 +151,6 @@
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift",
         "topic_status_sync"
-      ]
-    },
-    {
-      "id": "development-plans-main-tree",
-      "source": "development/latest-dev-docs/development-plans/main",
-      "target_root": "docs/development/development-plans",
-      "mode": "blocked_broad_move",
-      "reason": "The main tree is compatibility-bound until merged snapshots and shared overview references are reconciled.",
-      "required_gates": [
-        "shared_navigation_sync",
-        "MERGED_OVERVIEW_drift",
-        "link_check"
       ]
     },
     {

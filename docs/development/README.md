@@ -1,7 +1,7 @@
 # Development Documentation Root
 
 > Date: 2026-05-22
-> Status: target root prepared; first content shim batch points to `development/latest-dev-docs`
+> Status: target root prepared; Wave25 moved the first development-plans main file batch
 
 ## Purpose
 
@@ -22,7 +22,7 @@ The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuri
 
 The first content shim batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries keep `development/latest-dev-docs` as the content authority while the README shims under this root provide readable pointers to the current compatibility entries. Shared navigation still belongs to the integration lane.
 
-The bounded content-plan gate is recorded in [latest-dev-docs-content-plan.json](./latest-dev-docs-content-plan.json) and checked by [scripts/checkers/check_docs_root_content_plan.py](../../scripts/checkers/check_docs_root_content_plan.py). That gate keeps every current development entry in `shim_only` mode and records the remaining unsafe moves blocked by shared navigation and `MERGED_OVERVIEW` drift.
+The bounded content-plan gate is recorded in [latest-dev-docs-content-plan.json](./latest-dev-docs-content-plan.json) and checked by [scripts/checkers/check_docs_root_content_plan.py](../../scripts/checkers/check_docs_root_content_plan.py). Wave25 moved the two `development-plans/main` files into `docs/development/development-plans/main/`, reducing remaining unsafe moves to 4. The other current development entries remain compatibility-bound by active `CURRENT_DEV` status, archive classification, frontend shared-navigation sync, and mixed root-plan classification.
 
 ## Promoted Navigation Batch
 
@@ -30,7 +30,7 @@ Manifest promotion `development-root-reader-navigation-wave11` makes the existin
 
 | Target root | Local navigation entry | Manifest entry IDs | Compatibility entry | Partial boundary |
 |---|---|---|---|---|
-| `docs/development/development-plans` | [docs/development/development-plans/README.md](./development-plans/README.md) | `development-plans-main-index`, `development-plans-main-merged`, `development-plans-current-dev-root` | `development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md` | Shared latest-dev-docs indexes remain compatibility-bound. |
+| `docs/development/development-plans` | [docs/development/development-plans/README.md](./development-plans/README.md) | `development-plans-main-index`, `development-plans-main-merged`, `development-plans-current-dev-root` | `development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md` | Main index and merged snapshot are target-authoritative; `CURRENT_DEV` remains compatibility-bound. |
 | `docs/development/frontend-modern` | [docs/development/frontend-modern/README.md](./frontend-modern/README.md) | `frontend-modern-main-index`, `frontend-modern-main-merged` | `development/latest-dev-docs/frontend-modern/main/index.md` | Shared latest-dev-docs indexes remain compatibility-bound. |
 | `docs/development/root-plans` | [docs/development/root-plans/README.md](./root-plans/README.md) | `root-plans-f-plan-index`, `root-plans-main-index-mixed` | `development/latest-dev-docs/root-plans/F_PLAN/index.md` | Shared latest-dev-docs indexes remain compatibility-bound. |
 

@@ -234,6 +234,9 @@
   - [source-library review closure batch 4](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/13_wave20-review-closure-batch4-2026-05-22.md)
   - [ProcessPage i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/12_wave20-process-page-i18n-slice-evidence-2026-05-22.md)
   - [docs root content move batch 5](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md)
+- Wave25 closure-priority docs-root integration（2026-05-23，11 个子代理复核后未误迁有 repo-local blocker 的目录；docs-root `unsafe_moves` 从 5 降到 4）：
+  - [docs root development main move](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/14_wave25-docs-root-development-main-move-2026-05-23.md)
+  - [docs/development development-plans main entry](../../docs/development/development-plans/main/index.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：

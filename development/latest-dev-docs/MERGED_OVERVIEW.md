@@ -278,6 +278,9 @@ Updated: 2026-05-22 PST
   - [2026-05-22 Wave20 Source-Library Review Batch 4](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/13_wave20-review-closure-batch4-2026-05-22.md)
   - [2026-05-22 Wave20 ProcessPage I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/12_wave20-process-page-i18n-slice-evidence-2026-05-22.md)
   - [2026-05-22 Wave20 Docs Root Content Move Batch 5](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md)
+- `development-plans` Wave25 closure-priority docs-root integration:
+  - [2026-05-23 Wave25 Docs Root Development Main Move](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/14_wave25-docs-root-development-main-move-2026-05-23.md)
+  - [docs/development Development Plans Main Entry](../../docs/development/development-plans/main/index.md)
 - [2026-05-22 Source Library Public Live Probes](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/11_wave3-public-live-probes-2026-05-22.md)
   - [2026-05-22 Source Library Replay Scaleout](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/12_wave4-source-library-replay-scaleout-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：

@@ -3,7 +3,7 @@
   "root": "docs/development",
   "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-22",
-  "content_authority": "Mapped source files remain authoritative for document content. Target README files are content shims that point readers from docs/development into the current compatibility entries until a later content move updates shared navigation.",
+  "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/development while their previous latest-dev-docs paths remain compatibility shims until shared navigation is fully synchronized.",
   "navigation_promotions": [
     {
       "id": "development-root-reader-navigation-wave11",
@@ -49,26 +49,44 @@
     {
       "id": "development-plans-main-index",
       "classification": "development",
-      "source": "development/latest-dev-docs/development-plans/main/index.md",
+      "source": "development/latest-dev-docs/development-plans/main",
       "source_role": "latest-dev-docs-main-entry",
       "target": "docs/development/development-plans/README.md",
       "target_root": "docs/development/development-plans",
       "shim": "docs/development/development-plans/README.md",
       "target_role": "development-target-entry-manifest",
       "compatibility_entry": "development/latest-dev-docs/development-plans/main/index.md",
-      "status": "content_shim"
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/development-plans/main/index.md",
+          "target": "docs/development/development-plans/main/index.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/main/index.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "development-plans-main-merged",
       "classification": "development",
-      "source": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+      "source": "development/latest-dev-docs/development-plans/main",
       "source_role": "latest-dev-docs-main-merged",
       "target": "docs/development/development-plans/README.md",
       "target_root": "docs/development/development-plans",
       "shim": "docs/development/development-plans/README.md",
       "target_role": "development-target-entry-manifest",
       "compatibility_entry": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
-      "status": "content_shim"
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+          "target": "docs/development/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+          "compatibility_entry": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "development-plans-current-dev-root",
