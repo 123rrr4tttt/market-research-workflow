@@ -24,6 +24,7 @@
 - `clear_closed` [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/17_wave42-manual-open-search-live-closure-2026-05-23.md) - Wave42 manually started SearXNG / YaCy and verified 2 provider x 3 query live backend replay; explicit local open-search provider scope is closed.
 - `clear_closed` [2026-05-22 Clue Chain Successor Scopes](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/04_wave42-live-provider-reliability-closure-2026-05-23.md) - Wave42 uses the same live provider evidence to close the remaining Clue Chain successor live-provider reliability condition.
 - `clear_closed` [2026-03-02 Graph Node Standardization A Then B Plan](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/10_wave43-manual-live-db-closure-2026-05-23.md) - Wave43 repaired tenant graph projection constraints, ran live PostgreSQL tenant backfill dry-run, endpoint smoke, projection write/readback, and B-read parity; the graph-node live DB external blocker is closed.
+- `clear_closed` [2026-03-02 Graph 3D Force Engine Parallel Migration](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/09_wave44-manual-live-ui-closure-2026-05-23.md) - Wave44 fixed force3d dynamic component state storage and visible-node debug stats, then validated live backend GraphPage/WebGL nonblank canvas evidence.
 
 ## 本次已退场
 
@@ -48,7 +49,6 @@
 - `external_blocked` [2026-03-09 Agent Symbolic Batch Search Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/22_wave23-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 LLM Service And Agent Platformization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/10_wave23-closure-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Ingest Digestion And Long-Cycle Automation](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/10_wave23-closure-decision-2026-05-23.md)
-- `external_blocked` [2026-03-02 Graph 3D Force Engine Parallel Migration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/08_wave24-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [MERGED_OVERVIEW Topic Drift Gate](../ARCHIVE_EXTERNAL_BLOCKED/MERGED_OVERVIEW/04_wave24-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Graph Editing And Reporting](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/11_wave27-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Typed Knowledge Organization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/10_wave27-external-blocked-decision-2026-05-23.md)

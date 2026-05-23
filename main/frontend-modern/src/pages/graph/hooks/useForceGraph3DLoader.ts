@@ -37,7 +37,7 @@ export function useForceGraph3DLoader(enabled: boolean) {
       .then((mod) => {
         if (canceled) return
         retryCountRef.current = 0
-        setComponent(mod.default)
+        setComponent(() => mod.default)
       })
       .catch((err: unknown) => {
         if (canceled) return

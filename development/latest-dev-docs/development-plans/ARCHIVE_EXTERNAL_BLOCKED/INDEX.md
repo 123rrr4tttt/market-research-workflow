@@ -8,6 +8,7 @@
 
 - Target topic allowlist: [../TARGET_TOPIC_ALLOWLIST.json](../TARGET_TOPIC_ALLOWLIST.json)
 - External blocker manifest: [../EXTERNAL_BLOCKER_MANIFEST.v1.json](../EXTERNAL_BLOCKER_MANIFEST.v1.json)
+- Wave44 manual graph3d live UI closure: [../../automation-runs/wave44-manual-graph3d-live-ui-closure/2026-05-23/README.md](../../automation-runs/wave44-manual-graph3d-live-ui-closure/2026-05-23/README.md)
 - Wave42 manual open search live closure: [../../automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md](../../automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md)
 - Wave41 external unblock attempt: [../../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md](../../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)
 - Wave40 manifest evidence: [../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md](../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)
@@ -50,8 +51,6 @@
   状态：`external_blocked` / `wave23_checked`。仓内 AgentCore platform/provider-readiness/tool-calling/trace-redaction gates 已封住；剩余条件是真实 provider/API/account/network invocation evidence。
 - [2026-03-07 Ingest Digestion And Long-Cycle Automation](./2026-03-07-ingest-digestion-and-long-cycle-automation/10_wave23-closure-decision-2026-05-23.md)
   状态：`external_blocked` / `wave23_checked`。仓内 long-cycle lifecycle、scheduler intent、JSONL durable readback、handoff trace 与 queue replay gate 已封住；剩余条件是 live scheduler enqueue、worker consumption、live DB write/readback 与 downstream handoff evidence。
-- [2026-03-02 Graph 3D Force Engine Parallel Migration](./2026-03-02-graph-3d-force-engine-parallel-migration/INDEX.md)
-  状态：`external_blocked` / `wave24_checked`。仓内 Force3D frontend contract、runtime pixel/shape、visual-data smoke、rollback/readback gate 已封住；剩余条件是 live tenant DB GraphPage run、backend graph endpoint data、WebGL nonblank canvas 与 `window.__graph3dDebug` evidence。
 - [MERGED_OVERVIEW Topic Drift Gate](./MERGED_OVERVIEW/04_wave24-external-blocked-decision-2026-05-23.md)
   状态：`external_blocked` / `wave24_checked`。仓内 RAG drift gate 已证明 retired RAG anchors 与 current local-index/vectorization anchors 的映射；剩余条件是 live/vector optional dependency readiness、production semantic quality 与 global vector contract closure。
 - [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/INDEX.md)
@@ -84,6 +83,7 @@
 - [2026-05-14 Local Open Search Provider Isolation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/17_wave42-manual-open-search-live-closure-2026-05-23.md)：`clear_closed`。Wave42 手动启动 SearXNG / YaCy 并通过 backend `search_sources(provider=...)` 完成 2 provider x 3 query live replay；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
 - [2026-05-22 Clue Chain Successor Scopes](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-successor-scopes/04_wave42-live-provider-reliability-closure-2026-05-23.md)：`clear_closed`。Wave42 使用同一 live provider 证据关闭 Clue Chain successor 的 live-provider reliability 条件；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
 - [2026-03-02 Graph Node Standardization A Then B Plan](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/10_wave43-manual-live-db-closure-2026-05-23.md)：`clear_closed`。Wave43 修复 tenant graph projection constraints，并用 live DB dry-run、非空 graph endpoint smoke、projection write/readback 和 B-read parity 关闭 graph-node live DB 条件；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
+- [2026-03-02 Graph 3D Force Engine Parallel Migration](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/09_wave44-manual-live-ui-closure-2026-05-23.md)：`clear_closed`。Wave44 修复 force3d dynamic component state 与 visible-node debug stats，并用 live backend GraphPage/WebGL 非空 canvas 证据关闭 Graph 3D live UI 条件；该目录不再计入 `ARCHIVE_EXTERNAL_BLOCKED`。
 - [2026-03-07 Docs Root Restructuring](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)：`clear_closed`。Wave31 `check_docs_root_navigation_drift.py --require-clean` 已清零 navigation drift；该目录不再计入 `CURRENT_DEV` partial。
 - [2026-03-15 Frontend Three-Layer Rewrite](../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)：`clear_closed`。Wave32 已清零 frontend business-string repo-local blocker，并迁入 `ARCHIVE_CLOSED`。
 

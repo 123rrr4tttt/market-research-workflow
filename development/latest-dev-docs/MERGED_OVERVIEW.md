@@ -22,14 +22,16 @@ Updated: 2026-05-23 PST
 ## 当前规范状态
 
 - `CURRENT_DEV` 的当前剩余状态以 [development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md) 为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
-- Target-topic scope 以 [development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json) 与 [Wave43 manual graph live DB closure](./automation-runs/wave43-manual-graph-live-db-closure/2026-05-23/README.md) 为准：当前 61 个 target topics（`closed:29 / external_blocked:26 / retired:6 / active_current:0`）、17 个 non-target roots；过程记录、导航分类与外部参考不计入 closure 指标。
-- External-blocked governance 以 [development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)、[Wave40 external blocker manifest](./automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)、[Wave41 external unblock attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)、[Wave42 manual open search live closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md) 与 [Wave43 manual graph live DB closure](./automation-runs/wave43-manual-graph-live-db-closure/2026-05-23/README.md) 为准：当前 26 个 external-blocked review targets 仍有结构化外部依赖、仓内证据、解除条件和 owner surface。
+- Target-topic scope 以 [development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json) 与 [Wave44 manual graph3d live UI closure](./automation-runs/wave44-manual-graph3d-live-ui-closure/2026-05-23/README.md) 为准：当前 61 个 target topics（`closed:30 / external_blocked:25 / retired:6 / active_current:0`）、17 个 non-target roots；过程记录、导航分类与外部参考不计入 closure 指标。
+- External-blocked governance 以 [development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)、[Wave40 external blocker manifest](./automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)、[Wave41 external unblock attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)、[Wave42 manual open search live closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md)、[Wave43 manual graph live DB closure](./automation-runs/wave43-manual-graph-live-db-closure/2026-05-23/README.md) 与 [Wave44 manual graph3d live UI closure](./automation-runs/wave44-manual-graph3d-live-ui-closure/2026-05-23/README.md) 为准：当前 25 个 external-blocked review targets 仍有结构化外部依赖、仓内证据、解除条件和 owner surface。
 - Four-state review summary 以 [Wave39 target review zero needs update](./automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`。
 - “最近新增”中的 Wave21-Wave34 条目是 historical wave log；历史 `partial` 计数只说明当时的迁档进度，不应作为当前未封口数量读取。
 
 ## 最近新增
 
 - `development-plans`：
+  - [2026-05-23 Wave44 Manual Graph3D Live UI Closure](./automation-runs/wave44-manual-graph3d-live-ui-closure/2026-05-23/README.md)
+  - [2026-05-23 Graph3D Live UI Closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/09_wave44-manual-live-ui-closure-2026-05-23.md)
   - [2026-05-23 Wave43 Manual Graph Live DB Closure](./automation-runs/wave43-manual-graph-live-db-closure/2026-05-23/README.md)
   - [2026-05-23 Graph Node Live DB Closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/10_wave43-manual-live-db-closure-2026-05-23.md)
   - [2026-05-23 Wave42 Manual Open Search Live Closure](./automation-runs/wave42-manual-open-search-live-closure/2026-05-23/README.md)
@@ -197,7 +199,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave9 Docs Root Migration Manifest Evidence](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-docs-root-restructuring/04_wave9-8-docs-root-migration-manifest-evidence-2026-05-22.md)
   - [2026-05-22 Wave9 Source-Library Ingest AT-EXT Current Contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md)
 - `development-plans/CURRENT_DEV`：
-  - [2026-05-22 Wave10 Graph Force3D Frontend Contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/03_wave10-frontend-visual-engine-switch-contract-2026-05-22.md)
+  - [2026-05-22 Wave10 Graph Force3D Frontend Contract](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/03_wave10-frontend-visual-engine-switch-contract-2026-05-22.md)
   - [2026-05-22 Wave10 Graph Node DB Rollout Readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/04_wave10-db-rollout-readiness-contract-2026-05-22.md)
   - [2026-05-22 Wave10 Source Time Window Contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/04_wave10-source-time-window-contract-evidence-2026-05-22.md)
   - [2026-05-22 Wave10 Prompt Time-Density OPE Freshness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-time-statistics-remediation-plan/07_wave10-prompt-time-density-ope-freshness-evidence-2026-05-22.md)
@@ -222,7 +224,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave12 Global Vectorization Provider Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/04_wave12-provider-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Local Open Search Provider Readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation/12_wave12-provider-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 OSS Node Provider Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/03_wave12-provider-readiness-gate-2026-05-22.md)
-  - [2026-05-22 Wave12 Graph Force3D Live Smoke Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/04_wave12-live-smoke-readiness-gate-2026-05-22.md)
+  - [2026-05-22 Wave12 Graph Force3D Live Smoke Readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/04_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Graph Node Live Smoke Readiness](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/05_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Graph Editing Live Smoke Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/06_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [2026-05-22 Wave12 Ingest Canary Handoff](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/03_wave12-ingest-canary-handoff-evidence-2026-05-22.md)
@@ -254,7 +256,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave14 Open Source Platform Vectorization Provider Capability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/04_wave14-vectorization-provider-capability-2026-05-22.md)
   - [2026-05-22 Wave14 Global Vectorization Provider Capability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/05_wave14-vectorization-provider-capability-2026-05-22.md)
   - [2026-05-22 Wave14 OSS Node Provider Capability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/04_wave14-vectorization-provider-capability-2026-05-22.md)
-  - [2026-05-22 Wave14 Graph Visual Data Smoke Gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/05_wave14-graph-visual-data-smoke-gate-2026-05-22.md)
+  - [2026-05-22 Wave14 Graph Visual Data Smoke Gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/05_wave14-graph-visual-data-smoke-gate-2026-05-22.md)
   - [2026-05-22 Wave14 Graph Node Live DB Rollout Gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/06_wave14-live-db-rollout-gate-2026-05-22.md)
   - [2026-05-22 Wave14 Ingest Canary Metrics Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/04_wave14-ingest-canary-metrics-readiness-2026-05-22.md)
   - [2026-05-22 Wave14 Meaningful Ingest Canary Metrics Readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/05_wave14-meaningful-ingest-canary-metrics-readiness-2026-05-22.md)
@@ -299,7 +301,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave17 Agent Roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave17-agent-roster-2026-05-22.md)
   - [2026-05-22 Wave17 Source-Time Sample Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/07_wave17-source-time-production-sample-readback-gate-2026-05-22.md)
   - [2026-05-22 Wave17 Ingest Canary Metrics Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/05_wave17-ingest-canary-metrics-readback-2026-05-22.md)
-  - [2026-05-22 Wave17 Graph Runtime Pixel / Shape Gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/06_wave17-runtime-pixel-shape-gate-2026-05-22.md)
+  - [2026-05-22 Wave17 Graph Runtime Pixel / Shape Gate](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-3d-force-engine-parallel-migration/06_wave17-runtime-pixel-shape-gate-2026-05-22.md)
   - [2026-05-22 Wave17 Graph Node Rollout Manifest Readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-02-graph-node-standardization-a-then-b-plan/07_wave17-rollout-manifest-readback-2026-05-22.md)
   - [2026-05-22 Wave17 Typed Knowledge Durable Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/08_wave17-typed-knowledge-durable-readback-2026-05-22.md)
   - [2026-05-22 Wave17 Writing Workbench Persisted Typed-Card Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md)

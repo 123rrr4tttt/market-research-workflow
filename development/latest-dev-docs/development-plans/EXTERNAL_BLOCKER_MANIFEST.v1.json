@@ -1,7 +1,7 @@
 {
   "schema": "external-blocker-manifest/v1",
   "updated": "2026-05-23 PST",
-  "purpose": "Bind every external_blocked review target to a structured external dependency, repo-local evidence, required external proof, exit criteria, and owner surface. Wave42 manually closed the local open-search and Clue Chain live-provider blockers; Wave43 manually closed the Graph Node live DB blocker, so the manifest now tracks the remaining external-blocked targets only.",
+  "purpose": "Bind every external_blocked review target to a structured external dependency, repo-local evidence, required external proof, exit criteria, and owner surface. Wave42 manually closed the local open-search and Clue Chain live-provider blockers; Wave43 manually closed the Graph Node live DB blocker; Wave44 manually closed the Graph 3D live UI/WebGL blocker, so the manifest now tracks the remaining external-blocked targets only.",
   "targets": [
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
@@ -41,52 +41,6 @@
           "state": "blocked",
           "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
           "note": "Live embedding/open-search provider quality and OSS runtime SLA evidence are not attached."
-        }
-      ],
-      "owner_surface": {
-        "owner": "external-blocker-review",
-        "surface": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
-        "contact": "@devdocs-supervisor"
-      }
-    },
-    {
-      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration",
-      "dependency_type": "infra",
-      "blocked_on": "Live tenant DB GraphPage run and nonblank WebGL evidence are not attached.",
-      "external_surfaces": [
-        "tenant DB",
-        "browser WebGL canvas",
-        "graph endpoint"
-      ],
-      "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/08_wave24-external-blocked-decision-2026-05-23.md"
-      ],
-      "evidence_required": [
-        "probe",
-        "run_output",
-        "manual_check",
-        "contract"
-      ],
-      "probe_or_manual_evidence": {
-        "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_graph_live_smoke_readiness.py --format text",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
-      },
-      "exit_criteria": [
-        {
-          "id": "repo-local-boundary-recorded",
-          "state": "satisfied",
-          "evidence": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/08_wave24-external-blocked-decision-2026-05-23.md",
-          "note": "Repo-local deterministic evidence is present and linked from the target topic."
-        },
-        {
-          "id": "live-tenant-webgl",
-          "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "Live tenant DB GraphPage run and nonblank WebGL evidence are not attached."
         }
       ],
       "owner_surface": {

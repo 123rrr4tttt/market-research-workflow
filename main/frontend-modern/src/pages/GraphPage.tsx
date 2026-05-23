@@ -4360,8 +4360,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         if (obj?.userData?.__graphNodeIsEmpty) emptySceneNodeObjects += 1
       })
     }
-    const dataNodes = forceGraphData.nodes.length
-    const emptyDataNodes = forceGraphData.nodes.reduce((acc, item) => {
+    const visibleForceNodes = forceGraphData.nodes.filter((node) => forceVisibleNodeKeySet.has(String(node.id || '')))
+    const dataNodes = visibleForceNodes.length
+    const emptyDataNodes = visibleForceNodes.reduce((acc, item) => {
       const rawNode = (item as { rawNode?: GraphNodeItem }).rawNode
       return resolveNodeSymbol(rawNode?.type || '').startsWith('empty') ? acc + 1 : acc
     }, 0)
@@ -4371,7 +4372,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       emptyDataNodes,
       emptySceneNodeObjects,
     }
-  }, [forceGraphData.nodes])
+  }, [forceGraphData.nodes, forceVisibleNodeKeySet])
 
   useEffect(() => {
     force3DVisibilityStatsGetterRef.current = collectForce3DVisibilityStats

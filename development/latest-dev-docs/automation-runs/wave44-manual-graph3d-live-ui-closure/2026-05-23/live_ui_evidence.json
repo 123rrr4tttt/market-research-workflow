@@ -1,0 +1,64 @@
+{
+  "live_ui_smoke_validated": true,
+  "backend_data_source_live": true,
+  "graphpage_loaded_from_backend_endpoint": true,
+  "force3d_canvas_nonblank": true,
+  "force3d_scene_nodes_match_data": true,
+  "graph3d_debug_stats_captured": true,
+  "project_key": "demo_proj_compare_0303_121137",
+  "page_url": "http://127.0.0.1:4173/#graph.html?type=market",
+  "browser_args": [
+    "--use-gl=swiftshader",
+    "--enable-unsafe-swiftshader",
+    "--ignore-gpu-blocklist"
+  ],
+  "endpoint_hits": [
+    {
+      "url": "http://127.0.0.1:4173/api/v1/admin/market-graph?limit=100&project_key=demo_proj_compare_0303_121137",
+      "status": 200,
+      "envelope_status": "ok",
+      "nodes": 413,
+      "edges": 445,
+      "graph_schema_version": "v1"
+    }
+  ],
+  "debug_stats": {
+    "dataNodes": 264,
+    "sceneNodeObjects": 264,
+    "emptyDataNodes": 0,
+    "emptySceneNodeObjects": 0
+  },
+  "runtime_evidence": {
+    "mode": "force3d",
+    "debug_stats": {
+      "dataNodes": 264,
+      "sceneNodeObjects": 264,
+      "emptyDataNodes": 0,
+      "emptySceneNodeObjects": 0
+    },
+    "host": {
+      "width": 1156,
+      "height": 651
+    },
+    "canvas": {
+      "width": 1156,
+      "height": 651,
+      "cssWidth": 1156,
+      "cssHeight": 651
+    },
+    "title": "市场图谱",
+    "url": "http://127.0.0.1:4173/#graph.html?type=market",
+    "engineValue": "force3d"
+  },
+  "pixel_stats": {
+    "width": 1156,
+    "height": 652,
+    "sampled": 10050,
+    "nonTransparent": 10050,
+    "nonWhite": 10047,
+    "uniqueSampledColors": 993
+  },
+  "console_errors": [],
+  "screenshot": "graphpage-force3d-live-ui-canvas.png",
+  "frontend_backend_data_smoke_validated": true
+}
