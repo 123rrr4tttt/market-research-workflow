@@ -3,8 +3,8 @@
   "root": "docs/development",
   "source_authority": "development/latest-dev-docs",
   "migration_manifest": "docs/development/latest-dev-docs-entry-manifest.json",
-  "generated_date": "2026-05-22",
-  "status": "wave28_current_dev_and_archive_closed_classified_partial",
+  "generated_date": "2026-05-23",
+  "status": "wave29_archive_closed_broad_move_decomposed",
   "checker": "scripts/checkers/check_docs_root_content_plan.py",
   "entries": [
     {
@@ -192,21 +192,26 @@
       ]
     }
   ],
-  "remaining_unsafe_moves": [
+  "decomposed_broad_moves": [
     {
       "id": "development-plans-archive-closed-tree",
       "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED",
       "target_root": "docs/development/development-plans",
-      "mode": "blocked_broad_move",
-      "reason": "Wave28 classified ARCHIVE_CLOSED at file level in docs/development/development-plans/archive-closed-file-classification-2026-05-23.json; the broad move remains blocked until source archive files are converted into compatibility shims and shared navigation is synchronized.",
+      "mode": "broad_move_decomposed_to_file_batches",
+      "unsafe_move_closed": true,
+      "move_allowed": false,
+      "authority": "source_authoritative_until_per_file_batch",
+      "reason": "Wave29 closes the unsafe broad-tree move as a migration primitive. The archive remains source-authoritative until later workers generate target files and source compatibility shims in explicit moved_file_batch entries.",
       "classification_ledger": "docs/development/development-plans/archive-closed-file-classification-2026-05-23.json",
       "classified_files": 195,
       "classified_empty_directories": 1,
-      "required_gates": [
+      "remaining_gates": [
         "source_compatibility_shim_conversion",
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
-      ]
+      ],
+      "mechanical_next_step": "Use the classification ledger to create small moved_file_batch entries; for each file, create the docs/development target, replace the source with a compatibility shim that points at the target, and keep shared navigation/MERGED_OVERVIEW sync in the same integration pass."
     }
-  ]
+  ],
+  "remaining_unsafe_moves": []
 }

@@ -1,7 +1,7 @@
 # Development Plans Migration Entry
 
 > Date: 2026-05-23
-> Status: Wave28 active surface and archive classification; selected main files are target authoritative
+> Status: Wave29 active surface and archive broad-move decomposition; selected main files are target authoritative
 > Manifest: [latest-dev-docs-entry-manifest.json](../latest-dev-docs-entry-manifest.json)
 > Target root: `docs/development/development-plans`
 > Shim: `docs/development/development-plans/README.md`
@@ -31,3 +31,5 @@ The moved target files are authoritative for this main development-plans batch. 
 Wave28 classified the remaining `ARCHIVE_CLOSED` broad-move candidate without moving source files. The file-level ledger is [archive-closed-file-classification-2026-05-23.json](./archive-closed-file-classification-2026-05-23.json).
 
 The ledger covers 195 files and 1 empty directory under [development/latest-dev-docs/development-plans/ARCHIVE_CLOSED](../../../development/latest-dev-docs/development-plans/ARCHIVE_CLOSED). The broad move remains blocked because the source archive files have not been converted into compatibility shims, and shared navigation plus `MERGED_OVERVIEW` still need synchronization before any target-authoritative archive move is safe.
+
+Wave29 closes `development-plans-archive-closed-tree` as an unsafe broad-tree move by decomposing it into ledger-backed per-file batch work. This does not make the archive target-authoritative. Archive files remain source-authoritative until a later worker creates target files under `docs/development/development-plans/ARCHIVE_CLOSED`, replaces each source file with a compatibility shim pointing to its target, and records those files as `moved_file_batch` entries.

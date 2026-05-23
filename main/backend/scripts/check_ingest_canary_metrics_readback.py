@@ -22,17 +22,17 @@ from app.services.ingest.postprocess_frontdoor import run_postprocess_frontdoor 
 
 TOPIC_DOCS = [
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-02-ingest-platformization-assessment/"
         "05_wave17-ingest-canary-metrics-readback-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-02-single-url-first-ingest-allocation-plan/"
         "06_wave17-single-url-canary-metrics-readback-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-02-meaningful-ingest-guardrails-plan/"
         "06_wave17-meaningful-ingest-canary-metrics-readback-2026-05-22.md"
     ),

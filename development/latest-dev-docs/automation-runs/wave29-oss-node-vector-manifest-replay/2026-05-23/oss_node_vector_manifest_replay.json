@@ -1,0 +1,163 @@
+{
+  "archive_recommendation": "move this topic to ARCHIVE_EXTERNAL_BLOCKED in the supervisor/index lane",
+  "contract_version": "wave29-oss-node-vector-manifest-replay.v1",
+  "external_conditions_retained": [
+    "external_embedding_provider_live_not_verified",
+    "local_open_search_live_quality_not_sealed",
+    "semantic_embedding_quality_not_proven",
+    "live_scheduler_tenant_db_ui_sla_not_proven"
+  ],
+  "failures": [],
+  "gate_semantics": {
+    "status_passed_does_not_mean": "external embedding providers, local open-search live quality, semantic relevance, tenant DB persistence, scheduler SLA, or browser UI SLA are closed",
+    "status_passed_means": "the workflow graph compiler, node runtime, normalized result envelope, event log, and event replay can consume all keyword/vector/hybrid provider manifest rows while preserving unsupported closure claims"
+  },
+  "generated_by": "ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py",
+  "node_manifest_replay": {
+    "event_replay_consistency": {
+      "consistent": true,
+      "contract_version": "workflow_graph.replay_consistency.v1",
+      "issue_count": 0,
+      "issues": [],
+      "replayed_status": "succeeded",
+      "stored_status": "succeeded"
+    },
+    "mode_results": [
+      {
+        "closure_claim_allowed": false,
+        "failures": [],
+        "io_trace_keys": [
+          "project_id",
+          "provider_manifest_version",
+          "query"
+        ],
+        "live_provider_verified": false,
+        "manifest_consumed": true,
+        "mode": "keyword",
+        "node_id": "vector_keyword",
+        "provider_id": "local_index.keyword",
+        "semantic_quality_claim_allowed": false,
+        "status": "passed",
+        "unsupported_claim_codes": [
+          "external_embedding_provider_live_not_verified",
+          "live_scheduler_tenant_db_ui_sla_not_proven",
+          "local_open_search_live_quality_not_sealed",
+          "oss_node_platform_io_sla_not_closed",
+          "provider_auto_promotion_not_allowed",
+          "semantic_embedding_quality_not_proven"
+        ]
+      },
+      {
+        "closure_claim_allowed": false,
+        "failures": [],
+        "io_trace_keys": [
+          "project_id",
+          "provider_manifest_version",
+          "query"
+        ],
+        "live_provider_verified": false,
+        "manifest_consumed": true,
+        "mode": "vector",
+        "node_id": "vector_vector",
+        "provider_id": "local_index.vector",
+        "semantic_quality_claim_allowed": false,
+        "status": "passed",
+        "unsupported_claim_codes": [
+          "external_embedding_provider_live_not_verified",
+          "live_scheduler_tenant_db_ui_sla_not_proven",
+          "local_open_search_live_quality_not_sealed",
+          "oss_node_platform_io_sla_not_closed",
+          "provider_auto_promotion_not_allowed",
+          "semantic_embedding_quality_not_proven"
+        ]
+      },
+      {
+        "closure_claim_allowed": false,
+        "failures": [],
+        "io_trace_keys": [
+          "project_id",
+          "provider_manifest_version",
+          "query"
+        ],
+        "live_provider_verified": false,
+        "manifest_consumed": true,
+        "mode": "hybrid",
+        "node_id": "vector_hybrid",
+        "provider_id": "local_index.hybrid",
+        "semantic_quality_claim_allowed": false,
+        "status": "passed",
+        "unsupported_claim_codes": [
+          "external_embedding_provider_live_not_verified",
+          "live_scheduler_tenant_db_ui_sla_not_proven",
+          "local_open_search_live_quality_not_sealed",
+          "oss_node_platform_io_sla_not_closed",
+          "provider_auto_promotion_not_allowed",
+          "semantic_embedding_quality_not_proven"
+        ]
+      }
+    ],
+    "run": {
+      "events_count": 9,
+      "node_statuses": {
+        "vector_hybrid": "succeeded",
+        "vector_keyword": "succeeded",
+        "vector_vector": "succeeded"
+      },
+      "results_count": 3,
+      "run_id": "wave29-oss-node-vector-manifest-replay-run",
+      "status": "succeeded"
+    },
+    "status": "passed",
+    "workflow_graph": {
+      "checksum": "f66b927f6c0b3447ef889306265321e9412e21c04c81134b12b4803f0b637f80",
+      "graph_id": "wave29-oss-node-vector-manifest-replay",
+      "node_count": 3,
+      "topo_order": [
+        "vector_keyword",
+        "vector_vector",
+        "vector_hybrid"
+      ],
+      "version": "1.0"
+    }
+  },
+  "provider_manifest_check": {
+    "closure_claim_allowed": false,
+    "contract_version": "wave19-vectorization-provider-manifest.v1",
+    "gap_codes": [
+      "external_embedding_provider_live_not_verified",
+      "local_open_search_live_quality_not_sealed",
+      "oss_node_platform_io_sla_not_closed",
+      "provider_auto_promotion_not_allowed",
+      "semantic_embedding_quality_not_proven"
+    ],
+    "manifest_status": "passed",
+    "modes": [
+      "hybrid",
+      "keyword",
+      "vector"
+    ],
+    "provider_live_closure_claim_allowed": false,
+    "semantic_quality_claim_allowed": false,
+    "status": "passed"
+  },
+  "repo_local_closure": {
+    "archive_external_blocked_candidate": true,
+    "remaining_repo_local_blockers": [],
+    "repo_local_blockers_closed": [
+      "node_schema_runtime_persistence_platformization_scope_not_closed",
+      "vector_search_node_manifest_consumption_not_live_replayed"
+    ]
+  },
+  "scope": "oss_node_vector_manifest_fixture_replay_no_live_provider_no_tenant_runtime",
+  "source_provider_manifest": {
+    "exists": true,
+    "failures": [],
+    "path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+    "status": "loaded"
+  },
+  "status": "passed",
+  "target_topic": {
+    "exists": true,
+    "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan"
+  }
+}

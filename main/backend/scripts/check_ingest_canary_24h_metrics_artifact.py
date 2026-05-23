@@ -26,17 +26,17 @@ ARTIFACT_KIND = "deterministic_ingest_canary_24h_metrics_fixture"
 
 TOPIC_DOCS = [
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-02-ingest-platformization-assessment/"
         "06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-02-single-url-first-ingest-allocation-plan/"
         "07_wave19-single-url-canary-24h-metrics-artifact-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-02-meaningful-ingest-guardrails-plan/"
         "07_wave19-meaningful-ingest-canary-24h-metrics-artifact-2026-05-22.md"
     ),

@@ -1,0 +1,258 @@
+{
+  "archive_recommendation": "retain_current_dev_until_persistence_payload_provenance_and_agent_join_are_closed",
+  "closed_repo_local_blockers": [
+    "unified_vector_object_contract_not_frozen",
+    "main_search_evidence_hit_contract_not_aligned"
+  ],
+  "closure_claim_allowed": false,
+  "contract_version": "wave29-vector-schema-alignment-gate.v1",
+  "external_conditions_still_open": [
+    "external_embedding_provider_live_not_verified",
+    "semantic_embedding_quality_not_proven",
+    "production_vector_quality_not_proven"
+  ],
+  "failures": [],
+  "generated_by": "ops/search-lab/scripts/wave29_vector_schema_alignment_gate.py",
+  "material_changes": [
+    "main_search_response_exposes_evidence_hits",
+    "global_vector_object_schema_builder_added",
+    "evidence_hit_schema_validator_added"
+  ],
+  "provider_live_closure_claim_allowed": false,
+  "query_group_id": "qg_52e14ac498efca10",
+  "remaining_repo_local_blockers": [
+    "retrieval_runs_branches_hits_persistence_not_implemented",
+    "embedding_qdrant_pgvector_payload_provenance_not_unified",
+    "agent_matrix_and_main_search_schema_not_joined"
+  ],
+  "required_fields": {
+    "global_vector_object": [
+      "contract_version",
+      "project_key",
+      "object_type",
+      "object_id",
+      "chunk_id",
+      "source_id",
+      "document_id",
+      "vector_version",
+      "embedding_model",
+      "embedding_dim",
+      "matrix_branch_id",
+      "provenance"
+    ],
+    "search_evidence_hit": [
+      "contract_version",
+      "hit_id",
+      "rank",
+      "query_group_id",
+      "matrix_branch_id",
+      "retrieval_mode",
+      "retrieval_family",
+      "backend",
+      "evidence_class",
+      "verification_state",
+      "score",
+      "rank_features",
+      "provenance",
+      "global_vector_object"
+    ]
+  },
+  "sample_backends": [
+    "opensearch_lexical",
+    "qdrant_vector",
+    "pgvector_fallback"
+  ],
+  "sample_evidence_hits": [
+    {
+      "backend": "opensearch_lexical",
+      "contract_version": "search_evidence_hit.v1",
+      "evidence_class": "policy_chunk",
+      "global_vector_object": {
+        "chunk_id": "17:chunk:0",
+        "contract_version": "global_vector_object.v1",
+        "document_id": "17",
+        "embedding_dim": 3072,
+        "embedding_model": "text-embedding-3-large",
+        "matrix_branch_id": "branch_cbd967926f809c1f",
+        "object_id": "17",
+        "object_type": "policy_chunk",
+        "project_key": "demo_proj",
+        "provenance": {
+          "backend": "opensearch_lexical",
+          "effective_time": "2026-03-03",
+          "language": "en",
+          "source_domain": "example.org",
+          "source_uri": "https://example.org/policy/17"
+        },
+        "source_id": "source-policy",
+        "vector_version": "v2"
+      },
+      "hit_id": "eh_6cf2418ff65fa1e9",
+      "matrix_branch_id": "branch_cbd967926f809c1f",
+      "provenance": {
+        "backend": "opensearch_lexical",
+        "chunk_id": "17:chunk:0",
+        "document_id": "17",
+        "effective_time": "2026-03-03",
+        "language": "en",
+        "matrix_branch_id": "branch_cbd967926f809c1f",
+        "project_key": "demo_proj",
+        "source_domain": "example.org",
+        "source_id": "source-policy",
+        "source_uri": "https://example.org/policy/17",
+        "vector_version": "v2"
+      },
+      "query_group_id": "qg_52e14ac498efca10",
+      "rank": 1,
+      "rank_features": {
+        "backend": "opensearch_lexical",
+        "fusion_score": 0.0,
+        "lexical_score": 0.0,
+        "rank": 1,
+        "retrieval_mode": "keyword",
+        "score": 5.5,
+        "tags": [
+          "lexical",
+          "bm25"
+        ],
+        "vector_score": 0.0
+      },
+      "retrieval_family": "main_search",
+      "retrieval_mode": "keyword",
+      "score": 5.5,
+      "verification_state": "unverified"
+    },
+    {
+      "backend": "qdrant_vector",
+      "contract_version": "search_evidence_hit.v1",
+      "evidence_class": "policy_chunk",
+      "global_vector_object": {
+        "chunk_id": "policy-18-chunk-0",
+        "contract_version": "global_vector_object.v1",
+        "document_id": "18",
+        "embedding_dim": null,
+        "embedding_model": null,
+        "matrix_branch_id": "branch_a3a187e715bacdc6",
+        "object_id": "18",
+        "object_type": "policy_chunk",
+        "project_key": "demo_proj",
+        "provenance": {
+          "backend": "qdrant_vector",
+          "effective_time": null,
+          "language": null,
+          "source_domain": null,
+          "source_uri": null
+        },
+        "source_id": "source-policy",
+        "vector_version": "v2"
+      },
+      "hit_id": "eh_1ece8899371298b4",
+      "matrix_branch_id": "branch_a3a187e715bacdc6",
+      "provenance": {
+        "backend": "qdrant_vector",
+        "chunk_id": "policy-18-chunk-0",
+        "document_id": "18",
+        "effective_time": null,
+        "language": null,
+        "matrix_branch_id": "branch_a3a187e715bacdc6",
+        "project_key": "demo_proj",
+        "source_domain": null,
+        "source_id": "source-policy",
+        "source_uri": null,
+        "vector_version": "v2"
+      },
+      "query_group_id": "qg_52e14ac498efca10",
+      "rank": 2,
+      "rank_features": {
+        "backend": "qdrant_vector",
+        "fusion_score": 0.0,
+        "lexical_score": 0.0,
+        "rank": 2,
+        "retrieval_mode": "vector",
+        "score": 0.93,
+        "tags": [
+          "vector",
+          "qdrant"
+        ],
+        "vector_score": 0.0
+      },
+      "retrieval_family": "main_search",
+      "retrieval_mode": "vector",
+      "score": 0.93,
+      "verification_state": "unverified"
+    },
+    {
+      "backend": "pgvector_fallback",
+      "contract_version": "search_evidence_hit.v1",
+      "evidence_class": "policy_chunk",
+      "global_vector_object": {
+        "chunk_id": "19:document",
+        "contract_version": "global_vector_object.v1",
+        "document_id": "19",
+        "embedding_dim": null,
+        "embedding_model": null,
+        "matrix_branch_id": "branch_6898d6108b718c64",
+        "object_id": "19",
+        "object_type": "policy_chunk",
+        "project_key": "demo_proj",
+        "provenance": {
+          "backend": "pgvector_fallback",
+          "effective_time": null,
+          "language": null,
+          "source_domain": null,
+          "source_uri": null
+        },
+        "source_id": "document:19",
+        "vector_version": "v1"
+      },
+      "hit_id": "eh_d773c5f40da58bdd",
+      "matrix_branch_id": "branch_6898d6108b718c64",
+      "provenance": {
+        "backend": "pgvector_fallback",
+        "chunk_id": "19:document",
+        "document_id": "19",
+        "effective_time": null,
+        "language": null,
+        "matrix_branch_id": "branch_6898d6108b718c64",
+        "project_key": "demo_proj",
+        "source_domain": null,
+        "source_id": "document:19",
+        "source_uri": null,
+        "vector_version": "v1"
+      },
+      "query_group_id": "qg_52e14ac498efca10",
+      "rank": 3,
+      "rank_features": {
+        "backend": "pgvector_fallback",
+        "fusion_score": 0.0,
+        "lexical_score": 0.0,
+        "rank": 3,
+        "retrieval_mode": "vector",
+        "score": 0.82,
+        "tags": [
+          "vector",
+          "pgvector",
+          "fallback"
+        ],
+        "vector_score": 0.0
+      },
+      "retrieval_family": "main_search",
+      "retrieval_mode": "vector",
+      "score": 0.82,
+      "verification_state": "fallback"
+    }
+  ],
+  "sample_hit_count": 3,
+  "sample_retrieval_modes": [
+    "keyword",
+    "vector",
+    "vector"
+  ],
+  "schema_versions": {
+    "global_vector_object": "global_vector_object.v1",
+    "search_evidence_hit": "search_evidence_hit.v1"
+  },
+  "scope": "deterministic_repo_local_global_vector_object_and_search_evidence_hit_schema_alignment",
+  "semantic_quality_claim_allowed": false,
+  "status": "passed"
+}

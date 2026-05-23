@@ -2,20 +2,21 @@
   "schema": "docs-root-entry-manifest/v1",
   "root": "docs/development",
   "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
-  "generated_date": "2026-05-22",
-  "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/development while their previous latest-dev-docs paths remain compatibility shims until shared navigation is fully synchronized. Wave27 made the frontend-modern and root-plans main batches target-authoritative after file-level classification and link-check reconciliation. Wave28 keeps CURRENT_DEV source-authoritative as a supervisor-owned active status surface instead of treating it as a broad content move candidate, and records ARCHIVE_CLOSED as file-level classified but not yet source-shimmed.",
+  "generated_date": "2026-05-23",
+  "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/development while their previous latest-dev-docs paths remain compatibility shims until shared navigation is fully synchronized. Wave27 made the frontend-modern and root-plans main batches target-authoritative after file-level classification and link-check reconciliation. Wave28 keeps CURRENT_DEV source-authoritative as a supervisor-owned active status surface. Wave29 closes the ARCHIVE_CLOSED broad-tree unsafe move by decomposing it into ledger-backed per-file batch work; archive files remain source-authoritative until a later moved_file_batch creates targets and compatibility shims.",
   "classification_ledgers": [
     {
       "id": "development-plans-archive-closed-tree-wave28",
       "source": "development/latest-dev-docs/development-plans/ARCHIVE_CLOSED",
       "target_root": "docs/development/development-plans",
       "ledger": "docs/development/development-plans/archive-closed-file-classification-2026-05-23.json",
-      "status": "file_level_classified_not_moved",
+      "status": "broad_move_decomposed_to_file_batches",
       "remaining_gates": [
         "source_compatibility_shim_conversion",
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
-      ]
+      ],
+      "mechanical_next_step": "Generate target files and source compatibility shims from the ledger in small moved_file_batch entries; do not mark archive files target-authoritative until both sides exist and shared navigation is synchronized."
     }
   ],
   "navigation_promotions": [

@@ -107,7 +107,7 @@ TARGET_TOPICS = [
     {
         "slug": "2026-03-05-oss-node-platform-io-plan",
         "title": "2026-03-05 OSS Node Platform IO Plan",
-        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan",
+        "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
         "existing_docs": [
             "06_wave19-vectorization-provider-manifest-2026-05-22.md",
         ],

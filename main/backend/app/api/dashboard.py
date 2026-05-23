@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Query, HTTPException
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.exc import OperationalError, DatabaseError
 from datetime import datetime, date, timedelta
@@ -33,6 +33,7 @@ from ..services.document_views import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_FRONTDOOR_TRI_STATE_STATUSES = ("success", "degraded_success", "failed")
 
 
 def _decimal_to_float(value):
@@ -40,6 +41,46 @@ def _decimal_to_float(value):
     if value is None:
         return None
     return float(value)
+
+
+def _empty_frontdoor_tri_state_counts() -> dict[str, int]:
+    return {status: 0 for status in _FRONTDOOR_TRI_STATE_STATUSES}
+
+
+def _as_mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _frontdoor_summary_from_params(params: Mapping[str, Any]) -> Mapping[str, Any]:
+    direct = params.get("frontdoor_status_summary")
+    if isinstance(direct, Mapping):
+        return direct
+    for parent_key in ("meta", "debug"):
+        parent = params.get(parent_key)
+        if isinstance(parent, Mapping) and isinstance(parent.get("frontdoor_status_summary"), Mapping):
+            return parent["frontdoor_status_summary"]
+    return {}
+
+
+def _build_frontdoor_tri_state_summary(rows: list[Any]) -> dict[str, Any]:
+    counts = _empty_frontdoor_tri_state_counts()
+    observed = 0
+    for row in rows:
+        params = _as_mapping(getattr(row, "params", None))
+        summary = _frontdoor_summary_from_params(params)
+        raw_counts = summary.get("dashboard_status_counts") if isinstance(summary, Mapping) else None
+        if not isinstance(raw_counts, Mapping):
+            continue
+        for status in _FRONTDOOR_TRI_STATE_STATUSES:
+            value = int(raw_counts.get(status) or 0)
+            counts[status] += max(0, value)
+            observed += max(0, value)
+    return {
+        "states": list(_FRONTDOOR_TRI_STATE_STATUSES),
+        "counts": counts,
+        "total": observed,
+        "source": "etl_job_runs.params.frontdoor_status_summary.dashboard_status_counts",
+    }
 
 
 def _raise_invalid_input_422(message: str, *, field: str, value: str) -> None:
@@ -193,6 +234,10 @@ def get_dashboard_stats():
             task_failed = session.execute(
                 select(func.count(EtlJobRun.id)).where(EtlJobRun.status == "failed")
             ).scalar() or 0
+            frontdoor_tri_state_rows = session.execute(
+                select(EtlJobRun.params, EtlJobRun.status).where(EtlJobRun.params.isnot(None))
+            ).all()
+            frontdoor_tri_state = _build_frontdoor_tri_state_summary(frontdoor_tri_state_rows)
             
             # 文档类型分布
             doc_type_dist = session.execute(
@@ -235,6 +280,7 @@ def get_dashboard_stats():
                     "running": task_running,
                     "completed": task_completed,
                     "failed": task_failed,
+                    "frontdoor_tri_state": frontdoor_tri_state,
                 },
             })
     except (OperationalError, DatabaseError) as e:

@@ -1,7 +1,7 @@
 # Global Vectorization General Foundation Index
 
 更新时间：2026-05-22 PST<br>
-状态：全项目数据向量化 / 标准化开发入口；2026-05-22 lane 9 已落地 `local_index` keyword/vector/hybrid mode contract；Wave2 A 已补真实 LanceDB keyword/vector/hybrid runtime smoke；Wave3 A 已补受控 benchmark-quality evidence；Wave10 worker6 已补 deterministic quality gate 与 fallback reason contract；仍未封口的是真实 embedding model 语义质量、统一 vector object schema 和主搜索 evidence contract 对齐
+状态：全项目数据向量化 / 标准化开发入口；2026-05-22 lane 9 已落地 `local_index` keyword/vector/hybrid mode contract；Wave2 A 已补真实 LanceDB keyword/vector/hybrid runtime smoke；Wave3 A 已补受控 benchmark-quality evidence；Wave10 worker6 已补 deterministic quality gate 与 fallback reason contract；Wave29 已冻结 `/api/v1/search` 并行 `evidence_hits` 与 `global_vector_object` schema；仍未封口的是 retrieval persistence、stored payload provenance、Agent matrix/main-search schema joining 和真实 embedding model 语义质量
 
 ## 文件
 
@@ -13,6 +13,9 @@
 
 - [03_wave10-vectorization-quality-gate-2026-05-22.md](./03_wave10-vectorization-quality-gate-2026-05-22.md)
   Wave10 worker6 deterministic quality gate：复核 provider trace、`keyword|vector|hybrid` runtime/benchmark evidence、benchmark threshold 与 vector/hybrid fallback reason；继续保留真实 embedding semantic quality 与全局 vector contract 缺口。
+
+- [10_wave29-vector-schema-alignment-2026-05-23.md](./10_wave29-vector-schema-alignment-2026-05-23.md)
+  Wave29 repo-local schema gate：新增 `search_evidence_hit.v1` / `global_vector_object.v1` builder 与 validator，并让 `/api/v1/search` 在保持 legacy `results` 不变的同时返回并行 `evidence_hits`，关闭 `unified_vector_object_contract_not_frozen` 与 `main_search_evidence_hit_contract_not_aligned` 两个 blocker。
 
 ## 2026-05-22 lane 9 落地
 
@@ -60,4 +63,5 @@
 - 搜索 provider 解隔离继续归 `../2026-05-14-local-open-search-provider-isolation/`。
 - 数据向量化、chunk/material 标准化、hybrid retrieval、向量版本化和 provenance 归本目录。
 - 本目录已开始落地 runtime contract 与受控 benchmark evidence；lane 9/Wave3 A 均保持 `local_index` optional boundary，不引入 LanceDB 强依赖。
+- Wave29 仅关闭主搜索 response schema 对齐，不声明 retrieval persistence、stored payload provenance、Agent matrix join 或生产语义质量已封口。
 - 02 号文档本来就是 2026-05-14 文档，文件名和主体保留；仅由本目录索引继续引用。

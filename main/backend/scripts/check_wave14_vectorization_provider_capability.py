@@ -38,7 +38,7 @@ WAVE12_PROVIDER_READINESS = (
 
 TARGET_TOPICS = [
     "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration",
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan",
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
     "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation",
 ]
 LOCAL_INDEX_MODES = ["keyword", "vector", "hybrid"]

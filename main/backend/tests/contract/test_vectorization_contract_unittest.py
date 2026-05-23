@@ -18,6 +18,7 @@ try:
     from app.main import app as backend_app
     from app.models.entities import Embedding
     from app.services.search.hybrid import vector_search
+    from app.services.search.vector_contracts import SEARCH_EVIDENCE_HIT_CONTRACT_VERSION
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -38,8 +39,15 @@ class _FakeSession:
             content="vector content",
             state="CA",
             publish_date=None,
+            uri="https://example.org/vector/101",
         )
-        emb = SimpleNamespace(vector=[0.1, 0.2, 0.3])
+        emb = SimpleNamespace(
+            object_id=101,
+            object_type="policy_chunk",
+            vector=[0.1, 0.2, 0.3],
+            dim=3,
+            model="test-embedding-model",
+        )
         return SimpleNamespace(all=lambda: [(emb, doc)])
 
 
@@ -99,6 +107,11 @@ class VectorizationContractTestCase(unittest.TestCase):
             "highlight",
             "state",
             "publish_date",
+            "object_type",
+            "object_id",
+            "vector_version",
+            "embedding_model",
+            "embedding_dim",
             "mode",
         }
         self.assertTrue(expected_keys.issubset(set(row.keys())))
@@ -134,6 +147,14 @@ class VectorizationContractTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["rank"], "vector")
         self.assertEqual(body["data"]["top_k"], 5)
         self.assertIsInstance(body["data"]["results"], list)
+        self.assertEqual(body["data"]["evidence_hit_contract_version"], SEARCH_EVIDENCE_HIT_CONTRACT_VERSION)
+        self.assertEqual(len(body["data"]["evidence_hits"]), 1)
+        evidence_hit = body["data"]["evidence_hits"][0]
+        self.assertEqual(evidence_hit["retrieval_mode"], "vector")
+        self.assertEqual(evidence_hit["retrieval_family"], "main_search")
+        self.assertEqual(evidence_hit["global_vector_object"]["document_id"], "101")
+        self.assertEqual(evidence_hit["global_vector_object"]["vector_version"], "v1")
+        self.assertTrue(evidence_hit["matrix_branch_id"].startswith("branch_"))
         self.assertTrue({"status", "data", "error", "meta"}.issubset(body.keys()))
         self.assertTrue({"trace_id", "pagination", "project_key", "deprecated"}.issubset(body["meta"].keys()))
         self.assertTrue(set(vector_like_results[0].keys()).issubset(set(body["data"]["results"][0].keys())))

@@ -59,17 +59,21 @@
   状态：`external_blocked` / `wave27_checked`。仓内 `python_library` 与 `cli_or_container` bounded runner gates 已封住，AT-EXT checker `failures=[]`；剩余条件是 live article-extraction stack replay 与 live external-project replay。
 - [2026-03-12 Data Structured Service Modularization](./2026-03-12-data-structured-service-modularization/14_wave28-structured-document-query-statement-builder-2026-05-23.md)
   状态：`external_blocked` / `wave28_checked`。仓内 generic DocumentQuery statement builder、structured SQL helper migration 与 focused closure gates 已封住；剩余条件是 live DB/API smoke。
+- [2026-03-02 Ingest Platformization Assessment](./2026-03-02-ingest-platformization-assessment/09_wave29-ingest-platformization-repo-local-closure-2026-05-23.md)
+  状态：`external_blocked` / `wave29_checked`。仓内 fetch-router decomposition、GateService/rule-source、default propagation、replay/SLO 与 frontend/ops entry gates 已封住；剩余条件是 configured-service demo canary、production 24h readback 与 ops promotion approval。
+- [2026-03-02 Meaningful Ingest Guardrails Plan](./2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md)
+  状态：`external_blocked` / `wave29_checked`。仓内 source-policy tuning attachment 已归入 crawler source-policy matrix 责任面；剩余条件是 live canary feedback、production 24h guardrail metrics 与 operations strict-gate promotion decision。
+- [2026-03-02 Single URL First Ingest Allocation Plan](./2026-03-02-single-url-first-ingest-allocation-plan/10_wave29-ingest-blocker-alignment-2026-05-23.md)
+  状态：`external_blocked` / `wave29_checked`。仓内 broader fetch-router、official API adapter 与 dashboard tri-state blockers 已封住；剩余条件是 public browser/runtime replay、非 arXiv provider live API maturity、configured-service canary 与 production 24h readback。
+- [2026-03-05 OSS Node Platform IO Plan](./2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md)
+  状态：`external_blocked` / `wave29_checked`。仓内 node manifest/runtime replay 已覆盖 `keyword` / `vector` / `hybrid` provider manifest consumption；剩余条件是 live embedding provider verification、local open-search quality、semantic relevance 与 live scheduler/tenant DB/UI SLA。
 
 ## 保留在 CURRENT_DEV 的相邻目录
 
-- [2026-03-02 Ingest Platformization Assessment](../CURRENT_DEV/2026-03-02-ingest-platformization-assessment/08_wave27-ingest-canary-closure-readiness-2026-05-23.md)：`retained_partial` / `wave27_checked`。canary/24h 仓内 gate 已充分；仍有 broader fetch-router、GateService/rule-source、default propagation、replay/SLO 与 frontend/ops entry 等 repo-local blocker。
-- [2026-03-02 Meaningful Ingest Guardrails Plan](../CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md)：`retained_partial` / `wave27_checked`。canary/24h 仓内 gate 已充分；source-policy tuning 仍附着在同一主题且未拆 successor，不应作为仅外部阻塞迁档。
 - [2026-03-07 Docs Root Restructuring](../CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)：`retained_partial`。剩余是 repo-local docs integration，不是外部条件。
-- [2026-03-01 Open Source Platform Integration](../CURRENT_DEV/2026-03-01-open-source-platform-integration/08_wave27-vectorization-closure-decision-2026-05-23.md)：`retained_partial` / `wave27_checked`。provider manifest / quality / readback slice 已封住；目录仍依赖 global vector contract 与 OSS-node IO repo-local 边界。
-- [2026-03-05 OSS Node Platform IO Plan](../CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/07_wave27-vectorization-closure-decision-2026-05-23.md)：`retained_partial` / `wave27_checked`。provider manifest 可消费；node schema/runtime/persistence 平台化与 node-level manifest replay 仍是 repo-local blocker。
+- [2026-03-01 Open Source Platform Integration](../CURRENT_DEV/2026-03-01-open-source-platform-integration/08_wave27-vectorization-closure-decision-2026-05-23.md)：`retained_partial` / `wave27_checked`。provider manifest / quality / readback slice 已封住；Wave29 已将 OSS-node IO 迁出为外部阻塞，但本目录仍依赖 global vector contract 仓内边界。
 - [2026-03-15 Frontend Three-Layer Rewrite](../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md)：`retained_partial`。剩余业务文案与兼容层迁移规模仍大。
 - [2026-05-14 Global Vectorization General Foundation](../CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/09_wave27-vectorization-closure-decision-2026-05-23.md)：`retained_partial` / `wave27_checked`。统一 vector object、retrieval runs、provenance payload 与主检索/Agent schema 对齐仍是 repo-local blocker。
-- [2026-03-02 Single URL First Ingest Allocation Plan](../CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md)：`retained_partial` / `wave27_checked`。canary/24h 仓内 gate 已充分；仍有 broader fetch-router、official API adapter 与 dashboard tri-state 对齐 blocker。
 
 ## 返回
 

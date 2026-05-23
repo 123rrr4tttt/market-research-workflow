@@ -10,6 +10,11 @@ from ..services.document_queries import (
 from ..services.search.es_client import get_es_client
 from ..services.search.indexes import ensure_indices
 from ..services.search.hybrid import hybrid_search, get_last_used_backends
+from ..services.search.vector_contracts import (
+    GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+    SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
+    build_search_evidence_hits,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -72,6 +77,15 @@ def search(
                 used_backends.append(b)
 
         project_key = getattr(request.state, "project_key_resolved", None)
+        query_group_id, evidence_hits = build_search_evidence_hits(
+            results,
+            query=q,
+            project_key=project_key,
+            rank_mode=rank,
+            state=state,
+            modality=modality,
+            top_k=top_k,
+        )
         document_query_envelope = build_search_endpoint_document_query_envelope(
             query=q,
             state=state,
@@ -97,6 +111,10 @@ def search(
                 "document_query_results": document_query_data["results"],
                 "document_query_pagination": document_query_data["pagination"],
                 "document_query_meta": document_query_envelope["meta"],
+                "global_vector_object_contract_version": GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+                "evidence_hit_contract_version": SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
+                "query_group_id": query_group_id,
+                "evidence_hits": evidence_hits,
                 "search_fallback_order": fallback_order,
                 "search_backends_used": used_backends,
             }

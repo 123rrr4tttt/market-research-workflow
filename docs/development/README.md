@@ -1,7 +1,7 @@
 # Development Documentation Root
 
 > Date: 2026-05-23
-> Status: target root prepared; Wave28 classified CURRENT_DEV as a supervisor-owned active status surface
+> Status: target root prepared; Wave29 decomposed the archive broad move; CURRENT_DEV remains supervisor-owned active status surface
 
 ## Purpose
 
@@ -22,7 +22,7 @@ The docs-root restructuring plan is tracked in [2026-03-07 docs root restructuri
 
 The first content shim batch is recorded in [latest-dev-docs-entry-manifest.json](./latest-dev-docs-entry-manifest.json). These entries keep `development/latest-dev-docs` as the content authority while the README shims under this root provide readable pointers to the current compatibility entries. Shared navigation still belongs to the integration lane.
 
-The bounded content-plan gate is recorded in [latest-dev-docs-content-plan.json](./latest-dev-docs-content-plan.json) and checked by [scripts/checkers/check_docs_root_content_plan.py](../../scripts/checkers/check_docs_root_content_plan.py). Wave25 moved the two `development-plans/main` files into `docs/development/development-plans/main/`. Wave27 moved the two `frontend-modern/main` files into `docs/development/frontend-modern/main/` and the two `root-plans/main` files into `docs/development/root-plans/main/`. Wave28 classified `CURRENT_DEV` as a supervisor-owned active status surface, not as a broad content move candidate, reducing remaining unsafe moves to 1. The remaining unsafe development move is the mixed `ARCHIVE_CLOSED` tree pending file-level classification.
+The bounded content-plan gate is recorded in [latest-dev-docs-content-plan.json](./latest-dev-docs-content-plan.json) and checked by [scripts/checkers/check_docs_root_content_plan.py](../../scripts/checkers/check_docs_root_content_plan.py). Wave25 moved the two `development-plans/main` files into `docs/development/development-plans/main/`. Wave27 moved the two `frontend-modern/main` files into `docs/development/frontend-modern/main/` and the two `root-plans/main` files into `docs/development/root-plans/main/`. Wave28 classified `CURRENT_DEV` as a supervisor-owned active status surface, not as a broad content move candidate. Wave29 decomposed the `ARCHIVE_CLOSED` broad-tree move into ledger-backed per-file batches, so `remaining_unsafe_moves` is now `0`; archive files remain source-authoritative until target files plus source compatibility shims are created in explicit moved-file batches.
 
 ## Promoted Navigation Batch
 

@@ -24,6 +24,11 @@ from .metrics_payload import (
     new_metrics_summary,
     record_metrics_observation,
 )
+from .frontdoor_slo import (
+    build_frontdoor_slo_payload,
+    new_frontdoor_slo_summary,
+    record_frontdoor_slo_observation,
+)
 from .gate_reason_codes import normalize_reason_code
 from .frontdoor_router_contract import build_frontdoor_fetch_router_contract, router_contract_from_profile
 from .content_cleaner import normalize_content_for_ingest
@@ -359,6 +364,7 @@ def _collect_urls_from_list_with_runtime_targets(
     metrics_summary = new_metrics_summary()
     source_template_health_summary = _new_source_template_health_summary()
     frontdoor_status_summary = _new_frontdoor_status_summary()
+    frontdoor_slo_summary = new_frontdoor_slo_summary()
     queued = 0
     queued_tasks: List[Dict[str, Any]] = []
 
@@ -428,6 +434,7 @@ def _collect_urls_from_list_with_runtime_targets(
             errors.append({"url": target_url, "error": str(item_result.get("error") or "url_routing_failed")})
         frontdoor_status = _build_frontdoor_status_projection(item_result)
         _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
+        record_frontdoor_slo_observation(frontdoor_slo_summary, frontdoor_status)
 
         context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
         _annotate_url_pool_context(
@@ -499,6 +506,7 @@ def _collect_urls_from_list_with_runtime_targets(
                 }
             )
             _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
+            record_frontdoor_slo_observation(frontdoor_slo_summary, frontdoor_status)
             record_metrics_observation(
                 metrics_summary,
                 {
@@ -593,6 +601,8 @@ def _collect_urls_from_list_with_runtime_targets(
     _attach_source_template_health(result, source_template_health)
     frontdoor_status = _build_frontdoor_status_summary_payload(frontdoor_status_summary)
     _attach_frontdoor_status_summary(result, frontdoor_status)
+    frontdoor_slo = build_frontdoor_slo_payload(frontdoor_slo_summary)
+    _attach_frontdoor_slo(result, frontdoor_slo)
     complete_job(job_id, result=result)
     return result
 
@@ -1343,6 +1353,18 @@ def _build_frontdoor_status_projection(item_result: Dict[str, Any]) -> Dict[str,
     )
     reason_code = normalize_reason_code(reason_code, default="ok")
     retryable = bool(meta.get("retryable") or item_result.get("retryable"))
+    retry_observability = (
+        meta.get("retry_observability")
+        if isinstance(meta.get("retry_observability"), dict)
+        else item_result.get("retry_observability")
+        if isinstance(item_result.get("retry_observability"), dict)
+        else None
+    )
+    latency_ms = _first_non_negative_float(
+        item_result.get("latency_ms"),
+        item_result.get("elapsed_ms"),
+        (item_result.get("observability") or {}).get("latency_ms") if isinstance(item_result.get("observability"), dict) else None,
+    )
 
     if outer_status == "failed" or admission == "reject":
         dashboard_status = "failed"
@@ -1362,6 +1384,10 @@ def _build_frontdoor_status_projection(item_result: Dict[str, Any]) -> Dict[str,
         "inserted_valid": inserted_valid,
         "source": source,
     }
+    if latency_ms is not None:
+        projection["latency_ms"] = latency_ms
+    if isinstance(retry_observability, dict):
+        projection["retry_observability"] = dict(retry_observability)
     if isinstance(router_contract, dict):
         projection["router_contract"] = dict(router_contract)
         projection["router_state"] = router_contract.get("router_state")
@@ -1421,6 +1447,23 @@ def _attach_frontdoor_status_summary(
     debug["frontdoor_status_summary"] = payload
 
 
+def _attach_frontdoor_slo(
+    result: Dict[str, Any],
+    payload: Dict[str, Any],
+) -> None:
+    meta = result.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+        result["meta"] = meta
+    meta["frontdoor_slo"] = payload
+
+    debug = result.get("debug")
+    if not isinstance(debug, dict):
+        debug = {}
+        result["debug"] = debug
+    debug["frontdoor_slo"] = payload
+
+
 def _as_int(value: Any, default: int) -> int:
     try:
         return int(value)
@@ -1438,6 +1481,17 @@ def _as_bool(value: Any, default: bool = False) -> bool:
         if lowered in {"0", "false", "no", "off"}:
             return False
     return bool(default)
+
+
+def _first_non_negative_float(*values: Any) -> float | None:
+    for value in values:
+        try:
+            parsed = float(value)
+        except Exception:  # noqa: BLE001
+            continue
+        if parsed >= 0:
+            return parsed
+    return None
 
 
 def _resolve_dispatch_mode(extra_params: Optional[Dict[str, Any]]) -> str:
@@ -1584,6 +1638,7 @@ def collect_urls_from_list(
     if not urls:
         source_template_health = _build_source_template_health_payload(_new_source_template_health_summary())
         frontdoor_status = _build_frontdoor_status_summary_payload(_new_frontdoor_status_summary())
+        frontdoor_slo = build_frontdoor_slo_payload(new_frontdoor_slo_summary())
         return {
             "inserted": 0,
             "skipped": 0,
@@ -1591,6 +1646,7 @@ def collect_urls_from_list(
             "meta": {
                 "source_template_health": source_template_health,
                 "frontdoor_status_summary": frontdoor_status,
+                "frontdoor_slo": frontdoor_slo,
             },
             "debug": {
                 "mode": "list",
@@ -1600,6 +1656,7 @@ def collect_urls_from_list(
                 "note": "输入 URL 列表为空或全部被过滤（仅接受 http/https）",
                 "source_template_health": source_template_health,
                 "frontdoor_status_summary": frontdoor_status,
+                "frontdoor_slo": frontdoor_slo,
             },
         }
 
@@ -1755,6 +1812,7 @@ def collect_urls_from_pool(
         metrics_summary = new_metrics_summary()
         source_template_health_summary = _new_source_template_health_summary()
         frontdoor_status_summary = _new_frontdoor_status_summary()
+        frontdoor_slo_summary = new_frontdoor_slo_summary()
         queued = 0
         queued_tasks: List[Dict[str, Any]] = []
 
@@ -1824,6 +1882,7 @@ def collect_urls_from_pool(
                 errors.append({"url": target_url, "error": str(item_result.get("error") or "url_routing_failed")})
             frontdoor_status = _build_frontdoor_status_projection(item_result)
             _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
+            record_frontdoor_slo_observation(frontdoor_slo_summary, frontdoor_status)
 
             context_doc_ids = _extract_doc_ids_from_ingest_result(item_result)
             _annotate_url_pool_context(
@@ -1901,6 +1960,7 @@ def collect_urls_from_pool(
                     }
                 )
                 _record_frontdoor_status_observation(frontdoor_status_summary, frontdoor_status)
+                record_frontdoor_slo_observation(frontdoor_slo_summary, frontdoor_status)
                 record_metrics_observation(
                     metrics_summary,
                     {
@@ -2012,6 +2072,8 @@ def collect_urls_from_pool(
         _attach_source_template_health(result, source_template_health)
         frontdoor_status = _build_frontdoor_status_summary_payload(frontdoor_status_summary)
         _attach_frontdoor_status_summary(result, frontdoor_status)
+        frontdoor_slo = build_frontdoor_slo_payload(frontdoor_slo_summary)
+        _attach_frontdoor_slo(result, frontdoor_slo)
         complete_job(job_id, result=result)
         return result
     except Exception as exc:  # noqa: BLE001

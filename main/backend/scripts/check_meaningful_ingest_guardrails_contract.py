@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 CONTRACT_VERSION = "meaningful_ingest_guardrails.wave9_1.check.v1"
 TOPIC_DOC = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
     "2026-03-02-meaningful-ingest-guardrails-plan/"
     "02_wave9-1-meaningful-ingest-guardrails-contract-evidence-2026-05-22.md"
 )

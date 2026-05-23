@@ -12,17 +12,17 @@ from unittest.mock import patch
 CONTRACT_VERSION = "ingest_canary_handoff.wave12.check.v1"
 TOPIC_DOCS = [
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-02-ingest-platformization-assessment/"
         "03_wave12-ingest-canary-handoff-evidence-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-02-single-url-first-ingest-allocation-plan/"
         "04_wave12-single-url-canary-handoff-evidence-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-02-meaningful-ingest-guardrails-plan/"
         "04_wave12-meaningful-ingest-canary-handoff-evidence-2026-05-22.md"
     ),

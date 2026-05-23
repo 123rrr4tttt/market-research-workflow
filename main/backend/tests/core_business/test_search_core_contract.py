@@ -16,6 +16,10 @@ try:
 
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from app.services.search.vector_contracts import (
+        GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+        SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
+    )
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -70,6 +74,15 @@ class SearchCoreContractTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["document_query_results"][0]["rank"], 1)
         self.assertEqual(body["data"]["document_query_pagination"]["result_count"], 2)
         self.assertEqual(body["data"]["document_query_meta"]["source"], "api.search.hybrid")
+        self.assertEqual(
+            body["data"]["global_vector_object_contract_version"],
+            GLOBAL_VECTOR_OBJECT_CONTRACT_VERSION,
+        )
+        self.assertEqual(body["data"]["evidence_hit_contract_version"], SEARCH_EVIDENCE_HIT_CONTRACT_VERSION)
+        self.assertTrue(body["data"]["query_group_id"].startswith("qg_"))
+        self.assertEqual(len(body["data"]["evidence_hits"]), 2)
+        self.assertEqual(body["data"]["evidence_hits"][0]["rank"], 1)
+        self.assertEqual(body["data"]["evidence_hits"][0]["retrieval_family"], "main_search")
         self.assertEqual(
             body["data"]["search_backends_used"],
             ["opensearch_lexical", "qdrant_vector", "pgvector_fallback", "custom"],

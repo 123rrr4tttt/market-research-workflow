@@ -16,11 +16,13 @@
       "governance_or_control_plane_record": 8,
       "implementation_or_validation_record": 60
     },
+    "wave29_resolution": "unsafe broad-tree move closed by decomposing the archive into ledger-backed per-file batch work; no target authority is claimed for archive files in this worker scope",
     "remaining_blockers_after_classification": [
       "source_compatibility_shim_conversion",
       "shared_navigation_sync",
       "MERGED_OVERVIEW_drift"
-    ]
+    ],
+    "mechanical_next_step": "For each small batch selected from entries, create the docs/development target file, replace the source file with a compatibility shim pointing to that target, and add a matching moved_file_batch entry before shared navigation synchronization."
   },
   "classification_rules": [
     {

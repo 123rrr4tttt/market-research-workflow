@@ -52,6 +52,14 @@ def bm25_search(es: Elasticsearch, query: str, state: str | None, top_k: int) ->
         hits.append(
             {
                 "document_id": source.get("document_id"),
+                "project_key": source.get("project_key"),
+                "object_type": source.get("object_type"),
+                "object_id": source.get("object_id"),
+                "chunk_id": source.get("chunk_id"),
+                "source_id": source.get("source_id"),
+                "vector_version": source.get("vector_version"),
+                "embedding_model": source.get("embedding_model"),
+                "embedding_dim": source.get("embedding_dim"),
                 "score": hit.get("_score", 0.0),
                 "chunk_index": source.get("chunk_index"),
                 "title": source.get("title"),
@@ -60,6 +68,10 @@ def bm25_search(es: Elasticsearch, query: str, state: str | None, top_k: int) ->
                 "highlight": hit.get("highlight", {}).get("text", []),
                 "state": source.get("state"),
                 "publish_date": source.get("publish_date"),
+                "source_uri": source.get("source_uri") or source.get("url") or source.get("uri"),
+                "source_domain": source.get("source_domain"),
+                "effective_time": source.get("effective_time"),
+                "language": source.get("language"),
                 "mode": "bm25",
                 "backend": "opensearch",
                 "tags": ["lexical", "bm25"],
@@ -114,6 +126,14 @@ def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict
         hits.append(
             {
                 "document_id": payload.get("document_id"),
+                "project_key": payload.get("project_key"),
+                "object_type": payload.get("object_type"),
+                "object_id": payload.get("object_id"),
+                "chunk_id": payload.get("chunk_id"),
+                "source_id": payload.get("source_id"),
+                "vector_version": payload.get("vector_version"),
+                "embedding_model": payload.get("embedding_model"),
+                "embedding_dim": payload.get("embedding_dim"),
                 "score": float(score),
                 "chunk_index": payload.get("chunk_index"),
                 "title": payload.get("title"),
@@ -122,6 +142,10 @@ def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict
                 "highlight": [],
                 "state": payload.get("state"),
                 "publish_date": payload.get("publish_date"),
+                "source_uri": payload.get("source_uri") or payload.get("url") or payload.get("uri"),
+                "source_domain": payload.get("source_domain"),
+                "effective_time": payload.get("effective_time"),
+                "language": payload.get("language"),
                 "mode": "vector",
                 "backend": "qdrant",
                 "tags": ["vector", "qdrant"],
@@ -167,6 +191,11 @@ def vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
             hits.append(
                 {
                     "document_id": document.id,
+                    "object_type": embedding_row.object_type,
+                    "object_id": embedding_row.object_id,
+                    "vector_version": "v1",
+                    "embedding_model": embedding_row.model,
+                    "embedding_dim": embedding_row.dim,
                     "score": float(np.dot(vector, np.array(embedding_row.vector))),
                     "chunk_index": None,
                     "title": document.title,
@@ -177,6 +206,7 @@ def vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
                     "publish_date": document.publish_date.isoformat()
                     if document.publish_date
                     else None,
+                    "source_uri": document.uri,
                     "mode": "vector",
                     "backend": "pgvector",
                     "tags": tags,
@@ -241,4 +271,3 @@ def hybrid_search(query: str, state: str | None, top_k: int, mode: str) -> List[
 
     _set_last_used_backends(used)
     return bm25_hits
-

@@ -8,6 +8,8 @@ type DashboardPageProps = {
   variant?: 'dashboard' | 'market' | 'social' | 'analysis' | 'board'
 }
 
+type FrontdoorTriStateStatus = 'success' | 'degraded_success' | 'failed'
+
 function asNumber(value: number | undefined) {
   return value ?? 0
 }
@@ -18,6 +20,12 @@ function formatNumber(value: number | undefined, locale: string) {
 
 function formatDashboardTemplate(template: string, values: Record<string, string | number>) {
   return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
+function frontdoorTriStateChipClass(status: FrontdoorTriStateStatus) {
+  if (status === 'success') return 'chip chip-ok'
+  if (status === 'failed') return 'chip chip-danger'
+  return 'chip chip-warn'
 }
 
 export default function DashboardPage({ projectKey, variant = 'dashboard' }: DashboardPageProps) {
@@ -32,9 +40,18 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
   const docTypeRows = Object.entries(dashboardStats.data?.documents?.type_distribution || {})
   type DashboardMessageKey = Parameters<typeof translate>[1]
   const t = (key: DashboardMessageKey, fallback?: string) => translate(locale, key, fallback)
+  const triStateLabelKeys: Record<FrontdoorTriStateStatus, DashboardMessageKey> = {
+    success: 'dashboardPage.triState.success',
+    degraded_success: 'dashboardPage.triState.degraded_success',
+    failed: 'dashboardPage.triState.failed',
+  }
   const formattedNumber = (value: number | undefined) => formatNumber(value, locale)
   const formatTemplate = (key: DashboardMessageKey, values: Record<string, string | number>) =>
     formatDashboardTemplate(t(key), values)
+  const triStateRows: FrontdoorTriStateStatus[] = dashboardStats.data?.tasks?.frontdoor_tri_state?.states?.length
+    ? dashboardStats.data.tasks.frontdoor_tri_state.states
+    : ['success', 'degraded_success', 'failed']
+  const triStateCounts = dashboardStats.data?.tasks?.frontdoor_tri_state?.counts || {}
   const variantTitle: Record<NonNullable<DashboardPageProps['variant']>, string> = {
     dashboard: t('dashboardPage.title.dashboard'),
     market: t('dashboardPage.title.market'),
@@ -95,6 +112,14 @@ export default function DashboardPage({ projectKey, variant = 'dashboard' }: Das
         <p className="status-line">{formatTemplate('dashboardPage.metric.tasksTotal', { count: formattedNumber(dashboardStats.data?.tasks?.total) })}</p>
         <p className="status-line">{formatTemplate('dashboardPage.metric.tasksCompleted', { count: formattedNumber(dashboardStats.data?.tasks?.completed) })}</p>
         <p className="status-line">{formatTemplate('dashboardPage.metric.extractionRate', { value: asNumber(dashboardStats.data?.documents?.extraction_rate) })}</p>
+        <p className="status-line">{t('dashboardPage.section.frontdoorTriState')}</p>
+        <div className="inline-actions">
+          {triStateRows.map((status) => (
+            <span key={status} className={frontdoorTriStateChipClass(status)}>
+              {t(triStateLabelKeys[status])}: {formattedNumber(triStateCounts[status])}
+            </span>
+          ))}
+        </div>
         {dashboardStats.isError ? <p className="status-line">{t('dashboardPage.error.loadFailed')}</p> : null}
       </section>
 

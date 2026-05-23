@@ -69,9 +69,39 @@ class _FakeDashboardSession:
             case 12:
                 return _FakeResult(scalar_value=2)  # task_failed
             case 13:
+                rows = [
+                    SimpleNamespace(
+                        params={
+                            "frontdoor_status_summary": {
+                                "dashboard_status_counts": {
+                                    "success": 3,
+                                    "degraded_success": 2,
+                                    "failed": 1,
+                                }
+                            }
+                        },
+                        status="completed",
+                    ),
+                    SimpleNamespace(
+                        params={
+                            "meta": {
+                                "frontdoor_status_summary": {
+                                    "dashboard_status_counts": {
+                                        "success": 1,
+                                        "degraded_success": 0,
+                                        "failed": 1,
+                                    }
+                                }
+                            }
+                        },
+                        status="completed",
+                    ),
+                ]
+                return _FakeResult(all_value=rows)  # frontdoor_tri_state_rows
+            case 14:
                 rows = [SimpleNamespace(doc_type="policy", count=6), SimpleNamespace(doc_type="news", count=4)]
                 return _FakeResult(all_value=rows)  # doc_type_dist
-            case 14:
+            case 15:
                 return _FakeResult(scalar_value=5)  # doc_with_extracted
             case _:
                 return _FakeResult(scalar_value=0)
@@ -191,6 +221,15 @@ class AdminDashboardProcessCoreContractTestCase(unittest.TestCase):
         self.assertIsNone(body["error"])
         self.assertEqual(body["data"]["documents"]["total"], 10)
         self.assertEqual(body["data"]["documents"]["extraction_rate"], 50.0)
+        self.assertEqual(
+            body["data"]["tasks"]["frontdoor_tri_state"],
+            {
+                "states": ["success", "degraded_success", "failed"],
+                "counts": {"success": 4, "degraded_success": 2, "failed": 2},
+                "total": 8,
+                "source": "etl_job_runs.params.frontdoor_status_summary.dashboard_status_counts",
+            },
+        )
 
     def test_dashboard_stats_db_failure_maps_to_upstream_error(self):
         with patch("app.api.dashboard.SessionLocal", return_value=_FakeSessionLocalOperationalError()):

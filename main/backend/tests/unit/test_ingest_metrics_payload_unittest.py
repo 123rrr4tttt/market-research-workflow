@@ -49,6 +49,15 @@ class IngestMetricsPayloadUnitTestCase(unittest.TestCase):
         self.assertIn("template_rejection_top_n", payload)
         self.assertIsInstance(payload.get("template_rejection_top_n"), list)
 
+    def _assert_frontdoor_slo_fields(self, payload: dict) -> None:
+        self.assertEqual(payload.get("contract_version"), "ingest.frontdoor_slo.v1")
+        self.assertIn("dashboard_status_counts", payload)
+        self.assertIn("success_or_degraded_rate", payload)
+        self.assertIn("p95_latency_ms", payload)
+        self.assertIn("retryable_rate", payload)
+        self.assertFalse(payload.get("live_24h_claim"))
+        self.assertFalse(payload.get("closure_claim"))
+
     def test_metrics_payload_helper_keeps_stable_fields(self):
         summary = new_metrics_summary()
         record_metrics_observation(
@@ -153,8 +162,11 @@ class IngestMetricsPayloadUnitTestCase(unittest.TestCase):
             )
 
         metrics_payload = ((result.get("meta") or {}).get("metrics_payload") or {})
+        frontdoor_slo = ((result.get("meta") or {}).get("frontdoor_slo") or {})
         self._assert_contract_fields(metrics_payload)
         self.assertEqual(metrics_payload, ((result.get("debug") or {}).get("metrics_payload") or {}))
+        self._assert_frontdoor_slo_fields(frontdoor_slo)
+        self.assertEqual(frontdoor_slo, ((result.get("debug") or {}).get("frontdoor_slo") or {}))
         self.assertGreaterEqual(int(metrics_payload.get("sample_size") or 0), 1)
 
     def test_url_pool_batch_path_defaults_to_batch_runtime_targets(self):

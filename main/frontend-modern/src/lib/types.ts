@@ -843,6 +843,12 @@ export type DashboardStats = {
     running?: number
     completed?: number
     failed?: number
+    frontdoor_tri_state?: {
+      states?: Array<'success' | 'degraded_success' | 'failed'>
+      counts?: Partial<Record<'success' | 'degraded_success' | 'failed', number>>
+      total?: number
+      source?: string
+    }
   }
 }
 

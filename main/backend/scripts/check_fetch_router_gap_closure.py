@@ -31,14 +31,14 @@ class Anchor:
 TOPICS: dict[str, dict[str, Any]] = {
     "2026-03-02-ingest-platformization-assessment": {
         "title": "Ingest platformization fetch-router/frontdoor closure",
-        "doc": CURRENT_DEV
+        "doc": ARCHIVE_EXTERNAL_BLOCKED
         / "2026-03-02-ingest-platformization-assessment"
         / "02_wave8-2-fetch-router-gap-closure-2026-05-22.md",
         "legacy_gap": "fetch_router_gap",
     },
     "2026-03-02-single-url-first-ingest-allocation-plan": {
         "title": "Single-url compatibility source-library/frontdoor closure",
-        "doc": CURRENT_DEV
+        "doc": ARCHIVE_EXTERNAL_BLOCKED
         / "2026-03-02-single-url-first-ingest-allocation-plan"
         / "03_wave8-2-fetch-router-gap-closure-2026-05-22.md",
         "legacy_gap": "frontdoor/router gap",
