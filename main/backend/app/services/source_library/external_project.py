@@ -10,7 +10,14 @@ from .external_project_registry import resolve_external_project_provider_binding
 EXTERNAL_PROJECT_CHANNEL_KEY = "external_project.manifest"
 EXTERNAL_PROJECT_MANIFEST_KEY = "external_project_manifest"
 EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION = "external_item.manifest.v1"
-SUPPORTED_EXECUTION_MODES = {"rss_feed", "sitemap", "http_api", "article_extractor"}
+SUPPORTED_EXECUTION_MODES = {
+    "rss_feed",
+    "sitemap",
+    "http_api",
+    "article_extractor",
+    "python_library",
+    "cli_or_container",
+}
 
 _CAPABILITY_KEYS = (
     "candidate_urls",
@@ -202,6 +209,10 @@ def resolve_runner_url(
     runner_ref = str((manifest or {}).get("runner_ref") or "").strip()
     if runner_ref.startswith("article-extractor://"):
         raise ValueError("article_extractor runner_ref is a parser identity, not a fetch URL")
+    if runner_ref.startswith("python-library://"):
+        raise ValueError("python_library runner_ref is a registered runner identity, not a fetch URL")
+    if runner_ref.startswith(("cli://", "container://")):
+        raise ValueError("cli_or_container runner_ref is a registered runner identity, not a fetch URL")
     if runner_ref.startswith("rsshub://"):
         url = f"https://rsshub.app/{runner_ref[len('rsshub://'):].lstrip('/')}"
         return _normalize_remote_http_url(url, field_name="runner_ref")
@@ -227,6 +238,14 @@ def _normalize_runner_ref(value: Any, *, execution_mode: str) -> str:
     if raw.startswith("article-extractor://"):
         if execution_mode != "article_extractor":
             raise ValueError("article-extractor:// runner_ref is only supported for article_extractor execution_mode")
+        return raw
+    if raw.startswith("python-library://"):
+        if execution_mode != "python_library":
+            raise ValueError("python-library:// runner_ref is only supported for python_library execution_mode")
+        return raw
+    if raw.startswith(("cli://", "container://")):
+        if execution_mode != "cli_or_container":
+            raise ValueError("cli:// or container:// runner_ref is only supported for cli_or_container execution_mode")
         return raw
     if raw.startswith("rsshub://"):
         if execution_mode != "rss_feed":
@@ -362,6 +381,8 @@ def _normalize_runtime_config(payload: Any) -> dict[str, Any]:
     query_param_map = source.get("query_param_map") if isinstance(source.get("query_param_map"), dict) else {}
     record_mapping = source.get("record_mapping") if isinstance(source.get("record_mapping"), dict) else {}
     json_body = source.get("json_body") if isinstance(source.get("json_body"), dict) else {}
+    fixture_records = source.get("fixture_records") if isinstance(source.get("fixture_records"), list) else []
+    fixture_output_json = source.get("fixture_output_json")
     parser = str(source.get("parser") or "trafilatura_or_heuristic").strip().lower()
     if parser not in {"trafilatura_or_heuristic", "heuristic.main_content.v1"}:
         parser = "trafilatura_or_heuristic"
@@ -381,4 +402,7 @@ def _normalize_runtime_config(payload: Any) -> dict[str, Any]:
         "record_mapping": {str(key): str(value) for key, value in record_mapping.items() if str(key).strip()},
         "json_body": json_body,
         "parser": parser,
+        "runner_id": str(source.get("runner_id") or "").strip(),
+        "fixture_records": list(fixture_records),
+        "fixture_output_json": fixture_output_json,
     }

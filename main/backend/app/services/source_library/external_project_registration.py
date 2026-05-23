@@ -250,6 +250,8 @@ def _infer_source_kind(execution_mode: str) -> str:
         "sitemap": "site_extractor",
         "http_api": "api_provider",
         "article_extractor": "article_extraction_stack",
+        "python_library": "python_library_wrapper",
+        "cli_or_container": "cli_or_container_wrapper",
     }
     return mapping.get(execution_mode, "external_project")
 
@@ -364,7 +366,7 @@ def _build_manifest_prompt(
     project_context: dict[str, Any],
     hints: dict[str, Any] | None,
 ) -> str:
-    allowed_execution_modes = ["rss_feed", "sitemap", "http_api"]
+    allowed_execution_modes = ["rss_feed", "sitemap", "http_api", "article_extractor", "python_library", "cli_or_container"]
     provider_registry = list_external_project_provider_bindings()
     contract_example = {
         "contract_version": EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION,

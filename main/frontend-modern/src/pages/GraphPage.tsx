@@ -53,6 +53,7 @@ import {
   type ClueChainDetail,
   type ClueChainSeedNode,
 } from './graph/clueChainClient'
+import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 
 type Variant = 'graphMarket' | 'graphPolicy' | 'graphSocial' | 'graphCompany' | 'graphProduct' | 'graphOperation' | 'graphDeep'
 
@@ -92,6 +93,7 @@ type Graph3DVisibilityStats = {
 type ForceGraphRenderBoundaryProps = {
   children: ReactNode
   onError: (message: string) => void
+  fallbackErrorMessage: string
   resetKey: string
 }
 
@@ -107,7 +109,7 @@ class ForceGraphRenderBoundary extends Component<ForceGraphRenderBoundaryProps, 
   }
 
   componentDidCatch(error: Error) {
-    this.props.onError(error.message || '渲染失败')
+    this.props.onError(error.message || this.props.fallbackErrorMessage)
   }
 
   componentDidUpdate(prevProps: ForceGraphRenderBoundaryProps) {
@@ -159,14 +161,14 @@ const TYPE_TO_KIND: Record<Variant, GraphKind> = {
   graphDeep: 'market_deep_entities',
 }
 
-const TYPE_LABEL: Record<Variant, string> = {
-  graphMarket: '市场图谱',
-  graphPolicy: '政策图谱',
-  graphSocial: '社媒图谱',
-  graphCompany: '公司图谱',
-  graphProduct: '商品图谱',
-  graphOperation: '电商/经营图谱',
-  graphDeep: '市场实体加细图',
+const GRAPH_VARIANT_LABEL_KEY: Record<Variant, MessageKey> = {
+  graphMarket: 'graphPage.variant.graphMarket',
+  graphPolicy: 'graphPage.variant.graphPolicy',
+  graphSocial: 'graphPage.variant.graphSocial',
+  graphCompany: 'graphPage.variant.graphCompany',
+  graphProduct: 'graphPage.variant.graphProduct',
+  graphOperation: 'graphPage.variant.graphOperation',
+  graphDeep: 'graphPage.variant.graphDeep',
 }
 
 const SYMBOLS: Record<string, string> = {
@@ -380,14 +382,14 @@ function groupOfType(type: string) {
   return 'other'
 }
 
-const GROUP_LABEL: Record<string, string> = {
-  company: '公司',
-  product: '商品',
-  operation: '运营',
-  policy: '政策',
-  social: '社媒',
-  market: '市场',
-  other: '其他',
+const GRAPH_GROUP_LABEL_KEY: Record<string, MessageKey> = {
+  company: 'graphPage.group.company',
+  product: 'graphPage.group.product',
+  operation: 'graphPage.group.operation',
+  policy: 'graphPage.group.policy',
+  social: 'graphPage.group.social',
+  market: 'graphPage.group.market',
+  other: 'graphPage.group.other',
 }
 
 type EdgeLegendTier = 'class' | 'pred' | 'type'
@@ -405,10 +407,10 @@ type EdgeLegendItem = {
   color: string
 }
 
-const EDGE_TIER_LABEL: Record<EdgeLegendTier, string> = {
-  class: '关系大类',
-  pred: '关系谓词',
-  type: '边类型',
+const GRAPH_EDGE_TIER_LABEL_KEY: Record<EdgeLegendTier, MessageKey> = {
+  class: 'graphPage.edgeTier.class',
+  pred: 'graphPage.edgeTier.pred',
+  type: 'graphPage.edgeTier.type',
 }
 
 type EdgeShapeKind = 'influence' | 'hierarchy' | 'flow' | 'association' | 'temporal' | 'directed'
@@ -443,30 +445,43 @@ const EDGE_CURVENESS_BY_STROKE: Record<EdgeStrokeKind, number> = {
   double: 0.06,
 }
 
-const EDGE_STROKE_LABEL: Record<EdgeStrokeKind, string> = {
-  straight: '直线',
-  curved: '曲线',
-  wavy: '波浪线',
-  double: '双线',
+const GRAPH_EDGE_STROKE_LABEL_KEY: Record<EdgeStrokeKind, MessageKey> = {
+  straight: 'graphPage.edgeStroke.straight',
+  curved: 'graphPage.edgeStroke.curved',
+  wavy: 'graphPage.edgeStroke.wavy',
+  double: 'graphPage.edgeStroke.double',
 }
 
-const RELATION_CLASS_LABEL: Record<string, string> = {
-  governance: '治理/监管',
-  event: '事件发布',
-  metric: '指标披露',
-  impact: '影响变化',
-  collaboration: '合作关系',
-  dependency: '依赖关系',
-  supply_chain: '供应链',
-  distribution: '分销渠道',
-  competition: '竞争关系',
-  operation: '运营关系',
-  taxonomy: '分类归属',
-  targeting: '场景指向',
-  channel: '渠道目标',
-  strategy: '经营策略',
-  composition: '组成关系',
-  other: '其他关系',
+const GRAPH_RELATION_CLASS_LABEL_KEY: Record<string, MessageKey> = {
+  governance: 'graphPage.relationClass.governance',
+  event: 'graphPage.relationClass.event',
+  metric: 'graphPage.relationClass.metric',
+  impact: 'graphPage.relationClass.impact',
+  collaboration: 'graphPage.relationClass.collaboration',
+  dependency: 'graphPage.relationClass.dependency',
+  supply_chain: 'graphPage.relationClass.supplyChain',
+  distribution: 'graphPage.relationClass.distribution',
+  competition: 'graphPage.relationClass.competition',
+  operation: 'graphPage.relationClass.operation',
+  taxonomy: 'graphPage.relationClass.taxonomy',
+  targeting: 'graphPage.relationClass.targeting',
+  channel: 'graphPage.relationClass.channel',
+  strategy: 'graphPage.relationClass.strategy',
+  composition: 'graphPage.relationClass.composition',
+  other: 'graphPage.relationClass.other',
+}
+
+const GRAPH_CARD_FIELD_LABEL_KEY: Record<string, MessageKey> = {
+  type: 'graphPage.field.type',
+  id: 'graphPage.field.id',
+  title: 'graphPage.field.title',
+  name: 'graphPage.field.name',
+  state: 'graphPage.field.state',
+  platform: 'graphPage.field.platform',
+  game: 'graphPage.field.game',
+  policyType: 'graphPage.field.policyType',
+  status: 'graphPage.field.status',
+  date: 'graphPage.field.date',
 }
 
 const EDGE_WIDTH_BY_TIER: Record<EdgeLegendTier, number> = {
@@ -539,11 +554,11 @@ function relationLabel(token: string, labels?: Record<string, string>) {
   return raw
 }
 
-function edgeLegendLabel(edge: GraphEdgeItem, labels?: Record<string, string>) {
+function edgeLegendLabel(edge: GraphEdgeItem, labels: Record<string, string> | undefined, relationClassLabel: (token: string) => string) {
   const tier = edgeLegendTier(edge)
   if (tier === 'class') {
     const cls = edgeLegendRawValue(edge)
-    return RELATION_CLASS_LABEL[cls] || cls
+    return relationClassLabel(cls)
   }
   return relationLabel(edgeLegendRawValue(edge), labels)
 }
@@ -716,18 +731,18 @@ function rotateVecByQuat(v: { x: number; y: number; z: number }, q: QuaternionLi
   }
 }
 
-function cardFields(node: GraphNodeItem) {
+function cardFields(node: GraphNodeItem, labelFor: (field: keyof typeof GRAPH_CARD_FIELD_LABEL_KEY) => string) {
   const list: Array<[string, string]> = [
-    ['类型', String(node.type || '-')],
-    ['ID', String(node.id || '-')],
-    ['标题', String(node.title || '')],
-    ['名称', String(node.name || node.canonical_name || '')],
-    ['州', String(node.state || '')],
-    ['平台', String(node.platform || '')],
-    ['游戏', String(node.game || '')],
-    ['政策类型', String(node.policy_type || '')],
-    ['状态', String(node.status || '')],
-    ['日期', String(node.publish_date || node.effective_date || node.date || '')],
+    [labelFor('type'), String(node.type || '-')],
+    [labelFor('id'), String(node.id || '-')],
+    [labelFor('title'), String(node.title || '')],
+    [labelFor('name'), String(node.name || node.canonical_name || '')],
+    [labelFor('state'), String(node.state || '')],
+    [labelFor('platform'), String(node.platform || '')],
+    [labelFor('game'), String(node.game || '')],
+    [labelFor('policyType'), String(node.policy_type || '')],
+    [labelFor('status'), String(node.status || '')],
+    [labelFor('date'), String(node.publish_date || node.effective_date || node.date || '')],
   ]
   return list.filter(([, value]) => value && value !== '-')
 }
@@ -1167,8 +1182,22 @@ const SPECIAL_PREFIX_BY_KIND: Partial<Record<GraphKind, string>> = {
 }
 
 export default function GraphPage({ projectKey, variant, templateBuilder = false }: Props) {
+  const locale = useAppLocale()
+  const t = useCallback((key: MessageKey) => translate(locale, key), [locale])
   const graphKind = TYPE_TO_KIND[variant]
-  const defaultCuratedHandoffTopic = TYPE_LABEL[variant]
+  const graphVariantLabel = t(GRAPH_VARIANT_LABEL_KEY[variant])
+  const graphGroupLabel = useCallback((group: string) => {
+    const key = GRAPH_GROUP_LABEL_KEY[group]
+    return key ? t(key) : group
+  }, [t])
+  const edgeTierLabel = useCallback((tier: EdgeLegendTier) => t(GRAPH_EDGE_TIER_LABEL_KEY[tier]), [t])
+  const edgeStrokeLabel = useCallback((strokeKind: EdgeStrokeKind) => t(GRAPH_EDGE_STROKE_LABEL_KEY[strokeKind]), [t])
+  const relationClassLabel = useCallback((token: string) => {
+    const key = GRAPH_RELATION_CLASS_LABEL_KEY[token]
+    return key ? t(key) : token
+  }, [t])
+  const cardFieldLabel = useCallback((field: keyof typeof GRAPH_CARD_FIELD_LABEL_KEY) => t(GRAPH_CARD_FIELD_LABEL_KEY[field]), [t])
+  const defaultCuratedHandoffTopic = graphVariantLabel
   const defaultCuratedGraphId = useMemo(() => buildDefaultCuratedGraphId(projectKey, graphKind), [projectKey, graphKind])
   const chartRef = useRef<HTMLDivElement | null>(null)
   const forceChartRef = useRef<HTMLDivElement | null>(null)
@@ -1540,8 +1569,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       if (!grouped[g]) grouped[g] = []
       grouped[g].push(type)
     })
-    return Object.entries(grouped).sort(([a], [b]) => (GROUP_LABEL[a] || a).localeCompare((GROUP_LABEL[b] || b), 'zh-CN'))
-  }, [nodeTypes])
+    return Object.entries(grouped).sort(([a], [b]) => graphGroupLabel(a).localeCompare(graphGroupLabel(b), locale))
+  }, [nodeTypes, graphGroupLabel, locale])
 
   const defaultNodeTypesForCompute = useMemo(() => {
     if (!templateBuilder) return DEFAULT_NODE_TYPES_BY_KIND
@@ -1798,13 +1827,13 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         shapeKind,
         strokeKind,
         lineType: EDGE_LINE_TYPE_BY_STROKE[strokeKind],
-        label: `${edgeLegendLabel(info.sample, labels)} · ${EDGE_STROKE_LABEL[strokeKind]}`,
+        label: `${edgeLegendLabel(info.sample, labels, relationClassLabel)} · ${edgeStrokeLabel(strokeKind)}`,
         count: info.count,
         color: colorByKey[key] || '#7dd3fc',
       } satisfies EdgeLegendItem
     })
     return items.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'zh-CN'))
-  }, [topology.connectedEdges, graphConfig.data?.graph_relation_labels, paletteKey, colorDistribution])
+  }, [topology.connectedEdges, graphConfig.data?.graph_relation_labels, paletteKey, colorDistribution, relationClassLabel, edgeStrokeLabel])
 
   const edgeLegendItemByKey = useMemo(() => {
     return new Map(edgeLegendItems.map((item) => [item.key, item]))
@@ -2477,7 +2506,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       const chain = await createClueChain({
         project_key: projectKey,
         graph_type: graphKind,
-        title: `${TYPE_LABEL[variant]} · ${clueChainSeedNodes[0]?.label || 'Clue Chain'}`,
+        title: `${graphVariantLabel} · ${clueChainSeedNodes[0]?.label || t('graphPage.clueChain.defaultTitle')}`,
         seed_nodes: clueChainSeedNodes,
         selected_edges: selectedExportPayload.selected_edges,
         graph_context: {
@@ -2509,6 +2538,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     topology.visibleEdges.length,
     topology.visibleNodes.length,
     variant,
+    graphVariantLabel,
+    t,
   ])
 
   const handleRunClueChainExpand = useCallback(async (mode: 'source_library' | 'external_search') => {
@@ -3980,16 +4011,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
           formatter(params: { dataType?: string; data?: { value?: { type?: string; name?: string } | GraphEdgeItem } }) {
             if (params.dataType === 'node') {
               const node = (params.data?.value || {}) as { type?: string; name?: string }
-              return `类型: ${node.type || '-'}<br/>名称: ${node.name || '-'}`
+              return `${t('graphPage.field.type')}: ${node.type || '-'}<br/>${t('graphPage.field.name')}: ${node.name || '-'}`
             }
             if (params.dataType === 'edge') {
               const edge = (params.data?.value || {}) as GraphEdgeItem
               const classToken = String(edge.relation_class || '').trim().toLowerCase()
-              const classLabel = classToken ? (RELATION_CLASS_LABEL[classToken] || classToken) : ''
+              const classLabel = classToken ? relationClassLabel(classToken) : ''
               const predicate = String(edge.predicate || '').trim()
               const shapeKind = edgeShapeKind(edge)
               const strokeKind = EDGE_PROFILE_BY_SHAPE[shapeKind].strokeKind
-              return `关系: ${edge.type || 'REL'}${classLabel ? `<br/>大类: ${classLabel}` : ''}${predicate ? `<br/>谓词: ${predicate}` : ''}<br/>线型: ${EDGE_STROKE_LABEL[strokeKind]}`
+              return `${t('graphPage.tooltip.relation')}: ${edge.type || 'REL'}${classLabel ? `<br/>${t('graphPage.tooltip.class')}: ${classLabel}` : ''}${predicate ? `<br/>${t('graphPage.tooltip.predicate')}: ${predicate}` : ''}<br/>${t('graphPage.tooltip.stroke')}: ${edgeStrokeLabel(strokeKind)}`
             }
             return ''
           },
@@ -4013,7 +4044,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       nodePositionRef.current = mergedPositions
     }
-  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, selectionEnabled, projectionRotateX, projectionRotateY, projectionRotateZ, synced3DRepulsionPercent, physicsFrame, useLegacyProjection3D, useForceGraph3D])
+  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, selectionEnabled, projectionRotateX, projectionRotateY, projectionRotateZ, synced3DRepulsionPercent, physicsFrame, useLegacyProjection3D, useForceGraph3D, t, relationClassLabel, edgeStrokeLabel])
 
   const onControlResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (isCompactViewport) return
@@ -4651,6 +4682,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       >
         <ForceGraphRenderBoundary
           resetKey={forceGraphRenderBoundaryKey}
+          fallbackErrorMessage={t('graphPage.error.renderFailed')}
           onError={handleForceGraphRenderError}
         >
           <ForceGraph3DComp
@@ -4751,6 +4783,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     handleForceGraphRenderError,
     applyForceObjectVisualState,
     selectedNodeKeysRef,
+    t,
   ])
 
   const detachProjectionControls = renderMode === 'projection3d' && activeRendererCapabilities.supportsProjectionControls
@@ -5677,7 +5710,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       key={group}
                       type="button"
                       className={`gv2-legend-node ${active ? 'is-active' : ''}`}
-                      title={GROUP_LABEL[group] || group}
+                      title={graphGroupLabel(group)}
                       onClick={(e) => {
                         if (e.detail > 1) return
                         setExpandedGroup((prev) => (prev === group ? null : group))
@@ -5693,7 +5726,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       }}
                     >
                       <NodeLegendShape nodeType={types[0]} color={groupColor} />
-                      <span className="gv2-legend-node-label">{GROUP_LABEL[group] || group}</span>
+                      <span className="gv2-legend-node-label">{graphGroupLabel(group)}</span>
                     </button>
                   )
                 })}
@@ -5718,7 +5751,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               ) : null}
               {edgeLegendGroups.length ? (
                 <div className="gv2-legend-edge-wrap">
-                  <div className="gv2-legend-section-title">边图例</div>
+                  <div className="gv2-legend-section-title">{t('graphPage.legend.edge')}</div>
                   <div className="gv2-legend-groups gv2-edge-legend-groups">
                     {edgeLegendGroups.map(([tier, items]) => {
                       const sample = items[0]
@@ -5728,7 +5761,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           key={tier}
                           type="button"
                           className={`gv2-legend-node gv2-edge-legend-node ${active ? 'is-active' : ''}`}
-                          title={EDGE_TIER_LABEL[tier]}
+                          title={edgeTierLabel(tier)}
                           onClick={(e) => {
                             if (e.detail > 1) return
                             setExpandedEdgeGroup((prev) => (prev === tier ? null : tier))
@@ -5749,7 +5782,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           >
                             <i />
                           </span>
-                          <span className="gv2-legend-node-label">{EDGE_TIER_LABEL[tier]}</span>
+                          <span className="gv2-legend-node-label">{edgeTierLabel(tier)}</span>
                         </button>
                       )
                     })}
@@ -5782,11 +5815,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               ) : null}
               {showSymbolDebug ? (
                 <div className="gv2-legend-debug">
-                  <div className="gv2-legend-section-title">符号调试</div>
+                  <div className="gv2-legend-section-title">{t('graphPage.legend.symbolDebug')}</div>
                   <div className="gv2-legend-debug-meta">
-                    <span>可见节点 {symbolDebug.total}</span>
-                    <span>类型映射 {symbolDebug.unique}</span>
-                    <span>回退circle {symbolDebug.forcedCircle}</span>
+                    <span>{t('graphPage.legend.visibleNodes')} {symbolDebug.total}</span>
+                    <span>{t('graphPage.legend.typeMappings')} {symbolDebug.unique}</span>
+                    <span>{t('graphPage.legend.fallbackCircle')} {symbolDebug.forcedCircle}</span>
                   </div>
                   <div className="gv2-legend-debug-list">
                     {symbolDebug.items.map((item) => (
@@ -5959,14 +5992,14 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     setExpandedElementLabel(null)
                     setSelectedNode(null)
                   }}
-                  aria-label="关闭"
+                  aria-label={t('graphPage.action.close')}
                 >
                   ×
                 </button>
               </div>
               <div className="gv2-node-card-body">
                   <div className="gv2-node-grid">
-                    {cardFields(selectedNode).map(([k, v]) => (
+                    {cardFields(selectedNode, cardFieldLabel).map(([k, v]) => (
                       <div key={`${k}-${v}`} className="gv2-node-grid-item">
                         <label>{k}</label>
                         <strong>{v}</strong>
@@ -6155,12 +6188,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
           ) : null}
           </div>
           <div className="gv2-macro-stats">
-            <div className="gv2-macro-stat"><span>图谱</span><strong>{TYPE_LABEL[variant]}</strong></div>
-            <div className="gv2-macro-stat"><span>节点总数</span><strong>{stats.nodes}</strong></div>
-            <div className="gv2-macro-stat"><span>边总数</span><strong>{stats.edges}</strong></div>
-            <div className="gv2-macro-stat"><span>节点类型</span><strong>{stats.typeCount}</strong></div>
-            <div className="gv2-macro-stat"><span>已选节点</span><strong>{selectedNodeKeys.size}</strong></div>
-            <div className="gv2-macro-stat"><span>当前可见</span><strong>{topology.visibleNodes.length} / {topology.visibleEdges.length}</strong></div>
+            <div className="gv2-macro-stat"><span>{t('graphPage.macro.graph')}</span><strong>{graphVariantLabel}</strong></div>
+            <div className="gv2-macro-stat"><span>{t('graphPage.macro.totalNodes')}</span><strong>{stats.nodes}</strong></div>
+            <div className="gv2-macro-stat"><span>{t('graphPage.macro.totalEdges')}</span><strong>{stats.edges}</strong></div>
+            <div className="gv2-macro-stat"><span>{t('graphPage.macro.nodeTypes')}</span><strong>{stats.typeCount}</strong></div>
+            <div className="gv2-macro-stat"><span>{t('graphPage.macro.selectedNodes')}</span><strong>{selectedNodeKeys.size}</strong></div>
+            <div className="gv2-macro-stat"><span>{t('graphPage.macro.visibleNow')}</span><strong>{topology.visibleNodes.length} / {topology.visibleEdges.length}</strong></div>
           </div>
         </div>
       </section>

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from typing import Any
+from urllib.parse import urlsplit
 
 from ...http.client import default_http_client
 from ...resource_pool.article_extraction_service import extract_article_content_from_html
@@ -19,6 +21,25 @@ _RUNNER_BY_PROVIDER_KEY = {
     "external_project.sitemap": lambda *, manifest, params: _run_sitemap_manifest(manifest=manifest, params=params),
     "external_project.http_api": lambda *, manifest, params: _run_http_api_manifest(manifest=manifest, params=params),
     "external_project.article_extractor": lambda *, manifest, params: _run_article_extractor_manifest(manifest=manifest, params=params),
+    "external_project.python_library": lambda *, manifest, params: _run_python_library_manifest(manifest=manifest, params=params),
+    "external_project.cli_or_container": lambda *, manifest, params: _run_cli_or_container_manifest(manifest=manifest, params=params),
+}
+
+_PYTHON_LIBRARY_RUNNERS = {
+    "source_library.fixture_records.v1": lambda *, manifest, params, runtime, runtime_config: _run_fixture_records(
+        manifest=manifest,
+        runtime=runtime,
+        runtime_config=runtime_config,
+        source="python_library",
+    ),
+}
+
+_CLI_OR_CONTAINER_RUNNERS = {
+    "source_library.fixture_json.v1": lambda *, manifest, params, runtime, runtime_config: _run_fixture_json_output(
+        manifest=manifest,
+        runtime=runtime,
+        runtime_config=runtime_config,
+    ),
 }
 
 
@@ -285,6 +306,100 @@ def _run_article_extractor_manifest(*, manifest: dict[str, Any], params: dict[st
     )
 
 
+def _run_python_library_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    runtime = _resolve_runtime_inputs(manifest=manifest, params=params)
+    runtime_config = manifest.get("runtime_config") if isinstance(manifest.get("runtime_config"), dict) else {}
+    runner_id = _resolve_registered_runner_id(
+        manifest=manifest,
+        runtime_config=runtime_config,
+        allowed_scheme="python-library",
+    )
+    runner = _PYTHON_LIBRARY_RUNNERS.get(runner_id)
+    if runner is None:
+        raise ValueError(f"unsupported python_library runner_id: {runner_id or '<missing>'}")
+    return runner(manifest=manifest, params=params, runtime=runtime, runtime_config=runtime_config)
+
+
+def _run_cli_or_container_manifest(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    runtime = _resolve_runtime_inputs(manifest=manifest, params=params)
+    runtime_config = manifest.get("runtime_config") if isinstance(manifest.get("runtime_config"), dict) else {}
+    runner_id = _resolve_registered_runner_id(
+        manifest=manifest,
+        runtime_config=runtime_config,
+        allowed_scheme=("cli", "container"),
+    )
+    runner = _CLI_OR_CONTAINER_RUNNERS.get(runner_id)
+    if runner is None:
+        raise ValueError(f"unsupported cli_or_container runner_id: {runner_id or '<missing>'}")
+    return runner(manifest=manifest, params=params, runtime=runtime, runtime_config=runtime_config)
+
+
+def _run_fixture_records(
+    *,
+    manifest: dict[str, Any],
+    runtime: dict[str, Any],
+    runtime_config: dict[str, Any],
+    source: str,
+) -> dict[str, Any]:
+    rows = runtime_config.get("fixture_records") if isinstance(runtime_config.get("fixture_records"), list) else []
+    record_mapping = runtime_config.get("record_mapping") if isinstance(runtime_config.get("record_mapping"), dict) else {}
+    records = _build_mapped_records(
+        rows=rows,
+        manifest=manifest,
+        record_mapping=record_mapping,
+        max_items=runtime["max_items"],
+    )
+    return _build_probe_result(
+        manifest=manifest,
+        runtime=runtime,
+        records=records,
+        errors=[] if records else [{"error": "registered python_library runner returned no records"}],
+        diagnostics={
+            "runner_contract": "external_project.python_library_runner.v1",
+            "runner_id": _resolve_registered_runner_id(
+                manifest=manifest,
+                runtime_config=runtime_config,
+                allowed_scheme="python-library",
+            ),
+            "runner_source": source,
+            "records_total": len(rows),
+        },
+    )
+
+
+def _run_fixture_json_output(
+    *,
+    manifest: dict[str, Any],
+    runtime: dict[str, Any],
+    runtime_config: dict[str, Any],
+) -> dict[str, Any]:
+    payload = _load_fixture_output_json(runtime_config.get("fixture_output_json"))
+    rows = _extract_http_api_rows(payload, records_path=runtime_config.get("records_path"))
+    record_mapping = runtime_config.get("record_mapping") if isinstance(runtime_config.get("record_mapping"), dict) else {}
+    records = _build_mapped_records(
+        rows=rows,
+        manifest=manifest,
+        record_mapping=record_mapping,
+        max_items=runtime["max_items"],
+    )
+    return _build_probe_result(
+        manifest=manifest,
+        runtime=runtime,
+        records=records,
+        errors=[] if records else [{"error": "registered cli_or_container runner returned no records"}],
+        diagnostics={
+            "runner_contract": "external_project.cli_or_container_runner.v1",
+            "runner_id": _resolve_registered_runner_id(
+                manifest=manifest,
+                runtime_config=runtime_config,
+                allowed_scheme=("cli", "container"),
+            ),
+            "execution_policy": "predeclared_wrapper_no_arbitrary_shell",
+            "records_total": len(rows),
+        },
+    )
+
+
 def _resolve_runtime_inputs(*, manifest: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     accepted = manifest.get("accepted_inputs") if isinstance(manifest.get("accepted_inputs"), dict) else {}
     limits = manifest.get("limits") if isinstance(manifest.get("limits"), dict) else {}
@@ -431,6 +546,57 @@ def _build_http_api_record(
         artifact_url=artifact_url or None,
         index=index,
     )
+
+
+def _build_mapped_records(
+    *,
+    rows: list[Any],
+    manifest: dict[str, Any],
+    record_mapping: dict[str, str],
+    max_items: int,
+) -> list[dict[str, Any]]:
+    records = []
+    for index, row in enumerate(rows):
+        if len(records) >= max_items:
+            break
+        normalized = _build_http_api_record(
+            row=row,
+            manifest=manifest,
+            record_mapping=record_mapping,
+            index=index,
+        )
+        if normalized:
+            records.append(normalized)
+    return records
+
+
+def _resolve_registered_runner_id(
+    *,
+    manifest: dict[str, Any],
+    runtime_config: dict[str, Any],
+    allowed_scheme: str | tuple[str, ...],
+) -> str:
+    configured = str(runtime_config.get("runner_id") or "").strip()
+    if configured:
+        return configured
+    runner_ref = str(manifest.get("runner_ref") or "").strip()
+    parts = urlsplit(runner_ref)
+    allowed_schemes = {allowed_scheme} if isinstance(allowed_scheme, str) else set(allowed_scheme)
+    if parts.scheme not in allowed_schemes:
+        raise ValueError(f"runner_ref scheme must be one of: {', '.join(sorted(allowed_schemes))}")
+    runner_id = "/".join(part for part in [parts.netloc, parts.path.lstrip("/")] if part).strip()
+    return runner_id
+
+
+def _load_fixture_output_json(value: Any) -> Any:
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return {}
+        return json.loads(text)
+    if isinstance(value, (dict, list)):
+        return value
+    return {}
 
 
 def _build_http_api_params(*, runtime: dict[str, Any], runtime_config: dict[str, Any]) -> dict[str, Any]:

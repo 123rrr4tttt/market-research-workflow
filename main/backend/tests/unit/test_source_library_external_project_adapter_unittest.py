@@ -37,6 +37,12 @@ def _build_manifest(*, execution_mode: str = "rss_feed") -> dict[str, object]:
     }
     if execution_mode == "http_api":
         runner_ref = "https://api.example.com/search"
+    elif execution_mode == "python_library":
+        runner_ref = "python-library://source_library.fixture_records.v1"
+        source_kind = "python_library_wrapper"
+    elif execution_mode == "cli_or_container":
+        runner_ref = "cli://source_library.fixture_json.v1"
+        source_kind = "cli_or_container_wrapper"
     elif execution_mode == "article_extractor":
         runner_ref = "article-extractor://trafilatura-or-heuristic"
         source_kind = "article_extraction_stack"
@@ -83,6 +89,31 @@ def _build_manifest(*, execution_mode: str = "rss_feed") -> dict[str, object]:
                 "title": "title",
                 "summary": "summary",
                 "artifact_url": "pdf_url",
+            },
+        }
+    elif execution_mode == "python_library":
+        manifest["runtime_config"] = {
+            "runner_id": "source_library.fixture_records.v1",
+            "fixture_records": [
+                {
+                    "url": "https://example.com/python/one",
+                    "title": "Python Runner Record",
+                    "summary": "Materialized by a registered Python runner.",
+                }
+            ],
+        }
+    elif execution_mode == "cli_or_container":
+        manifest["runtime_config"] = {
+            "runner_id": "source_library.fixture_json.v1",
+            "records_path": "items",
+            "fixture_output_json": {
+                "items": [
+                    {
+                        "url": "https://example.com/cli/one",
+                        "title": "CLI Runner Record",
+                        "summary": "Materialized by a registered CLI/container wrapper.",
+                    }
+                ]
             },
         }
     elif execution_mode == "article_extractor":
@@ -159,6 +190,64 @@ class ExternalProjectAdapterUnitTestCase(unittest.TestCase):
             result["records"][0]["record_meta"]["artifact_ref"]["source_locator"],
             "https://example.com/posts/api-1.pdf",
         )
+
+    def test_python_library_manifest_runs_registered_fixture_runner(self) -> None:
+        params = {
+            "_source_library_item": {
+                "item_key": "external.demo.item",
+                "name": "External Demo Item",
+                "extra": {"external_project_manifest": _build_manifest(execution_mode="python_library")},
+            },
+            "query_terms": ["robotics"],
+            "max_items": 1,
+        }
+
+        result = handle_external_project_manifest(params, project_key="demo_proj")
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["execution_mode"], "python_library")
+        self.assertEqual(result["provider_binding"]["provider_key"], "external_project.python_library")
+        self.assertEqual(result["records"][0]["url"], "https://example.com/python/one")
+        self.assertEqual(
+            result["runtime_diagnostics"]["diagnostics"]["runner_contract"],
+            "external_project.python_library_runner.v1",
+        )
+
+    def test_cli_or_container_manifest_runs_predeclared_fixture_wrapper(self) -> None:
+        params = {
+            "_source_library_item": {
+                "item_key": "external.demo.item",
+                "name": "External Demo Item",
+                "extra": {"external_project_manifest": _build_manifest(execution_mode="cli_or_container")},
+            },
+            "query_terms": ["robotics"],
+            "max_items": 1,
+        }
+
+        result = handle_external_project_manifest(params, project_key="demo_proj")
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["execution_mode"], "cli_or_container")
+        self.assertEqual(result["provider_binding"]["provider_key"], "external_project.cli_or_container")
+        self.assertEqual(result["records"][0]["url"], "https://example.com/cli/one")
+        self.assertEqual(
+            result["runtime_diagnostics"]["diagnostics"]["execution_policy"],
+            "predeclared_wrapper_no_arbitrary_shell",
+        )
+
+    def test_python_library_manifest_rejects_unknown_runner_id(self) -> None:
+        manifest = _build_manifest(execution_mode="python_library")
+        manifest["runtime_config"]["runner_id"] = "unknown.runner"
+        params = {
+            "_source_library_item": {
+                "item_key": "external.demo.item",
+                "name": "External Demo Item",
+                "extra": {"external_project_manifest": manifest},
+            }
+        }
+
+        with self.assertRaisesRegex(ValueError, "unsupported python_library runner_id"):
+            handle_external_project_manifest(params, project_key="demo_proj")
 
     def test_article_extractor_manifest_materializes_body_and_diagnostics(self) -> None:
         params = {

@@ -31,18 +31,20 @@ from app.services.source_library.item_plan import build_item_definition_view, bu
 
 
 CONTRACT_VERSION = "source-library-ingest-at-ext-current-contract.v1"
-SUPPORTED_NARROW_MODES = ("rss_feed", "sitemap", "http_api", "article_extractor")
+SUPPORTED_NARROW_MODES = (
+    "rss_feed",
+    "sitemap",
+    "http_api",
+    "article_extractor",
+    "python_library",
+    "cli_or_container",
+)
 
 REMAINING_GAPS = [
     {
         "code": "live_article_extraction_stack_replay_not_run",
         "at_ext": ["AT-EXT-05", "AT-EXT-06", "AT-EXT-08", "AT-EXT-09"],
         "reason": "Fixture-backed article-body extraction runner and fallback states are proven, but no live Fundus/news-please style third-party replay is claimed.",
-    },
-    {
-        "code": "python_library_cli_container_runners_not_enabled",
-        "at_ext": ["AT-EXT-05", "AT-EXT-08", "AT-EXT-09"],
-        "reason": "The provider registry intentionally exposes rss_feed/sitemap/http_api only; python_library and cli_or_container remain outside this narrow v1 gate.",
     },
     {
         "code": "live_external_project_replay_not_run",
@@ -110,6 +112,41 @@ def _manifest(*, execution_mode: str = "http_api") -> dict[str, Any]:
         accepted_inputs["date_range"] = False
         runtime_config = {
             "parser": "heuristic.main_content.v1",
+        }
+    elif execution_mode == "python_library":
+        runner_ref = "python-library://source_library.fixture_records.v1"
+        source_kind = "python_library_wrapper"
+        capabilities["pdf_artifact"] = False
+        accepted_inputs["domains"] = False
+        accepted_inputs["date_range"] = False
+        runtime_config = {
+            "runner_id": "source_library.fixture_records.v1",
+            "fixture_records": [
+                {
+                    "url": "https://example.invalid/python-library/1",
+                    "title": "Python Library Runner Record",
+                    "summary": "Materialized through a registered Python library wrapper.",
+                }
+            ],
+        }
+    elif execution_mode == "cli_or_container":
+        runner_ref = "cli://source_library.fixture_json.v1"
+        source_kind = "cli_or_container_wrapper"
+        capabilities["pdf_artifact"] = False
+        accepted_inputs["domains"] = False
+        accepted_inputs["date_range"] = False
+        runtime_config = {
+            "runner_id": "source_library.fixture_json.v1",
+            "records_path": "items",
+            "fixture_output_json": {
+                "items": [
+                    {
+                        "url": "https://example.invalid/cli-container/1",
+                        "title": "CLI Container Runner Record",
+                        "summary": "Materialized through a predeclared CLI/container wrapper.",
+                    }
+                ]
+            },
         }
 
     payload: dict[str, Any] = {
@@ -372,6 +409,30 @@ def _prove_article_extraction_runner_contract() -> dict[str, Any]:
     }
 
 
+def _prove_python_cli_container_runner_contract() -> dict[str, Any]:
+    results: dict[str, Any] = {}
+    for mode in ("python_library", "cli_or_container"):
+        item = _external_item(manifest=_manifest(execution_mode=mode))
+        result = handle_external_project_manifest(
+            {
+                "_source_library_item": item,
+                "query_terms": ["fintech"],
+                "max_items": 1,
+            },
+            project_key="demo_proj",
+        )
+        diagnostics = result["runtime_diagnostics"]["diagnostics"]
+        results[mode] = {
+            "runner_status": result["status"],
+            "provider_key": result["provider_binding"]["provider_key"],
+            "record_count": len(result["records"]),
+            "runner_contract": diagnostics.get("runner_contract"),
+            "runner_id": diagnostics.get("runner_id"),
+            "execution_policy": diagnostics.get("execution_policy"),
+        }
+    return results
+
+
 def build_contract() -> dict[str, Any]:
     failures: list[str] = []
     evidence: dict[str, Any] = {}
@@ -383,6 +444,7 @@ def build_contract() -> dict[str, Any]:
         "item_surface": _prove_item_surface_contract,
         "runner_frontdoor": _prove_runner_and_frontdoor_contract,
         "article_extraction_runner": _prove_article_extraction_runner_contract,
+        "python_cli_container_runner": _prove_python_cli_container_runner_contract,
     }
     for name, check in checks.items():
         try:
@@ -402,13 +464,13 @@ def build_contract() -> dict[str, Any]:
         at_ext_status,
         "AT-EXT-02",
         "closed_narrow_v1",
-        ["external_item.manifest.v1 is normalized for rss_feed, sitemap, http_api, and article_extractor"],
+        ["external_item.manifest.v1 is normalized for rss_feed, sitemap, http_api, article_extractor, python_library, and cli_or_container"],
     )
     _record_step(
         at_ext_status,
         "AT-EXT-03",
         "closed_narrow_v1",
-        ["provider registry exposes bounded rss_feed/sitemap/http_api/article_extractor adapter bindings"],
+        ["provider registry exposes bounded rss_feed/sitemap/http_api/article_extractor/python_library/cli_or_container adapter bindings"],
     )
     _record_step(
         at_ext_status,
@@ -419,8 +481,8 @@ def build_contract() -> dict[str, Any]:
     _record_step(
         at_ext_status,
         "AT-EXT-05",
-        "partial_narrow_v1",
-        ["bounded provider runner executes http_api/article_extractor and has registered rss_feed/sitemap runners"],
+        "closed_repo_local_v1",
+        ["bounded provider runner executes http_api/article_extractor/python_library/cli_or_container and has registered rss_feed/sitemap runners"],
     )
     _record_step(
         at_ext_status,
@@ -437,8 +499,8 @@ def build_contract() -> dict[str, Any]:
     _record_step(
         at_ext_status,
         "AT-EXT-08",
-        "partial_narrow_v1",
-        ["registered manifest-backed items are runnable through the external_project adapter with deterministic patched runtime evidence"],
+        "closed_repo_local_v1",
+        ["registered manifest-backed items are runnable through the external_project adapter with deterministic patched runtime evidence for all narrow v1 modes"],
     )
     _record_step(
         at_ext_status,
@@ -468,6 +530,15 @@ def build_contract() -> dict[str, Any]:
         failures.append("article_extraction_runner: frontdoor document candidate missing")
     if article_runner.get("frontdoor_run_extraction") is not False:
         failures.append("article_extraction_runner: frontdoor structured extraction should remain disabled")
+    python_cli = evidence.get("python_cli_container_runner", {})
+    if python_cli.get("python_library", {}).get("provider_key") != "external_project.python_library":
+        failures.append("python_cli_container_runner: python_library provider binding missing")
+    if python_cli.get("cli_or_container", {}).get("provider_key") != "external_project.cli_or_container":
+        failures.append("python_cli_container_runner: cli_or_container provider binding missing")
+    if python_cli.get("python_library", {}).get("runner_status") != "ok":
+        failures.append("python_cli_container_runner: python_library runner did not return ok")
+    if python_cli.get("cli_or_container", {}).get("runner_status") != "ok":
+        failures.append("python_cli_container_runner: cli_or_container runner did not return ok")
 
     return {
         "contract_version": CONTRACT_VERSION,

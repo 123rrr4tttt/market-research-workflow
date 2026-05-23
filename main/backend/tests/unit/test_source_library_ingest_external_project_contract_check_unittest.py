@@ -43,13 +43,19 @@ class SourceLibraryIngestExternalProjectContractCheckTest(unittest.TestCase):
         at_ext_status = contract["at_ext_status"]
         self.assertEqual(at_ext_status["AT-EXT-01"]["status"], "closed_narrow_v1")
         self.assertEqual(at_ext_status["AT-EXT-04"]["status"], "closed_narrow_v1")
-        self.assertEqual(at_ext_status["AT-EXT-05"]["status"], "partial_narrow_v1")
-        self.assertEqual(at_ext_status["AT-EXT-08"]["status"], "partial_narrow_v1")
+        self.assertEqual(at_ext_status["AT-EXT-05"]["status"], "closed_repo_local_v1")
+        self.assertEqual(at_ext_status["AT-EXT-08"]["status"], "closed_repo_local_v1")
         self.assertEqual(at_ext_status["AT-EXT-09"]["status"], "partial_pending_external_replay")
 
         manifest_registry = contract["evidence"]["manifest_registry"]
-        self.assertEqual(manifest_registry["supported_modes"], ["article_extractor", "http_api", "rss_feed", "sitemap"])
-        self.assertEqual(manifest_registry["provider_registry_modes"], ["article_extractor", "http_api", "rss_feed", "sitemap"])
+        self.assertEqual(
+            manifest_registry["supported_modes"],
+            ["article_extractor", "cli_or_container", "http_api", "python_library", "rss_feed", "sitemap"],
+        )
+        self.assertEqual(
+            manifest_registry["provider_registry_modes"],
+            ["article_extractor", "cli_or_container", "http_api", "python_library", "rss_feed", "sitemap"],
+        )
         self.assertTrue(manifest_registry["http_api_supports_pdf_artifact"])
 
         runner_frontdoor = contract["evidence"]["runner_frontdoor"]
@@ -66,12 +72,17 @@ class SourceLibraryIngestExternalProjectContractCheckTest(unittest.TestCase):
         self.assertTrue(article_runner["frontdoor_has_document_candidate"])
         self.assertFalse(article_runner["frontdoor_run_extraction"])
 
+        python_cli = contract["evidence"]["python_cli_container_runner"]
+        self.assertEqual(python_cli["python_library"]["provider_key"], "external_project.python_library")
+        self.assertEqual(python_cli["python_library"]["runner_status"], "ok")
+        self.assertEqual(python_cli["cli_or_container"]["provider_key"], "external_project.cli_or_container")
+        self.assertEqual(python_cli["cli_or_container"]["execution_policy"], "predeclared_wrapper_no_arbitrary_shell")
+
         self.assertEqual(
             sorted(gap["code"] for gap in contract["remaining_gaps"]),
             [
                 "live_article_extraction_stack_replay_not_run",
                 "live_external_project_replay_not_run",
-                "python_library_cli_container_runners_not_enabled",
             ],
         )
 

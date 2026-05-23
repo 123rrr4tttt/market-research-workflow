@@ -1,7 +1,7 @@
 # Wave6-6 Status Evidence and Minimal Plan (2026-05-22)
 
 > Scope: typed knowledge organization status review for
-> `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/`.
+> `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/`.
 > Shared total indexes are intentionally untouched in this wave.
 
 ## 1. Status Summary
@@ -87,5 +87,5 @@ Run this targeted gate after contract edits:
 Run this formatting gate for this wave:
 
 ```bash
-git diff --check -- main/backend/app/services/typed_knowledge main/backend/tests/unit/test_typed_knowledge_contracts_unittest.py development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization
+git diff --check -- main/backend/app/services/typed_knowledge main/backend/tests/unit/test_typed_knowledge_contracts_unittest.py development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization
 ```

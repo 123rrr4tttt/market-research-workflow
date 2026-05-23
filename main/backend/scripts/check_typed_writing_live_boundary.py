@@ -42,32 +42,32 @@ CLOSURE_POSITION = "typed_knowledge_public_route_contract_available_live_db_ui_n
 
 EVIDENCE_DOCS = (
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-07-typed-knowledge-organization/"
         "04_wave10-worker7-writing-context-envelope-evidence-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-07-typed-knowledge-organization/"
         "05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-07-writing-workbench-evolution/"
         "05_wave10-worker7-typed-knowledge-context-consumer-evidence-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-07-writing-workbench-evolution/"
         "06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-07-typed-knowledge-organization/"
         "06_wave15-typed-writing-live-boundary-2026-05-22.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
         "2026-03-07-writing-workbench-evolution/"
         "07_wave15-typed-writing-live-boundary-2026-05-22.md"
     ),

@@ -1,0 +1,313 @@
+{
+  "canary_repo_local_gate_sufficient": true,
+  "contract_version": "ingest.canary_closure_readiness.v1",
+  "external_blocked_migration_candidates": [],
+  "metrics_24h_artifact_check": {
+    "contract_version": "ingest.canary_24h_metrics_artifact.v1",
+    "runtime_results": [
+      {
+        "evidence": {
+          "record_path": "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/ingest-canary-24h-metrics-34wim89x/ingest_canary_24h_metrics_artifact.json",
+          "snapshot_digest": "d2e88705f9a57229a6b0c325160adbe1fd2e0f2d3dff4a187ee4324553c27ad9"
+        },
+        "name": "write_read_validate_24h_metrics_artifact",
+        "passed": true
+      },
+      {
+        "evidence": {
+          "inserted_valid_ratio": 1.0,
+          "rejection_rate": 0.25,
+          "window_hours": 24
+        },
+        "name": "24h_metric_shape_present",
+        "passed": true
+      },
+      {
+        "evidence": {
+          "closure_claim": false,
+          "live_production_canary_claim": false,
+          "metric_24h_live_readback_claim": false
+        },
+        "name": "live_24h_and_closure_claims_stay_open",
+        "passed": true
+      }
+    ],
+    "status": "passed",
+    "token_results_passed": 4,
+    "token_results_total": 4
+  },
+  "metrics_readback_check": {
+    "contract_version": "ingest.canary_metrics_readback.v1",
+    "runtime_results": [
+      {
+        "evidence": {
+          "record_path": "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/ingest-canary-metrics-readback-ngphai3w/snapshot.json",
+          "snapshot_digest": "4e985fe097e3b697d314405719f5de227ac955f2641e17c923a6997ea2a063dc"
+        },
+        "name": "write_read_validate_deterministic_metrics_snapshot",
+        "passed": true
+      },
+      {
+        "evidence": {
+          "closure_claim": false,
+          "live_production_canary_claim": false,
+          "metric_24h_live_readback_claim": false
+        },
+        "name": "live_canary_and_24h_readback_claims_stay_open",
+        "passed": true
+      }
+    ],
+    "status": "passed",
+    "token_results_passed": 5,
+    "token_results_total": 5
+  },
+  "scope": [
+    "2026-03-02-ingest-platformization-assessment",
+    "2026-03-02-meaningful-ingest-guardrails-plan",
+    "2026-03-02-single-url-first-ingest-allocation-plan"
+  ],
+  "status": "passed",
+  "topics": [
+    {
+      "archive_external_blocked_directory_exists": false,
+      "canary_repo_local_gate_sufficient": true,
+      "current_dev_directory_exists": true,
+      "current_dev_index_row": "- `[partial][wave8_verified][wave12_verified][wave14_checked][wave17_verified][wave19_verified][wave27_checked][retained_partial][doc_aligned]` [2026-03-02 Ingest Platformization Assessment](./2026-03-02-ingest-platformization-assessment/01_ingest-platformization-assessment-and-roadmap-2026-03-02.md) - ingest/frontdoor evidence: [ingest-frontdoor-closure/2026-05-22](../../automation-runs/ingest-frontdoor-closure/2026-05-22/README.md); fetch router gap closure: [02_wave8-2-fetch-router-gap-closure-2026-05-22.md](./2026-03-02-ingest-platformization-assessment/02_wave8-2-fetch-router-gap-closure-2026-05-22.md); Wave12 single-url canary handoff contract: [03_wave12-ingest-canary-handoff-evidence-2026-05-22.md](./2026-03-02-ingest-platformization-assessment/03_wave12-ingest-canary-handoff-evidence-2026-05-22.md); Wave14 canary metrics readiness; Wave17 deterministic canary metrics readback: [04_wave14-ingest-canary-metrics-readiness-2026-05-22.md](./2026-03-02-ingest-platformization-assessment/04_wave14-ingest-canary-metrics-readiness-2026-05-22.md), [05_wave17-ingest-canary-metrics-readback-2026-05-22.md](./2026-03-02-ingest-platformization-assessment/05_wave17-ingest-canary-metrics-readback-2026-05-22.md); Wave19 24h canary metrics artifact gate landed without claiming live 24h closure: [06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md](./2026-03-02-ingest-platformization-assessment/06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md); Wave27 retained it in CURRENT_DEV because repo-local platformization blockers remain: [08_wave27-ingest-canary-closure-readiness-2026-05-23.md](./2026-03-02-ingest-platformization-assessment/08_wave27-ingest-canary-closure-readiness-2026-05-23.md)",
+      "current_dev_index_row_present": true,
+      "documentation_checks": [
+        {
+          "exists": true,
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/07_wave22-external-blocked-migration-decision-2026-05-22.md",
+          "tokens_checked": [
+            "wave22_retain_current_dev_repo_local_blockers_open",
+            "Wave17",
+            "Wave19",
+            "live_production_canary_claim=false",
+            "metric_24h_live_readback_claim=false",
+            "closure_claim=false",
+            "Remaining Boundary"
+          ]
+        },
+        {
+          "exists": true,
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/05_wave17-ingest-canary-metrics-readback-2026-05-22.md",
+          "tokens_checked": [
+            "contract_version: ingest.canary_metrics_readback.v1",
+            "deterministic_readback: true",
+            "live_production_canary_claim: false",
+            "metric_24h_live_readback_claim: false",
+            "closure_claim: false"
+          ]
+        },
+        {
+          "exists": true,
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/06_wave19-ingest-canary-24h-metrics-artifact-2026-05-22.md",
+          "tokens_checked": [
+            "contract_version: ingest.canary_24h_metrics_artifact.v1",
+            "deterministic_fixture: true",
+            "window_hours: 24",
+            "live_production_canary_claim: false",
+            "metric_24h_live_readback_claim: false",
+            "closure_claim: false"
+          ]
+        }
+      ],
+      "external_blocked_migration_ready": false,
+      "external_live_conditions": [
+        "demo_proj live canary execution against configured services",
+        "production 24h rejection-rate readback",
+        "production 24h inserted-valid ratio readback",
+        "operations approval before all-project strict-gate promotion"
+      ],
+      "recommended_location": "CURRENT_DEV",
+      "repo_local_blockers": [
+        {
+          "code": "broader_fetch_router_decomposition_open",
+          "present_in_decision_doc": true,
+          "source_token": "broader fetch-router decomposition"
+        },
+        {
+          "code": "shared_gate_service_rule_source_consolidation_open",
+          "present_in_decision_doc": true,
+          "source_token": "shared GateService/rule-source consolidation"
+        },
+        {
+          "code": "default_propagation_drift_control_open",
+          "present_in_decision_doc": true,
+          "source_token": "default propagation drift control"
+        },
+        {
+          "code": "replay_slo_observability_open",
+          "present_in_decision_doc": true,
+          "source_token": "replay/SLO observability"
+        },
+        {
+          "code": "frontend_ops_entry_closure_open",
+          "present_in_decision_doc": true,
+          "source_token": "frontend/ops entry closure"
+        }
+      ],
+      "repo_local_blockers_open": true,
+      "slug": "2026-03-02-ingest-platformization-assessment",
+      "status": "retained_partial_repo_local_blockers_open",
+      "title": "Ingest Platformization Assessment"
+    },
+    {
+      "archive_external_blocked_directory_exists": false,
+      "canary_repo_local_gate_sufficient": true,
+      "current_dev_directory_exists": true,
+      "current_dev_index_row": "- `[partial][wave9_verified][wave11_verified][wave12_verified][wave14_checked][wave17_verified][wave19_verified][wave27_checked][retained_partial][doc_aligned]` [2026-03-02 Meaningful Ingest Guardrails Plan](./2026-03-02-meaningful-ingest-guardrails-plan/01_meaningful-ingest-guardrails-plan-2026-03-02.md) - request strict gate / response visibility contract landed; Wave11 added URL-execution canary rollout defaults and task-local metrics; Wave12 added deterministic canary handoff; Wave14 added canary metrics readiness; Wave17 added deterministic canary metrics readback while live demo_proj canary and 24h metrics remain open: [02_wave9-1-meaningful-ingest-guardrails-contract-evidence-2026-05-22.md](./2026-03-02-meaningful-ingest-guardrails-plan/02_wave9-1-meaningful-ingest-guardrails-contract-evidence-2026-05-22.md), [03_wave11-ingest-guardrails-rollout-evidence-2026-05-22.md](./2026-03-02-meaningful-ingest-guardrails-plan/03_wave11-ingest-guardrails-rollout-evidence-2026-05-22.md), [04_wave12-meaningful-ingest-canary-handoff-evidence-2026-05-22.md](./2026-03-02-meaningful-ingest-guardrails-plan/04_wave12-meaningful-ingest-canary-handoff-evidence-2026-05-22.md), [05_wave14-meaningful-ingest-canary-metrics-readiness-2026-05-22.md](./2026-03-02-meaningful-ingest-guardrails-plan/05_wave14-meaningful-ingest-canary-metrics-readiness-2026-05-22.md), [06_wave17-meaningful-ingest-canary-metrics-readback-2026-05-22.md](./2026-03-02-meaningful-ingest-guardrails-plan/06_wave17-meaningful-ingest-canary-metrics-readback-2026-05-22.md); Wave19 24h canary metrics artifact gate landed without claiming live demo/prod closure: [07_wave19-meaningful-ingest-canary-24h-metrics-artifact-2026-05-22.md](./2026-03-02-meaningful-ingest-guardrails-plan/07_wave19-meaningful-ingest-canary-24h-metrics-artifact-2026-05-22.md); Wave27 retained it in CURRENT_DEV because source-policy tuning remains attached and unsplit: [09_wave27-ingest-canary-closure-readiness-2026-05-23.md](./2026-03-02-meaningful-ingest-guardrails-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md)",
+      "current_dev_index_row_present": true,
+      "documentation_checks": [
+        {
+          "exists": true,
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/08_wave22-external-blocked-migration-decision-2026-05-22.md",
+          "tokens_checked": [
+            "wave22_retain_current_dev_policy_tuning_after_live_canary",
+            "Wave17",
+            "Wave19",
+            "live_production_canary_claim=false",
+            "metric_24h_live_readback_claim=false",
+            "closure_claim=false",
+            "Remaining Boundary"
+          ]
+        },
+        {
+          "exists": true,
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/06_wave17-meaningful-ingest-canary-metrics-readback-2026-05-22.md",
+          "tokens_checked": [
+            "contract_version: ingest.canary_metrics_readback.v1",
+            "deterministic_readback: true",
+            "live_production_canary_claim: false",
+            "metric_24h_live_readback_claim: false",
+            "closure_claim: false"
+          ]
+        },
+        {
+          "exists": true,
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/07_wave19-meaningful-ingest-canary-24h-metrics-artifact-2026-05-22.md",
+          "tokens_checked": [
+            "contract_version: ingest.canary_24h_metrics_artifact.v1",
+            "deterministic_fixture: true",
+            "window_hours: 24",
+            "live_production_canary_claim: false",
+            "metric_24h_live_readback_claim: false",
+            "closure_claim: false"
+          ]
+        }
+      ],
+      "external_blocked_migration_ready": false,
+      "external_live_conditions": [
+        "live guardrail rollout canary against configured services",
+        "production 24h rejection-rate readback",
+        "production 24h inserted-valid ratio readback",
+        "production guardrail rollout counts readback",
+        "operations-owned strict-gate promotion decision"
+      ],
+      "recommended_location": "CURRENT_DEV",
+      "repo_local_blockers": [
+        {
+          "code": "source_policy_tuning_successor_not_split",
+          "present_in_decision_doc": true,
+          "source_token": "source-policy tuning remains attached to the same topic"
+        }
+      ],
+      "repo_local_blockers_open": true,
+      "slug": "2026-03-02-meaningful-ingest-guardrails-plan",
+      "status": "retained_partial_repo_local_blockers_open",
+      "title": "Meaningful Ingest Guardrails Plan"
+    },
+    {
+      "archive_external_blocked_directory_exists": false,
+      "canary_repo_local_gate_sufficient": true,
+      "current_dev_directory_exists": true,
+      "current_dev_index_row": "- `[partial][wave8_verified][wave12_verified][wave14_checked][wave17_verified][wave19_verified][wave27_checked][retained_partial][doc_aligned]` [2026-03-02 Single URL First Ingest Allocation Plan](./2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md) - legacy `single_url` mapped to source-library/frontdoor chain; evidence: [ingest-frontdoor-closure/2026-05-22](../../automation-runs/ingest-frontdoor-closure/2026-05-22/README.md), [03_wave8-2-fetch-router-gap-closure-2026-05-22.md](./2026-03-02-single-url-first-ingest-allocation-plan/03_wave8-2-fetch-router-gap-closure-2026-05-22.md); Wave12 single-url canary handoff evidence; Wave14 canary metrics readiness; Wave17 deterministic readback keeps live 24h metrics explicit: [04_wave12-single-url-canary-handoff-evidence-2026-05-22.md](./2026-03-02-single-url-first-ingest-allocation-plan/04_wave12-single-url-canary-handoff-evidence-2026-05-22.md), [05_wave14-single-url-canary-metrics-readiness-2026-05-22.md](./2026-03-02-single-url-first-ingest-allocation-plan/05_wave14-single-url-canary-metrics-readiness-2026-05-22.md), [06_wave17-single-url-canary-metrics-readback-2026-05-22.md](./2026-03-02-single-url-first-ingest-allocation-plan/06_wave17-single-url-canary-metrics-readback-2026-05-22.md); Wave19 24h canary metrics artifact gate landed without claiming live 24h closure: [07_wave19-single-url-canary-24h-metrics-artifact-2026-05-22.md](./2026-03-02-single-url-first-ingest-allocation-plan/07_wave19-single-url-canary-24h-metrics-artifact-2026-05-22.md); Wave27 retained it in CURRENT_DEV because fetch-router/API/dashboard blockers remain: [09_wave27-ingest-canary-closure-readiness-2026-05-23.md](./2026-03-02-single-url-first-ingest-allocation-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md)",
+      "current_dev_index_row_present": true,
+      "documentation_checks": [
+        {
+          "exists": true,
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/08_wave22-external-blocked-migration-decision-2026-05-22.md",
+          "tokens_checked": [
+            "wave22_retain_current_dev_fetch_router_dashboard_blockers_open",
+            "Wave17",
+            "Wave19",
+            "live_production_canary_claim=false",
+            "metric_24h_live_readback_claim=false",
+            "closure_claim=false",
+            "Remaining Boundary"
+          ]
+        },
+        {
+          "exists": true,
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/06_wave17-single-url-canary-metrics-readback-2026-05-22.md",
+          "tokens_checked": [
+            "contract_version: ingest.canary_metrics_readback.v1",
+            "deterministic_readback: true",
+            "live_production_canary_claim: false",
+            "metric_24h_live_readback_claim: false",
+            "closure_claim: false"
+          ]
+        },
+        {
+          "exists": true,
+          "missing_tokens": [],
+          "passed": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/07_wave19-single-url-canary-24h-metrics-artifact-2026-05-22.md",
+          "tokens_checked": [
+            "contract_version: ingest.canary_24h_metrics_artifact.v1",
+            "deterministic_fixture: true",
+            "window_hours: 24",
+            "live_production_canary_claim: false",
+            "metric_24h_live_readback_claim: false",
+            "closure_claim: false"
+          ]
+        }
+      ],
+      "external_blocked_migration_ready": false,
+      "external_live_conditions": [
+        "configured-service single-URL canary for demo_proj",
+        "production 24h metrics from URL pool output",
+        "operations-owned all-project strict-gate promotion decision"
+      ],
+      "recommended_location": "CURRENT_DEV",
+      "repo_local_blockers": [
+        {
+          "code": "browser_crawler_first_fetch_router_coverage_open",
+          "present_in_decision_doc": true,
+          "source_token": "broader browser/crawler-first fetch-router coverage"
+        },
+        {
+          "code": "official_api_adapter_maturity_open",
+          "present_in_decision_doc": true,
+          "source_token": "official API adapter maturity"
+        },
+        {
+          "code": "frontend_dashboard_tri_state_alignment_open",
+          "present_in_decision_doc": true,
+          "source_token": "frontend/dashboard tri-state alignment"
+        }
+      ],
+      "repo_local_blockers_open": true,
+      "slug": "2026-03-02-single-url-first-ingest-allocation-plan",
+      "status": "retained_partial_repo_local_blockers_open",
+      "title": "Single URL First Ingest Allocation Plan"
+    }
+  ],
+  "validation_errors": []
+}

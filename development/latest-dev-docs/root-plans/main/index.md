@@ -1,5 +1,6 @@
-# Main Plans Index
+# Compatibility Shim: Main Plans Index
 
-主入口目录，集中维护合并后的主计划文档。
+> Compatibility shim: content moved to `docs/development/root-plans/main/index.md`.
+> Authority: target authoritative; this path remains readable for latest-dev-docs compatibility.
 
-- [MERGED_PLAN.md](./MERGED_PLAN.md)
+The authoritative file is now [docs/development/root-plans/main/index.md](../../../../docs/development/root-plans/main/index.md).

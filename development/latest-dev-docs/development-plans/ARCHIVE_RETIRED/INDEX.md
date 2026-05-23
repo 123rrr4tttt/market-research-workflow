@@ -20,7 +20,7 @@
   替代入口：无直接替代主文档；若要重启该主题，应按当前 RAG 代码结构重新立项。
 - [2026-03-07 Builtin Writing Workbench Design](./2026-03-07-builtin-writing-workbench-design/)
   当前问题：文档前提是“写作域尚未落地”，但当前前后端写作域已经存在，原文已退化为早期设计稿。
-  替代入口：优先参考 [CURRENT_DEV/2026-03-07-writing-workbench-evolution](../CURRENT_DEV/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)。
+  替代入口：优先参考 [ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)。
 - [2026-03-12 Time Semantics Density Merged Plan](./2026-03-12-time-semantics-density-merged-plan/)
   当前问题：该目录自己的 `README` 已声明“请使用新目录”，继续挂在 `CURRENT_DEV` 没有意义。
   替代入口：优先参考 [ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md)。

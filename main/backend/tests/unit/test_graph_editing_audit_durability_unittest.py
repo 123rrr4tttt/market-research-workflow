@@ -53,7 +53,7 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         self.assertTrue(snapshot["tenant_like_fixture_audit_trace_validated"])
         self.assertTrue(snapshot["conflict_rollback_readback_validated"])
         self.assertTrue(snapshot["live_tenant_db_audit_open"])
-        self.assertFalse(snapshot["graphpage_audit_controls_validated"])
+        self.assertTrue(snapshot["graphpage_audit_controls_validated"])
         self.assertFalse(snapshot["live_db_audit_durability_validated"])
 
         stages = {stage["name"]: stage for stage in snapshot["stages"]}
@@ -61,15 +61,16 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         self.assertEqual(stages["tenant_like_fixture_audit_trace"]["status"], "validated")
         self.assertEqual(stages["conflict_rollback_readback_fixture"]["status"], "validated")
         self.assertEqual(stages["live_db_audit_durability"]["status"], "configured_not_run")
-        self.assertIn(
-            stages["graphpage_audit_rollback_readback_ui"]["status"],
-            {"not_exposed", "ready_not_run"},
+        self.assertEqual(stages["graphpage_audit_rollback_readback_ui"]["status"], "validated")
+        self.assertTrue(
+            stages["graphpage_audit_rollback_readback_ui"]["metrics"]["static_checks"][
+                "graphpage_e2e_covers_audit_rollback_and_handoff_replay"
+            ]
         )
         self.assertIn("repo-local audit/readback contract", snapshot["boundary"])
         self.assertIn("tenant-like fixture audit trace", snapshot["boundary"])
         self.assertIn("conflict rollback readback fixture", snapshot["boundary"])
         self.assertIn("live_tenant_db_audit_open=true", snapshot["boundary"])
-        self.assertIn("live backend", " ".join(snapshot["remaining_gaps"]))
         self.assertIn("tenant DB", " ".join(snapshot["remaining_gaps"]))
 
     def test_tenant_like_fixture_proves_audit_readback_and_rollback_trace(self) -> None:
@@ -142,9 +143,9 @@ class GraphEditingAuditDurabilityGateUnitTest(unittest.TestCase):
         self.assertTrue(snapshot["conflict_rollback_readback_validated"])
         self.assertTrue(snapshot["live_tenant_db_audit_open"])
         self.assertTrue(snapshot["live_db_audit_durability_validated"])
-        self.assertFalse(snapshot["graphpage_audit_controls_validated"])
+        self.assertTrue(snapshot["graphpage_audit_controls_validated"])
         self.assertFalse(snapshot["closure_claim"])
-        self.assertEqual(snapshot["readiness_state"], "repo_local_validated_live_gaps_open")
+        self.assertEqual(snapshot["readiness_state"], "live_audit_evidence_recorded_non_closing")
 
     def test_complete_ui_evidence_can_be_recorded_without_live_db_closure(self) -> None:
         snapshot = build_gate_snapshot(graphpage_ui_evidence=_graphpage_ui_evidence())

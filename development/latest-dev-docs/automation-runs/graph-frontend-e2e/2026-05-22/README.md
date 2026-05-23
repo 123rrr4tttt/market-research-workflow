@@ -4,7 +4,7 @@
 
 - Branch: `codex/devdocs-graph-frontend-e2e`
 - Worktree: `/Users/wangyiliang/market-research-workflow.worktrees/graph-frontend-e2e`
-- Target docs: `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md`
+- Target docs: `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md`
 - Target frontend: `main/frontend-modern/src/pages/GraphPage.tsx`
 - Target e2e: `main/frontend-modern/tests/e2e/graphpage.spec.ts`
 

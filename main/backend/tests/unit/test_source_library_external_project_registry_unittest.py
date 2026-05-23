@@ -22,10 +22,15 @@ class ExternalProjectRegistryUnitTestCase(unittest.TestCase):
         bindings = list_external_project_provider_bindings()
 
         by_mode = {entry["execution_mode"]: entry for entry in bindings}
-        self.assertEqual(set(by_mode), {"rss_feed", "sitemap", "http_api", "article_extractor"})
+        self.assertEqual(
+            set(by_mode),
+            {"rss_feed", "sitemap", "http_api", "article_extractor", "python_library", "cli_or_container"},
+        )
         self.assertEqual(by_mode["rss_feed"]["registry_version"], EXTERNAL_PROJECT_PROVIDER_REGISTRY_VERSION)
         self.assertEqual(by_mode["http_api"]["provider_family"], "api_provider")
         self.assertEqual(by_mode["article_extractor"]["capability_family"], "article_body_extraction")
+        self.assertEqual(by_mode["python_library"]["provider_family"], "python_library_wrapper")
+        self.assertEqual(by_mode["cli_or_container"]["capability_family"], "bounded_external_tool")
 
     def test_resolve_provider_binding_derives_runtime_traits_from_manifest(self) -> None:
         binding = resolve_external_project_provider_binding(
@@ -65,9 +70,23 @@ class ExternalProjectRegistryUnitTestCase(unittest.TestCase):
             ["article_body_extracted", "metadata_only_fallback", "fetch_error_fallback"],
         )
 
+    def test_python_library_binding_exposes_bounded_runner_contract(self) -> None:
+        binding = resolve_external_project_provider_binding(
+            {
+                "execution_mode": "python_library",
+                "capabilities": {"article_metadata": True},
+                "accepted_inputs": {"query_terms": True, "max_items": True},
+                "normalization": {"record_kind": "article_metadata", "frontdoor_strategy": "records_only_defer"},
+            }
+        )
+
+        self.assertEqual(binding["provider_key"], "external_project.python_library")
+        self.assertEqual(binding["provider_family"], "python_library_wrapper")
+        self.assertTrue(binding["accepts_query_terms"])
+
     def test_resolve_provider_binding_rejects_unsupported_execution_mode(self) -> None:
         with self.assertRaisesRegex(ValueError, "unsupported external project execution_mode"):
-            resolve_external_project_provider_binding({"execution_mode": "python_library"})
+            resolve_external_project_provider_binding({"execution_mode": "native_shell"})
 
 
 if __name__ == "__main__":

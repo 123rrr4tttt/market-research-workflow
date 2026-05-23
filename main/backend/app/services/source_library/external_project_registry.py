@@ -30,6 +30,18 @@ _PROVIDER_BINDINGS: dict[str, dict[str, str]] = {
         "capability_family": "article_body_extraction",
         "adapter_ref": "source_library.adapters.external_project.article_extractor",
     },
+    "python_library": {
+        "provider_key": "external_project.python_library",
+        "provider_family": "python_library_wrapper",
+        "capability_family": "record_materialization",
+        "adapter_ref": "source_library.adapters.external_project.python_library",
+    },
+    "cli_or_container": {
+        "provider_key": "external_project.cli_or_container",
+        "provider_family": "cli_or_container_wrapper",
+        "capability_family": "bounded_external_tool",
+        "adapter_ref": "source_library.adapters.external_project.cli_or_container",
+    },
 }
 
 

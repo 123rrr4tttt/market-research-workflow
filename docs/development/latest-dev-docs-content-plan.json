@@ -4,7 +4,7 @@
   "source_authority": "development/latest-dev-docs",
   "migration_manifest": "docs/development/latest-dev-docs-entry-manifest.json",
   "generated_date": "2026-05-22",
-  "status": "wave25_development_plans_main_moved_file_batch_partial",
+  "status": "wave27_frontend_modern_and_root_plans_main_moved_file_batch_partial",
   "checker": "scripts/checkers/check_docs_root_content_plan.py",
   "entries": [
     {
@@ -21,7 +21,7 @@
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ],
-      "next_gate": "Wave25 made this file target-authoritative under docs/development; remaining supervisor work is limited to the still-listed broad trees, active CURRENT_DEV status surface, and mixed archive/root-plan classification.",
+      "next_gate": "Wave25 made this file target-authoritative under docs/development; remaining supervisor work is limited to active CURRENT_DEV status surface and mixed archive classification.",
       "moved_files": [
         {
           "source": "development/latest-dev-docs/development-plans/main/index.md",
@@ -46,7 +46,7 @@
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ],
-      "next_gate": "Wave25 made this file target-authoritative under docs/development; remaining supervisor work is limited to the still-listed broad trees, active CURRENT_DEV status surface, and mixed archive/root-plan classification.",
+      "next_gate": "Wave25 made this file target-authoritative under docs/development; remaining supervisor work is limited to active CURRENT_DEV status surface and mixed archive classification.",
       "moved_files": [
         {
           "source": "development/latest-dev-docs/development-plans/main/MERGED_DEVELOPMENT_PLANS.md",
@@ -77,34 +77,52 @@
     {
       "id": "frontend-modern-main-index-content-plan",
       "manifest_entry_id": "frontend-modern-main-index",
-      "source": "development/latest-dev-docs/frontend-modern/main/index.md",
+      "source": "development/latest-dev-docs/frontend-modern/main",
       "source_authority": "development/latest-dev-docs",
       "target_root": "docs/development/frontend-modern",
       "shim": "docs/development/frontend-modern/README.md",
-      "mode": "shim_only",
-      "source_remains_authoritative": true,
-      "move_allowed": false,
+      "mode": "moved_file_batch",
+      "source_remains_authoritative": false,
+      "move_allowed": true,
       "blocked_by": [
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ],
-      "next_gate": "Promote only after shared navigation points to the docs/development shim and links are checked."
+      "next_gate": "Wave27 made this frontend-modern main entry target-authoritative under docs/development; remaining docs-root work is limited to active CURRENT_DEV status and mixed closed archive classification.",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/frontend-modern/main/index.md",
+          "target": "docs/development/frontend-modern/main/index.md",
+          "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/index.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "frontend-modern-main-merged-content-plan",
       "manifest_entry_id": "frontend-modern-main-merged",
-      "source": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+      "source": "development/latest-dev-docs/frontend-modern/main",
       "source_authority": "development/latest-dev-docs",
       "target_root": "docs/development/frontend-modern",
       "shim": "docs/development/frontend-modern/README.md",
-      "mode": "shim_only",
-      "source_remains_authoritative": true,
-      "move_allowed": false,
+      "mode": "moved_file_batch",
+      "source_remains_authoritative": false,
+      "move_allowed": true,
       "blocked_by": [
         "shared_navigation_sync",
         "MERGED_OVERVIEW_drift"
       ],
-      "next_gate": "Move only after the merged snapshot is reconciled with the shared overview and local shim."
+      "next_gate": "Wave27 made this frontend-modern merged snapshot target-authoritative under docs/development; remaining docs-root work is limited to active CURRENT_DEV status and mixed closed archive classification.",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+          "target": "docs/development/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+          "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "root-plans-f-plan-index-content-plan",
@@ -125,19 +143,34 @@
     {
       "id": "root-plans-main-index-content-plan",
       "manifest_entry_id": "root-plans-main-index-mixed",
-      "source": "development/latest-dev-docs/root-plans/main/index.md",
+      "source": "development/latest-dev-docs/root-plans/main",
       "source_authority": "development/latest-dev-docs",
       "target_root": "docs/development/root-plans",
       "shim": "docs/development/root-plans/README.md",
-      "mode": "shim_only",
-      "source_remains_authoritative": true,
-      "move_allowed": false,
+      "mode": "moved_file_batch",
+      "source_remains_authoritative": false,
+      "move_allowed": true,
       "blocked_by": [
         "shared_navigation_sync",
-        "MERGED_OVERVIEW_drift",
-        "file_level_classification"
+        "MERGED_OVERVIEW_drift"
       ],
-      "next_gate": "Do not move the mixed root-plans main tree until file-level classification proves the development-only subset."
+      "next_gate": "Wave27 classified the complete root-plans main batch as development planning content and made both main files target-authoritative under docs/development; remaining docs-root work is limited to active CURRENT_DEV status and mixed closed archive classification.",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/root-plans/main/index.md",
+          "target": "docs/development/root-plans/main/index.md",
+          "compatibility_entry": "development/latest-dev-docs/root-plans/main/index.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/root-plans/main/MERGED_PLAN.md",
+          "target": "docs/development/root-plans/main/MERGED_PLAN.md",
+          "compatibility_entry": "development/latest-dev-docs/root-plans/main/MERGED_PLAN.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     }
   ],
   "remaining_unsafe_moves": [
@@ -159,30 +192,6 @@
       "target_root": "docs/development/development-plans",
       "mode": "blocked_broad_move",
       "reason": "Closed archives are mixed across development, implementation, architecture, and governance roles.",
-      "required_gates": [
-        "file_level_classification",
-        "shared_navigation_sync",
-        "MERGED_OVERVIEW_drift"
-      ]
-    },
-    {
-      "id": "frontend-modern-tree",
-      "source": "development/latest-dev-docs/frontend-modern",
-      "target_root": "docs/development/frontend-modern",
-      "mode": "blocked_broad_move",
-      "reason": "The tree is development-oriented but still has compatibility-root links and shared overview references.",
-      "required_gates": [
-        "shared_navigation_sync",
-        "MERGED_OVERVIEW_drift",
-        "link_check"
-      ]
-    },
-    {
-      "id": "root-plans-main-tree",
-      "source": "development/latest-dev-docs/root-plans/main",
-      "target_root": "docs/development/root-plans",
-      "mode": "blocked_broad_move",
-      "reason": "root-plans main is mixed; move files only after classification, not as a whole directory.",
       "required_gates": [
         "file_level_classification",
         "shared_navigation_sync",

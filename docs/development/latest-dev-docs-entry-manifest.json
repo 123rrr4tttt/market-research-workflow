@@ -3,7 +3,7 @@
   "root": "docs/development",
   "topic": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring",
   "generated_date": "2026-05-22",
-  "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/development while their previous latest-dev-docs paths remain compatibility shims until shared navigation is fully synchronized.",
+  "content_authority": "Mapped source files remain authoritative for shim-only entries. Entries with status content_moved_batch have target-authoritative files under docs/development while their previous latest-dev-docs paths remain compatibility shims until shared navigation is fully synchronized. Wave27 made the frontend-modern and root-plans main batches target-authoritative after file-level classification and link-check reconciliation.",
   "navigation_promotions": [
     {
       "id": "development-root-reader-navigation-wave11",
@@ -20,7 +20,7 @@
             "development-plans-current-dev-root"
           ],
           "compatibility_entry": "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
-          "partial_boundary": "Shared latest-dev-docs indexes remain compatibility-bound."
+          "partial_boundary": "Main index and merged snapshot are target-authoritative; CURRENT_DEV remains compatibility-bound."
         },
         {
           "target_root": "docs/development/frontend-modern",
@@ -30,7 +30,7 @@
             "frontend-modern-main-merged"
           ],
           "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/index.md",
-          "partial_boundary": "Shared latest-dev-docs indexes remain compatibility-bound."
+          "partial_boundary": "Main index and merged snapshot are target-authoritative; source paths remain compatibility shims."
         },
         {
           "target_root": "docs/development/root-plans",
@@ -40,7 +40,7 @@
             "root-plans-main-index-mixed"
           ],
           "compatibility_entry": "development/latest-dev-docs/root-plans/F_PLAN/index.md",
-          "partial_boundary": "Shared latest-dev-docs indexes remain compatibility-bound."
+          "partial_boundary": "Main index and merged snapshot are target-authoritative; F_PLAN remains compatibility-bound."
         }
       ]
     }
@@ -103,26 +103,44 @@
     {
       "id": "frontend-modern-main-index",
       "classification": "development",
-      "source": "development/latest-dev-docs/frontend-modern/main/index.md",
+      "source": "development/latest-dev-docs/frontend-modern/main",
       "source_role": "latest-dev-docs-main-entry",
       "target": "docs/development/frontend-modern/README.md",
       "target_root": "docs/development/frontend-modern",
       "shim": "docs/development/frontend-modern/README.md",
       "target_role": "development-target-entry-manifest",
       "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/index.md",
-      "status": "content_shim"
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/frontend-modern/main/index.md",
+          "target": "docs/development/frontend-modern/main/index.md",
+          "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/index.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "frontend-modern-main-merged",
       "classification": "development",
-      "source": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+      "source": "development/latest-dev-docs/frontend-modern/main",
       "source_role": "latest-dev-docs-main-merged",
       "target": "docs/development/frontend-modern/README.md",
       "target_root": "docs/development/frontend-modern",
       "shim": "docs/development/frontend-modern/README.md",
       "target_role": "development-target-entry-manifest",
       "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
-      "status": "content_shim"
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+          "target": "docs/development/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+          "compatibility_entry": "development/latest-dev-docs/frontend-modern/main/MERGED_FRONTEND_MODERN.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     },
     {
       "id": "root-plans-f-plan-index",
@@ -139,14 +157,30 @@
     {
       "id": "root-plans-main-index-mixed",
       "classification": "development",
-      "source": "development/latest-dev-docs/root-plans/main/index.md",
+      "source": "development/latest-dev-docs/root-plans/main",
       "source_role": "mixed-latest-dev-docs-main-entry",
       "target": "docs/development/root-plans/README.md",
       "target_root": "docs/development/root-plans",
       "shim": "docs/development/root-plans/README.md",
-      "target_role": "mixed-entry-manifest",
+      "target_role": "development-target-entry-manifest",
       "compatibility_entry": "development/latest-dev-docs/root-plans/main/index.md",
-      "status": "content_shim"
+      "status": "content_moved_batch",
+      "moved_files": [
+        {
+          "source": "development/latest-dev-docs/root-plans/main/index.md",
+          "target": "docs/development/root-plans/main/index.md",
+          "compatibility_entry": "development/latest-dev-docs/root-plans/main/index.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        },
+        {
+          "source": "development/latest-dev-docs/root-plans/main/MERGED_PLAN.md",
+          "target": "docs/development/root-plans/main/MERGED_PLAN.md",
+          "compatibility_entry": "development/latest-dev-docs/root-plans/main/MERGED_PLAN.md",
+          "authority": "target_authoritative",
+          "source_status": "compatibility_shim"
+        }
+      ]
     }
   ]
 }

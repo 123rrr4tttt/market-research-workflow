@@ -1,0 +1,201 @@
+{
+  "artifact_inputs": {
+    "lancedb_benchmark_quality": {
+      "contract_version": null,
+      "failures": [],
+      "input_status": "passed",
+      "name": "lancedb_benchmark_quality",
+      "path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/benchmark_quality_results.json",
+      "status": "passed"
+    },
+    "lancedb_runtime_smoke": {
+      "contract_version": null,
+      "failures": [],
+      "input_status": "passed",
+      "name": "lancedb_runtime_smoke",
+      "path": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/runtime_smoke_results.json",
+      "status": "passed"
+    },
+    "wave10_quality_gate": {
+      "contract_version": "wave10-vectorization-quality-gate.v1",
+      "failures": [],
+      "input_status": "passed",
+      "name": "wave10_quality_gate",
+      "path": "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json",
+      "status": "passed"
+    },
+    "wave14_provider_capability": {
+      "contract_version": "wave14-vectorization-provider-capability.v1",
+      "failures": [],
+      "input_status": "passed",
+      "name": "wave14_provider_capability",
+      "path": "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22/provider_capability_summary.json",
+      "status": "passed"
+    },
+    "wave18_hybrid_readback": {
+      "contract_version": "wave18-vectorization-hybrid-readback.v1",
+      "failures": [],
+      "input_status": "passed",
+      "name": "wave18_hybrid_readback",
+      "path": "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json",
+      "status": "passed"
+    },
+    "wave19_provider_manifest": {
+      "contract_version": "wave19-vectorization-provider-manifest.v1",
+      "failures": [],
+      "input_status": "passed",
+      "name": "wave19_provider_manifest",
+      "path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+      "status": "passed"
+    }
+  },
+  "contract_version": "wave27-vectorization-closure-gate.v1",
+  "failures": [],
+  "gate_semantics": {
+    "status_passed_does_not_mean": "the three CURRENT_DEV directories can migrate; directory-level repo-local blockers are reported separately in topic_decisions",
+    "status_passed_means": "provider manifest, deterministic quality, and readback artifacts are present, passed, and still preserve no-live-provider/no-semantic-quality closure claims"
+  },
+  "generated_by": "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
+  "provider_manifest_check": {
+    "closure_claim_allowed": false,
+    "observed_external_gap_codes": [
+      "external_embedding_provider_live_not_verified",
+      "local_open_search_live_quality_not_sealed",
+      "oss_node_platform_io_sla_not_closed",
+      "provider_auto_promotion_not_allowed",
+      "semantic_embedding_quality_not_proven"
+    ],
+    "provider_live_closure_claim_allowed": false,
+    "provider_modes": [
+      "hybrid",
+      "keyword",
+      "vector"
+    ],
+    "required_external_gap_codes": [
+      "external_embedding_provider_live_not_verified",
+      "local_open_search_live_quality_not_sealed",
+      "oss_node_platform_io_sla_not_closed",
+      "provider_auto_promotion_not_allowed",
+      "semantic_embedding_quality_not_proven"
+    ],
+    "semantic_quality_claim_allowed": false,
+    "status": "passed"
+  },
+  "quality_readback_check": {
+    "benchmark_remaining_blocker_codes": [
+      "global_vector_contract_not_closed",
+      "semantic_embedding_quality_not_proven"
+    ],
+    "status": "passed",
+    "wave14_closure_claim_allowed": false,
+    "wave18_closure_claim_allowed": false,
+    "wave18_semantic_quality_claim_allowed": false
+  },
+  "scope": "current_dev_vectorization_provider_manifest_quality_readback_closure_decision",
+  "status": "passed",
+  "summary": {
+    "archive_external_blocked_candidate_count": 0,
+    "archive_external_blocked_patch_prepared": false,
+    "provider_slice_repo_local_closed_count": 3,
+    "retained_current_dev_count": 3,
+    "topic_count": 3,
+    "topics_with_repo_local_blockers": [
+      "2026-03-01-open-source-platform-integration",
+      "2026-05-14-global-vectorization-general-foundation",
+      "2026-03-05-oss-node-platform-io-plan"
+    ]
+  },
+  "topic_decisions": [
+    {
+      "archive_external_blocked_eligible": false,
+      "decision": "retain_current_dev",
+      "existing_docs": [
+        {
+          "exists": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration/06_wave19-vectorization-provider-manifest-2026-05-22.md"
+        },
+        {
+          "exists": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration/07_wave22-vectorization-provider-external-blocked-decision-2026-05-22.md"
+        }
+      ],
+      "exists": true,
+      "external_conditions": [
+        "external_embedding_provider_live_not_verified",
+        "local_open_search_live_quality_not_sealed",
+        "semantic_embedding_quality_not_proven",
+        "oss_node_platform_io_sla_not_closed"
+      ],
+      "notes": "The provider/vectorization slice is repo-local green, but this parent topic still references global vector schema and OSS-node IO closure surfaces that remain active elsewhere.",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-01-open-source-platform-integration",
+      "provider_manifest_quality_readback_gate": "passed",
+      "provider_slice_repo_local_closed": true,
+      "repo_local_blockers": [
+        "directory_scope_still_depends_on_retained_global_vector_contract",
+        "directory_scope_still_depends_on_oss_node_platform_io_boundary"
+      ],
+      "slug": "2026-03-01-open-source-platform-integration",
+      "title": "2026-03-01 Open Source Platform Integration"
+    },
+    {
+      "archive_external_blocked_eligible": false,
+      "decision": "retain_current_dev",
+      "existing_docs": [
+        {
+          "exists": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md"
+        },
+        {
+          "exists": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/08_wave22-vectorization-provider-external-blocked-decision-2026-05-22.md"
+        }
+      ],
+      "exists": true,
+      "external_conditions": [
+        "external_embedding_provider_live_not_verified",
+        "semantic_embedding_quality_not_proven",
+        "production_vector_quality_not_proven"
+      ],
+      "notes": "This topic still owns repo-local vector object, retrieval persistence, provenance payload, and evidence-hit schema work. It is not just waiting on live provider quality.",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-global-vectorization-general-foundation",
+      "provider_manifest_quality_readback_gate": "passed",
+      "provider_slice_repo_local_closed": true,
+      "repo_local_blockers": [
+        "unified_vector_object_contract_not_frozen",
+        "retrieval_runs_branches_hits_persistence_not_implemented",
+        "embedding_qdrant_pgvector_payload_provenance_not_unified",
+        "main_search_evidence_hit_contract_not_aligned",
+        "agent_matrix_and_main_search_schema_not_joined"
+      ],
+      "slug": "2026-05-14-global-vectorization-general-foundation",
+      "title": "2026-05-14 Global Vectorization General Foundation"
+    },
+    {
+      "archive_external_blocked_eligible": false,
+      "decision": "retain_current_dev",
+      "existing_docs": [
+        {
+          "exists": true,
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/06_wave19-vectorization-provider-manifest-2026-05-22.md"
+        }
+      ],
+      "exists": true,
+      "external_conditions": [
+        "external_embedding_provider_live_not_verified",
+        "local_open_search_live_quality_not_sealed",
+        "semantic_embedding_quality_not_proven",
+        "live_scheduler_tenant_db_ui_sla_not_proven"
+      ],
+      "notes": "The vectorization provider manifest is consumable by nodes, but the original node-platform IO directory still has repo-local platformization scope beyond provider quality.",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan",
+      "provider_manifest_quality_readback_gate": "passed",
+      "provider_slice_repo_local_closed": true,
+      "repo_local_blockers": [
+        "node_schema_runtime_persistence_platformization_scope_not_closed",
+        "vector_search_node_manifest_consumption_not_live_replayed"
+      ],
+      "slug": "2026-03-05-oss-node-platform-io-plan",
+      "title": "2026-03-05 OSS Node Platform IO Plan"
+    }
+  ]
+}

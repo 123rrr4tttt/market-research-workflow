@@ -27,8 +27,8 @@ sys.path.insert(0, str(BACKEND))
 from app.services.typed_knowledge import persistence_boundary as boundary  # noqa: E402
 
 
-TYPED_TOPIC = ROOT / "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization"
-WRITING_TOPIC = ROOT / "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution"
+TYPED_TOPIC = ROOT / "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization"
+WRITING_TOPIC = ROOT / "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution"
 
 LEGACY_REQUIRED_EVIDENCE_MARKERS = (
     "contract_readiness: ready",

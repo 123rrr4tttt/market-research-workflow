@@ -70,12 +70,12 @@ class TypedWritingLiveBoundaryCheckerUnitTestCase(unittest.TestCase):
         docs = {row["path"]: row for row in inventory["evidence_docs"]}
 
         typed_doc = (
-            "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
             "2026-03-07-typed-knowledge-organization/"
             "06_wave15-typed-writing-live-boundary-2026-05-22.md"
         )
         writing_doc = (
-            "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
             "2026-03-07-writing-workbench-evolution/"
             "07_wave15-typed-writing-live-boundary-2026-05-22.md"
         )

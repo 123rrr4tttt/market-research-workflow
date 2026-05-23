@@ -27,6 +27,11 @@
 
 ## 最新补充
 
+- Wave27 closure（2026-05-23）：Graph Editing and Reporting、Typed Knowledge Organization、Writing Workbench Evolution、Consumer-Side Modularization 与 Source-Library Ingest Minimal Migration 的 repo-local audit/persistence/readback/UI/runner gates 已复核，五个目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)，`CURRENT_DEV` 从 `partial:16` 降到 `partial:11`；Graph decision: [11_wave27-external-blocked-decision-2026-05-23.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/11_wave27-external-blocked-decision-2026-05-23.md)，Typed decision: [10_wave27-external-blocked-decision-2026-05-23.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/10_wave27-external-blocked-decision-2026-05-23.md)，Writing decision: [11_wave27-external-blocked-decision-2026-05-23.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/11_wave27-external-blocked-decision-2026-05-23.md)，Consumer decision: [08_wave27-external-blocked-decision-2026-05-23.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/08_wave27-external-blocked-decision-2026-05-23.md)，Source-library decision: [18_wave27-external-blocked-decision-2026-05-23.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/18_wave27-external-blocked-decision-2026-05-23.md)。
+- Wave27 structured/consumer closure worker（2026-05-23）：structured endpoint/query/SQL helper 与 consumer facade/admin/policy/prompt-time-density gates 已合并复核；consumer-side 仅剩 live DB/API smoke 并迁入 `ARCHIVE_EXTERNAL_BLOCKED`，structured service 因 generic `DocumentQuery -> SQLAlchemy statement` builder 仍是 repo-local blocker 保留 `CURRENT_DEV`；证据：[wave27-structured-consumer-closure](./automation-runs/wave27-structured-consumer-closure/2026-05-23/README.md)，structured decision: [12_wave27-structured-consumer-closure-decision-2026-05-23.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/12_wave27-structured-consumer-closure-decision-2026-05-23.md)。
+- Wave27 ingest canary closure worker（2026-05-23）：三个相邻 ingest 目录的 Wave17/Wave19 canary/24h 仓内 gate 已充分，但仍存在 repo-local 或附着范围 blocker，因此不迁档且不改变 `CURRENT_DEV` 计数；总证据：[wave27-ingest-canary-closure-readiness](./automation-runs/wave27-ingest-canary-closure-readiness/2026-05-23/README.md)，目录证据：[platformization](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/08_wave27-ingest-canary-closure-readiness-2026-05-23.md)、[meaningful guardrails](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md)、[single URL](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md)。
+- Wave27 vectorization closure（2026-05-23）：provider manifest / deterministic quality / readback gate 已通过，但 2026-03-01、2026-05-14、2026-03-05 三个 vectorization-adjacent 目录仍有 repo-local blocker，未准备 `ARCHIVE_EXTERNAL_BLOCKED` 迁档补丁；证据：[wave27-vectorization-closure/2026-05-23](./automation-runs/wave27-vectorization-closure/2026-05-23/README.md)。
+- Wave27 source-library runner worker（2026-05-22）：`python_library_cli_container_runners_not_enabled` repo-local blocker 已由 bounded `python_library` / `cli_or_container` runner gate 关闭；目录迁入 `ARCHIVE_EXTERNAL_BLOCKED`，剩余 live article-extraction stack replay 与 live external-project replay；证据：[17_wave27-source-library-runner-worker-2026-05-22.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/17_wave27-source-library-runner-worker-2026-05-22.md)。
 - Wave26 封口优先波次（2026-05-23）：Clue Chain successor 的 graph-submit conflict 与 UI matrix 两个 repo-local gate 已落地并验证，目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/03_wave26_graph_submit_conflict_and_ui_matrix_closure-2026-05-23.md)，`CURRENT_DEV` 从 `partial:17` 降到 `partial:16`。
 - Wave21 封口优先波次（2026-05-22）：`CURRENT_DEV` 从 `partial:33` 降到 `partial:26`；7 个仓内门禁已封、但依赖外部 runtime / 生产数据 / 公网 replay / 人工 review 的目录迁入 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md)。
 - 线索追查 `Chain` / 链条工具开发计划（2026-05-22）：
@@ -39,10 +44,10 @@
   - [parallel-agent orchestration](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/04_wave6-evidence-closure-gap-2026-05-22.md)
   - [crawler source expansion](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave6-closure-gap-and-min-plan.md)
   - [docs root restructuring](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/02_wave6-docs-root-restructuring-evidence-closure-gap-2026-05-22.md)
-  - [graph editing/reporting](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md)
+  - [graph editing/reporting](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/03_wave6-reporting-handoff-evidence-closure-gap-2026-05-22.md)
   - [LLM service and Agent platformization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/03_wave6-5-status-evidence-and-min-plan-2026-05-22.md)
-  - [typed knowledge organization](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/03_wave6-6-status-evidence-and-minimal-plan-2026-05-22.md)
-  - [writing workbench evolution](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/03_wave6_7_status-evidence-and-minimum-plan-2026-05-22.md)
+  - [typed knowledge organization](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/03_wave6-6-status-evidence-and-minimal-plan-2026-05-22.md)
+  - [writing workbench evolution](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/03_wave6_7_status-evidence-and-minimum-plan-2026-05-22.md)
   - [后续安排 / abstract planning folderization](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/04_status-evidence-and-minimum-dev-plan-2026-05-22.md)
   - [local open search provider isolation](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/11_wave6-9-status-evidence-and-min-plan-2026-05-22.md)
 - Wave7 CURRENT_DEV 集成状态证据与代码落地（2026-05-22，9 个子代理分支已合并）：
@@ -62,8 +67,8 @@
   - [fetch router gap closure](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/02_wave8-2-fetch-router-gap-closure-2026-05-22.md)
   - [source-library adapter capability parser-profile gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/2026-05-22-wave8-3-adapter-capability-parser-profile-gate.md)
   - [frontend topology/i18n/theme contract evidence](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/03_wave8-4-topology-i18n-theme-contract-evidence-2026-05-22.md)
-  - [graph projection rollout contract](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/04_wave8-5-projection-rollout-contract-note-2026-05-22.md)
-  - [typed knowledge writing handoff contract](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/03_wave8_6_writing-handoff-contract-evidence-2026-05-22.md)
+  - [graph projection rollout contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/04_wave8-5-projection-rollout-contract-note-2026-05-22.md)
+  - [typed knowledge writing handoff contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/03_wave8_6_writing-handoff-contract-evidence-2026-05-22.md)
   - [time target-overlap priority evidence](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/07_wave8-target-overlap-priority-evidence-2026-05-22.md)
   - [search/vectorization deterministic contract](./automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
 - Wave9 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
@@ -72,11 +77,11 @@
   - [agent symbolic batch search contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/16_wave9-agent-symbolic-batch-search-contract-evidence-2026-05-22.md)
   - [source-library legacy 410 contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/07_wave9-3-legacy-410-contract-evidence-2026-05-22.md)
   - [document queries contract](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/07_wave9-worker4-document-queries-contract-2026-05-22.md)
-  - [consumer facade boundary contract](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md)
+  - [consumer facade boundary contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/02_wave9-5-consumer-facade-boundary-contract-2026-05-22.md)
   - [ingest long-cycle lifecycle contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/04_wave9-6-ingest-long-cycle-lifecycle-contract-evidence-2026-05-22.md)
   - [AgentCore platform contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/04_wave9-7-agent-core-platform-contract-evidence-2026-05-22.md)
   - [docs root migration manifest evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/04_wave9-8-docs-root-migration-manifest-evidence-2026-05-22.md)
-  - [source-library ingest AT-EXT current contract](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md)
+  - [source-library ingest AT-EXT current contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/10_wave9-9-at-ext-current-contract-evidence-2026-05-22.md)
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
 - Wave10 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
   - [Wave10 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave10-worktree-plan-2026-05-22.md)
@@ -86,7 +91,7 @@
   - [LLM crawler tri-state router contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/05_wave10-tri-state-router-contract-2026-05-22.md)
   - [source-library search governance](./automation-runs/source-library-search-governance/2026-05-22/README.md)
   - [vectorization quality gate](./automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
-  - [typed knowledge writing context envelope](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/04_wave10-worker7-writing-context-envelope-evidence-2026-05-22.md)
+  - [typed knowledge writing context envelope](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/04_wave10-worker7-writing-context-envelope-evidence-2026-05-22.md)
   - [docs root content shim evidence](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/05_wave10-8-docs-root-content-shim-evidence-2026-05-22.md)
   - [parallel agent runtime contract refresh](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/06_wave10-runtime-contract-refresh-2026-05-22.md)
   - [CURRENT_DEV status evidence gate](./automation-runs/current-dev-status-evidence/2026-05-22/README.md)
@@ -95,11 +100,11 @@
   - [meaningful ingest guardrails rollout](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/03_wave11-ingest-guardrails-rollout-evidence-2026-05-22.md)
   - [long-cycle scheduler E2E contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/05_wave11-long-cycle-scheduler-e2e-evidence-2026-05-22.md)
   - [AgentCore provider matrix](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/05_wave11-agentcore-provider-matrix-evidence-2026-05-22.md)
-  - [graph editing audit / rollback contract](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/05_wave11-graph-editing-audit-rollback-evidence-2026-05-22.md)
-  - [source-library article extraction runner](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/11_wave11-source-library-extraction-runner-evidence-2026-05-22.md)
+  - [graph editing audit / rollback contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/05_wave11-graph-editing-audit-rollback-evidence-2026-05-22.md)
+  - [source-library article extraction runner](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/11_wave11-source-library-extraction-runner-evidence-2026-05-22.md)
   - [agent symbolic search quality replay](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/17_wave11-symbolic-search-quality-replay-evidence-2026-05-22.md)
   - [structured consumer query extraction](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/08_wave11-structured-consumer-query-extraction-evidence-2026-05-22.md)
-  - [consumer-side query extraction](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/03_wave11-consumer-query-extraction-evidence-2026-05-22.md)
+  - [consumer-side query extraction](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/03_wave11-consumer-query-extraction-evidence-2026-05-22.md)
   - [frontend layer-shell topology contract](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/04_wave11-layer-shell-topology-contract-evidence-2026-05-22.md)
   - [docs root navigation promotion](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/06_wave11-docs-root-navigation-promotion-evidence-2026-05-22.md)
 - Wave12 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
@@ -111,7 +116,7 @@
   - [OSS node provider readiness](./development-plans/CURRENT_DEV/2026-03-05-oss-node-platform-io-plan/03_wave12-provider-readiness-gate-2026-05-22.md)
   - [graph Force3D live smoke readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/04_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [graph node live smoke readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/05_wave12-live-smoke-readiness-gate-2026-05-22.md)
-  - [graph editing live smoke readiness](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/06_wave12-live-smoke-readiness-gate-2026-05-22.md)
+  - [graph editing live smoke readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/06_wave12-live-smoke-readiness-gate-2026-05-22.md)
   - [ingest canary handoff](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/03_wave12-ingest-canary-handoff-evidence-2026-05-22.md)
   - [meaningful ingest canary handoff](./development-plans/CURRENT_DEV/2026-03-02-meaningful-ingest-guardrails-plan/04_wave12-meaningful-ingest-canary-handoff-evidence-2026-05-22.md)
   - [single URL canary handoff](./development-plans/CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/04_wave12-single-url-canary-handoff-evidence-2026-05-22.md)
@@ -121,12 +126,12 @@
   - [source-library three-lane relevance queue](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/08_wave12-relevance-review-queue-contract-2026-05-22.md)
   - [search-chain source-library relevance queue](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/04_wave12-relevance-review-queue-contract-2026-05-22.md)
   - [source-library adapter capability relevance queue](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/14_wave12-relevance-review-queue-contract-2026-05-22.md)
-  - [source-library ingest review queue](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/12_wave12-relevance-review-queue-contract-2026-05-22.md)
+  - [source-library ingest review queue](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/12_wave12-relevance-review-queue-contract-2026-05-22.md)
   - [frontend i18n business-string audit](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/05_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
   - [dual frontend business-string audit](./development-plans/CURRENT_DEV/2026-03-07-dual-frontend-workbench-topology/05_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
   - [frontend three-layer business-string audit](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/06_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
-  - [typed knowledge persistence/API boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md)
-  - [writing workbench persistence boundary](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
+  - [typed knowledge persistence/API boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md)
+  - [writing workbench persistence boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
   - [docs root content plan gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
   - [R41 OpenClaw autodispatch gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE12_R41_OPENCLAW_AUTODISPATCH_GATE_EVIDENCE.md)
 - Wave13 CURRENT_DEV 合同落地与共享索引同步（2026-05-22，9 个子代理分支已合并）：
@@ -134,7 +139,7 @@
   - [LLM crawler high-JS/public replay readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md)
   - [symbolic search provider quality readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/18_wave13-symbolic-provider-quality-readiness-evidence-2026-05-22.md)
   - [structured search endpoint document-query contract](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/09_wave13-structured-search-endpoint-contract-2026-05-22.md)
-  - [consumer admin/dashboard extraction](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md)
+  - [consumer admin/dashboard extraction](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/04_wave13-admin-dashboard-consumer-extraction-evidence-2026-05-22.md)
   - [AgentCore live provider readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/06_wave13-agentcore-live-provider-readiness-2026-05-22.md)
   - [long-cycle scheduler readiness](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/06_wave13-long-cycle-scheduler-readiness-2026-05-22.md)
   - [crawler public replay gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave13-worker7-crawler-public-replay-gate.md)
@@ -169,19 +174,19 @@
   - [LLM crawler high-JS replay manifest](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/07_wave15-high-js-replay-manifest-2026-05-22.md)
   - [symbolic search live quality threshold](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/19_wave15-symbolic-live-quality-threshold-2026-05-22.md)
   - [structured SQL helper migration](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_wave15-structured-sql-helper-migration-2026-05-22.md)
-  - [consumer SQL predicate facade](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/05_wave15-consumer-sql-predicate-facade-2026-05-22.md)
-  - [graph editing audit durability](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/07_wave15-graph-editing-audit-durability-2026-05-22.md)
-  - [typed knowledge live boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/06_wave15-typed-writing-live-boundary-2026-05-22.md)
-  - [writing workbench live boundary](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/07_wave15-typed-writing-live-boundary-2026-05-22.md)
+  - [consumer SQL predicate facade](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/05_wave15-consumer-sql-predicate-facade-2026-05-22.md)
+  - [graph editing audit durability](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/07_wave15-graph-editing-audit-durability-2026-05-22.md)
+  - [typed knowledge live boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/06_wave15-typed-writing-live-boundary-2026-05-22.md)
+  - [writing workbench live boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/07_wave15-typed-writing-live-boundary-2026-05-22.md)
   - [abstract planning final closure audit](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md)
 - Wave16 CURRENT_DEV closure split / implementation gates（2026-05-22，9 个子代理分支已合并，2 个目录已迁入 `ARCHIVE_CLOSED`，CURRENT_DEV 剩余 `partial:33`）：
   - [Wave16 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave16-worktree-plan-2026-05-22.md)
   - [parallel-agent runtime boundary closure](./development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md)
   - [Clue Chain closure split](./development-plans/ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md)
   - [Clue Chain successor scopes](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-22-clue-chain-successor-scopes/INDEX.md)
-  - [graph editing UI audit controls](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/08_wave16-graph-editing-ui-audit-controls-2026-05-22.md)
-  - [typed knowledge API route contract](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/07_wave16-typed-knowledge-api-route-contract-2026-05-22.md)
-  - [writing workbench typed fetch readback](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/08_wave16-worker5-typed-knowledge-fetch-readback-2026-05-22.md)
+  - [graph editing UI audit controls](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/08_wave16-graph-editing-ui-audit-controls-2026-05-22.md)
+  - [typed knowledge API route contract](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/07_wave16-typed-knowledge-api-route-contract-2026-05-22.md)
+  - [writing workbench typed fetch readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/08_wave16-worker5-typed-knowledge-fetch-readback-2026-05-22.md)
   - [long-cycle durable repository readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/07_wave16-long-cycle-durable-repository-readback-2026-05-22.md)
   - [docs root content move batch](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/08_wave16-docs-root-content-move-batch-evidence-2026-05-22.md)
   - [frontend Agent Chat i18n slice](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/07_wave16-agent-chat-i18n-slice-evidence-2026-05-22.md)
@@ -193,8 +198,8 @@
   - [ingest canary metrics readback](./development-plans/CURRENT_DEV/2026-03-02-ingest-platformization-assessment/05_wave17-ingest-canary-metrics-readback-2026-05-22.md)
   - [graph runtime pixel / shape gate](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-3d-force-engine-parallel-migration/06_wave17-runtime-pixel-shape-gate-2026-05-22.md)
   - [graph node rollout manifest readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-graph-node-standardization-a-then-b-plan/07_wave17-rollout-manifest-readback-2026-05-22.md)
-  - [typed knowledge durable readback](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/08_wave17-typed-knowledge-durable-readback-2026-05-22.md)
-  - [writing workbench persisted typed-card readback](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md)
+  - [typed knowledge durable readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/08_wave17-typed-knowledge-durable-readback-2026-05-22.md)
+  - [writing workbench persisted typed-card readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md)
   - [frontend Projects page i18n slice](./development-plans/CURRENT_DEV/2026-03-07-frontend-i18n-theme-modularization/08_wave17-projects-page-i18n-slice-evidence-2026-05-22.md)
   - [policy-state query boundary](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/10_wave17-policy-state-query-boundary-2026-05-22.md)
   - [docs root content move batch 2](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/09_wave17-docs-root-content-move-batch2-evidence-2026-05-22.md)
@@ -221,23 +226,27 @@
   - [source-library review closure batch 3](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/12_wave19-review-closure-batch3-2026-05-22.md)
   - [Dashboard page i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
   - [docs root content move batch 4](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/11_wave19-docs-root-content-move-batch4-evidence-2026-05-22.md)
-  - [typed/writing persisted-card API boundary](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
+  - [typed/writing persisted-card API boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
 - Wave20 CURRENT_DEV time / OpenClaw / modularization gates（2026-05-22，10 个 isolated 子代理分支已合并并关闭，CURRENT_DEV 仍为 `partial:33`）：
   - [Wave20 worktree plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-worktree-plan-2026-05-22.md)
   - [Wave20 agent roster](./automation-runs/dev-docs-folder-audit-2026-05-22/wave20-agent-roster-2026-05-22.md)
   - [time semantics sample/provenance readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-source-time-window-smart-timestamp-plan/08_wave20-time-semantics-sample-provenance-readback-2026-05-22.md)
   - [OpenClaw mirror runtime manifest](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-04-r41-openclaw-autodispatch/implementation/WAVE20_R41_OPENCLAW_MIRROR_READBACK_EVIDENCE.md)
-  - [graph editing audit conflict readback](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md)
+  - [graph editing audit conflict readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/10_wave20-graph-editing-audit-conflict-readback-2026-05-22.md)
   - [long-cycle scheduler queue replay](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/09_wave20-long-cycle-scheduler-queue-handoff-replay-2026-05-22.md)
   - [agent-batch quality promotion readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/21_wave20-agent-batch-quality-promotion-readback-2026-05-22.md)
   - [document-query endpoint slice](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/11_wave20-document-query-endpoint-slice-2026-05-22.md)
-  - [consumer facade prompt-time-density slice](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/07_wave20-prompt-time-density-consumer-facade-2026-05-22.md)
+  - [consumer facade prompt-time-density slice](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/07_wave20-prompt-time-density-consumer-facade-2026-05-22.md)
   - [source-library review closure batch 4](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/13_wave20-review-closure-batch4-2026-05-22.md)
   - [ProcessPage i18n slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/12_wave20-process-page-i18n-slice-evidence-2026-05-22.md)
   - [docs root content move batch 5](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md)
 - Wave25 closure-priority docs-root integration（2026-05-23，11 个子代理复核后未误迁有 repo-local blocker 的目录；docs-root `unsafe_moves` 从 5 降到 4）：
   - [docs root development main move](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/14_wave25-docs-root-development-main-move-2026-05-23.md)
   - [docs/development development-plans main entry](../../docs/development/development-plans/main/index.md)
+- Wave27 docs-root root-plans integration（2026-05-23，并行 frontend-modern 批次已保留；root-plans main 移入 docs/development，docs-root `unsafe_moves` 降到 2）：
+  - [docs root root-plans main move](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/15_wave27-worker-b-docs-root-root-plans-main-move-2026-05-23.md)
+  - [docs root worker A reconciliation](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/16_wave27-worker-a-docs-root-root-plans-main-reconciliation-2026-05-23.md)
+  - [docs/development root-plans main entry](../../docs/development/root-plans/main/index.md)
 - `local_index` LanceDB benchmark quality 证据包（2026-05-22）：
   - [automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md](./automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - Ingest / frontdoor closure 证据包（2026-05-22）：
@@ -337,32 +346,32 @@
 - `development-plans/CURRENT_DEV` 新增前端三层重写专题的收口差距评估与建议推进顺序（2026-04-02）：
   - [development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 - `development-plans/CURRENT_DEV` 新增 source-library / ingest 最小迁移计划（2026-03-25）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md)
 - `development-plans/CURRENT_DEV` 新增 source-library / ingest 原子任务单（2026-03-26）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/03_atomic-tasklist-source-library-ingest-minimal-migration-2026-03-26.md)
 - `development-plans/CURRENT_DEV` 新增 source-library / ingest Wave 0 冻结说明（2026-03-26）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/02_wave0-freeze-and-acceptance-contract-2026-03-26.md)
 - `development-plans/CURRENT_DEV` 新增 source-library / ingest 并行波次执行计划（2026-03-26）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/04_parallel-wave-plan-source-library-ingest-minimal-migration-2026-03-26.md)
 - `development-plans/CURRENT_DEV` 新增 source-library / ingest 闭环验证报告（2026-03-26）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/05_validation-closure-source-library-ingest-minimal-migration-2026-03-26.md)
 - `development-plans/CURRENT_DEV` 新增 item 分层迁移原子任务单（2026-03-27）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/06_atomic-tasklist-item-layering-migration-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/06_atomic-tasklist-item-layering-migration-2026-03-27.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/06_atomic-tasklist-item-layering-migration-2026-03-27.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/06_atomic-tasklist-item-layering-migration-2026-03-27.md)
 - `development-plans/CURRENT_DEV` 新增 item 分层迁移封口与契约冻结产物（2026-03-27）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/07_validation-closure-item-layering-migration-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/07_validation-closure-item-layering-migration-2026-03-27.md)
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md)
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/07_validation-closure-item-layering-migration-2026-03-27.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/07_validation-closure-item-layering-migration-2026-03-27.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-field-classification-freeze.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-item-execution-plan-contract.md)
 - `development-plans/CURRENT_DEV` 新增 external project powered item 设计稿与原子任务单（2026-03-27）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md)
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-27-external-project-powered-item-design.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/08_atomic-tasklist-external-project-powered-item-2026-03-27.md)
 - `development-plans/CURRENT_DEV` 新增 source-library / ingest 参考资料包（2026-03-26）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/INDEX.md)
 - `development-plans/CURRENT_DEV` 补充 source-library / ingest batch helper 输入边界契约（2026-03-26）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-helper-input-boundary-and-runtime-target-contract.md)
 - `development-plans/CURRENT_DEV` 补充 source-library / ingest 开关优先级矩阵（2026-03-26）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-batch-switch-rollout-dispatch-precedence-matrix.md)
 - `development-plans/CURRENT_DEV` 补充 item / execution / runtime 分层边界约束（2026-03-26）：
-  - [development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md](./development-plans/CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md)
+  - [development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/references/2026-03-26-item-layering-boundary-constraints.md)
 - `backend-core` 新增 frontdoor 内容抽取 / 清洗最佳实践文档（2026-03-14）：
   - [backend-core/F_PLAN/2026-03-14-frontdoor-content-extraction-cleaning-best-practices.md](./backend-core/F_PLAN/2026-03-14-frontdoor-content-extraction-cleaning-best-practices.md)
 - `backend-core` 新增来源库 frontdoor 清洗样本临时验证文档（2026-03-14）：
@@ -390,7 +399,7 @@
   - [2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/02_source-library-terminal-output-unification-and-boundary-2026-03-12.md)
   - [2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/05_runtime-validation-source-library-write-through-and-structured-path-2026-03-14.md)
   - [2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-12-data-structured-service-modularization/06_atomic-tasklist-quality-frontdoor-source-library-first-2026-03-14.md)
-  - [2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./development-plans/CURRENT_DEV/2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
+  - [2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/01_consumer-side-modularization-assessment-and-plan-2026-03-14.md)
   - [2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-search-chain-source-library-mounting-audit/01_system-investigation-search-chain-source-library-mounting-2026-03-14.md)
 - `development-plans/ARCHIVE_RETIRED` 已退场旧版时间语义与密度合并计划：
   - [2026-03-12-time-semantics-density-merged-plan/README.md](./development-plans/ARCHIVE_RETIRED/2026-03-12-time-semantics-density-merged-plan/README.md)
@@ -409,14 +418,14 @@
   - [2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/03_atomic-task-library-investigation-map-2026-03-10.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/04_parallel-execution-playbook-spark-codex-2026-03-10.md)
   - [2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/10_backend-mcp-vs-skill-layering-and-rollout-2026-03-14.md)
-- `development-plans/CURRENT_DEV` 新增写作工作台演进主题文档：
-  - [2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
-  - [2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
-- `development-plans/CURRENT_DEV` 新增知识组织与图谱编辑主题文档：
-  - [2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)
-  - [2026-03-07-typed-knowledge-organization/02_atomic-tasklist-typed-knowledge-organization-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-typed-knowledge-organization/02_atomic-tasklist-typed-knowledge-organization-2026-03-07.md)
-  - [2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md)
-  - [2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md](./development-plans/CURRENT_DEV/2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md)
+- `development-plans/ARCHIVE_EXTERNAL_BLOCKED` 保留写作工作台演进主题文档：
+  - [2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/01_writing-workbench-evolution-plan-2026-03-07.md)
+  - [2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/02_atomic-tasklist-writing-workbench-evolution-2026-03-07.md)
+- `development-plans/ARCHIVE_EXTERNAL_BLOCKED` 保留知识组织与图谱编辑主题文档：
+  - [2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/01_typed-knowledge-organization-plan-2026-03-07.md)
+  - [2026-03-07-typed-knowledge-organization/02_atomic-tasklist-typed-knowledge-organization-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/02_atomic-tasklist-typed-knowledge-organization-2026-03-07.md)
+  - [2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/01_graph-editing-and-reporting-plan-2026-03-07.md)
+  - [2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/02_atomic-tasklist-graph-editing-and-reporting-2026-03-07.md)
 - `development-plans/CURRENT_DEV` 新增采集、来源、前端基础设施主题文档：
   - [2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/01_ingest-digestion-and-long-cycle-automation-plan-2026-03-07.md)
   - [2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/02_atomic-tasklist-ingest-digestion-and-long-cycle-automation-2026-03-07.md)

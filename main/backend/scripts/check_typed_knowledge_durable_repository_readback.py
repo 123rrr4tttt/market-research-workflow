@@ -23,7 +23,7 @@ from app.services.typed_knowledge.persistence_boundary import (  # noqa: E402
 
 EVIDENCE_FILE = (
     REPO_ROOT
-    / "development/latest-dev-docs/development-plans/CURRENT_DEV"
+    / "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED"
     / "2026-03-07-typed-knowledge-organization"
     / "08_wave17-typed-knowledge-durable-readback-2026-05-22.md"
 )

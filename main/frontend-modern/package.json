@@ -14,6 +14,8 @@
     "check:catalog-page-i18n-slice": "node scripts/check_catalog_page_i18n_slice.mjs",
     "check:dashboard-page-i18n-slice": "node scripts/check_dashboard_page_i18n_slice.mjs",
     "check:process-page-i18n-slice": "node scripts/check_process_page_i18n_slice.mjs",
+    "check:graph-page-i18n-slice": "node scripts/check_graph_page_i18n_slice.mjs",
+    "check:i18n-page-shell-disjoint": "node scripts/check_i18n_page_shell_disjoint_gate.mjs",
     "check:business-string-audit": "node scripts/check_frontend_business_string_audit.mjs",
     "check:layer-shell-contract": "node scripts/check_layer_shell_contract.mjs",
     "check:topology-platform": "node scripts/check_topology_platform_contract.mjs",
