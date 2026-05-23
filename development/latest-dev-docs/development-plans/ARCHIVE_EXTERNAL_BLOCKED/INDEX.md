@@ -8,6 +8,7 @@
 
 - Target topic allowlist: [../TARGET_TOPIC_ALLOWLIST.json](../TARGET_TOPIC_ALLOWLIST.json)
 - External blocker manifest: [../EXTERNAL_BLOCKER_MANIFEST.v1.json](../EXTERNAL_BLOCKER_MANIFEST.v1.json)
+- Wave41 external unblock attempt: [../../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md](../../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)
 - Wave40 manifest evidence: [../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md](../../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)
 - Wave37 four-state review: [../../automation-runs/wave37-target-review-status/2026-05-23/README.md](../../automation-runs/wave37-target-review-status/2026-05-23/README.md)
 - Wave36 target evidence profile: [../../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md](../../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md)

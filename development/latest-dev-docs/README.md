@@ -14,7 +14,7 @@
 
 - 规范入口：[development-plans/CURRENT_DEV/INDEX.md](./development-plans/CURRENT_DEV/INDEX.md)。
 - 目标主题 allowlist：[development-plans/TARGET_TOPIC_ALLOWLIST.json](./development-plans/TARGET_TOPIC_ALLOWLIST.json)，用于区分真实开发目标、证据/过程记录、分类/导航目录与外部参考材料。
-- 外部阻塞 manifest：[development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)，用于把每个 `external_blocked` review target 绑定到结构化外部依赖、仓内证据、解除条件和 owner surface。
+- 外部阻塞 manifest：[development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json)，用于把剩余 `external_blocked` review target 绑定到结构化外部依赖、仓内证据、解除条件和 owner surface。
 - 当前 `CURRENT_DEV` 分布以该入口的“剩余状态分布”为准：`partial:0 / not_closed:0 / no_closure_claim:0`。
 - 四态审计摘要以 [Wave39 target review zero needs update](./automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md) 为准：`unsealed:0 / sealed:55 / outdated:6 / needs_update:0`。
 - 下方“最新补充”是 historical wave log；其中 `partial:x -> partial:y` 仅表示对应 wave 完成时的历史快照，不代表当前剩余状态。
@@ -37,6 +37,8 @@
 - 当更新日期变化时，必须同步更新目录名、文件名与索引引用（至少包含 `README.md`、`MERGED_OVERVIEW.md`、子目录 `INDEX.md`）。
 
 ## 最新补充
+
+- Wave41 external unblock attempt（2026-05-23）：用真实 `multi_agent_v1` runtime 证据关闭 `parallel-agent-wave-orchestration` 的 worker/subagent runtime exposure blocker；当前 external-blocked review targets 从 `30` 降到 `29`，manifest entries 从 `30` 降到 `29`。证据：[wave41 external unblock attempt](./automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)，闭合记录：[parallel-agent runtime exposure closure](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/08_wave41-subagent-runtime-exposure-closure-2026-05-23.md)。
 
 - Wave40 external blocker manifest（2026-05-23）：新增 [EXTERNAL_BLOCKER_MANIFEST.v1.json](./development-plans/EXTERNAL_BLOCKER_MANIFEST.v1.json) 与 `check_external_blocker_manifest.py`，从 target matrix 派生 30 个 external-blocked review targets 并强制 30/30 manifest 覆盖，替代“关键词命中即可通过”的弱外部阻塞口径。证据：[wave40 external blocker manifest](./automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)。
 

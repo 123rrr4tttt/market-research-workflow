@@ -69,8 +69,8 @@
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration",
-      "review_status": "external_blocked",
-      "reason": "Wave38 restored topic-local runtime contract gates; the only remaining proof is worker/subagent runtime exposure outside this repo-local boundary."
+      "review_status": "closed",
+      "reason": "Wave41 recorded real multi_agent_v1 spawn, completed-agent, quota-error, and close-agent runtime evidence; worker/subagent runtime proof is no longer external-blocked."
     },
     {
       "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-04-cd-r5-d-provenance-enforcement",

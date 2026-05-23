@@ -9,6 +9,7 @@
 - [CURRENT_DEV/INDEX.md](./CURRENT_DEV/INDEX.md)
 - [TARGET_TOPIC_ALLOWLIST.json](./TARGET_TOPIC_ALLOWLIST.json)
 - [EXTERNAL_BLOCKER_MANIFEST.v1.json](./EXTERNAL_BLOCKER_MANIFEST.v1.json)
+- [automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md](../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md)
 - [automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md](../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md)
 - [automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md](../automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md)
 - [automation-runs/wave38-target-review-closure/2026-05-23/README.md](../automation-runs/wave38-target-review-closure/2026-05-23/README.md)
@@ -28,12 +29,14 @@
 
 - Current `CURRENT_DEV` status is canonical only in [CURRENT_DEV/INDEX.md](./CURRENT_DEV/INDEX.md): `partial:0 / not_closed:0 / no_closure_claim:0`.
 - Target-topic scope is canonical in [TARGET_TOPIC_ALLOWLIST.json](./TARGET_TOPIC_ALLOWLIST.json): only real development target topics are checked for closed / external_blocked / retired / active current status; navigation, evidence/process, compatibility-shim, and reference material directories are not closure targets.
-- External-blocked target governance is canonical in [EXTERNAL_BLOCKER_MANIFEST.v1.json](./EXTERNAL_BLOCKER_MANIFEST.v1.json): every external-blocked review target must have dependency type, repo-local evidence, required external proof, probe/manual evidence shape, exit criteria, and owner surface.
+- External-blocked target governance is canonical in [EXTERNAL_BLOCKER_MANIFEST.v1.json](./EXTERNAL_BLOCKER_MANIFEST.v1.json): every remaining external-blocked review target must have dependency type, repo-local evidence, required external proof, probe/manual evidence shape, exit criteria, and owner surface.
 - Four-state review status is canonical in [Wave39 Target Review Zero Needs Update](../automation-runs/wave39-target-review-zero-needs-update/2026-05-23/README.md): `unsealed:0 / sealed:55 / outdated:6 / needs_update:0`.
 - The latest target evidence profile is [Wave36 Target Topic Evidence Profile](../automation-runs/wave36-target-topic-evidence-profile/2026-05-23/README.md): 61 target topics (`closed:26 / external_blocked:29 / retired:6 / active_current:0`), 17 non-target roots, and 61 target evidence profiles.
 - Wave entries and `partial:x -> partial:y` notes below are historical wave logs. They record past migration deltas and do not reopen active `CURRENT_DEV` work.
 
 ## Historical Wave Log / Archive Navigation
+
+- [Wave41 External Unblock Attempt](../automation-runs/wave41-external-unblock-attempt/2026-05-23/README.md) closes the parallel-agent runtime exposure external blocker with real `multi_agent_v1` spawn/completion/error/close evidence. Current external-blocked review targets are now `29`, and manifest entries are `29`.
 
 - [Wave40 External Blocker Manifest](../automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md) adds a structured manifest and checker for all 30 external-blocked review targets. `check_external_blocker_manifest.py` now verifies `external_target_count=30 / manifest_target_count=30`, preventing keyword-only external-blocked closure claims.
 

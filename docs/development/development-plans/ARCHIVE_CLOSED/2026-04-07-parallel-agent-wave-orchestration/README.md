@@ -16,10 +16,11 @@
 5. [05_wave7-runtime-closure-evidence-2026-05-22.md](./05_wave7-runtime-closure-evidence-2026-05-22.md)
 6. [06_wave10-runtime-contract-refresh-2026-05-22.md](./06_wave10-runtime-contract-refresh-2026-05-22.md)
 7. [07_wave16-runtime-boundary-closure-2026-05-22.md](./07_wave16-runtime-boundary-closure-2026-05-22.md)
-8. [runtime_contract_refresh_2026-05-22.json](./runtime_contract_refresh_2026-05-22.json)
-9. [wave16_runtime_boundary_closure_2026-05-22.json](./wave16_runtime_boundary_closure_2026-05-22.json)
-10. [verify_wave10_runtime_contract.py](./verify_wave10_runtime_contract.py)
-11. [verify_wave16_runtime_contract.py](./verify_wave16_runtime_contract.py)
+8. [08_wave41-subagent-runtime-exposure-closure-2026-05-23.md](./08_wave41-subagent-runtime-exposure-closure-2026-05-23.md)
+9. [runtime_contract_refresh_2026-05-22.json](./runtime_contract_refresh_2026-05-22.json)
+10. [wave16_runtime_boundary_closure_2026-05-22.json](./wave16_runtime_boundary_closure_2026-05-22.json)
+11. [verify_wave10_runtime_contract.py](./verify_wave10_runtime_contract.py)
+12. [verify_wave16_runtime_contract.py](./verify_wave16_runtime_contract.py)
 
 ## 阅读顺序
 
@@ -30,6 +31,7 @@
 5. 若需要判断本专题能否封口，读 `05_wave7-runtime-closure-evidence-2026-05-22.md`，以 `partial` 结论区分 repo 合约已闭合与当前 Codex 运行时未暴露 `multi_agent_v1.spawn_agent` 的剩余缺口。
 6. 若需要判断 Wave10 之后的 runtime contract，读 `06_wave10-runtime-contract-refresh-2026-05-22.md` 与 `runtime_contract_refresh_2026-05-22.json`，区分 parent runtime 可用、worker runtime 仍需实际工具暴露验证、fallback 规则可检查这三层边界。
 7. 若需要判断 Wave16 是否可由 supervisor 迁档，读 `07_wave16-runtime-boundary-closure-2026-05-22.md` 与 `wave16_runtime_boundary_closure_2026-05-22.json`：本目录只封住仓内 runtime 入口、父 runtime 可用事实和 fallback 约定；worker runtime / spawned-subagent proof 作为 successor，不在本目录误封。
+8. 若需要判断 Wave41 后的最终状态，读 `08_wave41-subagent-runtime-exposure-closure-2026-05-23.md`：本轮已记录真实 `multi_agent_v1` spawn / completion / quota-error / close 路径，worker runtime proof 不再保留为 external blocker。
 
 ## 使用说明
 
@@ -41,6 +43,7 @@
 6. 本目录的 2026-05-22 Wave7 证据把专题状态推进为 `partial`；共享总索引仍需后续 supervisor lane 按统一导航规则同步。
 7. 本目录的 2026-05-22 Wave10 证据把 `external_blocked` 收窄为 worker/subagent runtime proof：parent runtime 可用可以记录，但每个 worker 仍必须以自身实际可调用工具为准，不能伪造子代理能力。
 8. 本目录的 2026-05-22 Wave16 证据把仓内 runtime 入口和 parent-runtime availability 记为 `archive candidate`，同时把 worker runtime proof 拆为 successor；共享总索引和实际迁档仍由 supervisor 统一执行。
+9. 本目录的 2026-05-23 Wave41 证据关闭 worker/subagent runtime proof：真实子代理完成路径与错误关闭路径均已记录，后续只需按配额/模型容量调度，不再作为本专题封口 blocker。
 
 ## 本地验证
 
