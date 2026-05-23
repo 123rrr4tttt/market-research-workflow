@@ -47,7 +47,13 @@ def parse_args() -> argparse.Namespace:
             "without probing the external OpenClaw runtime."
         )
     )
-    parser.add_argument("--root", default=str(REPO_ROOT), help="Repository root; defaults to this checkout.")
+    parser.add_argument(
+        "--root",
+        "--repo-root",
+        dest="root",
+        default=str(REPO_ROOT),
+        help="Repository root; defaults to this checkout.",
+    )
     parser.add_argument(
         "--topic",
         default=None,
@@ -165,9 +171,10 @@ def artifact_rows(topic: Path, root: Path, runtime_checker: ModuleType, *, local
         rel_path = Path(artifact["path"])
         full_path = topic / rel_path
         exists = full_path.is_file()
+        nonempty = exists and bool(full_path.read_text(encoding="utf-8").strip())
         status = (
             STATUS_MISSING_ARTIFACT
-            if not exists
+            if not exists or not nonempty
             else STATUS_LOCAL_MIRROR_PASSED
             if local_mirror_ok
             else STATUS_LOCAL_MIRROR_FAILED
@@ -179,6 +186,7 @@ def artifact_rows(topic: Path, root: Path, runtime_checker: ModuleType, *, local
                 "path": display_path(full_path, root),
                 "status": status,
                 "exists": exists,
+                "nonempty": nonempty,
             }
         )
     return rows

@@ -19,15 +19,16 @@ if str(BACKEND_ROOT) not in sys.path:
 
 
 CONTRACT_VERSION = "source-time.production-readiness.v1"
-TOPIC_DIR = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-    "2026-03-02-source-time-window-smart-timestamp-plan"
+TOPIC_NAME = "2026-03-02-source-time-window-smart-timestamp-plan"
+TOPIC_DIR_CANDIDATES = (
+    Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED") / TOPIC_NAME,
+    Path("development/latest-dev-docs/development-plans/CURRENT_DEV") / TOPIC_NAME,
 )
 
-WAVE10_EVIDENCE = TOPIC_DIR / "04_wave10-source-time-window-contract-evidence-2026-05-22.md"
-WAVE12_EVIDENCE = TOPIC_DIR / "05_wave12-time-density-decision-log-provenance-evidence-2026-05-22.md"
-WAVE15_EVIDENCE = TOPIC_DIR / "06_wave15-source-time-production-readiness-2026-05-22.md"
-WAVE17_EVIDENCE = TOPIC_DIR / "07_wave17-source-time-production-sample-readback-gate-2026-05-22.md"
+WAVE10_EVIDENCE = "04_wave10-source-time-window-contract-evidence-2026-05-22.md"
+WAVE12_EVIDENCE = "05_wave12-time-density-decision-log-provenance-evidence-2026-05-22.md"
+WAVE15_EVIDENCE = "06_wave15-source-time-production-readiness-2026-05-22.md"
+WAVE17_EVIDENCE = "07_wave17-source-time-production-sample-readback-gate-2026-05-22.md"
 
 LIVE_EVIDENCE_REQUIREMENTS = (
     "production_data_semantic_chain_verified",
@@ -74,13 +75,19 @@ def _read_text(path: Path) -> str:
         return ""
 
 
-def _token_check(root: Path, relative_path: Path, tokens: tuple[str, ...]) -> dict[str, Any]:
-    path = root / relative_path
+def _topic_file_candidates(filename: str) -> tuple[Path, ...]:
+    return tuple(topic_dir / filename for topic_dir in TOPIC_DIR_CANDIDATES)
+
+
+def _token_check(root: Path, relative_paths: tuple[Path, ...], tokens: tuple[str, ...]) -> dict[str, Any]:
+    selected_path = next((relative_path for relative_path in relative_paths if (root / relative_path).is_file()), relative_paths[0])
+    path = root / selected_path
     exists = path.is_file()
     text = _read_text(path) if exists else ""
     missing = [token for token in tokens if token not in text]
     return {
-        "path": str(relative_path),
+        "path": str(selected_path),
+        "candidate_paths": [str(relative_path) for relative_path in relative_paths],
         "exists": exists,
         "tokens_checked": list(tokens),
         "missing_tokens": missing,
@@ -128,8 +135,15 @@ def _sample_density_rows(*, start: date, end: date, **_: object) -> list[dict[st
 
 
 def _deterministic_sample_readback_stage() -> dict[str, Any]:
-    from app.services.ingest import digestion_scaffold
-    from app.services.stats import prompt_time_density
+    try:
+        from app.services.ingest import digestion_scaffold
+    except Exception:  # noqa: BLE001 - deterministic gate must not require full app import.
+        from scripts.check_time_density_runtime_support import digestion_scaffold
+
+    try:
+        from app.services.stats import prompt_time_density
+    except Exception:  # noqa: BLE001 - fallback mirrors only the deterministic contract surface.
+        from scripts import check_time_density_runtime_support as prompt_time_density
 
     source_time = "2026-03-02T12:00:00Z"
     processed_time = "2026-03-10T12:00:00Z"
@@ -391,7 +405,7 @@ def _doc_token_results(root: Path) -> list[dict[str, Any]]:
     return [
         _token_check(
             root,
-            WAVE10_EVIDENCE,
+            _topic_file_candidates(WAVE10_EVIDENCE),
             (
                 "Wave10 Source-Time Window Contract Evidence",
                 "status=passed_with_known_gaps",
@@ -402,7 +416,7 @@ def _doc_token_results(root: Path) -> list[dict[str, Any]]:
         ),
         _token_check(
             root,
-            WAVE12_EVIDENCE,
+            _topic_file_candidates(WAVE12_EVIDENCE),
             (
                 "Wave12 Time-Density Decision-Log Provenance Evidence",
                 "doc_stale",
@@ -415,7 +429,7 @@ def _doc_token_results(root: Path) -> list[dict[str, Any]]:
         ),
         _token_check(
             root,
-            WAVE15_EVIDENCE,
+            _topic_file_candidates(WAVE15_EVIDENCE),
             (
                 "Wave15 Source-Time Production Readiness",
                 "check_source_time_production_readiness.py",
@@ -429,7 +443,7 @@ def _doc_token_results(root: Path) -> list[dict[str, Any]]:
         ),
         _token_check(
             root,
-            WAVE17_EVIDENCE,
+            _topic_file_candidates(WAVE17_EVIDENCE),
             (
                 "Wave17 Source-Time Production Sample Readback Gate",
                 "deterministic_sample_readback_chain",

@@ -20,10 +20,13 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TOPIC_REL = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-    "2026-03-04-r41-openclaw-autodispatch"
+TOPIC_NAME = "2026-03-04-r41-openclaw-autodispatch"
+CURRENT_TOPIC_REL = Path("development/latest-dev-docs/development-plans/CURRENT_DEV") / TOPIC_NAME
+ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL = (
+    Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED") / TOPIC_NAME
 )
+TOPIC_CANDIDATE_RELS = (ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL, CURRENT_TOPIC_REL)
+TOPIC_REL = ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL
 BATCH = "2026-03-04-scout-r41"
 AUTODISPATCH_GATE_SCRIPT = Path("scripts/checkers/check_r41_openclaw_autodispatch_gate.py")
 
@@ -120,11 +123,20 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate repo-local R41 OpenClaw handoff and external runtime boundary evidence."
     )
-    parser.add_argument("--root", default=str(REPO_ROOT), help="Repository root; defaults to this checkout.")
+    parser.add_argument(
+        "--root",
+        "--repo-root",
+        dest="root",
+        default=str(REPO_ROOT),
+        help="Repository root; defaults to this checkout.",
+    )
     parser.add_argument(
         "--topic",
-        default=str(TOPIC_REL),
-        help="R41 topic folder relative to --root, or an absolute topic path.",
+        default=None,
+        help=(
+            "R41 topic folder relative to --root/--repo-root, or an absolute topic path. "
+            "Defaults to the first existing archive/current-dev topic path."
+        ),
     )
     return parser.parse_args()
 
@@ -144,7 +156,10 @@ def read_text(path: Path, problems: list[Problem]) -> str:
     if not path.is_file():
         problems.append(Problem(path, None, "required document is missing"))
         return ""
-    return path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
+    if not text.strip():
+        problems.append(Problem(path, None, "required document is empty"))
+    return text
 
 
 def line_no(text: str, needle: str) -> int | None:
@@ -341,6 +356,16 @@ def check_topic(topic: Path, root: Path | None = None) -> GateResult:
     )
 
 
+def resolve_topic_path(root: Path, topic: Path | None = None) -> Path:
+    if topic is not None:
+        return topic if topic.is_absolute() else root / topic
+    for relative in TOPIC_CANDIDATE_RELS:
+        candidate = root / relative
+        if candidate.is_dir():
+            return candidate
+    return root / TOPIC_REL
+
+
 def display_path(path: Path, root: Path) -> str:
     try:
         return path.resolve().relative_to(root.resolve()).as_posix()
@@ -351,8 +376,8 @@ def display_path(path: Path, root: Path) -> str:
 def main() -> int:
     args = parse_args()
     root = Path(args.root).resolve()
-    topic_arg = Path(args.topic)
-    topic = topic_arg if topic_arg.is_absolute() else root / topic_arg
+    topic_arg = Path(args.topic) if args.topic else None
+    topic = resolve_topic_path(root, topic_arg)
 
     result = check_topic(topic, root)
     if not result.ok:

@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT_PATH = (
@@ -89,6 +90,20 @@ class R41OpenClawAutodispatchGateTestCase(unittest.TestCase):
         self.assertTrue(result.ok, result.problems)
         self.assertEqual(result.line_count, 6)
         self.assertEqual(result.required_field_count, 26)
+
+    def test_parse_args_accepts_repo_root_alias(self) -> None:
+        with patch.object(sys, "argv", ["checker", "--repo-root", "/tmp/repo"]):
+            args = checker.parse_args()
+
+        self.assertEqual(args.root, "/tmp/repo")
+
+    def test_resolve_topic_path_prefers_existing_archive_topic(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            topic = root / checker.ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL
+            topic.mkdir(parents=True)
+
+            self.assertEqual(checker.resolve_topic_path(root), topic)
 
     def test_checker_rejects_nonzero_ready_dispatch_count(self) -> None:
         result = checker.check_topic(self.make_topic(ready_dispatch_count="1"))

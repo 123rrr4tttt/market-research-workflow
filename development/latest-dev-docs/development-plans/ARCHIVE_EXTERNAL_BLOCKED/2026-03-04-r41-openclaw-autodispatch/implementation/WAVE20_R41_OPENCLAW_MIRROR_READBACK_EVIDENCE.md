@@ -8,7 +8,8 @@ Date: 2026-05-22
 - contract_version: `wave20-openclaw-mirror-runtime-readback.v1`
 - local_mirror_status: `local_mirror_passed`
 - external_runtime_status: `external_runtime_unverified`
-- missing_artifact_status: `missing_artifact`
+- missing_artifact_count: `0`
+- missing_artifact_status_label: `missing_artifact`
 - external_openclaw_runtime_live_verified: `false`
 - external_runtime_checked: `false`
 - closure_claim_allowed: `false`

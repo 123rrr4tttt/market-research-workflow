@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 import pytest
@@ -35,10 +36,27 @@ class TimeDensityCurrentStateCheckerTest(unittest.TestCase):
         self.assertEqual(state["evidence"]["time_statistics"]["status"], "current")
         self.assertEqual(state["evidence"]["source_time_window"]["status"], "current")
         self.assertEqual(state["evidence"]["time_semantics_density"]["status"], "current")
+        self.assertIn("ARCHIVE_EXTERNAL_BLOCKED", state["evidence"]["time_statistics"]["path"])
         self.assertIn(
             "production_freshness_not_claimed_by_local_contract",
             state["remaining_gaps"],
         )
+
+    def test_checker_falls_back_to_current_dev_evidence_when_archive_is_absent(self) -> None:
+        module = _load_checker_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for topic in module.EVIDENCE_TOPICS:
+                source = module.REPO_ROOT / topic.paths[0]
+                target = root / topic.paths[1]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+
+            state = module.build_current_state(repo_root=root)
+
+        self.assertEqual(state["status"], "passed_with_known_gaps")
+        self.assertEqual(state["failures"], [])
+        self.assertTrue(all("CURRENT_DEV" in item["path"] for item in state["evidence"].values()))
 
     def test_marker_classifier_accepts_current_checker_backed_evidence(self) -> None:
         module = _load_checker_module()

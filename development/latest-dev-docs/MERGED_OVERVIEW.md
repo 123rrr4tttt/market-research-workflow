@@ -22,6 +22,7 @@ Updated: 2026-05-23 PST
 ## 最近新增
 
 - `development-plans`：
+  - [2026-05-23 Wave33 External-Blocked Revalidation](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-23-wave33-external-blocked-revalidation.md)
   - [2026-05-23 Wave32 Frontend I18N Final Closure](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)
   - [2026-05-23 Wave31 Frontend I18N Concentrated Slices](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/15_wave31-frontend-i18n-concentrated-slices-2026-05-23.md)
   - [2026-05-23 Wave30 Global Vectorization External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)

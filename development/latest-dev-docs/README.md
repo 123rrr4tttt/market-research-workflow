@@ -29,6 +29,8 @@
 
 ## 最新补充
 
+- Wave33 external-blocked revalidation（2026-05-23）：`CURRENT_DEV` 已为 `partial:0`，本轮改为复核最接近误判的外部阻塞目录：source-library、time semantics 与 OpenClaw R41。9 个子 agent 已完成并关闭；仓内修复了 time-semantics checker 的 archive-first evidence fallback、OpenClaw `--repo-root` / archive topic 默认值与空证据文件失败保护，并标注 source-library 历史 `retained_partial` 文案为旧快照。结论仍是 [ARCHIVE_EXTERNAL_BLOCKED](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-23-wave33-external-blocked-revalidation.md)，不转 `ARCHIVE_CLOSED`。
+
 - Wave32 closure-priority wave（2026-05-23）：集中处理最后一个 `CURRENT_DEV` partial：`2026-03-15-frontend-three-layer-rewrite`。9 个 frontend worker 的结果已集成并关闭，`check:business-string-audit` 报告 `full_business_string_migration_complete=true`、`remaining_migration_gaps.total=0`，Graph/Ops/AgentChat/Resource/Settings/LlmDesigner/WritingWorkbench focused gates、`lint` 与 `build` 均通过；目录迁入 [ARCHIVE_CLOSED](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)，`CURRENT_DEV` 从 `partial:1` 降到 `partial:0`。
 
 - Wave31 closure-priority wave（2026-05-23）：docs-root 执行 195 个 `ARCHIVE_CLOSED` ledger 文件 moved-file batch，`check_docs_root_navigation_drift.py --require-clean` 达到 `missing_refs=0 / shared_missing_refs=0 / unsafe_moves=0 / decomposed_moves=0`，`CURRENT_DEV` 从 `partial:2` 降到 `partial:1`；frontend three-layer 继续保留为唯一 `partial`，但 business-string audit gaps 从 1724 降到 1080 且 build 通过。证据：[docs-root Wave31 clean gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)、[frontend Wave31 i18n slices](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/15_wave31-frontend-i18n-concentrated-slices-2026-05-23.md)。

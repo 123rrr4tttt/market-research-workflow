@@ -58,6 +58,10 @@
 - `external_blocked` [2026-03-01 Open Source Platform Integration](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/09_wave30-open-source-external-blocked-decision-2026-05-23.md)
 - `external_blocked` [2026-05-14 Global Vectorization General Foundation](../ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)
 
+## 本次外部阻塞复核
+
+- `wave33_checked` [Wave33 External-Blocked Revalidation](../ARCHIVE_EXTERNAL_BLOCKED/2026-05-23-wave33-external-blocked-revalidation.md) - `CURRENT_DEV` 已为 `partial:0`，本轮不再迁出目录；复核 source-library、time semantics 与 OpenClaw R41 后，修复仓内 checker 路径 / 空证据文件盲点并确认这些目录仍只剩外部 runtime / production data / public replay / human review 条件。
+
 ## 标签说明
 
 - `partial`：已有明显落地或局部收口，但整目录未闭环
@@ -109,6 +113,7 @@
 - `wave31_checked`：Wave31 已完成目录级复核；保留目录必须列明当前最小 blocker
 - `wave32_verified`：Wave32 封口优先波次清零最后 frontend business-string repo-local blocker，并通过 focused i18n gates、lint 与 build。
 - `wave32_checked`：Wave32 已完成目录级复核；迁档后 `CURRENT_DEV` 不再保留 partial 目录。
+- `wave33_checked`：Wave33 在 `CURRENT_DEV partial:0` 后复核最接近误判的 external-blocked 目录；若仍为 `external_blocked`，表示仓内 checker / 文档漂移已修复或标注，剩余条件仍是外部 runtime、production data、公网 replay 或人工 review。
 - `retained_partial`：Wave21/Wave22 已明确该目录仍有仓内 blocker 或大范围内部迁移，不能为降低 `partial` 指标而迁档
 - `external_blocked`：仓内确定性门禁已封住，但真实公网 / 运行时 / 环境依赖仍需外部条件
 - 时效标签详见 [`STATUS_AUDIT_2026-04-07.md`](./STATUS_AUDIT_2026-04-07.md)

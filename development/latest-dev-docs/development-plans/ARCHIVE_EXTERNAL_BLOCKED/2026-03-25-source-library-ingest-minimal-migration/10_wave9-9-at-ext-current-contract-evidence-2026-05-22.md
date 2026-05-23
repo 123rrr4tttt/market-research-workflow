@@ -23,6 +23,12 @@ Checker contract:
 - `scope`: `deterministic_current_state_no_live_external_probe`
 - `status`: `passed_with_known_gaps`
 
+Wave33 note (2026-05-23): this Wave9 snapshot is historical. Wave27 and the
+current checker now close the former `python_library_cli_container_runners_not_enabled`
+repo-local blocker by marking `AT-EXT-05` and `AT-EXT-08` as
+`closed_repo_local_v1`; the remaining blockers are live article-extraction stack
+replay and live external-project replay only.
+
 ## Current AT-EXT Status
 
 | Task | Status | Current evidence |

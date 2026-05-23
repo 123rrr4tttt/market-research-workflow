@@ -13,20 +13,22 @@
 
 ## 外部阻塞目录
 
+- [Wave33 External-Blocked Revalidation](./2026-05-23-wave33-external-blocked-revalidation.md)
+  状态：`wave33_checked`。集中复核 source-library、time semantics 与 OpenClaw R41 近封口目录；修复仓内路径迁移 / 空证据文件盲点后，结论仍为 `external_blocked`，不转 `closed`。
 - [2026-03-02 Source Time Window Smart Timestamp Plan](./2026-03-02-source-time-window-smart-timestamp-plan/)
-  状态：`external_blocked` / `wave21_checked`。仓内 source-time window、decision-log provenance、sample/provenance readback 已可重复验证；剩余条件是 production data semantic chain 的 live validation、coverage distribution 和 decision-log feature readback。
+  状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 source-time window、decision-log provenance、sample/provenance readback 已可重复验证；Wave33 将证据路径修正为 archive-first/current-dev fallback；剩余条件是 production data semantic chain 的 live validation、coverage distribution 和 decision-log feature readback。
 - [2026-03-04 R41 OpenClaw Autodispatch](./2026-03-04-r41-openclaw-autodispatch/README.md)
-  状态：`external_blocked` / `wave21_checked`。仓内 mirror/runtime/handoff checker 已通过；剩余条件是外部 OpenClaw runtime 的真实执行闭环。
+  状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 mirror/runtime/handoff checker 已通过；Wave33 补齐 archive-first 默认 topic、`--repo-root` alias 与空证据文件失败保护；剩余条件是外部 OpenClaw runtime 的真实执行闭环。
 - [2026-03-05 Time Statistics Remediation Plan](./2026-03-05-time-statistics-remediation-plan/)
-  状态：`external_blocked` / `wave21_checked`。仓内 OPE freshness、decision-log freshness、current-state 和 sample/provenance readback 已封住；剩余条件是生产 freshness/volume/alignment 证据。
+  状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 OPE freshness、decision-log freshness、current-state 和 sample/provenance readback 已封住；Wave33 将 current-state evidence 改为 archive-first/current-dev fallback；剩余条件是生产 freshness/volume/alignment 证据。
 - [2026-03-11 Source Library Three-Lane Architecture](./2026-03-11-source-library-three-lane-architecture/)
-  状态：`external_blocked` / `wave21_checked`。仓内 deterministic review batch 1-4、legacy 410 replacement、relevance queue 与 taxonomy readiness 已可重复验证；剩余条件是 live source collection、public replay 与 completed human review。
+  状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 deterministic review batch 1-4、legacy 410 replacement、relevance queue 与 taxonomy readiness 已可重复验证；Wave33 冻结旧 `external_blocked_candidate`/`retained_partial` 文案为历史快照；剩余条件是 live source collection、public replay 与 completed human review。
 - [2026-03-14 Search Chain Source-Library Mounting Audit](./2026-03-14-search-chain-source-library-mounting-audit/)
-  状态：`external_blocked` / `wave21_checked`。仓内 mount governance 与 deterministic review batch 已封住；剩余条件是 public replay、human review 和真实治理动作读回。
+  状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 mount governance 与 deterministic review batch 已封住；Wave33 复核无新增 repo-local blocker；剩余条件是 public replay、human review 和真实治理动作读回。
 - [2026-03-14 Source-Library Adapter Capability Remediation](./2026-03-14-source-library-adapter-capability-remediation/)
-  状态：`external_blocked` / `wave21_checked`。仓内 parser-profile、taxonomy/review readiness 与 deterministic review batch 已封住；剩余条件是 public replay 与人工 relevance review。
+  状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 parser-profile、taxonomy/review readiness 与 deterministic review batch 已封住；Wave33 复核无新增 repo-local blocker；剩余条件是 public replay 与人工 relevance review。
 - [2026-03-14 Time Semantics Density Merged Plan](./2026-03-14-time-semantics-density-merged-plan/README.md)
-  状态：`external_blocked` / `wave21_checked`。仓内 target-overlap、OPE contract、decision-log contract 与 sample/provenance readback 已封住；剩余条件是 production semantic evidence 与 release gate 接入。
+  状态：`external_blocked` / `wave21_checked` / `wave33_checked`。仓内 target-overlap、OPE contract、decision-log contract 与 sample/provenance readback 已封住；Wave33 将证据路径修正为 archive-first/current-dev fallback；剩余条件是 production semantic evidence 与 release gate 接入。
 - [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./2026-05-14-local-open-search-provider-isolation/INDEX.md)
   状态：`external_blocked` / `wave22_checked`。仓内 explicit provider trace、runtime boundary、health artifact、schema/readback 与单测门禁已封住；剩余条件是 SearXNG / YaCy live availability、provider quality/freshness/latency、operator approval 与 `provider=auto` promotion。
 - [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/2026-05-22-wave22-archive-external-blocked-decision.md)
@@ -56,7 +58,7 @@
 - [2026-03-14 Consumer-Side Modularization](./2026-03-14-consumer-side-modularization/08_wave27-external-blocked-decision-2026-05-23.md)
   状态：`external_blocked` / `wave27_checked`。仓内 consumer facade/query、admin/dashboard、policy-state 与 prompt-time-density gates 已封住；剩余条件是 live DB/API smoke。
 - [2026-03-25 Source-Library Ingest Minimal Migration](./2026-03-25-source-library-ingest-minimal-migration/18_wave27-external-blocked-decision-2026-05-23.md)
-  状态：`external_blocked` / `wave27_checked`。仓内 `python_library` 与 `cli_or_container` bounded runner gates 已封住，AT-EXT checker `failures=[]`；剩余条件是 live article-extraction stack replay 与 live external-project replay。
+  状态：`external_blocked` / `wave27_checked` / `wave33_checked`。仓内 `python_library` 与 `cli_or_container` bounded runner gates 已封住，AT-EXT checker `failures=[]`；Wave33 标注旧 Wave9/Wave21 runner blocker 文案为历史快照；剩余条件是 live article-extraction stack replay 与 live external-project replay。
 - [2026-03-12 Data Structured Service Modularization](./2026-03-12-data-structured-service-modularization/14_wave28-structured-document-query-statement-builder-2026-05-23.md)
   状态：`external_blocked` / `wave28_checked`。仓内 generic DocumentQuery statement builder、structured SQL helper migration 与 focused closure gates 已封住；剩余条件是 live DB/API smoke。
 - [2026-03-02 Ingest Platformization Assessment](./2026-03-02-ingest-platformization-assessment/09_wave29-ingest-platformization-repo-local-closure-2026-05-23.md)

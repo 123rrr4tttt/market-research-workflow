@@ -16,10 +16,13 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TOPIC_REL = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-    "2026-03-04-r41-openclaw-autodispatch"
+TOPIC_NAME = "2026-03-04-r41-openclaw-autodispatch"
+CURRENT_TOPIC_REL = Path("development/latest-dev-docs/development-plans/CURRENT_DEV") / TOPIC_NAME
+ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL = (
+    Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED") / TOPIC_NAME
 )
+TOPIC_CANDIDATE_RELS = (ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL, CURRENT_TOPIC_REL)
+TOPIC_REL = ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL
 AUTODISPATCH_REL = Path("orchestration/line-autodispatch-2026-03-04-scout-r41.md")
 INTERFACE_CONTRACT_REL = Path("R41_INTERFACE_CONTRACT.md")
 
@@ -97,11 +100,20 @@ def parse_args() -> argparse.Namespace:
             "reading the external OpenClaw workspace."
         )
     )
-    parser.add_argument("--root", default=str(REPO_ROOT), help="Repository root; defaults to this checkout.")
+    parser.add_argument(
+        "--root",
+        "--repo-root",
+        dest="root",
+        default=str(REPO_ROOT),
+        help="Repository root; defaults to this checkout.",
+    )
     parser.add_argument(
         "--topic",
-        default=str(TOPIC_REL),
-        help="R41 topic folder relative to --root, or an absolute topic path.",
+        default=None,
+        help=(
+            "R41 topic folder relative to --root/--repo-root, or an absolute topic path. "
+            "Defaults to the first existing archive/current-dev topic path."
+        ),
     )
     return parser.parse_args()
 
@@ -260,6 +272,16 @@ def check_topic(topic: Path) -> GateResult:
     )
 
 
+def resolve_topic_path(root: Path, topic: Path | None = None) -> Path:
+    if topic is not None:
+        return topic if topic.is_absolute() else root / topic
+    for relative in TOPIC_CANDIDATE_RELS:
+        candidate = root / relative
+        if candidate.is_dir():
+            return candidate
+    return root / TOPIC_REL
+
+
 def display_path(path: Path, root: Path) -> str:
     try:
         return path.resolve().relative_to(root.resolve()).as_posix()
@@ -270,8 +292,8 @@ def display_path(path: Path, root: Path) -> str:
 def main() -> int:
     args = parse_args()
     root = Path(args.root).resolve()
-    topic_arg = Path(args.topic)
-    topic = topic_arg if topic_arg.is_absolute() else root / topic_arg
+    topic_arg = Path(args.topic) if args.topic else None
+    topic = resolve_topic_path(root, topic_arg)
 
     result = check_topic(topic)
     if not result.ok:

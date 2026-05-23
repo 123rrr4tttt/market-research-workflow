@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT_PATH = (
@@ -50,6 +51,12 @@ class R41OpenClawMirrorRuntimeManifestReadbackTestCase(unittest.TestCase):
         self.assertEqual(contract["handoff_manifest"]["status"], checker.STATUS_LOCAL_MIRROR_PASSED)
         self.assertEqual(contract["handoff_manifest"]["line_count"], 6)
 
+    def test_parse_args_accepts_repo_root_alias(self) -> None:
+        with patch.object(sys, "argv", ["checker", "--repo-root", "/tmp/repo"]):
+            args = checker.parse_args()
+
+        self.assertEqual(args.root, "/tmp/repo")
+
     def test_contract_keeps_external_runtime_unverified(self) -> None:
         contract = checker.build_contract(root=checker.REPO_ROOT, topic=checker.REPO_ROOT / checker.TOPIC_REL)
         boundary = contract["external_runtime_boundary"]
@@ -78,6 +85,23 @@ class R41OpenClawMirrorRuntimeManifestReadbackTestCase(unittest.TestCase):
             missing_rows,
         )
         self.assertIn(checker.STATUS_MISSING_ARTIFACT, contract["readback_state"]["status_codes_seen"])
+
+    def test_contract_reports_empty_required_artifact_as_missing(self) -> None:
+        topic = self.copy_topic()
+        (topic / checker.WAVE20_EVIDENCE_REL).write_text("", encoding="utf-8")
+
+        contract = checker.build_contract(root=checker.REPO_ROOT, topic=topic)
+
+        self.assertEqual(contract["status"], "failed")
+        empty_rows = [
+            row
+            for row in contract["required_artifacts"]
+            if row["status"] == checker.STATUS_MISSING_ARTIFACT and row["exists"] and not row["nonempty"]
+        ]
+        self.assertTrue(
+            any(row["artifact_id"] == "wave20_mirror_readback_topic_evidence" for row in empty_rows),
+            empty_rows,
+        )
 
 
 if __name__ == "__main__":

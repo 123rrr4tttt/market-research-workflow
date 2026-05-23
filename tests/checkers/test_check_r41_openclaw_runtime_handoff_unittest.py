@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT_PATH = (
@@ -225,6 +226,20 @@ class R41OpenClawRuntimeHandoffGateTestCase(unittest.TestCase):
         self.assertEqual(result.implementation_doc_count, 3)
         self.assertEqual(result.reference_file_count, 11)
 
+    def test_parse_args_accepts_repo_root_alias(self) -> None:
+        with patch.object(sys, "argv", ["checker", "--repo-root", "/tmp/repo"]):
+            args = checker.parse_args()
+
+        self.assertEqual(args.root, "/tmp/repo")
+
+    def test_resolve_topic_path_prefers_existing_archive_topic(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            topic = root / checker.ARCHIVE_EXTERNAL_BLOCKED_TOPIC_REL
+            topic.mkdir(parents=True)
+
+            self.assertEqual(checker.resolve_topic_path(root), topic)
+
     def test_checker_rejects_implementation_without_skipped_runtime_marker(self) -> None:
         implementation_text = build_implementation_text("broken", "AB-envelope.md").replace(
             "LINE_AUTODISPATCH_skipped",
@@ -244,6 +259,24 @@ class R41OpenClawRuntimeHandoffGateTestCase(unittest.TestCase):
 
         self.assertFalse(result.ok)
         self.assertTrue(any("external OpenClaw runtime live verification" in problem.message for problem in result.problems), result.problems)
+
+    def test_checker_rejects_empty_required_reference_documents(self) -> None:
+        topic = self.make_topic()
+        (topic / checker.CODEX_HANDOFF_REL).write_text("", encoding="utf-8")
+        (topic / checker.REFERENCE_INDEX_REL).write_text("", encoding="utf-8")
+        (topic / checker.DEDUP_DIFF_REL).write_text("", encoding="utf-8")
+        (topic / checker.INTERFACE_ALIGNMENT_REL).write_text("", encoding="utf-8")
+        (topic / checker.EVIDENCE_REL).write_text("", encoding="utf-8")
+
+        result = checker.check_topic(topic, checker.REPO_ROOT)
+
+        self.assertFalse(result.ok)
+        empty_paths = {problem.path.resolve() for problem in result.problems if problem.message == "required document is empty"}
+        self.assertIn((topic / checker.CODEX_HANDOFF_REL).resolve(), empty_paths)
+        self.assertIn((topic / checker.REFERENCE_INDEX_REL).resolve(), empty_paths)
+        self.assertIn((topic / checker.DEDUP_DIFF_REL).resolve(), empty_paths)
+        self.assertIn((topic / checker.INTERFACE_ALIGNMENT_REL).resolve(), empty_paths)
+        self.assertIn((topic / checker.EVIDENCE_REL).resolve(), empty_paths)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,10 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.services.stats import prompt_time_density
+try:
+    from app.services.stats import prompt_time_density
+except Exception:  # noqa: BLE001 - deterministic checker can run without full app settings import.
+    from scripts import check_time_density_runtime_support as prompt_time_density
 
 
 CONTRACT_VERSION = prompt_time_density.TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION

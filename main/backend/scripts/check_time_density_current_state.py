@@ -29,7 +29,7 @@ STALE_TAXONOMY_MARKERS = (
 class EvidenceTopic:
     key: str
     label: str
-    path: str
+    paths: tuple[str, ...]
     current_markers: tuple[str, ...]
 
 
@@ -37,10 +37,13 @@ EVIDENCE_TOPICS = (
     EvidenceTopic(
         key="time_statistics",
         label="Time Statistics",
-        path=(
+        paths=(
+            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+            "2026-03-05-time-statistics-remediation-plan/"
+            "09_wave14-time-density-current-state-evidence-2026-05-22.md",
             "development/latest-dev-docs/development-plans/CURRENT_DEV/"
             "2026-03-05-time-statistics-remediation-plan/"
-            "09_wave14-time-density-current-state-evidence-2026-05-22.md"
+            "09_wave14-time-density-current-state-evidence-2026-05-22.md",
         ),
         current_markers=(
             "Time Statistics",
@@ -54,10 +57,13 @@ EVIDENCE_TOPICS = (
     EvidenceTopic(
         key="source_time_window",
         label="Source Time Window",
-        path=(
+        paths=(
+            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+            "2026-03-02-source-time-window-smart-timestamp-plan/"
+            "05_wave12-time-density-decision-log-provenance-evidence-2026-05-22.md",
             "development/latest-dev-docs/development-plans/CURRENT_DEV/"
             "2026-03-02-source-time-window-smart-timestamp-plan/"
-            "05_wave12-time-density-decision-log-provenance-evidence-2026-05-22.md"
+            "05_wave12-time-density-decision-log-provenance-evidence-2026-05-22.md",
         ),
         current_markers=(
             "check_time_density_decision_log_contract.py",
@@ -68,10 +74,13 @@ EVIDENCE_TOPICS = (
     EvidenceTopic(
         key="time_semantics_density",
         label="Time Semantics Density",
-        path=(
+        paths=(
+            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+            "2026-03-14-time-semantics-density-merged-plan/"
+            "09_wave12-time-density-decision-log-contract-evidence-2026-05-22.md",
             "development/latest-dev-docs/development-plans/CURRENT_DEV/"
             "2026-03-14-time-semantics-density-merged-plan/"
-            "09_wave12-time-density-decision-log-contract-evidence-2026-05-22.md"
+            "09_wave12-time-density-decision-log-contract-evidence-2026-05-22.md",
         ),
         current_markers=(
             "check_time_density_decision_log_contract.py",
@@ -137,12 +146,14 @@ def build_current_state(
     evidence: dict[str, Any] = {}
 
     for topic in EVIDENCE_TOPICS:
-        path = root / topic.path
+        selected_path = next((Path(candidate) for candidate in topic.paths if (root / candidate).is_file()), Path(topic.paths[0]))
+        path = root / selected_path
         if not path.is_file():
             failures.append(f"evidence.{topic.key}.missing_file")
             evidence[topic.key] = {
                 "label": topic.label,
-                "path": topic.path,
+                "path": selected_path.as_posix(),
+                "candidate_paths": list(topic.paths),
                 "status": "missing",
             }
             continue
@@ -150,7 +161,8 @@ def build_current_state(
         marker_state = classify_evidence_markers(text, current_markers=topic.current_markers)
         evidence[topic.key] = {
             "label": topic.label,
-            "path": topic.path,
+            "path": selected_path.as_posix(),
+            "candidate_paths": list(topic.paths),
             **marker_state,
         }
         if marker_state["status"] != "current":

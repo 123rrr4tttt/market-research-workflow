@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 import pytest
@@ -70,6 +71,36 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
             "production_freshness_probe_not_run",
             sample_stage["evidence"]["live_gap_markers_90d"],
         )
+        doc_paths = {Path(result["doc_results"][0]["path"]).parts[-2]}
+        self.assertIn("ARCHIVE_EXTERNAL_BLOCKED", result["doc_results"][0]["path"])
+        self.assertEqual(doc_paths, {"2026-03-02-source-time-window-smart-timestamp-plan"})
+
+    def test_doc_checks_fall_back_to_current_dev_when_archive_is_absent(self) -> None:
+        module = _load_checker_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            current_topic = (
+                root
+                / "development/latest-dev-docs/development-plans/CURRENT_DEV"
+                / module.TOPIC_NAME
+            )
+            current_topic.mkdir(parents=True)
+            source_topic = module.REPO_ROOT / module.TOPIC_DIR_CANDIDATES[0]
+            for filename in (
+                module.WAVE10_EVIDENCE,
+                module.WAVE12_EVIDENCE,
+                module.WAVE15_EVIDENCE,
+                module.WAVE17_EVIDENCE,
+            ):
+                (current_topic / filename).write_text(
+                    (source_topic / filename).read_text(encoding="utf-8"),
+                    encoding="utf-8",
+                )
+
+            doc_results = module._doc_token_results(root)
+
+        self.assertTrue(all(result["passed"] for result in doc_results), doc_results)
+        self.assertTrue(all("CURRENT_DEV" in result["path"] for result in doc_results), doc_results)
 
     def test_incomplete_live_evidence_fails_without_conflating_prior_contracts(self) -> None:
         module = _load_checker_module()

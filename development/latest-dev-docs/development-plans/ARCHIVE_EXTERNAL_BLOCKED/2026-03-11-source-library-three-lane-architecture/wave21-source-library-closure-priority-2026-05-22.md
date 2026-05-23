@@ -14,6 +14,12 @@ No shared indexes are edited in this pass. Moving directories out of
 `CURRENT_DEV` still requires a later integration pass because it must update the
 shared navigation surfaces.
 
+Wave33 note (2026-05-23): this note is preserved as a Wave21 snapshot. The
+later Wave27 decision moved `2026-03-25-source-library-ingest-minimal-migration`
+to `external_blocked` after closing the former
+`python_library_cli_container_runners_not_enabled` repo-local blocker; do not
+reuse the `retained_partial` row below as current status.
+
 ## Decision
 
 | Topic | Decision | Move-from-CURRENT_DEV candidate | Reason |

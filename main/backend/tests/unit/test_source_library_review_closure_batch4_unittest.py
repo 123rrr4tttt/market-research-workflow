@@ -80,7 +80,7 @@ class SourceLibraryReviewClosureBatch4UnitTestCase(unittest.TestCase):
         )
         self.assertTrue(
             artifact["topic_coverage"]["minimal_migration"]["wave20_evidence_doc"].startswith(
-                "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+                "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
             )
         )
 
@@ -109,7 +109,7 @@ class SourceLibraryReviewClosureBatch4UnitTestCase(unittest.TestCase):
         )
         self.assertTrue(
             doc_paths["minimal_migration"].startswith(
-                "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+                "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
             )
         )
 

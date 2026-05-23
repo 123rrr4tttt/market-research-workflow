@@ -1,6 +1,6 @@
 # CURRENT_DEV Status Audit
 
-更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave32 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
+更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave33 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
 
 本审计基于对 `CURRENT_DEV` 一级目录的逐目录核对，判断标准同时参考：
 
@@ -43,6 +43,7 @@
 - `wave30_verified`：Wave30 已落地 deterministic repo-local gate 或代码契约；若仍非迁档状态，必须列明剩余仓内 blocker
 - `wave31_verified`：Wave31 已落地 docs-root shared navigation clean gate 与 frontend concentrated i18n slices；若仍非迁档状态，必须列明剩余仓内 blocker。
 - `wave32_verified`：Wave32 已清零最后 frontend business-string repo-local blocker，focused i18n gates、lint 与 build 均通过。
+- `wave33_checked`：Wave33 在 `CURRENT_DEV partial:0` 后复核最接近误判的 external-blocked 目录；若仍为 `external_blocked`，表示仓内 checker / 文档漂移已修复或标注，剩余条件仍是外部 runtime、production data、公网 replay 或人工 review。
 
 时效标签：
 
