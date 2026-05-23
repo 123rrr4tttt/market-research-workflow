@@ -20,7 +20,7 @@ CONTRACT_VERSION = "source_library.public_replay_a5_gate.v1"
 REPLAY_RUN_DIR = Path("development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22")
 LIVE_PROBE_RUN_DIR = Path("development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22")
 WAVE7_A5_DOC = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
     "2026-03-07-crawler-source-expansion/2026-05-22-wave7-a5-public-replay-evidence.md"
 )
 

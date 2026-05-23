@@ -10,7 +10,7 @@ from typing import Any
 
 CONTRACT_VERSION = "crawler_source_expansion.closure_check.v1"
 TOPIC_DIR = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
     "2026-03-07-crawler-source-expansion"
 )
 WAVE6_DOC = TOPIC_DIR / "2026-05-22-wave6-closure-gap-and-min-plan.md"

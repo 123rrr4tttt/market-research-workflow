@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-22T04:15:57.810050+00:00",
+  "generated_at": "2026-05-23T00:46:14.057229+00:00",
   "status": "passed",
   "python": "3.11.14",
   "platform": "macOS-26.3-arm64-arm-64bit",
@@ -7,7 +7,7 @@
     "lancedb": "0.24.2",
     "pyarrow": "24.0.0"
   },
-  "db_path": "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-runtime-duaqzn83",
+  "db_path": "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-runtime-js1mjj_k",
   "out_dir": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22",
   "rerun_command": "main/backend/.venv311/bin/python ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py --out-dir development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22",
   "blockers": [],
@@ -22,7 +22,7 @@
       "query": "rare-lancedb-keyword-proof",
       "expected_chunk_id": "chunk-keyword",
       "expected_source_id": "source-keyword",
-      "latency_ms": 65.33,
+      "latency_ms": 20.59,
       "top_k": 1,
       "top_chunk_id": "chunk-keyword",
       "top_source_id": "source-keyword",
@@ -33,7 +33,10 @@
         "adapter": "lancedb",
         "requested_mode": "keyword",
         "executed_mode": "keyword",
-        "query_family": "local_material"
+        "query_family": "local_material",
+        "project_id": "runtime-smoke",
+        "source_id": "source-keyword",
+        "top_k": 3
       },
       "results": [
         {
@@ -55,7 +58,10 @@
             "adapter": "lancedb",
             "requested_mode": "keyword",
             "executed_mode": "keyword",
-            "query_family": "local_material"
+            "query_family": "local_material",
+            "project_id": "runtime-smoke",
+            "source_id": "source-keyword",
+            "top_k": 3
           }
         }
       ]
@@ -64,7 +70,7 @@
       "query": "semantic vector target robotics benchmark",
       "expected_chunk_id": "chunk-vector",
       "expected_source_id": "source-vector",
-      "latency_ms": 30.86,
+      "latency_ms": 7.4,
       "top_k": 1,
       "top_chunk_id": "chunk-vector",
       "top_source_id": "source-vector",
@@ -75,7 +81,10 @@
         "adapter": "lancedb",
         "requested_mode": "vector",
         "executed_mode": "vector",
-        "query_family": "local_material"
+        "query_family": "local_material",
+        "project_id": "runtime-smoke",
+        "source_id": "source-vector",
+        "top_k": 3
       },
       "results": [
         {
@@ -97,7 +106,10 @@
             "adapter": "lancedb",
             "requested_mode": "vector",
             "executed_mode": "vector",
-            "query_family": "local_material"
+            "query_family": "local_material",
+            "project_id": "runtime-smoke",
+            "source_id": "source-vector",
+            "top_k": 3
           }
         }
       ]
@@ -106,7 +118,7 @@
       "query": "hybrid retrieval fusion robotics policy",
       "expected_chunk_id": "chunk-hybrid",
       "expected_source_id": "source-hybrid",
-      "latency_ms": 41.27,
+      "latency_ms": 18.01,
       "top_k": 1,
       "top_chunk_id": "chunk-hybrid",
       "top_source_id": "source-hybrid",
@@ -117,7 +129,10 @@
         "adapter": "lancedb",
         "requested_mode": "hybrid",
         "executed_mode": "hybrid",
-        "query_family": "local_material"
+        "query_family": "local_material",
+        "project_id": "runtime-smoke",
+        "source_id": "source-hybrid",
+        "top_k": 3
       },
       "results": [
         {
@@ -139,7 +154,10 @@
             "adapter": "lancedb",
             "requested_mode": "hybrid",
             "executed_mode": "hybrid",
-            "query_family": "local_material"
+            "query_family": "local_material",
+            "project_id": "runtime-smoke",
+            "source_id": "source-hybrid",
+            "top_k": 3
           }
         }
       ]
@@ -151,5 +169,5 @@
     "project_id and source_id filters applied through LanceDB where predicate",
     "keyword, vector, and hybrid modes each returned the expected top row without fallback"
   ],
-  "duration_ms": 1796.98
+  "duration_ms": 654.39
 }

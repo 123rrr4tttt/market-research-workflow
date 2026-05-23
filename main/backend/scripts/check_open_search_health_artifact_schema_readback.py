@@ -23,7 +23,9 @@ if str(BACKEND_ROOT) not in sys.path:
 from scripts.check_open_search_health_artifact import (  # noqa: E402
     DEFAULT_OUT as DEFAULT_HEALTH_ARTIFACT,
     LOCAL_OPEN_SEARCH_FAMILY,
+    OPEN_SEARCH_TOPIC_DIRS,
     PROVIDERS,
+    _first_existing_path,
     display_path,
     load_json,
 )
@@ -31,11 +33,12 @@ from scripts.check_open_search_health_artifact import (  # noqa: E402
 
 CONTRACT_VERSION = "wave19-open-search-health-artifact-schema-readback.v1"
 SOURCE_CONTRACT_VERSION = "wave18-open-search-health-artifact.v1"
-TOPIC_DOC = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-    "2026-05-14-local-open-search-provider-isolation/"
-    "15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md"
-)
+TOPIC_DOC = _first_existing_path(
+    *(
+        topic_dir / "15_wave19-open-search-health-artifact-schema-readback-2026-05-22.md"
+        for topic_dir in OPEN_SEARCH_TOPIC_DIRS
+    )
+).relative_to(REPO_ROOT)
 REQUIRED_ROOT_FIELDS = (
     "contract_version",
     "status",

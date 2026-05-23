@@ -2,7 +2,7 @@
 
 Date: 2026-05-22
 Branch: `codex/devdocs-wave6-crawler-source-expansion`
-Scope: `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/`
+Scope: `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/`
 
 ## Closure Decision
 

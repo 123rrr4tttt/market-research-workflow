@@ -6,7 +6,7 @@ worktree：`/Users/wangyiliang/market-research-workflow.worktrees/search-provide
 
 ## 1. 任务
 
-根据 `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/`，把 SearXNG / YaCy explicit provider trace 合同落到 search provider 代码和单测。
+根据 `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/`，把 SearXNG / YaCy explicit provider trace 合同落到 search provider 代码和单测。
 
 ## 2. 结果
 

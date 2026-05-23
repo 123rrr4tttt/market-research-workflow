@@ -1,18 +1,18 @@
 # LanceDB Local Index Runtime Smoke
 
 - status: `passed`
-- generated_at: `2026-05-22T04:15:57.810050+00:00`
+- generated_at: `2026-05-23T00:46:14.057229+00:00`
 - lancedb: `0.24.2`
 - pyarrow: `24.0.0`
-- db_path: `/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-runtime-duaqzn83`
+- db_path: `/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-runtime-js1mjj_k`
 
 ## Mode Evidence
 
 | mode | executed_mode | top_chunk_id | top_source_id | top_k | latency_ms |
 |---|---|---|---|---:|---:|
-| keyword | keyword | chunk-keyword | source-keyword | 1 | 65.33 |
-| vector | vector | chunk-vector | source-vector | 1 | 30.86 |
-| hybrid | hybrid | chunk-hybrid | source-hybrid | 1 | 41.27 |
+| keyword | keyword | chunk-keyword | source-keyword | 1 | 20.59 |
+| vector | vector | chunk-vector | source-vector | 1 | 7.4 |
+| hybrid | hybrid | chunk-hybrid | source-hybrid | 1 | 18.01 |
 
 ## Blockers
 

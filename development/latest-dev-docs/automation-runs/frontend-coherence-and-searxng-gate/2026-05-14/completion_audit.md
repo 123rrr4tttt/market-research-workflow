@@ -1,6 +1,6 @@
 # Completion Audit
 
-Objective: complete the next-round development task prescribed under `development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation`.
+Objective: complete the next-round development task prescribed under `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation`.
 
 ## Checklist
 

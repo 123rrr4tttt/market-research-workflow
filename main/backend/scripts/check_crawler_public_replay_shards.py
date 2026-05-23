@@ -32,7 +32,7 @@ DEFAULT_READBACK_PATH = Path(
 )
 
 CRAWLER_TOPIC_DOC = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
     "2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md"
 )
 LLM_TOPIC_DOC = Path(

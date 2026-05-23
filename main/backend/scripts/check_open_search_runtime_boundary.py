@@ -40,10 +40,28 @@ LOCAL_OPEN_SEARCH_FAMILY = "local_open_search"
 DEFAULT_PROBE_KEYWORD = "marketworkflow wave15 runtime boundary"
 DEFAULT_OUT = Path("development/latest-dev-docs/automation-runs/wave15-open-search-runtime-boundary/2026-05-22/open_search_runtime_boundary.json")
 
-WAVE6_9_DOC = REPO_ROOT / (
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-    "2026-05-14-local-open-search-provider-isolation/"
-    "11_wave6-9-status-evidence-and-min-plan-2026-05-22.md"
+OPEN_SEARCH_TOPIC_DIRS = (
+    REPO_ROOT
+    / "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    "2026-05-14-local-open-search-provider-isolation",
+    REPO_ROOT
+    / "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-05-14-local-open-search-provider-isolation",
+)
+
+
+def _first_existing_path(*paths: Path) -> Path:
+    for path in paths:
+        if path.exists():
+            return path
+    return paths[0]
+
+
+WAVE6_9_DOC = _first_existing_path(
+    *(
+        topic_dir / "11_wave6-9-status-evidence-and-min-plan-2026-05-22.md"
+        for topic_dir in OPEN_SEARCH_TOPIC_DIRS
+    )
 )
 WAVE12_SUMMARY = REPO_ROOT / (
     "development/latest-dev-docs/automation-runs/wave12-provider-readiness/"

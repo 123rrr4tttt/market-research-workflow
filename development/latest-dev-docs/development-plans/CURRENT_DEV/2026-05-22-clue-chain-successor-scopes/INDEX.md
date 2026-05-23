@@ -8,6 +8,7 @@ This directory is the current entry for Clue Chain follow-up work after the orig
 ## Main Entry
 
 - [01_clue-chain-successor-scopes-2026-05-22.md](./01_clue-chain-successor-scopes-2026-05-22.md)
+- [02_wave22_archive_external_blocked_decision-2026-05-22.md](./02_wave22_archive_external_blocked_decision-2026-05-22.md)
 
 ## Closed Source
 

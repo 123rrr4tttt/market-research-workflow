@@ -265,7 +265,7 @@ If a task cannot stay inside one planning concern, it is too large and should be
   - the main plan and task list use the same vocabulary for tiers, boundaries, and validation;
   - at least one structural validation and one flow validation are present.
 - Minimum validation:
-  - `git diff --check -- development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md`
+  - `git diff --check -- development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/01_crawler-source-expansion-plan-2026-03-07.md development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/02_atomic-tasklist-crawler-source-expansion-2026-03-07.md`
 - Module IO:
   - module_input_vars: `in_plan_doc(file)`, `in_task_outputs(list)`
   - module_output_vars: `out_consistent_plan(bool)`, `out_validation_pack(doc)`, `out_residual_risks(list)`

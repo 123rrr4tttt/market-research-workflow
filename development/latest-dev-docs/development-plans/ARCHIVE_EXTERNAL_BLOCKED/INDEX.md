@@ -27,12 +27,19 @@
   状态：`external_blocked` / `wave21_checked`。仓内 parser-profile、taxonomy/review readiness 与 deterministic review batch 已封住；剩余条件是 public replay 与人工 relevance review。
 - [2026-03-14 Time Semantics Density Merged Plan](./2026-03-14-time-semantics-density-merged-plan/README.md)
   状态：`external_blocked` / `wave21_checked`。仓内 target-overlap、OPE contract、decision-log contract 与 sample/provenance readback 已封住；剩余条件是 production semantic evidence 与 release gate 接入。
+- [2026-05-14 SearXNG / YaCy Isolated Deployment And Search Provider Integration Plan](./2026-05-14-local-open-search-provider-isolation/INDEX.md)
+  状态：`external_blocked` / `wave22_checked`。仓内 explicit provider trace、runtime boundary、health artifact、schema/readback 与单测门禁已封住；剩余条件是 SearXNG / YaCy live availability、provider quality/freshness/latency、operator approval 与 `provider=auto` promotion。
+- [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/2026-05-22-wave22-archive-external-blocked-decision.md)
+  状态：`external_blocked` / `wave22_checked`。仓内 A1-A4/A6/A7 与 public replay deterministic gate 已封住；剩余条件是受控公网窗口产出 45-site replay 真实证据，尤其是缺失的 `output.public.json`。
 
 ## 保留在 CURRENT_DEV 的相邻目录
 
 - [2026-03-07 Docs Root Restructuring](../CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)：`retained_partial`。剩余是 repo-local docs integration，不是外部条件。
 - [2026-03-15 Frontend Three-Layer Rewrite](../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md)：`retained_partial`。剩余业务文案与兼容层迁移规模仍大。
 - [2026-03-25 Source-Library Ingest Minimal Migration](../CURRENT_DEV/2026-03-25-source-library-ingest-minimal-migration/01_source-library-ingest-minimal-migration-plan-2026-03-25.md)：`retained_partial`。仍有 `python_library_cli_container_runners_not_enabled` 仓内 runner 范围 blocker。
+- [2026-05-14 Global Vectorization General Foundation](../CURRENT_DEV/2026-05-14-global-vectorization-general-foundation/01_global-vectorization-general-foundation-plan-2026-05-14.md)：`retained_partial`。统一 vector object、retrieval runs、provenance payload 与主检索/Agent schema 对齐仍是 repo-local blocker。
+- [2026-03-02 Single URL First Ingest Allocation Plan](../CURRENT_DEV/2026-03-02-single-url-first-ingest-allocation-plan/01_single-url-first-ingest-allocation-plan-2026-03-02.md)：`retained_partial`。主文档仍保留 broader fetch-router、official API adapter 与 dashboard tri-state 对齐。
+- [2026-05-22 Clue Chain Successor Scopes](../CURRENT_DEV/2026-05-22-clue-chain-successor-scopes/02_wave22_archive_external_blocked_decision-2026-05-22.md)：`retained_partial`。live provider 是外部条件，但 Clue Chain graph-submit conflict gate 与 UI/visual matrix 仍是仓内 blocker。
 
 ## 返回
 

@@ -198,7 +198,7 @@ OpenSearch 与 Vespa 只作为后期规模化候选，不作为第一批本地�
 下一轮必须新增以下产物：
 
 ```text
-development/latest-dev-docs/development-plans/CURRENT_DEV/2026-05-14-local-open-search-provider-isolation/
+development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation/
   05_searxng-external-search-pipeline-implementation-plan-YYYY-MM-DD.md
   06_local-index-agent-backend-evaluation-plan-YYYY-MM-DD.md
 

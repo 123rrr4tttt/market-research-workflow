@@ -28,8 +28,10 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from scripts.check_open_search_runtime_boundary import (  # noqa: E402
     LOCAL_OPEN_SEARCH_FAMILY,
+    OPEN_SEARCH_TOPIC_DIRS,
     PROVIDERS,
     WAVE12_SUMMARY,
+    _first_existing_path,
     build_contract as build_runtime_boundary_contract,
     display_path,
     endpoint_config,
@@ -41,11 +43,12 @@ DEFAULT_OUT = Path(
     "development/latest-dev-docs/automation-runs/"
     "wave18-open-search-health-artifact/2026-05-22/open_search_health_artifact.json"
 )
-TOPIC_DOC = Path(
-    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
-    "2026-05-14-local-open-search-provider-isolation/"
-    "14_wave18-open-search-health-artifact-2026-05-22.md"
-)
+TOPIC_DOC = _first_existing_path(
+    *(
+        topic_dir / "14_wave18-open-search-health-artifact-2026-05-22.md"
+        for topic_dir in OPEN_SEARCH_TOPIC_DIRS
+    )
+).relative_to(REPO_ROOT)
 SEARCH_LAB_COMPOSE = Path("ops/search-lab/docker-compose.yml")
 MAIN_OPS_COMPOSE = Path("main/ops/docker-compose.yml")
 LAUNCHER_SURFACES = {
