@@ -10,6 +10,10 @@ type ProjectsPageProps = {
   onProjectChange: (key: string) => void
 }
 
+function formatProjectTemplate(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
 export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPageProps) {
   const locale = useAppLocale()
   const queryClient = useQueryClient()
@@ -31,15 +35,18 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
   ]
 
   const projects = useQuery({ queryKey: queryKeys.projects.all(), queryFn: listProjects })
+  const currentProjectMarker = formatProjectTemplate(translate(locale, 'projects.status.currentMarker'), {
+    status: translate(locale, 'projects.status.current'),
+  })
 
   const actionMutation = useMutation({
-    mutationFn: async (payload: { kind: 'create' | 'archive' | 'restore' | 'delete' | 'update' | 'activate'; key?: string; name?: string }) => {
+    mutationFn: async (payload: { kind: 'create' | 'archive' | 'restore' | 'delete' | 'update' | 'activateProject'; key?: string; name?: string }) => {
       if (payload.kind === 'create') return createProject({ project_key: newProjectKey.trim(), name: newProjectName.trim(), enabled: true })
       if (!payload.key) throw new Error(translate(locale, 'projects.error.missingProjectKey'))
       if (payload.kind === 'archive') return archiveProject(payload.key)
       if (payload.kind === 'restore') return restoreProject(payload.key)
       if (payload.kind === 'delete') return deleteProject(payload.key, true)
-      if (payload.kind === 'activate') {
+      if (payload.kind === 'activateProject') {
         const next = setProjectKey(payload.key)
         await activateProject(next)
         onProjectChange(next)
@@ -146,10 +153,10 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
                   </td>
                   <td>{item.schema_name || '-'}</td>
                   <td>{item.enabled ? 'true' : 'false'}</td>
-                  <td>{item.is_active ? 'true' : 'false'}{item.project_key === projectKey ? ` (${translate(locale, 'projects.status.current')})` : ''}</td>
+                  <td>{item.is_active ? 'true' : 'false'}{item.project_key === projectKey ? currentProjectMarker : ''}</td>
                   <td>
                     <div className="inline-actions">
-                      <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'activate', key: item.project_key })}>{translate(locale, 'projects.action.activate')}</button>
+                      <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'activateProject', key: item.project_key })}>{translate(locale, 'projects.action.activate')}</button>
                       {editingProject?.key === item.project_key ? (
                         <button disabled={actionMutation.isPending} onClick={() => actionMutation.mutate({ kind: 'update', key: item.project_key, name: editingProject.name })}><Edit3 size={12} />{translate(locale, 'projects.action.save')}</button>
                       ) : (

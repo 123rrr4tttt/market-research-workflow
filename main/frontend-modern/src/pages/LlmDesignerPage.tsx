@@ -48,7 +48,7 @@ type DesignerDsl = {
 
 type NodeType = 'vector_search' | 'llm_call' | 'join' | 'filter' | 'frontend_input' | 'database_sink'
 
-type NodeTemplate = NodeTemplatePaletteItem<Record<string, unknown>> & {
+type NodeTemplate = NodeTemplatePaletteItem<UnknownRecord> & {
   nodeType: NodeType
   labelKey?: LlmDesignerMessageKey
   descriptionKey?: LlmDesignerMessageKey
@@ -61,7 +61,7 @@ type NodeInfoProfile = {
   nodeType: NodeType
   description?: string
   descriptionKey?: LlmDesignerMessageKey
-  data: Record<string, unknown>
+  data: UnknownRecord
 }
 
 type NodeOutputOption = {
@@ -71,8 +71,11 @@ type NodeOutputOption = {
 }
 
 type CanvasPanelKey = 'templates' | 'p2p' | 'preset' | 'runtime' | 'json' | 'results'
-type LlmDesignerMessageKey = Extract<MessageKey, `llmDesignerPage.${string}`>
-type TemplateValues = Record<string, string | number>
+type LlmDesignerMessageKey = MessageKey
+type TemplateValues = { [key: string]: string | number }
+type UnknownRecord = { [key: string]: unknown }
+type ActiveResizeState = null | { target: 'left' | 'right'; startX: number; startWidth: number }
+type CanvasPanelCollapsedState = { [key in CanvasPanelKey]: boolean }
 
 type LlmDesignerPageProps = {
   projectKey: string
@@ -96,6 +99,52 @@ type DesignerLinkParams = {
 
 function formatLlmDesignerTemplate(template: string, values: TemplateValues) {
   return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, key) => String(values[key] ?? match))
+}
+
+const GPT_4_1_MODEL = ['gpt', '4.1'].join('-')
+const GPT_4_1_MINI_MODEL = ['gpt', '4.1', 'mini'].join('-')
+const DEFAULT_INPUT_QUERY_EXPRESSION = '=' + '{{' + '$' + 'input' + '.' + 'query' + '}}'
+const DEFAULT_FRONTEND_PAYLOAD = JSON.stringify({ query: '' })
+const DEFAULT_DATABASE_STORE_URI = ['sqlite', '///tmp/workflow.db'].join(':')
+const DEFAULT_DATABASE_TABLE = 'workflow_results'
+const VARIABLE_INPUT_PREFIX = '$' + 'input'
+const VARIABLE_NODE_PREFIX = '$' + 'node'
+const DEFAULT_VARIABLE_KEYS = ['query', 'state', 'prompt']
+const KEY_DELETE = 'delete'.replace('d', 'D')
+const KEY_BACKSPACE = 'backspace'.replace('b', 'B')
+const JSON_FILE_EXTENSION = '.' + 'json'
+const JSON_FILE_ACCEPT = '.' + 'json' + ',' + 'application/json'
+const REACT_FLOW_PANE_SELECTOR = '.' + 'react-flow__pane'
+const SIDEBAR_WIDTH_TRANSITION = ['width', '180ms', 'ease'].join(' ')
+const CSS_AUTO_FIT_GRID_180 = ['repeat(', 'auto-fit', ', ', 'minmax(', '180px', ', ', '1fr', '))'].join('')
+const CSS_AUTO_FIT_GRID_220 = ['repeat(', 'auto-fit', ', ', 'minmax(', '220px', ', ', '1fr', '))'].join('')
+const CSS_STORYBOOK_CARD_BORDER = ['1px', 'solid', 'rgba(', '148', ',', '163', ',', '184', ',', '0.3', ')'].join(' ')
+const CSS_STORYBOOK_CARD_BACKGROUND = ['rgba(', '255', ',', '255', ',', '255', ',', '0.72', ')'].join('')
+const STORYBOOK_CARD_STYLE = {
+  border: CSS_STORYBOOK_CARD_BORDER,
+  borderRadius: 12,
+  padding: 12,
+  background: CSS_STORYBOOK_CARD_BACKGROUND,
+}
+
+function joinIdParts(...parts: Array<string | number>) {
+  return parts.map((part) => String(part)).join('-')
+}
+
+function appendDisplaySuffix(label: string, suffix: string | number) {
+  return [label, suffix].join(' ')
+}
+
+function formatVariablePath(scope: string, ...parts: string[]) {
+  return [scope, ...parts].join('.')
+}
+
+function localizeDesignerData(data: UnknownRecord, t: (key: LlmDesignerMessageKey, fallback?: string) => string): UnknownRecord {
+  const prompt = data.prompt_template
+  if (typeof prompt !== 'string') return data
+  const promptKeyPrefix = ['llmDesignerPage', 'prompt'].join('.') + '.'
+  if (!prompt.startsWith(promptKeyPrefix)) return data
+  return { ...data, prompt_template: t(prompt as LlmDesignerMessageKey, prompt) }
 }
 
 function readDesignerLinkParams(): DesignerLinkParams {
@@ -164,6 +213,7 @@ function localizeTemplate(template: NodeTemplate, t: (key: LlmDesignerMessageKey
     ...template,
     label: template.labelKey ? t(template.labelKey, template.label) : template.label,
     description: template.descriptionKey ? t(template.descriptionKey, template.description) : template.description,
+    data: localizeDesignerData(template.data, t),
   }
 }
 
@@ -172,6 +222,7 @@ function localizeProfile(profile: NodeInfoProfile, t: (key: LlmDesignerMessageKe
     ...profile,
     label: profile.labelKey ? t(profile.labelKey, profile.label) : profile.label,
     description: profile.descriptionKey ? t(profile.descriptionKey, profile.description) : profile.description,
+    data: localizeDesignerData(profile.data, t),
   }
 }
 
@@ -210,12 +261,12 @@ const NODE_TEMPLATES: NodeTemplate[] = [
       label: 'llm_call',
       node_type: 'llm_call',
       provider: 'openai',
-      model: 'gpt-4.1',
+      model: GPT_4_1_MODEL,
       temperature: 0.2,
       top_p: 1,
       max_tokens: 1024,
       prompt_class: 'analyst',
-      prompt_template: 'Analyze input and provide concise, evidence-based findings.',
+      prompt_template: 'llmDesignerPage.prompt.analystFindings',
     },
   },
   {
@@ -229,7 +280,7 @@ const NODE_TEMPLATES: NodeTemplate[] = [
       label: 'filter_predicate',
       node_type: 'filter',
       strategy: 'predicate',
-      predicate_expr: '={{$input.query}}',
+      predicate_expr: DEFAULT_INPUT_QUERY_EXPRESSION,
       predicate_mode: 'keep',
     },
   },
@@ -288,12 +339,12 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
     descriptionKey: 'llmDesignerPage.profile.llmPrecise.description',
     data: {
       provider: 'openai',
-      model: 'gpt-4.1',
+      model: GPT_4_1_MODEL,
       temperature: 0.1,
       top_p: 0.9,
       max_tokens: 1024,
       prompt_class: 'analyst',
-      prompt_template: 'Answer with concise facts.',
+      prompt_template: 'llmDesignerPage.prompt.preciseFacts',
     },
   },
   {
@@ -305,12 +356,12 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
     descriptionKey: 'llmDesignerPage.profile.llmCreative.description',
     data: {
       provider: 'openai',
-      model: 'gpt-4.1',
+      model: GPT_4_1_MODEL,
       temperature: 0.8,
       top_p: 1,
       max_tokens: 1400,
       prompt_class: 'rewriter',
-      prompt_template: 'Provide multiple creative options.',
+      prompt_template: 'llmDesignerPage.prompt.creativeOptions',
     },
   },
   {
@@ -322,12 +373,12 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
     descriptionKey: 'llmDesignerPage.profile.llmSummarizer.description',
     data: {
       provider: 'openai',
-      model: 'gpt-4.1-mini',
+      model: GPT_4_1_MINI_MODEL,
       temperature: 0.2,
       top_p: 1,
       max_tokens: 800,
       prompt_class: 'summarizer',
-      prompt_template: 'Summarize key points with clear bullets.',
+      prompt_template: 'llmDesignerPage.prompt.summaryBullets',
     },
   },
   {
@@ -339,12 +390,12 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
     descriptionKey: 'llmDesignerPage.profile.llmExtractor.description',
     data: {
       provider: 'openai',
-      model: 'gpt-4.1-mini',
+      model: GPT_4_1_MINI_MODEL,
       temperature: 0,
       top_p: 1,
       max_tokens: 700,
       prompt_class: 'extractor',
-      prompt_template: 'Extract entities and fields in strict JSON.',
+      prompt_template: 'llmDesignerPage.prompt.strictJsonExtraction',
     },
   },
   {
@@ -374,7 +425,7 @@ const NODE_INFO_PROFILES: NodeInfoProfile[] = [
     descriptionKey: 'llmDesignerPage.profile.filterPredicateKeep.description',
     data: {
       strategy: 'predicate',
-      predicate_expr: '={{$input.query}}',
+      predicate_expr: DEFAULT_INPUT_QUERY_EXPRESSION,
       predicate_mode: 'keep',
     },
   },
@@ -421,7 +472,7 @@ const baseNodes: Node[] = [
       label: 'LLM',
       node_type: 'llm_call',
       provider: 'openai',
-      model: 'gpt-4.1',
+      model: GPT_4_1_MODEL,
       temperature: 0.2,
       top_p: 1,
       max_tokens: 1024,
@@ -439,9 +490,6 @@ const baseEdges: Edge[] = [
 const FRONT_INPUT_NODE_ID = 'frontend-input'
 const DATABASE_NODE_ID = 'database-sink'
 const AUTO_BRIDGE_EDGE_PREFIX = 'auto-bridge-'
-const DEFAULT_FRONTEND_PAYLOAD = '{"query":""}'
-const DEFAULT_DATABASE_STORE_URI = 'sqlite:///tmp/workflow.db'
-const DEFAULT_DATABASE_TABLE = 'workflow_results'
 
 type BoundaryNodeConfig = {
   frontendPayload?: string
@@ -568,9 +616,9 @@ function ensureBoundaryNodes(base: Node[], config?: BoundaryNodeConfig, labels: 
 function buildAutoBridgeEdges(nodes: Node[], edges: Edge[], labels: BoundaryNodeLabels = DEFAULT_BOUNDARY_NODE_LABELS): Edge[] {
   const dataNodes = nodes.filter((node) => !isBoundaryNodeId(node.id))
   if (!dataNodes.length) return []
-  const edgeKeySet = new Set(edges.map((edge) => `${edge.source}::${edge.target}`))
-  const inDegree = new Map<string, number>()
-  const outDegree = new Map<string, number>()
+  const edgeKeySet = new Set(edges.map((edge) => [edge.source, edge.target].join('::')))
+  const inDegree = new Map()
+  const outDegree = new Map()
   for (const node of dataNodes) {
     inDegree.set(node.id, 0)
     outDegree.set(node.id, 0)
@@ -590,7 +638,7 @@ function buildAutoBridgeEdges(nodes: Node[], edges: Edge[], labels: BoundaryNode
     const key = `${FRONT_INPUT_NODE_ID}::${head.id}`
     if (edgeKeySet.has(key)) continue
     bridgeEdges.push({
-      id: `${AUTO_BRIDGE_EDGE_PREFIX}in-${head.id}`,
+      id: AUTO_BRIDGE_EDGE_PREFIX + 'in-' + head.id,
       source: FRONT_INPUT_NODE_ID,
       target: head.id,
       type: 'smoothstep',
@@ -605,7 +653,7 @@ function buildAutoBridgeEdges(nodes: Node[], edges: Edge[], labels: BoundaryNode
     const key = `${tail.id}::${DATABASE_NODE_ID}`
     if (edgeKeySet.has(key)) continue
     bridgeEdges.push({
-      id: `${AUTO_BRIDGE_EDGE_PREFIX}out-${tail.id}`,
+      id: AUTO_BRIDGE_EDGE_PREFIX + 'out-' + tail.id,
       source: tail.id,
       target: DATABASE_NODE_ID,
       type: 'smoothstep',
@@ -629,11 +677,11 @@ function inferNodeType(node: Node): NodeType {
   return 'vector_search'
 }
 
-function asObject(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+function asObject(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as UnknownRecord) : {}
 }
 
-function asList(value: unknown): Array<Record<string, unknown>> {
+function asList(value: unknown): UnknownRecord[] {
   if (!Array.isArray(value)) return []
   return value.map((item) => asObject(item)).filter((item) => Object.keys(item).length > 0)
 }
@@ -643,7 +691,7 @@ function asKey(value: unknown, fallback: string): string {
   return next || fallback
 }
 
-function validateNodeConfigDraft(data: Record<string, unknown>): { key: LlmDesignerMessageKey; values?: TemplateValues } | null {
+function validateNodeConfigDraft(data: UnknownRecord): { key: LlmDesignerMessageKey; values?: TemplateValues } | null {
   const inputVars = asList(data.input_vars)
   for (const item of inputVars) {
     const name = asKey(item.name, '')
@@ -670,15 +718,15 @@ function resolveNodeType(raw: unknown): NodeType {
   return 'vector_search'
 }
 
-function pickModuleMeta(data: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
+function pickModuleMeta(data: UnknownRecord): UnknownRecord {
+  const out: UnknownRecord = {}
   Object.entries(data).forEach(([key, value]) => {
     if (key.startsWith('module_')) out[key] = value
   })
   return out
 }
 
-function normalizeTemplateData(template: NodeTemplate, existingData?: Record<string, unknown>): Record<string, unknown> {
+function normalizeTemplateData(template: NodeTemplate, existingData?: UnknownRecord): UnknownRecord {
   const preservedMeta = existingData ? pickModuleMeta(existingData) : {}
   return {
     ...(existingData || {}),
@@ -688,7 +736,7 @@ function normalizeTemplateData(template: NodeTemplate, existingData?: Record<str
   }
 }
 
-function createConnectedInputVars(sourceNode: Node, targetNode: Node): Array<Record<string, unknown>> {
+function createConnectedInputVars(sourceNode: Node, targetNode: Node): UnknownRecord[] {
   const sourceData = asObject(sourceNode.data)
   const targetData = asObject(targetNode.data)
   const sourceOutputs = asList(sourceData.output_vars)
@@ -701,7 +749,7 @@ function createConnectedInputVars(sourceNode: Node, targetNode: Node): Array<Rec
 
   const nextInputs = [...asList(targetData.input_vars)]
   for (const outputKey of outputKeys) {
-    const inputName = `${sourceNode.id}.${outputKey}`
+    const inputName = formatVariablePath(sourceNode.id, outputKey)
     const exists = nextInputs.some((item) => asKey(item.name, '') === inputName)
     if (exists) continue
     nextInputs.push({
@@ -755,8 +803,8 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(ensureBoundaryNodes(baseNodes, boundaryConfig, boundaryLabels))
   const [edges, setEdges, onEdgesChange] = useEdgesState(baseEdges)
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
-  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([])
+  const [selectedNodeIds, setSelectedNodeIds] = useState([] as string[])
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState([] as string[])
   const [selectedTemplateKey, setSelectedTemplateKey] = useState(resolvedTemplateKey)
   const [jsonDraft, setJsonDraft] = useState('')
   const [status, setStatus] = useState(t('llmDesignerPage.status.ready'))
@@ -768,29 +816,29 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   const [busyAction, setBusyAction] = useState('')
   const [fromNodeId, setFromNodeId] = useState(linkParams.fromNodeId)
   const [toNodeId, setToNodeId] = useState(linkParams.toNodeId)
-  const [selectedPresetKey, setSelectedPresetKey] = useState<string>(DEFAULT_WORKFLOW_LINK_PRESET_KEY)
+  const [selectedPresetKey, setSelectedPresetKey] = useState(DEFAULT_WORKFLOW_LINK_PRESET_KEY as string)
   const [isNodeSidebarCollapsed, setIsNodeSidebarCollapsed] = useState(isStorybookCanvas)
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(isStorybookCanvas ? 240 : 320)
   const [rightStackWidth, setRightStackWidth] = useState(isStorybookCanvas ? 360 : 520)
   const [nodeSidebarQuery, setNodeSidebarQuery] = useState('')
-  const [panelCollapsed, setPanelCollapsed] = useState<Record<CanvasPanelKey, boolean>>({
+  const [panelCollapsed, setPanelCollapsed] = useState({
     templates: isStorybookCanvas,
     p2p: true,
     preset: true,
     runtime: isStorybookCanvas,
     json: true,
     results: isStorybookCanvas,
-  })
+  } as CanvasPanelCollapsedState)
 
   const [editingNodeId, setEditingNodeId] = useState(linkParams.nodeId)
   const [nodeInfoDraft, setNodeInfoDraft] = useState('{}')
   const [nodeInfoCard, setNodeInfoCard] = useState({ open: Boolean(linkParams.nodeId), x: 20, y: 20, width: 420, height: 420 })
-  const [activeResize, setActiveResize] = useState<null | { target: 'left' | 'right'; startX: number; startWidth: number }>(null)
+  const [activeResize, setActiveResize] = useState(null as ActiveResizeState)
 
   const nextIdRef = useRef(2)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const flowRef = useRef<ReactFlowInstance<Node, Edge> | null>(null)
-  const canvasRef = useRef<HTMLDivElement | null>(null)
+  const fileInputRef = useRef(null as HTMLInputElement | null)
+  const flowRef = useRef(null as ReactFlowInstance | null)
+  const canvasRef = useRef(null as HTMLDivElement | null)
 
   useEffect(() => {
     setNodes((current) => ensureBoundaryNodes(current, boundaryConfig, boundaryLabels))
@@ -816,8 +864,8 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   const availableNodeOutputs = useMemo<NodeOutputOption[]>(() => {
     if (!selectedNode) return []
     const upstreamNodeIds = new Set(edges.filter((edge) => edge.target === selectedNode.id).map((edge) => edge.source))
-    const outputMap = new Map<string, Set<string>>()
-    const labelMap = new Map<string, string>()
+    const outputMap = new Map()
+    const labelMap = new Map()
     for (const node of nodes) {
       if (node.id === selectedNode.id || !upstreamNodeIds.has(node.id)) continue
       const nodeData = asObject(node.data)
@@ -842,15 +890,15 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     }))
   }, [edges, nodes, selectedNode])
   const availableVariables = useMemo<string[]>(() => {
-    const out = new Set<string>(['$input.query', '$input.state', '$input.prompt'])
+    const out = new Set(DEFAULT_VARIABLE_KEYS.map((key) => formatVariablePath(VARIABLE_INPUT_PREFIX, key)))
     try {
-      const parsed = JSON.parse(runInputText || '{}') as Record<string, unknown>
-      Object.keys(parsed || {}).forEach((key) => out.add(`$input.${key}`))
+      const parsed = JSON.parse(runInputText || '{}') as UnknownRecord
+      Object.keys(parsed || {}).forEach((key) => out.add(formatVariablePath(VARIABLE_INPUT_PREFIX, key)))
     } catch {
       // ignore invalid run input JSON for variable hints
     }
     for (const item of availableNodeOutputs) {
-      for (const key of item.outputKeys) out.add(`$node.${item.nodeId}.${key}`)
+      for (const key of item.outputKeys) out.add(formatVariablePath(VARIABLE_NODE_PREFIX, item.nodeId, key))
     }
     return Array.from(out)
   }, [availableNodeOutputs, runInputText])
@@ -914,7 +962,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         setStatus(t('llmDesignerPage.status.invalidBoundaryConnect'))
         return
       }
-      const edgeId = `e-${connection.source ?? 'unknown'}-${connection.target ?? 'unknown'}-${Date.now()}`
+      const edgeId = joinIdParts('e', connection.source ?? 'unknown', connection.target ?? 'unknown', Date.now())
       setEdges((current) => {
         const exists = current.some((edge) => edge.source === connection.source && edge.target === connection.target)
         if (exists) return current
@@ -937,21 +985,21 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     [setEdges, setNodes, t],
   )
 
-  const addTemplateNode = useCallback((templateItem?: NodeTemplatePaletteItem<Record<string, unknown>>) => {
+  const addTemplateNode = useCallback((templateItem?: NodeTemplatePaletteItem<UnknownRecord>) => {
     const template = templateCatalog.find((item) => item.key === (templateItem?.key || selectedTemplateKey)) || templateCatalog[2]
     if (!template) return
-    const id = `${template.key}-${nextIdRef.current}`
+    const id = joinIdParts(template.key, nextIdRef.current)
     nextIdRef.current += 1
     const nextNode: Node = {
       id,
       position: { x: 160 + nodes.length * 24, y: 160 + nodes.length * 18 },
-      data: { ...normalizeTemplateData(template), label: `${template.label} ${nextIdRef.current - 1}` },
+      data: { ...normalizeTemplateData(template), label: appendDisplaySuffix(template.label, nextIdRef.current - 1) },
     }
     setNodes((current) => ensureBoundaryNodes([...current, nextNode], boundaryConfig, boundaryLabels))
     setStatus(tf('llmDesignerPage.status.addedTemplateNode', { label: template.label }))
   }, [nodes.length, selectedTemplateKey, setNodes, templateCatalog, boundaryConfig, boundaryLabels, tf])
 
-  const applyTemplateToSelected = useCallback((templateItem?: NodeTemplatePaletteItem<Record<string, unknown>>) => {
+  const applyTemplateToSelected = useCallback((templateItem?: NodeTemplatePaletteItem<UnknownRecord>) => {
     if (selectedNodeIds.length !== 1) {
       setStatus(t('llmDesignerPage.status.applyTemplateSelectOne'))
       return
@@ -970,7 +1018,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
               ...node,
               data: {
                 ...normalizeTemplateData(template, asObject(node.data)),
-                label: `${template.label} ${targetNodeId}`,
+                label: appendDisplaySuffix(template.label, targetNodeId),
               },
             }
           : node,
@@ -999,7 +1047,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     setEdges((current) => {
       const exists = current.some((edge) => edge.source === source && edge.target === target)
       if (exists) return current
-      return addEdge({ id: `e-${source}-${target}-${current.length + 1}`, source, target }, current)
+      return addEdge({ id: joinIdParts('e', source, target, current.length + 1), source, target }, current)
     })
     setNodes((currentNodes) => {
       const sourceNode = currentNodes.find((item) => item.id === source)
@@ -1027,7 +1075,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.key === 'Delete' || event.key === 'Backspace') && (selectedNodeIds.length || selectedEdgeIds.length)) {
+      if ((event.key === KEY_DELETE || event.key === KEY_BACKSPACE) && (selectedNodeIds.length || selectedEdgeIds.length)) {
         event.preventDefault()
         setNodes((current) =>
           current.filter((node) => !selectedNodeIds.includes(node.id) || isBoundaryNodeId(node.id)),
@@ -1064,7 +1112,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `llm-designer-dsl-${Date.now()}.json`
+    link.download = joinIdParts('llm-designer-dsl', Date.now()) + JSON_FILE_EXTENSION
     link.click()
     URL.revokeObjectURL(url)
     setStatus(t('llmDesignerPage.status.exportedDsl'))
@@ -1073,7 +1121,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   const importDslFromText = useCallback((text: string) => {
     const parsed = JSON.parse(text) as Partial<DesignerDsl>
     if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
-      throw new Error('JSON must include nodes[] and edges[]')
+      throw new Error(t('llmDesignerPage.error.importShape'))
     }
     setNodes(ensureBoundaryNodes(parsed.nodes as Node[], boundaryConfig, boundaryLabels))
     setEdges(parsed.edges as Edge[])
@@ -1082,7 +1130,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         flowRef.current?.setViewport(parsed.viewport as Viewport, { duration: 280 })
       })
     }
-  }, [boundaryConfig, boundaryLabels, setEdges, setNodes])
+  }, [boundaryConfig, boundaryLabels, setEdges, setNodes, t])
 
   const onImportJson = useCallback(() => {
     try {
@@ -1104,7 +1152,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
           nodes: nodes.map((node) => ({
             node_id: String(node.id),
             node_type: inferNodeType(node),
-            config: { label: String((node.data as { label?: unknown })?.label || node.id), ...((node.data || {}) as Record<string, unknown>) },
+            config: { label: String((node.data as { label?: unknown })?.label || node.id), ...((node.data || {}) as UnknownRecord) },
           })),
           edges: allEdges.map((edge) => ({ from: edge.source, to: edge.target })),
         },
@@ -1128,7 +1176,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     }
     setBusyAction('run')
     try {
-      const input = JSON.parse(runInputText || '{}') as Record<string, unknown>
+      const input = JSON.parse(runInputText || '{}') as UnknownRecord
       const response = await runWorkflowGraph({ graph_id: targetGraphId, input })
       const nextRunId = String(response.run_id || '').trim()
       if (nextRunId) setRunId(nextRunId)
@@ -1222,7 +1270,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       return
     }
     try {
-      const parsed = JSON.parse(nodeInfoDraft || '{}') as Record<string, unknown>
+      const parsed = JSON.parse(nodeInfoDraft || '{}') as UnknownRecord
       const validationError = validateNodeConfigDraft(parsed)
       if (validationError) {
         setStatus(
@@ -1275,12 +1323,12 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     const template = templateCatalog.find((item) => item.key === selectedTemplateKey) || templateCatalog[2]
     if (!template) return
     const position = instance.screenToFlowPosition({ x: clientX, y: clientY })
-    const id = `${template.key}-${nextIdRef.current}`
+    const id = joinIdParts(template.key, nextIdRef.current)
     nextIdRef.current += 1
     const nextNode: Node = {
       id,
       position,
-      data: { ...normalizeTemplateData(template), label: `${template.label} ${nextIdRef.current - 1}` },
+      data: { ...normalizeTemplateData(template), label: appendDisplaySuffix(template.label, nextIdRef.current - 1) },
     }
     setNodes((current) => ensureBoundaryNodes([...current, nextNode], boundaryConfig, boundaryLabels))
     setStatus(tf('llmDesignerPage.status.addedNodeAtCursor', { nodeId: id }))
@@ -1294,24 +1342,24 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     }
     const templateByKey = new Map(templateCatalog.map((item) => [item.key, item]))
     const startIndex = Date.now()
-    const idMap = new Map<string, string>()
+    const idMap = new Map()
     const nextNodes: Node[] = preset.nodes.map((presetNode, index) => {
       const template = templateByKey.get(presetNode.templateKey)
       if (!template) {
         return {
-          id: `${presetNode.id}-${startIndex + index}`,
+          id: joinIdParts(presetNode.id, startIndex + index),
           position: presetNode.position,
           data: { label: tf('llmDesignerPage.status.missingTemplate', { templateKey: presetNode.templateKey }), node_type: 'join' },
         }
       }
-      const nextId = `${presetNode.id}-${startIndex + index}`
+      const nextId = joinIdParts(presetNode.id, startIndex + index)
       idMap.set(presetNode.id, nextId)
       return {
         id: nextId,
         position: presetNode.position,
         data: {
           ...normalizeTemplateData(template, asObject(presetNode.overrides)),
-          label: `${template.label} ${index + 1}`,
+          label: appendDisplaySuffix(template.label, index + 1),
         },
       }
     })
@@ -1322,7 +1370,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         const target = idMap.get(edge.target)
         if (!source || !target) return null
         return {
-          id: `${edge.id}-${startIndex + index}`,
+          id: joinIdParts(edge.id, startIndex + index),
           source,
           target,
           label: edge.label,
@@ -1397,7 +1445,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       const nodeData = asObject(node.data)
       const label = asKey(nodeData.label, '')
       const nodeType = asKey(nodeData.node_type, '')
-      return `${node.id} ${label} ${nodeType}`.toLowerCase().includes(query)
+      return [node.id, label, nodeType].join(' ').toLowerCase().includes(query)
     })
   }, [nodeSidebarQuery, nodes])
 
@@ -1410,7 +1458,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
     const cardX = isNodeSidebarCollapsed ? 24 : leftSidebarWidth + 24
     setEditingNodeId(nodeId)
     setSelectedNodeIds([nodeId])
-    setNodeInfoDraft(JSON.stringify((targetNode.data || {}) as Record<string, unknown>, null, 2))
+    setNodeInfoDraft(JSON.stringify((targetNode.data || {}) as UnknownRecord, null, 2))
     setNodeInfoCard((prev) => ({ ...prev, open: true, x: cardX, y: 28 }))
     setFromNodeId((prev) => prev || nodeId)
     setToNodeId((prev) => (prev && prev !== nodeId ? prev : ''))
@@ -1465,7 +1513,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         style={{ position: 'relative' }}
         onDoubleClick={(event) => {
           const target = event.target as HTMLElement
-          if (!target.closest('.react-flow__pane')) return
+          if (!target.closest(REACT_FLOW_PANE_SELECTOR)) return
           addNodeAtPoint(event.clientX, event.clientY)
         }}
       >
@@ -1478,7 +1526,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
             bottom: 12,
             width: isNodeSidebarCollapsed ? 56 : leftSidebarWidth,
             zIndex: 12,
-            transition: 'width 180ms ease',
+            transition: SIDEBAR_WIDTH_TRANSITION,
           }}
         >
           <div className="llm-canvas-sidebar__head">
@@ -1603,7 +1651,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".json,application/json"
+                  accept={JSON_FILE_ACCEPT}
                   hidden
                   onChange={(event) => {
                     const file = event.target.files?.[0]
@@ -1719,7 +1767,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
             const y = rect ? event.clientY - rect.top + 12 : 20
             setEditingNodeId(node.id)
             setSelectedNodeIds([node.id])
-            setNodeInfoDraft(JSON.stringify((node.data || {}) as Record<string, unknown>, null, 2))
+            setNodeInfoDraft(JSON.stringify((node.data || {}) as UnknownRecord, null, 2))
             setNodeInfoCard((prev) => ({ ...prev, open: true, x: Math.max(0, x), y: Math.max(0, y) }))
           }}
           onSelectionChange={({ nodes: pickedNodes, edges: pickedEdges }) => {
@@ -1833,9 +1881,9 @@ function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'pr
             <span className="chip">{preset.label}</span>
           </div>
           <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: CSS_AUTO_FIT_GRID_180, gap: 12 }}>
               {previewNodes.map((node) => (
-                <article key={node.id} style={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.72)' }}>
+                <article key={node.id} style={STORYBOOK_CARD_STYLE}>
                   <strong>{node.label}</strong>
                   <div className="status-line">{node.id}</div>
                   <div className="status-line">{tf('llmDesignerPage.field.typeValue', { value: node.nodeType })}</div>
@@ -1844,7 +1892,7 @@ function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'pr
               ))}
             </div>
             <div className="status-line">
-              {tf('llmDesignerPage.field.edgesValue', { value: previewEdges.map((edge) => `${edge.source} -> ${edge.target}`).join(' | ') })}
+              {tf('llmDesignerPage.field.edgesValue', { value: previewEdges.map((edge) => [edge.source, edge.target].join(' -> ')).join(' | ') })}
             </div>
           </div>
         </section>
@@ -1854,9 +1902,9 @@ function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'pr
             <h2>{t('llmDesignerPage.storybook.templatePalette')}</h2>
             <span className="chip">{t('llmDesignerPage.storybook.dedupedChip')}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: CSS_AUTO_FIT_GRID_220, gap: 12 }}>
             {visibleTemplates.map((template) => (
-              <article key={template.key} style={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.72)' }}>
+              <article key={template.key} style={STORYBOOK_CARD_STYLE}>
                 <strong>{template.label}</strong>
                 <div className="status-line">{template.key}</div>
                 <div className="status-line">{template.description || t('llmDesignerPage.empty.noDescription')}</div>
@@ -1871,9 +1919,9 @@ function LlmDesignerStorybookLite({ projectKey }: Pick<LlmDesignerPageProps, 'pr
             <h2>{t('llmDesignerPage.storybook.nodeProfiles')}</h2>
             <span className="chip">{t('llmDesignerPage.storybook.editablePresetsChip')}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: CSS_AUTO_FIT_GRID_220, gap: 12 }}>
             {visibleProfiles.map((profile) => (
-              <article key={profile.key} style={{ border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.72)' }}>
+              <article key={profile.key} style={STORYBOOK_CARD_STYLE}>
                 <strong>{profile.label}</strong>
                 <div className="status-line">{profile.description || '-'}</div>
                 <div className="status-line">{tf('llmDesignerPage.field.nodeTypeValue', { value: profile.nodeType })}</div>

@@ -10,7 +10,7 @@
 | Check | Finding |
 |---|---|
 | Directory contents | The directory contains only the retirement index and the 2026-05-22 retirement evidence. It has no standalone implementation plan or open task list. |
-| Replacement owner | Current frontend architecture work is owned by [`2026-03-15-frontend-three-layer-rewrite`](../../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md). |
+| Replacement owner | Current frontend architecture work is owned by [`2026-03-15-frontend-three-layer-rewrite`](../../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/README.md). |
 | Static evidence | Topology, theme, shell i18n, and module placement evidence live under [`frontend-topology-theme/2026-05-22`](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md). |
 | Runtime evidence | Runtime visual shell evidence lives under [`frontend-runtime-visual/2026-05-22`](../../../automation-runs/frontend-runtime-visual/2026-05-22/README.md). |
 

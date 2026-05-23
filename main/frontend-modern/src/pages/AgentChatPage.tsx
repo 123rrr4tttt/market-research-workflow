@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
@@ -56,6 +56,10 @@ type ChatRole = 'system' | 'user' | 'assistant'
 type StageStatus = 'pending' | 'running' | 'done'
 type WorkbenchView = 'overview' | 'tasks' | 'tools' | 'approvals' | 'artifacts'
 type SourceHistoryFilter = 'all' | 'open' | 'approved' | 'deferred' | 'rejected'
+type UnknownRecord = { [key: string]: unknown }
+type StringMap = { [key: string]: string }
+type CountMap = { [key: string]: number }
+type CapabilityGroupMap = { [key: string]: AgentChatCapabilityItem[] | null | undefined }
 
 type StageItem = {
   key: string
@@ -91,7 +95,7 @@ type SourceQualityCard = {
   snippet: string
   provider: string
   nextGate: string
-  rawCandidate: Record<string, unknown>
+  rawCandidate: UnknownRecord
   reviewDecision?: 'approved' | 'deferred' | 'rejected'
   reviewReason?: string
   reviewNextGate?: string
@@ -145,6 +149,9 @@ type ChatMessage = {
   retrySessionId?: string
 }
 
+type ChatHistoryMap = { [sessionId: string]: ChatMessage[] }
+type SessionStatsMap = { [sessionId: string]: { count: number; preview: string } }
+
 type ChatSession = {
   id: string
   title: string
@@ -164,11 +171,13 @@ type SessionRunState = {
   lastEventAt?: number
 }
 
+type SessionRunStateMap = { [sessionId: string]: SessionRunState }
+
 type StoredAgentChatState = {
   activeSessionId: string
   sessions: ChatSession[]
-  sessionHistories: Record<string, ChatMessage[]>
-  draftBySession?: Record<string, string>
+  sessionHistories: ChatHistoryMap
+  draftBySession?: StringMap
 }
 
 function isTerminalAgentSessionStatus(status?: string | null) {
@@ -206,9 +215,82 @@ const SOURCE_HISTORY_FILTER_LABEL_KEYS: Record<SourceHistoryFilter, MessageKey> 
 }
 const AGENT_CHAT_STORAGE_PREFIX = 'agent-chat-state-v1'
 const DEFAULT_SESSION_ID = 's-default'
+const TECHNICAL_TEXT = {
+  assistantDeltaEventFragment: { value: '.assistant_delta' },
+  assistantMessageEventFragment: { value: '.assistant_message' },
+  finalAnswerEventFragment: { value: '.final_answer' },
+  objectObject: { value: '[object Object]' },
+  unknownBackendError: { value: 'unknown backend error' },
+  parsedDetailPrefix: { value: 'parsed:\n' },
+  sourceCandidateReviewsArtifact: { value: 'source.candidate_reviews.json' },
+  sourceCandidateReviewContract: { value: 'source.candidate.review.v1' },
+  ingestUrlPoolSubmissionsArtifact: { value: 'ingest.url_pool_submissions.json' },
+  ingestUrlPoolSubmitContract: { value: 'ingest.url_pool.submit.v1' },
+  investigationTraceContract: { value: 'agent_investigation.trace.v1' },
+  longTaskStageContract: { value: 'agent_long_task.stage.v1' },
+  longTaskStateArtifact: { value: 'agent_long_task.state.json' },
+  agentChatTurnBackend: { value: '/agent-chat/turn' },
+  approvalContinueBackend: { value: '/agent-chat/approvals/continue' },
+  approvalResolveBackend: { value: '/agent-approvals/resolve' },
+  sourceCandidateReviewPayload: { value: 'source_candidate_review JSON' },
+  sourceDecisionCollect: { value: '采集' },
+  sourceDecisionPass: { value: '通过' },
+  sourceDecisionUse: { value: '采用' },
+  sourceDecisionDefer: { value: '暂缓' },
+  sourceDecisionLater: { value: '稍后' },
+  sourceDecisionReject: { value: '拒绝' },
+  sourceDecisionDiscard: { value: '丢弃' },
+  urlPoolGatePrefix: { value: 'URL-pool ' },
+  readyState: { value: 'ready' },
+  interactiveToolCallRequested: { value: 'interactive_agent.tool_call_requested' },
+  interactiveToolCallStarted: { value: 'interactive_agent.tool_call_started' },
+  interactiveToolCallResult: { value: 'interactive_agent.tool_call_result' },
+  interactiveCapabilityExecuted: { value: 'interactive_agent.capability_executed' },
+  agentCoreToolCallRequested: { value: 'agent_core.tool_call_requested' },
+  agentCoreToolCallStarted: { value: 'agent_core.tool_call_started' },
+  agentCoreToolResult: { value: 'agent_core.tool_result' },
+  approvalOverrideExample: { value: '{"graph_id":"...","inputs":{}}' },
+  enterKey: { value: 'Enter' },
+} as const
 
-function formatCatalogTemplate(template: string, values: Record<string, string | number>) {
+function formatCatalogTemplate(template: string, values: { [key: string]: string | number }) {
   return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
+function compactText(value: unknown) {
+  return String(value ?? '').trim()
+}
+
+function joinWithSeparator(values: Array<string | number | boolean | null | undefined>, separator: string) {
+  return values
+    .map((value) => compactText(value))
+    .filter(Boolean)
+    .join(separator)
+}
+
+function joinWithColon(values: Array<string | number | boolean | null | undefined>) {
+  return joinWithSeparator(values, ':')
+}
+
+function joinWithHyphen(values: Array<string | number | boolean | null | undefined>) {
+  return joinWithSeparator(values, '-')
+}
+
+function joinWithMiddleDot(values: Array<string | number | boolean | null | undefined>) {
+  return joinWithSeparator(values, ' · ')
+}
+
+function debugMeta(label: string, value: string | number | boolean | null | undefined) {
+  const content = compactText(value)
+  return content ? label + ': ' + content : ''
+}
+
+function runtimeId(prefix: string) {
+  return joinWithHyphen([prefix, Date.now()])
+}
+
+function refetchNoop() {
+  return Promise.resolve()
 }
 
 function buildDefaultSessions(locale: AppLocale): ChatSession[] {
@@ -261,7 +343,7 @@ function extractAssistantStreamChunk(event: AgentEventItem): { mode: 'append' | 
   const eventType = String(event.event_type || '').toLowerCase()
   const payloadRecord =
     event.payload && typeof event.payload === 'object'
-      ? (event.payload as Record<string, unknown>)
+      ? (event.payload as UnknownRecord)
       : {}
   const firstString = (...keys: string[]) => {
     for (const key of keys) {
@@ -270,15 +352,15 @@ function extractAssistantStreamChunk(event: AgentEventItem): { mode: 'append' | 
     }
     return ''
   }
-  if (eventType.endsWith('assistant_delta') || eventType.includes('.assistant_delta')) {
+  if (eventType.endsWith('assistant_delta') || eventType.includes(TECHNICAL_TEXT.assistantDeltaEventFragment.value)) {
     const text = firstString('delta', 'text', 'content')
     return text ? { mode: 'append', text } : null
   }
-  if (eventType.endsWith('assistant_message') || eventType.includes('.assistant_message')) {
+  if (eventType.endsWith('assistant_message') || eventType.includes(TECHNICAL_TEXT.assistantMessageEventFragment.value)) {
     const text = firstString('content', 'text', 'message').trim()
     return text ? { mode: 'replace', text } : null
   }
-  if (eventType.endsWith('final_answer') || eventType.includes('.final_answer')) {
+  if (eventType.endsWith('final_answer') || eventType.includes(TECHNICAL_TEXT.finalAnswerEventFragment.value)) {
     const text = firstString('final_answer', 'answer', 'content', 'text').trim()
     return text ? { mode: 'replace', text } : null
   }
@@ -289,11 +371,11 @@ function extractProgressiveStreamText(locale: AppLocale, event: AgentEventItem):
   const eventType = String(event.event_type || '').toLowerCase()
   const payload =
     event.payload && typeof event.payload === 'object'
-      ? (event.payload as Record<string, unknown>)
+      ? (event.payload as UnknownRecord)
       : {}
   const toolCall =
     payload.tool_call && typeof payload.tool_call === 'object'
-      ? (payload.tool_call as Record<string, unknown>)
+      ? (payload.tool_call as UnknownRecord)
       : {}
   const toolName = String(
     payload.tool_name
@@ -345,15 +427,15 @@ function extractProgressiveStreamText(locale: AppLocale, event: AgentEventItem):
 
 function buildSystemMessage(projectKey: string, locale: AppLocale, hint?: string): ChatMessage {
   return {
-    id: `sys-${Date.now()}`,
+    id: runtimeId('sys'),
     role: 'system',
     ts: nowLabel(),
     content: hint || translate(locale, 'agentChat.system.ready'),
-    meta: [`project: ${projectKey}`],
+    meta: [debugMeta('project', projectKey)],
   }
 }
 
-function buildSeedHistories(projectKey: string, locale: AppLocale): Record<string, ChatMessage[]> {
+function buildSeedHistories(projectKey: string, locale: AppLocale): ChatHistoryMap {
   return {
     [DEFAULT_SESSION_ID]: [buildSystemMessage(projectKey, locale)],
   }
@@ -375,7 +457,7 @@ function readStoredState(storageKey: string): StoredAgentChatState | null {
 function mergeSessionsWithSeed(
   locale: AppLocale,
   storedSessions?: ChatSession[] | null,
-  sessionHistories?: Record<string, ChatMessage[]> | null,
+  sessionHistories?: ChatHistoryMap | null,
 ): ChatSession[] {
   const sessionsById = new Map<string, ChatSession>()
   const defaultSessions = buildDefaultSessions(locale)
@@ -400,7 +482,7 @@ function mergeSessionsWithSeed(
   return Array.from(sessionsById.values())
 }
 
-function mergeHistoriesWithSeed(projectKey: string, locale: AppLocale, fromStorage?: Record<string, ChatMessage[]> | null): Record<string, ChatMessage[]> {
+function mergeHistoriesWithSeed(projectKey: string, locale: AppLocale, fromStorage?: ChatHistoryMap | null): ChatHistoryMap {
   const seed = buildSeedHistories(projectKey, locale)
   const baseSessions = Array.from(new Set([...buildDefaultSessions(locale).map((session) => session.id), ...Object.keys(fromStorage || {})]))
   const mergedEntries = baseSessions.map((sessionId) => {
@@ -421,7 +503,7 @@ function toCompactJson(value: unknown) {
 }
 
 function buildSessionId() {
-  return `s-${Date.now().toString(36)}`
+  return joinWithHyphen(['s', Date.now().toString(36)])
 }
 
 function buildSessionTitle(command: string | undefined, locale: AppLocale) {
@@ -435,8 +517,8 @@ function safeDisplay(value?: string | number | boolean | null, fallback = '-') {
   return typeof value === 'boolean' ? (value ? 'yes' : 'no') : String(value)
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+function asRecord(value: unknown): UnknownRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as UnknownRecord) : null
 }
 
 function safeCount(value: unknown) {
@@ -450,17 +532,17 @@ function toTextList(value: unknown) {
     .map((item, index) => {
       const raw = value[index]
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return item
-      const record = raw as Record<string, unknown>
+      const record = raw as UnknownRecord
       const direct = record.text || record.title || record.summary || record.label || record.item_key || record.id || record.url
       if (direct) return String(direct).trim()
-      return item === '[object Object]' ? toCompactJson(record) : item
+      return item === TECHNICAL_TEXT.objectObject.value ? toCompactJson(record) : item
     })
     .filter(Boolean)
 }
 
 function formatBackendError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || '')
-  return message.trim() || 'unknown backend error'
+  return message.trim() || TECHNICAL_TEXT.unknownBackendError.value
 }
 
 function normalizeStatusToken(value?: string | null) {
@@ -474,11 +556,11 @@ function normalizeMaterialCategoryToken(value?: string | null) {
 function splitMessageContent(content: string) {
   const [summary, ...rest] = content.split('\n\n')
   const detail = rest.join('\n\n').trim()
-  if (detail.startsWith('parsed:\n')) {
+  if (detail.startsWith(TECHNICAL_TEXT.parsedDetailPrefix.value)) {
     return {
       summary: summary.trim(),
       detailLabel: 'parsed',
-      detailValue: detail.replace(/^parsed:\n/, '').trim(),
+      detailValue: detail.replace(TECHNICAL_TEXT.parsedDetailPrefix.value, '').trim(),
     }
   }
   return {
@@ -489,7 +571,7 @@ function splitMessageContent(content: string) {
 }
 
 function getAgentEventKey(event: AgentEventItem) {
-  return String(event.event_id || `${event.seq || 0}:${event.event_type || ''}:${event.ts || ''}`)
+  return String(event.event_id || joinWithColon([event.seq || 0, event.event_type || '', event.ts || '']))
 }
 
 function mergeAgentEvents(base: AgentEventItem[], incoming: AgentEventItem[]) {
@@ -504,9 +586,9 @@ function eventToCapabilityCall(event: AgentEventItem): AgentChatCapabilityCall |
   const payload = event.payload || {}
   const nestedToolCall = asRecord(payload.tool_call)
   const resultRecord = typeof payload.result === 'object' && payload.result
-    ? (payload.result as Record<string, unknown>)
+    ? (payload.result as UnknownRecord)
     : typeof payload.structured_content === 'object' && payload.structured_content
-      ? (payload.structured_content as Record<string, unknown>)
+      ? (payload.structured_content as UnknownRecord)
       : null
   const materialCategory = asRecord(payload.material_category) || asRecord(resultRecord?.material_category)
   const capabilityId = String(payload.capability_id || payload.tool_name || nestedToolCall?.tool_name || '').trim()
@@ -528,7 +610,7 @@ function eventToCapabilityCall(event: AgentEventItem): AgentChatCapabilityCall |
     approval_id: typeof payload.approval_id === 'string' ? payload.approval_id : null,
     run_id: typeof payload.run_id === 'string' ? payload.run_id : null,
     result: resultRecord,
-    error: typeof payload.error === 'object' && payload.error ? (payload.error as Record<string, unknown>) : null,
+    error: typeof payload.error === 'object' && payload.error ? (payload.error as UnknownRecord) : null,
     material_category: materialCategory
       ? {
           category: typeof materialCategory.category === 'string' ? materialCategory.category : null,
@@ -542,8 +624,8 @@ function mergeCapabilityCalls(base: AgentChatCapabilityCall[], streamed: AgentCh
   const byKey = new Map<string, AgentChatCapabilityCall>()
   for (const [index, call] of [...base, ...streamed].entries()) {
     const key = call.call_id
-      ? `${call.capability_id || call.tool_name || 'tool'}:${call.call_id}`
-      : `${call.capability_id || call.tool_name || 'tool'}:${call.status || ''}:${call.summary || ''}:${index}`
+      ? joinWithColon([call.capability_id || call.tool_name || 'tool', call.call_id])
+      : joinWithColon([call.capability_id || call.tool_name || 'tool', call.status || '', call.summary || '', index])
     byKey.set(key, call)
   }
   return Array.from(byKey.values())
@@ -568,7 +650,7 @@ function getEventStructuredContent(event: AgentEventItem) {
   return asRecord(payload.structured_content) || asRecord(payload.result) || null
 }
 
-function formatAgentEventSummary(event: AgentEventItem) {
+function formatAgentEventSummary(locale: AppLocale, event: AgentEventItem) {
   const payload = event.payload || {}
   const type = normalizeAgentEventType(event)
   if (type === 'turn_state') {
@@ -577,7 +659,7 @@ function formatAgentEventSummary(event: AgentEventItem) {
     const maxIterations = safeDisplay(payload.max_iterations as string | number | boolean | null)
     const toolCount = safeDisplay(payload.tool_call_count as string | number | boolean | null)
     const maxTools = safeDisplay(payload.max_tool_calls as string | number | boolean | null)
-    return `${phase} · loop ${iteration}/${maxIterations} · tools ${toolCount}/${maxTools}`
+    return formatCatalogTemplate(translate(locale, 'agentChat.event.summary.turnState'), { phase, iteration, maxIterations, toolCount, maxTools })
   }
   const toolName = getEventToolName(event)
   const direct = [event.message, payload.summary, payload.ui_summary, payload.model_summary, payload.message, toolName, payload.capability_id, payload.tool_name].find(
@@ -586,30 +668,36 @@ function formatAgentEventSummary(event: AgentEventItem) {
   return safeDisplay(direct || event.task_id)
 }
 
-function formatEventTitle(event: AgentEventItem) {
+function formatEventTitle(locale: AppLocale, event: AgentEventItem) {
   const type = normalizeAgentEventType(event) || 'event'
-  if (type.includes('tool_call_requested')) return 'Tool requested'
-  if (type.includes('tool_call_started')) return 'Tool started'
-  if (type.includes('tool_call_result')) return 'Tool result'
-  if (type.includes('tool_result')) return 'Tool result'
-  if (type.includes('turn_state')) return 'Turn state'
-  if (type.includes('approval')) return 'Approval update'
-  if (type.includes('task')) return 'Task update'
+  if (type.includes('tool_call_requested')) return translate(locale, 'agentChat.event.title.toolRequested')
+  if (type.includes('tool_call_started')) return translate(locale, 'agentChat.event.title.toolStarted')
+  if (type.includes('tool_call_result')) return translate(locale, 'agentChat.event.title.toolResult')
+  if (type.includes('tool_result')) return translate(locale, 'agentChat.event.title.toolResult')
+  if (type.includes('turn_state')) return translate(locale, 'agentChat.event.title.turnState')
+  if (type.includes('approval')) return translate(locale, 'agentChat.event.title.approvalUpdate')
+  if (type.includes('task')) return translate(locale, 'agentChat.event.title.taskUpdate')
   return type.replace(/^interactive_agent\./, '').replace(/^agent_core\./, '').replace(/[._-]+/g, ' ')
 }
 
-function buildWorkbenchTimeline(events: AgentEventItem[], tasks: AgentTaskItem[]): WorkbenchTimelineItem[] {
+function buildWorkbenchTimeline(locale: AppLocale, events: AgentEventItem[], tasks: AgentTaskItem[]): WorkbenchTimelineItem[] {
   const eventItems = events.slice(-7).map((event) => ({
     key: getAgentEventKey(event),
-    title: formatEventTitle(event),
-    meta: `event #${safeDisplay(event.seq)} · ${safeDisplay(event.severity || 'info')}`,
-    summary: formatAgentEventSummary(event),
+    title: formatEventTitle(locale, event),
+    meta: formatCatalogTemplate(translate(locale, 'agentChat.event.meta.event'), {
+      seq: safeDisplay(event.seq),
+      severity: safeDisplay(event.severity || 'info'),
+    }),
+    summary: formatAgentEventSummary(locale, event),
     status: normalizeStatusToken(String(event.severity || event.event_type || 'event')),
   }))
   const taskItems = tasks.slice(-4).map((task) => ({
-    key: `task-${task.task_id}`,
+    key: joinWithHyphen(['task', task.task_id]),
     title: task.subject || task.task_type || task.task_id,
-    meta: `task · ${safeDisplay(task.status)} · ${safeDisplay(task.phase)}`,
+    meta: formatCatalogTemplate(translate(locale, 'agentChat.event.meta.task'), {
+      status: safeDisplay(task.status),
+      phase: safeDisplay(task.phase),
+    }),
     summary: task.result_summary || task.progress?.summary_label || task.description || '-',
     status: normalizeStatusToken(task.status),
   }))
@@ -645,36 +733,39 @@ function latestMessageEvents(messages: ChatMessage[]) {
   return []
 }
 
-function buildProgressiveToolEvents(events: AgentEventItem[]): ProgressiveToolEventItem[] {
+function buildProgressiveToolEvents(locale: AppLocale, events: AgentEventItem[]): ProgressiveToolEventItem[] {
   return events
     .filter((event) => ['turn_state', 'tool_call_requested', 'tool_call_started', 'tool_result', 'tool_call_result'].includes(normalizeAgentEventType(event)))
     .slice(-14)
     .map((event) => {
       const type = normalizeAgentEventType(event)
-      const toolName = getEventToolName(event) || (type === 'turn_state' ? 'agent loop' : 'tool')
+      const toolName = getEventToolName(event) || (type === 'turn_state' ? translate(locale, 'agentChat.tool.genericAgentLoop') : translate(locale, 'agentChat.tool.genericTool'))
       const payload = getEventPayloadRecord(event)
       return {
         key: getAgentEventKey(event),
         type,
         toolName,
-        summary: formatAgentEventSummary(event),
+        summary: formatAgentEventSummary(locale, event),
         status: normalizeStatusToken(String(payload.status || payload.stream_state || event.severity || type)),
-        meta: `#${safeDisplay(event.seq)} · ${safeDisplay(event.call_id || payload.call_id as string | number | boolean | null)}`,
+        meta: formatCatalogTemplate(translate(locale, 'agentChat.event.meta.sequence'), {
+          seq: safeDisplay(event.seq),
+          call: safeDisplay(event.call_id || payload.call_id as string | number | boolean | null),
+        }),
       }
     })
     .reverse()
 }
 
-function buildSourceQualityCards(events: AgentEventItem[], calls: AgentChatCapabilityCall[]): SourceQualityCard[] {
+function buildSourceQualityCards(locale: AppLocale, events: AgentEventItem[], calls: AgentChatCapabilityCall[]): SourceQualityCard[] {
   const cardsByKey = new Map<string, SourceQualityCard>()
-  const consume = (source: Record<string, unknown> | null, keyPrefix: string) => {
+  const consume = (source: UnknownRecord | null, keyPrefix: string) => {
     const historySessions = Array.isArray(source?.sessions) ? source.sessions : []
     for (const [sessionIndex, rawSession] of historySessions.entries()) {
       const session = asRecord(rawSession)
       if (!session) continue
       const reviews = Array.isArray(session.reviews) ? session.reviews : []
       for (const [reviewIndex, rawReview] of reviews.entries()) {
-        consume(asRecord(rawReview), `${keyPrefix}-history-review-${sessionIndex}-${reviewIndex}`)
+        consume(asRecord(rawReview), joinWithHyphen([keyPrefix, 'history', 'review', sessionIndex, reviewIndex]))
       }
       const submissions = Array.isArray(session.submissions) ? session.submissions : []
       for (const [submissionIndex, rawSubmission] of submissions.entries()) {
@@ -682,7 +773,7 @@ function buildSourceQualityCards(events: AgentEventItem[], calls: AgentChatCapab
         if (!submission) continue
         consume(
           { ingest_payload: submission, decision: 'approved', next_gate: 'inspect_ingest_status_or_source_artifacts' },
-          `${keyPrefix}-history-submission-${sessionIndex}-${submissionIndex}`,
+          joinWithHyphen([keyPrefix, 'history', 'submission', sessionIndex, submissionIndex]),
         )
       }
     }
@@ -693,10 +784,10 @@ function buildSourceQualityCards(events: AgentEventItem[], calls: AgentChatCapab
       const candidate = reviewCandidate || reviewIngestPayload || {}
       const trust = asRecord(candidate.trust) || asRecord((asRecord(reviewIngestPayload?.metadata) || {}).trust) || {}
       const url = normalizeSourceCandidateKey(candidate) || normalizeSourceCandidateKey(reviewIngestPayload)
-      const key = String(url || `${keyPrefix}-review`)
+      const key = String(url || joinWithHyphen([keyPrefix, 'review']))
       cardsByKey.set(key, {
         key,
-        title: safeDisplay((candidate.title || candidate.name || reviewIngestPayload?.source_name) as string | number | boolean | null, 'source candidate'),
+        title: safeDisplay((candidate.title || candidate.name || reviewIngestPayload?.source_name) as string | number | boolean | null, translate(locale, 'agentChat.source.fallback.candidate')),
         status: safeDisplay((trust.status || source?.decision || review?.decision) as string | number | boolean | null, 'candidate'),
         score: safeDisplay(trust.trust_score as string | number | boolean | null),
         level: safeDisplay(trust.trust_level as string | number | boolean | null),
@@ -717,7 +808,7 @@ function buildSourceQualityCards(events: AgentEventItem[], calls: AgentChatCapab
       const item = asRecord(raw)
       if (!item) continue
       const reasons = toTextList(item.trust_reasons)
-      const key = String(item.normalized_url || item.original_url || item.domain || `${keyPrefix}-${index}`)
+      const key = String(item.normalized_url || item.original_url || item.domain || joinWithHyphen([keyPrefix, index]))
       cardsByKey.set(key, {
         key,
         title: String(item.domain || item.normalized_url || item.original_url || 'source'),
@@ -739,10 +830,13 @@ function buildSourceQualityCards(events: AgentEventItem[], calls: AgentChatCapab
       const trust = asRecord(item.trust) || {}
       const reasons = toTextList(trust.trust_reasons)
       const url = safeDisplay(item.url as string | number | boolean | null)
-      const key = String(url || item.title || `${keyPrefix}-search-${index}`)
+      const key = String(url || item.title || joinWithHyphen([keyPrefix, 'search', index]))
       cardsByKey.set(key, {
         key,
-        title: safeDisplay(item.title as string | number | boolean | null, safeDisplay(trust.domain as string | number | boolean | null, 'source candidate')),
+        title: safeDisplay(
+          item.title as string | number | boolean | null,
+          safeDisplay(trust.domain as string | number | boolean | null, translate(locale, 'agentChat.source.fallback.candidate')),
+        ),
         status: safeDisplay(trust.status as string | number | boolean | null, 'candidate'),
         score: safeDisplay(trust.trust_score as string | number | boolean | null),
         level: safeDisplay(trust.trust_level as string | number | boolean | null),
@@ -756,11 +850,11 @@ function buildSourceQualityCards(events: AgentEventItem[], calls: AgentChatCapab
     }
   }
   for (const event of events) consume(getEventStructuredContent(event), getAgentEventKey(event))
-  for (const [index, call] of calls.entries()) consume(asRecord(call.result), `call-${call.call_id || index}`)
+  for (const [index, call] of calls.entries()) consume(asRecord(call.result), joinWithHyphen(['call', call.call_id || index]))
   return Array.from(cardsByKey.values()).slice(-6).reverse()
 }
 
-function normalizeSourceCandidateKey(source?: Record<string, unknown> | null) {
+function normalizeSourceCandidateKey(source?: UnknownRecord | null) {
   if (!source) return ''
   return String(
     source.url
@@ -776,9 +870,9 @@ function normalizeSourceCandidateKey(source?: Record<string, unknown> | null) {
 
 function normalizeSourceCandidateDecision(value: unknown): SourceQualityCard['reviewDecision'] | undefined {
   const decision = String(value || '').trim().toLowerCase()
-  if (['approved', 'approve', 'accepted', '采集', '通过', '采用'].includes(decision)) return 'approved'
-  if (['deferred', 'defer', 'pending', '暂缓', '稍后'].includes(decision)) return 'deferred'
-  if (['rejected', 'reject', 'refused', '拒绝', '丢弃'].includes(decision)) return 'rejected'
+  if (['approved', 'approve', 'accepted', TECHNICAL_TEXT.sourceDecisionCollect.value, TECHNICAL_TEXT.sourceDecisionPass.value, TECHNICAL_TEXT.sourceDecisionUse.value].includes(decision)) return 'approved'
+  if (['deferred', 'defer', 'pending', TECHNICAL_TEXT.sourceDecisionDefer.value, TECHNICAL_TEXT.sourceDecisionLater.value].includes(decision)) return 'deferred'
+  if (['rejected', 'reject', 'refused', TECHNICAL_TEXT.sourceDecisionReject.value, TECHNICAL_TEXT.sourceDecisionDiscard.value].includes(decision)) return 'rejected'
   return undefined
 }
 
@@ -790,6 +884,7 @@ function formatSourceCandidateDecision(locale: AppLocale, decision?: SourceQuali
 }
 
 function buildSourceCandidateDecisionMap(
+  locale: AppLocale,
   events: AgentEventItem[],
   calls: AgentChatCapabilityCall[],
   artifacts: AgentArtifactItem[],
@@ -809,7 +904,7 @@ function buildSourceCandidateDecisionMap(
       reviewTaskId: patch.reviewTaskId || existing.reviewTaskId,
       reviewedAt: patch.reviewedAt || existing.reviewedAt,
     }
-    if (existingGate.startsWith('URL-pool ') && !incomingGate.startsWith('URL-pool ')) {
+    if (existingGate.startsWith(TECHNICAL_TEXT.urlPoolGatePrefix.value) && !incomingGate.startsWith(TECHNICAL_TEXT.urlPoolGatePrefix.value)) {
       normalizedPatch.reviewNextGate = existing.reviewNextGate
     } else if (!incomingGate && existing.reviewNextGate) {
       normalizedPatch.reviewNextGate = existing.reviewNextGate
@@ -820,7 +915,7 @@ function buildSourceCandidateDecisionMap(
     })
   }
 
-  const consumeReview = (source: Record<string, unknown> | null) => {
+  const consumeReview = (source: UnknownRecord | null) => {
     if (!source) return
     const historySessions = Array.isArray(source.sessions) ? source.sessions : []
     for (const rawSession of historySessions) {
@@ -845,7 +940,7 @@ function buildSourceCandidateDecisionMap(
     })
   }
 
-  const consumeTaskEvent = (source: Record<string, unknown> | null) => {
+  const consumeTaskEvent = (source: UnknownRecord | null) => {
     if (!source) return
     const events = Array.isArray(source.task_events) ? source.task_events : [source]
     for (const rawEvent of events) {
@@ -860,13 +955,15 @@ function buildSourceCandidateDecisionMap(
       upsertDecision(key, {
         reviewDecision: status.toLowerCase() === 'failed' ? 'deferred' : 'approved',
         reviewTaskId: safeDisplay((taskEvent.task_id || dispatchResult?.task_id || result?.task_id) as string | number | boolean | null, ''),
-        reviewNextGate: status ? `URL-pool ${status}` : 'inspect_ingest_status_or_source_artifacts',
+        reviewNextGate: status
+          ? formatCatalogTemplate(translate(locale, 'agentChat.source.nextGate.urlPool'), { status })
+          : 'inspect_ingest_status_or_source_artifacts',
         reviewedAt: safeDisplay((taskEvent.recorded_at || taskEvent.updated_at || result?.recorded_at) as string | number | boolean | null, ''),
       })
     }
   }
 
-  const consumeSubmission = (source: Record<string, unknown> | null) => {
+  const consumeSubmission = (source: UnknownRecord | null) => {
     if (!source) return
     const historySessions = Array.isArray(source.sessions) ? source.sessions : []
     for (const rawSession of historySessions) {
@@ -891,7 +988,7 @@ function buildSourceCandidateDecisionMap(
       reviewDecision: 'approved',
       reviewTaskId: safeDisplay((source.task_id || latestTaskEvent.task_id || dispatchResult?.task_id) as string | number | boolean | null, ''),
       reviewNextGate: latestTaskStatus
-        ? `URL-pool ${latestTaskStatus}`
+        ? formatCatalogTemplate(translate(locale, 'agentChat.source.nextGate.urlPool'), { status: latestTaskStatus })
         : safeDisplay(source.next_gate as string | number | boolean | null, 'inspect_ingest_status_or_source_artifacts'),
       reviewedAt: safeDisplay((latestTaskEvent.recorded_at || source.latest_task_event_at || source.submitted_at || source.updated_at) as string | number | boolean | null, ''),
     })
@@ -908,63 +1005,67 @@ function buildSourceCandidateDecisionMap(
     consumeSubmission(result)
   }
   for (const artifact of artifacts) {
-    const rawArtifact = artifact as unknown as Record<string, unknown>
+    const rawArtifact = artifact as unknown as UnknownRecord
     const content = asRecord(rawArtifact.content_json)
       || parseJsonRecord(String(rawArtifact.content_text || artifact.content || ''))
       || asRecord(artifact.metadata)
-    if (artifact.name === 'source.candidate_reviews.json' || content?.contract_version === 'source.candidate.review.v1') consumeReview(content)
-    if (artifact.name === 'ingest.url_pool_submissions.json' || content?.contract_version === 'ingest.url_pool.submit.v1') consumeSubmission(content)
+    if (artifact.name === TECHNICAL_TEXT.sourceCandidateReviewsArtifact.value || content?.contract_version === TECHNICAL_TEXT.sourceCandidateReviewContract.value) consumeReview(content)
+    if (artifact.name === TECHNICAL_TEXT.ingestUrlPoolSubmissionsArtifact.value || content?.contract_version === TECHNICAL_TEXT.ingestUrlPoolSubmitContract.value) consumeSubmission(content)
   }
   return decisions
 }
 
-function buildWritingDiffCards(events: AgentEventItem[], calls: AgentChatCapabilityCall[]): WritingDiffCard[] {
+function buildWritingDiffCards(locale: AppLocale, events: AgentEventItem[], calls: AgentChatCapabilityCall[]): WritingDiffCard[] {
   const cardsByKey = new Map<string, WritingDiffCard>()
-  const consume = (source: Record<string, unknown> | null, keyPrefix: string, toolName = '') => {
+  const consume = (source: UnknownRecord | null, keyPrefix: string, toolName = '') => {
     const diff = asRecord(source?.diff)
     if (!diff) return
-    const key = `${toolName || source?.tool_name || 'writing'}:${safeDisplay(source?.doc_id as string | number | boolean | null)}:${safeDisplay(source?.operation as string | number | boolean | null)}`
+    const key = joinWithColon([
+      toolName || safeDisplay(source?.tool_name as string | number | boolean | null, 'writing'),
+      safeDisplay(source?.doc_id as string | number | boolean | null),
+      safeDisplay(source?.operation as string | number | boolean | null),
+    ])
     cardsByKey.set(key, {
       key: key || keyPrefix,
-      toolName: toolName || safeDisplay(source?.tool_name as string | number | boolean | null, 'writing.document'),
+      toolName: toolName || safeDisplay(source?.tool_name as string | number | boolean | null, translate(locale, 'agentChat.writing.fallback.toolName')),
       operation: safeDisplay(source?.operation as string | number | boolean | null),
       added: typeof diff.added_lines === 'number' ? diff.added_lines : null,
       removed: typeof diff.removed_lines === 'number' ? diff.removed_lines : null,
       docId: safeDisplay(source?.doc_id as string | number | boolean | null),
-      summary: safeDisplay(source?.model_summary as string | number | boolean | null, 'writing diff ready'),
+      summary: safeDisplay(source?.model_summary as string | number | boolean | null, translate(locale, 'agentChat.writing.fallback.summary')),
     })
   }
   for (const event of events) consume(getEventStructuredContent(event), getAgentEventKey(event), getEventToolName(event))
-  for (const [index, call] of calls.entries()) consume(asRecord(call.result), `call-${call.call_id || index}`, call.tool_name || call.capability_id || '')
+  for (const [index, call] of calls.entries()) consume(asRecord(call.result), joinWithHyphen(['call', call.call_id || index]), call.tool_name || call.capability_id || '')
   return Array.from(cardsByKey.values()).slice(-5).reverse()
 }
 
-function buildInvestigationTraceCards(events: AgentEventItem[], calls: AgentChatCapabilityCall[]): InvestigationTraceCard[] {
+function buildInvestigationTraceCards(locale: AppLocale, events: AgentEventItem[], calls: AgentChatCapabilityCall[]): InvestigationTraceCard[] {
   const cardsByKey = new Map<string, InvestigationTraceCard>()
-  const consume = (source: Record<string, unknown> | null, keyPrefix: string) => {
+  const consume = (source: UnknownRecord | null, keyPrefix: string) => {
     if (!source) return
     const contract = String(source.contract_version || '')
     const counts = asRecord(source.counts)
-    if (contract !== 'agent_investigation.trace.v1' && !counts?.nodes && !source.focus_node_id) return
+    if (contract !== TECHNICAL_TEXT.investigationTraceContract.value && !counts?.nodes && !source.focus_node_id) return
     const pending = Array.isArray(source.pending_questions) ? source.pending_questions.map((item) => asRecord(item)).filter(Boolean) : []
     const firstPending = pending[0] || null
-    const focus = safeDisplay(source.focus_node_id as string | number | boolean | null, 'whole trace')
-    const key = `${focus}:${safeDisplay(source.artifact_name as string | number | boolean | null, keyPrefix)}`
+    const focus = safeDisplay(source.focus_node_id as string | number | boolean | null, translate(locale, 'agentChat.investigation.fallback.focus'))
+    const key = joinWithColon([focus, safeDisplay(source.artifact_name as string | number | boolean | null, keyPrefix)])
     cardsByKey.set(key, {
       key,
       focus,
       nodeCount: safeDisplay(counts?.nodes as string | number | boolean | null, '0'),
       edgeCount: safeDisplay(counts?.edges as string | number | boolean | null, '0'),
-      summary: safeDisplay(source.trace_summary as string | number | boolean | null, 'investigation trace ready'),
+      summary: safeDisplay(source.trace_summary as string | number | boolean | null, translate(locale, 'agentChat.investigation.fallback.summary')),
       pendingQuestion: safeDisplay((firstPending?.text || firstPending?.question || firstPending?.title) as string | number | boolean | null, ''),
     })
   }
   for (const event of events) consume(getEventStructuredContent(event), getAgentEventKey(event))
-  for (const [index, call] of calls.entries()) consume(asRecord(call.result), `call-${call.call_id || index}`)
+  for (const [index, call] of calls.entries()) consume(asRecord(call.result), joinWithHyphen(['call', call.call_id || index]))
   return Array.from(cardsByKey.values()).slice(-4).reverse()
 }
 
-function parseJsonRecord(value: unknown): Record<string, unknown> | null {
+function parseJsonRecord(value: unknown): UnknownRecord | null {
   if (typeof value !== 'string' || !value.trim()) return null
   try {
     return asRecord(JSON.parse(value))
@@ -973,11 +1074,11 @@ function parseJsonRecord(value: unknown): Record<string, unknown> | null {
   }
 }
 
-function getLongTaskState(source: Record<string, unknown> | null): Record<string, unknown> | null {
+function getLongTaskState(source: UnknownRecord | null): UnknownRecord | null {
   if (!source) return null
   const directContract = String(source.contract_version || '')
-  if (directContract === 'agent_long_task.stage.v1' && asRecord(source.state)) return asRecord(source.state)
-  if (directContract === 'agent_long_task.stage.v1' && source.current_stage) return source
+  if (directContract === TECHNICAL_TEXT.longTaskStageContract.value && asRecord(source.state)) return asRecord(source.state)
+  if (directContract === TECHNICAL_TEXT.longTaskStageContract.value && source.current_stage) return source
   const state = asRecord(source.state)
   if (state && (state.current_stage || state.stage_summaries || state.completed_stages)) return state
   const resultPayload = asRecord(source.result_payload)
@@ -989,20 +1090,21 @@ function getLongTaskState(source: Record<string, unknown> | null): Record<string
   return null
 }
 
-function listLongTaskStages(state: Record<string, unknown>) {
+function listLongTaskStages(state: UnknownRecord) {
   return Array.isArray(state.stage_summaries)
-    ? state.stage_summaries.map((item) => asRecord(item)).filter((item): item is Record<string, unknown> => Boolean(item))
+    ? state.stage_summaries.map((item) => asRecord(item)).filter((item): item is UnknownRecord => Boolean(item))
     : []
 }
 
 function buildLongTaskStageCards(
+  locale: AppLocale,
   events: AgentEventItem[],
   calls: AgentChatCapabilityCall[],
   artifacts: AgentArtifactItem[],
   tasks: AgentTaskItem[],
 ): LongTaskStageCard[] {
   const cardsByKey = new Map<string, LongTaskStageCard>()
-  const consume = (source: Record<string, unknown> | null, keyPrefix: string) => {
+  const consume = (source: UnknownRecord | null, keyPrefix: string) => {
     const state = getLongTaskState(source)
     if (!state) return
     const stages = listLongTaskStages(state)
@@ -1010,7 +1112,7 @@ function buildLongTaskStageCards(
     const lastCompleted = [...stages].reverse().find((stage) => String(stage.status || '').toLowerCase() === 'completed')
     const currentStage = safeDisplay(state.current_stage as string | number | boolean | null, 'plan')
     const lastStage = safeDisplay((lastCompleted?.stage || stages[0]?.stage) as string | number | boolean | null, currentStage)
-    const counts = stages.reduce<Record<string, number>>((acc, stage) => {
+    const counts = stages.reduce<CountMap>((acc, stage) => {
       const stageCounts = asRecord(stage.counts)
       for (const [key, value] of Object.entries(stageCounts || {})) {
         const numeric = typeof value === 'number' ? value : Number(value || 0)
@@ -1019,33 +1121,36 @@ function buildLongTaskStageCards(
       return acc
     }, {})
     const countBits = [
-      counts?.evidence_refs ? `evidence ${counts.evidence_refs}` : '',
-      counts?.gap_list ? `gaps ${counts.gap_list}` : '',
-      counts?.external_discovery_plan ? `discovery ${counts.external_discovery_plan}` : '',
-      counts?.source_intake ? `intake ${counts.source_intake}` : '',
-      counts?.clue_refs ? `clues ${counts.clue_refs}` : '',
-      counts?.draft_refs ? `drafts ${counts.draft_refs}` : '',
+      counts?.evidence_refs ? formatCatalogTemplate(translate(locale, 'agentChat.longTask.counter.evidenceRefs'), { count: counts.evidence_refs }) : '',
+      counts?.gap_list ? formatCatalogTemplate(translate(locale, 'agentChat.longTask.counter.gapList'), { count: counts.gap_list }) : '',
+      counts?.external_discovery_plan ? formatCatalogTemplate(translate(locale, 'agentChat.longTask.counter.externalDiscoveryPlan'), { count: counts.external_discovery_plan }) : '',
+      counts?.source_intake ? formatCatalogTemplate(translate(locale, 'agentChat.longTask.counter.sourceIntake'), { count: counts.source_intake }) : '',
+      counts?.clue_refs ? formatCatalogTemplate(translate(locale, 'agentChat.longTask.counter.clueRefs'), { count: counts.clue_refs }) : '',
+      counts?.draft_refs ? formatCatalogTemplate(translate(locale, 'agentChat.longTask.counter.draftRefs'), { count: counts.draft_refs }) : '',
     ].filter(Boolean)
     const nextActions = toTextList(state.next_actions)
-    const artifactName = safeDisplay(source?.artifact_name as string | number | boolean | null, safeDisplay(state.artifact_name as string | number | boolean | null, 'agent_long_task.state.json'))
-    const key = `${artifactName}:${currentStage}:${completed.join('|') || keyPrefix}`
+    const artifactName = safeDisplay(
+      source?.artifact_name as string | number | boolean | null,
+      safeDisplay(state.artifact_name as string | number | boolean | null, translate(locale, 'agentChat.longTask.fallback.artifactName')),
+    )
+    const key = joinWithColon([artifactName, currentStage, completed.join('|') || keyPrefix])
     cardsByKey.set(key, {
       key,
       currentStage,
-      completed: completed.length ? completed.join(' -> ') : 'none',
+      completed: completed.length ? completed.join(' -> ') : translate(locale, 'agentChat.longTask.none'),
       lastStage,
-      summary: safeDisplay((lastCompleted?.summary || stages[0]?.summary || state.summary) as string | number | boolean | null, 'stage state ready'),
-      counts: countBits.join(' · ') || 'no counters',
+      summary: safeDisplay((lastCompleted?.summary || stages[0]?.summary || state.summary) as string | number | boolean | null, translate(locale, 'agentChat.longTask.fallback.summary')),
+      counts: joinWithMiddleDot(countBits) || translate(locale, 'agentChat.longTask.noCounters'),
       nextAction: nextActions[nextActions.length - 1] || '',
     })
   }
   for (const event of events) consume(getEventStructuredContent(event), getAgentEventKey(event))
-  for (const [index, call] of calls.entries()) consume(asRecord(call.result), `call-${call.call_id || index}`)
+  for (const [index, call] of calls.entries()) consume(asRecord(call.result), joinWithHyphen(['call', call.call_id || index]))
   for (const artifact of artifacts) {
     if (String(artifact.artifact_type || '') !== 'agent_long_task_state') continue
-    consume(parseJsonRecord(artifact.content) || asRecord(artifact.metadata), `artifact-${artifact.artifact_id}`)
+    consume(parseJsonRecord(artifact.content) || asRecord(artifact.metadata), joinWithHyphen(['artifact', artifact.artifact_id]))
   }
-  for (const task of tasks) consume(task as unknown as Record<string, unknown>, `task-${task.task_id}`)
+  for (const task of tasks) consume(task as unknown as UnknownRecord, joinWithHyphen(['task', task.task_id]))
   return Array.from(cardsByKey.values()).slice(-4).reverse()
 }
 
@@ -1069,18 +1174,18 @@ function formatArtifactPreview(artifact?: AgentArtifactItem | null) {
 function summarizeCapability(capability: AgentChatCapabilityItem) {
   const approval = safeDisplay(capability.approval_level)
   const concurrency = safeDisplay(capability.concurrency_class)
-  const state = safeDisplay(capability.implementation_state || (capability.implemented === false ? 'unimplemented' : 'ready'))
-  return `${state} · ${approval} · ${concurrency}`
+  const state = safeDisplay(capability.implementation_state || (capability.implemented === false ? 'unimplemented' : TECHNICAL_TEXT.readyState.value))
+  return joinWithMiddleDot([state, approval, concurrency])
 }
 
 function summarizeCapabilityRuntime(capability: AgentChatCapabilityItem) {
   const bits = []
-  if (capability.service_status) bits.push(`status:${capability.service_status}`)
-  if (typeof capability.configured === 'boolean') bits.push(`configured:${capability.configured ? 'yes' : 'no'}`)
-  if (typeof capability.reachable === 'boolean') bits.push(`reachable:${capability.reachable ? 'yes' : 'no'}`)
-  if (typeof capability.auth_ok === 'boolean') bits.push(`auth:${capability.auth_ok ? 'ok' : 'fail'}`)
-  if (capability.server_error) bits.push(`error:${capability.server_error}`)
-  return bits.join(' · ')
+  if (capability.service_status) bits.push(joinWithColon(['status', capability.service_status]))
+  if (typeof capability.configured === 'boolean') bits.push(joinWithColon(['configured', capability.configured ? 'yes' : 'no']))
+  if (typeof capability.reachable === 'boolean') bits.push(joinWithColon(['reachable', capability.reachable ? 'yes' : 'no']))
+  if (typeof capability.auth_ok === 'boolean') bits.push(joinWithColon(['auth', capability.auth_ok ? 'ok' : 'fail']))
+  if (capability.server_error) bits.push(joinWithColon(['error', capability.server_error]))
+  return joinWithMiddleDot(bits)
 }
 
 function capabilityImplementationState(capability: AgentChatCapabilityItem) {
@@ -1092,7 +1197,7 @@ function isCapabilityAvailable(capability: AgentChatCapabilityItem) {
   return capability.enabled !== false && capability.implemented !== false && !['disabled', 'not_configured', 'not_mounted', 'unimplemented', 'auth_failed', 'server_error', 'unreachable'].includes(state)
 }
 
-function flattenCapabilityGroups(groups: Record<string, AgentChatCapabilityItem[] | null | undefined> | null) {
+function flattenCapabilityGroups(groups: CapabilityGroupMap | null) {
   if (!groups) return []
   const items: AgentChatCapabilityItem[] = []
   for (const value of Object.values(groups)) {
@@ -1116,28 +1221,28 @@ function isAgentDebugMetaEnabled() {
 export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
   const locale = useAppLocale()
   const t = useCallback((key: MessageKey) => translate(locale, key), [locale])
-  const storageKey = `${AGENT_CHAT_STORAGE_PREFIX}:${projectKey || 'default'}`
+  const storageKey = joinWithColon([AGENT_CHAT_STORAGE_PREFIX, projectKey || 'default'])
   const stored = readStoredState(storageKey)
   const initialSessions = mergeSessionsWithSeed(locale, stored?.sessions, stored?.sessionHistories)
   const initialHistories = mergeHistoriesWithSeed(projectKey, locale, stored?.sessionHistories)
 
   const [sessionFilter, setSessionFilter] = useState('')
   const [activeSessionId, setActiveSessionId] = useState(stored?.activeSessionId || initialSessions[0]?.id || 's1')
-  const [sessions, setSessions] = useState<ChatSession[]>(initialSessions)
-  const [sessionHistories, setSessionHistories] = useState<Record<string, ChatMessage[]>>(initialHistories)
-  const [draftBySession, setDraftBySession] = useState<Record<string, string>>(stored?.draftBySession || {})
-  const [streamStatus, setStreamStatus] = useState<AgentSessionEventStreamStatus>('idle')
-  const [streamEvents, setStreamEvents] = useState<AgentEventItem[]>([])
-  const [runStateBySession, setRunStateBySession] = useState<Record<string, SessionRunState>>({})
-  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null)
-  const [workbenchView, setWorkbenchView] = useState<WorkbenchView>('overview')
-  const [sourceHistoryFilter, setSourceHistoryFilter] = useState<SourceHistoryFilter>('all')
-  const [approvalOverrideById, setApprovalOverrideById] = useState<Record<string, string>>({})
-  const [approvalErrorById, setApprovalErrorById] = useState<Record<string, string>>({})
-  const listRef = useRef<HTMLDivElement | null>(null)
-  const streamRefreshTimerRef = useRef<number | null>(null)
-  const turnStreamEventsRef = useRef<AgentEventItem[]>([])
-  const refetchBackendSessionRef = useRef<() => Promise<void>>(async () => undefined)
+  const [sessions, setSessions] = useState((): ChatSession[] => initialSessions)
+  const [sessionHistories, setSessionHistories] = useState((): ChatHistoryMap => initialHistories)
+  const [draftBySession, setDraftBySession] = useState((): StringMap => stored?.draftBySession || {})
+  const [streamStatus, setStreamStatus] = useState((): AgentSessionEventStreamStatus => 'idle')
+  const [streamEvents, setStreamEvents] = useState((): AgentEventItem[] => [])
+  const [runStateBySession, setRunStateBySession] = useState((): SessionRunStateMap => ({}))
+  const [selectedArtifactId, setSelectedArtifactId] = useState(null as string | null)
+  const [workbenchView, setWorkbenchView] = useState((): WorkbenchView => 'overview')
+  const [sourceHistoryFilter, setSourceHistoryFilter] = useState((): SourceHistoryFilter => 'all')
+  const [approvalOverrideById, setApprovalOverrideById] = useState((): StringMap => ({}))
+  const [approvalErrorById, setApprovalErrorById] = useState((): StringMap => ({}))
+  const listRef = useRef(null as HTMLDivElement | null)
+  const streamRefreshTimerRef = useRef(null as number | null)
+  const turnStreamEventsRef = useRef([] as AgentEventItem[])
+  const refetchBackendSessionRef = useRef(refetchNoop)
   const activeSessionIdRef = useRef(activeSessionId)
   const showDebugMeta = useMemo(() => isAgentDebugMetaEnabled(), [])
 
@@ -1159,7 +1264,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         preview,
       }
     })
-    return Object.fromEntries(entries.map((item) => [item.sessionId, item])) as Record<string, { count: number; preview: string }>
+    return Object.fromEntries(entries.map((item) => [item.sessionId, item])) as SessionStatsMap
   }, [sessionHistories, t])
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === resolvedActiveSessionId) || sessions[0],
@@ -1304,7 +1409,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         }))
         const chunk = extractAssistantStreamChunk(event)
         if (chunk) {
-          streamedAnswer = chunk.mode === 'append' ? `${streamedAnswer}${chunk.text}` : chunk.text
+          streamedAnswer = chunk.mode === 'append' ? streamedAnswer + chunk.text : chunk.text
           updateLoadingMessage(streamedAnswer || translate(locale, 'agentChat.status.thinking'))
           return
         }
@@ -1358,7 +1463,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
     },
   })
   const continueApprovalMutation = useMutation({
-    mutationFn: (input: { approvalId: string; bindingPayloadOverrides?: Record<string, unknown> }) =>
+    mutationFn: (input: { approvalId: string; bindingPayloadOverrides?: UnknownRecord }) =>
       continueAgentChatApproval(input.approvalId, {
         approved_by: 'user',
         binding_payload_overrides: input.bindingPayloadOverrides || {},
@@ -1375,12 +1480,12 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
           [resolvedActiveSessionId]: [
             ...(prev[resolvedActiveSessionId] || []),
             {
-              id: `a-approval-${Date.now()}`,
+              id: runtimeId('a-approval'),
               role: 'assistant',
               content: finalAnswer || t('agentChat.approval.approvedContinue'),
               ts: nowLabel(),
               stages: buildCompletedStages(locale),
-              meta: showDebugMeta ? ['backend: /agent-chat/approvals/continue'] : [],
+              meta: showDebugMeta ? [debugMeta('backend', TECHNICAL_TEXT.approvalContinueBackend.value)] : [],
               capabilityCalls: capabilityCall ? [capabilityCall] : [],
             },
           ],
@@ -1397,14 +1502,14 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         [resolvedActiveSessionId]: [
           ...(prev[resolvedActiveSessionId] || []),
           {
-            id: `a-reject-${Date.now()}`,
+            id: runtimeId('a-reject'),
             role: 'assistant',
             content: approval?.approval_id
               ? formatCatalogTemplate(t('agentChat.approval.rejectedWithId'), { approvalId: approval.approval_id })
               : t('agentChat.approval.rejected'),
             ts: nowLabel(),
             stages: buildCompletedStages(locale),
-            meta: showDebugMeta ? ['backend: /agent-approvals/resolve', 'approval: rejected'] : [],
+            meta: showDebugMeta ? [debugMeta('backend', TECHNICAL_TEXT.approvalResolveBackend.value), debugMeta('approval', 'rejected')] : [],
           },
         ],
       }))
@@ -1507,15 +1612,15 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
       [targetSessionId]: [
         ...(prev[targetSessionId] || []),
         {
-          id: `u-${Date.now()}`,
+          id: runtimeId('u'),
           role: 'user',
           content: command,
           ts: nowLabel(),
         },
         {
-          id: `a-loading-${timestamp}`,
+          id: joinWithHyphen(['a', 'loading', timestamp]),
           role: 'assistant',
-          content: '正在思考...',
+          content: t('agentChat.status.thinking'),
           ts: nowLabel(),
           stages: buildBaseStages(locale),
         },
@@ -1548,9 +1653,9 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         sessionId: targetSessionId,
         backendSessionId: targetSession?.backendSessionId || null,
       })
-      const loopResult = result?.loop_result && typeof result.loop_result === 'object' ? (result.loop_result as Record<string, unknown>) : {}
-      const parsed = (loopResult?.parsed as Record<string, unknown> | undefined) || null
-      const submit = (loopResult?.submit as Record<string, unknown> | undefined) || null
+      const loopResult = result?.loop_result && typeof result.loop_result === 'object' ? (result.loop_result as UnknownRecord) : {}
+      const parsed = (loopResult?.parsed as UnknownRecord | undefined) || null
+      const submit = (loopResult?.submit as UnknownRecord | undefined) || null
       const capabilityCalls = Array.isArray(result?.capability_calls) ? result.capability_calls : []
       const suggestedNextActions = Array.isArray(result?.suggested_next_actions) ? result.suggested_next_actions : []
       const agentMode = String(result?.agent_mode || '').trim()
@@ -1559,22 +1664,22 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
       const backendCurrentPhase = String(result?.session?.current_phase || '')
       const backendCompatMode = typeof result?.session?.compat_mode === 'boolean' ? result.session.compat_mode : null
       const backendProjectionVersion = String(result?.contract_version || result?.session?.compat_projection_version || '')
-      const meta: string[] = ['backend: /agent-chat/turn']
-      if (agentMode) meta.push(`mode: ${agentMode}`)
-      if (submit?.job_id) meta.push(`job_id: ${submit.job_id}`)
-      if (submit?.status) meta.push(`status: ${submit.status}`)
-      if (backendSessionId) meta.push(`session_id: ${backendSessionId}`)
-      if (result?.stream?.url) meta.push('stream: ready')
-      if (backendCurrentPhase) meta.push(`phase: ${backendCurrentPhase}`)
-      if (typeof submit?.accepted_count === 'number') meta.push(`accepted: ${submit.accepted_count}`)
-      if (typeof submit?.rejected_count === 'number') meta.push(`rejected: ${submit.rejected_count}`)
-      if (capabilityCalls.length) meta.push(`capability: ${capabilityCalls.map((call) => call.capability_id).filter(Boolean).join(', ')}`)
+      const meta: string[] = [debugMeta('backend', TECHNICAL_TEXT.agentChatTurnBackend.value)]
+      if (agentMode) meta.push(debugMeta('mode', agentMode))
+      if (submit?.job_id) meta.push(debugMeta('job_id', String(submit.job_id)))
+      if (submit?.status) meta.push(debugMeta('status', String(submit.status)))
+      if (backendSessionId) meta.push(debugMeta('session_id', backendSessionId))
+      if (result?.stream?.url) meta.push(debugMeta('stream', TECHNICAL_TEXT.readyState.value))
+      if (backendCurrentPhase) meta.push(debugMeta('phase', backendCurrentPhase))
+      if (typeof submit?.accepted_count === 'number') meta.push(debugMeta('accepted', submit.accepted_count))
+      if (typeof submit?.rejected_count === 'number') meta.push(debugMeta('rejected', submit.rejected_count))
+      if (capabilityCalls.length) meta.push(debugMeta('capability', capabilityCalls.map((call) => call.capability_id).filter(Boolean).join(', ')))
 
       const parsedJson = toCompactJson(parsed)
       const finalAnswer = String(result?.final_answer || '').trim()
       const assistantContent = parsedJson
-        ? `${finalAnswer || '交互式 agent 已完成本轮处理。'}\n\nparsed:\n${parsedJson}`.trim()
-        : (finalAnswer || '交互式 agent 已完成本轮处理。')
+        ? joinWithSeparator([finalAnswer || t('agentChat.message.defaultAssistantComplete'), TECHNICAL_TEXT.parsedDetailPrefix.value + parsedJson], '\n\n').trim()
+        : (finalAnswer || t('agentChat.message.defaultAssistantComplete'))
       const visibleMeta = showDebugMeta ? meta : []
 
       setSessionHistories((prev) => {
@@ -1585,7 +1690,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
           [targetSessionId]: [
             ...withoutLoading,
             {
-              id: `a-${Date.now()}`,
+              id: runtimeId('a'),
               role: 'assistant',
               content: assistantContent,
               ts: nowLabel(),
@@ -1642,13 +1747,13 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
           [targetSessionId]: [
             ...withoutLoading,
             {
-              id: `sys-error-${Date.now()}`,
+              id: runtimeId('sys-error'),
               role: 'system',
               state: 'error',
-              content: `后端调用失败，未生成 assistant 回复。\n\nerror:\n${errorText}`,
+              content: joinWithSeparator([t('agentChat.message.backendCallFailed'), debugMeta('error', errorText)], '\n\n'),
               ts: nowLabel(),
               stages: buildPendingStages(locale),
-              meta: showDebugMeta ? ['backend: /agent-chat/turn', 'status: failed'] : [],
+              meta: showDebugMeta ? [debugMeta('backend', TECHNICAL_TEXT.agentChatTurnBackend.value), debugMeta('status', 'failed')] : [],
               retryCommand: command,
               retrySessionId: targetSessionId,
             },
@@ -1775,13 +1880,13 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
       sessionEvents
         .filter((event) =>
           [
-            'interactive_agent.tool_call_requested',
-            'interactive_agent.tool_call_started',
-            'interactive_agent.tool_call_result',
-            'interactive_agent.capability_executed',
-            'agent_core.tool_call_requested',
-            'agent_core.tool_call_started',
-            'agent_core.tool_result',
+            TECHNICAL_TEXT.interactiveToolCallRequested.value,
+            TECHNICAL_TEXT.interactiveToolCallStarted.value,
+            TECHNICAL_TEXT.interactiveToolCallResult.value,
+            TECHNICAL_TEXT.interactiveCapabilityExecuted.value,
+            TECHNICAL_TEXT.agentCoreToolCallRequested.value,
+            TECHNICAL_TEXT.agentCoreToolCallStarted.value,
+            TECHNICAL_TEXT.agentCoreToolResult.value,
             'tool_call_requested',
             'tool_call_started',
             'tool_call_result',
@@ -1804,17 +1909,17 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
     }
     return mergeCapabilityCalls(messageCalls, streamedCapabilityCalls)
   }, [activeMessages, streamedCapabilityCalls])
-  const progressiveToolEvents = useMemo(() => buildProgressiveToolEvents(sessionEvents), [sessionEvents])
+  const progressiveToolEvents = useMemo(() => buildProgressiveToolEvents(locale, sessionEvents), [locale, sessionEvents])
   const sourceCandidateDecisions = useMemo(
-    () => buildSourceCandidateDecisionMap(sessionEvents, latestCapabilityCalls, sessionArtifacts),
-    [latestCapabilityCalls, sessionArtifacts, sessionEvents],
+    () => buildSourceCandidateDecisionMap(locale, sessionEvents, latestCapabilityCalls, sessionArtifacts),
+    [latestCapabilityCalls, locale, sessionArtifacts, sessionEvents],
   )
   const sourceQualityCards = useMemo(
-    () => buildSourceQualityCards(sessionEvents, latestCapabilityCalls).map((card) => ({
+    () => buildSourceQualityCards(locale, sessionEvents, latestCapabilityCalls).map((card) => ({
       ...card,
       ...(sourceCandidateDecisions.get(card.key) || {}),
     })),
-    [latestCapabilityCalls, sessionEvents, sourceCandidateDecisions],
+    [latestCapabilityCalls, locale, sessionEvents, sourceCandidateDecisions],
   )
   const sourceHistorySummary = useMemo(() => ({
     all: sourceQualityCards.length,
@@ -1829,12 +1934,12 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
     return sourceQualityCards.filter((card) => card.reviewDecision === sourceHistoryFilter)
   }, [sourceHistoryFilter, sourceQualityCards])
   const submitSourceCandidateDecision = (card: SourceQualityCard, decision: 'approved' | 'deferred' | 'rejected') => {
-    const label = decision === 'approved' ? '采集' : decision === 'deferred' ? '暂缓' : '拒绝'
+    const label = formatSourceCandidateDecision(locale, decision)
     const payload = {
       decision,
       preferred_ingest: decision === 'approved' ? 'url_pool' : 'manual',
-      reason: `用户在候选来源卡片中选择${label}`,
-      idempotency_key: `source-candidate:${decision}:${card.key}`,
+      reason: formatCatalogTemplate(t('agentChat.source.decision.reason'), { decision: label }),
+      idempotency_key: joinWithColon(['source-candidate', decision, card.key]),
       candidate: {
         ...card.rawCandidate,
         title: card.title,
@@ -1843,19 +1948,21 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         provider: card.provider,
       },
     }
-    void sendMessage(`请按我的候选来源决策继续，记录决策并给出下一步采集边界。source_candidate_review JSON：${JSON.stringify(payload)}`)
+    void sendMessage(formatCatalogTemplate(t('agentChat.source.decision.command'), {
+      payload: TECHNICAL_TEXT.sourceCandidateReviewPayload.value + ': ' + JSON.stringify(payload),
+    }))
   }
   const writingDiffCards = useMemo(
-    () => buildWritingDiffCards(sessionEvents, latestCapabilityCalls),
-    [latestCapabilityCalls, sessionEvents],
+    () => buildWritingDiffCards(locale, sessionEvents, latestCapabilityCalls),
+    [latestCapabilityCalls, locale, sessionEvents],
   )
   const investigationTraceCards = useMemo(
-    () => buildInvestigationTraceCards(sessionEvents, latestCapabilityCalls),
-    [latestCapabilityCalls, sessionEvents],
+    () => buildInvestigationTraceCards(locale, sessionEvents, latestCapabilityCalls),
+    [latestCapabilityCalls, locale, sessionEvents],
   )
   const longTaskStageCards = useMemo(
-    () => buildLongTaskStageCards(sessionEvents, latestCapabilityCalls, sessionArtifacts, sessionTasks),
-    [latestCapabilityCalls, sessionArtifacts, sessionEvents, sessionTasks],
+    () => buildLongTaskStageCards(locale, sessionEvents, latestCapabilityCalls, sessionArtifacts, sessionTasks),
+    [latestCapabilityCalls, locale, sessionArtifacts, sessionEvents, sessionTasks],
   )
   const primaryPendingApproval = pendingApprovals[0] || null
   const latestArtifacts = sessionArtifacts.slice(-3).reverse()
@@ -1897,7 +2004,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
     },
     [capabilityGroups, capabilityItems],
   )
-  const workbenchTimeline = useMemo(() => buildWorkbenchTimeline(sessionEvents, sessionTasks), [sessionEvents, sessionTasks])
+  const workbenchTimeline = useMemo(() => buildWorkbenchTimeline(locale, sessionEvents, sessionTasks), [locale, sessionEvents, sessionTasks])
   const sessionStatusToken = String(sessionTelemetry.status || '').toLowerCase()
   const isSessionTerminal = isTerminalAgentSessionStatus(sessionStatusToken)
   const isStreamLive = !isSessionTerminal && (streamStatus === 'open' || streamStatus === 'connecting')
@@ -1908,10 +2015,21 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         detail: formatCatalogTemplate(t('agentChat.status.approvalNeededDetail'), { count: pendingApprovals.length }),
       }
     : isActiveSessionRunning || isStreamLive
-      ? { className: 'live', label: t('agentChat.status.live'), detail: activeRunState?.streamStatus ? `stream ${activeRunState.streamStatus}` : `stream ${streamStatus}` }
+      ? {
+          className: 'live',
+          label: t('agentChat.status.live'),
+          detail: formatCatalogTemplate(t('agentChat.status.streamDetail'), { status: activeRunState?.streamStatus || streamStatus }),
+      }
       : sessionTelemetry.status
         ? { className: sessionStatusClass, label: safeDisplay(sessionTelemetry.status), detail: safeDisplay(sessionTelemetry.currentPhase) }
         : { className: 'idle', label: t('agentChat.status.idle'), detail: t('agentChat.status.idleDetail') }
+  const runSignalIcon = pendingApprovals.length
+    ? createElement(ShieldCheck, { size: 14 })
+    : isStreamLive
+      ? createElement(Radio, { size: 14 })
+      : String(sessionTelemetry.status || '').toLowerCase() === 'completed'
+        ? createElement(CheckCircle2, { size: 14 })
+        : createElement(Bot, { size: 14 })
   const retryableTask = sessionTasks.find((task) => ['failed', 'blocked', 'expired'].includes(String(task.status || '').toLowerCase()))
   const actionBusy =
     coordinatorMutation.isPending
@@ -1943,9 +2061,9 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
       return
     }
     try {
-      const parsed = JSON.parse(rawOverride) as Record<string, unknown>
+      const parsed = JSON.parse(rawOverride) as UnknownRecord
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error('override must be a JSON object')
+        throw new Error(t('agentChat.approval.invalidOverrideObject'))
       }
       setApprovalErrorById((prev) => ({ ...prev, [approvalId]: '' }))
       continueApprovalMutation.mutate({ approvalId, bindingPayloadOverrides: parsed })
@@ -2035,15 +2153,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
             <div className="agent-chat-conversation-head__meta">
               <span>{messageCountLabel}</span>
               <span className={`agent-chat-run-signal is-${runSignal.className}`} title={runSignal.detail}>
-                {pendingApprovals.length ? (
-                  <ShieldCheck size={14} />
-                ) : isStreamLive ? (
-                  <Radio size={14} />
-                ) : String(sessionTelemetry.status || '').toLowerCase() === 'completed' ? (
-                  <CheckCircle2 size={14} />
-                ) : (
-                  <Bot size={14} />
-                )}
+                {runSignalIcon}
                 {runSignal.label}
               </span>
               <button
@@ -2399,16 +2509,14 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                         <article key={`${call.capability_id || 'call'}-${index}`} className={`agent-chat-run-row status-${normalizeStatusToken(call.status)}`}>
                           <span>{call.capability_id || call.tool_name || 'tool'}</span>
                           <em>
-                            {call.status || '-'}
-                            {call.protocol ? ` · ${call.protocol}` : ''}
-                            {call.stream_state ? ` · ${call.stream_state}` : ''}
+                            {joinWithMiddleDot([call.status || '-', call.protocol, call.stream_state])}
                           </em>
                           {call.material_category?.label ? (
                             <small className={`agent-chat-material-chip material-${normalizeMaterialCategoryToken(call.material_category.category)}`}>
                               {call.material_category.label}
                             </small>
                           ) : null}
-                          <p>{call.summary || (call.run_id ? `run ${call.run_id}` : '-')}</p>
+                          <p>{call.summary || (call.run_id ? formatCatalogTemplate(t('agentChat.toolCall.runLabel'), { runId: call.run_id }) : '-')}</p>
                         </article>
                       ))
                     ) : (
@@ -2439,7 +2547,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                           {investigationTraceCards.map((trace) => (
                             <article key={trace.key} className="agent-chat-trace-card" data-testid="agent-chat-investigation-trace-card">
                               <strong>{trace.focus}</strong>
-                              <small>{trace.nodeCount} nodes · {trace.edgeCount} edges</small>
+                              <small>{formatCatalogTemplate(t('agentChat.investigation.counts'), { nodes: trace.nodeCount, edges: trace.edgeCount })}</small>
                               <p>{trace.summary}</p>
                               {trace.pendingQuestion ? <em>{trace.pendingQuestion}</em> : null}
                             </article>
@@ -2454,7 +2562,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                           {writingDiffCards.map((diff) => (
                             <article key={diff.key} className="agent-chat-diff-card" data-testid="agent-chat-diff-event">
                               <strong>{diff.toolName}</strong>
-                              <small>{diff.operation} · doc {diff.docId}</small>
+                              <small>{joinWithMiddleDot([diff.operation, formatCatalogTemplate(t('agentChat.diff.docLabel'), { docId: diff.docId })])}</small>
                               <p>{diff.summary}</p>
                               <em>+{diff.added ?? '-'} / -{diff.removed ?? '-'}</em>
                             </article>
@@ -2546,15 +2654,15 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                           <strong>
                             {(() => {
                               const binding = primaryPendingApproval.binding_payload || {}
-                              const toolCall = typeof binding.tool_call === 'object' && binding.tool_call ? (binding.tool_call as Record<string, unknown>) : null
-                              const toolSpec = typeof binding.tool_spec === 'object' && binding.tool_spec ? (binding.tool_spec as Record<string, unknown>) : null
-                              return String(binding.capability_id || toolCall?.tool_name || toolSpec?.name || primaryPendingApproval.metadata?.capability_id || 'high-risk capability')
+                              const toolCall = asRecord(binding.tool_call)
+                              const toolSpec = asRecord(binding.tool_spec)
+                              return String(binding.capability_id || toolCall?.tool_name || toolSpec?.name || primaryPendingApproval.metadata?.capability_id || t('agentChat.approval.highRiskCapability'))
                             })()}
                           </strong>
                           <p>{String(primaryPendingApproval.binding_payload?.command || primaryPendingApproval.binding_payload?.user_message || primaryPendingApproval.binding_payload?.resume_token || '-')}</p>
                           <textarea
                             value={approvalOverrideById[primaryPendingApproval.approval_id] || ''}
-                            placeholder='{"graph_id":"...","inputs":{}}'
+                            placeholder={t('agentChat.approval.overridePlaceholder')}
                             aria-label={t('agentChat.approval.overrideAriaLabel')}
                             onChange={(event) => {
                               const value = event.target.value
@@ -2593,8 +2701,8 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                     {sessionApprovals.length ? (
                       sessionApprovals.slice(0, 6).map((approval) => {
                         const binding = approval.binding_payload || {}
-                        const toolCall = typeof binding.tool_call === 'object' && binding.tool_call ? (binding.tool_call as Record<string, unknown>) : null
-                        const toolSpec = typeof binding.tool_spec === 'object' && binding.tool_spec ? (binding.tool_spec as Record<string, unknown>) : null
+                        const toolCall = asRecord(binding.tool_call)
+                        const toolSpec = asRecord(binding.tool_spec)
                         const capabilityId = String(
                           binding.capability_id
                           || toolCall?.tool_name
@@ -2690,7 +2798,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                   </div>
                 ) : null}
                 <textarea
-                  aria-label="agent chat input"
+                  aria-label={t('agentChat.composer.inputAriaLabel')}
                   data-testid="agent-chat-input"
                   value={currentDraft}
                   placeholder={t('agentChat.composer.inputPlaceholder')}
@@ -2701,7 +2809,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                     }))
                   }
                   onKeyDown={(event) => {
-                    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
+                    if (event.key !== TECHNICAL_TEXT.enterKey.value || event.shiftKey || event.nativeEvent.isComposing) return
                     event.preventDefault()
                     void sendMessage(currentDraft)
                   }}

@@ -6,7 +6,7 @@
 `CURRENT_DEV` topic. It should not receive a new minimum plan, because the
 distinct scope that can be audited now belongs to:
 
-- the active [Frontend Three-Layer Rewrite](../../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md);
+- the active [Frontend Three-Layer Rewrite](../../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/README.md);
 - the [frontend topology/theme contract evidence](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md);
 - the [frontend runtime visual evidence](../../../automation-runs/frontend-runtime-visual/2026-05-22/README.md).
 

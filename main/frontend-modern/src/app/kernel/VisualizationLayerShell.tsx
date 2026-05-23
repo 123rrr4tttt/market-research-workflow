@@ -30,14 +30,14 @@ export default function VisualizationLayerShell({ activeModule, runtime }: Props
   useEffect(() => {
     const coverage = getVisualizationShellCoverage()
     if (!coverage.isComplete) {
-      console.warn('visualization shell coverage mismatch', coverage)
+      console.warn(translate(locale, 'shell.visualization.coverageMismatch'), coverage)
     }
-  }, [])
+  }, [locale])
 
   return (
     <div className={`kernel-visual kernel-visual--${activeModule}`}>
       <header className="kernel-visual__masthead">
-        <div className="kernel-visual__eyebrow">Layer B / Visualization</div>
+        <div className="kernel-visual__eyebrow">{translate(locale, 'shell.visualization.eyebrow')}</div>
         <LayerSwitch activeLayer="B" runtime={runtime} />
         <div className="kernel-visual__heading">
           <div>
@@ -46,7 +46,7 @@ export default function VisualizationLayerShell({ activeModule, runtime }: Props
           </div>
           <div className="kernel-visual__project-switch">
             <label className="kernel-visual__project-field">
-              <span>target project</span>
+              <span>{translate(locale, 'shell.field.targetProject')}</span>
               <select
                 value={runtime.pendingProjectKey}
                 onChange={(event) => {
@@ -65,7 +65,7 @@ export default function VisualizationLayerShell({ activeModule, runtime }: Props
               onClick={() => runtime.activateMutation.mutate(runtime.pendingProjectKey)}
               disabled={runtime.activateMutation.isPending || !runtime.canActivatePendingProject || runtime.pendingProjectKey === runtime.projectKey}
             >
-              {runtime.activateMutation.isPending ? 'switching' : 'activate'}
+              {translate(locale, runtime.activateMutation.isPending ? 'shell.status.switching' : 'shell.action.activate')}
             </button>
           </div>
         </div>
@@ -74,16 +74,16 @@ export default function VisualizationLayerShell({ activeModule, runtime }: Props
             API {runtime.status.api}
           </button>
           <button className={statusChipClass(runtime.status.llmReady)} onClick={() => runtime.navigateToModule('flowAnalysis')}>
-            LLM {runtime.status.llmReady ? 'ready' : 'missing'}
+            LLM {translate(locale, runtime.status.llmReady ? 'shell.status.ready' : 'shell.status.missing')}
           </button>
           <button className={statusChipClass(runtime.status.searchReady)} onClick={() => runtime.navigateToModule('dataCatalog')}>
-            SEARCH {runtime.status.searchReady ? 'ready' : 'missing'}
+            SEARCH {translate(locale, runtime.status.searchReady ? 'shell.status.ready' : 'shell.status.missing')}
           </button>
           <button className={statusChipClass(runtime.status.newsReady)} onClick={() => runtime.navigateToModule('dataSocial')}>
-            NEWS {runtime.status.newsReady ? 'ready' : 'missing'}
+            NEWS {translate(locale, runtime.status.newsReady ? 'shell.status.ready' : 'shell.status.missing')}
           </button>
           <button className={statusChipClass(runtime.status.dbReady)} onClick={() => runtime.navigateToModule('graphMarket')}>
-            DB {runtime.status.dbReady ? 'ready' : 'missing'}
+            DB {translate(locale, runtime.status.dbReady ? 'shell.status.ready' : 'shell.status.missing')}
           </button>
         </div>
       </header>
@@ -91,8 +91,8 @@ export default function VisualizationLayerShell({ activeModule, runtime }: Props
       <section className="kernel-visual__shell">
         <aside className="kernel-visual__sidebar">
           {VISUALIZATION_SHELL_SECTIONS.map((group) => (
-            <section key={group.label} className="kernel-visual__section">
-              <p className="kernel-visual__section-title">{group.label}</p>
+            <section key={group.labelKey} className="kernel-visual__section">
+              <p className="kernel-visual__section-title">{translate(locale, group.labelKey)}</p>
               {group.moduleKeys.map((moduleKey) => {
                 const Icon = MODULE_ICON_BY_KEY[moduleKey]
                 const contract = getKernelModuleContract(moduleKey)

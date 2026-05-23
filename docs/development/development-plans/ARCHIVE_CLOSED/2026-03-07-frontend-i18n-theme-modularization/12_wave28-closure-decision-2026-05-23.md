@@ -19,7 +19,7 @@ decision: `closed`
 
 Archive target: `ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization`
 
-The first-wave frontend i18n/theme/module platform contract is closed. The remaining business-string and page-shell work is not an independent blocker for this directory; it belongs to the active successor lane `CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite`.
+The first-wave frontend i18n/theme/module platform contract is closed. The remaining business-string and page-shell work is not an independent blocker for this directory; it belongs to the active successor lane `ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite`.
 
 This is not an `external_blocked` decision because the residual work is repo-local implementation breadth, not an external runtime, live tenant, public replay, or operator-review dependency. It is also not a `retired` decision because the platform plan was implemented and verified rather than invalidated by current code facts.
 
@@ -72,8 +72,8 @@ Interpretation:
 
 Do not reopen this directory for ordinary page-level i18n slices. Continue the remaining work under:
 
-- `CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md`
-- `CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/13_wave21-frontend-i18n-closure-priority-2026-05-22.md`
+- `ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/README.md`
+- `ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/13_wave21-frontend-i18n-closure-priority-2026-05-22.md`
 
 Successor responsibilities:
 

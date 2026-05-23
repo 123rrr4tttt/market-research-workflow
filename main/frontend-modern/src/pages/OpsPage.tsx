@@ -58,6 +58,13 @@ const OPS_ACTION_NAME_KEYS: Record<OpsActionKey, MessageKey> = {
   deleteDocuments: 'opsPage.actionName.deleteDocuments',
 }
 
+type OpsGraphExtensionLabels = {
+  documentType: string
+  entityType: string
+  objectValue: string
+  relationTargetType: string
+}
+
 const OPS_CARD_PALETTE = [
   '#7dd3fc', // brand cyan
   '#93c5fd', // blue-300
@@ -93,14 +100,18 @@ function formatOpsTemplate(template: string, values: Record<string, string | num
   )
 }
 
-function toGraphBusinessNode(doc: DocumentItem | undefined, activeDocId: number | null): Record<string, unknown> {
+function toGraphBusinessNode(
+  doc: DocumentItem | undefined,
+  activeDocId: number | null,
+  labels: Pick<OpsGraphExtensionLabels, 'documentType'>,
+): Record<string, unknown> {
   const extracted = (doc?.extracted_data && typeof doc.extracted_data === 'object' && !Array.isArray(doc.extracted_data))
     ? doc.extracted_data
     : {}
   return {
     ...extracted,
     id: doc?.id ?? activeDocId ?? '-',
-    type: doc?.doc_type || String((extracted as Record<string, unknown>).type || 'Document'),
+    type: doc?.doc_type || String((extracted as Record<string, unknown>).type || labels.documentType),
     title: doc?.title || String((extracted as Record<string, unknown>).title || ''),
     name: String(
       (extracted as Record<string, unknown>).name
@@ -148,8 +159,12 @@ function opsElementColorForLabel(label: string) {
   return OPS_CARD_PALETTE[hashText(label || 'element') % OPS_CARD_PALETTE.length]
 }
 
-function buildOpsGraphExtension(doc: DocumentItem | undefined, activeDocId: number | null) {
-  const node = toGraphBusinessNode(doc, activeDocId)
+function buildOpsGraphExtension(
+  doc: DocumentItem | undefined,
+  activeDocId: number | null,
+  labels: OpsGraphExtensionLabels,
+) {
+  const node = toGraphBusinessNode(doc, activeDocId, labels)
   const elementGroups = new Map<string, string[]>()
   Object.entries(node).forEach(([key, value]) => {
     if (value == null) return
@@ -162,7 +177,7 @@ function buildOpsGraphExtension(doc: DocumentItem | undefined, activeDocId: numb
     }
     if (typeof value === 'object') {
       const obj = normalizeObject(value)
-      const values = Object.entries(obj).map(([k, v]) => `${k}: ${normalizeScalar(v) || '[object]'}`)
+      const values = Object.entries(obj).map(([k, v]) => `${k}: ${normalizeScalar(v) || labels.objectValue}`)
       if (!values.length) return
       const bucket = elementGroups.get(key) || []
       elementGroups.set(key, [...bucket, ...values])
@@ -183,7 +198,7 @@ function buildOpsGraphExtension(doc: DocumentItem | undefined, activeDocId: numb
   const entityItemsByType = new Map<string, string[]>()
   entities.forEach((item) => {
     const entity = normalizeObject(item)
-    const type = String(entity.type || entity.entity_type || entity.category || entity.label || 'Entity')
+    const type = String(entity.type || entity.entity_type || entity.category || entity.label || labels.entityType)
     const name = String(entity.name || entity.text || entity.value || entity.id || type)
     entityTypeCount.set(type, (entityTypeCount.get(type) || 0) + 1)
     const bucket = entityItemsByType.get(type) || []
@@ -321,6 +336,15 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [selectedArtifactName, setSelectedArtifactName] = useState<string | null>(null)
   const [selectedEnforcementEventKey, setSelectedEnforcementEventKey] = useState<string | null>(null)
+  const opsGraphExtensionLabels = useMemo(
+    () => ({
+      documentType: translate(locale, 'opsPage.fallback.documentType'),
+      entityType: translate(locale, 'opsPage.fallback.entityType'),
+      objectValue: translate(locale, 'opsPage.fallback.objectValue'),
+      relationTargetType: translate(locale, 'opsPage.fallback.relationTargetType'),
+    }),
+    [locale],
+  )
 
   const adminStats = useQuery({ queryKey: queryKeys.admin.stats(projectKey), queryFn: getAdminStats, enabled: Boolean(projectKey) })
   const searchHistory = useQuery({ queryKey: queryKeys.admin.searchHistory(projectKey), queryFn: () => getSearchHistory(1, 30), enabled: Boolean(projectKey) })
@@ -489,8 +513,8 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   }, [docIdsText])
   const docTotalPages = Math.max(1, Math.ceil((adminDocuments.data?.total || 0) / Math.max(1, adminDocuments.data?.page_size || 20)))
   const graphExtension = useMemo(
-    () => buildOpsGraphExtension(activeDocDetail.data, activeDocCardId),
-    [activeDocDetail.data, activeDocCardId],
+    () => buildOpsGraphExtension(activeDocDetail.data, activeDocCardId, opsGraphExtensionLabels),
+    [activeDocDetail.data, activeDocCardId, opsGraphExtensionLabels],
   )
 
   const toggleDocSelection = (docId: number) => {
@@ -1133,7 +1157,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         <div className="form-grid cols-4">
           <label>
             <span>doc_type</span>
-            <input value={docTypeFilter} onChange={(e) => { setDocTypeFilter(e.target.value); setDocPage(1) }} placeholder="policy / market_info" />
+            <input value={docTypeFilter} onChange={(e) => { setDocTypeFilter(e.target.value); setDocPage(1) }} placeholder={t('opsPage.placeholder.docType')} />
           </label>
           <label>
             <span>state</span>
@@ -1333,7 +1357,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             </div>
           ) : (
             <>
-              {opsCardTab === 'business' ? <GraphBusinessCardSections node={toGraphBusinessNode(activeDocDetail.data, activeDocCardId)} /> : null}
+              {opsCardTab === 'business' ? <GraphBusinessCardSections node={toGraphBusinessNode(activeDocDetail.data, activeDocCardId, opsGraphExtensionLabels)} /> : null}
               {opsCardTab === 'graph_ext' ? (
                 <GraphExtensionsSections
                   key={`ops-graph-ext-${activeDocCardId || 'none'}`}
@@ -1352,7 +1376,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                     relationsByPredicate: Object.fromEntries(
                       Object.entries(graphExtension.relationItemsByType).map(([type, lines]) => [
                         type,
-                        lines.map((line, idx) => ({ id: `${type}-${idx}`, direction: 'OUT' as const, targetName: line, targetType: 'Relation' })),
+                        lines.map((line, idx) => ({ id: `${type}-${idx}`, direction: 'OUT' as const, targetName: line, targetType: opsGraphExtensionLabels.relationTargetType })),
                       ]),
                     ),
                   }}
@@ -1364,10 +1388,10 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
                       direction: 'OUT' as const,
                       relation: item.type,
                       targetName: line,
-                      targetType: 'Relation',
+                      targetType: opsGraphExtensionLabels.relationTargetType,
                     })),
                   }))}
-                  nodeTypeColor={{ Relation: '#c4b5fd' }}
+                  nodeTypeColor={{ [opsGraphExtensionLabels.relationTargetType]: '#c4b5fd' }}
                   chipColorForIndex={opsChipColorForIndex}
                   elementColorForLabel={opsElementColorForLabel}
                 />

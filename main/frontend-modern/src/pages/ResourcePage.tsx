@@ -19,6 +19,7 @@ import {
   upsertSourceLibraryItem,
   upsertSiteEntry,
 } from '../lib/api'
+import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 import { queryKeys } from '../lib/queryKeys'
 import type {
   ResourcePoolRecommendationItem,
@@ -30,6 +31,14 @@ import type {
 type ResourcePageProps = {
   projectKey: string
   variant?: 'resource' | 'extract'
+}
+
+type ResourceMessageKey = MessageKey
+
+const DEFAULT_EXTERNAL_HINTS_JSON = JSON.stringify({ query_terms: [] }, null, 2)
+
+function formatResourceTemplate(template: string, values: Record<string, string | number | boolean>) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
 }
 
 function splitToList(raw: string) {
@@ -64,18 +73,18 @@ function getItemUrlCount(item: SourceLibraryItem) {
   return getItemSiteEntries(item).length
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value: string | null | undefined, locale: string) {
   if (!value) return '-'
   const dt = new Date(value)
   if (Number.isNaN(dt.getTime())) return value
-  return dt.toLocaleString('zh-CN')
+  return dt.toLocaleString(locale)
 }
 
 function renderUrlFold(url?: string | null) {
   const raw = String(url || '').trim()
   if (!raw) return '-'
   if (raw.length <= 72) return raw
-  const short = `${raw.slice(0, 48)}...${raw.slice(-16)}`
+  const short = raw.slice(0, 48) + '...' + raw.slice(-16)
   return (
     <details>
       <summary title={raw} style={{ cursor: 'pointer' }}>
@@ -86,12 +95,12 @@ function renderUrlFold(url?: string | null) {
   )
 }
 
-function parseJsonObjectInput(raw: string, fieldName: string) {
+function parseJsonObjectInput(raw: string, invalidObjectMessage: string) {
   const text = raw.trim()
   if (!text) return {}
   const parsed = JSON.parse(text)
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`${fieldName} 必须是 JSON object`)
+    throw new Error(invalidObjectMessage)
   }
   return parsed as Record<string, unknown>
 }
@@ -106,7 +115,12 @@ function getExternalProjectPlan(item: SourceLibraryItem | null | undefined) {
 }
 
 export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageProps) {
+  const locale = useAppLocale()
   const queryClient = useQueryClient()
+  const t = (key: ResourceMessageKey, fallback?: string) => translate(locale, key, fallback)
+  const tf = (key: ResourceMessageKey, values: Record<string, string | number | boolean>) =>
+    formatResourceTemplate(t(key), values)
+  const errorMessage = (error: unknown) => (error instanceof Error ? error.message : t('resourcePage.error.unknown'))
 
   const [sourceScope, setSourceScope] = useState<SourceLibraryScope>('effective')
   const [handlerSearch, setHandlerSearch] = useState('')
@@ -129,7 +143,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     description: '',
     tags: '',
     enabled: true,
-    hints_json: '{\n  "query_terms": []\n}',
+    hints_json: DEFAULT_EXTERNAL_HINTS_JSON,
   })
   const [externalProjectPreview, setExternalProjectPreview] = useState<Record<string, unknown> | null>(null)
 
@@ -144,7 +158,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
   const [newSiteEntryType, setNewSiteEntryType] = useState('domain_root')
 
   const [actionPending, setActionPending] = useState(false)
-  const [actionMessage, setActionMessage] = useState('就绪')
+  const [actionMessage, setActionMessage] = useState(() => t('resourcePage.status.ready'))
   const [actionError, setActionError] = useState('')
 
   const [discoverLimitDomains, setDiscoverLimitDomains] = useState('60')
@@ -206,7 +220,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
   const siteEntryMutation = useMutation({
     mutationFn: async () => {
-      if (!newSiteUrl.trim()) throw new Error('请输入 site_url')
+      if (!newSiteUrl.trim()) throw new Error(t('resourcePage.error.missingSiteUrl'))
       return upsertSiteEntry({
         site_url: newSiteUrl.trim(),
         entry_type: newSiteEntryType,
@@ -215,18 +229,18 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     },
     onSuccess: async () => {
       setNewSiteUrl('')
-      setActionMessage('新增入口成功')
+      setActionMessage(t('resourcePage.message.siteEntryCreated'))
       await queryClient.invalidateQueries({ queryKey: queryKeys.resource.siteEntriesBase(projectKey) })
     },
     onError: (error) => {
-      setActionMessage(`新增入口失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      setActionMessage(tf('resourcePage.message.siteEntryCreateFailed', { message: errorMessage(error) }))
     },
   })
 
   const runAction = async (name: string, fn: () => Promise<unknown>) => {
     setActionPending(true)
     setActionError('')
-    setActionMessage(`${name} 执行中...`)
+    setActionMessage(tf('resourcePage.status.running', { action: name }))
     try {
       const result = await fn()
       const payload = result && typeof result === 'object' ? (result as Record<string, unknown>) : {}
@@ -247,7 +261,11 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
         .map((key) => `${key}=${String(payload[key])}`)
         .join(' | ')
 
-      setActionMessage(details ? `${name} 完成: ${details}` : `${name} 执行完成`)
+      setActionMessage(
+        details
+          ? tf('resourcePage.status.completedWithDetails', { action: name, details })
+          : tf('resourcePage.status.completed', { action: name }),
+      )
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.resource.urlsBase(projectKey) }),
@@ -256,9 +274,9 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
         queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.itemsGroupedBase(projectKey) }),
       ])
     } catch (error) {
-      const message = error instanceof Error ? error.message : '未知错误'
-      setActionMessage(`${name} 失败`)
-      setActionError(`${name} 失败: ${message}`)
+      const message = errorMessage(error)
+      setActionMessage(tf('resourcePage.status.failed', { action: name }))
+      setActionError(tf('resourcePage.status.failedWithMessage', { action: name, message }))
     } finally {
       setActionPending(false)
     }
@@ -271,7 +289,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     capabilities?: Record<string, unknown>
     source?: string
   }) => {
-    if (!item.site_url) throw new Error('缺少 site_url，无法绑定')
+    if (!item.site_url) throw new Error(t('resourcePage.error.missingBindSiteUrl'))
     return bindSiteEntry({
       site_url: item.site_url,
       entry_type: item.entry_type || 'domain_root',
@@ -304,7 +322,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
   const runExternalProjectAction = async (persist: boolean) => {
     const projectLink = externalProjectForm.project_link.trim()
-    if (!projectLink) throw new Error('project_link 不能为空')
+    if (!projectLink) throw new Error(t('resourcePage.error.missingProjectLink'))
     const response = await registerExternalProject({
       project_link: projectLink,
       item_key: externalProjectForm.item_key.trim() || undefined,
@@ -313,7 +331,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
       tags: splitToList(externalProjectForm.tags),
       enabled: externalProjectForm.enabled,
       persist,
-      hints: parseJsonObjectInput(externalProjectForm.hints_json, 'hints_json'),
+      hints: parseJsonObjectInput(externalProjectForm.hints_json, t('resourcePage.error.hintsJsonObject')),
     })
     const payload = response && typeof response === 'object' ? (response as Record<string, unknown>) : {}
     setExternalProjectPreview(payload)
@@ -350,7 +368,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     const name = itemForm.name.trim()
     const channelKey = itemForm.channel_key.trim()
     if (!itemKey || !name || !channelKey) {
-      throw new Error('item_key / name / channel_key 不能为空')
+      throw new Error(t('resourcePage.error.missingSourceItemRequired'))
     }
     const nextParams = { ...itemParamsSnapshot }
     nextParams.site_entries = itemForm.site_entries
@@ -373,21 +391,21 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
   }
 
   const syncAndRefreshHandlerItem = async (item: SourceLibraryItem, handlerKey: string) => {
-    if (!item?.item_key) throw new Error('item_key 不能为空')
-    if (!handlerKey || handlerKey === 'url_routing') throw new Error('仅支持 entry_type handler（不支持 url_routing）')
+    if (!item?.item_key) throw new Error(t('resourcePage.error.missingItemKey'))
+    if (!handlerKey || handlerKey === 'url_routing') throw new Error(t('resourcePage.error.unsupportedHandler'))
 
     const rawParams = item.params && typeof item.params === 'object' ? { ...item.params } : {}
     rawParams.site_entries = getItemSiteEntries(item)
     delete (rawParams as Record<string, unknown>).site_entry_urls
     const rawExtra = item.extra && typeof item.extra === 'object' ? { ...item.extra } : {}
-    rawExtra.creation_handler = 'handler.entry_type'
+    rawExtra.creation_handler = ['handler', 'entry_type'].join('.')
     rawExtra.expected_entry_type = handlerKey
     if (rawExtra.auto_maintain == null) rawExtra.auto_maintain = true
 
     await upsertSourceLibraryItem({
       item_key: item.item_key,
       name: item.name || item.item_key,
-      channel_key: item.channel_key || 'handler.cluster',
+      channel_key: item.channel_key || ['handler', 'cluster'].join('.'),
       description: item.description || undefined,
       params: rawParams,
       tags: Array.isArray(item.tags) ? item.tags : [],
@@ -417,7 +435,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
         const list = Array.isArray(byHandler[handlerKey]) ? byHandler[handlerKey] : []
         if (!keyword) return { handlerKey, total: list.length, items: list }
         const filtered = list.filter((item) => {
-          const haystack = `${handlerKey} ${item.item_key || ''} ${item.name || ''} ${item.channel_key || ''}`.toLowerCase()
+          const haystack = [handlerKey, item.item_key || '', item.name || '', item.channel_key || ''].join(' ').toLowerCase()
           return haystack.includes(keyword)
         })
         if (String(handlerKey).toLowerCase().includes(keyword)) {
@@ -431,7 +449,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
   const bindAllRecommendations = async () => {
     if (!batchRecommendations.length && !singleRecommendation) {
-      setActionError('无可绑定结果')
+      setActionError(t('resourcePage.error.noBindableRecommendation'))
       return
     }
     setBindingPending(true)
@@ -458,10 +476,10 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
           failed += 1
         }
       }
-      setActionMessage(`绑定完成: inserted/updated=${success} | errors=${failed}`)
+      setActionMessage(tf('resourcePage.message.bindCompleted', { success, failed }))
       await queryClient.invalidateQueries({ queryKey: queryKeys.resource.siteEntriesBase(projectKey) })
     } catch (error) {
-      setActionError(`一键绑定失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      setActionError(tf('resourcePage.message.bindAllFailed', { message: errorMessage(error) }))
     } finally {
       setBindingPending(false)
     }
@@ -471,39 +489,39 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
     <div className={`content-stack resource-page resource-page--${variant}`}>
       <section className="panel">
         <div className="panel-header">
-          <h2>{variant === 'extract' ? '提取与资源沉淀' : '信息资源库管理'}</h2>
+          <h2>{t(variant === 'extract' ? 'resourcePage.title.extract' : 'resourcePage.title.resource')}</h2>
           <span className="chip">{variant === 'extract' ? 'extract' : 'resource'}</span>
         </div>
       </section>
       <section className="panel">
         <div className="panel-header">
-          <h2>信息资源库管理</h2>
-          <span className="chip">项目: {projectKey}</span>
+          <h2>{t('resourcePage.title.resource')}</h2>
+          <span className="chip">{tf('resourcePage.meta.project', { projectKey })}</span>
         </div>
 
         <div className="form-grid cols-4">
           <label>
-            <span>domain</span>
+            <span>{t('resourcePage.field.domain')}</span>
             <input
               value={domainFilter}
               onChange={(e) => setDomainFilter(e.target.value)}
-              placeholder="domain"
+              placeholder={t('resourcePage.placeholder.domain')}
             />
           </label>
           <label>
-            <span>source</span>
+            <span>{t('resourcePage.field.source')}</span>
             <input
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              placeholder="source"
+              placeholder={t('resourcePage.placeholder.source')}
             />
           </label>
           <label>
-            <span>entry_type</span>
+            <span>{t('resourcePage.field.entryType')}</span>
             <input
               value={entryTypeFilter}
               onChange={(e) => setEntryTypeFilter(e.target.value)}
-              placeholder="entry type"
+              placeholder={t('resourcePage.placeholder.entryType')}
             />
           </label>
           <div className="inline-actions">
@@ -516,19 +534,19 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                 queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.channelsBase(projectKey) })
               }}
             >
-              <RefreshCw size={14} />刷新列表
+              <RefreshCw size={14} />{t('resourcePage.action.refreshList')}
             </button>
           </div>
         </div>
 
         <div className="action-grid">
-          <button disabled={actionPending} onClick={() => runAction('从文档提取 URL', () => extractResourcePoolFromDocuments(true))}>
-            <Play size={16} />提取 URL
+          <button disabled={actionPending} onClick={() => runAction(t('resourcePage.actionName.extractUrls'), () => extractResourcePoolFromDocuments(true))}>
+            <Play size={16} />{t('resourcePage.action.extractUrls')}
           </button>
           <button
             disabled={actionPending}
             onClick={() =>
-              runAction('发现站点入口', () =>
+              runAction(t('resourcePage.actionName.discoverEntries'), () =>
                 discoverSiteEntriesAdvanced({
                   limit_domains: Math.max(1, Number.parseInt(discoverLimitDomains, 10) || 60),
                   dry_run: discoverDryRun,
@@ -538,24 +556,24 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
               )
             }
           >
-            <Radar size={16} />发现入口
+            <Radar size={16} />{t('resourcePage.action.discoverEntries')}
           </button>
-          <button disabled={actionPending} onClick={() => runAction('去重合并站点入口', () => simplifySiteEntries(false))}>
-            <RefreshCw size={16} />简化去重
+          <button disabled={actionPending} onClick={() => runAction(t('resourcePage.actionName.simplifyEntries'), () => simplifySiteEntries(false))}>
+            <RefreshCw size={16} />{t('resourcePage.action.simplifyEntries')}
           </button>
         </div>
 
         <div className="form-grid cols-4" style={{ marginTop: 12 }}>
           <label>
-            <span>limit_domains</span>
+            <span>{t('resourcePage.field.limitDomains')}</span>
             <input
               value={discoverLimitDomains}
               onChange={(e) => setDiscoverLimitDomains(e.target.value)}
-              placeholder="limit"
+              placeholder={t('resourcePage.placeholder.limit')}
             />
           </label>
           <label>
-            <span>dry_run</span>
+            <span>{t('resourcePage.field.dryRun')}</span>
             <select value={discoverDryRun ? 'true' : 'false'} onChange={(e) => setDiscoverDryRun(e.target.value === 'true')}>
               <option value="false">false</option>
               <option value="true">true</option>
@@ -564,15 +582,15 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
         </div>
 
         <p className="status-line">{actionPending ? <LoaderCircle size={14} className="spinning" /> : <Play size={14} />}{actionMessage}</p>
-        {actionError ? <p className="status-line">失败详情: {actionError}</p> : null}
+        {actionError ? <p className="status-line">{tf('resourcePage.status.failureDetail', { message: actionError })}</p> : null}
       </section>
 
       <section className="panel">
         <div className="panel-header">
-          <h2>信息源库 Items 列表</h2>
+          <h2>{t('resourcePage.section.sourceItems')}</h2>
           <div className="inline-actions">
             <label>
-              <span>scope</span>
+              <span>{t('resourcePage.field.scope')}</span>
               <select value={sourceScope} onChange={(e) => setSourceScope(e.target.value as SourceLibraryScope)}>
                 <option value="effective">effective</option>
                 <option value="shared">shared</option>
@@ -586,7 +604,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                 queryClient.invalidateQueries({ queryKey: queryKeys.sourceLibrary.channelsBase(projectKey) })
               }}
             >
-              <RefreshCw size={14} />刷新 items
+              <RefreshCw size={14} />{t('resourcePage.action.refreshItems')}
             </button>
           </div>
         </div>
@@ -594,13 +612,13 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
           <table>
             <thead>
               <tr>
-                <th>item_key</th>
-                <th>name</th>
-                <th>channel_key</th>
-                <th>scope</th>
-                <th>url_count</th>
-                <th>enabled</th>
-                <th>操作</th>
+                <th>{t('resourcePage.field.itemKey')}</th>
+                <th>{t('resourcePage.field.name')}</th>
+                <th>{t('resourcePage.field.channelKey')}</th>
+                <th>{t('resourcePage.field.scope')}</th>
+                <th>{t('resourcePage.field.urlCount')}</th>
+                <th>{t('resourcePage.field.enabled')}</th>
+                <th>{t('resourcePage.field.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -613,14 +631,14 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                   <td>{getItemUrlCount(item)}</td>
                   <td>{String(item.enabled !== false)}</td>
                   <td>
-                    <button onClick={() => fillItemForm(item)}>编辑</button>
+                    <button onClick={() => fillItemForm(item)}>{t('resourcePage.action.edit')}</button>
                   </td>
                 </tr>
               ))}
               {!sourceItems.data?.length ? (
                 <tr>
                   <td colSpan={7} className="empty-cell">
-                    暂无 items
+                    {t('resourcePage.empty.items')}
                   </td>
                 </tr>
               ) : null}
@@ -631,29 +649,29 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
       <section className="panel">
         <div className="panel-header">
-          <h2>来源项编辑</h2>
+          <h2>{t('resourcePage.section.sourceItemEditor')}</h2>
           <div className="inline-actions">
-            <button disabled={actionPending} onClick={() => void runAction('保存来源项', saveSourceItem)}>
-              <Save size={14} />保存
+            <button disabled={actionPending} onClick={() => void runAction(t('resourcePage.actionName.saveSourceItem'), saveSourceItem)}>
+              <Save size={14} />{t('resourcePage.action.save')}
             </button>
           </div>
         </div>
         <div className="form-grid cols-4">
           <label>
-            <span>item_key</span>
-            <input value={itemForm.item_key} onChange={(e) => setItemForm((p) => ({ ...p, item_key: e.target.value }))} placeholder="item key" />
+            <span>{t('resourcePage.field.itemKey')}</span>
+            <input value={itemForm.item_key} onChange={(e) => setItemForm((p) => ({ ...p, item_key: e.target.value }))} placeholder={t('resourcePage.placeholder.itemKey')} />
           </label>
           <label>
-            <span>name</span>
-            <input value={itemForm.name} onChange={(e) => setItemForm((p) => ({ ...p, name: e.target.value }))} placeholder="name" />
+            <span>{t('resourcePage.field.name')}</span>
+            <input value={itemForm.name} onChange={(e) => setItemForm((p) => ({ ...p, name: e.target.value }))} placeholder={t('resourcePage.placeholder.name')} />
           </label>
           <label>
-            <span>channel_key</span>
+            <span>{t('resourcePage.field.channelKey')}</span>
             <input
               list="source-channel-options"
               value={itemForm.channel_key}
               onChange={(e) => setItemForm((p) => ({ ...p, channel_key: e.target.value }))}
-              placeholder="channel key"
+              placeholder={t('resourcePage.placeholder.channelKey')}
             />
             <datalist id="source-channel-options">
               {(sourceChannels.data || []).map((channel) => (
@@ -662,15 +680,15 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             </datalist>
           </label>
           <label>
-            <span>extends_item_key</span>
+            <span>{t('resourcePage.field.extendsItemKey')}</span>
             <input
               value={itemForm.extends_item_key}
               onChange={(e) => setItemForm((p) => ({ ...p, extends_item_key: e.target.value }))}
-              placeholder="extends key"
+              placeholder={t('resourcePage.placeholder.extendsItemKey')}
             />
           </label>
           <label>
-            <span>enabled</span>
+            <span>{t('resourcePage.field.enabled')}</span>
             <select
               value={itemForm.enabled ? 'true' : 'false'}
               onChange={(e) => setItemForm((p) => ({ ...p, enabled: e.target.value === 'true' }))}
@@ -680,30 +698,30 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             </select>
           </label>
           <label>
-            <span>tags（多行或逗号）</span>
+            <span>{t('resourcePage.field.tagsMultiline')}</span>
             <textarea
               rows={4}
               value={itemForm.tags}
               onChange={(e) => setItemForm((p) => ({ ...p, tags: e.target.value }))}
-              placeholder="tags"
+              placeholder={t('resourcePage.placeholder.tags')}
             />
           </label>
           <label>
-            <span>description</span>
+            <span>{t('resourcePage.field.description')}</span>
             <textarea
               rows={4}
               value={itemForm.description}
               onChange={(e) => setItemForm((p) => ({ ...p, description: e.target.value }))}
-              placeholder="description"
+              placeholder={t('resourcePage.placeholder.description')}
             />
           </label>
           <label>
-            <span>site_entries（每行一个 URL）</span>
+            <span>{t('resourcePage.field.siteEntriesMultiline')}</span>
             <textarea
               rows={7}
               value={itemForm.site_entries}
               onChange={(e) => setItemForm((p) => ({ ...p, site_entries: e.target.value }))}
-              placeholder="one url per line"
+              placeholder={t('resourcePage.placeholder.oneUrlPerLine')}
             />
           </label>
         </div>
@@ -711,43 +729,43 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
       <section className="panel">
         <div className="panel-header">
-          <h2>External Project 注册</h2>
+          <h2>{t('resourcePage.section.externalProject')}</h2>
           <div className="inline-actions">
-            <button disabled={actionPending} onClick={() => void runAction('预览 external project', () => runExternalProjectAction(false))}>
-              <Search size={14} />预览 manifest
+            <button disabled={actionPending} onClick={() => void runAction(t('resourcePage.actionName.previewExternalProject'), () => runExternalProjectAction(false))}>
+              <Search size={14} />{t('resourcePage.action.previewManifest')}
             </button>
-            <button disabled={actionPending} onClick={() => void runAction('注册 external project', () => runExternalProjectAction(true))}>
-              <Save size={14} />注册到项目
+            <button disabled={actionPending} onClick={() => void runAction(t('resourcePage.actionName.registerExternalProject'), () => runExternalProjectAction(true))}>
+              <Save size={14} />{t('resourcePage.action.registerProject')}
             </button>
           </div>
         </div>
         <div className="form-grid cols-4">
           <label>
-            <span>project_link</span>
+            <span>{t('resourcePage.field.projectLink')}</span>
             <input
               value={externalProjectForm.project_link}
               onChange={(e) => setExternalProjectForm((p) => ({ ...p, project_link: e.target.value }))}
-              placeholder="https://github.com/... or https://..."
+              placeholder={t('resourcePage.placeholder.projectLink')}
             />
           </label>
           <label>
-            <span>item_key（可选）</span>
+            <span>{t('resourcePage.field.itemKeyOptional')}</span>
             <input
               value={externalProjectForm.item_key}
               onChange={(e) => setExternalProjectForm((p) => ({ ...p, item_key: e.target.value }))}
-              placeholder="external.demo.item"
+              placeholder={t('resourcePage.placeholder.externalItemKey')}
             />
           </label>
           <label>
-            <span>name（可选）</span>
+            <span>{t('resourcePage.field.nameOptional')}</span>
             <input
               value={externalProjectForm.name}
               onChange={(e) => setExternalProjectForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="display name"
+              placeholder={t('resourcePage.placeholder.displayName')}
             />
           </label>
           <label>
-            <span>enabled</span>
+            <span>{t('resourcePage.field.enabled')}</span>
             <select
               value={externalProjectForm.enabled ? 'true' : 'false'}
               onChange={(e) => setExternalProjectForm((p) => ({ ...p, enabled: e.target.value === 'true' }))}
@@ -757,30 +775,30 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             </select>
           </label>
           <label>
-            <span>tags（多行或逗号）</span>
+            <span>{t('resourcePage.field.tagsMultiline')}</span>
             <textarea
               rows={4}
               value={externalProjectForm.tags}
               onChange={(e) => setExternalProjectForm((p) => ({ ...p, tags: e.target.value }))}
-              placeholder="ai, news"
+              placeholder={t('resourcePage.placeholder.tagsExternal')}
             />
           </label>
           <label>
-            <span>description</span>
+            <span>{t('resourcePage.field.description')}</span>
             <textarea
               rows={4}
               value={externalProjectForm.description}
               onChange={(e) => setExternalProjectForm((p) => ({ ...p, description: e.target.value }))}
-              placeholder="optional description"
+              placeholder={t('resourcePage.placeholder.optionalDescription')}
             />
           </label>
-          <label style={{ gridColumn: 'span 2' }}>
-            <span>hints_json</span>
+          <label style={{ gridColumn: ['span', 2].join(' ') }}>
+            <span>{t('resourcePage.field.hintsJson')}</span>
             <textarea
               rows={8}
               value={externalProjectForm.hints_json}
               onChange={(e) => setExternalProjectForm((p) => ({ ...p, hints_json: e.target.value }))}
-              placeholder='{"query_terms":["ai"]}'
+              placeholder={t('resourcePage.placeholder.hintsJson')}
             />
           </label>
         </div>
@@ -807,12 +825,12 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                     <table>
                       <thead>
                         <tr>
-                          <th>item_key</th>
-                          <th>name</th>
-                          <th>persisted</th>
-                          <th>execution_mode</th>
-                          <th>runner_ref</th>
-                          <th>source_kind</th>
+                          <th>{t('resourcePage.field.itemKey')}</th>
+                          <th>{t('resourcePage.field.name')}</th>
+                          <th>{t('resourcePage.field.persisted')}</th>
+                          <th>{t('resourcePage.field.executionMode')}</th>
+                          <th>{t('resourcePage.field.runnerRef')}</th>
+                          <th>{t('resourcePage.field.sourceKind')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -827,16 +845,16 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                       </tbody>
                     </table>
                   </div>
-                  <p className="status-line">preferred_execution_modes: {preferredModes}</p>
+                  <p className="status-line">{tf('resourcePage.status.preferredExecutionModes', { modes: preferredModes })}</p>
                   {endpointCandidates.length ? (
                     <div className="table-wrap" style={{ marginTop: 12 }}>
                       <table>
                         <thead>
                           <tr>
-                            <th>execution_mode</th>
-                            <th>runner_ref</th>
-                            <th>confidence</th>
-                            <th>reason</th>
+                            <th>{t('resourcePage.field.executionMode')}</th>
+                            <th>{t('resourcePage.field.runnerRef')}</th>
+                            <th>{t('resourcePage.field.confidence')}</th>
+                            <th>{t('resourcePage.field.reason')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -853,7 +871,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                     </div>
                   ) : null}
                   <details style={{ marginTop: 12 }}>
-                    <summary style={{ cursor: 'pointer' }}>查看 registration_context / item payload</summary>
+                    <summary style={{ cursor: 'pointer' }}>{t('resourcePage.detail.registrationContext')}</summary>
                     <pre style={{ marginTop: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                       {JSON.stringify(externalProjectPreview, null, 2)}
                     </pre>
@@ -867,20 +885,20 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
       <section className="panel">
         <div className="panel-header">
-          <h2>Handler 聚类（by_handler）</h2>
+          <h2>{t('resourcePage.section.handlerClusters')}</h2>
           <div className="inline-actions">
             <label>
-              <span>搜索</span>
+              <span>{t('resourcePage.field.search')}</span>
               <input
                 value={handlerSearch}
                 onChange={(e) => setHandlerSearch(e.target.value)}
-                placeholder="search handler or item"
+                placeholder={t('resourcePage.placeholder.handlerSearch')}
               />
             </label>
             <button
               disabled={actionPending}
               onClick={() =>
-                void runAction('生成/更新全部 handler 聚类', () =>
+                void runAction(t('resourcePage.actionName.syncHandlerClusters'), () =>
                   syncSourceLibraryHandlerClusters({
                     incremental: true,
                     max_site_entries: 500,
@@ -888,10 +906,10 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                 )
               }
             >
-              <Database size={14} />一键生成/更新
+              <Database size={14} />{t('resourcePage.action.syncHandlerClusters')}
             </button>
             <button onClick={() => void sourceItemsGrouped.refetch()}>
-              <RefreshCw size={14} />刷新聚类
+              <RefreshCw size={14} />{t('resourcePage.action.refreshClusters')}
             </button>
           </div>
         </div>
@@ -905,11 +923,11 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                   </th>
                 </tr>
                 <tr>
-                  <th>item_key</th>
-                  <th>name</th>
-                  <th>channel_key</th>
-                  <th>enabled</th>
-                  <th>操作</th>
+                  <th>{t('resourcePage.field.itemKey')}</th>
+                  <th>{t('resourcePage.field.name')}</th>
+                  <th>{t('resourcePage.field.channelKey')}</th>
+                  <th>{t('resourcePage.field.enabled')}</th>
+                  <th>{t('resourcePage.field.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -921,12 +939,12 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                     <td>{String(item.enabled !== false)}</td>
                     <td>
                       <div className="inline-actions">
-                        <button onClick={() => fillItemForm(item)}>定位</button>
+                        <button onClick={() => fillItemForm(item)}>{t('resourcePage.action.locate')}</button>
                         <button
                           disabled={actionPending}
-                          onClick={() => void runAction('同步并刷新 handler item', () => syncAndRefreshHandlerItem(item, bucket.handlerKey))}
+                          onClick={() => void runAction(t('resourcePage.actionName.syncHandlerItem'), () => syncAndRefreshHandlerItem(item, bucket.handlerKey))}
                         >
-                          同步并刷新
+                          {t('resourcePage.action.syncAndRefresh')}
                         </button>
                       </div>
                     </td>
@@ -935,7 +953,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                 {!bucket.items.length ? (
                   <tr>
                     <td colSpan={5} className="empty-cell">
-                      无匹配结果
+                      {t('resourcePage.empty.noMatches')}
                     </td>
                   </tr>
                 ) : null}
@@ -943,29 +961,29 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             </table>
           </div>
         ))}
-        {!handlerBuckets.length ? <p className="status-line"><Search size={14} />暂无 handler 聚类数据</p> : null}
+        {!handlerBuckets.length ? <p className="status-line"><Search size={14} />{t('resourcePage.empty.handlerClusters')}</p> : null}
       </section>
 
       <section className="panel">
         <div className="panel-header">
-          <h2>站点入口推荐与绑定</h2>
+          <h2>{t('resourcePage.section.recommendationBinding')}</h2>
           <div className="inline-actions">
             <button disabled={actionPending || bindingPending} onClick={bindAllRecommendations}>
-              <Database size={14} />一键绑定
+              <Database size={14} />{t('resourcePage.action.bindAll')}
             </button>
           </div>
         </div>
         <div className="form-grid cols-4">
           <label>
-            <span>site_url</span>
+            <span>{t('resourcePage.field.siteUrl')}</span>
             <input
               value={recommendSiteUrl}
               onChange={(e) => setRecommendSiteUrl(e.target.value)}
-              placeholder="site url"
+              placeholder={t('resourcePage.placeholder.siteUrl')}
             />
           </label>
           <label>
-            <span>entry_type</span>
+            <span>{t('resourcePage.field.entryType')}</span>
             <select value={recommendEntryType} onChange={(e) => setRecommendEntryType(e.target.value)}>
               <option value="domain_root">domain_root</option>
               <option value="rss">rss</option>
@@ -975,7 +993,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             </select>
           </label>
           <label>
-            <span>use_llm</span>
+            <span>{t('resourcePage.field.useLlm')}</span>
             <select value={recommendUseLlm ? 'true' : 'false'} onChange={(e) => setRecommendUseLlm(e.target.value === 'true')}>
               <option value="true">true</option>
               <option value="false">false</option>
@@ -985,7 +1003,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <button
               disabled={actionPending || !recommendSiteUrl.trim()}
               onClick={() =>
-                runAction('单条推荐', async () => {
+                runAction(t('resourcePage.actionName.singleRecommendation'), async () => {
                   const response = await recommendSiteEntry({
                     site_url: recommendSiteUrl.trim(),
                     entry_type: recommendEntryType,
@@ -996,12 +1014,12 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                 })
               }
             >
-              <Play size={14} />单条推荐
+              <Play size={14} />{t('resourcePage.action.singleRecommendation')}
             </button>
             <button
               disabled={actionPending || !(siteEntries.data || []).length}
               onClick={() =>
-                runAction('当前页批量推荐', async () => {
+                runAction(t('resourcePage.actionName.batchRecommendation'), async () => {
                   const response = await recommendSiteEntriesBatch({
                     entries: (siteEntries.data || [])
                       .filter((item) => Boolean(item.site_url))
@@ -1017,7 +1035,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                 })
               }
             >
-              <Radar size={14} />当前页批量推荐
+              <Radar size={14} />{t('resourcePage.action.batchRecommendation')}
             </button>
           </div>
         </div>
@@ -1026,17 +1044,17 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <table>
               <thead>
                 <tr>
-                  <th>mode</th>
-                  <th>entry_type</th>
-                  <th>template</th>
-                  <th>source</th>
-                  <th>validated</th>
-                  <th>操作</th>
+                  <th>{t('resourcePage.field.mode')}</th>
+                  <th>{t('resourcePage.field.entryType')}</th>
+                  <th>{t('resourcePage.field.template')}</th>
+                  <th>{t('resourcePage.field.source')}</th>
+                  <th>{t('resourcePage.field.validated')}</th>
+                  <th>{t('resourcePage.field.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>single</td>
+                  <td>{t('resourcePage.mode.single')}</td>
                   <td>{singleRecommendation.entry_type || '-'}</td>
                   <td>{singleRecommendation.template || '-'}</td>
                   <td>{singleRecommendation.source || '-'}</td>
@@ -1045,7 +1063,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                     <button
                       disabled={bindingPending || !recommendSiteUrl.trim()}
                       onClick={() =>
-                        runAction('绑定单条推荐', () =>
+                        runAction(t('resourcePage.actionName.bindSingleRecommendation'), () =>
                           bindOne({
                             site_url: recommendSiteUrl.trim(),
                             entry_type: singleRecommendation.entry_type || recommendEntryType,
@@ -1056,7 +1074,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                         )
                       }
                     >
-                      绑定
+                      {t('resourcePage.action.bind')}
                     </button>
                   </td>
                 </tr>
@@ -1069,12 +1087,12 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <table>
               <thead>
                 <tr>
-                  <th>site_url</th>
-                  <th>entry_type</th>
-                  <th>template</th>
-                  <th>source</th>
-                  <th>validated</th>
-                  <th>操作</th>
+                  <th>{t('resourcePage.field.siteUrl')}</th>
+                  <th>{t('resourcePage.field.entryType')}</th>
+                  <th>{t('resourcePage.field.template')}</th>
+                  <th>{t('resourcePage.field.source')}</th>
+                  <th>{t('resourcePage.field.validated')}</th>
+                  <th>{t('resourcePage.field.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1086,8 +1104,8 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                     <td>{item.source || '-'}</td>
                     <td>{String(item.validated ?? false)}</td>
                     <td>
-                      <button disabled={bindingPending || !item.site_url} onClick={() => runAction('绑定批量推荐项', () => bindOne(item))}>
-                        绑定
+                      <button disabled={bindingPending || !item.site_url} onClick={() => runAction(t('resourcePage.actionName.bindBatchRecommendation'), () => bindOne(item))}>
+                        {t('resourcePage.action.bind')}
                       </button>
                     </td>
                   </tr>
@@ -1100,19 +1118,19 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
       <section className="panel">
         <div className="panel-header">
-          <h2>手动新增入口</h2>
+          <h2>{t('resourcePage.section.manualEntry')}</h2>
         </div>
         <div className="form-grid cols-3">
           <label>
-            <span>site_url</span>
+            <span>{t('resourcePage.field.siteUrl')}</span>
             <input
               value={newSiteUrl}
               onChange={(e) => setNewSiteUrl(e.target.value)}
-              placeholder="site url"
+              placeholder={t('resourcePage.placeholder.siteUrl')}
             />
           </label>
           <label>
-            <span>entry_type</span>
+            <span>{t('resourcePage.field.entryType')}</span>
             <select value={newSiteEntryType} onChange={(e) => setNewSiteEntryType(e.target.value)}>
               <option value="domain_root">domain_root</option>
               <option value="rss">rss</option>
@@ -1123,7 +1141,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
           </label>
           <div className="inline-actions">
             <button disabled={siteEntryMutation.isPending} onClick={() => siteEntryMutation.mutate()}>
-              <Database size={14} />新增入口
+              <Database size={14} />{t('resourcePage.action.addEntry')}
             </button>
           </div>
         </div>
@@ -1132,13 +1150,13 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
       <section className="panel two-col">
         <div>
           <div className="panel-header">
-            <h2>URL 池</h2>
+            <h2>{t('resourcePage.section.urlPool')}</h2>
             <div className="inline-actions">
               <button disabled={resourceUrlPage <= 1} onClick={() => setResourceUrlPage((p) => Math.max(1, p - 1))}>
-                上一页
+                {t('resourcePage.action.previousPage')}
               </button>
-              <span className="chip">第 {resourceUrlPage} 页</span>
-              <button onClick={() => setResourceUrlPage((p) => p + 1)}>下一页</button>
+              <span className="chip">{tf('resourcePage.pagination.page', { page: resourceUrlPage })}</span>
+              <button onClick={() => setResourceUrlPage((p) => p + 1)}>{t('resourcePage.action.nextPage')}</button>
             </div>
           </div>
 
@@ -1146,10 +1164,10 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <table>
               <thead>
                 <tr>
-                  <th>URL</th>
-                  <th>domain</th>
-                  <th>source</th>
-                  <th>created_at</th>
+                  <th>{t('resourcePage.field.url')}</th>
+                  <th>{t('resourcePage.field.domain')}</th>
+                  <th>{t('resourcePage.field.source')}</th>
+                  <th>{t('resourcePage.field.createdAt')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1158,13 +1176,13 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                     <td>{renderUrlFold(item.url)}</td>
                     <td>{item.domain || '-'}</td>
                     <td>{item.source || '-'}</td>
-                    <td>{formatDate(item.created_at)}</td>
+                    <td>{formatDate(item.created_at, locale)}</td>
                   </tr>
                 ))}
                 {!resourceUrls.data?.length ? (
                   <tr>
                     <td colSpan={4} className="empty-cell">
-                      暂无 URL 数据
+                      {t('resourcePage.empty.urls')}
                     </td>
                   </tr>
                 ) : null}
@@ -1175,13 +1193,13 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
 
         <div>
           <div className="panel-header">
-            <h2>Site Entries</h2>
+            <h2>{t('resourcePage.section.siteEntries')}</h2>
             <div className="inline-actions">
               <button disabled={resourceSitePage <= 1} onClick={() => setResourceSitePage((p) => Math.max(1, p - 1))}>
-                上一页
+                {t('resourcePage.action.previousPage')}
               </button>
-              <span className="chip">第 {resourceSitePage} 页</span>
-              <button onClick={() => setResourceSitePage((p) => p + 1)}>下一页</button>
+              <span className="chip">{tf('resourcePage.pagination.page', { page: resourceSitePage })}</span>
+              <button onClick={() => setResourceSitePage((p) => p + 1)}>{t('resourcePage.action.nextPage')}</button>
             </div>
           </div>
 
@@ -1189,11 +1207,11 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
             <table>
               <thead>
                 <tr>
-                  <th>site_url</th>
-                  <th>domain</th>
-                  <th>entry_type</th>
-                  <th>source</th>
-                  <th>enabled</th>
+                  <th>{t('resourcePage.field.siteUrl')}</th>
+                  <th>{t('resourcePage.field.domain')}</th>
+                  <th>{t('resourcePage.field.entryType')}</th>
+                  <th>{t('resourcePage.field.source')}</th>
+                  <th>{t('resourcePage.field.enabled')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1209,7 +1227,7 @@ export function ResourcePage({ projectKey, variant = 'resource' }: ResourcePageP
                 {!siteEntries.data?.length ? (
                   <tr>
                     <td colSpan={5} className="empty-cell">
-                      暂无 Site Entry
+                      {t('resourcePage.empty.siteEntries')}
                     </td>
                   </tr>
                 ) : null}

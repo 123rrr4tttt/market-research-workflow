@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { UploadCloud } from 'lucide-react'
+import { translate, useAppLocale } from '../app/platform/i18n'
 import { rawImportDocuments } from '../lib/api'
 import type { RawImportPayload, RawImportResult } from '../lib/types'
 
@@ -17,6 +18,8 @@ type DraftItem = {
   text: string
 }
 
+type RawDataMessageKey = Parameters<typeof translate>[1]
+
 const initialDraft: DraftItem = {
   title: '',
   uri: '',
@@ -25,7 +28,13 @@ const initialDraft: DraftItem = {
   text: '',
 }
 
+function formatRawDataTemplate(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
 export default function RawDataPage({ projectKey }: RawDataPageProps) {
+  const locale = useAppLocale()
+  const t = (key: RawDataMessageKey, fallback?: string) => translate(locale, key, fallback)
   const [draft, setDraft] = useState<DraftItem>(initialDraft)
   const [sourceName, setSourceName] = useState('raw_import')
   const [sourceKind, setSourceKind] = useState('manual')
@@ -51,6 +60,11 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
       setResult(null)
     },
   })
+  const importErrorMessage = importMutationErrorMessage()
+
+  function importMutationErrorMessage() {
+    return importMutation.error instanceof Error ? importMutation.error.message : t('rawDataPage.error.unknown')
+  }
 
   const submitImport = () => {
     const payload: RawImportPayload = {
@@ -82,7 +96,7 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
     <div className="content-stack rawdata-page rawdata-page--quiet">
       <section className="panel rawdata-page__section rawdata-page__section--params">
         <div className="panel-header">
-          <h2>导入参数</h2>
+          <h2>{t('rawDataPage.section.importParams')}</h2>
         </div>
         <p className="status-line">project_key: {projectKey}</p>
         <div className="form-grid cols-3">
@@ -142,12 +156,12 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
 
       <section className="panel rawdata-page__section rawdata-page__section--draft">
         <div className="panel-header">
-          <h2>原始内容</h2>
+          <h2>{t('rawDataPage.section.rawContent')}</h2>
         </div>
         <div className="form-grid cols-2">
           <label>
             <span>title</span>
-            <input value={draft.title} onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="可选" />
+            <input value={draft.title} onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder={t('rawDataPage.placeholder.optional')} />
           </label>
           <label>
             <span>uri</span>
@@ -163,22 +177,26 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
           </label>
           <label>
             <span>text</span>
-            <textarea rows={12} value={draft.text} onChange={(e) => setDraft((prev) => ({ ...prev, text: e.target.value }))} placeholder="粘贴原始文本内容" />
+            <textarea rows={12} value={draft.text} onChange={(e) => setDraft((prev) => ({ ...prev, text: e.target.value }))} placeholder={t('rawDataPage.placeholder.rawText')} />
           </label>
         </div>
         <div className="inline-actions">
           <button disabled={!canSubmit || importMutation.isPending} onClick={submitImport}>
             <UploadCloud size={14} />
-            {importMutation.isPending ? '导入中...' : '提交导入'}
+            {importMutation.isPending ? t('rawDataPage.action.importing') : t('rawDataPage.action.submitImport')}
           </button>
         </div>
       </section>
 
       <section className="panel rawdata-page__section rawdata-page__section--result">
         <div className="panel-header">
-          <h2>导入结果</h2>
+          <h2>{t('rawDataPage.section.importResult')}</h2>
         </div>
-        {importMutation.isError ? <p className="status-line">导入失败：{importMutation.error instanceof Error ? importMutation.error.message : '未知错误'}</p> : null}
+        {importMutation.isError ? (
+          <p className="status-line">
+            {formatRawDataTemplate(t('rawDataPage.error.importFailed'), { message: importErrorMessage })}
+          </p>
+        ) : null}
         {result ? (
           <>
             <p className="status-line">inserted: {result.inserted ?? 0}</p>
@@ -187,7 +205,7 @@ export default function RawDataPage({ projectKey }: RawDataPageProps) {
             <p className="status-line">error_count: {result.error_count ?? 0}</p>
           </>
         ) : (
-          <p className="status-line">暂无导入结果</p>
+          <p className="status-line">{t('rawDataPage.empty.importResult')}</p>
         )}
       </section>
     </div>

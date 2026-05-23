@@ -1,6 +1,6 @@
 # CURRENT_DEV Status Audit
 
-更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave30 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
+更新时间：2026-04-07（PST）；2026-05-23 补充至 Wave32 状态证据、窄口径合同落地、主动开发收口、迁档与仍需保留的外部 / 生产化边界。
 
 本审计基于对 `CURRENT_DEV` 一级目录的逐目录核对，判断标准同时参考：
 
@@ -41,6 +41,8 @@
 - `wave29_verified`：Wave29 已落地 deterministic repo-local gate 或代码契约，但不必然表示整目录可迁档
 - `wave30_checked`：Wave30 继续按减少 `partial` 优先推进；迁档目录必须已经清零 repo-local blocker，剩余只能是 live provider、外部 runtime、production quality 或人工验收条件
 - `wave30_verified`：Wave30 已落地 deterministic repo-local gate 或代码契约；若仍非迁档状态，必须列明剩余仓内 blocker
+- `wave31_verified`：Wave31 已落地 docs-root shared navigation clean gate 与 frontend concentrated i18n slices；若仍非迁档状态，必须列明剩余仓内 blocker。
+- `wave32_verified`：Wave32 已清零最后 frontend business-string repo-local blocker，focused i18n gates、lint 与 build 均通过。
 
 时效标签：
 
@@ -61,6 +63,7 @@
 - `clear_closed` [2026-04-07-parallel-agent-wave-orchestration](../ARCHIVE_CLOSED/2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md)
 - `clear_closed` [2026-05-22-clue-chain-investigation-tool](../ARCHIVE_CLOSED/2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md)
 - `clear_closed` [2026-03-07-frontend-i18n-theme-modularization](../ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/12_wave28-closure-decision-2026-05-23.md)
+- `clear_closed` [2026-03-15-frontend-three-layer-rewrite](../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)
 
 ## 已迁入 ARCHIVE_RETIRED
 
@@ -125,7 +128,7 @@
 | `2026-03-07-frontend-i18n-theme-modularization` | `clear_closed` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked / wave14_checked / wave16_verified / wave17_verified / wave18_verified / wave19_verified / wave20_verified / wave28_checked` | Wave28 复核 `check:i18n-page-shell-disjoint` 与 `check:topology-platform`：一阶 i18n/theme/module platform 已闭合，剩余 business-string 与 page-shell retirement 已明确转交 `2026-03-15-frontend-three-layer-rewrite`，本目录迁入 `ARCHIVE_CLOSED` |
 | `2026-03-07-后续安排` | `clear_closed` | `doc_aligned / wave13_checked / wave14_verified / wave15_verified` | Wave6 已补 folderization structure evidence，Wave13 已把该入口收窄为 retained coordination topic，Wave14 已把 downstream content gaps 降为 0，Wave15 `--strict-content` 复核 `hard_failures=0/content_gaps=0`；已迁入 `ARCHIVE_CLOSED` |
 | `2026-03-12-data-structured-service-modularization` | `external_blocked` | `doc_aligned / wave9_verified / wave11_verified / wave13_verified / wave15_verified / wave17_verified / wave20_verified / wave27_checked / wave28_checked` | Wave9 已补 `document_queries.v1` query/envelope/view-consumer 合同，Wave11 已抽离 prompt-time-density SQL JSON query path，Wave13 已补 `/api/v1/search` document-query projection，Wave15 已补 SQL/helper migration inventory，Wave17 已补 policy-state query boundary，Wave20 已补 structured-data search document-query endpoint slice；Wave27 endpoint/query/consumer facade 组合 gate 已通过；Wave28 generic DocumentQuery statement builder 已落地并让 repo-local blocker 清零；目录迁入 `ARCHIVE_EXTERNAL_BLOCKED`，剩余条件为 live DB/API smoke |
-| `2026-03-15-frontend-three-layer-rewrite` | `partial` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked / wave14_checked / wave16_verified / wave17_verified / wave18_verified / wave19_verified / wave20_verified / wave30_verified / wave31_verified / retained_partial` | Wave8-Wave30 已建立 topology/i18n/theme、layer-shell、business-string audit 与多页 i18n slices；Wave31 集中迁移 Graph / AgentChat / Ingest / LlmDesigner / Ops / WritingWorkbench 切片，把全局 business-string audit gaps 从 1724 降到 1080 且 build 通过；剩余 GraphPage/ResourcePage/SettingsPage 与 shared/kernel gaps 仍是仓内全量迁移 blocker，因此继续留在 `CURRENT_DEV` |
+| `2026-03-15-frontend-three-layer-rewrite` | `clear_closed` | `doc_aligned / wave8_verified / wave11_verified / wave12_checked / wave14_checked / wave16_verified / wave17_verified / wave18_verified / wave19_verified / wave20_verified / wave30_verified / wave31_verified / wave32_verified` | Wave32 集成最后 frontend i18n workers，`check:business-string-audit` 报告 `full_business_string_migration_complete=true` 且 `remaining_migration_gaps.total=0`；Graph/Ops/AgentChat/Resource/Settings/LlmDesigner/WritingWorkbench focused gates、`lint` 与 `build` 均通过；目录迁入 `ARCHIVE_CLOSED`，`CURRENT_DEV` partial 归零 |
 | `2026-04-02-claude-agent-high-fidelity-migration` | `clear_closed` | `doc_aligned` | 当前入口已拆分并迁入 `ARCHIVE_CLOSED`；如需新诊断应开 D48+ 新主题 |
 
 ## 使用建议

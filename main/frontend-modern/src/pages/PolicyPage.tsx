@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Database, RefreshCw } from 'lucide-react'
+import { translate, useAppLocale, type AppLocale } from '../app/platform/i18n'
 import { getPolicyDetail, getPolicyStats, getPromptTimeDensityPriority, listPolicies } from '../lib/api'
 import { queryKeys } from '../lib/queryKeys'
 
@@ -18,11 +19,17 @@ type PromptDensityRow = {
   dup_ratio?: number | string | null
 }
 
-function formatDate(value?: string | null) {
+type PolicyMessageKey = Parameters<typeof translate>[1]
+
+function formatDate(value: string | null | undefined, locale: AppLocale) {
   if (!value) return '-'
   const dt = new Date(value)
   if (Number.isNaN(dt.getTime())) return value
-  return dt.toLocaleDateString('zh-CN')
+  return dt.toLocaleDateString(locale)
+}
+
+function formatPolicyTemplate(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
 }
 
 function statusClass(status?: string | null) {
@@ -34,6 +41,10 @@ function statusClass(status?: string | null) {
 }
 
 export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) {
+  const locale = useAppLocale()
+  const t = (key: PolicyMessageKey, fallback?: string) => translate(locale, key, fallback)
+  const formatTemplate = (key: PolicyMessageKey, values: Record<string, string | number>) =>
+    formatPolicyTemplate(t(key), values)
   const queryClient = useQueryClient()
 
   const [policyStateFilter, setPolicyStateFilter] = useState('')
@@ -105,8 +116,8 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
       options.push(state)
     })
 
-    return options.sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  }, [policyStats.data?.state_distribution])
+    return options.sort((a, b) => a.localeCompare(b, locale))
+  }, [locale, policyStats.data?.state_distribution])
 
   const activePolicy = policyDetail.data
 
@@ -124,27 +135,27 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
     <div className="content-stack">
       <section className="panel">
         <div className="panel-header">
-          <h2>{variant === 'policyGraph' ? '政策图谱视角' : '政策数据视角'}</h2>
+          <h2>{t(variant === 'policyGraph' ? 'policyPage.title.policyGraph' : 'policyPage.title.policy')}</h2>
         </div>
       </section>
       <section className="kpi-grid">
         <article className="kpi-card">
-          <span>政策总数</span>
+          <span>{t('policyPage.kpi.totalPolicies')}</span>
           <strong>{policyStats.data?.total_policies || 0}</strong>
-          <small>当前项目</small>
+          <small>{t('policyPage.kpi.currentProject')}</small>
         </article>
         <article className="kpi-card">
-          <span>覆盖省份</span>
+          <span>{t('policyPage.kpi.coveredStates')}</span>
           <strong>{policyStats.data?.state_distribution?.length || 0}</strong>
           <small>state_distribution</small>
         </article>
         <article className="kpi-card">
-          <span>政策类型</span>
+          <span>{t('policyPage.kpi.policyTypes')}</span>
           <strong>{policyStats.data?.type_distribution?.length || 0}</strong>
           <small>type_distribution</small>
         </article>
         <article className="kpi-card">
-          <span>状态分类</span>
+          <span>{t('policyPage.kpi.statusCategories')}</span>
           <strong>{policyStats.data?.status_distribution?.length || 0}</strong>
           <small>status_distribution</small>
         </article>
@@ -152,22 +163,22 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
 
       <section className="panel">
         <div className="panel-header">
-          <h2>提示词空间 × 时间窗密度（Top 5 Priority）</h2>
+          <h2>{t('policyPage.section.promptDensity')}</h2>
         </div>
         <div className="form-grid cols-2" style={{ marginBottom: 12 }}>
           <label>
-            <span>prompt_group_id</span>
+            <span>{t('policyPage.field.promptGroupId')}</span>
             <input
               value={densityPromptGroupId}
-              placeholder="如：pg-ai（留空=全部）"
+              placeholder={t('policyPage.placeholder.promptGroupId')}
               onChange={(e) => setDensityPromptGroupId(e.target.value)}
             />
           </label>
           <label>
-            <span>time_window</span>
+            <span>{t('policyPage.field.timeWindow')}</span>
             <input
               value={densityTimeWindow}
-              placeholder="如：7d / 30d / 90d"
+              placeholder={t('policyPage.placeholder.timeWindow')}
               onChange={(e) => setDensityTimeWindow(e.target.value)}
             />
           </label>
@@ -176,12 +187,12 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
           <table>
             <thead>
               <tr>
-                <th>Rank</th>
-                <th>Domain</th>
-                <th>Prompt Group</th>
-                <th>Window</th>
-                <th>Norm Density</th>
-                <th>Dup Ratio</th>
+                <th>{t('policyPage.field.rank')}</th>
+                <th>{t('policyPage.field.domain')}</th>
+                <th>{t('policyPage.field.promptGroup')}</th>
+                <th>{t('policyPage.field.window')}</th>
+                <th>{t('policyPage.field.normDensity')}</th>
+                <th>{t('policyPage.field.dupRatio')}</th>
               </tr>
             </thead>
             <tbody>
@@ -198,7 +209,7 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
               {!promptDensityRows.length ? (
                 <tr>
                   <td colSpan={6} className="empty-cell">
-                    暂无密度优先级数据
+                    {t('policyPage.empty.promptDensity')}
                   </td>
                 </tr>
               ) : null}
@@ -212,19 +223,19 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
           <div className="panel-header">
             <h2>
               <Database size={15} />
-              政策列表
+              {t('policyPage.section.policyList')}
             </h2>
             <div className="inline-actions">
               <button onClick={() => void refreshAll()} disabled={isRefreshing}>
                 <RefreshCw size={14} />
-                {isRefreshing ? '刷新中...' : '刷新'}
+                {isRefreshing ? t('policyPage.action.refreshing') : t('policyPage.action.refresh')}
               </button>
             </div>
           </div>
 
           <div className="form-grid cols-2" style={{ marginBottom: 12 }}>
             <label>
-              <span>省份筛选</span>
+              <span>{t('policyPage.field.stateFilter')}</span>
               <select
                 value={policyStateFilter}
                 onChange={(e) => {
@@ -232,7 +243,7 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
                   setPolicyPage(1)
                 }}
               >
-                <option value="">全部</option>
+                <option value="">{t('policyPage.option.all')}</option>
                 {stateOptions.map((state) => (
                   <option key={state} value={state}>
                     {state}
@@ -242,30 +253,30 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
             </label>
             <div className="inline-actions" style={{ alignItems: 'end' }}>
               <button disabled={policyPage <= 1} onClick={() => setPolicyPage((p) => Math.max(1, p - 1))}>
-                上一页
+                {t('policyPage.action.previousPage')}
               </button>
-              <span className="chip">第 {policyPage} 页</span>
-              <button onClick={() => setPolicyPage((p) => p + 1)}>下一页</button>
+              <span className="chip">{formatTemplate('policyPage.status.page', { page: policyPage })}</span>
+              <button onClick={() => setPolicyPage((p) => p + 1)}>{t('policyPage.action.nextPage')}</button>
             </div>
           </div>
 
           <div className="table-wrap">
             <table>
               <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>标题</th>
-                  <th>省份</th>
-                  <th>状态</th>
-                  <th>发布日期</th>
-                </tr>
+              <tr>
+                  <th>{t('policyPage.field.id')}</th>
+                  <th>{t('policyPage.field.title')}</th>
+                  <th>{t('policyPage.field.state')}</th>
+                  <th>{t('policyPage.field.status')}</th>
+                  <th>{t('policyPage.field.publishDate')}</th>
+              </tr>
               </thead>
               <tbody>
                 {(policyList.data || []).map((item) => (
                   <tr
                     key={item.id}
                     onClick={() => setSelectedPolicyId(item.id)}
-                    style={{ cursor: 'pointer', background: effectiveSelectedPolicyId === item.id ? 'rgba(59, 130, 246, 0.1)' : undefined }}
+                    style={{ cursor: 'pointer', background: effectiveSelectedPolicyId === item.id ? '#eff6ff' : undefined }}
                   >
                     <td>{item.id}</td>
                     <td>{item.title || '-'}</td>
@@ -273,14 +284,14 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
                     <td>
                       <span className={statusClass(item.status)}>{item.status || '-'}</span>
                     </td>
-                    <td>{formatDate(item.publish_date)}</td>
+                    <td>{formatDate(item.publish_date, locale)}</td>
                   </tr>
                 ))}
                 {!policyList.data?.length ? (
                   <tr>
-                    <td colSpan={5} className="empty-cell">
-                      暂无政策数据
-                    </td>
+                  <td colSpan={5} className="empty-cell">
+                      {t('policyPage.empty.policies')}
+                  </td>
                   </tr>
                 ) : null}
               </tbody>
@@ -290,44 +301,46 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
 
         <div>
           <div className="panel-header">
-            <h2>政策详情</h2>
-            <span className="chip">{activePolicy?.id ? `ID: ${activePolicy.id}` : '未选择'}</span>
+            <h2>{t('policyPage.section.policyDetail')}</h2>
+            <span className="chip">
+              {activePolicy?.id ? formatTemplate('policyPage.status.selectedId', { id: activePolicy.id }) : t('policyPage.status.unselected')}
+            </span>
           </div>
 
-          {effectiveSelectedPolicyId == null ? <p className="empty-cell">请先在左侧选择一条政策</p> : null}
+          {effectiveSelectedPolicyId == null ? <p className="empty-cell">{t('policyPage.empty.selectPolicy')}</p> : null}
 
           {effectiveSelectedPolicyId != null ? (
             <div className="content-stack" style={{ gap: 10 }}>
               <article className="panel" style={{ padding: 12 }}>
                 <div className="form-grid cols-2">
                   <div>
-                    <strong>标题</strong>
+                    <strong>{t('policyPage.field.title')}</strong>
                     <p>{activePolicy?.title || '-'}</p>
                   </div>
                   <div>
-                    <strong>政策类型</strong>
+                    <strong>{t('policyPage.field.policyType')}</strong>
                     <p>{activePolicy?.policy_type || '-'}</p>
                   </div>
                   <div>
-                    <strong>省份</strong>
+                    <strong>{t('policyPage.field.state')}</strong>
                     <p>{activePolicy?.state || '-'}</p>
                   </div>
                   <div>
-                    <strong>状态</strong>
+                    <strong>{t('policyPage.field.status')}</strong>
                     <p>
                       <span className={statusClass(activePolicy?.status)}>{activePolicy?.status || '-'}</span>
                     </p>
                   </div>
                   <div>
-                    <strong>发布日期</strong>
-                    <p>{formatDate(activePolicy?.publish_date)}</p>
+                    <strong>{t('policyPage.field.publishDate')}</strong>
+                    <p>{formatDate(activePolicy?.publish_date, locale)}</p>
                   </div>
                   <div>
-                    <strong>生效日期</strong>
-                    <p>{formatDate(activePolicy?.effective_date)}</p>
+                    <strong>{t('policyPage.field.effectiveDate')}</strong>
+                    <p>{formatDate(activePolicy?.effective_date, locale)}</p>
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <strong>来源链接</strong>
+                    <strong>{t('policyPage.field.sourceUri')}</strong>
                     <p>
                       {activePolicy?.uri ? (
                         <a href={activePolicy.uri} target="_blank" rel="noreferrer">
@@ -342,7 +355,7 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
               </article>
 
               <article className="panel" style={{ padding: 12 }}>
-                <h3>要点</h3>
+                <h3>{t('policyPage.field.keyPoints')}</h3>
                 <ul>
                   {(activePolicy?.key_points || []).length ? (
                     (activePolicy?.key_points || []).map((point, idx) => <li key={`${idx}-${point}`}>{point}</li>)
@@ -353,12 +366,12 @@ export function PolicyPage({ projectKey, variant = 'policy' }: PolicyPageProps) 
               </article>
 
               <article className="panel" style={{ padding: 12 }}>
-                <h3>摘要</h3>
+                <h3>{t('policyPage.field.summary')}</h3>
                 <p>{activePolicy?.summary || '-'}</p>
               </article>
 
               <article className="panel" style={{ padding: 12 }}>
-                <h3>正文</h3>
+                <h3>{t('policyPage.field.content')}</h3>
                 <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>{activePolicy?.content || '-'}</pre>
               </article>
             </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { translate, useAppLocale } from '../app/platform/i18n'
+import { translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 import { hashByMode } from '../app/navigation'
 import { isReservedProjectKey } from '../app/kernel/projectKeys'
 import AgentWritingAssistantPanel, {
@@ -50,8 +50,19 @@ export type WritingWorkbenchPageProps = {
   standalone?: boolean
 }
 
-type WritingWorkbenchMessageKey = Parameters<typeof translate>[1]
-type WritingTemplateValues = Record<string, string | number>
+type WritingWorkbenchMessageKey = MessageKey
+type WritingTemplateValues = {
+  [key: string]: string | number
+}
+type UnknownRecord = {
+  [key: string]: unknown
+}
+type DraftByKey = {
+  [key: string]: {
+    title: string
+    markdown: string
+  }
+}
 type WritingCanvasViewMode = 'write' | 'preview' | 'split'
 type FloatingSize = {
   width: number
@@ -89,6 +100,9 @@ type FloatingPoint = {
   left: number
   top: number
 }
+type HtmlElementRef = {
+  readonly current: HTMLElement | null
+}
 type CitationMutationSource =
   | { kind: 'selected' }
   | { kind: 'pinned'; pinnedCardId: string }
@@ -124,7 +138,7 @@ type WritingAgentUpdate = {
   reviewStatus: WritingAgentReviewStatus
   reviewedAt: string
   sourceRefs: string[]
-  provenance: Record<string, unknown>
+  provenance: UnknownRecord
   locator: WritingAgentUpdateLocator
 }
 
@@ -155,6 +169,14 @@ const INSIGHT_CARD_HEIGHT = 620
 const INSIGHT_CARD_VISIBLE_HEADER = 72
 const INSIGHT_CARD_BOTTOM_OVERFLOW = 180
 const FLOATING_WINDOW_ORDER: FloatingWindowKey[] = ['documents', 'templates', 'insights', 'llm', 'citations']
+const KEY_ESCAPE = 'escape'
+const PANEL_INTERACTIVE_SELECTOR = ['button', 'input', 'textarea', 'a'].join(', ')
+const CARD_INTERACTIVE_SELECTOR = ['button', 'a'].join(', ')
+const WRITING_EDITOR_TEXTAREA_SELECTOR = ['.', 'writing-editor__textarea'].join('')
+
+function dashedId(...parts: (string | number)[]) {
+  return parts.map(String).join('-')
+}
 
 function clampValue(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -179,7 +201,7 @@ function formatUpdatedAt(value?: string | null, emptyLabel = 'new') {
   return value.replace('T', ' ').slice(0, 16)
 }
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
+function isPlainRecord(value: unknown): value is UnknownRecord {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
@@ -187,17 +209,20 @@ function asText(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
 
-function boundedText(value: string, limit: number) {
+function boundedText(value: string, limit: number, labels?: { truncated: string; chars: string }) {
   const text = String(value || '').trim()
   if (text.length <= limit) return text
-  return `${text.slice(0, limit)}\n...[truncated ${text.length - limit} chars]`
+  const truncatedLabel = labels?.truncated || 'truncated'
+  const charsLabel = labels?.chars || 'chars'
+  const truncatedMeta = [truncatedLabel, String(text.length - limit), charsLabel].join(' ')
+  return [text.slice(0, limit), String.fromCharCode(10), '...[', truncatedMeta, ']'].join('')
 }
 
 function extractWritingAgentChunk(event: AgentEventItem) {
   const eventType = String(event.event_type || '').toLowerCase()
   const payload =
     event.payload && typeof event.payload === 'object'
-      ? (event.payload as Record<string, unknown>)
+      ? (event.payload as UnknownRecord)
       : {}
   const firstText = (...keys: string[]) => {
     for (const key of keys) {
@@ -298,9 +323,9 @@ function findAgentUpdateRange(markdown: string, update: WritingAgentUpdate): { s
   if (
     rangeStart != null &&
     update.locator.rangeEnd != null &&
-    rangeStart >= 0 &&
-    update.locator.rangeEnd >= rangeStart &&
-    update.locator.rangeEnd <= markdown.length
+    !(rangeStart < 0) &&
+    !(update.locator.rangeEnd < rangeStart) &&
+    !(markdown.length < update.locator.rangeEnd)
   ) {
     return { start: rangeStart, end: update.locator.rangeEnd }
   }
@@ -329,7 +354,7 @@ function buildAgentUpdateRejectedMarkdown(markdown: string, update: WritingAgent
   if (!range) return null
   const shouldRestoreText = update.operation === 'replace_range' || update.operation === 'replace_text'
   const replacementText = shouldRestoreText ? update.replacedText : ''
-  return `${markdown.slice(0, range.start)}${replacementText}${markdown.slice(range.end)}`.replace(/\n{3,}/g, '\n\n')
+  return [markdown.slice(0, range.start), replacementText, markdown.slice(range.end)].join('').replace(/\n{3,}/g, '\n\n')
 }
 
 function buildAgentUpdateAnchors(markdown: string, updates: WritingAgentUpdate[], emptyPreviewLabel: string): WritingAgentUpdateAnchor[] {
@@ -348,9 +373,9 @@ function buildAgentUpdateAnchors(markdown: string, updates: WritingAgentUpdate[]
 }
 
 function agentUpdateVersionLabel(update: WritingAgentUpdate, labels: { before: string; after: string }) {
-  const before = update.oldVersion ? `v${update.oldVersion}` : labels.before
-  const after = update.newVersion ? `v${update.newVersion}` : labels.after
-  return `${before} -> ${after}`
+  const before = update.oldVersion ? ['v', String(update.oldVersion)].join('') : labels.before
+  const after = update.newVersion ? ['v', String(update.newVersion)].join('') : labels.after
+  return [before, after].join(' -> ')
 }
 
 function normalizeAgentReviewStatus(value: unknown): WritingAgentReviewStatus {
@@ -376,7 +401,7 @@ function withAgentUpdateReviewStatus(
   update: WritingAgentUpdate,
   reviewStatus: WritingAgentReviewStatus,
 ) {
-  const next: Record<string, unknown> = isPlainRecord(metadata) ? { ...metadata } : {}
+  const next: UnknownRecord = isPlainRecord(metadata) ? { ...metadata } : {}
   const reviewedAt = new Date().toISOString()
   const applyStatus = (value: unknown) => {
     if (!isPlainRecord(value) || !agentUpdateRawMatches(value, update)) return value
@@ -563,25 +588,25 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     FLOATING_PANEL_TOP_INSET,
     Math.round((initialViewport.height - initialPanelHeight) / 2),
   )
-  const [viewMode, setViewMode] = useState<WritingCanvasViewMode>('write')
+  const [viewMode, setViewMode] = useState('write' as WritingCanvasViewMode)
   const [documentsPanelOpen, setDocumentsPanelOpen] = useState(false)
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false)
   const [insightsPanelOpen, setInsightsPanelOpen] = useState(false)
   const [llmPanelOpen, setLlmPanelOpen] = useState(false)
   const [agentUpdatesPanelOpen, setAgentUpdatesPanelOpen] = useState(false)
-  const [expandedAgentUpdateId, setExpandedAgentUpdateId] = useState<string | null>(null)
-  const [activeDocumentId, setActiveDocumentId] = useState<number | null>(null)
+  const [expandedAgentUpdateId, setExpandedAgentUpdateId] = useState(null as string | null)
+  const [activeDocumentId, setActiveDocumentId] = useState(null as number | null)
   const [isCreatingDraft, setIsCreatingDraft] = useState(false)
-  const [draftByKey, setDraftByKey] = useState<Record<string, { title: string; markdown: string }>>({})
+  const [draftByKey, setDraftByKey] = useState({} as DraftByKey)
   const [selectionText, setSelectionText] = useState('')
-  const [selectionState, setSelectionState] = useState<MarkdownSelectionState | null>(null)
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
-  const [pinnedInsightCards, setPinnedInsightCards] = useState<PinnedInsightCard[]>([])
-  const [templateValidation, setTemplateValidation] = useState<WritingTemplateValidation | null>(null)
+  const [selectionState, setSelectionState] = useState(null as MarkdownSelectionState | null)
+  const [selectedCardId, setSelectedCardId] = useState(null as string | null)
+  const [pinnedInsightCards, setPinnedInsightCards] = useState([] as PinnedInsightCard[])
+  const [templateValidation, setTemplateValidation] = useState(null as WritingTemplateValidation | null)
   const [writingAgentDraft, setWritingAgentDraft] = useState('')
-  const [writingAgentMessages, setWritingAgentMessages] = useState<WritingAgentPanelMessage[]>([])
-  const [writingAgentSessionId, setWritingAgentSessionId] = useState<string | null>(null)
-  const [writingAgentStreamStatus, setWritingAgentStreamStatus] = useState<AgentSessionEventStreamStatus>('idle')
+  const [writingAgentMessages, setWritingAgentMessages] = useState([] as WritingAgentPanelMessage[])
+  const [writingAgentSessionId, setWritingAgentSessionId] = useState(null as string | null)
+  const [writingAgentStreamStatus, setWritingAgentStreamStatus] = useState('idle' as AgentSessionEventStreamStatus)
   const [writingAgentBusy, setWritingAgentBusy] = useState(false)
   const [citationTrayVisible, setCitationTrayVisible] = useState(true)
   const [citationTrayCollapsed, setCitationTrayCollapsed] = useState(false)
@@ -589,64 +614,64 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const [autosaveMessage, setAutosaveMessage] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
   const [exportMessage, setExportMessage] = useState('')
-  const [viewport, setViewport] = useState<ViewportSize>(() => readViewport())
-  const [activeFloatingWindow, setActiveFloatingWindow] = useState<FloatingWindowKey>('insights')
-  const [documentsPanelSize, setDocumentsPanelSize] = useState<FloatingSize>(() => ({
+  const [viewport, setViewport] = useState((): ViewportSize => readViewport())
+  const [activeFloatingWindow, setActiveFloatingWindow] = useState('insights' as FloatingWindowKey)
+  const [documentsPanelSize, setDocumentsPanelSize] = useState((): FloatingSize => ({
     width: 360,
     height: initialPanelHeight,
   }))
-  const [templatesPanelSize, setTemplatesPanelSize] = useState<FloatingSize>(() => ({
+  const [templatesPanelSize, setTemplatesPanelSize] = useState((): FloatingSize => ({
     width: 360,
     height: initialPanelHeight,
   }))
-  const [insightsPanelSize, setInsightsPanelSize] = useState<FloatingSize>(() => ({
+  const [insightsPanelSize, setInsightsPanelSize] = useState((): FloatingSize => ({
     width: 360,
     height: initialPanelHeight,
   }))
-  const [llmPanelSize, setLlmPanelSize] = useState<FloatingSize>(() => ({
+  const [llmPanelSize, setLlmPanelSize] = useState((): FloatingSize => ({
     width: 360,
     height: initialPanelHeight,
   }))
-  const [documentsPanelPosition, setDocumentsPanelPosition] = useState<DockedPosition>(() => ({
+  const [documentsPanelPosition, setDocumentsPanelPosition] = useState((): DockedPosition => ({
     edge: 'left',
     left: FLOATING_PANEL_MARGIN,
     top: initialCenteredSideOffset,
   }))
-  const [templatesPanelPosition, setTemplatesPanelPosition] = useState<DockedPosition>(() => ({
+  const [templatesPanelPosition, setTemplatesPanelPosition] = useState((): DockedPosition => ({
     edge: 'left',
     left: FLOATING_PANEL_MARGIN + 28,
     top: Math.min(initialViewport.height - initialPanelHeight - FLOATING_PANEL_MARGIN, initialCenteredSideOffset + 72),
   }))
-  const [insightsPanelPosition, setInsightsPanelPosition] = useState<DockedPosition>(() => ({
+  const [insightsPanelPosition, setInsightsPanelPosition] = useState((): DockedPosition => ({
     edge: 'right',
     left: initialViewport.width - 360 - FLOATING_PANEL_MARGIN,
     top: initialCenteredSideOffset,
   }))
-  const [llmPanelPosition, setLlmPanelPosition] = useState<DockedPosition>(() => ({
+  const [llmPanelPosition, setLlmPanelPosition] = useState((): DockedPosition => ({
     edge: 'right',
     left: initialViewport.width - 360 - FLOATING_PANEL_MARGIN - 28,
     top: Math.min(initialViewport.height - initialPanelHeight - FLOATING_PANEL_MARGIN, initialCenteredSideOffset + 72),
   }))
-  const [citationTrayPosition, setCitationTrayPosition] = useState<DockedPosition>(() => ({
+  const [citationTrayPosition, setCitationTrayPosition] = useState((): DockedPosition => ({
     edge: 'bottom',
     left: Math.max(CITATION_BAR_MARGIN, Math.round((initialViewport.width - Math.min(CITATION_BAR_HORIZONTAL_WIDTH, initialViewport.width - 28)) / 2)),
     top: initialViewport.height - CITATION_BAR_MARGIN - 108,
   }))
-  const [documentsPanelDragRect, setDocumentsPanelDragRect] = useState<FloatingRect | null>(null)
-  const [templatesPanelDragRect, setTemplatesPanelDragRect] = useState<FloatingRect | null>(null)
-  const [insightsPanelDragRect, setInsightsPanelDragRect] = useState<FloatingRect | null>(null)
-  const [llmPanelDragRect, setLlmPanelDragRect] = useState<FloatingRect | null>(null)
-  const [citationTrayDragRect, setCitationTrayDragRect] = useState<FloatingRect | null>(null)
-  const [toolbarPosition, setToolbarPosition] = useState<FloatingPoint | null>(null)
-  const [insightCardAnchor, setInsightCardAnchor] = useState<InsightCardAnchor | null>(null)
-  const canvasShellRef = useRef<HTMLDivElement | null>(null)
-  const toolbarRef = useRef<HTMLDivElement | null>(null)
-  const documentsPanelRef = useRef<HTMLElement | null>(null)
-  const templatesPanelRef = useRef<HTMLElement | null>(null)
-  const insightsPanelRef = useRef<HTMLElement | null>(null)
-  const llmPanelRef = useRef<HTMLElement | null>(null)
-  const citationTrayRef = useRef<HTMLElement | null>(null)
-  const pendingCitationCardIdsRef = useRef<Set<string>>(new Set())
+  const [documentsPanelDragRect, setDocumentsPanelDragRect] = useState(null as FloatingRect | null)
+  const [templatesPanelDragRect, setTemplatesPanelDragRect] = useState(null as FloatingRect | null)
+  const [insightsPanelDragRect, setInsightsPanelDragRect] = useState(null as FloatingRect | null)
+  const [llmPanelDragRect, setLlmPanelDragRect] = useState(null as FloatingRect | null)
+  const [citationTrayDragRect, setCitationTrayDragRect] = useState(null as FloatingRect | null)
+  const [toolbarPosition, setToolbarPosition] = useState(null as FloatingPoint | null)
+  const [insightCardAnchor, setInsightCardAnchor] = useState(null as InsightCardAnchor | null)
+  const canvasShellRef = useRef(null as HTMLDivElement | null)
+  const toolbarRef = useRef(null as HTMLDivElement | null)
+  const documentsPanelRef = useRef(null as HTMLElement | null)
+  const templatesPanelRef = useRef(null as HTMLElement | null)
+  const insightsPanelRef = useRef(null as HTMLElement | null)
+  const llmPanelRef = useRef(null as HTMLElement | null)
+  const citationTrayRef = useRef(null as HTMLElement | null)
+  const pendingCitationCardIdsRef = useRef(new Set([] as string[]))
   const dismissInsightCard = useCallback(() => {
     setSelectedCardId(null)
   }, [])
@@ -871,7 +896,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
 
       if (targetDocumentId == null) {
         createdDocument = await createWritingDocument({
-          title: title.trim() || 'Untitled report',
+          title: title.trim() || t('writingWorkbenchPage.placeholder.untitledReport'),
           body_md: markdown,
           metadata_json: { source: 'writing-workbench', project_key: projectKey },
         })
@@ -1033,8 +1058,8 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       void autosaveWritingDraft(effectiveDocumentId, {
         draft_body_md: markdown,
         base_version: documentDetailQuery.data?.version,
-        autosave_token: `writing-${effectiveDocumentId}`,
-        request_id: `writing-${effectiveDocumentId}-${Date.now()}`,
+        autosave_token: dashedId('writing', effectiveDocumentId),
+        request_id: dashedId('writing', effectiveDocumentId, Date.now()),
         selection_snapshot: {
           selection_text: selectionText,
           selection_hash: selectionLookup.selectionHash,
@@ -1064,7 +1089,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     if (!effectiveSelectedCardId) return
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key.toLowerCase() === KEY_ESCAPE) {
         dismissInsightCard()
       }
     }
@@ -1153,7 +1178,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   }, [])
 
   const beginMouseSession = (
-    event: ReactMouseEvent<HTMLElement | HTMLDivElement>,
+    event: ReactMouseEvent,
     onMoveFrame: (deltaX: number, deltaY: number) => void,
     onEndFrame?: () => void,
   ) => {
@@ -1179,7 +1204,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       start: FloatingSize,
       setSize: (updater: FloatingSize) => void,
     ) =>
-    (event: ReactMouseEvent<HTMLDivElement>) => {
+    (event: ReactMouseEvent) => {
       if (!isDesktopFloating) return
       beginMouseSession(event, (deltaX, deltaY) => {
         setSize({
@@ -1198,14 +1223,14 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     }
 
   const beginDockedPanelDrag = (
-    event: ReactMouseEvent<HTMLDivElement>,
-    panelRef: React.RefObject<HTMLElement | null>,
+    event: ReactMouseEvent,
+    panelRef: HtmlElementRef,
     setDragRect: (rect: FloatingRect | null) => void,
     setPosition: (position: DockedPosition) => void,
   ) => {
     if (!isDesktopFloating || event.button !== 0) return
     const target = event.target as HTMLElement | null
-    if (target?.closest('button, input, textarea, a')) return
+    if (target?.closest(PANEL_INTERACTIVE_SELECTOR)) return
     const rect = panelRef.current?.getBoundingClientRect()
     if (!rect) return
     const startRect = {
@@ -1253,7 +1278,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     }
   }, [])
 
-  const handleToolbarDragStart = (event: ReactMouseEvent<HTMLSpanElement>) => {
+  const handleToolbarDragStart = (event: ReactMouseEvent) => {
     if (!isDesktopFloating || event.button !== 0) return
     const shellRect = canvasShellRef.current?.getBoundingClientRect()
     const toolbarRect = toolbarRef.current?.getBoundingClientRect()
@@ -1296,22 +1321,22 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   const handleLlmPanelResizeStart = (edge: 'w' | 's' | 'sw') =>
     beginPanelResize(edge, effectiveLlmPanelSize, setLlmPanelSize)
 
-  const handleDocumentsPanelDragStart = (event: ReactMouseEvent<HTMLDivElement>) =>
+  const handleDocumentsPanelDragStart = (event: ReactMouseEvent) =>
     beginDockedPanelDrag(event, documentsPanelRef, setDocumentsPanelDragRect, setDocumentsPanelPosition)
 
-  const handleTemplatesPanelDragStart = (event: ReactMouseEvent<HTMLDivElement>) =>
+  const handleTemplatesPanelDragStart = (event: ReactMouseEvent) =>
     beginDockedPanelDrag(event, templatesPanelRef, setTemplatesPanelDragRect, setTemplatesPanelPosition)
 
-  const handleInsightsPanelDragStart = (event: ReactMouseEvent<HTMLDivElement>) =>
+  const handleInsightsPanelDragStart = (event: ReactMouseEvent) =>
     beginDockedPanelDrag(event, insightsPanelRef, setInsightsPanelDragRect, setInsightsPanelPosition)
 
-  const handleLlmPanelDragStart = (event: ReactMouseEvent<HTMLDivElement>) =>
+  const handleLlmPanelDragStart = (event: ReactMouseEvent) =>
     beginDockedPanelDrag(event, llmPanelRef, setLlmPanelDragRect, setLlmPanelPosition)
 
-  const handleCitationTrayDragStart = (event: ReactMouseEvent<HTMLDivElement>) => {
+  const handleCitationTrayDragStart = (event: ReactMouseEvent) => {
     if (!isDesktopFloating || event.button !== 0) return
     const target = event.target as HTMLElement | null
-    if (target?.closest('button, input, textarea, a')) return
+    if (target?.closest(PANEL_INTERACTIVE_SELECTOR)) return
     const tray = citationTrayRef.current
     const rect = tray?.getBoundingClientRect()
     if (!rect) return
@@ -1397,10 +1422,10 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     setSelectedCardId(null)
   }, [resolvedInsightCardAnchor, resolvedSelectedPreview, viewport])
 
-  const handleInsightCardDragStart = (event: ReactMouseEvent<HTMLDivElement>) => {
+  const handleInsightCardDragStart = (event: ReactMouseEvent) => {
     if (!isDesktopFloating || event.button !== 0) return
     const target = event.target as HTMLElement | null
-    if (target?.closest('button, a')) return
+    if (target?.closest(CARD_INTERACTIVE_SELECTOR)) return
     const current = resolvedInsightCardAnchor
     const offsetX = event.clientX - current.left
     const offsetY = event.clientY - current.top
@@ -1424,10 +1449,10 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     })
   }
 
-  const handlePinnedInsightCardDragStart = (cardId: string) => (event: ReactMouseEvent<HTMLDivElement>) => {
+  const handlePinnedInsightCardDragStart = (cardId: string) => (event: ReactMouseEvent) => {
     if (!isDesktopFloating || event.button !== 0) return
     const target = event.target as HTMLElement | null
-    if (target?.closest('button, a')) return
+    if (target?.closest(CARD_INTERACTIVE_SELECTOR)) return
     const currentCard = pinnedInsightCards.find((item) => item.cardId === cardId)
     if (!currentCard) return
     const current = resolveInsightCardAnchor(currentCard.anchor, viewport)
@@ -1454,7 +1479,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     })
   }
 
-  const handleInsightCardResizeStart = (edge: 'n' | 'e' | 'w' | 's' | 'ne' | 'nw' | 'se' | 'sw') => (event: ReactMouseEvent<HTMLDivElement>) => {
+  const handleInsightCardResizeStart = (edge: 'n' | 'e' | 'w' | 's' | 'ne' | 'nw' | 'se' | 'sw') => (event: ReactMouseEvent) => {
     if (!isDesktopFloating) return
     const start = resolvedInsightCardAnchor
     const maxWidth = Math.max(INSIGHT_CARD_MIN_WIDTH, viewport.width - INSIGHT_CARD_MARGIN * 2)
@@ -1500,7 +1525,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
   }
 
   const handlePinnedInsightCardResizeStart =
-    (cardId: string, edge: 'n' | 'e' | 'w' | 's' | 'ne' | 'nw' | 'se' | 'sw') => (event: ReactMouseEvent<HTMLDivElement>) => {
+    (cardId: string, edge: 'n' | 'e' | 'w' | 's' | 'ne' | 'nw' | 'se' | 'sw') => (event: ReactMouseEvent) => {
       if (!isDesktopFloating) return
       const currentCard = pinnedInsightCards.find((item) => item.cardId === cardId)
       if (!currentCard) return
@@ -1782,6 +1807,10 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     (userCommand: string) => {
       const selection = selectionState
       const activeHeading = selection ? findHeadingBefore(markdown, selection.start) : ''
+      const boundedLabels = {
+        truncated: t('writingWorkbenchPage.agentPrompt.truncated'),
+        chars: t('writingWorkbenchPage.agentPrompt.chars'),
+      }
       const documentContext = {
         project_key: projectKey,
         doc_id: effectiveDocumentId,
@@ -1789,30 +1818,31 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         version: documentDetailQuery.data?.version ?? null,
         etag: documentDetailQuery.data?.etag ?? null,
         dirty_in_browser: isDirty,
-        selected_text: boundedText(selectionText, 1400),
+        selected_text: boundedText(selectionText, 1400, boundedLabels),
         selection_start: selection?.start ?? null,
         selection_end: selection?.end ?? null,
         cursor_offset: selection?.end ?? null,
         selection_line: selection?.line ?? null,
         active_heading: activeHeading,
-        before_selection: boundedText(selection?.before || '', 900),
-        after_selection: boundedText(selection?.after || '', 900),
-        visible_markdown_excerpt: effectiveDocumentId == null ? boundedText(markdown, 2200) : boundedText(markdown.slice(0, 1600), 1600),
+        before_selection: boundedText(selection?.before || '', 900, boundedLabels),
+        after_selection: boundedText(selection?.after || '', 900, boundedLabels),
+        visible_markdown_excerpt: effectiveDocumentId == null ? boundedText(markdown, 2200, boundedLabels) : boundedText(markdown.slice(0, 1600), 1600, boundedLabels),
         citation_count: citationsQuery.data?.length ?? 0,
         pinned_materials: pinnedInsightCards.slice(-5).map((item) => ({
           card_id: item.cardId,
           title: item.preview.title,
-          snippet: boundedText(item.preview.snippet || '', 360),
+          snippet: boundedText(item.preview.snippet || '', 360, boundedLabels),
           source_type: item.preview.source_type,
         })),
       }
+      const contextJson = JSON.stringify(documentContext, null, 2)
       return [
-        '你正在写作工作台中作为 AgentCore 写作协作核心工作。不要调用旧的 writing/llm-actions；需要资料、文档读取或写回时使用 AgentCore 可见工具。',
-        '如果用户要求修改文档，优先先调用 writing.document.read 获取 version/etag，然后调用 writing.document.insert_paragraph。',
-        '定位规则：有 selected_text 且 selection_start/selection_end 可用时，替换优先用 operation=replace_range + range_start + range_end + selection_snapshot；在光标处续写优先用 operation=insert_at_offset + cursor_offset；锚点文本只作为 range 不可用时的 fallback，使用 replace_text/insert_after_text/insert_before_text + anchor_text=selected_text；无选区但有 active_heading 时，用 operation=after_heading。',
-        '如果当前文档 dirty_in_browser=true，先提醒用户保存，除非用户明确要求以服务器最新版 allow_latest=true 写回。',
-        `用户请求：${userCommand}`,
-        `写作工作台上下文 JSON：${JSON.stringify(documentContext, null, 2)}`,
+        t('writingWorkbenchPage.agentPrompt.coreRole'),
+        t('writingWorkbenchPage.agentPrompt.readFirst'),
+        t('writingWorkbenchPage.agentPrompt.locatorRules'),
+        t('writingWorkbenchPage.agentPrompt.dirtyDraftRule'),
+        tf('writingWorkbenchPage.agentPrompt.userRequest', { userCommand }),
+        tf('writingWorkbenchPage.agentPrompt.contextJson', { contextJson }),
       ].join('\n\n')
     },
     [
@@ -1827,6 +1857,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       selectionState,
       selectionText,
       t,
+      tf,
       title,
     ],
   )
@@ -1839,20 +1870,20 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
         setWritingAgentMessages((prev) => [
           ...prev,
           {
-            id: `writing-agent-system-${Date.now()}`,
+            id: dashedId('writing-agent', 'system', Date.now()),
             role: 'system',
             content: t('writingWorkbenchPage.agent.projectPending'),
           },
         ])
         return
       }
-      const loadingId = `writing-agent-loading-${Date.now()}`
+      const loadingId = dashedId('writing-agent', 'loading', Date.now())
       setWritingAgentDraft('')
       setWritingAgentBusy(true)
       setWritingAgentStreamStatus('connecting')
       setWritingAgentMessages((prev) => [
         ...prev,
-        { id: `writing-agent-user-${Date.now()}`, role: 'user', content: command },
+        { id: dashedId('writing-agent', 'user', Date.now()), role: 'user', content: command },
         { id: loadingId, role: 'assistant', content: t('writingWorkbenchPage.agent.processing'), pending: true },
       ])
 
@@ -1885,7 +1916,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
             onEvent: (event) => {
               const chunk = extractWritingAgentChunk(event)
               if (!chunk?.text) return
-              streamedText = chunk.mode === 'append' ? `${streamedText}${chunk.text}` : chunk.text
+              streamedText = chunk.mode === 'append' ? streamedText + chunk.text : chunk.text
               updateLoading(streamedText || t('writingWorkbenchPage.agent.processing'))
             },
           },
@@ -1916,7 +1947,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     setSaveMessage(tf('writingWorkbenchPage.agentUpdate.located', { anchorId: update.locator.anchorId }))
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        const textarea = canvasShellRef.current?.querySelector<HTMLTextAreaElement>('.writing-editor__textarea')
+        const textarea = canvasShellRef.current?.querySelector(WRITING_EDITOR_TEXTAREA_SELECTOR) as HTMLTextAreaElement | null
         if (!textarea) return
         textarea.focus()
         textarea.setSelectionRange(range.start, range.end)
@@ -2321,7 +2352,14 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
               busy={writingAgentBusy}
               streamStatus={writingAgentStreamStatus}
               sessionId={writingAgentSessionId}
-              documentLabel={effectiveDocumentId == null ? t('writingWorkbenchPage.status.unsavedDraft') : `doc ${effectiveDocumentId} · v${documentDetailQuery.data?.version || '-'}`}
+              documentLabel={
+                effectiveDocumentId == null
+                  ? t('writingWorkbenchPage.status.unsavedDraft')
+                  : tf('writingWorkbenchPage.agent.documentLabel', {
+                      documentId: effectiveDocumentId,
+                      version: documentDetailQuery.data?.version || '-',
+                    })
+              }
               selectionText={selectionText}
               selectionLine={selectionState?.line || null}
               actions={writingAgentToolActions}
@@ -2407,7 +2445,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
                         {update.replacedText ? (
                           <div className="writing-agent-update-diff__pane">
                             <small>{t('writingWorkbenchPage.agentUpdate.diff.originalSelection')}</small>
-                            <strong>rollback source</strong>
+                            <strong>{t('writingWorkbenchPage.agentUpdate.diff.rollbackSource')}</strong>
                             <pre>{update.replacedText}</pre>
                           </div>
                         ) : null}

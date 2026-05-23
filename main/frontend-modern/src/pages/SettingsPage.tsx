@@ -14,7 +14,7 @@ import { getLocalJson, removeLocal, setLocalJson } from '../lib/localStore'
 import { queryKeys } from '../lib/queryKeys'
 import type { EnvSettings, LlmServiceConfigItem, LlmTemplateUpdatePayload } from '../lib/types'
 import { APP_THEMES, isAppTheme, setAppTheme, useAppTheme, type AppTheme } from '../app/platform/theme'
-import { APP_LOCALES, setAppLocale, translate, useAppLocale } from '../app/platform/i18n'
+import { APP_LOCALES, setAppLocale, translate, useAppLocale, type MessageKey } from '../app/platform/i18n'
 
 export type SettingsPageProps = {
   projectKey: string
@@ -41,6 +41,22 @@ type SettingsDraftCache = {
 const STATUS_NAV_INTENT_KEY = 'app_status_nav_intent_v1'
 const SETTINGS_DRAFT_PREFIX = 'settings_page_draft_v1'
 
+const GUIDE_MESSAGE_KEYS: Record<StatusIntentGuide, MessageKey> = {
+  llm: 'settingsPage.guide.llm',
+  search: 'settingsPage.guide.search',
+  news: 'settingsPage.guide.news',
+  db: 'settingsPage.guide.db',
+  es: 'settingsPage.guide.es',
+}
+
+const GUIDE_SNIPPET_KEYS: Record<StatusIntentGuide, MessageKey> = {
+  llm: 'settingsPage.snippet.llm',
+  search: 'settingsPage.snippet.search',
+  news: 'settingsPage.snippet.news',
+  db: 'settingsPage.snippet.db',
+  es: 'settingsPage.snippet.es',
+}
+
 const ENV_KEYS = [
   'DATABASE_URL',
   'ES_URL',
@@ -64,11 +80,15 @@ const ENV_KEYS = [
   'AZURE_SEARCH_KEY',
 ] as const
 
-function formatDate(value?: string | null) {
+function formatSettingsTemplate(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
+function formatDate(value: string | null | undefined, locale: (typeof APP_LOCALES)[number]) {
   if (!value) return '-'
   const dt = new Date(value)
   if (Number.isNaN(dt.getTime())) return value
-  return dt.toLocaleString('zh-CN')
+  return dt.toLocaleString(locale)
 }
 
 type ProjectLlmTemplateItem = LlmServiceConfigItem & {
@@ -174,16 +194,22 @@ function getTraceId(meta: unknown): string {
   return typeof traceId === 'string' && traceId.trim() ? traceId.trim() : ''
 }
 
-function formatActionError(error: unknown) {
+function formatActionError(locale: (typeof APP_LOCALES)[number], error: unknown) {
+  const t = (key: MessageKey) => translate(locale, key)
   if (isApiClientError(error)) {
     const details: string[] = []
-    if (error.code) details.push(`代码: ${error.code}`)
+    if (error.code) details.push(formatSettingsTemplate(t('settingsPage.error.codeDetail'), { code: error.code }))
     const traceId = getTraceId(error.meta)
-    if (traceId) details.push(`追踪: ${traceId}`)
-    return details.length ? `${error.message}（${details.join('，')}）` : error.message
+    if (traceId) details.push(formatSettingsTemplate(t('settingsPage.error.traceDetail'), { traceId }))
+    return details.length
+      ? formatSettingsTemplate(t('settingsPage.error.withDetails'), {
+        message: error.message,
+        details: details.join(t('settingsPage.error.detailSeparator')),
+      })
+      : error.message
   }
   if (error instanceof Error && error.message) return error.message
-  return '未知错误'
+  return t('settingsPage.error.unknown')
 }
 
 export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageProps) {
@@ -201,7 +227,8 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
   const [savingService, setSavingService] = useState<string | null>(null)
   const [guideType, setGuideType] = useState<StatusIntentGuide | null>(null)
   const [focusField, setFocusField] = useState('')
-  const draftStorageKey = useMemo(() => `${SETTINGS_DRAFT_PREFIX}:${projectKey}:${variant}`, [projectKey, variant])
+  const draftStorageKey = useMemo(() => [SETTINGS_DRAFT_PREFIX, projectKey, variant].join(':'), [projectKey, variant])
+  const t = (key: MessageKey) => translate(locale, key)
 
   const envSettings = useQuery({
     queryKey: queryKeys.settings.env(),
@@ -230,14 +257,14 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
       return updateEnvSettings(payload)
     },
     onSuccess: async () => {
-      setSaveMessage('环境配置已更新')
+      setSaveMessage(t('settingsPage.message.envUpdated'))
       setEnvDraft(null)
       removeLocal(draftStorageKey)
       await queryClient.invalidateQueries({ queryKey: queryKeys.settings.env() })
       await queryClient.invalidateQueries({ queryKey: queryKeys.config.envStatus() })
     },
     onError: (error) => {
-      setSaveMessage(`环境配置更新失败: ${formatActionError(error)}`)
+      setSaveMessage(formatSettingsTemplate(t('settingsPage.message.envUpdateFailed'), { error: formatActionError(locale, error) }))
     },
   })
 
@@ -261,11 +288,11 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
       setTemplateMessage('')
     },
     onSuccess: async (_data, variables) => {
-      setTemplateMessage(`模板已保存：${variables.serviceName}`)
+      setTemplateMessage(formatSettingsTemplate(t('settingsPage.message.templateSaved'), { serviceName: variables.serviceName }))
       await queryClient.invalidateQueries({ queryKey: queryKeys.settings.projectLlmTemplates(projectKey) })
     },
     onError: (error) => {
-      setTemplateMessage(`模板保存失败：${formatActionError(error)}`)
+      setTemplateMessage(formatSettingsTemplate(t('settingsPage.message.templateSaveFailed'), { error: formatActionError(locale, error) }))
     },
     onSettled: () => {
       setSavingService(null)
@@ -286,33 +313,21 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
       setCopyMessage('')
     },
     onSuccess: async (data) => {
-      setCopyMessage(`复制完成：copied=${data.copied ?? 0}, skipped=${data.skipped ?? 0}`)
+      setCopyMessage(formatSettingsTemplate(t('settingsPage.message.copyDone'), {
+        copied: data.copied ?? 0,
+        skipped: data.skipped ?? 0,
+      }))
       await queryClient.invalidateQueries({ queryKey: queryKeys.settings.projectLlmTemplates(projectKey) })
     },
     onError: (error) => {
-      setCopyMessage(`复制失败：${formatActionError(error)}`)
+      setCopyMessage(formatSettingsTemplate(t('settingsPage.message.copyFailed'), { error: formatActionError(locale, error) }))
     },
   })
 
   const hasAnyEnvValue = Object.values(effectiveEnvDraft).some((value) => String(value || '').trim().length > 0)
   const envSnippet = useMemo(() => {
-    if (guideType === 'llm') {
-      return ['LLM_PROVIDER=openai', 'OPENAI_API_KEY=your_openai_key', 'OPENAI_API_BASE='].join('\n')
-    }
-    if (guideType === 'search') {
-      return ['SERPAPI_KEY=your_serpapi_key', 'GOOGLE_SEARCH_API_KEY=', 'GOOGLE_SEARCH_CSE_ID=', 'SERPSTACK_KEY='].join('\n')
-    }
-    if (guideType === 'news') {
-      return ['NEWS_API_KEY=your_news_api_key'].join('\n')
-    }
-    if (guideType === 'db') {
-      return ['DATABASE_URL=postgresql://user:password@host:5432/dbname'].join('\n')
-    }
-    if (guideType === 'es') {
-      return ['ES_URL=http://localhost:9200'].join('\n')
-    }
-    return ''
-  }, [guideType])
+    return guideType ? translate(locale, GUIDE_SNIPPET_KEYS[guideType]) : ''
+  }, [guideType, locale])
 
   useEffect(() => {
     const cached = getLocalJson<SettingsDraftCache | null>(draftStorageKey, null)
@@ -351,7 +366,9 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
       setFocusField(nextField)
       if (!nextField) return
       window.setTimeout(() => {
-        const target = document.querySelector<HTMLElement>(`[data-env-key="${nextField}"] input`)
+        const fieldContainer = Array.from(document.querySelectorAll<HTMLElement>('[data-env-key]'))
+          .find((node) => node.dataset.envKey === nextField)
+        const target = fieldContainer?.querySelector<HTMLElement>('input')
         if (!target) return
         target.scrollIntoView({ behavior: 'smooth', block: 'center' })
         target.focus()
@@ -363,13 +380,13 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
   }, [variant, envSettings.data])
 
   const themeLabelByValue: Record<AppTheme, string> = {
-    light: translate(locale, 'settings.theme.light', 'Light'),
-    dark: translate(locale, 'settings.theme.dark', 'Dark'),
-    brand: translate(locale, 'settings.theme.brand', 'Brand'),
+    light: translate(locale, 'settings.theme.light'),
+    dark: translate(locale, 'settings.theme.dark'),
+    brand: translate(locale, 'settings.theme.brand'),
   }
   const localeLabelByValue = {
-    'zh-CN': translate(locale, 'settings.locale.zh-CN', 'Simplified Chinese'),
-    'en-US': translate(locale, 'settings.locale.en-US', 'English'),
+    'zh-CN': translate(locale, 'settings.locale.zh-CN'),
+    'en-US': translate(locale, 'settings.locale.en-US'),
   } as const
 
   return (
@@ -411,9 +428,9 @@ export function SettingsPage({ projectKey, variant = 'settings' }: SettingsPageP
         void (async () => {
           try {
             await navigator.clipboard.writeText(envSnippet)
-            setSaveMessage('示例配置已复制到剪贴板，可直接粘贴到对应字段。')
+            setSaveMessage(t('settingsPage.message.exampleCopied'))
           } catch {
-            setSaveMessage('复制失败，请手动复制页面中的示例字段。')
+            setSaveMessage(t('settingsPage.message.exampleCopyFailed'))
           }
         })()
       }}
@@ -494,15 +511,21 @@ export function SettingsPageView({
   onTemplateDraftChange,
   onSaveTemplate,
 }: SettingsPageViewProps) {
+  const t = (key: MessageKey) => translate(locale, key)
+  const formatTemplate = (key: MessageKey, values: Record<string, string | number>) =>
+    formatSettingsTemplate(t(key), values)
+  const pageTitle = variant === 'llm' ? t('settingsPage.title.llmView') : t('settingsPage.title.settingsView')
+  const guideMessage = guideType ? t(GUIDE_MESSAGE_KEYS[guideType]) : ''
+
   return (
     <div className={`content-stack settings-page settings-page--${variant}`}>
       <section className="panel">
         <div className="panel-header">
-          <h2>{variant === 'llm' ? 'LLM 配置视图' : '系统设置视图'}</h2>
+          <h2>{pageTitle}</h2>
         </div>
         <div className="inline-actions" style={{ marginTop: 10, flexWrap: 'wrap' }}>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <span>{translate(locale, 'settings.locale.label', 'UI Language')}</span>
+            <span>{t('settings.locale.label')}</span>
             <select value={locale} onChange={(event) => onLocaleChange(event.target.value as (typeof APP_LOCALES)[number])}>
               {APP_LOCALES.map((nextLocale) => (
                 <option key={nextLocale} value={nextLocale}>
@@ -512,7 +535,7 @@ export function SettingsPageView({
             </select>
           </label>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <span>{translate(locale, 'settings.theme.label', 'Theme')}</span>
+            <span>{t('settings.theme.label')}</span>
             <select
               value={appTheme}
               onChange={(event) => {
@@ -534,30 +557,26 @@ export function SettingsPageView({
         <div className="panel-header">
           <h2>
             <Settings2 size={15} />
-            环境配置
+            {t('settingsPage.section.envConfig')}
           </h2>
           <div className="inline-actions">
             <button onClick={onRefreshEnv} disabled={envSettingsFetching}>
               <RefreshCw size={14} />
-              {envSettingsFetching ? '刷新中...' : '刷新'}
+              {envSettingsFetching ? t('settingsPage.action.refreshing') : t('settingsPage.action.refresh')}
             </button>
           </div>
         </div>
         {guideType ? (
           <div className="app-settings-guide">
-            <strong>安装/配置指引</strong>
+            <strong>{t('settingsPage.guide.title')}</strong>
             <p className="status-line">
-              {guideType === 'llm' ? '请配置 LLM provider 与 API Key（OpenAI 或 Azure 至少一组）。'
-                : guideType === 'search' ? '请至少配置一组搜索能力 Key（推荐先配 SERPAPI_KEY）。'
-                  : guideType === 'news' ? '请配置 NEWS_API_KEY 后再执行新闻拉取。'
-                    : guideType === 'db' ? '请配置 DATABASE_URL，确保后端可连接数据库。'
-                      : '请配置 ES_URL，确保检索索引可用。'}
+              {guideMessage}
             </p>
-            {focusField ? <p className="status-line">已自动定位字段：`{focusField}`</p> : null}
+            {focusField ? <p className="status-line">{formatTemplate('settingsPage.guide.focusField', { field: focusField })}</p> : null}
             <div className="inline-actions" style={{ flexWrap: 'wrap' }}>
-              {envSnippet ? <button onClick={onCopySnippet}>复制示例配置</button> : null}
-              {guideType === 'search' || guideType === 'news' ? <button onClick={onNavigateCrawler}>前往爬虫管理（安装/接入）</button> : null}
-              <button onClick={onDismissGuide}>关闭指引</button>
+              {envSnippet ? <button onClick={onCopySnippet}>{t('settingsPage.action.copyExampleConfig')}</button> : null}
+              {guideType === 'search' || guideType === 'news' ? <button onClick={onNavigateCrawler}>{t('settingsPage.action.goToCrawlerManage')}</button> : null}
+              <button onClick={onDismissGuide}>{t('settingsPage.action.closeGuide')}</button>
             </div>
           </div>
         ) : null}
@@ -566,7 +585,7 @@ export function SettingsPageView({
           {ENV_KEYS.map((key) => (
             <label key={key} data-env-key={key}>
               <span>{key}</span>
-              <input value={effectiveEnvDraft[key] || ''} onChange={(e) => onEnvDraftChange(key, e.target.value)} placeholder={`输入 ${key}`} />
+              <input value={effectiveEnvDraft[key] || ''} onChange={(e) => onEnvDraftChange(key, e.target.value)} placeholder={formatTemplate('settingsPage.placeholder.envKey', { key })} />
             </label>
           ))}
         </div>
@@ -574,33 +593,33 @@ export function SettingsPageView({
         <div className="inline-actions">
           <button disabled={envSavePending || !hasAnyEnvValue} onClick={onSaveEnv}>
             <Settings2 size={14} />
-            {envSavePending ? '保存中...' : '保存配置'}
+            {envSavePending ? t('settingsPage.action.saving') : t('settingsPage.action.saveEnv')}
           </button>
         </div>
 
         {saveMessage ? <p className="status-line">{saveMessage}</p> : null}
-        {envSettingsError ? <p className="status-line">环境配置加载失败，请稍后重试</p> : null}
+        {envSettingsError ? <p className="status-line">{t('settingsPage.error.envLoadFailed')}</p> : null}
       </section>
 
       <section className="panel">
         <div className="panel-header">
-          <h2>项目级 LLM 模板</h2>
+          <h2>{t('settingsPage.section.projectLlmTemplates')}</h2>
           <div className="inline-actions">
             <button onClick={onRefreshTemplates} disabled={llmTemplatesFetching}>
               <RefreshCw size={14} />
-              {llmTemplatesFetching ? '刷新中...' : '刷新'}
+              {llmTemplatesFetching ? t('settingsPage.action.refreshing') : t('settingsPage.action.refresh')}
             </button>
           </div>
         </div>
 
         <div className="inline-actions" style={{ marginBottom: 12, flexWrap: 'wrap' }}>
-          <input value={copySourceProjectKey} onChange={(e) => onCopySourceProjectKeyChange(e.target.value)} placeholder="来源 project_key" style={{ minWidth: 220 }} />
+          <input value={copySourceProjectKey} onChange={(e) => onCopySourceProjectKeyChange(e.target.value)} placeholder={t('settingsPage.placeholder.sourceProjectKey')} style={{ minWidth: 220 }} />
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <input type="checkbox" checked={copyOverwrite} onChange={(e) => onCopyOverwriteChange(e.target.checked)} />
-            <span>覆盖已存在模板</span>
+            <span>{t('settingsPage.field.copyOverwrite')}</span>
           </label>
           <button disabled={copyTemplatesPending || !copySourceProjectKey.trim()} onClick={onCopyTemplates}>
-            {copyTemplatesPending ? '复制中...' : '从项目复制模板'}
+            {copyTemplatesPending ? t('settingsPage.action.copying') : t('settingsPage.action.copyFromProject')}
           </button>
         </div>
 
@@ -608,14 +627,14 @@ export function SettingsPageView({
           <table>
             <thead>
               <tr>
-                <th>service</th>
-                <th>model</th>
-                <th>temperature</th>
-                <th>top_p</th>
-                <th>max_tokens</th>
-                <th>enabled</th>
-                <th>updated</th>
-                <th>操作</th>
+                <th>{t('settingsPage.field.service')}</th>
+                <th>{t('settingsPage.field.model')}</th>
+                <th>{t('settingsPage.field.temperature')}</th>
+                <th>{t('settingsPage.field.topP')}</th>
+                <th>{t('settingsPage.field.maxTokens')}</th>
+                <th>{t('settingsPage.field.enabled')}</th>
+                <th>{t('settingsPage.field.updated')}</th>
+                <th>{t('settingsPage.field.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -631,11 +650,11 @@ export function SettingsPageView({
                       <td>{draft.temperature || '-'}</td>
                       <td>{draft.top_p || '-'}</td>
                       <td>{draft.max_tokens || '-'}</td>
-                      <td>{String(draft.enabled)}</td>
-                      <td>{formatDate(row.updated_at)}</td>
+                      <td>{draft.enabled ? t('settingsPage.value.enabledTrue') : t('settingsPage.value.enabledFalse')}</td>
+                      <td>{formatDate(row.updated_at, locale)}</td>
                       <td>
                         <button onClick={() => onExpandedServiceChange(isExpanded ? null : row.service_name)}>
-                          {isExpanded ? '收起' : '编辑'}
+                          {isExpanded ? t('settingsPage.action.collapse') : t('settingsPage.action.edit')}
                         </button>
                       </td>
                     </tr>
@@ -644,47 +663,47 @@ export function SettingsPageView({
                         <td colSpan={8}>
                           <div className="form-grid cols-2" style={{ marginTop: 8 }}>
                             <label>
-                              <span>model</span>
+                              <span>{t('settingsPage.field.model')}</span>
                               <input value={draft.model} onChange={(e) => onTemplateDraftChange(row.service_name, { model: e.target.value })} />
                             </label>
                             <label>
-                              <span>temperature</span>
+                              <span>{t('settingsPage.field.temperature')}</span>
                               <input value={draft.temperature} onChange={(e) => onTemplateDraftChange(row.service_name, { temperature: e.target.value })} />
                             </label>
                             <label>
-                              <span>top_p</span>
+                              <span>{t('settingsPage.field.topP')}</span>
                               <input value={draft.top_p} onChange={(e) => onTemplateDraftChange(row.service_name, { top_p: e.target.value })} />
                             </label>
                             <label>
-                              <span>presence_penalty</span>
+                              <span>{t('settingsPage.field.presencePenalty')}</span>
                               <input value={draft.presence_penalty} onChange={(e) => onTemplateDraftChange(row.service_name, { presence_penalty: e.target.value })} />
                             </label>
                             <label>
-                              <span>frequency_penalty</span>
+                              <span>{t('settingsPage.field.frequencyPenalty')}</span>
                               <input value={draft.frequency_penalty} onChange={(e) => onTemplateDraftChange(row.service_name, { frequency_penalty: e.target.value })} />
                             </label>
                             <label>
-                              <span>max_tokens</span>
+                              <span>{t('settingsPage.field.maxTokens')}</span>
                               <input value={draft.max_tokens} onChange={(e) => onTemplateDraftChange(row.service_name, { max_tokens: e.target.value })} />
                             </label>
                             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                               <input type="checkbox" checked={draft.enabled} onChange={(e) => onTemplateDraftChange(row.service_name, { enabled: e.target.checked })} />
-                              <span>enabled</span>
+                              <span>{t('settingsPage.field.enabled')}</span>
                             </label>
                           </div>
                           <div className="form-grid" style={{ marginTop: 8 }}>
                             <label>
-                              <span>system_prompt</span>
+                              <span>{t('settingsPage.field.systemPrompt')}</span>
                               <textarea value={draft.system_prompt} onChange={(e) => onTemplateDraftChange(row.service_name, { system_prompt: e.target.value })} rows={5} />
                             </label>
                             <label>
-                              <span>user_prompt_template</span>
+                              <span>{t('settingsPage.field.userPromptTemplate')}</span>
                               <textarea value={draft.user_prompt_template} onChange={(e) => onTemplateDraftChange(row.service_name, { user_prompt_template: e.target.value })} rows={5} />
                             </label>
                           </div>
                           <div className="inline-actions" style={{ marginTop: 8 }}>
                             <button disabled={isSaving} onClick={() => onSaveTemplate(row.service_name, draft)}>
-                              {isSaving ? '保存中...' : `保存 ${row.service_name}`}
+                              {isSaving ? t('settingsPage.action.saving') : formatTemplate('settingsPage.action.saveServiceTemplate', { serviceName: row.service_name })}
                             </button>
                           </div>
                         </td>
@@ -696,7 +715,7 @@ export function SettingsPageView({
               {!templateItems.length ? (
                 <tr>
                   <td colSpan={8} className="empty-cell">
-                    暂无项目级 LLM 模板
+                    {t('settingsPage.empty.projectLlmTemplates')}
                   </td>
                 </tr>
               ) : null}
@@ -706,7 +725,7 @@ export function SettingsPageView({
 
         {templateMessage ? <p className="status-line">{templateMessage}</p> : null}
         {copyMessage ? <p className="status-line">{copyMessage}</p> : null}
-        {llmTemplatesError ? <p className="status-line">项目级 LLM 模板加载失败，请稍后重试</p> : null}
+        {llmTemplatesError ? <p className="status-line">{t('settingsPage.error.templatesLoadFailed')}</p> : null}
       </section>
     </div>
   )

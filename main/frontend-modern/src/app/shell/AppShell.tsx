@@ -4,7 +4,7 @@ import FigmaSideNav from '../../components/FigmaSideNav'
 import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKey, injectInitialProject, listProjects, setProjectKey as persistProjectKey } from '../../lib/api'
 import { getLocalJson, setLocalJson } from '../../lib/localStore'
 import { queryKeys } from '../../lib/queryKeys'
-import type { NavMode } from '../kernel/types'
+import { KERNEL_RENDER_SHELL_MODE, type NavMode } from '../kernel/types'
 import { defaultNavMode, hashByMode } from '../navigation'
 import { translate, useAppLocale } from '../platform/i18n'
 import { getModuleDescriptor, verifyRegistryHashCompatibility } from '../platform/modules'
@@ -183,7 +183,8 @@ export default function AppShell() {
     moduleKey: viewMode,
     projectKey,
     onProjectChange: setProjectKeyState,
-    shellMode: 'legacy-shell',
+    locale,
+    shellMode: KERNEL_RENDER_SHELL_MODE.legacyShell,
   })
 
   useEffect(() => {

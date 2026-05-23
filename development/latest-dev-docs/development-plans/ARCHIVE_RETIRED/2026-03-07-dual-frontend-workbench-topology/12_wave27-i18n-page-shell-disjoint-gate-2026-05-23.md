@@ -137,7 +137,7 @@ OK frontend_migration_boundary=passed routes=31/31 renderers=31/31 surfaces=31/3
 
 ## Remaining Blocker Owner
 
-The remaining blocker owner is `CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite`, not this dual-frontend topology topic.
+The remaining blocker owner was `ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite`, not this dual-frontend topology topic. Wave32 later closed that successor blocker with the final frontend i18n gate.
 
 The disjoint gate records these page-shell blockers as still present:
 
@@ -147,4 +147,4 @@ The disjoint gate records these page-shell blockers as still present:
 - `AppShell` still mounts `FigmaSideNav` directly;
 - kernel route resolution still classifies `legacy` and `unknown` route sources.
 
-Closure implication: dual-frontend can be migrated or retired into the three-layer topic once the integration pass updates indexes. Three-layer remains `retained_partial` until page-shell retirement and the broader business-string/page-refactor backlog are closed or explicitly re-scoped.
+Closure implication: dual-frontend can be migrated or retired into the three-layer topic once the integration pass updates indexes. Wave32 completed the successor business-string closure, so this note is historical evidence rather than an active blocker statement.

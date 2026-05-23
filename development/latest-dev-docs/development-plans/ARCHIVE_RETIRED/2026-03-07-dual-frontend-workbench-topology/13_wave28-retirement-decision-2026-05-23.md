@@ -19,7 +19,7 @@ This is not a full frontend closure claim. The remaining work is inherited by th
 - full business-string migration remains broad;
 - full page refactor acceptance remains false.
 
-Current implementation work should continue through [`CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite`](../../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md). This archived directory is retained only as historical topology evidence and should not be used as a standalone implementation entry.
+The successor implementation work closed in [`ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite`](../../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md). This archived directory is retained only as historical topology evidence and should not be used as a standalone implementation entry.
 
 ## Evidence
 
@@ -59,6 +59,6 @@ Reason:
 
 All remaining implementation should be tracked under:
 
-- [`CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite`](../../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md)
+- [`ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite`](../../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)
 
 Do not reopen this dual-frontend directory for page-shell retirement, `AppShell` retirement, broad business-string migration, or full page refactor acceptance. Those are successor-lane blockers.

@@ -63,6 +63,8 @@ type Props = {
   templateBuilder?: boolean
 }
 
+type GraphMessageParams = Record<string, number | string>
+
 type GraphKind = 'policy' | 'social' | 'market' | 'market_deep_entities' | 'company' | 'product' | 'operation'
 type ForceGraphApi = {
   scene?: () => THREE.Scene | undefined
@@ -563,6 +565,13 @@ function edgeLegendLabel(edge: GraphEdgeItem, labels: Record<string, string> | u
   return relationLabel(edgeLegendRawValue(edge), labels)
 }
 
+function formatGraphMessage(template: string, params: GraphMessageParams) {
+  return Object.entries(params).reduce(
+    (message, [key, value]) => message.split(`{${key}}`).join(String(value)),
+    template,
+  )
+}
+
 const DEFAULT_NODE_TYPES_BY_KIND: Record<GraphKind, string[]> = {
   policy: ['Policy', 'State', 'PolicyType', 'KeyPoint', 'Entity'],
   social: ['Post', 'Keyword', 'Entity', 'Topic', 'SentimentTag', 'User', 'Subreddit'],
@@ -974,7 +983,7 @@ function recordFrom(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? value as Record<string, unknown> : null
 }
 
-function curatedSubmitFailure(error: unknown) {
+function curatedSubmitFailure(error: unknown, formatMessage: (key: MessageKey, params: GraphMessageParams) => string) {
   const errorRecord = recordFrom(error)
   const response = recordFrom(errorRecord?.response)
   const responseData = recordFrom(response?.data)
@@ -983,7 +992,7 @@ function curatedSubmitFailure(error: unknown) {
   const code = isApiClientError(error) ? error.code : String(responseError?.code || '')
   const message = isApiClientError(error)
     ? error.message
-    : String(responseError?.message || errorRecord?.message || '提交失败')
+    : String(responseError?.message || errorRecord?.message || formatMessage('graphPage.error.submitFailed', {}))
   const category = String(details?.category || '')
   const expected = details?.expected_revision
   const actual = details?.actual_revision
@@ -993,8 +1002,8 @@ function curatedSubmitFailure(error: unknown) {
   if (!isConflict) {
     return {
       status: `submit_failed: ${message}`,
-      graphStatus: `Curated graph 提交失败: ${message}`,
-      alertMessage: `Curated graph 提交失败: ${message}`,
+      graphStatus: formatMessage('graphPage.error.curatedSubmitFailed', { message }),
+      alertMessage: formatMessage('graphPage.error.curatedSubmitFailed', { message }),
     }
   }
   const revisionHint =
@@ -1004,8 +1013,8 @@ function curatedSubmitFailure(error: unknown) {
   const status = `submit_conflict: version_conflict${revisionHint}`
   return {
     status,
-    graphStatus: `Curated graph 提交冲突: ${message}`,
-    alertMessage: `Curated graph 提交冲突: ${message}`,
+    graphStatus: formatMessage('graphPage.error.curatedSubmitConflict', { message }),
+    alertMessage: formatMessage('graphPage.error.curatedSubmitConflict', { message }),
   }
 }
 
@@ -1184,6 +1193,7 @@ const SPECIAL_PREFIX_BY_KIND: Partial<Record<GraphKind, string>> = {
 export default function GraphPage({ projectKey, variant, templateBuilder = false }: Props) {
   const locale = useAppLocale()
   const t = useCallback((key: MessageKey) => translate(locale, key), [locale])
+  const tf = useCallback((key: MessageKey, params: GraphMessageParams) => formatGraphMessage(t(key), params), [t])
   const graphKind = TYPE_TO_KIND[variant]
   const graphVariantLabel = t(GRAPH_VARIANT_LABEL_KEY[variant])
   const graphGroupLabel = useCallback((group: string) => {
@@ -1875,9 +1885,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     if (!useForceGraph3D || !forceGraphLoadError) return
     if (forceGraphFallbackAppliedRef.current) return
     forceGraphFallbackAppliedRef.current = true
-    setForceGraphFallbackNotice('3D引擎加载失败，已自动降级到 legacy-projection。')
+    setForceGraphFallbackNotice(t('graphPage.error.force3dLoadFallback'))
     requestProjectionEngineChange('legacy')
-  }, [projectionEngine, useForceGraph3D, forceGraphLoadError, requestProjectionEngineChange])
+  }, [projectionEngine, useForceGraph3D, forceGraphLoadError, requestProjectionEngineChange, t])
 
   const activeRendererCapabilities = useMemo(
     () => (renderMode === 'projection3d'
@@ -2147,8 +2157,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         if (!canceled && key) await loadVersionList(key)
       } catch (error) {
         if (canceled) return
-        const message = error instanceof Error ? error.message : '模板列表加载失败'
-        setGraphEditStatus(`模板列表加载失败: ${message}`)
+        const message = error instanceof Error ? error.message : t('graphPage.error.templateListLoadFailed')
+        setGraphEditStatus(tf('graphPage.error.templateListLoadFailedWithMessage', { message }))
       } finally {
         if (!canceled) setTemplateBusy(false)
       }
@@ -2157,7 +2167,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     return () => {
       canceled = true
     }
-  }, [editMode, loadTemplateList, loadVersionList, activeTemplateKey])
+  }, [editMode, loadTemplateList, loadVersionList, activeTemplateKey, t, tf])
 
   useEffect(() => {
     if (!editMode) return
@@ -2211,7 +2221,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const handleListCuratedAudits = useCallback(async () => {
     const graphId = curatedGraphId.trim()
     if (!graphId) {
-      window.alert('请填写 Curated graph_id')
+      window.alert(t('graphPage.error.curatedGraphIdRequired'))
       return
     }
     setCuratedBusy(true)
@@ -2220,26 +2230,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       const latest = items[0]
       const latestText = latest ? ` latest=${String(latest.action || 'unknown')} ${String(latest.version_id || '')}`.trimEnd() : ''
       setCuratedStatus(`audit_readback items=${items.length}${latestText ? ` ${latestText}` : ''}`)
-      setGraphEditStatus(`Curated audit readback 已读取: ${graphId}`)
+      setGraphEditStatus(tf('graphPage.status.curatedAuditReadback', { graphId }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'audit 读取失败'
+      const message = error instanceof Error ? error.message : t('graphPage.error.auditReadFailed')
       setCuratedStatus(`audit_failed: ${message}`)
-      setGraphEditStatus(`Curated audit 读取失败: ${message}`)
-      window.alert(`Curated audit 读取失败: ${message}`)
+      setGraphEditStatus(tf('graphPage.error.curatedAuditReadFailed', { message }))
+      window.alert(tf('graphPage.error.curatedAuditReadFailed', { message }))
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, readCuratedAudits])
+  }, [curatedGraphId, readCuratedAudits, t, tf])
 
   const handleRollbackCuratedGraph = useCallback(async () => {
     const graphId = curatedGraphId.trim()
     const targetVersionId = curatedRollbackVersionId.trim()
     if (!graphId) {
-      window.alert('请填写 Curated graph_id')
+      window.alert(t('graphPage.error.curatedGraphIdRequired'))
       return
     }
     if (!targetVersionId) {
-      window.alert('请填写 rollback target version_id')
+      window.alert(t('graphPage.error.rollbackVersionRequired'))
       return
     }
     setCuratedBusy(true)
@@ -2255,12 +2265,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       const revision = typeof state.revision === 'number' ? ` r${state.revision}` : ''
       setCuratedStatus(`rollback_succeeded${revision} audits=${items.length}`)
       markDraftSaved()
-      setGraphEditStatus(`Curated rollback 已提交: ${targetVersionId}`)
+      setGraphEditStatus(tf('graphPage.status.curatedRollbackSubmitted', { versionId: targetVersionId }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'rollback 失败'
+      const message = error instanceof Error ? error.message : t('graphPage.error.rollbackFailed')
       setCuratedStatus(`rollback_failed: ${message}`)
-      setGraphEditStatus(`Curated rollback 失败: ${message}`)
-      window.alert(`Curated rollback 失败: ${message}`)
+      setGraphEditStatus(tf('graphPage.error.curatedRollbackFailed', { message }))
+      window.alert(tf('graphPage.error.curatedRollbackFailed', { message }))
     } finally {
       setCuratedBusy(false)
     }
@@ -2272,13 +2282,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     curatedRollbackVersionId,
     markDraftSaved,
     readCuratedAudits,
+    t,
+    tf,
   ])
 
   const handleReplayCuratedHandoff = useCallback(async () => {
     const runId = curatedHandoffReplay.runId.trim()
     const handoffId = curatedHandoffReplay.handoffId.trim()
     if (!runId || !handoffId) {
-      window.alert('请先生成带 persistence 的 handoff')
+      window.alert(t('graphPage.error.handoffPersistenceRequired'))
       return
     }
     setCuratedBusy(true)
@@ -2286,21 +2298,21 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       const replay = await replayWorkflowGraphHandoff(runId, handoffId)
       const events = Array.isArray(replay.events) ? replay.events : []
       setCuratedStatus(`handoff_replay_ready events=${events.length}`)
-      setGraphEditStatus(`Curated handoff replay 已读取: ${handoffId}`)
+      setGraphEditStatus(tf('graphPage.status.curatedHandoffReplayRead', { handoffId }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'handoff replay 失败'
+      const message = error instanceof Error ? error.message : t('graphPage.error.handoffReplayFailed')
       setCuratedStatus(`handoff_replay_failed: ${message}`)
-      setGraphEditStatus(`Curated handoff replay 失败: ${message}`)
-      window.alert(`Curated handoff replay 失败: ${message}`)
+      setGraphEditStatus(tf('graphPage.error.curatedHandoffReplayFailed', { message }))
+      window.alert(tf('graphPage.error.curatedHandoffReplayFailed', { message }))
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedHandoffReplay])
+  }, [curatedHandoffReplay, t, tf])
 
   const handleSyncCuratedGraph = useCallback(async () => {
     const graphId = curatedGraphId.trim()
     if (!graphId) {
-      window.alert('请填写 Curated graph_id')
+      window.alert(t('graphPage.error.curatedGraphIdRequired'))
       return
     }
     setCuratedBusy(true)
@@ -2314,26 +2326,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         replaceDraft(snapshot.nodes as GraphNodeItem[], snapshot.edges as GraphEdgeItem[], { markAsDirty: false })
       }
       applyCuratedState(state, 'synced')
-      setGraphEditStatus(`Curated 已同步: ${graphId}`)
+      setGraphEditStatus(tf('graphPage.status.curatedSynced', { graphId }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : '同步失败'
+      const message = error instanceof Error ? error.message : t('graphPage.error.syncFailed')
       setCuratedStatus(`sync_failed: ${message}`)
-      setGraphEditStatus(`Curated 同步失败: ${message}`)
-      window.alert(`Curated 同步失败: ${message}`)
+      setGraphEditStatus(tf('graphPage.error.curatedSyncFailed', { message }))
+      window.alert(tf('graphPage.error.curatedSyncFailed', { message }))
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, curatedRevision, replaceDraft, applyCuratedState])
+  }, [curatedGraphId, curatedRevision, replaceDraft, applyCuratedState, t, tf])
 
   const handleSaveCuratedDraft = useCallback(async () => {
     const graphId = curatedGraphId.trim()
     if (!graphId) {
-      window.alert('请填写 Curated graph_id')
+      window.alert(t('graphPage.error.curatedGraphIdRequired'))
       return
     }
     const dsl = buildCuratedWorkflowGraphDsl(draftNodes, draftEdges)
     if (!dsl.nodes.length) {
-      window.alert('当前草稿没有可提交节点')
+      window.alert(t('graphPage.error.noSubmittableDraftNodes'))
       return
     }
     setCuratedBusy(true)
@@ -2345,32 +2357,32 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       applyCuratedState(state, 'draft_saved')
       markDraftSaved()
-      setGraphEditStatus(`Curated draft 已保存: ${graphId}`)
+      setGraphEditStatus(tf('graphPage.status.curatedDraftSaved', { graphId }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : '保存失败'
+      const message = error instanceof Error ? error.message : t('graphPage.error.saveFailed')
       setCuratedStatus(`draft_failed: ${message}`)
-      setGraphEditStatus(`Curated draft 保存失败: ${message}`)
-      window.alert(`Curated draft 保存失败: ${message}`)
+      setGraphEditStatus(tf('graphPage.error.curatedDraftSaveFailed', { message }))
+      window.alert(tf('graphPage.error.curatedDraftSaveFailed', { message }))
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved])
+  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved, t, tf])
 
   const handleSubmitCuratedGraph = useCallback(async () => {
     const graphId = curatedGraphId.trim()
     if (!graphId) {
-      window.alert('请填写 Curated graph_id')
+      window.alert(t('graphPage.error.curatedGraphIdRequired'))
       return
     }
     const dsl = buildCuratedWorkflowGraphDsl(draftNodes, draftEdges)
     if (!dsl.nodes.length) {
-      window.alert('当前草稿没有可提交节点')
+      window.alert(t('graphPage.error.noSubmittableDraftNodes'))
       return
     }
     const temporaryIds = temporaryCuratedNodeIds(dsl)
     if (temporaryIds.length) {
       const sample = temporaryIds.slice(0, 3).join(', ')
-      const message = `提交前需要把临时节点 id 改成稳定 id: ${sample}`
+      const message = tf('graphPage.error.temporaryCuratedNodeIds', { sample })
       setCuratedStatus(`submit_blocked: ${message}`)
       window.alert(message)
       return
@@ -2390,26 +2402,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       applyCuratedState(submittedState, 'submitted')
       markDraftSaved()
-      setGraphEditStatus(`Curated graph 已提交: ${graphId}`)
+      setGraphEditStatus(tf('graphPage.status.curatedGraphSubmitted', { graphId }))
     } catch (error) {
-      const failure = curatedSubmitFailure(error)
+      const failure = curatedSubmitFailure(error, tf)
       setCuratedStatus(failure.status)
       setGraphEditStatus(failure.graphStatus)
       window.alert(failure.alertMessage)
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved])
+  }, [curatedGraphId, curatedRevision, draftNodes, draftEdges, applyCuratedState, markDraftSaved, t, tf])
 
   const handleBuildCuratedReportingHandoff = useCallback(async () => {
     const graphId = curatedGraphId.trim()
     if (!graphId) {
-      window.alert('请填写 Curated graph_id')
+      window.alert(t('graphPage.error.curatedGraphIdRequired'))
       return
     }
     const topic = curatedHandoffTopic.trim()
     if (!topic) {
-      window.alert('请填写 Reporting topic')
+      window.alert(t('graphPage.error.reportingTopicRequired'))
       return
     }
     const selected_node_ids = selectedEditableNodes
@@ -2431,16 +2443,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         setCuratedHandoffReplay({ runId, handoffId })
       }
       setCuratedStatus(`report_handoff_ready${sourceCount ? ` sources=${sourceCount}` : ''}${runId ? ` ${runId}` : ''}`)
-      setGraphEditStatus(`Curated reporting handoff 已生成: ${handoffId || graphId}`)
+      setGraphEditStatus(tf('graphPage.status.curatedReportingHandoffGenerated', { handoffId: handoffId || graphId }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'handoff 生成失败'
+      const message = error instanceof Error ? error.message : t('graphPage.error.handoffBuildFailed')
       setCuratedStatus(`report_handoff_failed: ${message}`)
-      setGraphEditStatus(`Curated reporting handoff 生成失败: ${message}`)
-      window.alert(`Curated reporting handoff 生成失败: ${message}`)
+      setGraphEditStatus(tf('graphPage.error.curatedReportingHandoffFailed', { message }))
+      window.alert(tf('graphPage.error.curatedReportingHandoffFailed', { message }))
     } finally {
       setCuratedBusy(false)
     }
-  }, [curatedGraphId, curatedHandoffTopic, selectedEditableNodes])
+  }, [curatedGraphId, curatedHandoffTopic, selectedEditableNodes, t, tf])
 
   const selectedExportPayload = useMemo(() => {
     const scopedTopicFocus = graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
@@ -2484,7 +2496,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       node_id: String(node.id || node.entry_id || '').trim(),
       node_type: String(node.type || '').trim() || 'Entity',
       entry_id: String(node.entry_id || node.id || '').trim(),
-      label: String(node.label || node.id || '').trim() || '未命名节点',
+      label: String(node.label || node.id || '').trim() || t('graphPage.label.unnamedNode'),
     })).filter((node) => node.node_id)
     if (selectedSeeds.length) return selectedSeeds
     return topology.visibleNodes.slice(0, 3).map((node) => ({
@@ -2493,15 +2505,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       entry_id: String(node.entry_id || node.id || '').trim(),
       label: nodeName(node),
     })).filter((node) => node.node_id)
-  }, [selectedExportPayload.selected_nodes, topology.visibleNodes])
+  }, [selectedExportPayload.selected_nodes, topology.visibleNodes, t])
 
   const handleCreateClueChain = useCallback(async () => {
     if (!clueChainSeedNodes.length) {
-      window.alert('当前图谱没有可用于创建 Chain 的节点')
+      window.alert(t('graphPage.error.noClueChainNodes'))
       return
     }
     setClueChainBusy(true)
-    setClueChainStatus('正在创建 Chain...')
+    setClueChainStatus(t('graphPage.status.clueChainCreating'))
     try {
       const chain = await createClueChain({
         project_key: projectKey,
@@ -2520,11 +2532,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       setActiveClueChain(chain)
       setSelectedClueEvidenceId(chain.evidence?.[0]?.evidence_id || null)
       setClueChainOpen(true)
-      setClueChainStatus(`已创建 ${chain.chain_id}`)
+      setClueChainStatus(tf('graphPage.status.clueChainCreated', { chainId: chain.chain_id }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : '创建失败'
-      setClueChainStatus(`创建失败: ${message}`)
-      window.alert(`Clue Chain 创建失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.createFailed')
+      setClueChainStatus(tf('graphPage.error.createFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.clueChainCreateFailed', { message }))
     } finally {
       setClueChainBusy(false)
     }
@@ -2540,12 +2552,14 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     variant,
     graphVariantLabel,
     t,
+    tf,
   ])
 
   const handleRunClueChainExpand = useCallback(async (mode: 'source_library' | 'external_search') => {
     if (!activeClueChain) return
     setClueChainBusy(true)
-    setClueChainStatus(`正在运行 ${mode === 'source_library' ? 'Source Library' : 'External Search'} hop...`)
+    const modeLabel = mode === 'source_library' ? t('graphPage.clueChain.mode.sourceLibrary') : t('graphPage.clueChain.mode.externalSearch')
+    setClueChainStatus(tf('graphPage.status.clueChainExpanding', { mode: modeLabel }))
     try {
       const frontierNodeIds = (activeClueChain.frontier || [])
         .map((item) => String(item.node_id || '').trim())
@@ -2559,20 +2573,20 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       setActiveClueChain(chain)
       setSelectedClueEvidenceId((current) => current || chain.evidence?.[0]?.evidence_id || null)
       setClueChainOpen(true)
-      setClueChainStatus(`${mode === 'source_library' ? 'Source Library' : 'External Search'} hop 完成`)
+      setClueChainStatus(tf('graphPage.status.clueChainExpanded', { mode: modeLabel }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : '展开失败'
-      setClueChainStatus(`展开失败: ${message}`)
-      window.alert(`Clue Chain 展开失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.expandFailed')
+      setClueChainStatus(tf('graphPage.error.expandFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.clueChainExpandFailed', { message }))
     } finally {
       setClueChainBusy(false)
     }
-  }, [activeClueChain, clueChainSeedNodes, graphKind, projectKey])
+  }, [activeClueChain, clueChainSeedNodes, graphKind, projectKey, t, tf])
 
   const handleReviewClueChainCandidate = useCallback(async (candidateId: string, decision: 'promote' | 'reject') => {
     if (!activeClueChain) return
     setClueChainBusy(true)
-    setClueChainStatus(decision === 'promote' ? '正在记录 Promote decision...' : '正在记录 Reject decision...')
+    setClueChainStatus(decision === 'promote' ? t('graphPage.status.promoteDecisionRecording') : t('graphPage.status.rejectDecisionRecording'))
     try {
       const chain = await decideClueChainCandidate(activeClueChain.chain_id, candidateId, {
         decision,
@@ -2583,15 +2597,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       setActiveClueChain(chain)
       setClueChainOpen(true)
-      setClueChainStatus(decision === 'promote' ? '已记录 Promote decision' : '已记录 Reject decision')
+      setClueChainStatus(decision === 'promote' ? t('graphPage.status.promoteDecisionRecorded') : t('graphPage.status.rejectDecisionRecorded'))
     } catch (error) {
-      const message = error instanceof Error ? error.message : '审核失败'
-      setClueChainStatus(`审核失败: ${message}`)
-      window.alert(`Clue Chain 候选审核失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.reviewFailed')
+      setClueChainStatus(tf('graphPage.error.reviewFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.clueChainReviewFailed', { message }))
     } finally {
       setClueChainBusy(false)
     }
-  }, [activeClueChain])
+  }, [activeClueChain, t, tf])
 
   const copyStructuredPayload = async () => {
     const text = JSON.stringify(selectedExportPayload, null, 2)
@@ -2600,7 +2614,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
 
   const submitStructuredTasks = async (flowType: 'collect' | 'source_collect') => {
     if (!selectedExportPayload.selected_nodes.length) {
-      window.alert('请先选择节点')
+      window.alert(t('graphPage.error.selectNode'))
       return
     }
     setSubmittingMap((prev) => ({ ...prev, [flowType]: true }))
@@ -2623,7 +2637,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       setStructuredResultMap((prev) => ({ ...prev, [flowType]: result }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : '提交失败'
+      const message = error instanceof Error ? error.message : t('graphPage.error.submitFailed')
       setStructuredResultMap((prev) => ({
         ...prev,
         [flowType]: {
@@ -2670,6 +2684,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     const relationItems: NodeGraphContext['relationItems'] = []
     const neighborNodesByType = new Map<string, Array<{ id: string; name: string; type: string }>>()
     const relationsByPredicate = new Map<string, NodeGraphContext['relationItems']>()
+    const defaultRelation = t('graphPage.label.defaultRelation')
 
     incident.forEach((edge, index) => {
       const resolved = topology.edgeResolvedKeyMap.get(edge)
@@ -2697,16 +2712,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         relatedDocs.add(String(other.id))
       }
       relationItems.push({
-        id: `${index}-${otherKey}-${pred || '关联'}`,
+        id: `${index}-${otherKey}-${pred || defaultRelation}`,
         direction: outbound ? 'OUT' : 'IN',
-        relation: pred || '关联',
+        relation: pred || defaultRelation,
         targetName: other ? nodeName(other) : otherKey,
         targetType: other?.type || '-',
       })
       if (pred) {
         const group = relationsByPredicate.get(pred) || []
         group.push({
-          id: `${index}-${otherKey}-${pred || '关联'}-pred`,
+          id: `${index}-${otherKey}-${pred || defaultRelation}-pred`,
           direction: outbound ? 'OUT' : 'IN',
           relation: pred,
           targetName: other ? nodeName(other) : otherKey,
@@ -2737,7 +2752,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       relationsByPredicate: Object.fromEntries(relationsByPredicate.entries()),
       relationItems,
     }
-  }, [selectedNode, topology.connectedNodeKeys, topology.connectedEdges, topology.edgeResolvedKeyMap, connectedNodeMap])
+  }, [selectedNode, topology.connectedNodeKeys, topology.connectedEdges, topology.edgeResolvedKeyMap, connectedNodeMap, t])
 
   const selectedNodeKey = useMemo(() => {
     if (!selectedNode) return null
@@ -4445,26 +4460,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       z: String(node.z ?? ''),
     })
     setNewNodeName('')
-    setGraphEditStatus(`已新增节点: ${key}`)
-  }, [createDraftNode, newNodeType, newNodeName])
+    setGraphEditStatus(tf('graphPage.status.nodeCreated', { key }))
+  }, [createDraftNode, newNodeType, newNodeName, tf])
 
   const handleDeleteSelectedDraftNodes = useCallback(() => {
     const result = removeDraftNodesByKeys(selectedNodeKeyList)
     if (!result.removedNodes) {
-      setGraphEditStatus('未删除节点：当前选择为空或节点不在草稿中')
+      setGraphEditStatus(t('graphPage.status.nodeDeleteSkipped'))
       return
     }
     setManualSelectedNodeKeys(new Set())
     setManualDeselectedNodeKeys(new Set())
     setRadiationSelectionByCenter({})
-    setGraphEditStatus(`已删除节点 ${result.removedNodes}，关联边 ${result.removedEdges}`)
-  }, [removeDraftNodesByKeys, selectedNodeKeyList, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setRadiationSelectionByCenter])
+    setGraphEditStatus(tf('graphPage.status.nodesDeleted', { nodes: result.removedNodes, edges: result.removedEdges }))
+  }, [removeDraftNodesByKeys, selectedNodeKeyList, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setRadiationSelectionByCenter, t, tf])
 
   const handleCreateDraftEdge = useCallback(() => {
     const sourceKey = edgeDraft.sourceKey.trim()
     const targetKey = edgeDraft.targetKey.trim()
     if (!sourceKey || !targetKey) {
-      window.alert('请选择 source 和 target 节点')
+      window.alert(t('graphPage.error.selectSourceAndTarget'))
       return
     }
     const created = createDraftEdgeByNodeKeys(sourceKey, targetKey, {
@@ -4472,12 +4487,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       predicate: edgeDraft.relation.trim() || undefined,
     })
     if (!created.ok) {
-      if (created.reason === 'already_exists') window.alert('边已存在')
-      else window.alert('创建边失败：节点不存在')
+      if (created.reason === 'already_exists') window.alert(t('graphPage.error.edgeAlreadyExists'))
+      else window.alert(t('graphPage.error.edgeCreateMissingNode'))
       return
     }
-    setGraphEditStatus(`已新增边: ${sourceKey} -> ${targetKey}`)
-  }, [edgeDraft, createDraftEdgeByNodeKeys])
+    setGraphEditStatus(tf('graphPage.status.edgeCreated', { source: sourceKey, target: targetKey }))
+  }, [edgeDraft, createDraftEdgeByNodeKeys, t, tf])
 
   const handleApplyNodeEditDraft = useCallback(() => {
     if (!nodeEditDraft.key) return
@@ -4498,26 +4513,26 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     patch.z = numericOrUndefined(nodeEditDraft.z)
     const ok = updateDraftNodeByKey(nodeEditDraft.key, patch)
     if (!ok) {
-      window.alert('节点更新失败：节点可能已被删除')
+      window.alert(t('graphPage.error.nodeUpdateFailed'))
       return
     }
-    setGraphEditStatus(`已更新节点: ${nodeEditDraft.key}`)
-  }, [nodeEditDraft, updateDraftNodeByKey])
+    setGraphEditStatus(tf('graphPage.status.nodeUpdated', { key: nodeEditDraft.key }))
+  }, [nodeEditDraft, updateDraftNodeByKey, t, tf])
 
   const handleLoadTemplateVersions = useCallback(async () => {
     if (!activeTemplateKey) return
     setTemplateBusy(true)
     try {
       await loadVersionList(activeTemplateKey)
-      setGraphEditStatus(`已加载模板版本列表: ${activeTemplateKey}`)
+      setGraphEditStatus(tf('graphPage.status.templateVersionsLoaded', { templateKey: activeTemplateKey }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : '版本列表加载失败'
-      setGraphEditStatus(`版本列表加载失败: ${message}`)
-      window.alert(`版本列表加载失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.versionListLoadFailed')
+      setGraphEditStatus(tf('graphPage.error.versionListLoadFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.versionListLoadFailedWithMessage', { message }))
     } finally {
       setTemplateBusy(false)
     }
-  }, [activeTemplateKey, loadVersionList])
+  }, [activeTemplateKey, loadVersionList, t, tf])
 
   const handleCreateTemplate = useCallback(async () => {
     const name = templateNameDraft.trim()
@@ -4534,16 +4549,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         },
       )
       setTemplateNameDraft('')
-      setGraphEditStatus(`模板创建成功: ${name}`)
+      setGraphEditStatus(tf('graphPage.status.templateCreated', { name }))
       await loadTemplateList()
     } catch (error) {
-      const message = error instanceof Error ? error.message : '模板创建失败'
-      setGraphEditStatus(`模板创建失败: ${message}`)
-      window.alert(`模板创建失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.templateCreateFailed')
+      setGraphEditStatus(tf('graphPage.error.templateCreateFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.templateCreateFailedWithMessage', { message }))
     } finally {
       setTemplateBusy(false)
     }
-  }, [templateNameDraft, callApiByCandidates, draftNodes, draftEdges, loadTemplateList])
+  }, [templateNameDraft, callApiByCandidates, draftNodes, draftEdges, loadTemplateList, t, tf])
 
   const handleRenameTemplate = useCallback(async () => {
     if (!activeTemplateKey) return
@@ -4557,16 +4572,16 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         { name },
       )
       setRenameTemplateDraft('')
-      setGraphEditStatus(`模板已重命名为: ${name}`)
+      setGraphEditStatus(tf('graphPage.status.templateRenamed', { name }))
       await loadTemplateList()
     } catch (error) {
-      const message = error instanceof Error ? error.message : '模板重命名失败'
-      setGraphEditStatus(`模板重命名失败: ${message}`)
-      window.alert(`模板重命名失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.templateRenameFailed')
+      setGraphEditStatus(tf('graphPage.error.templateRenameFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.templateRenameFailedWithMessage', { message }))
     } finally {
       setTemplateBusy(false)
     }
-  }, [activeTemplateKey, renameTemplateDraft, callApiByCandidates, loadTemplateList])
+  }, [activeTemplateKey, renameTemplateDraft, callApiByCandidates, loadTemplateList, t, tf])
 
   const handleDeleteTemplate = useCallback(async () => {
     if (!activeTemplateKey) return
@@ -4576,23 +4591,23 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         ['deleteWorkflowGraphTemplate', 'deleteGraphTemplate', 'deleteGraphDraftTemplate', 'deleteWorkflowTemplate'],
         activeTemplateKey,
       )
-      setGraphEditStatus(`模板已删除: ${activeTemplateKey}`)
+      setGraphEditStatus(tf('graphPage.status.templateDeleted', { templateKey: activeTemplateKey }))
       setActiveTemplateKey('')
       setActiveVersionKey('')
       setVersionItems([])
       await loadTemplateList()
     } catch (error) {
-      const message = error instanceof Error ? error.message : '模板删除失败'
-      setGraphEditStatus(`模板删除失败: ${message}`)
-      window.alert(`模板删除失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.templateDeleteFailed')
+      setGraphEditStatus(tf('graphPage.error.templateDeleteFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.templateDeleteFailedWithMessage', { message }))
     } finally {
       setTemplateBusy(false)
     }
-  }, [activeTemplateKey, callApiByCandidates, loadTemplateList])
+  }, [activeTemplateKey, callApiByCandidates, loadTemplateList, t, tf])
 
   const handleSaveVersion = useCallback(async () => {
     if (!activeTemplateKey) {
-      window.alert('请先选择模板')
+      window.alert(t('graphPage.error.selectTemplate'))
       return
     }
     const versionName = versionNameDraft.trim() || `v-${new Date().toISOString()}`
@@ -4604,17 +4619,17 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         { version_id: versionName, dsl: { nodes: draftNodes, edges: draftEdges } },
       )
       setVersionNameDraft('')
-      setGraphEditStatus(`已保存版本: ${versionName}`)
+      setGraphEditStatus(tf('graphPage.status.versionSaved', { versionName }))
       await loadVersionList(activeTemplateKey)
       markDraftSaved()
     } catch (error) {
-      const message = error instanceof Error ? error.message : '版本保存失败'
-      setGraphEditStatus(`版本保存失败: ${message}`)
-      window.alert(`版本保存失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.versionSaveFailed')
+      setGraphEditStatus(tf('graphPage.error.versionSaveFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.versionSaveFailedWithMessage', { message }))
     } finally {
       setTemplateBusy(false)
     }
-  }, [activeTemplateKey, versionNameDraft, callApiByCandidates, draftNodes, draftEdges, loadVersionList, markDraftSaved])
+  }, [activeTemplateKey, versionNameDraft, callApiByCandidates, draftNodes, draftEdges, loadVersionList, markDraftSaved, t, tf])
 
   const handleLoadVersion = useCallback(async () => {
     if (!activeTemplateKey || !activeVersionKey) return
@@ -4631,18 +4646,18 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       const nextNodes = Array.isArray(dslPayload.nodes) ? dslPayload.nodes as GraphNodeItem[] : []
       const nextEdges = Array.isArray(dslPayload.edges) ? dslPayload.edges as GraphEdgeItem[] : []
       if (!nextNodes.length && !nextEdges.length) {
-        window.alert('加载版本成功，但返回为空')
+        window.alert(t('graphPage.status.versionLoadedEmpty'))
       }
       replaceDraft(nextNodes, nextEdges, { markAsDirty: true })
-      setGraphEditStatus(`已加载版本: ${activeVersionKey}`)
+      setGraphEditStatus(tf('graphPage.status.versionLoaded', { versionKey: activeVersionKey }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : '版本加载失败'
-      setGraphEditStatus(`版本加载失败: ${message}`)
-      window.alert(`版本加载失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.versionLoadFailed')
+      setGraphEditStatus(tf('graphPage.error.versionLoadFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.versionLoadFailedWithMessage', { message }))
     } finally {
       setTemplateBusy(false)
     }
-  }, [activeTemplateKey, activeVersionKey, callApiByCandidates, replaceDraft])
+  }, [activeTemplateKey, activeVersionKey, callApiByCandidates, replaceDraft, t, tf])
 
   const handleActivateVersion = useCallback(async () => {
     if (!activeTemplateKey || !activeVersionKey) return
@@ -4653,21 +4668,21 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         activeTemplateKey,
         activeVersionKey,
       )
-      setGraphEditStatus(`已激活版本: ${activeVersionKey}`)
+      setGraphEditStatus(tf('graphPage.status.versionActivated', { versionKey: activeVersionKey }))
       await loadVersionList(activeTemplateKey)
     } catch (error) {
-      const message = error instanceof Error ? error.message : '版本激活失败'
-      setGraphEditStatus(`版本激活失败: ${message}`)
-      window.alert(`版本激活失败: ${message}`)
+      const message = error instanceof Error ? error.message : t('graphPage.error.versionActivateFailed')
+      setGraphEditStatus(tf('graphPage.error.versionActivateFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.versionActivateFailedWithMessage', { message }))
     } finally {
       setTemplateBusy(false)
     }
-  }, [activeTemplateKey, activeVersionKey, callApiByCandidates, loadVersionList])
+  }, [activeTemplateKey, activeVersionKey, callApiByCandidates, loadVersionList, t, tf])
 
   const handleForceGraphRenderError = useCallback((message: string) => {
-    setForceGraphFallbackNotice(`3D引擎渲染失败，已自动降级到 legacy-projection。${message ? ` (${message})` : ''}`)
+    setForceGraphFallbackNotice(tf('graphPage.error.force3dRenderFallback', { message: message ? ` (${message})` : '' }))
     requestProjectionEngineChange('legacy')
-  }, [requestProjectionEngineChange])
+  }, [requestProjectionEngineChange, tf])
 
   const forceGraphRenderBoundaryKey = `${renderMode}:${projectionEngine}:${forceGraphData.nodes.length}:${forceGraphData.links.length}`
 
@@ -4931,7 +4946,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 title={t('graphPage.tooltip.createClueChain')}
               >
                 {clueChainBusy ? <LoaderCircle size={14} className="spinning" /> : <GitBranchPlus size={14} />}
-                Chain（{selectedNodeKeys.size || clueChainSeedNodes.length}）
+                {tf('graphPage.action.clueChainWithCount', { count: selectedNodeKeys.size || clueChainSeedNodes.length })}
               </button>
               <button onClick={async () => { await graphData.refetch() }} disabled={graphData.isFetching}>{t('graphPage.action.refresh')}</button>
               <button
@@ -4952,7 +4967,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     fullscreenWantedRef.current = true
                     await fullscreenWrapRef.current.requestFullscreen?.()
                   } catch (error) {
-                    console.warn('Fullscreen toggle failed:', error)
+                    console.warn('fullscreen_toggle_failed', error)
                   }
                 }}
               >
@@ -5154,31 +5169,37 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   className="gv2-control-section-head"
                   onClick={() => setControlSectionOpen((prev) => ({ ...prev, edit: !prev.edit }))}
                 >
-                  <strong>图谱编辑与模板</strong>
-                  <span>{controlSectionOpen.edit ? '收起' : '展开'}</span>
+                  <strong>{t('graphPage.section.edit')}</strong>
+                  <span>{controlSectionOpen.edit ? t('graphPage.action.collapse') : t('graphPage.action.expand')}</span>
                 </button>
                 {controlSectionOpen.edit ? (
                   <div className="gv2-control-section-body">
                     <label className="gv2-control-chip gv2-checkbox">
                       <input type="checkbox" checked={editMode} onChange={(e) => setEditMode(e.target.checked)} />
-                      Edit Mode（本地 Draft）
+                      {t('graphPage.control.editModeLocalDraft')}
                     </label>
                     <div className="gv2-control-chip">
-                      <span>Draft: nodes={draftNodes.length} edges={draftEdges.length} {isDraftDirty ? '· dirty' : '· clean'}</span>
+                      <span>
+                        {tf('graphPage.status.draftSummary', {
+                          nodes: draftNodes.length,
+                          edges: draftEdges.length,
+                          state: isDraftDirty ? t('graphPage.status.draftDirty') : t('graphPage.status.draftClean'),
+                        })}
+                      </span>
                       <button
                         type="button"
                         className="secondary"
                         onClick={() => {
                           resetDraft()
-                          setGraphEditStatus('已重置为远端图谱快照')
+                          setGraphEditStatus(t('graphPage.status.resetRemoteSnapshot'))
                         }}
                         disabled={!isDraftDirty}
                       >
-                        放弃本地修改
+                        {t('graphPage.action.discardLocalChanges')}
                       </button>
                     </div>
                     <label className="gv2-control-chip" data-testid="graph-curated-panel">
-                      Curated graph_id
+                      {t('graphPage.field.curatedGraphId')}
                       <input
                         data-testid="graph-curated-graph-id"
                         value={curatedGraphId}
@@ -5193,7 +5214,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         onClick={() => void handleSaveCuratedDraft()}
                         disabled={!editMode || curatedBusy || !draftNodes.length}
                       >
-                        保存 Curated Draft
+                        {t('graphPage.action.saveCuratedDraft')}
                       </button>
                       <button
                         type="button"
@@ -5202,7 +5223,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         onClick={() => void handleSubmitCuratedGraph()}
                         disabled={!editMode || curatedBusy || !draftNodes.length}
                       >
-                        提交 Curated Graph
+                        {t('graphPage.action.submitCuratedGraph')}
                       </button>
                       <button
                         type="button"
@@ -5211,7 +5232,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         onClick={() => void handleSyncCuratedGraph()}
                         disabled={!editMode || curatedBusy}
                       >
-                        同步 Curated
+                        {t('graphPage.action.syncCurated')}
                       </button>
                       <button
                         type="button"
@@ -5220,12 +5241,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         onClick={() => void handleListCuratedAudits()}
                         disabled={!editMode || curatedBusy}
                       >
-                        读取 Audit
+                        {t('graphPage.action.readAudit')}
                       </button>
                     </div>
                     <div className="gv2-control-chip">
                       <label>
-                        Rollback version
+                        {t('graphPage.field.rollbackVersion')}
                         <input
                           data-testid="graph-curated-rollback-version"
                           value={curatedRollbackVersionId}
@@ -5234,11 +5255,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         />
                       </label>
                       <input
-                        aria-label="Rollback reason"
+                        aria-label={t('graphPage.field.rollbackReason')}
                         data-testid="graph-curated-rollback-reason"
                         value={curatedRollbackReason}
                         onChange={(e) => setCuratedRollbackReason(e.target.value)}
-                        placeholder="reason"
+                        placeholder={t('graphPage.placeholder.rollbackReason')}
                         disabled={!editMode || curatedBusy}
                       />
                       <button
@@ -5248,18 +5269,18 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         onClick={() => void handleRollbackCuratedGraph()}
                         disabled={!editMode || curatedBusy || !curatedRollbackVersionId.trim()}
                       >
-                        执行 Rollback
+                        {t('graphPage.action.executeRollback')}
                       </button>
                     </div>
                     {curatedAuditItems.length ? (
                       <div className="status-line" data-testid="graph-curated-audit-list">
-                        Audit: {curatedAuditItems.slice(0, 3).map((item) => (
+                        {t('graphPage.status.auditPrefix')} {curatedAuditItems.slice(0, 3).map((item) => (
                           `${String(item.action || 'unknown')}#${String(item.version_id || item.audit_id || 'n/a')}`
                         )).join(' / ')}
                       </div>
                     ) : null}
                     <label className="gv2-control-chip">
-                      Reporting topic
+                      {t('graphPage.field.reportingTopic')}
                       <input
                         data-testid="graph-curated-reporting-topic"
                         value={curatedHandoffTopic}
@@ -5275,7 +5296,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         onClick={() => void handleBuildCuratedReportingHandoff()}
                         disabled={!editMode || curatedBusy || !curatedHandoffTopic.trim()}
                       >
-                        生成 Reporting Handoff
+                        {t('graphPage.action.buildReportingHandoff')}
                       </button>
                       <button
                         type="button"
@@ -5284,53 +5305,53 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         onClick={() => void handleReplayCuratedHandoff()}
                         disabled={!editMode || curatedBusy || !curatedHandoffReplay.runId || !curatedHandoffReplay.handoffId}
                       >
-                        回放 Handoff
+                        {t('graphPage.action.replayHandoff')}
                       </button>
                     </div>
                     <div className="status-line" data-testid="graph-curated-status">
-                      {curatedBusy ? 'Curated API 调用中...' : (curatedStatus || 'Curated API：就绪')}
+                      {curatedBusy ? t('graphPage.status.curatedBusy') : (curatedStatus || t('graphPage.status.curatedReady'))}
                     </div>
                     <label className="gv2-control-chip">
-                      新节点类型
+                      {t('graphPage.field.newNodeType')}
                       <input value={newNodeType} onChange={(e) => setNewNodeType(e.target.value)} disabled={!editMode} />
                     </label>
                     <label className="gv2-control-chip">
-                      新节点名称
+                      {t('graphPage.field.newNodeName')}
                       <input value={newNodeName} onChange={(e) => setNewNodeName(e.target.value)} disabled={!editMode} />
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" onClick={handleCreateDraftNode} disabled={!editMode}>新增节点</button>
+                      <button type="button" onClick={handleCreateDraftNode} disabled={!editMode}>{t('graphPage.action.addNode')}</button>
                       <button type="button" className="secondary" onClick={handleDeleteSelectedDraftNodes} disabled={!editMode || !selectedNodeKeyList.length}>
-                        删除选中节点（{selectedNodeKeyList.length}）
+                        {tf('graphPage.action.deleteSelectedNodes', { count: selectedNodeKeyList.length })}
                       </button>
                     </div>
                     <label className="gv2-control-chip">
-                      边 Source
+                      {t('graphPage.field.edgeSource')}
                       <select value={edgeDraft.sourceKey} onChange={(e) => setEdgeDraft((prev) => ({ ...prev, sourceKey: e.target.value }))} disabled={!editMode}>
-                        <option value="">选择 source</option>
+                        <option value="">{t('graphPage.placeholder.selectSource')}</option>
                         {editableNodeItems.map((item) => (
                           <option key={item.key} value={item.key}>{item.label}</option>
                         ))}
                       </select>
                     </label>
                     <label className="gv2-control-chip">
-                      边 Target
+                      {t('graphPage.field.edgeTarget')}
                       <select value={edgeDraft.targetKey} onChange={(e) => setEdgeDraft((prev) => ({ ...prev, targetKey: e.target.value }))} disabled={!editMode}>
-                        <option value="">选择 target</option>
+                        <option value="">{t('graphPage.placeholder.selectTarget')}</option>
                         {editableNodeItems.map((item) => (
                           <option key={item.key} value={item.key}>{item.label}</option>
                         ))}
                       </select>
                     </label>
                     <label className="gv2-control-chip">
-                      关系
-                      <input value={edgeDraft.relation} onChange={(e) => setEdgeDraft((prev) => ({ ...prev, relation: e.target.value }))} placeholder="REL / influences" disabled={!editMode} />
+                      {t('graphPage.field.relation')}
+                      <input value={edgeDraft.relation} onChange={(e) => setEdgeDraft((prev) => ({ ...prev, relation: e.target.value }))} placeholder={t('graphPage.placeholder.relation')} disabled={!editMode} />
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" onClick={handleCreateDraftEdge} disabled={!editMode}>创建边 {'source->target'}</button>
+                      <button type="button" onClick={handleCreateDraftEdge} disabled={!editMode}>{t('graphPage.action.createEdge')}</button>
                     </div>
                     <label className="gv2-control-chip">
-                      节点编辑对象
+                      {t('graphPage.field.nodeEditTarget')}
                       <select
                         value={nodeEditDraft.key}
                         onChange={(e) => {
@@ -5350,7 +5371,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         }}
                         disabled={!editMode}
                       >
-                        <option value="">选择节点</option>
+                        <option value="">{t('graphPage.placeholder.selectNode')}</option>
                         {selectedEditableNodes.map((node) => {
                           const key = nodeKey(node)
                           return <option key={key} value={key}>{nodeName(node)} ({key})</option>
@@ -5359,20 +5380,20 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     </label>
                     {activeEditableNode ? (
                       <>
-                        <label className="gv2-control-chip">id<input value={nodeEditDraft.id} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, id: e.target.value }))} disabled={!editMode} /></label>
-                        <label className="gv2-control-chip">type<input value={nodeEditDraft.type} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, type: e.target.value }))} disabled={!editMode} /></label>
-                        <label className="gv2-control-chip">name<input value={nodeEditDraft.name} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, name: e.target.value }))} disabled={!editMode} /></label>
-                        <label className="gv2-control-chip">title<input value={nodeEditDraft.title} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, title: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">{t('graphPage.field.id')}<input value={nodeEditDraft.id} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, id: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">{t('graphPage.field.type')}<input value={nodeEditDraft.type} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, type: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">{t('graphPage.field.name')}<input value={nodeEditDraft.name} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, name: e.target.value }))} disabled={!editMode} /></label>
+                        <label className="gv2-control-chip">{t('graphPage.field.title')}<input value={nodeEditDraft.title} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, title: e.target.value }))} disabled={!editMode} /></label>
                         <label className="gv2-control-chip">x<input value={nodeEditDraft.x} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, x: e.target.value }))} disabled={!editMode} /></label>
                         <label className="gv2-control-chip">y<input value={nodeEditDraft.y} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, y: e.target.value }))} disabled={!editMode} /></label>
                         <label className="gv2-control-chip">z<input value={nodeEditDraft.z} onChange={(e) => setNodeEditDraft((prev) => ({ ...prev, z: e.target.value }))} disabled={!editMode} /></label>
                         <div className="gv2-control-chip">
-                          <button type="button" onClick={handleApplyNodeEditDraft} disabled={!editMode}>应用节点字段</button>
+                          <button type="button" onClick={handleApplyNodeEditDraft} disabled={!editMode}>{t('graphPage.action.applyNodeFields')}</button>
                         </div>
                       </>
                     ) : null}
                     <label className="gv2-control-chip">
-                      模板列表
+                      {t('graphPage.field.templateList')}
                       <select
                         value={activeTemplateKey}
                         onChange={(e) => {
@@ -5382,61 +5403,61 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         }}
                         disabled={!editMode || templateBusy}
                       >
-                        <option value="">选择模板</option>
+                        <option value="">{t('graphPage.placeholder.selectTemplate')}</option>
                         {templateItems.map((item) => (
                           <option key={item.key} value={item.key}>
-                            {item.name}{item.activeVersion ? ` (active:${item.activeVersion})` : ''}
+                            {item.name}{item.activeVersion ? tf('graphPage.status.activeVersionSuffix', { version: item.activeVersion }) : ''}
                           </option>
                         ))}
                       </select>
                     </label>
                     <label className="gv2-control-chip">
-                      创建模板
-                      <input value={templateNameDraft} onChange={(e) => setTemplateNameDraft(e.target.value)} placeholder="template name" disabled={!editMode || templateBusy} />
+                      {t('graphPage.field.createTemplate')}
+                      <input value={templateNameDraft} onChange={(e) => setTemplateNameDraft(e.target.value)} placeholder={t('graphPage.placeholder.templateName')} disabled={!editMode || templateBusy} />
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" onClick={() => void handleCreateTemplate()} disabled={!editMode || templateBusy || !templateNameDraft.trim()}>创建模板</button>
-                      <button type="button" className="secondary" onClick={() => void loadTemplateList()} disabled={!editMode || templateBusy}>刷新模板列表</button>
+                      <button type="button" onClick={() => void handleCreateTemplate()} disabled={!editMode || templateBusy || !templateNameDraft.trim()}>{t('graphPage.action.createTemplate')}</button>
+                      <button type="button" className="secondary" onClick={() => void loadTemplateList()} disabled={!editMode || templateBusy}>{t('graphPage.action.refreshTemplateList')}</button>
                     </div>
                     <label className="gv2-control-chip">
-                      模板重命名
-                      <input value={renameTemplateDraft} onChange={(e) => setRenameTemplateDraft(e.target.value)} placeholder="new name" disabled={!editMode || !activeTemplateKey || templateBusy} />
+                      {t('graphPage.field.renameTemplate')}
+                      <input value={renameTemplateDraft} onChange={(e) => setRenameTemplateDraft(e.target.value)} placeholder={t('graphPage.placeholder.newName')} disabled={!editMode || !activeTemplateKey || templateBusy} />
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" onClick={() => void handleRenameTemplate()} disabled={!editMode || !activeTemplateKey || !renameTemplateDraft.trim() || templateBusy}>重命名</button>
-                      <button type="button" className="secondary" onClick={() => void handleDeleteTemplate()} disabled={!editMode || !activeTemplateKey || templateBusy}>删除模板</button>
+                      <button type="button" onClick={() => void handleRenameTemplate()} disabled={!editMode || !activeTemplateKey || !renameTemplateDraft.trim() || templateBusy}>{t('graphPage.action.rename')}</button>
+                      <button type="button" className="secondary" onClick={() => void handleDeleteTemplate()} disabled={!editMode || !activeTemplateKey || templateBusy}>{t('graphPage.action.deleteTemplate')}</button>
                     </div>
                     <label className="gv2-control-chip">
-                      版本列表
+                      {t('graphPage.field.versionList')}
                       <select value={activeVersionKey} onChange={(e) => setActiveVersionKey(e.target.value)} disabled={!editMode || !activeTemplateKey || templateBusy}>
-                        <option value="">选择版本</option>
+                        <option value="">{t('graphPage.placeholder.selectVersion')}</option>
                         {versionItems.map((item) => (
-                          <option key={item.key} value={item.key}>{item.name}{item.activated ? ' (active)' : ''}</option>
+                          <option key={item.key} value={item.key}>{item.name}{item.activated ? t('graphPage.status.activeSuffix') : ''}</option>
                         ))}
                       </select>
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" className="secondary" onClick={() => void handleLoadTemplateVersions()} disabled={!editMode || !activeTemplateKey || templateBusy}>刷新版本</button>
+                      <button type="button" className="secondary" onClick={() => void handleLoadTemplateVersions()} disabled={!editMode || !activeTemplateKey || templateBusy}>{t('graphPage.action.refreshVersions')}</button>
                     </div>
                     <label className="gv2-control-chip">
-                      保存版本名
-                      <input value={versionNameDraft} onChange={(e) => setVersionNameDraft(e.target.value)} placeholder="version name" disabled={!editMode || templateBusy} />
+                      {t('graphPage.field.versionName')}
+                      <input value={versionNameDraft} onChange={(e) => setVersionNameDraft(e.target.value)} placeholder={t('graphPage.placeholder.versionName')} disabled={!editMode || templateBusy} />
                     </label>
                     <div className="gv2-control-chip">
-                      <button type="button" onClick={() => void handleSaveVersion()} disabled={!editMode || !activeTemplateKey || templateBusy}>保存版本</button>
-                      <button type="button" className="secondary" onClick={() => void handleLoadVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>加载版本</button>
-                      <button type="button" className="secondary" onClick={() => void handleActivateVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>激活版本</button>
+                      <button type="button" onClick={() => void handleSaveVersion()} disabled={!editMode || !activeTemplateKey || templateBusy}>{t('graphPage.action.saveVersion')}</button>
+                      <button type="button" className="secondary" onClick={() => void handleLoadVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>{t('graphPage.action.loadVersion')}</button>
+                      <button type="button" className="secondary" onClick={() => void handleActivateVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>{t('graphPage.action.activateVersion')}</button>
                     </div>
                     <div className="status-line">
-                      {templateBusy ? '模板/版本操作中...' : (graphEditStatus || '编辑状态：就绪')}
+                      {templateBusy ? t('graphPage.status.templateBusy') : (graphEditStatus || t('graphPage.status.editReady'))}
                     </div>
                     <div className="gv2-control-chip">
-                      <span>草稿边数量 {editableEdges.length}</span>
+                      <span>{tf('graphPage.status.draftEdgeCount', { count: editableEdges.length })}</span>
                     </div>
                     {editableEdges.slice(0, 8).map((edge) => (
                       <div key={edge.key} className="gv2-control-chip">
                         <span>{edge.label}</span>
-                        <button type="button" className="secondary" onClick={() => removeDraftEdgeAt(edge.index)} disabled={!editMode}>删除</button>
+                        <button type="button" className="secondary" onClick={() => removeDraftEdgeAt(edge.index)} disabled={!editMode}>{t('graphPage.action.delete')}</button>
                       </div>
                     ))}
                   </div>
@@ -5842,33 +5863,33 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
               <div className="gv2-task-modal-backdrop" onClick={() => setTaskModalOpen(false)}>
                 <div className="gv2-task-modal" onClick={(e) => e.stopPropagation()}>
                   <div className="gv2-task-modal-head">
-                    <strong>结构化搜索任务</strong>
+                    <strong>{t('graphPage.section.structuredTasks')}</strong>
                     <button type="button" onClick={() => setTaskModalOpen(false)}>×</button>
                   </div>
-                  <p className="gv2-task-modal-hint">单击仅节点，双击节点及其一跳邻居。可复制 JSON 或直接提交采集任务。来源采集可勾选来源库面板。</p>
+                  <p className="gv2-task-modal-hint">{t('graphPage.hint.structuredTasks')}</p>
                   <div className="gv2-task-grid">
-                    <label>language<input value={dashboard.language} onChange={(e) => setDashboard((p) => ({ ...p, language: e.target.value }))} /></label>
-                    <label>provider<input value={dashboard.provider} onChange={(e) => setDashboard((p) => ({ ...p, provider: e.target.value }))} /></label>
-                    <label>max_items<input type="number" min={1} max={100} value={dashboard.maxItems} onChange={(e) => setDashboard((p) => ({ ...p, maxItems: Math.min(100, Math.max(1, Number(e.target.value) || 1)) }))} /></label>
-                    <label>start_offset<input type="number" min={1} value={dashboard.startOffset} onChange={(e) => setDashboard((p) => ({ ...p, startOffset: e.target.value }))} /></label>
-                    <label>days_back<input type="number" min={0} max={365} value={dashboard.daysBack} onChange={(e) => setDashboard((p) => ({ ...p, daysBack: e.target.value }))} /></label>
-                    <label>platforms<input value={dashboard.platforms} onChange={(e) => setDashboard((p) => ({ ...p, platforms: e.target.value }))} /></label>
-                    <label>base_subreddits<input value={dashboard.baseSubreddits} onChange={(e) => setDashboard((p) => ({ ...p, baseSubreddits: e.target.value }))} /></label>
-                    <label className="gv2-checkbox"><input type="checkbox" checked={dashboard.enableExtraction} onChange={(e) => setDashboard((p) => ({ ...p, enableExtraction: e.target.checked }))} />enable_extraction</label>
-                    <label className="gv2-checkbox"><input type="checkbox" checked={dashboard.asyncMode} onChange={(e) => setDashboard((p) => ({ ...p, asyncMode: e.target.checked }))} />async_mode</label>
-                    <label className="gv2-checkbox"><input type="checkbox" checked={dashboard.enableSubredditDiscovery} onChange={(e) => setDashboard((p) => ({ ...p, enableSubredditDiscovery: e.target.checked }))} />enable_subreddit_discovery</label>
-                    <label className="gv2-checkbox"><input type="checkbox" checked={dashboard.llmAssist} onChange={(e) => setDashboard((p) => ({ ...p, llmAssist: e.target.checked }))} />llm_assist</label>
+                    <label>{t('graphPage.field.language')}<input value={dashboard.language} onChange={(e) => setDashboard((p) => ({ ...p, language: e.target.value }))} /></label>
+                    <label>{t('graphPage.field.provider')}<input value={dashboard.provider} onChange={(e) => setDashboard((p) => ({ ...p, provider: e.target.value }))} /></label>
+                    <label>{t('graphPage.field.maxItems')}<input type="number" min={1} max={100} value={dashboard.maxItems} onChange={(e) => setDashboard((p) => ({ ...p, maxItems: Math.min(100, Math.max(1, Number(e.target.value) || 1)) }))} /></label>
+                    <label>{t('graphPage.field.startOffset')}<input type="number" min={1} value={dashboard.startOffset} onChange={(e) => setDashboard((p) => ({ ...p, startOffset: e.target.value }))} /></label>
+                    <label>{t('graphPage.field.daysBack')}<input type="number" min={0} max={365} value={dashboard.daysBack} onChange={(e) => setDashboard((p) => ({ ...p, daysBack: e.target.value }))} /></label>
+                    <label>{t('graphPage.field.platforms')}<input value={dashboard.platforms} onChange={(e) => setDashboard((p) => ({ ...p, platforms: e.target.value }))} /></label>
+                    <label>{t('graphPage.field.baseSubreddits')}<input value={dashboard.baseSubreddits} onChange={(e) => setDashboard((p) => ({ ...p, baseSubreddits: e.target.value }))} /></label>
+                    <label className="gv2-checkbox"><input type="checkbox" checked={dashboard.enableExtraction} onChange={(e) => setDashboard((p) => ({ ...p, enableExtraction: e.target.checked }))} />{t('graphPage.control.enableExtraction')}</label>
+                    <label className="gv2-checkbox"><input type="checkbox" checked={dashboard.asyncMode} onChange={(e) => setDashboard((p) => ({ ...p, asyncMode: e.target.checked }))} />{t('graphPage.control.asyncMode')}</label>
+                    <label className="gv2-checkbox"><input type="checkbox" checked={dashboard.enableSubredditDiscovery} onChange={(e) => setDashboard((p) => ({ ...p, enableSubredditDiscovery: e.target.checked }))} />{t('graphPage.control.enableSubredditDiscovery')}</label>
+                    <label className="gv2-checkbox"><input type="checkbox" checked={dashboard.llmAssist} onChange={(e) => setDashboard((p) => ({ ...p, llmAssist: e.target.checked }))} />{t('graphPage.control.llmAssist')}</label>
                   </div>
                   <div className="gv2-source-panel">
                     <div className="gv2-source-panel-head">
-                      <strong>来源库面板</strong>
-                      <span>已选 {dashboard.sourceItemKeys.length}</span>
+                      <strong>{t('graphPage.section.sourceLibrary')}</strong>
+                      <span>{tf('graphPage.status.selectedCount', { count: dashboard.sourceItemKeys.length })}</span>
                     </div>
                     <div className="gv2-source-panel-tools">
                       <input
                         value={sourceItemKeyword}
                         onChange={(e) => setSourceItemKeyword(e.target.value)}
-                        placeholder="筛选 item_key / 名称 / tags"
+                        placeholder={t('graphPage.placeholder.sourceItemFilter')}
                       />
                       <button
                         type="button"
@@ -5878,21 +5899,21 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           setDashboard((prev) => ({ ...prev, sourceItemKeys: Array.from(new Set([...(prev.sourceItemKeys || []), ...visibleKeys])) }))
                         }}
                       >
-                        全选可见
+                        {t('graphPage.action.selectVisible')}
                       </button>
                       <button
                         type="button"
                         className="secondary"
                         onClick={() => setDashboard((prev) => ({ ...prev, sourceItemKeys: [] }))}
                       >
-                        清空
+                        {t('graphPage.action.clear')}
                       </button>
                     </div>
                     <div className="gv2-source-panel-list">
-                      {sourceItemsQuery.isLoading ? <div className="status-line">来源库加载中...</div> : null}
-                      {sourceItemsQuery.isError ? <div className="status-line">来源库加载失败</div> : null}
+                      {sourceItemsQuery.isLoading ? <div className="status-line">{t('graphPage.status.sourceLibraryLoading')}</div> : null}
+                      {sourceItemsQuery.isError ? <div className="status-line">{t('graphPage.error.sourceLibraryLoadFailed')}</div> : null}
                       {!sourceItemsQuery.isLoading && !sourceItemsQuery.isError && !filteredSourceItems.length ? (
-                        <div className="status-line">没有匹配的来源项</div>
+                        <div className="status-line">{t('graphPage.empty.sourceItems')}</div>
                       ) : null}
                       {filteredSourceItems.map((item) => {
                         const itemKey = String(item.item_key || '').trim()
@@ -5921,35 +5942,35 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   </div>
                   <textarea className="gv2-task-json" readOnly value={JSON.stringify(selectedExportPayload, null, 2)} />
                   <div className="gv2-task-actions">
-                    <button type="button" className="secondary" onClick={() => void copyStructuredPayload()}>复制结构化任务JSON</button>
+                    <button type="button" className="secondary" onClick={() => void copyStructuredPayload()}>{t('graphPage.action.copyStructuredTasksJson')}</button>
                     <button
                       type="button"
                       disabled={Boolean(submittingMap.collect)}
                       onClick={() => void submitStructuredTasks('collect')}
                     >
-                      {submittingMap.collect ? '提交中...' : '生成结构化采集任务'}
+                      {submittingMap.collect ? t('graphPage.status.submitting') : t('graphPage.action.createStructuredCollectTasks')}
                     </button>
                     <button
                       type="button"
                       disabled={Boolean(submittingMap.source_collect)}
                       onClick={() => void submitStructuredTasks('source_collect')}
                     >
-                      {submittingMap.source_collect ? '提交中...' : '生成来源采集任务'}
+                      {submittingMap.source_collect ? t('graphPage.status.submitting') : t('graphPage.action.createSourceCollectTasks')}
                     </button>
                   </div>
                   <div className="gv2-task-result">
-                    <div>collect.accepted: {String(structuredResultMap.collect?.summary?.accepted ?? '-')}</div>
-                    <div>collect.queued: {String(structuredResultMap.collect?.summary?.queued ?? '-')}</div>
-                    <div>collect.failed: {String(structuredResultMap.collect?.summary?.failed ?? '-')}</div>
+                    <div>{t('graphPage.result.collectAccepted')}: {String(structuredResultMap.collect?.summary?.accepted ?? '-')}</div>
+                    <div>{t('graphPage.result.collectQueued')}: {String(structuredResultMap.collect?.summary?.queued ?? '-')}</div>
+                    <div>{t('graphPage.result.collectFailed')}: {String(structuredResultMap.collect?.summary?.failed ?? '-')}</div>
                     <div>
-                      collect.batch_names: {(structuredResultMap.collect?.batches || []).map((b, idx) => String(b.batch_name || `批次 ${idx + 1}`)).join(', ') || '-'}
+                      {t('graphPage.result.collectBatchNames')}: {(structuredResultMap.collect?.batches || []).map((b, idx) => String(b.batch_name || tf('graphPage.result.batchNameFallback', { index: idx + 1 }))).join(', ') || '-'}
                     </div>
                     <hr style={{ borderColor: 'rgba(148,163,184,0.2)' }} />
-                    <div>source_collect.accepted: {String(structuredResultMap.source_collect?.summary?.accepted ?? '-')}</div>
-                    <div>source_collect.queued: {String(structuredResultMap.source_collect?.summary?.queued ?? '-')}</div>
-                    <div>source_collect.failed: {String(structuredResultMap.source_collect?.summary?.failed ?? '-')}</div>
+                    <div>{t('graphPage.result.sourceCollectAccepted')}: {String(structuredResultMap.source_collect?.summary?.accepted ?? '-')}</div>
+                    <div>{t('graphPage.result.sourceCollectQueued')}: {String(structuredResultMap.source_collect?.summary?.queued ?? '-')}</div>
+                    <div>{t('graphPage.result.sourceCollectFailed')}: {String(structuredResultMap.source_collect?.summary?.failed ?? '-')}</div>
                     <div>
-                      source_collect.batch_names: {(structuredResultMap.source_collect?.batches || []).map((b, idx) => String(b.batch_name || `批次 ${idx + 1}`)).join(', ') || '-'}
+                      {t('graphPage.result.sourceCollectBatchNames')}: {(structuredResultMap.source_collect?.batches || []).map((b, idx) => String(b.batch_name || tf('graphPage.result.batchNameFallback', { index: idx + 1 }))).join(', ') || '-'}
                     </div>
                   </div>
                 </div>
@@ -6008,18 +6029,18 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   </div>
                   {selectedNodeContext ? (
                     <div className="gv2-node-context">
-                      <strong>图谱信息</strong>
+                      <strong>{t('graphPage.section.graphInfo')}</strong>
                       <div className="gv2-node-grid">
                         <div className="gv2-node-grid-item">
-                          <label>连接数（Degree）</label>
+                          <label>{t('graphPage.field.degree')}</label>
                           <strong>{selectedNodeContext.degree}</strong>
                         </div>
                         <div className="gv2-node-grid-item">
-                          <label>关联类型数</label>
+                          <label>{t('graphPage.field.neighborTypeCount')}</label>
                           <strong>{selectedNodeContext.neighborTypeCount}</strong>
                         </div>
                         <div className="gv2-node-grid-item">
-                          <label>关联文档数</label>
+                          <label>{t('graphPage.field.relatedDocCount')}</label>
                           <strong>{selectedNodeContext.marketDocCount}</strong>
                         </div>
                       </div>
@@ -6071,7 +6092,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                           {selectedNodeContext.relationsByPredicate[expandedPredicate].map((item) => (
                             <span key={item.id}>
                               <i style={{ background: nodeTypeColor[item.targetType] || '#7dd3fc' }} />
-                              {item.direction === 'OUT' ? '出' : '入'} · {item.targetName}
+                              {item.direction === 'OUT' ? t('graphPage.direction.out') : t('graphPage.direction.in')} · {item.targetName}
                             </span>
                           ))}
                         </div>
@@ -6080,7 +6101,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   ) : null}
                   {nodeAllElements.length ? (
                     <div className="gv2-node-context">
-                      <strong>节点元素</strong>
+                      <strong>{t('graphPage.section.nodeElements')}</strong>
                       <div className="gv2-node-tags">
                         {nodeElementGroups.map((group, index) => {
                           const color = distinctChipColor(index)
@@ -6111,7 +6132,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                   ) : null}
                   {selectedNodeContext?.relationItems.length ? (
                     <div className="gv2-node-context">
-                      <strong>实体关系信息</strong>
+                      <strong>{t('graphPage.section.entityRelationInfo')}</strong>
                       <div className="gv2-rel-group-list">
                         {relationGroups.map((group) => {
                           const open = Boolean(relationGroupOpenResolved[group.relation])
@@ -6131,14 +6152,14 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                                 }
                               >
                                 <span className="gv2-rel-group-title">{group.relation}</span>
-                                <span className="gv2-rel-group-meta">{group.items.length} 条</span>
-                                <span className="gv2-rel-group-action">{open ? '收起' : '展开'}</span>
+                                <span className="gv2-rel-group-meta">{tf('graphPage.status.relationItemCount', { count: group.items.length })}</span>
+                                <span className="gv2-rel-group-action">{open ? t('graphPage.action.collapse') : t('graphPage.action.expand')}</span>
                               </button>
                               {open ? (
                                 <div className="gv2-node-relations">
                                   {group.items.map((item) => (
                                     <div key={item.id} className="gv2-node-relation">
-                                      <span className={`gv2-rel-badge ${item.direction === 'OUT' ? 'out' : 'in'}`}>{item.direction === 'OUT' ? '出' : '入'}</span>
+                                      <span className={`gv2-rel-badge ${item.direction === 'OUT' ? 'out' : 'in'}`}>{item.direction === 'OUT' ? t('graphPage.direction.out') : t('graphPage.direction.in')}</span>
                                       <span className="gv2-rel-name">{item.relation}</span>
                                       <span className="gv2-rel-target">
                                         <i style={{ background: nodeTypeColor[item.targetType] || '#7dd3fc' }} />
@@ -6162,7 +6183,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                               : Object.fromEntries(relationGroups.map((group) => [group.relation, true])),
                           )}
                         >
-                          {allRelationGroupsOpen ? '收起全部关系组' : `展开全部关系组（${relationGroups.length}）`}
+                          {allRelationGroupsOpen
+                            ? t('graphPage.action.collapseAllRelationGroups')
+                            : tf('graphPage.action.expandAllRelationGroups', { count: relationGroups.length })}
                         </button>
                       ) : null}
                     </div>

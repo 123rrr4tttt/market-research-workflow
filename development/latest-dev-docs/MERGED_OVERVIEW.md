@@ -22,12 +22,13 @@ Updated: 2026-05-23 PST
 ## 最近新增
 
 - `development-plans`：
-  - [2026-05-23 Wave31 Frontend I18N Concentrated Slices](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/15_wave31-frontend-i18n-concentrated-slices-2026-05-23.md)
+  - [2026-05-23 Wave32 Frontend I18N Final Closure](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)
+  - [2026-05-23 Wave31 Frontend I18N Concentrated Slices](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/15_wave31-frontend-i18n-concentrated-slices-2026-05-23.md)
   - [2026-05-23 Wave30 Global Vectorization External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)
   - [2026-05-23 Wave30 Open Source Platform External-Blocked Decision](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration/09_wave30-open-source-external-blocked-decision-2026-05-23.md)
   - [2026-05-23 Wave30 Docs Root Navigation Target Readback](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/20_wave30-docs-root-navigation-target-readback-2026-05-23.md)
   - [2026-05-23 Wave31 Docs Root Shared Navigation Sync](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)
-  - [2026-05-23 Wave30 Crawler Manage I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/14_wave30-crawler-manage-i18n-slice-2026-05-23.md)
+  - [2026-05-23 Wave30 Crawler Manage I18N Slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/14_wave30-crawler-manage-i18n-slice-2026-05-23.md)
   - [2026-05-23 Wave28 Docs Root CURRENT_DEV Active Surface](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/17_wave28-docs-root-current-dev-supervisor-owned-2026-05-23.md)
   - [2026-05-23 Wave28 Docs Root Reviewer Decision](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/17_wave28-docs-root-reviewer-2026-05-23.md)
   - [2026-05-23 Wave28 Docs Root Archive Closed Classification](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/18_wave28-worker-a-docs-root-archive-closed-classification-2026-05-23.md)
@@ -206,7 +207,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave12 Source-Library Ingest Relevance Queue](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/12_wave12-relevance-review-queue-contract-2026-05-22.md)
   - [2026-05-22 Wave12 Frontend I18N Business String Audit](./development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/05_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Dual Frontend Business String Audit](./development-plans/ARCHIVE_RETIRED/2026-03-07-dual-frontend-workbench-topology/05_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
-  - [2026-05-22 Wave12 Frontend Three-Layer Business String Audit](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/06_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
+  - [2026-05-22 Wave12 Frontend Three-Layer Business String Audit](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/06_wave12-frontend-business-string-audit-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Typed Knowledge Persistence / API Boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Writing Workbench Persistence Boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-writing-workbench-evolution/06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md)
   - [2026-05-22 Wave12 Docs Root Content Plan Gate](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/07_wave12-docs-root-content-plan-gate-evidence-2026-05-22.md)
@@ -234,7 +235,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave14 Source Library Adapter Taxonomy Review](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-source-library-adapter-capability-remediation/15_wave14-taxonomy-review-readiness-2026-05-22.md)
   - [2026-05-22 Wave14 Dual Frontend Migration Boundary](./development-plans/ARCHIVE_RETIRED/2026-03-07-dual-frontend-workbench-topology/06_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
   - [2026-05-22 Wave14 Frontend I18N Theme Migration Boundary](./development-plans/ARCHIVE_CLOSED/2026-03-07-frontend-i18n-theme-modularization/06_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
-  - [2026-05-22 Wave14 Frontend Three-Layer Migration Boundary](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/07_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
+  - [2026-05-22 Wave14 Frontend Three-Layer Migration Boundary](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/07_wave14-frontend-migration-boundary-evidence-2026-05-22.md)
   - [2026-05-22 Wave14 Abstract Content Gaps Evidence](./development-plans/ARCHIVE_CLOSED/2026-03-07-后续安排/06_wave14-abstract-content-gaps-evidence-2026-05-22.md)
   - [2026-05-22 Wave14 AgentCore Tool Calling Quality](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/07_wave14-agentcore-tool-calling-quality-2026-05-22.md)
 - `development-plans/CURRENT_DEV` Wave15 runtime / migration / closure gates:
@@ -286,7 +287,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave18 Graph Editing Audit Readback](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-graph-editing-and-reporting/09_wave18-graph-editing-audit-readback-2026-05-22.md)
   - [2026-05-22 Wave18 AgentCore Provider Trace](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/08_wave18-agentcore-provider-trace-readback-2026-05-22.md)
   - [2026-05-22 Wave18 Source-Library Review Batch 2](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/11_wave18-review-closure-batch2-2026-05-22.md)
-  - [2026-05-22 Wave18 Catalog Page I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/10_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md)
+  - [2026-05-22 Wave18 Catalog Page I18N Slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/10_wave18-catalog-page-i18n-slice-evidence-2026-05-22.md)
   - [2026-05-22 Wave18 Docs Root Content Move Batch 3](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/10_wave18-docs-root-content-move-batch3-evidence-2026-05-22.md)
 - `development-plans` Wave19 provider manifest / rollout / migration gates:
   - [2026-05-22 Wave19 Worktree Plan](./automation-runs/dev-docs-folder-audit-2026-05-22/wave19-worktree-plan-2026-05-22.md)
@@ -298,7 +299,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave19 Crawler Public Replay Shards](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-crawler-source-expansion/2026-05-22-wave19-public-replay-shards.md)
   - [2026-05-22 Wave19 AgentCore Provider Trace Redaction](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/09_wave19-agentcore-provider-trace-redaction-2026-05-22.md)
   - [2026-05-22 Wave19 Source-Library Review Batch 3](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/12_wave19-review-closure-batch3-2026-05-22.md)
-  - [2026-05-22 Wave19 Dashboard Page I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
+  - [2026-05-22 Wave19 Dashboard Page I18N Slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/11_wave19-dashboard-page-i18n-slice-evidence-2026-05-22.md)
   - [2026-05-22 Wave19 Docs Root Content Move Batch 4](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/11_wave19-docs-root-content-move-batch4-evidence-2026-05-22.md)
   - [2026-05-22 Wave19 Typed Knowledge Persisted-Card API Boundary](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
 - `development-plans` Wave20 time / OpenClaw / modularization / migration gates:
@@ -312,7 +313,7 @@ Updated: 2026-05-23 PST
   - [2026-05-22 Wave20 Document Query Endpoint Slice](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-12-data-structured-service-modularization/11_wave20-document-query-endpoint-slice-2026-05-22.md)
   - [2026-05-22 Wave20 Consumer Facade Slice](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-consumer-side-modularization/07_wave20-prompt-time-density-consumer-facade-2026-05-22.md)
   - [2026-05-22 Wave20 Source-Library Review Batch 4](./development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/13_wave20-review-closure-batch4-2026-05-22.md)
-  - [2026-05-22 Wave20 ProcessPage I18N Slice](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/12_wave20-process-page-i18n-slice-evidence-2026-05-22.md)
+  - [2026-05-22 Wave20 ProcessPage I18N Slice](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/12_wave20-process-page-i18n-slice-evidence-2026-05-22.md)
   - [2026-05-22 Wave20 Docs Root Content Move Batch 5](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/12_wave20-docs-root-content-move-batch5-evidence-2026-05-22.md)
 - `development-plans` Wave25 closure-priority docs-root integration:
   - [2026-05-23 Wave25 Docs Root Development Main Move](./development-plans/CURRENT_DEV/2026-03-07-docs-root-restructuring/14_wave25-docs-root-development-main-move-2026-05-23.md)
@@ -362,7 +363,7 @@ Updated: 2026-05-23 PST
 - `development-plans/ARCHIVE_RETIRED`：
   - [2026-04-07 Retired Development Plans Index](./development-plans/ARCHIVE_RETIRED/INDEX.md)
 - `development-plans/CURRENT_DEV`：
-  - [2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./development-plans/CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
+  - [2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md](./development-plans/ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/03_frontend-three-layer-rewrite-closure-gap-assessment-and-rollout-2026-04-02.md)
 - `backend-core`：
   - [F_PLAN/2026-03-14-frontdoor-content-extraction-cleaning-best-practices.md](./backend-core/F_PLAN/2026-03-14-frontdoor-content-extraction-cleaning-best-practices.md)
   - [D_TEST/2026-03-14-source-library-frontdoor-cleaning-sample-validation-temp.md](./backend-core/D_TEST/2026-03-14-source-library-frontdoor-cleaning-sample-validation-temp.md)

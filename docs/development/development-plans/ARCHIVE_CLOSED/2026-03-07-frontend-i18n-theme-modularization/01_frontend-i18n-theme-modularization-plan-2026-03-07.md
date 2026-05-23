@@ -14,7 +14,7 @@
 
 ## 0.1 2026-05-23 Closure Decision
 
-Wave28 closes this directory as the first-wave frontend i18n/theme/module platform lane. The remaining business-string migration and page-shell retirement backlog is explicitly transferred to `CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite`.
+Wave28 closes this directory as the first-wave frontend i18n/theme/module platform lane. The remaining business-string migration and page-shell retirement backlog is explicitly transferred to `ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite`.
 
 Closure decision: [12_wave28-closure-decision-2026-05-23.md](./12_wave28-closure-decision-2026-05-23.md)
 

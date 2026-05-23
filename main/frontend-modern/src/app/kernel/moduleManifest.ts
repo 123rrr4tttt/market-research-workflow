@@ -1,4 +1,4 @@
-import type { KernelModuleKey, ModuleManifestEntry } from './types'
+import { STORYBOOK_GROUP_BY_LAYER, type KernelModuleKey, type ModuleManifestEntry, type NavMessageKey, type TitleMessageKey } from './types'
 
 const WRITING_LOOPS = ['edit', 'preview', 'template', 'llm-assist', 'citation-basket', 'info-card'] as const
 const WORKFLOW_LOOPS = ['node-template', 'edge-link', 'run-params', 'result-review', 'import-export'] as const
@@ -9,6 +9,74 @@ const VISUAL_LOOPS = ['view-switch', 'filter', 'object-selection', 'detail-inspe
 const RESOURCE_LOOPS = ['search', 'filter', 'recommendation', 'site-entry-maintenance', 'batch-actions'] as const
 const PROCESS_LOOPS = ['task-list', 'detail', 'auto-refresh', 'cancel', 'history'] as const
 const GOVERNANCE_LOOPS = ['project-switch', 'crawler-import', 'crawler-deploy', 'crawler-rollback', 'settings-edit'] as const
+
+const MODULE_TITLE_KEY_BY_MODULE: Record<KernelModuleKey, TitleMessageKey> = {
+  overviewTasks: 'shell.title.overviewTasks',
+  overviewData: 'shell.title.overviewData',
+  dataDashboard: 'shell.title.dataDashboard',
+  dataMarket: 'shell.title.dataMarket',
+  dataSocial: 'shell.title.dataSocial',
+  dataPolicy: 'shell.title.dataPolicy',
+  dataCatalog: 'shell.title.dataCatalog',
+  graphMarket: 'shell.title.graphMarket',
+  graphPolicy: 'shell.title.graphPolicy',
+  graphSocial: 'shell.title.graphSocial',
+  graphCompany: 'shell.title.graphCompany',
+  graphProduct: 'shell.title.graphProduct',
+  graphOperation: 'shell.title.graphOperation',
+  graphDeep: 'shell.title.graphDeep',
+  graphBuilder: 'shell.title.graphBuilder',
+  flowIngest: 'shell.title.flowIngest',
+  flowSpecialized: 'shell.title.flowSpecialized',
+  flowProcessing: 'shell.title.flowProcessing',
+  flowRawData: 'shell.title.flowRawData',
+  flowExtract: 'shell.title.flowExtract',
+  flowAnalysis: 'shell.title.flowAnalysis',
+  flowBoard: 'shell.title.flowBoard',
+  flowWriting: 'shell.title.flowWriting',
+  flowAgentChat: 'shell.title.flowAgentChat',
+  flowLlmNodeDesign: 'shell.title.flowLlmNodeDesign',
+  sysProjects: 'shell.title.sysProjects',
+  sysCrawler: 'shell.title.sysCrawler',
+  sysResource: 'shell.title.sysResource',
+  sysBackend: 'shell.title.sysBackend',
+  sysSettings: 'shell.title.sysSettings',
+  sysLlm: 'shell.title.sysLlm',
+}
+
+const MODULE_NAV_LABEL_KEY_BY_MODULE: Record<KernelModuleKey, NavMessageKey> = {
+  overviewTasks: 'navigation.item.overviewTasks',
+  overviewData: 'navigation.item.overviewData',
+  dataDashboard: 'navigation.item.dataDashboard',
+  dataMarket: 'navigation.item.dataMarket',
+  dataSocial: 'navigation.item.dataSocial',
+  dataPolicy: 'navigation.item.dataPolicy',
+  dataCatalog: 'navigation.item.dataCatalog',
+  graphMarket: 'navigation.item.graphMarket',
+  graphPolicy: 'navigation.item.graphPolicy',
+  graphSocial: 'navigation.item.graphSocial',
+  graphCompany: 'navigation.item.graphCompany',
+  graphProduct: 'navigation.item.graphProduct',
+  graphOperation: 'navigation.item.graphOperation',
+  graphDeep: 'navigation.item.graphDeep',
+  graphBuilder: 'navigation.item.graphBuilder',
+  flowIngest: 'navigation.item.flowIngest',
+  flowSpecialized: 'navigation.item.flowSpecialized',
+  flowProcessing: 'navigation.item.flowProcessing',
+  flowRawData: 'navigation.item.flowRawData',
+  flowExtract: 'navigation.item.flowExtract',
+  flowAnalysis: 'navigation.item.flowAnalysis',
+  flowBoard: 'navigation.item.flowBoard',
+  flowWriting: 'navigation.item.flowWriting',
+  flowAgentChat: 'navigation.item.flowAgentChat',
+  flowLlmNodeDesign: 'navigation.item.flowLlmNodeDesign',
+  sysProjects: 'navigation.item.sysProjects',
+  sysCrawler: 'navigation.item.sysCrawler',
+  sysResource: 'navigation.item.sysResource',
+  sysBackend: 'navigation.item.sysBackend',
+  sysSettings: 'navigation.item.sysSettings',
+  sysLlm: 'navigation.item.sysLlm',
+}
 
 const DESIGN_SOURCES = {
   figma: 'development/latest-dev-docs/ops-frontend/F_PLAN/frontend-modern-figma-sync-PULL_STATUS_2026-02-27.md',
@@ -52,10 +120,10 @@ function defineModule(
     surfaceKind,
     entryRoute,
     legacyHashes: [legacyHash],
-    titleKey: `shell.title.${moduleKey}`,
-    navLabelKey: `navigation.item.${moduleKey}`,
+    titleKey: MODULE_TITLE_KEY_BY_MODULE[moduleKey],
+    navLabelKey: MODULE_NAV_LABEL_KEY_BY_MODULE[moduleKey],
     navGroupKey,
-    storybookGroup: layerId === 'A' ? 'Workbench' : layerId === 'B' ? 'Visualization' : 'Management',
+    storybookGroup: STORYBOOK_GROUP_BY_LAYER[layerId],
     requiredContext: ['project_key'],
     keepLoops,
     supportsInfoCard,

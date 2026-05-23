@@ -13,7 +13,7 @@ frontend rewrite plus the Wave3/Wave4 evidence packages.
 ## Replacement Entry Points
 
 1. Active frontend architecture and remaining work:
-   [2026-03-15 Frontend Three-Layer Rewrite](../../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md)
+   [2026-03-15 Frontend Three-Layer Rewrite](../../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/README.md)
 2. Static topology, i18n, theme, and module-manifest evidence:
    [frontend-topology-theme/2026-05-22](../../../automation-runs/frontend-topology-theme/2026-05-22/README.md)
 3. Runtime visual and three-layer shell evidence:

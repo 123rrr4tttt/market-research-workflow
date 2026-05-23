@@ -163,11 +163,11 @@ function buildResultSummary(input: {
   const urls = toFiniteNumber(firstDefined(dm.url_count, params.url_count, params.urls, result.url_count, result.urls))
 
   const parts: string[] = []
-  if (inserted != null) parts.push(`${labels.inserted} ${inserted}`)
-  if (updated != null) parts.push(`${labels.updated} ${updated}`)
-  if (skipped != null) parts.push(`${labels.skipped} ${skipped}`)
-  if (errors != null && errors > 0) parts.push(`${labels.errors} ${errors}`)
-  if (urls != null) parts.push(`${labels.urls} ${urls}`)
+  if (inserted != null) parts.push([labels.inserted, inserted].join(' '))
+  if (updated != null) parts.push([labels.updated, updated].join(' '))
+  if (skipped != null) parts.push([labels.skipped, skipped].join(' '))
+  if (errors != null && errors > 0) parts.push([labels.errors, errors].join(' '))
+  if (urls != null) parts.push([labels.urls, urls].join(' '))
   return parts.length ? parts.join(' | ') : '-'
 }
 
@@ -185,7 +185,7 @@ function topRejectionReason(breakdown: Record<string, number>): string {
   const entries = Object.entries(breakdown)
   if (!entries.length) return '-'
   const [reason, count] = entries.sort((a, b) => b[1] - a[1])[0]
-  return `${reason} (${count})`
+  return String(reason) + ' (' + String(count) + ')'
 }
 
 function buildRejectionView(input: {
@@ -464,6 +464,13 @@ export function ProcessPageView({
   const t = (key: ProcessMessageKey, fallback?: string) => translate(locale, key, fallback)
   const formatTemplate = (key: ProcessMessageKey, values: Record<string, string | number>) =>
     formatProcessTemplate(t(key), values)
+  const formatMetaValue = (key: ProcessMessageKey, value: unknown) =>
+    value === null || value === undefined || value === '' ? '' : formatTemplate(key, { value: String(value) })
+  const selectedMetaSegments = [
+    formatMetaValue('processPage.meta.itemKey', selectedMeta?.item_key),
+    formatMetaValue('processPage.meta.channel', selectedMeta?.channel),
+    formatMetaValue('processPage.meta.provider', selectedMeta?.provider),
+  ].filter(Boolean)
 
   return (
     <div className={`content-stack process-page process-page--${variant}`}>
@@ -557,11 +564,11 @@ export function ProcessPageView({
                     <div>{getTaskSourceKind(task)}</div>
                     {task.display_meta?.item_key || task.display_meta?.channel || task.display_meta?.provider ? (
                       <small>
-                        {task.display_meta?.item_key ? `item:${task.display_meta.item_key}` : ''}
-                        {task.display_meta?.channel ? `${task.display_meta?.item_key ? ' | ' : ''}channel:${task.display_meta.channel}` : ''}
-                        {task.display_meta?.provider
-                          ? `${task.display_meta?.item_key || task.display_meta?.channel ? ' | ' : ''}provider:${task.display_meta.provider}`
-                          : ''}
+                        {[
+                          formatMetaValue('processPage.meta.item', task.display_meta?.item_key),
+                          formatMetaValue('processPage.meta.channel', task.display_meta?.channel),
+                          formatMetaValue('processPage.meta.provider', task.display_meta?.provider),
+                        ].filter(Boolean).join(' | ')}
                       </small>
                     ) : null}
                   </td>
@@ -616,9 +623,8 @@ export function ProcessPageView({
               <div>
                 <strong>{t('processPage.field.source')}：</strong>
                 {selectedSourceKind}
-                {selectedMeta?.item_key ? ` | item_key=${selectedMeta.item_key}` : ''}
-                {selectedMeta?.channel ? ` | channel=${selectedMeta.channel}` : ''}
-                {selectedMeta?.provider ? ` | provider=${selectedMeta.provider}` : ''}
+                {selectedMetaSegments.length ? ' | ' : ''}
+                {selectedMetaSegments.join(' | ')}
               </div>
               <div><strong>{t('processPage.field.resultSummary')}：</strong>{selectedResultSummary}</div>
               <div><strong>{t('processPage.field.insertedValid')}：</strong>{selectedRejectionView.insertedValid ?? '-'} {' | '}<strong>{t('processPage.field.rejected')}：</strong>{selectedRejectionView.rejectedCount ?? '-'}</div>

@@ -26,10 +26,10 @@
   替代入口：优先参考 [ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md)。
 - [2026-03-24 Frontend Visual Layering](./2026-03-24-frontend-visual-layering/INDEX.md)
   当前问题：该目录是已补退场证据的空占位；可审计 scope 已由前端三层重写与 Wave3/Wave4 evidence 包承接，继续留在 `CURRENT_DEV` 会制造独立实施入口的错觉。
-  替代入口：优先参考 [CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite](../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md)、[frontend-topology-theme/2026-05-22](../../automation-runs/frontend-topology-theme/2026-05-22/README.md) 与 [frontend-runtime-visual/2026-05-22](../../automation-runs/frontend-runtime-visual/2026-05-22/README.md)。
+  替代入口：优先参考 [ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite](../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)、[frontend-topology-theme/2026-05-22](../../automation-runs/frontend-topology-theme/2026-05-22/README.md) 与 [frontend-runtime-visual/2026-05-22](../../automation-runs/frontend-runtime-visual/2026-05-22/README.md)。
 - [2026-03-07 Dual Frontend Workbench Topology](./2026-03-07-dual-frontend-workbench-topology/13_wave28-retirement-decision-2026-05-23.md)
   当前问题：Wave27 i18n/page-shell disjoint gate、topology gate 与 business-string audit 已证明该目录没有独立 repo-local blocker；继续放在 `CURRENT_DEV` 会把三层重写继承事项重复计为单独 partial。
-  替代入口：优先参考 [CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite](../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md)。
+  替代入口：优先参考 [ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite](../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)。
 
 ## 返回
 

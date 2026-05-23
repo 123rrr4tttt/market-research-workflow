@@ -27,7 +27,7 @@ function LayerBridge({
   const locale = useAppLocale()
   const appTheme = useAppTheme()
   const contract = getKernelModuleContract(moduleKey)
-  const layerLabel = contract.layerId === 'A' ? 'Workbench' : 'Visualization'
+  const layerLabelKey = contract.layerId === 'A' ? 'shell.layer.workbench' : 'shell.layer.visualization'
 
   return (
     <div className={`kernel-bridge kernel-bridge--${contract.surfaceKind}`}>
@@ -37,7 +37,7 @@ function LayerBridge({
           <h1>{translate(locale, contract.titleKey, moduleKey)}</h1>
         </div>
         <div className="kernel-bridge__meta">
-          <span>{layerLabel}</span>
+          <span>{translate(locale, layerLabelKey)}</span>
           <span>{contract.entryRoute}</span>
           <span>{contract.keepLoops.join(' / ')}</span>
         </div>

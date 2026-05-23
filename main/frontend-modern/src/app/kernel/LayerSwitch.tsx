@@ -1,3 +1,4 @@
+import { translate, useAppLocale, type MessageKey } from '../platform/i18n'
 import type { LayerId } from './types'
 import type { useKernelRuntime } from './useKernelRuntime'
 
@@ -14,15 +15,17 @@ const DEFAULT_MODULE_BY_LAYER = {
   C: 'overviewTasks',
 } as const
 
-const LAYERS: Array<{ id: LayerId; label: string }> = [
-  { id: 'A', label: 'Workbench' },
-  { id: 'B', label: 'Visual' },
-  { id: 'C', label: 'Admin' },
+const LAYERS: Array<{ id: LayerId; labelKey: MessageKey }> = [
+  { id: 'A', labelKey: 'shell.layerSwitch.workbench' },
+  { id: 'B', labelKey: 'shell.layerSwitch.visual' },
+  { id: 'C', labelKey: 'shell.layerSwitch.admin' },
 ]
 
 export default function LayerSwitch({ activeLayer, runtime }: Props) {
+  const locale = useAppLocale()
+
   return (
-    <nav className="kernel-layer-switch" aria-label="Layer navigation">
+    <nav className="kernel-layer-switch" aria-label={translate(locale, 'shell.layerSwitch.ariaLabel')}>
       {LAYERS.map((layer) => {
         const active = layer.id === activeLayer
         return (
@@ -36,7 +39,7 @@ export default function LayerSwitch({ activeLayer, runtime }: Props) {
             }}
           >
             <span>{layer.id}</span>
-            <strong>{layer.label}</strong>
+            <strong>{translate(locale, layer.labelKey)}</strong>
           </button>
         )
       })}

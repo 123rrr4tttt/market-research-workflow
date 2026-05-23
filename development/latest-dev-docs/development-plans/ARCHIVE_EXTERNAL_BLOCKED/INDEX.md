@@ -72,10 +72,10 @@
 - [2026-03-01 Open Source Platform Integration](./2026-03-01-open-source-platform-integration/09_wave30-open-source-external-blocked-decision-2026-05-23.md)
   状态：`external_blocked` / `wave30_checked`。Wave29 已迁出 OSS-node slice，Wave30 已清零 global-vector repo-local blocker；本目录不再有独立仓内 blocker，剩余条件是 live provider、local open-search quality、semantic relevance 与外部 runtime/SLA evidence。
 
-## 保留在 CURRENT_DEV 的相邻目录
+## 相邻目录状态
 
-- [2026-03-07 Docs Root Restructuring](../CURRENT_DEV/2026-03-07-docs-root-restructuring/01_docs-root-restructuring-mapping-2026-03-07.md)：`retained_partial`。剩余是 repo-local docs integration，不是外部条件。
-- [2026-03-15 Frontend Three-Layer Rewrite](../CURRENT_DEV/2026-03-15-frontend-three-layer-rewrite/README.md)：`retained_partial`。剩余业务文案与兼容层迁移规模仍大。
+- [2026-03-07 Docs Root Restructuring](../CURRENT_DEV/2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)：`clear_closed`。Wave31 `check_docs_root_navigation_drift.py --require-clean` 已清零 navigation drift；该目录不再计入 `CURRENT_DEV` partial。
+- [2026-03-15 Frontend Three-Layer Rewrite](../ARCHIVE_CLOSED/2026-03-15-frontend-three-layer-rewrite/16_wave32-frontend-i18n-final-closure-2026-05-23.md)：`clear_closed`。Wave32 已清零 frontend business-string repo-local blocker，并迁入 `ARCHIVE_CLOSED`。
 
 ## 返回
 

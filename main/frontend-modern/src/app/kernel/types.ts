@@ -12,6 +12,22 @@ export type LayerId = 'A' | 'B' | 'C'
 export type SurfaceKind = 'workbench' | 'visualization' | 'management'
 export type StorybookGroup = 'Workbench' | 'Visualization' | 'Management'
 
+export const STORYBOOK_GROUP_BY_LAYER: Record<LayerId, StorybookGroup> = {
+  A: 'Workbench',
+  B: 'Visualization',
+  C: 'Management',
+}
+
+export const KERNEL_RENDER_SHELL_MODE = {
+  default: 'default',
+  workbench: 'workbench',
+  admin: 'admin',
+  visualization: 'visualization',
+  legacyShell: 'legacy-shell',
+} as const
+
+export type KernelRenderShellMode = (typeof KERNEL_RENDER_SHELL_MODE)[keyof typeof KERNEL_RENDER_SHELL_MODE]
+
 export type KernelModuleKey =
   | 'overviewTasks'
   | 'overviewData'

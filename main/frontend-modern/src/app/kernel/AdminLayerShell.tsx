@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { bootstrapCodexCliLogin } from '../../lib/api'
-import { translate, useAppLocale } from '../platform/i18n'
+import { translate, useAppLocale, type MessageKey } from '../platform/i18n'
 import { getKernelModuleContract } from './contracts'
 import LayerSwitch from './LayerSwitch'
 import ModuleRenderer from './ModuleRenderer'
@@ -26,10 +26,10 @@ type Props = {
   runtime: Runtime
 }
 
-const ADMIN_GROUPS: Array<{ label: string; items: KernelModuleKey[] }> = [
-  { label: 'Operations', items: ['overviewTasks', 'flowProcessing', 'overviewData', 'sysBackend'] },
-  { label: 'Governance', items: ['sysProjects', 'sysCrawler', 'sysResource', 'flowExtract'] },
-  { label: 'System', items: ['sysSettings', 'sysLlm'] },
+const ADMIN_GROUPS: Array<{ labelKey: MessageKey; items: KernelModuleKey[] }> = [
+  { labelKey: 'shell.admin.group.operations', items: ['overviewTasks', 'flowProcessing', 'overviewData', 'sysBackend'] },
+  { labelKey: 'shell.admin.group.governance', items: ['sysProjects', 'sysCrawler', 'sysResource', 'flowExtract'] },
+  { labelKey: 'shell.admin.group.system', items: ['sysSettings', 'sysLlm'] },
 ]
 
 const ICON_BY_MODULE: Record<KernelModuleKey, LucideIcon> = {
@@ -75,34 +75,40 @@ function statusChipClass(value: string | boolean) {
   return 'chip chip-danger'
 }
 
+function formatCatalogTemplate(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
+}
+
 export default function AdminLayerShell({ activeModule, runtime }: Props) {
   const locale = useAppLocale()
+  const t = (key: MessageKey) => translate(locale, key)
   const activeContract = getKernelModuleContract(activeModule)
   const activeLabel = translate(locale, activeContract.navLabelKey, activeModule)
   const loadedProjects = runtime.projects.data?.length || 0
   const [codexActionPending, setCodexActionPending] = useState(false)
-  const codexLabel = runtime.status.codexReady ? 'ready' : codexActionPending ? 'starting' : 'login'
+  const codexLabel = t(runtime.status.codexReady ? 'shell.admin.status.ready' : codexActionPending ? 'shell.admin.status.starting' : 'shell.admin.status.login')
+  const availabilityLabel = (ready: boolean) => t(ready ? 'shell.admin.status.ready' : 'shell.admin.status.missing')
 
   const handleCodexAuthClick = async () => {
     if (codexActionPending) return
 
     if (runtime.status.codexReady) {
       await runtime.codexAuth.refetch()
-      runtime.setMessage('Codex 认证状态已刷新')
+      runtime.setMessage(t('shell.admin.message.codexRefreshed'))
       return
     }
 
     let deviceTab: Window | null = null
     try {
       setCodexActionPending(true)
-      runtime.setMessage('正在启动 Codex CLI 设备认证...')
+      runtime.setMessage(t('shell.admin.message.codexStarting'))
       deviceTab = window.open('about:blank', '_blank')
       const result = await bootstrapCodexCliLogin()
       await runtime.codexAuth.refetch()
 
       if (result.authenticated) {
         deviceTab?.close()
-        runtime.setMessage('Codex 已通过本机 token sink 认证')
+        runtime.setMessage(t('shell.admin.message.codexAuthenticated'))
         return
       }
 
@@ -112,21 +118,28 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
         } else {
           window.location.assign(result.device_url)
         }
-        const code = result.device_code ? `，设备码: ${result.device_code}` : ''
-        const hint = result.hint ? `；${result.hint}` : ''
-        runtime.setMessage(`请在打开的 OpenAI 设备认证页完成 Codex 登录${code}${hint}`)
+        const code = result.device_code
+          ? formatCatalogTemplate(t('shell.admin.message.codexDeviceCodeSuffix'), { deviceCode: result.device_code })
+          : ''
+        const hint = result.hint
+          ? formatCatalogTemplate(t('shell.admin.message.codexDeviceHintSuffix'), { hint: result.hint })
+          : ''
+        runtime.setMessage(formatCatalogTemplate(t('shell.admin.message.codexDevicePrompt'), { code, hint }))
         return
       }
 
       deviceTab?.close()
+      const deviceUrlMissing = t('shell.admin.message.codexDeviceUrlMissing')
       if (runtime.status.codexOauthEnabled) {
-        runtime.setMessage(`Codex CLI 设备认证不可用: ${result.hint || '未返回设备认证地址'}；可在设置中显式强制 OAuth`)
+        runtime.setMessage(formatCatalogTemplate(t('shell.admin.message.codexDeviceUnavailable'), { hint: result.hint || deviceUrlMissing }))
         return
       }
-      runtime.setMessage(`Codex CLI 认证未启动: ${result.hint || '未返回设备认证地址'}`)
+      runtime.setMessage(formatCatalogTemplate(t('shell.admin.message.codexNotStarted'), { hint: result.hint || deviceUrlMissing }))
     } catch (error) {
       deviceTab?.close()
-      runtime.setMessage(`Codex 认证启动失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      runtime.setMessage(formatCatalogTemplate(t('shell.admin.message.codexStartFailed'), {
+        error: error instanceof Error ? error.message : t('shell.admin.message.unknownError'),
+      }))
     } finally {
       setCodexActionPending(false)
     }
@@ -136,32 +149,37 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
     <div className="kernel-admin">
       <header className="kernel-admin__topbar">
         <div className="kernel-admin__topbar-heading">
-          <p>{runtime.projectKey} / management surface / {activeContract.entryRoute}</p>
+          <p>
+            {formatCatalogTemplate(t('shell.admin.header.surface'), {
+              entryRoute: activeContract.entryRoute,
+              projectKey: runtime.projectKey,
+            })}
+          </p>
           <div className="kernel-admin__title-row">
             <h1>{activeLabel}</h1>
-            <span>{loadedProjects} projects loaded</span>
+            <span>{formatCatalogTemplate(t('shell.admin.header.projectsLoaded'), { count: loadedProjects })}</span>
           </div>
         </div>
 
         <div className="kernel-admin__topbar-diagnostics">
           <LayerSwitch activeLayer="C" runtime={runtime} />
-          <section className="kernel-admin__status-strip" aria-label="status matrix">
-            <span className="kernel-admin__status-strip-label">status matrix</span>
+          <section className="kernel-admin__status-strip" aria-label={t('shell.admin.aria.statusMatrix')}>
+            <span className="kernel-admin__status-strip-label">{t('shell.admin.label.statusMatrix')}</span>
             <div className="kernel-admin__status-strip-chips">
               <button className={statusChipClass(runtime.status.api)} onClick={() => runtime.navigateToModule('sysBackend')}>
                 API {runtime.status.api}
               </button>
               <button className={statusChipClass(runtime.status.llmReady)} onClick={() => runtime.navigateToModule('sysLlm')}>
-                LLM {runtime.status.llmReady ? 'ready' : 'missing'}
+                LLM {availabilityLabel(runtime.status.llmReady)}
               </button>
               <button className={statusChipClass(runtime.status.searchReady)} onClick={() => runtime.navigateToModule('sysSettings')}>
-                SEARCH {runtime.status.searchReady ? 'ready' : 'missing'}
+                SEARCH {availabilityLabel(runtime.status.searchReady)}
               </button>
               <button className={statusChipClass(runtime.status.newsReady)} onClick={() => runtime.navigateToModule('sysSettings')}>
-                NEWS {runtime.status.newsReady ? 'ready' : 'missing'}
+                NEWS {availabilityLabel(runtime.status.newsReady)}
               </button>
               <button className={statusChipClass(runtime.status.dbReady)} onClick={() => runtime.navigateToModule('sysBackend')}>
-                DB {runtime.status.dbReady ? 'ready' : 'missing'}
+                DB {availabilityLabel(runtime.status.dbReady)}
               </button>
               <button
                 className={statusChipClass(runtime.status.codexReady)}
@@ -169,7 +187,7 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
                   void handleCodexAuthClick()
                 }}
                 disabled={codexActionPending}
-                title={runtime.status.codexOauthEnabled ? 'Open Codex OAuth authentication' : 'Start Codex CLI device authentication'}
+                title={t(runtime.status.codexOauthEnabled ? 'shell.admin.title.codexOauth' : 'shell.admin.title.codexDeviceAuth')}
               >
                 CODEX {codexLabel}
               </button>
@@ -179,7 +197,7 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
 
         <div className="kernel-admin__project-bar">
           <label className="kernel-admin__control-field">
-            <span>target project</span>
+            <span>{t('shell.admin.label.targetProject')}</span>
             <select
               value={runtime.pendingProjectKey}
               onChange={(event) => {
@@ -197,22 +215,22 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
             onClick={() => runtime.activateMutation.mutate(runtime.pendingProjectKey)}
             disabled={runtime.activateMutation.isPending || !runtime.canActivatePendingProject || runtime.pendingProjectKey === runtime.projectKey}
           >
-            {runtime.activateMutation.isPending ? 'switching' : 'activate project'}
+            {t(runtime.activateMutation.isPending ? 'shell.admin.action.switching' : 'shell.admin.action.activateProject')}
           </button>
           <button
             onClick={() => {
               const target = String(runtime.pendingProjectKey || '').trim()
               if (!target) return
-              const ok = window.confirm(`将从 demo_proj 注入初始化到项目 ${target}（覆盖模式）并激活，是否继续？`)
+              const ok = window.confirm(formatCatalogTemplate(t('shell.admin.confirm.injectTemplate'), { target }))
               if (!ok) return
               runtime.injectInitialMutation.mutate(target)
             }}
             disabled={runtime.injectInitialMutation.isPending || !runtime.pendingProjectKey}
           >
-            {runtime.injectInitialMutation.isPending ? 'injecting' : 'inject template'}
+            {t(runtime.injectInitialMutation.isPending ? 'shell.admin.action.injecting' : 'shell.admin.action.injectTemplate')}
           </button>
           <button type="button" onClick={() => runtime.navigateToModule('overviewTasks')}>
-            process home
+            {t('shell.admin.action.processHome')}
           </button>
           {runtime.message ? <p className="kernel-admin__message">{runtime.message}</p> : null}
         </div>
@@ -221,13 +239,13 @@ export default function AdminLayerShell({ activeModule, runtime }: Props) {
       <section className="kernel-admin__shell">
         <aside className="kernel-admin__sidebar">
           <div className="kernel-admin__brand">
-            <span>Layer C</span>
+            <span>{t('shell.admin.brand.layerC')}</span>
             <strong>MRW</strong>
           </div>
           <div className="kernel-admin__nav">
             {ADMIN_GROUPS.map((group) => (
-              <section key={group.label} className="kernel-admin__section">
-                <p className="kernel-admin__section-title">{group.label}</p>
+              <section key={group.labelKey} className="kernel-admin__section">
+                <p className="kernel-admin__section-title">{t(group.labelKey)}</p>
                 {group.items.map((moduleKey) => {
                   const Icon = ICON_BY_MODULE[moduleKey]
                   const contract = getKernelModuleContract(moduleKey)

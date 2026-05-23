@@ -25,6 +25,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
+import type { MessageKey } from '../platform/i18n'
 import { moduleManifest } from './moduleManifest'
 import type { KernelModuleKey } from './types'
 
@@ -63,14 +64,14 @@ export const MODULE_ICON_BY_KEY: Record<KernelModuleKey, LucideIcon> = {
 }
 
 export type VisualizationShellSection = {
-  label: string
+  labelKey: MessageKey
   moduleKeys: readonly KernelModuleKey[]
 }
 
 export const VISUALIZATION_SHELL_SECTIONS: readonly VisualizationShellSection[] = [
-  { label: 'Signals', moduleKeys: ['dataDashboard', 'dataMarket', 'dataSocial', 'dataPolicy', 'dataCatalog'] },
-  { label: 'Graphs', moduleKeys: ['graphMarket', 'graphPolicy', 'graphSocial', 'graphCompany', 'graphProduct', 'graphOperation', 'graphDeep', 'graphBuilder'] },
-  { label: 'Review', moduleKeys: ['flowAnalysis', 'flowBoard'] },
+  { labelKey: 'shell.visualizationSection.signals', moduleKeys: ['dataDashboard', 'dataMarket', 'dataSocial', 'dataPolicy', 'dataCatalog'] },
+  { labelKey: 'shell.visualizationSection.graphs', moduleKeys: ['graphMarket', 'graphPolicy', 'graphSocial', 'graphCompany', 'graphProduct', 'graphOperation', 'graphDeep', 'graphBuilder'] },
+  { labelKey: 'shell.visualizationSection.review', moduleKeys: ['flowAnalysis', 'flowBoard'] },
 ] as const
 
 export type VisualizationShellCoverage = {

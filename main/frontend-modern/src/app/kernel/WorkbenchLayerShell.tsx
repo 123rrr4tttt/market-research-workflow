@@ -30,11 +30,11 @@ export default function WorkbenchLayerShell({ activeModule, runtime }: Props) {
       <header className="kernel-workbench__rail">
         <div className="kernel-workbench__rail-bar">
           <div className="kernel-workbench__rail-heading">
-            <span>workbench</span>
+            <span>{translate(locale, 'shell.layer.workbench')}</span>
             <strong>{runtime.projectKey}</strong>
           </div>
           <LayerSwitch activeLayer="A" runtime={runtime} />
-          <nav className="kernel-workbench__rail-nav" aria-label="Layer A modules">
+          <nav className="kernel-workbench__rail-nav" aria-label={translate(locale, 'shell.layerModules.workbench')}>
             {WORKBENCH_MODULES.map((moduleKey) => {
               const contract = getKernelModuleContract(moduleKey)
               const active = moduleKey === activeModule
@@ -54,7 +54,7 @@ export default function WorkbenchLayerShell({ activeModule, runtime }: Props) {
 
         <div className="kernel-workbench__project-control">
           <label className="kernel-workbench__project-field">
-            <span>target project</span>
+            <span>{translate(locale, 'shell.field.targetProject')}</span>
             <select
               value={runtime.pendingProjectKey}
               onChange={(event) => {
@@ -73,7 +73,7 @@ export default function WorkbenchLayerShell({ activeModule, runtime }: Props) {
             onClick={() => runtime.activateMutation.mutate(runtime.pendingProjectKey)}
             disabled={runtime.activateMutation.isPending || !runtime.canActivatePendingProject || runtime.pendingProjectKey === runtime.projectKey}
           >
-            {runtime.activateMutation.isPending ? 'switching' : 'activate'}
+            {translate(locale, runtime.activateMutation.isPending ? 'shell.status.switching' : 'shell.action.activate')}
           </button>
         </div>
       </header>
