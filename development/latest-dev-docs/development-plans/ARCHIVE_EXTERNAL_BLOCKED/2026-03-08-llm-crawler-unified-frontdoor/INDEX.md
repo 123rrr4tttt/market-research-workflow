@@ -1,9 +1,9 @@
 # LLM Crawler Unified FrontDoor Index
 
 更新时间：2026-05-23 PST
-状态：`external_blocked` / `wave56_session_aware_x_only`。本目录已迁入 `ARCHIVE_EXTERNAL_BLOCKED`；仓内 frontdoor、router、manifest、fixture 与 shard gates 已封住。Wave56 已加入 session-aware replay path 与证据合约，并用真实 headless Chrome replay 证明 Instagram/YouTube accessible high-JS public path 可跑通；剩余失败收敛为 X 外部平台 auth/anti-bot gate。目录内较早 `partial` / `not_closed_missing_real_evidence` 语句只保留为历史证据或外部 blocker 描述。
+状态：`external_blocked` / `wave57_yiliang_session_x_platform_blocked`。本目录已迁入 `ARCHIVE_EXTERNAL_BLOCKED`；仓内 frontdoor、router、manifest、fixture 与 shard gates 已封住。Wave56 已加入 session-aware replay path 与证据合约，并用真实 headless Chrome replay 证明 Instagram/YouTube accessible high-JS public path 可跑通；Wave57 又使用操作员选择的 `亦梁` Chrome profile 复制件重跑 X，结果仍为 X 外部平台登录/auth gate。目录内较早 `partial` / `not_closed_missing_real_evidence` 语句只保留为历史证据或外部 blocker 描述。
 
-防误读：当前 canonical decision 以本 `INDEX.md`、`10_wave23-external-blocked-decision-2026-05-23.md`、`12_wave55-t5-accessible-high-js-replay-boundary-2026-05-23.md` 与 `13_wave56-session-aware-high-js-replay-boundary-2026-05-23.md` 为准。重新进入 `CURRENT_DEV` 前，必须先解除或替换剩余外部平台门控，取得所有 declared high-JS public targets 的 target-specific public content。
+防误读：当前 canonical decision 以本 `INDEX.md`、`10_wave23-external-blocked-decision-2026-05-23.md`、`12_wave55-t5-accessible-high-js-replay-boundary-2026-05-23.md`、`13_wave56-session-aware-high-js-replay-boundary-2026-05-23.md` 与 `14_wave57-yiliang-session-x-replay-boundary-2026-05-23.md` 为准。重新进入 `CURRENT_DEV` 前，必须先解除或替换剩余外部平台门控，取得所有 declared high-JS public targets 的 target-specific public content。
 
 ## 文件
 
@@ -33,6 +33,8 @@
   Wave55 T5：真实 Chrome replay 证明 accessible public high-JS path；剩余 X/Instagram 为外部 auth/anti-bot gates。
 - [13_wave56-session-aware-high-js-replay-boundary-2026-05-23.md](./13_wave56-session-aware-high-js-replay-boundary-2026-05-23.md)
   Wave56：新增 session-aware replay path 与证据合约；最新真实 Chrome replay 将剩余 blocker 收敛为 X-only auth/anti-bot gate。
+- [14_wave57-yiliang-session-x-replay-boundary-2026-05-23.md](./14_wave57-yiliang-session-x-replay-boundary-2026-05-23.md)
+  Wave57：使用操作员选择的 `亦梁` Chrome profile 复制件重跑 X；X 仍返回登录/platform gate，未达 full closure。
 
 ## 当前状态
 
@@ -41,9 +43,9 @@
 | 目录归属 | `ARCHIVE_EXTERNAL_BLOCKED` | `CURRENT_DEV/INDEX.md` 不再将本主题计入 `partial` |
 | Frontdoor / router / manifest / fixture gates | sealed | Wave8-Wave19 topic-local evidence |
 | 45-site public replay shards | sealed | `crawler-public-replay-shards/2026-05-22/check.json` |
-| Accessible high-JS public replay | reduced / evidence-backed, not closure-passed | `llm-crawler-high-js-public-replay/2026-05-23/check.session-aware-attempt.json` |
-| Session-aware replay evidence | implemented / no credential material logged | `llm-crawler-high-js-public-replay/2026-05-23/output.public.session-aware-attempt.json` |
-| Remaining high-JS external gates | external blocker | `x_search_robotics` auth/anti-bot gated |
+| Accessible high-JS public replay | reduced / evidence-backed, not closure-passed | `llm-crawler-high-js-public-replay/2026-05-23/check.yiliang-session.json` |
+| Session-aware replay evidence | implemented / copied operator profile / no credential material logged | `llm-crawler-high-js-public-replay/2026-05-23/output.public.yiliang-session.json` |
+| Remaining high-JS external gates | external blocker | `x_search_robotics` login/platform gated even with `亦梁` profile copy |
 
 ## 验证命令
 
@@ -51,8 +53,8 @@
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_crawler_public_replay_shards.py --repo-root . --output /tmp/wave35-llm-crawler-public-replay-shards.json
 
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_llm_crawler_high_js_replay_readiness.py \
-  --public-artifact development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.session-aware-attempt.json \
-  --output /tmp/wave56-session-aware-llm-crawler-high-js-readiness.json
+  --public-artifact development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.yiliang-session.json \
+  --output /tmp/wave57-yiliang-session-llm-crawler-high-js-readiness.json
 ```
 
 The high-JS checker returns a closure-passed exit code only when all declared public targets satisfy `closure.full_closure_allowed=true`. Reduced accessible replay is recorded as `validation.readiness_checks_passed=true` with `validation.passed=false`.
