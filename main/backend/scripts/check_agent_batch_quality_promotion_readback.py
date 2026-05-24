@@ -183,17 +183,39 @@ def _check_contract_shape() -> dict[str, Any]:
     }
 
 
-def _check_promotion_gate() -> dict[str, Any]:
+def _policy_approved(payload: dict[str, Any] | None) -> bool:
+    policy = dict(payload or {})
+    return (
+        str(policy.get("approval_status") or "").strip().lower() == "approved"
+        and bool(policy.get("approved_providers"))
+        and bool(policy.get("rollback_criteria"))
+        and bool(policy.get("monitoring_requirements"))
+        and bool(policy.get("manual_review_artifact"))
+    )
+
+
+def _check_promotion_gate(
+    *,
+    live_provider_replay: dict[str, Any] | None = None,
+    provider_auto_rollout_policy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     gate = build_symbolic_quality_promotion_readback_gate(
         fixture_cases=_fixture_cases(),
         provider_statuses=_recorded_provider_statuses(),
+        live_provider_replay=live_provider_replay,
+        provider_auto_rollout_policy=provider_auto_rollout_policy,
+    )
+    live_replay_attached = bool(live_provider_replay)
+    provider_auto_policy_approved = _policy_approved(provider_auto_rollout_policy)
+    provider_auto_promotion_expected = live_replay_attached and provider_auto_policy_approved
+    expected_gate_state = (
+        "live_provider_quality_promotion_approved"
+        if provider_auto_promotion_expected
+        else "provider_independent_quality_promotion_held_live_gap_open"
     )
     _require(gate["scope"] == QUALITY_PROMOTION_READBACK_SCOPE, "promotion gate scope mismatch")
     _require(gate["status"] == "passed", "promotion gate did not pass")
-    _require(
-        gate["gate_state"] == "provider_independent_quality_promotion_held_live_gap_open",
-        "promotion gate state drifted",
-    )
+    _require(gate["gate_state"] == expected_gate_state, "promotion gate state drifted")
 
     brief = gate["fixture_search_brief"]
     _require(brief["case_id"] == "robotics-source-gap", "fixture search brief case_id mismatch")
@@ -219,51 +241,95 @@ def _check_promotion_gate() -> dict[str, Any]:
 
     threshold = gate["quality_threshold_readback"]
     _require(threshold["fixture_threshold_status"] == "passed", "fixture quality threshold did not pass")
-    _require(
-        threshold["threshold_status"] == "threshold_contract_ready_live_replay_gap_open",
-        "quality threshold readback did not keep live gap open",
-    )
-    _require(threshold["live_provider_replay_closed"] is False, "live provider replay unexpectedly closed")
-    _require(threshold["quality_claim_allowed"] is False, "quality claim unexpectedly allowed")
-    _require(threshold["provider_auto_promotion_allowed"] is False, "provider auto promotion unexpectedly allowed")
+    if live_replay_attached:
+        _require(
+            threshold["threshold_status"] == "live_quality_thresholds_met",
+            "quality threshold readback did not close live replay",
+        )
+        _require(threshold["live_provider_replay_closed"] is True, "live provider replay did not close")
+        _require(threshold["quality_claim_allowed"] is True, "quality claim not allowed after live closure")
+    else:
+        _require(
+            threshold["threshold_status"] == "threshold_contract_ready_live_replay_gap_open",
+            "quality threshold readback did not keep live gap open",
+        )
+        _require(threshold["live_provider_replay_closed"] is False, "live provider replay unexpectedly closed")
+        _require(threshold["quality_claim_allowed"] is False, "quality claim unexpectedly allowed")
+        _require(threshold["provider_auto_promotion_allowed"] is False, "provider auto promotion unexpectedly allowed")
 
     decision = gate["promotion_decision"]
-    _require(decision["decision"] == "hold_provider_auto_promotion", "promotion decision mismatch")
-    _require(decision["promotion_allowed"] is False, "promotion unexpectedly allowed")
-    _require(decision["provider_auto_promotion_allowed"] is False, "provider auto promotion unexpectedly allowed")
-    _require(
-        "live_quality_threshold_replay_gap_open" in decision["reason_codes"],
-        "promotion decision missing threshold-open reason",
-    )
+    if provider_auto_promotion_expected:
+        _require(decision["decision"] == "promote_provider_auto", "promotion decision mismatch")
+        _require(decision["promotion_allowed"] is True, "promotion was not allowed")
+        _require(decision["provider_auto_promotion_allowed"] is True, "provider auto promotion was not allowed")
+        _require(
+            "provider_auto_rollout_policy_approved" in decision["reason_codes"],
+            "promotion decision missing policy-approved reason",
+        )
+    elif live_replay_attached:
+        _require(decision["decision"] == "hold_provider_auto_promotion", "promotion decision mismatch")
+        _require(decision["promotion_allowed"] is False, "promotion unexpectedly allowed")
+        _require(decision["provider_auto_promotion_allowed"] is False, "provider auto promotion unexpectedly allowed")
+        _require(
+            "provider_auto_operator_policy_not_approved" in decision["reason_codes"],
+            "promotion decision missing policy-open reason",
+        )
+    else:
+        _require(decision["decision"] == "hold_provider_auto_promotion", "promotion decision mismatch")
+        _require(decision["promotion_allowed"] is False, "promotion unexpectedly allowed")
+        _require(decision["provider_auto_promotion_allowed"] is False, "provider auto promotion unexpectedly allowed")
+        _require(
+            "live_quality_threshold_replay_gap_open" in decision["reason_codes"],
+            "promotion decision missing threshold-open reason",
+        )
 
     readback = gate["promotion_decision_readback"]
     _require(readback["readback_performed"] is True, "promotion decision readback not performed")
     _require(readback["readback_matches_decision"] is True, "promotion decision readback mismatch")
     _require(readback["decision_digest"] == readback["readback_digest"], "promotion decision digest mismatch")
-    _require(readback["promotion_allowed"] is False, "promotion readback unexpectedly allowed")
-    _require(readback["provider_auto_promotion_allowed"] is False, "provider-auto readback unexpectedly allowed")
+    _require(readback["promotion_allowed"] is provider_auto_promotion_expected, "promotion readback state mismatch")
+    _require(
+        readback["provider_auto_promotion_allowed"] is provider_auto_promotion_expected,
+        "provider-auto readback state mismatch",
+    )
 
     boundary = gate["provider_independent_boundary"]
-    _require(boundary["network_started"] is False, "provider-independent gate started network")
-    _require(boundary["live_provider_probe_performed"] is False, "provider-independent gate ran live probe")
-    _require(boundary["live_provider_quality_open"] is True, "live provider quality should remain open")
-    _require(boundary["quality_claim_allowed"] is False, "provider-independent boundary allowed quality claim")
+    _require(boundary["network_started"] is False, "promotion gate should only read attached evidence")
     _require(
-        boundary["provider_auto_promotion_allowed"] is False,
-        "provider-independent boundary allowed provider-auto promotion",
+        boundary["live_provider_probe_performed"] is live_replay_attached,
+        "live provider probe evidence state mismatch",
+    )
+    _require(
+        boundary["live_provider_quality_open"] is (not live_replay_attached),
+        "live provider quality open state mismatch",
+    )
+    _require(boundary["quality_claim_allowed"] is live_replay_attached, "quality claim state mismatch")
+    _require(
+        boundary["provider_auto_promotion_allowed"] is provider_auto_promotion_expected,
+        "provider-auto promotion boundary state mismatch",
     )
 
     claim_codes = {item["code"] for item in gate["unsupported_promotion_claims"]}
-    _require("fixture_replay_promotes_provider_auto" in claim_codes, "fixture promotion claim boundary missing")
-    _require("critic_score_promotes_provider_auto" in claim_codes, "critic promotion claim boundary missing")
-    _require(
-        "quality_threshold_status_promotes_without_live_replay" in claim_codes,
-        "threshold promotion claim boundary missing",
-    )
+    if not live_replay_attached:
+        _require("fixture_replay_promotes_provider_auto" in claim_codes, "fixture promotion claim boundary missing")
+        _require("critic_score_promotes_provider_auto" in claim_codes, "critic promotion claim boundary missing")
+        _require(
+            "quality_threshold_status_promotes_without_live_replay" in claim_codes,
+            "threshold promotion claim boundary missing",
+        )
     gap_codes = {item["code"] for item in gate["remaining_live_gaps"]}
-    _require("live_provider_replay_not_run" in gap_codes, "live provider replay gap missing")
-    _require("operator_review_not_approved" in gap_codes, "operator review gap missing")
-    _require("provider_auto_promotion_readback_hold" in gap_codes, "promotion readback hold gap missing")
+    if provider_auto_promotion_expected:
+        _require(not gap_codes, "live replay closure should leave no remaining gaps")
+    elif live_replay_attached:
+        _require(
+            "provider_auto_rollout_policy_not_approved" in gap_codes,
+            "provider-auto rollout policy gap missing",
+        )
+        _require("provider_auto_promotion_readback_hold" in gap_codes, "promotion readback hold gap missing")
+    else:
+        _require("live_provider_replay_not_run" in gap_codes, "live provider replay gap missing")
+        _require("operator_review_not_approved" in gap_codes, "operator review gap missing")
+        _require("provider_auto_promotion_readback_hold" in gap_codes, "promotion readback hold gap missing")
     return gate
 
 
@@ -296,12 +362,30 @@ def _check_input_promotion_claim_is_rejected() -> dict[str, Any]:
     }
 
 
-def build_contract() -> dict[str, Any]:
+def _load_json(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise AssertionError(f"expected object JSON: {path}")
+    return payload
+
+
+def build_contract(
+    *,
+    live_provider_replay: dict[str, Any] | None = None,
+    provider_auto_rollout_policy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     failures: list[dict[str, str]] = []
     evidence: dict[str, Any] = {}
     checks = [
         ("contract_shape", _check_contract_shape),
-        ("promotion_gate", _check_promotion_gate),
+        (
+            "promotion_gate",
+            lambda: _check_promotion_gate(
+                live_provider_replay=live_provider_replay,
+                provider_auto_rollout_policy=provider_auto_rollout_policy,
+            ),
+        ),
         ("input_promotion_claim_rejected", _check_input_promotion_claim_is_rejected),
     ]
     for name, check in checks:
@@ -311,11 +395,22 @@ def build_contract() -> dict[str, Any]:
             failures.append({"check": name, "error": str(exc)})
 
     gate = evidence.get("promotion_gate") or {}
+    provider_auto_promotion_approved = (
+        gate.get("gate_state") == "live_provider_quality_promotion_approved" and not failures
+    )
     return {
         "contract_version": CONTRACT_VERSION,
-        "scope": "provider_independent_agent_batch_quality_promotion_readback_no_network",
+        "scope": (
+            "live_provider_agent_batch_quality_promotion_readback"
+            if live_provider_replay
+            else "provider_independent_agent_batch_quality_promotion_readback_no_network"
+        ),
         "status": "passed" if not failures else "failed",
-        "closure_claim": "quality_promotion_readback_validated_live_provider_quality_not_closed",
+        "closure_claim": (
+            "quality_promotion_readback_validated_live_provider_quality_closed"
+            if provider_auto_promotion_approved
+            else "quality_promotion_readback_validated_live_provider_quality_not_closed"
+        ),
         "gate_state": gate.get("gate_state"),
         "fixture_search_brief": gate.get("fixture_search_brief"),
         "critic_score_readback": gate.get("critic_score_readback"),
@@ -332,7 +427,21 @@ def build_contract() -> dict[str, Any]:
 
 
 def main() -> int:
-    contract = build_contract()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Validate agent-batch quality promotion readback.")
+    parser.add_argument("--live-provider-replay-json", default=None)
+    parser.add_argument("--provider-auto-policy-json", default=None)
+    args = parser.parse_args()
+
+    contract = build_contract(
+        live_provider_replay=_load_json(Path(args.live_provider_replay_json))
+        if args.live_provider_replay_json
+        else None,
+        provider_auto_rollout_policy=_load_json(Path(args.provider_auto_policy_json))
+        if args.provider_auto_policy_json
+        else None,
+    )
     print(json.dumps(contract, ensure_ascii=False, sort_keys=True, indent=2))
     return 0 if contract["status"] == "passed" else 1
 

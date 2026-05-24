@@ -1,7 +1,7 @@
 {
   "schema": "external-blocker-manifest/v1",
   "updated": "2026-05-23 PST",
-  "purpose": "Bind every external_blocked review target to a structured external dependency, repo-local evidence, required external proof, exit criteria, and owner surface. Wave42 manually closed the local open-search and Clue Chain live-provider blockers; Wave43 manually closed the Graph Node live DB blocker; Wave44 manually closed the Graph 3D live UI/WebGL blocker; Wave45 manually closed the structured/consumer live DB/API blockers; Wave46 manually closed the Graph Editing live-audit blocker; Wave47 manually closed the Crawler Source Expansion public replay blocker; Wave48 manually closed the R41 OpenClaw runtime blocker; Wave49 manually closed the Source-Library Adapter Capability public replay blocker; Wave50 reclassified the Open Source Platform parent wrapper, MERGED_OVERVIEW drift gate, and Search Chain Source-Library Mounting Audit as non-target evidence; Wave51 reclassified the Ingest Platformization Assessment parent wrapper as non-target evidence; Wave52 reclassified Source-Time Window and Time Statistics as time-semantics cluster evidence, so the manifest now tracks the remaining external-blocked targets only.",
+  "purpose": "Bind every external_blocked review target to a structured external dependency, repo-local evidence, required external proof, exit criteria, and owner surface. Wave42 manually closed the local open-search and Clue Chain live-provider blockers; Wave43 manually closed the Graph Node live DB blocker; Wave44 manually closed the Graph 3D live UI/WebGL blocker; Wave45 manually closed the structured/consumer live DB/API blockers; Wave46 manually closed the Graph Editing live-audit blocker; Wave47 manually closed the Crawler Source Expansion public replay blocker; Wave48 manually closed the R41 OpenClaw runtime blocker; Wave49 manually closed the Source-Library Adapter Capability public replay blocker; Wave50 reclassified the Open Source Platform parent wrapper, MERGED_OVERVIEW drift gate, and Search Chain Source-Library Mounting Audit as non-target evidence; Wave51 reclassified the Ingest Platformization Assessment parent wrapper as non-target evidence; Wave52 reclassified Source-Time Window and Time Statistics as time-semantics cluster evidence; Wave53 manually closed the Agent Symbolic Batch Search live-provider quality and provider-auto rollout blocker, so the manifest now tracks the remaining external-blocked targets only.",
   "targets": [
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan",
@@ -364,53 +364,6 @@
           "state": "blocked",
           "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
           "note": "Real high-JS public browser/crawler replay and public output shards are not attached."
-        }
-      ],
-      "owner_surface": {
-        "owner": "external-blocker-review",
-        "surface": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
-        "contact": "@devdocs-supervisor"
-      }
-    },
-    {
-      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture",
-      "dependency_type": "provider",
-      "blocked_on": "SearXNG/YaCy/web live provider replay, operator review, and provider auto-promotion approval are not attached.",
-      "external_surfaces": [
-        "SearXNG",
-        "YaCy",
-        "web provider",
-        "operator review"
-      ],
-      "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/22_wave23-external-blocked-decision-2026-05-23.md"
-      ],
-      "evidence_required": [
-        "probe",
-        "run_output",
-        "manual_check",
-        "contract"
-      ],
-      "probe_or_manual_evidence": {
-        "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_agent_batch_quality_promotion_readback.py --format json",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
-      },
-      "exit_criteria": [
-        {
-          "id": "repo-local-boundary-recorded",
-          "state": "satisfied",
-          "evidence": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/22_wave23-external-blocked-decision-2026-05-23.md",
-          "note": "Repo-local deterministic evidence is present and linked from the target topic."
-        },
-        {
-          "id": "symbolic-live-provider-review",
-          "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "SearXNG/YaCy/web live provider replay, operator review, and provider auto-promotion approval are not attached."
         }
       ],
       "owner_surface": {

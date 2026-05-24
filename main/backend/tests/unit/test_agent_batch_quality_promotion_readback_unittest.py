@@ -140,6 +140,71 @@ def _provider_statuses() -> dict[str, dict]:
     }
 
 
+def _passing_live_provider_replay() -> dict:
+    sample_rows = [
+        {
+            "title": "AGIBOT puts humanoid robots to work in real factory production",
+            "url": "https://interestingengineering.com/ai-robotics/agibot-g2-humanoid-robots-live-production-line",
+            "domain": "interestingengineering.com",
+            "review_visible": True,
+            "relevance_score": 0.88,
+            "freshness_score": 0.92,
+            "latency_ms": 920,
+        },
+        {
+            "title": "UBTech's push for 10,000 humanoid robots by 2026 gets Siemens backing",
+            "url": "https://interestingengineering.com/ai-robotics/ubtech-siemens-humanoid-robot-production",
+            "domain": "interestingengineering.com",
+            "review_visible": True,
+            "relevance_score": 0.82,
+            "freshness_score": 0.88,
+            "latency_ms": 940,
+        },
+        {
+            "title": "Sunday Raises $165M to Launch First Autonomous Robots by Thanksgiving",
+            "url": "https://www.globenewswire.com/news-release/2026/03/12/3254877/0/en/Sunday-Raises-165M-to-Launch-First-Autonomous-Robots-by-Thanksgiving.html",
+            "domain": "globenewswire.com",
+            "review_visible": True,
+            "relevance_score": 0.76,
+            "freshness_score": 0.72,
+            "latency_ms": 980,
+        },
+    ]
+    return {
+        "replay_type": "live_provider_quality_replay",
+        "live_replay_performed": True,
+        "operator_review_status": "approved",
+        "providers": {
+            provider: {
+                "replay_status": "passed",
+                "provider_live_verified": True,
+                "case_count": 1,
+                "result_count": 3,
+                "source_domains": ["interestingengineering.com", "globenewswire.com"],
+                "relevance_score": 0.82,
+                "freshness_score": 0.84,
+                "duplicate_rate": 0.0,
+                "timeout_rate": 0.0,
+                "p95_latency_ms": 980,
+                "review_sample_count": 3,
+                "trace_success": True,
+                "result_samples": sample_rows,
+            }
+            for provider in ["searxng", "yacy", "web"]
+        },
+    }
+
+
+def _approved_provider_auto_policy() -> dict:
+    return {
+        "approval_status": "approved",
+        "approved_providers": ["searxng", "yacy", "web"],
+        "rollback_criteria": ["timeout_rate_above_10_percent", "operator_review_regression"],
+        "monitoring_requirements": ["daily_threshold_replay", "manual_sample_review"],
+        "manual_review_artifact": "development/latest-dev-docs/automation-runs/wave53-manual-agent-symbolic-live-provider-quality/2026-05-23/README.md",
+    }
+
+
 class AgentBatchQualityPromotionReadbackTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -224,6 +289,54 @@ class AgentBatchQualityPromotionReadbackTest(unittest.TestCase):
         self.assertIn(
             "live_provider_replay_not_run",
             {item["code"] for item in gate["remaining_live_gaps"]},
+        )
+
+    def test_live_provider_replay_and_policy_can_promote_provider_auto(self) -> None:
+        gate = build_symbolic_quality_promotion_readback_gate(
+            fixture_cases=_fixture_cases(),
+            provider_statuses={
+                provider: {
+                    "live_probe_status": "ready",
+                    "result_count": 3,
+                    "result_quality_verified": True,
+                }
+                for provider in ["searxng", "yacy", "web"]
+            },
+            live_provider_replay=_passing_live_provider_replay(),
+            provider_auto_rollout_policy=_approved_provider_auto_policy(),
+        )
+
+        self.assertEqual(gate["status"], "passed")
+        self.assertEqual(gate["gate_state"], "live_provider_quality_promotion_approved")
+        self.assertEqual(gate["quality_threshold_readback"]["threshold_status"], "live_quality_thresholds_met")
+        self.assertTrue(gate["quality_threshold_readback"]["live_provider_replay_closed"])
+        self.assertTrue(gate["promotion_decision"]["promotion_allowed"])
+        self.assertTrue(gate["promotion_decision"]["provider_auto_promotion_allowed"])
+        self.assertTrue(gate["promotion_decision_readback"]["promotion_allowed"])
+        self.assertEqual(gate["remaining_live_gaps"], [])
+
+    def test_checker_keeps_live_replay_open_without_provider_auto_policy(self) -> None:
+        checker = _load_checker_module()
+        contract = checker.build_contract(live_provider_replay=_passing_live_provider_replay())
+
+        self.assertEqual(contract["status"], "passed")
+        self.assertEqual(
+            contract["closure_claim"],
+            "quality_promotion_readback_validated_live_provider_quality_not_closed",
+        )
+        self.assertEqual(
+            contract["gate_state"],
+            "provider_independent_quality_promotion_held_live_gap_open",
+        )
+        self.assertEqual(
+            contract["quality_threshold_readback"]["threshold_status"],
+            "live_quality_thresholds_met",
+        )
+        self.assertTrue(contract["quality_threshold_readback"]["live_provider_replay_closed"])
+        self.assertFalse(contract["promotion_decision"]["promotion_allowed"])
+        self.assertIn(
+            "provider_auto_rollout_policy_not_approved",
+            {item["code"] for item in contract["remaining_live_gaps"]},
         )
 
 

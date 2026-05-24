@@ -127,6 +127,48 @@ class SymbolicLiveQualityThresholdContractTest(unittest.TestCase):
             {item["code"] for item in contract["remaining_live_gaps"]},
         )
 
+    def test_live_replay_payload_closes_when_all_thresholds_and_review_pass(self) -> None:
+        provider_row = {
+            "replay_status": "passed",
+            "provider_live_verified": True,
+            "case_count": 1,
+            "result_count": 3,
+            "source_domains": ["interestingengineering.com", "globenewswire.com"],
+            "relevance_score": 0.82,
+            "freshness_score": 0.84,
+            "duplicate_rate": 0.0,
+            "timeout_rate": 0.0,
+            "p95_latency_ms": 980,
+            "review_sample_count": 3,
+            "trace_success": True,
+        }
+        contract = build_symbolic_live_quality_threshold_contract(
+            fixture_quality={
+                "source": "score_quality_benchmark_replay",
+                "status": "passed",
+                "case_count": 1,
+                "average_uplift": 0.29,
+                "false_positive_retry_rate": 0.0,
+                "quality_claim_allowed": False,
+            },
+            live_provider_replay={
+                "replay_type": "live_provider_quality_replay",
+                "live_replay_performed": True,
+                "operator_review_status": "approved",
+                "providers": {
+                    "searxng": dict(provider_row),
+                    "yacy": dict(provider_row),
+                    "web": dict(provider_row),
+                },
+            },
+        )
+
+        self.assertEqual(contract["status"], "passed")
+        self.assertEqual(contract["threshold_status"], "live_quality_thresholds_met")
+        self.assertTrue(contract["live_provider_replay_closed"])
+        self.assertTrue(contract["quality_claim_allowed"])
+        self.assertEqual(contract["remaining_live_gaps"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

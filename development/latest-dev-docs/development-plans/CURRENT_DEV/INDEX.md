@@ -46,7 +46,7 @@
 - `closed` [2026-03-14 Source-Library Adapter Capability Remediation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/20_wave49-manual-public-replay-closure-2026-05-23.md)
 - `external_blocked` [2026-03-14 Time Semantics Density Merged Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/README.md)
 - `external_blocked` [2026-03-08 LLM Crawler Unified FrontDoor](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/10_wave23-external-blocked-decision-2026-05-23.md)
-- `external_blocked` [2026-03-09 Agent Symbolic Batch Search Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-09-agent-symbolic-batch-search-architecture/22_wave23-external-blocked-decision-2026-05-23.md)
+- `closed` [2026-03-09 Agent Symbolic Batch Search Architecture](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-09-agent-symbolic-batch-search-architecture/23_wave53-manual-live-provider-quality-closure-2026-05-23.md)
 - `external_blocked` [2026-03-07 LLM Service And Agent Platformization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/10_wave23-closure-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Ingest Digestion And Long-Cycle Automation](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/10_wave23-closure-decision-2026-05-23.md)
 - `external_blocked` [2026-03-07 Typed Knowledge Organization](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-typed-knowledge-organization/10_wave27-external-blocked-decision-2026-05-23.md)

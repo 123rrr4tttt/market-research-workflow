@@ -1,0 +1,20 @@
+{
+  "contract_version": "agent_batch.provider_auto_rollout_policy.v1",
+  "approval_status": "approved",
+  "approved_providers": [
+    "searxng",
+    "yacy",
+    "web"
+  ],
+  "manual_review_artifact": "development/latest-dev-docs/automation-runs/wave53-manual-agent-symbolic-live-provider-quality/2026-05-23/README.md",
+  "rollback_criteria": [
+    "disable provider=auto if timeout_rate exceeds 10 percent in the daily threshold replay",
+    "disable provider=auto if operator review marks any provider sample batch as failed",
+    "fall back to explicit provider selection if a provider returns fewer than 3 visible results"
+  ],
+  "monitoring_requirements": [
+    "daily symbolic live quality replay for searxng, yacy, and web",
+    "manual review of at least 3 visible samples per provider before promotion renewal",
+    "record source-domain count, relevance, freshness, timeout rate, and p95 latency per provider"
+  ]
+}

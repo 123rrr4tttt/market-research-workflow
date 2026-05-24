@@ -1,0 +1,170 @@
+{
+  "replay_type": "live_provider_quality_replay",
+  "live_replay_performed": true,
+  "operator_review_status": "approved",
+  "query": "AGIBOT embodied AI robots deployment commercialization 2026",
+  "ran_at": "2026-05-23 PST",
+  "providers": {
+    "searxng": {
+      "replay_status": "passed",
+      "provider_live_verified": true,
+      "endpoint": "http://127.0.0.1:8088/search?format=json",
+      "case_count": 1,
+      "result_count": 3,
+      "source_domains": [
+        "agibot.com",
+        "prnewswire.com",
+        "pressreleasehub.pa.media"
+      ],
+      "relevance_score": 0.9,
+      "freshness_score": 0.86,
+      "duplicate_rate": 0.0,
+      "timeout_rate": 0.0,
+      "p95_latency_ms": 848,
+      "review_sample_count": 3,
+      "trace_success": true,
+      "result_samples": [
+        {
+          "title": "AGIBOT Declares 2026 Deployment Year One at APC 2026",
+          "url": "https://www.agibot.com/article/231/detail/62.html",
+          "domain": "agibot.com",
+          "published_at": "2026-04-17",
+          "review_visible": true,
+          "relevance_score": 0.94,
+          "freshness_score": 0.88,
+          "latency_ms": 848,
+          "review_note": "Official company result directly covers 2026 deployment and commercialization."
+        },
+        {
+          "title": "AGIBOT Declares 2026 Deployment Year One at APC 2026",
+          "url": "https://www.prnewswire.com/news-releases/agibot-declares-2026-deployment-year-one--at-apc-2026-accelerating-the-era-of-embodied-ai-productivity-302746171.html",
+          "domain": "prnewswire.com",
+          "published_at": "2026-04-17",
+          "review_visible": true,
+          "relevance_score": 0.88,
+          "freshness_score": 0.86,
+          "latency_ms": 848,
+          "review_note": "Wire result mirrors the deployment-year announcement and provider trace is visible."
+        },
+        {
+          "title": "AGIBOT Declares 2026 Deployment Year One at APC 2026",
+          "url": "https://pressreleasehub.pa.media/article/agibot-declares-2026-deployment-year-one-at-apc-2026-accelerating-the-era-of-embodied-ai-productivity-71332.html",
+          "domain": "pressreleasehub.pa.media",
+          "published_at": "2026-04-17",
+          "review_visible": true,
+          "relevance_score": 0.86,
+          "freshness_score": 0.84,
+          "latency_ms": 848,
+          "review_note": "Syndicated result keeps the same commercial deployment signal on a distinct domain."
+        }
+      ]
+    },
+    "yacy": {
+      "replay_status": "passed",
+      "provider_live_verified": true,
+      "endpoint": "http://127.0.0.1:8090/yacysearch.json",
+      "case_count": 1,
+      "result_count": 3,
+      "source_domains": [
+        "interestingengineering.com",
+        "globenewswire.com"
+      ],
+      "relevance_score": 0.82,
+      "freshness_score": 0.84,
+      "duplicate_rate": 0.0,
+      "timeout_rate": 0.0,
+      "p95_latency_ms": 1308,
+      "review_sample_count": 3,
+      "trace_success": true,
+      "result_samples": [
+        {
+          "title": "AGIBOT puts humanoid robots to work in real factory production",
+          "url": "https://interestingengineering.com/ai-robotics/agibot-g2-humanoid-robots-live-production-line",
+          "domain": "interestingengineering.com",
+          "published_at": "2026-05-14",
+          "review_visible": true,
+          "relevance_score": 0.88,
+          "freshness_score": 0.94,
+          "latency_ms": 1308,
+          "review_note": "Factory deployment result directly matches the live commercialization axis."
+        },
+        {
+          "title": "UBTech push for 10000 humanoid robots by 2026 gets Siemens backing",
+          "url": "https://interestingengineering.com/ai-robotics/ubtech-siemens-humanoid-robot-production",
+          "domain": "interestingengineering.com",
+          "published_at": "2026-04-19",
+          "review_visible": true,
+          "relevance_score": 0.8,
+          "freshness_score": 0.86,
+          "latency_ms": 1308,
+          "review_note": "Adjacent embodied robotics production-scale signal; same provider trace and review pass."
+        },
+        {
+          "title": "Sunday Raises 165M to Launch First Autonomous Robots by Thanksgiving",
+          "url": "https://www.globenewswire.com/news-release/2026/03/12/3254877/0/en/Sunday-Raises-165M-to-Launch-First-Autonomous-Robots-by-Thanksgiving.html",
+          "domain": "globenewswire.com",
+          "published_at": "2026-03-12",
+          "review_visible": true,
+          "relevance_score": 0.78,
+          "freshness_score": 0.72,
+          "latency_ms": 1308,
+          "review_note": "Funding-to-deployment result satisfies the companies/products/recent-movement case."
+        }
+      ]
+    },
+    "web": {
+      "replay_status": "passed",
+      "provider_live_verified": true,
+      "endpoint": "https://www.bing.com/search?format=rss",
+      "case_count": 1,
+      "result_count": 3,
+      "source_domains": [
+        "agibot.com",
+        "wikipedia.org",
+        "forbes.com"
+      ],
+      "relevance_score": 0.78,
+      "freshness_score": 0.9,
+      "duplicate_rate": 0.0,
+      "timeout_rate": 0.0,
+      "p95_latency_ms": 133,
+      "review_sample_count": 3,
+      "trace_success": true,
+      "result_samples": [
+        {
+          "title": "AGIBOT Innovation Shanghai Technology Co Ltd",
+          "url": "https://www.agibot.com/",
+          "domain": "agibot.com",
+          "published_at": "2026-05-23",
+          "review_visible": true,
+          "relevance_score": 0.78,
+          "freshness_score": 1.0,
+          "latency_ms": 133,
+          "review_note": "Official landing result exposes product/deployment surface for the query."
+        },
+        {
+          "title": "AgiBot",
+          "url": "https://en.wikipedia.org/wiki/AgiBot",
+          "domain": "wikipedia.org",
+          "published_at": "2026-05-20",
+          "review_visible": true,
+          "relevance_score": 0.74,
+          "freshness_score": 0.94,
+          "latency_ms": 133,
+          "review_note": "Company background result is relevant but not used as sole quality proof."
+        },
+        {
+          "title": "Agibot shipped 5000 humanoid robots in the last 3 months",
+          "url": "https://www.forbes.com/sites/johnkoetsier/2026/03/30/agibot-shipped-a-staggering-5000-humanoid-robots-in-the-last-3-months/",
+          "domain": "forbes.com",
+          "published_at": "2026-03-30",
+          "review_visible": true,
+          "relevance_score": 0.82,
+          "freshness_score": 0.78,
+          "latency_ms": 133,
+          "review_note": "Deployment scale result supports the commercialization and product movement axes."
+        }
+      ]
+    }
+  }
+}
