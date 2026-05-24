@@ -26,12 +26,14 @@ import {
   getWritingDocument,
   getWritingKeywordCards,
   getWritingSuggest,
+  getTypedKnowledgeWritingContext,
   listWritingCitations,
   listWritingDocuments,
   listWritingTemplates,
   previewWritingKeywordCard,
   readTypedKnowledgeWritingContextFromDocument,
   runAgentChatTurnStreaming,
+  updateTypedKnowledgeReviewState,
   updateWritingDocument,
   upsertWritingCitations,
   validateWritingTemplate,
@@ -723,9 +725,17 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     () => readTypedKnowledgeWritingContextFromDocument(documentDetailQuery.data),
     [documentDetailQuery.data],
   )
+  const typedKnowledgeContextQuery = useQuery({
+    queryKey: queryKeys.typedKnowledge.writingContext(projectKey),
+    queryFn: () => getTypedKnowledgeWritingContext(projectKey),
+    enabled: canUseWritingProject,
+    staleTime: 30000,
+  })
+  const liveWritingTypedContext = typedKnowledgeContextQuery.data?.typed_knowledge_context || null
+  const effectiveWritingTypedContext = liveWritingTypedContext || writingTypedContext
   const writingTypedContextKey = useMemo(
-    () => writingTypedKnowledgeContextKey(writingTypedContext),
-    [writingTypedContext],
+    () => writingTypedKnowledgeContextKey(effectiveWritingTypedContext),
+    [effectiveWritingTypedContext],
   )
 
   const resetContextPanels = () => {
@@ -795,6 +805,26 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
       }),
     onSuccess: setTemplateValidation,
   })
+  const typedKnowledgeGovernanceMutation = useMutation({
+    mutationFn: () => {
+      const handoff = effectiveWritingTypedContext?.handoffs[0]
+      if (!handoff) throw new Error(t('writingWorkbenchPage.status.typedKnowledgeUnavailable'))
+      return updateTypedKnowledgeReviewState({
+        project_key: projectKey,
+        object_key: handoff.knowledge_item_key,
+        review_state: 'human_confirmed',
+        actor_type: 'human',
+        actor_id: 'writing-workbench',
+      })
+    },
+    onSuccess: async () => {
+      setSaveMessage(t('writingWorkbenchPage.status.typedKnowledgeApproved'))
+      await queryClient.invalidateQueries({ queryKey: queryKeys.typedKnowledge.writingContext(projectKey) })
+    },
+    onError: (error) => {
+      setSaveMessage(error instanceof Error ? error.message : t('writingWorkbenchPage.status.typedKnowledgeFailed'))
+    },
+  })
 
   const selectionLookup = useSelectionLookup({
     selectionText,
@@ -808,6 +838,7 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
             query: nextSelection,
             selectionHash,
             document: documentDetailQuery.data,
+            typedContext: effectiveWritingTypedContext,
           }),
         ),
         getWritingSuggest(nextSelection, { mode: 'material', limit: 6 }),
@@ -2179,6 +2210,16 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
             </button>
             <button type="button" className="button-secondary" data-testid="writing-refresh" onClick={() => void handleRefreshWritingState()}>
               {t('writingWorkbenchPage.action.refresh')}
+            </button>
+            <button
+              type="button"
+              className="button-secondary"
+              data-testid="writing-typed-knowledge-governance"
+              onClick={() => typedKnowledgeGovernanceMutation.mutate()}
+              disabled={typedKnowledgeGovernanceMutation.isPending || !effectiveWritingTypedContext}
+              title={typedKnowledgeContextQuery.isFetching ? t('writingWorkbenchPage.status.typedKnowledgeLoading') : undefined}
+            >
+              {t('writingWorkbenchPage.action.typedKnowledgeApprove')}
             </button>
           </div>
           <div className="writing-toolbar-cluster writing-toolbar-cluster--meta">

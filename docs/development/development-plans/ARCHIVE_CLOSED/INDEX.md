@@ -50,6 +50,8 @@
 - [2026-03-07 后续安排 / Abstract Planning Folderization](./2026-03-07-后续安排/07_wave15-final-closure-audit-2026-05-22.md)
 - [2026-03-07 Docs Root Restructuring](./2026-03-07-docs-root-restructuring/21_wave31-docs-root-shared-navigation-sync-2026-05-23.md)
 - [2026-03-07 Graph Editing And Reporting](./2026-03-07-graph-editing-and-reporting/12_wave46-manual-live-audit-closure-2026-05-23.md)
+- [2026-03-07 Typed Knowledge Organization](./2026-03-07-typed-knowledge-organization/07_wave54-typed-writing-live-closure-2026-05-23.md)
+- [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/08_wave54-typed-writing-live-closure-2026-05-23.md)
 - [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md)
 - [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/12_wave28-closure-decision-2026-05-23.md)
 - [2026-03-12 Data Structured Service Modularization](./2026-03-12-data-structured-service-modularization/15_wave45-manual-live-api-closure-2026-05-23.md)

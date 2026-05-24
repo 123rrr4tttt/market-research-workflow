@@ -178,6 +178,10 @@ export const queryKeys = {
     llmHistory: (projectKey: string) => ['writing', projectKey, 'llm-history'] as const,
     llmDetail: (projectKey: string, jobId: number | null) => ['writing', projectKey, 'llm-detail', jobId] as const,
   },
+  typedKnowledge: {
+    writingContext: (projectKey: string) => ['typed-knowledge', projectKey, 'writing-context'] as const,
+    governance: (projectKey: string) => ['typed-knowledge', projectKey, 'governance'] as const,
+  },
   graph: {
     config: (projectKey: string) => ['graph-config', projectKey] as const,
     templates: (projectKey: string) => ['graph-templates', projectKey] as const,

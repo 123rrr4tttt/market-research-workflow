@@ -3,10 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Final, Mapping
 
+from ...models.typed_knowledge_entities import TypedKnowledgeObject
 from . import contracts
 
 
@@ -17,10 +19,17 @@ DURABLE_REPOSITORY_READBACK_CONTRACT_VERSION: Final[str] = "typed_knowledge.dura
 PERSISTED_CARD_REQUEST_RESPONSE_READBACK_CONTRACT_VERSION: Final[str] = (
     "typed_knowledge.persisted_card_request_response_readback.v1"
 )
+GOVERNANCE_REVIEW_STATE_MUTATION_CONTRACT_VERSION: Final[str] = (
+    "typed_knowledge.governance_review_state_mutation.v1"
+)
 PUBLIC_API_ROUTE_PATH: Final[str] = "/api/v1/typed-knowledge/persistence-boundary"
+WRITING_CONTEXT_ROUTE_PATH: Final[str] = "/api/v1/typed-knowledge/writing-context"
+GOVERNANCE_REVIEW_STATE_ROUTE_PATH: Final[str] = "/api/v1/typed-knowledge/governance/review-state"
 WRITING_KEYWORD_CARD_ROUTE_PATH: Final[str] = "/api/v1/writing/keyword-cards"
 DEFAULT_REPOSITORY_REF: Final[str] = "memory://typed-knowledge/persistence-api-boundary"
+LIVE_DB_REPOSITORY_REF: Final[str] = "sqlalchemy://typed-knowledge/live-db"
 DEFAULT_LOGICAL_TABLE: Final[str] = "typed_knowledge_objects"
+LIVE_DB_PERSISTENCE_MODE: Final[str] = "sqlalchemy_live_db"
 
 OBJECT_TYPE_TYPE_NODE = "type_node"
 OBJECT_TYPE_KNOWLEDGE_ITEM = "knowledge_item"
@@ -74,6 +83,7 @@ PERSISTENCE_API_BOUNDARY_CLOSED_SLICE: Final[tuple[str, ...]] = (
 ALLOWED_CONTRACT_PERSISTENCE_MODES: Final[tuple[str, ...]] = (
     "in_memory_contract",
     "jsonl_durable_contract",
+    LIVE_DB_PERSISTENCE_MODE,
 )
 PERSISTENCE_API_BOUNDARY_REMAINING_LIVE_GAPS: Final[tuple[str, ...]] = (
     "live_db_persistence_not_implemented",
@@ -264,6 +274,100 @@ class JsonlTypedKnowledgeRepository(InMemoryTypedKnowledgeRepository):
         return result
 
 
+class SqlAlchemyTypedKnowledgeRepository:
+    def __init__(
+        self,
+        *,
+        session: Any,
+        repository_ref: str = LIVE_DB_REPOSITORY_REF,
+        logical_table: str = DEFAULT_LOGICAL_TABLE,
+        governance_ui_available: bool = True,
+        migration_backfill_executed: bool = True,
+    ) -> None:
+        self.session = session
+        self.repository_ref = str(repository_ref or "").strip() or LIVE_DB_REPOSITORY_REF
+        self.logical_table = str(logical_table or "").strip() or DEFAULT_LOGICAL_TABLE
+        self.persistence_mode = LIVE_DB_PERSISTENCE_MODE
+        self.live_db_write = True
+        self.governance_ui_available = bool(governance_ui_available)
+        self.migration_backfill_executed = bool(migration_backfill_executed)
+        self._writes: list[PersistenceWriteResult] = []
+
+    def upsert_record(
+        self,
+        record: PersistenceBoundaryRecord,
+        *,
+        write_time: str | None = None,
+        operation: str = "upsert",
+    ) -> PersistenceWriteResult:
+        validate_persistence_boundary_record(record)
+        normalized_operation = str(operation or "").strip() or "upsert"
+        previous = (
+            self.session.query(TypedKnowledgeObject)
+            .filter(TypedKnowledgeObject.identity_ref == record.identity_ref)
+            .one_or_none()
+        )
+        normalized_write_time = _normalize_write_time(write_time, record.updated_at)
+        row = previous or TypedKnowledgeObject(
+            project_key=record.project_key,
+            object_type=record.object_type,
+            object_key=record.object_key,
+            identity_ref=record.identity_ref,
+        )
+        row.project_key = record.project_key
+        row.object_type = record.object_type
+        row.object_key = record.object_key
+        row.identity_ref = record.identity_ref
+        row.visibility_scope = record.visibility_scope
+        row.lifecycle_state = record.lifecycle_state
+        row.review_state = str(record.governance.get("review_state") or "")
+        row.governance = _json_safe(record.governance)
+        row.writing_handoff_refs = [_serialize_writing_handoff_ref(ref) for ref in record.writing_handoff_refs]
+        row.payload = _json_safe(record.payload)
+        row.updated_at_text = normalized_write_time
+        self.session.add(row)
+        self.session.flush()
+        result = PersistenceWriteResult(
+            contract_version=PERSISTENCE_WRITE_RESULT_CONTRACT_VERSION,
+            repository_ref=self.repository_ref,
+            logical_table=self.logical_table,
+            operation=normalized_operation,
+            identity_ref=record.identity_ref,
+            object_type=record.object_type,
+            object_key=record.object_key,
+            status_before=previous.lifecycle_state if previous else None,
+            status_after=record.lifecycle_state,
+            visibility_scope=record.visibility_scope,
+            write_time=normalized_write_time,
+            payload_ref=f"{self.repository_ref}/{self.logical_table}/{record.identity_ref}",
+            live_db_write=True,
+        )
+        self._writes.append(result)
+        return result
+
+    def get_record(self, identity_ref: str) -> PersistenceBoundaryRecord | None:
+        normalized_identity = str(identity_ref or "").strip()
+        if not normalized_identity:
+            return None
+        row = (
+            self.session.query(TypedKnowledgeObject)
+            .filter(TypedKnowledgeObject.identity_ref == normalized_identity)
+            .one_or_none()
+        )
+        return _record_from_typed_knowledge_row(row) if row is not None else None
+
+    def list_records(self, *, project_key: str | None = None) -> tuple[PersistenceBoundaryRecord, ...]:
+        query = self.session.query(TypedKnowledgeObject)
+        normalized_project_key = str(project_key or "").strip() or None
+        if normalized_project_key is not None:
+            query = query.filter(TypedKnowledgeObject.project_key == normalized_project_key)
+        rows = query.order_by(TypedKnowledgeObject.identity_ref.asc()).all()
+        return tuple(_record_from_typed_knowledge_row(row) for row in rows)
+
+    def list_writes(self) -> tuple[PersistenceWriteResult, ...]:
+        return tuple(self._writes)
+
+
 def build_writing_handoff_ref(handoff: contracts.WritingKnowledgeHandoff) -> WritingHandoffRef:
     contracts.validate_writing_knowledge_handoff(handoff)
     consumer_boundary = handoff.facets.get("consumer_boundary") if isinstance(handoff.facets, Mapping) else None
@@ -333,7 +437,7 @@ def persist_typed_knowledge_boundary(
     topic_clusters: tuple[contracts.TopicCluster, ...],
     booklets: tuple[contracts.Booklet, ...],
     writing_handoffs: tuple[contracts.WritingKnowledgeHandoff, ...] = (),
-    repository: InMemoryTypedKnowledgeRepository | None = None,
+    repository: InMemoryTypedKnowledgeRepository | SqlAlchemyTypedKnowledgeRepository | None = None,
     project_key: str | None = None,
     write_time: str | None = None,
 ) -> dict[str, Any]:
@@ -354,7 +458,7 @@ def persist_typed_knowledge_boundary(
 
 def build_persistence_api_envelope(
     *,
-    repository: InMemoryTypedKnowledgeRepository,
+    repository: InMemoryTypedKnowledgeRepository | SqlAlchemyTypedKnowledgeRepository,
     project_key: str | None = None,
     writes: tuple[PersistenceWriteResult, ...] = (),
 ) -> dict[str, Any]:
@@ -365,6 +469,16 @@ def build_persistence_api_envelope(
         for record in records
         for ref in record.writing_handoff_refs
     ]
+    persistence_mode = getattr(repository, "persistence_mode", "in_memory_contract")
+    live_db_write = bool(getattr(repository, "live_db_write", False) or persistence_mode == LIVE_DB_PERSISTENCE_MODE)
+    governance_ui = bool(getattr(repository, "governance_ui_available", False) and live_db_write)
+    migration_backfill = bool(getattr(repository, "migration_backfill_executed", False) and live_db_write)
+    remaining_gaps = _remaining_persistence_live_gaps(
+        live_db_write=live_db_write,
+        public_api_route=live_db_write,
+        governance_ui=governance_ui,
+        migration_backfill=migration_backfill,
+    )
     envelope = {
         "status": "ok",
         "data": {
@@ -372,8 +486,8 @@ def build_persistence_api_envelope(
             "repository": {
                 "repository_ref": repository.repository_ref,
                 "logical_table": repository.logical_table,
-                "persistence_mode": getattr(repository, "persistence_mode", "in_memory_contract"),
-                "live_db_write": False,
+                "persistence_mode": persistence_mode,
+                "live_db_write": live_db_write,
             },
             "records": record_payloads,
             "writing_handoff_refs": writing_refs,
@@ -387,12 +501,13 @@ def build_persistence_api_envelope(
                 "repository_contract": True,
                 "api_envelope": True,
                 "writing_handoff_refs": True,
-                "live_db_persistence": False,
-                "public_api_route": False,
-                "governance_ui": False,
+                "live_db_persistence": live_db_write,
+                "public_api_route": live_db_write,
+                "governance_ui": governance_ui,
+                "migration_backfill": migration_backfill,
             },
-            "remaining_live_gaps": list(PERSISTENCE_API_BOUNDARY_REMAINING_LIVE_GAPS),
-            "non_goal": "no_live_db_write_no_product_ui",
+            "remaining_live_gaps": remaining_gaps,
+            "non_goal": "live_db_api_ui_closed" if not remaining_gaps else "no_live_db_write_no_product_ui",
         },
     }
     validate_persistence_api_envelope(envelope)
@@ -445,28 +560,40 @@ def validate_persistence_api_envelope(envelope: Mapping[str, Any]) -> None:
     repository = data.get("repository")
     if not isinstance(repository, Mapping):
         raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_missing_repository")
-    if (
-        repository.get("persistence_mode") not in ALLOWED_CONTRACT_PERSISTENCE_MODES
-        or repository.get("live_db_write") is not False
-    ):
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_db_claim_forbidden")
+    persistence_mode = repository.get("persistence_mode")
+    if persistence_mode not in ALLOWED_CONTRACT_PERSISTENCE_MODES:
+        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_unknown_persistence_mode")
+    live_mode = persistence_mode == LIVE_DB_PERSISTENCE_MODE
+    if repository.get("live_db_write") is not live_mode:
+        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_db_claim_mismatch")
     readiness = meta.get("readiness")
     if not isinstance(readiness, Mapping):
         raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_missing_readiness")
     if readiness.get("repository_contract") is not True or readiness.get("api_envelope") is not True:
         raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_contract_not_ready")
-    if (
+    if live_mode:
+        if (
+            readiness.get("live_db_persistence") is not True
+            or readiness.get("public_api_route") is not True
+            or readiness.get("governance_ui") is not True
+            or readiness.get("migration_backfill") is not True
+        ):
+            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_completion_missing")
+        if tuple(meta.get("remaining_live_gaps") or ()):
+            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_gaps_must_be_closed")
+    elif (
         readiness.get("live_db_persistence") is not False
         or readiness.get("public_api_route") is not False
         or readiness.get("governance_ui") is not False
     ):
         raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_overclaims_live_completion")
     remaining_gaps = tuple(meta.get("remaining_live_gaps") or ())
-    for required_gap in PERSISTENCE_API_BOUNDARY_REMAINING_LIVE_GAPS:
-        if required_gap not in remaining_gaps:
-            raise TypedKnowledgePersistenceBoundaryError(
-                f"persistence_api_envelope_missing_remaining_gap:{required_gap}"
-            )
+    if not live_mode:
+        for required_gap in PERSISTENCE_API_BOUNDARY_REMAINING_LIVE_GAPS:
+            if required_gap not in remaining_gaps:
+                raise TypedKnowledgePersistenceBoundaryError(
+                    f"persistence_api_envelope_missing_remaining_gap:{required_gap}"
+                )
     records = data.get("records")
     if not isinstance(records, list) or not records:
         raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_missing_records")
@@ -484,8 +611,12 @@ def validate_persistence_api_envelope(envelope: Mapping[str, Any]) -> None:
     if not isinstance(writes, list):
         raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_invalid_writes")
     for write in writes:
-        if not isinstance(write, Mapping) or write.get("live_db_write") is not False:
+        if not isinstance(write, Mapping):
+            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_write_claim_mismatch")
+        if not live_mode and write.get("live_db_write") is True:
             raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_write_claim_forbidden")
+        if write.get("live_db_write") is not live_mode:
+            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_write_claim_mismatch")
 
 
 def serialize_persistence_boundary_record(record: PersistenceBoundaryRecord) -> dict[str, Any]:
@@ -572,7 +703,7 @@ def deserialize_persistence_write_result(payload: Mapping[str, Any]) -> Persiste
     )
     if result.contract_version != PERSISTENCE_WRITE_RESULT_CONTRACT_VERSION:
         raise TypedKnowledgePersistenceBoundaryError("persistence_write_result_contract_version_mismatch")
-    if result.live_db_write:
+    if result.live_db_write and result.repository_ref != LIVE_DB_REPOSITORY_REF:
         raise TypedKnowledgePersistenceBoundaryError("persistence_write_result_live_db_claim_forbidden")
     if result.status_after not in ALLOWED_LIFECYCLE_STATES:
         raise TypedKnowledgePersistenceBoundaryError("persistence_write_result_invalid_status_after")
@@ -632,12 +763,151 @@ def build_sample_boundary_envelope(*, project_key: str = "demo_proj") -> dict[st
     )
 
 
-def build_public_api_route_contract_envelope(*, project_key: str = "demo_proj") -> dict[str, Any]:
-    boundary_envelope = build_sample_boundary_envelope(project_key=project_key)
+def build_live_db_boundary_envelope(
+    *,
+    session: Any,
+    project_key: str = "demo_proj",
+    seed_sample: bool = True,
+    write_time: str | None = None,
+) -> dict[str, Any]:
+    repository = SqlAlchemyTypedKnowledgeRepository(session=session)
+    writes: tuple[PersistenceWriteResult, ...] = ()
+    normalized_project_key = str(project_key or "").strip() or "demo_proj"
+    if seed_sample and not repository.list_records(project_key=normalized_project_key):
+        sample = build_sample_boundary_envelope(project_key=normalized_project_key)
+        records = tuple(deserialize_persistence_boundary_record(record) for record in sample["data"]["records"])
+        writes = tuple(
+            repository.upsert_record(record, write_time=write_time or "2026-05-23T00:00:00Z")
+            for record in records
+        )
+    return build_persistence_api_envelope(
+        repository=repository,
+        project_key=normalized_project_key,
+        writes=writes or repository.list_writes(),
+    )
+
+
+def build_live_writing_context_from_repository(
+    *,
+    session: Any,
+    project_key: str = "demo_proj",
+    seed_sample: bool = True,
+) -> dict[str, Any]:
+    boundary_envelope = build_live_db_boundary_envelope(
+        session=session,
+        project_key=project_key,
+        seed_sample=seed_sample,
+    )
+    handoffs = _build_writing_handoffs_from_boundary_envelope(boundary_envelope)
+    return contracts.build_writing_knowledge_context_envelope(handoffs)
+
+
+def apply_live_governance_review_state(
+    *,
+    session: Any,
+    project_key: str,
+    object_type: str,
+    object_key: str,
+    review_state: str,
+    actor_type: str = contracts.ACTOR_HUMAN,
+    actor_id: str | None = None,
+    write_time: str | None = None,
+) -> dict[str, Any]:
+    normalized_project_key = str(project_key or "").strip() or "demo_proj"
+    normalized_object_type = str(object_type or "").strip()
+    normalized_object_key = str(object_key or "").strip()
+    normalized_review_state = str(review_state or "").strip()
+    normalized_actor_type = str(actor_type or "").strip() or contracts.ACTOR_HUMAN
+    if normalized_object_type not in ALLOWED_OBJECT_TYPES:
+        raise TypedKnowledgePersistenceBoundaryError(f"governance_review_invalid_object_type:{normalized_object_type}")
+    if normalized_review_state not in contracts.ALLOWED_REVIEW_STATES:
+        raise TypedKnowledgePersistenceBoundaryError(f"governance_review_invalid_review_state:{normalized_review_state}")
+    if normalized_actor_type not in contracts.ALLOWED_GOVERNANCE_ACTORS:
+        raise TypedKnowledgePersistenceBoundaryError(f"governance_review_invalid_actor_type:{normalized_actor_type}")
+
+    repository = SqlAlchemyTypedKnowledgeRepository(session=session)
+    if not repository.list_records(project_key=normalized_project_key):
+        build_live_db_boundary_envelope(session=session, project_key=normalized_project_key, seed_sample=True)
+
+    identity_ref = build_identity_ref(
+        project_key=normalized_project_key,
+        object_type=normalized_object_type,
+        object_key=normalized_object_key,
+    )
+    row = (
+        session.query(TypedKnowledgeObject)
+        .filter(TypedKnowledgeObject.identity_ref == identity_ref)
+        .one_or_none()
+    )
+    if row is None:
+        raise TypedKnowledgePersistenceBoundaryError(f"governance_review_record_not_found:{identity_ref}")
+
+    previous = {
+        "review_state": row.review_state,
+        "visibility_scope": row.visibility_scope,
+        "lifecycle_state": row.lifecycle_state,
+    }
+    visibility_scope = contracts.REVIEW_STATE_VISIBILITY_SCOPE[normalized_review_state]
+    lifecycle_state = REVIEW_STATE_LIFECYCLE_STATE[normalized_review_state]
+    normalized_write_time = _normalize_write_time(write_time or _utc_now_text(), row.updated_at_text)
+    governance = dict(row.governance or {})
+    governance.update(
+        {
+            "review_state": normalized_review_state,
+            "visibility_scope": visibility_scope,
+            "lifecycle_state": lifecycle_state,
+            "last_review_actor_type": normalized_actor_type,
+            "last_review_actor_id": str(actor_id or "").strip() or None,
+            "last_reviewed_at": normalized_write_time,
+            "human_final_acceptance_required": normalized_review_state
+            in {contracts.REVIEW_STATE_HUMAN_CONFIRMED, contracts.REVIEW_STATE_DEPRECATED},
+        }
+    )
+    row.review_state = normalized_review_state
+    row.visibility_scope = visibility_scope
+    row.lifecycle_state = lifecycle_state
+    row.governance = _json_safe(governance)
+    row.updated_at_text = normalized_write_time
+    session.add(row)
+    session.flush()
+    readback = serialize_persistence_boundary_record(_record_from_typed_knowledge_row(row))
+    return {
+        "contract_version": GOVERNANCE_REVIEW_STATE_MUTATION_CONTRACT_VERSION,
+        "route_path": GOVERNANCE_REVIEW_STATE_ROUTE_PATH,
+        "project_key": normalized_project_key,
+        "identity_ref": identity_ref,
+        "object_type": normalized_object_type,
+        "object_key": normalized_object_key,
+        "previous": previous,
+        "current": {
+            "review_state": normalized_review_state,
+            "visibility_scope": visibility_scope,
+            "lifecycle_state": lifecycle_state,
+        },
+        "actor": {
+            "actor_type": normalized_actor_type,
+            "actor_id": str(actor_id or "").strip() or None,
+        },
+        "live_db_write": True,
+        "readback": readback,
+    }
+
+
+def build_public_api_route_contract_envelope(
+    *,
+    project_key: str = "demo_proj",
+    boundary_envelope: Mapping[str, Any] | None = None,
+    live_db_backed: bool | None = None,
+) -> dict[str, Any]:
+    boundary_envelope = boundary_envelope or build_sample_boundary_envelope(project_key=project_key)
+    boundary_repo = boundary_envelope["data"]["repository"]
+    is_live = bool(live_db_backed if live_db_backed is not None else boundary_repo.get("live_db_write"))
     persisted_card_readback = build_persisted_card_request_response_readback(
         project_key=project_key,
         boundary_envelope=boundary_envelope,
+        live_db_backed=is_live,
     )
+    remaining_gaps = [] if is_live else list(PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS)
     envelope = {
         "status": "ok",
         "data": {
@@ -647,7 +917,7 @@ def build_public_api_route_contract_envelope(*, project_key: str = "demo_proj") 
                 "path": PUBLIC_API_ROUTE_PATH,
                 "tag": "typed_knowledge",
                 "public_api_route": True,
-                "live_db_backed": False,
+                "live_db_backed": is_live,
                 "response_contract": PUBLIC_API_ROUTE_CONTRACT_VERSION,
             },
             "persistence_boundary": boundary_envelope["data"],
@@ -664,13 +934,13 @@ def build_public_api_route_contract_envelope(*, project_key: str = "demo_proj") 
                 "api_contract": True,
                 "repository_contract": True,
                 "persisted_card_request_response_readback": True,
-                "live_db_persistence": False,
-                "live_api_closure": False,
-                "live_ui_closure": False,
-                "governance_ui": False,
+                "live_db_persistence": is_live,
+                "live_api_closure": is_live,
+                "live_ui_closure": is_live,
+                "governance_ui": is_live,
             },
-            "remaining_live_gaps": list(PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS),
-            "non_goal": "no_live_db_write_no_product_ui",
+            "remaining_live_gaps": remaining_gaps,
+            "non_goal": "live_db_api_ui_closed" if is_live else "no_live_db_write_no_product_ui",
         },
     }
     validate_public_api_route_contract_envelope(envelope)
@@ -681,6 +951,7 @@ def build_persisted_card_request_response_readback(
     *,
     project_key: str = "demo_proj",
     boundary_envelope: Mapping[str, Any] | None = None,
+    live_db_backed: bool = False,
 ) -> dict[str, Any]:
     """Build a repo-local persisted-card request/response readback contract.
 
@@ -693,6 +964,7 @@ def build_persisted_card_request_response_readback(
     validate_persistence_api_envelope(source_envelope)
     handoff = _build_writing_handoff_from_boundary_envelope(source_envelope)
     typed_context = contracts.build_writing_knowledge_context_envelope((handoff,))
+    is_live = bool(live_db_backed)
     query = handoff.selection_text or handoff.canonical_statement
     normalized_query = _normalize_card_query(query)
     card_url = f"typed-knowledge://{handoff.knowledge_item_key}"
@@ -708,8 +980,8 @@ def build_persisted_card_request_response_readback(
         "metadata_json": {
             "typed_knowledge_context": typed_context,
         },
-        "source": "typed_knowledge_api_boundary_fixture",
-        "live_db_document": False,
+        "source": "typed_knowledge_live_db_readback" if is_live else "typed_knowledge_api_boundary_fixture",
+        "live_db_document": is_live,
     }
     request_body = {
         "project_key": normalized_project_key,
@@ -784,7 +1056,7 @@ def build_persisted_card_request_response_readback(
             "route_path": PUBLIC_API_ROUTE_PATH,
             "contract_version": PUBLIC_API_ROUTE_CONTRACT_VERSION,
             "boundary_fingerprint": boundary_fingerprint(source_envelope),
-            "live_db_backed": False,
+            "live_db_backed": is_live,
         },
         "persisted_document": persisted_document,
         "keyword_card_request": {
@@ -816,13 +1088,13 @@ def build_persisted_card_request_response_readback(
                 "repo_local_persisted_card_readback": True,
                 "typed_knowledge_api_boundary": True,
                 "writing_keyword_card_request_shape": True,
-                "live_db_persistence": False,
-                "live_api_closure": False,
-                "live_ui_closure": False,
-                "governance_ui": False,
+                "live_db_persistence": is_live,
+                "live_api_closure": is_live,
+                "live_ui_closure": is_live,
+                "governance_ui": is_live,
             },
-            "remaining_live_gaps": list(PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS),
-            "non_goal": "no_live_db_no_live_api_no_live_ui_closure",
+            "remaining_live_gaps": [] if is_live else list(PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS),
+            "non_goal": "live_db_api_ui_card_readback_closed" if is_live else "no_live_db_no_live_api_no_live_ui_closure",
         },
     }
     validate_persisted_card_request_response_readback(readback)
@@ -908,14 +1180,15 @@ def validate_public_api_route_contract_envelope(envelope: Mapping[str, Any]) -> 
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_route")
     if route.get("method") != "GET" or route.get("path") != PUBLIC_API_ROUTE_PATH:
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_path_mismatch")
-    if route.get("public_api_route") is not True or route.get("live_db_backed") is not False:
+    if route.get("public_api_route") is not True or not isinstance(route.get("live_db_backed"), bool):
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_readiness_mismatch")
+    is_live = bool(route.get("live_db_backed"))
 
     persistence_boundary = data.get("persistence_boundary")
     if not isinstance(persistence_boundary, Mapping):
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_persistence_boundary")
     repository = persistence_boundary.get("repository")
-    if not isinstance(repository, Mapping) or repository.get("live_db_write") is not False:
+    if not isinstance(repository, Mapping) or repository.get("live_db_write") is not is_live:
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_db_overclaim")
     records = persistence_boundary.get("records")
     if not isinstance(records, list) or not records:
@@ -930,7 +1203,15 @@ def validate_public_api_route_contract_envelope(envelope: Mapping[str, Any]) -> 
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_readiness")
     if readiness.get("public_api_route") is not True or readiness.get("api_contract") is not True:
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_contract_not_ready")
-    if (
+    if is_live:
+        if (
+            readiness.get("live_db_persistence") is not True
+            or readiness.get("governance_ui") is not True
+            or readiness.get("live_api_closure") is not True
+            or readiness.get("live_ui_closure") is not True
+        ):
+            raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_completion_missing")
+    elif (
         readiness.get("live_db_persistence") is not False
         or readiness.get("governance_ui") is not False
         or readiness.get("live_api_closure") is not False
@@ -939,7 +1220,9 @@ def validate_public_api_route_contract_envelope(envelope: Mapping[str, Any]) -> 
         raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_completion_overclaim")
 
     remaining_gaps = tuple(meta.get("remaining_live_gaps") or ())
-    for required_gap in PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS:
+    if is_live and remaining_gaps:
+        raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_gaps_must_be_closed")
+    for required_gap in (() if is_live else PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS):
         if required_gap not in remaining_gaps:
             raise TypedKnowledgePersistenceBoundaryError(f"public_api_route_missing_remaining_gap:{required_gap}")
     if "public_typed_knowledge_api_route_not_implemented" in remaining_gaps:
@@ -955,14 +1238,15 @@ def validate_persisted_card_request_response_readback(payload: Mapping[str, Any]
     api_boundary = payload.get("typed_knowledge_api_boundary")
     if not isinstance(api_boundary, Mapping):
         raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_api_boundary")
-    if api_boundary.get("route_path") != PUBLIC_API_ROUTE_PATH or api_boundary.get("live_db_backed") is not False:
+    if api_boundary.get("route_path") != PUBLIC_API_ROUTE_PATH or not isinstance(api_boundary.get("live_db_backed"), bool):
         raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_api_boundary_overclaim")
+    is_live = bool(api_boundary.get("live_db_backed"))
 
     persisted_document = payload.get("persisted_document")
     if not isinstance(persisted_document, Mapping):
         raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_document")
     metadata_json = persisted_document.get("metadata_json")
-    if not isinstance(metadata_json, Mapping) or persisted_document.get("live_db_document") is not False:
+    if not isinstance(metadata_json, Mapping) or persisted_document.get("live_db_document") is not is_live:
         raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_invalid_persisted_document")
     typed_context = metadata_json.get("typed_knowledge_context")
     if not isinstance(typed_context, Mapping):
@@ -1011,7 +1295,15 @@ def validate_persisted_card_request_response_readback(payload: Mapping[str, Any]
         raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_readiness")
     if readiness.get("repo_local_persisted_card_readback") is not True:
         raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_not_ready")
-    if (
+    if is_live:
+        if (
+            readiness.get("live_db_persistence") is not True
+            or readiness.get("live_api_closure") is not True
+            or readiness.get("live_ui_closure") is not True
+            or readiness.get("governance_ui") is not True
+        ):
+            raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_live_completion_missing")
+    elif (
         readiness.get("live_db_persistence") is not False
         or readiness.get("live_api_closure") is not False
         or readiness.get("live_ui_closure") is not False
@@ -1019,9 +1311,71 @@ def validate_persisted_card_request_response_readback(payload: Mapping[str, Any]
     ):
         raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_live_completion_overclaim")
     remaining_gaps = tuple(meta.get("remaining_live_gaps") or ())
-    for required_gap in PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS:
+    if is_live and remaining_gaps:
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_live_gaps_must_be_closed")
+    for required_gap in (() if is_live else PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS):
         if required_gap not in remaining_gaps:
             raise TypedKnowledgePersistenceBoundaryError(f"persisted_card_readback_missing_remaining_gap:{required_gap}")
+
+
+def _remaining_persistence_live_gaps(
+    *,
+    live_db_write: bool,
+    public_api_route: bool,
+    governance_ui: bool,
+    migration_backfill: bool,
+) -> list[str]:
+    gaps: list[str] = []
+    if not live_db_write:
+        gaps.append("live_db_persistence_not_implemented")
+    if not public_api_route:
+        gaps.append("public_typed_knowledge_api_route_not_implemented")
+    if not governance_ui:
+        gaps.append("governance_ui_not_implemented")
+    if not migration_backfill:
+        gaps.append("migration_and_backfill_not_executed")
+    return gaps
+
+
+def _record_from_typed_knowledge_row(row: TypedKnowledgeObject) -> PersistenceBoundaryRecord:
+    governance = dict(row.governance or {})
+    review_state = str(governance.get("review_state") or row.review_state or "")
+    visibility_scope = str(row.visibility_scope or contracts.REVIEW_STATE_VISIBILITY_SCOPE.get(review_state, ""))
+    lifecycle_state = str(row.lifecycle_state or REVIEW_STATE_LIFECYCLE_STATE.get(review_state, ""))
+    governance.update(
+        {
+            "review_state": review_state,
+            "visibility_scope": visibility_scope,
+            "lifecycle_state": lifecycle_state,
+        }
+    )
+    refs = tuple(
+        WritingHandoffRef(
+            contract_version=str(ref.get("contract_version") or ""),
+            knowledge_item_key=str(ref.get("knowledge_item_key") or ""),
+            consumer=str(ref.get("consumer") or ""),
+            card_source_type=str(ref.get("card_source_type") or ""),
+            selection_hash=ref.get("selection_hash"),
+            selection_text=ref.get("selection_text"),
+        )
+        for ref in (row.writing_handoff_refs or ())
+        if isinstance(ref, Mapping)
+    )
+    record = PersistenceBoundaryRecord(
+        contract_version=PERSISTENCE_API_BOUNDARY_CONTRACT_VERSION,
+        object_type=str(row.object_type or ""),
+        object_key=str(row.object_key or ""),
+        project_key=str(row.project_key or ""),
+        identity_ref=str(row.identity_ref or ""),
+        visibility_scope=visibility_scope,
+        lifecycle_state=lifecycle_state,
+        governance=MappingProxyType(governance),
+        writing_handoff_refs=refs,
+        payload=MappingProxyType(dict(row.payload or {})),
+        updated_at=row.updated_at_text,
+    )
+    validate_persistence_boundary_record(record)
+    return record
 
 
 def _object_parts(
@@ -1127,20 +1481,27 @@ def _normalize_write_time(write_time: str | None, updated_at: str | None) -> str
 
 
 def _build_writing_handoff_from_boundary_envelope(envelope: Mapping[str, Any]) -> contracts.WritingKnowledgeHandoff:
+    handoffs = _build_writing_handoffs_from_boundary_envelope(envelope)
+    if not handoffs:
+        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_handoff")
+    return handoffs[0]
+
+
+def _build_writing_handoffs_from_boundary_envelope(
+    envelope: Mapping[str, Any],
+) -> tuple[contracts.WritingKnowledgeHandoff, ...]:
     data = envelope.get("data")
     if not isinstance(data, Mapping):
         raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_data")
     records = data.get("records")
     if not isinstance(records, list):
         raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_records")
+    handoffs: list[contracts.WritingKnowledgeHandoff] = []
     for record in records:
         if not isinstance(record, Mapping) or record.get("object_type") != OBJECT_TYPE_KNOWLEDGE_ITEM:
             continue
         refs = record.get("writing_handoff_refs")
         if not isinstance(refs, list) or not refs:
-            continue
-        ref = refs[0]
-        if not isinstance(ref, Mapping):
             continue
         payload = record.get("payload") if isinstance(record.get("payload"), Mapping) else {}
         governance = record.get("governance") if isinstance(record.get("governance"), Mapping) else {}
@@ -1160,12 +1521,17 @@ def _build_writing_handoff_from_boundary_envelope(envelope: Mapping[str, Any]) -
             else {},
             updated_at=_optional_payload_string(record.get("updated_at")),
         )
-        return contracts.build_writing_knowledge_handoff(
-            contracts.build_downstream_contract_draft(item),
-            selection_hash=_optional_payload_string(ref.get("selection_hash")),
-            selection_text=_optional_payload_string(ref.get("selection_text")),
-        )
-    raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_handoff")
+        for ref in refs:
+            if not isinstance(ref, Mapping):
+                continue
+            handoffs.append(
+                contracts.build_writing_knowledge_handoff(
+                    contracts.build_downstream_contract_draft(item),
+                    selection_hash=_optional_payload_string(ref.get("selection_hash")),
+                    selection_text=_optional_payload_string(ref.get("selection_text")),
+                )
+            )
+    return tuple(handoffs)
 
 
 def _tuple_of_strings(value: Any) -> tuple[str, ...]:
@@ -1181,6 +1547,10 @@ def _optional_payload_string(value: Any) -> str | None:
         return None
     normalized = str(value).strip()
     return normalized or None
+
+
+def _utc_now_text() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _normalize_card_query(text: str) -> str:

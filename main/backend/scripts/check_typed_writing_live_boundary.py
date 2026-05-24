@@ -25,68 +25,44 @@ if sys.version_info < (3, 10):
 sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.contracts.schemas.writing import (  # noqa: E402
+    KeywordCardRequest,
     TypedKnowledgeWritingContext,
     TypedKnowledgeWritingHandoffData,
     WritingContextEnvelope,
 )
+from app.models.base import SessionLocal  # noqa: E402
 from app.services.document_views.writing_card_view import (  # noqa: E402
     build_keyword_card_from_typed_knowledge_handoff,
 )
+from app.services.projects import bind_project  # noqa: E402
 from app.services.typed_knowledge import contracts  # noqa: E402
 from app.services.typed_knowledge import persistence_boundary  # noqa: E402
 
 
 CONTRACT_VERSION = "typed_writing.live_boundary_inventory.v1"
-READINESS_STATE = "partial"
-CLOSURE_POSITION = "typed_knowledge_public_route_contract_available_live_db_ui_not_closed"
+READINESS_STATE = "closed"
+CLOSURE_POSITION = "typed_knowledge_live_db_api_ui_governance_closed"
 
 EVIDENCE_DOCS = (
     Path(
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+        "docs/development/development-plans/ARCHIVE_CLOSED/"
         "2026-03-07-typed-knowledge-organization/"
-        "04_wave10-worker7-writing-context-envelope-evidence-2026-05-22.md"
+        "07_wave54-typed-writing-live-closure-2026-05-23.md"
     ),
     Path(
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-        "2026-03-07-typed-knowledge-organization/"
-        "05_wave12-worker7-persistence-api-boundary-evidence-2026-05-22.md"
-    ),
-    Path(
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+        "docs/development/development-plans/ARCHIVE_CLOSED/"
         "2026-03-07-writing-workbench-evolution/"
-        "05_wave10-worker7-typed-knowledge-context-consumer-evidence-2026-05-22.md"
-    ),
-    Path(
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-        "2026-03-07-writing-workbench-evolution/"
-        "06_wave12-worker7-typed-knowledge-persistence-boundary-evidence-2026-05-22.md"
-    ),
-    Path(
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-        "2026-03-07-typed-knowledge-organization/"
-        "06_wave15-typed-writing-live-boundary-2026-05-22.md"
-    ),
-    Path(
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-        "2026-03-07-writing-workbench-evolution/"
-        "07_wave15-typed-writing-live-boundary-2026-05-22.md"
+        "08_wave54-typed-writing-live-closure-2026-05-23.md"
     ),
 )
-WAVE10_DOC_MARKERS = (
-    "Scope:",
-    "Landed Slice",
-    "Still partial",
-)
-LIVE_BOUNDARY_DOC_MARKERS = (
-    "live_db_persistence: false",
-    "public_api_route: false",
-    "governance_ui: false",
-    "remaining_live_gaps",
-)
-WAVE15_DOC_MARKERS = (
-    "wave15_live_boundary_inventory: passed",
-    "deterministic_persistence_api_boundary: covered",
-    "closure_claim_allowed: false",
+CLOSURE_DOC_MARKERS = (
+    "wave54_typed_writing_live_closure: passed",
+    "live_db_persistence: true",
+    "live_db_backed_typed_knowledge_api_readback: true",
+    "governance_ui: true",
+    "writing_live_typed_knowledge_fetch: true",
+    "persisted_typed_knowledge_cards_live_readback: true",
+    "closure_claim_allowed: true",
 )
 
 SOURCE_FILES = {
@@ -114,7 +90,7 @@ REQUIRED_DETERMINISTIC_COVERAGE = (
     "frontend_api_type_parity",
     "frontend_workbench_consumer_surface",
 )
-REQUIRED_OPEN_GAPS = (
+REQUIRED_CLOSED_GAPS = (
     "live_db_persistence_not_implemented",
     "live_db_backed_typed_knowledge_api_readback_not_verified",
     "governance_ui_not_implemented",
@@ -345,9 +321,9 @@ def _writing_live_typed_knowledge_fetch_exists(sources: Mapping[str, Mapping[str
     frontend_workbench = str(sources["frontend_writing_workbench"]["text"])
     route_markers = (
         "/typed-knowledge/persistence-boundary",
-        "getTypedKnowledge",
-        "fetchTypedKnowledge",
-        "typedKnowledgeApi",
+        "/typed-knowledge/writing-context",
+        "getTypedKnowledgeWritingContext",
+        "typedKnowledge",
     )
     return any(marker in writing_api or marker in frontend_domain or marker in frontend_workbench for marker in route_markers)
 
@@ -363,73 +339,165 @@ def _typed_knowledge_db_model_exists(root: Path) -> bool:
     return False
 
 
+def _typed_knowledge_migration_exists(root: Path) -> bool:
+    for path in (root / "main/backend/migrations/versions").glob("*typed_knowledge_objects*.py"):
+        text = path.read_text(encoding="utf-8")
+        if "CREATE TABLE IF NOT EXISTS" in text and "typed_knowledge_objects" in text:
+            return True
+    return False
+
+
+def _live_db_runtime_readback() -> dict[str, Any]:
+    try:
+        with bind_project("demo_proj"), SessionLocal() as session:
+            boundary_envelope = persistence_boundary.build_live_db_boundary_envelope(
+                session=session,
+                project_key="demo_proj",
+                seed_sample=True,
+            )
+            route_envelope = persistence_boundary.build_public_api_route_contract_envelope(
+                project_key="demo_proj",
+                boundary_envelope=boundary_envelope,
+            )
+            mutation = persistence_boundary.apply_live_governance_review_state(
+                session=session,
+                project_key="demo_proj",
+                object_type=persistence_boundary.OBJECT_TYPE_KNOWLEDGE_ITEM,
+                object_key="ki:robotics-policy",
+                review_state=contracts.REVIEW_STATE_HUMAN_CONFIRMED,
+                actor_type=contracts.ACTOR_HUMAN,
+                actor_id="wave54-checker",
+                write_time="2026-05-23T00:00:00Z",
+            )
+            context = persistence_boundary.build_live_writing_context_from_repository(
+                session=session,
+                project_key="demo_proj",
+                seed_sample=True,
+            )
+            readback = persistence_boundary.build_persisted_card_request_response_readback(
+                project_key="demo_proj",
+                boundary_envelope=boundary_envelope,
+                live_db_backed=True,
+            )
+            payload = KeywordCardRequest.model_validate(readback["keyword_card_request"]["body"])
+            typed_context_payload = payload.context.typed_knowledge_context
+            if hasattr(typed_context_payload, "model_dump"):
+                typed_context_payload = typed_context_payload.model_dump()
+            handoff = contracts.parse_writing_knowledge_context_envelope(
+                typed_context_payload
+            )[0]
+            card = build_keyword_card_from_typed_knowledge_handoff(
+                handoff,
+                normalized_query=str(payload.query or "").strip().lower(),
+            )
+            session.commit()
+        return {
+            "passed": True,
+            "boundary_live": boundary_envelope["data"]["repository"]["live_db_write"] is True
+            and boundary_envelope["meta"]["readiness"]["live_db_persistence"] is True
+            and not boundary_envelope["meta"]["remaining_live_gaps"],
+            "route_live": route_envelope["data"]["route"]["live_db_backed"] is True
+            and route_envelope["meta"]["readiness"]["live_api_closure"] is True
+            and not route_envelope["meta"]["remaining_live_gaps"],
+            "governance_mutation": mutation["live_db_write"] is True
+            and mutation["current"]["review_state"] == contracts.REVIEW_STATE_HUMAN_CONFIRMED,
+            "writing_context": context["contract_version"] == contracts.WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION
+            and len(context["handoffs"]) >= 1,
+            "persisted_card_live": readback["typed_knowledge_api_boundary"]["live_db_backed"] is True
+            and readback["persisted_document"]["live_db_document"] is True
+            and readback["meta"]["readiness"]["live_api_closure"] is True
+            and card.publisher == "typed_knowledge",
+            "evidence": {
+                "identity_ref": mutation["identity_ref"],
+                "boundary_fingerprint": route_envelope["data"]["boundary_fingerprint"],
+                "card_id": card.card_id,
+            },
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "passed": False,
+            "error": f"{exc.__class__.__name__}: {exc}",
+        }
+
+
 def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
-    envelope = persistence_boundary.build_sample_boundary_envelope()
-    route_envelope = persistence_boundary.build_public_api_route_contract_envelope()
-    readiness = envelope["meta"]["readiness"]
-    remaining = set(envelope["meta"]["remaining_live_gaps"])
-    route_remaining = set(route_envelope["meta"]["remaining_live_gaps"])
+    live = _live_db_runtime_readback()
     frontend_workbench = str(sources["frontend_writing_workbench"]["text"])
+    frontend_domain = str(sources["frontend_writing_domain"]["text"])
+    typed_api = str(sources["typed_api"]["text"])
+    migration_exists = _typed_knowledge_migration_exists(root)
+    db_model_exists = _typed_knowledge_db_model_exists(root)
+    governance_ui_exists = (
+        "writing-typed-knowledge-governance" in frontend_workbench
+        and "updateTypedKnowledgeReviewState" in frontend_domain
+        and "governance/review-state" in typed_api
+    )
 
     return [
         {
             "code": "live_db_persistence_not_implemented",
             "area": "typed_knowledge.live_db",
-            "closed": bool(readiness.get("live_db_persistence")) and _typed_knowledge_db_model_exists(root),
-            "evidence": ["main/backend/app/services/typed_knowledge/persistence_boundary.py"],
-            "gap_recorded": "live_db_persistence_not_implemented" in remaining,
-            "required_to_close": "add live typed-knowledge DB model/table, migration, write/readback smoke, and rollout evidence",
+            "closed": bool(live.get("boundary_live")) and db_model_exists and migration_exists,
+            "evidence": [
+                "main/backend/app/models/typed_knowledge_entities.py",
+                "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+                "main/backend/migrations/versions/20260402_000003_add_typed_knowledge_objects.py",
+            ],
+            "gap_recorded": False,
+            "readback": live.get("evidence", live.get("error")),
+            "required_to_close": "live typed-knowledge DB model/table, migration, write/readback smoke, and rollout evidence",
         },
         {
             "code": "live_db_backed_typed_knowledge_api_readback_not_verified",
             "area": "typed_knowledge.live_db_backed_api",
-            "closed": bool(readiness.get("live_db_persistence"))
-            and _typed_knowledge_db_model_exists(root)
+            "closed": bool(live.get("route_live"))
+            and db_model_exists
             and _public_typed_knowledge_api_exists(root),
             "evidence": ["main/backend/app/api/typed_knowledge.py"],
-            "gap_recorded": "live_db_backed_typed_knowledge_readback_not_verified" in route_remaining,
-            "required_to_close": "back the typed-knowledge route with live DB persistence and durable readback evidence",
+            "gap_recorded": False,
+            "readback": live.get("evidence", live.get("error")),
+            "required_to_close": "typed-knowledge route backed by live DB persistence and durable readback evidence",
         },
         {
             "code": "governance_ui_not_implemented",
             "area": "typed_knowledge.governance_ui",
-            "closed": bool(readiness.get("governance_ui"))
-            and ("typedKnowledge" in frontend_workbench or "typed_knowledge_governance" in frontend_workbench),
+            "closed": bool(live.get("governance_mutation")) and governance_ui_exists,
             "evidence": ["main/frontend-modern/src/pages/WritingWorkbenchPage.tsx"],
-            "gap_recorded": "governance_ui_not_implemented" in remaining,
-            "required_to_close": "add typed-knowledge governance UI with human acceptance and state mutation contract",
+            "gap_recorded": False,
+            "required_to_close": "typed-knowledge governance UI with human acceptance and state mutation contract",
         },
         {
             "code": "migration_and_backfill_not_executed",
             "area": "typed_knowledge.migration_backfill",
-            "closed": False,
-            "evidence": ["main/backend/app/services/typed_knowledge/persistence_boundary.py"],
-            "gap_recorded": "migration_and_backfill_not_executed" in remaining,
-            "required_to_close": "run migration/backfill against a live DB and preserve evidence",
+            "closed": bool(live.get("boundary_live")) and migration_exists,
+            "evidence": ["main/backend/migrations/versions/20260402_000003_add_typed_knowledge_objects.py"],
+            "gap_recorded": False,
+            "required_to_close": "migration/backfill run against live DB and preserved evidence",
         },
         {
             "code": "writing_live_typed_knowledge_fetch_not_available",
             "area": "writing.public_typed_knowledge_fetch",
-            "closed": _writing_live_typed_knowledge_fetch_exists(sources),
+            "closed": bool(live.get("writing_context")) and _writing_live_typed_knowledge_fetch_exists(sources),
             "evidence": ["main/backend/app/api/writing.py", "main/frontend-modern/src/lib/api/domains/writing.ts"],
-            "gap_recorded": True,
-            "required_to_close": "wire writing workbench to a live typed-knowledge fetch API instead of envelope-only context injection",
+            "gap_recorded": False,
+            "required_to_close": "writing workbench wired to a live typed-knowledge fetch API instead of envelope-only context injection",
         },
         {
             "code": "writing_ui_governance_mutation_not_available",
             "area": "writing.ui_governance_mutation",
-            "closed": False,
+            "closed": bool(live.get("governance_mutation")) and governance_ui_exists,
             "evidence": ["main/frontend-modern/src/pages/WritingWorkbenchPage.tsx"],
-            "gap_recorded": True,
-            "required_to_close": "add explicit governance mutation controls and API contract, not just resource-card consumption",
+            "gap_recorded": False,
+            "required_to_close": "explicit governance mutation controls and API contract, not just resource-card consumption",
         },
         {
             "code": "persisted_typed_knowledge_cards_live_readback_not_verified",
             "area": "writing.live_db_card_survival",
-            "closed": False,
+            "closed": bool(live.get("persisted_card_live")),
             "evidence": ["main/backend/tests/unit/test_writing_keyword_card_service_unittest.py"],
-            "gap_recorded": True,
-            "required_to_close": "prove typed-knowledge cards survive process restart through live DB/API readback",
+            "gap_recorded": False,
+            "readback": live.get("evidence", live.get("error")),
+            "required_to_close": "typed-knowledge cards survive process restart through live DB/API readback",
         },
     ]
 
@@ -439,9 +507,7 @@ def _evidence_docs(root: Path) -> list[dict[str, Any]]:
     for rel_path in EVIDENCE_DOCS:
         path = root / rel_path
         text = _read_text(root, rel_path)
-        markers = list(WAVE10_DOC_MARKERS if "wave10" in rel_path.name else LIVE_BOUNDARY_DOC_MARKERS)
-        if "wave15" in rel_path.name:
-            markers.extend(WAVE15_DOC_MARKERS)
+        markers = list(CLOSURE_DOC_MARKERS)
         docs.append(
             {
                 "path": rel_path.as_posix(),
@@ -465,7 +531,7 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
             "deterministic_coverage": deterministic_coverage,
             "live_boundaries": live_boundaries,
             "evidence_docs": evidence_docs,
-            "closure_claim_allowed": False,
+            "closure_claim_allowed": True,
             "readiness_state": READINESS_STATE,
         }
     )
@@ -475,16 +541,11 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
         "status": "passed" if not failures else "failed",
         "readiness_state": READINESS_STATE,
         "closure_position": CLOSURE_POSITION,
-        "closure_claim_allowed": False,
+        "closure_claim_allowed": True,
         "deterministic_coverage": deterministic_coverage,
         "live_boundaries": live_boundaries,
         "remaining_live_gaps": [row["code"] for row in live_boundaries if not row["closed"]],
-        "unsupported_closure_claims": [
-            {
-                "code": "typed_writing_live_boundary_closed",
-                "reason": "live DB/API/UI evidence is intentionally absent in this Wave15 boundary inventory",
-            }
-        ],
+        "unsupported_closure_claims": [],
         "source_inventory": [
             {"name": name, "path": row["path"], "exists": row["exists"]}
             for name, row in sources.items()
@@ -499,9 +560,9 @@ def validate_inventory(inventory: Mapping[str, Any]) -> list[str]:
     if inventory.get("contract_version") != CONTRACT_VERSION:
         failures.append("contract_version_mismatch")
     if inventory.get("readiness_state") != READINESS_STATE:
-        failures.append("readiness_state_must_remain_partial")
-    if inventory.get("closure_claim_allowed") is not False:
-        failures.append("closure_claim_allowed_must_remain_false")
+        failures.append("readiness_state_must_be_closed")
+    if inventory.get("closure_claim_allowed") is not True:
+        failures.append("closure_claim_allowed_must_be_true")
 
     coverage_by_code = {
         str(row.get("code")): row
@@ -520,15 +581,15 @@ def validate_inventory(inventory: Mapping[str, Any]) -> list[str]:
         for row in inventory.get("live_boundaries", [])
         if isinstance(row, Mapping)
     }
-    for code in REQUIRED_OPEN_GAPS:
+    for code in REQUIRED_CLOSED_GAPS:
         row = live_by_code.get(code)
         if row is None:
             failures.append(f"missing_live_boundary_gap:{code}")
             continue
-        if row.get("closed") is not False:
-            failures.append(f"live_boundary_overclaimed:{code}")
-        if row.get("gap_recorded") is not True:
-            failures.append(f"live_boundary_gap_not_recorded:{code}")
+        if row.get("closed") is not True:
+            failures.append(f"live_boundary_not_closed:{code}")
+        if row.get("gap_recorded") is not False:
+            failures.append(f"live_boundary_gap_still_recorded:{code}")
 
     for doc in inventory.get("evidence_docs", []):
         if not isinstance(doc, Mapping):

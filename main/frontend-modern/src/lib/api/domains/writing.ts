@@ -87,6 +87,36 @@ export type TypedKnowledgeWritingContext = {
   boundary: Record<string, unknown>
 }
 
+export type TypedKnowledgeWritingContextResponse = {
+  project_key: string
+  route_path: string
+  typed_knowledge_context: TypedKnowledgeWritingContext
+  live_db_backed: boolean
+}
+
+export type TypedKnowledgeGovernanceReviewStatePayload = {
+  project_key?: string
+  object_type?: string
+  object_key: string
+  review_state: string
+  actor_type?: 'human' | 'automation' | string
+  actor_id?: string | null
+}
+
+export type TypedKnowledgeGovernanceReviewStateResponse = {
+  contract_version: 'typed_knowledge.governance_review_state_mutation.v1'
+  route_path: string
+  project_key: string
+  identity_ref: string
+  object_type: string
+  object_key: string
+  previous: Record<string, unknown>
+  current: Record<string, unknown>
+  actor: Record<string, unknown>
+  live_db_write: boolean
+  readback: Record<string, unknown>
+}
+
 export type WritingContextEnvelope = {
   contract_version?: string
   selection_context?: Record<string, unknown>
@@ -409,6 +439,7 @@ export function buildPersistedTypedKnowledgeKeywordCardRequest({
   query,
   selectionHash,
   document,
+  typedContext,
   limit,
   sources = ['document', 'resource', 'graph'],
 }: {
@@ -416,10 +447,11 @@ export function buildPersistedTypedKnowledgeKeywordCardRequest({
   query: string
   selectionHash?: string | null
   document: Pick<WritingDocument, 'metadata_json'> | null | undefined
+  typedContext?: TypedKnowledgeWritingContext | null
   limit?: number
   sources?: WritingKeywordCardSource[]
 }): WritingKeywordCardRequest {
-  const typedContext = readTypedKnowledgeWritingContextFromDocument(document)
+  const resolvedTypedContext = typedContext || readTypedKnowledgeWritingContextFromDocument(document)
   return withTypedKnowledgeWritingContext(
     {
       project_key: projectKey,
@@ -428,7 +460,7 @@ export function buildPersistedTypedKnowledgeKeywordCardRequest({
       limit,
       sources,
     },
-    typedContext,
+    resolvedTypedContext,
   )
 }
 
@@ -516,6 +548,29 @@ export async function validateWritingTemplate(payload: ValidateWritingTemplatePa
 
 export async function getWritingKeywordCards(payload: WritingKeywordCardRequest) {
   return post<WritingKeywordCardListResponse>(endpoints.writing.keywordCards, payload)
+}
+
+export async function seedTypedKnowledgeLiveSample(projectKey: string) {
+  return post<Record<string, unknown>>(withQuery(endpoints.typedKnowledge.liveSample, { project_key: projectKey }), {})
+}
+
+export async function getTypedKnowledgeWritingContext(projectKey: string) {
+  const data = await get<TypedKnowledgeWritingContextResponse>(
+    withQuery(endpoints.typedKnowledge.writingContext, { project_key: projectKey }),
+  )
+  const context = readTypedKnowledgeWritingContext(data.typed_knowledge_context)
+  return {
+    ...data,
+    typed_knowledge_context: context,
+  }
+}
+
+export async function updateTypedKnowledgeReviewState(payload: TypedKnowledgeGovernanceReviewStatePayload) {
+  return post<TypedKnowledgeGovernanceReviewStateResponse>(endpoints.typedKnowledge.governanceReviewState, {
+    object_type: 'knowledge_item',
+    actor_type: 'human',
+    ...payload,
+  })
 }
 
 export async function previewWritingKeywordCard(payload: WritingKeywordCardPreviewRequest) {

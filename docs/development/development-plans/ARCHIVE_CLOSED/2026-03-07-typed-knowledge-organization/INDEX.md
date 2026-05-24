@@ -1,9 +1,9 @@
 # Typed Knowledge Organization Index
 
 更新时间：2026-05-23 PST
-状态：`external_blocked` / `wave27_checked`。本目录已迁入 `ARCHIVE_EXTERNAL_BLOCKED`；仓内 typed-knowledge JSONL durable readback、public API route contract、persisted-card request/response readback 与 overclaim guards 已封住。目录内早期 `partial`、`not_closed` 或 live-boundary 文案只保留为历史证据，不再是当前目录主状态。
+状态：`closed` / `wave54_live_implemented`。本目录已迁入 `ARCHIVE_CLOSED`；typed-knowledge live DB persistence、live public API readback、governance mutation、migration/backfill 与 Writing Workbench live context consumption 已落地。目录内早期 `external_blocked`、`partial` 或 live-boundary 文案只保留为历史证据，不再是当前目录主状态。
 
-防误读：当前 canonical decision 以本 `INDEX.md` 与 `10_wave27-external-blocked-decision-2026-05-23.md` 为准。重新进入 `CURRENT_DEV` 前，必须先补齐 live DB/API/UI、governance UI 与 migration/backfill evidence。
+防误读：当前 canonical decision 以本 `INDEX.md` 与 `07_wave54-typed-writing-live-closure-2026-05-23.md` 为准。Wave27 external blocker 已由本轮实现关闭。
 
 ## 文件
 
@@ -28,20 +28,23 @@
 - [09_wave19-persisted-card-api-boundary-readback-2026-05-22.md](./09_wave19-persisted-card-api-boundary-readback-2026-05-22.md)
   Persisted-card API boundary readback。
 - [10_wave27-external-blocked-decision-2026-05-23.md](./10_wave27-external-blocked-decision-2026-05-23.md)
-  当前 canonical decision：repo-local typed-knowledge gates 通过，剩余 live DB/API/UI/governance/migration 条件。
+  历史 canonical decision：repo-local typed-knowledge gates 通过，当时剩余 live DB/API/UI/governance/migration 条件。
+- [07_wave54-typed-writing-live-closure-2026-05-23.md](./07_wave54-typed-writing-live-closure-2026-05-23.md)
+  当前 canonical closure：live typed-knowledge DB/API/UI/governance/migration 条件已实现并验证。
 
 ## 当前状态
 
 | 项 | 状态 | 证据 |
 |---|---|---|
-| 目录归属 | `ARCHIVE_EXTERNAL_BLOCKED` | `CURRENT_DEV/INDEX.md` 不再将本主题计入 `partial` |
+| 目录归属 | `ARCHIVE_CLOSED` | `CURRENT_DEV/INDEX.md` 不再将本主题计入 `partial` 或 `external_blocked` |
 | Repo-local persistence / API / readback gates | sealed | `check_typed_writing_live_boundary.py`、`check_typed_knowledge_durable_repository_readback.py` 与 focused backend pytest |
-| Live typed-knowledge DB/API/UI | external blocker | 需要 live DB write/readback、browser UI readback、governance mutation、migration/backfill |
+| Live typed-knowledge DB/API/UI | closed | `TypedKnowledgeObject`、`SqlAlchemyTypedKnowledgeRepository`、`/typed-knowledge/writing-context`、`/typed-knowledge/governance/review-state`、alembic `20260402_000003` |
 
 ## 验证命令
 
 ```bash
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_typed_writing_live_boundary.py --format text
+cd main/backend && /Users/wangyiliang/.local/bin/python3.11 -m alembic upgrade head
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_typed_knowledge_durable_repository_readback.py
 /Users/wangyiliang/.local/bin/python3.11 -m pytest main/backend/tests/unit/test_typed_knowledge_persistence_boundary_unittest.py main/backend/tests/unit/test_writing_keyword_card_service_unittest.py main/backend/tests/unit/test_typed_writing_live_boundary_checker_unittest.py main/backend/tests/integration/test_typed_knowledge_api_route_unittest.py -q
 ```

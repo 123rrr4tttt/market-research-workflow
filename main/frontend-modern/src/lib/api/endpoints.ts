@@ -210,6 +210,12 @@ export const endpoints = {
     llmActionById: (jobId: number) => `${API_BASE}/writing/llm-actions/${encodeURIComponent(String(jobId))}`,
     exportMarkdown: `${API_BASE}/writing/export/markdown`,
   },
+  typedKnowledge: {
+    persistenceBoundary: `${API_BASE}/typed-knowledge/persistence-boundary`,
+    writingContext: `${API_BASE}/typed-knowledge/writing-context`,
+    liveSample: `${API_BASE}/typed-knowledge/live-sample`,
+    governanceReviewState: `${API_BASE}/typed-knowledge/governance/review-state`,
+  },
   admin: {
     stats: `${API_BASE}/admin/stats`,
     searchHistory: `${API_BASE}/admin/search-history`,

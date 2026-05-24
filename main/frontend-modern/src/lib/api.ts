@@ -269,6 +269,7 @@ export {
   getWritingKeywordCards,
   getWritingLlmActionDetail,
   getWritingSuggest,
+  getTypedKnowledgeWritingContext,
   listWritingCitations,
   listWritingDocuments,
   listWritingLlmActionHistory,
@@ -277,12 +278,17 @@ export {
   readTypedKnowledgeWritingContext,
   readTypedKnowledgeWritingContextFromDocument,
   runWritingLlmAction,
+  seedTypedKnowledgeLiveSample,
   updateWritingDocument,
+  updateTypedKnowledgeReviewState,
   upsertWritingCitations,
   validateWritingTemplate,
   withTypedKnowledgeWritingContext,
   writingTypedKnowledgeContextKey,
 } from './api/domains/writing'
+export type TypedKnowledgeGovernanceReviewStatePayload = import('./api/domains/writing').TypedKnowledgeGovernanceReviewStatePayload
+export type TypedKnowledgeGovernanceReviewStateResponse = import('./api/domains/writing').TypedKnowledgeGovernanceReviewStateResponse
+export type TypedKnowledgeWritingContextResponse = import('./api/domains/writing').TypedKnowledgeWritingContextResponse
 export type TypedKnowledgeWritingContext = import('./api/domains/writing').TypedKnowledgeWritingContext
 export type TypedKnowledgeWritingHandoff = import('./api/domains/writing').TypedKnowledgeWritingHandoff
 export type AutosaveWritingDraftPayload = import('./api/domains/writing').AutosaveWritingDraftPayload
